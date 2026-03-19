@@ -51,20 +51,7 @@ The system should also track customer preferences and recommend products.
       expect(result.unparsed.length).toBeGreaterThan(0)
     })
 
-    it('achieves high coverage on all LYR-1 domains', () => {
-      const fs = require('fs')
-      const domains = [
-        'layering', 'osi', 'eight-circuits', 'i-ching',
-        'maslow', 'lyr-1', 'affect', 'evolution', 'ethics',
-      ]
-
-      for (const domain of domains) {
-        const text = fs.readFileSync(`C:/Users/me/Repos/lyr-1/domains/${domain}.md`, 'utf-8')
-        const schemaText = text.split('## Instance Facts')[0]
-        const result = parseFORML2(schemaText, [])
-        expect(result.coverage, `${domain} coverage`).toBeGreaterThanOrEqual(1.0)
-      }
-    })
+    // LYR-1 coverage tests moved to lyr-1 repo (tests belong with fixtures)
   })
 
   describe('codeText', () => {
@@ -215,21 +202,6 @@ Customer has Name.
       expect(shortcodeCount).toBeGreaterThan(0)
     })
 
-    it('codes LYR-1 ethics domain correctly', () => {
-      const fs = require('fs')
-      const text = fs.readFileSync('C:/Users/me/Repos/lyr-1/domains/ethics.md', 'utf-8')
-      const parsed = parseFORML2(text, [])
-      const { coded, legend, stats } = codeText(text, parsed)
-
-      // Should have shortcodes for Agent, Human, Harm, etc.
-      expect(legend).toContain('Agent')
-      expect(legend).toContain('Harm')
-
-      // Deontic constraints should be in legend
-      expect(legend).toContain('forbidden')
-
-      // High compression
-      expect(stats.parsedLines).toBeGreaterThan(10)
-    })
+    // LYR-1 codeText test moved to lyr-1 repo (tests belong with fixtures)
   })
 })
