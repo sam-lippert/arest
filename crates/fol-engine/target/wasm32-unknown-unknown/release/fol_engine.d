@@ -1,0 +1,1 @@
+C:\Users\me\Repos\graphdl-orm\crates\fol-engine\target\wasm32-unknown-unknown\release\fol_engine.wasm: C:\Users\me\Repos\graphdl-orm\crates\fol-engine\src\compile.rs C:\Users\me\Repos\graphdl-orm\crates\fol-engine\src\evaluate.rs C:\Users\me\Repos\graphdl-orm\crates\fol-engine\src\lib.rs C:\Users\me\Repos\graphdl-orm\crates\fol-engine\src\types.rs
