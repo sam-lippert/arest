@@ -51,7 +51,7 @@ The system should also track customer preferences and recommend products.
       expect(result.unparsed.length).toBeGreaterThan(0)
     })
 
-    // LYR-1 coverage tests moved to lyr-1 repo (tests belong with fixtures)
+    // External domain tests belong in their respective repos
   })
 
   describe('codeText', () => {
@@ -202,6 +202,6 @@ Customer has Name.
       expect(shortcodeCount).toBeGreaterThan(0)
     })
 
-    // LYR-1 codeText test moved to lyr-1 repo (tests belong with fixtures)
+    // External domain tests belong in their respective repos
   })
 })
