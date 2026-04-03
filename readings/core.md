@@ -346,5 +346,8 @@ External System 'auth.example' has Header 'Authorization'.
 External System 'auth.example' has Prefix 'users API-Key'.
 External System 'example.dev' has URL 'https://api.example.dev'.
 External System 'example.dev' has Header 'X-API-Key'.
+External System 'stripe' has URL 'https://api.stripe.com/v1'.
+External System 'stripe' has Header 'Authorization'.
+External System 'stripe' has Prefix 'Bearer'.
 
 Domain 'core' has Visibility 'public'.
