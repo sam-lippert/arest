@@ -1,13 +1,5 @@
 # Example.dev Tenancy
 
-## Description
-
-Example.dev-specific tenancy binding: a Customer owns its Domains. This
-file coexists with the metamodel's User → Organization → App → Domain
-hierarchy rather than replacing it. When the compiler loads both the
-metamodel and this file, Customer-to-Domain becomes an additional
-lookup path alongside User-to-Organization-to-App-to-Domain.
-
 ## Cross-domain References
 
 Customer (from customer-auth)
@@ -22,3 +14,8 @@ Customer has Domain.
 ## Constraints
 
 Each Domain belongs to at most one Customer.
+
+## Instance Facts
+
+Domain 'example.dev-tenancy' has Access 'private'.
+Domain 'example.dev-tenancy' has Description 'Example.dev-specific tenancy binding: a Customer owns its Domains. Coexists with the metamodel User / Organization / App / Domain hierarchy. When both files are loaded, Customer-to-Domain is an additional lookup path.'.
