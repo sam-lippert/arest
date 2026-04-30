@@ -658,14 +658,7 @@ HTTP Method 'OPTIONS' has Name 'OPTIONS'.
 
 ### External Systems
 
-External System 'auth.example' has URL 'https://auth.example'.
-External System 'auth.example' has Header 'Authorization'.
-External System 'auth.example' has Prefix 'users API-Key'.
-External System 'example.dev' has URL 'https://api.example.dev'.
-External System 'example.dev' has Header 'X-API-Key'.
-External System 'stripe' has URL 'https://api.stripe.com/v1'.
-External System 'stripe' has Header 'Authorization'.
-External System 'stripe' has Prefix 'Bearer'.
+<!-- External System auth shape instance facts (URL/Header/Prefix/Country Code/Kind) for auth.example, example.dev, stripe, github, resend live in arest/readings/templates/connectors.md. Per-app Domain Connection facts carrying Secret References live in each consuming app's gitignored .env file. -->
 
 Domain 'core' has Access 'public'.
 Domain 'core' has Description 'Extracted from NORMA ORM2 model (design/html/). The canonical FORML 2 metamodel against which every user domain is a subtype binding.'.
