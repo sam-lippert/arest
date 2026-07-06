@@ -147,7 +147,10 @@ architecturally excluded per target.
     also sits at C:\Users\me\Repos\apps\AREST.pdf and the book
     sources live as _book_*.txt siblings under C:\Users\me\Repos.
     pyarest disposition: ARCHIVED 2026-07-05, tracked at paper/
-    (source and PDF verbatim with a provenance note). The book
+    (source and PDF verbatim with a provenance note). SUPERSEDED at
+    the 0.9.0 fold (2026-07-06): the paper lives ONLY at the arest
+    repo root (AREST.tex + AREST.pdf, the designer's live copy); the
+    engine/ duplicates were removed. The book
     source siblings under C:\Users\me\Repos are WAIVED (the designer,
     2026-07-05): they are public works, the whitepaper's
     bibliography is the reference of record for them, and his
