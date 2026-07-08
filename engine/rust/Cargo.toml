@@ -18,7 +18,7 @@ crate-type = ["rlib", "cdylib"]
 # THE CRATE'S FIRST DEPENDENCY, deliberate and OPTIONAL (the designer,
 # 2026-07-09) — only the
 # worker feature pulls it; the host build stays zero-dep.
-wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen = { version = "=0.2.117", optional = true }
 
 [profile.release]
 opt-level = 2
