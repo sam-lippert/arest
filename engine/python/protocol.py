@@ -1790,7 +1790,14 @@ class Registry:
         return persist.ingest_frozen(text, cache_dir=self.cache_dir)
 
     # ---- compile: readings -> M -> lfp -> replay -> snapshot ----
-    def compile(self, name):
+    def compile(self, name, store_only=False):
+        # store_only (task 18): a READ-ONLY compile for the oracle suites — it
+        # keeps the derived store (and enum_values, which induce's domain reads)
+        # but skips the UI/scheduler/generator cells, the create:<ft> WRITE
+        # handlers, and (implicitly, per-driver) the sql projection, none of which
+        # induce/propose/ask touch. Verified byte-identical, ~2x faster (42.7 ->
+        # 21.7s). NEVER the default — the live server and every write path compile
+        # full, so the surfaces stay present in production.
         # AREST_TRACE: semantic-level compile traces — per-phase wall
         # time, the slowest statements (monkey-wrench readings), the
         # costliest rules with their delta/full modes and rounds.
@@ -1845,12 +1852,15 @@ class Registry:
         # the snapshot records how much of the stream it holds, so a load can
         # replay exactly the tail another host appended after this save
         D = persist._with_watermark(D, len(entries))
-        D = system.layout_cells(D)
-        D = system.enum_values_cells(D)
-        D = system.scheduler_cells(D)
-        D = system.generator_cells(D)
+        if not store_only:
+            D = system.layout_cells(D)
+        D = system.enum_values_cells(D)                       # induce's domain reads it — kept
+        if not store_only:
+            D = system.scheduler_cells(D)
+            D = system.generator_cells(D)
         _tp = _phase("layout+scheduler+generator", _tp)
-        D = system.create_handlers(D)                         # create:<ft> defs, native apply
+        if not store_only:
+            D = system.create_handlers(D)                     # create:<ft> defs, native apply
         _tp = _phase("create_handlers", _tp)
         drv = self._storage(name)
         drv.save(D)                                           # the cell store, through the driver

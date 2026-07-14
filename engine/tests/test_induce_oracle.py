@@ -39,7 +39,7 @@ def coin():
     tmp = _fixture()
     try:
         reg = A.Registry(tmp, base_dir=A.default_base())
-        reg.compile("coin")
+        reg.compile("coin", store_only=True)                  # read-only: skip UI/write/sql phases (task 18)
         yield reg, reg._load("coin")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -120,7 +120,7 @@ def test_the_canon_gate_and_coverage_match_the_oracle():
             "Coin 'c2' has Weight '5'.\n")
     try:
         reg = A.Registry(tmp, base_dir=A.default_base())
-        reg.compile("coin")
+        reg.compile("coin", store_only=True)                  # read-only gate/coverage (task 18)
         D = reg._load("coin")
 
         def canon(name, operand):
@@ -285,7 +285,7 @@ def test_abduce_end_to_end_on_the_sherlock_forms():
             "Hypothesis 'h1' has Label 'locked-room'.\n")
     try:
         reg = A.Registry(tmp, base_dir=A.default_base())
-        reg.compile("mystery")
+        reg.compile("mystery", store_only=True)               # read-only abduce oracle (task 18)
         ft = "Hypothesis_has_Plausibility"
         out = reg.induce("mystery", ft)
         assert [h["id"] for h in out] == [f"hyp-{ft}-0", f"hyp-{ft}-1"]
