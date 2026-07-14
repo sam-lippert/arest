@@ -2232,7 +2232,15 @@ class Registry:
                 text = reading
             facts.append({"reading": reading, "row": list(row),
                           "text": text})
-        return {"app": name, "id": id, "facts": facts}
+        # the REGISTERED shaper seam (Samuel, 2026-07-13: LLMs register
+        # through DEFS): the wording passes through a registered shaper
+        # when one exists; the plain rendering above is the unchanged
+        # fallback, and a broken registration degrades with its name
+        facts, _deg = apply_registered_shaper(facts)
+        out = {"app": name, "id": id, "facts": facts}
+        if _deg:
+            out["registered_degraded"] = _deg
+        return out
 
     @staticmethod
     def _pair(head, row):
@@ -2341,6 +2349,7 @@ class Registry:
                      "offenders": [list(x) if isinstance(x, tuple) else [x]
                                    for x in v],
                      "alethic": flag == "T"})
+        violations.extend(registered_judge_entries(D))
         return {"app": name, "violations": violations}
 
     def verify(self, name):
@@ -2825,6 +2834,79 @@ class Registry:
     def orient(self):
         cur = self.current()
         return {"active_app": cur, "apps": self.list()}
+
+def apply_registered_shaper(facts):
+    """The REGISTERED shaper seam (Samuel, 2026-07-13): when a host
+    registered llm:synthesize_shaper (kernel.register, origin=registered,
+    the Cor. 8 boundary), the wording passes through it — the engine still
+    guarantees content, the shaper only words it. Answers (facts,
+    degraded): nothing registered or the row killed answers the input
+    unchanged; a BROKEN registration (raises, malformed shape) degrades to
+    the input with the degradation named (the outcomes doctrine: no silent
+    paths). Module-level so the seam tests exercise every contract without
+    paying a verbalize reduction."""
+    import os as _os
+    from . import kernel as _k
+    _no = _os.environ.get("AREST_NO_OVERRIDE", "")
+    _killed = {p.strip() for p in _no.split(",") if p.strip()}
+    entry = _k.latest.get("llm:synthesize_shaper")
+    if not entry or entry[0] != "registered" or "*" in _killed \
+            or "llm:synthesize_shaper" in _killed:
+        return facts, None
+    try:
+        from .lam import to_lam as _tl, from_lam as _fl
+        from .reduce import apply as _mu
+        shaped = _fl(entry[1](_mu)(_tl(tuple(
+            (f["reading"], tuple(f["row"]), f["text"]) for f in facts))))
+        return ([{"reading": str(r), "row": list(w), "text": str(t)}
+                 for (r, w, t) in shaped], None)
+    except Exception as e:
+        return facts, {"name": "llm:synthesize_shaper", "error": str(e)}
+
+
+def registered_judge_entries(D):
+    """The REGISTERED judge seam (Samuel, 2026-07-13): a host-registered
+    llm:validate_judge is a rho-application over D whose flags append as
+    DEONTIC entries under the OWA soundness caveat (a reported flag is
+    worth reading, its absence guarantees nothing), marked by source and
+    NEVER alethic, so a registered judge can flag but can never block.
+    Nothing registered, nothing changes. Module-level so the seam tests
+    exercise it without paying the full validate walk."""
+    import os as _os
+    from . import kernel as _k
+    from .lam import from_lam as _fl
+    _no = _os.environ.get("AREST_NO_OVERRIDE", "")
+    _killed = {p.strip() for p in _no.split(",") if p.strip()}
+    entry = _k.latest.get("llm:validate_judge")
+    if not entry or entry[0] != "registered" or "*" in _killed \
+            or "llm:validate_judge" in _killed:
+        return []
+    # graceful degradation (Samuel, 2026-07-13): a judge that FAILS
+    # degrades to no flags plus one honest marker entry about the flagger
+    # itself — deontic, source-marked, never blocking — so the report
+    # shape holds and the degradation is never silent
+    try:
+        from .reduce import apply as _mu
+        flags = _fl(entry[1](_mu)(D))
+        out = []
+        for fl in flags if isinstance(flags, tuple) else ():
+            if not (isinstance(fl, tuple) and len(fl) >= 2):
+                continue
+            out.append(
+                {"fact_type": str(fl[0]),
+                 "kinds": ["registered_judge"],
+                 "offenders": [list(fl[1]) if isinstance(fl[1], tuple)
+                               else [fl[1]]],
+                 "alethic": False,
+                 "source": "registered"})
+        return out
+    except Exception as e:
+        return [{"fact_type": "llm:validate_judge",
+                 "kinds": ["registered_degraded"],
+                 "offenders": [[str(e)]],
+                 "alethic": False,
+                 "source": "registered"}]
+
 
 # ===================== mcp_server =====================
 """The MCP binding (the swap contract, part 2): the old engine's daily-driver

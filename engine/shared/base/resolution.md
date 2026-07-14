@@ -17,6 +17,7 @@ Operation(.name) is an entity type.
 ## Fact Types
 
 Operation is overridable.
+Operation is registrable.
 
 ## The catalog
 
@@ -51,3 +52,12 @@ Operation 'induce' is overridable.
 Operation 'compile' is overridable.
 Operation 'propose' is overridable.
 Operation 'ask' is overridable.
+
+<!-- The REGISTERED class (Samuel, 2026-07-13): operations a host may serve
+     through a registered function (kernel.register, origin=registered, the
+     Cor. 8 boundary) — an LLM shaping synthesize's wording under the name
+     llm:synthesize_shaper, an LLM judge flagging deontic-only validate
+     entries under llm:validate_judge. The plain paths are the unchanged
+     fallbacks; the kill switch retires a registration like any row. -->
+Operation 'synthesize' is registrable.
+Operation 'validate' is registrable.
