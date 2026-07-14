@@ -30,9 +30,10 @@ static class Reducer
 
     internal static void LoadCanon()
     {
-        // spec v3: the DEFs boot from the store artifact, not a wrap
+        // same-bytes native execution: RoslynLoader compiles the raw
+        // shared/arest.canon bytes in memory via Roslyn, no JSON store
         Store.Clear();
-        foreach (var kv in StoreCanon.LoadAll())
+        foreach (var kv in RoslynLoader.LoadAll())
             Store[kv.Key] = kv.Value;
     }
 

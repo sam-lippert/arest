@@ -1,8 +1,8 @@
-"""The C# host as a fleet member: the same shared bytes (byte-wrapped by the
-csproj's WrapCanon target, never parsed) compute the same canon, and the
-cross-host differential holds its reducer to the Python evaluator's answers
-on the twin-test cases. Skips cleanly where dotnet is absent; the kernel is
-one reducer per host, everything above it is the lambda."""
+"""The C# host as a fleet member: the same shared bytes (compiled in memory
+by RoslynLoader, never parsed) compute the same canon, and the cross-host
+differential holds its reducer to the Python evaluator's answers on the
+twin-test cases. Skips cleanly where dotnet is absent; the kernel is one
+reducer per host, everything above it is the lambda."""
 import os
 import shutil
 import subprocess
