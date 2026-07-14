@@ -2661,13 +2661,15 @@ def validate_for(fact_type, D, partition=None):
         if kind in ("exclusion", "exclusive_or", "disjunctive_mandatory") and "@" in name:
             clauses = tuple(f[3])
             if any(_absorbed(c) for c in clauses):
-                pops = {c: system.ftpop_expr(c, partition) for c in clauses if _absorbed(c)}
+                # pure-data clause specs (⟨'view',table,col⟩ per absorbed clause) for the
+                # spec-taking participation builder — host marshals, canon reads (task 16).
+                specs = {c: system.ftpop_spec(c, partition) for c in clauses if _absorbed(c)}
                 target = name.split("@", 1)[1]
                 if kind == "exclusion":
-                    return C.scoped_exclusion(clauses, target, pops)
+                    return C.scoped_exclusion(clauses, target, specs)
                 if kind == "exclusive_or":
-                    return C.scoped_exclusive_or(f[2], clauses, target, pops)
-                return C.scoped_inclusive_or(f[2], clauses, target, pops)
+                    return C.scoped_exclusive_or(f[2], clauses, target, specs)
+                return C.scoped_inclusive_or(f[2], clauses, target, specs)
         return None
 
     spans = {}

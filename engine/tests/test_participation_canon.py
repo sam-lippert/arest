@@ -67,6 +67,37 @@ def test_scoped_exclusive_or_from_the_canon():
                               S(to_lam(P), D)))) == got
 
 
+def _triples(clauses, target):
+    # the pure-data participation operand: ⟨target, clause_id, popspec⟩ per clause,
+    # popspec ⟨"cell", clause⟩ here (the absorbed ⟨"view", table, col⟩ case rides the
+    # same pop_of_spec, exercised cross-host by the parity harness)
+    return tuple((target, c, ("cell", c)) for c in clauses)
+
+
+def test_participation_spec_family_agrees_with_the_named_builders():
+    # task 16: the absorbed exclusion families ride constraints:*_spec over pure-data
+    # ⟨target, clause_id, popspec⟩ triples instead of the retired _participation host
+    # composition. The spec twin must agree with the name-taking builder tuple-for-tuple.
+    d = _D(("ftB", (("e1", "x"),)))
+    P = (("e1", "y"), ("e2", "y"))
+    exp = {("e1", "ftA"), ("e1", "ftB")}
+    assert _via("constraints:scoped_exclusion_spec",
+                to_lam(_triples(("ftA", "ftB"), "ftA")), P, d) == exp
+    assert set(from_lam(apply(C.scoped_exclusion(("ftA", "ftB"), "ftA",
+              {"ftA": ("cell", "ftA")}), S(to_lam(P), d)))) == exp   # host spec route
+
+    d2 = _D(("Person", (("p1",), ("p2",), ("p3",))), ("ftB", (("p2", "x"),)))
+    P2 = (("p1", "y"),)
+    assert _via("constraints:scoped_inclusive_or_spec",
+                S(A("Person"), to_lam(_triples(("ftA", "ftB"), "ftA"))), P2, d2) == {("p3",)}
+
+    d3 = _D(("Person", (("p1",), ("p2",), ("p3",))), ("ftB", (("p1", "x"),)))
+    P3 = (("p1", "y"),)
+    assert _via("constraints:scoped_exclusive_or_spec",
+                S(A("Person"), to_lam(_triples(("ftA", "ftB"), "ftA"))), P3, d3) \
+        == {("p1",), ("p2",), ("p3",)}
+
+
 def test_scoped_external_uniqueness_from_the_canon():
     # Halpin 10.21: UC spanning cols of the natural join of two tables. Join P with
     # the sibling on role 1; the joined tuples sharing cols 2..3 with a DIFFERENT

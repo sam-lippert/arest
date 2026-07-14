@@ -12489,10 +12489,10 @@ fn native_verify(app: &str, srv: &Srv) -> Result<String, (i64, String)> {
 // == "T" is alethic (commit-blocking). Receipt shape matches the delegate:
 // {"app","violations":[{fact_type,kinds,offenders,alethic}]}. Wired behind
 // AREST_NATIVE_VALIDATE / apps.cli None, mirroring apps_compile; the default stays the
-// Python delegate this is certified against (validate_parity.py). NOTE: the absorbed
-// EXCLUSION-family rebuild (an exclusion/exclusive_or/disjunctive_mandatory whose clause
-// fact type is absorbed) is not yet ported and answers a -32011 error rather than a
-// wrong receipt; every other family is complete.
+// Python delegate this is certified against (validate_parity.py). Every scoped family --
+// including the absorbed EXCLUSION-family rebuild (an exclusion/exclusive_or/
+// disjunctive_mandatory whose clause fact type is absorbed) -- is ported: the absorbed
+// siblings ride the constraints:*_spec builders over pure-data population specs (task 16).
 #[cfg(feature = "host")]
 // ValCtx + assemble_validator_for: the per-fact-type validator assembly
 // (forml.validate_for's port), shared by native_validate (every fact type)
@@ -12543,8 +12543,9 @@ fn val_ctx(srv: &Srv) -> ValCtx {
 
 // The assembly (validate_for): the fact type's local / scoped constraint
 // objects tagged by modality, composed through system:validate_of. Answers
-// the reduced validator awaiting <pop, D>. An absorbed exclusion-family
-// rebuild is not yet ported and answers an honest error.
+// the reduced validator awaiting <pop, D>. The absorbed scoped families
+// (subset/equality/mandatory_facts and the exclusion family) rebuild over
+// pure-data population specs through the constraints:*_spec builders (task 16).
 #[cfg(feature = "host")]
 fn assemble_validator_for(
     srv: &Srv,
@@ -12741,10 +12742,44 @@ fn assemble_validator_for(
                     aval(c).map(|l| leaf_text(&l)).map(|s| absorbed(&s)).unwrap_or(false)
                 })
             {
-                // absorbed exclusion-family rebuild: not yet ported (see header note)
-                return Err((-32011, format!(
-                    "native validator: absorbed {} rebuild for constraint {} not yet ported",
-                    kind, f0)));
+                // absorbed exclusion-family rebuild -> the spec-taking participation
+                // builders over pure-data <target, clause_id, popspec> triples, exactly
+                // as python _rebuilt marshals them (task 16, retires the -32011 refusal).
+                // clause_spec mirrors engine.py ftpop_spec: an absorbed clause reads the
+                // <"view", table, col> RMAP view, a plain one its <"cell", ft>.
+                let clause_spec = |ft: &str| -> V {
+                    if absorbed(ft) {
+                        let table = ctx.part.get(ft).cloned().unwrap_or_else(|| ft.to_string());
+                        let cols = mf_table_columns(&ev, &table, &ctx.pairs_v);
+                        let col = 2 + cols.iter().position(|c| c == ft).unwrap_or(0);
+                        seq(from_vec(vec![
+                            atom(leaf("view")), atom(leaf(&table)), atom(Leaf::I(col as i64)),
+                        ]))
+                    } else {
+                        seq(from_vec(vec![atom(leaf("cell")), atom(leaf(ft))]))
+                    }
+                };
+                let target = name.splitn(2, '@').nth(1).unwrap_or("").to_string();
+                let triples: Vec<V> = items(&list_of(&it[3]))
+                    .iter()
+                    .filter_map(|c| aval(c).map(|l| leaf_text(&l)))
+                    .map(|c| {
+                        seq(from_vec(vec![
+                            atom(leaf(&target)), atom(leaf(&c)), clause_spec(&c),
+                        ]))
+                    })
+                    .collect();
+                let triples_v = seq(from_vec(triples));
+                Some(if kind == "exclusion" {
+                    reduce_over_n(srv, atom(leaf("constraints:scoped_exclusion_spec")),
+                                  triples_v, -1)
+                } else if kind == "exclusive_or" {
+                    reduce_over_n(srv, atom(leaf("constraints:scoped_exclusive_or_spec")),
+                                  seq(from_vec(vec![atom(leaf(&f2)), triples_v])), -1)
+                } else {
+                    reduce_over_n(srv, atom(leaf("constraints:scoped_inclusive_or_spec")),
+                                  seq(from_vec(vec![atom(leaf(&f2)), triples_v])), -1)
+                })
             } else {
                 None
             };

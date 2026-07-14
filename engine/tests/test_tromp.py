@@ -128,14 +128,16 @@ def test_svg_and_ascii_share_one_layout():
 
 
 # ============================================================================
-# (c) THE CHECKER over ALL 357 canon DEFs
+# (c) THE CHECKER over ALL 362 canon DEFs
 # ============================================================================
-# The honest finding, pinned so any drift is caught. 340 DEFs lift to closed pure terms; 17
+# The honest finding, pinned so any drift is caught. 345 DEFs lift to closed pure terms; 17
 # transitively reach five REGISTERED host string primitives (implode / escape_html / slug / lex
 # / strip_prefix) --- the enumerable boundary (paper eq.(boundary): "the line at which
 # Turing-complete computation re-enters"), not the pure applicative subsystem. (2026-07-14:
-# +4 pure-closed for the task-16 pop_of_spec family — the absorbed-view scoped builders that
-# retired the host compositions; all four lift to closed pure terms, so the boundary holds.)
+# +9 pure-closed for task 16 — the pop_of_spec absorbed-view family (4: pop_of_spec +
+# subset/mandatory_facts/equality_side _spec) and the participation_spec exclusion family
+# (5: part_one_spec, participation_spec, scoped_{exclusion,exclusive_or,inclusive_or}_spec),
+# which retired the last host compositions; all nine lift to closed pure terms.)
 _HOST_PRIMS = {"implode", "escape_html", "slug", "lex", "strip_prefix"}
 _EXPECTED_BOUNDARY = {
     "system:ev_base", "system:ev_item", "system:ev_step", "system:ev_cols", "system:repr",
@@ -149,7 +151,7 @@ def test_every_canon_def_lifts_to_a_closed_pure_term():
     lift = CanonLift.load()
     rep = check_canon(lift)
 
-    assert rep.total == 357
+    assert rep.total == 362
     # no UNEXPECTED malformation: every DEF is either pure-closed or a known boundary DEF
     assert rep.malformed == [], f"unexpected malformations: {rep.malformed}"
 
@@ -159,7 +161,7 @@ def test_every_canon_def_lifts_to_a_closed_pure_term():
         assert well_formed(term), name
         assert is_closed(term), name
 
-    assert len(rep.pure_closed) == 340
+    assert len(rep.pure_closed) == 345
     assert len(rep.boundary) == 17
     assert len(rep.pure_closed) + len(rep.boundary) == rep.total
 
