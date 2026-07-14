@@ -2633,7 +2633,10 @@ def validate_for(fact_type, D, partition=None):
         return partition is not None and isinstance(ft, str) and partition.get(ft, ft) != ft
 
     def _vp(ft):
-        return system.ftpop_expr(ft, partition) if _absorbed(ft) else ft
+        # the absorbed sibling as PURE DATA (⟨'view', table, col⟩) for the spec-taking
+        # scoped builders — the host marshals, the canon reassembles (task 16); a plain
+        # sibling stays a bare name for the name-taking builder.
+        return system.ftpop_spec(ft, partition) if _absorbed(ft) else ft
 
     def _rebuilt(f, name):
         kind = f[1]
