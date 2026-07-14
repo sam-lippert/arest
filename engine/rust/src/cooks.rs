@@ -1576,14 +1576,14 @@ fn atom_specs(atom_fts: &[String], widths: &[i64], joins: &[Join]) -> Val {
     vt(out)
 }
 
-// _AGG_CLAUSE: ^(.+?) is the (min|max|count|sum) of (.+)$
+// _AGG_CLAUSE: ^(.+?) is the (min|max|count|sum|avg) of (.+)$
 fn agg_clause_match(c: &str) -> Option<(String, String, String)> {
     for (p, _) in c.match_indices(" is the ") {
         if p < 1 {
             continue;
         }
         let rest = &c[p + 8..];
-        for op in ["min", "max", "count", "sum"] {
+        for op in ["min", "max", "count", "sum", "avg"] {
             if let Some(tail) = rest.strip_prefix(op) {
                 if let Some(over) = tail.strip_prefix(" of ") {
                     if !over.is_empty() {
