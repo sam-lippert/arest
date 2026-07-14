@@ -3,24 +3,22 @@
 The canonical stratum is written once, in `shared/*.canon` — files that are
 simultaneously a valid Python expression and normal Rust (and, wrapped in a
 method, normal C# or Java). The extension is neutral because the files belong
-to no host (Samuel, 2026-07-07). Two consumption tiers exist since the
-2026-07-13 canon-first rebuild:
+to no host (Samuel, 2026-07-07). Every host executes the SAME RAW BYTES natively (task 14, 2026-07-14) — no
+JSON store, no bespoke reader, no generation artifact. Each language's own
+source-execution mechanism tokenizes the .canon files with a tiny vocabulary
+bound:
 
-AUTHORING TIER (the source of meaning): Python `exec`s the canon files
-(canon.py's read/load with the vocabulary bound) and rustc tokenizes them
-through `include!` — the two hosts that must understand the SOURCE, because
-one compiles it into the store artifacts and the other bakes it for the
-no_std/worker targets.
+- Python `exec`s them (canon.py's read/load with the vocabulary bound).
+- Rust `include!`s them (rustc tokenizes them at compile time).
+- Java compiles them IN MEMORY via javax.tools (CanonLoader wraps the raw
+  bytes in a Vocab-referencing body; DEF's side effect registers each def).
+- C# compiles them IN MEMORY via Roslyn (RoslynLoader, the same shape).
 
-BOOT TIER (spec v3, realized): tools/build_canon_store.py compiles the canon
-into shared/canon.store.json and shared/scenarios.store.json — each DEF a
-CELL row in the native term encoding — and a host is then a STORE LOADER AND
-A MU: the Java host boots through StoreCanon.java (its gen_canon.py wrap
-generator retired) and the C# host through StoreCanon.cs (its MSBuild
-WrapCanon byte-wrap retired). The coverage gate pins sidecar freshness by
-name in both directions. The Rust host still bakes (build.rs keeps the baked
-copy fresh per canon edit); its store-boot flip is filed and sized for a
-resident restart window.
+If the four hosts do not take the same bytes, that is a divergence and a
+failure to implement the spec: these are all languages with value types and
+parenthesized functions, so the intersection grammar is native to each. A
+host is a reducer (mu) over the canon it executes; performance comes from
+registered DEFS overrides, never a JSON intermediate.
 
 Each authoring platform defines a tiny vocabulary; the lambda bound
 determines the implementation.
