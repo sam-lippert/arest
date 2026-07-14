@@ -2637,7 +2637,16 @@ def validate_for(fact_type, D, partition=None):
 
     def _rebuilt(f, name):
         kind = f[1]
-        if kind in ("subtype", "subset") and name == f[0] and _absorbed(f[3]):
+        # A projected trailing-if SUBSET (kind 'subset') is NOT rebuilt over the
+        # absorbed entity view: that view is VACUOUS when the entity has no
+        # own-table population (e.g. operations that exist only through their
+        # absorbed unary predicates — the same no-RMAP-cell / implied-population
+        # class the mandatory arc hit, 2026-07-13). Its correctly-registered
+        # projected checker (constraints:scoped_subset_projected, via _A(name))
+        # reads the retained cell and is sound on both satisfied and violated
+        # populations (verified), so fall through. Only a genuine SUBTYPE — which
+        # has its own entity population — rebuilds over the view.
+        if kind == "subtype" and name == f[0] and _absorbed(f[3]):
             return C.scoped_subset(_vp(f[3]))
         if kind == "equality":
             if name == f[0] + "_a" and _absorbed(f[3]):
