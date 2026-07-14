@@ -2728,9 +2728,18 @@ def validate_for(fact_type, D, partition=None):
                 # from P, since its copy in D is stale (this seam's own rule).
                 subject = f[3]
                 pos = sorted(spans.get(f[0], [1]))[0]
-                members = [C.implied_member(r[1], r[2], fact_type, partition)
-                           for r in _cells(D, "role")
-                           if len(r) >= 4 and r[3] == subject]
+                # the subject's OWN entity population is part of its implied
+                # population too (Halpin: the union of the role populations it
+                # plays INCLUDING its reference scheme): a Student in the entity
+                # cell that plays no role still violates. The 2026-07-13 fix added
+                # the role populations but dropped the own cell, so a bare entity
+                # (s2 with an id but no Email) went unflagged. Restore it as a
+                # member — vacuous, hence harmless, for the no-RMAP-cell noun the
+                # roles then carry.
+                members = [C.implied_member(subject, 1, fact_type, partition)]
+                members += [C.implied_member(r[1], r[2], fact_type, partition)
+                            for r in _cells(D, "role")
+                            if len(r) >= 4 and r[3] == subject]
                 scoped.append((C.scoped_mandatory_entities_implied(members, pos),
                                f[-1]))
                 continue

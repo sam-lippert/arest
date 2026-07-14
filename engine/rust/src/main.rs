@@ -12680,6 +12680,17 @@ fn assemble_validator_for(
                     .and_then(|v| v.iter().min().copied())
                     .unwrap_or(1);
                 let mut rows_v: Vec<V> = Vec::new();
+                // the subject's OWN entity population (Halpin: part of its implied
+                // population) — a bare entity in the cell that plays no role still
+                // violates. Mirrors python implied_member(subject, 1, ...) -> the
+                // <"cell", subject, 0, 1> member; vacuous, hence harmless, for the
+                // no-RMAP-cell noun the roles then carry (task 17 mandatory-arc fix).
+                rows_v.push(seq(from_vec(vec![
+                    atom(leaf("cell")),
+                    atom(leaf(&subject)),
+                    atom(Leaf::I(0)),
+                    atom(Leaf::I(1)),
+                ])));
                 for r in pop_rows(&srv.cells, &leaf("role")) {
                     let ri = items(&list_of(&r));
                     if ri.len() < 4 {
