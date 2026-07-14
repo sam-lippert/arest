@@ -1,9 +1,9 @@
-"""The Java host as the fourth fleet member, spec v3 shape: a store loader
-and a mu. The canon DEFs boot from shared/canon.store.json (built by
-tools/build_canon_store.py, the host-neutral artifact that retired the
-per-host gen_canon.py wrap), and the differential holds the Java 8 reducer
-to the Python evaluator's answers on the twin-test cases. Skips cleanly
-where the JDK is absent."""
+"""The Java host as the fourth fleet member: a reducer and a mu. The canon
+DEFs boot by same-bytes native execution -- CanonLoader compiles the raw
+shared/*.canon bytes in memory via javax.tools, no JSON store and no
+generated Canon.java -- and the differential holds the Java 8 reducer to the
+Python evaluator's answers on the twin-test cases. Skips cleanly where the
+JDK is absent."""
 import os
 import subprocess
 
@@ -28,17 +28,13 @@ def _show(o):
 
 @pytest.mark.skipif(not os.path.exists(_JDK), reason="no JDK")
 def test_the_java_kernel_agrees_with_the_python_evaluator():
-    # spec v3: the java host is a store loader and a mu. The canonical
-    # cross-host artifact (canon.store.json, scenarios.store.json) is
-    # rebuilt here so the differential always runs against the current
-    # canon; the per-host generator (gen_canon.py) is retired.
-    subprocess.run(["python", os.path.join(_ROOT, "tools",
-                                           "build_canon_store.py")],
-                   check=True, capture_output=True, cwd=_ROOT)
+    # same-bytes native execution: the java host compiles the raw
+    # shared/*.canon bytes in memory via javax.tools (CanonLoader) -- no JSON
+    # store artifact, no generated Canon.java.
     os.makedirs(os.path.join(_JAVA, "out"), exist_ok=True)
     subprocess.run([os.path.join(_JDK, "javac.exe"), "-encoding", "UTF-8",
-                    "-d", "out", "StoreCanon.java", "Reducer.java",
-                    "Program.java"],
+                    "-d", "out", "Vocab.java", "CanonLoader.java",
+                    "Reducer.java", "Program.java"],
                    check=True, capture_output=True, cwd=_JAVA, timeout=300)
     out = subprocess.run([os.path.join(_JDK, "java.exe"),
                           "-Dfile.encoding=UTF-8", "-cp", "out",
