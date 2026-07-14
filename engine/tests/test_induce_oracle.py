@@ -8,6 +8,8 @@ import os
 import shutil
 import tempfile
 
+import pytest
+
 import pyarest.prims  # noqa: F401
 from pyarest import apps as A, system
 
@@ -27,31 +29,41 @@ def _fixture():
     return tmp
 
 
-def test_the_domains_and_the_enumeration_are_the_oracle():
+@pytest.fixture(scope="module")
+def coin():
+    """Compile the coin app ONCE for the read-only oracle cases (task 18: the
+    full base-metamodel compile is ~100s, so five separate compiles ran ~9 min).
+    Every case sharing this fixture is READ-ONLY over the store — induce, propose,
+    and ask all COMPUTE without committing — so one compiled Registry is safe to
+    share. Yields ⟨registry, loaded D⟩."""
     tmp = _fixture()
     try:
         reg = A.Registry(tmp, base_dir=A.default_base())
         reg.compile("coin")
-        D = reg._load("coin")
-        # the domain order is the oracle's: declared enum literals first
-        # (the enumValues cell), then the noun's own cell, then observed
-        # role plays, keep-first across the later legs
-        assert system.induce_domain(D, "Coin") == ["c1"]
-        assert system.induce_domain(D, "Side") == ["heads", "tails"]
-        # the enumeration is the cartesian product in domain order, ids
-        # deterministic on (ft, index), scores 0 with no hook declared
-        out = reg.induce("coin", "Coin_has_Side")
-        assert [h["id"] for h in out] == [
-            "hyp-Coin_has_Side-0", "hyp-Coin_has_Side-1"]
-        assert [h["hidden"]["fact"] for h in out] == [
-            ["c1", "heads"], ["c1", "tails"]]
-        assert all(h["confidence_score"] == 0 for h in out)
-        assert all(h["explains"] == [] for h in out)
+        yield reg, reg._load("coin")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_the_canon_enumeration_family_matches_the_oracle():
+def test_the_domains_and_the_enumeration_are_the_oracle(coin):
+    reg, D = coin
+    # the domain order is the oracle's: declared enum literals first
+    # (the enumValues cell), then the noun's own cell, then observed
+    # role plays, keep-first across the later legs
+    assert system.induce_domain(D, "Coin") == ["c1"]
+    assert system.induce_domain(D, "Side") == ["heads", "tails"]
+    # the enumeration is the cartesian product in domain order, ids
+    # deterministic on (ft, index), scores 0 with no hook declared
+    out = reg.induce("coin", "Coin_has_Side")
+    assert [h["id"] for h in out] == [
+        "hyp-Coin_has_Side-0", "hyp-Coin_has_Side-1"]
+    assert [h["hidden"]["fact"] for h in out] == [
+        ["c1", "heads"], ["c1", "tails"]]
+    assert all(h["confidence_score"] == 0 for h in out)
+    assert all(h["explains"] == [] for h in out)
+
+
+def test_the_canon_enumeration_family_matches_the_oracle(coin):
     # the canon meaning reduces to the oracle's exact answers: role domains
     # per noun (declaration order, keep-first across the later legs) and
     # the cartesian product in itertools order
@@ -62,27 +74,21 @@ def test_the_canon_enumeration_family_matches_the_oracle():
     from pyarest.lam import atom as _A, to_lam, from_lam
     from pyarest.reduce import apply as _ap
 
-    tmp = _fixture()
-    try:
-        reg = A.Registry(tmp, base_dir=A.default_base())
-        reg.compile("coin")
-        D = reg._load("coin")
+    _reg, D = coin
 
-        def canon(name, operand):
-            with _dm.step(D):
-                return from_lam(_ap(_A(name), operand))
+    def canon(name, operand):
+        with _dm.step(D):
+            return from_lam(_ap(_A(name), operand))
 
-        for noun in ("Coin", "Side"):
-            pair = L.SEQ(L.CONS(_A(noun))(L.CONS(D)(L.NIL)))
-            assert list(canon("system:role_domain", pair)) == \
-                system.induce_domain(D, noun), noun
-        doms = [system.induce_domain(D, n) for n in ("Coin", "Side")]
-        got = canon("system:enum_product",
-                    to_lam(tuple(tuple(d) for d in doms)))
-        want = [tuple(c) for c in itertools.product(*doms)]
-        assert [tuple(r) for r in got] == want
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+    for noun in ("Coin", "Side"):
+        pair = L.SEQ(L.CONS(_A(noun))(L.CONS(D)(L.NIL)))
+        assert list(canon("system:role_domain", pair)) == \
+            system.induce_domain(D, noun), noun
+    doms = [system.induce_domain(D, n) for n in ("Coin", "Side")]
+    got = canon("system:enum_product",
+                to_lam(tuple(tuple(d) for d in doms)))
+    want = [tuple(c) for c in itertools.product(*doms)]
+    assert [tuple(r) for r in got] == want
 
 
 def test_the_canon_gate_and_coverage_match_the_oracle():
@@ -175,109 +181,71 @@ def test_the_canon_gate_and_coverage_match_the_oracle():
                      L.SEQ(L.CONS(te_hit)(L.CONS(D3)(L.NIL)))) == "T"
         assert canon("system:cand_covers",
                      L.SEQ(L.CONS(te_miss)(L.CONS(D3)(L.NIL)))) == "F"
-
-        # slice (c): score is a Filter-and-sum judgment over MARSHALED
-        # normalized rows (numeric-or-one is the oracle's int(str(v))
-        # boundary transduction, applied where the operand is built, the
-        # same seam ruling as the typed to_explain above); rank is the
-        # descending INSERT insertion sort, enumeration-stable on ties
-        def norm(v):
-            try:
-                return int(str(v))
-            except ValueError:
-                return 1
-
-        score_rows = (("hyp-0", 2), ("hyp-0", "High"), ("hyp-1", 3))
-        marshaled = tuple((h, norm(v)) for (h, v) in score_rows)
-        for hyp, want in (("hyp-0", 3), ("hyp-1", 3), ("hyp-9", 0)):
-            got = canon("system:cand_score",
-                        L.SEQ(L.CONS(_A(hyp))(
-                            L.CONS(to_lam(marshaled))(L.NIL))))
-            assert got == want, (hyp, got, want)
-
-        ranked_in = ((0, "a"), (5, "b"), (3, "c"), (5, "d"), (0, "e"))
-        got = canon("system:rank_desc", to_lam(ranked_in))
-        want = tuple(sorted(ranked_in, key=lambda r: -r[0]))
-        assert tuple(tuple(r) for r in got) == want
-        # ties keep enumeration order: b before d, a before e
-        assert [r[1] for r in got] == ["b", "d", "c", "a", "e"]
+        # slice (c) — score and rank — is STORE-FREE (pure canon over marshaled
+        # literals), so it moved to test_the_canon_score_and_rank_are_store_free
+        # below, which needs no fixture compile (task 18).
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_the_python_reference_twins_the_inline_induce():
+def test_the_python_reference_twins_the_inline_induce(coin):
     # the whole verb, twice: the inline loop (the certified override) and
     # the canon-reducing reference must answer identically, unconstrained
     # and under to_explain (where only the candidate that IS the explained
     # fact covers it, so the survivor sets differ from the plain run)
-    tmp = _fixture()
-    try:
-        reg = A.Registry(tmp, base_dir=A.default_base())
-        reg.compile("coin")
-        inline = reg.induce("coin", "Coin_has_Side")
-        ref = reg._induce_reference("coin", "Coin_has_Side")
-        assert ref == inline and len(inline) == 2
-        te = [{"ft": "Coin_has_Side", "fact": ["c1", "tails"]}]
-        inline_te = reg.induce("coin", "Coin_has_Side", to_explain=te)
-        ref_te = reg._induce_reference("coin", "Coin_has_Side",
-                                       to_explain=te)
-        assert ref_te == inline_te
-        assert [h["id"] for h in inline_te] == ["hyp-Coin_has_Side-1"]
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+    reg, _D = coin
+    inline = reg.induce("coin", "Coin_has_Side")
+    ref = reg._induce_reference("coin", "Coin_has_Side")
+    assert ref == inline and len(inline) == 2
+    te = [{"ft": "Coin_has_Side", "fact": ["c1", "tails"]}]
+    inline_te = reg.induce("coin", "Coin_has_Side", to_explain=te)
+    ref_te = reg._induce_reference("coin", "Coin_has_Side",
+                                   to_explain=te)
+    assert ref_te == inline_te
+    assert [h["id"] for h in inline_te] == ["hyp-Coin_has_Side-1"]
 
 
-def test_the_canon_propose_report_twins_the_inline_judgment():
+def test_the_canon_propose_report_twins_the_inline_judgment(coin):
     # propose's judgment (the sorted fact-type delta the text would
     # declare) through the canon (sort_asc over theta:setminus) must equal
     # the inline set arithmetic; the throwaway compile world is an operand
-    tmp = _fixture()
+    reg, _D = coin
+    text = "Rim is a value type.\nCoin has Rim.\n"
+    inline = reg.propose("coin", text)
+    os.environ["AREST_NO_OVERRIDE"] = "propose"
     try:
-        reg = A.Registry(tmp, base_dir=A.default_base())
-        reg.compile("coin")
-        text = "Rim is a value type.\nCoin has Rim.\n"
-        inline = reg.propose("coin", text)
-        os.environ["AREST_NO_OVERRIDE"] = "propose"
-        try:
-            ref = reg.propose("coin", text)
-        finally:
-            del os.environ["AREST_NO_OVERRIDE"]
-        assert ref == inline
-        assert "Coin_has_Rim" in inline["would_declare"]
+        ref = reg.propose("coin", text)
     finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+        del os.environ["AREST_NO_OVERRIDE"]
+    assert ref == inline
+    assert "Coin_has_Rim" in inline["would_declare"]
 
 
-def test_the_canon_ask_filter_twins_the_inline_plan_query():
+def test_the_canon_ask_filter_twins_the_inline_plan_query(coin):
     # ask with a plan: the canon filter algebra (position resolution with
     # the missing-noun sentinel, per-row all-specs judgment) must answer
     # exactly as the inline path on string-valued fixtures, including the
     # missing-noun case that drops every row and the empty filter
-    tmp = _fixture()
-    try:
-        reg = A.Registry(tmp, base_dir=A.default_base())
-        reg.compile("coin")
-        cases = (
-            {"fact_type": "Coin_has_Side", "filter": {"Coin": "c1"}},
-            {"fact_type": "Coin_has_Side", "filter": {"Side": "heads"}},
-            {"fact_type": "Coin_has_Side",
-             "filter": {"Coin": "c1", "Side": "tails"}},
-            {"fact_type": "Coin_has_Side", "filter": {"Bogus": "x"}},
-            {"fact_type": "Coin_has_Side"},
-        )
-        for plan in cases:
-            inline = reg.ask("coin", "q", plan=plan)
-            os.environ["AREST_NO_OVERRIDE"] = "ask"
-            try:
-                ref = reg.ask("coin", "q", plan=plan)
-            finally:
-                del os.environ["AREST_NO_OVERRIDE"]
-            assert ref == inline, plan
-        hit = reg.ask("coin", "q", plan=cases[0])
-        assert hit["rows"] == [("c1", "heads")]
-        assert reg.ask("coin", "q", plan=cases[3])["rows"] == []
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+    reg, _D = coin
+    cases = (
+        {"fact_type": "Coin_has_Side", "filter": {"Coin": "c1"}},
+        {"fact_type": "Coin_has_Side", "filter": {"Side": "heads"}},
+        {"fact_type": "Coin_has_Side",
+         "filter": {"Coin": "c1", "Side": "tails"}},
+        {"fact_type": "Coin_has_Side", "filter": {"Bogus": "x"}},
+        {"fact_type": "Coin_has_Side"},
+    )
+    for plan in cases:
+        inline = reg.ask("coin", "q", plan=plan)
+        os.environ["AREST_NO_OVERRIDE"] = "ask"
+        try:
+            ref = reg.ask("coin", "q", plan=plan)
+        finally:
+            del os.environ["AREST_NO_OVERRIDE"]
+        assert ref == inline, plan
+    hit = reg.ask("coin", "q", plan=cases[0])
+    assert hit["rows"] == [("c1", "heads")]
+    assert reg.ask("coin", "q", plan=cases[3])["rows"] == []
 
 
 def test_abduce_end_to_end_on_the_sherlock_forms():
@@ -339,3 +307,40 @@ def test_abduce_end_to_end_on_the_sherlock_forms():
                                             to_explain=conclusion)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_the_canon_score_and_rank_are_store_free():
+    # slice (c): score is a Filter-and-sum judgment over MARSHALED normalized
+    # rows (numeric-or-one is the oracle's int(str(v)) boundary transduction),
+    # and rank is the descending INSERT insertion sort, enumeration-stable on
+    # ties. Both are PURE canon over literal operands — no store — so they run
+    # against a bare DEFS step, no fixture compile (task 18: extracted from the
+    # gate/coverage case, which pays a full base compile only for its gate).
+    from pyarest import defs as _dm
+    import pyarest.lam as L
+    from pyarest.lam import atom as _A, to_lam, from_lam
+    from pyarest.reduce import apply as _ap
+
+    def canon(name, operand):
+        with _dm.step(L.SEQ(L.NIL)):
+            return from_lam(_ap(_A(name), operand))
+
+    def norm(v):
+        try:
+            return int(str(v))
+        except ValueError:
+            return 1
+
+    score_rows = (("hyp-0", 2), ("hyp-0", "High"), ("hyp-1", 3))
+    marshaled = tuple((h, norm(v)) for (h, v) in score_rows)
+    for hyp, want in (("hyp-0", 3), ("hyp-1", 3), ("hyp-9", 0)):
+        got = canon("system:cand_score",
+                    L.SEQ(L.CONS(_A(hyp))(L.CONS(to_lam(marshaled))(L.NIL))))
+        assert got == want, (hyp, got, want)
+
+    ranked_in = ((0, "a"), (5, "b"), (3, "c"), (5, "d"), (0, "e"))
+    got = canon("system:rank_desc", to_lam(ranked_in))
+    want = tuple(sorted(ranked_in, key=lambda r: -r[0]))
+    assert tuple(tuple(r) for r in got) == want
+    # ties keep enumeration order: b before d, a before e
+    assert [r[1] for r in got] == ["b", "d", "c", "a", "e"]
