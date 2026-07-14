@@ -292,7 +292,12 @@ _CLASSIFY = [
     ("neg_uniqueness", re.compile(r"^[Ff]or each (.+?), it is impossible that that .+? (.+) more than one (.+)\.$")),
     ("neg_mandatory", re.compile(r"^[Ff]or each (.+?), it is impossible that that .+? (.+) no (.+)\.$")),
     ("disjunctive_mandatory", re.compile(r"^[Ff]or each (.+?), (.+ or .+)\.$")),
-    ("inverse_uc", re.compile(r"^[Ff]or each (.+?), (at most one|exactly one) (.+) (?:that|those) .+\.$")),
+    # the negative lookahead keeps this off the set_comparison exclusion 'For each X,
+    # at most one OF THE FOLLOWING HOLDS: ...' (line 290): both used to co-match, and the
+    # prepass then declared a PHANTOM 'of_the_following_holds_...' fact type + a bogus
+    # inverse-uc from _cook_inverse_uc's f"{g2} {g0}" reading (task 17 name-hygiene; NORMA
+    # verbalizes exclusion as 'no X the same Y', never 'at most one of the following holds')
+    ("inverse_uc", re.compile(r"^[Ff]or each (.+?), (at most one|exactly one) (?!of the following holds)(.+) (?:that|those) .+\.$")),
     ("subset", re.compile(r"^[Ii]f (.+) then (.+)\.$")),                      # 'if A then B' = subset (modus ponens)
     # grammar-as-readings recognizers (forml2-grammar.md: 'the parser is this file'):
     # a quoted-head iff rule classifies Statements from their field facts

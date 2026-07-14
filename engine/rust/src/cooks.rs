@@ -3030,6 +3030,13 @@ fn p_inverse_uc(s: &str) -> Option<Vec<Option<String>>> {
                     "exactly one"
                 };
                 let rest = &body[p + sep.len()..];
+                // twin of Python's (?!of the following holds) guard: keep off the
+                // set_comparison exclusion 'For each X, at most one OF THE FOLLOWING
+                // HOLDS: ...' (p_set_comparison owns it), which both used to co-match,
+                // minting a phantom 'of_the_following_holds_...' fact type (task 17).
+                if rest.starts_with("of the following holds") {
+                    continue;
+                }
                 // greedy (.+) (?:that|those) .+$ — the LAST separator
                 let mut sp: Vec<(usize, usize)> = Vec::new();
                 for (q, _) in rest.match_indices(" that ") {
