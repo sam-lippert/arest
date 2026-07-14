@@ -75,6 +75,7 @@ impl Mcp {
             .arg(apps_dir)
             .env("AREST_NATIVE_RETRACT", "1")
             .env("AREST_NATIVE_EXPLAIN", "1")
+            .env("AREST_NATIVE_ASK", "1")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -582,6 +583,27 @@ fn the_write_path_retracts_with_no_python() {
     assert!(
         r.contains(r#"\"op\":\"retract\""#) && r.contains(r#"[\"p2\",40]"#),
         "the audit tail must carry the retract event: {r}"
+    );
+
+    // ---- ask, natively: the plan query through the canon filter algebra
+    // (typed specs; p2's Age was retracted above, so p1's row remains) ----
+    let r = c.rpc(concat!(
+        r#"{"jsonrpc":"2.0","id":10,"method":"tools/call","params":"#,
+        r#"{"name":"ask","arguments":{"question":"p1 age","plan":"#,
+        r#"{"fact_type":"Person_has_Age","filter":{"Person":"p1"}}}}}"#
+    ));
+    assert!(
+        r.contains(r#"\"rows\":[[\"p1\",30]]"#),
+        "ask must filter through the canon algebra: {r}"
+    );
+    let r = c.rpc(concat!(
+        r#"{"jsonrpc":"2.0","id":11,"method":"tools/call","params":"#,
+        r#"{"name":"ask","arguments":{"question":"bogus","plan":"#,
+        r#"{"fact_type":"Person_has_Age","filter":{"Bogus":"x"}}}}}"#
+    ));
+    assert!(
+        r.contains(r#"\"rows\":[]"#),
+        "a missing noun drops every row: {r}"
     );
 
     drop(c);
