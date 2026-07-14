@@ -1403,6 +1403,7 @@ pub const HOST_OVERRIDES: &[&str] = &[
     "actions",
     "schema",
     "explain",
+    "ask",
 ];
 
 thread_local! {
@@ -14011,6 +14012,109 @@ fn vo_explain(args: &J, apps: &mut Apps, srv: &mut Srv) -> Option<Result<String,
     native_explain(args, apps, srv)
 }
 
+// ask: the plan query's judgments are canon (system:ask_pos resolves each
+// filter noun to its role position with the missing-noun # sentinel;
+// system:ask_filter keeps rows through the per-spec judgment), so this leg
+// only loads, marshals typed specs, reduces, and formats — the same shape
+// the python reference host takes. TYPED like the canon: the python
+// delegate's str() comparison is its own wire accommodation. No plan
+// answers the needs_plan envelope with the model surface. Native when
+// explicitly requested (AREST_NATIVE_ASK) or when no Python CLI resolves;
+// the delegate stays the reference until the differential pin flips it.
+#[cfg(feature = "host")]
+fn native_ask(args: &J, apps: &Apps, srv: &mut Srv) -> Option<Result<String, (i64, String)>> {
+    if apps.current.is_none() {
+        return Some(Err((-32602,
+            "no app loaded; call apps_use before ask".to_string())));
+    }
+    let question = match jget(args, "question") {
+        Some(J::S(q)) => q.clone(),
+        _ => String::new(),
+    };
+    let leaf = |s: &str| Leaf::S(s.to_string());
+    let plan_ft = jget(args, "plan")
+        .and_then(|p| jget(p, "fact_type"))
+        .and_then(|f| if let J::S(s) = f { Some(s.clone()) } else { None });
+    let app = apps.current.clone().unwrap_or_default();
+    let mut r = String::from("{\"app\":");
+    esc(&app, &mut r);
+    r.push_str(",\"question\":");
+    esc(&question, &mut r);
+    let ft = match plan_ft {
+        None => {
+            // no plan: the caller completes one against the model surface
+            let schema = match op_answer("schema", args, srv) {
+                Ok(s) => s,
+                Err(m) => return Some(Err((-32602, m))),
+            };
+            r.push_str(",\"needs_plan\":true,\"prompt\":");
+            esc(concat!(
+                "Translate the question into a plan {\"fact_type\": <id>, ",
+                "\"filter\": {<Role Noun>: <value>}} against this model, ",
+                "then call ask again with it."), &mut r);
+            r.push_str(",\"model\":");
+            r.push_str(&schema);
+            r.push('}');
+            return Some(Ok(r));
+        }
+        Some(f) => f,
+    };
+    let mut rows: Vec<V> = pop_rows(&srv.cells, &leaf(&ft));
+    let filter = jget(args, "plan").and_then(|p| jget(p, "filter"));
+    if let Some(J::O(pairs)) = filter {
+        if !pairs.is_empty() {
+            let mut specs: Vec<V> = Vec::new();
+            for (noun, val) in pairs {
+                let pos = reduce_over_n(
+                    srv,
+                    atom(leaf("system:ask_pos")),
+                    seq(from_vec(vec![
+                        atom(leaf(&ft)),
+                        atom(leaf(noun)),
+                        srv.d.clone(),
+                    ])),
+                    -1,
+                );
+                specs.push(seq(from_vec(vec![pos, j_to_v(val)])));
+            }
+            let kept = reduce_over_n(
+                srv,
+                atom(leaf("system:ask_filter")),
+                seq(from_vec(vec![
+                    seq(from_vec(specs)),
+                    seq(from_vec(rows.clone())),
+                ])),
+                -1,
+            );
+            rows = items(&list_of(&kept));
+        }
+    }
+    r.push_str(",\"fact_type\":");
+    esc(&ft, &mut r);
+    r.push_str(",\"filter\":");
+    match filter {
+        Some(f) => write_j(f, &mut r),
+        None => r.push_str("{}"),
+    }
+    r.push_str(",\"rows\":[");
+    for (i, row) in rows.iter().enumerate() {
+        if i > 0 {
+            r.push(',');
+        }
+        write_v(row, &mut r);
+    }
+    r.push_str("]}");
+    Some(Ok(r))
+}
+
+#[cfg(feature = "host")]
+fn vo_ask(args: &J, apps: &mut Apps, srv: &mut Srv) -> Option<Result<String, (i64, String)>> {
+    if std::env::var_os("AREST_NATIVE_ASK").is_none() && apps.cli.is_some() {
+        return None;
+    }
+    native_ask(args, apps, srv)
+}
+
 #[cfg(feature = "host")]
 type VerbOverride = fn(&J, &mut Apps, &mut Srv) -> Option<Result<String, (i64, String)>>;
 #[cfg(feature = "host")]
@@ -14021,6 +14125,7 @@ const VERB_OVERRIDES: &[(&str, VerbOverride)] = &[
     ("verify", vo_verify),
     ("validate", vo_validate),
     ("explain", vo_explain),
+    ("ask", vo_ask),
 ];
 #[cfg(feature = "host")]
 fn resolve_verb(tool: &str, args: &J, apps: &mut Apps, srv: &mut Srv) -> Option<Result<String, (i64, String)>> {
