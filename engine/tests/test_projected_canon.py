@@ -57,14 +57,16 @@ def test_exclusion_projected_filtered():
 
 
 # ── the assembly gate (task 25 / task 16) ──────────────────────────────────
-# The checkers above are exercised DIRECTLY. This one goes through the full
-# compile → validate_for assembly, which is where the bug lives: for a
-# NON-ABSORBED projected-subset deontic constraint the assembly registers the
-# checker under a cid that does not match _ATTACH's resolved name, so
-# validate_for's _A(name) reduces to ⊥ and validate_modal flags the WHOLE
-# condition population. The canon DEF is correct (test_subset_projected);
-# the host assembly is not. strict=True flips this to a FAILURE the moment
-# task 16 canonizes the assembly — delete the marker with the fix.
+# The projected checkers above are exercised DIRECTLY and pass; the correctly
+# REGISTERED named checker also validates clean (verified via validate_modal —
+# it returns no violations here). The bug is in validate_for's assembly: when
+# the head fact type is ABSORBED (unary predicates fold into the entity table —
+# here both `is delegating` and `is registered` fold into Operation), _rebuilt
+# (compiler.py ~2640) intercepts the subset and rebuilds it with the
+# NON-PROJECTED C.scoped_subset over the view, shadowing the correct projected
+# checker, so the full-row/absorbed-view comparison mis-flags the WHOLE
+# condition population. strict=True flips this to a FAILURE the moment task 16
+# repairs the assembly — delete the marker with the fix.
 _SUBSET_SATISFIED = (
     "Operation(.name) is an entity type.\n"
     "Operation is delegating.\n"
@@ -77,9 +79,10 @@ _SUBSET_SATISFIED = (
 )
 
 
-@pytest.mark.xfail(strict=True, reason="task 25/16: validate_for mis-assembles the "
-                   "non-absorbed projected-subset checker (name mismatch → ⊥ → whole "
-                   "population flagged); the canon DEF is correct. Fix in task 16.")
+@pytest.mark.xfail(strict=True, reason="task 25/16: validate_for._rebuilt rebuilds an "
+                   "ABSORBED projected-subset with non-projected scoped_subset over the "
+                   "view, shadowing the correct projected checker -> whole population "
+                   "mis-flagged. Canon DEF + named checker are correct. Fix in task 16.")
 def test_projected_subset_deontic_validates_clean_when_satisfied():
     from pyarest import forml, system, defs
     D, _rep = forml.compile_model(_SUBSET_SATISFIED)
