@@ -1,5 +1,7 @@
-# app databases and event logs are build artifacts of their readings; the
-# readings are the source of truth (an events log with real history would be
-# data, not artifact — none exists here yet)
+# app databases, JSON stores, and event logs are build artifacts of their
+# readings; the readings are the source of truth (an events log with real
+# history would be data, not artifact — none exists here yet). Only the SHARED
+# base materializations (shared/*.store.json) are tracked, never an app's.
 */*.db
+*/*.store.json
 */*.events.jsonl
