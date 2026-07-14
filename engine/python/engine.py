@@ -727,41 +727,44 @@ def value_comparison(op, col, lit):
     return T.Filter(_S(_COMP, A("not"), A(op), _S(_CONS, A(col), _S(_CONST, A(lit)))))
 
 
-def _participation(clause_fts, target_ft, pops=None):
-    """⟨P,D⟩ → ⟨⟨entity, clause⟩ …⟩ over ALL clause cells: the target clause reads from P,
-    the sibling clauses from D. Each row is tagged with its clause's fact-type id. `pops`
-    overrides a clause's population with an expression over D (the RMAP view seam)."""
-    parts = []
-    for ft in clause_fts:
-        src = _P if ft == target_ft else _pop_of((pops or {}).get(ft, ft))
-        tag = _S(_ALPHA, _S(_CONS, _1, _S(_CONST, A(ft))))    # row → ⟨entity, clause⟩
-        parts.append(_S(_COMP, tag, src))
-    return _S(_COMP, T.flatten, _S(_CONS, *parts))
+def _clause_triples(clause_fts, target_ft, specs=None):
+    """Marshal the clause list as PURE DATA for constraints:participation_spec: one
+    ⟨target, clause_id, popspec⟩ per clause, popspec being ⟨'view', table, col⟩ for an
+    absorbed clause (from `specs`) else ⟨'cell', clause⟩. The target clause reads P
+    regardless (part_one_spec's COND on clause_id == target), so its popspec is nominal.
+    Retires the _participation host composition — the absorbed exclusion families now ride
+    the canon like the other scoped builders (task 16)."""
+    specs = specs or {}
+    return tuple((target_ft, ft, specs.get(ft, ("cell", ft))) for ft in clause_fts)
 
 
-def scoped_exclusion(clause_fts, target_ft, pops=None):
+def scoped_exclusion(clause_fts, target_ft, specs=None):
     """Exclusion over clause fact types, attached to `target_ft`'s cell: at most one clause
-    per entity — uniqueness on the entity role of the participation. Canonical unless a
-    pops override (the view seam) rides along."""
-    if not pops:
-        from .reduce import apply as _apply
-        from .lam import to_lam as _tl
+    per entity — uniqueness on the entity role of the participation. A plain clause list
+    applies constraints:scoped_exclusion; an ABSORBED clause routes ⟨target, id, spec⟩
+    triples through constraints:scoped_exclusion_spec (task 16)."""
+    from .reduce import apply as _apply
+    from .lam import to_lam as _tl
+    if not specs:
         return _apply(A("constraints:scoped_exclusion"),
                       _S(_tl(tuple(clause_fts)), A(target_ft)))
-    return _S(_COMP, exclusion(), _participation(clause_fts, target_ft, pops))
+    return _apply(A("constraints:scoped_exclusion_spec"),
+                  _tl(_clause_triples(clause_fts, target_ft, specs)))
 
 
-def scoped_exclusive_or(subject_cell, clause_fts, target_ft, pops=None):
+def scoped_exclusive_or(subject_cell, clause_fts, target_ft, specs=None):
     """Exactly one clause per entity: exclusive_or over ⟨universe, participation⟩, the
-    universe being the subject type's own instance cell. Canonical unless a pops
-    override rides along."""
-    if not pops and isinstance(subject_cell, str):
-        from .reduce import apply as _apply
-        from .lam import to_lam as _tl
+    universe being the subject type's own instance cell. A plain clause list applies
+    constraints:scoped_exclusive_or; an ABSORBED clause routes the triples through
+    constraints:scoped_exclusive_or_spec, the subject staying a named cell (task 16)."""
+    from .reduce import apply as _apply
+    from .lam import to_lam as _tl
+    if not specs:
         return _apply(A("constraints:scoped_exclusive_or"),
                       _S(A(subject_cell), _tl(tuple(clause_fts)), A(target_ft)))
-    pair = _S(_CONS, _pop_of(subject_cell), _participation(clause_fts, target_ft, pops))
-    return _S(_COMP, exclusive_or(), pair)
+    return _apply(A("constraints:scoped_exclusive_or_spec"),
+                  _S(A(subject_cell),
+                     _tl(_clause_triples(clause_fts, target_ft, specs))))
 
 
 def scoped_external_uniqueness(other_ft, cols):
@@ -779,17 +782,19 @@ def scoped_external_uniqueness(other_ft, cols):
     return _S(_COMP, uniqueness(cols), join)
 
 
-def scoped_inclusive_or(subject_cell, clause_fts, target_ft, pops=None):
-    """At least one clause per entity (disjunctive mandatory): universe ∖ players.
-    Canonical unless a pops override rides along."""
-    if not pops and isinstance(subject_cell, str):
-        from .reduce import apply as _apply
-        from .lam import to_lam as _tl
+def scoped_inclusive_or(subject_cell, clause_fts, target_ft, specs=None):
+    """At least one clause per entity (disjunctive mandatory): universe ∖ players. A plain
+    clause list applies constraints:scoped_inclusive_or; an ABSORBED clause routes the
+    triples through constraints:scoped_inclusive_or_spec, the subject staying a named cell
+    (task 16)."""
+    from .reduce import apply as _apply
+    from .lam import to_lam as _tl
+    if not specs:
         return _apply(A("constraints:scoped_inclusive_or"),
                       _S(A(subject_cell), _tl(tuple(clause_fts)), A(target_ft)))
-    players = _S(_COMP, T.Project([1]), _participation(clause_fts, target_ft, pops))
-    pair = _S(_CONS, _S(_COMP, T.Project([1]), _pop_of(subject_cell)), players)
-    return _S(_COMP, T.setminus, pair)
+    return _apply(A("constraints:scoped_inclusive_or_spec"),
+                  _S(A(subject_cell),
+                     _tl(_clause_triples(clause_fts, target_ft, specs))))
 
 
 def violations(constraint_obj, population):

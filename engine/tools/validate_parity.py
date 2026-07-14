@@ -19,9 +19,10 @@ fact-type sets and, per fact type, identical kinds, alethic, and offender ROW SE
 compare as sets so an ordering nuance is not reported as a divergence).
 
 Companion to verify_parity.py (the audit axis) and apps_compile_parity.py (the store).
-Together these de-Python the read/verify verbs. A NATIVE ERR line with code -32011 marks
-the one un-ported case (absorbed exclusion-family rebuild) — honest refusal, not a wrong
-receipt; such an app is reported so its coverage is visible, not silently skipped.
+Together these de-Python the read/verify verbs. Every scoped family is now ported,
+including the absorbed exclusion-family rebuild (task 16): the absorbed siblings ride the
+constraints:*_spec builders over pure-data population specs, so a NATIVE ERR is a real
+divergence to investigate, no longer an expected un-ported refusal.
 
 Usage:  python engine/tools/validate_parity.py [app1 app2 ...]
         APPS_DIR=/path/to/apps  AREST_BIN=/path/to/arest.exe   (optional)
