@@ -12715,7 +12715,14 @@ fn assemble_validator_for(
                     spec,
                     -1,
                 ))
-            } else if (kind == "subtype" || kind == "subset") && name == f0 && absorbed(&f3) {
+            // A projected trailing-if SUBSET (kind 'subset') is NOT rebuilt over
+            // the absorbed entity view — that view is vacuous when the entity has
+            // no own-table population (the no-RMAP-cell / implied-population class,
+            // 2026-07-13). Its named projected checker (via the stored name atom
+            // below) reads the retained cell and is sound; only a genuine SUBTYPE,
+            // with its own entity population, rebuilds. Mirrors the certified
+            // python validate_for._rebuilt fix (compiler.py, task 25/5df4ee12).
+            } else if kind == "subtype" && name == f0 && absorbed(&f3) {
                 Some(reduce_over_n(srv, atom(leaf("constraints:scoped_subset")), vp(&f3), -1))
             } else if kind == "equality" && name == format!("{}_a", f0) && absorbed(&f3) {
                 Some(reduce_over_n(srv, atom(leaf("constraints:scoped_equality_side")), vp(&f3), -1))
