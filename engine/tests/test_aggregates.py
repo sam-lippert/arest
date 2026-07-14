@@ -8,13 +8,10 @@ condition", Logical Data Modeling Part 13). Semantics per Halpin/Curland's ORM-t
 datalog mapping: the aggregate stratum sits above the positive closure (agg<<>> over a
 derived predicate), the head is functional per group, so recompute REPLACES — the old
 engine's documented misfold (a stale larger min surviving union-merge over a growing
-source) is this suite's regression case. min/max/sum/count are all LANDED and gated
+source) is this suite's regression case. min/max/sum/count/avg are all LANDED and gated
 below (2026-07-14: the historical 'count/sum/avg fall to ruleDiag until landed' note was
-stale, found dogfooding a decision through AREST). avg is the lone exception — it parses
-with NO diagnostic yet folds to EMPTY, a SILENT no-op that violates the loud-absent
-doctrine and should either fold or fall to ruleDiag; captured as a strict-xfail below."""
-import pytest
-
+stale — sum/count already folded, and avg was landed the same day as div(sum,count) in
+system:compile_agg_rule, all found+fixed dogfooding a decision through AREST)."""
 import pyarest.prims  # noqa: F401
 import pyarest.lam as L
 from pyarest.lam import atom as A, to_lam, from_lam
@@ -107,9 +104,8 @@ def test_count_folds_per_group():
     assert _fold("count") == {("a", 2), ("b", 1)}
 
 
-@pytest.mark.xfail(strict=True, reason="avg parses with NO rule diagnostic yet folds to "
-                   "EMPTY — a silent no-op that violates the loud-absent doctrine. It "
-                   "should fold (a:(5+3)/2=4, b:10) or fall to ruleDiag. Found 2026-07-14 "
-                   "dogfooding a Kepner-Tregoe decision (weighted scoring needs it).")
 def test_avg_folds_per_group():
+    # a: (5+3)/2=4, b: 10/1=10. Landed 2026-07-14 as div(sum, count) —
+    # COMP(div, CONS(/+, length)) in system:compile_agg_rule; div is a pure
+    # base primitive so the DEF stays litmus-pure.
     assert _fold("avg") == {("a", 4), ("b", 10)}

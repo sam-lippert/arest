@@ -1459,7 +1459,7 @@ def _coercion(clause, known):
 # the output and source are VARIABLES by the rule convention: numbered
 # (Count1 of Count2) or the corpus's unnumbered type-name spelling (Arity of
 # Role — the base's own Fact_Type_has_Arity rule)
-_AGG_CLAUSE = re.compile(r"^(.+?) is the (min|max|count|sum) of (.+)$")
+_AGG_CLAUSE = re.compile(r"^(.+?) is the (min|max|count|sum|avg) of (.+)$")
 _CMP_CLAUSE = re.compile(
     r"^(\S*\d\S*) (exceeds|is greater than|is less than|is at least|is at most|equals) (\S+)$")
 _CMP_OPS = {"exceeds": "gt", "is greater than": "gt", "is less than": "lt",
