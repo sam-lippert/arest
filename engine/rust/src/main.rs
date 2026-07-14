@@ -12560,18 +12560,21 @@ fn assemble_validator_for(
         fuel: std::cell::Cell::new(-1),
     };
     let absorbed = |ft: &str| ctx.part.get(ft).map(|t| t != ft).unwrap_or(false);
-    // _vp(ft) for an ABSORBED ft: the system:ftpop_absorbed<table,col> partial (awaits D),
-    // the FFP expression the scoped families consume (engine.py ftpop_expr).
+    // _vp(ft) for an ABSORBED ft: the PURE-DATA population spec ⟨"view", table, col⟩
+    // the spec-taking scoped builders consume (engine.py ftpop_spec) — the host marshals
+    // the spec, constraints:pop_of_spec reassembles through system:ftpop_absorbed. The
+    // earlier partial-expression form fed the absorbed expr to the NAME-taking builder,
+    // whose constraints:pop_of FetchPop'd it (a non-name → absent → EMPTY sibling); the
+    // spec twin reads the view correctly, same bytes as python (task 16).
     let vp = |ft: &str| -> V {
         let table = ctx.part.get(ft).cloned().unwrap_or_else(|| ft.to_string());
         let cols = mf_table_columns(&ev, &table, &ctx.pairs_v);
         let col = 2 + cols.iter().position(|c| c == ft).unwrap_or(0);
-        reduce_over_n(
-            srv,
-            atom(leaf("system:ftpop_absorbed")),
-            seq(from_vec(vec![atom(leaf(&table)), atom(Leaf::I(col as i64))])),
-            -1,
-        )
+        seq(from_vec(vec![
+            atom(leaf("view")),
+            atom(leaf(&table)),
+            atom(Leaf::I(col as i64)),
+        ]))
     };
     let mut local: Vec<V> = Vec::new();
     let mut local_alethic: Vec<V> = Vec::new();
@@ -12723,13 +12726,13 @@ fn assemble_validator_for(
             // with its own entity population, rebuilds. Mirrors the certified
             // python validate_for._rebuilt fix (compiler.py, task 25/5df4ee12).
             } else if kind == "subtype" && name == f0 && absorbed(&f3) {
-                Some(reduce_over_n(srv, atom(leaf("constraints:scoped_subset")), vp(&f3), -1))
+                Some(reduce_over_n(srv, atom(leaf("constraints:scoped_subset_spec")), vp(&f3), -1))
             } else if kind == "equality" && name == format!("{}_a", f0) && absorbed(&f3) {
-                Some(reduce_over_n(srv, atom(leaf("constraints:scoped_equality_side")), vp(&f3), -1))
+                Some(reduce_over_n(srv, atom(leaf("constraints:scoped_equality_side_spec")), vp(&f3), -1))
             } else if kind == "equality" && name == format!("{}_b", f0) && absorbed(&f2) {
-                Some(reduce_over_n(srv, atom(leaf("constraints:scoped_equality_side")), vp(&f2), -1))
+                Some(reduce_over_n(srv, atom(leaf("constraints:scoped_equality_side_spec")), vp(&f2), -1))
             } else if kind == "mandatory" && name == format!("{}_e", f0) && absorbed(&f2) {
-                Some(reduce_over_n(srv, atom(leaf("constraints:scoped_mandatory_facts")), vp(&f2), -1))
+                Some(reduce_over_n(srv, atom(leaf("constraints:scoped_mandatory_facts_spec")), vp(&f2), -1))
             } else if (kind == "exclusion" || kind == "exclusive_or" || kind == "disjunctive_mandatory")
                 && name.contains('@')
                 && it.len() >= 4

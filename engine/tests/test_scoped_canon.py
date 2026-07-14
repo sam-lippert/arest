@@ -1,11 +1,12 @@
-"""The string-parameterized scoped constraint families from the shared source. A
-scoped violation expression consumes ⟨P, D⟩, fetching sibling populations from the
-frozen D through ast:FetchPop — which is why these waited for the ast wave. The
-strict gates hand-build stores with sibling cells and assert absolute violations per
-family; the wrapper must agree with the canonical name. The EXPRESSION-parameterized
-branch (the RMAP view seam, where the sibling is an absorbed fact type reassembled
-through the index) stays host-side until system.canon migrates, and the wrappers keep
-that branch."""
+"""The scoped constraint families from the shared source. A scoped violation expression
+consumes ⟨P, D⟩, fetching sibling populations from the frozen D through ast:FetchPop —
+which is why these waited for the ast wave. The strict gates hand-build stores with
+sibling cells and assert absolute violations per family; the wrapper must agree with the
+canonical name. The absorbed-view seam (the sibling is an absorbed fact type reassembled
+through the index) is no longer a host composition: it is a PURE-DATA population spec —
+⟨'view', table, col⟩, or ⟨'cell', name⟩ for a plain sibling — read by
+constraints:pop_of_spec and folded by the spec-taking sibling builders (scoped_*_spec),
+certified below and end-to-end in test_scoped_view (task 16)."""
 import pyarest.prims  # noqa: F401
 import pyarest.lam as L
 from pyarest.lam import to_lam, from_lam, atom as A
@@ -62,9 +63,29 @@ def test_scoped_equality_side_from_the_canon():
     assert _run(C.scoped_equality_side("O"), P, D) == {("a",), ("c",)}
 
 
-def test_the_expression_branch_stays_host_side_and_working():
-    # the RMAP view seam: a ready population EXPRESSION over D instead of a name
+def test_the_pure_data_spec_branch_replaces_the_host_composition():
+    # task 16: the absorbed-view seam is a PURE-DATA spec, not a host expression.
+    # A ⟨'cell', name⟩ spec reads the named sibling via constraints:pop_of_spec and
+    # AGREES with the name-taking builder, across all three migrated families; the
+    # ⟨'view', table, col⟩ (absorbed) case is exercised end-to-end in test_scoped_view.
+    import pytest
     D = _D(("B", (("a",),)))
+    P = (("a",), ("c",))
+    assert _run(C.scoped_subset(("cell", "B")), P, D) \
+        == _name("constraints:scoped_subset", "B", P, D) == {("c",)}
+
+    De = _D(("O", (("b",), ("c",))))
+    Pe = (("a",), ("b",))
+    assert _run(C.scoped_equality_side(("cell", "O")), Pe, De) \
+        == _name("constraints:scoped_equality_side", "O", Pe, De) == {("a",), ("c",)}
+
+    Dm = _D(("F", (("p2", "y"),)))
+    ents = (("p1",), ("p2",))
+    assert _run(C.scoped_mandatory_facts(("cell", "F")), ents, Dm) \
+        == _name("constraints:scoped_mandatory_facts", "F", ents, Dm) == {("p1",)}
+
+    # the host closure is retired: a raw population expression is no longer accepted,
+    # the RMAP seam marshals a spec (compiler _vp) instead of composing a term
     expr = __import__("pyarest.ast", fromlist=["FetchPop"]).FetchPop("B")
-    v = _run(C.scoped_subset(expr), (("a",), ("c",)), D)
-    assert v == {("c",)}
+    with pytest.raises(TypeError):
+        C.scoped_subset(expr)

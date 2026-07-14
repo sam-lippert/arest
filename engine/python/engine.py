@@ -538,14 +538,21 @@ def _pop_of(cell_name):
 _P = _1                                                       # ⟨P,D⟩ → the target population
 
 
-def _scoped(name, cell, host):
-    """A string cell name applies the canonical builder; a ready population
-    EXPRESSION (the RMAP view seam) keeps the host composition until system.canon
-    migrates."""
+def _scoped(name, cell, host=None):
+    """A string cell name applies the canonical name-taking builder; a pure-data
+    population SPEC (⟨'cell', name⟩, or the absorbed-view ⟨'view', table, col⟩)
+    applies the spec-taking sibling name+'_spec' — constraints:pop_of_spec reads
+    either. BOTH ride the canon: the host composition the RMAP view seam once
+    needed is retired (task 16). A legacy `host` closure is honored only where no
+    spec sibling exists yet (scoped_mandatory_entities), never for the migrated
+    three (subset, mandatory_facts, equality_side)."""
+    from .reduce import apply as _apply
     if isinstance(cell, str):
-        from .reduce import apply as _apply
         return _apply(A(name), A(cell))
-    return host()
+    if host is not None:
+        return host()
+    from .lam import to_lam as _tl
+    return _apply(A(name + "_spec"), _tl(tuple(cell)))
 
 
 def scoped_mandatory_entities(entity_cell):
@@ -561,13 +568,10 @@ def scoped_mandatory_entities(entity_cell):
 
 def scoped_mandatory_facts(ft_cell):
     """Mandatory, attached to the ENTITY cell (P = the entity population): the entities of
-    P that play no fact in the fact-type cell. V = π1(P) ∖ π1(↑ft). Canonical for a
-    named sibling."""
-    def host():
-        ents = _S(_COMP, T.Project([1]), _P)
-        players = _S(_COMP, T.Project([1]), _pop_of(ft_cell))
-        return _S(_COMP, T.setminus, _S(_CONS, ents, players))
-    return _scoped("constraints:scoped_mandatory_facts", ft_cell, host)
+    P that play no fact in the fact-type cell. V = π1(P) ∖ π1(↑ft). A named sibling applies
+    constraints:scoped_mandatory_facts; an ABSORBED one a pure-data ⟨'view', table, col⟩
+    spec through constraints:scoped_mandatory_facts_spec (task 16)."""
+    return _scoped("constraints:scoped_mandatory_facts", ft_cell)
 
 
 def scoped_mandatory_entities_implied(spec_rows, pos=1):
@@ -604,10 +608,9 @@ def implied_member(ft, col, ft_under, partition=None):
 def scoped_subset(consequent_cell):
     """Subset A ⊆ B, attached to the antecedent cell (P = A): V = P ∖ ↑B, tuple-wise —
     the clause readings resolve to fact types whose role order matches (modus ponens).
-    Canonical for a named sibling."""
-    def host():
-        return _S(_COMP, T.setminus, _S(_CONS, _P, _pop_of(consequent_cell)))
-    return _scoped("constraints:scoped_subset", consequent_cell, host)
+    A named sibling applies constraints:scoped_subset; an ABSORBED one a pure-data
+    ⟨'view', table, col⟩ spec through constraints:scoped_subset_spec (task 16)."""
+    return _scoped("constraints:scoped_subset", consequent_cell)
 
 
 def _value_filter(pos, lit):
@@ -710,12 +713,10 @@ def scoped_subset_projected(consequent_cell, proj_p, proj_c):
 
 def scoped_equality_side(other_cell):
     """Equality A = B, attached to ONE side (P = this side): the symmetric difference
-    (P ∖ ↑other) ∪ (↑other ∖ P). Canonical for a named sibling."""
-    def host():
-        ab = _S(_COMP, T.setminus, _S(_CONS, _P, _pop_of(other_cell)))
-        ba = _S(_COMP, T.setminus, _S(_CONS, _pop_of(other_cell), _P))
-        return _S(_COMP, _CAT, _S(_CONS, ab, ba))
-    return _scoped("constraints:scoped_equality_side", other_cell, host)
+    (P ∖ ↑other) ∪ (↑other ∖ P). A named sibling applies constraints:scoped_equality_side;
+    an ABSORBED one a pure-data ⟨'view', table, col⟩ spec through
+    constraints:scoped_equality_side_spec (task 16)."""
+    return _scoped("constraints:scoped_equality_side", other_cell)
 
 
 def value_comparison(op, col, lit):
@@ -3401,6 +3402,20 @@ def ftpop_expr(ft, partition):
         return ast.FetchPop(ft)
     col = 2 + table_columns(partition, table).index(ft)
     return _apply(A("system:ftpop_absorbed"), _S(A(table), A(col)))
+
+
+def ftpop_spec(ft, partition):
+    """The fact type's population as a PURE-DATA population spec for the spec-taking
+    scoped builders (constraints:pop_of_spec): a plain fact type reads ⟨'cell', ft⟩;
+    an ABSORBED one the RMAP view ⟨'view', table, col⟩ with col = 2 + the ftpop_absorbed
+    column. The canon twin of ftpop_expr, but data not expression — the host marshals the
+    spec and the canon reassembles, so the absorbed rebuild rides the builder instead of a
+    host composition (task 16)."""
+    table = partition.get(ft, ft)
+    if table == ft:
+        return ("cell", ft)
+    col = 2 + table_columns(partition, table).index(ft)
+    return ("view", table, col)
 
 
 def row_validate(D, ft, partition):
