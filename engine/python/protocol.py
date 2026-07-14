@@ -2037,9 +2037,27 @@ class Registry:
         return receipt
 
     # ---- reads ----
+    def _load_sidecar(self, name):
+        """Rebuild D from <name>.store.json when no .db exists. A natively-compiled
+        app never writes a .db (the Rust resident writes only the sidecar), so the
+        python read path would otherwise fail 'no store'. _conv is tuple->list, so
+        _untuple inverts it and to_lam rebuilds the store; the result is byte-for-byte
+        the db-loaded D (verified, task 24 item 2), so every read/validate over it
+        matches the .db path. Only 'd' is needed — the process defs ride in D."""
+        from .tools import _untuple
+        from .lam import to_lam
+        path = os.path.join(self._app_dir(name), f"{name}.store.json")
+        if not os.path.exists(path):
+            return None
+        with open(path, encoding="utf-8") as f:
+            payload = json.load(f)
+        return to_lam(_untuple(payload["d"]))
+
     def _load(self, name):
         drv = self._storage(name)
         D = drv.load()
+        if D is None:
+            D = self._load_sidecar(name)                      # native-compiled: no .db
         if D is None:
             raise FileNotFoundError(f"app {name!r} is not compiled (no store)")
         # the STREAM is the store of record and the snapshot is disposable, so
