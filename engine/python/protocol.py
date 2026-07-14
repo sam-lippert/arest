@@ -1869,8 +1869,10 @@ class Registry:
         _tp = _phase("sidecar", _tp)
         # the RMAP 3NF projection rides with a SQL backend (the GraphDL
         # contract: the relational tables downstream consumers read); an object
-        # backend has no relational surface and skips it
-        if drv.sql:
+        # backend has no relational surface and skips it, as does a store_only
+        # compile (task 18: ask/induce/propose read the store D via _load, never
+        # the sqlite projection, so the read-only oracle suites do not need it)
+        if drv.sql and not store_only:
             rep["projected"] = drv.project(D)
             _tp = _phase("sql-project", _tp)
         rep["app"] = name
