@@ -83,14 +83,16 @@ def test_readings_load_recursively_app_md_first(tmp_path):
 def test_the_vendored_base_is_the_old_engines_backbone():
     # the eight CORE_READINGS files plus the deployed evolution overlay
     # (evolution + csdp — the live tasks db carries Domain Change and Rmap
-    # machinery, proving the old binary compiled them in); no compile here
-    # (the suite pays the base ingest only through the registry tests' tiny base)
+    # machinery, proving the old binary compiled them in) plus resolution.md,
+    # the Resolution Registry Catalog (the REGISTERED-class override catalog,
+    # added with task 11, ebaf484f); no compile here (the suite pays the base
+    # ingest only through the registry tests' tiny base)
     from pyarest import canon as paths
     d = os.path.join(paths.root(), "shared", "base")
     names = sorted(os.listdir(d))
     assert names == ["core.md", "csdp.md", "evolution.md", "induction.md",
-                     "instances.md", "naming.md", "outcomes.md", "security.md",
-                     "state.md", "validation.md"]
+                     "instances.md", "naming.md", "outcomes.md", "resolution.md",
+                     "security.md", "state.md", "validation.md"]
     text = "\n\n".join(open(os.path.join(d, n), encoding="utf-8").read()
                        for n in names)
     assert len(forml.statements(text)) > 900
