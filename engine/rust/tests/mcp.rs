@@ -76,6 +76,7 @@ impl Mcp {
             .env("AREST_NATIVE_RETRACT", "1")
             .env("AREST_NATIVE_EXPLAIN", "1")
             .env("AREST_NATIVE_ASK", "1")
+            .env("AREST_NATIVE_PROPOSE", "1")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -604,6 +605,27 @@ fn the_write_path_retracts_with_no_python() {
     assert!(
         r.contains(r#"\"rows\":[]"#),
         "a missing noun drops every row: {r}"
+    );
+
+    // ---- propose, natively: the dry-run compiles the candidate text on a
+    // throwaway store and reports the would-declare factType delta; the
+    // resident store is untouched (a query after still sees only p1) ----
+    let r = c.rpc_slow(concat!(
+        r#"{"jsonrpc":"2.0","id":13,"method":"tools/call","params":"#,
+        r#"{"name":"propose","arguments":{"app":"board","text":"#,
+        r#""Rank is a value type.\nPerson has Rank.\n"}}}"#
+    ));
+    assert!(
+        r.contains(r#"\"would_declare\":[\"Person_has_Rank\"]"#),
+        "propose must report the would-declare delta: {r}"
+    );
+    let r = c.rpc(concat!(
+        r#"{"jsonrpc":"2.0","id":14,"method":"tools/call","params":"#,
+        r#"{"name":"query","arguments":{"fact_type":"factType"}}}"#
+    ));
+    assert!(
+        !r.contains(r#"Person_has_Rank"#),
+        "propose persists nothing; the resident model is unchanged: {r}"
     );
 
     drop(c);

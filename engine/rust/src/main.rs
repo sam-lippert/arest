@@ -1404,6 +1404,7 @@ pub const HOST_OVERRIDES: &[&str] = &[
     "schema",
     "explain",
     "ask",
+    "propose",
 ];
 
 thread_local! {
@@ -14115,6 +14116,107 @@ fn vo_ask(args: &J, apps: &mut Apps, srv: &mut Srv) -> Option<Result<String, (i6
     native_ask(args, apps, srv)
 }
 
+// propose: the authoring dry-run. The candidate text compiles ATOP the
+// resident model on a THROWAWAY store (op_base_seed + op_compile_model with
+// context_from=resident, the same save/scratch/restore native_apps_compile
+// uses, persisting nothing), then the JUDGMENT — what the text would
+// declare, the sorted factType delta — reduces system:propose_report over
+// ⟨after, before⟩. The compile's own report carries unclassified/prose/
+// diagnostics. Native when AREST_NATIVE_PROPOSE or no CLI resolves.
+#[cfg(feature = "host")]
+fn native_propose(args: &J, apps: &Apps, srv: &mut Srv) -> Option<Result<String, (i64, String)>> {
+    let app = match &apps.current {
+        Some(n) => n.clone(),
+        None => return Some(Err((-32602,
+            "no app loaded; call apps_use before propose".to_string()))),
+    };
+    let text = match jget(args, "text") {
+        Some(J::S(t)) => t.clone(),
+        _ => return Some(Err((-32602,
+            "propose needs a string text".to_string()))),
+    };
+    let leaf = |s: &str| Leaf::S(s.to_string());
+    let ft_names = |cells: &[(Leaf, V)]| -> Vec<V> {
+        cells
+            .iter()
+            .find(|(k, _)| matches!(k, Leaf::S(s) if s == "factType"))
+            .map(|(_, v)| {
+                items(&list_of(v))
+                    .iter()
+                    .filter_map(|r| {
+                        let it = items(&list_of(r));
+                        it.first().cloned()
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let before = ft_names(&srv.cells);
+    // save the resident store; base_seed + compile_model run srv as scratch
+    let saved = (srv.d.clone(), srv.cells.clone(), srv.nd.clone(),
+                 srv.ncells.clone(), srv.nprocess.clone());
+    if let Err(e) = op_base_seed(&J::O(Vec::new()), srv) {
+        return Some(Err((-32603, format!("base_seed: {}", e))));
+    }
+    let req = J::O(vec![
+        ("text".to_string(), J::S(text)),
+        ("context_from".to_string(), J::S("resident".to_string())),
+    ]);
+    let report = op_compile_model(&req, srv);
+    let after = ft_names(&srv.cells);
+    // the sorted would-declare delta is canon (system:propose_report)
+    let would = reduce_over_n(
+        srv,
+        atom(leaf("system:propose_report")),
+        seq(from_vec(vec![seq(from_vec(after)), seq(from_vec(before))])),
+        -1,
+    );
+    // restore the resident store (side-effect-free, matching the delegate)
+    srv.d = saved.0;
+    srv.cells = saved.1;
+    srv.nd = saved.2;
+    srv.ncells = saved.3;
+    srv.nprocess = saved.4;
+    let report = match report {
+        Ok(r) => r,
+        Err(e) => return Some(Err((-32603, format!("compile_model: {}", e)))),
+    };
+    let field = |key: &str| -> String {
+        parse_json(&report)
+            .and_then(|d| jget(&d, key).map(|v| {
+                let mut s = String::new();
+                write_j(v, &mut s);
+                s
+            }))
+            .unwrap_or_else(|| "[]".to_string())
+    };
+    let mut r = String::from("{\"app\":");
+    esc(&app, &mut r);
+    r.push_str(",\"would_declare\":[");
+    for (i, n) in items(&list_of(&would)).iter().enumerate() {
+        if i > 0 {
+            r.push(',');
+        }
+        write_v(n, &mut r);
+    }
+    r.push_str("],\"unclassified\":");
+    r.push_str(&field("unparsed"));
+    r.push_str(",\"prose\":");
+    r.push_str(&field("prose"));
+    r.push_str(",\"diagnostics\":");
+    r.push_str(&field("rule_diagnostics"));
+    r.push('}');
+    Some(Ok(r))
+}
+
+#[cfg(feature = "host")]
+fn vo_propose(args: &J, apps: &mut Apps, srv: &mut Srv) -> Option<Result<String, (i64, String)>> {
+    if std::env::var_os("AREST_NATIVE_PROPOSE").is_none() && apps.cli.is_some() {
+        return None;
+    }
+    native_propose(args, apps, srv)
+}
+
 #[cfg(feature = "host")]
 type VerbOverride = fn(&J, &mut Apps, &mut Srv) -> Option<Result<String, (i64, String)>>;
 #[cfg(feature = "host")]
@@ -14126,6 +14228,7 @@ const VERB_OVERRIDES: &[(&str, VerbOverride)] = &[
     ("validate", vo_validate),
     ("explain", vo_explain),
     ("ask", vo_ask),
+    ("propose", vo_propose),
 ];
 #[cfg(feature = "host")]
 fn resolve_verb(tool: &str, args: &J, apps: &mut Apps, srv: &mut Srv) -> Option<Result<String, (i64, String)>> {
