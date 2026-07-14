@@ -18,10 +18,14 @@
     <EmbeddedResource Remove="show/**" />
     <None Remove="show/**" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" />
+  </ItemGroup>
 
-  <!-- Spec v3 (2026-07-13): the canon boots from shared/canon.store.json
-       through StoreCanon.cs (a store loader and a mu); the WrapCanon
-       byte-wrap target, the generated Canon.g.cs, and Vocabulary.cs are
-       retired. -->
+  <!-- Same-bytes native execution (task 14): RoslynLoader.cs compiles the
+       raw shared/*.canon bytes in memory via Roslyn against Vocabulary.cs;
+       no MSBuild WrapCanon byte-wrap, no generated Canon.g.cs, no JSON
+       store. Performance stays via registered overrides, never a JSON
+       intermediate. -->
 
 </Project>
