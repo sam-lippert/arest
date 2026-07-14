@@ -2532,6 +2532,111 @@ fn h_subset_trailing(
     h_crows(&redirected, m, srv)
 }
 
+// _h_subset (compiler.py): NORMA's Conditional snippet 'if {0} then {1}' (usedBy
+// SubsetConstraint) — 'If A then B' is A subset of B on the roles the two clauses
+// SHARE by noun. The antecedent introduces the entities ('some Message'), the
+// consequent re-uses them ('that Message'); a role bound in BOTH projects. The
+// subset attaches to the antecedent cell (its rows unmatched in the consequent
+// violate). Mirrors the Python _h_subset; the role-projection slice has landed
+// (constraints:scoped_subset_projected), so the old refusal is retired (task 17).
+fn h_subset(
+    g: &[Option<String>],
+    k: &Known,
+    m: &str,
+    srv: &Srv,
+) -> Result<(Asserts, Objs), String> {
+    let ante = g[0].as_deref().unwrap_or("");
+    let cons_txt = g[1].as_deref().unwrap_or("");
+    if ante.contains('\'') || cons_txt.contains('\'') {
+        return Err(format!(
+            "value-restricted if-then subset awaits its slice: {}",
+            take_chars(ante, 60)
+        ));
+    }
+    if ante.contains(" and ")
+        || ante.contains(" or ")
+        || cons_txt.contains(" and ")
+        || cons_txt.contains(" or ")
+    {
+        return Err(format!(
+            "compound if-then subset awaits the join slice: {}",
+            take_chars(ante, 60)
+        ));
+    }
+    let (a_ft, a_roles) = clause_ft_roles(ante, k);
+    let (b_ft, b_roles) = clause_ft_roles(cons_txt, k);
+    if !k.fts.contains(&a_ft) {
+        return Err(format!(
+            "if-then antecedent does not resolve to a declared fact type: {}",
+            take_chars(ante, 60)
+        ));
+    }
+    if !k.plain.contains(&a_ft) {
+        return Err(format!(
+            "derived antecedent: the rule path owns the implication: {}",
+            take_chars(ante, 60)
+        ));
+    }
+    if !k.fts.contains(&b_ft) || b_ft == a_ft {
+        return Err(format!(
+            "if-then consequent does not resolve to a distinct declared fact type: {}",
+            take_chars(cons_txt, 60)
+        ));
+    }
+    // roles bound in BOTH clauses (by noun, once each) project
+    let mut shared: Vec<String> = Vec::new();
+    for n in &a_roles {
+        if b_roles.contains(n)
+            && a_roles.iter().filter(|r| *r == n).count() == 1
+            && b_roles.iter().filter(|r| *r == n).count() == 1
+        {
+            shared.push(n.clone());
+        }
+    }
+    if shared.is_empty() {
+        return Err(format!(
+            "no shared role binding across the if-then clauses: {}",
+            take_chars(ante, 60)
+        ));
+    }
+    let proj_a: Vec<i64> = shared
+        .iter()
+        .map(|n| (a_roles.iter().position(|r| r == n).unwrap() + 1) as i64)
+        .collect();
+    let proj_b: Vec<i64> = shared
+        .iter()
+        .map(|n| (b_roles.iter().position(|r| r == n).unwrap() + 1) as i64)
+        .collect();
+    let crows = cook_cs(
+        "subset",
+        "",
+        &[a_ft.clone(), b_ft.clone()],
+        &[ante.trim().to_string(), cons_txt.trim().to_string()],
+        srv,
+    )?;
+    let op = vec![
+        vs(&b_ft),
+        vt(proj_a.iter().map(|p| Val::I(*p)).collect()),
+        vt(proj_b.iter().map(|p| Val::I(*p)).collect()),
+    ];
+    let redirected = Crows {
+        decl: crows.decl.clone(),
+        mid: crows.mid.clone(),
+        ospecs: crows
+            .ospecs
+            .iter()
+            .map(|(cell, _b, _o)| {
+                (
+                    cell.clone(),
+                    "constraints:scoped_subset_projected".to_string(),
+                    Val::T(op.clone()),
+                )
+            })
+            .collect(),
+    };
+    h_crows(&redirected, m, srv)
+}
+
 // the deontic fact_type_reading transform (_plan, compiler.py): the inner
 // proposition declares its fact type and one constraint row rides with the
 // operator, the span, the quoted values, and the deontic tail
@@ -3543,9 +3648,7 @@ pub fn plan(
         "brace_subtypes" => h_brace_subtypes(g, m, srv),
         "set_comparison" => h_set_comparison(g, m, k, srv),
         "disjunctive_mandatory" => h_disjunctive(g, m, k, srv),
-        "subset" => Err(
-            "subset translation awaits role projection (set-comparison arc)".to_string(),
-        ),
+        "subset" => h_subset(g, k, m, srv),
         "subset_trailing" => h_subset_trailing(g, k, m, sign, srv),
         "equality" => h_equality(g, m, k, srv),
         "finality" => {

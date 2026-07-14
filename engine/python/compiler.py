@@ -1050,33 +1050,53 @@ def _h_disjunctive(g, k, m):
                     [t for t, _ in pairs], m)
 
 def _h_subset(g, k, m):
+    """NORMA verbalizes SubsetConstraint with the Conditional snippet 'if {0}
+    then {1}' (ORMModel/ObjectModel/VerbalizationDocumentation.xml, usedBy
+    SubsetConstraint), so 'If A then B' is the canonical join-subset reading:
+    A ⊆ B on the roles the two clauses SHARE by noun. Unlike the trailing
+    'X if Y' form (one 'that'-anaphor binds the asserted head, _h_subset_trailing),
+    here the ANTECEDENT introduces the entities ('some Message', 'some Rep') and
+    the CONSEQUENT re-uses them ('that Message', 'that Rep'); a role bound in BOTH
+    clauses projects. The subset attaches to the antecedent cell (its rows not
+    matched in the consequent violate). The role-projection slice HAS landed
+    (constraints:scoped_subset_projected), so the earlier 'awaits projection'
+    refusal is retired (task 17, ORM2 conformance to NORMA)."""
     ante, cons_txt = g
-    conseq, _sep, where = cons_txt.partition(" where ")
-    a_ft = _clause_ft(ante, k)
-    c_ft = _clause_ft(conseq, k)
     fts = getattr(k, "fts", None) or ()
-    # resolve-or-refuse (the composite-UC discipline, f09449e5): a side
-    # that names no DECLARED fact type refuses loudly — a subset over
-    # phantom cells is a silently unenforced constraint (_clause_ft's
-    # own lesson). A ' where ' join refuses too: this thin path used to
-    # DISCARD it. Both sides resolving to the SAME ft is the
-    # reversed-binding class (a tuple-wise P minus P is vacuously
-    # satisfied, never the symmetry the author meant).
-    if where or a_ft not in fts or c_ft not in fts or a_ft == c_ft:
-        raise ValueError(
-            "subset clause does not resolve to two declared fact types: "
-            f"{ante!r} -> {conseq!r}")
-    # THE ROLE-PROJECTION GATE (set-comparison arc): scoped_subset
-    # compares tuple-wise and the clause context carries no role
-    # signatures yet, so a mint here could silently check the wrong
-    # columns. Refuse until the projection slice lands; delete this
-    # raise with it.
-    raise ValueError(
-        "subset translation awaits role projection (set-comparison arc): "
-        f"{ante!r} -> {conseq!r}")
-    return _cs_call("subset", "",
-                    [a_ft, c_ft],
-                    [ante, conseq], m)
+    plain = getattr(k, "plain", None) or ()
+    if "'" in ante or "'" in cons_txt:
+        raise ValueError("value-restricted if-then subset awaits its slice: "
+                         + ante[:60])
+    if any(j in ante or j in cons_txt for j in (" and ", " or ")):
+        raise ValueError("compound if-then subset awaits the join slice: "
+                         + ante[:60])
+    a_ft, a_roles = _clause_ft_roles(ante, k)
+    b_ft, b_roles = _clause_ft_roles(cons_txt, k)
+    if a_ft not in fts:
+        raise ValueError("if-then antecedent does not resolve to a declared "
+                         "fact type: " + ante[:60])
+    if a_ft not in plain:
+        raise ValueError("derived antecedent: the rule path owns the "
+                         "implication: " + ante[:60])
+    if b_ft not in fts or b_ft == a_ft:
+        raise ValueError("if-then consequent does not resolve to a distinct "
+                         "declared fact type: " + cons_txt[:60])
+    # roles bound in BOTH clauses (by noun, once each) project — the consequent's
+    # 'that <Noun>' re-uses the antecedent's 'some <Noun>'
+    shared = [n for n in a_roles
+              if n in b_roles and a_roles.count(n) == 1 and b_roles.count(n) == 1]
+    if not shared:
+        raise ValueError("no shared role binding across the if-then clauses: "
+                         + ante[:60])
+    proj_a = tuple(a_roles.index(n) + 1 for n in shared)
+    proj_b = tuple(b_roles.index(n) + 1 for n in shared)
+    decl, mid, ospecs = _cook_cs("subset", "", [a_ft, b_ft],
+                                 [ante.strip(), cons_txt.strip()])
+    op = (b_ft, proj_a, proj_b)
+    return _h_crows((decl, mid,
+                     tuple((cell, "constraints:scoped_subset_projected", op)
+                           for (cell, _b, _o) in ospecs)),
+                    k, m)
 
 def _h_equality(g, k, m):
     return _cs_call("equality", "",
