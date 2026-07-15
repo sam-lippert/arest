@@ -1,58 +1,55 @@
-# js-runner
+# js-runner — the checker
 
-The first executing host in Elysium: a thin mu-evaluator (~90 lines) over
-the `arest` canon, per Backus's FFP — atoms resolve through DEFS, numbers
-are selectors, sequences are functional forms (COMP, CONS, CONST, COND,
-ALPHA, INSERT, WHILE) — plus the base primitive set the canon composes
-with (id, tl, apndl/apndr, distl/distr, cat, null, eq, not, and, length,
-le/ge/gt, +, apply). Representations are plain data: the vocabulary
-binding maps A/N/K/PHI/S1..S9 to atoms, numbers, and arrays, so the same
-canon bytes the other hosts read are what mu evaluates.
+A quick-and-dirty mu over the `arest` canon, and nothing more than that
+by ruling: it exists to hold the canon to its laws, never for
+production — Rust-to-WASM generates the production execution artifacts.
+Station 'checker' in constitution.md.
+
+The mu (~90 lines): atoms resolve through DEFS, numbers are selectors,
+sequences are functional forms (COMP, CONS, CONST, COND, ALPHA, INSERT,
+WHILE), plus the base primitives (id, tl, atom, apndl/apndr,
+distl/distr, cat, null, eq, not, and, length, le/ge/gt, +, apply).
+Representations are plain data, so the same canon bytes every host
+reads are what mu evaluates. An unresolved atom throws, which makes the
+registered boundary visible at runtime: `csdp` stops at
+`csdp:elementarize` until a registration supplies it.
 
     node run.js
 
-executes the canon's `rmap` definition over the design state the NORMA
-oracle emitted (`tools/norma-oracle/design-state.json`: one entry per
-parsed fact type — generated name, players collapsed to their top
-supertypes per RMAP 10.3 step 0, internal UC spans as 1-based positions)
-and confirms the resulting schema against NORMA's own RMAP output
-(`norma-tables.json`). Both forms of the canon's output are written to
-`js-schema.json`: the STORE (a sequence of ⟨CELL, name, rows⟩ — entity
-cells carrying wide rows per absorption group, relation cells per
-separated fact type; Backus 13.3.4/14.3, the paper's "RMAP assigns each
-entity its own cell") and the SCHEMA (the same content as full fact-type
-descriptors — output type = input type).
+Inputs and outputs are INTERSECTION SOURCE only (the pure-math carrier
+ruling — JSON and its kin live at the registration edge, never inside
+Elysium): `../norma-oracle/design-state` (fact-type descriptors with
+top-collapsed players, UC position spans, and the attributed instance
+populations; entity populations; nestings) and
+`../norma-oracle/norma-answer` (NORMA's RMAP tables), both evaluated
+with the same vocabulary binding as the canon. Long collections nest in
+chunks of nine; consumers unfold — through the canon's own
+theta:flatten — until the documented leaf shape appears. The checker's
+own answer is written the same way (`checker-answer`).
 
-Two laws are checked by evaluating the canon itself, every run:
+Laws held on every run, all evaluated through the canon itself:
 
-- L1, fixpoint: re-classifying the emitted schema reproduces its keys
-  and separations, and the projection descriptors pass through
-  unchanged — rmap is idempotent on its own output.
-- L2, a table IS fetch: the canon's own `ast:Fetch` builder, evaluated
-  by the same mu against the emitted store, returns each cell's
-  contents — Backus's up-arrow-n and Codd's restrict-then-project on
-  the name component are the same operator, executed.
+- L1, fixpoint: re-classifying rmap's emitted schema reproduces its
+  keys and separations; projection descriptors pass through unchanged.
+- L2, a table IS fetch: the canon's own ast:Fetch, against the emitted
+  store, returns each cell's contents — Backus's up-arrow-n and Codd's
+  restrict-then-project, executed as one operator.
+- L3, origin boundary: manifest:origins over the canon-as-store answers
+  compiled = exactly the DEFs, and every hand-declared registered name
+  (resolution.md's boundary rows, read from the design state's own
+  populations) falls inside the computed registered set. The computed
+  set over-approximates by design — the walk is total because any atom
+  can reach operator position through apply — and the extras are
+  reported.
+- L4, population consistency: every DECLARED single-role key holds in
+  the attributed rows — csdp:s4's uniqueness induction, run backwards
+  as a data check. Induced-beyond-declared candidates are reported as
+  small-sample information, never as findings.
 
-Slot convention in wide rows: a PRESENT slot is the 1-sequence of the
-member fact's nonkey values (a present unary's value sequence is itself
-phi, and stays distinguishable); phi marks absence.
-
-What is compared (exactly): classification and grouping — every fact
-type the canon separates (rule 1) must be a NORMA table, matched by
-generated fact name or objectifying-type name, and every NORMA fact
-table must be canon-separated; every rule-2 absorption key the canon
-derives must have a NORMA table absorbing its columns, and every NORMA
-absorbing table must be a canon key. What is not: column naming (NORMA
-emits role-qualified names, the canon emits absorbed fact names; counts
-are reported) and the value-domain-only tables NORMA mints for
-independent value types (no fact content — outside rmap's mapping).
-
-Known tolerated divergence, reported as a note when it occurs: NORMA's
-objectified-identity tie-break (see the oracle README) sometimes absorbs
-an explicitly objectified type's identity table into a fact table that
-already carries its identity columns; the runner accepts that shape when
-every player of the separated fact is covered by some table's columns.
-
-An unresolved atom throws — which makes the registered boundary (Def 9,
-origin=registered) visible at runtime: evaluating `csdp` here stops at
-`csdp:elementarize` by design until a registration supplies it.
+Plus the schema comparison: every fact type the canon separates must be
+a NORMA table (by generated or objectifying-type name) and vice versa;
+every canon absorption key must have a NORMA table absorbing its
+columns and vice versa. Value-domain-only tables are excluded as NORMA
+data-type artifacts; column naming is out of scope (counts reported);
+the objectified-identity tie-break (oracle README) is tolerated with a
+note. Any law failure or schema mismatch exits nonzero.

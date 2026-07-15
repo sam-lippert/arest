@@ -219,6 +219,16 @@ namespace Elysium.NormaOracle
 				verifier.ReplayDeferred();
 				t.Commit();
 			}
+			using (Transaction t = store.TransactionManager.BeginTransaction("textual constraints"))
+			{
+				verifier.BuildTextualConstraints();
+				t.Commit();
+			}
+			using (Transaction t = store.TransactionManager.BeginTransaction("instance facts"))
+			{
+				verifier.AttributeInstanceFacts();
+				t.Commit();
+			}
 			List<string> assumed;
 			using (Transaction t = store.TransactionManager.BeginTransaction("set semantics"))
 			{
@@ -260,14 +270,15 @@ namespace Elysium.NormaOracle
 			Console.WriteLine("== RMAP: relational result ==");
 			Verifier.DumpRelational(store, assemblies[4], Console.Out);
 
-			// cross-check inputs for the thin JS runner (tools/js-runner):
-			// the design state the canon's rmap def consumes, and NORMA's own
-			// RMAP output to confirm against.
-			verifier.WriteDesignState("design-state.json");
-			Verifier.WriteTablesJson(store, assemblies[4], "norma-tables.json");
+			// cross-check inputs for the checker (tools/js-runner), in the
+			// intersection dialect per the pure-math carrier ruling: the
+			// design state the canon's defs consume, and NORMA's own RMAP
+			// answer to confirm against.
+			verifier.WriteDesignState("design-state");
+			Verifier.WriteNormaAnswer(store, assemblies[4], "norma-answer");
 			Console.WriteLine();
-			Console.WriteLine("== js-runner inputs ==");
-			Console.WriteLine("  written: design-state.json, norma-tables.json");
+			Console.WriteLine("== checker inputs ==");
+			Console.WriteLine("  written: design-state, norma-answer (intersection source)");
 
 			// 5. Verbalization leg — NORMA's generate-only direction (the
 			// automated verbalizer of Halpin & Curland 2006). The harness
@@ -278,20 +289,27 @@ namespace Elysium.NormaOracle
 			// text distillation is written alongside for reading and diffs.
 			Console.WriteLine();
 			Console.WriteLine("== VERBALIZATION: NORMA generate leg (nf out-direction) ==");
+			// FACT TYPES FIRST: the verbalization engine dedups — once an
+			// object-type block lists a fact's reading, the fact-type element
+			// is "already verbalized" and its CONSTRAINTS never emit. Leading
+			// with fact types makes every reading carry its constraints.
 			var verbalizeElements = new List<ModelElement>();
-			foreach (ObjectType ot in model.ObjectTypeCollection.OrderBy(o => o.Name, StringComparer.Ordinal))
-			{
-				if (!ot.IsImplicitBooleanValue)
-				{
-					verbalizeElements.Add(ot);
-				}
-			}
 			foreach (FactType ft in model.FactTypeCollection.OrderBy(f => f.Name, StringComparer.Ordinal))
 			{
 				if (ft.ImpliedByObjectification == null)
 				{
 					verbalizeElements.Add(ft);
 				}
+			}
+			foreach (ObjectType ot in model.ObjectTypeCollection.OrderBy(o => o.Name, StringComparer.Ordinal))
+			{
+				if (ot.IsImplicitBooleanValue) continue;
+				// implied objectifying types exist for NORMA's own m:n
+				// machinery; their link-fact readings are the documented ring
+				// twins and not part of the model's own sentence surface
+				Objectification nesting = ot.Objectification;
+				if (nesting != null && nesting.IsImplied) continue;
+				verbalizeElements.Add(ot);
 			}
 			VerbalizationManager verbalizationManager = VerbalizationManager.LoadFromDirectories(new string[] { "." });
 			var htmlBuffer = new System.Text.StringBuilder();
@@ -315,6 +333,140 @@ namespace Elysium.NormaOracle
 			Console.WriteLine("  elements verbalized: " + verbalizeElements.Count);
 			Console.WriteLine("  verbalization lines: " + sentenceCount);
 			Console.WriteLine("  written: verbalization-report.html, verbalization-report.txt");
+
+			// 6. THE NF ROUND-TRIP GATE (exec ruling 1: all verbalizations are
+			// canonical). NORMA's generated sentences are re-parsed through
+			// the same parse leg into a SECOND store; the two models are
+			// compared on reading signatures, subtype edges, and UC spans.
+			// A-only readings = phrasings NORMA re-emits differently
+			// (non-canonical source or emit gap); B-only = generated
+			// phrasings the parse leg misread (parse gap). Both are
+			// findings; the source moves toward the canonical form.
+			Console.WriteLine();
+			Console.WriteLine("== nf round-trip (verbalize, then re-parse into a second model) ==");
+			var feed = new List<string>();
+			var bSubtypes = new List<string>();
+			var joined = new List<string>();
+			foreach (string rawLine in text.Split('\n'))
+			{
+				string line = rawLine.Trim();
+				if (line.Length == 0) continue;
+				// HTML breaks split multi-clause verbalizations mid-sentence;
+				// a continuation starts lowercase (or with a connective) and
+				// rejoins its opener
+				if (joined.Count > 0 &&
+					(char.IsLower(line[0]) || line.StartsWith("and ") || line.StartsWith("or ")) &&
+					!joined[joined.Count - 1].TrimEnd().EndsWith("."))
+				{
+					joined[joined.Count - 1] = joined[joined.Count - 1].TrimEnd() + " " + line;
+					continue;
+				}
+				joined.Add(line);
+			}
+			foreach (string lineJoined in joined)
+			{
+				string line = lineJoined;
+				if (line.Contains("{") || line.StartsWith("ORM2 Verbalization") ||
+					line.StartsWith("Fact Types:") || line.StartsWith("Reference Scheme:") ||
+					line.StartsWith("Data Type:") || line.StartsWith("Reference Mode:") ||
+					line.Contains("_id") || line.Contains(" is involved in ") ||
+					line.Contains(" involves ") ||
+					line.Contains("“") || line.Contains("”"))
+				{
+					continue;
+				}
+				System.Text.RegularExpressions.Match im =
+					System.Text.RegularExpressions.Regex.Match(line, @"^Each ([\w :]+?) is an instance of ([\w :]+?)\.$");
+				if (im.Success)
+				{
+					bSubtypes.Add(im.Groups[1].Value.Trim() + " < " + im.Groups[2].Value.Trim());
+					// subtype-identified entity types get no declaration line
+					// of their own — their entity-hood IS the instance-of
+					// sentence; synthesize the declaration for the B parse
+					feed.Add(im.Groups[1].Value.Trim() + " is an entity type.");
+					continue;
+				}
+				feed.Add(line);
+			}
+			OracleStore storeB = new OracleStore();
+			storeB.LoadDomainModels(domainModels.Distinct().ToArray());
+			ModelingEventManager eventManagerB = ModelingEventManager.GetModelingEventManager(storeB);
+			using (Transaction t = storeB.TransactionManager.BeginTransaction("load"))
+			{
+				foreach (IModelingEventSubscriber subscriber in Utility.EnumerateDomainModels<IModelingEventSubscriber>(storeB.DomainModels))
+				{
+					subscriber.ManageModelingEventHandlers(eventManagerB, EventSubscriberReasons.DocumentLoading | EventSubscriberReasons.ModelStateEvents, EventHandlerAction.Add);
+				}
+				string seedB =
+					"<ormRoot:ORM2 xmlns:ormRoot=\"http://schemas.neumont.edu/ORM/2006-04/ORMRoot\" xmlns:orm=\"http://schemas.neumont.edu/ORM/2006-04/ORMCore\">" +
+					"<orm:ORMModel id=\"_" + Guid.NewGuid() + "\" Name=\"ElysiumNf\"/>" +
+					"</ormRoot:ORM2>";
+				using (System.IO.MemoryStream seedStream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(seedB)))
+				{
+					(new ORMSerializationEngine(storeB)).Load(seedStream);
+				}
+				t.Commit();
+			}
+			ORMModel modelB = storeB.ElementDirectory.FindElements<ORMModel>(false).First();
+			Verifier verifierB = new Verifier(storeB, modelB);
+			var feedSentences = new List<string>();
+			foreach (string line in feed)
+			{
+				feedSentences.AddRange(Verifier.ExtractSentences(line));
+			}
+			using (Transaction t = storeB.TransactionManager.BeginTransaction("nf declarations"))
+			{
+				verifierB.DeclarePass(feedSentences);
+				t.Commit();
+			}
+			using (Transaction t = storeB.TransactionManager.BeginTransaction("nf map"))
+			{
+				verifierB.MapPass(feedSentences);
+				t.Commit();
+			}
+			using (Transaction t = storeB.TransactionManager.BeginTransaction("nf deferred"))
+			{
+				verifierB.ReplayDeferred();
+				verifierB.BuildTextualConstraints();
+				verifierB.AttributeInstanceFacts();
+				// Def 3: spanning UCs on n-ary m:n facts verbalize as the
+				// possible-family (no restrictive sentence), so set semantics
+				// is assumed on re-parse exactly as on first parse
+				verifierB.AssumeSetSemantics();
+				t.Commit();
+			}
+			var aKeys = new HashSet<string>(verifier.ReadingKeys(), StringComparer.Ordinal);
+			var bKeys = new HashSet<string>(verifierB.ReadingKeys(), StringComparer.Ordinal);
+			var aOnly = aKeys.Except(bKeys).OrderBy(x => x, StringComparer.Ordinal).ToList();
+			var bOnly = bKeys.Except(aKeys).OrderBy(x => x, StringComparer.Ordinal).ToList();
+			Console.WriteLine("  readings: model A " + aKeys.Count + ", re-parsed B " + bKeys.Count + ", matched " + (aKeys.Count - aOnly.Count));
+			Console.WriteLine("  A-only (source phrasing NORMA does not re-emit — move source toward canonical): " + aOnly.Count);
+			foreach (string k in aOnly.Take(15)) Console.WriteLine("      - " + k);
+			if (aOnly.Count > 15) Console.WriteLine("      ... and " + (aOnly.Count - 15) + " more");
+			Console.WriteLine("  B-only (generated phrasing the parse leg misreads — parse gap): " + bOnly.Count);
+			foreach (string k in bOnly.Take(15)) Console.WriteLine("      - " + k);
+			if (bOnly.Count > 15) Console.WriteLine("      ... and " + (bOnly.Count - 15) + " more");
+			var aEdges = new HashSet<string>(verifier.SubtypeEdges(), StringComparer.Ordinal);
+			var bEdges = new HashSet<string>(bSubtypes.Concat(verifierB.SubtypeEdges()), StringComparer.Ordinal);
+			Console.WriteLine("  subtype edges: A " + aEdges.Count + ", B " + bEdges.Count +
+				", A-only " + aEdges.Except(bEdges).Count() + ", B-only " + bEdges.Except(aEdges).Count());
+			var aUcs = verifier.UcSignatures();
+			var bUcs = verifierB.UcSignatures();
+			int ucAgree = 0, ucDiffer = 0;
+			var ucSamples = new List<string>();
+			foreach (var kv in aUcs)
+			{
+				List<string> b;
+				if (!bUcs.TryGetValue(kv.Key, out b)) continue;
+				if (string.Join(";", kv.Value) == string.Join(";", b)) ucAgree++;
+				else
+				{
+					ucDiffer++;
+					if (ucSamples.Count < 10) ucSamples.Add(kv.Key + "  A[" + string.Join(";", kv.Value) + "] B[" + string.Join(";", b) + "]");
+				}
+			}
+			Console.WriteLine("  UC spans on matched readings: agree " + ucAgree + ", differ " + ucDiffer);
+			foreach (string u in ucSamples) Console.WriteLine("      - " + u);
 			return 0;
 		}
 	}

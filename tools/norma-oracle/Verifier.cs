@@ -39,6 +39,9 @@ namespace Elysium.NormaOracle
 			public List<string> Players;
 			public string ReadingWords;
 			public string ReadingText;
+			public string FullKey; // normalized players-interleaved sentence
+			public readonly List<List<string>> Rows = new List<List<string>>();
+			public readonly List<List<string>> RowKinds = new List<List<string>>();
 		}
 
 		public Verifier(Store store, ORMModel model)
@@ -430,7 +433,7 @@ namespace Elysium.NormaOracle
 			s = System.Text.RegularExpressions.Regex.Replace(s, @"^[*+]+\s+", "");
 			if (s.Contains(" or some ") || s.Contains(" or that ") || s.Contains(" or is "))
 			{
-				Count("disjunctive constraint (deferred)");
+				myTextual.Add(new KeyValuePair<string, string>("disjunctive", s));
 				return;
 			}
 			Match m;
@@ -493,17 +496,22 @@ namespace Elysium.NormaOracle
 						if (MapConstraint("Each " + body.Substring(5), ConstraintModality.Deontic)) return;
 					}
 				}
-				Count("deontic constraint (deferred)");
+				myTextual.Add(new KeyValuePair<string, string>("deontic", s));
 				return;
 			}
-			if (s.StartsWith("It is possible that ") || s.StartsWith("It is impossible that "))
+			if (s.StartsWith("It is possible that "))
 			{
-				Count(s.StartsWith("It is possible") ? "default-form reading (no constraint)" : "alethic impossibility (deferred)");
+				Count("default-form reading (no constraint)");
+				return;
+			}
+			if (s.StartsWith("It is impossible that "))
+			{
+				myTextual.Add(new KeyValuePair<string, string>("impossibility", s));
 				return;
 			}
 			if (s.StartsWith("If ") || s.StartsWith("No "))
 			{
-				Count("subset/ring textual constraint (deferred)");
+				myTextual.Add(new KeyValuePair<string, string>("conditional", s));
 				return;
 			}
 			if (s.StartsWith("This association with "))
@@ -513,6 +521,14 @@ namespace Elysium.NormaOracle
 				// fact is the nested one. NORMA derives the nesting type's
 				// preferred identifier from the fact's spanning UC.
 				Match om = Regex.Match(s.TrimEnd('.'), @"provides the preferred identification scheme for ([\w :]+)$");
+				if (om.Success && !myTypes.ContainsKey(om.Groups[1].Value.Trim()))
+				{
+					// NORMA emits association lines for its IMPLIED
+					// objectifications too (generated space-free names never
+					// declared as types); machinery surface, not model
+					Count("objectification (implied machinery skipped)");
+					return;
+				}
 				if (om.Success && myLastFact != null)
 				{
 					// Halpin, "Objectification and Atomicity" (2020-04-28):
@@ -550,7 +566,9 @@ namespace Elysium.NormaOracle
 			}
 			if (Regex.IsMatch(s, @"'[^']*'"))
 			{
-				Count("instance fact (population; out of schema scope)");
+				// instance facts attribute AFTER every file's readings exist —
+				// csdp.md's SM rows precede state.md's SM readings in file order
+				myInstanceSentences.Add(s);
 				return;
 			}
 			// candidate fact-type reading
@@ -602,6 +620,200 @@ namespace Elysium.NormaOracle
 				range.ValueConstraint = constraint;
 			}
 			Count("value enumeration");
+		}
+
+		// instance-fact verbalizations (exec ruling 2): populations enter
+		// through the same channel as everything else — sentences. The
+		// tokenizer splits on quoted literals; each preceding text segment
+		// either ends in a declared type name (an entity reference) or the
+		// literal is a value for a value-type role; the remaining words are
+		// the predicate, matched against the fact index.
+		private readonly List<string> myInstanceSentences = new List<string>();
+
+		public void AttributeInstanceFacts()
+		{
+			foreach (string s in myInstanceSentences)
+			{
+				try
+				{
+					if (MapInstanceFact(s))
+					{
+						continue;
+					}
+					Count("instance fact (no matching fact type)");
+					myUnrecognized.Add("[instance] " + Shorten(s));
+				}
+				catch (Exception ex)
+				{
+					Count("harness-error (instance)");
+					myMapLog.Add("ERROR attributing '" + Shorten(s) + "': " + ex.Message);
+				}
+			}
+			myInstanceSentences.Clear();
+		}
+
+		// a kind satisfies a role player if it IS the player or is a subtype
+		// of it (population inclusion — HTTP Method rows populate Predicate
+		// fact types)
+		private bool KindSatisfies(string kind, string player)
+		{
+			if (string.Equals(kind, player, StringComparison.Ordinal)) return true;
+			ObjectType t;
+			if (!myTypes.TryGetValue(kind, out t)) return false;
+			var seen = new HashSet<ObjectType>();
+			while (t != null && seen.Add(t))
+			{
+				ObjectType super = null;
+				foreach (ObjectType sup in t.SupertypeCollection) { super = sup; break; }
+				if (super == null) return false;
+				if (string.Equals(super.Name, player, StringComparison.Ordinal)) return true;
+				t = super;
+			}
+			return false;
+		}
+
+		private bool MapInstanceFact(string s)
+		{
+			string body = s.TrimEnd('.').Trim();
+			var quotes = new List<string>();
+			var texts = new List<string>();
+			int cursor = 0;
+			foreach (Match qm in Regex.Matches(body, @"'([^']*)'"))
+			{
+				texts.Add(body.Substring(cursor, qm.Index - cursor));
+				quotes.Add(qm.Groups[1].Value);
+				cursor = qm.Index + qm.Length;
+			}
+			texts.Add(body.Substring(cursor));
+			if (quotes.Count == 0) return false;
+
+			var kinds = new List<string>();      // per quote: entity kind or null (value literal)
+			var wordParts = new List<string>();
+			for (int i = 0; i < quotes.Count; i++)
+			{
+				string t = texts[i].Trim();
+				string kind = null;
+				foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
+				{
+					if (t == name || t.EndsWith(" " + name, StringComparison.Ordinal))
+					{
+						kind = name;
+						t = t.Substring(0, t.Length - name.Length).Trim();
+						break;
+					}
+				}
+				kinds.Add(kind);
+				if (t.Length > 0) wordParts.Add(t);
+			}
+			string tail = texts[texts.Count - 1].Trim();
+			if (tail.Length > 0) wordParts.Add(tail);
+			string words = Regex.Replace(string.Join(" ", wordParts), @"\s+", " ").Trim();
+
+			FactIndexEntry match = null;
+			int candidates = 0;
+			foreach (FactIndexEntry entry in myFactIndex)
+			{
+				if (entry.Players.Count != quotes.Count) continue;
+				bool ok = true;
+				for (int i = 0; i < quotes.Count && ok; i++)
+				{
+					if (kinds[i] != null)
+					{
+						ok = KindSatisfies(kinds[i], entry.Players[i]);
+					}
+					else
+					{
+						ObjectType p;
+						ok = myTypes.TryGetValue(entry.Players[i], out p) && p.IsValueType;
+					}
+				}
+				if (!ok) continue;
+				// hyphen-bound role qualifiers ("is from- Status") are
+				// absorption naming, invisible in spoken instance facts
+				string entryWords = entry.ReadingWords.Replace("- ", " ").TrimEnd('-');
+				if (string.Equals(entryWords, words, StringComparison.Ordinal))
+				{
+					match = entry;
+					candidates = 1;
+					break;
+				}
+				candidates++;
+				if (match == null) match = entry;
+			}
+			if (match == null || candidates != 1)
+			{
+				return false;
+			}
+			match.Rows.Add(new List<string>(quotes));
+			match.RowKinds.Add(new List<string>(kinds.Select(k => k ?? "")));
+			Count("instance fact (row attributed)");
+			return true;
+		}
+
+		// nf round-trip surfaces: normalized reading signatures and UC spans,
+		// comparable across two independently parsed models
+		public static string NormalizeWords(string words)
+		{
+			return Regex.Replace(words.Replace("- ", " ").TrimEnd('-'), @"\s+", " ").Trim().ToLowerInvariant();
+		}
+
+		public List<string> ReadingKeys()
+		{
+			var keys = new List<string>();
+			foreach (FactIndexEntry entry in myFactIndex)
+			{
+				if (entry.Fact.IsDeleted) continue;
+				keys.Add(string.Join("|", entry.Players) + " :: " + NormalizeWords(entry.ReadingWords));
+			}
+			return keys;
+		}
+
+		public Dictionary<string, List<string>> UcSignatures()
+		{
+			var result = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+			foreach (FactIndexEntry entry in myFactIndex)
+			{
+				if (entry.Fact.IsDeleted) continue;
+				string key = string.Join("|", entry.Players) + " :: " + NormalizeWords(entry.ReadingWords);
+				var spans = new List<string>();
+				foreach (UniquenessConstraint uc in InternalUCs(entry.Fact))
+				{
+					var positions = new List<int>();
+					bool complete = true;
+					foreach (Role r in uc.RoleCollection)
+					{
+						int at = entry.Roles.IndexOf(r);
+						if (at < 0) { complete = false; break; }
+						positions.Add(at + 1);
+					}
+					if (complete) { positions.Sort(); spans.Add(string.Join(",", positions)); }
+				}
+				spans.Sort(StringComparer.Ordinal);
+				result[key] = spans;
+			}
+			return result;
+		}
+
+		public List<string> SubtypeEdges()
+		{
+			var edges = new List<string>();
+			foreach (SubtypeFact sf in myStore.ElementDirectory.FindElements<SubtypeFact>(true))
+			{
+				if (sf.IsDeleted || sf.Subtype == null || sf.Supertype == null) continue;
+				edges.Add(sf.Subtype.Name + " < " + sf.Supertype.Name);
+			}
+			return edges;
+		}
+
+		public IEnumerable<KeyValuePair<string, int>> PopulationCensus()
+		{
+			foreach (FactIndexEntry entry in myFactIndex)
+			{
+				if (entry.Rows.Count > 0)
+				{
+					yield return new KeyValuePair<string, int>(entry.Fact.Name, entry.Rows.Count);
+				}
+			}
 		}
 
 		private bool MapFactReading(string s)
@@ -701,6 +913,11 @@ namespace Elysium.NormaOracle
 			myLastFact = fact;
 			myLastRoles = roles;
 			myLastPlayers = players;
+			string full = text;
+			for (int i = 0; i < players.Count; i++)
+			{
+				full = full.Replace("{" + i + "}", players[i]);
+			}
 			myFactIndex.Add(new FactIndexEntry
 			{
 				Fact = fact,
@@ -708,8 +925,275 @@ namespace Elysium.NormaOracle
 				Players = players,
 				ReadingWords = Regex.Replace(text, @"\{\d\}", " ").Trim(),
 				ReadingText = text,
+				FullKey = NormalizeWords(full),
 			});
 			Count("fact-type reading (arity " + players.Count + ")");
+			return true;
+		}
+
+		private readonly List<KeyValuePair<string, string>> myTextual = new List<KeyValuePair<string, string>>();
+
+		// exec ruling 5: nothing deferred — every textual constraint form is
+		// built as a NORMA element. Rings and direct subsets/exclusions/
+		// disjunctive mandatories become real constraints; forms needing a
+		// join path (where-clauses, mid-clause relatives, self-joins) become
+		// ModelNotes with the join-path construction named as the next
+		// oracle increment — represented and verbalized, never dropped.
+		public void BuildTextualConstraints()
+		{
+			foreach (var kv in myTextual)
+			{
+				try
+				{
+					if (BuildTextual(kv.Key, kv.Value)) continue;
+					AddNote(kv.Key, kv.Value, "unmatched form");
+				}
+				catch (Exception ex)
+				{
+					Count("harness-error (textual)");
+					myMapLog.Add("ERROR building textual '" + Shorten(kv.Value) + "': " + ex.Message);
+				}
+			}
+			myTextual.Clear();
+		}
+
+		private void AddNote(string kind, string sentence, string reason)
+		{
+			ModelNote note = new ModelNote(myStore);
+			note.Text = sentence;
+			note.Model = myModel;
+			Count("textual constraint (model note: " + kind + ", " + reason + ")");
+		}
+
+		private FactIndexEntry FindRingEntry(string player, string words)
+		{
+			foreach (FactIndexEntry entry in myFactIndex)
+			{
+				if (entry.Players.Count == 2 &&
+					entry.Players[0] == player && entry.Players[1] == player &&
+					string.Equals(entry.ReadingWords, words, StringComparison.Ordinal))
+				{
+					return entry;
+				}
+			}
+			return null;
+		}
+
+		private void BuildRing(FactIndexEntry entry, string ringType, ConstraintModality modality)
+		{
+			RingConstraint rc = new RingConstraint(myStore);
+			rc.Model = myModel;
+			rc.RoleCollection.Add(entry.Roles[0]);
+			rc.RoleCollection.Add(entry.Roles[1]);
+			rc.RingType = (RingConstraintType)Enum.Parse(typeof(RingConstraintType), ringType);
+			rc.Modality = modality;
+			Count("ring constraint (" + ringType.ToLowerInvariant() + ")");
+		}
+
+		// resolve a clause ("some Status is initial in some State Machine
+		// Definition") to a fact entry plus the ordered players it binds
+		private FactIndexEntry ResolveClause(string clause, out List<string> playersOut)
+		{
+			playersOut = null;
+			string working = " " + Regex.Replace(clause.Trim(), @"\s+", " ") + " ";
+			var hits = new List<KeyValuePair<int, string>>();
+			foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
+			{
+				int at = 0;
+				string probe = name;
+				while ((at = working.IndexOf(probe, at, StringComparison.Ordinal)) >= 0)
+				{
+					bool leftOk = !char.IsLetterOrDigit(working[at - 1]);
+					int end = at + probe.Length;
+					bool rightOk = end >= working.Length || !char.IsLetterOrDigit(working[end]);
+					if (leftOk && rightOk)
+					{
+						hits.Add(new KeyValuePair<int, string>(at, name));
+						working = working.Substring(0, at) + new string((char)1, probe.Length) + working.Substring(end);
+						at = end;
+					}
+					else at++;
+				}
+			}
+			if (hits.Count == 0) return null;
+			hits.Sort((a, b) => a.Key.CompareTo(b.Key));
+			var players = hits.Select(h => h.Value).ToList();
+			string words = Regex.Replace(working, "+", " ");
+			words = Regex.Replace(words, @"\b(some|that|a|an|the)\b", " ");
+			words = Regex.Replace(words, @"\s+", " ").Trim();
+			foreach (FactIndexEntry entry in myFactIndex)
+			{
+				if (entry.Players.Count != players.Count) continue;
+				bool same = true;
+				for (int i = 0; i < players.Count && same; i++) same = entry.Players[i] == players[i];
+				if (!same) continue;
+				if (string.Equals(entry.ReadingWords, words, StringComparison.Ordinal))
+				{
+					playersOut = players;
+					return entry;
+				}
+			}
+			return null;
+		}
+
+		private bool BuildTextual(string kind, string s)
+		{
+			string body = s.TrimEnd('.').Trim();
+			ConstraintModality modality = ConstraintModality.Alethic;
+			if (body.StartsWith("It is forbidden that ") || body.StartsWith("It is obligatory that "))
+			{
+				modality = ConstraintModality.Deontic;
+			}
+
+			// ring: "No X <words> itself" — X matched longest-type-first so
+			// multi-word players ("Object Type") bind whole
+			if (body.StartsWith("No ") && body.EndsWith(" itself"))
+			{
+				string middle = body.Substring(3, body.Length - 3 - 7).Trim();
+				foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
+				{
+					if (middle.StartsWith(name + " ", StringComparison.Ordinal))
+					{
+						FactIndexEntry ring = FindRingEntry(name, middle.Substring(name.Length).Trim());
+						if (ring != null)
+						{
+							BuildRing(ring, "Irreflexive", modality);
+							return true;
+						}
+						break;
+					}
+				}
+				AddNote(kind, s, "no ring fact type for irreflexive form");
+				return true;
+			}
+
+			// tag subscripted variables: "Object Type1" -> "Object Type#1"
+			string tagged = body;
+			foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
+			{
+				tagged = Regex.Replace(tagged, Regex.Escape(name) + @"(\d)\b", name.Replace("$", "$$") + "#$1");
+			}
+			// ring asymmetric: If X#1 w X#2, then X#2 is not w' X#1 — the
+			// negated predicate drops the leading "is" ("is subtype of" ->
+			// "is not subtype of")
+			Match m = Regex.Match(tagged, @"^If ([\w :]+?)#1 (.+?) \1#2, then \1#2 is not (.+?) \1#1$");
+			if (m.Success)
+			{
+				string w = m.Groups[2].Value.Trim();
+				string neg = m.Groups[3].Value.Trim();
+				bool negMatches = string.Equals(neg, w, StringComparison.Ordinal) ||
+					(w.StartsWith("is ") && string.Equals(neg, w.Substring(3), StringComparison.Ordinal));
+				if (negMatches)
+				{
+					FactIndexEntry ring = FindRingEntry(m.Groups[1].Value.Trim(), w);
+					if (ring != null)
+					{
+						BuildRing(ring, "Asymmetric", modality);
+						return true;
+					}
+				}
+			}
+			// ring transitive: If X#1 w X#2 and X#2 w X#3, then X#1 w X#3
+			m = Regex.Match(tagged, @"^If ([\w :]+?)#1 (.+?) \1#2 and \1#2 \2 \1#3, then \1#1 \2 \1#3$");
+			if (m.Success)
+			{
+				FactIndexEntry ring = FindRingEntry(m.Groups[1].Value.Trim(), m.Groups[2].Value.Trim());
+				if (ring != null)
+				{
+					BuildRing(ring, "Transitive", modality);
+					return true;
+				}
+			}
+
+			// direct subset: If <clause> then <clause> (single clauses, no joins)
+			m = Regex.Match(body, @"^If (.+?) then (.+)$");
+			if (m.Success)
+			{
+				string ante = m.Groups[1].Value;
+				string cons = m.Groups[2].Value;
+				if (!ante.Contains(" and ") && !ante.Contains(" where ") &&
+					!cons.Contains(" and ") && !cons.Contains(" where ") &&
+					!Regex.IsMatch(cons, @" that (has|is of|holds) "))
+				{
+					List<string> antePlayers, consPlayers;
+					FactIndexEntry a = ResolveClause(ante, out antePlayers);
+					FactIndexEntry c = ResolveClause(cons, out consPlayers);
+					if (a != null && c != null && a != c)
+					{
+						var shared = antePlayers.Intersect(consPlayers).Distinct().ToList();
+						if (shared.Count > 0)
+						{
+							SubsetConstraint sc = new SubsetConstraint(myStore);
+							sc.Model = myModel;
+							var sub = new SetComparisonConstraintRoleSequence(myStore);
+							var super = new SetComparisonConstraintRoleSequence(myStore);
+							foreach (string p in shared)
+							{
+								sub.RoleCollection.Add(a.Roles[antePlayers.IndexOf(p)]);
+								super.RoleCollection.Add(c.Roles[consPlayers.IndexOf(p)]);
+							}
+							sc.RoleSequenceCollection.Add(sub);
+							sc.RoleSequenceCollection.Add(super);
+							sc.Modality = modality;
+							Count("subset constraint (direct, " + shared.Count + "-role sequences)");
+							myMapLog.Add("subset built (" + shared.Count + "-role): " + Shorten(s));
+							return true;
+						}
+					}
+				}
+				AddNote(kind, s, "join path required");
+				return true;
+			}
+
+			// impossibility as exclusion: It is impossible that <c1> and <c2>
+			m = Regex.Match(body, @"^It is impossible that (.+?) and (.+)$");
+			if (m.Success)
+			{
+				List<string> p1, p2;
+				FactIndexEntry c1 = ResolveClause(m.Groups[1].Value, out p1);
+				FactIndexEntry c2 = ResolveClause(m.Groups[2].Value, out p2);
+				if (c1 != null && c2 != null && c1 != c2)
+				{
+					var shared = p1.Intersect(p2).Distinct().ToList();
+					if (shared.Count == 1)
+					{
+						ExclusionConstraint ec = new ExclusionConstraint(myStore);
+						ec.Model = myModel;
+						var s1 = new SetComparisonConstraintRoleSequence(myStore);
+						var s2 = new SetComparisonConstraintRoleSequence(myStore);
+						s1.RoleCollection.Add(c1.Roles[p1.IndexOf(shared[0])]);
+						s2.RoleCollection.Add(c2.Roles[p2.IndexOf(shared[0])]);
+						ec.RoleSequenceCollection.Add(s1);
+						ec.RoleSequenceCollection.Add(s2);
+						Count("exclusion constraint (impossibility form)");
+						return true;
+					}
+				}
+				AddNote(kind, s, "self-join or unresolved clauses");
+				return true;
+			}
+
+			// disjunctive mandatory: Each K <w1> or <w2>
+			m = Regex.Match(body, @"^Each ([\w :]+?) (.+?) or (.+)$");
+			if (m.Success && myTypes.ContainsKey(m.Groups[1].Value.Trim()))
+			{
+				string k = m.Groups[1].Value.Trim();
+				List<string> pa, pb;
+				FactIndexEntry fa = ResolveClause(k + " " + m.Groups[2].Value.Trim(), out pa);
+				FactIndexEntry fb = ResolveClause(k + " " + m.Groups[3].Value.Trim(), out pb);
+				if (fa != null && fb != null)
+				{
+					MandatoryConstraint mc = new MandatoryConstraint(myStore);
+					mc.Model = myModel;
+					mc.RoleCollection.Add(fa.Roles[pa.IndexOf(k)]);
+					mc.RoleCollection.Add(fb.Roles[pb.IndexOf(k)]);
+					mc.Modality = modality;
+					Count("disjunctive mandatory constraint");
+					return true;
+				}
+			}
+
+			AddNote(kind, s, kind == "deontic" ? "qualified deontic prose" : "no direct construction");
 			return true;
 		}
 
@@ -798,7 +1282,74 @@ namespace Elysium.NormaOracle
 			// Change is applied.") shares the leading player with the wrong
 			// fact and must retarget by reading words.
 			{
+				// "In each population of <reading>, each ..." NAMES its fact —
+				// resolve the target from the reading text directly; the
+				// fit-scorer must never shop a self-addressed constraint
+				Match popm = Regex.Match(body, @"^In each population of (.+?), [Ee]ach ");
+				if (popm.Success)
+				{
+					string readingRef = popm.Groups[1].Value.Trim();
+					string working = " " + readingRef + " ";
+					var refPlayers = new List<string>();
+					foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
+					{
+						int at = 0;
+						while ((at = working.IndexOf(name, at, StringComparison.Ordinal)) >= 0)
+						{
+							bool leftOk = !char.IsLetterOrDigit(working[at - 1]);
+							int end = at + name.Length;
+							bool rightOk = end >= working.Length || !char.IsLetterOrDigit(working[end]);
+							if (leftOk && rightOk)
+							{
+								refPlayers.Add(name);
+								working = working.Substring(0, at) + new string((char)1, name.Length) + working.Substring(end);
+								at = end;
+							}
+							else at++;
+						}
+					}
+					string refWords = NormalizeWords(Regex.Replace(working, "+", " "));
+					foreach (FactIndexEntry entry in myFactIndex)
+					{
+						if (entry.Players.Count != refPlayers.Count) continue;
+						if (!string.Equals(NormalizeWords(entry.ReadingWords), refWords, StringComparison.Ordinal)) continue;
+						var sortedA = entry.Players.OrderBy(x => x, StringComparer.Ordinal);
+						var sortedB = refPlayers.OrderBy(x => x, StringComparer.Ordinal);
+						if (!sortedA.SequenceEqual(sortedB, StringComparer.Ordinal)) continue;
+						players = entry.Players;
+						roles = entry.Roles;
+						target = entry.Fact;
+						break;
+					}
+				}
+				// exact-sentence fast path: quantifiers stripped, the body IS
+				// some reading's players-interleaved sentence (NORMA inserts
+				// the quantifier before a hyphen-bound role: "Each Transition
+				// is exactly one to Status" is the is-to- reading) — an exact
+				// match is BINDING and beats every fit heuristic
+				bool resolved = popm.Success && target != null;
+				if (!resolved)
+				{
+					string exactKey = Regex.Replace(body, @"^(Each|For each)\s+", "");
+					exactKey = Regex.Replace(exactKey, @"\b(exactly one|at most one|at most once|some|each|that)\b", " ");
+					exactKey = NormalizeWords(exactKey);
+					foreach (FactIndexEntry entry in myFactIndex)
+					{
+						if (string.Equals(entry.FullKey, exactKey, StringComparison.Ordinal))
+						{
+							players = entry.Players;
+							roles = entry.Roles;
+							target = entry.Fact;
+							resolved = true;
+							break;
+						}
+					}
+				}
 				string probe = body.StartsWith("For each ") ? body.Substring(9) : body.StartsWith("Each ") ? body.Substring(5) : body;
+				if (popm.Success && target != null)
+				{
+					probe = players != null && players.Count > 0 ? players[0] + " " : probe;
+				}
 				// fit = reading-word overlap + how many of the fact's players the
 				// sentence mentions. Words alone misfire ("has" matches half the
 				// model); an inverse-reading constraint ("Each Resource has at
@@ -827,6 +1378,7 @@ namespace Elysium.NormaOracle
 				int bestScore = -1;
 				foreach (FactIndexEntry entry in myFactIndex)
 				{
+					if (resolved) break;
 					if (entry.Fact == target) continue;
 					if (FindPlayerPrefix(probe, entry.Players) < 0) continue;
 					int score = fit(entry.Players, entry.ReadingWords);
@@ -983,6 +1535,9 @@ namespace Elysium.NormaOracle
 			foreach (string rawName in names)
 			{
 				string name = Regex.Replace(rawName, @"^(that|some|the)\s+", "").Trim();
+				// NORMA subscripts repeated players in generated constraint
+				// text (Status1, Status2); the subscript is display only
+				name = Regex.Replace(name, @"(\D)\d$", "$1");
 				int found = -1;
 				for (int i = 0; i < players.Count; i++)
 				{
@@ -1012,10 +1567,50 @@ namespace Elysium.NormaOracle
 		}
 		#endregion
 
-		#region design-state and table export (js-runner cross-check inputs)
-		private static string JsonEscape(string s)
+		#region design-state and table export (checker cross-check inputs)
+		// exec ruling 2: no JSON where meaning lives. The interchange
+		// artifacts are INTERSECTION SOURCE — the same registration-call
+		// dialect as the canon, evaluated by any host's two-line vocabulary
+		// binding. Chunk convention: collection positions (the fts list,
+		// each pop, the otpops list, each column list) ride as chunks of at
+		// most nine, and consumers flatten exactly one level; fixed-shape
+		// positions (the 5-slot descriptor, a row, a uc span) are direct
+		// S-constructors.
+		private static string IAtom(string s)
 		{
-			return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
+			if (s.IndexOf('"') >= 0)
+			{
+				throw new InvalidOperationException("double quote in atom: " + s);
+			}
+			return "A(\"" + s + "\")";
+		}
+
+		private static string ISeq(List<string> elements)
+		{
+			if (elements.Count == 0) return "PHI()";
+			if (elements.Count <= 9)
+			{
+				return "S" + elements.Count + "(" + string.Join(", ", elements) + ")";
+			}
+			var chunks = new List<string>();
+			for (int i = 0; i < elements.Count; i += 9)
+			{
+				chunks.Add(ISeq(elements.Skip(i).Take(9).ToList()));
+			}
+			return ISeq(chunks);
+		}
+
+		// a chunked collection: ALWAYS one level of chunk wrapping, even for
+		// nine or fewer elements, so consumers uniformly flatten once
+		private static string IChunked(List<string> elements)
+		{
+			if (elements.Count == 0) return "S1(PHI())";
+			var chunks = new List<string>();
+			for (int i = 0; i < elements.Count; i += 9)
+			{
+				chunks.Add(ISeq(elements.Skip(i).Take(9).ToList()));
+			}
+			return ISeq(chunks);
 		}
 
 		private static string TopSupertype(ObjectType t)
@@ -1035,92 +1630,117 @@ namespace Elysium.NormaOracle
 			return t == null ? "" : t.Name;
 		}
 
-		// the CSDP/RMAP design state as the canon defs consume it: one entry
-		// per parsed fact type — generated name, objectifying-type name (if
-		// nested), players, players collapsed to their top supertypes (RMAP
-		// 10.3 step 0's absorb-subtypes default; identification already flows
-		// to the root per the one-reference-scheme ruling), and the internal
-		// UC spans as 1-based role positions.
+		// the CSDP/RMAP design state as the canon defs consume it, in the
+		// intersection dialect. Each fact type: descriptor
+		// S5(name, players, ucs, mands, pop) — players top-collapsed (RMAP
+		// 10.3 step 0; identification already flows to the root per the
+		// one-reference-scheme ruling), ucs as 1-based positions, pop the
+		// attributed instance rows (chunked). state:nestings pairs
+		// objectified fact names with their nesting types; state:otpops the
+		// per-kind entity populations (population inclusion materialized up
+		// the subtype chain); state:declared carries the DECLARED players
+		// alongside for consumers that need pre-collapse names.
 		public void WriteDesignState(string path)
 		{
-			var sb = new System.Text.StringBuilder();
-			sb.Append("{\n  \"facts\": [\n");
-			bool firstFact = true;
+			var fts = new List<string>();
+			var declared = new List<string>();
+			var nestings = new List<string>();
+			var otpops = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
 			foreach (FactIndexEntry entry in myFactIndex)
 			{
 				if (entry.Fact.IsDeleted) continue;
-				if (!firstFact) sb.Append(",\n");
-				firstFact = false;
-				sb.Append("    { \"name\": \"").Append(JsonEscape(entry.Fact.Name)).Append("\"");
-				ObjectType nesting = entry.Fact.NestingType;
-				if (nesting != null)
-				{
-					sb.Append(", \"nesting\": \"").Append(JsonEscape(nesting.Name)).Append("\"");
-				}
-				sb.Append(", \"arity\": ").Append(entry.Roles.Count);
-				sb.Append(", \"players\": [");
-				for (int i = 0; i < entry.Players.Count; i++)
-				{
-					if (i > 0) sb.Append(", ");
-					sb.Append("\"").Append(JsonEscape(entry.Players[i])).Append("\"");
-				}
-				sb.Append("], \"topPlayers\": [");
+				string name = IAtom(entry.Fact.Name);
+				var tops = new List<string>();
+				var decls = new List<string>();
 				for (int i = 0; i < entry.Roles.Count; i++)
 				{
-					if (i > 0) sb.Append(", ");
 					ObjectType player = entry.Roles[i].RolePlayer;
-					sb.Append("\"").Append(JsonEscape(player == null ? entry.Players[i] : TopSupertype(player))).Append("\"");
+					tops.Add(IAtom(player == null ? entry.Players[i] : TopSupertype(player)));
+					decls.Add(IAtom(entry.Players[i]));
 				}
-				sb.Append("], \"ucs\": [");
-				bool firstUc = true;
+				var ucs = new List<string>();
 				foreach (UniquenessConstraint uc in InternalUCs(entry.Fact))
 				{
-					var positions = new List<int>();
+					var positions = new List<string>();
 					bool complete = true;
 					foreach (Role r in uc.RoleCollection)
 					{
 						int at = entry.Roles.IndexOf(r);
 						if (at < 0) { complete = false; break; }
-						positions.Add(at + 1);
+						positions.Add("N(" + (at + 1) + ")");
 					}
-					if (!complete) continue;
-					if (!firstUc) sb.Append(", ");
-					firstUc = false;
-					sb.Append("[").Append(string.Join(", ", positions)).Append("]");
+					if (complete && positions.Count > 0) ucs.Add(ISeq(positions));
 				}
-				sb.Append("] }");
+				var rows = new List<string>();
+				for (int r = 0; r < entry.Rows.Count; r++)
+				{
+					rows.Add(ISeq(entry.Rows[r].Select(IAtom).ToList()));
+					for (int i = 0; i < entry.Rows[r].Count; i++)
+					{
+						string kind = entry.RowKinds[r][i];
+						if (kind.Length == 0) continue;
+						ObjectType t;
+						myTypes.TryGetValue(kind, out t);
+						while (true)
+						{
+							HashSet<string> set;
+							if (!otpops.TryGetValue(kind, out set)) otpops[kind] = set = new HashSet<string>(StringComparer.Ordinal);
+							set.Add(entry.Rows[r][i]);
+							if (t == null) break;
+							ObjectType super = null;
+							foreach (ObjectType sup in t.SupertypeCollection) { super = sup; break; }
+							if (super == null) break;
+							kind = super.Name;
+							t = super;
+						}
+					}
+				}
+				fts.Add("S5(" + name + ", " + ISeq(tops) + ", " + (ucs.Count == 0 ? "PHI()" : ISeq(ucs)) + ", PHI(), " + IChunked(rows) + ")");
+				declared.Add("S2(" + name + ", " + ISeq(decls) + ")");
+				ObjectType nesting = entry.Fact.NestingType;
+				if (nesting != null)
+				{
+					nestings.Add("S2(" + name + ", " + IAtom(nesting.Name) + ")");
+				}
 			}
-			sb.Append("\n  ]\n}\n");
+			var pops = otpops.OrderBy(kv => kv.Key, StringComparer.Ordinal)
+				.Select(kv => "S2(" + IAtom(kv.Key) + ", " + IChunked(kv.Value.OrderBy(x => x, StringComparer.Ordinal).Select(IAtom).ToList()) + ")")
+				.ToList();
+			var sb = new System.Text.StringBuilder();
+			sb.Append("(\n");
+			sb.Append("\"THE DESIGN STATE in INTERSECTION SOURCE (generated by norma-oracle; regenerate, never edit). state:fts — one S5 descriptor per parsed fact type: name, players (top-collapsed), ucs (1-based positions), mands (phi), pop (attributed instance rows). state:declared pairs each name with its declared players; state:nestings pairs objectified fact names with their nesting types; state:otpops the per-kind entity populations, inclusion materialized up the subtype chain. Chunk convention: state:fts, each pop, each otpop, and state:declared/state:nestings are chunked — consumers flatten exactly one level; descriptors, rows, and uc spans are direct.\",\n\n");
+			sb.Append("DEF(\"state:fts\", ").Append(IChunked(fts)).Append("),\n\n");
+			sb.Append("DEF(\"state:declared\", ").Append(IChunked(declared)).Append("),\n\n");
+			sb.Append("DEF(\"state:nestings\", ").Append(IChunked(nestings)).Append("),\n\n");
+			sb.Append("DEF(\"state:otpops\", ").Append(IChunked(pops)).Append(")\n");
+			sb.Append(")\n");
 			System.IO.File.WriteAllText(path, sb.ToString());
 		}
 
-		public static void WriteTablesJson(Store store, System.Reflection.Assembly relationalAssembly, string path)
+		public static void WriteNormaAnswer(Store store, System.Reflection.Assembly relationalAssembly, string path)
 		{
 			Type tableType = relationalAssembly.GetTypes().First(x => x.Name == "Table" && typeof(ModelElement).IsAssignableFrom(x));
 			var tables = store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(tableType), true)
 				.Cast<ModelElement>()
 				.OrderBy(t => (string)tableType.GetProperty("Name").GetValue(t, null), StringComparer.Ordinal)
 				.ToList();
-			var sb = new System.Text.StringBuilder();
-			sb.Append("{\n  \"tables\": [\n");
-			bool first = true;
+			var entries = new List<string>();
 			foreach (ModelElement table in tables)
 			{
-				if (!first) sb.Append(",\n");
-				first = false;
 				string tableName = (string)tableType.GetProperty("Name").GetValue(table, null);
-				sb.Append("    { \"name\": \"").Append(JsonEscape(tableName)).Append("\", \"columns\": [");
 				var columns = (System.Collections.IEnumerable)tableType.GetProperty("ColumnCollection").GetValue(table, null);
-				bool firstCol = true;
+				var colNames = new List<string>();
 				foreach (object col in columns)
 				{
-					if (!firstCol) sb.Append(", ");
-					firstCol = false;
-					sb.Append("\"").Append(JsonEscape((string)col.GetType().GetProperty("Name").GetValue(col, null))).Append("\"");
+					colNames.Add(IAtom((string)col.GetType().GetProperty("Name").GetValue(col, null)));
 				}
-				sb.Append("] }");
+				entries.Add("S2(" + IAtom(tableName) + ", " + IChunked(colNames) + ")");
 			}
-			sb.Append("\n  ]\n}\n");
+			var sb = new System.Text.StringBuilder();
+			sb.Append("(\n");
+			sb.Append("\"NORMA'S RMAP ANSWER in INTERSECTION SOURCE (generated by norma-oracle; regenerate, never edit). norma:tables — one S2 per relational table: name, columns. norma:tables and each column list are chunked; consumers flatten one level.\",\n\n");
+			sb.Append("DEF(\"norma:tables\", ").Append(IChunked(entries)).Append(")\n");
+			sb.Append(")\n");
 			System.IO.File.WriteAllText(path, sb.ToString());
 		}
 		#endregion

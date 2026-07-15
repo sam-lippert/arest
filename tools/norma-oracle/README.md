@@ -16,12 +16,15 @@ reported), the value-type data-type census (every readings-declared value
 type carries an explicit "The data type of X is <token>." sentence; the
 token map covers text/integer/decimal/float/boolean/datetime/date/time),
 NORMA's model errors grouped by kind, the full relational table dump, the
-verbalization leg, and the cross-check inputs for tools/js-runner
-(design-state.json — fact types with top-supertype-collapsed players and
-UC spans; norma-tables.json — NORMA's RMAP output). `oracle-report.txt`
-is the pinned latest run; `verbalization-report.txt` is the pinned
-tag-stripped verbalization (the .html original is regenerated on every
-run and not tracked).
+verbalization leg, the nf round-trip gate (NORMA's generated
+verbalizations re-parsed into a second model and compared on readings,
+subtype edges, and UC spans — the exec ruling: all verbalizations are
+canonical, and divergences of form move the source toward the canonical
+phrasing), and the checker inputs (design-state, norma-answer — both
+INTERSECTION SOURCE per the pure-math carrier ruling; instance facts
+are parsed as verbalizations and ride as populations). All generated
+reports and artifacts are untracked ephemera; the tools regenerate them
+on demand.
 
 Verbalization leg (nf, out-direction): after RMAP, every object type and
 non-implied fact type is verbalized through NORMA's own engine (the
