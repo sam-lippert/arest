@@ -206,6 +206,13 @@ Guard guards Transition.
      inherited); consumer-side firing precedence picks the direct row. -->
 * Status1 has effective Transition1 to Status2 on Event Type iff Transition1 is from State Machine Definition1 and Transition1 is to Status2 and Transition1 is triggered by Event Type and Status1 is defined in State Machine Definition1.
 
+<!-- elysium-audit C: transitive reachability over declared transitions,
+     feeding the Liveness obligation under ## Constraints. -->
+
+* Status1 reaches Status2 in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from Status1 and that Transition is to Status2.
+
+* Status1 reaches Status3 in State Machine Definition iff Status1 reaches Status2 in that State Machine Definition and Status2 reaches Status3 in that State Machine Definition.
+
 
 
 ## Constraints
@@ -214,6 +221,26 @@ For each Noun, at most one State Machine Definition is for that Noun.
 Each State Machine Definition has exactly one initial Status.
 It is obligatory that each State Machine Definition has at least one terminal Status.
 If some Status is initial in some State Machine Definition then that Status is defined in that State Machine Definition.
+
+### Liveness (AREST.tex, after Thm 2)
+
+Status reaches Status in State Machine Definition. *
+
+It is obligatory that if some Status reaches that Status in some State Machine Definition then that Status reaches some Status that is terminal in that State Machine Definition.
+<!-- elysium-audit C: the paper's liveness discipline is "the deontic
+     obligation that each cycle carry some exit transition." Quantifying
+     over cycles is outside fragment R, so this transcribes the expressible
+     strengthening: a Status on a cycle (one that reaches itself) must
+     reach some terminal Status. Reaching a terminal forces an edge out of
+     the cycle's strongly-connected component, so this implies the paper's
+     obligation (not conversely: an exit into another trap cycle satisfies
+     the paper's sentence but not this one). Deontic: a trapped cycle warns
+     and commits. Until now the docs QUOTED the cycle-exit obligation as if
+     declared, while only the weaker at-least-one-terminal obligation above
+     existed as a reading. The `reaches` rules (under Derivation Rules) use
+     declared Transition edges — conservative w.r.t. Harel-inherited edges,
+     which only add reachability; an effective-transition base rule can be
+     added if over-warning bites. -->
 
 ## Instance Facts
 

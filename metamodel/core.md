@@ -6,7 +6,14 @@ Function(.id) is an entity type.
 Noun is a subtype of Function.
   Event Type is a subtype of Resource.
   Fact Type is a subtype of Event Type.
-  {Event Type, Status, State Machine Definition, Constraint, Derivation Rule} are mutually exclusive subtypes of Resource.
+  {Event Type, Status, Constraint, Derivation Rule} are mutually exclusive subtypes of Resource.
+  <!-- elysium-audit A: State Machine Definition removed from the exclusive
+       list. state.md declares `State Machine Definition is a subtype of
+       Status` (the Harel nesting, deliberate per instances.md task-987),
+       so SMD and Status cannot also be mutually exclusive siblings — the
+       pair of declarations forced SMD's population empty. SMD inherits
+       Status's exclusions through the subtype. -->
+
 
 Reading(.id) is an entity type.
 
@@ -19,7 +26,8 @@ Constraint(.id) is an entity type.
   Constraint is a subtype of Resource.
   Set Comparison Constraint is a subtype of Constraint.
   Frequency Constraint is a subtype of Constraint.
-  {Set Comparison Constraint, Frequency Constraint} are mutually exclusive subtypes of Constraint.
+  Cardinality Constraint is a subtype of Constraint.
+  {Set Comparison Constraint, Frequency Constraint, Cardinality Constraint} are mutually exclusive subtypes of Constraint.
 
 Constraint Type(.code) is an entity type.
 
@@ -100,7 +108,7 @@ Derivation Mode is a value type.
 Constraint Type Label is a value type.
 
 Constraint Type Family is a value type.
-  The possible values of Constraint Type Family are 'ring', 'uniqueness', 'mandatory', 'frequency', 'value', 'set-comparison', 'subset', 'equality', 'deontic'.
+  The possible values of Constraint Type Family are 'ring', 'uniqueness', 'mandatory', 'frequency', 'value', 'set-comparison', 'subset', 'equality', 'deontic', 'cardinality'.
 
 Constraint Match Keyword is a value type.
 
@@ -286,6 +294,22 @@ Function belongs to Domain.
   Each Function belongs to at most one Domain.
 It is obligatory that each Function belongs to some Domain.
 
+Origin is a value type.
+  The possible values of Origin are 'compiled', 'registered'.
+Function has Origin.
+  Each Function has at most one Origin.
+  <!-- elysium-audit E: Def 9 — a definition is ⟨name, dom, cod, origin,
+       impl⟩ with origin ∈ {compiled, registered}; Eq 5 filters DEFS on
+       origin = 'registered', Cor 5 identifies that restriction with the
+       decidability frontier, and Cor 1 reads rule bodies as data. Without
+       an origin fact the boundary is not a query over P — it lived only in
+       host kernels (the 17 boundary atoms were undeclared in-canon; the
+       rebuild's manifest DEF is the ready salvage). At-most-one rather
+       than exactly-one: Function's population includes runtime Resources
+       (instances.md) that carry no definition; origin is mandatory exactly
+       for DEFS entries. Signature (dom/cod) facts follow when the canon
+       manifest lands. -->
+
 ### Constraint
 Constraint has modality of Modality Type.
 Constraint has Text.
@@ -310,6 +334,19 @@ Frequency Constraint has Min Occurrence.
   Each Frequency Constraint has exactly one Min Occurrence.
 Frequency Constraint has Max Occurrence.
   Each Frequency Constraint has at most one Max Occurrence.
+
+### Cardinality Constraint (subtype of Constraint)
+<!-- elysium-audit D: Def 2 lists cardinality among the constraint kinds —
+     a bound on the SIZE of a type's population (NORMA CardinalityConstraint),
+     distinct from frequency's per-value occurrence bound. It was absent from
+     this metamodel. Cor 2 leans on the kind directly: "a rate limit is a
+     cardinality constraint over timestamped request facts"; §3's slack
+     discussion tunes CAP posture by a cardinality constraint's distance
+     from its bound. -->
+Cardinality Constraint has Min Occurrence.
+  Each Cardinality Constraint has at most one Min Occurrence.
+Cardinality Constraint has Max Occurrence.
+  Each Cardinality Constraint has at most one Max Occurrence.
 
 ### Constraint Span (objectification of "Constraint spans Role")
 Constraint Span autofills from superset.
@@ -352,8 +389,29 @@ No Noun is subtype of itself.
 If Noun1 is subtype of Noun2, then Noun2 is not subtype of Noun1.
 If Noun1 is subtype of Noun2 and Noun2 is subtype of Noun3, then Noun1 is subtype of Noun3.
 
-No Derivation Rule depends on itself.
-If Derivation Rule 1 depends on Derivation Rule 2 and Derivation Rule 2 depends on Derivation Rule 3, then Derivation Rule 1 does not depend on Derivation Rule 3.
+<!-- elysium-audit B: the former rings here (irreflexive + intransitive; and
+     validation.md carried irreflexive + asymmetric) contradicted Lem 1 and
+     each other. Lem 1 licenses arbitrary recursion — self- and mutual
+     recursion included (transitive closure is a legitimate rule) — and
+     forbids exactly one shape: a VALUE-INTRODUCING rule on a dependency
+     cycle. Intransitivity even forbade legitimate dependency diamonds
+     (DR1→DR2→DR3 with DR1→DR3). Cor 1 makes the true check a query over
+     the dependency graph; the faithful constraint follows. -->
+
+Derivation Rule introduces values. +
+  <!-- Cor 1: value introduction is syntactic — a rule body applies a
+       definition with origin 'registered' (the Eq 5 boundary) or a
+       value-constructing base operation (arithmetic, length, dynamic
+       application); every other operation rearranges atoms already in
+       adom(P) or quoted in the rule. Semi-derived: the compiler asserts it
+       from the body's clause shapes; an author may also assert it. -->
+
+Derivation Rule reaches Derivation Rule. *
+
+It is impossible that some Derivation Rule introduces values and that Derivation Rule reaches that Derivation Rule.
+  <!-- Lem 1's hypothesis as an alethic constraint, refused like any other
+       (Cor 1: "refused like any alethic violation"; the rebuild SPEC called
+       it G7 and ran it on every DEFS change). -->
 
 ### External System
 External System has URL.
@@ -390,7 +448,16 @@ Derivation Rule depends on Derivation Rule. *
 
 * Fact Type has Arity iff Arity is the count of Role where Fact Type has Role.
 
-* Derivation Rule depends on Derivation Rule iff Derivation Rule has antecedent Fact Type and some other Derivation Rule produces that Fact Type.
+* Derivation Rule1 depends on Derivation Rule2 iff Derivation Rule1 has antecedent Fact Type and Derivation Rule2 produces that Fact Type.
+<!-- elysium-audit B: "some other Derivation Rule" dropped from this rule —
+     it filtered self-loops out of the dependency graph, so a
+     value-introducing self-recursive rule (a 1-cycle Lem 1 must refuse)
+     was invisible to the Cor 1 check. Self-dependency is a legitimate,
+     recordable edge. -->
+
+* Derivation Rule1 reaches Derivation Rule2 iff Derivation Rule1 depends on Derivation Rule2.
+
+* Derivation Rule1 reaches Derivation Rule3 iff Derivation Rule1 depends on Derivation Rule2 and Derivation Rule2 reaches Derivation Rule3.
 
 * Noun is instantiable iff Noun has Object Type 'entity' and Noun has some Reference Scheme.
 
@@ -1013,6 +1080,9 @@ Constraint Type 'SS' has Constraint Type Label 'Subset'.
 Constraint Type 'SS' has Constraint Type Family 'subset'.
 Constraint Type 'EQ' has Constraint Type Label 'Equality'.
 Constraint Type 'EQ' has Constraint Type Family 'equality'.
+Constraint Type 'CC' has Name 'Cardinality'.
+Constraint Type 'CC' has Constraint Type Label 'Cardinality'.
+Constraint Type 'CC' has Constraint Type Family 'cardinality'.
 
 Constraint Type 'DF_pop' has Constraint Type Label 'Deontic Forbidden (population)'.
 Constraint Type 'DF_pop' has Constraint Type Family 'deontic'.

@@ -14,7 +14,17 @@ It is forbidden that a Constraint of Constraint Type 'UC' spans fewer Roles than
 
 It is obligatory that when a Fact Type has exactly two Roles that both reference the same Noun, some Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spans those Roles.
 
-It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spanning its Roles when the Reading of that Fact Type contains a capitalized-word-prefixed form of its Ring Noun, or when some Noun ending in that Ring Noun is declared elsewhere in the corpus. The two conditions reflect compound-noun parse-time artifacts (eu-law `Personal Data Breach … Personal Data` and Biometric/Genetic/Personal Data sharing the `Data` suffix) and are read by `check_ring_completeness` to suppress ring-completeness hints; without them, the corpus surfaces 9 false-positive ring hints. The permission text is the source of truth for the suppression patterns — `check.rs` reads the Permission cell and applies the named pattern matchers; deleting either condition here re-enables the corresponding suppression layer to drop out of the check.
+It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spanning its Roles when the Reading of that Fact Type contains a capitalized-word-prefixed form of its Ring Noun, or when some Noun ending in that Ring Noun is declared elsewhere in the corpus.
+<!-- elysium-audit H (prose split, per the vindicated 10.2 scrub): the two
+     conditions reflect compound-noun parse-time artifacts (eu-law
+     `Personal Data Breach … Personal Data` and Biometric/Genetic/Personal
+     Data sharing the `Data` suffix) and are read by `check_ring_completeness`
+     to suppress ring-completeness hints; without them, the corpus surfaces
+     9 false-positive ring hints. The permission sentence is the source of
+     truth for the suppression patterns — the checker reads the Permission
+     cell and applies the named pattern matchers; deleting either condition
+     re-enables the corresponding hints. -->
+
 
 ### Ring Constraint Validity
 
@@ -46,8 +56,12 @@ It is forbidden that a Reading conjoins two independent assertions using 'and' w
 
 ### Derivation Rule Acyclicity
 
-No Derivation Rule depends on itself.
-If Derivation Rule 1 depends on Derivation Rule 2, then Derivation Rule 2 does not depend on Derivation Rule 1.
+<!-- elysium-audit B: the former pair here (irreflexive + asymmetric)
+     forbade self- and mutual recursion, which Lem 1 licenses, and
+     disagreed with core.md's (also wrong) irreflexive + intransitive.
+     The faithful constraint — no VALUE-INTRODUCING rule on a dependency
+     cycle — lives in core.md beside the `reaches` closure and the
+     `introduces values` fact type. One home, per the one-gate lesson. -->
 
 ### Derivation Rule Range Restriction
 
@@ -106,6 +120,7 @@ Constraint Type 'UC' has Violation Template 'Uniqueness violation: {noun} {value
 Constraint Type 'MC' has Violation Template 'Mandatory violation: {noun} {value} does not participate in {reading}'.
 Constraint Type 'FC' has Violation Template 'Frequency violation: {noun} {value} in {reading} expected {range}'.
 Constraint Type 'VC' has Violation Template 'Value constraint violation: {noun} {value} is not in {valid_set}'.
+Constraint Type 'CC' has Violation Template 'Cardinality violation: population of {noun} expected {range}'.
 Constraint Type 'XO' has Violation Template 'Set-comparison violation: {entity} {value} expected {requirement} of {clause_count} clause fact types'.
 Constraint Type 'XC' has Violation Template 'Set-comparison violation: {entity} {value} expected {requirement} of {clause_count} clause fact types'.
 Constraint Type 'OR' has Violation Template 'Set-comparison violation: {entity} {value} expected {requirement} of {clause_count} clause fact types'.
