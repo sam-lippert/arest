@@ -34,6 +34,18 @@ sentences IN; this leg emits NORMA's sentences OUT — the whitepaper's nf
 round-trip exhibited in both directions by the reference implementation
 (declared readings like "Object Type is of OT Kind" come back verbatim).
 
+Constraint depth: rings, subsets (direct and JOIN-PATH — NORMA's
+ConstraintRoleSequenceJoinPath with root, sub-paths, and projections),
+exclusions (including exclusive subtypes over the supertype meta roles),
+disjunctive mandatories, and the negated-unary impossibility form all
+build as real NORMA elements. The principled residue rides as
+ModelNotes, each named in the map log: the identity-cast reflection
+bridge (one-id-space semantics, derivational), the API subtype-closure
+rule (a derivation in constraint clothing), the two value-comparison
+temporal forms (ValueComparisonConstraint over joined Timestamp roles —
+the next constraint increment), two disjunctive-consequent forms, and
+the qualified-deontic modeling prose.
+
 Honest-oracle scope: the sentence→element translation here is the harness's
 parse leg, kept small and reported sentence-by-sentence. What NORMA
 authoritatively supplies: model well-formedness (reference schemes,

@@ -375,6 +375,15 @@ namespace Elysium.NormaOracle
 				{
 					continue;
 				}
+				// NORMA emits association lines for its IMPLIED objectifications
+				// too (generated names never declared in model A); the canonical
+				// surface is A's declared vocabulary — skip the machinery ones
+				System.Text.RegularExpressions.Match am =
+					System.Text.RegularExpressions.Regex.Match(line, @"provides the preferred identification scheme for ([\w :]+)\.$");
+				if (am.Success && !verifier.HasType(am.Groups[1].Value.Trim()))
+				{
+					continue;
+				}
 				System.Text.RegularExpressions.Match im =
 					System.Text.RegularExpressions.Regex.Match(line, @"^Each ([\w :]+?) is an instance of ([\w :]+?)\.$");
 				if (im.Success)
