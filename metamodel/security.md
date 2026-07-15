@@ -27,7 +27,7 @@ surfaces.
 
 ## Entity Types
 
-CIDR Block(.id) is an entity type.
+CIDR Block is an entity type.
 CIDR Block is a subtype of Function.
 
 ## Value Types

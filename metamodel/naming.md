@@ -34,7 +34,7 @@ bare `s$`, and the empty-pattern default must be last.
 
 ## Entity Types
 
-Pluralization Rule(.id) is an entity type.
+Pluralization Rule is an entity type.
 Pluralization Rule is a subtype of Function.
 
 ## Value Types

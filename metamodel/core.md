@@ -26,6 +26,22 @@
 ## Entity Types
 
 Function(.id) is an entity type.
+  <!-- elysium (Halpin sweep, 2026-07-15): the ONLY declared reference
+       mode in the metamodel. Book (2nd-ed text) §6.7: "By default, a
+       subtype inherits the primary reference scheme of the root
+       supertype; in this case the reference scheme is not displayed on
+       the subtype" — and §10.4 marks a subtype-own scheme as the
+       advanced case ("shown if and only if the subtype has at least one
+       direct supertype with a DIFFERENT primary reference scheme"),
+       mapped via total tables and "extremely complex reference
+       constraints". The 48 per-kind modes ((.id)/(.Name)/(.code)/
+       (.Email)/(.Reference)) were exactly that case and mapped as
+       dual-identity bridge columns on this root's table. They are
+       stripped: every subtype identifies through Function(.id) — a
+       Def 9 definition's name IS its identity, one id space in D.
+       Former natural-key modes survive as data where they carry
+       information beyond identity (Resource has Reference, User has
+       Email — mandatory 1:1 secondary references). -->
 Object Type is a subtype of Function.
   Event Type is a subtype of Function.
   Fact Type is a subtype of Event Type.
@@ -55,26 +71,26 @@ Object Type is a subtype of Function.
        (`Resource is instance of Noun`, instances.md), not by subtyping. -->
 
 
-Reading(.id) is an entity type.
+Reading is an entity type.
 Reading is a subtype of Function.
 
-Role(.id) is an entity type.
+Role is an entity type.
 Role is a subtype of Function.
 
 Predicate is a subtype of Function.
   HTTP Method is a subtype of Predicate.
 
-Constraint(.id) is an entity type.
+Constraint is an entity type.
   Constraint is a subtype of Function.
   Set Comparison Constraint is a subtype of Constraint.
   Frequency Constraint is a subtype of Constraint.
   Cardinality Constraint is a subtype of Constraint.
   {Set Comparison Constraint, Frequency Constraint, Cardinality Constraint} are mutually exclusive subtypes of Constraint.
 
-Constraint Type(.code) is an entity type.
+Constraint Type is an entity type.
 Constraint Type is a subtype of Function.
 
-Derivation Rule(.id) is an entity type.
+Derivation Rule is an entity type.
   Derivation Rule is a subtype of Function.
 
 Modality Type is a value type.
@@ -83,16 +99,16 @@ Modality Type is a value type.
 World Assumption is a value type.
   The possible values of World Assumption are 'closed', 'open'.
 
-Language(.code) is an entity type.
+Language is an entity type.
 Language is a subtype of Function.
 
-schema:Thing(.Name) is an entity type.
+schema:Thing is an entity type.
 schema:Thing is a subtype of Function.
 
-External System(.Name) is an entity type.
+External System is an entity type.
 External System is a subtype of Function.
 
-Domain(.Name) is an entity type.
+Domain is an entity type.
 Domain is a subtype of Function.
   <!-- elysium-batch ruling 2: Domain is the namespace unit `Function
        belongs to Domain` requires — declared at last, schema-side under
@@ -525,7 +541,7 @@ Domain connects to External System with Secret Reference.
 
 ### Derivation Rule
 
-Derivation Rule(.id) is an entity type.
+Derivation Rule is an entity type.
 Derivation Rule has Text.
   Each Derivation Rule has exactly one Text.
 Derivation Rule has antecedent Fact Type.
@@ -661,15 +677,15 @@ Backus §11.2.4 / Def 7 correspondence (Table 1 of pre-2026-07-13 drafts):
 
 ### Entity types
 
-Join Path(.id) is an entity type.
+Join Path is an entity type.
 Join Path is a subtype of Function.
-Join(.id) is an entity type.
+Join is an entity type.
 Join is a subtype of Function.
-Role Sequence(.id) is an entity type.
+Role Sequence is an entity type.
 Role Sequence is a subtype of Function.
-Role Projection(.id) is an entity type.
+Role Projection is an entity type.
 Role Projection is a subtype of Function.
-Join Type(.Name) is an entity type.
+Join Type is an entity type.
 Join Type is a subtype of Function.
 
 ### Value types
@@ -727,7 +743,7 @@ constraint lets the runtime emit the diagnostic through the Def 6 /
 Thm 1 violation path rather than a hard-coded check pass.
 -->
 
-Antecedent Clause(.id) is an entity type.
+Antecedent Clause is an entity type.
 Antecedent Clause is a subtype of Function.
 Clause Shape is a value type.
   The possible values of Clause Shape are 'fact-type-literal', 'antecedent-role', 'negation', 'comparison', 'conjunction', 'quantified', 'unresolved'.
@@ -754,7 +770,7 @@ It is forbidden that each Object Type has a name that ends with 'ies'.
      visible_population (#350) projects out migrated sources, keeping P
      monotonic. -->
 
-Migration(.id) is an entity type.
+Migration is an entity type.
 Migration is a subtype of Function.
 Migration Rule Text is a value type.
 
@@ -784,7 +800,7 @@ It is obligatory that each Migration produces some target Fact Type.
      sources without a destructive write, so population monotonicity is
      preserved and Cor 4 (cor:closure) survives. -->
 
-Migration Application(.id) is an entity type.
+Migration Application is an entity type.
 Migration Application is a subtype of Resource.
 
 Migration Application has Migration.
@@ -824,25 +840,25 @@ It is obligatory that each Migration Application has a distinct Timestamp.
 
 ### Entity types
 
-Bound(.id) is an entity type.
+Bound is an entity type.
 Bound is a subtype of Function.
-Value Range(.id) is an entity type.
+Value Range is an entity type.
 Value Range is a subtype of Function.
-Facet(.id) is an entity type.
+Facet is an entity type.
 Facet is a subtype of Function.
 <!-- elysium-batch ruling 3a (NORMA-correct): the reified Value entity is
      retired — NORMA's ValueRange carries MinValue/MaxValue lexically and
      has no Value instance entity. Bounds carry Lexical Value directly.
 Value(.id) is an entity type. -->
-Unit(.Name) is an entity type.
+Unit is an entity type.
 Unit is a subtype of Function.
-Dimension(.Name) is an entity type.
+Dimension is an entity type.
 Dimension is a subtype of Function.
-Conceptual Data Type(.code) is an entity type.
+Conceptual Data Type is an entity type.
 Conceptual Data Type is a subtype of Function.
-Data Type Group(.code) is an entity type.
+Data Type Group is an entity type.
 Data Type Group is a subtype of Function.
-Format(.Name) is an entity type.
+Format is an entity type.
 Format is a subtype of Function.
 Textual Constraint is a subtype of Constraint.
 

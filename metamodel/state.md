@@ -8,16 +8,16 @@
 
 ## Entity Types
 
-Status(.Name) is an entity type.
+Status is an entity type.
 Status is a subtype of Object Type.
-State Machine Definition(.Name) is an entity type.
+State Machine Definition is an entity type.
 State Machine Definition is a subtype of Status.
-Transition(.id) is an entity type.
+Transition is an entity type.
 Transition is a subtype of Function.
-Guard(.Name) is an entity type.
+Guard is an entity type.
 Guard is a subtype of Function.
 
-Stream(.id) is an entity type.
+Stream is an entity type.
 Stream is a subtype of Function.
 
 ## Readings

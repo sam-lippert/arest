@@ -2,11 +2,11 @@
 
 ## Entity Types
 
-Violation(.id) is an entity type.
+Violation is an entity type.
 Violation is a subtype of Resource.
-Failure(.id) is an entity type.
+Failure is an entity type.
 Failure is a subtype of Resource.
-Batch(.id) is an entity type.
+Batch is an entity type.
 Batch is a subtype of Resource.
 
 ## Value Types
