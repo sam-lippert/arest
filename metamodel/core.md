@@ -178,6 +178,8 @@ Max Length is a value type.
 Pattern is a value type.
   The data type of Pattern is text.
 Description is a value type.
+Local Name is a value type.
+  The data type of Local Name is text.
   The data type of Description is text.
 Text is a value type.
   The data type of Text is text.
@@ -191,8 +193,11 @@ Timestamp is a value type.
   The data type of Timestamp is datetime.
 Argument Length is a value type.
   The data type of Argument Length is integer.
-Order is a value type.
-  The data type of Order is integer.
+Declaration Order is a value type.
+  The data type of Declaration Order is integer.
+  <!-- exec (2026-07-16): renamed from the bare Order — too generic, and
+       it collided with the first test app entity. This is the ordinal
+       position of a fact type in its declaration source. -->
 Data is a value type.
   The data type of Data is text.
 Result is a value type.
@@ -375,8 +380,8 @@ Fact Type has Role.
   It is possible that some Fact Type has more than one Role.
 Fact Type has Arity. *
   Each Fact Type has exactly one Arity.
-Fact Type has Order.
-  Each Fact Type has at most one Order.
+Fact Type has Declaration Order.
+  Each Fact Type has at most one Declaration Order.
 Fact Type has Role Relationship.
   Each Fact Type has at most one Role Relationship.
 Fact Type has Derivation Mode.
@@ -421,6 +426,42 @@ Function has Scope.
   Each Function has at most one Scope. -->
 Function belongs to Domain.
   Each Function belongs to at most one Domain.
+
+Function has Local Name.
+  Each Function has at most one Local Name.
+
+For each Domain and Local Name, at most one Function belongs to that Domain and has that Local Name.
+  <!-- exec ruling (2026-07-16, refined by Samuel mid-course): NAMESPACING
+       IS TENANCY. A Domain is a tenant — a cell whose contents is
+       another entire store (Backus 14.7; the paper: a tenant is a
+       sub-store and a tenant's tenants are sub-sub-stores). A Function
+       belongs to a Domain means its cell LIVES IN that domain's
+       sub-store, and its Local Name is its cell name THERE, so
+       similarly-named objects in different domains never collide: they
+       are different cells in different stores. Resolution is fetch
+       walking the path — up-arrow 'theta' answers a store, up-arrow
+       'dedup' within it answers the cell — and the colon notation
+       (theta:dedup) DENOTES that path, not a flat prefixed string. This
+       external uniqueness, spanning belongs-to and has-local-name
+       through their shared Function, is the relational statement of
+       per-store name uniqueness; path uniqueness follows inductively
+       from it plus the containment tree below. The sub-store is equally
+       the restriction Restrict(store, domain) — containment and
+       restriction are the materialized and derived views of the same
+       tenant. -->
+
+Domain is contained in Domain.
+  Each Domain is contained in at most one Domain.
+
+Domain reaches Domain. *
+  Each Domain, Domain combination occurs at most once in the population of Domain reaches Domain.
+
+No Domain reaches itself.
+  <!-- SUB-TENANCY: domains nest, and the nesting is a tree — at most
+       one parent, and the derived reachability closure is irreflexive,
+       which gives acyclicity in the fragment (the state.md reaches
+       pattern). A multi-segment path (a:b:c) is a walk down the tree:
+       store a, then its sub-store b, then cell c. -->
 It is obligatory that each Function belongs to some Domain.
 
 Definition Origin is a value type.
@@ -648,6 +689,13 @@ Derivation Rule depends on Derivation Rule. *
   Each Derivation Rule, Derivation Rule combination occurs at most once in the population of Derivation Rule depends on Derivation Rule.
 
 ## Derivation Rules
+
+<!-- sub-tenancy closure (exec ruling 2026-07-16): reachability over
+     domain containment, the acyclicity carrier for the tenant tree. -->
+
+* Domain1 reaches Domain2 iff Domain1 is contained in Domain2.
+
+* Domain1 reaches Domain3 iff Domain1 reaches Domain2 and Domain2 reaches Domain3.
 
 * Fact Type has Arity iff Arity is the count of Role where Fact Type has Role.
 

@@ -112,6 +112,20 @@ Function 'strip_prefix' has Definition Origin 'registered'.
 Function 'strip_prefix' accepts Type Expression 'prefix-and-text'.
 Function 'strip_prefix' yields Type Expression 'text'.
 
+<!-- exec ruling (2026-07-16): the canon prefix families declared as
+     Domains — TENANTS of the base store (namespacing is tenancy:
+     Backus 14.7, a cell whose contents is another entire store). Each
+     family's definitions are cells within its tenant sub-store; the
+     colon in theta:dedup denotes the fetch path, not a flat prefix. -->
+Domain 'theta' has Description 'The adequate relational algebra of Codd 2.2 as canon: projection, natural join, tie, restriction, and the set helpers they ride on.'.
+Domain 'system' has Description 'The AST system layer as canon: cell reflection, state machine rows, compiled-rule builders, scheduler classification, views, and render.'.
+Domain 'ast' has Description 'Cells, fetch, store, and DefineIn per Backus 13.3.4 and 13.3.5.'.
+Domain 'constraints' has Description 'The constraint family builders: uniqueness, mandatory, subset, equality, exclusion, value, frequency.'.
+Domain 'monad' has Description 'The two monadic helpers of the command pipeline.'.
+Domain 'csdp' has Description 'The Conceptual Schema Design Procedure as canon: seven steps composed, three registered seams.'.
+Domain 'rmap' has Description 'Relational mapping as canon: the store form, absorption and separation.'.
+Domain 'manifest' has Description 'Def 9 origins computed from the store: the enumerable boundary as set arithmetic.'.
+
 Function 'csdp:elementarize' has Definition Origin 'registered'.
 Function 'csdp:elementarize' accepts Type Expression 'familiar-examples'.
 Function 'csdp:elementarize' yields Type Expression 'design-state'.
