@@ -131,10 +131,13 @@ Secret Reference is a value type.
 Reference Mode is a value type.
   The data type of Reference Mode is text.
 
-id is a value type.
-  The data type of id is text.
-code is a value type.
-  The data type of code is text.
+<!-- exec (2026-07-16): the bare id/code value types are RETIRED. They were
+     reference-mode vocabulary; the reference-scheme sweep left them declared
+     with no fact role, and a roleless value type maps to a degree-1 relation,
+     which is just the active domain (Codd 1970 2.3) — derived, never stored.
+     Only an INDEPENDENT object type earns a standalone table (Halpin), and
+     none of these was one. Same retirement: Data (was in the roster below)
+     and Confidence (outcomes.md, superseded by Confidence Score). -->
 Arity is a value type.
   The data type of Arity is integer.
 Position is a value type.
@@ -198,8 +201,6 @@ Declaration Order is a value type.
   <!-- exec (2026-07-16): renamed from the bare Order — too generic, and
        it collided with the first test app entity. This is the ordinal
        position of a fact type in its declaration source. -->
-Data is a value type.
-  The data type of Data is text.
 Result is a value type.
   The data type of Result is text.
 Title is a value type.

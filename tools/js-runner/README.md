@@ -31,9 +31,16 @@ Laws held on every run, all evaluated through the canon itself:
 
 - L1, fixpoint: re-classifying rmap's emitted schema reproduces its
   keys and separations; projection descriptors pass through unchanged.
-- L2, a table IS fetch: the canon's own ast:Fetch, against the emitted
-  store, returns each cell's contents — Backus's up-arrow-n and Codd's
-  restrict-then-project, executed as one operator.
+- L2, a table IS fetch — and application IS fetch, chained: the canon's
+  own ast:Fetch, against the emitted store, returns each cell's
+  contents (Backus's up-arrow-n and Codd's restrict-then-project, one
+  operator), and because a relation cell holds its rows CURRIED
+  (rmap:nest — one store level per role, per the 2026-07-16 ruling that
+  a higher-arity fact type is a higher-arity function and curried
+  functions are single-parameter functions chained), fetching a key
+  value inside the cell answers that key's image. Every curried
+  application over the populated relation cells is checked against
+  restriction-then-projection of the flat rows.
 - L3, origin boundary: manifest:origins over the canon-as-store answers
   compiled = exactly the DEFs, and every hand-declared registered name
   (resolution.md's boundary rows, read from the design state's own
@@ -45,13 +52,22 @@ Laws held on every run, all evaluated through the canon itself:
   the attributed rows — csdp:s4's uniqueness induction, run backwards
   as a data check. Induced-beyond-declared candidates are reported as
   small-sample information, never as findings.
+- L5, currying agreement: rmap:unnest of every emitted relation cell
+  reproduces exactly its population rows — nest and unnest are inverses
+  on deduplicated rows, so the curried store and the flat presentation
+  assert the same facts, row for row. The flat table is the derived
+  view (Codd 1970 1.3: normal form is a storage discipline, reversible;
+  AST holds sequences natively).
 
 Plus the schema comparison: every fact type the canon separates must be
 a NORMA table (by generated or objectifying-type name) and vice versa;
 every canon absorption key must have a NORMA table absorbing its
-columns and vice versa. Value-domain-only tables are excluded as NORMA
-data-type artifacts; column naming is out of scope (counts reported);
-the objectified-identity tie-break (oracle README) is tolerated with a
+columns and vice versa. There is NO tolerated value-domain class: a
+NORMA table the canon cannot account for is a mismatch (that shunt hid
+four orphan value types until 2026-07-16 — a roleless value type maps
+to a degree-1 relation, the active domain, which is derived and never
+stored). Column naming is out of scope (counts reported); the
+objectified-identity tie-break (oracle README) is tolerated with a
 note. Any law failure or schema mismatch exits nonzero.
 
 ## Test apps (test-apps.js)
