@@ -7349,15 +7349,23 @@ DEF("rmap:rel_cell",
     S4(A("CONS"), S2(A("CONST"), A("CELL")), N(1),
        S3(A("COMP"), A("rmap:nest"), N(5)))),
 
-DEF("rmap:cell",
-    S4(A("CONS"), S2(A("CONST"), A("CELL")), N(1), N(5))),
+"THE ONE TABLE (2026-07-16 ruling: both NORMA RMAP and arest RMAP emit just one function table). rmap answers a store of ONE cell named Function whose contents is itself a store — Backus 14.7, a cell containing an entire store — with one cell per named function: an entity's cell holds its wide-row slots (rule 2, the functional curry), a fact type's cell holds its curried extension (rule 1, the definition by extension), and Def 8 reads one level down: RMAP still assigns each entity its own cell — the cells now live INSIDE the Function cell, which is DEFS. On the NORMA side the same collapse is Halpin: every asserted compound-key fact type is objectified (nesting transformation where the key was not spanning) with identity through the one id space, so every concept assimilates into the Function table as absorbed columns; fully derived fact types leave the stored schema on both sides (Codd 1970 1.5, strong redundancy — their meaning is their rule, per DEFS). Fetch chains all the way down: fetch Function, fetch a name, fetch a key value — application = fetch at every level.",
+
+DEF("rmap:entity_cell",
+    S4(A("CONS"), S2(A("CONST"), A("CELL")), N(1), A("tl"))),
+
+DEF("rmap:group_cells",
+    S3(A("COMP"), S2(A("ALPHA"), A("rmap:entity_cell")), N(5))),
 
 DEF("rmap",
-    S4(A("COMP"), A("cat"),
-       S3(A("CONS"),
-          S3(A("COMP"), S2(A("ALPHA"), A("rmap:cell")), N(1)),
-          S3(A("COMP"), S2(A("ALPHA"), A("rmap:rel_cell")), N(2))),
-       A("rmap:schema"))),
+    S2(A("CONS"),
+       S3(A("COMP"),
+          S4(A("CONS"), S2(A("CONST"), A("CELL")), S2(A("CONST"), A("Function")), A("cat")),
+          S3(A("COMP"),
+             S3(A("CONS"),
+                S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("rmap:group_cells")), N(1)),
+                S3(A("COMP"), S2(A("ALPHA"), A("rmap:rel_cell")), N(2))),
+             A("rmap:schema"))))),
 
 "THE MANIFEST (2026-07-15, exec ruling 4: Def 9 / Cor 5 as canon). manifest:origins computes the enumerable boundary from the store itself: a definition's origin is 'compiled' exactly when its name is a cell of D, and every atom referenced in FUNCTIONAL POSITION that is not a cell name is 'registered' — the host-supplied surface (Eq 5's Filter on origin; Cor 5's enumerable boundary, executed as set arithmetic over the store). The walk is TOTAL, a conservative over-approximation: any atom in a tree may reach operator position at runtime through apply (a function's representation IS its datum — the apply-through-DEFS seams ride in CONST position), so every atom is a potential reference; the registered set is references minus definitions and therefore includes data atoms, which the boundary rows adjudicate — the readings declare which registered names are OPERATIONS, and the checker holds the rows within the computed set. Numeric atoms are selectors and ride along; name-consumers ignore them. impl needs no computation: Def 9's impl IS the cell's contents, definitionally present in the store. dom and cod are not derivable from trees (the base has no type inference); system:registered below is the SALVAGED rebuild manifest — the five boundary primitives with dom/cod transcribed from the quarry implementations — and resolution.md's boundary rows state the same facts as instance-fact verbalizations, the fixture the checker mu holds manifest:origins against.",
 

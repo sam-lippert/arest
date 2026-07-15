@@ -122,7 +122,10 @@ const normaTables = unfold(DEFS["norma:tables"], isPair)
 const state = [fts, unfold(DEFS["state:otpops"], isPair).map(p => [p[0], unfold(p[1], isAtom)])];
 
 // ---- execute the canon ----
+// the store is ONE cell named Function whose contents is itself a store:
+// entity cells (wide-row slots) and fact-type cells (curried extensions)
 const store = ev("rmap", state);
+const fnCells = store[0][2];
 const schema = ev("rmap:schema", state);
 const [groupDescs, projDescs] = schema;
 const canonSeparate = projDescs.map(d => d[0]);
@@ -145,14 +148,15 @@ laws.push(["L1 fixpoint: projections pass through unchanged",
 const setJson = rows => JSON.stringify(rows.map(r => JSON.stringify(r)).sort());
 let l2 = true, l2note = "";
 try {
-  for (const probe of [canonSeparate[0], canonKeys[0]]) {
-    const fetched = ev(ev("ast:Fetch", probe), store);
-    const cell = store.find(c => c[0] === "CELL" && c[1] === probe);
-    if (!deepEq(fetched, cell[2])) l2 = false;
+  if (!deepEq(ev(ev("ast:Fetch", "Function"), store), fnCells)) l2 = false;
+  for (const probe of [canonSeparate[0], fnCells[0] && fnCells[0][1]].filter(Boolean)) {
+    const fetched = ev(ev("ast:Fetch", probe), fnCells);
+    const cell = fnCells.find(c => c[0] === "CELL" && c[1] === probe);
+    if (cell && !deepEq(fetched, cell[2])) l2 = false;
   }
   let chains = 0;
   for (const d of projDescs.filter(d => d[4].length > 0)) {
-    const trie = store.find(c => c[0] === "CELL" && c[1] === d[0])[2];
+    const trie = fnCells.find(c => c[0] === "CELL" && c[1] === d[0])[2];
     for (const k of [...new Set(d[4].map(r => r[0]))]) {
       const image = ev("rmap:unnest", ev(ev("ast:Fetch", k), trie));
       const want = d[4].filter(r => deepEq(r[0], k)).map(r => r.slice(1));
@@ -172,7 +176,7 @@ laws.push(["L2 fetch = restrict-project: table access through ast:Fetch" + l2not
 let l5 = true, l5checked = 0, l5note = "";
 try {
   for (const d of projDescs) {
-    const cell = store.find(c => c[0] === "CELL" && c[1] === d[0]);
+    const cell = fnCells.find(c => c[0] === "CELL" && c[1] === d[0]);
     const got = ev("rmap:unnest", cell[2]);
     l5checked++;
     if (setJson(got) !== setJson(d[4])) {
@@ -256,37 +260,28 @@ for (const t of normaTables) {
 }
 const mismatches = [];
 const notes = [];
-for (const t of factTables) {
-  const d = byName.get(norm(t));
-  const nest = nestings.get(d[0]);
-  const sep = canonSeparateSet.has(norm(d[0])) || (nest && canonSeparateSet.has(norm(nest)));
-  if (!sep) mismatches.push("NORMA separates '" + t + "' but the canon absorbed it");
-}
-for (const name of canonSeparate) {
-  const d = byName.get(norm(name));
-  const nest = d ? nestings.get(d[0]) : null;
-  const label = nest || name;
-  const present = normaTables.some(t => norm(t.name) === norm(name) ||
-                                        (nest && norm(t.name) === norm(nest)));
-  if (present) continue;
-  const carrier = d && (
-    normaTables.find(t => nest && norm(t.name).startsWith(norm(nest))) ||
-    normaTables.find(t => d[1].every(p => t.columns.some(c => norm(c).startsWith(norm(p))))));
-  if (d && nest && carrier) {
-    notes.push("canon separates '" + label + "'; NORMA absorbed its identity into '" +
-      carrier.name + "' (objectified-identity tie-break, both valid per oracle README)");
-  } else {
-    mismatches.push("canon separates '" + label + "' but NORMA has no such table");
-  }
+// ONE TABLE (2026-07-16 ruling): NORMA must emit exactly the Function
+// table; every canon separation must be accounted inside it as the
+// absorbed column group of its objectification (prefix = the fact
+// type's name, which IS the objectifying entity's name)
+if (factTables.length > 0) {
+  mismatches.push("NORMA emits fact tables beside Function: " + factTables.join(", "));
 }
 for (const t of absorbingTables) {
   if (!canonKeys.some(k => norm(k) === norm(t))) {
-    mismatches.push("NORMA absorbing table '" + t + "' is not a canon rule-2 key");
+    mismatches.push("NORMA table '" + t + "' is not a canon rule-2 key (one table means Function only)");
   }
 }
 for (const k of canonKeys) {
   if (!normaTables.some(t => norm(t.name) === norm(k))) {
     mismatches.push("canon rule-2 key '" + k + "' has no NORMA table to absorb into");
+  }
+}
+const fnTable = normaTables.find(t => norm(t.name) === "function");
+for (const name of canonSeparate) {
+  const ok = fnTable && fnTable.columns.some(c => norm(c).startsWith(norm(name)));
+  if (!ok) {
+    mismatches.push("canon separates '" + name + "' but the Function table has no absorbed column group for it");
   }
 }
 
@@ -314,8 +309,9 @@ fs.writeFileSync(path.join(__dirname, "checker-answer"),
 console.log("arest DEFs loaded:", canonNames.size, "— carriers:",
   fts.length, "fact types,", populated.length, "populated,",
   state[1].length, "entity populations,", normaTables.length, "NORMA tables");
-console.log("canon rmap output: a STORE of", store.length, "cells",
-  "(" + canonKeys.length, "entity cells +", canonSeparate.length, "relation cells)");
+console.log("canon rmap output: ONE cell (" + store[0][1] + ") containing",
+  fnCells.length, "cells —", fnCells.length - canonSeparate.length,
+  "entity cells +", canonSeparate.length, "fact-type extension cells");
 const fnGroup = groupDescs.find(d => d[0] === "Function");
 if (fnGroup) {
   console.log("Function entity cell:", fnGroup[4].length, "wide rows (sample:",

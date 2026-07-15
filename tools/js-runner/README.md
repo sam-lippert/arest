@@ -59,16 +59,23 @@ Laws held on every run, all evaluated through the canon itself:
   view (Codd 1970 1.3: normal form is a storage discipline, reversible;
   AST holds sequences natively).
 
-Plus the schema comparison: every fact type the canon separates must be
-a NORMA table (by generated or objectifying-type name) and vice versa;
-every canon absorption key must have a NORMA table absorbing its
-columns and vice versa. There is NO tolerated value-domain class: a
-NORMA table the canon cannot account for is a mismatch (that shunt hid
-four orphan value types until 2026-07-16 — a roleless value type maps
-to a degree-1 relation, the active domain, which is derived and never
-stored). Column naming is out of scope (counts reported); the
-objectified-identity tie-break (oracle README) is tolerated with a
-note. Any law failure or schema mismatch exits nonzero.
+Plus the schema comparison, in its one-table form (2026-07-16 ruling:
+both RMAPs emit just one function table): NORMA must answer exactly the
+Function table and nothing beside it; every fact type the canon
+separates must be accounted inside that table as the absorbed column
+group of its objectification (prefix = the fact type's name, which IS
+the objectifying entity's name — extensionality: one object, one name);
+every canon absorption key must be a NORMA table and vice versa. The
+canon's store mirrors the same collapse: one cell named Function whose
+contents is a store — entity cells carrying wide-row slots, fact-type
+cells carrying curried extensions — so Def 8 reads one level down and
+fetch chains all the way: fetch Function, fetch a name, fetch a key.
+There is NO tolerated value-domain class: a NORMA table the canon
+cannot account for is a mismatch (that shunt hid four orphan value
+types until 2026-07-16). Fully derived fact types appear on neither
+side (Codd 1970 1.5: a stored derivable relation is strong redundancy —
+their meaning is their rule). Column naming is out of scope (counts
+reported). Any law failure or schema mismatch exits nonzero.
 
 ## Test apps (test-apps.js)
 

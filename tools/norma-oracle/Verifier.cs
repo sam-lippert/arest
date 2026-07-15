@@ -32,6 +32,16 @@ namespace Elysium.NormaOracle
 		private List<Role> myLastRoles;
 		private List<string> myLastPlayers;
 		private readonly List<FactIndexEntry> myFactIndex = new List<FactIndexEntry>();
+		private readonly HashSet<FactType> myFullyDerived = new HashSet<FactType>();
+		public HashSet<string> FullyDerivedNames()
+		{
+			var names = new HashSet<string>(StringComparer.Ordinal);
+			foreach (FactType f in myFullyDerived)
+			{
+				if (!f.IsDeleted) names.Add(f.Name);
+			}
+			return names;
+		}
 		private sealed class FactIndexEntry
 		{
 			public FactType Fact;
@@ -429,8 +439,21 @@ namespace Elysium.NormaOracle
 				}
 			}
 			// derivation-mode markers (* / ** / +) trailing a reading start the
-			// next split sentence; strip them before dispatch
-			s = System.Text.RegularExpressions.Regex.Replace(s, @"^[*+]+\s+", "");
+			// next split sentence; strip them before dispatch. A leading '*'
+			// that is NOT a derivation-rule sentence (no if/iff connective)
+			// marks the fact just mapped as FULLY DERIVED — Codd 1970 1.5:
+			// a stored derivable relation is strong redundancy, so fully
+			// derived fact types leave the stored schema (both emitters).
+			Match mkDerived = System.Text.RegularExpressions.Regex.Match(s, @"^([*+]+)\s+");
+			if (mkDerived.Success)
+			{
+				s = s.Substring(mkDerived.Length);
+				if (mkDerived.Groups[1].Value[0] == '*' && myLastFact != null &&
+					!System.Text.RegularExpressions.Regex.IsMatch(s, @"\biff?\b"))
+				{
+					myFullyDerived.Add(myLastFact);
+				}
+			}
 			if (s.Contains(" or some ") || s.Contains(" or that ") || s.Contains(" or is "))
 			{
 				myTextual.Add(new KeyValuePair<string, string>("disjunctive", s));
@@ -515,46 +538,42 @@ namespace Elysium.NormaOracle
 				myTextual.Add(new KeyValuePair<string, string>("conditional", s));
 				return;
 			}
-			if (s.StartsWith("This association with "))
 			{
-				// FORML objectification-with-preferred-id: the sentence sits
-				// directly under the fact type it objectifies, so the context
-				// fact is the nested one. NORMA derives the nesting type's
-				// preferred identifier from the fact's spanning UC.
-				Match om = Regex.Match(s.TrimEnd('.'), @"provides the preferred identification scheme for ([\w :]+)$");
-				if (om.Success && myLastFact != null)
+				// objectification, NORMA's own verbalized form: X objectifies
+				// "reading". No preferred-identification claim — identity is
+				// the one id space (the subtype declaration that follows;
+				// MapSubtype demotes the auto-assigned objectification UC).
+				// The quoted reading resolves the fact by FullKey so the
+				// sentence parses in entity context too (the nf B side sees
+				// it beside the entity type, not under the fact).
+				Match om = Regex.Match(s, "^([\\w :]+) objectifies [\"“](.+)[\"”]\\.$");
+				if (om.Success)
 				{
-					// Halpin, "Objectification and Atomicity" (2020-04-28):
-					// objectification is legal only over a UC spanning all
-					// roles (unaries pass — the single role is spanning).
-					// NORMA as shipped still implements the ORM 2 any-fact-
-					// type relaxation, so the oracle enforces the rule here,
-					// per validation.md's Objectification Spanning deontic.
-					int roleCount = myLastFact.RoleCollection.Count;
-					bool spanning = false;
-					foreach (UniquenessConstraint uc in InternalUCs(myLastFact))
+					string wanted = NormalizeWords(om.Groups[2].Value);
+					FactType target = null;
+					foreach (FactIndexEntry entry in myFactIndex)
 					{
-						if (uc.RoleCollection.Count == roleCount)
-						{
-							spanning = true;
-							break;
-						}
+						if (entry.FullKey == wanted) { target = entry.Fact; break; }
 					}
-					if (!spanning)
+					if (target != null)
 					{
-						Count("OBJECTIFICATION REFUSED (no spanning UC; Halpin 2020)");
-						myMapLog.Add("OBJECTIFICATION REFUSED (Halpin 2020, no spanning UC): " + Shorten(s));
-						return;
+						FactType saveLast = myLastFact;
+						myLastFact = target;
+						bool ok = ObjectifySpanning(om.Groups[1].Value.Trim(), s);
+						myLastFact = saveLast;
+						if (ok) return;
 					}
-					ObjectType nesting = EnsureType(om.Groups[1].Value.Trim(), false);
-					if (nesting.NestedFactType == null)
-					{
-						nesting.NestedFactType = myLastFact;
-					}
-					Count("objectification (nested fact type)");
+					Count("objectification (unresolved reading, deferred)");
 					return;
 				}
-				Count("objectification / external preferred id (deferred)");
+			}
+			if (s.StartsWith("This association with "))
+			{
+				// legacy FORML objectification-with-preferred-id form —
+				// retired from the source (2026-07-16 one-table wave); kept
+				// only to refuse loudly if it reappears.
+				Count("RETIRED FORM: association-provides-identification");
+				myMapLog.Add("RETIRED FORM (use: X objectifies \"reading\"): " + Shorten(s));
 				return;
 			}
 			if (Regex.IsMatch(s, @"'[^']*'"))
@@ -571,6 +590,39 @@ namespace Elysium.NormaOracle
 			}
 			Count("unrecognized");
 			myUnrecognized.Add(Shorten(s));
+		}
+
+		private bool ObjectifySpanning(string nestingName, string sentence)
+		{
+			// Halpin, "Objectification and Atomicity" (2020-04-28):
+			// objectification is legal only over a UC spanning all roles
+			// (unaries pass — the single role is spanning). NORMA as shipped
+			// still implements the ORM 2 any-fact-type relaxation, so the
+			// oracle enforces the rule here, per validation.md's
+			// Objectification Spanning deontic.
+			int roleCount = myLastFact.RoleCollection.Count;
+			bool spanning = false;
+			foreach (UniquenessConstraint uc in InternalUCs(myLastFact))
+			{
+				if (uc.RoleCollection.Count == roleCount)
+				{
+					spanning = true;
+					break;
+				}
+			}
+			if (!spanning)
+			{
+				Count("OBJECTIFICATION REFUSED (no spanning UC; Halpin 2020)");
+				myMapLog.Add("OBJECTIFICATION REFUSED (Halpin 2020, no spanning UC): " + Shorten(sentence));
+				return true;
+			}
+			ObjectType nesting = EnsureType(nestingName, false);
+			if (nesting.NestedFactType == null)
+			{
+				nesting.NestedFactType = myLastFact;
+			}
+			Count("objectification (nested fact type)");
+			return true;
 		}
 
 		private void MapSubtype(string subName, string superName)
@@ -592,7 +644,35 @@ namespace Elysium.NormaOracle
 				subtypeFact.ProvidesPreferredIdentifier = true;
 				Count("subtype provides preferred identification (Halpin 6.7)");
 			}
+			else if (!sub.IsValueType && sub.NestedFactType != null && RootsAtFunction(super))
+			{
+				// one-table rule (model-driven; fires only when the readings
+				// declare an OBJECTIFIED entity a Function subtype): identity
+				// moves from the association to the one id space — Def 9, one
+				// id space in D — and the objectifying spanning UC remains as
+				// a plain uniqueness over the absorbed role columns, so the
+				// pairhood constraint survives while the concept assimilates
+				// into Function instead of standing as its own table.
+				UniquenessConstraint pid = sub.ResolvedPreferredIdentifier as UniquenessConstraint;
+				if (pid != null)
+				{
+					pid.PreferredIdentifierFor = null;
+				}
+				subtypeFact.ProvidesPreferredIdentifier = true;
+				Count("objectified subtype takes Function identity (one-table rule)");
+			}
 			Count("subtype declaration");
+		}
+
+		private bool RootsAtFunction(ObjectType t)
+		{
+			if (t == null) return false;
+			if (t.Name == "Function") return true;
+			foreach (ObjectType sup in t.SupertypeCollection)
+			{
+				if (RootsAtFunction(sup)) return true;
+			}
+			return false;
 		}
 
 		private void MapValueEnum(string typeName, string valueList)
@@ -1947,6 +2027,10 @@ namespace Elysium.NormaOracle
 			foreach (FactIndexEntry entry in myFactIndex)
 			{
 				if (entry.Fact.IsDeleted) continue;
+				// Codd 1970 1.5: fully derived fact types are strong
+				// redundancy as stored relations — they leave the stored
+				// schema; their meaning is their (deferred) rule
+				if (myFullyDerived.Contains(entry.Fact)) continue;
 				string name = IAtom(entry.Fact.Name);
 				var tops = new List<string>();
 				var decls = new List<string>();
@@ -2015,7 +2099,7 @@ namespace Elysium.NormaOracle
 			System.IO.File.WriteAllText(path, sb.ToString());
 		}
 
-		public static void WriteNormaAnswer(Store store, System.Reflection.Assembly relationalAssembly, string path)
+		public static void WriteNormaAnswer(Store store, System.Reflection.Assembly relationalAssembly, string path, HashSet<string> excludeFullyDerived)
 		{
 			Type tableType = relationalAssembly.GetTypes().First(x => x.Name == "Table" && typeof(ModelElement).IsAssignableFrom(x));
 			var tables = store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(tableType), true)
@@ -2026,6 +2110,11 @@ namespace Elysium.NormaOracle
 			foreach (ModelElement table in tables)
 			{
 				string tableName = (string)tableType.GetProperty("Name").GetValue(table, null);
+				// Codd 1970 1.5, mirrored on the NORMA side: NORMA has no
+				// rule bodies (the * rules are deferred), so its DCIL still
+				// materializes fully derived fact types; the answer surface
+				// excludes them symmetrically with the design state
+				if (excludeFullyDerived != null && excludeFullyDerived.Contains(tableName)) continue;
 				var columns = (System.Collections.IEnumerable)tableType.GetProperty("ColumnCollection").GetValue(table, null);
 				var colNames = new List<string>();
 				foreach (object col in columns)

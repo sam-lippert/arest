@@ -37,6 +37,8 @@ Host has Station.
 
 Law holds for Host.
   Each Law, Host combination occurs at most once in the population of Law holds for Host.
+LawHoldsForHost objectifies "Law holds for Host".
+LawHoldsForHost is a subtype of Function.
 
 ## Deontic Constraints
 

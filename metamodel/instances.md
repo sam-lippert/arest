@@ -107,6 +107,8 @@ Fact is completed.
 Fact is example.
 Fact cites Citation.
   For each pair of Fact and Citation, that Fact cites that Citation at most once.
+FactCitesCitation objectifies "Fact cites Citation".
+FactCitesCitation is a subtype of Function.
 
 ### Event
 Event is of Event Type.
@@ -124,17 +126,23 @@ Event Type publishes to Stream.
 Event Type can be created by Predicate.
   It is possible that some Event Type can be created by more than one Predicate and that some Predicate can create more than one Event Type.
   For each combination of Event Type and Predicate, that Event Type can be created by that Predicate at most once.
+EventTypeCanBeCreatedByPredicate objectifies "Event Type can be created by Predicate".
+EventTypeCanBeCreatedByPredicate is a subtype of Function.
 
 ### Fact Type Citation
 Fact Type cites Citation.
   For each pair of Fact Type and Citation, that Fact Type cites that Citation at most once.
   It is possible that some Fact Type cites more than one Citation.
   It is possible that more than one Fact Type cites the same Citation.
+FactTypeCitesCitation objectifies "Fact Type cites Citation".
+FactTypeCitesCitation is a subtype of Function.
 
 ### Resource
 Resource is instance of Object Type.
   Each Resource, Object Type combination occurs at most once in the population of Resource is instance of Object Type.
   Each Resource is instance of some Object Type.
+ResourceIsInstanceOfObjectType objectifies "Resource is instance of Object Type".
+ResourceIsInstanceOfObjectType is a subtype of Function.
 <!-- 'exactly one Noun' was NON-CANONICAL (challenged 2026-07-09, verified
      against Halpin, "Subtyping Revisited", NORMA): in ORM subtyping is
      population inclusion — "all instances of one type are also instances
@@ -191,9 +199,18 @@ Resource is created by User.
   Each Resource is created by at most one User.
 
 ### Fact uses Resource for Role
-Fact uses Resource for Role.
-  Each Fact uses at most one Resource for each Role.
-  Each Fact uses some Resource for some Role.
+Fact fills Role.
+  Each Fact, Role combination occurs at most once in the population of Fact fills Role.
+  Each Fact fills some Role.
+FactFillsRole objectifies "Fact fills Role".
+FactFillsRole is a subtype of Function.
+FactFillsRole uses Resource.
+  Each FactFillsRole uses exactly one Resource.
+  <!-- one-table wave (2026-07-16): Halpin's nesting transformation of the
+       former `Fact uses Resource for Role` (compound key Fact+Role): the
+       filled-role pair objectifies, its resource rides functionally
+       (exactly one — a filling IS a usage), and the compound-key ternary
+       leaves the schema. -->
 <!-- elysium (Halpin, "Objectification and Atomicity", 2020-04-28): the
      former `Resource Role` objectification is retired. Its UC spans
      {Fact, Role} — two of three roles — and the note restricts
@@ -221,6 +238,8 @@ State Machine is instance of State Machine Definition. *
 State Machine is instance of Object Type.
   Each State Machine, Object Type combination occurs at most once in the population of State Machine is instance of Object Type.
   Each State Machine is instance of some Object Type.
+StateMachineIsInstanceOfObjectType objectifies "State Machine is instance of Object Type".
+StateMachineIsInstanceOfObjectType is a subtype of Function.
 <!-- 'exactly one Noun' relaxed 2026-07-09 (Samuel: fix the SM readings),
      the SAME non-canonical case as Resource (see the Resource note). This
      ft is a REFLECTION cell (protocol.py REFLECTION set) like
@@ -296,9 +315,11 @@ State Machine is currently in Status. +
 ### Event Caused Transition (objectification of "Event caused Transition in State Machine")
 Event caused Transition in State Machine.
   In each population of Event caused Transition in State Machine, each Event, Transition, State Machine combination occurs at most once.
-  This association with Event, Transition, State Machine provides the preferred identification scheme for Event Caused Transition.
+Event Caused Transition objectifies "Event caused Transition in State Machine".
+Event Caused Transition is a subtype of Function.
   <!-- objectification legal per Halpin, "Objectification and Atomicity"
-       (2020-04-28): the UC above spans all three roles. -->
+       (2020-04-28): the UC above spans all three roles. one-table wave
+       (2026-07-16): identity through the one id space. -->
 
 ## Subset Constraints
 
@@ -311,6 +332,8 @@ Guard Run is for Guard.
 Guard Run references Fact.
   It is possible that some Guard Run references more than one Fact and that some Fact is referenced by more than one Guard Run.
   For each combination of Guard Run and Fact, that Guard Run references that Fact at most once.
+GuardRunReferencesFact objectifies "Guard Run references Fact".
+GuardRunReferencesFact is a subtype of Function.
 Guard Run has Result.
   Each Guard Run has at most one Result.
 
