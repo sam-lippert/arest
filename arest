@@ -5519,11 +5519,11 @@ DEF("system:sm_rows",
     S4(
         A("COND"),
         S3(
-            A("COMP"), A("eq"), S3(A("CONS"), N(1), S2(A("CONST"), A("is for Noun")))),
+            A("COMP"), A("eq"), S3(A("CONS"), N(1), S2(A("CONST"), A("is for Object Type")))),
         S3(
             A("CONS"), S3(A("CONS"), K(A("smDef")), S3(A("CONS"), N(3), N(4))),
             S3(
-                A("CONS"), K(A("State_Machine_Definition_is_for_Noun")),
+                A("CONS"), K(A("State_Machine_Definition_is_for_Object_Type")),
                 S3(A("CONS"), N(3), N(4)))),
         S4(
             A("COND"),
@@ -6712,7 +6712,7 @@ DEF("system:h_objectification",
 
 "THE SM HANDLER TRANSLATORS AS DATA (2026-07-10, #18): six state-machine reading handlers, each a thin delegation to the canonical system:sm_rows row object over the four-tuple ⟨verb, head, group1, group2⟩ — the verb is the grammar's own recognizer token (constant per handler), the head splits the shared 'emits' verb between Transition (Mealy) and Status (Moore). A translator maps ⟨groups, known, mod⟩ -> ⟨rows, phi⟩ (no objs). Hosts _h_sm_def/initial/from/to/emit/moore stay the certified-equal native overrides (test_sm_handler_canon twins them). Trigger and guard canonize the same way (2026-07-10): the compiler's _COOK boundary resolves their clause group (reading -> fact-type id through known context — Stage-1's step, exactly as this doctrine assigns it) BEFORE dispatch, so system:h_sm_trigger / system:h_sm_guard are the same pure sm_rows shape and the hosts stay the certified-equal overrides (test_sm_handler_canon).",
 
-DEF("system:h_sm_def", S3(A("CONS"), S3(A("COMP"), A("system:sm_rows"), S5(A("CONS"), K(A("is for Noun")), K(A("State Machine Definition")), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)))), K(PHI()))),
+DEF("system:h_sm_def", S3(A("CONS"), S3(A("COMP"), A("system:sm_rows"), S5(A("CONS"), K(A("is for Object Type")), K(A("State Machine Definition")), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)))), K(PHI()))),
 
 DEF("system:h_sm_initial", S3(A("CONS"), S3(A("COMP"), A("system:sm_rows"), S5(A("CONS"), K(A("is initial in State Machine Definition")), K(A("Status")), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)))), K(PHI()))),
 
@@ -7304,5 +7304,40 @@ DEF("rmap",
        S3(A("CONS"),
           S3(A("COMP"), S2(A("ALPHA"), A("rmap:cell")), N(1)),
           S3(A("COMP"), S2(A("ALPHA"), A("rmap:cell")), N(2))),
-       A("rmap:schema")))
+       A("rmap:schema"))),
+
+"THE MANIFEST (2026-07-15, exec ruling 4: Def 9 / Cor 5 as canon). manifest:origins computes the enumerable boundary from the store itself: a definition's origin is 'compiled' exactly when its name is a cell of D, and every atom referenced in FUNCTIONAL POSITION that is not a cell name is 'registered' — the host-supplied surface (Eq 5's Filter on origin; Cor 5's enumerable boundary, executed as set arithmetic over the store). The walk is TOTAL, a conservative over-approximation: any atom in a tree may reach operator position at runtime through apply (a function's representation IS its datum — the apply-through-DEFS seams ride in CONST position), so every atom is a potential reference; the registered set is references minus definitions and therefore includes data atoms, which the boundary rows adjudicate — the readings declare which registered names are OPERATIONS, and the checker holds the rows within the computed set. Numeric atoms are selectors and ride along; name-consumers ignore them. impl needs no computation: Def 9's impl IS the cell's contents, definitionally present in the store. dom and cod are not derivable from trees (the base has no type inference); system:registered below is the SALVAGED rebuild manifest — the five boundary primitives with dom/cod transcribed from the quarry implementations — and resolution.md's boundary rows state the same facts as instance-fact verbalizations, the fixture the checker mu holds manifest:origins against.",
+
+DEF("manifest:opatoms",
+    S4(A("COND"), A("atom"),
+       S2(A("CONS"), A("id")),
+       S4(A("COND"), A("null"),
+          S2(A("CONST"), PHI()),
+          S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("manifest:opatoms")))))),
+
+DEF("manifest:names",
+    S2(A("ALPHA"), N(2))),
+
+DEF("manifest:refs",
+    S4(A("COMP"), A("theta:dedup"), A("theta:flatten"),
+       S2(A("ALPHA"), S3(A("COMP"), A("manifest:opatoms"), N(3))))),
+
+DEF("manifest:origins",
+    S3(A("COMP"), A("cat"),
+       S3(A("CONS"),
+          S3(A("COMP"),
+             S2(A("ALPHA"), S3(A("CONS"), A("id"), S2(A("CONST"), A("compiled")))),
+             A("manifest:names")),
+          S3(A("COMP"),
+             S2(A("ALPHA"), S3(A("CONS"), A("id"), S2(A("CONST"), A("registered")))),
+             S3(A("COMP"), A("theta:setminus"),
+                S3(A("CONS"), A("manifest:refs"), A("manifest:names"))))))),
+
+DEF("system:registered",
+    S6(A("CONS"),
+       S5(A("CONS"), K(A("implode")), K(A("separator-and-words")), K(A("text")), K(A("registered"))),
+       S5(A("CONS"), K(A("escape_html")), K(A("text")), K(A("html-text")), K(A("registered"))),
+       S5(A("CONS"), K(A("slug")), K(A("text")), K(A("identifier")), K(A("registered"))),
+       S5(A("CONS"), K(A("lex")), K(A("text")), K(A("token-records")), K(A("registered"))),
+       S5(A("CONS"), K(A("strip_prefix")), K(A("prefix-and-text")), K(A("text")), K(A("registered")))))
 )
