@@ -53,9 +53,18 @@ constraint arity/compatibility, supertype-lattice checks, implied-constraint
 detection), the intrinsic data types, RMAP, and the generated verbalization.
 Derivation rules, ring/set-comparison textual constraints, deontic bodies
 beyond simple mandatory/uniqueness, and instance populations are classified
-and counted, not mapped. Objectifications ARE mapped: "This association
-with ... provides the preferred identification scheme for X" nests X over
-the fact type it follows.
+and counted, not mapped. Objectifications ARE mapped, in NORMA's own
+verbalized form: `X objectifies "reading".` nests X over the fact type the
+quoted reading resolves to (by normalized full-sentence key, so the
+sentence parses in any context). Identity is never the association: the
+one-table rule (2026-07-16) has every objectified entity declared a
+subtype of Function, and identification flows through the one id space —
+the spanning UC stays as the pairhood uniqueness over the absorbed
+columns. Fact types whose readings carry the fully-derived marker (`*`)
+leave BOTH emitted answers (design state and norma-answer): a stored
+derivable relation is Codd 1970 1.5 strong redundancy; NORMA's DCIL still
+materializes them (their rules are deferred), so the exclusion lives at
+the answer surface, symmetrically.
 
 Known NORMA-inherent behaviors (verified, not harness defects):
 
@@ -65,13 +74,13 @@ Known NORMA-inherent behaviors (verified, not harness defects):
   the two link readings collide by construction and NORMA registers
   DuplicateReadingSignatureError twins. `ORACLE_RING_PROBE=1
   ./bin/Debug/norma-oracle.exe` demonstrates this with a bare one-type ring
-  model. The report separates these as expected (currently 10 = 5 ring fact
-  types × 2) from blocking errors.
-- Objectified-type absorption: the ORM→OIAL→DCIL bridge occasionally gives
-  an explicitly objectified type (API) its own identity table and
-  occasionally absorbs it into the fact tables that already carry its
-  identity — both are valid RMAP outcomes; the tie-break is
-  nondeterministic inside the bridge (the objectified type's identity table appears or is absorbed run-to-run; one table of difference either way).
+  model. The report separates these as expected (rings × 2; explicit
+  objectification of a ring fact type adds its own pair) from blocking
+  errors.
+- Objectified-type absorption: the ORM→OIAL→DCIL bridge's old
+  nondeterministic identity-table tie-break (API) dissolved with the
+  one-table rule — identity through the Function subtype removes the
+  choice, and every objectified type assimilates deterministically.
 
 Requires: NORMA VSIX installed in VS (assembly paths in Program.cs), .NET
 Framework 4.8, dotnet SDK to build.

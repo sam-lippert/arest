@@ -37,12 +37,18 @@ Hypothesis Candidate has Confidence Score.
 
 Hypothesis Candidate explains Fact.
   Each Hypothesis Candidate, Fact combination occurs at most once in the population of Hypothesis Candidate explains Fact.
+HypothesisCandidateExplainsFact objectifies "Hypothesis Candidate explains Fact".
+HypothesisCandidateExplainsFact is a subtype of Function.
 Hypothesis Candidate has hidden- Fact.
   Each Hypothesis Candidate, Fact combination occurs at most once in the population of Hypothesis Candidate has hidden- Fact.
+HypothesisCandidateHasHiddenFact objectifies "Hypothesis Candidate has hidden- Fact".
+HypothesisCandidateHasHiddenFact is a subtype of Function.
 
 ### Scoring Rule
 Scoring Rule applies to Hypothesis Candidate.
   Each Scoring Rule, Hypothesis Candidate combination occurs at most once in the population of Scoring Rule applies to Hypothesis Candidate.
+ScoringRuleAppliesToHypothesisCandidate objectifies "Scoring Rule applies to Hypothesis Candidate".
+ScoringRuleAppliesToHypothesisCandidate is a subtype of Function.
 
 ## Instance Facts
 

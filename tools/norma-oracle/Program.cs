@@ -275,7 +275,7 @@ namespace Elysium.NormaOracle
 			// design state the canon's defs consume, and NORMA's own RMAP
 			// answer to confirm against.
 			verifier.WriteDesignState("design-state");
-			Verifier.WriteNormaAnswer(store, assemblies[4], "norma-answer");
+			Verifier.WriteNormaAnswer(store, assemblies[4], "norma-answer", verifier.FullyDerivedNames());
 			Console.WriteLine();
 			Console.WriteLine("== checker inputs ==");
 			Console.WriteLine("  written: design-state, norma-answer (intersection source)");

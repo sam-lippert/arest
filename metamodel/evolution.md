@@ -42,6 +42,8 @@ Signal Source is a value type.
 Domain Change proposes Function.
   Each Domain Change, Function combination occurs at most once in the population of Domain Change proposes Function.
   It is possible that some Domain Change proposes more than one Function and that more than one Domain Change proposes the same Function.
+DomainChangeProposesFunction objectifies "Domain Change proposes Function".
+DomainChangeProposesFunction is a subtype of Function.
 
 Domain Change has Rationale.
   Each Domain Change has exactly one Rationale.
@@ -72,15 +74,23 @@ Signal has Signal Source.
 
 User submits Domain Change for review.
   Each User, Domain Change combination occurs at most once in the population of User submits Domain Change for review.
+UserSubmitsDomainChangeForReview objectifies "User submits Domain Change for review".
+UserSubmitsDomainChangeForReview is a subtype of Function.
 
 User approves Domain Change.
   Each User, Domain Change combination occurs at most once in the population of User approves Domain Change.
+UserApprovesDomainChange objectifies "User approves Domain Change".
+UserApprovesDomainChange is a subtype of Function.
 
 User rejects Domain Change.
   Each User, Domain Change combination occurs at most once in the population of User rejects Domain Change.
+UserRejectsDomainChange objectifies "User rejects Domain Change".
+UserRejectsDomainChange is a subtype of Function.
 
 User requests revision of Domain Change.
   Each User, Domain Change combination occurs at most once in the population of User requests revision of Domain Change.
+UserRequestsRevisionOfDomainChange objectifies "User requests revision of Domain Change".
+UserRequestsRevisionOfDomainChange is a subtype of Function.
 
 Domain Change is applied.
 

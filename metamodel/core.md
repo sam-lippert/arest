@@ -246,8 +246,13 @@ Object Type is of OT Kind.
 * Each Value Type is an Object Type that is of OT Kind 'value'.
 Object Type has Plural.
   Each Object Type has at most one Plural.
-Object Type has value-type- Name.
-  Each value-type- Name belongs to at most one Object Type.
+<!-- one-table wave (2026-07-16): `Object Type has value-type- Name` (the
+     GLOBAL uniqueness of value-type names, keyed on the Name role — it was
+     the whole Name absorption table) is RETIRED as superseded by tenancy:
+     names denote per store (Backus 14.7; the whitepaper's tenant-isolation
+     proposition makes cross-store name comparison ill-formed), and the
+     per-store statement is the external uniqueness over Domain and Local
+     Name above. -->
 Object Type has Format.
   Each Object Type has at most one Format.
 Object Type has Enum Values.
@@ -272,6 +277,8 @@ Object Type has Max Length.
   Each Object Type has at most one Max Length.
 Object Type has Permission.
   Each Object Type, Permission combination occurs at most once in the population of Object Type has Permission.
+ObjectTypeHasPermission objectifies "Object Type has Permission".
+ObjectTypeHasPermission is a subtype of Function.
 Object Type has Reference Mode.
   Each Object Type has at most one Reference Mode.
   <!-- task-961 Phase A: a VALUE-typed presence projection of the absorbed
@@ -288,8 +295,12 @@ Object Type has Reference Mode.
        in the absorbed field, not an entity-valued fact). -->
 Object Type is subtype of Object Type.
   Each Object Type, Object Type combination occurs at most once in the population of Object Type is subtype of Object Type.
+ObjectTypeIsSubtypeOfObjectType objectifies "Object Type is subtype of Object Type".
+ObjectTypeIsSubtypeOfObjectType is a subtype of Function.
 Object Type is described to AI by prompt Text.
   Each Object Type, Text combination occurs at most once in the population of Object Type is described to AI by prompt Text.
+ObjectTypeIsDescribedToAIByPromptText objectifies "Object Type is described to AI by prompt Text".
+ObjectTypeIsDescribedToAIByPromptText is a subtype of Function.
 Object Type has World Assumption.
   Each Object Type has exactly one World Assumption.
 Object Type is independent.
@@ -367,6 +378,8 @@ Role is used in Reading.
   Each Role, Reading combination occurs at most once in the population of Role is used in Reading.
   Each Role is used in some Reading.
   For each Reading, some Role is used in that Reading.
+RoleIsUsedInReading objectifies "Role is used in Reading".
+RoleIsUsedInReading is a subtype of Function.
 
 ### Fact Type (subtype of Object Type)
 Fact Type has Title.
@@ -392,11 +405,20 @@ Fact Type has Derivation Mode.
 Constraint spans Role.
   Each Constraint, Role combination occurs at most once in the population of Constraint spans Role.
   Each Constraint spans some Role.
-  This association with Constraint, Role provides the preferred identification scheme for Constraint Span.
+Constraint Span objectifies "Constraint spans Role".
+Constraint Span is a subtype of Function.
   <!-- objectification legal per Halpin, "Objectification and Atomicity"
-       (2020-04-28): the UC above spans both roles. -->
-Role has Position for Reading.
-  For each Role and Reading that Role has that Reading at most one Position.
+       (2020-04-28): the UC above spans both roles. one-table wave
+       (2026-07-16): identity through the one id space (the subtype), the
+       spanning UC stays as the pairhood uniqueness; the old association-
+       provides-identification form is retired. -->
+<!-- one-table wave (2026-07-16): `Role has Position for Reading` (compound
+     key Role+Reading) is Halpin's nesting transformation of the SAME content
+     below — the position rides the objectified usage pair, so the compound-
+     key ternary leaves the schema and the position column absorbs into the
+     one Function table. -->
+RoleIsUsedInReading has Position.
+  Each RoleIsUsedInReading has at most one Position.
 
 ### Predicate
 Predicate has Name.
@@ -404,13 +426,17 @@ Predicate has Name.
   It is possible that more than one Predicate has the same Name.
 Fact Type is activated by Predicate.
   In each population of Fact Type is activated by Predicate, each Fact Type, Predicate combination occurs at most once.
-  This association with Fact Type, Predicate provides the preferred identification scheme for API.
+API objectifies "Fact Type is activated by Predicate".
+API is a subtype of Function.
   <!-- objectification legal per Halpin, "Objectification and Atomicity"
-       (2020-04-28): the UC above spans both roles. -->
+       (2020-04-28): the UC above spans both roles. one-table wave
+       (2026-07-16): identity through the one id space. -->
 Fact is referenced by Predicate.
   Each Fact, Predicate combination occurs at most once in the population of Fact is referenced by Predicate.
   It is possible that some Predicate references more than one Fact.
   It is possible that more than one Predicate references the same Fact.
+FactIsReferencedByPredicate objectifies "Fact is referenced by Predicate".
+FactIsReferencedByPredicate is a subtype of Function.
 <!-- elysium-batch ruling 5: Moore/Mealy action attachment lives in
      state.md, single home; the Mealy relation is semi-derived there
      (Moore folds into it on entry). -->
@@ -422,6 +448,8 @@ Function has callback URI.
   Each Function has at most one callback URI.
 Function has Header.
   Each Function has each Header at most once.
+FunctionHasHeader objectifies "Function has Header".
+FunctionHasHeader is a subtype of Function.
 <!-- elysium-batch ruling 2 (organizations-domain vocabulary, moved out):
 Function has Scope.
   Each Function has at most one Scope. -->
@@ -525,6 +553,8 @@ Constraint is semantic.
 Constraint has Constraint Match Keyword.
   Each Constraint, Constraint Match Keyword combination occurs at most once in the population of Constraint has Constraint Match Keyword.
   It is possible that some Constraint has more than one Constraint Match Keyword.
+ConstraintHasConstraintMatchKeyword objectifies "Constraint has Constraint Match Keyword".
+ConstraintHasConstraintMatchKeyword is a subtype of Function.
 
 ### Constraint Type (merged #13: NORMA ConstraintType — one classifier carrying code, Name, Label, Family, and Violation Template)
 Constraint Type has Name.
@@ -537,6 +567,8 @@ Constraint Type has Constraint Type Family.
 ### Set Comparison Constraint (subtype of Constraint)
 Set Comparison Constraint has Argument Length.
   Each Set Comparison Constraint, Argument Length combination occurs at most once in the population of Set Comparison Constraint has Argument Length.
+SetComparisonConstraintHasArgumentLength objectifies "Set Comparison Constraint has Argument Length".
+SetComparisonConstraintHasArgumentLength is a subtype of Function.
 
 ### Frequency Constraint (subtype of Constraint)
 Frequency Constraint has Min Occurrence.
@@ -573,6 +605,8 @@ Stream has Name.
 ### API (objectification of "Fact Type is activated by Predicate")
 API accepts Object Type as parameter.
   Each API, Object Type combination occurs at most once in the population of API accepts Object Type as parameter.
+APIAcceptsObjectTypeAsParameter objectifies "API accepts Object Type as parameter".
+APIAcceptsObjectTypeAsParameter is a subtype of Function.
 
 ## Constraints
 
@@ -664,9 +698,17 @@ Object Type has URI.
   Each Object Type has at most one URI.
 
 ### Domain Connection
-Domain connects to External System with Secret Reference.
-  Each Domain, External System, Secret Reference combination occurs at most once in the population of Domain connects to External System with Secret Reference.
-  Each Domain has at most one Secret Reference per External System.
+Domain connects to External System.
+  Each Domain, External System combination occurs at most once in the population of Domain connects to External System.
+DomainConnectsToExternalSystem objectifies "Domain connects to External System".
+DomainConnectsToExternalSystem is a subtype of Function.
+DomainConnectsToExternalSystem carries Secret Reference.
+  Each DomainConnectsToExternalSystem carries at most one Secret Reference.
+  <!-- one-table wave (2026-07-16): Halpin's nesting transformation of the
+       former `Domain connects to External System with Secret Reference`
+       (compound key Domain+ExternalSystem): the connection objectifies —
+       this is the "Domain Connection" the connectors note anticipated —
+       and the per-connection secret rides functionally. -->
 
 ### Derivation Rule
 
@@ -684,6 +726,8 @@ Derivation Rule is provided by Constraint.
        restrict. -->
 Derivation Rule has antecedent Fact Type.
   Each Derivation Rule, Fact Type combination occurs at most once in the population of Derivation Rule has antecedent Fact Type.
+DerivationRuleHasAntecedentFactType objectifies "Derivation Rule has antecedent Fact Type".
+DerivationRuleHasAntecedentFactType is a subtype of Function.
 Derivation Rule produces Fact Type.
   Each Derivation Rule produces exactly one Fact Type.
 Derivation Rule depends on Derivation Rule. *
@@ -874,9 +918,19 @@ Join has Join Type.
 Join has Role Sequence.
   Each Join, Role Sequence combination occurs at most once in the population of Join has Role Sequence.
   Each Join has some Role Sequence.
+JoinHasRoleSequence objectifies "Join has Role Sequence".
+JoinHasRoleSequence is a subtype of Function.
 
-Role Sequence has Role at Position.
-  For each Role Sequence and Position, at most one Role is at that Position in that Role Sequence.
+Role Sequence has Position.
+  Each Role Sequence, Position combination occurs at most once in the population of Role Sequence has Position.
+RoleSequenceHasPosition objectifies "Role Sequence has Position".
+RoleSequenceHasPosition is a subtype of Function.
+RoleSequenceHasPosition holds Role.
+  Each RoleSequenceHasPosition holds at most one Role.
+  <!-- one-table wave (2026-07-16): Halpin's nesting transformation of the
+       former `Role Sequence has Role at Position` (compound key
+       RoleSequence+Position): the slot pair objectifies, the role it holds
+       rides functionally, and the compound-key ternary leaves the schema. -->
 
 Role Projection is from Role Sequence.
   Each Role Projection is from exactly one Role Sequence.
@@ -887,6 +941,8 @@ Role Projection produces Role.
 Derivation Rule has Role Projection.
   Each Derivation Rule, Role Projection combination occurs at most once in the population of Derivation Rule has Role Projection.
   Each Derivation Rule has some Role Projection.
+DerivationRuleHasRoleProjection objectifies "Derivation Rule has Role Projection".
+DerivationRuleHasRoleProjection is a subtype of Function.
 
 Fact Type has Derivation Storage Type.
   Each Fact Type has at most one Derivation Storage Type.
@@ -948,6 +1004,8 @@ Migration has source Fact Type.
 Migration produces target Fact Type.
   Each Migration, Fact Type combination occurs at most once in the population of Migration produces target Fact Type.
   Each Migration produces some target Fact Type.
+MigrationProducesTargetFactType objectifies "Migration produces target Fact Type".
+MigrationProducesTargetFactType is a subtype of Function.
 
 Migration has Migration Rule Text.
   Each Migration has exactly one Migration Rule Text.
@@ -981,6 +1039,8 @@ Migration Application produces Fact.
   Each Migration Application, Fact combination occurs at most once in the population of Migration Application produces Fact.
   Each Migration Application produces some Fact.
   It is possible that some Migration Application produces more than one Fact.
+MigrationApplicationProducesFact objectifies "Migration Application produces Fact".
+MigrationApplicationProducesFact is a subtype of Function.
 
 Migration Application has Timestamp.
   Each Migration Application has exactly one Timestamp.
@@ -1072,10 +1132,14 @@ Bound has Clusivity.
 Object Type has Value Range.
   Each Object Type, Value Range combination occurs at most once in the population of Object Type has Value Range.
   It is possible that more than one Object Type has the same Value Range.
+ObjectTypeHasValueRange objectifies "Object Type has Value Range".
+ObjectTypeHasValueRange is a subtype of Function.
 
 Object Type has Facet.
   Each Object Type, Facet combination occurs at most once in the population of Object Type has Facet.
   It is possible that more than one Object Type has the same Facet.
+ObjectTypeHasFacet objectifies "Object Type has Facet".
+ObjectTypeHasFacet is a subtype of Function.
 
 Facet has Length.
   Each Facet has at most one Length.
@@ -1101,10 +1165,14 @@ Textual Constraint has Text.
 Object Type has Alias.
   Each Object Type, Alias combination occurs at most once in the population of Object Type has Alias.
   It is possible that more than one Object Type has the same Alias.
+ObjectTypeHasAlias objectifies "Object Type has Alias".
+ObjectTypeHasAlias is a subtype of Function.
 
 Fact Type has Alias.
   Each Fact Type, Alias combination occurs at most once in the population of Fact Type has Alias.
   It is possible that more than one Fact Type has the same Alias.
+FactTypeHasAlias objectifies "Fact Type has Alias".
+FactTypeHasAlias is a subtype of Function.
 
 Data Type Group has Name.
   Each Data Type Group has exactly one Name.
