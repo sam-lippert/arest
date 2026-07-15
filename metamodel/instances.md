@@ -67,6 +67,7 @@ Citation pins Cell Version Id.
 Fact is of Fact Type.
   Each Fact is of exactly one Fact Type.
 Fact is of Function. *
+  Each Fact, Function combination occurs at most once in the population of Fact is of Function.
   <!-- ns-2 (ns-derive-population-domains): the single-sourcing BRIDGE for a
        Fact's domain. A Fact Type IS a Function (Fact Type < Resource < Noun <
        Function; same identity, same id), so this fully-derived FT re-labels
@@ -114,6 +115,7 @@ Fact Type cites Citation.
 
 ### Resource
 Resource is instance of Noun.
+  Each Resource, Noun combination occurs at most once in the population of Resource is instance of Noun.
   Each Resource is instance of some Noun.
 <!-- 'exactly one Noun' was NON-CANONICAL (challenged 2026-07-09, verified
      against Halpin, "Subtyping Revisited", NORMA): in ORM subtyping is
@@ -131,6 +133,7 @@ Resource is instance of Noun.
      of Noun' is a non-canonical crutch (retire separately). -->
 
 Resource is of Function. *
+  Each Resource, Function combination occurs at most once in the population of Resource is of Function.
   <!-- ns-2 (ns-derive-population-domains): the single-sourcing BRIDGE for a
        Resource's domain. A Noun IS a Function (Noun < Function; same identity,
        same id), so this fully-derived FT re-labels the Noun a Resource is an
@@ -168,6 +171,7 @@ This association with Fact, Resource, Role provides the preferred identification
 State Machine is instance of State Machine Definition.
   Each State Machine is instance of exactly one State Machine Definition.
 State Machine is instance of Noun.
+  Each State Machine, Noun combination occurs at most once in the population of State Machine is instance of Noun.
   Each State Machine is instance of some Noun.
 <!-- 'exactly one Noun' relaxed 2026-07-09 (Samuel: fix the SM readings),
      the SAME non-canonical case as Resource (see the Resource note). This

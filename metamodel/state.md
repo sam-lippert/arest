@@ -39,7 +39,9 @@ Verb is performed during Transition.
 Status is initial in State Machine Definition.
   Each State Machine Definition has at most one initial Status.
 Status is defined in State Machine Definition. *
+  Each Status, State Machine Definition combination occurs at most once in the population of Status is defined in State Machine Definition.
 Status is terminal in State Machine Definition.
+  Each Status, State Machine Definition combination occurs at most once in the population of Status is terminal in State Machine Definition.
 <!-- ASSERTED, not derived (CSDP). "Terminal" means "no outgoing Transition",
      which is a NEGATION; per CSDP discipline a derivation rule asserts only
      positive facts and closed-world negation is the validation layer's
@@ -51,7 +53,9 @@ Status is terminal in State Machine Definition.
      "a sink affords nothing" already follows from the transition graph
      (has_outgoing), independent of this cell. -->
 Status is rooted in State Machine Definition. *
+  Each Status, State Machine Definition combination occurs at most once in the population of Status is rooted in State Machine Definition.
 Status is effective initial in State Machine Definition. *
+  Each Status, State Machine Definition combination occurs at most once in the population of Status is effective initial in State Machine Definition.
 <!-- sm-retire-forml2: the resolved seed status of a machine. The cardinality
      gate ("exactly one rooted ⇒ initial, else empty") is a non-monotonic
      predicate FORML 2 cannot express (count+`=1` does not compose as a same-rule
@@ -78,6 +82,7 @@ Status is effective initial in State Machine Definition. *
      deliberately over-emits and consumer-side firing precedence prefers the
      DIRECT row. The rules are under "## Derivation Rules". -->
 Status has effective Transition to Status on Event Type. *
+  Each Status, Transition, Status, Event Type combination occurs at most once in the population of Status has effective Transition to Status on Event Type.
 
 ### Guard
 Guard references Fact Type.
@@ -225,6 +230,7 @@ If some Status is initial in some State Machine Definition then that Status is d
 ### Liveness (AREST.tex, after Thm 2)
 
 Status reaches Status in State Machine Definition. *
+  Each Status, Status, State Machine Definition combination occurs at most once in the population of Status reaches Status in State Machine Definition.
 
 It is obligatory that if some Status reaches that Status in some State Machine Definition then that Status reaches some Status that is terminal in that State Machine Definition.
 <!-- elysium-audit C: the paper's liveness discipline is "the deontic

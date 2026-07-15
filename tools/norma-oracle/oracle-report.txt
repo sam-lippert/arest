@@ -8,77 +8,39 @@ domain models to load:
   ORMSolutions.ORMArchitect.RelationalModels.ConceptualDatabase.ConceptualDatabaseDomainModel
 store loaded: 7 domain models
 seed model: Elysium, intrinsic data types: 32
-mapped: core.md (588 sentences)
+mapped: core.md (608 sentences)
 mapped: csdp.md (65 sentences)
-mapped: evolution.md (77 sentences)
-mapped: induction.md (10 sentences)
-mapped: instances.md (100 sentences)
+mapped: evolution.md (66 sentences)
+mapped: induction.md (13 sentences)
+mapped: instances.md (104 sentences)
 mapped: naming.md (41 sentences)
 mapped: outcomes.md (54 sentences)
 mapped: resolution.md (32 sentences)
 mapped: security.md (16 sentences)
-mapped: state.md (52 sentences)
+mapped: state.md (58 sentences)
 mapped: validation.md (39 sentences)
 
 == FINDING: fact types with no declared uniqueness (spanning UC assumed per Def 3 set semantics) ==
-  has  [Noun, Permission]
-  is subtype of  [Noun, Noun]
-  is described to AI by prompt  [Noun, Text]
-  is used in  [Role, Reading]
-  spans  [Constraint, Role]
-  is referenced by  [Fact, Verb]
-  has  [Constraint, Constraint Match Keyword]
-  has  [Set Comparison Constraint, Argument Length]
-  reaches  [Derivation Rule, Derivation Rule]
   Domain connects to   with  [External System, Secret Reference]
-  has antecedent  [Derivation Rule, Fact Type]
-  depends on  [Derivation Rule, Derivation Rule]
-  has  [Join, Role Sequence]
-  has  [Derivation Rule, Role Projection]
-  produces target  [Migration, Fact Type]
-  produces  [Migration Application, Fact]
-  has  [Noun, Value Range]
-  has  [Noun, Facet]
-  has  [Noun, Alias]
-  has  [Fact Type, Alias]
-  proposes  [Domain Change, Reading]
-  proposes  [Domain Change, Noun]
-  proposes  [Domain Change, Constraint]
-  proposes  [Domain Change, Fact Type]
-  proposes  [Domain Change, Status]
-  proposes  [Domain Change, Transition]
-  explains  [Hypothesis Candidate, Fact]
-  has hidden-  [Hypothesis Candidate, Fact]
-  applies to  [Scoring Rule, Hypothesis Candidate]
-  is of  [Fact, Function]
-  is instance of  [Resource, Noun]
-  is of  [Resource, Function]
-  is instance of  [State Machine, Noun]
-  is defined in  [Status, State Machine Definition]
-  is terminal in  [Status, State Machine Definition]
-  is rooted in  [Status, State Machine Definition]
-  is effective initial in  [Status, State Machine Definition]
-  has effective   to   on  [Status, Transition, Status, Event Type]
-  reaches   in  [Status, Status, State Machine Definition]
-  TOTAL ASSUMED: 39
+  TOTAL ASSUMED: 1
 
 == sentence census ==
    369  instance fact (population; out of schema scope)
-   197  fact-type reading (arity 2)
+   192  fact-type reading (arity 2)
    152  uniqueness (each-form)
     80  mandatory
     76  value-type declaration
-    52  entity-type declaration
+    51  entity-type declaration
+    40  spanning uniqueness
     33  default-form reading (no constraint)
     32  fact-type reading (arity 1)
-    30  subtype declaration
     24  derivation rule (deferred: no textual rule input in NORMA)
+    23  subtype declaration
     21  deontic constraint (deferred)
     19  value enumeration
     16  subset/ring textual constraint (deferred)
     10  uniqueness (for-each form)
      8  constraint retargeted by fact index
-     7  spanning uniqueness
      6  mandatory (for-each form)
      5  fact-type reading (arity 3)
      5  spanning uniqueness (pair form)
@@ -88,14 +50,15 @@ mapped: validation.md (39 sentences)
      2  harness-error
      2  disjunctive constraint (deferred)
      2  constraint mapped on deferred replay
+     2  alethic constraint (unmapped pattern)
      1  KIND CONFLICT: declared value type collides with entity type
      1  harness-error (declare)
      1  spanning uniqueness (set restriction)
      1  data-type opt-in (default text kept)
      1  fact-type reading (arity 4)
-     1  alethic constraint (unmapped pattern)
 
 == unrecognized sentences ==
+  [constraint] Each Domain, External System, Secret Reference combination occurs at most once in the p...
   [constraint] Each Domain has at most one Secret Reference per External System.
 
 == harness map log ==
@@ -106,33 +69,28 @@ mapped: validation.md (39 sentences)
 
 == NORMA model errors ==
   DuplicateReadingSignatureError x11
-      - Model 'Elysium' contains multiple readings with an expanded reading signature of 'resource has reference'. Each reading must be unique in the model.
-      - Model 'Elysium' contains multiple readings with an expanded reading signature of 'status is involved in status has effective transition to status on event type'. Each reading must be unique in the model.
-      - Model 'Elysium' contains multiple readings with an expanded reading signature of 'status has effective transition to status on event type involves status'. Each reading must be unique in the model.
-      - Model 'Elysium' contains multiple readings with an expanded reading signature of 'status is involved in status reaches status in state machine definition'. Each reading must be unique in the model.
+      - Model 'Elysium' contains multiple readings with an expanded reading signature of 'derivation rule is involved in derivation rule reaches derivation rule'. Each reading must be unique in the model.
+      - Model 'Elysium' contains multiple readings with an expanded reading signature of 'derivation rule reaches derivation rule involves derivation rule'. Each reading must be unique in the model.
+      - Model 'Elysium' contains multiple readings with an expanded reading signature of 'noun is involved in noun is subtype of noun'. Each reading must be unique in the model.
+      - Model 'Elysium' contains multiple readings with an expanded reading signature of 'noun is subtype of noun involves noun'. Each reading must be unique in the model.
       ... and 7 more
   ImplicationError x10
-      - Constraint 'SimpleMandatoryConstraint99' in model 'Elysium' is implied by at least one constraint of the same type attached to a subset of the same roles.
-      - Constraint 'SimpleMandatoryConstraint140' in model 'Elysium' is implied by at least one constraint of the same type attached to a subset of the same roles.
-      - Constraint 'InternalUniquenessConstraint345' in model 'Elysium' is implied by at least one constraint of the same type attached to a subset of the same roles.
-      - Constraint 'SimpleMandatoryConstraint182' in model 'Elysium' is implied by at least one constraint of the same type attached to a subset of the same roles.
+      - Constraint 'SimpleMandatoryConstraint97' in model 'Elysium' is implied by at least one constraint of the same type attached to a subset of the same roles.
+      - Constraint 'SimpleMandatoryConstraint170' in model 'Elysium' is implied by at least one constraint of the same type attached to a subset of the same roles.
+      - Constraint 'InternalUniquenessConstraint410' in model 'Elysium' is implied by at least one constraint of the same type attached to a subset of the same roles.
+      - Constraint 'SimpleMandatoryConstraint228' in model 'Elysium' is implied by at least one constraint of the same type attached to a subset of the same roles.
       ... and 6 more
   ImpliedInternalUniquenessConstraintError x4
       - Fact type 'DomainChangeIsApplied' in model 'Elysium' contains one or more internal uniqueness constraints that are implied by or duplicates of other internal uniqueness constraints.
       - Fact type 'FailureHasFailureType' in model 'Elysium' contains one or more internal uniqueness constraints that are implied by or duplicates of other internal uniqueness constraints.
       - Fact type 'ViolationOccursBeforeTransition' in model 'Elysium' contains one or more internal uniqueness constraints that are implied by or duplicates of other internal uniqueness constraints.
       - Fact type 'StatusIsInitialInStateMachineDefinition' in model 'Elysium' contains one or more internal uniqueness constraints that are implied by or duplicates of other internal uniqueness constraints.
-  CompatibleSupertypesError x4
-      - Direct supertypes of object type 'Constraint' in model 'Elysium' must be overlapping without transitive implication or mutual exclusion.
-      - Direct supertypes of object type 'Noun' in model 'Elysium' must be overlapping without transitive implication or mutual exclusion.
-      - Direct supertypes of object type 'Fact Type' in model 'Elysium' must be overlapping without transitive implication or mutual exclusion.
-      - Direct supertypes of object type 'Status' in model 'Elysium' must be overlapping without transitive implication or mutual exclusion.
   EntityTypeRequiresReferenceSchemeError x2
       - Entity type 'API' in model 'Elysium' requires a local preferred reference scheme or supertype(s) that provide preferred identification.
       - Entity type 'Constraint Span' in model 'Elysium' requires a local preferred reference scheme or supertype(s) that provide preferred identification.
   NMinusOneError x1
-      - Uniqueness constraint 'InternalUniquenessConstraint310' on fact type 'FactUsesResourceForRole' in model 'Elysium' must span at least 2 roles.
-  TOTAL ERRORS: 32
+      - Uniqueness constraint 'InternalUniquenessConstraint366' on fact type 'FactUsesResourceForRole' in model 'Elysium' must span at least 2 roles.
+  TOTAL ERRORS: 28
 
 == RMAP: relational result ==
   AntecedentClause(antecedentClauseId, derivationRuleId, clauseShape?)
@@ -143,15 +101,18 @@ mapped: validation.md (39 sentences)
   Code(value)
   ConceptualDataType(conceptualDataTypeCode, abstractSQLType, dataTypeGroupCode, JSONType, JSONFormat?)
   Confidence(value)
+  Constraint(constraintId, modalityType, cardinalityConstraintMaxOccurrence?, cardinalityConstraintMinOccurrence?, frequencyConstraintMaxOccurrence?, frequencyConstraintMinOccurrence?, isCardinalityConstraint?, isSemantic?, isSetComparisonConstraint?, text?, textualConstraintText?)
+  ConstraintHasConstraintMatchKeyword(constraintId, constraintMatchKeyword)
+  ConstraintSpansRole(constraintId, roleId)
   ConstraintType(constraintTypeCode, constraintTypeFamily, constraintTypeLabel, name?, violationTemplate?)
   Data(value)
   DataTypeGroup(dataTypeGroupCode, name)
-  DerivationRule(derivationRuleId, text, introducesValues?, joinPathId?)
+  DerivationRule(derivationRuleId, factType, text, introducesValues?, joinPathId?)
   DerivationRuleDependsOnDerivationRule(derivationRuleId1, derivationRuleId2)
+  DerivationRuleHasAntecedentFactType(derivationRuleId, factType)
   DerivationRuleHasRoleProjection(derivationRuleId, roleProjectionId)
   DerivationRuleReachesDerivationRule(derivationRuleId1, derivationRuleId2)
-  DomainChangeProposesReading(domainChange, readingId)
-  DomainChangeProposesTransition(domainChange, transitionId)
+  DomainChangeProposesFunction(domainChange, functionId)
   DomainConnectsToExternalSystemWithSecretReference(externalSystemName, secretReference)
   EventCausedTransitionInStateMachine(event, stateMachineId, transitionId)
   EventTypeCanBeCreatedByVerb(eventType, verbId)
@@ -160,32 +121,44 @@ mapped: validation.md (39 sentences)
   FactCitesCitation(citationId, fact)
   FactIsOfFunction(fact, functionId)
   FactIsReferencedByVerb(fact, verbId)
+  FactTypeCitesCitation(citationId, factType)
+  FactTypeHasAlias(alias, factType)
+  FactTypeIsActivatedByVerb(factType, verbId)
   Failure(failureId, hasReasonText, severity, timestamp, belongsToDomain?, followsViolationId?, functionId?, hasInputText?, isCausedByViolationId?, resource?, transitionId?)
   Format(formatName, conceptualDataTypeCode, JSONFormat?, pattern?)
-  Function(functionId, domainChange?, resource?, resourceDerivationRuleId?, belongsToDomain?, domainChangeHasBlockingOutcome?, domainChangeIsEvaluated?, domainChangeIsValid?, domainChangeRationale?, domainChangeTargetsDomain?, eventStateMachineId?, eventTimestamp?, eventType?, eventTypeStreamId?, externalSystemName?, factBelongsToDomain?, factIsCompleted?, factIsExample?, factUsesResourceForRoleId?, factUsesResourceForRoleResource?, isEventType?, isHTTPMethod?, name?, origin?, resourceBelongsToDomain?, resourceHasResource?, resourceStateMachineId?, resourceUser?, resourceValue?, scope?, URI?, verbName?)
+  Function(functionId, domainChange?, nounStateMachineDefinitionName?, resource?, resourceConstraintId?, resourceDerivationRuleId?, stateMachineDefinitionName?, statusName?, statusVerbId?, belongsToDomain?, domainChangeHasBlockingOutcome?, domainChangeIsEvaluated?, domainChangeIsValid?, domainChangeRationale?, domainChangeTargetsDomain?, eventStateMachineId?, eventTimestamp?, eventType?, eventTypeStreamId?, externalSystemName?, factBelongsToDomain?, factIsCompleted?, factIsExample?, factType?, factTypeArity?, factTypeDerivationMode?, factTypeDerivationStorageType?, factTypeOrder?, factTypeRoleRelationship?, factTypeTitle?, factUsesResourceForRoleId?, factUsesResourceForRoleResource?, isEventType?, isHTTPMethod?, name?, nounConceptualDataTypeCode?, nounDescription?, nounEnumValues?, nounExclusiveMaximum?, nounExclusiveMinimum?, nounExternalSystemName?, nounFormatName?, nounIsIndependent?, nounIsInstantiable?, nounMaximum?, nounMaxLength?, nounMinimum?, nounMinLength?, nounMultipleOf?, nounObjectType?, nounPattern?, nounPlural?, nounPrecision?, nounReferenceScheme?, nounScale?, nounSchema:ThingName?, nounUnitName?, nounURI?, nounWorldAssumption?, origin?, resourceBelongsToDomain?, resourceHasResource?, resourceStateMachineId?, resourceStatusName?, resourceUser?, resourceValue?, scope?, statusHTTPMethodId?, URI?, verbName?)
   FunctionHasHeader(functionId, header)
   Guard(guardName, transitionId?)
+  GuardReferencesFactType(factType, guardName)
   GuardRun(guardRunName, guardName, result?)
   GuardRunReferencesFact(fact, guardRunName)
   HypothesisCandidate(hypothesisCandidateId, confidenceScore?)
   HypothesisCandidateExplainsFact(fact, hypothesisCandidateId)
   HypothesisCandidateHasHiddenFact(fact, hypothesisCandidateId)
   Id(value)
-  Join(joinId, joinPathId, joinTypeName)
+  Join(joinId, factType, joinPathId, joinTypeName)
   JoinHasRoleSequence(joinId, roleSequenceId)
   JoinPath(joinPathId)
-  Migration(migrationId, migrationRuleText, timestamp)
+  Migration(migrationId, factType, migrationRuleText, timestamp)
   MigrationApplication(migrationApplicationId, fact, migrationId, timestamp)
   MigrationApplicationProducesFact(fact, migrationApplicationId)
-  ModelElement(modelElementId, readingId?, transitionId?)
+  MigrationProducesTargetFactType(factType, migrationId)
+  Name(value, nounId?)
+  NounHasAlias(alias, nounId)
+  NounHasFacet(facetId, nounId)
+  NounHasPermission(nounId, permission)
+  NounHasValueRange(nounId, valueRangeId)
+  NounIsDescribedToAIByPromptText(nounId, text)
+  NounIsSubtypeOfNoun(nounId1, nounId2)
   Operation(operationName, isOverridable?, isRegistrable?)
   PluralizationPattern(value)
   PluralizationReplacement(value)
   PluralizationRule(pluralizationRuleId, pattern, hasReplacement?)
-  Reading(readingId, text, verbId, isPrimary?, languageCode?)
+  Reading(readingId, factType, text, verbId, isPrimary?, languageCode?)
   RelationalMapping(relationalMappingName, schemaDesignName, absorbsSubtypes?, groupsFunctionalFactTypes?, mapsCompoundFactTypes?)
+  ResourceIsInstanceOfNoun(nounId, resource)
   ResourceIsOfFunction(functionId, resource)
-  Role(roleId)
+  Role(roleId, factType, nounId)
   RoleHasPositionForReading(readingId, roleId, position)
   RoleIsUsedInReading(readingId, roleId)
   RoleProjection(roleProjectionId, roleId, roleSequenceId)
@@ -194,16 +167,24 @@ mapped: validation.md (39 sentences)
   SchemaDesign(schemaDesignName, addsMandatoryRoles?, addsUniquenessConstraints?, addsValueAndSubtypeConstraints?, designNote?, notesElementaryFacts?, passesFinalChecks?, populatesFactTypes?, trimsSchemaAndNotesDerivations?)
   ScoringRule(scoringRuleId)
   ScoringRuleAppliesToHypothesisCandidate(hypothesisCandidateId, scoringRuleId)
+  SetComparisonConstraintHasArgumentLength(argumentLength, setComparisonConstraintId)
   Signal(signalId, signalSource, domainChange?)
-  StateMachine(stateMachineId, stateMachineDefinitionName)
+  StateMachine(stateMachineId, stateMachineDefinitionName, statusName)
+  StateMachineIsInstanceOfNoun(nounId, stateMachineId)
+  StatusHasEffectiveTransitionToStatusOnEventType(eventType, statusName1, statusName2, transitionId)
+  StatusIsDefinedInStateMachineDefinition(stateMachineDefinitionName, statusName)
+  StatusIsEffectiveInitialInStateMachineDefinition(stateMachineDefinitionName, statusName)
+  StatusIsRootedInStateMachineDefinition(stateMachineDefinitionName, statusName)
+  StatusIsTerminalInStateMachineDefinition(stateMachineDefinitionName, statusName)
+  StatusReachesStatusInStateMachineDefinition(stateMachineDefinitionName, statusName1, statusName2)
   Stream(streamId, name)
-  Transition(transitionId, eventType, stateMachineDefinitionName, verbId?)
+  Transition(transitionId, eventType, fromStatusName, stateMachineDefinitionName, toStatusName, verbId?)
   Unit(unitName, dimensionName)
   UserApprovesDomainChange(domainChange, user)
   UserRejectsDomainChange(domainChange, user)
   UserRequestsRevisionOfDomainChange(domainChange, user)
   UserSubmitsDomainChangeForReview(domainChange, user)
-  Value(value, valueId, lexicalValue)
+  Value(value, valueId, lexicalValue, nounId)
   ValueRange(valueRangeId, hasLowerBoundId?, hasUpperBoundId?)
-  Violation(violationId, severity, text, timestamp, batchId?, belongsToDomain?, functionId?, resource?)
-  TOTAL TABLES: 71
+  Violation(violationId, constraintId, severity, text, timestamp, batchId?, belongsToDomain?, functionId?, resource?)
+  TOTAL TABLES: 94

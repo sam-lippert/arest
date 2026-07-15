@@ -6,13 +6,20 @@ Function(.id) is an entity type.
 Noun is a subtype of Function.
   Event Type is a subtype of Resource.
   Fact Type is a subtype of Event Type.
-  {Event Type, Status, Constraint, Derivation Rule} are mutually exclusive subtypes of Resource.
+  {Event Type, Constraint, Derivation Rule} are mutually exclusive subtypes of Resource.
   <!-- elysium-audit A: State Machine Definition removed from the exclusive
        list. state.md declares `State Machine Definition is a subtype of
        Status` (the Harel nesting, deliberate per instances.md task-987),
        so SMD and Status cannot also be mutually exclusive siblings — the
        pair of declarations forced SMD's population empty. SMD inherits
-       Status's exclusions through the subtype. -->
+       Status's exclusions through the subtype.
+       elysium-audit I (NORMA CompatibleSupertypesError): Status removed
+       too. Its home is `Status is a subtype of Noun` (state.md); listing
+       it here also made it a direct Resource subtype, giving Status two
+       unrelated identification paths (Noun -> Function.id vs
+       Resource.Reference). Status's schema-side identity flows through
+       Noun; schema elements surface as Resources by reflection
+       (`Resource is instance of Noun`, instances.md), not by subtyping. -->
 
 
 Reading(.id) is an entity type.
@@ -144,6 +151,7 @@ Noun has Min Length.
 Noun has Max Length.
   Each Noun has at most one Max Length.
 Noun has Permission.
+  Each Noun, Permission combination occurs at most once in the population of Noun has Permission.
 Noun has Reference Scheme.
   Each Noun has at most one Reference Scheme.
   <!-- task-961 Phase A: a VALUE-typed presence projection of the absorbed
@@ -159,7 +167,9 @@ Noun has Reference Scheme.
        Noun`, which never populated for real entities (their identity lives
        in the absorbed field, not an entity-valued fact). -->
 Noun is subtype of Noun.
+  Each Noun, Noun combination occurs at most once in the population of Noun is subtype of Noun.
 Noun is described to AI by prompt Text.
+  Each Noun, Text combination occurs at most once in the population of Noun is described to AI by prompt Text.
 Noun has World Assumption.
   Each Noun has exactly one World Assumption.
 Noun is independent.
@@ -234,6 +244,7 @@ Reading is localized for Language.
   It is possible that more than one Reading is localized for the same Language.
 Reading is primary.
 Role is used in Reading.
+  Each Role, Reading combination occurs at most once in the population of Role is used in Reading.
   Each Role is used in some Reading.
   For each Reading, some Role is used in that Reading.
 
@@ -259,6 +270,7 @@ Fact Type has Derivation Mode.
 
 ### Role
 Constraint spans Role.
+  Each Constraint, Role combination occurs at most once in the population of Constraint spans Role.
   Each Constraint spans some Role.
   This association with Constraint, Role provides the preferred identification scheme for Constraint Span.
 Role has Position for Reading.
@@ -272,6 +284,7 @@ Fact Type is activated by Verb.
   In each population of Fact Type is activated by Verb, each Fact Type, Verb combination occurs at most once.
   This association with Fact Type, Verb provides the preferred identification scheme for API.
 Fact is referenced by Verb.
+  Each Fact, Verb combination occurs at most once in the population of Fact is referenced by Verb.
   It is possible that some Verb references more than one Fact.
   It is possible that more than one Verb references the same Fact.
 <!-- Verb is performed during Transition (Mealy semantics). -->
@@ -316,6 +329,7 @@ Constraint has Text.
   Each Constraint has at most one Text.
 Constraint is semantic.
 Constraint has Constraint Match Keyword.
+  Each Constraint, Constraint Match Keyword combination occurs at most once in the population of Constraint has Constraint Match Keyword.
   It is possible that some Constraint has more than one Constraint Match Keyword.
 
 ### Constraint Type (merged #13: NORMA ConstraintType — one classifier carrying code, Name, Label, Family, and Violation Template)
@@ -328,6 +342,7 @@ Constraint Type has Constraint Type Family.
 
 ### Set Comparison Constraint (subtype of Constraint)
 Set Comparison Constraint has Argument Length.
+  Each Set Comparison Constraint, Argument Length combination occurs at most once in the population of Set Comparison Constraint has Argument Length.
 
 ### Frequency Constraint (subtype of Constraint)
 Frequency Constraint has Min Occurrence.
@@ -407,6 +422,7 @@ Derivation Rule introduces values. +
        from the body's clause shapes; an author may also assert it. -->
 
 Derivation Rule reaches Derivation Rule. *
+  Each Derivation Rule, Derivation Rule combination occurs at most once in the population of Derivation Rule reaches Derivation Rule.
 
 It is impossible that some Derivation Rule introduces values and that Derivation Rule reaches that Derivation Rule.
   <!-- Lem 1's hypothesis as an alethic constraint, refused like any other
@@ -432,6 +448,7 @@ Noun has URI.
 
 ### Domain Connection
 Domain connects to External System with Secret Reference.
+  Each Domain, External System, Secret Reference combination occurs at most once in the population of Domain connects to External System with Secret Reference.
   Each Domain has at most one Secret Reference per External System.
 
 ### Derivation Rule
@@ -440,9 +457,11 @@ Derivation Rule(.id) is an entity type.
 Derivation Rule has Text.
   Each Derivation Rule has exactly one Text.
 Derivation Rule has antecedent Fact Type.
+  Each Derivation Rule, Fact Type combination occurs at most once in the population of Derivation Rule has antecedent Fact Type.
 Derivation Rule produces Fact Type.
   Each Derivation Rule produces exactly one Fact Type.
 Derivation Rule depends on Derivation Rule. *
+  Each Derivation Rule, Derivation Rule combination occurs at most once in the population of Derivation Rule depends on Derivation Rule.
 
 ## Derivation Rules
 
@@ -600,6 +619,7 @@ Join has Join Type.
   Each Join has exactly one Join Type.
 
 Join has Role Sequence.
+  Each Join, Role Sequence combination occurs at most once in the population of Join has Role Sequence.
   Each Join has some Role Sequence.
 
 Role Sequence has Role at Position.
@@ -612,6 +632,7 @@ Role Projection produces Role.
   Each Role Projection produces exactly one Role.
 
 Derivation Rule has Role Projection.
+  Each Derivation Rule, Role Projection combination occurs at most once in the population of Derivation Rule has Role Projection.
   Each Derivation Rule has some Role Projection.
 
 Fact Type has Derivation Storage Type.
@@ -662,6 +683,7 @@ Migration has source Fact Type.
   Each Migration has exactly one source Fact Type.
 
 Migration produces target Fact Type.
+  Each Migration, Fact Type combination occurs at most once in the population of Migration produces target Fact Type.
   Each Migration produces some target Fact Type.
 
 Migration has Migration Rule Text.
@@ -692,6 +714,7 @@ Migration Application has source Fact.
   Each Migration Application has exactly one source Fact.
 
 Migration Application produces Fact.
+  Each Migration Application, Fact combination occurs at most once in the population of Migration Application produces Fact.
   Each Migration Application produces some Fact.
   It is possible that some Migration Application produces more than one Fact.
 
@@ -767,9 +790,11 @@ Bound has Clusivity.
   Each Bound has exactly one Clusivity.
 
 Noun has Value Range.
+  Each Noun, Value Range combination occurs at most once in the population of Noun has Value Range.
   It is possible that more than one Noun has the same Value Range.
 
 Noun has Facet.
+  Each Noun, Facet combination occurs at most once in the population of Noun has Facet.
   It is possible that more than one Noun has the same Facet.
 
 Facet has Length.
@@ -794,9 +819,11 @@ Textual Constraint has Text.
   Each Textual Constraint has exactly one Text.
 
 Noun has Alias.
+  Each Noun, Alias combination occurs at most once in the population of Noun has Alias.
   It is possible that more than one Noun has the same Alias.
 
 Fact Type has Alias.
+  Each Fact Type, Alias combination occurs at most once in the population of Fact Type has Alias.
   It is possible that more than one Fact Type has the same Alias.
 
 Data Type Group has Name.

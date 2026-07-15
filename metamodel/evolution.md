@@ -11,7 +11,20 @@ Domain Change is a subtype of Resource.
        Resource`) type-check against a Domain Change — the validity rules
        below join through them. -->
 Signal(.Signal Id) is an entity type.
-Model Element(.id) is an entity type.
+<!-- elysium-audit I+J (NORMA CompatibleSupertypesError x4; Samuel's
+     ontology lens, 2026-07-15): `Model Element(.id)` is retired. As a
+     second identification root declared a supertype of Reading / Noun /
+     Constraint / Fact Type / Status / Transition, it handed four types two
+     unrelated identification paths — NORMA refused all four. But the
+     deeper correction is that no classifier was needed at all: in ORM
+     everything is object-or-fact, in AREST both are FFP objects, and the
+     metamodel's name for that unification root is Function. A Domain
+     Change proposes a DEFINITION — so one open fact type, `Domain Change
+     proposes Function`, replaces the closed six-way enumeration. The six
+     kinds stay recoverable by restriction on what the proposed Function
+     is, and new definition kinds (a Derivation Rule today, tomorrow's
+     kind) are proposable without constraint surgery — as Cor 4's closure
+     requires of the self-modification vocabulary. -->
 
 ## Value Types
 
@@ -25,12 +38,9 @@ Signal Source is a value type.
 
 ### Domain Change
 
-Domain Change proposes Reading.
-Domain Change proposes Noun.
-Domain Change proposes Constraint.
-Domain Change proposes Fact Type.
-Domain Change proposes Status.
-Domain Change proposes Transition.
+Domain Change proposes Function.
+  Each Domain Change, Function combination occurs at most once in the population of Domain Change proposes Function.
+  It is possible that some Domain Change proposes more than one Function and that more than one Domain Change proposes the same Function.
 
 Domain Change has Rationale.
   Each Domain Change has exactly one Rationale.
@@ -73,19 +83,14 @@ User requests revision of Domain Change.
 
 Domain Change is applied.
 
-## Subtypes
-
-Model Element is a supertype of Reading.
-Model Element is a supertype of Noun.
-Model Element is a supertype of Constraint.
-Model Element is a supertype of Fact Type.
-Model Element is a supertype of Status.
-Model Element is a supertype of Transition.
-
 ## Constraints
 
-Each Domain Change proposes some Model Element.
-It is possible that the same Domain Change proposes more than one Model Element.
+<!-- elysium-audit I+J: the former `## Subtypes` block (Model Element as a
+     supertype of six proposable kinds) collapsed first to an inclusive-or
+     over six fact types, then — per the ontology lens — to the one open
+     mandatory below: a Domain Change proposes a definition, and Function
+     is the unification root that already names every definition. -->
+Each Domain Change proposes some Function.
 
 It is obligatory that each Domain Change has exactly one Rationale.
 
