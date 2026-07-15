@@ -1,8 +1,0 @@
-is_global = true
-build_property.RootNamespace = Elysium.NormaOracle
-build_property.ProjectDir = C:\Users\lippe\Repos\elysium\tools\norma-oracle\
-build_property.EnableComHosting = 
-build_property.EnableGeneratedComInterfaceComImportInterop = 
-build_property.CsWinRTUseWindowsUIXamlProjections = false
-build_property.EffectiveAnalysisLevelStyle = 
-build_property.EnableCodeStyleSeverity = 
