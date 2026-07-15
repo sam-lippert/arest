@@ -16,8 +16,26 @@ oracle emitted (`tools/norma-oracle/design-state.json`: one entry per
 parsed fact type — generated name, players collapsed to their top
 supertypes per RMAP 10.3 step 0, internal UC spans as 1-based positions)
 and confirms the resulting schema against NORMA's own RMAP output
-(`norma-tables.json`). The canon's table map is written to
-`js-schema.json`.
+(`norma-tables.json`). Both forms of the canon's output are written to
+`js-schema.json`: the STORE (a sequence of ⟨CELL, name, rows⟩ — entity
+cells carrying wide rows per absorption group, relation cells per
+separated fact type; Backus 13.3.4/14.3, the paper's "RMAP assigns each
+entity its own cell") and the SCHEMA (the same content as full fact-type
+descriptors — output type = input type).
+
+Two laws are checked by evaluating the canon itself, every run:
+
+- L1, fixpoint: re-classifying the emitted schema reproduces its keys
+  and separations, and the projection descriptors pass through
+  unchanged — rmap is idempotent on its own output.
+- L2, a table IS fetch: the canon's own `ast:Fetch` builder, evaluated
+  by the same mu against the emitted store, returns each cell's
+  contents — Backus's up-arrow-n and Codd's restrict-then-project on
+  the name component are the same operator, executed.
+
+Slot convention in wide rows: a PRESENT slot is the 1-sequence of the
+member fact's nonkey values (a present unary's value sequence is itself
+phi, and stays distinguishable); phi marks absence.
 
 What is compared (exactly): classification and grouping — every fact
 type the canon separates (rule 1) must be a NORMA table, matched by
