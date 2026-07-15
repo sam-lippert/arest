@@ -88,6 +88,7 @@ Fact is of Function. *
        join on the Function they are against. See the rule under
        "## Derivation Rules". -->
 Fact belongs to Domain. *
+  Each Fact belongs to at most one Domain.
   <!-- ns-2 (ns-derive-population-domains): a Fact does NOT store its own
        domain — it DERIVES it from its Fact Type, keeping domain single-sourced
        on Function (a Fact Type is a subtype of Function via Resource < Noun <
@@ -154,6 +155,7 @@ Resource is of Function. *
        join on the Function they are against. See the rule under
        "## Derivation Rules". -->
 Resource belongs to Domain. *
+  Each Resource belongs to at most one Domain.
   <!-- ns-2 (ns-derive-population-domains): a Resource does NOT store its own
        domain — it DERIVES it from the Noun it is an instance of, keeping
        domain single-sourced on Function (a Noun is a subtype of Function;
