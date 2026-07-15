@@ -53,7 +53,7 @@ This is metacomposition~\cite[Sec.\,13.3.2]{backus78}. It is the only mechanism 
 An \emph{Applicative REpresentational State Transfer} system is a Backus AST system~\cite[Sec.\,14]{backus78} whose $\mathit{FILE}$ cell contains a population $P$ (Definition~\ref{def:pop}) of a schema $S$ (Definition~\ref{def:schema}), and whose definition cells $\mathit{DEFS}$ hold the FFP objects~\cite[Sec.\,13]{backus78} compiled from FORML\,2 readings together with those registered by the runtime. REST operations are applications of the system function~(\ref{eq:sys}).
 \end{definition}
 
-A small declaration fixes the picture. In FORML\,2~\cite{halpin10}, each reading is one elementary fact:
+A small declaration fixes the picture. In FORML\,2~\cite{norma}, each reading is one elementary fact:
 \begin{lstlisting}
 Order(.OrderId) is an entity type.
 Customer(.Name) is an entity type.
@@ -304,9 +304,6 @@ E.F. Codd, ``Relational Completeness of Data Base Sublanguages,'' in \emph{Data 
 
 \bibitem{halpin08}
 T. Halpin and T. Morgan, \emph{Information Modeling and Relational Databases}, 2nd ed., Morgan Kaufmann, 2008.
-
-\bibitem{halpin10}
-T. Halpin and J.P. Wijbenga, ``FORML 2,'' in \emph{Enterprise, Business-Process and Information Systems Modeling (EMMSAD)}, LNBIP 50, pp.~247--260, 2010.
 
 \bibitem{halpin06}
 T. Halpin and M. Curland, ``Automated Verbalization for ORM 2,'' in \emph{OTM Workshops}, pp.~1181--1190, 2006.
