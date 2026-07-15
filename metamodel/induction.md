@@ -33,10 +33,13 @@ Hypothesis Candidate has Confidence Score.
   Each Hypothesis Candidate has at most one Confidence Score.
 
 Hypothesis Candidate explains Fact.
+  Each Hypothesis Candidate, Fact combination occurs at most once in the population of Hypothesis Candidate explains Fact.
 Hypothesis Candidate has hidden- Fact.
+  Each Hypothesis Candidate, Fact combination occurs at most once in the population of Hypothesis Candidate has hidden- Fact.
 
 ### Scoring Rule
 Scoring Rule applies to Hypothesis Candidate.
+  Each Scoring Rule, Hypothesis Candidate combination occurs at most once in the population of Scoring Rule applies to Hypothesis Candidate.
 
 ## Instance Facts
 
