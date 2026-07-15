@@ -209,7 +209,7 @@ User has Email.
        and the email survives as a mandatory 1:1 secondary reference. -->
 
 ### State Machine (runtime instance of State Machine Definition)
-State Machine is instance of State Machine Definition.
+State Machine is instance of State Machine Definition. *
   Each State Machine is instance of exactly one State Machine Definition.
 State Machine is instance of Object Type.
   Each State Machine, Object Type combination occurs at most once in the population of State Machine is instance of Object Type.
@@ -268,7 +268,7 @@ State Machine is for Resource.
      "Resource is currently in Status iff some State Machine is
      for that Resource and that State Machine is currently in
      that Status."  -->
-Resource is currently in Status.
+Resource is currently in Status. *
   Each Resource is currently in at most one Status.
 
 # task-955/924: key the SM-keyed status projection so it stays single-valued.
@@ -279,8 +279,10 @@ Resource is currently in Status.
 # 923/924 readback artifact. Keyed by State Machine, integrate_round_facts'
 # keyed-upsert collapses the per-resource emits to last-write-wins (the latest
 # transition target, in transition_table declaration order).
-State Machine is currently in Status.
+State Machine is currently in Status. +
   Each State Machine is currently in exactly one Status.
+  <!-- audit-fix A4: semi-derived — the seed-branch rule below derives the
+       initial occupancy; runtime transitions assert the moves. -->
 
 ### Event Caused Transition (objectification of "Event caused Transition in State Machine")
 Event caused Transition in State Machine.
@@ -341,23 +343,31 @@ Guard Run has Result.
      and retire the bridge; until then the bridge is the readings-only form
      that materialises the single-sourced domain. -->
 
-<!-- DISABLED (convergence-cycle test 2026-06-22; root: absorbed-Function self-reference, see task derivation-subtype-join-resolution):
-* Resource is of Function iff Resource is instance of Noun and Function is Noun. -->
+<!-- elysium audit-fix A1 (2026-07-15): the four bridge rules are LIVE
+     again. The 2026-06-22 disablement ("convergence-cycle ...
+     absorbed-Function self-reference") was a defect of the killed host's
+     deriver, never of the math — these are stratified positive joins with
+     no value introduction (Lem 1), and the readings above wore `*`
+     markers that nothing delivered: drift wearing a derivation mark. The
+     reference-scheme sweep made the cast clause literal: one id space,
+     so "some Object Type that is that Function" binds by identity.
+     Evaluator-phase gate obligation: prove convergence on
+     subtype-identity joins before claiming these cells. -->
+* Resource is of Function iff that Resource is instance of some Object Type that is that Function.
 
-<!-- DISABLED (convergence-cycle test 2026-06-22):
-* Resource belongs to Domain iff Resource is of Function and that Function belongs to Domain. -->
+* Resource belongs to Domain iff that Resource is of some Function that belongs to that Domain.
 
 <!-- `Fact is of Fact Type` is a BASE fact type, populated by population
-     reflection (compile.rs `reflect_schema_cells`) — every populated row of a
-     fact-type cell IS a Fact of that fact type, the instance-object mirror of
+     reflection (the killed host did this in compile.rs
+     `reflect_schema_cells`; the evaluator must reflect populated
+     fact-type cells the same way) — every populated row of a fact-type
+     cell IS a Fact of that fact type, the instance-object mirror of
      `Resource is instance of Noun`. It is VALIDATED, not derived, by the
      subset constraint in core.md (`If some Fact uses some Resource for some
      Role then that Fact is of some Fact Type that has that Role`). -->
-<!-- DISABLED (convergence-cycle test 2026-06-22):
-* Fact is of Function iff Fact is of Fact Type and Function is Fact Type. -->
+* Fact is of Function iff that Fact is of some Fact Type that is that Function.
 
-<!-- DISABLED (convergence-cycle test 2026-06-22):
-* Fact belongs to Domain iff Fact is of Function and that Function belongs to Domain. -->
+* Fact belongs to Domain iff that Fact is of some Function that belongs to that Domain.
 
 <!-- sm-retire-forml2: SM/Resource status projections lifted from imperative
      Rust into reading-level derivations.

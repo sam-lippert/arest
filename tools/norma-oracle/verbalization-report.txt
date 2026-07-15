@@ -635,6 +635,7 @@ Function belongs to Domain.
 Function has Definition Origin.
 Function accepts Type Expression.
 Function yields Type Expression.
+Function has Implementation.
 Function is backed by External System.
 Each Join Path is an instance of Function.
 Each Join is an instance of Function.
@@ -749,6 +750,11 @@ HypothesisCandidateHasHiddenFact is independent (it may have instances that play
 Fact Types:
 Hypothesis Candidate is involved in HypothesisCandidateHasHiddenFact.
 Fact is involved in HypothesisCandidateHasHiddenFact.
+Implementation is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Function has Implementation.
 JSON Format is a value type.
 Data Type: Text: Variable Length (0).
 
@@ -1985,6 +1991,9 @@ It is possible that some Function has more than one Header
 and that for some Header, more than one Function has that Header.
 In each population of Function has Header, each Function, Header combination occurs at most once.
 This association with Function, Header provides the preferred identification scheme for FunctionHasHeader.
+Function has Implementation.
+Each Function has at most one Implementation.
+It is possible that more than one Function has the same Implementation.
 Function has Name.
 Each Function has at most one Name.
 It is possible that more than one Function has the same Name.

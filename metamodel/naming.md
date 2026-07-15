@@ -7,15 +7,19 @@ declared as data so the rule set lives in the readings, not in Rust.
 -->
 
 <!--
-The English pluralization cascade in `crates/arest/src/naming.rs` is
-lifted (#895) to a `PluralizationRuleTable` whose rows are read at
-runtime from the parallel enum value types `Pluralization Pattern` and
-`Pluralization Replacement` declared below. Boot mirrors the legacy
-suffix cascade so behavior round-trips on every historical input.
+The English pluralization cascade in the killed host's
+crates/arest/src/naming.rs was lifted (#895) to a PluralizationRuleTable
+whose rows were read at runtime from the parallel enum value types
+`Pluralization Pattern` and `Pluralization Replacement` declared below.
+Evaluator-phase obligation: read the rule set from these readings the
+same way, and mirror the legacy suffix cascade at boot so behavior
+round-trips on every historical input.
 -->
 
 <!--
-Pattern dialect (interpreted by `PluralizationRuleTable::pluralize`):
+Pattern dialect (the killed host interpreted this in
+`PluralizationRuleTable::pluralize`; an evaluator-phase reader must
+honor the same dialect):
   - `^WORD$` matches the entire lowercased word; replacement returned
     with the leading character's case lifted from the input.
   - `SUFFIX$` matches the lowercased word's tail; the matched suffix
@@ -55,8 +59,9 @@ Pluralization Rule has Replacement.
 
 <!--
 The parallel `Pluralization Pattern` / `Pluralization Replacement`
-enum-value declarations above are the authority that
-`PluralizationRuleTable::from_grammar_state` reads; the per-row
+enum-value declarations above are the authority (the killed host's
+`PluralizationRuleTable::from_grammar_state` read them; an
+evaluator-phase reader must treat them the same); the per-row
 instance facts below mirror them as Pluralization Rule entities for
 human-readability and tooling that walks the rule set as named
 records (e.g. UI surfaces, diagnostics).

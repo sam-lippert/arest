@@ -411,6 +411,27 @@ Function yields Type Expression.
        Origin; population arrives with the canon manifest (the rebuild's
        SALVAGE transcribed dom/cod for the five boundary primitives). -->
 
+Implementation is a value type.
+Function has Implementation.
+  Each Function has at most one Implementation.
+  <!-- audit-fix E (Def 9's impl; Samuel's ruling 2026-07-15): SYMBOLIC
+       function definitions in Backus's functional forms (1978 Turing
+       lecture, 11.2.4) — composition, construction, condition, constant,
+       insert (fold), apply-to-all (alpha), selectors — serialized the way
+       the canon's intersection vocabulary writes them (DEF/A/N/K/PHI()/
+       S1..S9 over double-quoted atoms). The paper's Lem 1 claim "the
+       bodies are data" gets its home here: a compiled definition's
+       Implementation is rho(o) in symbolic form. Registration and
+       resolution of ANY function already work (the Def 9 origin split;
+       a registered prewritten module just implements the invocation), so
+       lambda-in-the-host is the uninteresting, solved part. The
+       interesting area — the reason this cell exists — is registering
+       the alpha/fold-class combinators through FFP/AST so that fact
+       types, facts, objects, CSDP, and RMAP are themselves DEFINED
+       symbolically at the arest-elysium level: the algebra of programs
+       over the fact algebra. Population arrives with the canon
+       manifest. -->
+
 ### Constraint
 Constraint has modality of Modality Type.
 Constraint has Text.
@@ -506,8 +527,12 @@ Derivation Rule introduces values. +
        definition with origin 'registered' (the Eq 5 boundary) or a
        value-constructing base operation (arithmetic, length, dynamic
        application); every other operation rearranges atoms already in
-       adom(P) or quoted in the rule. Semi-derived: the compiler asserts it
-       from the body's clause shapes; an author may also assert it. -->
+       adom(P) or quoted in the rule. Semi-derived: asserting it from the
+       body's clause shapes is an EVALUATOR-PHASE OBLIGATION (audit-fix
+       A3 — the killed host's compile pass is the reference behavior; no
+       compiler exists in this repo); an author may also assert it
+       directly, and until the evaluator lands that is the only
+       population source. -->
 
 Derivation Rule reaches Derivation Rule. *
   Each Derivation Rule, Derivation Rule combination occurs at most once in the population of Derivation Rule reaches Derivation Rule.
@@ -611,7 +636,12 @@ DerivationRule per SS constraint, each routed through
 `compile_explicit_derivation` as a single-antecedent rule.
 -->
 
-* Fact is in consequent Fact Type iff some Subset Constraint has autofill 'true' and Subset Constraint spans antecedent Fact Type and Fact is instance of that antecedent Fact Type.
+<!-- audit-fix B (2026-07-15): demoted from a live rule to an obligation.
+     The head `Fact is in consequent Fact Type` is declared nowhere and
+     the body is outside the fragment — a compile-pass sketch wearing a
+     rule marker. Evaluator-phase re-entry requires declaring the head
+     and restating the body in the fragment:
+* Fact is in consequent Fact Type iff some Subset Constraint has autofill 'true' and Subset Constraint spans antecedent Fact Type and Fact is instance of that antecedent Fact Type. -->
 
 ### Transitivity of binary Fact Types
 
@@ -622,18 +652,22 @@ emit inferred `A R C` facts. Compile-time enumerates FT pairs; runtime
 derives one fact per join.
 -->
 
-* Fact Type has inferred Fact iff some Fact uses Resource for the first Role of that Fact Type and some other Fact uses other Resource for the second Role of a Fact Type sharing the join Object Type.
+<!-- audit-fix B: demoted, same grounds — undeclared head, positional
+     prose ("the first Role", "sharing the join") outside the fragment.
+     The Role/Position vocabulary exists for a faithful restatement at
+     evaluator phase:
+* Fact Type has inferred Fact iff some Fact uses Resource for the first Role of that Fact Type and some other Fact uses other Resource for the second Role of a Fact Type sharing the join Object Type. -->
 
 ## Check-Readings Deontic Obligations (#288)
 
 <!--
-Layers 2 and 3 of the readings checker (`crates/arest/src/check.rs`)
-enforce ring-constraint validity and completeness as Rust control
-flow today. Expressing them as deontic constraints here lets #317's
-metamodel-FT push eventually drive them through the Def 6 / Thm 1
-violation path (Theorem 4's in pre-2026-07-13 draft numbering) — the
-Rust layers retire, and authors see the same diagnostics via the
-standard violation surface.
+Layers 2 and 3 of the killed host's readings checker
+(crates/arest/src/check.rs) enforced ring-constraint validity and
+completeness as Rust control flow. The deontic constraints below are
+the readings-side home; the evaluator-phase obligation is to drive
+them through the Def 6 / Thm 1 violation path (Theorem 4 in
+pre-2026-07-13 draft numbering) so authors see the diagnostics via
+the standard violation surface.
 -->
 
 ### Layer 2: ring validity — same-object type spans
@@ -641,8 +675,9 @@ standard violation surface.
 <!-- elysium-audit H2 (10.2): A ring constraint (IR, AS, AT, SY, IT, TR,
      AC, RF) must span roles whose Nouns are identical. A ring across mixed
      nouns is nonsensical — "No Customer is-subtype-of Address" has nothing
-     to forbid. check.rs emits an Error-level diagnostic today; the deontic
-     form below is the same invariant spelled declaratively. -->
+     to forbid. The killed host's check.rs emitted an Error-level
+     diagnostic; the deontic form below is the same invariant spelled
+     declaratively, and is the surviving home. -->
 
 It is obligatory that each Ring Constraint spans two Roles and both Roles are played by the same Object Type.
 
@@ -757,7 +792,13 @@ Antecedent Clause has Clause Shape.
 
 It is obligatory that each Antecedent Clause has Clause Shape.
 
-It is forbidden that each Object Type has a name that ends with 'ies'.
+<!-- audit-fix C: the stray naming deontic that stood here ("It is
+     forbidden that each Object Type has a name that ends with 'ies'.")
+     is retired: misplaced (Antecedent Clause section), malformed
+     (forbidding a universal is satisfied by one counterexample), and
+     over-broad (it forbade Series/Species). validation.md's Singular
+     Naming rule — plural-form names forbidden — is the one home and
+     subsumes the intent. -->
 
 ## Migration (#348)
 
