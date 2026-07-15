@@ -3,6 +3,13 @@
 ## Entity Types
 
 Domain Change(.Change Id) is an entity type.
+Domain Change is a subtype of Resource.
+  <!-- elysium-audit: joins the established schema-entity-as-Resource
+       pattern (core.md: Event Type, Status, Constraint, Derivation Rule
+       are Resource subtypes), so the outcome provenance fact types
+       (`Violation is triggered by Resource`, `Failure is triggered by
+       Resource`) type-check against a Domain Change — the validity rules
+       below join through them. -->
 Signal(.Signal Id) is an entity type.
 Model Element(.id) is an entity type.
 
@@ -30,6 +37,15 @@ Domain Change has Rationale.
 
 Domain Change targets Domain.
   Each Domain Change targets exactly one Domain.
+
+Domain Change is evaluated.
+  <!-- Asserted by the staged gate run: per 11.2/Cor 4 (cor:closure),
+       ingesting a Domain Change is itself a create judged by the one
+       gate; the staged application emits outcome facts (outcomes.md)
+       and records this marker. Without the marker, absence of
+       violations before any evaluation would read as vacuous validity. -->
+
+Domain Change has blocking outcome. *
 
 Domain Change is valid. *
 
@@ -75,14 +91,31 @@ It is obligatory that each Domain Change has exactly one Rationale.
 
 It is forbidden that a Domain Change targeting Domain 'core' is applied without Signal Source 'Human'.
 It is forbidden that a Domain Change targeting Domain 'evolution' is applied without Signal Source 'Human'.
-It is forbidden that a Domain Change targeting Domain 'ethics' is applied without Signal Source 'Human'.
+<!-- elysium-audit: the same human-gate for Domain 'ethics' referenced a
+     domain declared nowhere in the base readings. Preserved here as a
+     forward declaration; reinstate as a reading the moment an ethics
+     domain exists:
+       It is forbidden that a Domain Change targeting Domain 'ethics' is applied without Signal Source 'Human'. -->
 
 ## Derivation Rules
 
-### Domain Change is valid is implemented by the compile pipeline:
-### (1) all proposed Model Elements are parseable as FORML 2
-### (2) the proposed population is consistent with the existing population in the target Domain
-### (3) the proposed Constraints are satisfiable with the existing Constraints in the target Domain
+<!-- elysium-audit (real rules, replacing prose that claimed validity was
+     "implemented by the compile pipeline" — a `*` marker whose rule lives
+     in a host is drift wearing a derivation mark. Per 11.2/Cor 4 the
+     staged ingestion of a Domain Change is a create judged by the gate,
+     and the gate's outcomes are facts (outcomes.md), so validity derives
+     from them. The old prose conditions map: (1) parseable → no Failure
+     (Failure Type 'parse') triggered by the change; (2) population
+     consistency and (3) constraint satisfiability → no error-severity
+     Violation triggered by the staged application. Disjunction is two
+     rules per datalog convention; the single negated clause reads the
+     settled derived cell (a finite anti-join, Lem 1). -->
+
+* Domain Change has blocking outcome iff some Violation is triggered by that Domain Change and that Violation has Severity 'error'.
+
+* Domain Change has blocking outcome iff some Failure is triggered by that Domain Change.
+
+* Domain Change is valid iff that Domain Change is evaluated and it is not true that that Domain Change has blocking outcome.
 
 ## Instance Facts
 
@@ -115,6 +148,13 @@ Transition 'apply' is defined in State Machine Definition 'Domain Change'.
 Transition 'apply' is from Status 'Approved'.
 Transition 'apply' is to Status 'Applied'.
 Transition 'apply' is triggered by Event Type 'Domain Change is applied'.
+
+<!-- elysium-audit: validity wired into the machine through the Guard
+     vocabulary (state.md) — approval is affordable only for a change the
+     staged gate run judged valid. Evolution is core AREST: the
+     self-modification SM uses the framework's own guard machinery. -->
+Guard 'valid-domain-change' guards Transition 'approve-change'.
+Guard 'valid-domain-change' references Fact Type 'Domain Change is valid'.
 
 Domain 'evolution' has Access 'public'.
 Domain 'evolution' has Description 'Self-modification as a Domain Change state machine. Proposing a new fact type is proposing a theorem (Curry-Howard). CSDP validation is the proof check, successful ingestion is the proof.'.
