@@ -41,15 +41,22 @@ User is a subtype of Resource.
 ## Value Types
 
 Reference is a value type.
+  The data type of Reference is text.
 Email is a value type.
+  The data type of Email is text.
 Value is a value type.
+  The data type of Value is text.
 Retrieval Date is a value type.
+  The data type of Retrieval Date is date.
 
 Cell Name is a value type.
+  The data type of Cell Name is text.
 Cell Version Id is a value type.
+  The data type of Cell Version Id is text.
 
 Authority Type is a value type.
   The possible values of Authority Type are 'Constitutional', 'Statute', 'Regulation', 'Case', 'Rule-of-Court', 'Executive-Order', 'Treaty', 'Agency-Guidance', 'Industry-Standard', 'Administrative-Ruling', 'Runtime-Function', 'Federated-Fetch', 'Storage-Pin'.
+  The data type of Authority Type is text.
 
 ## Readings
 

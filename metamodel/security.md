@@ -36,6 +36,7 @@ CIDR Block is a subtype of Function.
 
 Block Kind is a value type.
   The possible values of Block Kind are 'internal-loopback', 'private-rfc1918', 'link-local', 'ipv6-loopback', 'ipv6-link-local', 'ipv6-unique-local'.
+  The data type of Block Kind is text.
 
 ## Fact Types
 

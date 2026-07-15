@@ -8,17 +8,17 @@ domain models to load:
   ORMSolutions.ORMArchitect.RelationalModels.ConceptualDatabase.ConceptualDatabaseDomainModel
 store loaded: 7 domain models
 seed model: Elysium, intrinsic data types: 32
-mapped: core.md (627 sentences)
+mapped: core.md (685 sentences)
 mapped: csdp.md (67 sentences)
-mapped: evolution.md (62 sentences)
-mapped: induction.md (14 sentences)
-mapped: instances.md (116 sentences)
-mapped: naming.md (41 sentences)
-mapped: outcomes.md (58 sentences)
+mapped: evolution.md (64 sentences)
+mapped: induction.md (15 sentences)
+mapped: instances.md (123 sentences)
+mapped: naming.md (43 sentences)
+mapped: outcomes.md (61 sentences)
 mapped: resolution.md (38 sentences)
-mapped: security.md (16 sentences)
+mapped: security.md (17 sentences)
 mapped: state.md (64 sentences)
-mapped: validation.md (40 sentences)
+mapped: validation.md (41 sentences)
 
 == FINDING: fact types with no declared uniqueness (spanning UC assumed per Def 3 set semantics) ==
   TOTAL ASSUMED: 0
@@ -31,6 +31,7 @@ mapped: validation.md (40 sentences)
     76  value-type declaration
     66  subtype declaration
     60  subtype provides preferred identification (Halpin 6.7)
+    54  data type applied (text)
     51  entity-type declaration
     41  spanning uniqueness
     31  default-form reading (no constraint)
@@ -39,8 +40,10 @@ mapped: validation.md (40 sentences)
     21  deontic constraint (deferred)
     18  value enumeration
     16  subset/ring textual constraint (deferred)
+    13  data type applied (integer)
     12  uniqueness (for-each form)
     10  constraint retargeted by fact index
+     7  data type applied (decimal)
      6  mandatory (for-each form)
      6  fact-type reading (arity 3)
      5  mandatory skipped (role already mandatory)
@@ -51,9 +54,10 @@ mapped: validation.md (40 sentences)
      2  derived subtype (edge mapped; rule deferred)
      2  alethic impossibility (deferred)
      2  disjunctive constraint (deferred)
+     1  data type applied (datetime)
      1  spanning uniqueness (set restriction)
      1  uniqueness narrowed (implied wider UC removed)
-     1  data-type opt-in (default text kept)
+     1  data type applied (date)
      1  fact-type reading (arity 4)
 
 == unrecognized sentences ==
@@ -84,6 +88,14 @@ mapped: validation.md (40 sentences)
       ~ Model 'Elysium' contains multiple readings with an expanded reading signature of 'status has effective transition to status on event type involves status'. Each reading must be unique in the model.
       ~ Model 'Elysium' contains multiple readings with an expanded reading signature of 'status is involved in status reaches status in state machine definition'. Each reading must be unique in the model.
       ~ Model 'Elysium' contains multiple readings with an expanded reading signature of 'status reaches status in state machine definition involves status'. Each reading must be unique in the model.
+
+== value-type data types ==
+    54  VariableLengthTextDataType
+    13  SignedIntegerNumericDataType
+     7  DecimalNumericDataType
+     1  DateAndTimeTemporalDataType
+     1  DateTemporalDataType
+  UNTYPED VALUE TYPES: (none - every value type carries an explicit data-type sentence)
 
 == RMAP: relational result ==
   APIAcceptsObjectTypeAsParameter(factTypeId, objectTypeId, predicateId)
@@ -144,6 +156,9 @@ mapped: validation.md (40 sentences)
   UserRequestsRevisionOfDomainChange(domainChangeId, userId)
   UserSubmitsDomainChangeForReview(domainChangeId, userId)
   TOTAL TABLES: 57
+
+== js-runner inputs ==
+  written: design-state.json, norma-tables.json
 
 == VERBALIZATION: NORMA generate leg (nf out-direction) ==
   elements verbalized: 481

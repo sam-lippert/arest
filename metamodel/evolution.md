@@ -30,8 +30,10 @@ Signal is a subtype of Resource.
 ## Value Types
 
 Rationale is a value type.
+  The data type of Rationale is text.
 Signal Source is a value type.
   The possible values of Signal Source are 'Constraint Violation', 'Human', 'Error Pattern', 'Feature Request', 'Support Request'.
+  The data type of Signal Source is text.
 
 ## Readings
 

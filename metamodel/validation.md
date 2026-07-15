@@ -99,6 +99,7 @@ It is obligatory that each variable in a Derivation Rule consequent appears in a
 ## Constraint Violation Templates (#898)
 
 Violation Template is a value type.
+  The data type of Violation Template is text.
 
 Constraint Type has Violation Template.
   Each Constraint Type has at most one Violation Template.

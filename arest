@@ -7170,7 +7170,7 @@ DEF("csdp",
     S8(A("COMP"), A("csdp:s7"), A("csdp:s6"), A("csdp:s5"), A("csdp:s4"),
        A("csdp:s3"), A("csdp:s2"), A("csdp:s1"))),
 
-"RMAP AS CANON (2026-07-15): Halpin 10.3's grouping rules over the CSDP design state, answering the table map ⟨⟨key, columns⟩…⟩. Rule 2 (absorption): a fact type with a uniqueness constraint narrower than its arity is FUNCTIONAL on that key, and absorbs into the key player's table — one column per absorbed fact type (the analytic judgment: the predicate joins its subject's cell). Rule 1 (separation): a fact type whose every uniqueness constraint spans all roles keeps its own table — one column per role (the synthetic judgment: an irreducible join). The reference-scheme preliminaries (10.3 step 0) are the IDENTITY here: the metamodel's one-reference-scheme ruling (Halpin 6.7 — a subtype inherits the primary reference scheme of the root supertype) makes every key the one Function id, so no scheme expansion exists to perform and the perfect-normalization guarantee rides the uniqueness patterns alone. rmap:min_uc folds to the narrowest declared key; grouping is dedup over key players with per-key column collection through csdp:matches — alpha and fold end to end.",
+"RMAP AS CANON (2026-07-15): Halpin 10.3's grouping rules over the CSDP design state, answering the table map ⟨⟨key, columns⟩…⟩. Rule 2 (absorption): a fact type whose narrowest uniqueness constraint is a SINGLE role is functional on that key, and absorbs into the key player's table (unaries ride the same rule: the one role is the key and the fact lands as a boolean column). A COMPOUND key (narrowest UC spanning two or more roles, e.g. at-most-one over a pair) separates like rule 1, keyed on the compound, per 10.3 — one column per absorbed fact type (the analytic judgment: the predicate joins its subject's cell). Rule 1 (separation): a fact type whose every uniqueness constraint spans all roles keeps its own table — one column per role (the synthetic judgment: an irreducible join). The reference-scheme preliminaries (10.3 step 0) are the IDENTITY here: the metamodel's one-reference-scheme ruling (Halpin 6.7 — a subtype inherits the primary reference scheme of the root supertype) makes every key the one Function id, so no scheme expansion exists to perform and the perfect-normalization guarantee rides the uniqueness patterns alone. rmap:min_uc folds to the narrowest declared key; grouping is dedup over key players with per-key column collection through csdp:matches — alpha and fold end to end.",
 
 DEF("rmap:arity", S3(A("COMP"), A("length"), N(2))),
 
@@ -7184,8 +7184,8 @@ DEF("rmap:min_uc",
     S3(A("COMP"), S2(A("INSERT"), A("rmap:pick_shorter")), N(3))),
 
 DEF("rmap:functionalp",
-    S3(A("COMP"), A("gt"),
-       S3(A("CONS"), A("rmap:arity"), S3(A("COMP"), A("length"), A("rmap:min_uc"))))),
+    S3(A("COMP"), A("eq"),
+       S3(A("CONS"), S3(A("COMP"), A("length"), A("rmap:min_uc")), S2(A("CONST"), N(1))))),
 
 DEF("rmap:keyplayer",
     S3(A("COMP"), A("apply"),

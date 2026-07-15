@@ -253,8 +253,21 @@ namespace Elysium.NormaOracle
 			Console.WriteLine("== NORMA model errors ==");
 			Verifier.DumpErrors(store, Console.Out);
 			Console.WriteLine();
+			Console.WriteLine("== value-type data types ==");
+			verifier.DumpDataTypes(Console.Out);
+
+			Console.WriteLine();
 			Console.WriteLine("== RMAP: relational result ==");
 			Verifier.DumpRelational(store, assemblies[4], Console.Out);
+
+			// cross-check inputs for the thin JS runner (tools/js-runner):
+			// the design state the canon's rmap def consumes, and NORMA's own
+			// RMAP output to confirm against.
+			verifier.WriteDesignState("design-state.json");
+			Verifier.WriteTablesJson(store, assemblies[4], "norma-tables.json");
+			Console.WriteLine();
+			Console.WriteLine("== js-runner inputs ==");
+			Console.WriteLine("  written: design-state.json, norma-tables.json");
 
 			// 5. Verbalization leg — NORMA's generate-only direction (the
 			// automated verbalizer of Halpin & Curland 2006). The harness

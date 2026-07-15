@@ -45,8 +45,10 @@ Pluralization Rule is a subtype of Function.
 
 Pluralization Pattern is a value type.
   The possible values of Pluralization Pattern are '^child$', '^person$', 'ay$', 'ey$', 'oy$', 'uy$', 'iy$', 'ss$', 'sh$', 'ch$', 'x$', 's$', 'z$', 'y$', '$'.
+  The data type of Pluralization Pattern is text.
 Pluralization Replacement is a value type.
   The possible values of Pluralization Replacement are 'children', 'people', 'ays', 'eys', 'oys', 'uys', 'iys', 'sses', 'shes', 'ches', 'xes', 'ses', 'zzes', 'ies', 's'.
+  The data type of Pluralization Replacement is text.
 
 ## Fact Types
 
