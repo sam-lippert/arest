@@ -63,6 +63,15 @@ Schema Design has Design Note.
 
 ### CSDP step-completion event facts
 
+<!-- elysium (2026-07-15): the procedure these step facts narrate is now
+     DEFINED in the canon — `arest` carries csdp (seven steps composed;
+     s1/s3/s6-acceptance as registered seams, s2/s4/s5/s7 computable:
+     population gate, uniqueness induction from example populations,
+     mandatory derivation, the n-1 elementarity gate) and rmap (rule-2
+     absorption / rule-1 separation over the design state). These
+     readings remain the workflow's fact-side narration; the canon defs
+     are the operations the steps perform. -->
+
 Schema Design notes elementary facts.
 Schema Design populates fact types.
 Schema Design trims schema and notes derivations.
