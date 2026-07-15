@@ -547,8 +547,16 @@ If some Predicate references some Fact that is of some Fact Type then that Predi
 If some Guard Run is for some Guard and that Guard Run references some Fact then that Guard references some Fact Type that defines that Fact.
 If some State Machine is currently in some Status then that Status is defined in some State Machine Definition where that State Machine is instance of that State Machine Definition.
 If some API accepts some Object Type as parameter and some other Object Type is subtype of that Object Type then that API accepts that subtype Object Type as parameter.
-If some Object Type has some Format then that Object Type has some Conceptual Data Type.
-If some Object Type has some Format then that Format is built on some Conceptual Data Type.
+<!-- exec-4 adjudication (2026-07-15): the two Format subset sentences
+     that stood here are retired — built as real NORMA SubsetConstraints,
+     NORMA proved both redundant: "implied by a simple mandatory
+     constraint on the superset role" (EqualityOrSubsetImpliedByMandatory
+     / NotWellModeledSubsetAndMandatory). Each Object Type with a Format
+     has a Conceptual Data Type because `Each Format is built on exactly
+     one Conceptual Data Type` and the Format link already carries it;
+     the mandatory is the one home. Retired forms:
+       If some Object Type has some Format then that Object Type has some Conceptual Data Type.
+       If some Object Type has some Format then that Format is built on some Conceptual Data Type. -->
 
 ## Ring Constraints
 

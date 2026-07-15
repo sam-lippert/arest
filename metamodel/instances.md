@@ -278,14 +278,16 @@ State Machine is for Resource.
 Resource is currently in Status. *
   Each Resource is currently in at most one Status.
 
-# task-955/924: key the SM-keyed status projection so it stays single-valued.
-# The engine's imperative transition write AND the SM event-fold both write
-# `State_Machine_is_currently_in_Status`; without this UC the cell is un-keyed,
-# so the chain folds it by full tuple and the event-fold (which emits one
-# status per triggered event) ACCUMULATES every historical status — the
-# 923/924 readback artifact. Keyed by State Machine, integrate_round_facts'
-# keyed-upsert collapses the per-resource emits to last-write-wins (the latest
-# transition target, in transition_table declaration order).
+<!-- task-955/924 (exec-6 hygiene: was a #-styled pseudo-comment): key the
+     SM-keyed status projection so it stays single-valued. The killed
+     host's imperative transition write AND the SM event-fold both wrote
+     `State_Machine_is_currently_in_Status`; without this UC the cell is
+     un-keyed, so the chain folds it by full tuple and the event-fold
+     (which emits one status per triggered event) ACCUMULATES every
+     historical status — the 923/924 readback artifact. Keyed by State
+     Machine, keyed-upsert collapses the per-resource emits to
+     last-write-wins (the latest transition target, in transition_table
+     declaration order). -->
 State Machine is currently in Status. +
   Each State Machine is currently in exactly one Status.
   <!-- audit-fix A4: semi-derived — the seed-branch rule below derives the
