@@ -60,12 +60,12 @@ Each Antecedent Clause is an instance of Function.
 Derivation Rule has Antecedent Clause.
 Antecedent Clause has Clause Shape.
 Argument Length is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Signed Integer.
 
 Fact Types:
 Set Comparison Constraint has Argument Length.
 Arity is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Signed Integer.
 
 Fact Types:
 Fact Type has Arity.
@@ -84,7 +84,7 @@ Fact Types:
 Each Batch is an instance of Resource.
 Violation belongs to Batch.
 Binary Precision is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Signed Integer.
 
 Fact Types:
 Facet has Binary Precision.
@@ -174,10 +174,10 @@ Conceptual Data Type has JSON Format.
 Conceptual Data Type has Abstract SQL Type.
 Format is built on Conceptual Data Type.
 Confidence is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Decimal.
 
 Confidence Score is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Decimal.
 
 Fact Types:
 Hypothesis Candidate has Confidence Score.
@@ -325,7 +325,7 @@ Data Type: Text: Variable Length (0).
 Fact Types:
 Schema Design has Design Note.
 Digit Count is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Signed Integer.
 
 Fact Types:
 Facet has Digit Count.
@@ -442,12 +442,12 @@ Fact Types:
 Event Type is involved in EventTypeCanBeCreatedByPredicate.
 Predicate is involved in EventTypeCanBeCreatedByPredicate.
 Exclusive Maximum is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Decimal.
 
 Fact Types:
 Object Type has Exclusive Maximum.
 Exclusive Minimum is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Decimal.
 
 Fact Types:
 Object Type has Exclusive Minimum.
@@ -810,7 +810,7 @@ Fact Types:
 Each Language is an instance of Function.
 Reading is localized for Language.
 Length is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Signed Integer.
 
 Fact Types:
 Facet has Length.
@@ -820,18 +820,18 @@ Data Type: Text: Variable Length (0).
 Fact Types:
 Bound has Lexical Value.
 Max Length is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Signed Integer.
 
 Fact Types:
 Object Type has Max Length.
 Max Occurrence is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Signed Integer.
 
 Fact Types:
 Frequency Constraint has Max Occurrence.
 Cardinality Constraint has Max Occurrence.
 Maximum is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Decimal.
 
 Fact Types:
 Object Type has Maximum.
@@ -878,18 +878,18 @@ Fact Types:
 Migration is involved in MigrationProducesTargetFactType.
 Fact Type is involved in MigrationProducesTargetFactType.
 Min Length is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Signed Integer.
 
 Fact Types:
 Object Type has Min Length.
 Min Occurrence is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Signed Integer.
 
 Fact Types:
 Frequency Constraint has Min Occurrence.
 Cardinality Constraint has Min Occurrence.
 Minimum is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Decimal.
 
 Fact Types:
 Object Type has Minimum.
@@ -900,7 +900,7 @@ Fact Types:
 Constraint has modality of Modality Type.
 The possible values of Modality Type are 'Alethic', 'Deontic'.
 Multiple Of is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Decimal.
 
 Fact Types:
 Object Type has Multiple Of.
@@ -1018,7 +1018,7 @@ Each Operation is an instance of Function.
 Operation is overridable.
 Operation is registrable.
 Order is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Signed Integer.
 
 Fact Types:
 Fact Type has Order.
@@ -1058,13 +1058,13 @@ Each Pluralization Rule is an instance of Function.
 Pluralization Rule has Pattern.
 Pluralization Rule has Replacement.
 Position is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Signed Integer.
 
 Fact Types:
 Role has Position for Reading.
 Role Sequence has Role at Position.
 Precision is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Signed Integer.
 
 Fact Types:
 Object Type has Precision.
@@ -1185,7 +1185,7 @@ Data Type: Text: Variable Length (0).
 Fact Types:
 Guard Run has Result.
 Retrieval Date is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Temporal: Date.
 
 Fact Types:
 Citation has Retrieval Date.
@@ -1252,7 +1252,7 @@ Role Sequence is involved in RoleSequenceHasRoleAtPosition.
 Role is involved in RoleSequenceHasRoleAtPosition.
 Position is involved in RoleSequenceHasRoleAtPosition.
 Scale is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Numeric: Signed Integer.
 
 Fact Types:
 Object Type has Scale.
@@ -1462,7 +1462,7 @@ Fact Types:
 Each Textual Constraint is an instance of Constraint.
 Textual Constraint has Text.
 Timestamp is a value type.
-Data Type: Text: Variable Length (0).
+Data Type: Temporal: Date & Time.
 
 Fact Types:
 Migration has Timestamp.

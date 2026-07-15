@@ -13,9 +13,12 @@ Batch is a subtype of Resource.
 
 Failure Type is a value type.
   The possible values of Failure Type are 'extraction', 'evaluation', 'transition', 'parse', 'induction'.
+  The data type of Failure Type is text.
 Severity is a value type.
   The possible values of Severity are 'error', 'warning', 'info'.
+  The data type of Severity is text.
 Confidence is a value type.
+  The data type of Confidence is decimal.
 
 ## Fact Types
 

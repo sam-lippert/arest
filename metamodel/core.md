@@ -95,9 +95,11 @@ Derivation Rule is an entity type.
 
 Modality Type is a value type.
   The possible values of Modality Type are 'Alethic', 'Deontic'.
+  The data type of Modality Type is text.
 
 World Assumption is a value type.
   The possible values of World Assumption are 'closed', 'open'.
+  The data type of World Assumption is text.
 
 Language is an entity type.
 Language is a subtype of Function.
@@ -123,19 +125,31 @@ Domain has Description.
 ## Value Types
 
 URL is a value type.
+  The data type of URL is text.
 Secret Reference is a value type.
+  The data type of Secret Reference is text.
 Reference Mode is a value type.
+  The data type of Reference Mode is text.
 
 id is a value type.
+  The data type of id is text.
 code is a value type.
+  The data type of code is text.
 Arity is a value type.
+  The data type of Arity is integer.
 Position is a value type.
+  The data type of Position is integer.
 Min Occurrence is a value type.
+  The data type of Min Occurrence is integer.
 Max Occurrence is a value type.
+  The data type of Max Occurrence is integer.
 Name is a value type.
+  The data type of Name is text.
 Plural is a value type.
+  The data type of Plural is text.
 OT Kind is a value type.
   The possible values of OT Kind are 'entity', 'value'.
+  The data type of OT Kind is text.
 <!-- `Format` was a value type here (legacy widget Format: 'text', 'date',
      'boolean'). It is PROMOTED to a first-class, extensible entity type
      `Format(.Name)` in the NORMA Value Domain section below (alongside
@@ -146,31 +160,53 @@ OT Kind is a value type.
      reading or app ever populated `Noun has Format`, so the promotion is
      data-safe. See "## NORMA Value Domain" -> Format. -->
 Enum Values is a value type.
+  The data type of Enum Values is text.
 Minimum is a value type.
+  The data type of Minimum is decimal.
 Maximum is a value type.
+  The data type of Maximum is decimal.
 Exclusive Minimum is a value type.
+  The data type of Exclusive Minimum is decimal.
 Exclusive Maximum is a value type.
+  The data type of Exclusive Maximum is decimal.
 Multiple Of is a value type.
+  The data type of Multiple Of is decimal.
 Min Length is a value type.
+  The data type of Min Length is integer.
 Max Length is a value type.
+  The data type of Max Length is integer.
 Pattern is a value type.
+  The data type of Pattern is text.
 Description is a value type.
+  The data type of Description is text.
 Text is a value type.
+  The data type of Text is text.
 URI is a value type.
+  The data type of URI is text.
 Prefix is a value type.
+  The data type of Prefix is text.
 Header is a value type.
+  The data type of Header is text.
 Timestamp is a value type.
+  The data type of Timestamp is datetime.
 Argument Length is a value type.
+  The data type of Argument Length is integer.
 Order is a value type.
+  The data type of Order is integer.
 Data is a value type.
+  The data type of Data is text.
 Result is a value type.
+  The data type of Result is text.
 Title is a value type.
+  The data type of Title is text.
 
 Permission is a value type.
   The possible values of Permission are 'create', 'read', 'update', 'delete', 'list', 'versioned', 'login', 'rateLimit'.
+  The data type of Permission is text.
 
 Role Relationship is a value type.
   The possible values of Role Relationship are 'many-to-one', 'one-to-many', 'many-to-many', 'one-to-one'.
+  The data type of Role Relationship is text.
 
 
 <!-- elysium-batch ruling 2 (organizations-domain vocabulary, moved out):
@@ -179,13 +215,17 @@ Scope is a value type.
 
 Derivation Mode is a value type.
   The possible values of Derivation Mode are 'fully-derived', 'derived-and-stored', 'semi-derived'.
+  The data type of Derivation Mode is text.
 
 Constraint Type Label is a value type.
+  The data type of Constraint Type Label is text.
 
 Constraint Type Family is a value type.
   The possible values of Constraint Type Family are 'ring', 'uniqueness', 'mandatory', 'frequency', 'value', 'set-comparison', 'subset', 'equality', 'deontic', 'cardinality'.
+  The data type of Constraint Type Family is text.
 
 Constraint Match Keyword is a value type.
+  The data type of Constraint Match Keyword is text.
 
 ## Fact Types
 
@@ -385,6 +425,7 @@ It is obligatory that each Function belongs to some Domain.
 
 Definition Origin is a value type.
   The possible values of Definition Origin are 'compiled', 'registered'.
+  The data type of Definition Origin is text.
 Function has Definition Origin.
   Each Function has at most one Definition Origin.
   <!-- elysium-audit E: Def 9 — a definition is ⟨name, dom, cod, origin,
@@ -400,6 +441,7 @@ Function has Definition Origin.
        manifest lands. -->
 
 Type Expression is a value type.
+  The data type of Type Expression is text.
 Function accepts Type Expression.
   Each Function accepts at most one Type Expression.
 Function yields Type Expression.
@@ -412,6 +454,7 @@ Function yields Type Expression.
        SALVAGE transcribed dom/cod for the five boundary primitives). -->
 
 Implementation is a value type.
+  The data type of Implementation is text.
 Function has Implementation.
   Each Function has at most one Implementation.
   <!-- audit-fix E (Def 9's impl; Samuel's ruling 2026-07-15): SYMBOLIC
@@ -727,9 +770,11 @@ Join Type is a subtype of Function.
 
 Clusivity is a value type.
   The possible values of Clusivity are 'inclusive', 'exclusive'.
+  The data type of Clusivity is text.
 
 Derivation Storage Type is a value type.
   The possible values of Derivation Storage Type are 'stored', 'derived', 'derived-and-stored'.
+  The data type of Derivation Storage Type is text.
 
 ### Fact types
 
@@ -782,6 +827,7 @@ Antecedent Clause is an entity type.
 Antecedent Clause is a subtype of Function.
 Clause Shape is a value type.
   The possible values of Clause Shape are 'fact-type-literal', 'antecedent-role', 'negation', 'comparison', 'conjunction', 'quantified', 'unresolved'.
+  The data type of Clause Shape is text.
 
 Derivation Rule has Antecedent Clause.
   Each Derivation Rule has some Antecedent Clause.
@@ -814,6 +860,7 @@ It is obligatory that each Antecedent Clause has Clause Shape.
 Migration is an entity type.
 Migration is a subtype of Function.
 Migration Rule Text is a value type.
+  The data type of Migration Rule Text is text.
 
 Migration has source Fact Type.
   Each Migration has exactly one source Fact Type.
@@ -906,16 +953,27 @@ Textual Constraint is a subtype of Constraint.
 ### Value types
 
 Regex Pattern is a value type.
+  The data type of Regex Pattern is text.
 Lexical Value is a value type.
+  The data type of Lexical Value is text.
 Alias is a value type.
+  The data type of Alias is text.
 Length is a value type.
+  The data type of Length is integer.
 Binary Precision is a value type.
+  The data type of Binary Precision is integer.
 Digit Count is a value type.
+  The data type of Digit Count is integer.
 Precision is a value type.
+  The data type of Precision is integer.
 Scale is a value type.
+  The data type of Scale is integer.
 JSON Type is a value type.
+  The data type of JSON Type is text.
 JSON Format is a value type.
+  The data type of JSON Format is text.
 Abstract SQL Type is a value type.
+  The data type of Abstract SQL Type is text.
 
 ### Fact types
 

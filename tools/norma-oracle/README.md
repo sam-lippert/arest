@@ -12,10 +12,16 @@ back the live ORM → Abstraction → ConceptualDatabase RMAP result.
 
 Output: sentence census, unrecognized sentences, the missing-uniqueness
 finding list (spanning UCs assumed per Def 3 set semantics, each one
-reported), NORMA's model errors grouped by kind, the full relational table
-dump, and the verbalization leg. `oracle-report.txt` is the pinned latest
-run; `verbalization-report.txt` is the pinned tag-stripped verbalization
-(the .html original is regenerated on every run and not tracked).
+reported), the value-type data-type census (every readings-declared value
+type carries an explicit "The data type of X is <token>." sentence; the
+token map covers text/integer/decimal/float/boolean/datetime/date/time),
+NORMA's model errors grouped by kind, the full relational table dump, the
+verbalization leg, and the cross-check inputs for tools/js-runner
+(design-state.json — fact types with top-supertype-collapsed players and
+UC spans; norma-tables.json — NORMA's RMAP output). `oracle-report.txt`
+is the pinned latest run; `verbalization-report.txt` is the pinned
+tag-stripped verbalization (the .html original is regenerated on every
+run and not tracked).
 
 Verbalization leg (nf, out-direction): after RMAP, every object type and
 non-implied fact type is verbalized through NORMA's own engine (the

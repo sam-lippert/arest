@@ -279,6 +279,84 @@ namespace Elysium.NormaOracle
 			return t;
 		}
 
+		// "The data type of X is <token>." — the token map to NORMA's
+		// intrinsic data types. Every metamodel value type carries one of
+		// these sentences; the census reports any that do not.
+		private static readonly Dictionary<string, Type> DataTypeTokens = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
+		{
+			{ "text", typeof(VariableLengthTextDataType) },
+			{ "integer", typeof(SignedIntegerNumericDataType) },
+			{ "decimal", typeof(DecimalNumericDataType) },
+			{ "float", typeof(DoublePrecisionFloatingPointNumericDataType) },
+			{ "boolean", typeof(TrueOrFalseLogicalDataType) },
+			{ "datetime", typeof(DateAndTimeTemporalDataType) },
+			{ "date", typeof(DateTemporalDataType) },
+			{ "time", typeof(TimeTemporalDataType) },
+		};
+		private readonly HashSet<string> myExplicitlyTyped = new HashSet<string>(StringComparer.Ordinal);
+
+		private void ApplyDataType(string typeName, string token)
+		{
+			Type dtType;
+			if (!DataTypeTokens.TryGetValue(token, out dtType))
+			{
+				Count("data-type token unknown");
+				myMapLog.Add("UNKNOWN data-type token '" + token + "' for '" + typeName + "'");
+				return;
+			}
+			ObjectType vt = EnsureType(typeName, true);
+			foreach (DataType dt in myModel.DataTypeCollection)
+			{
+				if (dt.GetType() == dtType)
+				{
+					vt.DataType = dt;
+					myExplicitlyTyped.Add(typeName);
+					Count("data type applied (" + token.ToLowerInvariant() + ")");
+					return;
+				}
+			}
+			Count("data-type intrinsic instance missing");
+			myMapLog.Add("no intrinsic instance for data-type token '" + token + "'");
+		}
+
+		public void DumpDataTypes(TextWriter w)
+		{
+			var census = new Dictionary<string, int>(StringComparer.Ordinal);
+			var untyped = new List<string>();
+			foreach (ObjectType ot in myModel.ObjectTypeCollection)
+			{
+				if (!ot.IsValueType || ot.IsImplicitBooleanValue) continue;
+				// audit surface = readings-declared value types; NORMA's own
+				// reference-mode mints (Function_id) are typed by its machinery
+				if (!myTypes.ContainsKey(ot.Name)) continue;
+				DataType dt = ot.DataType;
+				string kind = dt == null ? "(null)" : dt.GetType().Name;
+				int n;
+				census.TryGetValue(kind, out n);
+				census[kind] = n + 1;
+				if (!myExplicitlyTyped.Contains(ot.Name))
+				{
+					untyped.Add(ot.Name);
+				}
+			}
+			foreach (var kv in census.OrderByDescending(kv => kv.Value))
+			{
+				w.WriteLine("  {0,4}  {1}", kv.Value, kv.Key);
+			}
+			if (untyped.Count == 0)
+			{
+				w.WriteLine("  UNTYPED VALUE TYPES: (none — every value type carries an explicit data-type sentence)");
+			}
+			else
+			{
+				w.WriteLine("  UNTYPED VALUE TYPES: " + untyped.Count);
+				foreach (string name in untyped.OrderBy(x => x, StringComparer.Ordinal))
+				{
+					w.WriteLine("      - " + name);
+				}
+			}
+		}
+
 		private void EnsureDataType(ObjectType valueType, string portableName)
 		{
 			// give every value type NORMA's variable-length text data type by
@@ -388,7 +466,7 @@ namespace Elysium.NormaOracle
 			}
 			if ((m = DataTypeDecl.Match(s)).Success)
 			{
-				Count("data-type opt-in (default text kept)");
+				ApplyDataType(m.Groups[1].Value.Trim(), m.Groups[2].Value.Trim());
 				return;
 			}
 			if (s.StartsWith("* "))
@@ -931,6 +1009,119 @@ namespace Elysium.NormaOracle
 				result.Add(roles[found]);
 			}
 			return result;
+		}
+		#endregion
+
+		#region design-state and table export (js-runner cross-check inputs)
+		private static string JsonEscape(string s)
+		{
+			return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
+		}
+
+		private static string TopSupertype(ObjectType t)
+		{
+			var seen = new HashSet<ObjectType>();
+			while (t != null && seen.Add(t))
+			{
+				ObjectType super = null;
+				foreach (ObjectType s in t.SupertypeCollection)
+				{
+					super = s;
+					break;
+				}
+				if (super == null) return t.Name;
+				t = super;
+			}
+			return t == null ? "" : t.Name;
+		}
+
+		// the CSDP/RMAP design state as the canon defs consume it: one entry
+		// per parsed fact type — generated name, objectifying-type name (if
+		// nested), players, players collapsed to their top supertypes (RMAP
+		// 10.3 step 0's absorb-subtypes default; identification already flows
+		// to the root per the one-reference-scheme ruling), and the internal
+		// UC spans as 1-based role positions.
+		public void WriteDesignState(string path)
+		{
+			var sb = new System.Text.StringBuilder();
+			sb.Append("{\n  \"facts\": [\n");
+			bool firstFact = true;
+			foreach (FactIndexEntry entry in myFactIndex)
+			{
+				if (entry.Fact.IsDeleted) continue;
+				if (!firstFact) sb.Append(",\n");
+				firstFact = false;
+				sb.Append("    { \"name\": \"").Append(JsonEscape(entry.Fact.Name)).Append("\"");
+				ObjectType nesting = entry.Fact.NestingType;
+				if (nesting != null)
+				{
+					sb.Append(", \"nesting\": \"").Append(JsonEscape(nesting.Name)).Append("\"");
+				}
+				sb.Append(", \"arity\": ").Append(entry.Roles.Count);
+				sb.Append(", \"players\": [");
+				for (int i = 0; i < entry.Players.Count; i++)
+				{
+					if (i > 0) sb.Append(", ");
+					sb.Append("\"").Append(JsonEscape(entry.Players[i])).Append("\"");
+				}
+				sb.Append("], \"topPlayers\": [");
+				for (int i = 0; i < entry.Roles.Count; i++)
+				{
+					if (i > 0) sb.Append(", ");
+					ObjectType player = entry.Roles[i].RolePlayer;
+					sb.Append("\"").Append(JsonEscape(player == null ? entry.Players[i] : TopSupertype(player))).Append("\"");
+				}
+				sb.Append("], \"ucs\": [");
+				bool firstUc = true;
+				foreach (UniquenessConstraint uc in InternalUCs(entry.Fact))
+				{
+					var positions = new List<int>();
+					bool complete = true;
+					foreach (Role r in uc.RoleCollection)
+					{
+						int at = entry.Roles.IndexOf(r);
+						if (at < 0) { complete = false; break; }
+						positions.Add(at + 1);
+					}
+					if (!complete) continue;
+					if (!firstUc) sb.Append(", ");
+					firstUc = false;
+					sb.Append("[").Append(string.Join(", ", positions)).Append("]");
+				}
+				sb.Append("] }");
+			}
+			sb.Append("\n  ]\n}\n");
+			System.IO.File.WriteAllText(path, sb.ToString());
+		}
+
+		public static void WriteTablesJson(Store store, System.Reflection.Assembly relationalAssembly, string path)
+		{
+			Type tableType = relationalAssembly.GetTypes().First(x => x.Name == "Table" && typeof(ModelElement).IsAssignableFrom(x));
+			var tables = store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(tableType), true)
+				.Cast<ModelElement>()
+				.OrderBy(t => (string)tableType.GetProperty("Name").GetValue(t, null), StringComparer.Ordinal)
+				.ToList();
+			var sb = new System.Text.StringBuilder();
+			sb.Append("{\n  \"tables\": [\n");
+			bool first = true;
+			foreach (ModelElement table in tables)
+			{
+				if (!first) sb.Append(",\n");
+				first = false;
+				string tableName = (string)tableType.GetProperty("Name").GetValue(table, null);
+				sb.Append("    { \"name\": \"").Append(JsonEscape(tableName)).Append("\", \"columns\": [");
+				var columns = (System.Collections.IEnumerable)tableType.GetProperty("ColumnCollection").GetValue(table, null);
+				bool firstCol = true;
+				foreach (object col in columns)
+				{
+					if (!firstCol) sb.Append(", ");
+					firstCol = false;
+					sb.Append("\"").Append(JsonEscape((string)col.GetType().GetProperty("Name").GetValue(col, null))).Append("\"");
+				}
+				sb.Append("] }");
+			}
+			sb.Append("\n  ]\n}\n");
+			System.IO.File.WriteAllText(path, sb.ToString());
 		}
 		#endregion
 

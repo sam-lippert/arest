@@ -28,6 +28,7 @@ Scoring Rule is a subtype of Function.
 
 ## Value Types
 Confidence Score is a value type.
+  The data type of Confidence Score is decimal.
 
 ## Fact Types
 ### Hypothesis Candidate
