@@ -6,3 +6,10 @@ tools/norma-oracle/design-state.json
 tools/norma-oracle/norma-tables.json
 tools/js-runner/js-schema.json
 tools/js-runner/checker-answer
+apps/*/design-state
+apps/*/norma-answer
+apps/*/oracle-report.txt
+apps/*/verbalization-report.txt
+apps/*/verbalization-report.html
+apps/*/.combined/
+apps/*/checker-answer
