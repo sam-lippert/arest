@@ -80,3 +80,105 @@ Operation 'validate' is registrable.
 Operation 'csdp:elementarize' is registrable.
 Operation 'csdp:combine_judgment' is registrable.
 Operation 'csdp:accept_judgment' is registrable.
+
+## Def 9 boundary rows
+
+<!-- exec ruling 4b (2026-07-15): the registered surface as instance-fact
+     verbalizations — Cor 5's enumerable boundary stated as readings. The
+     canon's manifest:origins computes the same boundary from the store by
+     set arithmetic (form-aware functional-position walk); the checker mu
+     holds the two against each other, and the delta report is the honest
+     surface. The five SALVAGE primitives carry dom/cod transcribed from
+     the quarry implementations (system:registered in the canon is the
+     same manifest as data); the base primitives carry dom/cod from
+     Backus 11.2.3's own signatures. Functional FORMS (COMP, CONS, CONST,
+     COND, ALPHA, INSERT, WHILE) are the mu's grammar per H1, not DEFS
+     entries, so they carry no rows. Type Expression values are lexical
+     FFP shape expressions in the SALVAGE naming style. -->
+
+Function 'lex' has Definition Origin 'registered'.
+Function 'lex' accepts Type Expression 'text'.
+Function 'lex' yields Type Expression 'token-records'.
+Function 'implode' has Definition Origin 'registered'.
+Function 'implode' accepts Type Expression 'separator-and-words'.
+Function 'implode' yields Type Expression 'text'.
+Function 'slug' has Definition Origin 'registered'.
+Function 'slug' accepts Type Expression 'text'.
+Function 'slug' yields Type Expression 'identifier'.
+Function 'escape_html' has Definition Origin 'registered'.
+Function 'escape_html' accepts Type Expression 'text'.
+Function 'escape_html' yields Type Expression 'html-text'.
+Function 'strip_prefix' has Definition Origin 'registered'.
+Function 'strip_prefix' accepts Type Expression 'prefix-and-text'.
+Function 'strip_prefix' yields Type Expression 'text'.
+
+Function 'csdp:elementarize' has Definition Origin 'registered'.
+Function 'csdp:elementarize' accepts Type Expression 'familiar-examples'.
+Function 'csdp:elementarize' yields Type Expression 'design-state'.
+Function 'csdp:combine_judgment' has Definition Origin 'registered'.
+Function 'csdp:combine_judgment' accepts Type Expression 'design-state'.
+Function 'csdp:combine_judgment' yields Type Expression 'design-state'.
+Function 'csdp:accept_judgment' has Definition Origin 'registered'.
+Function 'csdp:accept_judgment' accepts Type Expression 'candidates-and-design-state'.
+Function 'csdp:accept_judgment' yields Type Expression 'design-state'.
+
+Function 'id' has Definition Origin 'registered'.
+Function 'id' accepts Type Expression 'object'.
+Function 'id' yields Type Expression 'object'.
+Function 'atom' has Definition Origin 'registered'.
+Function 'atom' accepts Type Expression 'object'.
+Function 'atom' yields Type Expression 'boolean'.
+Function 'null' has Definition Origin 'registered'.
+Function 'null' accepts Type Expression 'object'.
+Function 'null' yields Type Expression 'boolean'.
+Function 'not' has Definition Origin 'registered'.
+Function 'not' accepts Type Expression 'boolean'.
+Function 'not' yields Type Expression 'boolean'.
+Function 'and' has Definition Origin 'registered'.
+Function 'and' accepts Type Expression 'boolean-pair'.
+Function 'and' yields Type Expression 'boolean'.
+Function 'eq' has Definition Origin 'registered'.
+Function 'eq' accepts Type Expression 'pair'.
+Function 'eq' yields Type Expression 'boolean'.
+Function 'length' has Definition Origin 'registered'.
+Function 'length' accepts Type Expression 'sequence'.
+Function 'length' yields Type Expression 'number'.
+Function 'le' has Definition Origin 'registered'.
+Function 'le' accepts Type Expression 'number-pair'.
+Function 'le' yields Type Expression 'boolean'.
+Function 'ge' has Definition Origin 'registered'.
+Function 'ge' accepts Type Expression 'number-pair'.
+Function 'ge' yields Type Expression 'boolean'.
+Function 'gt' has Definition Origin 'registered'.
+Function 'gt' accepts Type Expression 'number-pair'.
+Function 'gt' yields Type Expression 'boolean'.
+Function '+' has Definition Origin 'registered'.
+Function '+' accepts Type Expression 'number-pair'.
+Function '+' yields Type Expression 'number'.
+Function 'tl' has Definition Origin 'registered'.
+Function 'tl' accepts Type Expression 'sequence'.
+Function 'tl' yields Type Expression 'sequence'.
+Function 'apndl' has Definition Origin 'registered'.
+Function 'apndl' accepts Type Expression 'element-and-sequence'.
+Function 'apndl' yields Type Expression 'sequence'.
+Function 'apndr' has Definition Origin 'registered'.
+Function 'apndr' accepts Type Expression 'sequence-and-element'.
+Function 'apndr' yields Type Expression 'sequence'.
+Function 'distl' has Definition Origin 'registered'.
+Function 'distl' accepts Type Expression 'element-and-sequence'.
+Function 'distl' yields Type Expression 'pair-sequence'.
+Function 'distr' has Definition Origin 'registered'.
+Function 'distr' accepts Type Expression 'sequence-and-element'.
+Function 'distr' yields Type Expression 'pair-sequence'.
+Function 'cat' has Definition Origin 'registered'.
+Function 'cat' accepts Type Expression 'sequence-pair'.
+Function 'cat' yields Type Expression 'sequence'.
+Function 'apply' has Definition Origin 'registered'.
+Function 'apply' accepts Type Expression 'representation-and-object'.
+Function 'apply' yields Type Expression 'object'.
+Function '1r' has Definition Origin 'registered'.
+Function '1r' accepts Type Expression 'sequence'.
+Function '1r' yields Type Expression 'element'.
+Function 'tlr' has Definition Origin 'registered'.
+Function 'tlr' accepts Type Expression 'sequence'.
+Function 'tlr' yields Type Expression 'sequence'.

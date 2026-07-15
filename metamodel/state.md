@@ -253,6 +253,13 @@ Guard guards Transition.
 
 For each Object Type, at most one State Machine Definition is for that Object Type.
 Each State Machine Definition has exactly one initial Status.
+For each State Machine Definition, some Status is defined in that State Machine Definition.
+<!-- exec-4 (2026-07-15): NORMA's NotWellModeledSubsetAndMandatory
+     resolution (2) — the initial-implies-defined subset plus the
+     mandatory initial Status requires the superset role mandatory too.
+     Semantically right on its own: a machine with no defined Status is
+     vacuous. The defined population is derived from transitions, so
+     this evaluates after the closure. -->
 It is obligatory that each State Machine Definition has at least one terminal Status.
 If some Status is initial in some State Machine Definition then that Status is defined in that State Machine Definition.
 
