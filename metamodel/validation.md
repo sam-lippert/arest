@@ -37,12 +37,13 @@ It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS'
 <!-- elysium-audit H (prose split, per the vindicated 10.2 scrub): the two
      conditions reflect compound-noun parse-time artifacts (eu-law
      `Personal Data Breach … Personal Data` and Biometric/Genetic/Personal
-     Data sharing the `Data` suffix) and are read by `check_ring_completeness`
-     to suppress ring-completeness hints; without them, the corpus surfaces
-     9 false-positive ring hints. The permission sentence is the source of
-     truth for the suppression patterns — the checker reads the Permission
-     cell and applies the named pattern matchers; deleting either condition
-     re-enables the corresponding hints. -->
+     Data sharing the `Data` suffix) and were read by the killed host's
+     `check_ring_completeness` to suppress ring-completeness hints;
+     without them, that corpus surfaced 9 false positives. The permission
+     sentence remains the source of truth for the suppression patterns —
+     the evaluator-phase checker must read the Permission cell and apply
+     the named pattern matchers; deleting either condition re-enables the
+     corresponding hints. -->
 
 
 ### Ring Constraint Validity
@@ -52,6 +53,9 @@ It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS'
 ### Singular Naming
 
 It is forbidden that Object Type has Name that ends in 's' when that Name is a plural form.
+<!-- audit-fix C: one home. core.md's cruder syntactic 'ies' rule is
+     retired into this one — the plural-form qualifier is what keeps
+     Series and Species legal. -->
 
 ### Alethic Before Deontic
 

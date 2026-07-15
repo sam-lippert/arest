@@ -125,8 +125,10 @@ It is forbidden that a Domain Change targeting Domain 'evolution' is applied wit
 
 State Machine Definition 'Domain Change' is for Object Type 'Domain Change'.
 Status 'Proposed' is initial in State Machine Definition 'Domain Change'.
-Status 'Applied' is terminal in State Machine Definition 'Domain Change'.
-Status 'Rejected' is terminal in State Machine Definition 'Domain Change'.
+<!-- audit-fix D: the asserted terminal rows for 'Applied' and 'Rejected'
+     are retired — `Status is terminal in State Machine Definition` is
+     fully derived again (state.md), and both fall out of the rule: no
+     Transition in this machine leaves either. -->
 
 Transition 'review' is defined in State Machine Definition 'Domain Change'.
 Transition 'review' is from Status 'Proposed'.

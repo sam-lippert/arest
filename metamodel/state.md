@@ -51,18 +51,17 @@ Status is initial in State Machine Definition.
   Each State Machine Definition has at most one initial Status.
 Status is defined in State Machine Definition. *
   Each Status, State Machine Definition combination occurs at most once in the population of Status is defined in State Machine Definition.
-Status is terminal in State Machine Definition.
+Status is terminal in State Machine Definition. *
   Each Status, State Machine Definition combination occurs at most once in the population of Status is terminal in State Machine Definition.
-<!-- ASSERTED, not derived (CSDP). "Terminal" means "no outgoing Transition",
-     which is a NEGATION; per CSDP discipline a derivation rule asserts only
-     positive facts and closed-world negation is the validation layer's
-     concern. So the modeler DECLARES each SM's sink Status(es) (exactly like
-     `initial`). Completeness is validated by the existing `at least one
-     terminal Status` obligation below; the consistency check (terminal => no
-     outgoing Transition) belongs to the validation layer as a deontic
-     constraint (follow-up — needs a join-safe phrasing). The behavioral
-     "a sink affords nothing" already follows from the transition graph
-     (has_outgoing), independent of this cell. -->
+<!-- audit-fix D (2026-07-15): DERIVED again. The asserted-form rationale
+     that stood here ("a derivation rule asserts only positive facts")
+     contradicted both the paper (§Negation: a negated role path over
+     settled cells is a finite anti-join; Lem 1 undisturbed) and this
+     file's own `rooted` rule, which derives with the same negation
+     shape. The real motive was a killed-host parser defect (see the
+     history note beside the rule). An asserted sink list can silently
+     disagree with the transition graph; the rule cannot. -->
+
 Status is rooted in State Machine Definition. *
   Each Status, State Machine Definition combination occurs at most once in the population of Status is rooted in State Machine Definition.
 Status is effective initial in State Machine Definition. *
@@ -71,13 +70,17 @@ Status is effective initial in State Machine Definition. *
      gate ("exactly one rooted ⇒ initial, else empty") is a non-monotonic
      predicate FORML 2 cannot express (count+`=1` does not compose as a same-rule
      filter; `no Status is initial` is not an antecedent kind — derivation.md
-     193-223 / 414-422). So this `*` cell is populated by the RETAINED Rust
-     effective-initial helper, which prefers an explicit `Status is initial in
-     State Machine Definition` and else applies the cardinality gate over
-     `Status is rooted in State Machine Definition`. The seed-branch rule for
-     `State Machine is currently in Status` joins against this cell. This is the
-     one deliberate, documented (state.md "Two things the rule is NOT able to
-     express") non-monotonic remnant — retained, not newly added. -->
+     193-223 / 414-422). So this `*` cell's deriver is an EVALUATOR-PHASE
+     OBLIGATION (audit-fix A2): a compiled definition (Def 9, origin
+     'compiled') that prefers an explicit `Status is initial in State
+     Machine Definition` and else applies the cardinality gate over
+     `Status is rooted in State Machine Definition` — the killed host's
+     Rust effective-initial helper is the reference behavior, but it does
+     not exist in this repo, so until that definition lands the cell is
+     unpopulated: the marker names the debt, not a present deriver. The
+     seed-branch rule for `State Machine is currently in Status` joins
+     against this cell. This is the one deliberate, documented
+     non-monotonic remnant — retained, not newly added. -->
 
 ### Effective Transition (post-Harel available-transition relation)
 <!-- sm-retire-forml2: the post-Harel <from, to, event> available-transition
@@ -113,23 +116,26 @@ Guard guards Transition.
      rule below. The reverse direction needs universal quantification —
      out of the monotone fragment. The per-transition uniqueness doubles
      as a conflict detector between an edge's own asserted action and its
-     target status's derived action. -->
+     target status's derived action.
+     audit-fix A5 (datalog-paper convention): a semi-derived rule states a
+     SUFFICIENT condition only — "if", never "iff". The iff reading is the
+     closed-world closure over all rules of a fully-derived head; a `+`
+     head has asserted rows no closure can claim. -->
 
-* Predicate is performed during Transition iff that Transition is to some Status and that Predicate is performed in that Status.
+* Predicate is performed during Transition if that Transition is to some Status and that Predicate is performed in that Status.
 
 * Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from that Status.
 
 * Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is to that Status.
 
-<!-- `Status is terminal` was derived by `… and no Transition is defined in
-     that State Machine Definition where that Transition is from that Status`.
-     The parser strips the leading `no` + trailing `where …` (AbsenceOf
-     detection removed 2026-05-19, parse_forml2.rs) and falls back to the bare
-     FT, so the rule compiled to `terminal == defined` — EVERY defined Status
-     was flagged terminal (verified live: 32/32). Remodeled to an ASSERTED
-     base fact per CSDP (declared per SM in the app readings, like `initial`);
-     the negation now lives in the exclusion constraint below. No engine
-     change: the parser limitation is sidestepped, not worked around. -->
+* Status is terminal in State Machine Definition iff that Status is defined in that State Machine Definition and no Transition is defined in that State Machine Definition where that Transition is from that Status.
+<!-- audit-fix D: restored, mirroring `rooted`. History: the killed host's
+     parser stripped the `no ... where ...` clause (AbsenceOf detection
+     removed 2026-05-19, parse_forml2.rs), compiling this rule to
+     `terminal == defined` (verified wrong live: 32/32), and the 2026-06
+     response demoted the cell to asserted under a rationale the paper
+     does not support. Evaluator-phase gate obligation: negated-clause
+     rules compile faithfully or refuse loudly — never strip-and-fall-back. -->
 
 
 <!--

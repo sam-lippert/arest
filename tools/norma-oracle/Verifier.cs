@@ -327,7 +327,10 @@ namespace Elysium.NormaOracle
 
 		private void MapSentence(string s)
 		{
-			if (s.Contains(" iff "))
+			// fully derived rules verbalize with "iff" (the CWA closure over
+			// all rules of the head); semi-derived rules state sufficient
+			// conditions with a bare "if" — both are derivations to defer
+			if (s.Contains(" iff ") || (s.StartsWith("* ") && Regex.IsMatch(s, @"\bif\b")))
 			{
 				Count("derivation rule (deferred: no textual rule input in NORMA)");
 				return;
