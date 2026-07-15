@@ -428,6 +428,28 @@ namespace Elysium.NormaOracle
 				Match om = Regex.Match(s.TrimEnd('.'), @"provides the preferred identification scheme for ([\w :]+)$");
 				if (om.Success && myLastFact != null)
 				{
+					// Halpin, "Objectification and Atomicity" (2020-04-28):
+					// objectification is legal only over a UC spanning all
+					// roles (unaries pass — the single role is spanning).
+					// NORMA as shipped still implements the ORM 2 any-fact-
+					// type relaxation, so the oracle enforces the rule here,
+					// per validation.md's Objectification Spanning deontic.
+					int roleCount = myLastFact.RoleCollection.Count;
+					bool spanning = false;
+					foreach (UniquenessConstraint uc in InternalUCs(myLastFact))
+					{
+						if (uc.RoleCollection.Count == roleCount)
+						{
+							spanning = true;
+							break;
+						}
+					}
+					if (!spanning)
+					{
+						Count("OBJECTIFICATION REFUSED (no spanning UC; Halpin 2020)");
+						myMapLog.Add("OBJECTIFICATION REFUSED (Halpin 2020, no spanning UC): " + Shorten(s));
+						return;
+					}
 					ObjectType nesting = EnsureType(om.Groups[1].Value.Trim(), false);
 					if (nesting.NestedFactType == null)
 					{

@@ -176,11 +176,22 @@ Resource has Value.
 Resource is created by User.
   Each Resource is created by at most one User.
 
-### Resource Role
+### Fact uses Resource for Role
 Fact uses Resource for Role.
   Each Fact uses at most one Resource for each Role.
   Each Fact uses some Resource for some Role.
-This association with Fact, Resource, Role provides the preferred identification scheme for Resource Role.
+<!-- elysium (Halpin, "Objectification and Atomicity", 2020-04-28): the
+     former `Resource Role` objectification is retired. Its UC spans
+     {Fact, Role} — two of three roles — and the note restricts
+     objectification to fact types with a SPANNING uniqueness constraint
+     (the ORM 2 any-fact-type relaxation is retracted; flattened, a
+     non-spanning objectification violates the n-1 rule, so populated
+     facts against it are non-atomic conjunctions). The old association
+     sentence also contradicted the declared UC by claiming the full
+     triple as the identification scheme. Nothing in the corpus played a
+     role against Resource Role, which is exactly the note's prescription
+     case: the objectified type hosts no other roles, so prefer the
+     unnested schema. The ternary stays as the plain fact type above. -->
 
 ### State Machine (runtime instance of State Machine Definition)
 State Machine is instance of State Machine Definition.
@@ -260,6 +271,8 @@ State Machine is currently in Status.
 Event caused Transition in State Machine.
   In each population of Event caused Transition in State Machine, each Event, Transition, State Machine combination occurs at most once.
   This association with Event, Transition, State Machine provides the preferred identification scheme for Event Caused Transition.
+  <!-- objectification legal per Halpin, "Objectification and Atomicity"
+       (2020-04-28): the UC above spans all three roles. -->
 
 ## Subset Constraints
 

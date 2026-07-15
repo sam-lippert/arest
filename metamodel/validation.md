@@ -10,6 +10,25 @@ It is obligatory that each Role references exactly one Object Type.
 
 It is forbidden that a Constraint of Constraint Type 'UC' spans fewer Roles than the arity of its Fact Type minus one.
 
+### Objectification Spanning
+
+It is forbidden that a Fact Type is objectified when no Constraint of Constraint Type 'UC' spans all Roles of that Fact Type.
+<!-- Halpin, "Objectification and Atomicity" (2020-04-28,
+     infosci/ObjectificationAndAtomicity.pdf): objectification is
+     restricted to fact types with a SPANNING uniqueness constraint —
+     the ORM 1 relaxation admitting 1:1s and the ORM 2 relaxation
+     admitting any fact type are both retracted. Flattened, an
+     objectified fact type without a spanning UC violates the n-1 rule
+     (Arity Decomposition above), so facts populated against the
+     objectified type are non-atomic conjunctions. Unaries pass without
+     exemption: a unary's single role is a spanning UC, asserted or
+     implied. NORMA as shipped still implements the ORM 2 relaxation,
+     so the oracle checks this rule itself at objectification time.
+     First enforcement: the former Resource Role objectification
+     (instances.md) was retired under this rule. -->
+
+
+
 ### Ring Constraint Completeness
 
 It is obligatory that when a Fact Type has exactly two Roles that both reference the same Object Type, some Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spans those Roles.
