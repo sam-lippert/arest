@@ -331,6 +331,8 @@ Constraint spans Role.
   Each Constraint, Role combination occurs at most once in the population of Constraint spans Role.
   Each Constraint spans some Role.
   This association with Constraint, Role provides the preferred identification scheme for Constraint Span.
+  <!-- objectification legal per Halpin, "Objectification and Atomicity"
+       (2020-04-28): the UC above spans both roles. -->
 Role has Position for Reading.
   For each Role and Reading that Role has that Reading at most one Position.
 
@@ -341,6 +343,8 @@ Predicate has Name.
 Fact Type is activated by Predicate.
   In each population of Fact Type is activated by Predicate, each Fact Type, Predicate combination occurs at most once.
   This association with Fact Type, Predicate provides the preferred identification scheme for API.
+  <!-- objectification legal per Halpin, "Objectification and Atomicity"
+       (2020-04-28): the UC above spans both roles. -->
 Fact is referenced by Predicate.
   Each Fact, Predicate combination occurs at most once in the population of Fact is referenced by Predicate.
   It is possible that some Predicate references more than one Fact.

@@ -648,6 +648,13 @@ FactTypeHasAlias is independent (it may have instances that play no other roles)
 Fact Types:
 Fact Type is involved in FactTypeHasAlias.
 Alias is involved in FactTypeHasAlias.
+FactUsesResourceForRole is an entity type.
+FactUsesResourceForRole objectifies “Fact uses Resource for Role”.
+
+Fact Types:
+Fact is involved in FactUsesResourceForRole.
+Resource is involved in FactUsesResourceForRole.
+Role is involved in FactUsesResourceForRole.
 Failure is an entity type.
 Reference Scheme: Failure has Failure_id.
 Reference Mode: .id.
@@ -1332,13 +1339,6 @@ Each Failure is an instance of Resource.
 Each Batch is an instance of Resource.
 Violation is triggered by Resource.
 Failure is triggered by Resource.
-Resource Role is an entity type.
-Resource Role objectifies “Fact uses Resource for Role”.
-
-Fact Types:
-Fact is involved in Resource Role.
-Resource is involved in Resource Role.
-Role is involved in Resource Role.
 ResourceIsInstanceOfObjectType is an entity type.
 ResourceIsInstanceOfObjectType objectifies “Resource is instance of Object Type”.
 ResourceIsInstanceOfObjectType is independent (it may have instances that play no other roles).
@@ -2237,6 +2237,11 @@ It is possible that more than one Fact Type has the same Role Relationship.
 Fact Type has Title.
 Each Fact Type has at most one Title.
 It is possible that more than one Fact Type has the same Title.
+Fact uses Resource for Role.
+For each Fact and Role,
+that Fact uses at most one Resource for that Role.
+This association with Fact, Role provides the preferred identification scheme for FactUsesResourceForRole.
+Each Fact uses some Resource for some Role.
 Failure belongs to Domain.
 Each Failure belongs to at most one Domain.
 It is possible that more than one Failure belongs to the same Domain.
@@ -2618,11 +2623,6 @@ In each population of Relational Mapping maps compound fact types, each Relation
 Relational Mapping maps Schema Design.
 Each Relational Mapping maps exactly one Schema Design.
 It is possible that more than one Relational Mapping maps the same Schema Design.
-Fact uses Resource for Role.
-For each Fact and Role,
-that Fact uses at most one Resource for that Role.
-This association with Fact, Role provides the preferred identification scheme for Resource Role.
-Each Fact uses some Resource for some Role.
 Resource belongs to Domain.
 Each Resource belongs to at most one Domain.
 It is possible that more than one Resource belongs to the same Domain.

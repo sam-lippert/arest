@@ -12,13 +12,13 @@ mapped: core.md (627 sentences)
 mapped: csdp.md (67 sentences)
 mapped: evolution.md (66 sentences)
 mapped: induction.md (14 sentences)
-mapped: instances.md (107 sentences)
+mapped: instances.md (106 sentences)
 mapped: naming.md (41 sentences)
 mapped: outcomes.md (58 sentences)
 mapped: resolution.md (33 sentences)
 mapped: security.md (16 sentences)
 mapped: state.md (63 sentences)
-mapped: validation.md (39 sentences)
+mapped: validation.md (40 sentences)
 
 == FINDING: fact types with no declared uniqueness (spanning UC assumed per Def 3 set semantics) ==
   TOTAL ASSUMED: 0
@@ -35,7 +35,7 @@ mapped: validation.md (39 sentences)
     31  default-form reading (no constraint)
     26  fact-type reading (arity 1)
     25  derivation rule (deferred: no textual rule input in NORMA)
-    21  deontic constraint (deferred)
+    22  deontic constraint (deferred)
     18  value enumeration
     16  subset/ring textual constraint (deferred)
     11  constraint retargeted by fact index
@@ -45,7 +45,7 @@ mapped: validation.md (39 sentences)
      5  mandatory skipped (role already mandatory)
      5  uniqueness skipped (duplicate of existing UC)
      5  spanning uniqueness (pair form)
-     4  objectification (nested fact type)
+     3  objectification (nested fact type)
      2  subtype exclusivity (subtypes mapped; exclusion constraint deferred)
      2  derived subtype (edge mapped; rule deferred)
      2  alethic impossibility (deferred)
@@ -75,7 +75,6 @@ mapped: validation.md (39 sentences)
       ~ Model 'Elysium' contains multiple readings with an expanded reading signature of 'status reaches status in state machine definition involves status'. Each reading must be unique in the model.
 
 == RMAP: relational result ==
-  API(factTypeId, predicateId)
   APIAcceptsObjectTypeAsParameter(factTypeId, objectTypeId, predicateId)
   AntecedentClause(antecedentClauseId, derivationRuleId, clauseShape?)
   Batch(batchId)
@@ -103,6 +102,7 @@ mapped: validation.md (39 sentences)
   FactIsReferencedByPredicate(fact, predicateId)
   FactTypeCitesCitation(citationId, factTypeId)
   FactTypeHasAlias(alias, factTypeId)
+  FactUsesResourceForRole(fact, roleId, resource)
   Failure(failureId, failureType, hasReasonText, severity, timestamp, domainName?, followsViolationId?, functionId?, hasInputText?, isCausedByViolationId?, resource?, transitionId?)
   Function(functionId, antecedentClauseId?, boundId?, CIDRBlockId?, conceptualDataTypeCode?, constraintId?, constraintTypeCode?, dataTypeGroupCode?, derivationRuleId?, dimensionName?, domainChange?, domainName?, externalSystemName?, facetId?, formatName?, guardName?, guardRunName?, joinId?, joinPathId?, joinTypeName?, languageCode?, migrationId?, objectTypeStateMachineDefinitionName?, operationName?, pluralizationRuleId?, readingId?, relationalMappingName?, resource?, resourceBatchId?, resourceCitationId?, resourceFailureId?, resourceHypothesisCandidateId?, resourceMigrationApplicationId?, resourceStateMachineId1?, resourceViolationId?, roleId?, roleProjectionId?, roleSequenceId?, schema:ThingName?, schemaDesignName?, scoringRuleId?, signal?, stateMachineDefinitionName?, statusName?, statusPredicateId?, streamId?, transitionId?, unitName?, user?, valueRangeId?, acceptsTypeExpression?, belongsToDomainName?, conceptualDataTypeAbstractSQLType?, conceptualDataTypeDataTypeGroupCode?, conceptualDataTypeJSONFormat?, conceptualDataTypeJSONType?, constraintTypeConstraintTypeFamily?, constraintTypeConstraintTypeLabel?, constraintTypeName?, constraintTypeViolationTemplate?, dataTypeGroupName?, definitionOrigin?, domainChangeDomainName?, domainChangeHasBlockingOutcome?, domainChangeIsApplied?, domainChangeIsEvaluated?, domainChangeIsValid?, domainChangeRationale?, domainDescription?, eventStateMachineId?, eventTimestamp?, eventTypeId?, eventTypeStreamId?, externalSystemHasKind?, externalSystemHeader?, externalSystemPrefix?, externalSystemURL?, factDomainName?, factIsCompleted?, factIsExample?, factTypeArity?, factTypeDerivationMode?, factTypeDerivationStorageType?, factTypeId?, factTypeOrder?, factTypeRoleRelationship?, factTypeTitle?, formatConceptualDataTypeCode?, formatJSONFormat?, formatPattern?, guardRunGuardName?, guardRunResult?, guardTransitionId?, isBackedByExternalSystemName?, isEntityType?, isEventType?, isHTTPMethod?, isValueType?, name?, objectTypeConceptualDataTypeCode?, objectTypeDescription?, objectTypeEnumValues?, objectTypeExclusiveMaximum?, objectTypeExclusiveMinimum?, objectTypeExternalSystemName?, objectTypeFormatName?, objectTypeIsIndependent?, objectTypeIsInstantiable?, objectTypeMaximum?, objectTypeMaxLength?, objectTypeMinimum?, objectTypeMinLength?, objectTypeMultipleOf?, objectTypeOTKind?, objectTypePattern?, objectTypePlural?, objectTypePrecision?, objectTypeReferenceMode?, objectTypeScale?, objectTypeSchema:ThingName?, objectTypeUnitName?, objectTypeURI?, objectTypeWorldAssumption?, operationIsOverridable?, operationIsRegistrable?, predicateName?, relationalMappingAbsorbsSubtypes?, relationalMappingGroupsFunctionalFactTypes?, relationalMappingMapsCompoundFactTypes?, relationalMappingSchemaDesignName?, resourceDomainName?, resourceStateMachineId2?, resourceStatusName?, resourceUser?, resourceValue?, schemaDesignAddsMandatoryRoles?, schemaDesignAddsUniquenessConstraints?, schemaDesignAddsValueAndSubtypeConstraints?, schemaDesignNote?, schemaDesignNotesElementaryFacts?, schemaDesignPassesFinalChecks?, schemaDesignPopulatesFactTypes?, schemaDesignTrimsSchemaAndNotesDerivations?, signalDomainChange?, signalSource?, stateMachineDefinitionStatusName?, statusHTTPMethodId?, unitDimensionName?, URI?, yieldsTypeExpression?)
   FunctionHasHeader(functionId, header)
@@ -132,7 +132,6 @@ mapped: validation.md (39 sentences)
   Reading(readingId, factTypeId, predicateId, text, isPrimary?, languageCode?)
   ResourceIsInstanceOfObjectType(objectTypeId, resource)
   ResourceIsOfFunction(functionId, resource)
-  ResourceRole(fact, roleId, resource)
   Role(roleId, factTypeId, objectTypeId)
   RoleHasPositionForReading(readingId, roleId, position)
   RoleIsUsedInReading(readingId, roleId)
@@ -158,7 +157,7 @@ mapped: validation.md (39 sentences)
   UserSubmitsDomainChangeForReview(domainChange, user)
   ValueRange(valueRangeId, hasLowerBoundId?, hasUpperBoundId?)
   Violation(violationId, constraintId, severity, text, timestamp, batchId?, domainName?, functionId?, resource?, transitionId?)
-  TOTAL TABLES: 83
+  TOTAL TABLES: 82
 
 == VERBALIZATION: NORMA generate leg (nf out-direction) ==
   elements verbalized: 569
