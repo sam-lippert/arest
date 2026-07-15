@@ -22,7 +22,9 @@ loose; it rides Prop 3's licence and Codd's posture.
 
 ## Entity Types
 Hypothesis Candidate(.id) is an entity type.
+Hypothesis Candidate is a subtype of Resource.
 Scoring Rule(.id) is an entity type.
+Scoring Rule is a subtype of Function.
 
 ## Value Types
 Confidence Score is a value type.
@@ -43,5 +45,5 @@ Scoring Rule applies to Hypothesis Candidate.
 
 ## Instance Facts
 
-Domain 'induction' has Access 'public'.
+<!-- organizations-domain (ruling 2): Domain 'induction' has Access 'public'. -->
 Domain 'induction' has Description 'Operational vocabulary the induce Func populates and consumes. Hypothesis Candidate per candidate population, Confidence Score per candidate, Scoring Rule per ranking heuristic. Prop 3 (prop:derive) + Codd 1970 §2.3.'.

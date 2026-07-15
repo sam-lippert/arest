@@ -3,8 +3,11 @@
 ## Entity Types
 
 Violation(.id) is an entity type.
+Violation is a subtype of Resource.
 Failure(.id) is an entity type.
+Failure is a subtype of Resource.
 Batch(.id) is an entity type.
+Batch is a subtype of Resource.
 
 ## Value Types
 
@@ -109,5 +112,5 @@ If some Violation occurs before some Transition then that Violation occurred at 
 
 ## Instance Facts
 
-Domain 'outcomes' has Access 'public'.
+<!-- organizations-domain (ruling 2): Domain 'outcomes' has Access 'public'. -->
 Domain 'outcomes' has Description 'Violations and failures as first-class facts. Every evaluation path returns valid claims, violation facts, failure facts, or a combination. No silent paths.'.

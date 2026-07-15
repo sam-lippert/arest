@@ -11,6 +11,7 @@ Domain Change is a subtype of Resource.
        Resource`) type-check against a Domain Change — the validity rules
        below join through them. -->
 Signal(.Signal Id) is an entity type.
+Signal is a subtype of Resource.
 <!-- elysium-audit I+J (NORMA CompatibleSupertypesError x4; Samuel's
      ontology lens, 2026-07-15): `Model Element(.id)` is retired. As a
      second identification root declared a supertype of Reading / Noun /
@@ -124,7 +125,7 @@ It is forbidden that a Domain Change targeting Domain 'evolution' is applied wit
 
 ## Instance Facts
 
-State Machine Definition 'Domain Change' is for Noun 'Domain Change'.
+State Machine Definition 'Domain Change' is for Object Type 'Domain Change'.
 Status 'Proposed' is initial in State Machine Definition 'Domain Change'.
 Status 'Applied' is terminal in State Machine Definition 'Domain Change'.
 Status 'Rejected' is terminal in State Machine Definition 'Domain Change'.
@@ -161,5 +162,5 @@ Transition 'apply' is triggered by Event Type 'Domain Change is applied'.
 Guard 'valid-domain-change' guards Transition 'approve-change'.
 Guard 'valid-domain-change' references Fact Type 'Domain Change is valid'.
 
-Domain 'evolution' has Access 'public'.
+<!-- organizations-domain (ruling 2): Domain 'evolution' has Access 'public'. -->
 Domain 'evolution' has Description 'Self-modification as a Domain Change state machine. Proposing a new fact type is proposing a theorem (Curry-Howard). CSDP validation is the proof check, successful ingestion is the proof.'.

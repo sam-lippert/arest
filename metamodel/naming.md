@@ -35,6 +35,7 @@ bare `s$`, and the empty-pattern default must be last.
 ## Entity Types
 
 Pluralization Rule(.id) is an entity type.
+Pluralization Rule is a subtype of Function.
 
 ## Value Types
 
@@ -83,5 +84,5 @@ Pluralization Rule 'rule-z' has Pattern 'z$'. Pluralization Rule 'rule-z' has Re
 Pluralization Rule 'rule-ies' has Pattern 'y$'. Pluralization Rule 'rule-ies' has Replacement 'ies'.
 Pluralization Rule 'rule-default' has Pattern '$'. Pluralization Rule 'rule-default' has Replacement 's'.
 
-Domain 'naming' has Access 'public'.
+<!-- organizations-domain (ruling 2): Domain 'naming' has Access 'public'. -->
 Domain 'naming' has Description 'Convention-based name projection (pluralization rules) declared as data per the Sweep-1 dispatch-to-data lift recipe (#895). PluralizationRuleTable reads the parallel Pluralization Pattern / Pluralization Replacement enum values; boot mirrors the legacy cascade so behavior round-trips.'.

@@ -1,5 +1,11 @@
 # AREST Instances: Runtime Entities
 
+<!-- Layer (elysium-batch task 3): AREST-extension vocabulary end to end —
+     the runtime side (Resource, State Machine, Event, Fact instances,
+     Guard Run, User, Citation). ORM canon models schemas; populations
+     here are Thm 1's FILE cell made addressable. Everything homes under
+     Resource, itself a Function subtype (FFP: one root). -->
+
 ## Entity Types
 
 Resource(.Reference) is an entity type.
@@ -24,9 +30,13 @@ Event is an entity type.
 Fact is an entity type.
   Fact is a subtype of Event.
 State Machine(.id) is an entity type.
+State Machine is a subtype of Resource.
 Guard Run(.Name) is an entity type.
+Guard Run is a subtype of Resource.
 Citation(.id) is an entity type.
+Citation is a subtype of Resource.
 User(.Email) is an entity type.
+User is a subtype of Resource.
 
 ## Value Types
 
@@ -103,9 +113,9 @@ Event is created by State Machine.
 Event Type publishes to Stream.
   Each Event Type publishes to at most one Stream.
   It is possible that more than one Event Type publishes to the same Stream.
-Event Type can be created by Verb.
-  It is possible that some Event Type can be created by more than one Verb and that some Verb can create more than one Event Type.
-  For each combination of Event Type and Verb, that Event Type can be created by that Verb at most once.
+Event Type can be created by Predicate.
+  It is possible that some Event Type can be created by more than one Predicate and that some Predicate can create more than one Event Type.
+  For each combination of Event Type and Predicate, that Event Type can be created by that Predicate at most once.
 
 ### Fact Type Citation
 Fact Type cites Citation.
@@ -114,9 +124,9 @@ Fact Type cites Citation.
   It is possible that more than one Fact Type cites the same Citation.
 
 ### Resource
-Resource is instance of Noun.
-  Each Resource, Noun combination occurs at most once in the population of Resource is instance of Noun.
-  Each Resource is instance of some Noun.
+Resource is instance of Object Type.
+  Each Resource, Object Type combination occurs at most once in the population of Resource is instance of Object Type.
+  Each Resource is instance of some Object Type.
 <!-- 'exactly one Noun' was NON-CANONICAL (challenged 2026-07-09, verified
      against Halpin, "Subtyping Revisited", NORMA): in ORM subtyping is
      population inclusion — "all instances of one type are also instances
@@ -154,8 +164,11 @@ Resource belongs to Domain. *
        from the createEntity `domain` command field (ast.rs `same_identity` /
        `annotate_noun_domain`), which is the per-FILE namespace tag, not a
        stored population-level domain fact. -->
-Resource has Reference.
-  Each Resource has at most one Reference.
+<!-- elysium-batch ruling 4: `Resource has Reference` retired — the
+     (.Reference) reference mode already mints exactly this fact type
+     (NORMA: ReferenceMode/ReferenceModeKind machinery, ORM2Core.xsd), so
+     the explicit reading was the redundancy the validation deontic now
+     forbids. -->
 Resource has Value.
   Each Resource has at most one Value.
 Resource is created by User.
@@ -170,9 +183,9 @@ This association with Fact, Resource, Role provides the preferred identification
 ### State Machine (runtime instance of State Machine Definition)
 State Machine is instance of State Machine Definition.
   Each State Machine is instance of exactly one State Machine Definition.
-State Machine is instance of Noun.
-  Each State Machine, Noun combination occurs at most once in the population of State Machine is instance of Noun.
-  Each State Machine is instance of some Noun.
+State Machine is instance of Object Type.
+  Each State Machine, Object Type combination occurs at most once in the population of State Machine is instance of Object Type.
+  Each State Machine is instance of some Object Type.
 <!-- 'exactly one Noun' relaxed 2026-07-09 (Samuel: fix the SM readings),
      the SAME non-canonical case as Resource (see the Resource note). This
      ft is a REFLECTION cell (protocol.py REFLECTION set) like
@@ -348,7 +361,7 @@ Guard Run has Result.
          on State_Machine_is_currently_in_Status (instances.md 184-193) collapses
          the seed emit and the fold emits to last-write-wins. -->
 
-* State Machine is instance of State Machine Definition iff that State Machine is for some Resource and that Resource is instance of some Noun and that State Machine Definition is for that Noun.
+* State Machine is instance of State Machine Definition iff that State Machine is for some Resource and that Resource is instance of some Object Type and that State Machine Definition is for that Object Type.
 
 * Resource is currently in Status iff some State Machine is for that Resource and that State Machine is currently in that Status.
 
@@ -356,4 +369,4 @@ Guard Run has Result.
 
 ## Instance Facts
 
-Domain 'instances' has Access 'public'.
+<!-- organizations-domain (ruling 2): Domain 'instances' has Access 'public'. -->

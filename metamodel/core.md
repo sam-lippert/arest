@@ -1,12 +1,45 @@
 # AREST Core Metamodel
 
+<!-- elysium-batch (Samuel's ruling, 2026-07-15): the metamodel is canonical
+     FORML/ORM/Halpin. Legacy GraphDL vocabulary is renamed in all operative
+     sentences: Noun -> Object Type, the old {entity, value} enum -> OT Kind
+     (Halpin Fig 13.29: "each EntityType is an ObjectType that is of OTkind
+     'Entity'"), Verb -> Predicate, Reference Scheme -> Reference Mode.
+     Historical comments below retain the names in use when they were
+     written; canon cell names (e.g. Noun_is_instantiable) still reflect the
+     old vocabulary until the evaluator-phase reconciliation. -->
+
+<!-- Layer map (elysium-batch task 3): two vocabularies share this file.
+     ORM-canonical — echoes of Halpin's metamodel (Fig 13.29) and NORMA's
+     ORM2Core: Object Type, OT Kind, Entity Type, Value Type, Fact Type,
+     Predicate, Reading, Role, Constraint, Constraint Type, Derivation
+     Rule, Reference Mode, Join Path/Join/Role Sequence/Role Projection,
+     Value Range/Bound/Facet, Unit/Dimension, Conceptual Data Type/Data
+     Type Group. AREST-extension: Function (the FFP root and DEFS cell),
+     Resource, Event Type as Fact Type supertype, Definition Origin, Type
+     Expression, Domain, Migration, Language/Format, External System,
+     schema:Thing, and the HTTP/API/JSON/SQL projection vocabulary.
+     state.md (Harel SMDs) and instances.md (runtime) are AREST layers
+     end to end and carry their own head notes. -->
+
+
 ## Entity Types
 
 Function(.id) is an entity type.
-Noun is a subtype of Function.
-  Event Type is a subtype of Resource.
+Object Type is a subtype of Function.
+  Event Type is a subtype of Function.
   Fact Type is a subtype of Event Type.
-  {Event Type, Constraint, Derivation Rule} are mutually exclusive subtypes of Resource.
+  {Event Type, Constraint, Derivation Rule} are mutually exclusive subtypes of Function.
+  <!-- elysium-batch ruling 1 (FFP): one root. Everything the metamodel
+       names is a cell in D; the ORM spelling is a subtype edge to
+       Function (schema content) or to Resource (runtime instances, itself
+       a Function subtype). Backus has no lattice — atoms and sequences,
+       kind by head atom — so these edges are fragment R's per-type
+       statement of rho's totality, the same way the spanning UCs state
+       Def 3's set semantics per fact type. Schema elements surface as
+       addressable Resources by reflection (instance-of), never by a second
+       subtype path. The former Resource placements of this trio migrate
+       accordingly. -->
   <!-- elysium-audit A: State Machine Definition removed from the exclusive
        list. state.md declares `State Machine Definition is a subtype of
        Status` (the Harel nesting, deliberate per instances.md task-987),
@@ -23,23 +56,26 @@ Noun is a subtype of Function.
 
 
 Reading(.id) is an entity type.
+Reading is a subtype of Function.
 
 Role(.id) is an entity type.
+Role is a subtype of Function.
 
-Verb is a subtype of Function.
-  HTTP Method is a subtype of Verb.
+Predicate is a subtype of Function.
+  HTTP Method is a subtype of Predicate.
 
 Constraint(.id) is an entity type.
-  Constraint is a subtype of Resource.
+  Constraint is a subtype of Function.
   Set Comparison Constraint is a subtype of Constraint.
   Frequency Constraint is a subtype of Constraint.
   Cardinality Constraint is a subtype of Constraint.
   {Set Comparison Constraint, Frequency Constraint, Cardinality Constraint} are mutually exclusive subtypes of Constraint.
 
 Constraint Type(.code) is an entity type.
+Constraint Type is a subtype of Function.
 
 Derivation Rule(.id) is an entity type.
-  Derivation Rule is a subtype of Resource.
+  Derivation Rule is a subtype of Function.
 
 Modality Type is a value type.
   The possible values of Modality Type are 'Alethic', 'Deontic'.
@@ -48,16 +84,31 @@ World Assumption is a value type.
   The possible values of World Assumption are 'closed', 'open'.
 
 Language(.code) is an entity type.
+Language is a subtype of Function.
 
 schema:Thing(.Name) is an entity type.
+schema:Thing is a subtype of Function.
 
 External System(.Name) is an entity type.
+External System is a subtype of Function.
+
+Domain(.Name) is an entity type.
+Domain is a subtype of Function.
+  <!-- elysium-batch ruling 2: Domain is the namespace unit `Function
+       belongs to Domain` requires — declared at last, schema-side under
+       Function. Access and Scope are organization-domain vocabulary per
+       Cor 2 (authorization is a derivation over User/Organization facts,
+       never an enum stored on Domain); both stay out of core, and the
+       stray Access instance facts are preserved as comments until
+       organization readings exist. -->
+Domain has Description.
+  Each Domain has at most one Description.
 
 ## Value Types
 
 URL is a value type.
 Secret Reference is a value type.
-Reference Scheme is a value type.
+Reference Mode is a value type.
 
 id is a value type.
 code is a value type.
@@ -67,8 +118,8 @@ Min Occurrence is a value type.
 Max Occurrence is a value type.
 Name is a value type.
 Plural is a value type.
-Object Type is a value type.
-  The possible values of Object Type are 'entity', 'value'.
+OT Kind is a value type.
+  The possible values of OT Kind are 'entity', 'value'.
 <!-- `Format` was a value type here (legacy widget Format: 'text', 'date',
      'boolean'). It is PROMOTED to a first-class, extensible entity type
      `Format(.Name)` in the NORMA Value Domain section below (alongside
@@ -106,8 +157,9 @@ Role Relationship is a value type.
   The possible values of Role Relationship are 'many-to-one', 'one-to-many', 'many-to-many', 'one-to-one'.
 
 
+<!-- elysium-batch ruling 2 (organizations-domain vocabulary, moved out):
 Scope is a value type.
-  The possible values of Scope are 'organization', 'public'.
+  The possible values of Scope are 'organization', 'public'. -->
 
 Derivation Mode is a value type.
   The possible values of Derivation Mode are 'fully-derived', 'derived-and-stored', 'semi-derived'.
@@ -121,39 +173,45 @@ Constraint Match Keyword is a value type.
 
 ## Fact Types
 
-### Noun
-Noun has Object Type.
-  Each Noun has exactly one Object Type.
-Noun has Plural.
-  Each Noun has at most one Plural.
-Noun has value-type- Name.
-  Each value-type- Name belongs to at most one Noun.
-Noun has Format.
-  Each Noun has at most one Format.
-Noun has Enum Values.
-  Each Noun has at most one Enum Values.
-Noun has Minimum.
-  Each Noun has at most one Minimum.
-Noun has Maximum.
-  Each Noun has at most one Maximum.
-Noun has Pattern.
-  Each Noun has at most one Pattern.
-Noun has Description.
-  Each Noun has at most one Description.
-Noun has Exclusive Minimum.
-  Each Noun has at most one Exclusive Minimum.
-Noun has Exclusive Maximum.
-  Each Noun has at most one Exclusive Maximum.
-Noun has Multiple Of.
-  Each Noun has at most one Multiple Of.
-Noun has Min Length.
-  Each Noun has at most one Min Length.
-Noun has Max Length.
-  Each Noun has at most one Max Length.
-Noun has Permission.
-  Each Noun, Permission combination occurs at most once in the population of Noun has Permission.
-Noun has Reference Scheme.
-  Each Noun has at most one Reference Scheme.
+### Object Type
+Object Type is of OT Kind.
+  Each Object Type is of exactly one OT Kind.
+
+<!-- elysium-batch (Halpin Fig 13.29, verbatim shape): the kinds as
+     derived subtypes — "each EntityType is an ObjectType that is of
+     OTkind 'Entity'". -->
+* Each Entity Type is an Object Type that is of OT Kind 'entity'.
+* Each Value Type is an Object Type that is of OT Kind 'value'.
+Object Type has Plural.
+  Each Object Type has at most one Plural.
+Object Type has value-type- Name.
+  Each value-type- Name belongs to at most one Object Type.
+Object Type has Format.
+  Each Object Type has at most one Format.
+Object Type has Enum Values.
+  Each Object Type has at most one Enum Values.
+Object Type has Minimum.
+  Each Object Type has at most one Minimum.
+Object Type has Maximum.
+  Each Object Type has at most one Maximum.
+Object Type has Pattern.
+  Each Object Type has at most one Pattern.
+Object Type has Description.
+  Each Object Type has at most one Description.
+Object Type has Exclusive Minimum.
+  Each Object Type has at most one Exclusive Minimum.
+Object Type has Exclusive Maximum.
+  Each Object Type has at most one Exclusive Maximum.
+Object Type has Multiple Of.
+  Each Object Type has at most one Multiple Of.
+Object Type has Min Length.
+  Each Object Type has at most one Min Length.
+Object Type has Max Length.
+  Each Object Type has at most one Max Length.
+Object Type has Permission.
+  Each Object Type, Permission combination occurs at most once in the population of Object Type has Permission.
+Object Type has Reference Mode.
+  Each Object Type has at most one Reference Mode.
   <!-- task-961 Phase A: a VALUE-typed presence projection of the absorbed
        `referenceScheme` field on the Noun cell. `Reference Scheme` is a
        value type, so this functional binary is RMAP-absorbed into the Noun
@@ -166,21 +224,21 @@ Noun has Reference Scheme.
        below — it replaces the entity-valued `Noun has Reference Scheme
        Noun`, which never populated for real entities (their identity lives
        in the absorbed field, not an entity-valued fact). -->
-Noun is subtype of Noun.
-  Each Noun, Noun combination occurs at most once in the population of Noun is subtype of Noun.
-Noun is described to AI by prompt Text.
-  Each Noun, Text combination occurs at most once in the population of Noun is described to AI by prompt Text.
-Noun has World Assumption.
-  Each Noun has exactly one World Assumption.
-Noun is independent.
-Noun is of schema:Thing.
-  Each Noun is of at most one schema:Thing.
-  It is possible that more than one Noun is of the same schema:Thing.
-Noun plays Role.
-  It is obligatory that each Noun plays some Role.
-  For each Role, exactly one Noun plays that Role.
-  It is possible that some Noun plays more than one Role.
-Noun is instantiable. **
+Object Type is subtype of Object Type.
+  Each Object Type, Object Type combination occurs at most once in the population of Object Type is subtype of Object Type.
+Object Type is described to AI by prompt Text.
+  Each Object Type, Text combination occurs at most once in the population of Object Type is described to AI by prompt Text.
+Object Type has World Assumption.
+  Each Object Type has exactly one World Assumption.
+Object Type is independent.
+Object Type is of schema:Thing.
+  Each Object Type is of at most one schema:Thing.
+  It is possible that more than one Object Type is of the same schema:Thing.
+Object Type plays Role.
+  It is obligatory that each Object Type plays some Role.
+  For each Role, exactly one Object Type plays that Role.
+  It is possible that some Object Type plays more than one Role.
+Object Type is instantiable. **
   <!-- task-961 lift (shipped bdde710d/a9a78c74): a Noun is instantiable iff
        it is an entity type (objectType='entity') AND it has a reference
        scheme (identity). The derivation under ## Derivation Rules below
@@ -221,7 +279,7 @@ Noun is instantiable. **
        `compile_noun_is_instantiable_compile_time_cell_matches_procedural_predicate`
        in compile.rs. -->
 
-It is impossible that a Resource is an instance of a Noun that is not instantiable.
+It is impossible that a Resource is an instance of a Object Type that is not instantiable.
   <!-- task-961 Phase B/C — the declarative instantiability constraint. ALETHIC
        (AREST.tex §328 "It is impossible that …"): instantiating an entity of
        a noun that is not in either the derived `Noun_is_instantiable` cell OR
@@ -236,9 +294,9 @@ It is impossible that a Resource is an instance of a Noun that is not instantiab
 Reading has Text.
   Each Reading has exactly one Text.
   It is possible that more than one Reading has the same Text.
-Reading is used by Verb.
-  Each Reading is used by exactly one Verb.
-  It is possible that some Verb is used by more than one Reading.
+Reading is used by Predicate.
+  Each Reading is used by exactly one Predicate.
+  It is possible that some Predicate is used by more than one Reading.
 Reading is localized for Language.
   Each Reading is localized for at most one Language.
   It is possible that more than one Reading is localized for the same Language.
@@ -248,7 +306,7 @@ Role is used in Reading.
   Each Role is used in some Reading.
   For each Reading, some Role is used in that Reading.
 
-### Fact Type (subtype of Noun)
+### Fact Type (subtype of Object Type)
 Fact Type has Title.
   Each Fact Type has at most one Title.
 Fact Type has Reading.
@@ -276,23 +334,20 @@ Constraint spans Role.
 Role has Position for Reading.
   For each Role and Reading that Role has that Reading at most one Position.
 
-### Verb
-Verb has Name.
-  Each Verb has exactly one Name.
-  It is possible that more than one Verb has the same Name.
-Fact Type is activated by Verb.
-  In each population of Fact Type is activated by Verb, each Fact Type, Verb combination occurs at most once.
-  This association with Fact Type, Verb provides the preferred identification scheme for API.
-Fact is referenced by Verb.
-  Each Fact, Verb combination occurs at most once in the population of Fact is referenced by Verb.
-  It is possible that some Verb references more than one Fact.
-  It is possible that more than one Verb references the same Fact.
-<!-- Verb is performed during Transition (Mealy semantics). -->
-  For each Transition, at most one Verb is performed during that Transition.
-  It is possible that some Verb is performed during more than one Transition.
-<!-- Verb is performed in Status (Moore semantics). -->
-  For each Status, at most one Verb is performed in that Status.
-  It is possible that some Verb is performed in more than one Status.
+### Predicate
+Predicate has Name.
+  Each Predicate has exactly one Name.
+  It is possible that more than one Predicate has the same Name.
+Fact Type is activated by Predicate.
+  In each population of Fact Type is activated by Predicate, each Fact Type, Predicate combination occurs at most once.
+  This association with Fact Type, Predicate provides the preferred identification scheme for API.
+Fact is referenced by Predicate.
+  Each Fact, Predicate combination occurs at most once in the population of Fact is referenced by Predicate.
+  It is possible that some Predicate references more than one Fact.
+  It is possible that more than one Predicate references the same Fact.
+<!-- elysium-batch ruling 5: Moore/Mealy action attachment lives in
+     state.md, single home; the Mealy relation is semi-derived there
+     (Moore folds into it on entry). -->
 
 ### Function
 Function has Name.
@@ -301,16 +356,17 @@ Function has callback URI.
   Each Function has at most one callback URI.
 Function has Header.
   Each Function has each Header at most once.
+<!-- elysium-batch ruling 2 (organizations-domain vocabulary, moved out):
 Function has Scope.
-  Each Function has at most one Scope.
+  Each Function has at most one Scope. -->
 Function belongs to Domain.
   Each Function belongs to at most one Domain.
 It is obligatory that each Function belongs to some Domain.
 
-Origin is a value type.
-  The possible values of Origin are 'compiled', 'registered'.
-Function has Origin.
-  Each Function has at most one Origin.
+Definition Origin is a value type.
+  The possible values of Definition Origin are 'compiled', 'registered'.
+Function has Definition Origin.
+  Each Function has at most one Definition Origin.
   <!-- elysium-audit E: Def 9 — a definition is ⟨name, dom, cod, origin,
        impl⟩ with origin ∈ {compiled, registered}; Eq 5 filters DEFS on
        origin = 'registered', Cor 5 identifies that restriction with the
@@ -322,6 +378,18 @@ Function has Origin.
        (instances.md) that carry no definition; origin is mandatory exactly
        for DEFS entries. Signature (dom/cod) facts follow when the canon
        manifest lands. -->
+
+Type Expression is a value type.
+Function accepts Type Expression.
+  Each Function accepts at most one Type Expression.
+Function yields Type Expression.
+  Each Function yields at most one Type Expression.
+  <!-- elysium-batch ruling 11: Def 9's dom and cod — accepts is dom,
+       yields is cod. Values are lexical type expressions: an Object Type
+       name where the signature is simple, an FFP shape expression where
+       structured. Carried exactly for DEFS entries, like Definition
+       Origin; population arrives with the canon manifest (the rebuild's
+       SALVAGE transcribed dom/cod for the five boundary primitives). -->
 
 ### Constraint
 Constraint has modality of Modality Type.
@@ -371,9 +439,9 @@ Stream has Name.
   Each Stream has exactly one Name.
   It is possible that more than one Stream has the same Name.
 
-### API (objectification of "Fact Type is activated by Verb")
-API accepts Noun as parameter.
-  Each API, Noun combination occurs at most once in the population of API accepts Noun as parameter.
+### API (objectification of "Fact Type is activated by Predicate")
+API accepts Object Type as parameter.
+  Each API, Object Type combination occurs at most once in the population of API accepts Object Type as parameter.
 
 ## Constraints
 
@@ -389,18 +457,18 @@ For each Status, some Transition is from that Status or some Transition is to th
 
 If some Role is used in some Reading where some Fact Type has that Reading then that Fact Type has that Role.
 If some Fact uses some Resource for some Role then that Fact is of some Fact Type that has that Role.
-If some Fact uses some Resource for some Role then that Resource is instance of some Noun that plays that Role.
-If some Fact Type defines some Fact then some Resource that is that Fact is instance of some Noun that is that Fact Type.
-If some Verb references some Fact that is of some Fact Type then that Verb uses some Reading where that Fact Type has that Reading.
+If some Fact uses some Resource for some Role then that Resource is instance of some Object Type that plays that Role.
+If some Fact Type defines some Fact then some Resource that is that Fact is instance of some Object Type that is that Fact Type.
+If some Predicate references some Fact that is of some Fact Type then that Predicate uses some Reading where that Fact Type has that Reading.
 If some Guard Run is for some Guard and that Guard Run references some Fact then that Guard references some Fact Type that defines that Fact.
 If some State Machine is currently in some Status then that Status is defined in some State Machine Definition where that State Machine is instance of that State Machine Definition.
-If some API accepts some Noun as parameter and some other Noun is subtype of that Noun then that API accepts that subtype Noun as parameter.
-If some Noun has some Format then that Noun has some Conceptual Data Type.
-If some Noun has some Format then that Format is built on some Conceptual Data Type.
+If some API accepts some Object Type as parameter and some other Object Type is subtype of that Object Type then that API accepts that subtype Object Type as parameter.
+If some Object Type has some Format then that Object Type has some Conceptual Data Type.
+If some Object Type has some Format then that Format is built on some Conceptual Data Type.
 
 ## Ring Constraints
 
-No Noun is subtype of itself.
+No Object Type is subtype of itself.
 If Noun1 is subtype of Noun2, then Noun2 is not subtype of Noun1.
 If Noun1 is subtype of Noun2 and Noun2 is subtype of Noun3, then Noun1 is subtype of Noun3.
 
@@ -438,13 +506,13 @@ External System has Prefix.
   Each External System has at most one Prefix.
 External System has Kind.
   Each External System has at most one Kind.
-Noun is backed by External System.
-  Each Noun is backed by at most one External System.
+Object Type is backed by External System.
+  Each Object Type is backed by at most one External System.
 Function is backed by External System.
   Each Function is backed by at most one External System.
 
-Noun has URI.
-  Each Noun has at most one URI.
+Object Type has URI.
+  Each Object Type has at most one URI.
 
 ### Domain Connection
 Domain connects to External System with Secret Reference.
@@ -478,9 +546,9 @@ Derivation Rule depends on Derivation Rule. *
 
 * Derivation Rule1 reaches Derivation Rule3 iff Derivation Rule1 depends on Derivation Rule2 and Derivation Rule2 reaches Derivation Rule3.
 
-* Noun is instantiable iff Noun has Object Type 'entity' and Noun has some Reference Scheme.
+* Object Type is instantiable iff Object Type is of OT Kind 'entity' and Object Type has some Reference Mode.
 
-Constraint is semantic iff Constraint has modality of Modality Type 'Deontic' and Constraint spans some Role and that Role is played by some Noun and no Resource is instance of that Noun.
+Constraint is semantic iff Constraint has modality of Modality Type 'Deontic' and Constraint spans some Role and that Role is played by some Object Type and no Resource is instance of that Object Type.
 
 ## Implicit Derivation Rules (#316 / #287c)
 
@@ -534,7 +602,7 @@ emit inferred `A R C` facts. Compile-time enumerates FT pairs; runtime
 derives one fact per join.
 -->
 
-* Fact Type has inferred Fact iff some Fact uses Resource for the first Role of that Fact Type and some other Fact uses other Resource for the second Role of a Fact Type sharing the join Noun.
+* Fact Type has inferred Fact iff some Fact uses Resource for the first Role of that Fact Type and some other Fact uses other Resource for the second Role of a Fact Type sharing the join Object Type.
 
 ## Check-Readings Deontic Obligations (#288)
 
@@ -548,7 +616,7 @@ Rust layers retire, and authors see the same diagnostics via the
 standard violation surface.
 -->
 
-### Layer 2: ring validity — same-noun spans
+### Layer 2: ring validity — same-object type spans
 
 <!-- elysium-audit H2 (10.2): A ring constraint (IR, AS, AT, SY, IT, TR,
      AC, RF) must span roles whose Nouns are identical. A ring across mixed
@@ -556,9 +624,9 @@ standard violation surface.
      to forbid. check.rs emits an Error-level diagnostic today; the deontic
      form below is the same invariant spelled declaratively. -->
 
-It is obligatory that each Ring Constraint spans two Roles and both Roles are played by the same Noun.
+It is obligatory that each Ring Constraint spans two Roles and both Roles are played by the same Object Type.
 
-### Layer 3: ring completeness — declare the ring on a same-noun binary
+### Layer 3: ring completeness — declare the ring on a same-object type binary
 
 <!-- elysium-audit H2 (10.2): A binary Fact Type whose two Roles share the
      same Noun almost always wants an explicit ring constraint — without
@@ -566,7 +634,7 @@ It is obligatory that each Ring Constraint spans two Roles and both Roles are pl
      implicitly modelling. check.rs emits a Hint-level diagnostic pointing
      at the missing "is acyclic." / "is irreflexive." annotation. -->
 
-It is obligatory that each binary Fact Type whose Roles are played by the same Noun has some Ring Constraint spanning it.
+It is obligatory that each binary Fact Type whose Roles are played by the same Object Type has some Ring Constraint spanning it.
 
 ## NORMA Structural Decomposition (#279)
 
@@ -590,10 +658,15 @@ Backus §11.2.4 / Def 7 correspondence (Table 1 of pre-2026-07-13 drafts):
 ### Entity types
 
 Join Path(.id) is an entity type.
+Join Path is a subtype of Function.
 Join(.id) is an entity type.
+Join is a subtype of Function.
 Role Sequence(.id) is an entity type.
+Role Sequence is a subtype of Function.
 Role Projection(.id) is an entity type.
+Role Projection is a subtype of Function.
 Join Type(.Name) is an entity type.
+Join Type is a subtype of Function.
 
 ### Value types
 
@@ -651,6 +724,7 @@ Thm 1 violation path rather than a hard-coded check pass.
 -->
 
 Antecedent Clause(.id) is an entity type.
+Antecedent Clause is a subtype of Function.
 Clause Shape is a value type.
   The possible values of Clause Shape are 'fact-type-literal', 'antecedent-role', 'negation', 'comparison', 'conjunction', 'quantified', 'unresolved'.
 
@@ -663,7 +737,7 @@ Antecedent Clause has Clause Shape.
 
 It is obligatory that each Antecedent Clause has Clause Shape.
 
-It is forbidden that each Noun has a name that ends with 'ies'.
+It is forbidden that each Object Type has a name that ends with 'ies'.
 
 ## Migration (#348)
 
@@ -677,6 +751,7 @@ It is forbidden that each Noun has a name that ends with 'ies'.
      monotonic. -->
 
 Migration(.id) is an entity type.
+Migration is a subtype of Function.
 Migration Rule Text is a value type.
 
 Migration has source Fact Type.
@@ -706,6 +781,7 @@ It is obligatory that each Migration produces some target Fact Type.
      preserved and Cor 4 (cor:closure) survives. -->
 
 Migration Application(.id) is an entity type.
+Migration Application is a subtype of Resource.
 
 Migration Application has Migration.
   Each Migration Application has exactly one Migration.
@@ -745,14 +821,25 @@ It is obligatory that each Migration Application has a distinct Timestamp.
 ### Entity types
 
 Bound(.id) is an entity type.
+Bound is a subtype of Function.
 Value Range(.id) is an entity type.
+Value Range is a subtype of Function.
 Facet(.id) is an entity type.
-Value(.id) is an entity type.
+Facet is a subtype of Function.
+<!-- elysium-batch ruling 3a (NORMA-correct): the reified Value entity is
+     retired — NORMA's ValueRange carries MinValue/MaxValue lexically and
+     has no Value instance entity. Bounds carry Lexical Value directly.
+Value(.id) is an entity type. -->
 Unit(.Name) is an entity type.
+Unit is a subtype of Function.
 Dimension(.Name) is an entity type.
+Dimension is a subtype of Function.
 Conceptual Data Type(.code) is an entity type.
+Conceptual Data Type is a subtype of Function.
 Data Type Group(.code) is an entity type.
+Data Type Group is a subtype of Function.
 Format(.Name) is an entity type.
+Format is a subtype of Function.
 Textual Constraint is a subtype of Constraint.
 
 ### Value types
@@ -771,31 +858,25 @@ Abstract SQL Type is a value type.
 
 ### Fact types
 
-Value is of Noun.
-  Each Value is of exactly one Noun.
-
-Value has Lexical Value.
-  Each Value has exactly one Lexical Value.
-
 Value Range has lower Bound.
   Each Value Range has at most one lower Bound.
 
 Value Range has upper Bound.
   Each Value Range has at most one upper Bound.
 
-Bound has Value.
-  Each Bound has exactly one Value.
+Bound has Lexical Value.
+  Each Bound has exactly one Lexical Value.
 
 Bound has Clusivity.
   Each Bound has exactly one Clusivity.
 
-Noun has Value Range.
-  Each Noun, Value Range combination occurs at most once in the population of Noun has Value Range.
-  It is possible that more than one Noun has the same Value Range.
+Object Type has Value Range.
+  Each Object Type, Value Range combination occurs at most once in the population of Object Type has Value Range.
+  It is possible that more than one Object Type has the same Value Range.
 
-Noun has Facet.
-  Each Noun, Facet combination occurs at most once in the population of Noun has Facet.
-  It is possible that more than one Noun has the same Facet.
+Object Type has Facet.
+  Each Object Type, Facet combination occurs at most once in the population of Object Type has Facet.
+  It is possible that more than one Object Type has the same Facet.
 
 Facet has Length.
   Each Facet has at most one Length.
@@ -812,15 +893,15 @@ Facet has Regex Pattern.
 Unit has Dimension.
   Each Unit has exactly one Dimension.
 
-Noun is measured in Unit.
-  Each Noun is measured in at most one Unit.
+Object Type is measured in Unit.
+  Each Object Type is measured in at most one Unit.
 
 Textual Constraint has Text.
   Each Textual Constraint has exactly one Text.
 
-Noun has Alias.
-  Each Noun, Alias combination occurs at most once in the population of Noun has Alias.
-  It is possible that more than one Noun has the same Alias.
+Object Type has Alias.
+  Each Object Type, Alias combination occurs at most once in the population of Object Type has Alias.
+  It is possible that more than one Object Type has the same Alias.
 
 Fact Type has Alias.
   Each Fact Type, Alias combination occurs at most once in the population of Fact Type has Alias.
@@ -832,14 +913,14 @@ Data Type Group has Name.
 Conceptual Data Type is in Data Type Group.
   Each Conceptual Data Type is in exactly one Data Type Group.
 
-Noun has Conceptual Data Type.
-  Each Noun has at most one Conceptual Data Type.
+Object Type has Conceptual Data Type.
+  Each Object Type has at most one Conceptual Data Type.
 
-Noun has Precision.
-  Each Noun has at most one Precision.
+Object Type has Precision.
+  Each Object Type has at most one Precision.
 
-Noun has Scale.
-  Each Noun has at most one Scale.
+Object Type has Scale.
+  Each Object Type has at most one Scale.
 
 Conceptual Data Type has JSON Type.
   Each Conceptual Data Type has exactly one JSON Type.
@@ -1143,5 +1224,5 @@ HTTP Method 'OPTIONS' has Name 'OPTIONS'.
 
 <!-- External System auth shape instance facts (URL/Header/Prefix/Country Code/Kind) for auth.vin, auto.dev, stripe, github, resend live in arest/readings/templates/connectors.md. Per-app Domain Connection facts carrying Secret References live in each consuming app's gitignored .env file. -->
 
-Domain 'core' has Access 'public'.
+<!-- organizations-domain (ruling 2): Domain 'core' has Access 'public'. -->
 Domain 'core' has Description 'Extracted from NORMA ORM2 model (design/html/). The canonical FORML 2 metamodel against which every user domain is a subtype binding.'.
