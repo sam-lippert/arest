@@ -401,10 +401,16 @@ namespace Elysium.NormaOracle
 			}
 			if (s.StartsWith("It is obligatory that ") || s.StartsWith("It is forbidden that ") || s.StartsWith("It is permitted that "))
 			{
-				string body = s.Substring(s.IndexOf("that ") + 5);
-				if (body.StartsWith("each ") || body.StartsWith("Each "))
+				// only OBLIGATORY bodies share the positive constraint shapes;
+				// a forbidden/permitted body run through the same mapper would
+				// invert its meaning (deontic UC/MC assert the pattern holds)
+				if (s.StartsWith("It is obligatory that "))
 				{
-					if (MapConstraint("Each " + body.Substring(5), ConstraintModality.Deontic)) return;
+					string body = s.Substring(s.IndexOf("that ") + 5);
+					if (body.StartsWith("each ") || body.StartsWith("Each "))
+					{
+						if (MapConstraint("Each " + body.Substring(5), ConstraintModality.Deontic)) return;
+					}
 				}
 				Count("deontic constraint (deferred)");
 				return;
@@ -756,6 +762,9 @@ namespace Elysium.NormaOracle
 					roles = bestEntry.Roles;
 					target = bestEntry.Fact;
 					Count("constraint retargeted by fact index");
+					// every retarget is a judgment call — log it so the report
+					// shows exactly which fact each cross-context sentence hit
+					myMapLog.Add("retarget: '" + Shorten(s) + "' -> [" + string.Join(", ", players) + "] '" + bestEntry.ReadingWords + "'");
 				}
 			}
 

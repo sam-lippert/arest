@@ -40,7 +40,7 @@ mapped: validation.md (40 sentences)
     18  value enumeration
     16  subset/ring textual constraint (deferred)
     12  uniqueness (for-each form)
-    11  constraint retargeted by fact index
+    10  constraint retargeted by fact index
      6  mandatory (for-each form)
      6  fact-type reading (arity 3)
      5  mandatory skipped (role already mandatory)
@@ -60,6 +60,16 @@ mapped: validation.md (40 sentences)
   (none)
 
 == harness map log ==
+  retarget: 'Each Constraint has modality of exactly one Modality Type.' -> [Constraint, Modality Type] 'has modality of'
+  retarget: 'Each Migration produces some target Fact Type.' -> [Migration, Fact Type] 'produces target'
+  retarget: 'Each Domain Change proposes some Function.' -> [Domain Change, Function] 'proposes'
+  retarget: 'Each Domain Change has exactly one Rationale.' -> [Domain Change, Rationale] 'has'
+  retarget: 'Each Violation is of exactly one Constraint.' -> [Violation, Constraint] 'is of'
+  retarget: 'Each Failure has exactly one Failure Type.' -> [Failure, Failure Type] 'has'
+  retarget: 'For each Object Type, at most one State Machine Definition is for that Object Type.' -> [State Machine Definition, Object Type] 'is for'
+  retarget: 'Each State Machine Definition has exactly one initial Status.' -> [Status, State Machine Definition] 'is initial in'
+  retarget: 'Each State Machine Definition has at least one terminal Status.' -> [Status, State Machine Definition] 'is terminal in'
+  retarget: 'Each Role references exactly one Object Type.' -> [Object Type, Role] 'plays'
 
 == NORMA model errors ==
   (none)
@@ -76,12 +86,11 @@ mapped: validation.md (40 sentences)
       ~ Model 'Elysium' contains multiple readings with an expanded reading signature of 'status reaches status in state machine definition involves status'. Each reading must be unique in the model.
 
 == RMAP: relational result ==
-  API(factTypeId, predicateId)
   APIAcceptsObjectTypeAsParameter(factTypeId, objectTypeId, predicateId)
   Code(value)
   Confidence(value)
   ConstraintHasConstraintMatchKeyword(constraintId, constraintMatchKeyword)
-  ConstraintSpan(constraintId, roleId, autofillsFromSuperset)
+  ConstraintSpan(constraintId, roleId, autofillsFromSuperset?)
   Data(value)
   DerivationRuleDependsOnDerivationRule(derivationRuleId1, derivationRuleId2)
   DerivationRuleHasAntecedentFactType(derivationRuleId, factTypeId)
@@ -134,7 +143,7 @@ mapped: validation.md (40 sentences)
   UserRejectsDomainChange(domainChangeId, userId)
   UserRequestsRevisionOfDomainChange(domainChangeId, userId)
   UserSubmitsDomainChangeForReview(domainChangeId, userId)
-  TOTAL TABLES: 58
+  TOTAL TABLES: 57
 
 == VERBALIZATION: NORMA generate leg (nf out-direction) ==
   elements verbalized: 479

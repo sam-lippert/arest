@@ -489,8 +489,8 @@ If some Object Type has some Format then that Format is built on some Conceptual
 ## Ring Constraints
 
 No Object Type is subtype of itself.
-If Noun1 is subtype of Noun2, then Noun2 is not subtype of Noun1.
-If Noun1 is subtype of Noun2 and Noun2 is subtype of Noun3, then Noun1 is subtype of Noun3.
+If Object Type1 is subtype of Object Type2, then Object Type2 is not subtype of Object Type1.
+If Object Type1 is subtype of Object Type2 and Object Type2 is subtype of Object Type3, then Object Type1 is subtype of Object Type3.
 
 <!-- elysium-audit B: the former rings here (irreflexive + intransitive; and
      validation.md carried irreflexive + asymmetric) contradicted Lem 1 and
