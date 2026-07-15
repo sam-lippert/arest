@@ -191,7 +191,11 @@ State Machine is instance of Noun.
      987 ruling: complete the self-description, never scope it. -->
 State Machine is for Resource.
   Each Resource has at most one State Machine.
-State Machine is for Resource. *
+<!-- elysium-audit F: a duplicate `State Machine is for Resource. *` stood
+     here — a fully-derived marker whose rule was REMOVED 2026-06-12 (see
+     the note below); the orphaned `*` declared meaning the readings could
+     not deliver, while the real writers are the SM seed and the task-929
+     backfill. The asserted fact type above is the truth. -->
 
 <!-- [REMOVED 2026-06-12, board-derived-layer poisoning] The rule
      `* State Machine is for Resource iff Resource is instance of Noun
