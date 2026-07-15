@@ -32,6 +32,8 @@ Operation 'theta:flatten' is overridable.
 Operation 'theta:join_combine' is overridable.
 Operation 'theta:member' is overridable.
 Operation 'theta:dedup' is overridable.
+Operation 'csdp' is overridable.
+Operation 'rmap' is overridable.
 
 <!-- Verb-level: the operation is a verb whose reference is the canon
      pipeline it reduces; the override is the host's native route. -->
@@ -63,3 +65,18 @@ Operation 'ask' is overridable.
      fallbacks; the kill switch retires a registration like any row. -->
 Operation 'synthesize' is registrable.
 Operation 'validate' is registrable.
+
+<!-- The CSDP boundary class (Samuel's ruling, 2026-07-15): the canon
+     defines csdp and rmap symbolically (alpha/fold over the design
+     state — see the CSDP AS CANON / RMAP AS CANON sections of `arest`),
+     and the three names below are the REGISTERED seams those defs apply
+     through DEFS: elementarize is world->facts, the one non-computable
+     step (Stage-1 doctrine: text->atom stays at the boundary);
+     combine_judgment and accept_judgment are modeling judgments (entity
+     combination; acceptance of computed subtype candidates). Everything
+     else in the procedure — the population gate, uniqueness induction
+     from example populations, mandatory derivation, the n-1
+     elementarity gate, and both RMAP grouping rules — is canon. -->
+Operation 'csdp:elementarize' is registrable.
+Operation 'csdp:combine_judgment' is registrable.
+Operation 'csdp:accept_judgment' is registrable.

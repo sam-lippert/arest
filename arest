@@ -7005,5 +7005,225 @@ DEF("monad:bind",
           S3(A("COMP"), A("cat"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2))))),
        S3(A("CONS"),
           S3(A("COMP"), N(2), N(1)),
-          S3(A("COMP"), A("apply"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(1)))))))
+          S3(A("COMP"), A("apply"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(1))))))),
+
+"CSDP AS CANON (2026-07-15, Samuel's ruling: the interesting area is registering the alpha/fold-class combinators through FFP/AST so that fact types, facts, objects, CSDP, and RMAP are themselves defined symbolically at the arest-elysium level). Halpin's seven-step Conceptual Schema Design Procedure over the design state ⟨fts, otpops⟩: each ft-descriptor ⟨name, players, ucs, mands, pop⟩ (players positional object-type atoms; ucs a sequence of role-position sequences, positions as NUMERIC SELECTORS — a function's representation IS its datum, so apply:⟨pos, row⟩ reads the column; mands a sequence of positions; pop the example rows), otpops the ⟨⟨objecttype, population⟩…⟩ pairs. Step 1 (verbalize familiar examples into elementary facts) IS the informal boundary — world→facts is the one non-computable step — so csdp:s1 applies the REGISTERED name csdp:elementarize (Def 9 origin=registered, the Eq 5 surface; Stage-1 doctrine: text→atom stays at the boundary). Step 3 (combine entity types) and step 6 acceptance are modeling judgments: registered names csdp:combine_judgment / csdp:accept_judgment, with step 6's SUBTYPE CANDIDATES computed canonically first (population inclusion via theta:setminus — subtypehood IS population inclusion). Step 2 (population check) and step 7 (elementarity: every uniqueness constraint spans at least arity-1 roles, the n-1 rule) are refusal gates — failing input answers phi, refused like any alethic violation. Step 4 INDUCES uniqueness from the example population (a role is functional iff its column, deduplicated, keeps the population's length — the population check run backwards); single-position induction is exact for the binary core, and (n-1)-subset induction for higher arities is an evaluator extension over the same column machinery. Step 5 derives mandatory-role marks: a role is mandatory iff its player's own population minus the role's column is empty.",
+
+DEF("csdp:append_T",
+    S3(A("COMP"), A("apndr"), S3(A("CONS"), A("id"), S2(A("CONST"), A("T"))))),
+
+DEF("csdp:allp",
+    S3(A("COMP"), S2(A("INSERT"), A("and")), A("csdp:append_T"))),
+
+DEF("csdp:keep_keyed",
+    S4(A("COND"),
+       S3(A("COMP"), A("eq"),
+          S3(A("CONS"), S3(A("COMP"), N(1), N(1)),
+             S3(A("COMP"), N(1), S3(A("COMP"), N(2), N(1))))),
+       S3(A("COMP"), A("apndl"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2))),
+       N(2))),
+
+DEF("csdp:matches",
+    S4(A("COMP"), S2(A("INSERT"), A("csdp:keep_keyed")), A("theta:append_phi"), A("distl"))),
+
+DEF("csdp:lookup",
+    S3(A("COMP"), S3(A("COMP"), N(2), N(1)), A("csdp:matches"))),
+
+DEF("csdp:column",
+    S3(A("COMP"), S2(A("ALPHA"), A("apply")), A("distl"))),
+
+DEF("csdp:functional_pos",
+    S3(A("COMP"), A("eq"),
+       S3(A("CONS"),
+          S4(A("COMP"), A("length"), A("theta:dedup"), A("csdp:column")),
+          S3(A("COMP"), A("length"), N(2))))),
+
+DEF("csdp:keep_functional_pos",
+    S4(A("COND"), S3(A("COMP"), A("csdp:functional_pos"), N(1)),
+       S3(A("COMP"), A("apndl"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))),
+       N(2))),
+
+DEF("csdp:single_key_positions",
+    S4(A("COMP"), S2(A("INSERT"), A("csdp:keep_functional_pos")), A("theta:append_phi"),
+       S3(A("COMP"), A("distr"),
+          S3(A("CONS"),
+             S3(A("COMP"), A("theta:iota"), S3(A("COMP"), A("length"), N(2))),
+             N(5))))),
+
+DEF("csdp:s4_ft",
+    S6(A("CONS"), N(1), N(2),
+       S4(A("COND"),
+          S4(A("COMP"), A("not"), A("null"), A("csdp:single_key_positions")),
+          S3(A("COMP"), S2(A("ALPHA"), S2(A("CONS"), A("id"))), A("csdp:single_key_positions")),
+          S2(A("CONS"), S3(A("COMP"), A("theta:iota"), S3(A("COMP"), A("length"), N(2))))),
+       N(4), N(5))),
+
+DEF("csdp:s4",
+    S3(A("CONS"), S3(A("COMP"), S2(A("ALPHA"), A("csdp:s4_ft")), N(1)), N(2))),
+
+DEF("csdp:mandatory_pos",
+    S3(A("COMP"), A("null"),
+       S3(A("COMP"), A("theta:setminus"),
+          S3(A("CONS"),
+             S3(A("COMP"), A("csdp:lookup"),
+                S3(A("CONS"),
+                   S3(A("COMP"), A("apply"),
+                      S3(A("CONS"), N(1),
+                         S3(A("COMP"), N(2), S3(A("COMP"), N(1), N(2))))),
+                   S3(A("COMP"), N(2), N(2)))),
+             S3(A("COMP"), A("csdp:column"),
+                S3(A("CONS"), N(1),
+                   S3(A("COMP"), N(5), S3(A("COMP"), N(1), N(2))))))))),
+
+DEF("csdp:keep_mandatory_pos",
+    S4(A("COND"), S3(A("COMP"), A("csdp:mandatory_pos"), N(1)),
+       S3(A("COMP"), A("apndl"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))),
+       N(2))),
+
+DEF("csdp:s5_ft",
+    S6(A("CONS"),
+       S3(A("COMP"), N(1), N(1)),
+       S3(A("COMP"), N(2), N(1)),
+       S3(A("COMP"), N(3), N(1)),
+       S4(A("COMP"), S2(A("INSERT"), A("csdp:keep_mandatory_pos")), A("theta:append_phi"),
+          S3(A("COMP"), A("distr"),
+             S3(A("CONS"),
+                S3(A("COMP"), A("theta:iota"),
+                   S3(A("COMP"), A("length"), S3(A("COMP"), N(2), N(1)))),
+                A("id")))),
+       S3(A("COMP"), N(5), N(1)))),
+
+DEF("csdp:s5",
+    S3(A("CONS"),
+       S3(A("COMP"), S2(A("ALPHA"), A("csdp:s5_ft")),
+          S3(A("COMP"), A("distr"), S3(A("CONS"), N(1), N(2)))),
+       N(2))),
+
+DEF("csdp:subtype_pair_p",
+    S3(A("COMP"), A("and"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("not"),
+             S3(A("COMP"), A("eq"),
+                S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(1), N(2))))),
+          S3(A("COMP"), A("null"),
+             S3(A("COMP"), A("theta:setminus"),
+                S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(2), N(2)))))))),
+
+DEF("csdp:keep_subtype_pair",
+    S4(A("COND"), S3(A("COMP"), A("csdp:subtype_pair_p"), N(1)),
+       S3(A("COMP"), A("apndl"),
+          S3(A("CONS"),
+             S3(A("CONS"),
+                S3(A("COMP"), N(1), S3(A("COMP"), N(1), N(1))),
+                S3(A("COMP"), N(1), S3(A("COMP"), N(2), N(1)))),
+             N(2))),
+       N(2))),
+
+DEF("csdp:subtype_candidates",
+    S4(A("COMP"), S2(A("INSERT"), A("csdp:keep_subtype_pair")), A("theta:append_phi"),
+       S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("distl")),
+          S3(A("COMP"), A("distr"), S3(A("CONS"), A("id"), A("id")))))),
+
+DEF("csdp:s6",
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"), S2(A("CONST"), A("csdp:accept_judgment")),
+          S3(A("CONS"), S3(A("COMP"), A("csdp:subtype_candidates"), N(2)), A("id"))))),
+
+DEF("csdp:s3",
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"), S2(A("CONST"), A("csdp:combine_judgment")), A("id")))),
+
+DEF("csdp:s1",
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"), S2(A("CONST"), A("csdp:elementarize")), A("id")))),
+
+DEF("csdp:populated_p",
+    S3(A("COMP"), A("csdp:allp"),
+       S3(A("COMP"),
+          S2(A("ALPHA"), S4(A("COMP"), A("not"), A("null"), N(5))),
+          N(1)))),
+
+DEF("csdp:s2",
+    S4(A("COND"), A("csdp:populated_p"), A("id"), S2(A("CONST"), PHI()))),
+
+DEF("csdp:uc_wide_p",
+    S3(A("COMP"), A("ge"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("+"),
+             S3(A("CONS"), S3(A("COMP"), A("length"), N(2)), S2(A("CONST"), N(1)))),
+          N(1)))),
+
+DEF("csdp:ft_elementary_p",
+    S3(A("COMP"), A("csdp:allp"),
+       S3(A("COMP"), S2(A("ALPHA"), A("csdp:uc_wide_p")),
+          S3(A("COMP"), A("distl"),
+             S3(A("CONS"), S3(A("COMP"), A("length"), N(2)), N(3)))))),
+
+DEF("csdp:elementary_p",
+    S3(A("COMP"), A("csdp:allp"),
+       S3(A("COMP"), S2(A("ALPHA"), A("csdp:ft_elementary_p")), N(1)))),
+
+DEF("csdp:s7",
+    S4(A("COND"), A("csdp:elementary_p"), A("id"), S2(A("CONST"), PHI()))),
+
+DEF("csdp",
+    S8(A("COMP"), A("csdp:s7"), A("csdp:s6"), A("csdp:s5"), A("csdp:s4"),
+       A("csdp:s3"), A("csdp:s2"), A("csdp:s1"))),
+
+"RMAP AS CANON (2026-07-15): Halpin 10.3's grouping rules over the CSDP design state, answering the table map ⟨⟨key, columns⟩…⟩. Rule 2 (absorption): a fact type with a uniqueness constraint narrower than its arity is FUNCTIONAL on that key, and absorbs into the key player's table — one column per absorbed fact type (the analytic judgment: the predicate joins its subject's cell). Rule 1 (separation): a fact type whose every uniqueness constraint spans all roles keeps its own table — one column per role (the synthetic judgment: an irreducible join). The reference-scheme preliminaries (10.3 step 0) are the IDENTITY here: the metamodel's one-reference-scheme ruling (Halpin 6.7 — a subtype inherits the primary reference scheme of the root supertype) makes every key the one Function id, so no scheme expansion exists to perform and the perfect-normalization guarantee rides the uniqueness patterns alone. rmap:min_uc folds to the narrowest declared key; grouping is dedup over key players with per-key column collection through csdp:matches — alpha and fold end to end.",
+
+DEF("rmap:arity", S3(A("COMP"), A("length"), N(2))),
+
+DEF("rmap:pick_shorter",
+    S4(A("COND"),
+       S3(A("COMP"), A("le"),
+          S3(A("CONS"), S3(A("COMP"), A("length"), N(1)), S3(A("COMP"), A("length"), N(2)))),
+       N(1), N(2))),
+
+DEF("rmap:min_uc",
+    S3(A("COMP"), S2(A("INSERT"), A("rmap:pick_shorter")), N(3))),
+
+DEF("rmap:functionalp",
+    S3(A("COMP"), A("gt"),
+       S3(A("CONS"), A("rmap:arity"), S3(A("COMP"), A("length"), A("rmap:min_uc"))))),
+
+DEF("rmap:keyplayer",
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"), S3(A("COMP"), N(1), A("rmap:min_uc")), N(2)))),
+
+DEF("rmap:keep_functional",
+    S4(A("COND"), S3(A("COMP"), A("rmap:functionalp"), N(1)), A("apndl"), N(2))),
+
+DEF("rmap:keep_spanning",
+    S4(A("COND"),
+       S4(A("COMP"), A("not"), A("rmap:functionalp"), N(1)),
+       A("apndl"), N(2))),
+
+DEF("rmap:functionals",
+    S3(A("COMP"), S2(A("INSERT"), A("rmap:keep_functional")), A("theta:append_phi"))),
+
+DEF("rmap:spannings",
+    S3(A("COMP"), S2(A("INSERT"), A("rmap:keep_spanning")), A("theta:append_phi"))),
+
+DEF("rmap:absorb_pair",
+    S3(A("CONS"), A("rmap:keyplayer"), N(1))),
+
+DEF("rmap:table_for",
+    S3(A("CONS"), N(1), S3(A("COMP"), S2(A("ALPHA"), N(2)), A("csdp:matches")))),
+
+DEF("rmap:rule2",
+    S4(A("COMP"), S2(A("ALPHA"), A("rmap:table_for")), A("distr"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("theta:dedup"), S2(A("ALPHA"), N(1))),
+          A("id")))),
+
+DEF("rmap:rule1",
+    S2(A("ALPHA"), S3(A("CONS"), N(1), N(2)))),
+
+DEF("rmap",
+    S3(A("COMP"), A("cat"),
+       S3(A("CONS"),
+          S4(A("COMP"), A("rmap:rule2"), S2(A("ALPHA"), A("rmap:absorb_pair")),
+             S3(A("COMP"), A("rmap:functionals"), N(1))),
+          S4(A("COMP"), A("rmap:rule1"), A("rmap:spannings"), N(1)))))
 )
