@@ -523,9 +523,10 @@ derives one fact per join.
 Layers 2 and 3 of the readings checker (`crates/arest/src/check.rs`)
 enforce ring-constraint validity and completeness as Rust control
 flow today. Expressing them as deontic constraints here lets #317's
-metamodel-FT push eventually drive them through Theorem 4's
-violation path — the Rust layers retire, and authors see the same
-diagnostics via the standard violation surface.
+metamodel-FT push eventually drive them through the Def 6 / Thm 1
+violation path (Theorem 4's in pre-2026-07-13 draft numbering) — the
+Rust layers retire, and authors see the same diagnostics via the
+standard violation surface.
 -->
 
 ### Layer 2: ring validity — same-noun spans
@@ -561,7 +562,7 @@ decomposing each user-authored rule into a `Join Path` +
 rule text with Rust heuristics.
 -->
 
-Paper §4 Table 1 correspondence:
+Backus §11.2.4 / Def 7 correspondence (Table 1 of pre-2026-07-13 drafts):
   Join Path       ↔ Composition (COMP)
   Role Sequence   ↔ Construction (CONS)
   Role Projection ↔ Selector
@@ -624,8 +625,8 @@ recognised `Clause Shape`. If the compiler can't attach a shape (the
 clause didn't match any known pattern — Fact-Type literal, Antecedent
 Role bind, Negation, Comparison, …) the rule is unsafe to chain and
 the validator surfaces the violation. Expressing this as a deontic
-constraint lets the runtime emit the diagnostic through Theorem 4's
-violation path rather than a hard-coded check pass.
+constraint lets the runtime emit the diagnostic through the Def 6 /
+Thm 1 violation path rather than a hard-coded check pass.
 -->
 
 Antecedent Clause(.id) is an entity type.
@@ -646,9 +647,9 @@ It is forbidden that each Noun has a name that ends with 'ies'.
 ## Migration (#348)
 
 ### Rationale
-Population-level rewriting when a schema evolves. §5 allows migration
-to land as derivation rules / transition triggers / deontic
-constraints; none is shaped for "rewrite facts of one Fact Type into
+Population-level rewriting when a schema evolves. Cor 4 (cor:closure)
+stages migration as derivation rules / transition triggers / deontic
+rules; none is shaped for "rewrite facts of one Fact Type into
 facts of another," so `Migration` names it directly. Firing a rule
 emits a `MigrationApplication` (#349); visible_population (#350)
 projects out migrated sources, keeping P monotonic.
@@ -674,11 +675,12 @@ It is obligatory that each Migration produces some target Fact Type.
 
 ### Rationale
 Migration firing emits a Migration Application per source fact touched,
-recording which target facts were produced and when. §5 Theorem 5 holds
-because Migration Application is itself a fact: the visible_population
+recording which target facts were produced and when. Prop 3
+(prop:derive; Theorem 5 in pre-2026-07-13 drafts) holds because
+Migration Application is itself a fact: the visible_population
 projection (#350) reads it to filter out migrated sources without a
-destructive write, so population monotonicity is preserved and Cor 3
-(closure under self-modification) survives.
+destructive write, so population monotonicity is preserved and Cor 4
+(cor:closure, closure under self-modification) survives.
 
 Migration Application(.id) is an entity type.
 
@@ -704,7 +706,8 @@ constructive. The at-most-one obligation rules out direct v1 → v3
 shortcuts: competing MAs for the same source row would flag, forcing
 the chain through v2 via a paired Migration + MA. The distinct-Timestamp
 obligation is what lets two peers replay the same Migration + MA stream
-and converge by Cor 5 — timestamps establish the total order the
+and converge by the §3 consensus paragraph (Cor. consensus in
+pre-2026-07-13 drafts) — timestamps establish the total order the
 replay needs, and visible_population is a function of the replayed
 set, so partial replays up to any T agree across peers.
 -->
