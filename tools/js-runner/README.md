@@ -53,3 +53,21 @@ columns and vice versa. Value-domain-only tables are excluded as NORMA
 data-type artifacts; column naming is out of scope (counts reported);
 the objectified-identity tie-break (oracle README) is tolerated with a
 note. Any law failure or schema mismatch exits nonzero.
+
+## Test apps (test-apps.js)
+
+    node test-apps.js
+
+Runs the test applications (apps/sale-workflow in apps/order, and
+apps/family) through the mu and holds the outputs to the whitepaper:
+Thm 2 (the affordances from each status are exactly the effective
+transitions, served by the canon own system:view_menu), Thm 1 validate
+(the constraints:uniqueness builder refuses a duplicated key and passes
+the clean population; the mandatory family answers violations by set
+difference), Def derive with Lem 1 (grandparenthood as a projection of
+a natural join through the theta ops — exact rows, no atom invention),
+and per-app RMAP (Def 8: one cell per entity in a normal multi-entity
+app; m:n and ring fact types keep their own tables). Each app is parsed
+COMBINED with the base metamodel (the user domain binds to the base
+vocabulary), NORMA validates the combined model, and the oracle emits
+the app design state the mu consumes.
