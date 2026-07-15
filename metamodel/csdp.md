@@ -35,7 +35,7 @@ promoted to the framework proper 2026-06-10 (user directive).
 
 ## Instance Facts
 
-Noun 'Design Note' has Format 'text'.
+Object Type 'Design Note' has Format 'text'.
   <!-- Widget opt-in (pb-zero-glue-acceptance): the §4.2 view rules
        key widgets off the value type's Format; until the CDT→Format
        bridge lands (audit-entity-datatype-norma-vs-view Phase 2) a
@@ -47,6 +47,7 @@ Noun 'Design Note' has Format 'text'.
 ## Entity Types
 
 Schema Design(.name) is an entity type.
+Schema Design is a subtype of Resource.
 
 ## Value Types
 
@@ -72,7 +73,7 @@ Schema Design passes final checks.
 
 ## State Machine
 
-State Machine Definition 'CSDP' is for Noun 'Schema Design'.
+State Machine Definition 'CSDP' is for Object Type 'Schema Design'.
 Status 'step1-elementary-facts' is initial in State Machine Definition 'CSDP'.
 Status 'designed' is terminal in State Machine Definition 'CSDP'.
 
@@ -133,6 +134,7 @@ columns carry their qualifications).
 ## Entity Types
 
 Relational Mapping(.name) is an entity type.
+Relational Mapping is a subtype of Resource.
 
 ## Fact Types
 
@@ -149,7 +151,7 @@ Relational Mapping groups functional fact types.
 
 ## State Machine
 
-State Machine Definition 'Rmap' is for Noun 'Relational Mapping'.
+State Machine Definition 'Rmap' is for Object Type 'Relational Mapping'.
 Status 'step0-absorb-subtypes' is initial in State Machine Definition 'Rmap'.
 Status 'mapped' is terminal in State Machine Definition 'Rmap'.
 

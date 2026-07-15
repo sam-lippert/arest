@@ -1,25 +1,35 @@
 # AREST State: Behavioral Entities
 
+<!-- Layer (elysium-batch task 3): AREST-extension vocabulary end to end —
+     Harel statecharts carried through ORM (SMD, Status, Transition,
+     Guard, Stream). Not part of Halpin's metamodel; the ORM-canonical
+     vocabulary it consumes (Object Type, Predicate, Fact Type,
+     Constraint) is declared in core.md. -->
+
 ## Entity Types
 
 Status(.Name) is an entity type.
-Status is a subtype of Noun.
+Status is a subtype of Object Type.
 State Machine Definition(.Name) is an entity type.
 State Machine Definition is a subtype of Status.
 Transition(.id) is an entity type.
+Transition is a subtype of Function.
 Guard(.Name) is an entity type.
+Guard is a subtype of Function.
 
 Stream(.id) is an entity type.
+Stream is a subtype of Function.
 
 ## Readings
 
 ### State Machine Definition
-State Machine Definition is for Noun.
-  Each State Machine Definition is for at most one Noun.
+State Machine Definition is for Object Type.
+  Each State Machine Definition is for at most one Object Type.
 
 ### Status
-Verb is performed in Status.
-  Each Verb is performed in at most one Status.
+Predicate is performed in Status.
+  Each Predicate is performed in at most one Status.
+  For each Status, at most one Predicate is performed in that Status.
 Status has HTTP Method.
   Each Status has at most one HTTP Method.
 
@@ -32,8 +42,9 @@ Transition is to- Status.
   Each Transition is to exactly one Status.
 Transition is triggered by Event Type.
   Each Transition is triggered by exactly one Event Type.
-Verb is performed during Transition.
-  Each Verb is performed during at most one Transition.
+Predicate is performed during Transition. +
+  Each Predicate is performed during at most one Transition.
+  For each Transition, at most one Predicate is performed during that Transition.
 
 ### Status
 Status is initial in State Machine Definition.
@@ -93,6 +104,18 @@ Guard guards Transition.
   It is possible that more than one Guard guards the same Transition.
 
 ## Derivation Rules
+
+<!-- elysium-batch ruling 5: Moore and Mealy are two views of one
+     operation. Moore -> Mealy is the monotone direction (an action
+     attached to a status is performed by every transition entering it),
+     so the Mealy relation is semi-derived (+): directly assertable for
+     genuine per-edge actions AND populated from Moore assertions by the
+     rule below. The reverse direction needs universal quantification —
+     out of the monotone fragment. The per-transition uniqueness doubles
+     as a conflict detector between an edge's own asserted action and its
+     target status's derived action. -->
+
+* Predicate is performed during Transition iff that Transition is to some Status and that Predicate is performed in that Status.
 
 * Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from that Status.
 
@@ -222,7 +245,7 @@ Guard guards Transition.
 
 ## Constraints
 
-For each Noun, at most one State Machine Definition is for that Noun.
+For each Object Type, at most one State Machine Definition is for that Object Type.
 Each State Machine Definition has exactly one initial Status.
 It is obligatory that each State Machine Definition has at least one terminal Status.
 If some Status is initial in some State Machine Definition then that Status is defined in that State Machine Definition.
@@ -232,25 +255,22 @@ If some Status is initial in some State Machine Definition then that Status is d
 Status reaches Status in State Machine Definition. *
   Each Status, Status, State Machine Definition combination occurs at most once in the population of Status reaches Status in State Machine Definition.
 
-It is obligatory that if some Status reaches that Status in some State Machine Definition then that Status reaches some Status that is terminal in that State Machine Definition.
-<!-- elysium-audit C: the paper's liveness discipline is "the deontic
-     obligation that each cycle carry some exit transition." Quantifying
-     over cycles is outside fragment R, so this transcribes the expressible
-     strengthening: a Status on a cycle (one that reaches itself) must
-     reach some terminal Status. Reaching a terminal forces an edge out of
-     the cycle's strongly-connected component, so this implies the paper's
-     obligation (not conversely: an exit into another trap cycle satisfies
-     the paper's sentence but not this one). Deontic: a trapped cycle warns
-     and commits. Until now the docs QUOTED the cycle-exit obligation as if
-     declared, while only the weaker at-least-one-terminal obligation above
-     existed as a reading. The `reaches` rules (under Derivation Rules) use
-     declared Transition edges — conservative w.r.t. Harel-inherited edges,
-     which only add reachability; an effective-transition base rule can be
-     added if over-warning bites. -->
+It is obligatory that if some Status1 reaches Status1 in some State Machine Definition then some Status2 reaches Status1 in that State Machine Definition and Status1 reaches Status2 in that State Machine Definition and some Transition is defined in that State Machine Definition and that Transition is from Status2 and that Transition is to some Status3 and it is not true that Status3 reaches Status2 in that State Machine Definition.
+<!-- elysium-batch ruling 6 (fidelity over improvement — replacing the
+     audit-C strengthening, which was denied): the paper's sentence is
+     "the deontic obligation that each cycle carry some exit transition"
+     (AREST.tex, after Thm 2), formalized at status granularity: a cyclic
+     Status (one that reaches itself) shares a mutually-reaching component
+     with some Status2 that has a Transition to a Status3 that does not
+     reach back — an edge leaving the strongly connected component.
+     Trap-freedom exactly; no termination demand. The single negated
+     clause is constraint-side (evaluated, never chained; Lem 1
+     untouched). A stricter policy — every cyclic status reaches some
+     terminal Status — remains available as an app-level deontic. -->
 
 ## Instance Facts
 
-Domain 'state' has Access 'public'.
+<!-- organizations-domain (ruling 2): Domain 'state' has Access 'public'. -->
 
 <!-- task-965 lift (shipped 6393ceb3): the HATEOAS destructive-affordance
      rule, lifted from a Rust literal (command.rs http_method_for_status)

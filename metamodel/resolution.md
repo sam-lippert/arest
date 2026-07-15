@@ -13,6 +13,7 @@
 ## Entity Types
 
 Operation(.name) is an entity type.
+Operation is a subtype of Function.
 
 ## Fact Types
 

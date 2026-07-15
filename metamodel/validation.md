@@ -2,9 +2,9 @@
 
 ## Deontic Constraints
 
-### Noun Declaration
+### Object Type Declaration
 
-It is obligatory that each Role references exactly one Noun.
+It is obligatory that each Role references exactly one Object Type.
 
 ### Arity Decomposition
 
@@ -12,9 +12,9 @@ It is forbidden that a Constraint of Constraint Type 'UC' spans fewer Roles than
 
 ### Ring Constraint Completeness
 
-It is obligatory that when a Fact Type has exactly two Roles that both reference the same Noun, some Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spans those Roles.
+It is obligatory that when a Fact Type has exactly two Roles that both reference the same Object Type, some Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spans those Roles.
 
-It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spanning its Roles when the Reading of that Fact Type contains a capitalized-word-prefixed form of its Ring Noun, or when some Noun ending in that Ring Noun is declared elsewhere in the corpus.
+It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spanning its Roles when the Reading of that Fact Type contains a capitalized-word-prefixed form of its Ring Object Type, or when some Object Type ending in that Ring Object Type is declared elsewhere in the corpus.
 <!-- elysium-audit H (prose split, per the vindicated 10.2 scrub): the two
      conditions reflect compound-noun parse-time artifacts (eu-law
      `Personal Data Breach … Personal Data` and Biometric/Genetic/Personal
@@ -32,7 +32,7 @@ It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS'
 
 ### Singular Naming
 
-It is forbidden that Noun has Name that ends in 's' when that Name is a plural form.
+It is forbidden that Object Type has Name that ends in 's' when that Name is a plural form.
 
 ### Alethic Before Deontic
 
@@ -44,11 +44,17 @@ It is forbidden that a Role stores a value that is derivable from existing Fact 
 
 ### Subtype Constraint Declaration
 
-It is obligatory that each subtype Noun has some totality or exclusion Constraint declared for its supertype relationship.
+It is obligatory that each subtype Object Type has some totality or exclusion Constraint declared for its supertype relationship.
 
-### Reference Scheme Redundancy
+### Reference Mode Redundancy
 
-<!-- It is forbidden that a Reading restates a Noun reference scheme as a separate fact type. -->
+It is forbidden that a Reading restates an Object Type's Reference Mode as a separate Fact Type.
+<!-- elysium-batch ruling 4: un-commented and reworded to canonical
+     vocabulary. NORMA models the machinery as ReferenceMode +
+     ReferenceModeKind (General/Popular/UnitBased; ORM2Core.xsd): the mode
+     mints the value type and the identifying fact type, so restating it
+     as an explicit reading duplicates the model. First enforcement:
+     instances.md's `Resource has Reference` retired. -->
 
 ### Elementary Fact Decomposition
 
@@ -116,11 +122,11 @@ Constraint Type 'IT' has Violation Template 'Intransitive violation: {x} relates
 Constraint Type 'TR' has Violation Template 'Transitive violation: {x} relates to {y} relates to {z} but shortcut is missing'.
 Constraint Type 'AC' has Violation Template 'Acyclic violation: cycle detected through {value}'.
 Constraint Type 'RF' has Violation Template 'Reflexive violation: {value} does not reference itself'.
-Constraint Type 'UC' has Violation Template 'Uniqueness violation: {noun} {value} is not unique in {reading}'.
-Constraint Type 'MC' has Violation Template 'Mandatory violation: {noun} {value} does not participate in {reading}'.
-Constraint Type 'FC' has Violation Template 'Frequency violation: {noun} {value} in {reading} expected {range}'.
-Constraint Type 'VC' has Violation Template 'Value constraint violation: {noun} {value} is not in {valid_set}'.
-Constraint Type 'CC' has Violation Template 'Cardinality violation: population of {noun} expected {range}'.
+Constraint Type 'UC' has Violation Template 'Uniqueness violation: {object_type} {value} is not unique in {reading}'.
+Constraint Type 'MC' has Violation Template 'Mandatory violation: {object_type} {value} does not participate in {reading}'.
+Constraint Type 'FC' has Violation Template 'Frequency violation: {object_type} {value} in {reading} expected {range}'.
+Constraint Type 'VC' has Violation Template 'Value constraint violation: {object_type} {value} is not in {valid_set}'.
+Constraint Type 'CC' has Violation Template 'Cardinality violation: population of {object_type} expected {range}'.
 Constraint Type 'XO' has Violation Template 'Set-comparison violation: {entity} {value} expected {requirement} of {clause_count} clause fact types'.
 Constraint Type 'XC' has Violation Template 'Set-comparison violation: {entity} {value} expected {requirement} of {clause_count} clause fact types'.
 Constraint Type 'OR' has Violation Template 'Set-comparison violation: {entity} {value} expected {requirement} of {clause_count} clause fact types'.
@@ -130,13 +136,13 @@ Constraint Type 'EQ' has Violation Template 'Equality violation: {pairs} in {a_f
 ### Deontic-path templates
 
 Constraint Type 'DF_pop' has Violation Template 'Forbidden fact present in {primary_ft}'.
-Constraint Type 'DF_cwa' has Violation Template 'Response contains forbidden {noun} {value}'.
+Constraint Type 'DF_cwa' has Violation Template 'Response contains forbidden {object_type} {value}'.
 Constraint Type 'DF_owa' has Violation Template 'Response may violate: {text}'.
 Constraint Type 'DO_pop' has Violation Template 'Obligation violated in {primary_ft}'.
-Constraint Type 'DO_obl' has Violation Template 'Response missing obligatory {noun}'.
+Constraint Type 'DO_obl' has Violation Template 'Response missing obligatory {object_type}'.
 Constraint Type 'DO_sender' has Violation Template 'Response missing obligatory SenderIdentity'.
 
 ## Instance Facts
 
-Domain 'validation' has Access 'public'.
+<!-- organizations-domain (ruling 2): Domain 'validation' has Access 'public'. -->
 Domain 'validation' has Description 'Deontic constraints encoding ORM 2 / FORML 2 modeling discipline at the framework level. Meta-constraints about how domain models should be structured. Every domain inherits them.'.
