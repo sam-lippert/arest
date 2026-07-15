@@ -1065,12 +1065,17 @@ namespace Elysium.NormaOracle
 					List<string> lp, rp;
 					FactIndexEntry le = ResolveClause(left, out lp);
 					if (le == null) continue;
-					// a bare "that <predicate>" continuation names no subject;
-					// prepend the left clause's last player
+					// a bare continuation names no subject; try the left
+					// clause's players as the elided subject (last for
+					// that-relatives, first for and-continuations)
 					FactIndexEntry re = ResolveClause(right, out rp);
-					if (re == null && splitter == " that " && lp.Count > 0)
+					if (re == null && lp.Count > 0)
 					{
 						re = ResolveClause(lp[lp.Count - 1] + " " + right, out rp);
+					}
+					if (re == null && lp.Count > 0)
+					{
+						re = ResolveClause(lp[0] + " " + right, out rp);
 					}
 					if (re == null) continue;
 					return new List<SideClause>
@@ -1108,11 +1113,18 @@ namespace Elysium.NormaOracle
 				}
 				return seq;
 			}
+			return BuildPathForSequence(seq, side, projVars) ? seq : null;
+		}
+
+		// populate any constraint role sequence (set-comparison sequence or
+		// an external set constraint) with the projected roles of a
+		// two-clause side plus the join path that grounds them
+		private bool BuildPathForSequence(ConstraintRoleSequence seq, List<SideClause> side, List<string> projVars)
+		{
 			string joinVar = InternalVar(side);
-			if (joinVar == null) return null;
+			if (joinVar == null) return false;
 			ObjectType rootType;
-			if (!myTypes.TryGetValue(joinVar, out rootType)) return null;
-			// projected roles first (sequence order = projVars order)
+			if (!myTypes.TryGetValue(joinVar, out rootType)) return false;
 			var projRole = new Dictionary<string, KeyValuePair<int, int>>(StringComparer.Ordinal);
 			foreach (string v in projVars)
 			{
@@ -1126,7 +1138,7 @@ namespace Elysium.NormaOracle
 						found = true;
 					}
 				}
-				if (!found) return null;
+				if (!found) return false;
 			}
 			foreach (string v in projVars)
 			{
@@ -1142,7 +1154,7 @@ namespace Elysium.NormaOracle
 			for (int c = 0; c < side.Count; c++)
 			{
 				int joinAt = side[c].Players.IndexOf(joinVar);
-				if (joinAt < 0) return null;
+				if (joinAt < 0) return false;
 				var sub = new RoleSubPath(myStore);
 				lead.SubPathCollection.Add(sub);
 				var entry = new PathedRole(sub, side[c].Entry.Roles[joinAt]);
@@ -1166,11 +1178,11 @@ namespace Elysium.NormaOracle
 				{
 					if (l.Role == role) { link = l; break; }
 				}
-				if (link == null || !stepPathed.ContainsKey(v)) return null;
+				if (link == null || !stepPathed.ContainsKey(v)) return false;
 				var crp = new ConstraintRoleProjection(jpp, link);
 				new ConstraintRoleProjectedFromPathedRole(crp, stepPathed[v]);
 			}
-			return seq;
+			return true;
 		}
 
 		private bool BuildTextual(string kind, string s)
@@ -1287,6 +1299,36 @@ namespace Elysium.NormaOracle
 					}
 				}
 				AddNote(kind, s, "clauses beyond the two-clause chain builder");
+				return true;
+			}
+
+			// external uniqueness: "For each A and B, at most one S <c1> and
+			// <c2>" — the listed players live on different fact types joined
+			// through the shared subject; a UniquenessConstraint (external)
+			// carrying its join path
+			if (kind == "external-uc")
+			{
+				Match xu = Regex.Match(body, @"^For each (.+?), at most one ([\w :]+?) (.+)$");
+				if (xu.Success)
+				{
+					var listNames = Regex.Split(xu.Groups[1].Value, @"\s+and\s+|,")
+						.Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+					string subject = xu.Groups[2].Value.Trim();
+					var side = ParseSide(subject + " " + xu.Groups[3].Value.Trim());
+					if (side != null && side.Count == 2 && listNames.Count >= 2)
+					{
+						UniquenessConstraint uc = new UniquenessConstraint(myStore);
+						uc.Model = myModel;
+						if (BuildPathForSequence(uc, side, listNames))
+						{
+							Count("external uniqueness constraint (join path)");
+							myMapLog.Add("external UC built: " + Shorten(s));
+							return true;
+						}
+						uc.Delete();
+					}
+				}
+				AddNote(kind, s, "external uniqueness beyond the two-clause builder");
 				return true;
 			}
 
@@ -1684,7 +1726,19 @@ namespace Elysium.NormaOracle
 					Regex.IsMatch(tail, @"\bsome\b") ? "some" : null;
 				if (quantF == null) return false;
 				var span = RolesFor(listNames, players, roles);
-				if (span == null) return false;
+				if (span == null)
+				{
+					// the listed players span more than one fact type: an
+					// EXTERNAL uniqueness (built with its join path in the
+					// textual phase, when every fact exists)
+					if (quantF != "some" && body.Contains(" and "))
+					{
+						myTextual.Add(new KeyValuePair<string, string>("external-uc", s));
+						Count("external uniqueness (queued for join-path build)");
+						return true;
+					}
+					return false;
+				}
 				if (span.Count == roles.Count)
 				{
 					// "For each A and B, that A ... that B at most once" over the whole fact
