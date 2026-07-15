@@ -17,8 +17,9 @@ Failure Type is a value type.
 Severity is a value type.
   The possible values of Severity are 'error', 'warning', 'info'.
   The data type of Severity is text.
-Confidence is a value type.
-  The data type of Confidence is decimal.
+<!-- exec (2026-07-16): Confidence retired — roleless orphan, superseded by
+     induction.md's Confidence Score (Hypothesis Candidate has Confidence
+     Score). See the retirement note in core.md's value-type roster. -->
 
 ## Fact Types
 
