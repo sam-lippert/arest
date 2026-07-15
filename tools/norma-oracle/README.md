@@ -50,7 +50,7 @@ Known NORMA-inherent behaviors (verified, not harness defects):
   an explicitly objectified type (API) its own identity table and
   occasionally absorbs it into the fact tables that already carry its
   identity — both are valid RMAP outcomes; the tie-break is
-  nondeterministic inside the bridge (82 vs 83 tables run-to-run).
+  nondeterministic inside the bridge (the objectified type's identity table appears or is absorbed run-to-run; one table of difference either way).
 
 Requires: NORMA VSIX installed in VS (assembly paths in Program.cs), .NET
 Framework 4.8, dotnet SDK to build.

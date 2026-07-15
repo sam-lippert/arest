@@ -46,7 +46,7 @@ Object Type 'Design Note' has Format 'text'.
 
 ## Entity Types
 
-Schema Design(.name) is an entity type.
+Schema Design is an entity type.
 Schema Design is a subtype of Resource.
 
 ## Value Types
@@ -133,7 +133,7 @@ columns carry their qualifications).
 
 ## Entity Types
 
-Relational Mapping(.name) is an entity type.
+Relational Mapping is an entity type.
 Relational Mapping is a subtype of Resource.
 
 ## Fact Types

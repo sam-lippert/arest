@@ -483,7 +483,17 @@ namespace Elysium.NormaOracle
 			{
 				if (existing == super) { Count("subtype declaration"); return; }
 			}
-			SubtypeFact.Create(sub, super);
+			SubtypeFact subtypeFact = SubtypeFact.Create(sub, super);
+			// Halpin §6.7: "By default, a subtype inherits the primary
+			// reference scheme of the root supertype." SubtypeFact.Create
+			// wires ProvidesPreferredIdentifier only for value types; an
+			// entity subtype with no local reference scheme takes its
+			// preferred identification through its first supertype path.
+			if (!sub.IsValueType && sub.ResolvedPreferredIdentifier == null)
+			{
+				subtypeFact.ProvidesPreferredIdentifier = true;
+				Count("subtype provides preferred identification (Halpin 6.7)");
+			}
 			Count("subtype declaration");
 		}
 

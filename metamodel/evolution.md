@@ -2,7 +2,7 @@
 
 ## Entity Types
 
-Domain Change(.Change Id) is an entity type.
+Domain Change is an entity type.
 Domain Change is a subtype of Resource.
   <!-- elysium-audit: joins the established schema-entity-as-Resource
        pattern (core.md: Event Type, Status, Constraint, Derivation Rule
@@ -10,7 +10,7 @@ Domain Change is a subtype of Resource.
        (`Violation is triggered by Resource`, `Failure is triggered by
        Resource`) type-check against a Domain Change — the validity rules
        below join through them. -->
-Signal(.Signal Id) is an entity type.
+Signal is an entity type.
 Signal is a subtype of Resource.
 <!-- elysium-audit I+J (NORMA CompatibleSupertypesError x4; Samuel's
      ontology lens, 2026-07-15): `Model Element(.id)` is retired. As a
@@ -29,8 +29,6 @@ Signal is a subtype of Resource.
 
 ## Value Types
 
-Change Id is a value type.
-Signal Id is a value type.
 Rationale is a value type.
 Signal Source is a value type.
   The possible values of Signal Source are 'Constraint Violation', 'Human', 'Error Pattern', 'Feature Request', 'Support Request'.

@@ -8,7 +8,7 @@
 
 ## Entity Types
 
-Resource(.Reference) is an entity type.
+Resource is an entity type.
   Resource is a subtype of Function.
 <!-- 2026-07-09 (Samuel, NORMA-grounded): Resource was a subtype of Noun, a
      GraphDL "Graph Schema is a Noun" artifact. In NORMA's own metamodel
@@ -29,13 +29,13 @@ Event is an entity type.
   Event is a subtype of Resource.
 Fact is an entity type.
   Fact is a subtype of Event.
-State Machine(.id) is an entity type.
+State Machine is an entity type.
 State Machine is a subtype of Resource.
-Guard Run(.Name) is an entity type.
+Guard Run is an entity type.
 Guard Run is a subtype of Resource.
-Citation(.id) is an entity type.
+Citation is an entity type.
 Citation is a subtype of Resource.
-User(.Email) is an entity type.
+User is an entity type.
 User is a subtype of Resource.
 
 ## Value Types
@@ -166,11 +166,18 @@ Resource belongs to Domain. *
        from the createEntity `domain` command field (ast.rs `same_identity` /
        `annotate_noun_domain`), which is the per-FILE namespace tag, not a
        stored population-level domain fact. -->
-<!-- elysium-batch ruling 4: `Resource has Reference` retired — the
-     (.Reference) reference mode already mints exactly this fact type
-     (NORMA: ReferenceMode/ReferenceModeKind machinery, ORM2Core.xsd), so
-     the explicit reading was the redundancy the validation deontic now
-     forbids. -->
+Resource has Reference.
+  Each Resource has exactly one Reference.
+  For each Reference, at most one Resource has that Reference.
+  <!-- elysium (Halpin sweep): reversal of the ruling-4 retirement, on
+       Halpin's own grounds. Ruling 4 removed this reading because the
+       (.Reference) reference mode minted the identical fact type. The
+       sweep then removed the mode itself — Resource is a subtype of
+       Function and inherits Function(.id) per §6.7's default — so
+       Reference is no longer identity but data: the runtime address, a
+       mandatory 1:1 secondary reference. With no mode there is no minted
+       fact type to restate, so the Reference Mode Redundancy deontic is
+       satisfied. -->
 Resource has Value.
   Each Resource has at most one Value.
 Resource is created by User.
@@ -192,6 +199,14 @@ Fact uses Resource for Role.
      role against Resource Role, which is exactly the note's prescription
      case: the objectified type hosts no other roles, so prefer the
      unnested schema. The ternary stays as the plain fact type above. -->
+
+### User
+User has Email.
+  Each User has exactly one Email.
+  For each Email, at most one User has that Email.
+  <!-- elysium (Halpin sweep): formerly User(.Email) — an email is
+       mutable data, not identity; identification inherits Function(.id)
+       and the email survives as a mandatory 1:1 secondary reference. -->
 
 ### State Machine (runtime instance of State Machine Definition)
 State Machine is instance of State Machine Definition.

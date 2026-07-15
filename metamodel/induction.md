@@ -21,9 +21,9 @@ loose; it rides Prop 3's licence and Codd's posture.
 -->
 
 ## Entity Types
-Hypothesis Candidate(.id) is an entity type.
+Hypothesis Candidate is an entity type.
 Hypothesis Candidate is a subtype of Resource.
-Scoring Rule(.id) is an entity type.
+Scoring Rule is an entity type.
 Scoring Rule is a subtype of Function.
 
 ## Value Types
