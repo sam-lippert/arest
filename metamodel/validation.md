@@ -48,7 +48,7 @@ It is obligatory that each subtype Object Type has some totality or exclusion Co
 
 ### Reference Mode Redundancy
 
-It is forbidden that a Reading restates an Object Type's Reference Mode as a separate Fact Type.
+It is forbidden that a Reading restates the Reference Mode of an Object Type as a separate Fact Type.
 <!-- elysium-batch ruling 4: un-commented and reworded to canonical
      vocabulary. NORMA models the machinery as ReferenceMode +
      ReferenceModeKind (General/Popular/UnitBased; ORM2Core.xsd): the mode

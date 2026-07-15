@@ -21,6 +21,7 @@ Confidence is a value type.
 
 ### Violation
 Violation belongs to Domain. *
+  Each Violation belongs to at most one Domain.
   <!-- ns-2 (ns-derive-population-domains): Violation does NOT store its own
        domain — it DERIVES it from the Function it is against, so domain stays
        single-sourced on Function (core.md "Function belongs to Domain"). The
@@ -43,6 +44,7 @@ Violation belongs to Batch.
 
 ### Failure
 Failure belongs to Domain. *
+  Each Failure belongs to at most one Domain.
   <!-- ns-2 (ns-derive-population-domains): Failure does NOT store its own
        domain — it DERIVES it from the Function (its operation / verb; a Verb
        is a subtype of Function) it is against, so domain stays single-sourced

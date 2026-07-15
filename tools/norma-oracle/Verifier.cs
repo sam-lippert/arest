@@ -38,6 +38,7 @@ namespace Elysium.NormaOracle
 			public List<Role> Roles;
 			public List<string> Players;
 			public string ReadingWords;
+			public string ReadingText;
 		}
 
 		public Verifier(Store store, ORMModel model)
@@ -152,7 +153,21 @@ namespace Elysium.NormaOracle
 			for (int i = 0; i < joined.Length; i++)
 			{
 				char c = joined[i];
-				if (c == '\'') { inQuote = !inQuote; }
+				if (c == '\'')
+				{
+					// word-boundary quotes only: an apostrophe with letters on
+					// both sides is a possessive, not a quote toggle
+					char prevC = i >= 1 ? joined[i - 1] : ' ';
+					char nextC = i + 1 < joined.Length ? joined[i + 1] : ' ';
+					if (!inQuote)
+					{
+						if (!char.IsLetterOrDigit(prevC)) inQuote = true;
+					}
+					else
+					{
+						if (!char.IsLetterOrDigit(nextC)) inQuote = false;
+					}
+				}
 				current.Append(c);
 				if (c == '.' && !inQuote)
 				{
@@ -177,14 +192,6 @@ namespace Elysium.NormaOracle
 		private static readonly Regex EntityDecl = new Regex(@"^([\w :]+?)\s*\(\s*\.\s*([\w ]+)\s*\)\s+is an entity type\.$");
 		private static readonly Regex EntityDeclBare = new Regex(@"^([\w :]+?)\s+is an entity type\.$");
 		private static readonly Regex ValueDecl = new Regex(@"^([\w :]+?)\s+is a value type\.$");
-
-		public void SeedObjectifications()
-		{
-			// objectifications are declared only in section headers; the
-			// readings that follow use them as ordinary players
-			EnsureType("API", false);
-			EnsureType("Constraint Span", false);
-		}
 
 		public void DeclarePass(IEnumerable<string> sentences)
 		{
@@ -325,6 +332,18 @@ namespace Elysium.NormaOracle
 				Count("derivation rule (deferred: no textual rule input in NORMA)");
 				return;
 			}
+			// derived subtype (Halpin Fig 13.29 form): "* Each Entity Type is an
+			// Object Type that is of OT Kind 'entity'." — map the subtype edge,
+			// defer the defining rule like any derivation
+			{
+				Match dm = Regex.Match(s, @"^\* Each ([\w ]+?) is an? ([\w ]+?) that\b");
+				if (dm.Success)
+				{
+					MapSubtype(dm.Groups[1].Value.Trim(), dm.Groups[2].Value.Trim());
+					Count("derived subtype (edge mapped; rule deferred)");
+					return;
+				}
+			}
 			// derivation-mode markers (* / ** / +) trailing a reading start the
 			// next split sentence; strip them before dispatch
 			s = System.Text.RegularExpressions.Regex.Replace(s, @"^[*+]+\s+", "");
@@ -402,6 +421,21 @@ namespace Elysium.NormaOracle
 			}
 			if (s.StartsWith("This association with "))
 			{
+				// FORML objectification-with-preferred-id: the sentence sits
+				// directly under the fact type it objectifies, so the context
+				// fact is the nested one. NORMA derives the nesting type's
+				// preferred identifier from the fact's spanning UC.
+				Match om = Regex.Match(s.TrimEnd('.'), @"provides the preferred identification scheme for ([\w :]+)$");
+				if (om.Success && myLastFact != null)
+				{
+					ObjectType nesting = EnsureType(om.Groups[1].Value.Trim(), false);
+					if (nesting.NestedFactType == null)
+					{
+						nesting.NestedFactType = myLastFact;
+					}
+					Count("objectification (nested fact type)");
+					return;
+				}
 				Count("objectification / external preferred id (deferred)");
 				return;
 			}
@@ -500,6 +534,21 @@ namespace Elysium.NormaOracle
 			{
 				return false;
 			}
+			// duplicate reading: the same text over the same players is the same
+			// fact type — reuse it (a second build would mint a
+			// DuplicateReadingSignatureError twin)
+			foreach (FactIndexEntry prior in myFactIndex)
+			{
+				if (string.Equals(prior.ReadingText, text, StringComparison.Ordinal) &&
+					prior.Players.SequenceEqual(players, StringComparer.Ordinal))
+				{
+					myLastFact = prior.Fact;
+					myLastRoles = prior.Roles;
+					myLastPlayers = prior.Players;
+					Count("duplicate reading (fact type reused)");
+					return true;
+				}
+			}
 			// prose guard: readings are short verb phrases; markdown/backticks,
 			// slashes-of-prose, or > 60 chars of connective text mean a stray
 			// documentation sentence, not a fact reading
@@ -539,9 +588,81 @@ namespace Elysium.NormaOracle
 				Roles = roles,
 				Players = players,
 				ReadingWords = Regex.Replace(text, @"\{\d\}", " ").Trim(),
+				ReadingText = text,
 			});
 			Count("fact-type reading (arity " + players.Count + ")");
 			return true;
+		}
+
+		private static List<UniquenessConstraint> InternalUCs(FactType fact)
+		{
+			var found = new List<UniquenessConstraint>();
+			foreach (RoleBase rb in fact.RoleCollection)
+			{
+				Role r = rb.Role;
+				foreach (ConstraintRoleSequence seq in r.ConstraintRoleSequenceCollection)
+				{
+					UniquenessConstraint uc = seq.Constraint as UniquenessConstraint;
+					if (uc != null && uc.IsInternal && !found.Contains(uc)) found.Add(uc);
+				}
+			}
+			return found;
+		}
+
+		// implication-aware internal-UC creation. A same-roles UC is a duplicate;
+		// an existing tighter UC (subset of the span) implies the wider one; an
+		// existing wider UC is itself implied by the new tighter span and is
+		// removed (NORMA reports implied internal UCs as model errors, so a
+		// green model cannot carry both — the census records every skip).
+		private void AddInternalUC(FactType fact, IList<Role> span, ConstraintModality modality, string kind)
+		{
+			foreach (UniquenessConstraint existing in InternalUCs(fact))
+			{
+				var existingRoles = existing.RoleCollection;
+				bool existingWithinSpan = true;
+				foreach (Role r in existingRoles)
+				{
+					if (!span.Contains(r)) { existingWithinSpan = false; break; }
+				}
+				if (existingWithinSpan)
+				{
+					Count(existingRoles.Count == span.Count
+						? "uniqueness skipped (duplicate of existing UC)"
+						: "uniqueness skipped (implied by tighter UC)");
+					return;
+				}
+				bool spanWithinExisting = true;
+				foreach (Role r in span)
+				{
+					if (!existingRoles.Contains(r)) { spanWithinExisting = false; break; }
+				}
+				if (spanWithinExisting)
+				{
+					existing.Delete();
+					Count("uniqueness narrowed (implied wider UC removed)");
+					break;
+				}
+			}
+			UniquenessConstraint uc = UniquenessConstraint.CreateInternalUniquenessConstraint(fact);
+			foreach (Role r in span) uc.RoleCollection.Add(r);
+			uc.Modality = modality;
+			Count(kind);
+		}
+
+		private void AddSimpleMandatory(Role role, ConstraintModality modality, string kind)
+		{
+			foreach (ConstraintRoleSequence seq in role.ConstraintRoleSequenceCollection)
+			{
+				MandatoryConstraint existing = seq.Constraint as MandatoryConstraint;
+				if (existing != null && existing.IsSimple)
+				{
+					Count("mandatory skipped (role already mandatory)");
+					return;
+				}
+			}
+			MandatoryConstraint mc = MandatoryConstraint.CreateSimpleMandatoryConstraint(role);
+			mc.Modality = modality;
+			Count(kind);
 		}
 
 		private bool MapConstraint(string s, ConstraintModality modality)
@@ -550,36 +671,59 @@ namespace Elysium.NormaOracle
 			List<string> players = myLastPlayers;
 			List<Role> roles = myLastRoles;
 			FactType target = myLastFact;
-			// cross-context constraint: if the sentence's leading player is not
-			// on the last fact type, retarget to the best fact in the index
-			// (leading player present + most reading words shared)
+			// cross-context constraint: a sentence keeps the running context
+			// only while the context fact's reading words fit at least as well
+			// as any fact in the index. Prefix-match alone is not enough — a
+			// constraint after the last reading of a section ("Each Domain
+			// Change proposes some Function." following the unary "Domain
+			// Change is applied.") shares the leading player with the wrong
+			// fact and must retarget by reading words.
 			{
 				string probe = body.StartsWith("For each ") ? body.Substring(9) : body.StartsWith("Each ") ? body.Substring(5) : body;
-				if (players == null || FindPlayerPrefix(probe, players) < 0)
+				// fit = reading-word overlap + how many of the fact's players the
+				// sentence mentions. Words alone misfire ("has" matches half the
+				// model); an inverse-reading constraint ("Each Resource has at
+				// most one State Machine." under "State Machine is for
+				// Resource.") is anchored by naming both players.
+				Func<List<string>, string, int> fit = delegate(List<string> ps, string words)
 				{
-					FactIndexEntry bestEntry = null;
-					int bestScore = -1;
-					foreach (FactIndexEntry entry in myFactIndex)
+					int sc = 0;
+					foreach (string w in words.Split(' '))
 					{
-						if (FindPlayerPrefix(probe, entry.Players) < 0) continue;
-						int score = 0;
-						foreach (string w in entry.ReadingWords.Split(' '))
-						{
-							if (w.Length > 2 && body.Contains(w)) score++;
-						}
-						if (score > bestScore)
-						{
-							bestScore = score;
-							bestEntry = entry;
-						}
+						if (w.Length > 2 && body.Contains(w)) sc++;
 					}
-					if (bestEntry != null && bestScore >= 1)
+					foreach (string p in ps)
 					{
-						players = bestEntry.Players;
-						roles = bestEntry.Roles;
-						target = bestEntry.Fact;
-						Count("constraint retargeted by fact index");
+						if (body.Contains(p)) sc++;
 					}
+					return sc;
+				};
+				int contextScore = -1;
+				if (players != null && FindPlayerPrefix(probe, players) >= 0)
+				{
+					FactIndexEntry ctx = myFactIndex.Find(e => e.Fact == target);
+					contextScore = ctx != null ? fit(ctx.Players, ctx.ReadingWords) : 0;
+				}
+				FactIndexEntry bestEntry = null;
+				int bestScore = -1;
+				foreach (FactIndexEntry entry in myFactIndex)
+				{
+					if (entry.Fact == target) continue;
+					if (FindPlayerPrefix(probe, entry.Players) < 0) continue;
+					int score = fit(entry.Players, entry.ReadingWords);
+					if (score > bestScore)
+					{
+						bestScore = score;
+						bestEntry = entry;
+					}
+				}
+				// strictly better than the running context wins; ties keep context
+				if (bestEntry != null && bestScore >= 1 && bestScore > contextScore)
+				{
+					players = bestEntry.Players;
+					roles = bestEntry.Roles;
+					target = bestEntry.Fact;
+					Count("constraint retargeted by fact index");
 				}
 			}
 
@@ -594,10 +738,7 @@ namespace Elysium.NormaOracle
 				var namesInList = m.Groups[1].Value.Split(',').Select(x => x.Trim()).ToList();
 				var span = RolesFor(namesInList, players, roles);
 				if (span == null) return false;
-				UniquenessConstraint uc = UniquenessConstraint.CreateInternalUniquenessConstraint(target);
-				foreach (Role r in span) uc.RoleCollection.Add(r);
-				uc.Modality = modality;
-				Count("spanning uniqueness");
+				AddInternalUC(target, span, modality, "spanning uniqueness");
 				return true;
 			}
 
@@ -608,10 +749,7 @@ namespace Elysium.NormaOracle
 				var listNames = Regex.Split(m.Groups[1].Value, @"\s+and\s+|,").Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
 				var span = RolesFor(listNames, players, roles);
 				if (span == null) return false;
-				UniquenessConstraint uc = UniquenessConstraint.CreateInternalUniquenessConstraint(target);
-				foreach (Role r in span) uc.RoleCollection.Add(r);
-				uc.Modality = modality;
-				Count("spanning uniqueness (pair form)");
+				AddInternalUC(target, span, modality, "spanning uniqueness (pair form)");
 				return true;
 			}
 
@@ -632,24 +770,16 @@ namespace Elysium.NormaOracle
 				if (span.Count == roles.Count)
 				{
 					// "For each A and B, that A ... that B at most once" over the whole fact
-					UniquenessConstraint ucAll = UniquenessConstraint.CreateInternalUniquenessConstraint(target);
-					foreach (Role r in span) ucAll.RoleCollection.Add(r);
-					ucAll.Modality = modality;
-					Count("spanning uniqueness (for-each all-roles)");
+					AddInternalUC(target, span, modality, "spanning uniqueness (for-each all-roles)");
 					return true;
 				}
 				if (quantF == "exactly one" || quantF == "at most one")
 				{
-					UniquenessConstraint uc = UniquenessConstraint.CreateInternalUniquenessConstraint(target);
-					foreach (Role r in span) uc.RoleCollection.Add(r);
-					uc.Modality = modality;
-					Count("uniqueness (for-each form)");
+					AddInternalUC(target, span, modality, "uniqueness (for-each form)");
 				}
 				if (quantF == "exactly one" || quantF == "some")
 				{
-					MandatoryConstraint mc = MandatoryConstraint.CreateSimpleMandatoryConstraint(span[0]);
-					mc.Modality = modality;
-					Count("mandatory (for-each form)");
+					AddSimpleMandatory(span[0], modality, "mandatory (for-each form)");
 				}
 				return true;
 			}
@@ -659,10 +789,6 @@ namespace Elysium.NormaOracle
 			{
 				string rest = body.Substring(5);
 				int keyIdx = FindPlayerPrefix(rest, players);
-				if (Environment.GetEnvironmentVariable("ORACLE_TRACE") == "1" && body.Contains("is used in some"))
-				{
-					Console.Error.WriteLine("TRACE body='" + body + "' rest='" + rest + "' keyIdx=" + keyIdx + " players=" + string.Join("|", players));
-				}
 				if (keyIdx >= 0)
 				{
 					string remainder = rest;
@@ -672,12 +798,11 @@ namespace Elysium.NormaOracle
 						remainder.Contains("at most once") ? "at most once" :
 						System.Text.RegularExpressions.Regex.IsMatch(remainder, @"\bsome\b") ? "some" :
 						remainder.Contains(" each ") ? "each" : null;
-					if (Environment.GetEnvironmentVariable("ORACLE_TRACE") == "1" && body.Contains("is used in some"))
-						Console.Error.WriteLine("TRACE quant=" + (quant ?? "NULL"));
 					if (quant == null) return false;
 					var span = new List<Role> { roles[keyIdx] };
-					// "at most one Y per Z" widens the key to include Z
-					var perMatch = System.Text.RegularExpressions.Regex.Match(remainder, @" per ([-\w :]+)$");
+					// "at most one Y per Z" / "at most one Y for each Z" widen
+					// the key to include Z (the n-1 span of an n-ary fact)
+					var perMatch = System.Text.RegularExpressions.Regex.Match(remainder, @"(?: per | for each )([-\w :]+)$");
 					if (perMatch.Success)
 					{
 						for (int i = 0; i < players.Count; i++)
@@ -687,34 +812,23 @@ namespace Elysium.NormaOracle
 								span.Add(roles[i]);
 							}
 						}
+						if (quant == "each") quant = "at most one";
 					}
 					if (quant == "at most once" || quant == "each")
 					{
-						UniquenessConstraint ucAll = UniquenessConstraint.CreateInternalUniquenessConstraint(target);
-						foreach (Role r in roles) ucAll.RoleCollection.Add(r);
-						ucAll.Modality = modality;
-						Count("spanning uniqueness (set restriction)");
+						AddInternalUC(target, roles, modality, "spanning uniqueness (set restriction)");
 						return true;
 					}
 					if (quant == "exactly one" || quant == "at most one")
 					{
-						UniquenessConstraint uc = UniquenessConstraint.CreateInternalUniquenessConstraint(target);
-						foreach (Role r in span) uc.RoleCollection.Add(r);
-						uc.Modality = modality;
-						Count("uniqueness (each-form)");
+						AddInternalUC(target, span, modality, "uniqueness (each-form)");
 					}
 					if (quant == "exactly one" || quant == "some")
 					{
-						MandatoryConstraint mc = MandatoryConstraint.CreateSimpleMandatoryConstraint(span[0]);
-						mc.Modality = modality;
-						Count("mandatory");
+						AddSimpleMandatory(span[0], modality, "mandatory");
 					}
-					if (Environment.GetEnvironmentVariable("ORACLE_TRACE") == "1" && body.Contains("is used in some"))
-						Console.Error.WriteLine("TRACE mapped quant=" + quant);
 					return true;
 				}
-				if (Environment.GetEnvironmentVariable("ORACLE_TRACE") == "1" && body.Contains("is used in some"))
-					Console.Error.WriteLine("TRACE fell out: keyIdx<0");
 				return false;
 			}
 			return false;
@@ -780,25 +894,48 @@ namespace Elysium.NormaOracle
 		public static void DumpErrors(Store store, TextWriter w)
 		{
 			var groups = new Dictionary<string, List<string>>();
+			var expected = new List<string>();
 			foreach (ModelError err in store.ElementDirectory.FindElements<ModelError>(true))
 			{
 				string kind = err.GetDomainClass().Name;
+				string text = err.ErrorText;
+				// NORMA creates an implied objectification for every m:n fact
+				// type and gives each role a link fact type reading "{0} is
+				// involved in {1}" / "{1} involves {0}". On a RING fact both
+				// roles have the same player, so the two link readings are
+				// textually identical by construction — NORMA registers the
+				// collision as a duplicate signature. Inherent to ring m:n
+				// facts, not a metamodel defect (see README, ring-probe).
+				if (kind == "DuplicateReadingSignatureError" &&
+					(text.Contains(" is involved in ") || text.Contains(" involves ")))
+				{
+					expected.Add(text);
+					continue;
+				}
 				List<string> list;
 				if (!groups.TryGetValue(kind, out list)) groups[kind] = list = new List<string>();
-				list.Add(err.ErrorText);
+				list.Add(text);
 			}
 			int total = 0;
 			foreach (var kv in groups.OrderByDescending(g => g.Value.Count))
 			{
 				total += kv.Value.Count;
 				w.WriteLine("  {0} x{1}", kv.Key, kv.Value.Count);
-				foreach (string text in kv.Value.Take(4))
+				foreach (string text in kv.Value.Take(8))
 				{
 					w.WriteLine("      - " + text);
 				}
-				if (kv.Value.Count > 4) w.WriteLine("      ... and " + (kv.Value.Count - 4) + " more");
+				if (kv.Value.Count > 8) w.WriteLine("      ... and " + (kv.Value.Count - 8) + " more");
 			}
-			w.WriteLine(total == 0 ? "  (none)" : "  TOTAL ERRORS: " + total);
+			w.WriteLine(total == 0 ? "  (none)" : "  TOTAL BLOCKING ERRORS: " + total);
+			if (expected.Count > 0)
+			{
+				w.WriteLine("  expected (implied link-reading twins on ring m:n fact types): " + expected.Count);
+				foreach (string text in expected)
+				{
+					w.WriteLine("      ~ " + text);
+				}
+			}
 		}
 
 		public static void DumpRelational(Store store, System.Reflection.Assembly relationalAssembly, TextWriter w)

@@ -132,6 +132,57 @@ namespace Elysium.NormaOracle
 			ORMModel model = store.ElementDirectory.FindElements<ORMModel>(false).First();
 			Console.WriteLine("seed model: " + model.Name + ", intrinsic data types: " + model.DataTypeCollection.Count);
 
+			// ORACLE_RING_PROBE=1: instead of mapping the metamodel, build the
+			// minimal NORMA-only scenario — one entity type, one ring m:n fact
+			// (spanning UC), one unary fact — and dump the resulting model
+			// errors. Documents which errors NORMA produces BY CONSTRUCTION
+			// (implied-objectification link readings on rings), so the main
+			// report can classify them as expected rather than blocking.
+			if (Environment.GetEnvironmentVariable("ORACLE_RING_PROBE") == "1")
+			{
+				using (Transaction t = store.TransactionManager.BeginTransaction("ring probe"))
+				{
+					ObjectType thing = new ObjectType(store);
+					thing.Name = "ProbeThing";
+					thing.Model = model;
+					thing.ReferenceModeString = "id";
+					FactType ring = new FactType(store);
+					ring.Model = model;
+					Role r1 = new Role(store);
+					ring.RoleCollection.Add(r1);
+					r1.RolePlayer = thing;
+					Role r2 = new Role(store);
+					ring.RoleCollection.Add(r2);
+					r2.RolePlayer = thing;
+					ReadingOrder ro = new ReadingOrder(store);
+					ring.ReadingOrderCollection.Add(ro);
+					ro.RoleCollection.Add(r1);
+					ro.RoleCollection.Add(r2);
+					Reading ringReading = new Reading(store);
+					ro.ReadingCollection.Add(ringReading);
+					ringReading.Text = "{0} probes {1}";
+					UniquenessConstraint ringUC = UniquenessConstraint.CreateInternalUniquenessConstraint(ring);
+					ringUC.RoleCollection.Add(r1);
+					ringUC.RoleCollection.Add(r2);
+					FactType unary = new FactType(store);
+					unary.Model = model;
+					Role u1 = new Role(store);
+					unary.RoleCollection.Add(u1);
+					u1.RolePlayer = thing;
+					ReadingOrder uo = new ReadingOrder(store);
+					unary.ReadingOrderCollection.Add(uo);
+					uo.RoleCollection.Add(u1);
+					Reading unaryReading = new Reading(store);
+					uo.ReadingCollection.Add(unaryReading);
+					unaryReading.Text = "{0} is probed";
+					t.Commit();
+				}
+				Console.WriteLine();
+				Console.WriteLine("== RING PROBE: NORMA errors for {ring m:n fact, unary fact} alone ==");
+				Verifier.DumpErrors(store, Console.Out);
+				return 0;
+			}
+
 			string metamodelDir = args.Length > 0 ? args[0] : System.IO.Path.Combine("..", "..", "metamodel");
 			string[] files = System.IO.Directory.GetFiles(metamodelDir, "*.md");
 			Array.Sort(files, (x, y) => string.CompareOrdinal(
@@ -144,11 +195,6 @@ namespace Elysium.NormaOracle
 			}
 
 			Verifier verifier = new Verifier(store, model);
-			using (Transaction t = store.TransactionManager.BeginTransaction("seed"))
-			{
-				verifier.SeedObjectifications();
-				t.Commit();
-			}
 			using (Transaction t = store.TransactionManager.BeginTransaction("declarations"))
 			{
 				foreach (string f in files)
