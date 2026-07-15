@@ -1,37 +1,19 @@
 #!/usr/bin/env node
-// The thin JS runner: a mu-evaluator over the arest canon (Backus FFP —
-// atoms resolve through DEFS, numbers are selectors, sequences are
-// functional forms), executing the canon's rmap definition over the design
-// state the NORMA oracle emitted, and confirming the resulting schema
-// against NORMA's own RMAP output (norma-tables.json).
-//
-//   node run.js [--state <design-state.json>] [--tables <norma-tables.json>]
-//
-// Scope of the confirmation (documented, not silent):
-// - CLASSIFICATION + GROUPING are compared exactly: every fact type the
-//   canon separates (rule 1: no single-role key) must be a NORMA table
-//   (matched by generated fact name or objectifying-type name), and every
-//   NORMA fact-table must be canon-separated; every absorption key the
-//   canon derives (rule 2) must be a NORMA absorbing table, and vice versa.
-// - Column NAMING is out of scope: NORMA emits role-qualified names
-//   (citationText); the canon emits absorbed fact names. Counts reported.
-// - Value-domain-only tables (independent value types with no fact
-//   content, e.g. Code(value)) are NORMA data-type artifacts outside
-//   rmap's fact-type mapping; they are listed and excluded.
+// The checker: a quick-and-dirty mu over the arest canon (per the exec
+// ruling: never production — Rust->WASM generates the production
+// artifacts; this exists to hold the canon to its laws). Atoms resolve
+// through DEFS, numbers are selectors, sequences are functional forms.
+// ALL inputs and outputs are INTERSECTION SOURCE (the pure-math carrier
+// ruling): design-state and norma-answer are evaluated with the same
+// vocabulary binding as the canon itself; no JSON anywhere.
 "use strict";
 const fs = require("fs");
 const path = require("path");
 
-const args = process.argv.slice(2);
-function arg(name, dflt) {
-  const i = args.indexOf(name);
-  return i >= 0 ? args[i + 1] : dflt;
-}
 const root = path.join(__dirname, "..", "..");
-const statePath = arg("--state", path.join(root, "tools", "norma-oracle", "design-state.json"));
-const tablesPath = arg("--tables", path.join(root, "tools", "norma-oracle", "norma-tables.json"));
+const oracleDir = path.join(root, "tools", "norma-oracle");
 
-// ---- load the canon: representations ARE FFP objects ----
+// ---- vocabulary: representations ARE FFP objects ----
 const DEFS = Object.create(null);
 const DEF = (n, t) => { DEFS[n] = t; return t; };
 const A = x => x;
@@ -45,6 +27,9 @@ const mk = n => (...a) => {
 const S1 = mk(1), S2 = mk(2), S3 = mk(3), S4 = mk(4), S5 = mk(5),
       S6 = mk(6), S7 = mk(7), S8 = mk(8), S9 = mk(9);
 eval(fs.readFileSync(path.join(root, "arest"), "utf8"));
+const canonNames = new Set(Object.keys(DEFS));
+eval(fs.readFileSync(path.join(oracleDir, "design-state"), "utf8"));
+eval(fs.readFileSync(path.join(oracleDir, "norma-answer"), "utf8"));
 
 // ---- mu ----
 const isSeq = Array.isArray;
@@ -57,6 +42,7 @@ function deepEq(a, b) {
 const prims = {
   "id": x => x,
   "tl": x => x.slice(1),
+  "atom": x => (isSeq(x) ? "F" : "T"),
   "apndl": ([x, ys]) => [x, ...ys],
   "apndr": ([xs, y]) => [...xs, y],
   "distl": ([x, ys]) => ys.map(y => [x, y]),
@@ -112,44 +98,48 @@ function ev(f, x) {
   throw new Error("unevaluable representation: " + JSON.stringify(f));
 }
 
-// ---- design state -> canon operand ----
-const design = JSON.parse(fs.readFileSync(statePath, "utf8"));
-const norma = JSON.parse(fs.readFileSync(tablesPath, "utf8"));
-const facts = design.facts.map(f => ({
-  ...f,
-  ucs: f.ucs.length > 0 ? f.ucs : (f.arity === 1 ? [[1]] : [f.players.map((_, i) => i + 1)]),
-}));
-const fts = facts.map(f => [f.name, f.topPlayers, f.ucs, [], []]);
-const state = [fts, []];
+// ---- carriers: shape-driven unchunking. Long collections nest in
+// chunks of nine (recursively, so depth grows with size); consumers
+// flatten — through the canon's own theta:flatten — until every element
+// has the documented leaf shape.
+const flat1 = chunks => ev("theta:flatten", chunks);
+function unfold(x, leaf) {
+  if (!isSeq(x) || x.length === 0) return x;
+  let v = x;
+  while (!v.every(leaf)) v = flat1(v);
+  return v;
+}
+const isAtom = e => !isSeq(e);
+// an empty sequence is a spent chunk, not a row — rows carry at least one atom
+const isRow = e => isSeq(e) && e.length > 0 && e.every(isAtom);
+const isDescriptor = e => isSeq(e) && e.length === 5 && isAtom(e[0]) && isSeq(e[1]);
+const isPair = e => isSeq(e) && e.length === 2 && isAtom(e[0]);
+const fts = unfold(DEFS["state:fts"], isDescriptor)
+  .map(d => [d[0], d[1], d[2], d[3], unfold(d[4], isRow)]);
+const nestings = new Map(unfold(DEFS["state:nestings"], isPair).map(p => [p[0], p[1]]));
+const normaTables = unfold(DEFS["norma:tables"], isPair)
+  .map(t => ({ name: t[0], columns: unfold(t[1], isAtom) }));
+const state = [fts, unfold(DEFS["state:otpops"], isPair).map(p => [p[0], unfold(p[1], isAtom)])];
 
 // ---- execute the canon ----
-// rmap answers a STORE: a sequence of ⟨CELL, name, rows⟩ (Backus 13.3.4/14.3);
-// rmap:schema answers the same content as full fact-type descriptors —
-// output type = input type, the closure surface for the laws below.
 const store = ev("rmap", state);
 const schema = ev("rmap:schema", state);
 const [groupDescs, projDescs] = schema;
 const canonSeparate = projDescs.map(d => d[0]);
 const canonKeys = groupDescs.map(d => d[0]);
-const canonPairs = ev("rmap:functionals", fts).map(ft => [ev("rmap:keyplayer", ft), ft[0]]);
-fs.writeFileSync(path.join(__dirname, "js-schema.json"),
-  JSON.stringify({ store, schema }, null, 1));
+const populated = fts.filter(d => d[4].length > 0);
 
 // ---- laws, canon-evaluated ----
 const laws = [];
-// L1 (fixpoint): re-classifying the emitted schema reproduces it — the
-// group descriptors (single-role key on position 1) re-absorb to their own
-// names; the projection descriptors re-separate unchanged.
+// L1 fixpoint
 const schema2 = ev("rmap:schema", [[...groupDescs, ...projDescs], []]);
-const keys2 = schema2[0].map(d => d[0]);
-const seps2 = schema2[1].map(d => d[0]);
-laws.push(["L1 fixpoint: keys", JSON.stringify(keys2.sort()) === JSON.stringify([...canonKeys].sort())]);
-laws.push(["L1 fixpoint: separations", JSON.stringify(seps2.sort()) === JSON.stringify([...canonSeparate].sort())]);
+laws.push(["L1 fixpoint: keys",
+  JSON.stringify(schema2[0].map(d => d[0]).sort()) === JSON.stringify([...canonKeys].sort())]);
+laws.push(["L1 fixpoint: separations",
+  JSON.stringify(schema2[1].map(d => d[0]).sort()) === JSON.stringify([...canonSeparate].sort())]);
 laws.push(["L1 fixpoint: projections pass through unchanged",
   schema2[1].every(d2 => projDescs.some(d => deepEq(d, d2)))]);
-// L2 (a table IS fetch): Backus's up-arrow-n applied to the emitted store
-// returns the cell contents — Codd's restrict-then-project on the name
-// component, executed through the canon's own ast:Fetch builder.
+// L2 table IS fetch
 let l2 = true, l2note = "";
 try {
   for (const probe of [canonSeparate[0], canonKeys[0]]) {
@@ -159,49 +149,92 @@ try {
   }
 } catch (e) { l2 = false; l2note = " (" + e.message + ")"; }
 laws.push(["L2 fetch = restrict-project: table access through ast:Fetch" + l2note, l2]);
+// L3 origin boundary: manifest:origins over the canon-as-store agrees with
+// the readings' boundary rows — compiled names are exactly the DEFs, and
+// every hand-declared registered name is in the computed registered set
+let l3 = true, l3notes = [];
+try {
+  const canonStore = Object.keys(DEFS)
+    .filter(n => canonNames.has(n))
+    .map(n => ["CELL", n, DEFS[n]]);
+  const origins = ev("manifest:origins", canonStore);
+  const compiled = new Set(origins.filter(r => r[1] === "compiled").map(r => r[0]));
+  const registered = new Set(origins.filter(r => r[1] === "registered").map(r => r[0]));
+  const defNames = new Set(canonStore.map(c => c[1]));
+  if (compiled.size !== defNames.size || ![...defNames].every(n => compiled.has(n))) {
+    l3 = false; l3notes.push("compiled set != DEF names");
+  }
+  const originFt = fts.find(d => d[0] === "FunctionHasDefinitionOrigin");
+  const handRegistered = originFt
+    ? originFt[4].filter(r => r[1] === "registered").map(r => r[0])
+    : [];
+  const missing = handRegistered.filter(n => !registered.has(n));
+  if (missing.length > 0) {
+    l3 = false;
+    l3notes.push("boundary rows not in computed registered set: " + missing.join(", "));
+  }
+  const extras = [...registered].filter(n => typeof n === "string" && !handRegistered.includes(n));
+  laws.push(["L3 origin boundary: compiled = DEFs (" + compiled.size + "), hand rows (" +
+    handRegistered.length + ") all computed-registered" +
+    (l3notes.length ? " — " + l3notes.join("; ") : ""), l3]);
+  console.log("  L3 computed-registered beyond the hand rows (forms, marks, data atoms): " + extras.length);
+} catch (e) {
+  laws.push(["L3 origin boundary (" + e.message + ")", false]);
+}
+// L4 population consistency: every DECLARED single-role key holds in the
+// attributed population (csdp:s4's induction must rediscover it)
+let l4 = true;
+let induceChecked = 0, induceCandidates = 0;
+const l4failures = [];
+for (const d of populated) {
+  const inducedRaw = ev("csdp:single_key_positions", d);
+  const induced = new Set(inducedRaw);
+  const declaredSingles = d[2].filter(u => isSeq(u) && u.length === 1).map(u => u[0]);
+  induceChecked++;
+  induceCandidates += Math.max(0, induced.size - declaredSingles.length);
+  for (const p of declaredSingles) {
+    if (!induced.has(p)) {
+      l4 = false;
+      if (l4failures.length < 8) l4failures.push(d[0] + " declared key position " + p + " violated by rows");
+    }
+  }
+}
+laws.push(["L4 population consistency: declared keys hold in " + induceChecked + " populated fact types", l4]);
+for (const f of l4failures) console.log("  L4 violation: " + f);
 
-// ---- compare against NORMA ----
+// ---- NORMA comparison ----
 const norm = s => s.replace(/[^A-Za-z0-9]/g, "").toLowerCase();
 const byName = new Map();
-for (const f of facts) {
-  byName.set(norm(f.name), f);
-  if (f.nesting) byName.set(norm(f.nesting), f);
+for (const d of fts) {
+  byName.set(norm(d[0]), d);
+  const nest = nestings.get(d[0]);
+  if (nest) byName.set(norm(nest), d);
 }
 const canonSeparateSet = new Set(canonSeparate.map(norm));
-const canonKeySet = new Set(canonKeys.map(norm));
-
-const valueTables = [];
-const factTables = [];
-const absorbingTables = [];
-for (const t of norma.tables) {
+const valueTables = [], factTables = [], absorbingTables = [];
+for (const t of normaTables) {
   if (t.columns.length === 1 && t.columns[0] === "value") valueTables.push(t.name);
   else if (byName.has(norm(t.name))) factTables.push(t.name);
   else absorbingTables.push(t.name);
 }
-
 const mismatches = [];
 const notes = [];
 for (const t of factTables) {
-  const f = byName.get(norm(t));
-  const sep = canonSeparateSet.has(norm(f.name)) ||
-              (f.nesting && canonSeparateSet.has(norm(f.nesting))) ||
-              canonSeparate.some(n => norm(n) === norm(f.name));
+  const d = byName.get(norm(t));
+  const nest = nestings.get(d[0]);
+  const sep = canonSeparateSet.has(norm(d[0])) || (nest && canonSeparateSet.has(norm(nest)));
   if (!sep) mismatches.push("NORMA separates '" + t + "' but the canon absorbed it");
 }
 for (const name of canonSeparate) {
-  const f = byName.get(norm(name));
-  const label = f && f.nesting ? f.nesting : name;
-  const present = norma.tables.some(t => norm(t.name) === norm(name) ||
-                                         (f && f.nesting && norm(t.name) === norm(f.nesting)));
+  const d = byName.get(norm(name));
+  const nest = d ? nestings.get(d[0]) : null;
+  const label = nest || name;
+  const present = normaTables.some(t => norm(t.name) === norm(name) ||
+                                        (nest && norm(t.name) === norm(nest)));
   if (present) continue;
-  // documented NORMA tie-break: an explicitly objectified type's identity
-  // table is sometimes absorbed into a fact table that already carries its
-  // identity columns (see the oracle README). Accept when some table's
-  // columns cover every player of the fact.
-  const carrier = f && norma.tables.find(t =>
-    f.topPlayers.every(p => t.columns.some(c => norm(c).startsWith(norm(p)))) ||
-    f.players.every(p => t.columns.some(c => norm(c).startsWith(norm(p)))));
-  if (f && f.nesting && carrier) {
+  const carrier = d && normaTables.find(t =>
+    d[1].every(p => t.columns.some(c => norm(c).startsWith(norm(p)))));
+  if (d && nest && carrier) {
     notes.push("canon separates '" + label + "'; NORMA absorbed its identity into '" +
       carrier.name + "' (objectified-identity tie-break, both valid per oracle README)");
   } else {
@@ -209,39 +242,54 @@ for (const name of canonSeparate) {
   }
 }
 for (const t of absorbingTables) {
-  if (!canonKeySet.has(norm(t))) {
+  if (!canonKeys.some(k => norm(k) === norm(t))) {
     mismatches.push("NORMA absorbing table '" + t + "' is not a canon rule-2 key");
   }
 }
 for (const k of canonKeys) {
-  // a rule-2 key needs a NORMA table carrying its absorbed columns; an
-  // objectified type's fact table doubles as its absorbing table
-  // (ConstraintSpan carries autofillsFromSuperset)
-  if (!norma.tables.some(t => norm(t.name) === norm(k))) {
+  if (!normaTables.some(t => norm(t.name) === norm(k))) {
     mismatches.push("canon rule-2 key '" + k + "' has no NORMA table to absorb into");
   }
 }
 
+// ---- checker answer, in the intersection dialect ----
+function emit(x) {
+  if (typeof x === "number") return "N(" + x + ")";
+  if (typeof x === "string") {
+    if (x.indexOf('"') >= 0) throw new Error("double quote in atom");
+    return 'A("' + x + '")';
+  }
+  if (isSeq(x)) {
+    if (x.length === 0) return "PHI()";
+    if (x.length <= 9) return "S" + x.length + "(" + x.map(emit).join(", ") + ")";
+    const chunks = [];
+    for (let i = 0; i < x.length; i += 9) chunks.push(x.slice(i, i + 9));
+    return emit(chunks);
+  }
+  throw new Error("unemittable: " + typeof x);
+}
+fs.writeFileSync(path.join(__dirname, "checker-answer"),
+  '(\n"THE CHECKER ANSWER in INTERSECTION SOURCE (generated by js-runner; regenerate, never edit). checker:store — the store rmap answered: entity cells with wide rows, relation cells with their populations.",\n\nDEF("checker:store", ' +
+  emit(store) + ")\n)\n");
+
 // ---- report ----
-console.log("arest DEFs loaded:", Object.keys(DEFS).length);
-console.log("design state:", facts.length, "fact types");
+console.log("arest DEFs loaded:", canonNames.size, "— carriers:",
+  fts.length, "fact types,", populated.length, "populated,",
+  state[1].length, "entity populations,", normaTables.length, "NORMA tables");
 console.log("canon rmap output: a STORE of", store.length, "cells",
   "(" + canonKeys.length, "entity cells +", canonSeparate.length, "relation cells)");
+const fnGroup = groupDescs.find(d => d[0] === "Function");
+if (fnGroup) {
+  console.log("Function entity cell:", fnGroup[4].length, "wide rows (sample:",
+    JSON.stringify(fnGroup[4][0] ? fnGroup[4][0].slice(0, 4) : null), "...)");
+}
 for (const [name, ok] of laws) console.log((ok ? "  law OK: " : "  LAW FAILED: ") + name);
-if (laws.some(l => !l[1])) process.exitCode = 1;
-console.log("NORMA output:", norma.tables.length, "tables",
-  "(" + absorbingTables.length, "absorbing +", factTables.length, "fact tables +",
-  valueTables.length, "value-domain-only, excluded)");
-console.log("absorption keys (canon):", canonKeys.join(", "));
-console.log("absorbing tables (NORMA):", absorbingTables.join(", "));
-const absorbedColumnCount = canonPairs.length;
-console.log("absorbed fact types (canon rule 2):", absorbedColumnCount,
-  "— column naming out of scope, see header");
+console.log("  L4 induced-beyond-declared key candidates (small-sample, informational):", induceCandidates);
 for (const n of notes) console.log("  note: " + n);
 if (mismatches.length === 0) {
   console.log("SCHEMA MATCH: canon rmap and NORMA RMAP agree on classification and grouping.");
 } else {
   console.log("SCHEMA MISMATCHES: " + mismatches.length);
   for (const m of mismatches) console.log("  - " + m);
-  process.exitCode = 1;
 }
+if (laws.some(l => !l[1]) || mismatches.length > 0) process.exitCode = 1;
