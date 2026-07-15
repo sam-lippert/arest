@@ -232,8 +232,9 @@ for (const name of canonSeparate) {
   const present = normaTables.some(t => norm(t.name) === norm(name) ||
                                         (nest && norm(t.name) === norm(nest)));
   if (present) continue;
-  const carrier = d && normaTables.find(t =>
-    d[1].every(p => t.columns.some(c => norm(c).startsWith(norm(p)))));
+  const carrier = d && (
+    normaTables.find(t => nest && norm(t.name).startsWith(norm(nest))) ||
+    normaTables.find(t => d[1].every(p => t.columns.some(c => norm(c).startsWith(norm(p))))));
   if (d && nest && carrier) {
     notes.push("canon separates '" + label + "'; NORMA absorbed its identity into '" +
       carrier.name + "' (objectified-identity tie-break, both valid per oracle README)");

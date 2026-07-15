@@ -543,8 +543,14 @@ If some Role is used in some Reading where some Fact Type has that Reading then 
 If some Fact uses some Resource for some Role then that Fact is of some Fact Type that has that Role.
 If some Fact uses some Resource for some Role then that Resource is instance of some Object Type that plays that Role.
 If some Fact Type defines some Fact then some Resource that is that Fact is instance of some Object Type that is that Fact Type.
-If some Predicate references some Fact that is of some Fact Type then that Predicate uses some Reading where that Fact Type has that Reading.
-If some Guard Run is for some Guard and that Guard Run references some Fact then that Guard references some Fact Type that defines that Fact.
+If some Fact is referenced by some Predicate and that Fact is of some Fact Type then some Reading is used by that Predicate where that Fact Type has that Reading.
+If some Guard Run is for some Guard and that Guard Run references some Fact then that Guard references some Fact Type where that Fact is of that Fact Type.
+<!-- exec (canonical alignment, 2026-07-16): both sentences above were
+     phrased through INVERSE readings never declared ("Predicate uses
+     Reading" for `Reading is used by Predicate`; "Fact Type defines
+     Fact" for `Fact is of Fact Type`) — parseable by charity only.
+     Reworded to the declared reading directions; both now build as real
+     NORMA subset constraints with join paths. -->
 If some State Machine is currently in some Status then that Status is defined in some State Machine Definition where that State Machine is instance of that State Machine Definition.
 If some API accepts some Object Type as parameter and some other Object Type is subtype of that Object Type then that API accepts that subtype Object Type as parameter.
 <!-- exec-4 adjudication (2026-07-15): the two Format subset sentences

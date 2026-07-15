@@ -459,7 +459,8 @@ namespace Elysium.NormaOracle
 					string child = part.Trim();
 					if (child.Length != 0) MapSubtype(child, parent);
 				}
-				Count("subtype exclusivity (subtypes mapped; exclusion constraint deferred)");
+				myTextual.Add(new KeyValuePair<string, string>("subtype-exclusion", s));
+				Count("subtype exclusivity (subtypes mapped)");
 				return;
 			}
 			if ((m = PossibleValues.Match(s)).Success)
@@ -521,14 +522,6 @@ namespace Elysium.NormaOracle
 				// fact is the nested one. NORMA derives the nesting type's
 				// preferred identifier from the fact's spanning UC.
 				Match om = Regex.Match(s.TrimEnd('.'), @"provides the preferred identification scheme for ([\w :]+)$");
-				if (om.Success && !myTypes.ContainsKey(om.Groups[1].Value.Trim()))
-				{
-					// NORMA emits association lines for its IMPLIED
-					// objectifications too (generated space-free names never
-					// declared as types); machinery surface, not model
-					Count("objectification (implied machinery skipped)");
-					return;
-				}
 				if (om.Success && myLastFact != null)
 				{
 					// Halpin, "Objectification and Atomicity" (2020-04-28):
@@ -805,6 +798,11 @@ namespace Elysium.NormaOracle
 			return edges;
 		}
 
+		public bool HasType(string name)
+		{
+			return myTypes.ContainsKey(name);
+		}
+
 		public IEnumerable<KeyValuePair<string, int>> PopulationCensus()
 		{
 			foreach (FactIndexEntry entry in myFactIndex)
@@ -963,6 +961,7 @@ namespace Elysium.NormaOracle
 			note.Text = sentence;
 			note.Model = myModel;
 			Count("textual constraint (model note: " + kind + ", " + reason + ")");
+			myMapLog.Add("note (" + reason + "): " + Shorten(sentence));
 		}
 
 		private FactIndexEntry FindRingEntry(string player, string words)
@@ -1021,19 +1020,157 @@ namespace Elysium.NormaOracle
 			string words = Regex.Replace(working, "+", " ");
 			words = Regex.Replace(words, @"\b(some|that|a|an|the)\b", " ");
 			words = Regex.Replace(words, @"\s+", " ").Trim();
+			string wordsKey = NormalizeWords(words);
 			foreach (FactIndexEntry entry in myFactIndex)
 			{
 				if (entry.Players.Count != players.Count) continue;
 				bool same = true;
 				for (int i = 0; i < players.Count && same; i++) same = entry.Players[i] == players[i];
 				if (!same) continue;
-				if (string.Equals(entry.ReadingWords, words, StringComparison.Ordinal))
+				// ReadingWords keeps interior placeholder gaps as doubled
+				// spaces ("uses  for" from a ternary); compare normalized
+				if (string.Equals(NormalizeWords(entry.ReadingWords), wordsKey, StringComparison.Ordinal))
 				{
 					playersOut = players;
 					return entry;
 				}
 			}
 			return null;
+		}
+
+		private sealed class SideClause
+		{
+			public FactIndexEntry Entry;
+			public List<string> Players;
+		}
+
+		// a side is one clause or a two-clause chain joined by
+		// where/and/that; backtracking split, right-to-left, each piece
+		// resolved against the fact index
+		private List<SideClause> ParseSide(string text)
+		{
+			List<string> players;
+			FactIndexEntry whole = ResolveClause(text, out players);
+			if (whole != null)
+			{
+				return new List<SideClause> { new SideClause { Entry = whole, Players = players } };
+			}
+			foreach (string splitter in new[] { " where ", " and ", " that " })
+			{
+				int at = text.Length;
+				while ((at = text.LastIndexOf(splitter, at - 1, StringComparison.Ordinal)) > 0)
+				{
+					string left = text.Substring(0, at);
+					string right = text.Substring(at + splitter.Length);
+					List<string> lp, rp;
+					FactIndexEntry le = ResolveClause(left, out lp);
+					if (le == null) continue;
+					// a bare "that <predicate>" continuation names no subject;
+					// prepend the left clause's last player
+					FactIndexEntry re = ResolveClause(right, out rp);
+					if (re == null && splitter == " that " && lp.Count > 0)
+					{
+						re = ResolveClause(lp[lp.Count - 1] + " " + right, out rp);
+					}
+					if (re == null) continue;
+					return new List<SideClause>
+					{
+						new SideClause { Entry = le, Players = lp },
+						new SideClause { Entry = re, Players = rp },
+					};
+				}
+			}
+			return null;
+		}
+
+		private static string InternalVar(List<SideClause> side)
+		{
+			if (side.Count != 2) return null;
+			foreach (string p in side[0].Players)
+			{
+				if (side[1].Players.Contains(p)) return p;
+			}
+			return null;
+		}
+
+		// one constraint role sequence for a side; a two-clause side gets a
+		// join path in NORMA's own serialized shape
+		private SetComparisonConstraintRoleSequence BuildSideSequence(List<SideClause> side, List<string> projVars)
+		{
+			var seq = new SetComparisonConstraintRoleSequence(myStore);
+			if (side.Count == 1)
+			{
+				foreach (string v in projVars)
+				{
+					int at = side[0].Players.IndexOf(v);
+					if (at < 0) return null;
+					seq.RoleCollection.Add(side[0].Entry.Roles[at]);
+				}
+				return seq;
+			}
+			string joinVar = InternalVar(side);
+			if (joinVar == null) return null;
+			ObjectType rootType;
+			if (!myTypes.TryGetValue(joinVar, out rootType)) return null;
+			// projected roles first (sequence order = projVars order)
+			var projRole = new Dictionary<string, KeyValuePair<int, int>>(StringComparer.Ordinal);
+			foreach (string v in projVars)
+			{
+				bool found = false;
+				for (int c = 0; c < side.Count && !found; c++)
+				{
+					int at = side[c].Players.IndexOf(v);
+					if (at >= 0)
+					{
+						projRole[v] = new KeyValuePair<int, int>(c, at);
+						found = true;
+					}
+				}
+				if (!found) return null;
+			}
+			foreach (string v in projVars)
+			{
+				var loc = projRole[v];
+				seq.RoleCollection.Add(side[loc.Key].Entry.Roles[loc.Value]);
+			}
+			var jp = new ConstraintRoleSequenceJoinPath(myStore);
+			jp.RoleSequence = seq;
+			var lead = new LeadRolePath(myStore);
+			jp.OwnedLeadRolePathCollection.Add(lead);
+			new RolePathObjectTypeRoot(lead, rootType);
+			var stepPathed = new Dictionary<string, PathedRole>(StringComparer.Ordinal);
+			for (int c = 0; c < side.Count; c++)
+			{
+				int joinAt = side[c].Players.IndexOf(joinVar);
+				if (joinAt < 0) return null;
+				var sub = new RoleSubPath(myStore);
+				lead.SubPathCollection.Add(sub);
+				var entry = new PathedRole(sub, side[c].Entry.Roles[joinAt]);
+				entry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+				foreach (string v in projVars)
+				{
+					var loc = projRole[v];
+					if (loc.Key != c) continue;
+					var step = new PathedRole(sub, side[c].Entry.Roles[loc.Value]);
+					step.PathedRolePurpose = PathedRolePurpose.SameFactType;
+					stepPathed[v] = step;
+				}
+			}
+			var jpp = new ConstraintRoleSequenceJoinPathProjection(jp, lead);
+			foreach (string v in projVars)
+			{
+				var loc = projRole[v];
+				Role role = side[loc.Key].Entry.Roles[loc.Value];
+				ConstraintRoleSequenceHasRole link = null;
+				foreach (ConstraintRoleSequenceHasRole l in ConstraintRoleSequenceHasRole.GetLinksToRoleCollection(seq))
+				{
+					if (l.Role == role) { link = l; break; }
+				}
+				if (link == null || !stepPathed.ContainsKey(v)) return null;
+				var crp = new ConstraintRoleProjection(jpp, link);
+				new ConstraintRoleProjectedFromPathedRole(crp, stepPathed[v]);
+			}
+			return seq;
 		}
 
 		private bool BuildTextual(string kind, string s)
@@ -1105,43 +1242,150 @@ namespace Elysium.NormaOracle
 				}
 			}
 
-			// direct subset: If <clause> then <clause> (single clauses, no joins)
+			// subset: If <side> then <side> — each side one clause (plain
+			// role sequence) or a two-clause chain (a real NORMA join path:
+			// root = the internal shared player, one sub-path per fact,
+			// PostInnerJoin entry + SameFactType step, projections from the
+			// stepped pathed roles; the shape NORMA itself serializes)
 			m = Regex.Match(body, @"^If (.+?) then (.+)$");
 			if (m.Success)
 			{
-				string ante = m.Groups[1].Value;
-				string cons = m.Groups[2].Value;
-				if (!ante.Contains(" and ") && !ante.Contains(" where ") &&
-					!cons.Contains(" and ") && !cons.Contains(" where ") &&
-					!Regex.IsMatch(cons, @" that (has|is of|holds) "))
+				var ante = ParseSide(m.Groups[1].Value);
+				var cons = ParseSide(m.Groups[2].Value);
+				if (ante != null && cons != null)
 				{
-					List<string> antePlayers, consPlayers;
-					FactIndexEntry a = ResolveClause(ante, out antePlayers);
-					FactIndexEntry c = ResolveClause(cons, out consPlayers);
-					if (a != null && c != null && a != c)
+					var anteVars = ante.SelectMany(c => c.Players).Distinct().ToList();
+					var consVars = cons.SelectMany(c => c.Players).Distinct().ToList();
+					var proj = consVars.Intersect(anteVars).Distinct().ToList();
+					// internal join vars must not be projection vars
+					if (ante.Count == 2)
 					{
-						var shared = antePlayers.Intersect(consPlayers).Distinct().ToList();
-						if (shared.Count > 0)
+						string v = InternalVar(ante);
+						if (v != null) proj.Remove(v);
+					}
+					if (cons.Count == 2)
+					{
+						string v = InternalVar(cons);
+						if (v != null) proj.Remove(v);
+					}
+					if (proj.Count > 0)
+					{
+						SetComparisonConstraintRoleSequence sub = BuildSideSequence(ante, proj);
+						SetComparisonConstraintRoleSequence super = BuildSideSequence(cons, proj);
+						if (sub != null && super != null)
 						{
 							SubsetConstraint sc = new SubsetConstraint(myStore);
 							sc.Model = myModel;
-							var sub = new SetComparisonConstraintRoleSequence(myStore);
-							var super = new SetComparisonConstraintRoleSequence(myStore);
-							foreach (string p in shared)
-							{
-								sub.RoleCollection.Add(a.Roles[antePlayers.IndexOf(p)]);
-								super.RoleCollection.Add(c.Roles[consPlayers.IndexOf(p)]);
-							}
 							sc.RoleSequenceCollection.Add(sub);
 							sc.RoleSequenceCollection.Add(super);
 							sc.Modality = modality;
-							Count("subset constraint (direct, " + shared.Count + "-role sequences)");
-							myMapLog.Add("subset built (" + shared.Count + "-role): " + Shorten(s));
+							bool joined = ante.Count > 1 || cons.Count > 1;
+							Count("subset constraint (" + (joined ? "join path" : "direct") + ", " + proj.Count + "-role sequences)");
+							myMapLog.Add("subset built (" + (joined ? "join path" : "direct") + "): " + Shorten(s));
 							return true;
 						}
 					}
 				}
-				AddNote(kind, s, "join path required");
+				AddNote(kind, s, "clauses beyond the two-clause chain builder");
+				return true;
+			}
+
+			// subtype exclusion: {A, B, C} are mutually exclusive subtypes of P
+			// — an exclusion constraint over the subtype-fact roles, NORMA's
+			// own modeling of exclusive subtypes
+			if (kind == "subtype-exclusion")
+			{
+				Match xm = ExclusiveSubtypes.Match(body + ".");
+				if (xm.Success)
+				{
+					string parent = xm.Groups[2].Value.Trim();
+					var sequences = new List<SetComparisonConstraintRoleSequence>();
+					foreach (string part in xm.Groups[1].Value.Split(','))
+					{
+						string child = part.Trim();
+						if (child.Length == 0) continue;
+						SubtypeFact found = null;
+						foreach (SubtypeFact sf in myStore.ElementDirectory.FindElements<SubtypeFact>(true))
+						{
+							if (!sf.IsDeleted && sf.Subtype != null && sf.Supertype != null &&
+								sf.Subtype.Name == child && sf.Supertype.Name == parent)
+							{
+								found = sf;
+								break;
+							}
+						}
+						if (found == null) { sequences = null; break; }
+						sequences.Add(null);
+						sequences[sequences.Count - 1] = new SetComparisonConstraintRoleSequence(myStore);
+					}
+					if (sequences != null && sequences.Count >= 2)
+					{
+						// attach sequences to the exclusion FIRST: NORMA's
+						// SubtypeMetaRole rule admits external constraints on
+						// subtype roles only when the owning constraint is
+						// already an exclusion
+						ExclusionConstraint xc = new ExclusionConstraint(myStore);
+						xc.Model = myModel;
+						foreach (var q in sequences) xc.RoleSequenceCollection.Add(q);
+						int i = 0;
+						foreach (string part in xm.Groups[1].Value.Split(','))
+						{
+							string child = part.Trim();
+							if (child.Length == 0) continue;
+							foreach (SubtypeFact sf in myStore.ElementDirectory.FindElements<SubtypeFact>(true))
+							{
+								if (!sf.IsDeleted && sf.Subtype != null && sf.Supertype != null &&
+									sf.Subtype.Name == child && sf.Supertype.Name == parent)
+								{
+									// NORMA admits external constraints on the
+									// SUPERTYPE meta role only (resx:
+									// SupertypeMetaRole.ExclusionMustBeSingleColumn)
+									sequences[i].RoleCollection.Add(sf.SupertypeRole.Role);
+									break;
+								}
+							}
+							i++;
+						}
+						Count("exclusion constraint (exclusive subtypes)");
+						return true;
+					}
+				}
+				AddNote(kind, s, "subtype facts not found");
+				return true;
+			}
+
+			// impossibility with a negated relative unary: "It is impossible
+			// that <A rel B> that is not <unary>" is the subset B ⊆ unary
+			m = Regex.Match(body, @"^It is impossible that (.+?) that is not (.+)$");
+			if (m.Success)
+			{
+				List<string> p1;
+				FactIndexEntry c1 = ResolveClause(m.Groups[1].Value, out p1);
+				if (c1 != null && p1.Count > 0)
+				{
+					string lastPlayer = p1[p1.Count - 1];
+					List<string> pu;
+					FactIndexEntry unary = ResolveClause(lastPlayer + " is " + m.Groups[2].Value.Trim(), out pu);
+					if (unary == null)
+					{
+						unary = ResolveClause(lastPlayer + " " + m.Groups[2].Value.Trim(), out pu);
+					}
+					if (unary != null && unary.Roles.Count == 1)
+					{
+						SubsetConstraint sc = new SubsetConstraint(myStore);
+						sc.Model = myModel;
+						var sub = new SetComparisonConstraintRoleSequence(myStore);
+						sub.RoleCollection.Add(c1.Roles[p1.Count - 1]);
+						var super = new SetComparisonConstraintRoleSequence(myStore);
+						super.RoleCollection.Add(unary.Roles[0]);
+						sc.RoleSequenceCollection.Add(sub);
+						sc.RoleSequenceCollection.Add(super);
+						Count("subset constraint (negated-unary impossibility)");
+						myMapLog.Add("subset built (negated-unary): " + Shorten(s));
+						return true;
+					}
+				}
+				AddNote(kind, s, "negated-unary form unresolved");
 				return true;
 			}
 
