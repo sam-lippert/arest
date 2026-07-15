@@ -6876,7 +6876,7 @@ DEF("system:pass_order",
 DEF("system:pass_bound",
     K(S1(S1(N(12))))),
 
-"THE VIEW PROJECTIONS (2026-07-08, the ui re-authoring's first slice — the binding doctrine): view(entity) = project(P, entity), Theorem 4 extended from actions to whole views as PURE defs answering abstract element trees as VALUES, never stored facts. system:view_menu over ⟨status, sm-triples⟩ answers ⟨menu, ⟨⟨button, event, to⟩…⟩⟩ — one button per transition available FROM the status; the element vocabulary is the Component registry's Role names, so select_component resolves nodes to toolkit implementations and DEFS-registered render functions draw them.",
+"THE VIEW PROJECTIONS (2026-07-08, the ui re-authoring's first slice — the binding doctrine): view(entity) = project(P, entity), Thm 2 (thm:hateoas; Theorem 4 in pre-2026-07-13 drafts) extended from actions to whole views as PURE defs answering abstract element trees as VALUES, never stored facts. system:view_menu over ⟨status, sm-triples⟩ answers ⟨menu, ⟨⟨button, event, to⟩…⟩⟩ — one button per transition available FROM the status; the element vocabulary is the Component registry's Role names, so select_component resolves nodes to toolkit implementations and DEFS-registered render functions draw them.",
 
 DEF("system:view_menu",
     S3(A("CONS"),

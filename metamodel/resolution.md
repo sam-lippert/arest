@@ -55,7 +55,8 @@ Operation 'ask' is overridable.
 
 <!-- The REGISTERED class (Samuel, 2026-07-13): operations a host may serve
      through a registered function (kernel.register, origin=registered, the
-     Cor. 8 boundary) — an LLM shaping synthesize's wording under the name
+     Def 9 / Cor 5 (cor:boundary) surface — "Cor. 8" in the original note
+     matched no draft's numbering) — an LLM shaping synthesize's wording under the name
      llm:synthesize_shaper, an LLM judge flagging deontic-only validate
      entries under llm:validate_judge. The plain paths are the unchanged
      fallbacks; the kill switch retires a registration like any row. -->
