@@ -255,6 +255,53 @@ namespace Elysium.NormaOracle
 			Console.WriteLine();
 			Console.WriteLine("== RMAP: relational result ==");
 			Verifier.DumpRelational(store, assemblies[4], Console.Out);
+
+			// 5. Verbalization leg — NORMA's generate-only direction (the
+			// automated verbalizer of Halpin & Curland 2006). The harness
+			// parse leg carried sentences IN; this emits NORMA's own
+			// verbalization of the built model OUT: the whitepaper's nf
+			// round-trip demonstrated in both directions by the reference
+			// implementation. HTML is NORMA's native output; a tag-stripped
+			// text distillation is written alongside for reading and diffs.
+			Console.WriteLine();
+			Console.WriteLine("== VERBALIZATION: NORMA generate leg (nf out-direction) ==");
+			var verbalizeElements = new List<ModelElement>();
+			foreach (ObjectType ot in model.ObjectTypeCollection.OrderBy(o => o.Name, StringComparer.Ordinal))
+			{
+				if (!ot.IsImplicitBooleanValue)
+				{
+					verbalizeElements.Add(ot);
+				}
+			}
+			foreach (FactType ft in model.FactTypeCollection.OrderBy(f => f.Name, StringComparer.Ordinal))
+			{
+				if (ft.ImpliedByObjectification == null)
+				{
+					verbalizeElements.Add(ft);
+				}
+			}
+			VerbalizationManager verbalizationManager = VerbalizationManager.LoadFromDirectories(new string[] { "." });
+			var htmlBuffer = new System.Text.StringBuilder();
+			using (var htmlWriter = new System.IO.StringWriter(htmlBuffer))
+			{
+				verbalizationManager.Verbalize(store, htmlWriter, ORMCoreDomainModel.VerbalizationTargetName, verbalizeElements);
+			}
+			string html = htmlBuffer.ToString();
+			System.IO.File.WriteAllText("verbalization-report.html", html);
+			string text = System.Text.RegularExpressions.Regex.Replace(html, @"<(?:br|/p|/div)[^>]*>", "\n");
+			text = System.Text.RegularExpressions.Regex.Replace(text, @"<[^>]+>", "");
+			text = System.Net.WebUtility.HtmlDecode(text);
+			text = System.Text.RegularExpressions.Regex.Replace(text, @"[ \t]+\n", "\n");
+			text = System.Text.RegularExpressions.Regex.Replace(text, @"\n{3,}", "\n\n");
+			System.IO.File.WriteAllText("verbalization-report.txt", text.Trim() + "\n");
+			int sentenceCount = 0;
+			foreach (string line in text.Split('\n'))
+			{
+				if (line.Trim().Length > 0) sentenceCount++;
+			}
+			Console.WriteLine("  elements verbalized: " + verbalizeElements.Count);
+			Console.WriteLine("  verbalization lines: " + sentenceCount);
+			Console.WriteLine("  written: verbalization-report.html, verbalization-report.txt");
 			return 0;
 		}
 	}

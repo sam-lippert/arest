@@ -1,0 +1,2921 @@
+ORM2 Verbalization
+	
+		body, table { font-family: Tahoma; font-size: 8pt; color: DarkGreen; font-weight: normal; }
+		body { padding: 0em .1em; }
+		table.hidden, tr.hidden, td.hidden { margin: 0em; padding: 0em; border-collapse: collapse;}
+		td.hidden { vertical-align: top; }
+		table.hidden { display:inline; }
+		a {text-decoration:none; }
+		a:hover {background-color:infobackground; }
+		.objectType { color: Purple; font-weight: normal; }
+		.objectTypeMissing { color: Purple; font-weight: normal; }
+		.referenceMode { color: Brown; font-weight: normal; }
+		.predicateText { color: DarkGreen; font-weight: normal; }
+		.quantifier { color: MediumBlue; font-weight: bold; }
+		.primaryErrorReport { color: red; font-weight: bolder; }
+		.secondaryErrorReport { color: red; }
+		.verbalization { }
+		.indent { left: 20px; position: relative; }
+		.smallIndent { left: 8px; position: relative;}
+		.listSeparator { color: windowtext; font-weight: 200;}
+		.logicalOperator { color: MediumBlue; font-weight: bold;}
+		.note { color: Black; font-style: italic; font-weight: normal; }
+		.definition { color: Black; font-style: italic; font-weight: normal; }
+		.notAvailable { font-style: italic; }
+		.instance { color: Brown; font-weight: normal; }
+	
+
+API is an entity type.
+API objectifies “Fact Type is activated by Predicate”.
+
+Fact Types:
+Fact Type is involved in API.
+Predicate is involved in API.
+API accepts Object Type as parameter.
+APIAcceptsObjectTypeAsParameter is an entity type.
+APIAcceptsObjectTypeAsParameter objectifies “API accepts Object Type as parameter”.
+APIAcceptsObjectTypeAsParameter is independent (it may have instances that play no other roles).
+
+Fact Types:
+API is involved in APIAcceptsObjectTypeAsParameter.
+Object Type is involved in APIAcceptsObjectTypeAsParameter.
+Abstract SQL Type is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Conceptual Data Type has Abstract SQL Type.
+Alias is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Alias.
+Fact Type has Alias.
+Antecedent Clause is an entity type.
+Reference Scheme: Antecedent Clause has Antecedent Clause_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Antecedent Clause has Antecedent Clause_id.
+Each Antecedent Clause is an instance of Function.
+Derivation Rule has Antecedent Clause.
+Antecedent Clause has Clause Shape.
+Antecedent Clause_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Antecedent Clause has Antecedent Clause_id.
+Argument Length is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Set Comparison Constraint has Argument Length.
+Arity is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Fact Type has Arity.
+Authority Type is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Citation has Authority Type.
+The possible values of Authority Type are 'Constitutional', 'Statute', 'Regulation', 'Case', 'Rule-of-Court', 'Executive-Order', 'Treaty', 'Agency-Guidance', 'Industry-Standard', 'Administrative-Ruling', 'Runtime-Function', 'Federated-Fetch', 'Storage-Pin'.
+Batch is an entity type.
+Reference Scheme: Batch has Batch_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Batch has Batch_id.
+Each Batch is an instance of Resource.
+Violation belongs to Batch.
+Batch_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Batch has Batch_id.
+Binary Precision is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Facet has Binary Precision.
+Block Kind is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+CIDR Block has Block Kind.
+The possible values of Block Kind are 'internal-loopback', 'private-rfc1918', 'link-local', 'ipv6-loopback', 'ipv6-link-local', 'ipv6-unique-local'.
+Bound is an entity type.
+Reference Scheme: Bound has Bound_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Bound has Bound_id.
+Each Bound is an instance of Function.
+Value Range has lower Bound.
+Value Range has upper Bound.
+Bound has Lexical Value.
+Bound has Clusivity.
+Bound_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Bound has Bound_id.
+CIDR Block is an entity type.
+Reference Scheme: CIDR Block has CIDR Block_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+CIDR Block has CIDR Block_id.
+Each CIDR Block is an instance of Function.
+CIDR Block has Block Kind.
+CIDR Block_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+CIDR Block has CIDR Block_id.
+Cardinality Constraint is an entity type.
+Reference Scheme: Constraint has Constraint_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Each Cardinality Constraint is an instance of Constraint.
+Cardinality Constraint has Min Occurrence.
+Cardinality Constraint has Max Occurrence.
+Cell Name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Citation pins Cell Name.
+Cell Version Id is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Citation pins Cell Version Id.
+Change Id is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Domain Change has Change Id.
+Citation is an entity type.
+Reference Scheme: Citation has Citation_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Citation has Citation_id.
+Each Citation is an instance of Resource.
+Citation has Text.
+Citation has URI.
+Citation has Retrieval Date.
+Citation has Authority Type.
+Citation is backed by External System.
+Citation pins Cell Name.
+Citation pins Cell Version Id.
+Fact cites Citation.
+Fact Type cites Citation.
+Citation_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Citation has Citation_id.
+Clause Shape is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Antecedent Clause has Clause Shape.
+The possible values of Clause Shape are 'fact-type-literal', 'antecedent-role', 'negation', 'comparison', 'conjunction', 'quantified', 'unresolved'.
+Clusivity is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Bound has Clusivity.
+The possible values of Clusivity are 'inclusive', 'exclusive'.
+Conceptual Data Type is an entity type.
+Reference Scheme: Conceptual Data Type has Conceptual Data Type_code.
+Reference Mode: .code.
+Data Type: Text: Fixed Length (0).
+
+Fact Types:
+Conceptual Data Type has Conceptual Data Type_code.
+Each Conceptual Data Type is an instance of Function.
+Conceptual Data Type is in Data Type Group.
+Object Type has Conceptual Data Type.
+Conceptual Data Type has JSON Type.
+Conceptual Data Type has JSON Format.
+Conceptual Data Type has Abstract SQL Type.
+Format is built on Conceptual Data Type.
+Conceptual Data Type_code is a value type.
+Data Type: Text: Fixed Length (0).
+
+Fact Types:
+Conceptual Data Type has Conceptual Data Type_code.
+Confidence is a value type.
+Data Type: Text: Variable Length (0).
+
+Confidence Score is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Hypothesis Candidate has Confidence Score.
+Constraint is an entity type.
+Reference Scheme: Constraint has Constraint_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Constraint has Constraint_id.
+Each Constraint is an instance of Function.
+Each Set Comparison Constraint is an instance of Constraint.
+Each Frequency Constraint is an instance of Constraint.
+Each Cardinality Constraint is an instance of Constraint.
+Constraint spans Role.
+Constraint has modality of Modality Type.
+Constraint has Text.
+Constraint is semantic.
+Constraint has Constraint Match Keyword.
+Each Textual Constraint is an instance of Constraint.
+Violation is of Constraint.
+Constraint Match Keyword is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Constraint has Constraint Match Keyword.
+Constraint Span is an entity type.
+Constraint Span objectifies “Constraint spans Role”.
+
+Fact Types:
+Constraint is involved in Constraint Span.
+Role is involved in Constraint Span.
+Constraint Span autofills from superset.
+Constraint Type is an entity type.
+Reference Scheme: Constraint Type has Constraint Type_code.
+Reference Mode: .code.
+Data Type: Text: Fixed Length (0).
+
+Fact Types:
+Constraint Type has Constraint Type_code.
+Each Constraint Type is an instance of Function.
+Constraint Type has Name.
+Constraint Type has Constraint Type Label.
+Constraint Type has Constraint Type Family.
+Constraint Type has Violation Template.
+Constraint Type Family is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Constraint Type has Constraint Type Family.
+The possible values of Constraint Type Family are 'ring', 'uniqueness', 'mandatory', 'frequency', 'value', 'set-comparison', 'subset', 'equality', 'deontic', 'cardinality'.
+Constraint Type Label is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Constraint Type has Constraint Type Label.
+Constraint Type_code is a value type.
+Data Type: Text: Fixed Length (0).
+
+Fact Types:
+Constraint Type has Constraint Type_code.
+ConstraintHasConstraintMatchKeyword is an entity type.
+ConstraintHasConstraintMatchKeyword objectifies “Constraint has Constraint Match Keyword”.
+ConstraintHasConstraintMatchKeyword is independent (it may have instances that play no other roles).
+
+Fact Types:
+Constraint is involved in ConstraintHasConstraintMatchKeyword.
+Constraint Match Keyword is involved in ConstraintHasConstraintMatchKeyword.
+Constraint_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Constraint has Constraint_id.
+Data is a value type.
+Data Type: Text: Variable Length (0).
+
+Data Type Group is an entity type.
+Reference Scheme: Data Type Group has Data Type Group_code.
+Reference Mode: .code.
+Data Type: Text: Fixed Length (0).
+
+Fact Types:
+Data Type Group has Data Type Group_code.
+Each Data Type Group is an instance of Function.
+Data Type Group has Name.
+Conceptual Data Type is in Data Type Group.
+Data Type Group_code is a value type.
+Data Type: Text: Fixed Length (0).
+
+Fact Types:
+Data Type Group has Data Type Group_code.
+Definition Origin is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Function has Definition Origin.
+The possible values of Definition Origin are 'compiled', 'registered'.
+Derivation Mode is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Fact Type has Derivation Mode.
+The possible values of Derivation Mode are 'fully-derived', 'derived-and-stored', 'semi-derived'.
+Derivation Rule is an entity type.
+Reference Scheme: Derivation Rule has Derivation Rule_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Derivation Rule has Derivation Rule_id.
+Each Derivation Rule is an instance of Function.
+Derivation Rule introduces values.
+Derivation Rule reaches Derivation Rule.
+Derivation Rule has Text.
+Derivation Rule has antecedent Fact Type.
+Derivation Rule produces Fact Type.
+Derivation Rule depends on Derivation Rule.
+Derivation Rule has Join Path.
+Derivation Rule has Role Projection.
+Derivation Rule has Antecedent Clause.
+Derivation Rule_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Derivation Rule has Derivation Rule_id.
+Derivation Storage Type is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Fact Type has Derivation Storage Type.
+The possible values of Derivation Storage Type are 'stored', 'derived', 'derived-and-stored'.
+DerivationRuleDependsOnDerivationRule is an entity type.
+DerivationRuleDependsOnDerivationRule objectifies “Derivation Rule depends on Derivation Rule”.
+DerivationRuleDependsOnDerivationRule is independent (it may have instances that play no other roles).
+
+Fact Types:
+Derivation Rule is involved in DerivationRuleDependsOnDerivationRule.
+Derivation Rule is involved in DerivationRuleDependsOnDerivationRule.
+DerivationRuleHasAntecedentFactType is an entity type.
+DerivationRuleHasAntecedentFactType objectifies “Derivation Rule has antecedent Fact Type”.
+DerivationRuleHasAntecedentFactType is independent (it may have instances that play no other roles).
+
+Fact Types:
+Derivation Rule is involved in DerivationRuleHasAntecedentFactType.
+Fact Type is involved in DerivationRuleHasAntecedentFactType.
+DerivationRuleHasRoleProjection is an entity type.
+DerivationRuleHasRoleProjection objectifies “Derivation Rule has Role Projection”.
+DerivationRuleHasRoleProjection is independent (it may have instances that play no other roles).
+
+Fact Types:
+Derivation Rule is involved in DerivationRuleHasRoleProjection.
+Role Projection is involved in DerivationRuleHasRoleProjection.
+DerivationRuleReachesDerivationRule is an entity type.
+DerivationRuleReachesDerivationRule objectifies “Derivation Rule reaches Derivation Rule”.
+DerivationRuleReachesDerivationRule is independent (it may have instances that play no other roles).
+
+Fact Types:
+Derivation Rule is involved in DerivationRuleReachesDerivationRule.
+Derivation Rule is involved in DerivationRuleReachesDerivationRule.
+Description is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Domain has Description.
+Object Type has Description.
+Design Note is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Schema Design has Design Note.
+Digit Count is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Facet has Digit Count.
+Dimension is an entity type.
+Reference Scheme: Dimension has Dimension_Name.
+Reference Mode: .Name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Dimension has Dimension_Name.
+Each Dimension is an instance of Function.
+Unit has Dimension.
+Dimension_Name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Dimension has Dimension_Name.
+Domain is an entity type.
+Reference Scheme: Domain has Domain_Name.
+Reference Mode: .Name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Domain has Domain_Name.
+Each Domain is an instance of Function.
+Domain has Description.
+Function belongs to Domain.
+Domain connects to External System with Secret Reference.
+Domain Change targets Domain.
+Fact belongs to Domain.
+Resource belongs to Domain.
+Violation belongs to Domain.
+Failure belongs to Domain.
+Domain Change is an entity type.
+Reference Scheme: Domain Change has Change Id.
+Reference Mode: Change Id.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Domain Change has Change Id.
+Each Domain Change is an instance of Resource.
+Domain Change proposes Function.
+Domain Change has Rationale.
+Domain Change targets Domain.
+Domain Change is evaluated.
+Domain Change has blocking outcome.
+Domain Change is valid.
+Signal leads to Domain Change.
+User submits Domain Change for review.
+User approves Domain Change.
+User rejects Domain Change.
+User requests revision of Domain Change.
+Domain Change is applied.
+DomainChangeProposesFunction is an entity type.
+DomainChangeProposesFunction objectifies “Domain Change proposes Function”.
+DomainChangeProposesFunction is independent (it may have instances that play no other roles).
+
+Fact Types:
+Domain Change is involved in DomainChangeProposesFunction.
+Function is involved in DomainChangeProposesFunction.
+DomainConnectsToExternalSystemWithSecretReference is an entity type.
+DomainConnectsToExternalSystemWithSecretReference objectifies “Domain connects to External System with Secret Reference”.
+
+Fact Types:
+Domain is involved in DomainConnectsToExternalSystemWithSecretReference.
+External System is involved in DomainConnectsToExternalSystemWithSecretReference.
+Secret Reference is involved in DomainConnectsToExternalSystemWithSecretReference.
+Domain_Name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Domain has Domain_Name.
+Email is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+User has Email.
+Entity Type is an entity type.
+Reference Scheme: Function has Function_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Each Entity Type is an instance of Object Type.
+Enum Values is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Enum Values.
+Event is an entity type.
+Reference Scheme: Resource has Reference.
+Reference Mode: Reference.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Each Event is an instance of Resource.
+Each Fact is an instance of Event.
+Event is of Event Type.
+Event occurred at Timestamp.
+Event is created by State Machine.
+Event caused Transition in State Machine.
+Event Caused Transition is an entity type.
+Event Caused Transition objectifies “Event caused Transition in State Machine”.
+
+Fact Types:
+Event is involved in Event Caused Transition.
+Transition is involved in Event Caused Transition.
+State Machine is involved in Event Caused Transition.
+Event Type is an entity type.
+Reference Scheme: Function has Function_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Each Event Type is an instance of Function.
+Each Fact Type is an instance of Event Type.
+Event is of Event Type.
+Event Type publishes to Stream.
+Event Type can be created by Predicate.
+Transition is triggered by Event Type.
+Status has effective Transition to Status on Event Type.
+EventTypeCanBeCreatedByPredicate is an entity type.
+EventTypeCanBeCreatedByPredicate objectifies “Event Type can be created by Predicate”.
+EventTypeCanBeCreatedByPredicate is independent (it may have instances that play no other roles).
+
+Fact Types:
+Event Type is involved in EventTypeCanBeCreatedByPredicate.
+Predicate is involved in EventTypeCanBeCreatedByPredicate.
+Exclusive Maximum is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Exclusive Maximum.
+Exclusive Minimum is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Exclusive Minimum.
+External System is an entity type.
+Reference Scheme: External System has External System_Name.
+Reference Mode: .Name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+External System has External System_Name.
+Each External System is an instance of Function.
+External System has URL.
+External System has Header.
+External System has Prefix.
+External System has Kind.
+Object Type is backed by External System.
+Function is backed by External System.
+Domain connects to External System with Secret Reference.
+Citation is backed by External System.
+External System_Name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+External System has External System_Name.
+Facet is an entity type.
+Reference Scheme: Facet has Facet_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Facet has Facet_id.
+Each Facet is an instance of Function.
+Object Type has Facet.
+Facet has Length.
+Facet has Binary Precision.
+Facet has Digit Count.
+Facet has Regex Pattern.
+Facet_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Facet has Facet_id.
+Fact is an entity type.
+Reference Scheme: Resource has Reference.
+Reference Mode: Reference.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Fact is referenced by Predicate.
+Migration Application has source Fact.
+Migration Application produces Fact.
+Hypothesis Candidate explains Fact.
+Hypothesis Candidate has hidden Fact.
+Each Fact is an instance of Event.
+Fact is of Fact Type.
+Fact is of Function.
+Fact belongs to Domain.
+Fact is completed.
+Fact is example.
+Fact cites Citation.
+Fact uses Resource for Role.
+Guard Run references Fact.
+Fact Type is an entity type.
+Reference Scheme: Function has Function_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Each Fact Type is an instance of Event Type.
+Fact Type has Title.
+Fact Type has Reading.
+Fact Type has Role.
+Fact Type has Arity.
+Fact Type has Order.
+Fact Type has Role Relationship.
+Fact Type has Derivation Mode.
+Fact Type is activated by Predicate.
+Derivation Rule has antecedent Fact Type.
+Derivation Rule produces Fact Type.
+Join uses Fact Type.
+Fact Type has Derivation Storage Type.
+Migration has source Fact Type.
+Migration produces target Fact Type.
+Fact Type has Alias.
+Fact is of Fact Type.
+Fact Type cites Citation.
+Guard references Fact Type.
+FactCitesCitation is an entity type.
+FactCitesCitation objectifies “Fact cites Citation”.
+FactCitesCitation is independent (it may have instances that play no other roles).
+
+Fact Types:
+Fact is involved in FactCitesCitation.
+Citation is involved in FactCitesCitation.
+FactIsOfFunction is an entity type.
+FactIsOfFunction objectifies “Fact is of Function”.
+FactIsOfFunction is independent (it may have instances that play no other roles).
+
+Fact Types:
+Fact is involved in FactIsOfFunction.
+Function is involved in FactIsOfFunction.
+FactIsReferencedByPredicate is an entity type.
+FactIsReferencedByPredicate objectifies “Fact is referenced by Predicate”.
+FactIsReferencedByPredicate is independent (it may have instances that play no other roles).
+
+Fact Types:
+Fact is involved in FactIsReferencedByPredicate.
+Predicate is involved in FactIsReferencedByPredicate.
+FactTypeCitesCitation is an entity type.
+FactTypeCitesCitation objectifies “Fact Type cites Citation”.
+FactTypeCitesCitation is independent (it may have instances that play no other roles).
+
+Fact Types:
+Fact Type is involved in FactTypeCitesCitation.
+Citation is involved in FactTypeCitesCitation.
+FactTypeHasAlias is an entity type.
+FactTypeHasAlias objectifies “Fact Type has Alias”.
+FactTypeHasAlias is independent (it may have instances that play no other roles).
+
+Fact Types:
+Fact Type is involved in FactTypeHasAlias.
+Alias is involved in FactTypeHasAlias.
+Failure is an entity type.
+Reference Scheme: Failure has Failure_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Failure has Failure_id.
+Each Failure is an instance of Resource.
+Failure belongs to Domain.
+Failure has Failure Type.
+Failure is against Function.
+Failure has input Text.
+Failure has reason Text.
+Failure has Severity.
+Failure occurred at Timestamp.
+Failure is caused by Violation.
+Failure is triggered by Resource.
+Failure occurs during Transition.
+Failure follows Violation.
+Failure Type is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Failure has Failure Type.
+The possible values of Failure Type are 'extraction', 'evaluation', 'transition', 'parse', 'induction'.
+Failure_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Failure has Failure_id.
+Format is an entity type.
+Reference Scheme: Format has Format_Name.
+Reference Mode: .Name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Format has Format_Name.
+Object Type has Format.
+Each Format is an instance of Function.
+Format is built on Conceptual Data Type.
+Format has JSON Format.
+Format has Pattern.
+Format_Name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Format has Format_Name.
+Frequency Constraint is an entity type.
+Reference Scheme: Constraint has Constraint_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Each Frequency Constraint is an instance of Constraint.
+Frequency Constraint has Min Occurrence.
+Frequency Constraint has Max Occurrence.
+Function is an entity type.
+Reference Scheme: Function has Function_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Function has Function_id.
+Each Object Type is an instance of Function.
+Each Event Type is an instance of Function.
+Each Constraint is an instance of Function.
+Each Derivation Rule is an instance of Function.
+Each Reading is an instance of Function.
+Each Role is an instance of Function.
+Each Predicate is an instance of Function.
+Each Constraint Type is an instance of Function.
+Each Language is an instance of Function.
+Each schema:Thing is an instance of Function.
+Each External System is an instance of Function.
+Each Domain is an instance of Function.
+Function has Name.
+Function has callback URI.
+Function has Header.
+Function belongs to Domain.
+Function has Definition Origin.
+Function accepts Type Expression.
+Function yields Type Expression.
+Function is backed by External System.
+Each Join Path is an instance of Function.
+Each Join is an instance of Function.
+Each Role Sequence is an instance of Function.
+Each Role Projection is an instance of Function.
+Each Join Type is an instance of Function.
+Each Antecedent Clause is an instance of Function.
+Each Migration is an instance of Function.
+Each Bound is an instance of Function.
+Each Value Range is an instance of Function.
+Each Facet is an instance of Function.
+Each Unit is an instance of Function.
+Each Dimension is an instance of Function.
+Each Conceptual Data Type is an instance of Function.
+Each Data Type Group is an instance of Function.
+Each Format is an instance of Function.
+Domain Change proposes Function.
+Each Scoring Rule is an instance of Function.
+Each Resource is an instance of Function.
+Fact is of Function.
+Resource is of Function.
+Each Pluralization Rule is an instance of Function.
+Violation is against Function.
+Failure is against Function.
+Each Operation is an instance of Function.
+Each CIDR Block is an instance of Function.
+Each Transition is an instance of Function.
+Each Guard is an instance of Function.
+Each Stream is an instance of Function.
+FunctionHasHeader is an entity type.
+FunctionHasHeader objectifies “Function has Header”.
+FunctionHasHeader is independent (it may have instances that play no other roles).
+
+Fact Types:
+Function is involved in FunctionHasHeader.
+Header is involved in FunctionHasHeader.
+Function_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Function has Function_id.
+Guard is an entity type.
+Reference Scheme: Guard has Guard_Name.
+Reference Mode: .Name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Guard has Guard_Name.
+Guard Run is for Guard.
+Each Guard is an instance of Function.
+Guard references Fact Type.
+Guard guards Transition.
+Guard Run is an entity type.
+Reference Scheme: Guard Run has Guard Run_Name.
+Reference Mode: .Name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Guard Run has Guard Run_Name.
+Each Guard Run is an instance of Resource.
+Guard Run is for Guard.
+Guard Run references Fact.
+Guard Run has Result.
+Guard Run_Name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Guard Run has Guard Run_Name.
+GuardReferencesFactType is an entity type.
+GuardReferencesFactType objectifies “Guard references Fact Type”.
+GuardReferencesFactType is independent (it may have instances that play no other roles).
+
+Fact Types:
+Guard is involved in GuardReferencesFactType.
+Fact Type is involved in GuardReferencesFactType.
+GuardRunReferencesFact is an entity type.
+GuardRunReferencesFact objectifies “Guard Run references Fact”.
+GuardRunReferencesFact is independent (it may have instances that play no other roles).
+
+Fact Types:
+Guard Run is involved in GuardRunReferencesFact.
+Fact is involved in GuardRunReferencesFact.
+Guard_Name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Guard has Guard_Name.
+HTTP Method is an entity type.
+Reference Scheme: Function has Function_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Each HTTP Method is an instance of Predicate.
+Status has HTTP Method.
+Header is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Function has Header.
+External System has Header.
+Hypothesis Candidate is an entity type.
+Reference Scheme: Hypothesis Candidate has Hypothesis Candidate_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Hypothesis Candidate has Hypothesis Candidate_id.
+Each Hypothesis Candidate is an instance of Resource.
+Hypothesis Candidate has Confidence Score.
+Hypothesis Candidate explains Fact.
+Hypothesis Candidate has hidden Fact.
+Scoring Rule applies to Hypothesis Candidate.
+Hypothesis Candidate_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Hypothesis Candidate has Hypothesis Candidate_id.
+HypothesisCandidateExplainsFact is an entity type.
+HypothesisCandidateExplainsFact objectifies “Hypothesis Candidate explains Fact”.
+HypothesisCandidateExplainsFact is independent (it may have instances that play no other roles).
+
+Fact Types:
+Hypothesis Candidate is involved in HypothesisCandidateExplainsFact.
+Fact is involved in HypothesisCandidateExplainsFact.
+HypothesisCandidateHasHiddenFact is an entity type.
+HypothesisCandidateHasHiddenFact objectifies “Hypothesis Candidate has hidden Fact”.
+HypothesisCandidateHasHiddenFact is independent (it may have instances that play no other roles).
+
+Fact Types:
+Hypothesis Candidate is involved in HypothesisCandidateHasHiddenFact.
+Fact is involved in HypothesisCandidateHasHiddenFact.
+JSON Format is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Conceptual Data Type has JSON Format.
+Format has JSON Format.
+JSON Type is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Conceptual Data Type has JSON Type.
+Join is an entity type.
+Reference Scheme: Join has Join_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Join has Join_id.
+Each Join is an instance of Function.
+Join Path has Join.
+Join uses Fact Type.
+Join has Join Type.
+Join has Role Sequence.
+Join Path is an entity type.
+Reference Scheme: Join Path has Join Path_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Join Path has Join Path_id.
+Each Join Path is an instance of Function.
+Derivation Rule has Join Path.
+Join Path has Join.
+Join Path_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Join Path has Join Path_id.
+Join Type is an entity type.
+Reference Scheme: Join Type has Join Type_Name.
+Reference Mode: .Name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Join Type has Join Type_Name.
+Each Join Type is an instance of Function.
+Join has Join Type.
+Join Type_Name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Join Type has Join Type_Name.
+JoinHasRoleSequence is an entity type.
+JoinHasRoleSequence objectifies “Join has Role Sequence”.
+JoinHasRoleSequence is independent (it may have instances that play no other roles).
+
+Fact Types:
+Join is involved in JoinHasRoleSequence.
+Role Sequence is involved in JoinHasRoleSequence.
+Join_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Join has Join_id.
+Language is an entity type.
+Reference Scheme: Language has Language_code.
+Reference Mode: .code.
+Data Type: Text: Fixed Length (0).
+
+Fact Types:
+Language has Language_code.
+Each Language is an instance of Function.
+Reading is localized for Language.
+Language_code is a value type.
+Data Type: Text: Fixed Length (0).
+
+Fact Types:
+Language has Language_code.
+Length is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Facet has Length.
+Lexical Value is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Bound has Lexical Value.
+Max Length is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Max Length.
+Max Occurrence is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Frequency Constraint has Max Occurrence.
+Cardinality Constraint has Max Occurrence.
+Maximum is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Maximum.
+Migration is an entity type.
+Reference Scheme: Migration has Migration_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Migration has Migration_id.
+Each Migration is an instance of Function.
+Migration has source Fact Type.
+Migration produces target Fact Type.
+Migration has Migration Rule Text.
+Migration has Timestamp.
+Migration Application has Migration.
+Migration Application is an entity type.
+Reference Scheme: Migration Application has Migration Application_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Migration Application has Migration Application_id.
+Each Migration Application is an instance of Resource.
+Migration Application has Migration.
+Migration Application has source Fact.
+Migration Application produces Fact.
+Migration Application has Timestamp.
+Migration Application_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Migration Application has Migration Application_id.
+Migration Rule Text is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Migration has Migration Rule Text.
+MigrationApplicationProducesFact is an entity type.
+MigrationApplicationProducesFact objectifies “Migration Application produces Fact”.
+MigrationApplicationProducesFact is independent (it may have instances that play no other roles).
+
+Fact Types:
+Migration Application is involved in MigrationApplicationProducesFact.
+Fact is involved in MigrationApplicationProducesFact.
+MigrationProducesTargetFactType is an entity type.
+MigrationProducesTargetFactType objectifies “Migration produces target Fact Type”.
+MigrationProducesTargetFactType is independent (it may have instances that play no other roles).
+
+Fact Types:
+Migration is involved in MigrationProducesTargetFactType.
+Fact Type is involved in MigrationProducesTargetFactType.
+Migration_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Migration has Migration_id.
+Min Length is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Min Length.
+Min Occurrence is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Frequency Constraint has Min Occurrence.
+Cardinality Constraint has Min Occurrence.
+Minimum is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Minimum.
+Modality Type is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Constraint has modality of Modality Type.
+The possible values of Modality Type are 'Alethic', 'Deontic'.
+Multiple Of is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Multiple Of.
+Name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has value-type Name.
+Predicate has Name.
+Function has Name.
+Constraint Type has Name.
+Stream has Name.
+Data Type Group has Name.
+OT Kind is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type is of OT Kind.
+The possible values of OT Kind are 'entity', 'value'.
+Object Type is an entity type.
+Reference Scheme: Function has Function_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Each Object Type is an instance of Function.
+Object Type is of OT Kind.
+Each Entity Type is an instance of Object Type.
+Each Value Type is an instance of Object Type.
+Object Type has Plural.
+Object Type has value-type Name.
+Object Type has Format.
+Object Type has Enum Values.
+Object Type has Minimum.
+Object Type has Maximum.
+Object Type has Pattern.
+Object Type has Description.
+Object Type has Exclusive Minimum.
+Object Type has Exclusive Maximum.
+Object Type has Multiple Of.
+Object Type has Min Length.
+Object Type has Max Length.
+Object Type has Permission.
+Object Type has Reference Mode.
+Object Type is subtype of Object Type.
+Object Type is described to AI by prompt Text.
+Object Type has World Assumption.
+Object Type is independent.
+Object Type is of schema:Thing.
+Object Type plays Role.
+Object Type is instantiable.
+API accepts Object Type as parameter.
+Object Type is backed by External System.
+Object Type has URI.
+Object Type has Value Range.
+Object Type has Facet.
+Object Type is measured in Unit.
+Object Type has Alias.
+Object Type has Conceptual Data Type.
+Object Type has Precision.
+Object Type has Scale.
+Resource is instance of Object Type.
+State Machine is instance of Object Type.
+Each Status is an instance of Object Type.
+State Machine Definition is for Object Type.
+ObjectTypeHasAlias is an entity type.
+ObjectTypeHasAlias objectifies “Object Type has Alias”.
+ObjectTypeHasAlias is independent (it may have instances that play no other roles).
+
+Fact Types:
+Object Type is involved in ObjectTypeHasAlias.
+Alias is involved in ObjectTypeHasAlias.
+ObjectTypeHasFacet is an entity type.
+ObjectTypeHasFacet objectifies “Object Type has Facet”.
+ObjectTypeHasFacet is independent (it may have instances that play no other roles).
+
+Fact Types:
+Object Type is involved in ObjectTypeHasFacet.
+Facet is involved in ObjectTypeHasFacet.
+ObjectTypeHasPermission is an entity type.
+ObjectTypeHasPermission objectifies “Object Type has Permission”.
+ObjectTypeHasPermission is independent (it may have instances that play no other roles).
+
+Fact Types:
+Object Type is involved in ObjectTypeHasPermission.
+Permission is involved in ObjectTypeHasPermission.
+ObjectTypeHasValueRange is an entity type.
+ObjectTypeHasValueRange objectifies “Object Type has Value Range”.
+ObjectTypeHasValueRange is independent (it may have instances that play no other roles).
+
+Fact Types:
+Object Type is involved in ObjectTypeHasValueRange.
+Value Range is involved in ObjectTypeHasValueRange.
+ObjectTypeIsDescribedToAIByPromptText is an entity type.
+ObjectTypeIsDescribedToAIByPromptText objectifies “Object Type is described to AI by prompt Text”.
+ObjectTypeIsDescribedToAIByPromptText is independent (it may have instances that play no other roles).
+
+Fact Types:
+Object Type is involved in ObjectTypeIsDescribedToAIByPromptText.
+Text is involved in ObjectTypeIsDescribedToAIByPromptText.
+ObjectTypeIsSubtypeOfObjectType is an entity type.
+ObjectTypeIsSubtypeOfObjectType objectifies “Object Type is subtype of Object Type”.
+ObjectTypeIsSubtypeOfObjectType is independent (it may have instances that play no other roles).
+
+Fact Types:
+Object Type is involved in ObjectTypeIsSubtypeOfObjectType.
+Object Type is involved in ObjectTypeIsSubtypeOfObjectType.
+Operation is an entity type.
+Reference Scheme: Operation has Operation_name.
+Reference Mode: .name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Operation has Operation_name.
+Each Operation is an instance of Function.
+Operation is overridable.
+Operation is registrable.
+Operation_name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Operation has Operation_name.
+Order is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Fact Type has Order.
+Pattern is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Pattern.
+Format has Pattern.
+Pluralization Rule has Pattern.
+Permission is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Permission.
+The possible values of Permission are 'create', 'read', 'update', 'delete', 'list', 'versioned', 'login', 'rateLimit'.
+Plural is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Plural.
+Pluralization Pattern is a value type.
+Data Type: Text: Variable Length (0).
+
+The possible values of Pluralization Pattern are '^child$', '^person$', 'ay$', 'ey$', 'oy$', 'uy$', 'iy$', 'ss$', 'sh$', 'ch$', 'x$', 's$', 'z$', 'y$', '$'.
+Pluralization Replacement is a value type.
+Data Type: Text: Variable Length (0).
+
+The possible values of Pluralization Replacement are 'children', 'people', 'ays', 'eys', 'oys', 'uys', 'iys', 'sses', 'shes', 'ches', 'xes', 'ses', 'zzes', 'ies', 's'.
+Pluralization Rule is an entity type.
+Reference Scheme: Pluralization Rule has Pluralization Rule_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Pluralization Rule has Pluralization Rule_id.
+Each Pluralization Rule is an instance of Function.
+Pluralization Rule has Pattern.
+Pluralization Rule has Replacement.
+Pluralization Rule_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Pluralization Rule has Pluralization Rule_id.
+Position is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Role has Position for Reading.
+Role Sequence has Role at Position.
+Precision is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Precision.
+Predicate is an entity type.
+Reference Scheme: Function has Function_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Each Predicate is an instance of Function.
+Each HTTP Method is an instance of Predicate.
+Reading is used by Predicate.
+Predicate has Name.
+Fact Type is activated by Predicate.
+Fact is referenced by Predicate.
+Event Type can be created by Predicate.
+Predicate is performed in Status.
+Predicate is performed during Transition.
+Prefix is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+External System has Prefix.
+Rationale is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Domain Change has Rationale.
+Reading is an entity type.
+Reference Scheme: Reading has Reading_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Reading has Reading_id.
+Each Reading is an instance of Function.
+Reading has Text.
+Reading is used by Predicate.
+Reading is localized for Language.
+Reading is primary.
+Role is used in Reading.
+Fact Type has Reading.
+Role has Position for Reading.
+Reading_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Reading has Reading_id.
+Reference is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Resource has Reference.
+Reference Mode is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Reference Mode.
+Regex Pattern is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Facet has Regex Pattern.
+Relational Mapping is an entity type.
+Reference Scheme: Relational Mapping has Relational Mapping_name.
+Reference Mode: .name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Relational Mapping has Relational Mapping_name.
+Each Relational Mapping is an instance of Resource.
+Relational Mapping maps Schema Design.
+Relational Mapping absorbs subtypes.
+Relational Mapping maps compound fact types.
+Relational Mapping groups functional fact types.
+Relational Mapping_name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Relational Mapping has Relational Mapping_name.
+Resource is an entity type.
+Reference Scheme: Resource has Reference.
+Reference Mode: Reference.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Resource has Reference.
+Each Migration Application is an instance of Resource.
+Each Schema Design is an instance of Resource.
+Each Relational Mapping is an instance of Resource.
+Each Domain Change is an instance of Resource.
+Each Signal is an instance of Resource.
+Each Hypothesis Candidate is an instance of Resource.
+Each Resource is an instance of Function.
+Each Event is an instance of Resource.
+Each State Machine is an instance of Resource.
+Each Guard Run is an instance of Resource.
+Each Citation is an instance of Resource.
+Each User is an instance of Resource.
+Resource is instance of Object Type.
+Resource is of Function.
+Resource belongs to Domain.
+Resource has Value.
+Resource is created by User.
+Fact uses Resource for Role.
+State Machine is for Resource.
+Resource is currently in Status.
+Each Violation is an instance of Resource.
+Each Failure is an instance of Resource.
+Each Batch is an instance of Resource.
+Violation is triggered by Resource.
+Failure is triggered by Resource.
+Resource Role is an entity type.
+Resource Role objectifies “Fact uses Resource for Role”.
+
+Fact Types:
+Fact is involved in Resource Role.
+Resource is involved in Resource Role.
+Role is involved in Resource Role.
+ResourceIsInstanceOfObjectType is an entity type.
+ResourceIsInstanceOfObjectType objectifies “Resource is instance of Object Type”.
+ResourceIsInstanceOfObjectType is independent (it may have instances that play no other roles).
+
+Fact Types:
+Resource is involved in ResourceIsInstanceOfObjectType.
+Object Type is involved in ResourceIsInstanceOfObjectType.
+ResourceIsOfFunction is an entity type.
+ResourceIsOfFunction objectifies “Resource is of Function”.
+ResourceIsOfFunction is independent (it may have instances that play no other roles).
+
+Fact Types:
+Resource is involved in ResourceIsOfFunction.
+Function is involved in ResourceIsOfFunction.
+Result is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Guard Run has Result.
+Retrieval Date is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Citation has Retrieval Date.
+Role is an entity type.
+Reference Scheme: Role has Role_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Role has Role_id.
+Each Role is an instance of Function.
+Object Type plays Role.
+Role is used in Reading.
+Fact Type has Role.
+Constraint spans Role.
+Role has Position for Reading.
+Role Sequence has Role at Position.
+Role Projection produces Role.
+Fact uses Resource for Role.
+Role Projection is an entity type.
+Reference Scheme: Role Projection has Role Projection_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Role Projection has Role Projection_id.
+Each Role Projection is an instance of Function.
+Role Projection is from Role Sequence.
+Role Projection produces Role.
+Derivation Rule has Role Projection.
+Role Projection_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Role Projection has Role Projection_id.
+Role Relationship is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Fact Type has Role Relationship.
+The possible values of Role Relationship are 'many-to-one', 'one-to-many', 'many-to-many', 'one-to-one'.
+Role Sequence is an entity type.
+Reference Scheme: Role Sequence has Role Sequence_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Role Sequence has Role Sequence_id.
+Each Role Sequence is an instance of Function.
+Join has Role Sequence.
+Role Sequence has Role at Position.
+Role Projection is from Role Sequence.
+Role Sequence_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Role Sequence has Role Sequence_id.
+RoleHasPositionForReading is an entity type.
+RoleHasPositionForReading objectifies “Role has Position for Reading”.
+
+Fact Types:
+Role is involved in RoleHasPositionForReading.
+Position is involved in RoleHasPositionForReading.
+Reading is involved in RoleHasPositionForReading.
+RoleIsUsedInReading is an entity type.
+RoleIsUsedInReading objectifies “Role is used in Reading”.
+RoleIsUsedInReading is independent (it may have instances that play no other roles).
+
+Fact Types:
+Role is involved in RoleIsUsedInReading.
+Reading is involved in RoleIsUsedInReading.
+RoleSequenceHasRoleAtPosition is an entity type.
+RoleSequenceHasRoleAtPosition objectifies “Role Sequence has Role at Position”.
+
+Fact Types:
+Role Sequence is involved in RoleSequenceHasRoleAtPosition.
+Role is involved in RoleSequenceHasRoleAtPosition.
+Position is involved in RoleSequenceHasRoleAtPosition.
+Role_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Role has Role_id.
+Scale is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has Scale.
+Schema Design is an entity type.
+Reference Scheme: Schema Design has Schema Design_name.
+Reference Mode: .name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Schema Design has Schema Design_name.
+Each Schema Design is an instance of Resource.
+Schema Design has Design Note.
+Schema Design notes elementary facts.
+Schema Design populates fact types.
+Schema Design trims schema and notes derivations.
+Schema Design adds uniqueness constraints.
+Schema Design adds mandatory roles.
+Schema Design adds value and subtype constraints.
+Schema Design passes final checks.
+Relational Mapping maps Schema Design.
+Schema Design_name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Schema Design has Schema Design_name.
+Scoring Rule is an entity type.
+Reference Scheme: Scoring Rule has Scoring Rule_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Scoring Rule has Scoring Rule_id.
+Each Scoring Rule is an instance of Function.
+Scoring Rule applies to Hypothesis Candidate.
+Scoring Rule_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Scoring Rule has Scoring Rule_id.
+ScoringRuleAppliesToHypothesisCandidate is an entity type.
+ScoringRuleAppliesToHypothesisCandidate objectifies “Scoring Rule applies to Hypothesis Candidate”.
+ScoringRuleAppliesToHypothesisCandidate is independent (it may have instances that play no other roles).
+
+Fact Types:
+Scoring Rule is involved in ScoringRuleAppliesToHypothesisCandidate.
+Hypothesis Candidate is involved in ScoringRuleAppliesToHypothesisCandidate.
+Secret Reference is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Domain connects to External System with Secret Reference.
+Set Comparison Constraint is an entity type.
+Reference Scheme: Constraint has Constraint_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Each Set Comparison Constraint is an instance of Constraint.
+Set Comparison Constraint has Argument Length.
+SetComparisonConstraintHasArgumentLength is an entity type.
+SetComparisonConstraintHasArgumentLength objectifies “Set Comparison Constraint has Argument Length”.
+SetComparisonConstraintHasArgumentLength is independent (it may have instances that play no other roles).
+
+Fact Types:
+Set Comparison Constraint is involved in SetComparisonConstraintHasArgumentLength.
+Argument Length is involved in SetComparisonConstraintHasArgumentLength.
+Severity is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Violation has Severity.
+Failure has Severity.
+The possible values of Severity are 'error', 'warning', 'info'.
+Signal is an entity type.
+Reference Scheme: Signal has Signal Id.
+Reference Mode: Signal Id.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Signal has Signal Id.
+Each Signal is an instance of Resource.
+Signal leads to Domain Change.
+Signal has Signal Source.
+Signal Id is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Signal has Signal Id.
+Signal Source is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Signal has Signal Source.
+The possible values of Signal Source are 'Constraint Violation', 'Human', 'Error Pattern', 'Feature Request', 'Support Request'.
+State Machine is an entity type.
+Reference Scheme: State Machine has State Machine_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+State Machine has State Machine_id.
+Each State Machine is an instance of Resource.
+Event is created by State Machine.
+State Machine is instance of State Machine Definition.
+State Machine is instance of Object Type.
+State Machine is for Resource.
+State Machine is currently in Status.
+Event caused Transition in State Machine.
+State Machine Definition is an entity type.
+Reference Scheme: State Machine Definition has State Machine Definition_Name.
+Reference Mode: .Name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+State Machine Definition has State Machine Definition_Name.
+State Machine is instance of State Machine Definition.
+Each State Machine Definition is an instance of Status.
+State Machine Definition is for Object Type.
+Transition is defined in State Machine Definition.
+Status is initial in State Machine Definition.
+Status is defined in State Machine Definition.
+Status is terminal in State Machine Definition.
+Status is rooted in State Machine Definition.
+Status is effective initial in State Machine Definition.
+Status reaches Status in State Machine Definition.
+State Machine Definition_Name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+State Machine Definition has State Machine Definition_Name.
+State Machine_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+State Machine has State Machine_id.
+StateMachineIsInstanceOfObjectType is an entity type.
+StateMachineIsInstanceOfObjectType objectifies “State Machine is instance of Object Type”.
+StateMachineIsInstanceOfObjectType is independent (it may have instances that play no other roles).
+
+Fact Types:
+State Machine is involved in StateMachineIsInstanceOfObjectType.
+Object Type is involved in StateMachineIsInstanceOfObjectType.
+Status is an entity type.
+Reference Scheme: Status has Status_Name.
+Reference Mode: .Name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Status has Status_Name.
+Resource is currently in Status.
+State Machine is currently in Status.
+Each Status is an instance of Object Type.
+Each State Machine Definition is an instance of Status.
+Predicate is performed in Status.
+Status has HTTP Method.
+Transition is from Status.
+Transition is to Status.
+Status is initial in State Machine Definition.
+Status is defined in State Machine Definition.
+Status is terminal in State Machine Definition.
+Status is rooted in State Machine Definition.
+Status is effective initial in State Machine Definition.
+Status has effective Transition to Status on Event Type.
+Status reaches Status in State Machine Definition.
+StatusHasEffectiveTransitionToStatusOnEventType is an entity type.
+StatusHasEffectiveTransitionToStatusOnEventType objectifies “Status has effective Transition to Status on Event Type”.
+StatusHasEffectiveTransitionToStatusOnEventType is independent (it may have instances that play no other roles).
+
+Fact Types:
+Status is involved in StatusHasEffectiveTransitionToStatusOnEventType.
+Transition is involved in StatusHasEffectiveTransitionToStatusOnEventType.
+Status is involved in StatusHasEffectiveTransitionToStatusOnEventType.
+Event Type is involved in StatusHasEffectiveTransitionToStatusOnEventType.
+StatusIsDefinedInStateMachineDefinition is an entity type.
+StatusIsDefinedInStateMachineDefinition objectifies “Status is defined in State Machine Definition”.
+StatusIsDefinedInStateMachineDefinition is independent (it may have instances that play no other roles).
+
+Fact Types:
+Status is involved in StatusIsDefinedInStateMachineDefinition.
+State Machine Definition is involved in StatusIsDefinedInStateMachineDefinition.
+StatusIsEffectiveInitialInStateMachineDefinition is an entity type.
+StatusIsEffectiveInitialInStateMachineDefinition objectifies “Status is effective initial in State Machine Definition”.
+StatusIsEffectiveInitialInStateMachineDefinition is independent (it may have instances that play no other roles).
+
+Fact Types:
+Status is involved in StatusIsEffectiveInitialInStateMachineDefinition.
+State Machine Definition is involved in StatusIsEffectiveInitialInStateMachineDefinition.
+StatusIsRootedInStateMachineDefinition is an entity type.
+StatusIsRootedInStateMachineDefinition objectifies “Status is rooted in State Machine Definition”.
+StatusIsRootedInStateMachineDefinition is independent (it may have instances that play no other roles).
+
+Fact Types:
+Status is involved in StatusIsRootedInStateMachineDefinition.
+State Machine Definition is involved in StatusIsRootedInStateMachineDefinition.
+StatusIsTerminalInStateMachineDefinition is an entity type.
+StatusIsTerminalInStateMachineDefinition objectifies “Status is terminal in State Machine Definition”.
+StatusIsTerminalInStateMachineDefinition is independent (it may have instances that play no other roles).
+
+Fact Types:
+Status is involved in StatusIsTerminalInStateMachineDefinition.
+State Machine Definition is involved in StatusIsTerminalInStateMachineDefinition.
+StatusReachesStatusInStateMachineDefinition is an entity type.
+StatusReachesStatusInStateMachineDefinition objectifies “Status reaches Status in State Machine Definition”.
+StatusReachesStatusInStateMachineDefinition is independent (it may have instances that play no other roles).
+
+Fact Types:
+Status is involved in StatusReachesStatusInStateMachineDefinition.
+Status is involved in StatusReachesStatusInStateMachineDefinition.
+State Machine Definition is involved in StatusReachesStatusInStateMachineDefinition.
+Status_Name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Status has Status_Name.
+Stream is an entity type.
+Reference Scheme: Stream has Stream_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Stream has Stream_id.
+Stream has Name.
+Event Type publishes to Stream.
+Each Stream is an instance of Function.
+Stream_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Stream has Stream_id.
+Text is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type is described to AI by prompt Text.
+Reading has Text.
+Constraint has Text.
+Derivation Rule has Text.
+Textual Constraint has Text.
+Citation has Text.
+Violation has Text.
+Failure has input Text.
+Failure has reason Text.
+Textual Constraint is an entity type.
+Reference Scheme: Constraint has Constraint_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Each Textual Constraint is an instance of Constraint.
+Textual Constraint has Text.
+Timestamp is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Migration has Timestamp.
+Migration Application has Timestamp.
+Event occurred at Timestamp.
+Violation occurred at Timestamp.
+Failure occurred at Timestamp.
+Title is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Fact Type has Title.
+Transition is an entity type.
+Reference Scheme: Transition has Transition_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Transition has Transition_id.
+Event caused Transition in State Machine.
+Failure occurs during Transition.
+Violation occurs before Transition.
+Each Transition is an instance of Function.
+Transition is defined in State Machine Definition.
+Transition is from Status.
+Transition is to Status.
+Transition is triggered by Event Type.
+Predicate is performed during Transition.
+Status has effective Transition to Status on Event Type.
+Guard guards Transition.
+Transition_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Transition has Transition_id.
+Type Expression is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Function accepts Type Expression.
+Function yields Type Expression.
+URI is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Function has callback URI.
+Object Type has URI.
+Citation has URI.
+URL is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+External System has URL.
+Unit is an entity type.
+Reference Scheme: Unit has Unit_Name.
+Reference Mode: .Name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Unit has Unit_Name.
+Each Unit is an instance of Function.
+Unit has Dimension.
+Object Type is measured in Unit.
+Unit_Name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Unit has Unit_Name.
+User is an entity type.
+Reference Scheme: User has Email.
+Reference Mode: Email.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+User has Email.
+User submits Domain Change for review.
+User approves Domain Change.
+User rejects Domain Change.
+User requests revision of Domain Change.
+Each User is an instance of Resource.
+Resource is created by User.
+UserApprovesDomainChange is an entity type.
+UserApprovesDomainChange objectifies “User approves Domain Change”.
+UserApprovesDomainChange is independent (it may have instances that play no other roles).
+
+Fact Types:
+User is involved in UserApprovesDomainChange.
+Domain Change is involved in UserApprovesDomainChange.
+UserRejectsDomainChange is an entity type.
+UserRejectsDomainChange objectifies “User rejects Domain Change”.
+UserRejectsDomainChange is independent (it may have instances that play no other roles).
+
+Fact Types:
+User is involved in UserRejectsDomainChange.
+Domain Change is involved in UserRejectsDomainChange.
+UserRequestsRevisionOfDomainChange is an entity type.
+UserRequestsRevisionOfDomainChange objectifies “User requests revision of Domain Change”.
+UserRequestsRevisionOfDomainChange is independent (it may have instances that play no other roles).
+
+Fact Types:
+User is involved in UserRequestsRevisionOfDomainChange.
+Domain Change is involved in UserRequestsRevisionOfDomainChange.
+UserSubmitsDomainChangeForReview is an entity type.
+UserSubmitsDomainChangeForReview objectifies “User submits Domain Change for review”.
+UserSubmitsDomainChangeForReview is independent (it may have instances that play no other roles).
+
+Fact Types:
+User is involved in UserSubmitsDomainChangeForReview.
+Domain Change is involved in UserSubmitsDomainChangeForReview.
+Value is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Resource has Value.
+Value Range is an entity type.
+Reference Scheme: Value Range has Value Range_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Value Range has Value Range_id.
+Each Value Range is an instance of Function.
+Value Range has lower Bound.
+Value Range has upper Bound.
+Object Type has Value Range.
+Value Range_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Value Range has Value Range_id.
+Value Type is an entity type.
+Reference Scheme: Function has Function_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Each Value Type is an instance of Object Type.
+Violation is an entity type.
+Reference Scheme: Violation has Violation_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Violation has Violation_id.
+Each Violation is an instance of Resource.
+Violation belongs to Domain.
+Violation is of Constraint.
+Violation is against Function.
+Violation has Text.
+Violation has Severity.
+Violation occurred at Timestamp.
+Violation belongs to Batch.
+Failure is caused by Violation.
+Violation is triggered by Resource.
+Failure follows Violation.
+Violation occurs before Transition.
+Violation Template is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Constraint Type has Violation Template.
+Violation_id is a value type.
+Data Type: Numeric: Auto Counter.
+
+Fact Types:
+Violation has Violation_id.
+World Assumption is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Object Type has World Assumption.
+The possible values of World Assumption are 'closed', 'open'.
+Code is a value type.
+Data Type: Text: Variable Length (0).
+
+Id is a value type.
+Data Type: Text: Variable Length (0).
+
+Schema:Thing is an entity type.
+Reference Scheme: schema:Thing has schema:Thing_Name.
+Reference Mode: .Name.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Schema:Thing has schema:Thing_Name.
+Each schema:Thing is an instance of Function.
+Object Type is of schema:Thing.
+Schema:Thing_Name is a value type.
+Data Type: Text: Variable Length (0).
+
+Fact Types:
+Schema:Thing has schema:Thing_Name.
+Fact Type is activated by Predicate.
+It is possible that some Fact Type is activated by more than one Predicate
+and that for some Predicate, more than one Fact Type is activated by that Predicate.
+In each population of Fact Type is activated by Predicate, each Fact Type, Predicate combination occurs at most once.
+This association with Fact Type, Predicate provides the preferred identification scheme for API.
+API accepts Object Type as parameter.
+It is possible that some API accepts more than one Object Type as parameter
+and that for some Object Type, more than one API accepts that Object Type as parameter.
+In each population of API accepts Object Type as parameter, each API, Object Type combination occurs at most once.
+This association with API, Object Type provides the preferred identification scheme for APIAcceptsObjectTypeAsParameter.
+Each Antecedent Clause is an instance of Function.
+Antecedent Clause has Antecedent Clause_id.
+Each Antecedent Clause has exactly one Antecedent Clause_id.
+Each Antecedent Clause_id is of at most one Antecedent Clause.
+This association with Antecedent Clause_id provides the preferred identification scheme for Antecedent Clause.
+Antecedent Clause has Clause Shape.
+Each Antecedent Clause has at most one Clause Shape.
+It is possible that more than one Antecedent Clause has the same Clause Shape.
+Batch has Batch_id.
+Each Batch has exactly one Batch_id.
+Each Batch_id is of at most one Batch.
+This association with Batch_id provides the preferred identification scheme for Batch.
+Each Batch is an instance of Resource.
+Bound has Bound_id.
+Each Bound has exactly one Bound_id.
+Each Bound_id is of at most one Bound.
+This association with Bound_id provides the preferred identification scheme for Bound.
+Bound has Clusivity.
+Each Bound has exactly one Clusivity.
+It is possible that more than one Bound has the same Clusivity.
+Bound has Lexical Value.
+Each Bound has exactly one Lexical Value.
+It is possible that more than one Bound has the same Lexical Value.
+Each Bound is an instance of Function.
+Each CIDR Block is an instance of Function.
+CIDR Block has Block Kind.
+Each CIDR Block has exactly one Block Kind.
+It is possible that more than one CIDR Block has the same Block Kind.
+CIDR Block has CIDR Block_id.
+Each CIDR Block has exactly one CIDR Block_id.
+Each CIDR Block_id is of at most one CIDR Block.
+This association with CIDR Block_id provides the preferred identification scheme for CIDR Block.
+Each Cardinality Constraint is an instance of Constraint.
+Cardinality Constraint has Max Occurrence.
+Each Cardinality Constraint has at most one Max Occurrence.
+It is possible that more than one Cardinality Constraint has the same Max Occurrence.
+Cardinality Constraint has Min Occurrence.
+Each Cardinality Constraint has at most one Min Occurrence.
+It is possible that more than one Cardinality Constraint has the same Min Occurrence.
+Citation has Authority Type.
+Each Citation has at most one Authority Type.
+It is possible that more than one Citation has the same Authority Type.
+Citation has Citation_id.
+Each Citation has exactly one Citation_id.
+Each Citation_id is of at most one Citation.
+This association with Citation_id provides the preferred identification scheme for Citation.
+Citation has Retrieval Date.
+Each Citation has at most one Retrieval Date.
+It is possible that more than one Citation has the same Retrieval Date.
+Citation has Text.
+Each Citation has exactly one Text.
+It is possible that more than one Citation has the same Text.
+Citation has URI.
+Each Citation has at most one URI.
+It is possible that more than one Citation has the same URI.
+Each Citation is an instance of Resource.
+Citation is backed by External System.
+Each Citation is backed by at most one External System.
+It is possible that more than one Citation is backed by the same External System.
+Citation pins Cell Name.
+Each Citation pins at most one Cell Name.
+It is possible that more than one Citation pins the same Cell Name.
+Citation pins Cell Version Id.
+Each Citation pins at most one Cell Version Id.
+It is possible that more than one Citation pins the same Cell Version Id.
+Each Conceptual Data Type is an instance of Function.
+Conceptual Data Type has Abstract SQL Type.
+Each Conceptual Data Type has exactly one Abstract SQL Type.
+It is possible that more than one Conceptual Data Type has the same Abstract SQL Type.
+Conceptual Data Type has Conceptual Data Type_code.
+Each Conceptual Data Type has exactly one Conceptual Data Type_code.
+Each Conceptual Data Type_code is of at most one Conceptual Data Type.
+This association with Conceptual Data Type_code provides the preferred identification scheme for Conceptual Data Type.
+Conceptual Data Type has JSON Format.
+Each Conceptual Data Type has at most one JSON Format.
+It is possible that more than one Conceptual Data Type has the same JSON Format.
+Conceptual Data Type has JSON Type.
+Each Conceptual Data Type has exactly one JSON Type.
+It is possible that more than one Conceptual Data Type has the same JSON Type.
+Conceptual Data Type is in Data Type Group.
+Each Conceptual Data Type is in exactly one Data Type Group.
+It is possible that more than one Conceptual Data Type is in the same Data Type Group.
+Constraint spans Role.
+It is possible that some Constraint spans more than one Role
+and that for some Role, more than one Constraint spans that Role.
+In each population of Constraint spans Role, each Constraint, Role combination occurs at most once.
+This association with Constraint, Role provides the preferred identification scheme for Constraint Span.
+Each Constraint spans some Role.
+Each Constraint Type is an instance of Function.
+Constraint has Constraint_id.
+Each Constraint has exactly one Constraint_id.
+Each Constraint_id is of at most one Constraint.
+This association with Constraint_id provides the preferred identification scheme for Constraint.
+Constraint has Constraint Match Keyword.
+It is possible that some Constraint has more than one Constraint Match Keyword
+and that for some Constraint Match Keyword, more than one Constraint has that Constraint Match Keyword.
+In each population of Constraint has Constraint Match Keyword, each Constraint, Constraint Match Keyword combination occurs at most once.
+This association with Constraint, Constraint Match Keyword provides the preferred identification scheme for ConstraintHasConstraintMatchKeyword.
+Constraint has modality of Modality Type.
+Each Constraint has modality of exactly one Modality Type.
+It is possible that more than one Constraint has modality of the same Modality Type.
+Constraint has Text.
+Each Constraint has at most one Text.
+It is possible that more than one Constraint has the same Text.
+Each Constraint is an instance of Function.
+Constraint is semantic.
+In each population of Constraint is semantic, each Constraint occurs at most once.
+Constraint Span autofills from superset.
+In each population of Constraint Span autofills from superset, each Constraint Span occurs at most once.
+Constraint Type has Constraint Type_code.
+Each Constraint Type has exactly one Constraint Type_code.
+Each Constraint Type_code is of at most one Constraint Type.
+This association with Constraint Type_code provides the preferred identification scheme for Constraint Type.
+Constraint Type has Constraint Type Family.
+Each Constraint Type has exactly one Constraint Type Family.
+It is possible that more than one Constraint Type has the same Constraint Type Family.
+Constraint Type has Constraint Type Label.
+Each Constraint Type has exactly one Constraint Type Label.
+It is possible that more than one Constraint Type has the same Constraint Type Label.
+Constraint Type has Name.
+Each Constraint Type has at most one Name.
+It is possible that more than one Constraint Type has the same Name.
+Constraint Type has Violation Template.
+Each Constraint Type has at most one Violation Template.
+It is possible that more than one Constraint Type has the same Violation Template.
+Each Data Type Group is an instance of Function.
+Data Type Group has Data Type Group_code.
+Each Data Type Group has exactly one Data Type Group_code.
+Each Data Type Group_code is of at most one Data Type Group.
+This association with Data Type Group_code provides the preferred identification scheme for Data Type Group.
+Data Type Group has Name.
+Each Data Type Group has exactly one Name.
+It is possible that more than one Data Type Group has the same Name.
+Each Derivation Rule is an instance of Function.
+Derivation Rule depends on Derivation Rule.
+It is possible that some Derivation Rule depends on more than one Derivation Rule
+and that for some Derivation Rule1, more than one Derivation Rule depends on that Derivation Rule1.
+In each population of Derivation Rule depends on Derivation Rule, each Derivation Rule, Derivation Rule combination occurs at most once.
+This association with Derivation Rule, Derivation Rule provides the preferred identification scheme for DerivationRuleDependsOnDerivationRule.
+Derivation Rule has Antecedent Clause.
+Each Derivation Rule has some Antecedent Clause.
+For each Antecedent Clause, exactly one Derivation Rule has that Antecedent Clause.
+It is possible that some Derivation Rule has more than one Antecedent Clause.
+Derivation Rule has antecedent Fact Type.
+It is possible that some Derivation Rule has antecedent more than one Fact Type
+and that for some Fact Type, more than one Derivation Rule has antecedent that Fact Type.
+In each population of Derivation Rule has antecedent Fact Type, each Derivation Rule, Fact Type combination occurs at most once.
+This association with Derivation Rule, Fact Type provides the preferred identification scheme for DerivationRuleHasAntecedentFactType.
+Derivation Rule has Derivation Rule_id.
+Each Derivation Rule has exactly one Derivation Rule_id.
+Each Derivation Rule_id is of at most one Derivation Rule.
+This association with Derivation Rule_id provides the preferred identification scheme for Derivation Rule.
+Derivation Rule has Join Path.
+Each Derivation Rule has at most one Join Path.
+It is possible that more than one Derivation Rule has the same Join Path.
+Derivation Rule has Role Projection.
+It is possible that some Derivation Rule has more than one Role Projection
+and that for some Role Projection, more than one Derivation Rule has that Role Projection.
+In each population of Derivation Rule has Role Projection, each Derivation Rule, Role Projection combination occurs at most once.
+This association with Derivation Rule, Role Projection provides the preferred identification scheme for DerivationRuleHasRoleProjection.
+Each Derivation Rule has some Role Projection.
+Derivation Rule has Text.
+Each Derivation Rule has exactly one Text.
+It is possible that more than one Derivation Rule has the same Text.
+Derivation Rule introduces values.
+In each population of Derivation Rule introduces values, each Derivation Rule occurs at most once.
+Derivation Rule produces Fact Type.
+Each Derivation Rule produces exactly one Fact Type.
+It is possible that more than one Derivation Rule produces the same Fact Type.
+Derivation Rule reaches Derivation Rule.
+It is possible that some Derivation Rule reaches more than one Derivation Rule
+and that for some Derivation Rule1, more than one Derivation Rule reaches that Derivation Rule1.
+In each population of Derivation Rule reaches Derivation Rule, each Derivation Rule, Derivation Rule combination occurs at most once.
+This association with Derivation Rule, Derivation Rule provides the preferred identification scheme for DerivationRuleReachesDerivationRule.
+Dimension has Dimension_Name.
+Each Dimension has exactly one Dimension_Name.
+Each Dimension_Name is of at most one Dimension.
+This association with Dimension_Name provides the preferred identification scheme for Dimension.
+Each Dimension is an instance of Function.
+Each Domain Change is an instance of Resource.
+Domain Change has blocking outcome.
+In each population of Domain Change has blocking outcome, each Domain Change occurs at most once.
+Domain Change has Change Id.
+Each Domain Change has exactly one Change Id.
+Each Change Id is of at most one Domain Change.
+This association with Change Id provides the preferred identification scheme for Domain Change.
+Domain Change has Rationale.
+Each Domain Change has exactly one Rationale.
+It is possible that more than one Domain Change has the same Rationale.
+Domain Change is applied.
+In each population of Domain Change is applied, each Domain Change occurs at most once.
+Domain Change is evaluated.
+In each population of Domain Change is evaluated, each Domain Change occurs at most once.
+Domain Change is valid.
+In each population of Domain Change is valid, each Domain Change occurs at most once.
+Domain Change proposes Function.
+It is possible that some Domain Change proposes more than one Function
+and that for some Function, more than one Domain Change proposes that Function.
+In each population of Domain Change proposes Function, each Domain Change, Function combination occurs at most once.
+This association with Domain Change, Function provides the preferred identification scheme for DomainChangeProposesFunction.
+Each Domain Change proposes some Function.
+Domain Change targets Domain.
+Each Domain Change targets exactly one Domain.
+It is possible that more than one Domain Change targets the same Domain.
+Domain connects to External System with Secret Reference.
+For each Domain and External System,
+that Domain connects to that External System with at most one Secret Reference.
+This association with Domain, External System provides the preferred identification scheme for DomainConnectsToExternalSystemWithSecretReference.
+Domain has Description.
+Each Domain has at most one Description.
+It is possible that more than one Domain has the same Description.
+Domain has Domain_Name.
+Each Domain has exactly one Domain_Name.
+Each Domain_Name is of at most one Domain.
+This association with Domain_Name provides the preferred identification scheme for Domain.
+Each Domain is an instance of Function.
+Each Entity Type is an instance of Object Type.
+Event caused Transition in State Machine.
+It is possible that for some Event and Transition, that Event caused that Transition in more than one State Machine
+and that for some Event and State Machine, that Event caused more than one Transition in that State Machine
+and that for some Transition and State Machine, more than one Event caused that Transition in that State Machine.
+In each population of Event caused Transition in State Machine, each Event, Transition, State Machine combination occurs at most once.
+This association with Event, Transition, State Machine provides the preferred identification scheme for Event Caused Transition.
+Each Event Type is an instance of Function.
+Each Event is an instance of Resource.
+Event is created by State Machine.
+Each Event is created by at most one State Machine.
+It is possible that more than one Event is created by the same State Machine.
+Event is of Event Type.
+Each Event is of exactly one Event Type.
+It is possible that more than one Event is of the same Event Type.
+Event occurred at Timestamp.
+Each Event occurred at exactly one Timestamp.
+It is possible that more than one Event occurred at the same Timestamp.
+Event Type can be created by Predicate.
+It is possible that some Event Type can be created by more than one Predicate
+and that for some Predicate, more than one Event Type can be created by that Predicate.
+In each population of Event Type can be created by Predicate, each Event Type, Predicate combination occurs at most once.
+This association with Event Type, Predicate provides the preferred identification scheme for EventTypeCanBeCreatedByPredicate.
+Event Type publishes to Stream.
+Each Event Type publishes to at most one Stream.
+It is possible that more than one Event Type publishes to the same Stream.
+Each External System is an instance of Function.
+External System has External System_Name.
+Each External System has exactly one External System_Name.
+Each External System_Name is of at most one External System.
+This association with External System_Name provides the preferred identification scheme for External System.
+External System has Header.
+Each External System has at most one Header.
+It is possible that more than one External System has the same Header.
+External System has Kind.
+In each population of External System has Kind, each External System occurs at most once.
+External System has Prefix.
+Each External System has at most one Prefix.
+It is possible that more than one External System has the same Prefix.
+External System has URL.
+Each External System has exactly one URL.
+It is possible that more than one External System has the same URL.
+Facet has Binary Precision.
+Each Facet has at most one Binary Precision.
+It is possible that more than one Facet has the same Binary Precision.
+Facet has Digit Count.
+Each Facet has at most one Digit Count.
+It is possible that more than one Facet has the same Digit Count.
+Facet has Facet_id.
+Each Facet has exactly one Facet_id.
+Each Facet_id is of at most one Facet.
+This association with Facet_id provides the preferred identification scheme for Facet.
+Facet has Length.
+Each Facet has at most one Length.
+It is possible that more than one Facet has the same Length.
+Facet has Regex Pattern.
+Each Facet has at most one Regex Pattern.
+It is possible that more than one Facet has the same Regex Pattern.
+Each Facet is an instance of Function.
+Each Fact Type is an instance of Event Type.
+Fact belongs to Domain.
+Each Fact belongs to at most one Domain.
+It is possible that more than one Fact belongs to the same Domain.
+Fact cites Citation.
+It is possible that some Fact cites more than one Citation
+and that for some Citation, more than one Fact cites that Citation.
+In each population of Fact cites Citation, each Fact, Citation combination occurs at most once.
+This association with Fact, Citation provides the preferred identification scheme for FactCitesCitation.
+Each Fact is an instance of Event.
+Fact is completed.
+In each population of Fact is completed, each Fact occurs at most once.
+Fact is example.
+In each population of Fact is example, each Fact occurs at most once.
+Fact is of Fact Type.
+Each Fact is of exactly one Fact Type.
+It is possible that more than one Fact is of the same Fact Type.
+Fact is of Function.
+It is possible that some Fact is of more than one Function
+and that for some Function, more than one Fact is of that Function.
+In each population of Fact is of Function, each Fact, Function combination occurs at most once.
+This association with Fact, Function provides the preferred identification scheme for FactIsOfFunction.
+Fact is referenced by Predicate.
+It is possible that some Fact is referenced by more than one Predicate
+and that for some Predicate, more than one Fact is referenced by that Predicate.
+In each population of Fact is referenced by Predicate, each Fact, Predicate combination occurs at most once.
+This association with Fact, Predicate provides the preferred identification scheme for FactIsReferencedByPredicate.
+Fact Type cites Citation.
+It is possible that some Fact Type cites more than one Citation
+and that for some Citation, more than one Fact Type cites that Citation.
+In each population of Fact Type cites Citation, each Fact Type, Citation combination occurs at most once.
+This association with Fact Type, Citation provides the preferred identification scheme for FactTypeCitesCitation.
+Fact Type has Alias.
+It is possible that some Fact Type has more than one Alias
+and that for some Alias, more than one Fact Type has that Alias.
+In each population of Fact Type has Alias, each Fact Type, Alias combination occurs at most once.
+This association with Fact Type, Alias provides the preferred identification scheme for FactTypeHasAlias.
+Fact Type has Arity.
+Each Fact Type has exactly one Arity.
+It is possible that more than one Fact Type has the same Arity.
+Fact Type has Derivation Mode.
+Each Fact Type has at most one Derivation Mode.
+It is possible that more than one Fact Type has the same Derivation Mode.
+Fact Type has Derivation Storage Type.
+Each Fact Type has at most one Derivation Storage Type.
+It is possible that more than one Fact Type has the same Derivation Storage Type.
+Fact Type has Order.
+Each Fact Type has at most one Order.
+It is possible that more than one Fact Type has the same Order.
+Fact Type has Reading.
+Each Fact Type has some Reading.
+For each Reading, exactly one Fact Type has that Reading.
+It is possible that some Fact Type has more than one Reading.
+Fact Type has Role.
+Each Fact Type has some Role.
+For each Role, exactly one Fact Type has that Role.
+It is possible that some Fact Type has more than one Role.
+Fact Type has Role Relationship.
+Each Fact Type has at most one Role Relationship.
+It is possible that more than one Fact Type has the same Role Relationship.
+Fact Type has Title.
+Each Fact Type has at most one Title.
+It is possible that more than one Fact Type has the same Title.
+Failure belongs to Domain.
+Each Failure belongs to at most one Domain.
+It is possible that more than one Failure belongs to the same Domain.
+Failure follows Violation.
+Each Failure follows at most one Violation.
+It is possible that more than one Failure follows the same Violation.
+Failure has Failure_id.
+Each Failure has exactly one Failure_id.
+Each Failure_id is of at most one Failure.
+This association with Failure_id provides the preferred identification scheme for Failure.
+Failure has Failure Type.
+Each Failure has exactly one Failure Type.
+It is possible that more than one Failure has the same Failure Type.
+Failure has input Text.
+Each Failure has input at most one Text.
+It is possible that more than one Failure has input the same Text.
+Failure has reason Text.
+Each Failure has reason exactly one Text.
+It is possible that more than one Failure has reason the same Text.
+Failure has Severity.
+Each Failure has exactly one Severity.
+It is possible that more than one Failure has the same Severity.
+Each Failure is an instance of Resource.
+Failure is against Function.
+Each Failure is against at most one Function.
+It is possible that more than one Failure is against the same Function.
+Failure is caused by Violation.
+Each Failure is caused by at most one Violation.
+It is possible that more than one Failure is caused by the same Violation.
+Failure is triggered by Resource.
+Each Failure is triggered by at most one Resource.
+It is possible that more than one Failure is triggered by the same Resource.
+Failure occurred at Timestamp.
+Each Failure occurred at exactly one Timestamp.
+It is possible that more than one Failure occurred at the same Timestamp.
+Failure occurs during Transition.
+Each Failure occurs during at most one Transition.
+It is possible that more than one Failure occurs during the same Transition.
+Format has Format_Name.
+Each Format has exactly one Format_Name.
+Each Format_Name is of at most one Format.
+This association with Format_Name provides the preferred identification scheme for Format.
+Format has JSON Format.
+Each Format has at most one JSON Format.
+It is possible that more than one Format has the same JSON Format.
+Format has Pattern.
+Each Format has at most one Pattern.
+It is possible that more than one Format has the same Pattern.
+Each Format is an instance of Function.
+Format is built on Conceptual Data Type.
+Each Format is built on exactly one Conceptual Data Type.
+It is possible that more than one Format is built on the same Conceptual Data Type.
+Each Frequency Constraint is an instance of Constraint.
+Frequency Constraint has Max Occurrence.
+Each Frequency Constraint has at most one Max Occurrence.
+It is possible that more than one Frequency Constraint has the same Max Occurrence.
+Frequency Constraint has Min Occurrence.
+Each Frequency Constraint has exactly one Min Occurrence.
+It is possible that more than one Frequency Constraint has the same Min Occurrence.
+Function accepts Type Expression.
+Each Function accepts at most one Type Expression.
+It is possible that more than one Function accepts the same Type Expression.
+Function belongs to Domain.
+Each Function belongs to at most one Domain.
+It is obligatory that each Function belongs to some Domain.
+It is possible that more than one Function belongs to the same Domain.
+Function has callback URI.
+Each Function has callback at most one URI.
+It is possible that more than one Function has callback the same URI.
+Function has Definition Origin.
+Each Function has at most one Definition Origin.
+It is possible that more than one Function has the same Definition Origin.
+Function has Function_id.
+Each Function has exactly one Function_id.
+Each Function_id is of at most one Function.
+This association with Function_id provides the preferred identification scheme for Function.
+Function has Header.
+It is possible that some Function has more than one Header
+and that for some Header, more than one Function has that Header.
+In each population of Function has Header, each Function, Header combination occurs at most once.
+This association with Function, Header provides the preferred identification scheme for FunctionHasHeader.
+Function has Name.
+Each Function has at most one Name.
+It is possible that more than one Function has the same Name.
+Function is backed by External System.
+Each Function is backed by at most one External System.
+It is possible that more than one Function is backed by the same External System.
+Function yields Type Expression.
+Each Function yields at most one Type Expression.
+It is possible that more than one Function yields the same Type Expression.
+Each Guard Run is an instance of Resource.
+Guard guards Transition.
+Each Guard guards at most one Transition.
+It is possible that more than one Guard guards the same Transition.
+Guard has Guard_Name.
+Each Guard has exactly one Guard_Name.
+Each Guard_Name is of at most one Guard.
+This association with Guard_Name provides the preferred identification scheme for Guard.
+Each Guard is an instance of Function.
+Guard references Fact Type.
+It is possible that some Guard references more than one Fact Type
+and that for some Fact Type, more than one Guard references that Fact Type.
+In each population of Guard references Fact Type, each Guard, Fact Type combination occurs at most once.
+This association with Guard, Fact Type provides the preferred identification scheme for GuardReferencesFactType.
+Guard Run has Guard Run_Name.
+Each Guard Run has exactly one Guard Run_Name.
+Each Guard Run_Name is of at most one Guard Run.
+This association with Guard Run_Name provides the preferred identification scheme for Guard Run.
+Guard Run has Result.
+Each Guard Run has at most one Result.
+It is possible that more than one Guard Run has the same Result.
+Guard Run is for Guard.
+Each Guard Run is for exactly one Guard.
+It is possible that more than one Guard Run is for the same Guard.
+Guard Run references Fact.
+It is possible that some Guard Run references more than one Fact
+and that for some Fact, more than one Guard Run references that Fact.
+In each population of Guard Run references Fact, each Guard Run, Fact combination occurs at most once.
+This association with Guard Run, Fact provides the preferred identification scheme for GuardRunReferencesFact.
+Each HTTP Method is an instance of Predicate.
+Each Hypothesis Candidate is an instance of Resource.
+Hypothesis Candidate explains Fact.
+It is possible that some Hypothesis Candidate explains more than one Fact
+and that for some Fact, more than one Hypothesis Candidate explains that Fact.
+In each population of Hypothesis Candidate explains Fact, each Hypothesis Candidate, Fact combination occurs at most once.
+This association with Hypothesis Candidate, Fact provides the preferred identification scheme for HypothesisCandidateExplainsFact.
+Hypothesis Candidate has Confidence Score.
+Each Hypothesis Candidate has at most one Confidence Score.
+It is possible that more than one Hypothesis Candidate has the same Confidence Score.
+Hypothesis Candidate has hidden Fact.
+It is possible that some Hypothesis Candidate has more than one hidden Fact
+and that for some Fact, more than one Hypothesis Candidate has that hidden Fact.
+In each population of Hypothesis Candidate has hidden Fact, each Hypothesis Candidate, Fact combination occurs at most once.
+This association with Hypothesis Candidate, Fact provides the preferred identification scheme for HypothesisCandidateHasHiddenFact.
+Hypothesis Candidate has Hypothesis Candidate_id.
+Each Hypothesis Candidate has exactly one Hypothesis Candidate_id.
+Each Hypothesis Candidate_id is of at most one Hypothesis Candidate.
+This association with Hypothesis Candidate_id provides the preferred identification scheme for Hypothesis Candidate.
+Each Join Path is an instance of Function.
+Each Join Type is an instance of Function.
+Join has Join_id.
+Each Join has exactly one Join_id.
+Each Join_id is of at most one Join.
+This association with Join_id provides the preferred identification scheme for Join.
+Join has Join Type.
+Each Join has exactly one Join Type.
+It is possible that more than one Join has the same Join Type.
+Join has Role Sequence.
+It is possible that some Join has more than one Role Sequence
+and that for some Role Sequence, more than one Join has that Role Sequence.
+In each population of Join has Role Sequence, each Join, Role Sequence combination occurs at most once.
+This association with Join, Role Sequence provides the preferred identification scheme for JoinHasRoleSequence.
+Each Join has some Role Sequence.
+Each Join is an instance of Function.
+Join Path has Join.
+Each Join Path has some Join.
+For each Join, exactly one Join Path has that Join.
+It is possible that some Join Path has more than one Join.
+Join Path has Join Path_id.
+Each Join Path has exactly one Join Path_id.
+Each Join Path_id is of at most one Join Path.
+This association with Join Path_id provides the preferred identification scheme for Join Path.
+Join Type has Join Type_Name.
+Each Join Type has exactly one Join Type_Name.
+Each Join Type_Name is of at most one Join Type.
+This association with Join Type_Name provides the preferred identification scheme for Join Type.
+Join uses Fact Type.
+Each Join uses exactly one Fact Type.
+It is possible that more than one Join uses the same Fact Type.
+Language has Language_code.
+Each Language has exactly one Language_code.
+Each Language_code is of at most one Language.
+This association with Language_code provides the preferred identification scheme for Language.
+Each Language is an instance of Function.
+Each Migration Application is an instance of Resource.
+Migration Application has Migration.
+Each Migration Application has exactly one Migration.
+It is possible that more than one Migration Application has the same Migration.
+Migration Application has Migration Application_id.
+Each Migration Application has exactly one Migration Application_id.
+Each Migration Application_id is of at most one Migration Application.
+This association with Migration Application_id provides the preferred identification scheme for Migration Application.
+Migration Application has source Fact.
+Each Migration Application has source exactly one Fact.
+It is possible that more than one Migration Application has source the same Fact.
+Migration Application has Timestamp.
+Each Migration Application has exactly one Timestamp.
+It is possible that more than one Migration Application has the same Timestamp.
+Migration Application produces Fact.
+It is possible that some Migration Application produces more than one Fact
+and that for some Fact, more than one Migration Application produces that Fact.
+In each population of Migration Application produces Fact, each Migration Application, Fact combination occurs at most once.
+This association with Migration Application, Fact provides the preferred identification scheme for MigrationApplicationProducesFact.
+Each Migration Application produces some Fact.
+Migration has Migration_id.
+Each Migration has exactly one Migration_id.
+Each Migration_id is of at most one Migration.
+This association with Migration_id provides the preferred identification scheme for Migration.
+Migration has Migration Rule Text.
+Each Migration has exactly one Migration Rule Text.
+It is possible that more than one Migration has the same Migration Rule Text.
+Migration has source Fact Type.
+Each Migration has source exactly one Fact Type.
+It is possible that more than one Migration has source the same Fact Type.
+Migration has Timestamp.
+Each Migration has exactly one Timestamp.
+It is possible that more than one Migration has the same Timestamp.
+Each Migration is an instance of Function.
+Migration produces target Fact Type.
+It is possible that some Migration produces target more than one Fact Type
+and that for some Fact Type, more than one Migration produces target that Fact Type.
+In each population of Migration produces target Fact Type, each Migration, Fact Type combination occurs at most once.
+This association with Migration, Fact Type provides the preferred identification scheme for MigrationProducesTargetFactType.
+Each Migration produces target some Fact Type.
+Each Object Type is an instance of Function.
+Object Type has Alias.
+It is possible that some Object Type has more than one Alias
+and that for some Alias, more than one Object Type has that Alias.
+In each population of Object Type has Alias, each Object Type, Alias combination occurs at most once.
+This association with Object Type, Alias provides the preferred identification scheme for ObjectTypeHasAlias.
+Object Type has Conceptual Data Type.
+Each Object Type has at most one Conceptual Data Type.
+It is possible that more than one Object Type has the same Conceptual Data Type.
+Object Type has Description.
+Each Object Type has at most one Description.
+It is possible that more than one Object Type has the same Description.
+Object Type has Enum Values.
+Each Object Type has at most one Enum Values.
+It is possible that more than one Object Type has the same Enum Values.
+Object Type has Exclusive Maximum.
+Each Object Type has at most one Exclusive Maximum.
+It is possible that more than one Object Type has the same Exclusive Maximum.
+Object Type has Exclusive Minimum.
+Each Object Type has at most one Exclusive Minimum.
+It is possible that more than one Object Type has the same Exclusive Minimum.
+Object Type has Facet.
+It is possible that some Object Type has more than one Facet
+and that for some Facet, more than one Object Type has that Facet.
+In each population of Object Type has Facet, each Object Type, Facet combination occurs at most once.
+This association with Object Type, Facet provides the preferred identification scheme for ObjectTypeHasFacet.
+Object Type has Format.
+Each Object Type has at most one Format.
+It is possible that more than one Object Type has the same Format.
+Object Type has Max Length.
+Each Object Type has at most one Max Length.
+It is possible that more than one Object Type has the same Max Length.
+Object Type has Maximum.
+Each Object Type has at most one Maximum.
+It is possible that more than one Object Type has the same Maximum.
+Object Type has Min Length.
+Each Object Type has at most one Min Length.
+It is possible that more than one Object Type has the same Min Length.
+Object Type has Minimum.
+Each Object Type has at most one Minimum.
+It is possible that more than one Object Type has the same Minimum.
+Object Type has Multiple Of.
+Each Object Type has at most one Multiple Of.
+It is possible that more than one Object Type has the same Multiple Of.
+Object Type has Pattern.
+Each Object Type has at most one Pattern.
+It is possible that more than one Object Type has the same Pattern.
+Object Type has Permission.
+It is possible that some Object Type has more than one Permission
+and that for some Permission, more than one Object Type has that Permission.
+In each population of Object Type has Permission, each Object Type, Permission combination occurs at most once.
+This association with Object Type, Permission provides the preferred identification scheme for ObjectTypeHasPermission.
+Object Type has Plural.
+Each Object Type has at most one Plural.
+It is possible that more than one Object Type has the same Plural.
+Object Type has Precision.
+Each Object Type has at most one Precision.
+It is possible that more than one Object Type has the same Precision.
+Object Type has Reference Mode.
+Each Object Type has at most one Reference Mode.
+It is possible that more than one Object Type has the same Reference Mode.
+Object Type has Scale.
+Each Object Type has at most one Scale.
+It is possible that more than one Object Type has the same Scale.
+Object Type has URI.
+Each Object Type has at most one URI.
+It is possible that more than one Object Type has the same URI.
+Object Type has Value Range.
+It is possible that some Object Type has more than one Value Range
+and that for some Value Range, more than one Object Type has that Value Range.
+In each population of Object Type has Value Range, each Object Type, Value Range combination occurs at most once.
+This association with Object Type, Value Range provides the preferred identification scheme for ObjectTypeHasValueRange.
+Object Type has value-type Name.
+For each value-type Name, at most one Object Type has that value-type Name.
+It is possible that some Object Type has more than one value-type Name.
+Object Type has World Assumption.
+Each Object Type has exactly one World Assumption.
+It is possible that more than one Object Type has the same World Assumption.
+Object Type is backed by External System.
+Each Object Type is backed by at most one External System.
+It is possible that more than one Object Type is backed by the same External System.
+Object Type is described to AI by prompt Text.
+It is possible that some Object Type is described to AI by prompt more than one Text
+and that for some Text, more than one Object Type is described to AI by prompt that Text.
+In each population of Object Type is described to AI by prompt Text, each Object Type, Text combination occurs at most once.
+This association with Object Type, Text provides the preferred identification scheme for ObjectTypeIsDescribedToAIByPromptText.
+Object Type is independent.
+In each population of Object Type is independent, each Object Type occurs at most once.
+Object Type is instantiable.
+In each population of Object Type is instantiable, each Object Type occurs at most once.
+Object Type is measured in Unit.
+Each Object Type is measured in at most one Unit.
+It is possible that more than one Object Type is measured in the same Unit.
+Object Type is of OT Kind.
+Each Object Type is of exactly one OT Kind.
+It is possible that more than one Object Type is of the same OT Kind.
+Object Type is of schema:Thing.
+Each Object Type is of at most one schema:Thing.
+It is possible that more than one Object Type is of the same schema:Thing.
+Object Type is subtype of Object Type.
+It is possible that some Object Type is subtype of more than one Object Type
+and that for some Object Type1, more than one Object Type is subtype of that Object Type1.
+In each population of Object Type is subtype of Object Type, each Object Type, Object Type combination occurs at most once.
+This association with Object Type, Object Type provides the preferred identification scheme for ObjectTypeIsSubtypeOfObjectType.
+Object Type plays Role.
+For each Role, exactly one Object Type plays that Role.
+It is obligatory that each Object Type plays some Role.
+It is possible that some Object Type plays more than one Role.
+Operation has Operation_name.
+Each Operation has exactly one Operation_name.
+Each Operation_name is of at most one Operation.
+This association with Operation_name provides the preferred identification scheme for Operation.
+Each Operation is an instance of Function.
+Operation is overridable.
+In each population of Operation is overridable, each Operation occurs at most once.
+Operation is registrable.
+In each population of Operation is registrable, each Operation occurs at most once.
+Each Pluralization Rule is an instance of Function.
+Pluralization Rule has Pattern.
+Each Pluralization Rule has exactly one Pattern.
+It is possible that more than one Pluralization Rule has the same Pattern.
+Pluralization Rule has Pluralization Rule_id.
+Each Pluralization Rule has exactly one Pluralization Rule_id.
+Each Pluralization Rule_id is of at most one Pluralization Rule.
+This association with Pluralization Rule_id provides the preferred identification scheme for Pluralization Rule.
+Pluralization Rule has Replacement.
+In each population of Pluralization Rule has Replacement, each Pluralization Rule occurs at most once.
+Predicate has Name.
+Each Predicate has exactly one Name.
+It is possible that more than one Predicate has the same Name.
+Each Predicate is an instance of Function.
+Predicate is performed during Transition.
+Each Predicate is performed during at most one Transition.
+For each Transition, at most one Predicate is performed during that Transition.
+Predicate is performed in Status.
+Each Predicate is performed in at most one Status.
+For each Status, at most one Predicate is performed in that Status.
+Reading has Reading_id.
+Each Reading has exactly one Reading_id.
+Each Reading_id is of at most one Reading.
+This association with Reading_id provides the preferred identification scheme for Reading.
+Reading has Text.
+Each Reading has exactly one Text.
+It is possible that more than one Reading has the same Text.
+Each Reading is an instance of Function.
+Reading is localized for Language.
+Each Reading is localized for at most one Language.
+It is possible that more than one Reading is localized for the same Language.
+Reading is primary.
+In each population of Reading is primary, each Reading occurs at most once.
+Reading is used by Predicate.
+Each Reading is used by exactly one Predicate.
+It is possible that more than one Reading is used by the same Predicate.
+Each Relational Mapping is an instance of Resource.
+Relational Mapping absorbs subtypes.
+In each population of Relational Mapping absorbs subtypes, each Relational Mapping occurs at most once.
+Relational Mapping groups functional fact types.
+In each population of Relational Mapping groups functional fact types, each Relational Mapping occurs at most once.
+Relational Mapping has Relational Mapping_name.
+Each Relational Mapping has exactly one Relational Mapping_name.
+Each Relational Mapping_name is of at most one Relational Mapping.
+This association with Relational Mapping_name provides the preferred identification scheme for Relational Mapping.
+Relational Mapping maps compound fact types.
+In each population of Relational Mapping maps compound fact types, each Relational Mapping occurs at most once.
+Relational Mapping maps Schema Design.
+Each Relational Mapping maps exactly one Schema Design.
+It is possible that more than one Relational Mapping maps the same Schema Design.
+Fact uses Resource for Role.
+For each Fact and Role,
+that Fact uses at most one Resource for that Role.
+This association with Fact, Role provides the preferred identification scheme for Resource Role.
+Each Fact uses some Resource for some Role.
+Resource belongs to Domain.
+Each Resource belongs to at most one Domain.
+It is possible that more than one Resource belongs to the same Domain.
+Resource has Reference.
+Each Resource has exactly one Reference.
+Each Reference is of at most one Resource.
+This association with Reference provides the preferred identification scheme for Resource.
+Resource has Value.
+Each Resource has at most one Value.
+It is possible that more than one Resource has the same Value.
+Each Resource is an instance of Function.
+Resource is created by User.
+Each Resource is created by at most one User.
+It is possible that more than one Resource is created by the same User.
+Resource is currently in Status.
+Each Resource is currently in at most one Status.
+It is possible that more than one Resource is currently in the same Status.
+Resource is instance of Object Type.
+It is possible that some Resource is instance of more than one Object Type
+and that for some Object Type, more than one Resource is instance of that Object Type.
+In each population of Resource is instance of Object Type, each Resource, Object Type combination occurs at most once.
+This association with Resource, Object Type provides the preferred identification scheme for ResourceIsInstanceOfObjectType.
+Each Resource is instance of some Object Type.
+Resource is of Function.
+It is possible that some Resource is of more than one Function
+and that for some Function, more than one Resource is of that Function.
+In each population of Resource is of Function, each Resource, Function combination occurs at most once.
+This association with Resource, Function provides the preferred identification scheme for ResourceIsOfFunction.
+Each Role Projection is an instance of Function.
+Each Role Sequence is an instance of Function.
+Role has Position for Reading.
+For each Role and Reading,
+that Role has at most one Position for that Reading.
+This association with Role, Reading provides the preferred identification scheme for RoleHasPositionForReading.
+Role has Role_id.
+Each Role has exactly one Role_id.
+Each Role_id is of at most one Role.
+This association with Role_id provides the preferred identification scheme for Role.
+Each Role is an instance of Function.
+Role is used in Reading.
+It is possible that some Role is used in more than one Reading
+and that for some Reading, more than one Role is used in that Reading.
+In each population of Role is used in Reading, each Role, Reading combination occurs at most once.
+This association with Role, Reading provides the preferred identification scheme for RoleIsUsedInReading.
+Each Role is used in some Reading.
+For each Reading, some Role is used in that Reading.
+Role Projection has Role Projection_id.
+Each Role Projection has exactly one Role Projection_id.
+Each Role Projection_id is of at most one Role Projection.
+This association with Role Projection_id provides the preferred identification scheme for Role Projection.
+Role Projection is from Role Sequence.
+Each Role Projection is from exactly one Role Sequence.
+It is possible that more than one Role Projection is from the same Role Sequence.
+Role Projection produces Role.
+Each Role Projection produces exactly one Role.
+It is possible that more than one Role Projection produces the same Role.
+Role Sequence has Role at Position.
+For each Role Sequence and Position,
+that Role Sequence has at most one Role at that Position.
+This association with Role Sequence, Position provides the preferred identification scheme for RoleSequenceHasRoleAtPosition.
+Role Sequence has Role Sequence_id.
+Each Role Sequence has exactly one Role Sequence_id.
+Each Role Sequence_id is of at most one Role Sequence.
+This association with Role Sequence_id provides the preferred identification scheme for Role Sequence.
+Each Schema Design is an instance of Resource.
+Schema Design adds mandatory roles.
+In each population of Schema Design adds mandatory roles, each Schema Design occurs at most once.
+Schema Design adds uniqueness constraints.
+In each population of Schema Design adds uniqueness constraints, each Schema Design occurs at most once.
+Schema Design adds value and subtype constraints.
+In each population of Schema Design adds value and subtype constraints, each Schema Design occurs at most once.
+Schema Design has Design Note.
+Each Schema Design has at most one Design Note.
+It is possible that more than one Schema Design has the same Design Note.
+Schema Design has Schema Design_name.
+Each Schema Design has exactly one Schema Design_name.
+Each Schema Design_name is of at most one Schema Design.
+This association with Schema Design_name provides the preferred identification scheme for Schema Design.
+Schema Design notes elementary facts.
+In each population of Schema Design notes elementary facts, each Schema Design occurs at most once.
+Schema Design passes final checks.
+In each population of Schema Design passes final checks, each Schema Design occurs at most once.
+Schema Design populates fact types.
+In each population of Schema Design populates fact types, each Schema Design occurs at most once.
+Schema Design trims schema and notes derivations.
+In each population of Schema Design trims schema and notes derivations, each Schema Design occurs at most once.
+Schema:Thing has schema:Thing_Name.
+Each schema:Thing has exactly one schema:Thing_Name.
+Each schema:Thing_Name is of at most one schema:Thing.
+This association with schema:Thing_Name provides the preferred identification scheme for schema:Thing.
+Each Scoring Rule is an instance of Function.
+Scoring Rule applies to Hypothesis Candidate.
+It is possible that some Scoring Rule applies to more than one Hypothesis Candidate
+and that for some Hypothesis Candidate, more than one Scoring Rule applies to that Hypothesis Candidate.
+In each population of Scoring Rule applies to Hypothesis Candidate, each Scoring Rule, Hypothesis Candidate combination occurs at most once.
+This association with Scoring Rule, Hypothesis Candidate provides the preferred identification scheme for ScoringRuleAppliesToHypothesisCandidate.
+Scoring Rule has Scoring Rule_id.
+Each Scoring Rule has exactly one Scoring Rule_id.
+Each Scoring Rule_id is of at most one Scoring Rule.
+This association with Scoring Rule_id provides the preferred identification scheme for Scoring Rule.
+Each Set Comparison Constraint is an instance of Constraint.
+Set Comparison Constraint has Argument Length.
+It is possible that some Set Comparison Constraint has more than one Argument Length
+and that for some Argument Length, more than one Set Comparison Constraint has that Argument Length.
+In each population of Set Comparison Constraint has Argument Length, each Set Comparison Constraint, Argument Length combination occurs at most once.
+This association with Set Comparison Constraint, Argument Length provides the preferred identification scheme for SetComparisonConstraintHasArgumentLength.
+Signal has Signal Id.
+Each Signal has exactly one Signal Id.
+Each Signal Id is of at most one Signal.
+This association with Signal Id provides the preferred identification scheme for Signal.
+Signal has Signal Source.
+Each Signal has exactly one Signal Source.
+It is possible that more than one Signal has the same Signal Source.
+Each Signal is an instance of Resource.
+Signal leads to Domain Change.
+Each Signal leads to at most one Domain Change.
+It is possible that more than one Signal leads to the same Domain Change.
+Each State Machine Definition is an instance of Status.
+Each State Machine is an instance of Resource.
+State Machine Definition has State Machine Definition_Name.
+Each State Machine Definition has exactly one State Machine Definition_Name.
+Each State Machine Definition_Name is of at most one State Machine Definition.
+This association with State Machine Definition_Name provides the preferred identification scheme for State Machine Definition.
+State Machine Definition is for Object Type.
+Each State Machine Definition is for at most one Object Type.
+For each Object Type, at most one State Machine Definition is for that Object Type.
+State Machine has State Machine_id.
+Each State Machine has exactly one State Machine_id.
+Each State Machine_id is of at most one State Machine.
+This association with State Machine_id provides the preferred identification scheme for State Machine.
+State Machine is currently in Status.
+Each State Machine is currently in exactly one Status.
+It is possible that more than one State Machine is currently in the same Status.
+State Machine is for Resource.
+For each Resource, at most one State Machine is for that Resource.
+It is possible that some State Machine is for more than one Resource.
+State Machine is instance of Object Type.
+It is possible that some State Machine is instance of more than one Object Type
+and that for some Object Type, more than one State Machine is instance of that Object Type.
+In each population of State Machine is instance of Object Type, each State Machine, Object Type combination occurs at most once.
+This association with State Machine, Object Type provides the preferred identification scheme for StateMachineIsInstanceOfObjectType.
+Each State Machine is instance of some Object Type.
+State Machine is instance of State Machine Definition.
+Each State Machine is instance of exactly one State Machine Definition.
+It is possible that more than one State Machine is instance of the same State Machine Definition.
+Status has effective Transition to Status on Event Type.
+It is possible that for some Status1, Transition, and Status2, that Status1 has effective that Transition to that Status2 on more than one Event Type
+and that for some Status1, Transition, and Event Type, that Status1 has effective that Transition to more than one Status2 on that Event Type
+and that for some Status1, Status2, and Event Type, that Status1 has effective more than one Transition to that Status2 on that Event Type
+and that for some Transition, Status1, and Event Type, more than one Status2 has effective that Transition to that Status1 on that Event Type.
+In each population of Status has effective Transition to Status on Event Type, each Status, Transition, Status, Event Type combination occurs at most once.
+This association with Status, Transition, Status, Event Type provides the preferred identification scheme for StatusHasEffectiveTransitionToStatusOnEventType.
+Status has HTTP Method.
+Each Status has at most one HTTP Method.
+It is possible that more than one Status has the same HTTP Method.
+Status has Status_Name.
+Each Status has exactly one Status_Name.
+Each Status_Name is of at most one Status.
+This association with Status_Name provides the preferred identification scheme for Status.
+Each Status is an instance of Object Type.
+Status is defined in State Machine Definition.
+It is possible that some Status is defined in more than one State Machine Definition
+and that for some State Machine Definition, more than one Status is defined in that State Machine Definition.
+In each population of Status is defined in State Machine Definition, each Status, State Machine Definition combination occurs at most once.
+This association with Status, State Machine Definition provides the preferred identification scheme for StatusIsDefinedInStateMachineDefinition.
+Status is effective initial in State Machine Definition.
+It is possible that some Status is effective initial in more than one State Machine Definition
+and that for some State Machine Definition, more than one Status is effective initial in that State Machine Definition.
+In each population of Status is effective initial in State Machine Definition, each Status, State Machine Definition combination occurs at most once.
+This association with Status, State Machine Definition provides the preferred identification scheme for StatusIsEffectiveInitialInStateMachineDefinition.
+Status is initial in State Machine Definition.
+For each State Machine Definition, exactly one Status is initial in that State Machine Definition.
+It is possible that some Status is initial in more than one State Machine Definition.
+Status is rooted in State Machine Definition.
+It is possible that some Status is rooted in more than one State Machine Definition
+and that for some State Machine Definition, more than one Status is rooted in that State Machine Definition.
+In each population of Status is rooted in State Machine Definition, each Status, State Machine Definition combination occurs at most once.
+This association with Status, State Machine Definition provides the preferred identification scheme for StatusIsRootedInStateMachineDefinition.
+Status is terminal in State Machine Definition.
+It is possible that some Status is terminal in more than one State Machine Definition
+and that for some State Machine Definition, more than one Status is terminal in that State Machine Definition.
+In each population of Status is terminal in State Machine Definition, each Status, State Machine Definition combination occurs at most once.
+This association with Status, State Machine Definition provides the preferred identification scheme for StatusIsTerminalInStateMachineDefinition.
+Status reaches Status in State Machine Definition.
+It is possible that for some Status1 and Status2, that Status1 reaches that Status2 in more than one State Machine Definition
+and that for some Status1 and State Machine Definition, that Status1 reaches more than one Status2 in that State Machine Definition
+and that for some Status1 and State Machine Definition, more than one Status2 reaches that Status1 in that State Machine Definition.
+In each population of Status reaches Status in State Machine Definition, each Status, Status, State Machine Definition combination occurs at most once.
+This association with Status, Status, State Machine Definition provides the preferred identification scheme for StatusReachesStatusInStateMachineDefinition.
+Stream has Name.
+Each Stream has exactly one Name.
+It is possible that more than one Stream has the same Name.
+Stream has Stream_id.
+Each Stream has exactly one Stream_id.
+Each Stream_id is of at most one Stream.
+This association with Stream_id provides the preferred identification scheme for Stream.
+Each Stream is an instance of Function.
+Each Textual Constraint is an instance of Constraint.
+Textual Constraint has Text.
+Each Textual Constraint has exactly one Text.
+It is possible that more than one Textual Constraint has the same Text.
+Transition has Transition_id.
+Each Transition has exactly one Transition_id.
+Each Transition_id is of at most one Transition.
+This association with Transition_id provides the preferred identification scheme for Transition.
+Each Transition is an instance of Function.
+Transition is defined in State Machine Definition.
+Each Transition is defined in exactly one State Machine Definition.
+It is possible that more than one Transition is defined in the same State Machine Definition.
+Transition is from Status.
+Each Transition is exactly one from Status.
+It is possible that more than one Transition is the same from Status.
+Transition is to Status.
+Each Transition is exactly one to Status.
+It is possible that more than one Transition is the same to Status.
+Transition is triggered by Event Type.
+Each Transition is triggered by exactly one Event Type.
+It is possible that more than one Transition is triggered by the same Event Type.
+Unit has Dimension.
+Each Unit has exactly one Dimension.
+It is possible that more than one Unit has the same Dimension.
+Unit has Unit_Name.
+Each Unit has exactly one Unit_Name.
+Each Unit_Name is of at most one Unit.
+This association with Unit_Name provides the preferred identification scheme for Unit.
+Each Unit is an instance of Function.
+User approves Domain Change.
+It is possible that some User approves more than one Domain Change
+and that for some Domain Change, more than one User approves that Domain Change.
+In each population of User approves Domain Change, each User, Domain Change combination occurs at most once.
+This association with User, Domain Change provides the preferred identification scheme for UserApprovesDomainChange.
+User has Email.
+Each User has exactly one Email.
+Each Email is of at most one User.
+This association with Email provides the preferred identification scheme for User.
+Each User is an instance of Resource.
+User rejects Domain Change.
+It is possible that some User rejects more than one Domain Change
+and that for some Domain Change, more than one User rejects that Domain Change.
+In each population of User rejects Domain Change, each User, Domain Change combination occurs at most once.
+This association with User, Domain Change provides the preferred identification scheme for UserRejectsDomainChange.
+User requests revision of Domain Change.
+It is possible that some User requests revision of more than one Domain Change
+and that for some Domain Change, more than one User requests revision of that Domain Change.
+In each population of User requests revision of Domain Change, each User, Domain Change combination occurs at most once.
+This association with User, Domain Change provides the preferred identification scheme for UserRequestsRevisionOfDomainChange.
+User submits Domain Change for review.
+It is possible that some User submits more than one Domain Change for review
+and that for some Domain Change, more than one User submits that Domain Change for review.
+In each population of User submits Domain Change for review, each User, Domain Change combination occurs at most once.
+This association with User, Domain Change provides the preferred identification scheme for UserSubmitsDomainChangeForReview.
+Each Value Range is an instance of Function.
+Each Value Type is an instance of Object Type.
+Value Range has lower Bound.
+Each Value Range has lower at most one Bound.
+It is possible that more than one Value Range has lower the same Bound.
+Value Range has upper Bound.
+Each Value Range has upper at most one Bound.
+It is possible that more than one Value Range has upper the same Bound.
+Value Range has Value Range_id.
+Each Value Range has exactly one Value Range_id.
+Each Value Range_id is of at most one Value Range.
+This association with Value Range_id provides the preferred identification scheme for Value Range.
+Violation belongs to Batch.
+Each Violation belongs to at most one Batch.
+It is possible that more than one Violation belongs to the same Batch.
+Violation belongs to Domain.
+Each Violation belongs to at most one Domain.
+It is possible that more than one Violation belongs to the same Domain.
+Violation has Severity.
+Each Violation has exactly one Severity.
+It is possible that more than one Violation has the same Severity.
+Violation has Text.
+Each Violation has exactly one Text.
+It is possible that more than one Violation has the same Text.
+Violation has Violation_id.
+Each Violation has exactly one Violation_id.
+Each Violation_id is of at most one Violation.
+This association with Violation_id provides the preferred identification scheme for Violation.
+Each Violation is an instance of Resource.
+Violation is against Function.
+Each Violation is against at most one Function.
+It is possible that more than one Violation is against the same Function.
+Violation is of Constraint.
+Each Violation is of exactly one Constraint.
+It is possible that more than one Violation is of the same Constraint.
+Violation is triggered by Resource.
+Each Violation is triggered by at most one Resource.
+It is possible that more than one Violation is triggered by the same Resource.
+Violation occurred at Timestamp.
+Each Violation occurred at exactly one Timestamp.
+It is possible that more than one Violation occurred at the same Timestamp.
+Violation occurs before Transition.
+Each Violation occurs before at most one Transition.
+It is possible that more than one Violation occurs before the same Transition.
+Each schema:Thing is an instance of Function.

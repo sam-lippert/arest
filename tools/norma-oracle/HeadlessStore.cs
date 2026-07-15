@@ -17,7 +17,7 @@ using ORMSolutions.ORMArchitect.Framework.Shell.DynamicSurveyTreeGrid;
 
 namespace Elysium.NormaOracle
 {
-	public class OracleStore : Store, IORMToolServices, IFrameworkServices, IModelingEventManagerProvider, ISerializationContextHost
+	public class OracleStore : Store, IORMToolServices, IFrameworkServices, IModelingEventManagerProvider, ISerializationContextHost, IORMFontAndColorService
 	{
 		private readonly ModelingEventManager myEventManager;
 		public OracleStore()
@@ -127,29 +127,133 @@ namespace Elysium.NormaOracle
 		}
 		IORMFontAndColorService IORMToolServices.FontAndColorService
 		{
-			get { return null; }
+			get { return this; }
+		}
+		// IORMFontAndColorService: the verbalization document header reads
+		// fonts/colors through the store; serve the designer defaults (the
+		// same values VerbalizationManager.CategoryFontData defaults to).
+		System.Drawing.Color IORMFontAndColorService.GetForeColor(ORMDesignerColor colorIndex)
+		{
+			switch (colorIndex)
+			{
+				case ORMDesignerColor.VerbalizerPredicateText: return System.Drawing.Color.DarkGreen;
+				case ORMDesignerColor.VerbalizerObjectName: return System.Drawing.Color.Purple;
+				case ORMDesignerColor.VerbalizerFormalItem: return System.Drawing.Color.MediumBlue;
+				case ORMDesignerColor.VerbalizerNotesItem: return System.Drawing.Color.Black;
+				case ORMDesignerColor.VerbalizerRefMode: return System.Drawing.Color.Brown;
+				case ORMDesignerColor.VerbalizerInstanceValue: return System.Drawing.Color.Brown;
+			}
+			return System.Drawing.Color.Black;
+		}
+		System.Drawing.Color IORMFontAndColorService.GetBackColor(ORMDesignerColor colorIndex)
+		{
+			return System.Drawing.Color.White;
+		}
+		System.Drawing.Font IORMFontAndColorService.GetFont(ORMDesignerColorCategory fontCategory)
+		{
+			// the document header multiplies Size by 72 expecting inches
+			return new System.Drawing.Font("Tahoma", 8.0F / 72.0F, System.Drawing.GraphicsUnit.Inch);
+		}
+		System.Drawing.FontStyle IORMFontAndColorService.GetFontStyle(ORMDesignerColor colorIndex)
+		{
+			return colorIndex == ORMDesignerColor.VerbalizerFormalItem ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular;
 		}
 		IServiceProvider IORMToolServices.ServiceProvider
 		{
 			get { return null; }
 		}
+		// Verbalization services, shaped after ORMStandaloneStore (Load/
+		// ModelLoader.cs): targets and options come from attributes on the
+		// loaded domain models; snippets load through the documented
+		// VerbalizationSnippetSetsManager entry point (defaults are embedded
+		// in the domain-model assemblies; the directory only adds overrides).
 		private IDictionary<string, VerbalizationTargetData> myVerbalizationTargets;
 		IDictionary<string, VerbalizationTargetData> IORMToolServices.VerbalizationTargets
 		{
-			get { return myVerbalizationTargets ?? (myVerbalizationTargets = new Dictionary<string, VerbalizationTargetData>()); }
+			get
+			{
+				IDictionary<string, VerbalizationTargetData> retVal = myVerbalizationTargets;
+				if (retVal == null)
+				{
+					retVal = new Dictionary<string, VerbalizationTargetData>();
+					foreach (DomainModel domainModel in this.DomainModels)
+					{
+						Type domainModelType = domainModel.GetType();
+						object[] providers = domainModelType.GetCustomAttributes(typeof(VerbalizationTargetProviderAttribute), false);
+						if (providers.Length != 0)
+						{
+							IVerbalizationTargetProvider provider = ((VerbalizationTargetProviderAttribute)providers[0]).CreateTargetProvider(domainModelType);
+							if (provider != null)
+							{
+								VerbalizationTargetData[] targets = provider.ProvideVerbalizationTargets();
+								if (targets != null)
+								{
+									for (int i = 0; i < targets.Length; ++i)
+									{
+										retVal[targets[i].KeyName] = targets[i];
+									}
+								}
+							}
+						}
+					}
+					myVerbalizationTargets = retVal;
+				}
+				return retVal;
+			}
 		}
+		private IDictionary<string, IDictionary<Type, IVerbalizationSets>> myTargetedVerbalizationSnippets;
+		public string[] SnippetsDirectories = { "." };
 		IDictionary<Type, IVerbalizationSets> IORMToolServices.GetVerbalizationSnippetsDictionary(string target)
 		{
-			return null;
+			IDictionary<string, IDictionary<Type, IVerbalizationSets>> targetedSnippets = myTargetedVerbalizationSnippets;
+			if (targetedSnippets == null)
+			{
+				myTargetedVerbalizationSnippets = targetedSnippets = new Dictionary<string, IDictionary<Type, IVerbalizationSets>>();
+			}
+			IDictionary<Type, IVerbalizationSets> retVal;
+			if (!targetedSnippets.TryGetValue(target, out retVal))
+			{
+				targetedSnippets[target] = retVal = VerbalizationSnippetSetsManager.LoadSnippetsDictionary(this, target, SnippetsDirectories, null);
+			}
+			return retVal;
 		}
+		private IExtensionVerbalizerService myExtensionVerbalizerService;
 		IExtensionVerbalizerService IORMToolServices.ExtensionVerbalizerService
 		{
-			get { return null; }
+			get { return myExtensionVerbalizerService ?? (myExtensionVerbalizerService = new ExtensionVerbalizerService(this)); }
 		}
 		private IDictionary<string, object> myVerbalizationOptions;
 		IDictionary<string, object> IORMToolServices.VerbalizationOptions
 		{
-			get { return myVerbalizationOptions ?? (myVerbalizationOptions = new Dictionary<string, object>()); }
+			get
+			{
+				IDictionary<string, object> options = myVerbalizationOptions;
+				if (options == null)
+				{
+					myVerbalizationOptions = options = new Dictionary<string, object>();
+					foreach (DomainModel domainModel in this.DomainModels)
+					{
+						Type domainModelType = domainModel.GetType();
+						object[] providers = domainModelType.GetCustomAttributes(typeof(VerbalizationOptionProviderAttribute), false);
+						if (providers.Length != 0)
+						{
+							IVerbalizationOptionProvider provider = ((VerbalizationOptionProviderAttribute)providers[0]).CreateOptionProvider(domainModelType);
+							if (provider != null)
+							{
+								VerbalizationOptionData[] data = provider.ProvideVerbalizationOptions();
+								if (data != null)
+								{
+									for (int i = 0; i < data.Length; ++i)
+									{
+										options[data[i].Name] = data[i].DefaultValue;
+									}
+								}
+							}
+						}
+					}
+				}
+				return options;
+			}
 		}
 		LayoutEngine IORMToolServices.GetLayoutEngine(Type engineType)
 		{

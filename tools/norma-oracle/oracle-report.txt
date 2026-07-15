@@ -75,6 +75,7 @@ mapped: validation.md (39 sentences)
       ~ Model 'Elysium' contains multiple readings with an expanded reading signature of 'status reaches status in state machine definition involves status'. Each reading must be unique in the model.
 
 == RMAP: relational result ==
+  API(factTypeId, predicateId)
   APIAcceptsObjectTypeAsParameter(factTypeId, objectTypeId, predicateId)
   AntecedentClause(antecedentClauseId, derivationRuleId, clauseShape?)
   Batch(batchId)
@@ -157,4 +158,9 @@ mapped: validation.md (39 sentences)
   UserSubmitsDomainChangeForReview(domainChange, user)
   ValueRange(valueRangeId, hasLowerBoundId?, hasUpperBoundId?)
   Violation(violationId, constraintId, severity, text, timestamp, batchId?, domainName?, functionId?, resource?, transitionId?)
-  TOTAL TABLES: 82
+  TOTAL TABLES: 83
+
+== VERBALIZATION: NORMA generate leg (nf out-direction) ==
+  elements verbalized: 569
+  verbalization lines: 2686
+  written: verbalization-report.html, verbalization-report.txt
