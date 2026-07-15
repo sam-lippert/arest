@@ -476,15 +476,15 @@ push; until then the Rust synthesis continues to cover them.
 
 ### Subtype inheritance
 
-Every fact that binds a subtype also binds the supertype: if `Noun1`
-is a subtype of `Noun2` and a Fact uses a Resource whose Noun is
-`Noun1` for some Role, then that same Resource is also an instance of
-`Noun2`. In ORM this IS `Resource is instance of Noun` — subtyping is
-population inclusion (Halpin, "Subtyping Revisited": all instances of a
-type are instances of its supertype), so instance-of is transitive and
-the runtime mirror is deliberately over-broad to carry it. Inheritance
-proper is PROPERTY reuse (a subtype plays the supertype's roles because
-it IS a supertype instance), not a distinct membership relation.
+<!-- elysium-audit H2 (10.2, oracle-found prose — this block parsed into
+     garbage fact types): Every fact that binds a subtype also binds the
+     supertype: if Noun1 is a subtype of Noun2 and a Fact uses a Resource
+     whose Noun is Noun1 for some Role, then that same Resource is also an
+     instance of Noun2. In ORM this IS `Resource is instance of Noun` —
+     subtyping is population inclusion (Halpin, "Subtyping Revisited"), so
+     instance-of is transitive and the runtime mirror is deliberately
+     over-broad to carry it. Inheritance proper is PROPERTY reuse, not a
+     distinct membership relation. -->
 
 <!-- RETIRED 2026-07-09 (challenged + NORMA-verified): `Resource is
      inherited instance of Noun` was a non-canonical relation — ORM has
@@ -531,23 +531,21 @@ standard violation surface.
 
 ### Layer 2: ring validity — same-noun spans
 
-A ring constraint (`IR`, `AS`, `AT`, `SY`, `IT`, `TR`, `AC`, `RF`)
-must span roles whose Nouns are identical. A ring across mixed
-nouns is nonsensical — `No Customer is-subtype-of Address` has
-nothing to forbid. check.rs emits an Error-level diagnostic
-today; the deontic form is the same invariant spelled
-declaratively.
+<!-- elysium-audit H2 (10.2): A ring constraint (IR, AS, AT, SY, IT, TR,
+     AC, RF) must span roles whose Nouns are identical. A ring across mixed
+     nouns is nonsensical — "No Customer is-subtype-of Address" has nothing
+     to forbid. check.rs emits an Error-level diagnostic today; the deontic
+     form below is the same invariant spelled declaratively. -->
 
 It is obligatory that each Ring Constraint spans two Roles and both Roles are played by the same Noun.
 
 ### Layer 3: ring completeness — declare the ring on a same-noun binary
 
-A binary Fact Type whose two Roles share the same Noun almost
-always wants an explicit ring constraint — without one, nothing
-prevents the self-reference cycle the schema is implicitly
-modelling. check.rs emits a Hint-level diagnostic that points
-authors at the missing `is acyclic.` / `is irreflexive.`
-annotation.
+<!-- elysium-audit H2 (10.2): A binary Fact Type whose two Roles share the
+     same Noun almost always wants an explicit ring constraint — without
+     one, nothing prevents the self-reference cycle the schema is
+     implicitly modelling. check.rs emits a Hint-level diagnostic pointing
+     at the missing "is acyclic." / "is irreflexive." annotation. -->
 
 It is obligatory that each binary Fact Type whose Roles are played by the same Noun has some Ring Constraint spanning it.
 
@@ -562,11 +560,13 @@ decomposing each user-authored rule into a `Join Path` +
 rule text with Rust heuristics.
 -->
 
+<!-- elysium-audit H2 (10.2):
 Backus §11.2.4 / Def 7 correspondence (Table 1 of pre-2026-07-13 drafts):
   Join Path       ↔ Composition (COMP)
   Role Sequence   ↔ Construction (CONS)
   Role Projection ↔ Selector
   Join Type       ↔ Condition (COND)
+-->
 
 ### Entity types
 
@@ -647,12 +647,13 @@ It is forbidden that each Noun has a name that ends with 'ies'.
 ## Migration (#348)
 
 ### Rationale
-Population-level rewriting when a schema evolves. Cor 4 (cor:closure)
-stages migration as derivation rules / transition triggers / deontic
-rules; none is shaped for "rewrite facts of one Fact Type into
-facts of another," so `Migration` names it directly. Firing a rule
-emits a `MigrationApplication` (#349); visible_population (#350)
-projects out migrated sources, keeping P monotonic.
+<!-- elysium-audit H2 (10.2): Population-level rewriting when a schema
+     evolves. Cor 4 (cor:closure) stages migration as derivation rules /
+     transition triggers / deontic rules; none is shaped for "rewrite facts
+     of one Fact Type into facts of another," so Migration names it
+     directly. Firing a rule emits a MigrationApplication (#349);
+     visible_population (#350) projects out migrated sources, keeping P
+     monotonic. -->
 
 Migration(.id) is an entity type.
 Migration Rule Text is a value type.
@@ -674,13 +675,13 @@ It is obligatory that each Migration produces some target Fact Type.
 ## Migration Application (#349)
 
 ### Rationale
-Migration firing emits a Migration Application per source fact touched,
-recording which target facts were produced and when. Prop 3
-(prop:derive; Theorem 5 in pre-2026-07-13 drafts) holds because
-Migration Application is itself a fact: the visible_population
-projection (#350) reads it to filter out migrated sources without a
-destructive write, so population monotonicity is preserved and Cor 4
-(cor:closure, closure under self-modification) survives.
+<!-- elysium-audit H2 (10.2): Migration firing emits a Migration
+     Application per source fact touched, recording which target facts were
+     produced and when. Prop 3 (prop:derive; Theorem 5 in pre-2026-07-13
+     drafts) holds because Migration Application is itself a fact: the
+     visible_population projection (#350) reads it to filter out migrated
+     sources without a destructive write, so population monotonicity is
+     preserved and Cor 4 (cor:closure) survives. -->
 
 Migration Application(.id) is an entity type.
 
@@ -870,25 +871,18 @@ Constraint Type 'VC' has Name 'ValueComparison'.
 
 ### Conceptual Data Types (#279)
 
-NORMA's portable data-type catalog. Each leaf Conceptual Data Type is
-classified into exactly one of eight Data Type Groups (text, numeric,
-temporal, logical, raw, other, unspecified, userDefined). The `is in`
-facts below are the single source of truth for both the leaf codes and
-the group membership; the Data Type Group entities are populated by the
-group codes those facts reference (no separate Name is carried in P1).
-A value type opts into a data type with `The data type of <ValueType>
-is <code>.`, which absorbs `conceptualDataType` onto the Noun cell.
-
-The declaration may carry NORMA facets in a trailing clause (#279 P4):
-`The data type of Price is decimal with precision 10 and scale 2.` and
-`The data type of Code is text with length 50.`. These absorb onto the
-Noun cell as `precision` / `scale` (via `Noun has Precision` / `Noun has
-Scale` above) and `maxLength` (via the existing `Noun has Max Length`,
-which text `length` reuses). Facets parameterize the projected DDL:
-`DECIMAL(precision, scale)`, `CHARACTER VARYING(length)`, etc. The
-`Facet` entity (with its own `Length` / `Digit Count` / `Binary
-Precision`) models per-instance facet rows for a future supertype /
-units pass and is independent of these absorbed Noun fields.
+<!-- elysium-audit H2 (10.2): NORMA's portable data-type catalog. Each leaf
+     Conceptual Data Type is classified into exactly one of eight Data Type
+     Groups. The "is in" facts below are the single source of truth for the
+     leaf codes and group membership. A value type opts into a data type
+     with "The data type of <ValueType> is <code>." which absorbs
+     conceptualDataType onto the Noun cell. The declaration may carry NORMA
+     facets in a trailing clause (#279 P4): "The data type of Price is
+     decimal with precision 10 and scale 2." These absorb onto the Noun
+     cell as precision / scale / maxLength and parameterize the projected
+     DDL: DECIMAL(precision, scale), CHARACTER VARYING(length). The Facet
+     entity models per-instance facet rows for a future supertype / units
+     pass, independent of the absorbed Noun fields. -->
 
 Data Type Group 'text' has Name 'Text'.
 Data Type Group 'numeric' has Name 'Numeric'.
@@ -931,13 +925,13 @@ Conceptual Data Type 'objectId' is in Data Type Group 'other'.
 Conceptual Data Type 'unspecified' is in Data Type Group 'unspecified'.
 Conceptual Data Type 'userDefined' is in Data Type Group 'userDefined'.
 
-JSON-Schema projection of the catalog (#279 P2a). Each leaf carries one
-JSON Type (the `type` keyword the OpenAPI / JSON-Schema generator emits
-for a value-type property) and, for temporal / binary / uuid leaves, a
-JSON Format. These absorb `jsonType` / `jsonFormat` onto the Conceptual
-Data Type cell via RMAP, the same way `conceptualDataType` absorbs onto
-Noun. The generator's `JsonTypeMappingTable` reads them back; its boot
-fallback mirrors this block one-for-one.
+<!-- elysium-audit H2 (10.2): JSON-Schema projection of the catalog
+     (#279 P2a). Each leaf carries one JSON Type and, for temporal / binary
+     / uuid leaves, a JSON Format; these absorb jsonType / jsonFormat onto
+     the Conceptual Data Type cell via RMAP, the same way
+     conceptualDataType absorbs onto Noun. The generator's
+     JsonTypeMappingTable reads them back; its boot fallback mirrors this
+     block one-for-one. -->
 
 Conceptual Data Type 'text' has JSON Type 'string'.
 Conceptual Data Type 'fixedText' has JSON Type 'string'.
