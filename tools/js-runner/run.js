@@ -123,14 +123,42 @@ const fts = facts.map(f => [f.name, f.topPlayers, f.ucs, [], []]);
 const state = [fts, []];
 
 // ---- execute the canon ----
-const tables = ev("rmap", state);
-const functionals = ev("rmap:functionals", fts);
-const spannings = ev("rmap:spannings", fts);
-const canonSeparate = spannings.map(ft => ft[0]);
-const canonPairs = functionals.map(ft => ev("rmap:absorb_pair", ft));
-const canonKeys = [...new Set(canonPairs.map(p => p[0]))];
+// rmap answers a STORE: a sequence of ⟨CELL, name, rows⟩ (Backus 13.3.4/14.3);
+// rmap:schema answers the same content as full fact-type descriptors —
+// output type = input type, the closure surface for the laws below.
+const store = ev("rmap", state);
+const schema = ev("rmap:schema", state);
+const [groupDescs, projDescs] = schema;
+const canonSeparate = projDescs.map(d => d[0]);
+const canonKeys = groupDescs.map(d => d[0]);
+const canonPairs = ev("rmap:functionals", fts).map(ft => [ev("rmap:keyplayer", ft), ft[0]]);
 fs.writeFileSync(path.join(__dirname, "js-schema.json"),
-  JSON.stringify({ tables }, null, 1));
+  JSON.stringify({ store, schema }, null, 1));
+
+// ---- laws, canon-evaluated ----
+const laws = [];
+// L1 (fixpoint): re-classifying the emitted schema reproduces it — the
+// group descriptors (single-role key on position 1) re-absorb to their own
+// names; the projection descriptors re-separate unchanged.
+const schema2 = ev("rmap:schema", [[...groupDescs, ...projDescs], []]);
+const keys2 = schema2[0].map(d => d[0]);
+const seps2 = schema2[1].map(d => d[0]);
+laws.push(["L1 fixpoint: keys", JSON.stringify(keys2.sort()) === JSON.stringify([...canonKeys].sort())]);
+laws.push(["L1 fixpoint: separations", JSON.stringify(seps2.sort()) === JSON.stringify([...canonSeparate].sort())]);
+laws.push(["L1 fixpoint: projections pass through unchanged",
+  schema2[1].every(d2 => projDescs.some(d => deepEq(d, d2)))]);
+// L2 (a table IS fetch): Backus's up-arrow-n applied to the emitted store
+// returns the cell contents — Codd's restrict-then-project on the name
+// component, executed through the canon's own ast:Fetch builder.
+let l2 = true, l2note = "";
+try {
+  for (const probe of [canonSeparate[0], canonKeys[0]]) {
+    const fetched = ev(ev("ast:Fetch", probe), store);
+    const cell = store.find(c => c[0] === "CELL" && c[1] === probe);
+    if (!deepEq(fetched, cell[2])) l2 = false;
+  }
+} catch (e) { l2 = false; l2note = " (" + e.message + ")"; }
+laws.push(["L2 fetch = restrict-project: table access through ast:Fetch" + l2note, l2]);
 
 // ---- compare against NORMA ----
 const norm = s => s.replace(/[^A-Za-z0-9]/g, "").toLowerCase();
@@ -197,8 +225,10 @@ for (const k of canonKeys) {
 // ---- report ----
 console.log("arest DEFs loaded:", Object.keys(DEFS).length);
 console.log("design state:", facts.length, "fact types");
-console.log("canon rmap output:", tables.length, "tables",
-  "(" + canonKeys.length, "absorption groups +", canonSeparate.length, "separate)");
+console.log("canon rmap output: a STORE of", store.length, "cells",
+  "(" + canonKeys.length, "entity cells +", canonSeparate.length, "relation cells)");
+for (const [name, ok] of laws) console.log((ok ? "  law OK: " : "  LAW FAILED: ") + name);
+if (laws.some(l => !l[1])) process.exitCode = 1;
 console.log("NORMA output:", norma.tables.length, "tables",
   "(" + absorbingTables.length, "absorbing +", factTables.length, "fact tables +",
   valueTables.length, "value-domain-only, excluded)");
