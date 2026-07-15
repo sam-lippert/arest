@@ -516,7 +516,12 @@ Cardinality Constraint has Max Occurrence.
   Each Cardinality Constraint has at most one Max Occurrence.
 
 ### Constraint Span (objectification of "Constraint spans Role")
-Constraint Span autofills from superset.
+<!-- exec ruling (2026-07-16): the `Constraint Span autofills from
+     superset` unary is RETIRED — a stored boolean where the mechanism
+     belongs. A constraint that materializes its consequent does so by
+     PROVIDING a derivation: see `Derivation Rule is provided by
+     Constraint` under the Derivation Rule readings. Constraint Span is
+     now a pure objectification. -->
 
 ### Stream
 Stream has Name.
@@ -626,6 +631,15 @@ Domain connects to External System with Secret Reference.
 Derivation Rule is an entity type.
 Derivation Rule has Text.
   Each Derivation Rule has exactly one Text.
+Derivation Rule is provided by Constraint.
+  Each Derivation Rule is provided by at most one Constraint.
+  Each Constraint provides at most one Derivation Rule.
+  <!-- exec ruling (2026-07-16): the derivation a materializing
+       constraint supplies (see "Derivations provided by constraints"
+       below). A provided rule carries no authored Text — its content
+       compiles from the providing constraint's role sequences. Optional
+       both ways: most rules are authored, most constraints only
+       restrict. -->
 Derivation Rule has antecedent Fact Type.
   Each Derivation Rule, Fact Type combination occurs at most once in the population of Derivation Rule has antecedent Fact Type.
 Derivation Rule produces Fact Type.
@@ -684,21 +698,24 @@ push; until then the Rust synthesis continues to cover them.
 * Resource is inherited instance of Noun iff Resource is instance of some subtype of that Noun. -->
 
 
-### Subset Constraint auto-fill (SS)
+### Derivations provided by constraints
 
-<!--
-Each declared Subset Constraint whose `autofill` span marker is true
-copies every antecedent fact into the consequent Fact Type. One
-DerivationRule per SS constraint, each routed through
-`compile_explicit_derivation` as a single-antecedent rule.
--->
-
-<!-- audit-fix B (2026-07-15): demoted from a live rule to an obligation.
-     The head `Fact is in consequent Fact Type` is declared nowhere and
-     the body is outside the fragment — a compile-pass sketch wearing a
-     rule marker. Evaluator-phase re-entry requires declaring the head
-     and restating the body in the fragment:
-* Fact is in consequent Fact Type iff some Subset Constraint has autofill 'true' and Subset Constraint spans antecedent Fact Type and Fact is instance of that antecedent Fact Type. -->
+<!-- exec ruling (2026-07-16), replacing the retired autofill flag and
+     the killed host's SS auto-fill pass: a Subset Constraint that is to
+     be MATERIALIZED provides a Derivation Rule. The rule needs no
+     authored body — its content compiles from the constraint's own role
+     sequences (the antecedent sequence is the projection, the consequent
+     sequence the head; a joined sequence contributes its join path), so
+     the constraint is satisfied by construction wherever it provides.
+     This is the constraint-to-restriction compilation of section 5.2 run
+     in the derivation direction, and it generalizes: any constraint
+     whose satisfaction can be established by producing facts (subset,
+     equality) may provide; refusal-only families (uniqueness, exclusion)
+     never provide. Evaluator-phase obligation: compile a provided rule
+     from its providing constraint's sequences and hold it to the same
+     Lem 1 discipline as authored rules. The old SS auto-fill sketch
+     ("Fact is in consequent Fact Type iff some Subset Constraint has
+     autofill 'true' ...") is superseded by this modeling. -->
 
 ### Transitivity of binary Fact Types
 
