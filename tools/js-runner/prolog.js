@@ -63,6 +63,8 @@ const PRIMS = {
     return t.length > pre.length && t.slice(0, pre.length) === pre
       ? t.slice(pre.length) : t;
   },
+  "1r": x => x[x.length - 1],
+  tlr: x => x.slice(0, -1),
 };
 function ev(f, x) {
   if (typeof f === "number") return x[f - 1];

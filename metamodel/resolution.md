@@ -125,7 +125,8 @@ Domain 'monad' has Description 'The two monadic helpers of the command pipeline.
 Domain 'csdp' has Description 'The Conceptual Schema Design Procedure as canon: seven steps composed, three registered seams.'.
 Domain 'rmap' has Description 'Relational mapping as canon: the store form, absorption and separation.'.
 Domain 'manifest' has Description 'Def 9 origins computed from the store: the enumerable boundary as set arithmetic.'.
-Domain 'law' has Description 'The standing laws as canon: carrier unfolding, set algebra, and the seven checks law:report names — gates are definitions the mu applies, never host code, and a law that executes needs no restatement.'.
+Domain 'law' has Description 'The standing laws as canon: carrier unfolding, set algebra, and the checks law:report names — gates are definitions the mu applies, never host code, and a law that executes needs no restatement.'.
+Domain 'nav' has Description 'The navigation map as emitted view: patterns generated from rmap per Thm 2 — an entity group answers collection and item patterns, a separated fact type one pattern per curry prefix, links(e) = nav(e) union transitions — one map serving browser, console, and server by varying registered render functions.'.
 
 Function 'csdp:elementarize' has Definition Origin 'registered'.
 Function 'csdp:elementarize' accepts Type Expression 'familiar-examples'.
