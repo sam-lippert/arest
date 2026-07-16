@@ -11,3 +11,6 @@ apps/*/verbalization-report.txt
 apps/*/verbalization-report.html
 apps/*/.combined/
 apps/*/checker-answer
+tools/cs-runner/Composed.g.cs
+tools/cs-runner/bin/
+tools/cs-runner/obj/
