@@ -7,6 +7,11 @@ repeat that. It is a COMPOSED SINGLE FILE:
 
     node compose.js     # prolog.js ; arest ; design-state ; norma-answer ; epilog.js -> runner.js
     node runner.js      # exit 0 iff every law answers T
+    node compose.js order && node runner-order.js    # the app harness:
+    # the app's carriers + epilog-app.js -> law:app_report (the generic
+    # laws plus Thm 1 uniqueness-refusal, Thm 2 affordances, and the
+    # per-entity Def 8 schema comparison — an application legitimately
+    # keeps its entities' cells; the one-table form is the metamodel's)
 
 compose.js is byte-level concatenation — the linker's job and nothing
 more. The canon and the carriers appear AS SOURCE inside runner.js: the
