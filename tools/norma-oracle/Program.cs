@@ -270,14 +270,15 @@ namespace Elysium.NormaOracle
 			Console.WriteLine("== RMAP: relational result ==");
 			Verifier.DumpRelational(store, assemblies[4], Console.Out);
 
-			// cross-check inputs for the checker (tools/js-runner), in the
-			// intersection dialect per the pure-math carrier ruling: the
-			// design state the canon's defs consume, and NORMA's own RMAP
-			// answer to confirm against.
+			// the carriers, in the intersection dialect per the pure-math
+			// ruling: the design state the canon's defs consume, and NORMA's
+			// own RMAP answer to confirm against. Any law-holding host (the
+			// Rust production host, per constitution.md) consumes these; the
+			// JavaScript checker that once did is deleted (2026-07-16).
 			verifier.WriteDesignState("design-state");
 			Verifier.WriteNormaAnswer(store, assemblies[4], "norma-answer", verifier.FullyDerivedNames());
 			Console.WriteLine();
-			Console.WriteLine("== checker inputs ==");
+			Console.WriteLine("== carriers ==");
 			Console.WriteLine("  written: design-state, norma-answer (intersection source)");
 
 			// 5. Verbalization leg — NORMA's generate-only direction (the
