@@ -10,7 +10,15 @@
 "use strict";
 const DEFS = Object.create(null);
 const CELLS = [];
-function DEF(name, body) { DEFS[name] = body; CELLS.push(["CELL", name, body]); return name; }
+function DEF(name, body) {
+  // Def 9: one name, one cell. A DEF that shadows a primitive silently
+  // rebinds every internal application (the 'apply' incident); a DEF that
+  // rewrites an existing name silently masks a splice error. Both refuse
+  // at load.
+  if (name in DEFS) throw new Error("duplicate DEF: " + name);
+  if (typeof PRIMS !== "undefined" && name in PRIMS) throw new Error("DEF shadows a primitive: " + name);
+  DEFS[name] = body; CELLS.push(["CELL", name, body]); return name;
+}
 function A(s) { return s; }
 function N(n) { return n; }
 function K(x) { return ["CONST", x]; }
