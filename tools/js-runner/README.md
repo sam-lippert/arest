@@ -42,6 +42,11 @@ recipe reproduces the target population exactly — plus the grandparent
 known-answer fixture: induce over a two-fact-type state finds exactly
 parent-join-parent), and law:derive (the semi-naive fixpoint computes
 the reaches closure from contained as a known answer — delta-driven
-rounds, never the whole population). Carrier unfolding is canon too
-(law:fts / law:norma flatten chunks-of-nine to the leaf shapes through
-theta:flatten).
+rounds, never the whole population), law:rules (rules:metamodel — the
+formerly deferred star rules as executable data — reproduces a known
+state machine's defined/terminal/rooted/Mealy facts), and
+law:finiteness (Cor 6 executed: the dependency graph reads off the
+recipes, closure computed by derive itself, and any rule whose minus
+right side reaches its own target is refused — the negative fixture
+must answer F). Carrier unfolding is canon too (law:fts / law:norma
+flatten chunks-of-nine to the leaf shapes through theta:flatten).
