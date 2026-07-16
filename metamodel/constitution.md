@@ -92,18 +92,32 @@ It is obligatory that authoring verifies its claims against the primary sources 
 ## Instance Facts
 
 Host 'Python' has Station 'reference'.
+Host 'JavaScript' has Station 'checker'.
 Host 'C#' has Station 'oracle'.
 Host 'Rust' has Station 'production'.
 <!-- exec ruling 4 (2026-07-15): production execution artifacts are WASM
      generated from Rust. The C# host exists to carry NORMA, the ORM
      reference implementation, as the oracle. Ruling (2026-07-16): the
-     JavaScript checker host is DELETED — the quick-and-dirty mu was a
-     scaffold, and a scaffold is where meaning leaks (the fail-1/2 root
-     cause, re-armed); the laws it held are readings, not JavaScript,
-     and they re-home below. The 'checker' station stays in the value
-     range as vocabulary. -->
+     first JavaScript checker was DELETED — its law loops and comparison
+     logic were accreting native semantics beside the canon, the fail-1/2
+     root cause re-armed. Ruling (same day): the laws were rewritten as
+     canon DEFs (the law: family) and the checker host RETURNS as a
+     COMPOSED SINGLE FILE — prolog (the registration vocabulary, the mu,
+     the base primitives, and the registered boundary rows), then the
+     canon bytes, then the carriers, then an epilog that applies
+     law:report and prints — concatenated so the canon appears AS SOURCE
+     (the one tuple literal reads as the comma operator) and node
+     executes one file: nothing is evaled, read, or interpreted by host
+     code at runtime, and no law semantics live in the host. -->
 
 Law 'nf-idempotence' holds for Host 'C#'.
+Law 'rmap-idempotence' holds for Host 'JavaScript'.
+Law 'table-is-fetch' holds for Host 'JavaScript'.
+Law 'schema-match' holds for Host 'JavaScript'.
+Law 'origin-boundary-match' holds for Host 'JavaScript'.
+Law 'population-consistency' holds for Host 'JavaScript'.
+Law 'currying-agreement' holds for Host 'JavaScript'.
+Law 'emission' holds for Host 'JavaScript'.
 Law 'rmap-idempotence' holds for Host 'Rust'.
 Law 'table-is-fetch' holds for Host 'Rust'.
 Law 'schema-match' holds for Host 'Rust'.
@@ -112,17 +126,17 @@ Law 'population-consistency' holds for Host 'Rust'.
 Law 'currying-agreement' holds for Host 'Rust'.
 Law 'emission' holds for Host 'Rust'.
 <!-- the standing laws: nf round-trip (oracle, live today); then the
-     canon laws — L1 rmap fixpoint, L2 fetch-equals-restrict-project
-     (application = fetch, chained), the canon-vs-NORMA one-table schema
-     match, the manifest-vs-boundary-rows check, L4 declared keys hold
-     in attributed populations, L5 unnest of every extension cell equals
-     its rows, and L6 every emitted wide-row slot equals a fetch chain
-     through ast:File (the application schema is fetch over the
-     conceptual store, nothing more). The Rust rows are the named
-     evaluator-phase debt per marker closure: the production host holds
-     every canon law on every run from its first run; until it exists,
-     the laws stand as obligations with their checks stated in the
-     canon's own vocabulary, and no scaffold host substitutes. -->
+     canon laws, each a canon DEF the mu applies — law:rmap_idempotence
+     (L1 fixpoint), law:table_is_fetch (L2: application = fetch,
+     chained), law:schema_match (the one-table form against NORMA),
+     law:origin_boundary (manifest vs the boundary rows),
+     law:population_consistency (L4: declared keys re-induced from
+     rows), law:currying (L5: nest and unnest inverse), and law:emission
+     (L6: every emitted wide-row slot is a fetch chain through
+     ast:File). The JavaScript rows are LIVE (the composed runner holds
+     them on every run); the Rust rows are the named evaluator-phase
+     debt per marker closure: the production host holds the same DEFs
+     from its first run — same canon bytes, same laws, different mu. -->
 
 It is obligatory that each Law holds for some Host on every run.
 

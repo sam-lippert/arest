@@ -7411,5 +7411,187 @@ DEF("system:registered",
        S5(A("CONS"), K(A("escape_html")), K(A("text")), K(A("html-text")), K(A("registered"))),
        S5(A("CONS"), K(A("slug")), K(A("text")), K(A("identifier")), K(A("registered"))),
        S5(A("CONS"), K(A("lex")), K(A("text")), K(A("token-records")), K(A("registered"))),
-       S5(A("CONS"), K(A("strip_prefix")), K(A("prefix-and-text")), K(A("text")), K(A("registered")))))
+       S5(A("CONS"), K(A("strip_prefix")), K(A("prefix-and-text")), K(A("text")), K(A("registered"))))),
+
+"THE LAWS AS CANON (2026-07-16 ruling: write the laws as canon DEFs). A Law's Implementation is the check itself (Def 9), so the gates are definitions the mu applies, never host code â the js runner's deletion taught that a law written in a host IS the meaning-location failure. Every law takes THE COMPOSED STORE (the sequence of CELL,name, contents cells the vocabulary accumulates while the canon and the carriers register â Backus: D is first-class, so the store reads itself) and answers T or F: law:fts and law:norma unfold the carriers shape-driven through the canon's own flatten (chunks of nine until the leaf shapes: descriptor, row, pair, atom); law:rmap_idempotence re-classifies the emitted schema; law:table_is_fetch holds fetch equal to contents and every curried application equal to restriction-then-projection; law:schema_match holds the one-table form against NORMA (exactly the Function table, every separation accounted as an absorbed column group â slug and strip_prefix are the REGISTERED boundary rows of resolution.md doing the lexical work); law:origin_boundary holds manifest:origins over the canon cells to compiled = DEFs and hand rows inside computed-registered; law:population_consistency re-induces every declared single-role key from the attributed rows (csdp:s4 run backwards); law:currying holds nest and unnest inverse on every spanning population; law:emission holds every emitted wide-row slot equal to a fetch chain through ast:File. law:report names each verdict for the constitution's law rows; law:all is their conjunction.",
+
+DEF("law:and_all",
+    S4(A("COND"), A("null"), S2(A("CONST"), A("T")), S2(A("INSERT"), A("and")))),
+
+DEF("law:or2",
+    S4(A("COND"), N(1), S2(A("CONST"), A("T")), N(2))),
+
+DEF("law:or_all",
+    S4(A("COND"), A("null"), S2(A("CONST"), A("F")), S2(A("INSERT"), A("law:or2")))),
+
+DEF("law:swap",
+    S3(A("CONS"), N(2), N(1))),
+
+DEF("law:subset",
+    S4(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("theta:member")), A("distr"))),
+
+DEF("law:seteq",
+    S3(A("COMP"), A("and"), S3(A("CONS"), A("law:subset"), S3(A("COMP"), A("law:subset"), A("law:swap"))))),
+
+DEF("law:rows_eq",
+    S3(A("COMP"), A("law:seteq"), S3(A("CONS"), S3(A("COMP"), A("theta:dedup"), N(1)), S3(A("COMP"), A("theta:dedup"), N(2))))),
+
+DEF("law:names",
+    S2(A("ALPHA"), N(1))),
+
+DEF("law:fetch",
+    S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("ast:Fetch"), N(1)), N(2)))),
+
+DEF("law:descp",
+    S4(A("COND"), A("atom"), S2(A("CONST"), A("F")), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("length"), S2(A("CONST"), N(5)))), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("atom"), N(1)), S3(A("COMP"), A("not"), S3(A("COMP"), A("atom"), N(2))))), S2(A("CONST"), A("F"))))),
+
+DEF("law:all_descp",
+    S3(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("law:descp")))),
+
+DEF("law:unfold_descs",
+    S3(A("WHILE"), S3(A("COMP"), A("not"), A("law:all_descp")), A("theta:flatten"))),
+
+DEF("law:rowp",
+    S4(A("COND"), A("atom"), S2(A("CONST"), A("F")), S4(A("COND"), A("null"), S2(A("CONST"), A("F")), S3(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("atom")))))),
+
+DEF("law:all_rowp",
+    S3(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("law:rowp")))),
+
+DEF("law:unfold_rows",
+    S3(A("WHILE"), S3(A("COMP"), A("not"), A("law:all_rowp")), A("theta:flatten"))),
+
+DEF("law:all_atomp",
+    S3(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("atom")))),
+
+DEF("law:unfold_atoms",
+    S3(A("WHILE"), S3(A("COMP"), A("not"), A("law:all_atomp")), A("theta:flatten"))),
+
+DEF("law:pairp",
+    S4(A("COND"), A("atom"), S2(A("CONST"), A("F")), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("length"), S2(A("CONST"), N(2)))), S3(A("COMP"), A("atom"), N(1)), S2(A("CONST"), A("F"))))),
+
+DEF("law:all_pairp",
+    S3(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("law:pairp")))),
+
+DEF("law:unfold_pairs",
+    S3(A("WHILE"), S3(A("COMP"), A("not"), A("law:all_pairp")), A("theta:flatten"))),
+
+DEF("law:fix_desc",
+    S6(A("CONS"), N(1), N(2), N(3), N(4), S3(A("COMP"), A("law:unfold_rows"), N(5)))),
+
+DEF("law:fts",
+    S4(A("COMP"), S2(A("ALPHA"), A("law:fix_desc")), A("law:unfold_descs"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), S2(A("CONST"), A("state:fts")), A("id"))))),
+
+DEF("law:fix_table",
+    S3(A("CONS"), N(1), S3(A("COMP"), A("law:unfold_atoms"), N(2)))),
+
+DEF("law:norma",
+    S4(A("COMP"), S2(A("ALPHA"), A("law:fix_table")), A("law:unfold_pairs"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), S2(A("CONST"), A("norma:tables")), A("id"))))),
+
+DEF("law:state",
+    S3(A("CONS"), A("law:fts"), S2(A("CONST"), PHI()))),
+
+DEF("law:schema0",
+    S3(A("COMP"), A("rmap:schema"), A("law:state"))),
+
+DEF("law:app",
+    S3(A("COMP"), A("rmap"), A("law:state"))),
+
+DEF("law:appcells",
+    S4(A("COMP"), N(3), N(1), A("law:app"))),
+
+DEF("law:filecells",
+    S4(A("COMP"), N(3), N(1), S3(A("COMP"), A("ast:File"), A("law:state")))),
+
+DEF("law:schema1",
+    S3(A("COMP"), A("rmap:schema"), S3(A("CONS"), A("cat"), S2(A("CONST"), PHI())))),
+
+DEF("law:rmap_idempotence",
+    S5(A("COMP"), A("law:and_all"), S4(A("CONS"), S3(A("COMP"), A("law:seteq"), S3(A("CONS"), S4(A("COMP"), A("law:names"), N(1), N(1)), S4(A("COMP"), A("law:names"), N(1), N(2)))), S3(A("COMP"), A("law:seteq"), S3(A("CONS"), S4(A("COMP"), A("law:names"), N(2), N(1)), S4(A("COMP"), A("law:names"), N(2), N(2)))), S3(A("COMP"), A("law:subset"), S3(A("CONS"), S3(A("COMP"), N(2), N(2)), S3(A("COMP"), N(2), N(1))))), S3(A("CONS"), A("id"), A("law:schema1")), A("law:schema0"))),
+
+DEF("law:l2_key",
+    S3(A("COMP"), A("law:rows_eq"), S3(A("CONS"), S3(A("COMP"), A("rmap:unnest"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(2))))), S3(A("COMP"), S2(A("ALPHA"), A("tl")), S3(A("COMP"), A("rmap:rows_for"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)))))))),
+
+DEF("law:l2_desc",
+    S4(A("COND"), S4(A("COMP"), A("null"), N(5), N(1)), S2(A("CONST"), A("T")), S5(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("law:l2_key")), A("distr"), S3(A("CONS"), S5(A("COMP"), A("theta:dedup"), S2(A("ALPHA"), N(1)), N(5), N(1)), S3(A("CONS"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), S3(A("COMP"), N(5), N(1))))))),
+
+DEF("law:table_is_fetch",
+    S3(A("COMP"), A("law:and_all"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), S2(A("CONST"), A("Function")), A("law:app"))), A("law:appcells"))), S5(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("law:l2_desc")), A("distr"), S3(A("CONS"), S3(A("COMP"), A("rmap:spannings"), A("law:fts")), A("law:appcells")))))),
+
+DEF("law:prefixp",
+    S3(A("COMP"), A("not"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("strip_prefix"), N(2))))),
+
+DEF("law:sep_absorbed",
+    S4(A("COMP"), A("law:or_all"), S2(A("ALPHA"), S3(A("COMP"), A("law:prefixp"), S3(A("CONS"), S3(A("COMP"), A("slug"), N(1)), S3(A("COMP"), A("slug"), N(2))))), A("distl"))),
+
+DEF("law:schema_match",
+    S4(A("COMP"), A("law:and_all"), S5(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("length"), N(1)), S2(A("CONST"), N(1)))), S3(A("COMP"), A("eq"), S3(A("CONS"), S4(A("COMP"), N(1), N(1), N(1)), S2(A("CONST"), A("Function")))), S3(A("COMP"), A("law:seteq"), S3(A("CONS"), S4(A("COMP"), A("law:names"), N(1), N(2)), S3(A("COMP"), S2(A("ALPHA"), N(1)), N(1)))), S5(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("law:sep_absorbed")), A("distr"), S3(A("CONS"), S4(A("COMP"), A("law:names"), N(2), N(2)), S4(A("COMP"), N(2), N(1), N(1))))), S3(A("CONS"), A("law:norma"), A("law:schema0")))),
+
+DEF("law:carrier_name",
+    S3(A("COMP"), A("law:or2"), S3(A("CONS"), S3(A("COMP"), A("law:prefixp"), S3(A("CONS"), S2(A("CONST"), A("state:")), A("id"))), S3(A("COMP"), A("law:prefixp"), S3(A("CONS"), S2(A("CONST"), A("norma:")), A("id")))))),
+
+DEF("law:keep_canon",
+    S4(A("COND"), S5(A("COMP"), A("not"), A("law:carrier_name"), N(2), N(1)), A("apndl"), N(2))),
+
+DEF("law:canon_cells",
+    S3(A("COMP"), S2(A("INSERT"), A("law:keep_canon")), A("theta:append_phi"))),
+
+DEF("law:keep_compiled",
+    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S2(A("CONST"), A("compiled")))), S3(A("COMP"), A("apndl"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), N(2))),
+
+DEF("law:keep_registered",
+    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S2(A("CONST"), A("registered")))), S3(A("COMP"), A("apndl"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), N(2))),
+
+DEF("law:compiled_of",
+    S3(A("COMP"), S2(A("INSERT"), A("law:keep_compiled")), A("theta:append_phi"))),
+
+DEF("law:registered_of",
+    S3(A("COMP"), S2(A("INSERT"), A("law:keep_registered")), A("theta:append_phi"))),
+
+DEF("law:keep_named",
+    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S4(A("COMP"), N(1), N(2), N(1)))), S3(A("COMP"), A("apndl"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2))), N(2))),
+
+DEF("law:find_desc",
+    S5(A("COMP"), S4(A("COND"), A("null"), S2(A("CONST"), PHI()), N(1)), S2(A("INSERT"), A("law:keep_named")), A("theta:append_phi"), A("distl"))),
+
+DEF("law:origin_boundary",
+    S4(A("COMP"), A("law:and_all"), S3(A("CONS"), S3(A("COMP"), A("law:seteq"), S3(A("CONS"), S4(A("COMP"), A("law:compiled_of"), A("manifest:origins"), N(1)), S3(A("COMP"), S2(A("ALPHA"), N(2)), N(1)))), S3(A("COMP"), A("law:subset"), S3(A("CONS"), S4(A("COMP"), A("law:registered_of"), N(5), N(2)), S4(A("COMP"), A("law:registered_of"), A("manifest:origins"), N(1))))), S3(A("CONS"), A("law:canon_cells"), S3(A("COMP"), A("law:find_desc"), S3(A("CONS"), S2(A("CONST"), A("FunctionHasDefinitionOrigin")), A("law:fts")))))),
+
+DEF("law:keep_single_uc",
+    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("length"), N(1)), S2(A("CONST"), N(1)))), S3(A("COMP"), A("apndl"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), N(2))),
+
+DEF("law:singles",
+    S4(A("COMP"), S2(A("INSERT"), A("law:keep_single_uc")), A("theta:append_phi"), N(3))),
+
+DEF("law:l4_desc",
+    S4(A("COND"), S3(A("COMP"), A("null"), N(5)), S2(A("CONST"), A("T")), S3(A("COMP"), A("law:subset"), S3(A("CONS"), A("law:singles"), A("csdp:single_key_positions"))))),
+
+DEF("law:population_consistency",
+    S4(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("law:l4_desc")), A("law:fts"))),
+
+DEF("law:l5_desc",
+    S3(A("COMP"), A("law:rows_eq"), S3(A("CONS"), S4(A("COMP"), A("rmap:unnest"), A("rmap:nest"), N(5)), N(5)))),
+
+DEF("law:currying",
+    S5(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("law:l5_desc")), A("rmap:spannings"), A("law:fts"))),
+
+DEF("law:ext_pair",
+    S3(A("CONS"), N(2), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), N(1))))),
+
+DEF("law:slot_for",
+    S3(A("COMP"), A("rmap:lookup0"), S3(A("CONS"), N(1), S3(A("COMP"), A("rmap:member_pairs"), S6(A("CONS"), S4(A("COMP"), N(1), N(1), N(2)), S4(A("COMP"), N(2), N(1), N(2)), S4(A("COMP"), N(3), N(1), N(2)), S4(A("COMP"), N(4), N(1), N(2)), S3(A("COMP"), A("rmap:unnest"), S3(A("COMP"), N(2), N(2)))))))),
+
+DEF("law:l6_row",
+    S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("tl"), N(1)), S4(A("COMP"), S2(A("ALPHA"), A("law:slot_for")), A("distl"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2)))))),
+
+DEF("law:l6_group",
+    S5(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("law:l6_row")), A("distr"), S3(A("CONS"), S3(A("COMP"), N(5), N(1)), S4(A("COMP"), S2(A("ALPHA"), A("law:ext_pair")), A("distl"), S3(A("CONS"), S3(A("COMP"), N(2), N(2)), S3(A("COMP"), A("rmap:members_of"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(1), N(2))))))))),
+
+DEF("law:emission",
+    S5(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("law:l6_group")), A("distr"), S3(A("CONS"), S3(A("COMP"), N(1), A("law:schema0")), S3(A("CONS"), S3(A("COMP"), A("rmap:functionals"), A("law:fts")), A("law:filecells"))))),
+
+DEF("law:report",
+    S8(A("CONS"), S3(A("CONS"), S2(A("CONST"), A("rmap-idempotence")), A("law:rmap_idempotence")), S3(A("CONS"), S2(A("CONST"), A("table-is-fetch")), A("law:table_is_fetch")), S3(A("CONS"), S2(A("CONST"), A("schema-match")), A("law:schema_match")), S3(A("CONS"), S2(A("CONST"), A("origin-boundary-match")), A("law:origin_boundary")), S3(A("CONS"), S2(A("CONST"), A("population-consistency")), A("law:population_consistency")), S3(A("CONS"), S2(A("CONST"), A("currying-agreement")), A("law:currying")), S3(A("CONS"), S2(A("CONST"), A("emission")), A("law:emission")))),
+
+DEF("law:all",
+    S4(A("COMP"), A("law:and_all"), S2(A("ALPHA"), N(2)), A("law:report")))
 )
