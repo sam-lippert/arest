@@ -48,5 +48,11 @@ state machine's defined/terminal/rooted/Mealy facts), and
 law:finiteness (Cor 6 executed: the dependency graph reads off the
 recipes, closure computed by derive itself, and any rule whose minus
 right side reaches its own target is refused — the negative fixture
-must answer F). Carrier unfolding is canon too (law:fts / law:norma
+must answer F), and law:induce_facts (Prop 3's letter: induce returns
+candidate populations AS FACTS — induce:facts emits the Hypothesis
+Candidate populations, a candidate identified extensionally by its
+target-and-recipe pair, a fact by its fact-type-and-tuple pair per
+Definition 4; the fixture holds one exact and one covered-but-inexact
+candidate to exactly two confidence rows, two explains facts, and the
+one hidden fact). Carrier unfolding is canon too (law:fts / law:norma
 flatten chunks-of-nine to the leaf shapes through theta:flatten).

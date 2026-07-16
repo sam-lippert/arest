@@ -1334,6 +1334,86 @@ namespace Elysium.NormaOracle
 				}
 			}
 
+			// value comparison (Codd's inequality theta): "If some A <p> some
+			// B then that A <q1> some V and that B <q2> some V where that A V
+			// is before that B V." — a NORMA ValueComparisonConstraint over
+			// the two V roles, grounded by a CHAINED join path: root A,
+			// branch into the A-V fact, walk A-p-B, and nest into the B-V
+			// fact under the B step (two join variables, so the flat
+			// one-root builder does not apply)
+			m = Regex.Match(body, @"^If some ([\w :]+?) (.+?) some ([\w :]+?) then that \1 (.+?) some ([\w :]+?) and that \3 (.+?) some \5 where that \1 \5 is (before|after) that \3 \5$");
+			if (m.Success)
+			{
+				string aName = m.Groups[1].Value.Trim();
+				string bName = m.Groups[3].Value.Trim();
+				string vName = m.Groups[5].Value.Trim();
+				List<string> pAB, pAV, pBV;
+				FactIndexEntry eAB0 = ResolveClause("some " + aName + " " + m.Groups[2].Value.Trim() + " some " + bName, out pAB);
+				FactIndexEntry eAV0 = ResolveClause("that " + aName + " " + m.Groups[4].Value.Trim() + " some " + vName, out pAV);
+				FactIndexEntry eBV0 = ResolveClause("that " + bName + " " + m.Groups[6].Value.Trim() + " some " + vName, out pBV);
+				{
+					SideClause cAB = eAB0 == null ? null : new SideClause { Entry = eAB0, Players = pAB };
+					SideClause cAV = eAV0 == null ? null : new SideClause { Entry = eAV0, Players = pAV };
+					SideClause cBV = eBV0 == null ? null : new SideClause { Entry = eBV0, Players = pBV };
+					ObjectType rootA;
+					if (cAB != null && cAV != null && cBV != null && myTypes.TryGetValue(aName, out rootA))
+					{
+						Role tsA = cAV.Entry.Roles[cAV.Players.IndexOf(vName)];
+						Role tsB = cBV.Entry.Roles[cBV.Players.IndexOf(vName)];
+						var vcc = new ValueComparisonConstraint(myStore);
+						vcc.Model = myModel;
+						vcc.Operator = m.Groups[7].Value == "before"
+							? ValueComparisonOperator.LessThan
+							: ValueComparisonOperator.GreaterThan;
+						vcc.Modality = modality;
+						vcc.RoleCollection.Add(tsA);
+						vcc.RoleCollection.Add(tsB);
+						var jp = new ConstraintRoleSequenceJoinPath(myStore);
+						jp.RoleSequence = vcc;
+						var lead = new LeadRolePath(myStore);
+						jp.OwnedLeadRolePathCollection.Add(lead);
+						new RolePathObjectTypeRoot(lead, rootA);
+						var subAV = new RoleSubPath(myStore);
+						lead.SubPathCollection.Add(subAV);
+						var eAV = new PathedRole(subAV, cAV.Entry.Roles[cAV.Players.IndexOf(aName)]);
+						eAV.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+						var sTs1 = new PathedRole(subAV, tsA);
+						sTs1.PathedRolePurpose = PathedRolePurpose.SameFactType;
+						var subAB = new RoleSubPath(myStore);
+						lead.SubPathCollection.Add(subAB);
+						var eAB = new PathedRole(subAB, cAB.Entry.Roles[cAB.Players.IndexOf(aName)]);
+						eAB.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+						var sB = new PathedRole(subAB, cAB.Entry.Roles[cAB.Players.IndexOf(bName)]);
+						sB.PathedRolePurpose = PathedRolePurpose.SameFactType;
+						var subBV = new RoleSubPath(myStore);
+						subAB.SubPathCollection.Add(subBV);
+						var eBV = new PathedRole(subBV, cBV.Entry.Roles[cBV.Players.IndexOf(bName)]);
+						eBV.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+						var sTs2 = new PathedRole(subBV, tsB);
+						sTs2.PathedRolePurpose = PathedRolePurpose.SameFactType;
+						var jpp = new ConstraintRoleSequenceJoinPathProjection(jp, lead);
+						foreach (var pair in new[] { new KeyValuePair<Role, PathedRole>(tsA, sTs1), new KeyValuePair<Role, PathedRole>(tsB, sTs2) })
+						{
+							ConstraintRoleSequenceHasRole link = null;
+							foreach (ConstraintRoleSequenceHasRole l in ConstraintRoleSequenceHasRole.GetLinksToRoleCollection(vcc))
+							{
+								if (l.Role == pair.Key) { link = l; break; }
+							}
+							if (link != null)
+							{
+								var crp = new ConstraintRoleProjection(jpp, link);
+								new ConstraintRoleProjectedFromPathedRole(crp, pair.Value);
+							}
+						}
+						Count("value comparison constraint (chained join path)");
+						myMapLog.Add("value comparison built: " + Shorten(s));
+						return true;
+					}
+				}
+				AddNote(kind, s, "value comparison beyond the chained builder");
+				return true;
+			}
+
 			// subset: If <side> then <side> — each side one clause (plain
 			// role sequence) or a two-clause chain (a real NORMA join path:
 			// root = the internal shared player, one sub-path per fact,
