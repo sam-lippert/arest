@@ -13,3 +13,4 @@ apps/*/verbalization-report.txt
 apps/*/verbalization-report.html
 apps/*/.combined/
 apps/*/checker-answer
+tools/js-runner/runner.js
