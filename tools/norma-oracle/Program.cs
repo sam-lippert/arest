@@ -273,8 +273,10 @@ namespace Elysium.NormaOracle
 			// the carriers, in the intersection dialect per the pure-math
 			// ruling: the design state the canon's defs consume, and NORMA's
 			// own RMAP answer to confirm against. Any law-holding host
-			// consumes these — today the composed js runner, in production
-			// the Rust host — by exec'ing the same canon bytes.
+			// consumes these by exec'ing the same canon bytes — the laws are
+			// the law: family in the canon; the composed-file recipe
+			// (vocabulary ; arest ; carriers ; apply-and-print) is the
+			// sanctioned host shape whenever one is called for.
 			verifier.WriteDesignState("design-state");
 			Verifier.WriteNormaAnswer(store, assemblies[4], "norma-answer", verifier.FullyDerivedNames());
 			Console.WriteLine();
