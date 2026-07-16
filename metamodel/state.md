@@ -172,6 +172,16 @@ Guard guards Transition.
 
 * Status is defined in State Machine Definition iff that Status is initial in that State Machine Definition.
 
+* Status is effective initial in State Machine Definition iff that Status is initial in that State Machine Definition.
+
+* Status is effective initial in State Machine Definition iff that Status is rooted in that State Machine Definition and no Status is initial in that State Machine Definition.
+<!-- residue fix (2026-07-16): the effective-initial rules, which never
+     existed (the marker's named debt): the declared initial when present,
+     else the graph-derived root — the Pass-4 source-never-target fold the
+     comment below documents. Recipes in the canon's rules:metamodel: the
+     second rule is minus over a joinon (rooted rows in SMDs that declare
+     no initial), stratified. -->
+
 <!--
   #760 / Audit MC3b-b: Pass-4 graph-derived initial Status. Mirrors
   the source-never-target topology fold in
