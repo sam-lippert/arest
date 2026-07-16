@@ -88,6 +88,16 @@ Failure follows Violation.
   Each Failure follows at most one Violation.
 Violation occurs before Transition.
   Each Violation occurs before at most one Transition.
+Failure succeeds Violation. *
+  Each Failure, Violation combination occurs at most once in the population of Failure succeeds Violation.
+  <!-- residue fix (2026-07-16): the former disjunctive consequent ("is
+       caused by ... or ... Timestamp is before ...") is this UNION relation
+       reified: a Failure succeeds a Violation when it is caused by it or
+       when it temporally follows it. Fully derived (rules below; recipes in
+       the canon's rules:metamodel — the union is two rules on one target,
+       the temporal leg riding the cmp recipe form), so the subset sentence
+       below becomes a plain one-clause subset NORMA holds as a real
+       element. -->
 
 ## Constraints
 
@@ -96,7 +106,7 @@ Each Failure has exactly one Failure Type.
 
 ## Subset Constraints
 
-If some Failure follows some Violation then that Failure is caused by that Violation or that Violation occurred at some Timestamp and that Failure occurred at some Timestamp where that Violation Timestamp is before that Failure Timestamp.
+If some Failure follows some Violation then that Failure succeeds that Violation.
 If some Violation occurs before some Transition then that Violation occurred at some Timestamp and that Transition occurred at some Timestamp where that Violation Timestamp is before that Transition Timestamp.
 
 ## Derivation Rules
@@ -111,6 +121,10 @@ If some Violation occurs before some Transition then that Violation occurred at 
      role, the rule classifies as a Join and the Domain value propagates from
      the joined Function fact onto the Violation / Failure consequent. No
      domain is stored on the outcome itself. -->
+
+* Failure succeeds Violation iff that Failure is caused by that Violation.
+
+* Failure succeeds Violation iff that Violation occurred at some Timestamp and that Failure occurred at some Timestamp where that Violation Timestamp is before that Failure Timestamp.
 
 * Violation belongs to Domain iff Violation is against Function and that Function belongs to Domain.
 
