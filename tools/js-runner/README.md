@@ -32,6 +32,10 @@ whichever host execs the composed bytes: law:rmap_idempotence,
 law:table_is_fetch (application = fetch, chained), law:schema_match (the
 one-table form against NORMA), law:origin_boundary,
 law:population_consistency, law:currying, law:emission (every emitted
-wide-row slot is a fetch chain through ast:File). Carrier unfolding is
-canon too (law:fts / law:norma flatten chunks-of-nine to the leaf
-shapes through theta:flatten).
+wide-row slot is a fetch chain through ast:File), and law:navmap (the
+navigation map is GENERATED from rmap — every pattern head names a cell
+of the emitted store and every cell heads a pattern family; nav:map,
+nav:links per Thm 2 — no pattern is registered by hand, and one map
+serves browser, console, and server by varying registered render
+functions). Carrier unfolding is canon too (law:fts / law:norma flatten
+chunks-of-nine to the leaf shapes through theta:flatten).
