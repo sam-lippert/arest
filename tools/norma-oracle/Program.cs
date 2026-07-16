@@ -376,6 +376,13 @@ namespace Elysium.NormaOracle
 				{
 					continue;
 				}
+				// "Used By Derivations:" cross-reference lines name constraint
+				// elements ("Value comparison constraint X."), not readings
+				if (System.Text.RegularExpressions.Regex.IsMatch(line,
+					@"^(Value comparison|Uniqueness|Subset|Exclusion|Ring|Frequency|Mandatory) constraint [\w]+\.$"))
+				{
+					continue;
+				}
 				// NORMA emits association lines for its IMPLIED objectifications
 				// too (generated names never declared in model A); the canonical
 				// surface is A's declared vocabulary — skip the machinery ones

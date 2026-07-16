@@ -53,7 +53,13 @@ constraint arity/compatibility, supertype-lattice checks, implied-constraint
 detection), the intrinsic data types, RMAP, and the generated verbalization.
 Derivation rules, ring/set-comparison textual constraints, deontic bodies
 beyond simple mandatory/uniqueness, and instance populations are classified
-and counted, not mapped. Objectifications ARE mapped, in NORMA's own
+and counted, not mapped. Value comparisons ARE mapped: the conditional
+comparison form ("If some A p some B then that A q1 some V and that B q2
+some V where that A V is before that B V") builds a real
+ValueComparisonConstraint over the two V roles, grounded by a CHAINED join
+path — root A, a branch into the A-V fact, a walk across A-p-B, and a
+nested sub-path into the B-V fact under the B step (two join variables,
+beyond the flat one-root builder). Objectifications ARE mapped, in NORMA's own
 verbalized form: `X objectifies "reading".` nests X over the fact type the
 quoted reading resolves to (by normalized full-sentence key, so the
 sentence parses in any context). Identity is never the association: the

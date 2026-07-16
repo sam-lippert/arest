@@ -118,6 +118,15 @@ Event occurred at Timestamp.
 Event is created by State Machine.
   Each Event is created by at most one State Machine.
   It is possible that more than one Event is created by the same State Machine.
+Transition occurred at Timestamp. *
+  Each Transition, Timestamp combination occurs at most once in the population of Transition occurred at Timestamp.
+  <!-- value-comparison increment (2026-07-16): outcomes.md:100 referenced
+       this fact type without a declaration anywhere — the silent-Replacement
+       defect class. A Transition (a definition-level edge) has no clock of
+       its own: it occurred at every Timestamp at which some Event caused it,
+       so the fact type is fully derived (rule below; recipe in the canon's
+       rules:metamodel), leaves the stored schema per Codd 1.5, and carries
+       the roles the value-comparison constraint's join path grounds on. -->
 
 ### Event Type
 Event Type publishes to Stream.
@@ -438,6 +447,8 @@ Guard Run has Result.
 * Resource is currently in Status iff some State Machine is for that Resource and that State Machine is currently in that Status.
 
 * State Machine is currently in Status iff that State Machine is instance of some State Machine Definition and that Status is effective initial in that State Machine Definition.
+
+* Transition occurred at Timestamp iff some Event caused that Transition in some State Machine and that Event occurred at that Timestamp.
 
 ## Instance Facts
 

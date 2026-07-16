@@ -11,7 +11,7 @@
     report = [];
     for (const name of ["law:rmap_idempotence", "law:table_is_fetch",
       "law:schema_match", "law:origin_boundary", "law:population_consistency",
-      "law:currying", "law:emission", "law:navmap", "law:induce", "law:derive", "law:rules", "law:finiteness"]) {
+      "law:currying", "law:emission", "law:navmap", "law:induce", "law:derive", "law:rules", "law:finiteness", "law:induce_facts"]) {
       try { report.push([name, ev(name, CELLS)]); }
       catch (err) { report.push([name, "F (" + err.message + ")"]); }
     }
