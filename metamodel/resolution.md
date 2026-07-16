@@ -65,6 +65,15 @@ Operation 'ask' is overridable.
      fallbacks; the kill switch retires a registration like any row. -->
 Operation 'synthesize' is registrable.
 Operation 'validate' is registrable.
+<!-- the command increment (2026-07-16): compile and apps_compile are the
+     parse-and-compile verbs — their reference is the reading-to-DEFS leg
+     (NORMA carries it today as the oracle; a host carries it in
+     production), which is registration-edge work by the Stage-1 doctrine:
+     text enters the system only at the boundary. law:catalog holds every
+     catalogued operation to a canon DEF or a registered row; these two
+     resolve here. -->
+Operation 'compile' is registrable.
+Operation 'apps_compile' is registrable.
 
 <!-- The CSDP boundary class (Samuel's ruling, 2026-07-15): the canon
      defines csdp and rmap symbolically (alpha/fold over the design

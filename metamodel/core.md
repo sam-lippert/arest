@@ -621,8 +621,17 @@ For each Status, some Transition is from that Status or some Transition is to th
 ## Subset Constraints
 
 If some Role is used in some Reading where some Fact Type has that Reading then that Fact Type has that Role.
-If some Fact uses some Resource for some Role then that Fact is of some Fact Type that has that Role.
-If some Fact uses some Resource for some Role then that Resource is instance of some Object Type that plays that Role.
+<!-- residue fix (2026-07-16): both sentences below were phrased over `Fact
+     uses Resource for Role`, the ternary the one-table nesting
+     transformation retired (Fact fills Role + FactFillsRole uses Resource)
+     — the dangling-reference class. Rewritten over the current readings. -->
+If some Fact fills some Role then that Fact is of some Fact Type that has that Role.
+It is obligatory that each Resource that some FactFillsRole uses is instance of some Object Type that plays the Role that FactFillsRole fills.
+<!-- the resource-typing leg correlates through the objectified pair, which
+     Definition Fragment excludes (nested objectification lies outside R):
+     it stands as the deontic obligation above until link-fact readings or
+     the evaluator's validate step carry it. -->
+
 If some Fact Type defines some Fact then some Resource that is that Fact is instance of some Object Type that is that Fact Type.
 If some Fact is referenced by some Predicate and that Fact is of some Fact Type then some Reading is used by that Predicate where that Fact Type has that Reading.
 If some Guard Run is for some Guard and that Guard Run references some Fact then that Guard references some Fact Type where that Fact is of that Fact Type.

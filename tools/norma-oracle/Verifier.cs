@@ -1638,6 +1638,27 @@ namespace Elysium.NormaOracle
 					return true;
 				}
 			}
+			// disjunctive mandatory, inverse phrasing: "For each K, some A
+			// <p> that K or some B <q> that K" — the K roles of the two
+			// facts, one must be played
+			m = Regex.Match(body, @"^For each ([\w :]+?), some ([\w :]+?) (.+?) that \1 or some ([\w :]+?) (.+?) that \1$");
+			if (m.Success && myTypes.ContainsKey(m.Groups[1].Value.Trim()))
+			{
+				string k = m.Groups[1].Value.Trim();
+				List<string> pa, pb;
+				FactIndexEntry fa = ResolveClause("some " + m.Groups[2].Value.Trim() + " " + m.Groups[3].Value.Trim() + " some " + k, out pa);
+				FactIndexEntry fb = ResolveClause("some " + m.Groups[4].Value.Trim() + " " + m.Groups[5].Value.Trim() + " some " + k, out pb);
+				if (fa != null && fb != null && pa.Contains(k) && pb.Contains(k))
+				{
+					MandatoryConstraint mc = new MandatoryConstraint(myStore);
+					mc.Model = myModel;
+					mc.RoleCollection.Add(fa.Roles[pa.IndexOf(k)]);
+					mc.RoleCollection.Add(fb.Roles[pb.IndexOf(k)]);
+					mc.Modality = modality;
+					Count("disjunctive mandatory constraint (for-each inverse)");
+					return true;
+				}
+			}
 
 			AddNote(kind, s, kind == "deontic" ? "qualified deontic prose" : "no direct construction");
 			return true;
