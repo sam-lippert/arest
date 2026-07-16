@@ -3661,7 +3661,7 @@ DEF("system:rank_desc",
           S3(A("CONS"), A("id"), S2(A("CONST"), PHI()))))),
 
 DEF("system:abduce",
-    A("system:induce_judge")),
+    A("abduce")),
 
 DEF("system:ins_asc",
     S4(A("COND"),
@@ -7413,6 +7413,91 @@ DEF("system:registered",
        S5(A("CONS"), K(A("lex")), K(A("text")), K(A("token-records")), K(A("registered"))),
        S5(A("CONS"), K(A("strip_prefix")), K(A("prefix-and-text")), K(A("text")), K(A("registered"))))),
 
+"THE FIXPOINT AS CANON (2026-07-16 ruling: the performance optimizations belong in canon â object and fact type filtering, never the whole-population fixpoint). derive is the Command definition's lfp(F_S, P) evaluated SEMI-NAIVELY from birth: the loop state is pops-and-delta, and each round applies each rule only to what changed â a projection rule is linear (the delta of its source only, so a rule whose source gained nothing contributes phi), the chain join is bilinear (delta-G join full-H union full-G join delta-H â the delta predicates of the DatalogLB mapping paper), and fresh facts are the set-difference against the target's current population, so iteration reaches Lemma 1's least fixed point with every round bounded by the deltas. The scope discipline is Cor 6 made operational: which fact types a rule reads is data (the recipe names its sources), so evaluation fetches exactly those populations and no others â the recalculation a write forces is bounded to the cells the rules can reach, the scope the schema fixes. A rule is target-and-recipe; a recipe is proj (source, columns) or the chain join (G, H, columns; G.2 = H.1, relation composition â wider join shapes are the evaluator extension, mirroring csdp:s4's binary-core honesty). Recursive rules are ordinary rules: reaches from contained is the fixture law:derive holds as a known answer.",
+
+DEF("derive:pop",
+    S3(A("COMP"), S4(A("COND"), A("null"), S2(A("CONST"), PHI()), N(2)), A("law:find_desc"))),
+
+DEF("derive:eval",
+    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S2(A("CONST"), A("proj")))), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("theta:Project"), S3(A("COMP"), N(3), N(1))), S3(A("COMP"), A("derive:pop"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2))))), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("theta:Project"), S3(A("COMP"), N(4), N(1))), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("theta:NatJoin"), S2(A("CONST"), N(2))), S3(A("CONS"), S3(A("COMP"), A("derive:pop"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2))), S3(A("COMP"), A("derive:pop"), S3(A("CONS"), S3(A("COMP"), N(3), N(1)), N(2)))))))))),
+
+DEF("derive:delta_eval",
+    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S2(A("CONST"), A("proj")))), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("theta:Project"), S3(A("COMP"), N(3), N(1))), S3(A("COMP"), A("derive:pop"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(2), N(2)))))), S4(A("COMP"), A("theta:dedup"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("theta:Project"), S3(A("COMP"), N(4), N(1))), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("theta:NatJoin"), S2(A("CONST"), N(2))), S3(A("CONS"), S3(A("COMP"), A("derive:pop"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(2), N(2)))), S3(A("COMP"), A("derive:pop"), S3(A("CONS"), S3(A("COMP"), N(3), N(1)), S3(A("COMP"), N(1), N(2))))))))), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("theta:Project"), S3(A("COMP"), N(4), N(1))), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("theta:NatJoin"), S2(A("CONST"), N(2))), S3(A("CONS"), S3(A("COMP"), A("derive:pop"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(1), N(2)))), S3(A("COMP"), A("derive:pop"), S3(A("CONS"), S3(A("COMP"), N(3), N(1)), S3(A("COMP"), N(2), N(2))))))))))))),
+
+DEF("derive:new_for",
+    S3(A("COMP"), A("theta:setminus"), S3(A("CONS"), S4(A("COMP"), A("theta:dedup"), A("derive:delta_eval"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2))), S3(A("COMP"), A("derive:pop"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(1), N(2))))))),
+
+DEF("derive:rule_news",
+    S3(A("CONS"), S3(A("COMP"), N(1), N(1)), A("derive:new_for"))),
+
+DEF("derive:keep_nonempty",
+    S4(A("COND"), S5(A("COMP"), A("not"), A("null"), N(2), N(1)), A("apndl"), N(2))),
+
+DEF("derive:news_for",
+    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), N(2)), S4(A("COMP"), S2(A("INSERT"), A("law:keep_named")), A("theta:append_phi"), A("distl")))),
+
+DEF("derive:update_pair",
+    S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S4(A("COMP"), A("theta:dedup"), A("cat"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), A("derive:news_for"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))))))),
+
+DEF("derive:round",
+    S3(A("COMP"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("CONS"), S4(A("COMP"), S2(A("ALPHA"), A("derive:update_pair")), A("distr"), S3(A("CONS"), S4(A("COMP"), N(1), N(2), N(1)), N(2))), N(2))), S3(A("CONS"), A("id"), S5(A("COMP"), S3(A("COMP"), S2(A("INSERT"), A("derive:keep_nonempty")), A("theta:append_phi")), S2(A("ALPHA"), A("derive:rule_news")), A("distr"), S3(A("CONS"), N(1), N(2)))))),
+
+DEF("derive",
+    S5(A("COMP"), N(1), N(2), S3(A("WHILE"), S5(A("COMP"), A("not"), A("null"), N(2), N(2)), A("derive:round")), S3(A("CONS"), N(1), S3(A("CONS"), N(2), N(2))))),
+
+"THE INDUCTION AS CANON (2026-07-16 ruling: induce/abduce as a canon function). Codd 1970 2.3 names the act â the system might, over a period of time, make attempts to induce the redundancies, but such attempts would be fallible â and 1.5 names the target: strong redundancy, a relation with a projection derivable from other members. induce searches the design state for exactly those: for each populated binary target, candidate recipes by projection of a compatible source or by the chain join of two compatible sources, with GENERATION FILTERED BY DECLARED PLAYER SIGNATURES (state:declared) â the object and fact type filtering: only type-compatible sources are ever evaluated, and each candidate evaluates over exactly the populations its recipe names, never the whole P. Each candidate answers the tuple the standing judge already consumes â target, recipe, the coverage gate (observed minus derived is phi), the exactness gate (derived minus observed is phi; the complements are the explains-Fact and hidden-Fact readings of induction.md), and the evidence count as score â and system:induce_judge ranks the gated survivors: candidates plus a judge, never silent adoption. Adopting a ranked candidate as a derivation rule is a modeling judgment at the registered boundary (like csdp:accept_judgment), and its target then leaves the stored schema per Codd 1.5 â induce finds the markers the derived-exclusion doctrine consumes. Nonrecursive candidates only; recursive rules are derive's business. abduce is the same pipeline named for its direction of use. law:induce re-verifies every ranked candidate: its recipe, re-evaluated, reproduces the target population exactly.",
+
+DEF("induce:pairs_of",
+    S2(A("ALPHA"), S3(A("CONS"), N(1), N(5)))),
+
+DEF("induce:declared",
+    S3(A("COMP"), A("law:unfold_pairs"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), S2(A("CONST"), A("state:declared")), A("id"))))),
+
+DEF("induce:sig_of",
+    S3(A("COMP"), S4(A("COND"), A("null"), S2(A("CONST"), PHI()), N(2)), A("law:find_desc"))),
+
+DEF("induce:keep_bin",
+    S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S4(A("COMP"), A("length"), N(2), N(1)), S2(A("CONST"), N(2)))), S5(A("COMP"), A("not"), A("null"), N(5), N(1)))), A("apndl"), N(2))),
+
+DEF("induce:binaries",
+    S3(A("COMP"), S2(A("INSERT"), A("induce:keep_bin")), A("theta:append_phi"))),
+
+DEF("induce:keep_offdiag",
+    S4(A("COND"), S4(A("COMP"), A("not"), A("eq"), S3(A("CONS"), S4(A("COMP"), N(1), N(1), N(1)), S4(A("COMP"), N(1), N(2), N(1)))), A("apndl"), N(2))),
+
+DEF("induce:pairs",
+    S6(A("COMP"), S3(A("COMP"), S2(A("INSERT"), A("induce:keep_offdiag")), A("theta:append_phi")), A("theta:flatten"), S2(A("ALPHA"), A("distl")), A("distr"), S3(A("CONS"), A("id"), A("id")))),
+
+DEF("induce:triples",
+    S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("distl")), A("distr"), S3(A("CONS"), A("induce:pairs"), A("id")))),
+
+DEF("induce:keep_nonrec",
+    S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S4(A("COMP"), A("not"), A("eq"), S3(A("CONS"), S5(A("COMP"), N(1), N(1), N(1), N(1)), S5(A("COMP"), N(1), N(2), N(1), N(1)))), S4(A("COMP"), A("not"), A("eq"), S3(A("CONS"), S5(A("COMP"), N(1), N(1), N(1), N(1)), S4(A("COMP"), N(1), N(2), N(1)))))), A("apndl"), N(2))),
+
+DEF("induce:proj_cands",
+    S3(A("COMP"), A("cat"), S3(A("CONS"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("induce:sig_of"), S3(A("CONS"), S4(A("COMP"), N(1), N(1), N(1)), N(2))), S3(A("COMP"), A("induce:sig_of"), S3(A("CONS"), S4(A("COMP"), N(1), N(2), N(1)), N(2))))), S2(A("CONS"), S4(A("CONS"), S4(A("COMP"), N(1), N(1), N(1)), S4(A("COMP"), N(5), N(1), N(1)), S4(A("CONS"), S2(A("CONST"), A("proj")), S4(A("COMP"), N(1), N(2), N(1)), S2(A("CONST"), S2(N(1), N(2)))))), S2(A("CONST"), PHI())), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("induce:sig_of"), S3(A("CONS"), S4(A("COMP"), N(1), N(1), N(1)), N(2))), S3(A("COMP"), A("law:swap"), S3(A("COMP"), A("induce:sig_of"), S3(A("CONS"), S4(A("COMP"), N(1), N(2), N(1)), N(2)))))), S2(A("CONS"), S4(A("CONS"), S4(A("COMP"), N(1), N(1), N(1)), S4(A("COMP"), N(5), N(1), N(1)), S4(A("CONS"), S2(A("CONST"), A("proj")), S4(A("COMP"), N(1), N(2), N(1)), S2(A("CONST"), S2(N(2), N(1)))))), S2(A("CONST"), PHI()))))),
+
+DEF("induce:join_cands",
+    S4(A("COND"), S4(A("COMP"), A("not"), A("eq"), S3(A("CONS"), S4(A("COMP"), N(2), A("induce:sig_of"), S3(A("CONS"), S5(A("COMP"), N(1), N(2), N(1), N(1)), N(2))), S4(A("COMP"), N(1), A("induce:sig_of"), S3(A("CONS"), S4(A("COMP"), N(1), N(2), N(1)), N(2))))), S2(A("CONST"), PHI()), S3(A("COMP"), A("cat"), S3(A("CONS"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("induce:sig_of"), S3(A("CONS"), S5(A("COMP"), N(1), N(1), N(1), N(1)), N(2))), S3(A("CONS"), S4(A("COMP"), N(1), A("induce:sig_of"), S3(A("CONS"), S5(A("COMP"), N(1), N(2), N(1), N(1)), N(2))), S4(A("COMP"), N(2), A("induce:sig_of"), S3(A("CONS"), S4(A("COMP"), N(1), N(2), N(1)), N(2)))))), S2(A("CONS"), S4(A("CONS"), S5(A("COMP"), N(1), N(1), N(1), N(1)), S5(A("COMP"), N(5), N(1), N(1), N(1)), S5(A("CONS"), S2(A("CONST"), A("join")), S5(A("COMP"), N(1), N(2), N(1), N(1)), S4(A("COMP"), N(1), N(2), N(1)), S2(A("CONST"), S2(N(1), N(3)))))), S2(A("CONST"), PHI())), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("induce:sig_of"), S3(A("CONS"), S5(A("COMP"), N(1), N(1), N(1), N(1)), N(2))), S3(A("CONS"), S4(A("COMP"), N(2), A("induce:sig_of"), S3(A("CONS"), S4(A("COMP"), N(1), N(2), N(1)), N(2))), S4(A("COMP"), N(1), A("induce:sig_of"), S3(A("CONS"), S5(A("COMP"), N(1), N(2), N(1), N(1)), N(2)))))), S2(A("CONS"), S4(A("CONS"), S5(A("COMP"), N(1), N(1), N(1), N(1)), S5(A("COMP"), N(5), N(1), N(1), N(1)), S5(A("CONS"), S2(A("CONST"), A("join")), S5(A("COMP"), N(1), N(2), N(1), N(1)), S4(A("COMP"), N(1), N(2), N(1)), S2(A("CONST"), S2(N(3), N(1)))))), S2(A("CONST"), PHI())))))),
+
+DEF("induce:tuple",
+    S3(A("COMP"), S6(A("CONS"), N(1), N(2), S4(A("COMP"), A("null"), A("theta:setminus"), S3(A("CONS"), N(3), N(4))), S4(A("COMP"), A("null"), A("theta:setminus"), S3(A("CONS"), N(4), N(3))), S3(A("COMP"), A("length"), N(3))), S5(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(3), N(1)), S3(A("COMP"), N(2), N(1)), S4(A("COMP"), A("theta:dedup"), A("derive:eval"), S3(A("CONS"), S3(A("COMP"), N(3), N(1)), N(2)))))),
+
+DEF("induce:candidates",
+    S4(A("COMP"), S2(A("ALPHA"), A("induce:tuple")), A("distr"), S3(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("induce:proj_cands")), A("distr"), S3(A("CONS"), S4(A("COMP"), A("induce:pairs"), A("induce:binaries"), N(1)), N(2))), S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("induce:join_cands")), A("distr"), S3(A("CONS"), S5(A("COMP"), S3(A("COMP"), S2(A("INSERT"), A("induce:keep_nonrec")), A("theta:append_phi")), A("induce:triples"), A("induce:binaries"), N(1)), N(2))))), S3(A("COMP"), A("induce:pairs_of"), N(1))))),
+
+DEF("induce",
+    S3(A("COMP"), A("system:induce_judge"), A("induce:candidates"))),
+
+DEF("abduce",
+    A("induce")),
+
+DEF("law:induce",
+    S3(A("COMP"), A("and"), S3(A("CONS"), S5(A("COMP"), A("law:and_all"), S2(A("ALPHA"), S3(A("COMP"), A("law:rows_eq"), S3(A("CONS"), S4(A("COMP"), A("theta:dedup"), A("derive:eval"), S3(A("CONS"), S4(A("COMP"), N(2), N(2), N(1)), N(2))), S3(A("COMP"), A("derive:pop"), S3(A("CONS"), S4(A("COMP"), N(1), N(2), N(1)), N(2)))))), A("distr"), S3(A("CONS"), S3(A("COMP"), A("induce"), S3(A("CONS"), A("law:fts"), A("induce:declared"))), S3(A("COMP"), A("induce:pairs_of"), A("law:fts")))), S3(A("COMP"), A("law:rows_eq"), S3(A("CONS"), S3(A("COMP"), A("induce"), S2(A("CONST"), S2(S2(S5(A("parent"), S2(A("Person"), A("Person")), PHI(), PHI(), S2(S2(A("a"), A("b")), S2(A("b"), A("c")))), S5(A("grandparent"), S2(A("Person"), A("Person")), PHI(), PHI(), S1(S2(A("a"), A("c"))))), S2(S2(A("parent"), S2(A("Person"), A("Person"))), S2(A("grandparent"), S2(A("Person"), A("Person"))))))), S2(A("CONST"), S1(S2(N(1), S2(A("grandparent"), S4(A("join"), A("parent"), A("parent"), S2(N(1), N(3)))))))))))),
+
+DEF("law:derive",
+    S3(A("COMP"), A("law:rows_eq"), S3(A("CONS"), S3(A("COMP"), A("derive:pop"), S3(A("CONS"), S2(A("CONST"), A("reaches")), S3(A("COMP"), A("derive"), S2(A("CONST"), S2(S2(S2(A("reaches"), S3(A("proj"), A("contained"), S2(N(1), N(2)))), S2(A("reaches"), S4(A("join"), A("reaches"), A("reaches"), S2(N(1), N(3))))), S2(S2(A("contained"), S3(S2(A("a"), A("b")), S2(A("b"), A("c")), S2(A("c"), A("d")))), S2(A("reaches"), PHI()))))))), S2(A("CONST"), S6(S2(A("a"), A("b")), S2(A("b"), A("c")), S2(A("c"), A("d")), S2(A("a"), A("c")), S2(A("b"), A("d")), S2(A("a"), A("d"))))))),
+
 "THE NAVIGATION MAP AS EMITTED VIEW (2026-07-16 ruling: the links section generates it â a navmap can be generated from rmap, and it serves GUI, console, and server alike). MonoCross kept a hand-registered NavigationMap of pattern,controller pairs and proved the shape by binding ONE map to GUI containers, a console container, and an HTTP server container; the paper names each part: a pattern is a fact type (literal segments are constants, parameter segments open roles â here a literal is an atom and a parameter the 1-sequence of its player), matching is theta-restriction (eq composed with selectors and constants), binding is projection, dispatch is metacomposition Eq 1, and Thm 2 makes the map's content a generated projection: links(e) = nav(e) union transitions(status(e)), complete and current, no hand-written links. nav:map derives the pattern set from rmap:schema exactly as rmap derives the application schema â the emission doctrine again: an entity group answers its collection pattern and its item pattern; a separated fact type answers one pattern per curry prefix (every prefix is a valid fetch, so the pattern tree IS the trie and the address space IS the store â navigation needs no separate query language); nav:links is Thm 2's equation, nav:peers reading the fact types an entity plays from the extension cells and the transitions leg supplied by system:view_menu. One map, every container: a browser, a console, and a server differ only in registered render functions (vary DEFS, not the logic), which is what MonoCross demonstrated and the platform-binding paragraph states. law:navmap holds the generation: every pattern head names a cell of the emitted store and every cell heads a pattern family â no pattern is registered by hand.",
 
 DEF("nav:prefixes",
@@ -7619,7 +7704,10 @@ DEF("law:navmap",
     S3(A("COMP"), S3(A("COMP"), A("law:seteq"), S3(A("CONS"), S4(A("COMP"), A("theta:dedup"), S2(A("ALPHA"), N(1)), A("nav:map")), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), S2(A("ALPHA"), N(1)), N(1)), S3(A("COMP"), S2(A("ALPHA"), N(1)), N(2)))))), A("law:schema0"))),
 
 DEF("law:report",
-    S9(A("CONS"), S3(A("CONS"), S2(A("CONST"), A("rmap-idempotence")), A("law:rmap_idempotence")), S3(A("CONS"), S2(A("CONST"), A("table-is-fetch")), A("law:table_is_fetch")), S3(A("CONS"), S2(A("CONST"), A("schema-match")), A("law:schema_match")), S3(A("CONS"), S2(A("CONST"), A("origin-boundary-match")), A("law:origin_boundary")), S3(A("CONS"), S2(A("CONST"), A("population-consistency")), A("law:population_consistency")), S3(A("CONS"), S2(A("CONST"), A("currying-agreement")), A("law:currying")), S3(A("CONS"), S2(A("CONST"), A("emission")), A("law:emission")), S3(A("CONS"), S2(A("CONST"), A("navmap-generated")), A("law:navmap")))),
+    S3(A("COMP"), A("cat"),
+       S3(A("CONS"),
+          S9(A("CONS"), S3(A("CONS"), S2(A("CONST"), A("rmap-idempotence")), A("law:rmap_idempotence")), S3(A("CONS"), S2(A("CONST"), A("table-is-fetch")), A("law:table_is_fetch")), S3(A("CONS"), S2(A("CONST"), A("schema-match")), A("law:schema_match")), S3(A("CONS"), S2(A("CONST"), A("origin-boundary-match")), A("law:origin_boundary")), S3(A("CONS"), S2(A("CONST"), A("population-consistency")), A("law:population_consistency")), S3(A("CONS"), S2(A("CONST"), A("currying-agreement")), A("law:currying")), S3(A("CONS"), S2(A("CONST"), A("emission")), A("law:emission")), S3(A("CONS"), S2(A("CONST"), A("navmap-generated")), A("law:navmap"))),
+          S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), A("induce-exactness")), A("law:induce")), S3(A("CONS"), S2(A("CONST"), A("derive-fixpoint")), A("law:derive")))))),
 
 DEF("law:all",
     S4(A("COMP"), A("law:and_all"), S2(A("ALPHA"), N(2)), A("law:report")))

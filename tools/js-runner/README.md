@@ -37,5 +37,11 @@ navigation map is GENERATED from rmap — every pattern head names a cell
 of the emitted store and every cell heads a pattern family; nav:map,
 nav:links per Thm 2 — no pattern is registered by hand, and one map
 serves browser, console, and server by varying registered render
-functions). Carrier unfolding is canon too (law:fts / law:norma flatten
-chunks-of-nine to the leaf shapes through theta:flatten).
+functions), law:induce (every candidate induce ranks re-verifies — its
+recipe reproduces the target population exactly — plus the grandparent
+known-answer fixture: induce over a two-fact-type state finds exactly
+parent-join-parent), and law:derive (the semi-naive fixpoint computes
+the reaches closure from contained as a known answer — delta-driven
+rounds, never the whole population). Carrier unfolding is canon too
+(law:fts / law:norma flatten chunks-of-nine to the leaf shapes through
+theta:flatten).
