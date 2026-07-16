@@ -7327,8 +7327,12 @@ DEF("rmap:level_cell",
 
 DEF("rmap:nest",
     S4(A("COND"), A("null"), S2(A("CONST"), PHI()),
-       S3(A("COMP"), S2(A("ALPHA"), A("rmap:level_cell")),
-          S3(A("COMP"), A("distr"), S3(A("CONS"), A("rmap:level_keys"), A("id")))))),
+       S4(A("COND"),
+          S3(A("COMP"), A("eq"),
+             S3(A("CONS"), S3(A("COMP"), A("length"), N(1)), S2(A("CONST"), N(1)))),
+          S2(A("ALPHA"), N(1)),
+          S3(A("COMP"), S2(A("ALPHA"), A("rmap:level_cell")),
+             S3(A("COMP"), A("distr"), S3(A("CONS"), A("rmap:level_keys"), A("id"))))))),
 
 DEF("rmap:untuple",
     S2(A("ALPHA"), S2(A("CONS"), A("id")))),
@@ -7348,6 +7352,13 @@ DEF("rmap:unnest",
 DEF("rmap:rel_cell",
     S4(A("CONS"), S2(A("CONST"), A("CELL")), N(1),
        S3(A("COMP"), A("rmap:nest"), N(5)))),
+
+"THE EMISSION (2026-07-16 ruling: does it even make sense to store the 3NF RMAP'd schemas in the function table? No. The ORM conceptual schema elements pre-RMAP live there, and the function table EMITS the application schema). At rest D stores conceptual content only: ast:File is the paper's FILE — the population P organized as one extension cell per fact type, curried by rmap:nest (a unary extension is its key set, the characteristic leaf) — beside the DEFS cells that hold the compiled definitions, one id space across both. The 3NF wide row is never stored: rmap is itself a DEF, its output derivable, so storing the RMAP'd schema would be Codd 1970 1.5 strong redundancy applied to RMAP itself — the same rule that just removed the fully derived fact types removes the materialized view. rmap ANSWERS the application schema: the derived one-table view an application binds to, re-evaluated on every store into a fetched cell (the paper's rho-application), Def 8's per-entity assignment happening at application, never at rest. The emission law holds every emitted wide-row slot equal to a fetch chain through ast:File — the application schema is fetch over the conceptual store, nothing more.",
+
+DEF("ast:File",
+    S2(A("CONS"),
+       S4(A("CONS"), S2(A("CONST"), A("CELL")), S2(A("CONST"), A("FILE")),
+          S3(A("COMP"), S2(A("ALPHA"), A("rmap:rel_cell")), N(1))))),
 
 "THE ONE TABLE (2026-07-16 ruling: both NORMA RMAP and arest RMAP emit just one function table). rmap answers a store of ONE cell named Function whose contents is itself a store — Backus 14.7, a cell containing an entire store — with one cell per named function: an entity's cell holds its wide-row slots (rule 2, the functional curry), a fact type's cell holds its curried extension (rule 1, the definition by extension), and Def 8 reads one level down: RMAP still assigns each entity its own cell — the cells now live INSIDE the Function cell, which is DEFS. On the NORMA side the same collapse is Halpin: every asserted compound-key fact type is objectified (nesting transformation where the key was not spanning) with identity through the one id space, so every concept assimilates into the Function table as absorbed columns; fully derived fact types leave the stored schema on both sides (Codd 1970 1.5, strong redundancy — their meaning is their rule, per DEFS). Fetch chains all the way down: fetch Function, fetch a name, fetch a key value — application = fetch at every level.",
 
