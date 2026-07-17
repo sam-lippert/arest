@@ -272,7 +272,7 @@ For each State Machine Definition, some Status is defined in that State Machine 
      Semantically right on its own: a machine with no defined Status is
      vacuous. The defined population is derived from transitions, so
      this evaluates after the closure. -->
-It is obligatory that each State Machine Definition has at least one terminal Status.
+It is obligatory that for each State Machine Definition, some Status is terminal in that State Machine Definition.
 If some Status is initial in some State Machine Definition then that Status is defined in that State Machine Definition.
 
 ### Liveness (AREST.tex, after Thm 2)

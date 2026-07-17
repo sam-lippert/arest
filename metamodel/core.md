@@ -1007,7 +1007,7 @@ Derivation Rule has Antecedent Clause.
 Antecedent Clause has Clause Shape.
   Each Antecedent Clause has at most one Clause Shape.
 
-It is obligatory that each Antecedent Clause has Clause Shape.
+It is obligatory that each Antecedent Clause has some Clause Shape.
 
 <!-- audit-fix C: the stray naming deontic that stood here ("It is
      forbidden that each Object Type has a name that ends with 'ies'.")
@@ -1097,7 +1097,7 @@ set, so partial replays up to any T agree across peers.
 
 It is obligatory that each source Fact has at most one Migration Application per target Fact Type.
 
-It is obligatory that each Migration Application has a distinct Timestamp.
+It is obligatory that for each Timestamp, at most one Migration Application has that Timestamp.
 
 ## NORMA Value Domain (#279)
 
