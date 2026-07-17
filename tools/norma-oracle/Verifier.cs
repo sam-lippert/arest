@@ -33,6 +33,8 @@ namespace Elysium.NormaOracle
 		private List<string> myLastPlayers;
 		private readonly List<FactIndexEntry> myFactIndex = new List<FactIndexEntry>();
 		private readonly HashSet<FactType> myFullyDerived = new HashSet<FactType>();
+		private readonly HashSet<FactType> mySemiDerived = new HashSet<FactType>();
+		private readonly HashSet<string> mySubtypeDerived = new HashSet<string>(StringComparer.Ordinal);
 		public HashSet<string> FullyDerivedNames()
 		{
 			var names = new HashSet<string>(StringComparer.Ordinal);
@@ -423,6 +425,7 @@ namespace Elysium.NormaOracle
 			// conditions with a bare "if" — both are derivations to defer
 			if (s.Contains(" iff ") || (s.StartsWith("* ") && Regex.IsMatch(s, @"\bif\b")))
 			{
+				myDeferredRules.Add(s);
 				Count("derivation rule (deferred: no textual rule input in NORMA)");
 				return;
 			}
@@ -434,6 +437,7 @@ namespace Elysium.NormaOracle
 				if (dm.Success)
 				{
 					MapSubtype(dm.Groups[1].Value.Trim(), dm.Groups[2].Value.Trim());
+					mySubtypeDerived.Add(dm.Groups[1].Value.Trim());
 					Count("derived subtype (edge mapped; rule deferred)");
 					return;
 				}
@@ -452,6 +456,11 @@ namespace Elysium.NormaOracle
 					!System.Text.RegularExpressions.Regex.IsMatch(s, @"\biff?\b"))
 				{
 					myFullyDerived.Add(myLastFact);
+				}
+				if (mkDerived.Groups[1].Value == "+" && myLastFact != null &&
+					!System.Text.RegularExpressions.Regex.IsMatch(s, @"\biff?\b"))
+				{
+					mySemiDerived.Add(myLastFact);
 				}
 			}
 			if (s.Contains(" or some ") || s.Contains(" or that ") || s.Contains(" or is "))
@@ -1018,6 +1027,123 @@ namespace Elysium.NormaOracle
 		}
 
 		private readonly List<KeyValuePair<string, string>> myTextual = new List<KeyValuePair<string, string>>();
+		private readonly List<string> myDeferredRules = new List<string>();
+
+		private FactIndexEntry FindEntryByNormalizedSentence(string sentence)
+		{
+			string key = NormalizeWords(sentence);
+			FactIndexEntry found = null;
+			foreach (FactIndexEntry e in myFactIndex)
+			{
+				if (e.Fact.IsDeleted || e.FullKey != key) continue;
+				if (found != null) return null;
+				found = e;
+			}
+			return found;
+		}
+
+		// NORMA's inbuilt derivation mechanism: FactTypeDerivationRule owns a
+		// LeadRolePath (the same role-path machinery the join-path constraints
+		// use) plus a RoleSetDerivationProjection mapping each derived role to
+		// a pathed role. The linear two-leg iff class builds natively:
+		//   * <head> iff some <J> <leg1> and that <J> <leg2>.
+		// (one join variable, two positive facts, every head player found in
+		// exactly one leg). DerivationStorage=NotStored makes the Codd 1.5
+		// exclusion NORMA-native: the bridge itself stops emitting the table.
+		// Everything beyond the class — recursion (closures need a fixpoint),
+		// multi-rule heads, negation, aggregation, chained multi-variable
+		// bodies — exceeds a single role path; those rules stay deferred prose
+		// here and EXECUTE in the canon's rules:metamodel under the C# runner,
+		// which law:markers holds to closure (no marker without a deliverer).
+		public List<string> BuildDerivationRules()
+		{
+			var log = new List<string>();
+			// a fully-derived head is the CWA closure over ALL its rules; one
+			// role path can hold one rule, so only single-rule heads build —
+			// a multi-rule head built partially would be wrong, not partial
+			var rulesPerHead = new Dictionary<string, int>(StringComparer.Ordinal);
+			foreach (string s in myDeferredRules)
+			{
+				Match hm = Regex.Match(s, @"^\* (.+?) iff ");
+				if (!hm.Success) continue;
+				string h = NormalizeWords(hm.Groups[1].Value.Trim());
+				int n;
+				rulesPerHead.TryGetValue(h, out n);
+				rulesPerHead[h] = n + 1;
+			}
+			foreach (string s in myDeferredRules)
+			{
+				Match m = Regex.Match(s, @"^\* (.+?) iff some ([A-Z][\w ]*?) (.+) and that \2 (.+)\.$");
+				if (!m.Success) continue;
+				string head = m.Groups[1].Value.Trim();
+				int headRules;
+				rulesPerHead.TryGetValue(NormalizeWords(head), out headRules);
+				if (headRules != 1) continue;
+				string j = m.Groups[2].Value.Trim();
+				if (!myTypes.ContainsKey(j)) continue;
+				string leg1 = Dequantify(j + " " + m.Groups[3].Value.Trim());
+				string leg2 = Dequantify(j + " " + m.Groups[4].Value.Trim());
+				FactIndexEntry headE = FindEntryByNormalizedSentence(head);
+				FactIndexEntry e1 = FindEntryByNormalizedSentence(leg1);
+				FactIndexEntry e2 = FindEntryByNormalizedSentence(leg2);
+				if (headE == null || e1 == null || e2 == null || headE == e1 || headE == e2) continue;
+				if (headE.Fact.DerivationRule != null) continue;
+				int j1 = e1.Players.IndexOf(j), j2 = e2.Players.IndexOf(j);
+				if (j1 < 0 || j2 < 0 || e1.Players.LastIndexOf(j) != j1 || e2.Players.LastIndexOf(j) != j2) continue;
+				// each head player must be found at exactly one non-join leg position
+				var located = new List<KeyValuePair<FactIndexEntry, int>>();
+				bool ok = true;
+				for (int i = 0; i < headE.Players.Count && ok; i++)
+				{
+					string p = headE.Players[i];
+					var hits = new List<KeyValuePair<FactIndexEntry, int>>();
+					for (int c = 0; c < e1.Players.Count; c++)
+						if (c != j1 && e1.Players[c] == p) hits.Add(new KeyValuePair<FactIndexEntry, int>(e1, c));
+					for (int c = 0; c < e2.Players.Count; c++)
+						if (c != j2 && e2.Players[c] == p) hits.Add(new KeyValuePair<FactIndexEntry, int>(e2, c));
+					if (hits.Count != 1) { ok = false; break; }
+					located.Add(hits[0]);
+				}
+				if (!ok) continue;
+				var rule = new FactTypeDerivationRule(myStore);
+				new FactTypeHasDerivationRule(headE.Fact, rule);
+				rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
+				rule.DerivationStorage = DerivationStorage.NotStored;
+				var lead = new LeadRolePath(myStore);
+				rule.OwnedLeadRolePathCollection.Add(lead);
+				new RolePathObjectTypeRoot(lead, myTypes[j]);
+				var steps = new PathedRole[headE.Roles.Count];
+				foreach (var legPair in new[] { new KeyValuePair<FactIndexEntry, int>(e1, j1), new KeyValuePair<FactIndexEntry, int>(e2, j2) })
+				{
+					var sub = new RoleSubPath(myStore);
+					lead.SubPathCollection.Add(sub);
+					var entry = new PathedRole(sub, legPair.Key.Roles[legPair.Value]);
+					entry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+					for (int i = 0; i < located.Count; i++)
+					{
+						if (located[i].Key != legPair.Key) continue;
+						var step = new PathedRole(sub, legPair.Key.Roles[located[i].Value]);
+						step.PathedRolePurpose = PathedRolePurpose.SameFactType;
+						steps[i] = step;
+					}
+				}
+				var proj = new RoleSetDerivationProjection(rule, lead);
+				for (int i = 0; i < headE.Roles.Count; i++)
+				{
+					if (steps[i] == null) { ok = false; break; }
+					var drp = new DerivedRoleProjection(proj, headE.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drp, steps[i]);
+				}
+				if (!ok) continue;
+				log.Add(headE.Fact.Name + " := join over " + j + " (" + e1.Fact.Name + " x " + e2.Fact.Name + "), fully derived, not stored");
+			}
+			return log;
+		}
+
+		private static string Dequantify(string leg)
+		{
+			return leg.Replace(" that ", " ").Replace(" some ", " ");
+		}
 
 		// exec ruling 5: nothing deferred — every textual constraint form is
 		// built as a NORMA element. Rings and direct subsets/exclusions/
@@ -2199,11 +2325,24 @@ namespace Elysium.NormaOracle
 				.ToList();
 			var sb = new System.Text.StringBuilder();
 			sb.Append("(\n");
-			sb.Append("\"THE DESIGN STATE in INTERSECTION SOURCE (generated by norma-oracle; regenerate, never edit). state:fts — one S5 descriptor per parsed fact type: name, players (top-collapsed), ucs (1-based positions), mands (phi), pop (attributed instance rows). state:declared pairs each name with its declared players; state:nestings pairs objectified fact names with their nesting types; state:otpops the per-kind entity populations, inclusion materialized up the subtype chain. Chunk convention: state:fts, each pop, each otpop, and state:declared/state:nestings are chunked — consumers flatten exactly one level; descriptors, rows, and uc spans are direct.\",\n\n");
+			sb.Append("\"THE DESIGN STATE in INTERSECTION SOURCE (generated by norma-oracle; regenerate, never edit). state:fts — one S5 descriptor per parsed fact type: name, players (top-collapsed), ucs (1-based positions), mands (phi), pop (attributed instance rows). state:declared pairs each name with its declared players; state:nestings pairs objectified fact names with their nesting types; state:otpops the per-kind entity populations, inclusion materialized up the subtype chain; state:derived pairs each derivation-marked name with its mode (full/semi/subtype) — the marker surface the closure law reads against rules:metamodel. Chunk convention: state:fts, each pop, each otpop, and state:declared/state:nestings/state:derived are chunked — consumers flatten exactly one level; descriptors, rows, and uc spans are direct.\",\n\n");
 			sb.Append("DEF(\"state:fts\", ").Append(IChunked(fts)).Append("),\n\n");
 			sb.Append("DEF(\"state:declared\", ").Append(IChunked(declared)).Append("),\n\n");
 			sb.Append("DEF(\"state:nestings\", ").Append(IChunked(nestings)).Append("),\n\n");
-			sb.Append("DEF(\"state:otpops\", ").Append(IChunked(pops)).Append(")\n");
+			sb.Append("DEF(\"state:otpops\", ").Append(IChunked(pops)).Append("),\n\n");
+			// the derivation surface: every derivation-marked name with its
+			// mode — 'full' (*), 'semi' (+), 'subtype' (Fig 13.29 form). The
+			// marker-closure law reads this against rules:metamodel targets:
+			// no marker without a deliverer, no rule without a declared head.
+			var derivedPairs = new List<string>();
+			foreach (FactType f in myFullyDerived)
+				if (!f.IsDeleted) derivedPairs.Add("S2(" + IAtom(f.Name) + ", " + IAtom("full") + ")");
+			foreach (FactType f in mySemiDerived)
+				if (!f.IsDeleted && !myFullyDerived.Contains(f)) derivedPairs.Add("S2(" + IAtom(f.Name) + ", " + IAtom("semi") + ")");
+			foreach (string n in mySubtypeDerived)
+				derivedPairs.Add("S2(" + IAtom(n) + ", " + IAtom("subtype") + ")");
+			derivedPairs.Sort(StringComparer.Ordinal);
+			sb.Append("DEF(\"state:derived\", ").Append(IChunked(derivedPairs)).Append(")\n");
 			sb.Append(")\n");
 			System.IO.File.WriteAllText(path, sb.ToString());
 		}

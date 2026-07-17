@@ -226,6 +226,17 @@ namespace Elysium.NormaOracle
 				verifier.BuildTextualConstraints();
 				t.Commit();
 			}
+			List<string> builtDerivations;
+			using (Transaction t = store.TransactionManager.BeginTransaction("derivation rules"))
+			{
+				builtDerivations = verifier.BuildDerivationRules();
+				t.Commit();
+			}
+			Console.WriteLine();
+			Console.WriteLine("== derivation rules built through NORMA's inbuilt mechanism (linear two-leg class) ==");
+			foreach (string l in builtDerivations) Console.WriteLine("  " + l);
+			if (builtDerivations.Count == 0) Console.WriteLine("  (none matched the class)");
+
 			List<string> ringLinks;
 			using (Transaction t = store.TransactionManager.BeginTransaction("ring link disambiguation"))
 			{
