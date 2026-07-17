@@ -45,6 +45,30 @@ HypothesisCandidateHasHiddenFact objectifies "Hypothesis Candidate has hidden- F
 HypothesisCandidateHasHiddenFact is a subtype of Function.
 
 ### Scoring Rule
+Recipe Text is a value type.
+  The data type of Recipe Text is text.
+Hypothesis Candidate targets Fact Type.
+  Each Hypothesis Candidate targets exactly one Fact Type.
+Hypothesis Candidate has Recipe Text.
+  Each Hypothesis Candidate has exactly one Recipe Text.
+For each Fact Type and Recipe Text, at most one Hypothesis Candidate targets that Fact Type and has that Recipe Text.
+  <!-- extensional identity as EXTERNAL UNIQUENESS (2026-07-17, Samuel's
+       ruling: identity through external uniqueness constraints is
+       explicitly supported in NORMA — use the canonical mechanism, do
+       not hold identity as prose): a candidate IS its target-recipe
+       pair (Prop 3; no minting, surrogates are the boundary's
+       business). The external UC holds that extensional identity as a
+       real constraint; the PREFERRED scheme remains Function(.id) per
+       the one-reference-scheme ruling (Halpin 6.7 — subtypes inherit
+       the root's identification), so the id space stores while the
+       external UC guarantees no two candidates share content. The
+       canon's induce:facts emits both identity facts (the recipe rides
+       extensionally; Recipe Text's serialization is the registration
+       boundary's business, like every surrogate). Def 4's fact
+       identity (fact type, tuple) is the same doctrine at instance
+       level, held by the canon — a variable-arity tuple is beyond a
+       fixed role pair. -->
+
 Scoring Rule applies to Hypothesis Candidate.
   Each Scoring Rule, Hypothesis Candidate combination occurs at most once in the population of Scoring Rule applies to Hypothesis Candidate.
 ScoringRuleAppliesToHypothesisCandidate objectifies "Scoring Rule applies to Hypothesis Candidate".

@@ -627,6 +627,15 @@ If some Role is used in some Reading where some Fact Type has that Reading then 
      — the dangling-reference class. Rewritten over the current readings. -->
 If some Fact fills some Role then that Fact is of some Fact Type that has that Role.
 It is obligatory that each Resource that some FactFillsRole uses is instance of some Object Type that plays the Role that FactFillsRole fills.
+  <!-- derived residue note (2026-07-17): the role-typing subset is
+       expressible in NORMA only through the IMPLIED link fact types of
+       the FactFillsRole objectification (the sequence needs the pair's
+       Fact and Role components, and the nesting transformation traded
+       the flat ternary for link-machinery-only access — Halpin's own
+       prescription). Implied link readings are not A-declared
+       vocabulary, so the sentence stays deontic prose by construction,
+       not by limitation; the canon's population-consistency and
+       instance-attribution machinery carry the semantics. -->
 <!-- the resource-typing leg correlates through the objectified pair, which
      Definition Fragment excludes (nested objectification lies outside R):
      it stands as the deontic obligation above until link-fact readings or
