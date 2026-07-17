@@ -135,9 +135,11 @@ namespace Elysium.NormaOracle
 			// ORACLE_RING_PROBE=1: instead of mapping the metamodel, build the
 			// minimal NORMA-only scenario — one entity type, one ring m:n fact
 			// (spanning UC), one unary fact — and dump the resulting model
-			// errors. Documents which errors NORMA produces BY CONSTRUCTION
-			// (implied-objectification link readings on rings), so the main
-			// report can classify them as expected rather than blocking.
+			// errors. Documents the raw collision NORMA produces BY
+			// CONSTRUCTION (identical link readings on a same-player fact);
+			// the main pipeline FIXES it via DisambiguateRingLinkReadings
+			// (ordinal-qualified link readings), so the probe shows the
+			// disease and the main report must show zero errors, unclassified.
 			if (Environment.GetEnvironmentVariable("ORACLE_RING_PROBE") == "1")
 			{
 				using (Transaction t = store.TransactionManager.BeginTransaction("ring probe"))
@@ -224,6 +226,16 @@ namespace Elysium.NormaOracle
 				verifier.BuildTextualConstraints();
 				t.Commit();
 			}
+			List<string> ringLinks;
+			using (Transaction t = store.TransactionManager.BeginTransaction("ring link disambiguation"))
+			{
+				ringLinks = Verifier.DisambiguateRingLinkReadings(store);
+				t.Commit();
+			}
+			Console.WriteLine();
+			Console.WriteLine("== ring link readings (ordinal-qualified where a player repeats) ==");
+			foreach (string l in ringLinks) Console.WriteLine("  " + l);
+			if (ringLinks.Count == 0) Console.WriteLine("  (none needed)");
 			using (Transaction t = store.TransactionManager.BeginTransaction("instance facts"))
 			{
 				verifier.AttributeInstanceFacts();
@@ -372,7 +384,7 @@ namespace Elysium.NormaOracle
 				if (line.Contains("{") || line.StartsWith("ORM2 Verbalization") ||
 					line.StartsWith("Fact Types:") || line.StartsWith("Reference Scheme:") ||
 					line.StartsWith("Data Type:") || line.StartsWith("Reference Mode:") ||
-					line.Contains("_id") || line.Contains(" is involved in ") ||
+					line.Contains("_id") || line.Contains(" is involved ") ||
 					line.Contains(" involves ") ||
 					line.Contains("“") || line.Contains("”"))
 				{
@@ -391,6 +403,16 @@ namespace Elysium.NormaOracle
 				System.Text.RegularExpressions.Match am =
 					System.Text.RegularExpressions.Regex.Match(line, @"provides the preferred identification scheme for ([\w :]+)\.$");
 				if (am.Success && !verifier.HasType(am.Groups[1].Value.Trim()))
+				{
+					continue;
+				}
+				// same doctrine for reference-mode expansion readings: an app
+				// natural (Customer(.Nr)) makes NORMA mint Customer_Nr and a
+				// "Customer has Customer_Nr" reading — machinery, never an
+				// A-declared sentence (underscore names cannot be declared)
+				System.Text.RegularExpressions.Match rm =
+					System.Text.RegularExpressions.Regex.Match(line, @" has ([A-Za-z][\w]*_[\w]+)\.$");
+				if (rm.Success && !verifier.HasType(rm.Groups[1].Value.Trim()))
 				{
 					continue;
 				}

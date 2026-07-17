@@ -2236,25 +2236,14 @@ namespace Elysium.NormaOracle
 		#region reporting
 		public static void DumpErrors(Store store, TextWriter w)
 		{
+			// No whitelist. The former ring-twin class (duplicate link-reading
+			// signatures on same-player m:n facts) is FIXED at the source by
+			// DisambiguateRingLinkReadings; any survivor is a real error.
 			var groups = new Dictionary<string, List<string>>();
-			var expected = new List<string>();
 			foreach (ModelError err in store.ElementDirectory.FindElements<ModelError>(true))
 			{
 				string kind = err.GetDomainClass().Name;
 				string text = err.ErrorText;
-				// NORMA creates an implied objectification for every m:n fact
-				// type and gives each role a link fact type reading "{0} is
-				// involved in {1}" / "{1} involves {0}". On a RING fact both
-				// roles have the same player, so the two link readings are
-				// textually identical by construction — NORMA registers the
-				// collision as a duplicate signature. Inherent to ring m:n
-				// facts, not a metamodel defect (see README, ring-probe).
-				if (kind == "DuplicateReadingSignatureError" &&
-					(text.Contains(" is involved in ") || text.Contains(" involves ")))
-				{
-					expected.Add(text);
-					continue;
-				}
 				List<string> list;
 				if (!groups.TryGetValue(kind, out list)) groups[kind] = list = new List<string>();
 				list.Add(text);
@@ -2271,14 +2260,69 @@ namespace Elysium.NormaOracle
 				if (kv.Value.Count > 8) w.WriteLine("      ... and " + (kv.Value.Count - 8) + " more");
 			}
 			w.WriteLine(total == 0 ? "  (none)" : "  TOTAL BLOCKING ERRORS: " + total);
-			if (expected.Count > 0)
+		}
+
+		// NORMA implies an objectification for every compound-UC fact type and
+		// gives each role a binary link fact type reading "{0} involves {1}" /
+		// "{0} is involved in {1}". On a fact type where several roles share a
+		// player, those generated readings are textually identical, so their
+		// expanded signatures collide and NORMA raises
+		// DuplicateReadingSignatureError per colliding text. The readings are
+		// ordinary Reading elements — editable, exactly as a modeler would do
+		// in the UI — so the honest resolution is distinct texts, not a
+		// whitelist: each same-player group gets ordinal-qualified link
+		// readings ("involves first", "involves second", ...). Returns one log
+		// line per rewritten link fact type.
+		public static List<string> DisambiguateRingLinkReadings(Store store)
+		{
+			var log = new List<string>();
+			string[] ord = { "first", "second", "third", "fourth", "fifth" };
+			foreach (Objectification obj in store.ElementDirectory.FindElements<Objectification>(true))
 			{
-				w.WriteLine("  expected (implied link-reading twins on ring m:n fact types): " + expected.Count);
-				foreach (string text in expected)
+				// group link fact types by far-role player
+				var byPlayer = new Dictionary<ObjectType, List<FactType>>();
+				foreach (FactType link in obj.ImpliedFactTypeCollection)
 				{
-					w.WriteLine("      ~ " + text);
+					ObjectType far = null;
+					foreach (RoleBase rb in link.RoleCollection)
+					{
+						Role r = rb.Role;
+						if (r != null && r.RolePlayer != null && r.RolePlayer != obj.NestingType)
+							far = r.RolePlayer;
+					}
+					if (far == null) continue;
+					List<FactType> list;
+					if (!byPlayer.TryGetValue(far, out list)) byPlayer[far] = list = new List<FactType>();
+					list.Add(link);
+				}
+				foreach (var kv in byPlayer)
+				{
+					if (kv.Value.Count < 2) continue;
+					for (int i = 0; i < kv.Value.Count; i++)
+					{
+						FactType link = kv.Value[i];
+						string q = ord[Math.Min(i, ord.Length - 1)];
+						int rewrote = 0;
+						foreach (ReadingOrder ro in link.ReadingOrderCollection)
+						{
+							foreach (Reading r in ro.ReadingCollection)
+							{
+								string t = r.Text;
+								string nt = t;
+								if (t.Contains(" involves "))
+									nt = t.Replace(" involves ", " involves " + q + " ");
+								else if (t.Contains(" is involved in "))
+									nt = t.Replace(" is involved in ", " is involved " + q + " in ");
+								if (nt != t) { r.Text = nt; rewrote++; }
+							}
+						}
+						log.Add(obj.NestingType.Name + " link[" + kv.Key.Name + " #" + (i + 1) + "]: "
+							+ (rewrote > 0 ? rewrote + " reading(s) ordinal-qualified '" + q + "'"
+							               : "no generated readings present"));
+					}
 				}
 			}
+			return log;
 		}
 
 		public static void DumpRelational(Store store, System.Reflection.Assembly relationalAssembly, TextWriter w)

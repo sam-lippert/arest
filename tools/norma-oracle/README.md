@@ -79,10 +79,14 @@ Known NORMA-inherent behaviors (verified, not harness defects):
   "{1} involves {0}" per role. On a ring fact both roles share a player, so
   the two link readings collide by construction and NORMA registers
   DuplicateReadingSignatureError twins. `ORACLE_RING_PROBE=1
-  ./bin/Debug/norma-oracle.exe` demonstrates this with a bare one-type ring
-  model. The report separates these as expected (rings × 2; explicit
-  objectification of a ring fact type adds its own pair) from blocking
-  errors.
+  ./bin/Debug/norma-oracle.exe` demonstrates the raw collision with a bare
+  one-type ring model. FIXED, not classified: the generated link readings
+  are ordinary editable Reading elements (no lock, exactly what a modeler
+  would edit in the UI), so DisambiguateRingLinkReadings ordinal-qualifies
+  each same-player group ("involves first", "is involved second in", ...)
+  right after mapping. The error report carries no whitelist — a surviving
+  duplicate-signature error is a real error. The nf feed's link-reading
+  filter matches the qualified forms (" involves ", " is involved ").
 - Objectified-type absorption: the ORM→OIAL→DCIL bridge's old
   nondeterministic identity-table tie-break (API) dissolved with the
   one-table rule — identity through the Function subtype removes the
