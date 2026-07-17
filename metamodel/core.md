@@ -758,7 +758,7 @@ Derivation Rule has Text.
   Each Derivation Rule has exactly one Text.
 Derivation Rule is provided by Constraint.
   Each Derivation Rule is provided by at most one Constraint.
-  Each Constraint provides at most one Derivation Rule.
+  For each Constraint, at most one Derivation Rule is provided by that Constraint.
   <!-- exec ruling (2026-07-16): the derivation a materializing
        constraint supplies (see "Derivations provided by constraints"
        below). A provided rule carries no authored Text — its content

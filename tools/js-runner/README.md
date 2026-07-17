@@ -46,6 +46,7 @@ flips both identically:
 | compare across atom kinds (number vs string, array) | coerces / stringifies | **throws** |
 | duplicate DEF | silent overwrite | **throws** |
 | unresolved atom | `undefined` | **throws** |
+| `tl`/`tlr`/`1r`/`INSERT` on `[]`, `implode` on a non-string | `[]` / coerced string | **throws** (Backus 11.2.3: ⊥) |
 
 ## The parity it proves
 
