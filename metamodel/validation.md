@@ -4,7 +4,13 @@
 
 ### Object Type Declaration
 
-It is obligatory that each Role references exactly one Object Type.
+<!-- retired 2026-07-17 (no-guessing ruling): "each Role references
+     exactly one Object Type" named no declared predicate (the fit-scorer
+     bound it to plays by synonym) and its content is already held
+     ALETHICALLY at core.md's Role declaration: "For each Role, exactly
+     one Object Type plays that Role." An alethic constraint subsumes its
+     deontic restatement.
+It is obligatory that each Role references exactly one Object Type. -->
 
 ### Arity Decomposition
 

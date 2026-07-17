@@ -106,7 +106,7 @@ Fact belongs to Domain. *
 Fact is completed.
 Fact is example.
 Fact cites Citation.
-  For each pair of Fact and Citation, that Fact cites that Citation at most once.
+  For each combination of Fact and Citation, that Fact cites that Citation at most once.
 FactCitesCitation objectifies "Fact cites Citation".
 FactCitesCitation is a subtype of Function.
 
@@ -140,7 +140,7 @@ EventTypeCanBeCreatedByPredicate is a subtype of Function.
 
 ### Fact Type Citation
 Fact Type cites Citation.
-  For each pair of Fact Type and Citation, that Fact Type cites that Citation at most once.
+  For each combination of Fact Type and Citation, that Fact Type cites that Citation at most once.
   It is possible that some Fact Type cites more than one Citation.
   It is possible that more than one Fact Type cites the same Citation.
 FactTypeCitesCitation objectifies "Fact Type cites Citation".
