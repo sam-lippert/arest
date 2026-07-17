@@ -34,6 +34,7 @@ namespace Elysium.NormaOracle
 		private readonly List<FactIndexEntry> myFactIndex = new List<FactIndexEntry>();
 		private readonly HashSet<FactType> myFullyDerived = new HashSet<FactType>();
 		private readonly HashSet<FactType> mySemiDerived = new HashSet<FactType>();
+		private readonly HashSet<FactType> myStoredDerived = new HashSet<FactType>();
 		private readonly HashSet<string> mySubtypeDerived = new HashSet<string>(StringComparer.Ordinal);
 		public HashSet<string> FullyDerivedNames()
 		{
@@ -452,10 +453,19 @@ namespace Elysium.NormaOracle
 			if (mkDerived.Success)
 			{
 				s = s.Substring(mkDerived.Length);
-				if (mkDerived.Groups[1].Value[0] == '*' && myLastFact != null &&
+				// '*' = fully derived, not stored (leaves the stored schema);
+				// '**' = fully derived, STORED — the consequent is a real
+				// cell the runtime reads (NORMA: DerivationStorage=Stored),
+				// so it STAYS in the stored schema on both surfaces; '+' = semi
+				if (mkDerived.Groups[1].Value == "*" && myLastFact != null &&
 					!System.Text.RegularExpressions.Regex.IsMatch(s, @"\biff?\b"))
 				{
 					myFullyDerived.Add(myLastFact);
+				}
+				if (mkDerived.Groups[1].Value == "**" && myLastFact != null &&
+					!System.Text.RegularExpressions.Regex.IsMatch(s, @"\biff?\b"))
+				{
+					myStoredDerived.Add(myLastFact);
 				}
 				if (mkDerived.Groups[1].Value == "+" && myLastFact != null &&
 					!System.Text.RegularExpressions.Regex.IsMatch(s, @"\biff?\b"))
@@ -1137,12 +1147,165 @@ namespace Elysium.NormaOracle
 				if (!ok) continue;
 				log.Add(headE.Fact.Name + " := join over " + j + " (" + e1.Fact.Name + " x " + e2.Fact.Name + "), fully derived, not stored");
 			}
+			// the aggregate class: "* <head> iff <V> is the count of <X>
+			// where <source-reading>." — Definition 7's finite bag to one
+			// scalar as NORMA's own CalculatedPathValue (Count, aggregated
+			// per path root), the literature's flagship derived-fact example
+			Function countFn = null;
+			foreach (Function fn in myStore.ElementDirectory.FindElements<Function>(true))
+			{
+				if (!fn.IsDeleted && fn.IsAggregate && fn.Name == "Count") { countFn = fn; break; }
+			}
+			if (countFn == null)
+			{
+				// the function library is tool-loaded data in the NORMA UI;
+				// headless, the one function the aggregate class cites is
+				// seeded through NORMA's own Function/FunctionParameter
+				// classes (an aggregate over one bag input)
+				countFn = new Function(myStore);
+				countFn.Name = "Count";
+				countFn.IsAggregate = true;
+				countFn.Model = myModel;
+				var bag = new FunctionParameter(myStore);
+				bag.Function = countFn;
+				bag.Name = "bag";
+				bag.BagInput = true;
+			}
+			foreach (string s in myDeferredRules)
+			{
+				Match m = Regex.Match(s, @"^\* (.+?) iff ([\w ]+?) is the count of ([\w ]+?) where (.+)\.$");
+				if (!m.Success) continue;
+				if (countFn == null) { log.Add("SKIPPED (no Count function in library): " + s); continue; }
+				string head = m.Groups[1].Value.Trim();
+				string v = m.Groups[2].Value.Trim();
+				string x = m.Groups[3].Value.Trim();
+				int headRules;
+				rulesPerHead.TryGetValue(NormalizeWords(head), out headRules);
+				if (headRules != 1) continue;
+				FactIndexEntry headE = FindEntryByNormalizedSentence(head);
+				FactIndexEntry src = FindEntryByNormalizedSentence(Dequantify(" " + m.Groups[4].Value.Trim()).Trim());
+				if (headE == null || src == null || headE == src) continue;
+				if (headE.Fact.DerivationRule != null) continue;
+				int vAt = headE.Players.IndexOf(v);
+				if (vAt < 0 || headE.Players.Count != 2) continue;
+				string groupPlayer = headE.Players[1 - vAt];
+				int gAt = src.Players.IndexOf(groupPlayer);
+				int xAt = src.Players.IndexOf(x);
+				if (gAt < 0 || xAt < 0 || gAt == xAt) continue;
+				ObjectType rootType;
+				if (!myTypes.TryGetValue(groupPlayer, out rootType)) continue;
+				var rule = new FactTypeDerivationRule(myStore);
+				new FactTypeHasDerivationRule(headE.Fact, rule);
+				rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
+				rule.DerivationStorage = DerivationStorage.NotStored;
+				var lead = new LeadRolePath(myStore);
+				rule.OwnedLeadRolePathCollection.Add(lead);
+				var root = new RolePathObjectTypeRoot(lead, rootType);
+				var entry = new PathedRole(lead, src.Roles[gAt]);
+				entry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+				var step = new PathedRole(lead, src.Roles[xAt]);
+				step.PathedRolePurpose = PathedRolePurpose.SameFactType;
+				var cpv = new CalculatedPathValue(myStore);
+				lead.CalculatedValueCollection.Add(cpv);
+				cpv.Function = countFn;
+				new CalculatedPathValueAggregationContextIncludesRolePathRoot(cpv, root);
+				var input = new CalculatedPathValueInput(myStore);
+				cpv.InputCollection.Add(input);
+				foreach (FunctionParameter fp in countFn.ParameterCollection)
+				{
+					new CalculatedPathValueInputCorrespondsToFunctionParameter(input, fp);
+					break;
+				}
+				new CalculatedPathValueInputBindsToPathedRole(input, step);
+				var proj = new RoleSetDerivationProjection(rule, lead);
+				var drpGroup = new DerivedRoleProjection(proj, headE.Roles[1 - vAt]);
+				new DerivedRoleProjectedFromRolePathRoot(drpGroup, root);
+				var drpValue = new DerivedRoleProjection(proj, headE.Roles[vAt]);
+				new DerivedRoleProjectedFromCalculatedPathValue(drpValue, cpv);
+				log.Add(headE.Fact.Name + " := Count(" + x + ") per " + groupPlayer + " over " + src.Fact.Name + ", fully derived, not stored");
+			}
 			return log;
 		}
 
 		private static string Dequantify(string leg)
 		{
 			return leg.Replace(" that ", " ").Replace(" some ", " ");
+		}
+
+		// the killed host's check.rs layers, re-homed as oracle readers.
+		// Ring completeness: validation.md's obligation that every binary
+		// fact type whose two roles share a player carries some ring
+		// constraint. Deontic — findings are for adjudication, not errors.
+		public List<string> CheckRingCompleteness()
+		{
+			var ringed = new HashSet<FactType>();
+			foreach (SetConstraint sc in myStore.ElementDirectory.FindElements<SetConstraint>(true))
+			{
+				if (sc.IsDeleted || !(sc is RingConstraint)) continue;
+				foreach (Role r in sc.RoleCollection)
+				{
+					if (r.FactType != null) ringed.Add(r.FactType);
+				}
+			}
+			var findings = new List<string>();
+			foreach (FactIndexEntry e in myFactIndex)
+			{
+				if (e.Fact.IsDeleted || e.Roles.Count != 2) continue;
+				ObjectType a = e.Roles[0].RolePlayer, b = e.Roles[1].RolePlayer;
+				if (a == null || a != b) continue;
+				bool spanning = false;
+				foreach (UniquenessConstraint uc in InternalUCs(e.Fact))
+					if (uc.RoleCollection.Count == 2) spanning = true;
+				if (!spanning) continue;
+				if (!ringed.Contains(e.Fact))
+					findings.Add(e.Fact.Name + " [" + a.Name + "] — same-player m:n, no ring constraint");
+			}
+			return findings;
+		}
+
+		// Singular naming: an Object Type name must not be the plural form
+		// of another Object Type name, measured by the model's OWN
+		// Pluralization Rule populations (pattern -> replacement applied to
+		// each name; a produced name colliding with a declared name is the
+		// forbidden plural). The lexicon lives in the model, not the host.
+		public List<string> CheckSingularNaming()
+		{
+			var patterns = new Dictionary<string, string>(StringComparer.Ordinal);
+			var replacements = new Dictionary<string, string>(StringComparer.Ordinal);
+			foreach (FactIndexEntry e in myFactIndex)
+			{
+				if (e.Fact.IsDeleted) continue;
+				bool isPat = e.Fact.Name == "PluralizationRuleHasPluralizationPattern";
+				bool isRep = e.Fact.Name == "PluralizationRuleHasPluralizationReplacement";
+				if (!isPat && !isRep) continue;
+				for (int r = 0; r < e.Rows.Count; r++)
+				{
+					if (e.Rows[r].Count != 2) continue;
+					if (isPat) patterns[e.Rows[r][0]] = e.Rows[r][1];
+					else replacements[e.Rows[r][0]] = e.Rows[r][1];
+				}
+			}
+			var findings = new List<string>();
+			foreach (var rule in patterns)
+			{
+				string rep;
+				if (!replacements.TryGetValue(rule.Key, out rep)) continue;
+				foreach (string name in myTypes.Keys)
+				{
+					string lower = name.ToLowerInvariant();
+					System.Text.RegularExpressions.Match pm;
+					try { pm = Regex.Match(lower, rule.Value); }
+					catch (ArgumentException) { continue; }
+					if (!pm.Success) continue;
+					string plural = Regex.Replace(lower, rule.Value, rep);
+					foreach (string other in myTypes.Keys)
+					{
+						if (!ReferenceEquals(other, name) && other.ToLowerInvariant() == plural)
+							findings.Add(other + " is the plural of " + name + " (rule " + rule.Key + ")");
+					}
+				}
+			}
+			return findings;
 		}
 
 		// exec ruling 5: nothing deferred — every textual constraint form is
@@ -2325,24 +2488,75 @@ namespace Elysium.NormaOracle
 				.ToList();
 			var sb = new System.Text.StringBuilder();
 			sb.Append("(\n");
-			sb.Append("\"THE DESIGN STATE in INTERSECTION SOURCE (generated by norma-oracle; regenerate, never edit). state:fts — one S5 descriptor per parsed fact type: name, players (top-collapsed), ucs (1-based positions), mands (phi), pop (attributed instance rows). state:declared pairs each name with its declared players; state:nestings pairs objectified fact names with their nesting types; state:otpops the per-kind entity populations, inclusion materialized up the subtype chain; state:derived pairs each derivation-marked name with its mode (full/semi/subtype) — the marker surface the closure law reads against rules:metamodel. Chunk convention: state:fts, each pop, each otpop, and state:declared/state:nestings/state:derived are chunked — consumers flatten exactly one level; descriptors, rows, and uc spans are direct.\",\n\n");
+			sb.Append("\"THE DESIGN STATE in INTERSECTION SOURCE (generated by norma-oracle; regenerate, never edit). state:fts — one S5 descriptor per parsed fact type: name, players (top-collapsed), ucs (1-based positions), mands (phi), pop (attributed instance rows). state:declared pairs each name with its declared players; state:nestings pairs objectified fact names with their nesting types; state:otpops the per-kind entity populations, inclusion materialized up the subtype chain; state:derived pairs each derivation-marked name with its mode (full/stored/semi/subtype) — the marker surface the closure law reads against rules:metamodel; state:exclusions holds one scope-list per exclusion constraint (population name + 1-based positions; a subtype-meta scope names the child extent). Chunk convention: state:fts, each pop, each otpop, and state:declared/state:nestings/state:derived are chunked — consumers flatten exactly one level; descriptors, rows, and uc spans are direct.\",\n\n");
 			sb.Append("DEF(\"state:fts\", ").Append(IChunked(fts)).Append("),\n\n");
 			sb.Append("DEF(\"state:declared\", ").Append(IChunked(declared)).Append("),\n\n");
 			sb.Append("DEF(\"state:nestings\", ").Append(IChunked(nestings)).Append("),\n\n");
 			sb.Append("DEF(\"state:otpops\", ").Append(IChunked(pops)).Append("),\n\n");
 			// the derivation surface: every derivation-marked name with its
-			// mode — 'full' (*), 'semi' (+), 'subtype' (Fig 13.29 form). The
+			// mode — 'full' (*), 'stored' (**), 'semi' (+), 'subtype'
+			// (Fig 13.29 form). The
 			// marker-closure law reads this against rules:metamodel targets:
 			// no marker without a deliverer, no rule without a declared head.
 			var derivedPairs = new List<string>();
 			foreach (FactType f in myFullyDerived)
 				if (!f.IsDeleted) derivedPairs.Add("S2(" + IAtom(f.Name) + ", " + IAtom("full") + ")");
+			foreach (FactType f in myStoredDerived)
+				if (!f.IsDeleted && !myFullyDerived.Contains(f)) derivedPairs.Add("S2(" + IAtom(f.Name) + ", " + IAtom("stored") + ")");
 			foreach (FactType f in mySemiDerived)
 				if (!f.IsDeleted && !myFullyDerived.Contains(f)) derivedPairs.Add("S2(" + IAtom(f.Name) + ", " + IAtom("semi") + ")");
 			foreach (string n in mySubtypeDerived)
 				derivedPairs.Add("S2(" + IAtom(n) + ", " + IAtom("subtype") + ")");
 			derivedPairs.Sort(StringComparer.Ordinal);
-			sb.Append("DEF(\"state:derived\", ").Append(IChunked(derivedPairs)).Append(")\n");
+			sb.Append("DEF(\"state:derived\", ").Append(IChunked(derivedPairs)).Append("),\n\n");
+			// the exclusion surface: one entry per ExclusionConstraint, each a
+			// list of scopes (population name, 1-based positions). A scope over
+			// a SubtypeFact's supertype meta role resolves to the SUBTYPE
+			// EXTENT (the child's entity population, column 1); a scope over
+			// ordinary roles resolves to the owning fact type's population.
+			// law:exclusion verifies all pairwise projected intersections
+			// empty; cmd:excl_viols enforces the same at create.
+			var exclusions = new List<string>();
+			foreach (ExclusionConstraint xc in myStore.ElementDirectory.FindElements<ExclusionConstraint>(true))
+			{
+				if (xc.IsDeleted) continue;
+				var scopes = new List<string>();
+				bool ok = true;
+				foreach (SetComparisonConstraintRoleSequence seq in xc.RoleSequenceCollection)
+				{
+					var byFact = new Dictionary<FactIndexEntry, List<int>>();
+					string subtypeScope = null;
+					foreach (Role r in seq.RoleCollection)
+					{
+						SubtypeFact sf = r.FactType as SubtypeFact;
+						if (sf != null && sf.Subtype != null)
+						{
+							subtypeScope = sf.Subtype.Name;
+							continue;
+						}
+						FactIndexEntry home = null;
+						foreach (FactIndexEntry e in myFactIndex)
+							if (!e.Fact.IsDeleted && e.Fact == r.FactType) { home = e; break; }
+						if (home == null) { ok = false; break; }
+						List<int> pos;
+						if (!byFact.TryGetValue(home, out pos)) byFact[home] = pos = new List<int>();
+						pos.Add(home.Roles.IndexOf(r) + 1);
+					}
+					if (!ok) break;
+					if (subtypeScope != null)
+					{
+						scopes.Add("S2(" + IAtom(subtypeScope) + ", S1(N(1)))");
+					}
+					foreach (var kv in byFact)
+					{
+						scopes.Add("S2(" + IAtom(kv.Key.Fact.Name) + ", " +
+							ISeq(kv.Value.Select(p => "N(" + p + ")").ToList()) + ")");
+					}
+				}
+				if (ok && scopes.Count >= 2) exclusions.Add(ISeq(scopes));
+			}
+			exclusions.Sort(StringComparer.Ordinal);
+			sb.Append("DEF(\"state:exclusions\", ").Append(exclusions.Count == 0 ? "PHI()" : IChunked(exclusions)).Append(")\n");
 			sb.Append(")\n");
 			System.IO.File.WriteAllText(path, sb.ToString());
 		}
