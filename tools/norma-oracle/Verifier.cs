@@ -2724,6 +2724,29 @@ namespace Elysium.NormaOracle
 						System.Text.RegularExpressions.Regex.IsMatch(remainder, @"\bsome\b") ? "some" :
 						remainder.Contains(" each ") ? "each" : null;
 					if (quant == null) return false;
+					// no-guessing: with the quantifier removed, the sentence must
+					// RESTATE one of the target fact's readings (players
+					// interleaved, hyphen binding absorbed). A subject-player
+					// match alone must never bind a constraint onto a fact whose
+					// reading it does not restate — nf machinery sentences
+					// (refmode expansions whose readings are skipped) dangle
+					// after myLastFact and would otherwise narrow a wrong
+					// fact's UC.
+					if (quant == "exactly one" || quant == "at most one" || quant == "some")
+					{
+						int qAt, qLen;
+						if (quant == "some")
+						{
+							var qm = System.Text.RegularExpressions.Regex.Match(remainder, @"\bsome\b");
+							qAt = qm.Index; qLen = 4;
+						}
+						else
+						{
+							qAt = remainder.IndexOf(quant, StringComparison.Ordinal); qLen = quant.Length;
+						}
+						string candidate = remainder.Substring(0, qAt) + remainder.Substring(qAt + qLen);
+						if (!RestatesReading(target, candidate)) return false;
+					}
 					var span = new List<Role> { roles[keyIdx] };
 					// "at most one Y per Z" / "at most one Y for each Z" widen
 					// the key to include Z (the n-1 span of an n-ary fact)
@@ -2761,6 +2784,19 @@ namespace Elysium.NormaOracle
 
 		// longest player whose name (optionally preceded by a hyphen-bound
 		// adjective like "value-type- ") prefixes the text
+		// the constraint sentence, quantifier removed, must equal one of the
+		// fact's readings with players interleaved (FullKey), normalized the
+		// same way — hyphen binding absorbed, whitespace collapsed
+		private bool RestatesReading(FactType fact, string candidate)
+		{
+			string want = NormalizeWords(candidate);
+			foreach (FactIndexEntry entry in myFactIndex)
+			{
+				if (entry.Fact == fact && entry.FullKey == want) return true;
+			}
+			return false;
+		}
+
 		private static int FindPlayerPrefix(string text, List<string> players)
 		{
 			int best = -1, bestLen = -1;

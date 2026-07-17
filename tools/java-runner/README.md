@@ -31,9 +31,10 @@ helpers.
 ## Strictness, mirrored
 
 `Arest.java` mirrors `cs-runner/{Vocabulary,Mu}.cs` point for point, and
-throws in the same five places (probe-verified, write-then-deleted):
+throws in the same six places (probe-verified, write-then-deleted):
 selector-on-atom, selector-out-of-range, compare-across-atom-kinds,
-duplicate-DEF, unresolved-atom. If a guard or a name list ever appears in
+duplicate-DEF, unresolved-atom, and `tl`/`tlr`/`1r`/`INSERT` on the empty
+sequence (Backus 11.2.3: ⊥). If a guard or a name list ever appears in
 this station, delete it — accretion is how the first two js runners died.
 
 ## The parity it joins

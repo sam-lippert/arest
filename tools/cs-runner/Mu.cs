@@ -37,7 +37,7 @@ public static partial class Arest
         new Dictionary<string, Func<object, object>>(StringComparer.Ordinal)
     {
         { "id", x => x },
-        { "tl", x => Seq(x).Skip(1).ToArray() },
+        { "tl", x => { var a = Seq(x); if (a.Length == 0) throw new InvalidOperationException("tl on empty"); return a.Skip(1).ToArray(); } },
         { "atom", x => Bool(!(x is object[])) },
         { "apndl", x => { var p = Seq(x); return new[] { p[0] }.Concat(Seq(p[1])).ToArray(); } },
         { "apndr", x => { var p = Seq(x); return Seq(p[0]).Concat(new[] { p[1] }).ToArray(); } },
@@ -61,7 +61,7 @@ public static partial class Arest
         { "strip_prefix", x => { var p = Seq(x); var pre = (string)p[0]; var t = (string)p[1];
             return t.Length > pre.Length && t.StartsWith(pre, StringComparison.Ordinal) ? t.Substring(pre.Length) : t; } },
         { "1r", x => Seq(x)[Seq(x).Length - 1] },
-        { "tlr", x => Seq(x).Take(Seq(x).Length - 1).ToArray() },
+        { "tlr", x => { var a = Seq(x); if (a.Length == 0) throw new InvalidOperationException("tlr on empty"); return a.Take(a.Length - 1).ToArray(); } },
     };
 
     public static object Ev(object f, object x)

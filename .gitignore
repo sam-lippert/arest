@@ -21,3 +21,12 @@ tools/js-runner/node_modules/
 tools/java-runner/Composed.g.java
 tools/java-runner/*.class
 tools/java-runner/*.txt
+tools/c-runner/composed*.g.c
+tools/c-runner/*.exe
+tools/c-runner/*.txt
+tools/rust-runner/composed*.g.rs
+tools/rust-runner/*.exe
+tools/rust-runner/*.pdb
+tools/rust-runner/*.wasm
+tools/rust-runner/*.txt
+tools/rust-runner/*.o

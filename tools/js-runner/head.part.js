@@ -85,7 +85,7 @@ function cmp(a, b) {
 // Each mirrors its Mu.cs form; unary prims take x, pair prims take at(x,0/1). -
 const PRIMS = new Map(Object.entries({
   "id": x => x,
-  "tl": x => seq(x).slice(1),
+  "tl": x => { const a = seq(x); if (a.length === 0) throw new Error("tl on empty"); return a.slice(1); },
   "atom": x => bool(!Array.isArray(x)),
   "apndl": x => [at(x,0), ...seq(at(x,1))],
   "apndr": x => [...seq(at(x,0)), at(x,1)],
@@ -106,14 +106,16 @@ const PRIMS = new Map(Object.entries({
   "apply": x => Ev(at(x,0), at(x,1)),
   "lex": x => { if (typeof x !== "string") throw new Error("lex on non-string");
     return x.split(/\s+/).filter(w => w.length > 0); },
-  "implode": x => seq(at(x,1)).join(at(x,0)),
+  "implode": x => seq(at(x,1)).map(w => {
+    if (typeof w !== "string") throw new Error("implode on non-string");
+    return w; }).join(at(x,0)),
   "slug": x => { if (typeof x !== "string") throw new Error("slug on non-string");
     return [...x.toLowerCase()].filter(c => /[\p{L}\p{Nd}]/u.test(c)).join(""); },
   "escape_html": x => x.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"),
   "strip_prefix": x => { const pre = at(x,0), t = at(x,1);
     return (t.length > pre.length && t.startsWith(pre)) ? t.slice(pre.length) : t; },
   "1r": x => { const a = seq(x); if (a.length === 0) throw new Error("1r on empty"); return a[a.length - 1]; },
-  "tlr": x => { const a = seq(x); return a.slice(0, a.length - 1); },
+  "tlr": x => { const a = seq(x); if (a.length === 0) throw new Error("tlr on empty"); return a.slice(0, a.length - 1); },
 }));
 
 // ---- the mu: atoms resolve through DEFS then the primitives, numbers are

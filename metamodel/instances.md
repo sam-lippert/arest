@@ -270,7 +270,7 @@ StateMachineIsInstanceOfObjectType is a subtype of Function.
      (a 3NF table), and subject to validate — the substrate-derived
      987 ruling: complete the self-description, never scope it. -->
 State Machine is for Resource.
-  Each Resource has at most one State Machine.
+  For each Resource, at most one State Machine is for that Resource.
 <!-- elysium-audit F: a duplicate `State Machine is for Resource. *` stood
      here — a fully-derived marker whose rule was REMOVED 2026-06-12 (see
      the note below); the orphaned `*` declared meaning the readings could
