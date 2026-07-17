@@ -819,6 +819,20 @@ push; until then the Rust synthesis continues to cover them.
      ("Fact is in consequent Fact Type iff some Subset Constraint has
      autofill 'true' ...") is superseded by this modeling. -->
 
+Fact is in consequent Fact Type. *
+  Each Fact, Fact Type combination occurs at most once in the population of Fact is in consequent Fact Type.
+
+<!-- audit-B re-entry (2026-07-16): the demoted sketch's head, declared
+     at last and restated in the provided-by vocabulary (the autofill
+     flag it leaned on is retired). The relation records which facts
+     feed a provided consequent — provenance before materialization.
+     Recipe #37 of rules:metamodel: a joinon chain over is-provided-by /
+     produces / has-antecedent, closed through the Fact is of Function
+     cast (one id space makes the antecedent Fact Type literally the
+     Function the fact is of). -->
+
+* Fact is in consequent Fact Type1 iff some Derivation Rule is provided by some Constraint and that Derivation Rule produces Fact Type1 and that Derivation Rule has antecedent some Fact Type2 and that Fact is of some Function that is that Fact Type2.
+
 ### Transitivity of binary Fact Types
 
 <!--
@@ -828,11 +842,23 @@ emit inferred `A R C` facts. Compile-time enumerates FT pairs; runtime
 derives one fact per join.
 -->
 
-<!-- audit-fix B: demoted, same grounds — undeclared head, positional
-     prose ("the first Role", "sharing the join") outside the fragment.
-     The Role/Position vocabulary exists for a faithful restatement at
-     evaluator phase:
-* Fact Type has inferred Fact iff some Fact uses Resource for the first Role of that Fact Type and some other Fact uses other Resource for the second Role of a Fact Type sharing the join Object Type. -->
+Fact joins Fact. *
+  Each Fact, Fact combination occurs at most once in the population of Fact joins Fact.
+No Fact joins itself.
+
+<!-- audit-B re-entry (2026-07-16): the join sketch's positional prose,
+     finally in the fragment. A fact chain-composes with a distinct
+     fact when the resource it uses at a position-2 role is the
+     resource the other uses at a position-1 role — positions through
+     RoleIsUsedInReading has Position, usage through FactFillsRole uses
+     Resource. Recipes #38/#39 of rules:metamodel: the flat form
+     unfolds both nested attachments (their extensional first columns
+     open into components), two cmp mirrors hold the distinctness the
+     sketch's "some other Fact" asked for, so the ring is irreflexive
+     by construction. The anaphoric FactFillsRole / RoleIsUsedInReading
+     references bind nearest-antecedent. -->
+
+* Fact1 joins Fact2 iff Fact1 fills some Role1 and that FactFillsRole uses some Resource and that Role1 is used in some Reading1 and that RoleIsUsedInReading has Position 2 and some other Fact2 fills some Role2 and that FactFillsRole uses that Resource and that Role2 is used in some Reading2 and that RoleIsUsedInReading has Position 1.
 
 ## Check-Readings Deontic Obligations (#288)
 
