@@ -511,13 +511,21 @@ namespace Elysium.NormaOracle
 			{
 				// only OBLIGATORY bodies share the positive constraint shapes;
 				// a forbidden/permitted body run through the same mapper would
-				// invert its meaning (deontic UC/MC assert the pattern holds)
+				// invert its meaning (deontic UC/MC assert the pattern holds).
+				// Constraints may be deontic (the modality came FROM NORMA's
+				// interface): an obligatory body in a canonical constraint
+				// shape builds as the real constraint with Modality=Deontic;
+				// only genuinely qualified prose stays a note.
 				if (s.StartsWith("It is obligatory that "))
 				{
 					string body = s.Substring(s.IndexOf("that ") + 5);
 					if (body.StartsWith("each ") || body.StartsWith("Each "))
 					{
 						if (MapConstraint("Each " + body.Substring(5), ConstraintModality.Deontic)) return;
+					}
+					if (body.StartsWith("for each ") || body.StartsWith("For each "))
+					{
+						if (MapConstraint("For each " + body.Substring(9), ConstraintModality.Deontic)) return;
 					}
 				}
 				myTextual.Add(new KeyValuePair<string, string>("deontic", s));
