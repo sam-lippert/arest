@@ -429,7 +429,9 @@ namespace Elysium.NormaOracle
 				// from the block's own head (everything before the connective)
 				if (line.StartsWith("*") && line.Contains(" if and only if "))
 				{
-					string head = line.Substring(1, line.IndexOf(" if and only if ", StringComparison.Ordinal) - 1).Trim();
+					// one star = derived not stored, two = derived STORED;
+					// the head is the reading either way
+					string head = line.Substring(0, line.IndexOf(" if and only if ", StringComparison.Ordinal)).TrimStart('*').Trim();
 					feed.Add(head + ".");
 					continue;
 				}

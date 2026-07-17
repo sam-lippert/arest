@@ -1147,6 +1147,106 @@ namespace Elysium.NormaOracle
 				if (!ok) continue;
 				log.Add(headE.Fact.Name + " := join over " + j + " (" + e1.Fact.Name + " x " + e2.Fact.Name + "), fully derived, not stored");
 			}
+			// the value-condition class: a UNARY head whose legs all anchor
+			// at the head's own player — existence legs enter a fact and
+			// stop; a quoted-constant leg adds a boolean path condition
+			// (Equals over the step and a PathConstant). The ** head stores
+			// its consequent, so DerivationStorage follows the marker.
+			Function eqFn = null;
+			foreach (Function fn in myStore.ElementDirectory.FindElements<Function>(true))
+			{
+				if (!fn.IsDeleted && fn.IsBoolean && fn.Name == "Equals") { eqFn = fn; break; }
+			}
+			foreach (string s in myDeferredRules)
+			{
+				Match m = Regex.Match(s, @"^\* (.+?) iff (.+)\.$");
+				if (!m.Success) continue;
+				string head = m.Groups[1].Value.Trim();
+				int headRules;
+				rulesPerHead.TryGetValue(NormalizeWords(head), out headRules);
+				if (headRules != 1) continue;
+				FactIndexEntry headE = FindEntryByNormalizedSentence(head);
+				if (headE == null || headE.Fact.DerivationRule != null || headE.Players.Count != 1) continue;
+				string rootVar = headE.Players[0];
+				ObjectType rootT;
+				if (!myTypes.TryGetValue(rootVar, out rootT)) continue;
+				var condLegs = new List<KeyValuePair<FactIndexEntry, KeyValuePair<int, string>>>();
+				bool ok = true;
+				foreach (string lt in m.Groups[2].Value.Split(new[] { " and " }, StringSplitOptions.None))
+				{
+					string t = lt.Trim();
+					if (!t.StartsWith(rootVar + " ", StringComparison.Ordinal)) { ok = false; break; }
+					string constVal = null;
+					Match qm = Regex.Match(t, @"^(.*) '([^']*)'$");
+					if (qm.Success) { t = qm.Groups[1].Value.Trim(); constVal = qm.Groups[2].Value; }
+					List<string> lp;
+					FactIndexEntry le2 = ResolveClause(Dequantify(" " + t + " ").Trim(), out lp);
+					if (le2 == null || le2.Players.Count != 2 ||
+						le2.Players.IndexOf(rootVar) < 0 ||
+						le2.Players.LastIndexOf(rootVar) != le2.Players.IndexOf(rootVar)) { ok = false; break; }
+					int rootAt = le2.Players.IndexOf(rootVar);
+					condLegs.Add(new KeyValuePair<FactIndexEntry, KeyValuePair<int, string>>(le2,
+						new KeyValuePair<int, string>(rootAt, constVal)));
+				}
+				if (!ok || condLegs.Count < 1) continue;
+				if (condLegs.Exists(l => l.Value.Value != null) && eqFn == null)
+				{
+					eqFn = new Function(myStore);
+					eqFn.Name = "Equals";
+					eqFn.IsBoolean = true;
+					eqFn.Model = myModel;
+					var pa2 = new FunctionParameter(myStore); pa2.Function = eqFn; pa2.Name = "left";
+					var pb2 = new FunctionParameter(myStore); pb2.Function = eqFn; pb2.Name = "right";
+				}
+				var vrule = new FactTypeDerivationRule(myStore);
+				new FactTypeHasDerivationRule(headE.Fact, vrule);
+				vrule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
+				vrule.DerivationStorage = myStoredDerived.Contains(headE.Fact)
+					? DerivationStorage.Stored : DerivationStorage.NotStored;
+				var vlead = new LeadRolePath(myStore);
+				vrule.OwnedLeadRolePathCollection.Add(vlead);
+				var vroot = new RolePathObjectTypeRoot(vlead, rootT);
+				foreach (var leg in condLegs)
+				{
+					var sub = new RoleSubPath(myStore);
+					vlead.SubPathCollection.Add(sub);
+					var entry = new PathedRole(sub, leg.Key.Roles[leg.Value.Key]);
+					entry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+					var step = new PathedRole(sub, leg.Key.Roles[1 - leg.Value.Key]);
+					step.PathedRolePurpose = PathedRolePurpose.SameFactType;
+					if (leg.Value.Value != null)
+					{
+						var cpv = new CalculatedPathValue(myStore);
+						vlead.CalculatedValueCollection.Add(cpv);
+						cpv.Function = eqFn;
+						cpv.RequiredForLeadRolePath = vlead;
+						var inL = new CalculatedPathValueInput(myStore);
+						cpv.InputCollection.Add(inL);
+						foreach (FunctionParameter fp in eqFn.ParameterCollection)
+						{
+							new CalculatedPathValueInputCorrespondsToFunctionParameter(inL, fp);
+							break;
+						}
+						new CalculatedPathValueInputBindsToPathedRole(inL, step);
+						var inR = new CalculatedPathValueInput(myStore);
+						cpv.InputCollection.Add(inR);
+						int pi = 0;
+						foreach (FunctionParameter fp in eqFn.ParameterCollection)
+						{
+							if (pi++ == 1) { new CalculatedPathValueInputCorrespondsToFunctionParameter(inR, fp); break; }
+						}
+						var pc = new PathConstant(myStore);
+						pc.LexicalValue = leg.Value.Value;
+						new CalculatedPathValueInputBindsToPathConstant(inR, pc);
+					}
+				}
+				var vproj = new RoleSetDerivationProjection(vrule, vlead);
+				var drp0 = new DerivedRoleProjection(vproj, headE.Roles[0]);
+				new DerivedRoleProjectedFromRolePathRoot(drp0, vroot);
+				log.Add(headE.Fact.Name + " := conjunction at " + rootVar + " ("
+					+ string.Join(" & ", condLegs.Select(l => l.Key.Fact.Name + (l.Value.Value != null ? "='" + l.Value.Value + "'" : ""))) + "), fully derived, "
+					+ (myStoredDerived.Contains(headE.Fact) ? "STORED" : "not stored"));
+			}
 			// the aggregate class: "* <head> iff <V> is the count of <X>
 			// where <source-reading>." — Definition 7's finite bag to one
 			// scalar as NORMA's own CalculatedPathValue (Count, aggregated
@@ -1192,44 +1292,64 @@ namespace Elysium.NormaOracle
 				if (headE == null || headE.Fact.DerivationRule != null || headE.Players.Count != 2) continue;
 				if (headE.Players[0] == headE.Players[1]) continue;
 				string[] legTexts = m.Groups[2].Value.Split(new[] { " and " }, StringSplitOptions.None);
-				if (legTexts.Length < 2) continue;
+				if (legTexts.Length < 1) continue;
+				// each leg is a RELATIVE CHAIN — "that A <p1> some B that <p2>
+				// some C ..." — optionally ending in the CAST terminal
+				// "that is that T": node identity across a subtype edge
+				// (Object Type IS a Function through the one id space, so the
+				// projection is subtype-compatible — fully inside NORMA, per
+				// the external-identity ruling). Clauses resolve VERBATIM
+				// longest-type-first; a cast adds an alias, never a node.
 				var legs = new List<KeyValuePair<FactIndexEntry, KeyValuePair<string, string>>>();
+				var aliasOf = new Dictionary<string, string>(StringComparer.Ordinal);
 				bool ok = true;
 				foreach (string lt in legTexts)
 				{
-					// longest-type-first at both ends (multi-word players)
 					string t = lt.Trim();
 					if (t.StartsWith("that ") || t.StartsWith("some ")) t = t.Substring(5);
 					else { ok = false; break; }
-					string t1 = null, t2 = null, mid = null;
+					string cur = null;
 					foreach (string key in myTypes.Keys.OrderByDescending(k => k.Length))
 					{
-						if (t.StartsWith(key + " ", StringComparison.Ordinal)) { t1 = key; break; }
+						if (t.StartsWith(key + " ", StringComparison.Ordinal)) { cur = key; break; }
 					}
-					if (t1 != null)
+					if (cur == null) { ok = false; break; }
+					string rest = t.Substring(cur.Length + 1);
+					while (ok && rest.Length > 0)
 					{
-						string rest = t.Substring(t1.Length + 1);
-						int cut = Math.Max(rest.LastIndexOf(" that ", StringComparison.Ordinal),
-						                   rest.LastIndexOf(" some ", StringComparison.Ordinal));
-						if (cut >= 0)
+						Match cm2 = Regex.Match(rest, @"^is that ([\w ]+)$");
+						if (cm2.Success && myTypes.ContainsKey(cm2.Groups[1].Value.Trim()))
 						{
-							string tail = rest.Substring(cut + 6).Trim();
-							if (myTypes.ContainsKey(tail))
+							aliasOf[cm2.Groups[1].Value.Trim()] = cur;
+							rest = "";
+							break;
+						}
+						string mid = null, nxt = null, more = null;
+						foreach (string key in myTypes.Keys.OrderByDescending(k => k.Length))
+						{
+							Match hm2 = Regex.Match(rest, @"^(.+?) (?:some|that) " + Regex.Escape(key) + @"(?: that (.+))?$");
+							if (hm2.Success)
 							{
-								t2 = tail;
-								mid = rest.Substring(0, cut).Trim();
+								mid = hm2.Groups[1].Value.Trim();
+								nxt = key;
+								more = hm2.Groups[2].Success ? hm2.Groups[2].Value.Trim() : null;
+								break;
 							}
 						}
+						if (mid == null) { ok = false; break; }
+						List<string> lp;
+						FactIndexEntry legE = ResolveClause(cur + " " + mid + " " + nxt, out lp);
+						if (legE == null || legE.Players.Count != 2 || legE == headE ||
+							legE.Players.LastIndexOf(cur) != legE.Players.IndexOf(cur) ||
+							legE.Players.LastIndexOf(nxt) != legE.Players.IndexOf(nxt)) { ok = false; break; }
+						legs.Add(new KeyValuePair<FactIndexEntry, KeyValuePair<string, string>>(legE,
+							new KeyValuePair<string, string>(cur, nxt)));
+						cur = nxt;
+						rest = more == null ? "" : more;
 					}
-					if (t1 == null || t2 == null) { ok = false; break; }
-					FactIndexEntry legE = FindEntryByNormalizedSentence(t1 + " " + mid + " " + t2);
-					if (legE == null || legE.Players.Count != 2 || legE == headE) { ok = false; break; }
-					if (legE.Players.LastIndexOf(t1) != legE.Players.IndexOf(t1) ||
-						legE.Players.LastIndexOf(t2) != legE.Players.IndexOf(t2)) { ok = false; break; }
-					legs.Add(new KeyValuePair<FactIndexEntry, KeyValuePair<string, string>>(legE,
-						new KeyValuePair<string, string>(t1, t2)));
+					if (!ok) break;
 				}
-				if (!ok) continue;
+				if (!ok || legs.Count < 1) continue;
 				string rootVar = headE.Players[0];
 				ObjectType rootT;
 				if (!myTypes.TryGetValue(rootVar, out rootT)) continue;
@@ -1276,6 +1396,10 @@ namespace Elysium.NormaOracle
 				for (int i = 0; i < headE.Roles.Count; i++)
 				{
 					string p = headE.Players[i];
+					// a cast alias projects from the node it is identical to
+					// (subtype-compatible: the node's type is a subtype of
+					// the head role's player through the one id space)
+					if (aliasOf.ContainsKey(p)) p = aliasOf[p];
 					var drp = new DerivedRoleProjection(proj, headE.Roles[i]);
 					if (p == rootVar)
 						new DerivedRoleProjectedFromRolePathRoot(drp, root);
@@ -2324,6 +2448,25 @@ namespace Elysium.NormaOracle
 			string body = s.TrimEnd('.');
 			List<string> players = myLastPlayers;
 			List<Role> roles = myLastRoles;
+			// external uniqueness routes by FORM, not by resolution: a
+			// for-each list of two or more DECLARED types queues for the
+			// join-path build directly (the dead fit-scorer had been the
+			// accidental vehicle here — form-routing is the deterministic
+			// replacement, no target guessing involved)
+			{
+				Match xm2 = Regex.Match(body, @"^For each (.+?), (?:at most one|exactly one) ");
+				if (xm2.Success && !body.StartsWith("For each combination"))
+				{
+					var names2 = Regex.Split(xm2.Groups[1].Value, @"\s+and\s+|,")
+						.Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+					if (names2.Count >= 2 && names2.TrueForAll(n2 => myTypes.ContainsKey(n2)))
+					{
+						myTextual.Add(new KeyValuePair<string, string>("external-uc", s));
+						Count("external uniqueness (queued for join-path build)");
+						return true;
+					}
+				}
+			}
 			// combination UC: "For each combination of A and B, that A <reading>
 			// that B at most once" — NORMA's own m:n spanning-UC phrasing. The
 			// inner clause must resolve VERBATIM (dequantified) to a declared
