@@ -1171,6 +1171,123 @@ namespace Elysium.NormaOracle
 				bag.Name = "bag";
 				bag.BagInput = true;
 			}
+			// the CHAINED class: "* <head> iff that <V0> ... and ... and ..."
+			// — a conjunction of binary legs, each entered at an already-bound
+			// variable and stepping to a new one (or closing onto a head
+			// player); sub-paths nest under the sub-path that bound the entry
+			// variable, so multi-variable bodies build as one rooted path
+			// tree. This is the chained-clause machinery the identity-cast
+			// and other-quantifier notes were waiting on; casts ("that is
+			// that") and quantified legs stay outside the leg shape and
+			// remain deferred prose, executing as canon recipes.
+			foreach (string s in myDeferredRules)
+			{
+				Match m = Regex.Match(s, @"^\* (.+?) iff (that [\w ]+? .+)\.$");
+				if (!m.Success) continue;
+				string head = m.Groups[1].Value.Trim();
+				int headRules;
+				rulesPerHead.TryGetValue(NormalizeWords(head), out headRules);
+				if (headRules != 1) continue;
+				FactIndexEntry headE = FindEntryByNormalizedSentence(head);
+				if (headE == null || headE.Fact.DerivationRule != null || headE.Players.Count != 2) continue;
+				if (headE.Players[0] == headE.Players[1]) continue;
+				string[] legTexts = m.Groups[2].Value.Split(new[] { " and " }, StringSplitOptions.None);
+				if (legTexts.Length < 2) continue;
+				var legs = new List<KeyValuePair<FactIndexEntry, KeyValuePair<string, string>>>();
+				bool ok = true;
+				foreach (string lt in legTexts)
+				{
+					// longest-type-first at both ends (multi-word players)
+					string t = lt.Trim();
+					if (t.StartsWith("that ") || t.StartsWith("some ")) t = t.Substring(5);
+					else { ok = false; break; }
+					string t1 = null, t2 = null, mid = null;
+					foreach (string key in myTypes.Keys.OrderByDescending(k => k.Length))
+					{
+						if (t.StartsWith(key + " ", StringComparison.Ordinal)) { t1 = key; break; }
+					}
+					if (t1 != null)
+					{
+						string rest = t.Substring(t1.Length + 1);
+						int cut = Math.Max(rest.LastIndexOf(" that ", StringComparison.Ordinal),
+						                   rest.LastIndexOf(" some ", StringComparison.Ordinal));
+						if (cut >= 0)
+						{
+							string tail = rest.Substring(cut + 6).Trim();
+							if (myTypes.ContainsKey(tail))
+							{
+								t2 = tail;
+								mid = rest.Substring(0, cut).Trim();
+							}
+						}
+					}
+					if (t1 == null || t2 == null) { ok = false; break; }
+					FactIndexEntry legE = FindEntryByNormalizedSentence(t1 + " " + mid + " " + t2);
+					if (legE == null || legE.Players.Count != 2 || legE == headE) { ok = false; break; }
+					if (legE.Players.LastIndexOf(t1) != legE.Players.IndexOf(t1) ||
+						legE.Players.LastIndexOf(t2) != legE.Players.IndexOf(t2)) { ok = false; break; }
+					legs.Add(new KeyValuePair<FactIndexEntry, KeyValuePair<string, string>>(legE,
+						new KeyValuePair<string, string>(t1, t2)));
+				}
+				if (!ok) continue;
+				string rootVar = headE.Players[0];
+				ObjectType rootT;
+				if (!myTypes.TryGetValue(rootVar, out rootT)) continue;
+				var rule = new FactTypeDerivationRule(myStore);
+				new FactTypeHasDerivationRule(headE.Fact, rule);
+				rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
+				rule.DerivationStorage = DerivationStorage.NotStored;
+				var lead = new LeadRolePath(myStore);
+				rule.OwnedLeadRolePathCollection.Add(lead);
+				var root = new RolePathObjectTypeRoot(lead, rootT);
+				// where each variable is reachable: bound at the lead (root)
+				// or at the sub-path whose step introduced it
+				var boundAt = new Dictionary<string, RolePath>(StringComparer.Ordinal) { { rootVar, lead } };
+				var stepOf = new Dictionary<string, PathedRole>(StringComparer.Ordinal);
+				foreach (var leg in legs)
+				{
+					string t1 = leg.Value.Key, t2 = leg.Value.Value;
+					string entryVar = boundAt.ContainsKey(t1) ? t1 : (boundAt.ContainsKey(t2) ? t2 : null);
+					if (entryVar == null) { ok = false; break; }
+					string newVar = entryVar == t1 ? t2 : t1;
+					int eAt = leg.Key.Players.IndexOf(entryVar);
+					int nAt = leg.Key.Players.IndexOf(newVar);
+					if (eAt < 0 || nAt < 0) { ok = false; break; }
+					var sub = new RoleSubPath(myStore);
+					boundAt[entryVar].SubPathCollection.Add(sub);
+					var entry = new PathedRole(sub, leg.Key.Roles[eAt]);
+					entry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+					var step = new PathedRole(sub, leg.Key.Roles[nAt]);
+					step.PathedRolePurpose = PathedRolePurpose.SameFactType;
+					if (!boundAt.ContainsKey(newVar))
+					{
+						boundAt[newVar] = sub;
+						stepOf[newVar] = step;
+					}
+					else
+					{
+						// closing onto an already-bound variable (a head
+						// player): the projection reads this step
+						stepOf[newVar] = step;
+					}
+				}
+				if (!ok) continue;
+				var proj = new RoleSetDerivationProjection(rule, lead);
+				for (int i = 0; i < headE.Roles.Count; i++)
+				{
+					string p = headE.Players[i];
+					var drp = new DerivedRoleProjection(proj, headE.Roles[i]);
+					if (p == rootVar)
+						new DerivedRoleProjectedFromRolePathRoot(drp, root);
+					else if (stepOf.ContainsKey(p))
+						new DerivedRoleProjectedFromPathedRole(drp, stepOf[p]);
+					else { ok = false; break; }
+				}
+				if (!ok) continue;
+				var names = new List<string>();
+				foreach (var leg in legs) names.Add(leg.Key.Fact.Name);
+				log.Add(headE.Fact.Name + " := chain over " + string.Join(" -> ", names) + ", fully derived, not stored");
+			}
 			foreach (string s in myDeferredRules)
 			{
 				Match m = Regex.Match(s, @"^\* (.+?) iff ([\w ]+?) is the count of ([\w ]+?) where (.+)\.$");
