@@ -4,8 +4,10 @@ A second, independent μ beside `tools/cs-runner`. Same doctrine: the laws are
 canon DEFs (the `law:` family in `arest`), never host code; the canon and the
 carriers enter AS SOURCE — the one tuple literal reads as a `CANON(...)` call
 (the rest-parameter wrap, JS's version of the "one extra name" join) — and
-node just EXECs the composed file. Nothing is read, eval'd, or interpreted at
-runtime.
+bun just EXECs the composed file (per Samuel's ruling; node runs it
+identically — the μ is engine-independent, and bun being JavaScriptCore
+rather than V8 makes JS-side agreement itself a two-engine property).
+Nothing is read, eval'd, or interpreted at runtime.
 
     npm run build && npm start          # base: law:report (22 laws), exit 0 iff all T
     npm run build:order && npm start app # an app's carriers: law:app_report (10 laws)

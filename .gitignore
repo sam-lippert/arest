@@ -18,3 +18,6 @@ tools/cs-runner/*.txt
 tools/js-runner/composed.g.js
 tools/js-runner/*.txt
 tools/js-runner/node_modules/
+tools/java-runner/Composed.g.java
+tools/java-runner/*.class
+tools/java-runner/*.txt

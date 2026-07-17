@@ -7,7 +7,7 @@
     "build": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\norma-oracle\\design-state + mid2.part.js + ..\\norma-oracle\\norma-answer + tail.part.js composed.g.js >nul",
     "build:order": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\apps\\order\\design-state + mid2.part.js + ..\\..\\apps\\order\\norma-answer + tail.part.js composed.g.js >nul",
     "build:family": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\apps\\family\\design-state + mid2.part.js + ..\\..\\apps\\family\\norma-answer + tail.part.js composed.g.js >nul",
-    "start": "node composed.g.js",
-    "start:app": "node composed.g.js app"
+    "start": "bun composed.g.js",
+    "start:app": "bun composed.g.js app"
   }
 }
