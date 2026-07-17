@@ -683,11 +683,34 @@ Derivation Rule introduces values. +
 
 Derivation Rule reaches Derivation Rule. *
   Each Derivation Rule, Derivation Rule combination occurs at most once in the population of Derivation Rule reaches Derivation Rule.
+If Derivation Rule1 reaches Derivation Rule2 and Derivation Rule2 reaches Derivation Rule3 then Derivation Rule1 reaches Derivation Rule3.
+  <!-- ring adjudication (2026-07-17, derived): reaches is the transitive
+       closure of depends-on (base + step rules below), and the closure of
+       any relation is transitive — by induction on the base-side
+       derivation, the step rule closes every composite. The TR ring is
+       that theorem declared, Halpin's practice for derived ring fact
+       types (ancestorOf); it is the ONLY listed ring property that holds:
+       irreflexivity and acyclicity are correctly absent, because the
+       closure must be able to hold cycles for Cor 1 to refuse the
+       value-introducing ones. law:rules witnesses the theorem by
+       execution: the chain of the derived closure minus the closure is
+       empty. -->
 
 It is impossible that some Derivation Rule introduces values and that Derivation Rule reaches that Derivation Rule.
   <!-- Lem 1's hypothesis as an alethic constraint, refused like any other
        (Cor 1: "refused like any alethic violation"; the rebuild SPEC called
        it G7 and ran it on every DEFS change). -->
+  <!-- reclassified (2026-07-17): the second clause is a SELF-JOIN
+       ("reaches THAT Derivation Rule" — the diagonal), and the
+       single-column exclusion NORMA was holding silently overstated it
+       ("introduces values and reaches ANYTHING") — masked only by empty
+       populations. The content is the stratification theorem: it
+       EXECUTES as law:finiteness (Cor 6 — a value-introducing rule
+       reaching its own target is refused) and as derive:layers at every
+       derivation; per Codd 1970 1.5 and the constitution ruling, an
+       executing law needs no restating constraint. The oracle defers
+       self-join impossibility clauses to this note class rather than
+       misbuild them. -->
 
 ### External System
 External System has URL.
@@ -1095,7 +1118,18 @@ replay needs, and visible_population is a function of the replayed
 set, so partial replays up to any T agree across peers.
 -->
 
-It is obligatory that each source Fact has at most one Migration Application per target Fact Type.
+It is obligatory that for each Fact and Fact Type, at most one Migration Application has that Fact as source and has some Migration that produces that Fact Type as target.
+  <!-- chained-leg external uniqueness (2026-07-17): the "per target Fact
+       Type" prose becomes the canonical for-each form, with the
+       role-qualified legs in the fluent as-form per Samuel's wording
+       ("has that Fact as source", not "has source that Fact"); the
+       parser relocates the postfix qualifier onto the prefix-style
+       reading (has source Fact). The second leg walks has-Migration
+       then produces-target, and the constraint builds as a real deontic
+       UniquenessConstraint whose join path is the chain tree (root
+       Migration Application, the Fact and Fact Type steps projected).
+       The at-most-one obligation rules out direct v1 -> v3 shortcuts
+       per the ordering rationale above. -->
 
 It is obligatory that for each Timestamp, at most one Migration Application has that Timestamp.
 

@@ -31,7 +31,18 @@ It is forbidden that a Fact Type is objectified when no Constraint of Constraint
 
 ### Ring Constraint Completeness
 
-It is obligatory that when a Fact Type has exactly two Roles that both reference the same Object Type, some Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spans those Roles.
+It is obligatory that when an asserted Fact Type has exactly two Roles that both reference the same Object Type, some Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spans those Roles.
+  <!-- ring adjudication (2026-07-17, derived): scoped to ASSERTED fact
+       types. The obligation operationalizes Halpin's ring question, whose
+       point is restricting INPUT; on a fully derived fact type the
+       population is a theorem of its rules (Codd 1970 1.5), so the ring
+       answer is carried by the derivation — depends-on is the witness:
+       every listed ring type is falsified by a population the doctrine
+       licenses (self-recursion kills IR/AS/AC, mutual recursion kills
+       AS/AT/SY, diamond dependencies kill IT, and TR is false because
+       depends-on is deliberately the closure's base). A truthful ring on
+       a derived fact type (TR on reaches) may still be declared as
+       documentation. -->
 
 It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spanning its Roles when the Reading of that Fact Type contains a capitalized-word-prefixed form of its Ring Object Type, or when some Object Type ending in that Ring Object Type is declared elsewhere in the corpus.
 <!-- elysium-audit H (prose split, per the vindicated 10.2 scrub): the two

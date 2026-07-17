@@ -1368,6 +1368,13 @@ namespace Elysium.NormaOracle
 			foreach (FactIndexEntry e in myFactIndex)
 			{
 				if (e.Fact.IsDeleted || e.Roles.Count != 2) continue;
+				// the obligation scopes to ASSERTED fact types (adjudicated
+				// 2026-07-17): on a derived fact type the population is a
+				// theorem of its rules — the ring question is answered by
+				// the derivation itself (Codd 1970 1.5; a truthful ring like
+				// TR on a closure may still be declared as documentation)
+				if (myFullyDerived.Contains(e.Fact) || myStoredDerived.Contains(e.Fact) ||
+					mySemiDerived.Contains(e.Fact) || e.Fact.DerivationRule != null) continue;
 				ObjectType a = e.Roles[0].RolePlayer, b = e.Roles[1].RolePlayer;
 				if (a == null || a != b) continue;
 				bool spanning = false;
@@ -1375,7 +1382,7 @@ namespace Elysium.NormaOracle
 					if (uc.RoleCollection.Count == 2) spanning = true;
 				if (!spanning) continue;
 				if (!ringed.Contains(e.Fact))
-					findings.Add(e.Fact.Name + " [" + a.Name + "] — same-player m:n, no ring constraint");
+					findings.Add(e.Fact.Name + " [" + a.Name + "] — asserted same-player m:n, no ring constraint");
 			}
 			return findings;
 		}
@@ -1613,6 +1620,71 @@ namespace Elysium.NormaOracle
 		// populate any constraint role sequence (set-comparison sequence or
 		// an external set constraint) with the projected roles of a
 		// two-clause side plus the join path that grounds them
+		// the chain tree on the constraint projection layer: clauses bind
+		// variables progressively from the root subject, each clause's
+		// sub-path attaching under the sub-path (or lead) that bound its
+		// entry variable — the same construction the chained derivation
+		// class walks, with ConstraintRoleSequence projections on top
+		private bool BuildChainedPathForSequence(ConstraintRoleSequence seq, string rootVar, List<SideClause> clauses, List<string> projVars)
+		{
+			ObjectType rootType;
+			if (!myTypes.TryGetValue(rootVar, out rootType)) return false;
+			// locate each projected variable at exactly one non-entry position
+			var projLoc = new Dictionary<string, KeyValuePair<int, int>>(StringComparer.Ordinal);
+			var jp = new ConstraintRoleSequenceJoinPath(myStore);
+			jp.RoleSequence = seq;
+			var lead = new LeadRolePath(myStore);
+			jp.OwnedLeadRolePathCollection.Add(lead);
+			var root = new RolePathObjectTypeRoot(lead, rootType);
+			var boundAt = new Dictionary<string, RolePath>(StringComparer.Ordinal) { { rootVar, lead } };
+			var stepPathed = new Dictionary<string, PathedRole>(StringComparer.Ordinal);
+			for (int c = 0; c < clauses.Count; c++)
+			{
+				SideClause cl = clauses[c];
+				if (cl.Players.Count != 2) return false;
+				string entryVar = boundAt.ContainsKey(cl.Players[0]) ? cl.Players[0]
+					: (boundAt.ContainsKey(cl.Players[1]) ? cl.Players[1] : null);
+				if (entryVar == null) return false;
+				string newVar = entryVar == cl.Players[0] ? cl.Players[1] : cl.Players[0];
+				int eAt = cl.Players.IndexOf(entryVar);
+				int nAt = 1 - eAt;
+				var sub = new RoleSubPath(myStore);
+				boundAt[entryVar].SubPathCollection.Add(sub);
+				var entry = new PathedRole(sub, cl.Entry.Roles[eAt]);
+				entry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+				var step = new PathedRole(sub, cl.Entry.Roles[nAt]);
+				step.PathedRolePurpose = PathedRolePurpose.SameFactType;
+				if (!boundAt.ContainsKey(newVar)) boundAt[newVar] = sub;
+				stepPathed[newVar] = step;
+				if (projVars.Contains(newVar) && !projLoc.ContainsKey(newVar))
+					projLoc[newVar] = new KeyValuePair<int, int>(c, nAt);
+			}
+			foreach (string v in projVars)
+			{
+				if (!projLoc.ContainsKey(v) || !stepPathed.ContainsKey(v)) return false;
+			}
+			foreach (string v in projVars)
+			{
+				var loc = projLoc[v];
+				seq.RoleCollection.Add(clauses[loc.Key].Entry.Roles[loc.Value]);
+			}
+			var jpp = new ConstraintRoleSequenceJoinPathProjection(jp, lead);
+			foreach (string v in projVars)
+			{
+				var loc = projLoc[v];
+				Role role = clauses[loc.Key].Entry.Roles[loc.Value];
+				ConstraintRoleSequenceHasRole link = null;
+				foreach (ConstraintRoleSequenceHasRole l in ConstraintRoleSequenceHasRole.GetLinksToRoleCollection(seq))
+				{
+					if (l.Role == role) { link = l; break; }
+				}
+				if (link == null) return false;
+				var crp = new ConstraintRoleProjection(jpp, link);
+				new ConstraintRoleProjectedFromPathedRole(crp, stepPathed[v]);
+			}
+			return true;
+		}
+
 		private bool BuildPathForSequence(ConstraintRoleSequence seq, List<SideClause> side, List<string> projVars)
 		{
 			string joinVar = InternalVar(side);
@@ -1879,7 +1951,10 @@ namespace Elysium.NormaOracle
 			// external uniqueness: "For each A and B, at most one S <c1> and
 			// <c2>" — the listed players live on different fact types joined
 			// through the shared subject; a UniquenessConstraint (external)
-			// carrying its join path
+			// carrying its join path. A leg may CHAIN through one
+			// intermediate ("has some Migration that produces target that
+			// Fact Type"): the same chain tree the derivation classes walk,
+			// grafted onto the constraint projection layer.
 			if (kind == "external-uc")
 			{
 				Match xu = Regex.Match(body, @"^For each (.+?), at most one ([\w :]+?) (.+)$");
@@ -1893,10 +1968,81 @@ namespace Elysium.NormaOracle
 					{
 						UniquenessConstraint uc = new UniquenessConstraint(myStore);
 						uc.Model = myModel;
+						uc.Modality = modality;
 						if (BuildPathForSequence(uc, side, listNames))
 						{
 							Count("external uniqueness constraint (join path)");
 							myMapLog.Add("external UC built: " + Shorten(s));
+							return true;
+						}
+						uc.Delete();
+					}
+					// chained legs: split on " and ", each leg either direct
+					// ("<pred> that <X>") or one-hop ("<pred> some <M> that
+					// <pred2> that <X>"); every clause resolves to a binary
+					// fact entry and the chain tree binds variables in order
+					// the lazy subject match can split a multi-word type
+					// ("Migration" | "Application has ..."): re-derive the
+					// subject longest-type-first from the full tail
+					string chainTail = xu.Groups[2].Value.Trim() + " " + xu.Groups[3].Value.Trim();
+					string chainSubject = null;
+					foreach (string key in myTypes.Keys.OrderByDescending(k => k.Length))
+					{
+						if (chainTail.StartsWith(key + " ", StringComparison.Ordinal)) { chainSubject = key; break; }
+					}
+					var clauses = new List<SideClause>();
+					bool chainOk = chainSubject != null;
+					string chainRest = chainOk ? chainTail.Substring(chainSubject.Length + 1) : "";
+					foreach (string legRaw in Regex.Split(chainRest.Trim(), @"\s+and\s+"))
+					{
+						string leg = legRaw.Trim();
+						// as-form legs ("has that Fact as source") relocate the
+						// postfix qualifier onto the prefix-style reading
+						Match af = Regex.Match(leg, @"^([\w]+) that ([\w ]+?) as ([\w]+)$");
+						if (af.Success && myTypes.ContainsKey(af.Groups[2].Value.Trim()))
+						{
+							leg = af.Groups[1].Value + " " + af.Groups[3].Value + " that " + af.Groups[2].Value.Trim();
+						}
+						Match chAs = Regex.Match(leg, @"^(.+?) some ([\w ]+?) that ([\w]+) that ([\w ]+?) as ([\w]+)$");
+						if (chAs.Success && myTypes.ContainsKey(chAs.Groups[2].Value.Trim()) &&
+							myTypes.ContainsKey(chAs.Groups[4].Value.Trim()))
+						{
+							leg = chAs.Groups[1].Value + " some " + chAs.Groups[2].Value.Trim() + " that "
+								+ chAs.Groups[3].Value + " " + chAs.Groups[5].Value + " that " + chAs.Groups[4].Value.Trim();
+						}
+						Match ch = Regex.Match(leg, @"^(.+?) some ([\w ]+?) that (.+?) that ([\w ]+)$");
+						if (ch.Success && myTypes.ContainsKey(ch.Groups[2].Value.Trim()) &&
+							myTypes.ContainsKey(ch.Groups[4].Value.Trim()))
+						{
+							List<string> pa, pb;
+							FactIndexEntry ea = ResolveClause(chainSubject + " " + ch.Groups[1].Value.Trim() + " " + ch.Groups[2].Value.Trim(), out pa);
+							FactIndexEntry eb = ResolveClause(ch.Groups[2].Value.Trim() + " " + ch.Groups[3].Value.Trim() + " " + ch.Groups[4].Value.Trim(), out pb);
+							if (ea == null || eb == null) { chainOk = false; break; }
+							clauses.Add(new SideClause { Entry = ea, Players = pa });
+							clauses.Add(new SideClause { Entry = eb, Players = pb });
+							continue;
+						}
+						Match dr = Regex.Match(leg, @"^(.+?) that ([\w ]+)$");
+						if (dr.Success && myTypes.ContainsKey(dr.Groups[2].Value.Trim()))
+						{
+							List<string> pd;
+							FactIndexEntry ed = ResolveClause(chainSubject + " " + dr.Groups[1].Value.Trim() + " " + dr.Groups[2].Value.Trim(), out pd);
+							if (ed == null) { chainOk = false; break; }
+							clauses.Add(new SideClause { Entry = ed, Players = pd });
+							continue;
+						}
+						chainOk = false;
+						break;
+					}
+					if (chainOk && clauses.Count >= 2 && listNames.Count >= 2)
+					{
+						UniquenessConstraint uc = new UniquenessConstraint(myStore);
+						uc.Model = myModel;
+						uc.Modality = modality;
+						if (BuildChainedPathForSequence(uc, chainSubject, clauses, listNames))
+						{
+							Count("external uniqueness constraint (chained join path)");
+							myMapLog.Add("external UC built (chained): " + Shorten(s));
 							return true;
 						}
 						uc.Delete();
@@ -2005,6 +2151,31 @@ namespace Elysium.NormaOracle
 				return true;
 			}
 
+			// transitive ring: "If X1 <words> X2 and X2 <words> X3 then X1
+			// <words> X3." — the closure-theorem documentation form. A
+			// derived transitive closure IS transitive (induction over its
+			// base and step rules); declaring TR records the theorem, per
+			// Halpin's practice for derived ring fact types (ancestorOf).
+			m = Regex.Match(body, @"^If ([\w ]+?)1 (.+?) ([\w ]+?)2 and ([\w ]+?)2 \2 ([\w ]+?)3,? then ([\w ]+?)1 \2 ([\w ]+?)3$");
+			if (m.Success)
+			{
+				string tp = m.Groups[1].Value.Trim();
+				if (tp == m.Groups[3].Value.Trim() && tp == m.Groups[4].Value.Trim() &&
+					tp == m.Groups[5].Value.Trim() && tp == m.Groups[6].Value.Trim() &&
+					tp == m.Groups[7].Value.Trim() && myTypes.ContainsKey(tp))
+				{
+					FactIndexEntry tring = FindRingEntry(tp, m.Groups[2].Value.Trim());
+					if (tring != null)
+					{
+						BuildRing(tring, "Transitive", modality);
+						myMapLog.Add("ring built (transitive, closure theorem): " + Shorten(s));
+						return true;
+					}
+				}
+				AddNote(kind, s, "transitive form unresolved");
+				return true;
+			}
+
 			// impossibility as exclusion: It is impossible that <c1> and <c2>
 			m = Regex.Match(body, @"^It is impossible that (.+?) and (.+)$");
 			if (m.Success)
@@ -2014,7 +2185,19 @@ namespace Elysium.NormaOracle
 				FactIndexEntry c2 = ResolveClause(m.Groups[2].Value, out p2);
 				if (c1 != null && c2 != null && c1 != c2)
 				{
+					// a clause binding the shared player at MORE than one of
+					// its own roles is a self-join ("reaches THAT Derivation
+					// Rule" — the diagonal); a single-column sequence would
+					// silently overstate it (forbid reaching ANYTHING). The
+					// content is the stratification theorem the canon's
+					// law:finiteness executes — defer, never misbuild.
 					var shared = p1.Intersect(p2).Distinct().ToList();
+					if (shared.Count == 1 &&
+						(p1.Count(x => x == shared[0]) > 1 || p2.Count(x => x == shared[0]) > 1))
+					{
+						AddNote(kind, s, "self-join clause (stratification theorem; executes as law:finiteness — a single-column exclusion would overstate it)");
+						return true;
+					}
 					if (shared.Count == 1)
 					{
 						ExclusionConstraint ec = new ExclusionConstraint(myStore);
