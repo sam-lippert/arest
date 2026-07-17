@@ -14,3 +14,7 @@ apps/*/checker-answer
 tools/cs-runner/Composed.g.cs
 tools/cs-runner/bin/
 tools/cs-runner/obj/
+tools/cs-runner/*.txt
+tools/js-runner/composed.g.js
+tools/js-runner/*.txt
+tools/js-runner/node_modules/
