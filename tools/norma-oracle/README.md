@@ -92,5 +92,16 @@ Known NORMA-inherent behaviors (verified, not harness defects):
   one-table rule — identity through the Function subtype removes the
   choice, and every objectified type assimilates deterministically.
 
+Readers (the killed host's checker layers, re-homed): ring completeness
+(same-player m:n fact types without a ring constraint — deontic findings
+for adjudication; DerivationRule depends-on/reaches surface as principled
+exceptions, self-dependency being a legitimate edge and the closure
+having to hold cycles to refuse them) and singular naming (a name that is
+another's plural, measured by the model's own Pluralization Rule
+populations — the lexicon lives in the model, not the host). The third
+layer, the SSRF guard, dissolved into the semantic-constraint
+classification: deontic with a no-instance player, enforced at fetch
+time, never a model check.
+
 Requires: NORMA VSIX installed in VS (assembly paths in Program.cs), .NET
 Framework 4.8, dotnet SDK to build.

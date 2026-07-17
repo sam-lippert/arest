@@ -247,6 +247,21 @@ namespace Elysium.NormaOracle
 			Console.WriteLine("== ring link readings (ordinal-qualified where a player repeats) ==");
 			foreach (string l in ringLinks) Console.WriteLine("  " + l);
 			if (ringLinks.Count == 0) Console.WriteLine("  (none needed)");
+
+			// the last two mechanical readers from the killed host's checker
+			// (the third, the SSRF guard, dissolved into the semantic-
+			// constraint classification: deontic with a no-instance player,
+			// enforced at fetch time, never a model check)
+			Console.WriteLine();
+			Console.WriteLine("== reader: ring completeness (same-player m:n without a ring constraint; deontic findings) ==");
+			var ringFindings = verifier.CheckRingCompleteness();
+			foreach (string f in ringFindings) Console.WriteLine("  ~ " + f);
+			if (ringFindings.Count == 0) Console.WriteLine("  (none)");
+			Console.WriteLine();
+			Console.WriteLine("== reader: singular naming (a name that is another's plural per the model's own rules) ==");
+			var nameFindings = verifier.CheckSingularNaming();
+			foreach (string f in nameFindings) Console.WriteLine("  ~ " + f);
+			if (nameFindings.Count == 0) Console.WriteLine("  (none)");
 			using (Transaction t = store.TransactionManager.BeginTransaction("instance facts"))
 			{
 				verifier.AttributeInstanceFacts();
