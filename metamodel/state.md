@@ -264,7 +264,13 @@ Guard guards Transition.
 ## Constraints
 
 For each Object Type, at most one State Machine Definition is for that Object Type.
-Each State Machine Definition has exactly one initial Status.
+For each State Machine Definition, at most one Status is initial in that State Machine Definition.
+  <!-- reworded 2026-07-17 (no-guessing ruling): the old phrasing ("has
+       exactly one initial Status") matched no declared reading and rode
+       the fit-scorer onto is-initial-in; the sentence now speaks the
+       declared reading's own direction. At-most-one: the initial status
+       is optional at declaration (effective-initial falls back to the
+       root), so the old "exactly one" overstated the model. -->
 For each State Machine Definition, some Status is defined in that State Machine Definition.
 <!-- exec-4 (2026-07-15): NORMA's NotWellModeledSubsetAndMandatory
      resolution (2) — the initial-implies-defined subset plus the

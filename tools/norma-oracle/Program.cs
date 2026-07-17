@@ -423,6 +423,20 @@ namespace Elysium.NormaOracle
 				{
 					continue;
 				}
+				// a DERIVED fact type verbalizes as its derivation block
+				// ("*<reading> if and only if ..."), replacing the plain
+				// reading line — synthesize the declaration deterministically
+				// from the block's own head (everything before the connective)
+				if (line.StartsWith("*") && line.Contains(" if and only if "))
+				{
+					string head = line.Substring(1, line.IndexOf(" if and only if ", StringComparison.Ordinal) - 1).Trim();
+					feed.Add(head + ".");
+					continue;
+				}
+				if (line.StartsWith("*") )
+				{
+					continue;
+				}
 				// NORMA emits association lines for its IMPLIED objectifications
 				// too (generated names never declared in model A); the canonical
 				// surface is A's declared vocabulary — skip the machinery ones

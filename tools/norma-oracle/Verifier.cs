@@ -1996,43 +1996,30 @@ namespace Elysium.NormaOracle
 					foreach (string legRaw in Regex.Split(chainRest.Trim(), @"\s+and\s+"))
 					{
 						string leg = legRaw.Trim();
-						// as-form legs ("has that Fact as source") relocate the
-						// postfix qualifier onto the prefix-style reading
-						Match af = Regex.Match(leg, @"^([\w]+) that ([\w ]+?) as ([\w]+)$");
-						if (af.Success && myTypes.ContainsKey(af.Groups[2].Value.Trim()))
+						// legs resolve VERBATIM against declared readings after
+						// quantifier-stripping — no relocation, no rewriting
+						// (ruling 2026-07-17: matching that could hit a wrong
+						// predicate is banned). A chained leg splits at its
+						// intermediate; both clause texts must BE readings.
+						Match ch = Regex.Match(leg, @"^(.+?) some ([\w ]+?) that (.+)$");
+						if (ch.Success && myTypes.ContainsKey(ch.Groups[2].Value.Trim()))
 						{
-							leg = af.Groups[1].Value + " " + af.Groups[3].Value + " that " + af.Groups[2].Value.Trim();
-						}
-						Match chAs = Regex.Match(leg, @"^(.+?) some ([\w ]+?) that ([\w]+) that ([\w ]+?) as ([\w]+)$");
-						if (chAs.Success && myTypes.ContainsKey(chAs.Groups[2].Value.Trim()) &&
-							myTypes.ContainsKey(chAs.Groups[4].Value.Trim()))
-						{
-							leg = chAs.Groups[1].Value + " some " + chAs.Groups[2].Value.Trim() + " that "
-								+ chAs.Groups[3].Value + " " + chAs.Groups[5].Value + " that " + chAs.Groups[4].Value.Trim();
-						}
-						Match ch = Regex.Match(leg, @"^(.+?) some ([\w ]+?) that (.+?) that ([\w ]+)$");
-						if (ch.Success && myTypes.ContainsKey(ch.Groups[2].Value.Trim()) &&
-							myTypes.ContainsKey(ch.Groups[4].Value.Trim()))
-						{
+							string mid = ch.Groups[2].Value.Trim();
 							List<string> pa, pb;
-							FactIndexEntry ea = ResolveClause(chainSubject + " " + ch.Groups[1].Value.Trim() + " " + ch.Groups[2].Value.Trim(), out pa);
-							FactIndexEntry eb = ResolveClause(ch.Groups[2].Value.Trim() + " " + ch.Groups[3].Value.Trim() + " " + ch.Groups[4].Value.Trim(), out pb);
+							FactIndexEntry ea = ResolveClause(chainSubject + " " + ch.Groups[1].Value.Trim() + " " + mid, out pa);
+							FactIndexEntry eb = ResolveClause(mid + " " + Dequantify(" " + ch.Groups[3].Value.Trim() + " ").Trim(), out pb);
 							if (ea == null || eb == null) { chainOk = false; break; }
 							clauses.Add(new SideClause { Entry = ea, Players = pa });
 							clauses.Add(new SideClause { Entry = eb, Players = pb });
 							continue;
 						}
-						Match dr = Regex.Match(leg, @"^(.+?) that ([\w ]+)$");
-						if (dr.Success && myTypes.ContainsKey(dr.Groups[2].Value.Trim()))
 						{
 							List<string> pd;
-							FactIndexEntry ed = ResolveClause(chainSubject + " " + dr.Groups[1].Value.Trim() + " " + dr.Groups[2].Value.Trim(), out pd);
+							FactIndexEntry ed = ResolveClause(chainSubject + " " + Dequantify(" " + leg + " ").Trim(), out pd);
 							if (ed == null) { chainOk = false; break; }
 							clauses.Add(new SideClause { Entry = ed, Players = pd });
 							continue;
 						}
-						chainOk = false;
-						break;
 					}
 					if (chainOk && clauses.Count >= 2 && listNames.Count >= 2)
 					{
@@ -2337,6 +2324,30 @@ namespace Elysium.NormaOracle
 			string body = s.TrimEnd('.');
 			List<string> players = myLastPlayers;
 			List<Role> roles = myLastRoles;
+			// combination UC: "For each combination of A and B, that A <reading>
+			// that B at most once" — NORMA's own m:n spanning-UC phrasing. The
+			// inner clause must resolve VERBATIM (dequantified) to a declared
+			// reading; no context, no scoring.
+			{
+				Match cm = Regex.Match(body, @"^For each combination of ([\w :]+?) and ([\w :]+?), (.+?) at most once$");
+				if (cm.Success)
+				{
+					List<string> cps;
+					FactIndexEntry ce = ResolveClause(Dequantify(" " + cm.Groups[3].Value.Trim() + " ").Trim(), out cps);
+					string ca = cm.Groups[1].Value.Trim(), cb = cm.Groups[2].Value.Trim();
+					if (ce != null && cps.Contains(ca) && cps.Contains(cb))
+					{
+						var span = RolesFor(new List<string> { ca, cb }, ce.Players, ce.Roles);
+						if (span != null)
+						{
+							AddInternalUC(ce.Fact, span, modality, "spanning uniqueness (combination form)");
+							return true;
+						}
+					}
+					AddNote("uniqueness", s, "combination form did not resolve verbatim");
+					return true;
+				}
+			}
 			FactType target = myLastFact;
 			// cross-context constraint: a sentence keeps the running context
 			// only while the context fact's reading words fit at least as well
@@ -2409,59 +2420,80 @@ namespace Elysium.NormaOracle
 						}
 					}
 				}
-				string probe = body.StartsWith("For each ") ? body.Substring(9) : body.StartsWith("Each ") ? body.Substring(5) : body;
-				if (popm.Success && target != null)
+				// no fit scoring, no synonyms, no guessing (ruling 2026-07-17:
+				// automatic matching that could hit a wrong predicate is
+				// banned). The cross-context resolver is SORTED-EXACT: strip
+				// the quantifier tokens, extract the player multiset
+				// longest-type-first, and bind only when exactly ONE fact
+				// type carries the same players and the same residual reading
+				// words. Anything else refuses, and the source moves toward
+				// a declared reading.
+				if (!resolved)
 				{
-					probe = players != null && players.Count > 0 ? players[0] + " " : probe;
-				}
-				// fit = reading-word overlap + how many of the fact's players the
-				// sentence mentions. Words alone misfire ("has" matches half the
-				// model); an inverse-reading constraint ("Each Resource has at
-				// most one State Machine." under "State Machine is for
-				// Resource.") is anchored by naming both players.
-				Func<List<string>, string, int> fit = delegate(List<string> ps, string words)
-				{
-					int sc = 0;
-					foreach (string w in words.Split(' '))
+					string working2 = " " + body + " ";
+					working2 = Regex.Replace(working2, @"\b(For each|Each|exactly one|at most one|at most once|some|that|each)\b", " ");
+					var bodyPlayers = new List<string>();
+					foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
 					{
-						if (w.Length > 2 && body.Contains(w)) sc++;
+						int at2 = 0;
+						while ((at2 = working2.IndexOf(name, at2, StringComparison.Ordinal)) >= 0)
+						{
+							bool leftOk = !char.IsLetterOrDigit(working2[at2 - 1]);
+							int end2 = at2 + name.Length;
+							bool rightOk = end2 >= working2.Length || !char.IsLetterOrDigit(working2[end2]);
+							if (leftOk && rightOk)
+							{
+								bodyPlayers.Add(name);
+								working2 = working2.Substring(0, at2) + new string((char)1, name.Length) + working2.Substring(end2);
+								at2 = end2;
+							}
+							else at2++;
+						}
 					}
-					foreach (string p in ps)
+					string residual = NormalizeWords(Regex.Replace(working2, "+", " ").Replace(",", " "));
+					var sortedBody = bodyPlayers.OrderBy(x => x, StringComparer.Ordinal).ToList();
+					FactIndexEntry only = null;
+					int hits = 0;
+					foreach (FactIndexEntry entry in myFactIndex)
 					{
-						if (body.Contains(p)) sc++;
+						if (entry.Fact.IsDeleted) continue;
+						var sortedE = entry.Players.OrderBy(x => x, StringComparer.Ordinal).ToList();
+						bool playersMatch = sortedE.SequenceEqual(sortedBody, StringComparer.Ordinal);
+						if (!playersMatch && sortedBody.Count == sortedE.Count + 1)
+						{
+							// a for-each sentence names one player twice
+							var reduced = new List<string>(sortedBody);
+							foreach (string p in entry.Players)
+							{
+								if (reduced.Count(x => x == p) >= 2) { reduced.Remove(p); break; }
+							}
+							playersMatch = reduced.OrderBy(x => x, StringComparer.Ordinal)
+								.SequenceEqual(sortedE, StringComparer.Ordinal);
+						}
+						if (!playersMatch) continue;
+						if (!string.Equals(NormalizeWords(entry.ReadingWords), residual, StringComparison.Ordinal)) continue;
+						only = entry;
+						hits++;
 					}
-					return sc;
-				};
-				int contextScore = -1;
-				if (players != null && FindPlayerPrefix(probe, players) >= 0)
-				{
-					FactIndexEntry ctx = myFactIndex.Find(e => e.Fact == target);
-					contextScore = ctx != null ? fit(ctx.Players, ctx.ReadingWords) : 0;
-				}
-				FactIndexEntry bestEntry = null;
-				int bestScore = -1;
-				foreach (FactIndexEntry entry in myFactIndex)
-				{
-					if (resolved) break;
-					if (entry.Fact == target) continue;
-					if (FindPlayerPrefix(probe, entry.Players) < 0) continue;
-					int score = fit(entry.Players, entry.ReadingWords);
-					if (score > bestScore)
+					if (hits == 1)
 					{
-						bestScore = score;
-						bestEntry = entry;
+						players = only.Players;
+						roles = only.Roles;
+						target = only.Fact;
+						resolved = true;
+						Count("constraint resolved cross-context (sorted-exact)");
+						myMapLog.Add("resolved (sorted-exact): '" + Shorten(s) + "' -> [" + string.Join(", ", only.Players) + "] '" + only.ReadingWords + "'");
 					}
 				}
-				// strictly better than the running context wins; ties keep context
-				if (bestEntry != null && bestScore >= 1 && bestScore > contextScore)
+				// unresolved and the context fact does not prefix-match the
+				// sentence: refuse rather than bind the wrong context
+				if (!resolved)
 				{
-					players = bestEntry.Players;
-					roles = bestEntry.Roles;
-					target = bestEntry.Fact;
-					Count("constraint retargeted by fact index");
-					// every retarget is a judgment call — log it so the report
-					// shows exactly which fact each cross-context sentence hit
-					myMapLog.Add("retarget: '" + Shorten(s) + "' -> [" + string.Join(", ", players) + "] '" + bestEntry.ReadingWords + "'");
+					string probe = body.StartsWith("For each ") ? body.Substring(9) : body.StartsWith("Each ") ? body.Substring(5) : body;
+					if (!(players != null && FindPlayerPrefix(probe, players) >= 0))
+					{
+						target = null;
+					}
 				}
 			}
 

@@ -1056,14 +1056,14 @@ Migration is a subtype of Function.
 Migration Rule Text is a value type.
   The data type of Migration Rule Text is text.
 
-Migration has source Fact Type.
-  Each Migration has exactly one source Fact Type.
+Migration has Fact Type as source.
+  Each Migration has exactly one Fact Type as source.
 
-Migration produces target Fact Type.
-  Each Migration, Fact Type combination occurs at most once in the population of Migration produces target Fact Type.
-  Each Migration produces some target Fact Type.
-MigrationProducesTargetFactType objectifies "Migration produces target Fact Type".
-MigrationProducesTargetFactType is a subtype of Function.
+Migration produces Fact Type as target.
+  Each Migration, Fact Type combination occurs at most once in the population of Migration produces Fact Type as target.
+  Each Migration produces some Fact Type as target.
+MigrationProducesFactTypeAsTarget objectifies "Migration produces Fact Type as target".
+MigrationProducesFactTypeAsTarget is a subtype of Function.
 
 Migration has Migration Rule Text.
   Each Migration has exactly one Migration Rule Text.
@@ -1071,7 +1071,7 @@ Migration has Migration Rule Text.
 Migration has Timestamp.
   Each Migration has exactly one Timestamp.
 
-It is obligatory that each Migration produces some target Fact Type.
+It is obligatory that each Migration produces some Fact Type as target.
 
 ## Migration Application (#349)
 
@@ -1090,8 +1090,8 @@ Migration Application is a subtype of Resource.
 Migration Application has Migration.
   Each Migration Application has exactly one Migration.
 
-Migration Application has source Fact.
-  Each Migration Application has exactly one source Fact.
+Migration Application has Fact as source.
+  Each Migration Application has exactly one Fact as source.
 
 Migration Application produces Fact.
   Each Migration Application, Fact combination occurs at most once in the population of Migration Application produces Fact.
