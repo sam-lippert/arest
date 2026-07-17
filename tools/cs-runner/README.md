@@ -13,7 +13,7 @@ two latent canon defects the lenient js mu had masked by coercion
 "sorting" stringified arrays) — cross-host parity as a standing
 property of having a second, stricter station.
 
-    dotnet run                      # compose+compile+exec; law:report (20 laws), exit 0 iff all T
+    dotnet run                      # compose+compile+exec; law:report (22 laws), exit 0 iff all T
     dotnet build -p:App=order && dotnet run --no-build -- app
                                     # the app's carriers; law:app_report (10 laws)
 
