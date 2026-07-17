@@ -2893,6 +2893,33 @@ namespace Elysium.NormaOracle
 		// alongside for consumers that need pre-collapse names.
 		public void WriteDesignState(string path)
 		{
+			// Declaration Order: position is DATA (2026-07-17 ruling — the
+			// core mechanism for mapping a data type to a list or a form).
+			// Source order fills it; an explicit instance row SETS it and
+			// wins. Emitted as integers (the value type is integer-typed)
+			// so ordering never rides lexicographic luck.
+			{
+				FactIndexEntry fthdo = null;
+				foreach (FactIndexEntry e in myFactIndex)
+					if (!e.Fact.IsDeleted && e.Fact.Name == "FactTypeHasDeclarationOrder") { fthdo = e; break; }
+				if (fthdo != null)
+				{
+					var have = new HashSet<string>(StringComparer.Ordinal);
+					foreach (var row in fthdo.Rows) if (row.Count == 2) have.Add(row[0]);
+					int ord = 0;
+					foreach (FactIndexEntry e in myFactIndex)
+					{
+						if (e.Fact.IsDeleted) continue;
+						ord++;
+						if (myFullyDerived.Contains(e.Fact)) continue;
+						if (!have.Contains(e.Fact.Name))
+						{
+							fthdo.Rows.Add(new List<string> { e.Fact.Name, ord.ToString() });
+							fthdo.RowKinds.Add(new List<string> { "", "" });
+						}
+					}
+				}
+			}
 			var fts = new List<string>();
 			var declared = new List<string>();
 			var nestings = new List<string>();
@@ -2926,10 +2953,13 @@ namespace Elysium.NormaOracle
 					}
 					if (complete && positions.Count > 0) ucs.Add(ISeq(positions));
 				}
+				bool intSecond = entry.Fact.Name == "FactTypeHasDeclarationOrder";
 				var rows = new List<string>();
 				for (int r = 0; r < entry.Rows.Count; r++)
 				{
-					rows.Add(ISeq(entry.Rows[r].Select(IAtom).ToList()));
+					rows.Add(ISeq(entry.Rows[r].Select((v, ci) =>
+						intSecond && ci == 1 && System.Text.RegularExpressions.Regex.IsMatch(v, "^[0-9]+$")
+							? "N(" + v + ")" : IAtom(v)).ToList()));
 					for (int i = 0; i < entry.Rows[r].Count; i++)
 					{
 						string kind = entry.RowKinds[r][i];
@@ -3031,7 +3061,26 @@ namespace Elysium.NormaOracle
 				if (ok && scopes.Count >= 2) exclusions.Add(ISeq(scopes));
 			}
 			exclusions.Sort(StringComparer.Ordinal);
-			sb.Append("DEF(\"state:exclusions\", ").Append(exclusions.Count == 0 ? "PHI()" : IChunked(exclusions)).Append(")\n");
+			sb.Append("DEF(\"state:exclusions\", ").Append(exclusions.Count == 0 ? "PHI()" : IChunked(exclusions)).Append("),\n\n");
+			// hyphen-bound role qualifiers, one mechanism both sides: NORMA
+			// holds them in the reading text; the carrier mirrors them so
+			// canon consumers (rendered labels) read the SAME data
+			var quals = new List<string>();
+			foreach (FactIndexEntry qe in myFactIndex)
+			{
+				if (qe.Fact.IsDeleted || myFullyDerived.Contains(qe.Fact)) continue;
+				var perRole = new List<string>();
+				bool anyq = false;
+				for (int ri = 0; ri < qe.Roles.Count; ri++)
+				{
+					var qm = System.Text.RegularExpressions.Regex.Match(qe.ReadingText,
+						@"(\w+)- \{" + ri + @"\}");
+					if (qm.Success) { perRole.Add(IAtom(qm.Groups[1].Value)); anyq = true; }
+					else perRole.Add(IAtom(""));
+				}
+				if (anyq) quals.Add("S2(" + IAtom(qe.Fact.Name) + ", " + ISeq(perRole) + ")");
+			}
+			sb.Append("DEF(\"state:qualifiers\", ").Append(quals.Count == 0 ? "PHI()" : IChunked(quals)).Append(")\n");
 			sb.Append(")\n");
 			System.IO.File.WriteAllText(path, sb.ToString());
 		}
