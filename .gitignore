@@ -30,3 +30,6 @@ tools/rust-runner/*.pdb
 tools/rust-runner/*.wasm
 tools/rust-runner/*.txt
 tools/rust-runner/*.o
+tools/py-runner/composed*.g.py
+tools/py-runner/*.txt
+tools/py-runner/__pycache__/
