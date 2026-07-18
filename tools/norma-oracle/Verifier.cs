@@ -517,6 +517,7 @@ namespace Elysium.NormaOracle
 			}
 			if (s.StartsWith("* "))
 			{
+				myDeferredRules.Add(s);
 				Count("derivation rule (deferred: no textual rule input in NORMA)");
 				return;
 			}
@@ -1037,6 +1038,7 @@ namespace Elysium.NormaOracle
 		}
 
 		private readonly List<KeyValuePair<string, string>> myTextual = new List<KeyValuePair<string, string>>();
+		private readonly List<string> myRuleRecipes = new List<string>();
 		private readonly List<string> myDeferredRules = new List<string>();
 
 		private FactIndexEntry FindEntryByNormalizedSentence(string sentence)
@@ -1072,8 +1074,10 @@ namespace Elysium.NormaOracle
 			// role path can hold one rule, so only single-rule heads build —
 			// a multi-rule head built partially would be wrong, not partial
 			var rulesPerHead = new Dictionary<string, int>(StringComparer.Ordinal);
-			foreach (string s in myDeferredRules)
+			foreach (string sRaw0 in myDeferredRules)
 			{
+				string s = sRaw0;
+				while (s.StartsWith("* * ")) s = s.Substring(2);
 				Match hm = Regex.Match(s, @"^\* (.+?) iff ");
 				if (!hm.Success) continue;
 				string h = NormalizeWords(hm.Groups[1].Value.Trim());
@@ -1146,6 +1150,7 @@ namespace Elysium.NormaOracle
 				}
 				if (!ok) continue;
 				log.Add(headE.Fact.Name + " := join over " + j + " (" + e1.Fact.Name + " x " + e2.Fact.Name + "), fully derived, not stored");
+				RecordRuleRecipe(headE, e1, e2, j1, j2, located);
 			}
 			// the value-condition class: a UNARY head whose legs all anchor
 			// at the head's own player — existence legs enter a fact and
@@ -1465,7 +1470,140 @@ namespace Elysium.NormaOracle
 				new DerivedRoleProjectedFromCalculatedPathValue(drpValue, cpv);
 				log.Add(headE.Fact.Name + " := Count(" + x + ") per " + groupPlayer + " over " + src.Fact.Name + ", fully derived, not stored");
 			}
+			// LEFTOVERS PASS — the object-join arm of the linear two-leg
+			// class: exactly two clauses joined by " and ", sharing ONE type
+			// quantified "some J" in one clause and referenced "that J" in
+			// the other, J in subject OR object position (the head-anchored
+			// shape "iff Evidence comes from some Source and that Sleuth
+			// vouches for that Source" joins on the object). Runs LAST and
+			// only for heads no earlier class built, so every existing build
+			// stays byte-identical. Built rules record their executable
+			// recipe for state:rules in the rules:metamodel grammar (join =
+			// left's last column meets right's first; proj flips a leg);
+			// v1 records the all-binary shape.
+			foreach (string sRaw in myDeferredRules)
+			{
+				// an orphan derivation marker from a preceding ". *" declaration
+				// can glue onto the first rule of a block ("* * Head iff ...");
+				// normalize repeated stars before matching
+				string s = sRaw;
+				while (s.StartsWith("* * ")) s = s.Substring(2);
+				bool dbg = false;
+				Match m = Regex.Match(s, @"^\* (.+?) iff (.+)\.$");
+				if (!m.Success) continue;
+				string head = m.Groups[1].Value.Trim();
+				int headRules;
+				rulesPerHead.TryGetValue(NormalizeWords(head), out headRules);
+				if (headRules != 1) continue;
+				string[] clauses = Regex.Split(m.Groups[2].Value.Trim(), @" and (?=that |some )");
+				if (clauses.Length != 2) continue;
+				string j = null;
+				foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
+				{
+					// the shared player is quantified ("some J") or BARE in one
+					// clause and referenced "that J" in the other
+					bool q0 = clauses[0].Contains("some " + name) || clauses[0].Contains(name),
+					     q1 = clauses[1].Contains("some " + name) || clauses[1].Contains(name);
+					bool r0 = clauses[0].Contains("that " + name), r1 = clauses[1].Contains("that " + name);
+					if ((q0 && r1) || (q1 && r0)) { j = name; break; }
+				}
+				if (j == null) continue;
+				Func<string, string> stripQ = c =>
+				{
+					if (c.StartsWith("that ")) c = c.Substring(5);
+					if (c.StartsWith("some ")) c = c.Substring(5);
+					return Dequantify(c);
+				};
+				string leg1 = stripQ(clauses[0]);
+				string leg2 = stripQ(clauses[1]);
+				FactIndexEntry headE = FindEntryByNormalizedSentence(head);
+				FactIndexEntry e1 = FindEntryByNormalizedSentence(leg1);
+				FactIndexEntry e2 = FindEntryByNormalizedSentence(leg2);
+				if (headE == null || e1 == null || e2 == null || headE == e1 || headE == e2) continue;
+				if (headE.Fact.DerivationRule != null) continue;
+				int j1 = e1.Players.IndexOf(j), j2 = e2.Players.IndexOf(j);
+				if (j1 < 0 || j2 < 0 || e1.Players.LastIndexOf(j) != j1 || e2.Players.LastIndexOf(j) != j2) continue;
+				var located = new List<KeyValuePair<FactIndexEntry, int>>();
+				bool ok = true;
+				for (int i = 0; i < headE.Players.Count && ok; i++)
+				{
+					string p = headE.Players[i];
+					if (p == j)
+					{
+						// the head projects the JOIN PLAYER itself: locate it
+						// at e1's join position; the step reuses the entry role
+						located.Add(new KeyValuePair<FactIndexEntry, int>(e1, j1));
+						continue;
+					}
+					var hits = new List<KeyValuePair<FactIndexEntry, int>>();
+					for (int c = 0; c < e1.Players.Count; c++)
+						if (c != j1 && e1.Players[c] == p) hits.Add(new KeyValuePair<FactIndexEntry, int>(e1, c));
+					for (int c = 0; c < e2.Players.Count; c++)
+						if (c != j2 && e2.Players[c] == p) hits.Add(new KeyValuePair<FactIndexEntry, int>(e2, c));
+					if (hits.Count != 1) { ok = false; break; }
+					located.Add(hits[0]);
+				}
+				if (!ok) continue;
+				var rule = new FactTypeDerivationRule(myStore);
+				new FactTypeHasDerivationRule(headE.Fact, rule);
+				rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
+				rule.DerivationStorage = DerivationStorage.NotStored;
+				var lead = new LeadRolePath(myStore);
+				rule.OwnedLeadRolePathCollection.Add(lead);
+				new RolePathObjectTypeRoot(lead, myTypes[j]);
+				var steps = new PathedRole[headE.Roles.Count];
+				foreach (var legPair in new[] { new KeyValuePair<FactIndexEntry, int>(e1, j1), new KeyValuePair<FactIndexEntry, int>(e2, j2) })
+				{
+					var sub = new RoleSubPath(myStore);
+					lead.SubPathCollection.Add(sub);
+					var entry = new PathedRole(sub, legPair.Key.Roles[legPair.Value]);
+					entry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+					for (int i = 0; i < located.Count; i++)
+					{
+						if (located[i].Key != legPair.Key) continue;
+						if (located[i].Value == legPair.Value) { steps[i] = entry; continue; }
+						var step = new PathedRole(sub, legPair.Key.Roles[located[i].Value]);
+						step.PathedRolePurpose = PathedRolePurpose.SameFactType;
+						steps[i] = step;
+					}
+				}
+				var proj = new RoleSetDerivationProjection(rule, lead);
+				for (int i = 0; i < headE.Roles.Count; i++)
+				{
+					if (steps[i] == null) { ok = false; break; }
+					var drp = new DerivedRoleProjection(proj, headE.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drp, steps[i]);
+				}
+				if (!ok) continue;
+				log.Add(headE.Fact.Name + " := join over " + j + " (" + e1.Fact.Name + " x " + e2.Fact.Name + "), fully derived, not stored");
+				RecordRuleRecipe(headE, e1, e2, j1, j2, located);
+			}
 			return log;
+		}
+
+		// the executable recipe for state:rules in the rules:metamodel grammar
+		// (join = left's last column meets right's first; proj flips a leg
+		// into that arrangement). v1 records the all-binary shape — wider
+		// legs stay rules:metamodel-side.
+		private void RecordRuleRecipe(FactIndexEntry headE, FactIndexEntry e1, FactIndexEntry e2,
+			int j1, int j2, List<KeyValuePair<FactIndexEntry, int>> located)
+		{
+			if (headE.Players.Count != 2 || e1.Players.Count != 2 || e2.Players.Count != 2) return;
+			string legA = j1 == 1 ? IAtom(e1.Fact.Name)
+				: "S3(" + IAtom("proj") + ", " + IAtom(e1.Fact.Name) + ", S2(N(2), N(1)))";
+			string legB = j2 == 0 ? IAtom(e2.Fact.Name)
+				: "S3(" + IAtom("proj") + ", " + IAtom(e2.Fact.Name) + ", S2(N(2), N(1)))";
+			var pos = new List<string>();
+			foreach (var kv in located)
+			{
+				// joined columns are (left-non-join, JOIN, right-non-join) =
+				// 1, 2, 3; a head player located AT a join position is the
+				// join column itself
+				bool atJoin = (kv.Key == e1 && kv.Value == j1) || (kv.Key == e2 && kv.Value == j2);
+				pos.Add("N(" + (atJoin ? 2 : kv.Key == e1 ? 1 : 3) + ")");
+			}
+			myRuleRecipes.Add("S2(" + IAtom(headE.Fact.Name) + ", S4(" + IAtom("join") + ", "
+				+ legA + ", " + legB + ", S2(" + string.Join(", ", pos) + ")))");
 		}
 
 		private static string Dequantify(string leg)
@@ -3029,7 +3167,7 @@ namespace Elysium.NormaOracle
 				.ToList();
 			var sb = new System.Text.StringBuilder();
 			sb.Append("(\n");
-			sb.Append("\"THE DESIGN STATE in INTERSECTION SOURCE (generated by norma-oracle; regenerate, never edit). state:fts — one S5 descriptor per parsed fact type: name, players (top-collapsed), ucs (1-based positions), mands (phi), pop (attributed instance rows). state:declared pairs each name with its declared players; state:nestings pairs objectified fact names with their nesting types; state:otpops the per-kind entity populations, inclusion materialized up the subtype chain; state:derived pairs each derivation-marked name with its mode (full/stored/semi/subtype) — the marker surface the closure law reads against rules:metamodel; state:exclusions holds one scope-list per exclusion constraint (population name + 1-based positions; a subtype-meta scope names the child extent). Chunk convention: state:fts, each pop, each otpop, and state:declared/state:nestings/state:derived are chunked — consumers flatten exactly one level; descriptors, rows, and uc spans are direct.\",\n\n");
+			sb.Append("\"THE DESIGN STATE in INTERSECTION SOURCE (generated by norma-oracle; regenerate, never edit). state:fts — one S5 descriptor per parsed fact type: name, players (top-collapsed), ucs (1-based positions), mands (phi), pop (attributed instance rows). state:declared pairs each name with its declared players; state:nestings pairs objectified fact names with their nesting types; state:otpops the per-kind entity populations, inclusion materialized up the subtype chain; state:derived pairs each derivation-marked name with its mode (full/stored/semi/subtype) — the marker surface the closure law reads against rules:metamodel; state:exclusions holds one scope-list per exclusion constraint (population name + 1-based positions; a subtype-meta scope names the child extent). state:rules — every NORMA-built app derivation rule as (name, recipe) in the rules:metamodel grammar (join/proj), the executable surface the canon closure runs beside rules:metamodel. Chunk convention: state:fts, each pop, each otpop, and state:declared/state:nestings/state:derived/state:rules are chunked — consumers flatten exactly one level; descriptors, rows, and uc spans are direct.\",\n\n");
 			sb.Append("DEF(\"state:fts\", ").Append(IChunked(fts)).Append("),\n\n");
 			sb.Append("DEF(\"state:declared\", ").Append(IChunked(declared)).Append("),\n\n");
 			sb.Append("DEF(\"state:nestings\", ").Append(IChunked(nestings)).Append("),\n\n");
@@ -3050,6 +3188,11 @@ namespace Elysium.NormaOracle
 				derivedPairs.Add("S2(" + IAtom(n) + ", " + IAtom("subtype") + ")");
 			derivedPairs.Sort(StringComparer.Ordinal);
 			sb.Append("DEF(\"state:derived\", ").Append(IChunked(derivedPairs)).Append("),\n\n");
+			// the executable rule surface: every NORMA-built app derivation
+			// rule as (name, recipe) in the rules:metamodel grammar, so the
+			// canon's closure machinery derives app populations from the
+			// same vocabulary induce emits. Chunked like its siblings.
+			sb.Append("DEF(\"state:rules\", ").Append(IChunked(myRuleRecipes)).Append("),\n\n");
 			// the exclusion surface: one entry per ExclusionConstraint, each a
 			// list of scopes (population name, 1-based positions). A scope over
 			// a SubtypeFact's supertype meta role resolves to the SUBTYPE
