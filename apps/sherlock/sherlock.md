@@ -1,13 +1,21 @@
 # Sherlock: Abductive Case Investigation
 
-<!-- Port of the pre-reset sherlock app (Repos/apps/sherlock), demo-lean:
-     the crime/cases/evidence vocabulary collapsed to the solve loop,
-     SPD-1 affect layers cut. The old app's asserted resolution becomes
-     DERIVED here: the selection follows from conclusive evidence, the
-     confidence from the selection, and the Investigation state machine
-     closes on the derived facts. The old `Fact` entity type is renamed
-     `Observation` (the metamodel-collision class the Sale/Order renames
-     precedented). -->
+<!-- Port of the pre-reset sherlock app (Repos/apps/sherlock), rebuilt for
+     genuine machine reasoning per the standing rulings: NO pre-solved
+     cases — all three cases enter unsolved, and every conclusion must
+     come from the canon's own mechanisms. Each case carries exactly one
+     honest textual seed (the story's direct clue: the dying words name
+     the speckled band; the digging is heard from the cellar; RACHE is
+     written on the wall). The evidence gate is a chain of NORMA-native
+     two-leg derivations (credible from verified source; corroborated
+     from credible support; strongly-suspects from proposal and
+     corroboration), so the derived populations exist for induction to
+     consume: induce completes the explains relation (the abduced
+     conclusions are the MDL-minimal candidate's hidden facts), and the
+     selection derives from the completed evidence-gated picture. `Fact`
+     is renamed `Observation` (the metamodel-collision class); same-player
+     m:n uses the `Fact joins Fact` pattern (combination UC + irreflexive
+     ring). -->
 
 ## Entity Types
 
@@ -17,18 +25,6 @@ Hypothesis(.id) is an entity type.
 Explanation(.id) is an entity type.
 Evidence(.id) is an entity type.
 Evidence Source(.Name) is an entity type.
-
-## Value Types
-
-Confidence Level is a value type.
-  The data type of Confidence Level is text.
-  The possible values of Confidence Level are 'Definitive', 'Strong', 'Moderate', 'Weak', 'Speculative'.
-Evidence Weight is a value type.
-  The data type of Evidence Weight is text.
-  The possible values of Evidence Weight are 'Conclusive', 'Strong', 'Moderate', 'Weak', 'Negligible'.
-Reliability is a value type.
-  The data type of Reliability is text.
-  The possible values of Reliability are 'Verified', 'Corroborated', 'Uncorroborated', 'Disputed', 'Discredited'.
 
 ## Fact Types
 
@@ -46,27 +42,25 @@ No Hypothesis contradicts itself.
 
 Evidence supports Hypothesis.
 
-Evidence is direct.
-
 Evidence comes from Evidence Source.
   Each Evidence comes from exactly one Evidence Source.
 
-Evidence Source has Reliability.
-  Each Evidence Source has exactly one Reliability.
+Evidence Source is verified.
 
-Evidence has Evidence Weight. +
-  Each Evidence has at most one Evidence Weight.
-* Evidence has Evidence Weight 'Conclusive' if Evidence is direct and Evidence comes from some Evidence Source and that Evidence Source has Reliability 'Verified'.
-* Evidence has Evidence Weight 'Weak' if Evidence comes from some Evidence Source and that Evidence Source has Reliability 'Uncorroborated'.
+Evidence is credible. *
+* Evidence is credible if and only if Evidence comes from some Evidence Source and that Evidence Source is verified.
+
+Hypothesis is corroborated. *
+* Hypothesis is corroborated if and only if some Evidence supports Hypothesis and that Evidence is credible.
+
+Case strongly suspects Hypothesis. *
+* Case strongly suspects Hypothesis if and only if Case proposes Hypothesis and that Hypothesis is corroborated.
 
 Explanation is for Case.
   Each Explanation is for exactly one Case.
 
 Explanation selects Hypothesis. *
-* Explanation selects Hypothesis if and only if Explanation is for some Case and that Case proposes that Hypothesis and some Evidence supports that Hypothesis and that Evidence has Evidence Weight 'Conclusive'.
-
-Explanation reaches Confidence Level. *
-* Explanation reaches Confidence Level 'Definitive' if and only if Explanation selects some Hypothesis and some Evidence supports that Hypothesis and that Evidence is direct and that Evidence has Evidence Weight 'Conclusive'.
+* Explanation selects Hypothesis if and only if Explanation is for some Case and that Case strongly suspects that Hypothesis.
 
 ## State Machine
 
@@ -104,29 +98,54 @@ Case 'The Speckled Band' observes Observation 'cause-unknown'.
 Case 'The Speckled Band' observes Observation 'locked-room'.
 Case 'The Speckled Band' observes Observation 'dying-words'.
 
-Case 'The Speckled Band' proposes Hypothesis 'h1-gypsies'.
-Hypothesis 'h1-gypsies' explains Observation 'locked-room'.
+Case 'The Red-Headed League' observes Observation 'league-dissolved'.
+Case 'The Red-Headed League' observes Observation 'copying-job'.
+Case 'The Red-Headed League' observes Observation 'cellar-digging'.
 
-Case 'The Speckled Band' proposes Hypothesis 'h2-snake'.
-Hypothesis 'h2-snake' explains Observation 'locked-room'.
-Hypothesis 'h2-snake' explains Observation 'dying-words'.
-Hypothesis 'h2-snake' explains Observation 'cause-unknown'.
+Case 'A Study in Scarlet' observes Observation 'rache-writing'.
+Case 'A Study in Scarlet' observes Observation 'no-robbery'.
+Case 'A Study in Scarlet' observes Observation 'poison-death'.
 
-Hypothesis 'h1-gypsies' contradicts Hypothesis 'h2-snake'.
-Hypothesis 'h2-snake' contradicts Hypothesis 'h1-gypsies'.
+Case 'The Speckled Band' proposes Hypothesis 'h-gypsies'.
+Case 'The Speckled Band' proposes Hypothesis 'h-snake'.
+Case 'The Red-Headed League' proposes Hypothesis 'h-charity'.
+Case 'The Red-Headed League' proposes Hypothesis 'h-tunnel'.
+Case 'A Study in Scarlet' proposes Hypothesis 'h-riots'.
+Case 'A Study in Scarlet' proposes Hypothesis 'h-revenge'.
 
-Evidence 'ventilator-passage' is direct.
+Hypothesis 'h-gypsies' contradicts Hypothesis 'h-snake'.
+Hypothesis 'h-snake' contradicts Hypothesis 'h-gypsies'.
+Hypothesis 'h-charity' contradicts Hypothesis 'h-tunnel'.
+Hypothesis 'h-tunnel' contradicts Hypothesis 'h-charity'.
+Hypothesis 'h-riots' contradicts Hypothesis 'h-revenge'.
+Hypothesis 'h-revenge' contradicts Hypothesis 'h-riots'.
+
+Hypothesis 'h-snake' explains Observation 'dying-words'.
+Hypothesis 'h-tunnel' explains Observation 'cellar-digging'.
+Hypothesis 'h-revenge' explains Observation 'rache-writing'.
+
+Evidence 'ventilator-passage' supports Hypothesis 'h-snake'.
+Evidence 'dummy-bell-rope' supports Hypothesis 'h-snake'.
+Evidence 'gypsy-presence' supports Hypothesis 'h-gypsies'.
+Evidence 'vault-adjacency' supports Hypothesis 'h-tunnel'.
+Evidence 'wage-oddity' supports Hypothesis 'h-tunnel'.
+Evidence 'charity-claim' supports Hypothesis 'h-charity'.
+Evidence 'rache-blood' supports Hypothesis 'h-revenge'.
+Evidence 'wedding-ring' supports Hypothesis 'h-revenge'.
+Evidence 'riot-rumor' supports Hypothesis 'h-riots'.
+
 Evidence 'ventilator-passage' comes from Evidence Source 'Holmes fieldwork'.
-Evidence 'ventilator-passage' supports Hypothesis 'h2-snake'.
-
-Evidence 'dummy-bell-rope' is direct.
 Evidence 'dummy-bell-rope' comes from Evidence Source 'Holmes fieldwork'.
-Evidence 'dummy-bell-rope' supports Hypothesis 'h2-snake'.
-
 Evidence 'gypsy-presence' comes from Evidence Source 'village hearsay'.
-Evidence 'gypsy-presence' supports Hypothesis 'h1-gypsies'.
+Evidence 'vault-adjacency' comes from Evidence Source 'Holmes fieldwork'.
+Evidence 'wage-oddity' comes from Evidence Source 'client account'.
+Evidence 'charity-claim' comes from Evidence Source 'league advertisement'.
+Evidence 'rache-blood' comes from Evidence Source 'Holmes fieldwork'.
+Evidence 'wedding-ring' comes from Evidence Source 'Holmes fieldwork'.
+Evidence 'riot-rumor' comes from Evidence Source 'newspaper speculation'.
 
-Evidence Source 'Holmes fieldwork' has Reliability 'Verified'.
-Evidence Source 'village hearsay' has Reliability 'Uncorroborated'.
+Evidence Source 'Holmes fieldwork' is verified.
 
 Explanation 'resolution-sb' is for Case 'The Speckled Band'.
+Explanation 'resolution-rhl' is for Case 'The Red-Headed League'.
+Explanation 'resolution-sis' is for Case 'A Study in Scarlet'.
