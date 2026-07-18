@@ -33,3 +33,8 @@ tools/rust-runner/*.o
 tools/py-runner/composed*.g.py
 tools/py-runner/*.txt
 tools/py-runner/__pycache__/
+tools/muc/compiled*.g.rs
+tools/muc/*.exe
+tools/muc/*.pdb
+tools/muc/*.txt
+tools/muc/__pycache__/
