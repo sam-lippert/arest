@@ -48,7 +48,7 @@ Predicate is performed during Transition. +
 
 ### Status
 Status is initial in State Machine Definition.
-  Each State Machine Definition has at most one initial Status.
+  For each State Machine Definition, at most one Status is initial in that State Machine Definition.
 Status is defined in State Machine Definition. *
   Each Status, State Machine Definition combination occurs at most once in the population of Status is defined in State Machine Definition.
 Status is terminal in State Machine Definition. *
