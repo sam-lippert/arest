@@ -61,6 +61,82 @@ def load_cells(paths):
             eval(compile(f.read(), p, "eval"), env)
     return cells, defs
 
+# ---- a strict mini-μ (muc is a host; self-contained by design) -------------
+# Mirrors the μ contract exactly (py-runner is the reference twin). Its one
+# job here: evaluate the canon's own rewrite:normalize over DEF bodies —
+# the algebra of programs is canon, and muc merely applies it.
+def mu_ev(f, x, DEFS):
+    while True:
+        if isinstance(f, int):
+            if not isinstance(x, tuple) or f < 1 or f > len(x):
+                raise SystemExit("STRICT: selector %r on %r" % (f, x))
+            return x[f - 1]
+        if isinstance(f, str):
+            if f in DEFS:
+                f = DEFS[f]
+                continue
+            return mu_prim(f, x, DEFS)
+        if len(f) == 0:
+            raise SystemExit("STRICT: unknown form: <empty>")
+        h = f[0]
+        if h == "COMP":
+            v = x
+            for i in range(len(f) - 1, 0, -1):
+                v = mu_ev(f[i], v, DEFS)
+            return v
+        if h == "CONS":
+            return tuple(mu_ev(f[i], x, DEFS) for i in range(1, len(f)))
+        if h == "CONST":
+            return f[1]
+        if h == "COND":
+            f = f[2] if mu_ev(f[1], x, DEFS) == "T" else f[3]
+            continue
+        if h == "ALPHA":
+            return tuple(mu_ev(f[1], e, DEFS) for e in x)
+        if h == "INSERT":
+            if len(x) == 0:
+                raise SystemExit("STRICT: INSERT on empty")
+            acc = x[-1]
+            for i in range(len(x) - 2, -1, -1):
+                acc = mu_ev(f[1], (x[i], acc), DEFS)
+            return acc
+        if h == "WHILE":
+            v = x
+            while mu_ev(f[1], v, DEFS) == "T":
+                v = mu_ev(f[2], v, DEFS)
+            return v
+        raise SystemExit("STRICT: unknown form: %r" % (h,))
+
+def mu_prim(name, x, DEFS):
+    b = lambda t: "T" if t else "F"
+    if name == "id": return x
+    if name == "tl":
+        if len(x) == 0: raise SystemExit("STRICT: tl on empty")
+        return x[1:]
+    if name == "atom": return b(not isinstance(x, tuple))
+    if name == "apndl": return (x[0],) + x[1]
+    if name == "apndr": return x[0] + (x[1],)
+    if name == "distl": return tuple((x[0], e) for e in x[1])
+    if name == "distr": return tuple((e, x[1]) for e in x[0])
+    if name == "cat": return x[0] + x[1]
+    if name == "null": return b(isinstance(x, tuple) and len(x) == 0)
+    if name == "eq": return b(x[0] == x[1])
+    if name == "not": return b(x != "T")
+    if name == "and": return b(x[0] == "T" and x[1] == "T")
+    if name == "length": return len(x)
+    if name == "le": return b(x[0] <= x[1])
+    if name == "ge": return b(x[0] >= x[1])
+    if name == "gt": return b(x[0] > x[1])
+    if name == "+": return x[0] + x[1]
+    if name == "apply": return mu_ev(x[0], x[1], DEFS)
+    if name == "1r":
+        if len(x) == 0: raise SystemExit("STRICT: 1r on empty")
+        return x[-1]
+    if name == "tlr":
+        if len(x) == 0: raise SystemExit("STRICT: tlr on empty")
+        return x[:-1]
+    raise SystemExit("STRICT: unresolved atom: %s" % name)
+
 # ---- Rust string literal ---------------------------------------------------
 def rs(s):
     out = s.replace("\\", "\\\\").replace('"', '\\"')
@@ -188,12 +264,32 @@ def slices(stmts, prefix, args, argvals, limit=800):
 def main():
     arest, ds, na, out = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
     cells, defs = load_cells([arest, ds, na])
+
+    # the algebra pass: apply the canon's own rewrite:normalize to every DEF
+    # body, uniformly and name-blind, before codegen. The store keeps the
+    # PRISTINE cells (the store is data); only compiled functions use the
+    # normalized terms. If the canon carries no rewriter, compile as-is.
+    import time
+    if os.environ.get("MUC_NO_REWRITE"):
+        print("muc: algebra pass SKIPPED (MUC_NO_REWRITE set - measurement control)")
+        norm = defs
+    elif "rewrite:normalize" in defs:
+        t0 = time.time()
+        norm = {}
+        for name, body in defs.items():
+            norm[name] = mu_ev("rewrite:normalize", body, defs)
+        changed = sum(1 for n in defs if norm[n] != defs[n])
+        print("muc: algebra pass normalized %d/%d defs in %.1fs"
+              % (changed, len(defs), time.time() - t0))
+    else:
+        norm = defs
+
     pool = Pool()
-    gen = Gen(defs, pool)
+    gen = Gen(norm, pool)
 
     # compile every DEF body (pool fills as CONST payloads are met)
     def_fns = []
-    for i, (name, body) in enumerate(defs.items()):
+    for i, (name, body) in enumerate(norm.items()):
         blk = gen.block(body, "x")
         def_fns.append("// %s\nfn d%d(x: V, rt: &mut Rt) -> V %s" % (name, i, blk))
 

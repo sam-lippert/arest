@@ -59,19 +59,30 @@ byte-identical to every station's: exactly `induce-exactness` and
 precisely as the μ does. If this runtime and the mirrors ever disagree,
 the mirrors are right.
 
-## Step 1 is correctness, not yet speed
+## Measured honestly
 
-Measured honestly: generation ~5s, rustc -O ~3m25s, base report
-**3m24s** (was 6m04s before sequences became `Rc<[V]>` — input copying
-halved it). That beats only the C station and CPython; bun still runs the
-same report in ~22s. The Futamura step removed dispatch, but the value
-representation still pays hash-cons hashing on every construction and a
-fresh allocation per intermediate sequence — and the μ's semantics
-build *enormous* numbers of intermediates. That volume is exactly what
-step 2 exists to delete: selector-of-CONS cancellation and ALPHA fusion
-remove the intermediates before codegen instead of building them faster.
-The speed thesis lives or dies there, and it should be measured
-identity-by-identity when it lands.
+Step 1 (structural codegen): generation ~5s, rustc -O ~3m25s, base
+report **3m24s** on the 22-law canon (was 6m04s before sequences became
+`Rc<[V]>` — input copying halved it). Beats only the C station and
+CPython; bun runs the same report in ~22s. The Futamura step removed
+dispatch; the value representation still pays hash-cons hashing per
+construction.
+
+Step 2 (the algebra as canon): the canon now carries `rewrite:normalize`
+(cancellation, ALPHA fusion, COMP flattening, id elimination — see the
+rewrite: family and `law:rewrite_soundness`), and muc applies it to every
+DEF body before codegen (`MUC_NO_REWRITE=1` skips it as a measurement
+control). Result on this canon: 169/679 defs normalize, verdicts stay
+byte-identical — and the runtime is a **wash** (4m07s with, 4m00s
+without, on the 23-law canon). The form-level identities fire off the
+hot paths; the fixpoint laws spend their time in data-dependent
+construction that no static rewrite deletes. The machinery is the
+deliverable: the optimizer-as-canon pattern, certified, ready for
+identities that DO target the hot paths — which means profiling first,
+then canon-specific theorems (theta-family identities), each landed with
+its own witnesses under law:rewrite_soundness. The remaining
+representational gap (interning tax vs a nursery) is a host property and
+a separately-argued decision, not an algebra one.
 
 ## Step 2 (not yet built): the algebra as canon
 
