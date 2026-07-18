@@ -8123,8 +8123,82 @@ DEF("rewrite:witness_apply",
 DEF("law:rewrite_soundness",
     S4(A("COMP"), A("law:and_all"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S4(A("COMP"), S2(A("ALPHA"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("rewrite:normalize"), N(1)), N(2)))), A("rewrite:witness_pins"), K(PHI())), S4(A("COMP"), S2(A("ALPHA"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("apply"), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("rewrite:normalize"), N(1)), N(2)))))), A("rewrite:witness_apply"), K(PHI())))), S4(A("COMP"), S2(A("ALPHA"), S3(A("COMP"), A("eq"), S3(A("CONS"), S4(A("COMP"), A("rewrite:normalize"), A("rewrite:normalize"), N(1)), S3(A("COMP"), A("rewrite:normalize"), N(1))))), A("cat"), S3(A("CONS"), S3(A("COMP"), A("rewrite:witness_pins"), K(PHI())), S3(A("COMP"), A("rewrite:witness_apply"), K(PHI()))))))),
 
+"The FORML reader as canon, v1 (the readings-ingestion family; the operations audit's one real gap). Input: tokenized sentence rows <indent, token-pairs>, each token a <original, Capitalized> pair — tokenization and case are the lex boundary externalized, mechanical and grammar-free. Covered forms: entity/value type declarations (refmode groups stripped), fact-type readings resolved by sorted-exact GREEDY LONGEST-TYPE-FIRST tiling (the no-guessing rule: a declared name matches only as a whole-token prefix, longest wins, everything else is predicate text), fact names synthesized by imploding capitalized parts, and the for-each-listed uniqueness form gated by the RESTATEMENT guard (the sentence minus its quantifier words must equal the fact's own reading verbatim — the same rule the oracle enforces). Unmatched rows pass through untouched in v1; refusal machinery arrives with the next forms. law:reader_match evaluates the reader over the oracle-validated witness corpus (the Sale/Item/Quantity probe model) and requires equality with the oracle's own pinned emission — declared pairs and fts descriptors alike. Consumers: every station evaluates this family through the law; compile_app composes readings as carriers and calls read:parse; the witness corpus chunks per the chunk9 discipline and unfolds one level at consumption.",
+
+DEF("read:firstn",
+    S3(A("COMP"), N(2), S3(A("WHILE"), S3(A("COMP"), A("gt"), S3(A("CONS"), S3(A("COMP"), A("length"), N(2)), N(1))), S3(A("CONS"), N(1), S3(A("COMP"), A("tlr"), N(2)))))),
+
+DEF("read:lastn",
+    S3(A("COMP"), N(2), S3(A("WHILE"), S3(A("COMP"), A("gt"), S3(A("CONS"), S3(A("COMP"), A("length"), N(2)), N(1))), S3(A("CONS"), N(1), S3(A("COMP"), A("tl"), N(2)))))),
+
+DEF("read:dropn",
+    S3(A("COMP"), N(2), S3(A("WHILE"), S3(A("COMP"), A("gt"), S3(A("CONS"), N(1), K(N(0)))), S3(A("CONS"), S3(A("COMP"), A("+"), S3(A("CONS"), N(1), K(N(-1)))), S3(A("COMP"), A("tl"), N(2)))))),
+
+DEF("read:isprefix",
+    S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("read:firstn"), S3(A("CONS"), S3(A("COMP"), A("length"), N(1)), N(2))), N(1)))),
+
+DEF("read:endswith",
+    S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("read:lastn"), S3(A("CONS"), S3(A("COMP"), A("length"), N(1)), N(2))), N(1)))),
+
+DEF("read:split",
+    S4(A("COMP"), S3(A("CONS"), N(2), S4(A("COND"), S3(A("COMP"), A("null"), N(3)), K(PHI()), S3(A("COMP"), A("tl"), N(3)))), S3(A("WHILE"), S3(A("COMP"), A("and"), S3(A("CONS"), S4(A("COMP"), A("not"), A("null"), N(3)), S4(A("COMP"), A("not"), A("eq"), S3(A("CONS"), S4(A("COND"), S3(A("COMP"), A("null"), N(3)), K(S1(A(""))), S3(A("COMP"), N(1), N(3))), N(1))))), S4(A("CONS"), N(1), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(3)))), S3(A("COMP"), A("tl"), N(3)))), S4(A("CONS"), N(1), K(PHI()), N(2)))),
+
+DEF("read:strip_ref",
+    S4(A("COND"), S4(A("COMP"), A("null"), N(2), S3(A("COMP"), A("read:split"), S3(A("CONS"), K(S2(A("("), A("("))), A("id")))), A("id"), S3(A("COMP"), A("cat"), S3(A("CONS"), S4(A("COMP"), N(1), A("read:split"), S3(A("CONS"), K(S2(A("("), A("("))), A("id"))), S4(A("COMP"), N(2), A("read:split"), S3(A("CONS"), K(S2(A(")"), A(")"))), S4(A("COMP"), N(2), A("read:split"), S3(A("CONS"), K(S2(A("("), A("("))), A("id"))))))))),
+
+DEF("read:best",
+    S4(A("COMP"), N(2), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(3)), S4(A("CONS"), N(1), S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("read:isprefix"), S3(A("CONS"), S3(A("COMP"), N(1), S3(A("COMP"), N(1), N(3))), N(1))), S3(A("COMP"), A("gt"), S3(A("CONS"), S4(A("COMP"), A("length"), N(1), S3(A("COMP"), N(1), N(3))), S4(A("COND"), S3(A("COMP"), A("null"), N(2)), K(N(0)), S4(A("COMP"), A("length"), N(1), S3(A("COMP"), N(1), N(2)))))))), S2(A("CONS"), S3(A("COMP"), N(1), N(3))), N(2)), S3(A("COMP"), A("tl"), N(3)))), S4(A("CONS"), S3(A("COMP"), S2(A("ALPHA"), N(1)), N(2)), K(PHI()), N(1)))),
+
+DEF("read:tile",
+    S4(A("COMP"), S3(A("CONS"), N(2), N(3)), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(4)), S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("read:best"), S3(A("CONS"), N(1), N(4)))), S5(A("CONS"), N(1), N(2), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(3), S3(A("COMP"), N(2), S3(A("COMP"), N(1), N(4))))), S3(A("COMP"), A("tl"), N(4))), S5(A("CONS"), N(1), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(2), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A(" ")), S3(A("COMP"), N(1), S3(A("COMP"), N(1), S3(A("COMP"), A("read:best"), S3(A("CONS"), N(1), N(4))))))))), S3(A("COMP"), A("cat"), S3(A("CONS"), N(3), S3(A("COMP"), N(2), S3(A("COMP"), N(1), S3(A("COMP"), A("read:best"), S3(A("CONS"), N(1), N(4))))))), S3(A("COMP"), A("read:dropn"), S3(A("CONS"), S4(A("COMP"), A("length"), N(1), S3(A("COMP"), N(1), S3(A("COMP"), A("read:best"), S3(A("CONS"), N(1), N(4))))), N(4)))))), S5(A("CONS"), N(1), K(PHI()), K(PHI()), N(2)))),
+
+DEF("read:ins",
+    S4(A("COMP"), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(2), N(1))), N(3))), S3(A("WHILE"), S3(A("COMP"), A("and"), S3(A("CONS"), S4(A("COMP"), A("not"), A("null"), N(3)), S3(A("COMP"), A("gt"), S3(A("CONS"), N(1), S4(A("COND"), S3(A("COMP"), A("null"), N(3)), K(N(0)), S3(A("COMP"), N(1), N(3))))))), S4(A("CONS"), N(1), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(3)))), S3(A("COMP"), A("tl"), N(3)))), S4(A("CONS"), N(1), K(PHI()), N(2)))),
+
+DEF("read:sorted",
+    S4(A("COND"), A("null"), A("id"), S4(A("COMP"), N(2), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(3)), S4(A("CONS"), N(1), S3(A("COMP"), A("read:ins"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), N(2))), S3(A("COMP"), A("tl"), N(3)))), S4(A("CONS"), A("id"), K(PHI()), A("id"))))),
+
+DEF("read:pos1",
+    S4(A("COMP"), N(3), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(4)), S5(A("CONS"), N(1), S3(A("COMP"), A("+"), S3(A("CONS"), N(2), K(N(1)))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(4)))), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(3), N(2))), N(3)), S3(A("COMP"), A("tl"), N(4)))), S5(A("CONS"), N(1), K(N(1)), K(PHI()), N(2)))),
+
+DEF("read:memberw",
+    S4(A("COMP"), A("not"), A("null"), A("read:pos1"))),
+
+DEF("read:drop_stops",
+    S4(A("COMP"), N(2), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(3)), S4(A("CONS"), N(1), S4(A("COND"), S3(A("COMP"), A("read:memberw"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), N(1))), N(2), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(3))))), S3(A("COMP"), A("tl"), N(3)))), S4(A("CONS"), N(1), K(PHI()), N(2)))),
+
+DEF("read:decl_entry",
+    S3(A("CONS"), S2(A("ALPHA"), N(1)), S2(A("ALPHA"), N(2)))),
+
+DEF("read:reading",
+    S3(A("COMP"), S7(A("CONS"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), N(2), N(1)))), S3(A("COMP"), N(1), N(1)), K(PHI()), K(PHI()), K(S1(PHI())), N(2)), S3(A("CONS"), A("read:tile"), S3(A("COMP"), S2(A("ALPHA"), N(1)), N(2))))),
+
+DEF("read:set_ucs",
+    S7(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)), S2(A("CONS"), N(2)), S3(A("COMP"), N(4), N(1)), S3(A("COMP"), N(5), N(1)), S3(A("COMP"), N(6), N(1)))),
+
+DEF("read:span",
+    S5(A("COMP"), A("read:sorted"), A("theta:flatten"), S2(A("ALPHA"), A("read:pos1")), A("distr"))),
+
+DEF("read:attach_uc",
+    S4(A("COND"), S3(A("COMP"), A("null"), N(2)), N(2), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("read:drop_stops"), S3(A("CONS"), K(S4(A("that"), A("at"), A("most"), A("one"))), S4(A("COMP"), S2(A("ALPHA"), N(1)), N(2), S3(A("COMP"), A("read:split"), S3(A("CONS"), K(S2(A(","), A(","))), N(3)))))), S3(A("COMP"), N(6), S3(A("COMP"), A("1r"), N(2))))), S3(A("COMP"), A("apndr"), S3(A("CONS"), S3(A("COMP"), A("tlr"), N(2)), S3(A("COMP"), A("read:set_ucs"), S3(A("CONS"), S3(A("COMP"), A("1r"), N(2)), S3(A("COMP"), A("read:span"), S3(A("CONS"), S4(A("COMP"), N(1), A("read:tile"), S3(A("CONS"), N(1), S3(A("COMP"), A("read:dropn"), S3(A("CONS"), K(N(2)), S3(A("COMP"), N(1), S3(A("COMP"), A("read:split"), S3(A("CONS"), K(S2(A(","), A(","))), N(3)))))))), S3(A("COMP"), N(2), S3(A("COMP"), A("1r"), N(2))))))))), N(2)))),
+
+DEF("read:row",
+    S4(A("COND"), S3(A("COMP"), A("read:endswith"), S3(A("CONS"), K(S4(A("is"), A("an"), A("entity"), A("type"))), S4(A("COMP"), S2(A("ALPHA"), N(1)), N(2), N(3)))), S3(A("CONS"), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), S4(A("COMP"), A("read:decl_entry"), A("read:strip_ref"), S3(A("COMP"), A("read:firstn"), S3(A("CONS"), S3(A("COMP"), A("+"), S3(A("CONS"), S3(A("COMP"), A("length"), S3(A("COMP"), N(2), N(3))), K(N(-4)))), S3(A("COMP"), N(2), N(3))))))), N(2)), S4(A("COND"), S3(A("COMP"), A("read:endswith"), S3(A("CONS"), K(S4(A("is"), A("a"), A("value"), A("type"))), S4(A("COMP"), S2(A("ALPHA"), N(1)), N(2), N(3)))), S3(A("CONS"), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), S4(A("COMP"), A("read:decl_entry"), A("read:strip_ref"), S3(A("COMP"), A("read:firstn"), S3(A("CONS"), S3(A("COMP"), A("+"), S3(A("CONS"), S3(A("COMP"), A("length"), S3(A("COMP"), N(2), N(3))), K(N(-4)))), S3(A("COMP"), N(2), N(3))))))), N(2)), S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), K(N(1)))), S3(A("COMP"), A("read:isprefix"), S3(A("CONS"), K(S3(A("The"), A("data"), A("type"))), S4(A("COMP"), S2(A("ALPHA"), N(1)), N(2), N(3)))))), S3(A("CONS"), N(1), N(2)), S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), K(N(1)))), S3(A("COMP"), A("read:isprefix"), S3(A("CONS"), K(S2(A("For"), A("each"))), S4(A("COMP"), S2(A("ALPHA"), N(1)), N(2), N(3)))))), S3(A("CONS"), N(1), S3(A("COMP"), A("read:attach_uc"), S4(A("CONS"), N(1), N(2), S3(A("COMP"), N(2), N(3))))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), K(N(0)))), S3(A("CONS"), N(1), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(2), S3(A("COMP"), A("read:reading"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(3))))))), S3(A("CONS"), N(1), N(2)))))))),
+
+DEF("read:parse",
+    S4(A("COMP"), S3(A("CONS"), S3(A("COMP"), S2(A("ALPHA"), S3(A("CONS"), N(1), N(2))), N(2)), S3(A("COMP"), S2(A("ALPHA"), S3(A("COMP"), A("read:firstn"), S3(A("CONS"), K(N(5)), A("id")))), N(2))), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(3)), S3(A("COMP"), S4(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), A("tl"), N(2))), S3(A("CONS"), S3(A("COMP"), A("read:row"), S4(A("CONS"), N(1), N(2), S3(A("COMP"), N(1), N(3)))), N(3)))), S4(A("CONS"), K(PHI()), K(PHI()), A("id")))),
+
+DEF("read:witness_rows",
+    K(S6(S2(N(0), S1(S9(S2(A("Sale"), A("Sale")), S2(A("("), A("(")), S2(A("."), A(".")), S2(A("Nr"), A("Nr")), S2(A(")"), A(")")), S2(A("is"), A("Is")), S2(A("an"), A("An")), S2(A("entity"), A("Entity")), S2(A("type"), A("Type"))))), S2(N(0), S1(S9(S2(A("Item"), A("Item")), S2(A("("), A("(")), S2(A("."), A(".")), S2(A("Code"), A("Code")), S2(A(")"), A(")")), S2(A("is"), A("Is")), S2(A("an"), A("An")), S2(A("entity"), A("Entity")), S2(A("type"), A("Type"))))), S2(N(0), S1(S5(S2(A("Quantity"), A("Quantity")), S2(A("is"), A("Is")), S2(A("a"), A("A")), S2(A("value"), A("Value")), S2(A("type"), A("Type"))))), S2(N(1), S1(S7(S2(A("The"), A("The")), S2(A("data"), A("Data")), S2(A("type"), A("Type")), S2(A("of"), A("Of")), S2(A("Quantity"), A("Quantity")), S2(A("is"), A("Is")), S2(A("integer"), A("Integer"))))), S2(N(0), S1(S5(S2(A("Sale"), A("Sale")), S2(A("contains"), A("Contains")), S2(A("Item"), A("Item")), S2(A("in"), A("In")), S2(A("Quantity"), A("Quantity"))))), S2(N(1), S2(S9(S2(A("For"), A("For")), S2(A("each"), A("Each")), S2(A("Sale"), A("Sale")), S2(A("and"), A("And")), S2(A("Item"), A("Item")), S2(A(","), A(",")), S2(A("that"), A("That")), S2(A("Sale"), A("Sale")), S2(A("contains"), A("Contains"))), S7(S2(A("that"), A("That")), S2(A("Item"), A("Item")), S2(A("in"), A("In")), S2(A("at"), A("At")), S2(A("most"), A("Most")), S2(A("one"), A("One")), S2(A("Quantity"), A("Quantity")))))))),
+
+DEF("read:witness_expected",
+    K(S2(S1(S2(A("SaleContainsItemInQuantity"), S3(A("Sale"), A("Item"), A("Quantity")))), S1(S5(A("SaleContainsItemInQuantity"), S3(A("Sale"), A("Item"), A("Quantity")), S1(S2(N(1), N(2))), PHI(), S1(PHI())))))),
+
+DEF("law:reader_match",
+    S3(A("COMP"), A("eq"), S3(A("CONS"), S4(A("COMP"), A("read:parse"), S2(A("ALPHA"), S3(A("CONS"), N(1), S3(A("COMP"), A("theta:flatten"), N(2)))), A("read:witness_rows")), A("read:witness_expected")))),
+
 DEF("law:report",
-    S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S9(A("CONS"), S3(A("CONS"), K(A("rmap-idempotence")), A("law:rmap_idempotence")), S3(A("CONS"), K(A("table-is-fetch")), A("law:table_is_fetch")), S3(A("CONS"), K(A("schema-match")), A("law:schema_match")), S3(A("CONS"), K(A("origin-boundary-match")), A("law:origin_boundary")), S3(A("CONS"), K(A("population-consistency")), A("law:population_consistency")), S3(A("CONS"), K(A("currying-agreement")), A("law:currying")), S3(A("CONS"), K(A("emission")), A("law:emission")), S3(A("CONS"), K(A("navmap-generated")), A("law:navmap"))), S9(A("CONS"), S3(A("CONS"), K(A("induce-exactness")), A("law:induce")), S3(A("CONS"), K(A("derive-fixpoint")), A("law:derive")), S3(A("CONS"), K(A("rules-reproduce")), A("law:rules")), S3(A("CONS"), K(A("finiteness-stratification")), A("law:finiteness")), S3(A("CONS"), K(A("induce-facts-emitted")), A("law:induce_facts")), S3(A("CONS"), K(A("machine-reconstruction")), A("law:machine")), S3(A("CONS"), K(A("catalog-resolves")), A("law:catalog")), S3(A("CONS"), K(A("command-commit")), A("law:apply"))))), S8(A("CONS"), S3(A("CONS"), K(A("thm1-uniqueness-refusal")), A("law:thm1")), S3(A("CONS"), K(A("thm2-affordances")), A("law:thm2")), S3(A("CONS"), K(A("one-name-one-cell")), A("law:one_name")), S3(A("CONS"), K(A("verbs-known-answers")), A("law:verbs")), S3(A("CONS"), K(A("exclusion-refuses")), A("law:exclusion")), S3(A("CONS"), K(A("marker-closure")), A("law:markers")), S3(A("CONS"), K(A("rewrite-soundness")), A("law:rewrite_soundness")))))),
+    S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S9(A("CONS"), S3(A("CONS"), K(A("rmap-idempotence")), A("law:rmap_idempotence")), S3(A("CONS"), K(A("table-is-fetch")), A("law:table_is_fetch")), S3(A("CONS"), K(A("schema-match")), A("law:schema_match")), S3(A("CONS"), K(A("origin-boundary-match")), A("law:origin_boundary")), S3(A("CONS"), K(A("population-consistency")), A("law:population_consistency")), S3(A("CONS"), K(A("currying-agreement")), A("law:currying")), S3(A("CONS"), K(A("emission")), A("law:emission")), S3(A("CONS"), K(A("navmap-generated")), A("law:navmap"))), S9(A("CONS"), S3(A("CONS"), K(A("induce-exactness")), A("law:induce")), S3(A("CONS"), K(A("derive-fixpoint")), A("law:derive")), S3(A("CONS"), K(A("rules-reproduce")), A("law:rules")), S3(A("CONS"), K(A("finiteness-stratification")), A("law:finiteness")), S3(A("CONS"), K(A("induce-facts-emitted")), A("law:induce_facts")), S3(A("CONS"), K(A("machine-reconstruction")), A("law:machine")), S3(A("CONS"), K(A("catalog-resolves")), A("law:catalog")), S3(A("CONS"), K(A("command-commit")), A("law:apply"))))), S9(A("CONS"), S3(A("CONS"), K(A("thm1-uniqueness-refusal")), A("law:thm1")), S3(A("CONS"), K(A("thm2-affordances")), A("law:thm2")), S3(A("CONS"), K(A("one-name-one-cell")), A("law:one_name")), S3(A("CONS"), K(A("verbs-known-answers")), A("law:verbs")), S3(A("CONS"), K(A("exclusion-refuses")), A("law:exclusion")), S3(A("CONS"), K(A("marker-closure")), A("law:markers")), S3(A("CONS"), K(A("rewrite-soundness")), A("law:rewrite_soundness")), S3(A("CONS"), K(A("reader-match")), A("law:reader_match")))))),
 
 DEF("law:all",
     S4(A("COMP"), A("law:and_all"), S2(A("ALPHA"), N(2)), A("law:report")))
