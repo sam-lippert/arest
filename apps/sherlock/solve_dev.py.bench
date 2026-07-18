@@ -60,7 +60,7 @@ T["solve:step"] = ("CONS",
          WHILE(COMP("not", "null", 2),
              ("CONS",
               COMP("solve:update", CONS(1, CONS(COMP(1, h2),
-                  COMP("derive:eval", CONS(COMP(2, h2), 1))))),
+                  COMP("derive:eval", CONS(COMP(3, h2), 1))))),
               COMP("tl", 2))),
          ("CONS", 1, 2)),
     2)
@@ -98,18 +98,21 @@ T["solve:fts2base"] = COMP(
            COMP("solve:assoc", CONS(COMP(1, 2), 1)))),
     "distl",
     CONS("solve:closure", "law:fts"))
+# augmentation: rule heads missing from the emission get
+# <head, declared-players, phi, phi, closed-pop>
 T["solve:fts2"] = COMP(
     ("COMP", "cat", ("CONS", 1,
         ("COMP", "theta:flatten",
-         ALPHA(COND(COMP("read:memberw", ("CONS", ("COMP", 1, 2), ("COMP", 1, 1))),
+         ALPHA(COND(COMP("read:memberw", ("CONS", 2, ("COMP", 1, 1))),
                     K(()),
                     CONS(("CONS", ("COMP", 1, 2),
-                          ("COMP", "solve:assoc", ("CONS", ("COMP", 1, 2), ("COMP", 2, 1))),
+                          ("COMP", 2, 2),
                           K(()), K(()),
-                          ("COMP", "solve:assoc", ("CONS", ("COMP", 1, 2), ("COMP", 3, 1))))))),
+                          ("COMP", "solve:assoc", ("CONS", ("COMP", 1, 2), ("COMP", 2, 1))))))),
          "distl",
-         ("CONS", ("CONS", ("COMP", ALPHA(1), 1), "solve:declared", "solve:closure"),
-          ("COMP", ALPHA(1), "solve:rules"))))),
+         ("CONS", ("CONS", ("COMP", ALPHA(1), 1),
+                   ("COMP", "solve:closure", 2)),
+          ("COMP", ALPHA(CONS(1, 2)), "solve:rules", 2))))),
     CONS("solve:fts2base", "id"))
 
 # solve:scope store -> the app subgraph: fts2 rows whose players share a
@@ -117,7 +120,7 @@ T["solve:fts2"] = COMP(
 # no app names). Intersection nonempty via double setminus.
 T["solve:rulenames"] = COMP("cat", CONS(
     ALPHA(1),
-    COMP("theta:flatten", ALPHA(COMP("theta:flatten", ALPHA(COND("atom", CONS("id"), "id")), 2)))))
+    COMP("theta:flatten", ALPHA(COMP("theta:flatten", ALPHA(COND("atom", CONS("id"), "id")), 3)))))
 # declared (uncollapsed) players: the scoping surface
 T["solve:declared"] = COMP("theta:flatten", "theta:flatten", "solve:cell", CONS(K("state:declared"), "id"))
 T["solve:apptypes"] = COMP(
@@ -125,18 +128,25 @@ T["solve:apptypes"] = COMP(
     ALPHA(COND(COMP("read:memberw", CONS(COMP(1, 2), 1)), COMP(2, 2), K(()))),
     "distl",
     CONS(COMP("solve:rulenames", "solve:rules"), "solve:declared"))
-# scope: fts2 rows whose DECLARED players intersect apptypes
+# scope: rule heads always; else fts2 rows whose DECLARED players
+# intersect apptypes
 T["solve:scope"] = COMP(
     "theta:flatten",
-    ALPHA(COND(COMP("null", "theta:setminus", ("CONS",
+    ALPHA(COND(COMP("read:memberw", ("CONS", ("COMP", 1, 2), ("COMP", 3, 1))),
+               CONS(2),
+          COND(COMP("null", "theta:setminus", ("CONS",
                 COMP("solve:assoc", ("CONS", ("COMP", 1, 2), ("COMP", 1, 1))),
                 ("COMP", "theta:setminus", ("CONS",
                     COMP("solve:assoc", ("CONS", ("COMP", 1, 2), ("COMP", 1, 1))),
                     ("COMP", 2, 1))))),
                K(()),
-               CONS(2))),
+               CONS(2)))),
     "distl",
-    CONS(CONS("solve:declared", "solve:apptypes"), "solve:fts2"))
+    CONS(("CONS", "solve:declared", "solve:apptypes",
+          ("COMP", ALPHA(1), "solve:rules")), "solve:fts2"))
+
+# state:rings reader
+T["solve:rings"] = COMP("theta:flatten", "solve:cell", CONS(K("state:rings"), "id"))
 
 # solve:abduce store -> covered candidates over the scoped closed fts
 T["solve:abduce"] = COMP("induce:covered",
@@ -164,43 +174,90 @@ T["solve:findings"] = COMP(
           ALPHA(("CONS", COMP("length", "theta:setminus", ("CONS", 4, 3)), "id")),
           "solve:abduce")))
 
-# hmm: sort rows by hidden count then scan; rework findings input below
 T["solve:findings"] = COMP(
     2,
     WHILE(COMP("not", "null", 3),
         ("CONS",
          COMP("apndr", CONS(1, COMP(1, h3a))),
-         COND(COMP("and", CONS(
-                 COMP("not", "read:memberw", CONS(COMP(1, h3a), 1)),
-                 COMP("and", CONS(
-                     COMP("gt", CONS(COMP("length", COMP(2, h3a)), K(0))),
-                     COMP("gt", CONS(COMP("length", COMP(3, h3a)), K(0))))))),
-              COMP("apndr", CONS(2, h3a)),
-              2),
+         COND(COMP("read:memberw", CONS(COMP(1, h3a), 1)), 2,
+              COMP("apndr", CONS(2, h3a))),
          COMP("tl", 3))),
-    ("CONS", K(()), K(()),
-     COMP(ALPHA(COMP(2)),
-          "system:sort_asc",
-          ALPHA(("CONS",
-                 COMP("length", "theta:setminus", ("CONS", 4, 3)),
-                 ("CONS", 1, 3, COMP("theta:setminus", ("CONS", 4, 3))))),
-          "solve:abduce")))
+    ("CONS", K(()), K(()), "solve:kept"))
 
-# solve:verdicts store -> the derived selections
-T["solve:verdicts"] = COMP("solve:assoc",
-    CONS(K("ExplanationSelectsHypothesis"), "solve:closure"))
+# solve:kept store -> candidate rows <target, covered, hidden>, minimal-
+# hidden order, dropping: derived heads (closed - nothing to abduce),
+# empty covered or hidden, and ring-gated candidates (an Irreflexive
+# target whose hidden contains a reflexive pair)
+refl_any = COMP("not", "null", "theta:flatten",
+    ALPHA(COND(COMP("and", CONS(
+              COMP("eq", CONS("length", K(2))),
+              COMP("eq", CONS(1, 2)))), CONS("id"), K(()))))
+row_ringed = COMP("read:memberw", ("CONS",
+    ("CONS", ("COMP", 1, 2), K("Irreflexive")),
+    ("COMP", 1, 1)))
+keepp = COMP("and", CONS(
+    COMP("not", "read:memberw", ("CONS", ("COMP", 1, 2), ("COMP", 2, 1))),
+    COMP("and", CONS(
+        COMP("gt", CONS(("COMP", "length", 2, 2), K(0))),
+        COMP("and", CONS(
+            COMP("gt", CONS(("COMP", "length", 3, 2), K(0))),
+            COMP("not", "and", CONS(row_ringed, COMP(refl_any, 3, 2)))))))))
+T["solve:kept"] = COMP(
+    "theta:flatten",
+    ALPHA(COND(keepp, CONS(2), K(()))),
+    "distl",
+    ("CONS",
+     ("CONS", "solve:rings", ("COMP", ALPHA(1), "solve:rules")),
+     ("COMP",
+      ALPHA(2),
+      "system:sort_asc",
+      ALPHA(("CONS",
+             COMP("length", "theta:setminus", ("CONS", 4, 3)),
+             ("CONS", 1, 3, COMP("theta:setminus", ("CONS", 4, 3))))),
+      "solve:abduce")))
+
+# solve:sinks store -> the rule heads no other recipe consumes (the rule
+# DAG's ends): the app's conclusions, with no app name anywhere
+T["solve:sinks"] = COMP(
+    "theta:flatten",
+    ALPHA(COND(COMP("read:memberw", ("CONS", ("COMP", 1, 2),
+                    ("COMP", "solve:rulenames_legs", 1))),
+               K(()),
+               CONS(("COMP", 1, 2)))),
+    "distl",
+    CONS("id", "id"))
+# legs-only names (targets consumed by recipes)
+T["solve:rulenames_legs"] = COMP("theta:flatten",
+    ALPHA(COMP("theta:flatten", ALPHA(COND("atom", CONS("id"), "id")), 3)))
+# input to sinks is the rules list itself
+T["solve:sinks"] = COMP(
+    "theta:flatten",
+    ALPHA(COND(COMP("read:memberw", ("CONS", ("COMP", 1, 2), 1)),
+               K(()),
+               CONS(("COMP", 1, 2)))),
+    "distl",
+    CONS("solve:rulenames_legs", "id"))
+
+# solve:verdicts store -> <head, rows> per sink head, from the closure
+T["solve:verdicts"] = COMP(
+    ALPHA(("CONS", 2, ("COMP", "solve:assoc", ("CONS", 2, 1)))),
+    "distl",
+    CONS("solve:closure", COMP("solve:sinks", "solve:rules")))
 
 # solve:report store -> one text atom
-line2 = COMP("implode", CONS(K(" "), ("CONS", K("VERDICT:"), 1, K("selects"), 2)))
+vlines = COMP("theta:flatten", ALPHA(COND(COMP("null", 2), K(()),
+    COMP("cat", CONS(
+        CONS(COMP("implode", CONS(K(" "), ("CONS", K("CONCLUDED:"), 1)))),
+        COMP(ALPHA(COMP("implode", CONS(K(" "), ("COMP", "apndl", ("CONS", K("VERDICT:"), "id"))))), 2))))))
 abd_lines = COMP("theta:flatten", ALPHA(
     COMP("cat", CONS(
         CONS(COMP("implode", CONS(K(" "), ("CONS", K("LEARNED:"), 1)))),
-        COMP(ALPHA(COMP("implode", CONS(K(" "), ("COMP", ("CONS", K("ABDUCED:"), 1, 2), "id")))), 3)))))
+        COMP(ALPHA(COMP("implode", CONS(K(" "), ("COMP", "apndl", ("CONS", K("ABDUCED:"), "id"))))), 3)))))
 T["solve:report"] = COMP(
     "implode",
     CONS(K(chr(10)),
          COMP("cat", CONS(
-             COMP(ALPHA(line2), "solve:verdicts"),
+             COMP(vlines, "solve:verdicts"),
              COMP(abd_lines, "solve:findings")))))
 
 if True:
