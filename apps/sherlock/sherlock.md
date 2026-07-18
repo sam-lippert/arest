@@ -45,22 +45,30 @@ Evidence supports Hypothesis.
 Evidence comes from Evidence Source.
   Each Evidence comes from exactly one Evidence Source.
 
-Evidence Source is verified.
+Sleuth(.Name) is an entity type.
 
-Evidence is credible. *
-* Evidence is credible if and only if Evidence comes from some Evidence Source and that Evidence Source is verified.
+Sleuth vouches for Evidence Source.
 
-Hypothesis is corroborated. *
-* Hypothesis is corroborated if and only if some Evidence supports Hypothesis and that Evidence is credible.
+Evidence is vetted by Sleuth. *
+
+Hypothesis is corroborated by Sleuth. *
 
 Case strongly suspects Hypothesis. *
-* Case strongly suspects Hypothesis if and only if Case proposes Hypothesis and that Hypothesis is corroborated.
 
 Explanation is for Case.
   Each Explanation is for exactly one Case.
 
 Explanation selects Hypothesis. *
-* Explanation selects Hypothesis if and only if Explanation is for some Case and that Case strongly suspects that Hypothesis.
+
+## Derivation Rules
+
+* Evidence is vetted by Sleuth iff Evidence comes from some Evidence Source and that Sleuth vouches for that Evidence Source.
+
+* Hypothesis is corroborated by Sleuth iff some Evidence supports Hypothesis and that Evidence is vetted by that Sleuth.
+
+* Case strongly suspects Hypothesis iff Case proposes Hypothesis and that Hypothesis is corroborated by some Sleuth.
+
+* Explanation selects Hypothesis iff Explanation is for some Case and that Case strongly suspects that Hypothesis.
 
 ## State Machine
 
@@ -144,7 +152,7 @@ Evidence 'rache-blood' comes from Evidence Source 'Holmes fieldwork'.
 Evidence 'wedding-ring' comes from Evidence Source 'Holmes fieldwork'.
 Evidence 'riot-rumor' comes from Evidence Source 'newspaper speculation'.
 
-Evidence Source 'Holmes fieldwork' is verified.
+Sleuth 'Sherlock Holmes' vouches for Evidence Source 'Holmes fieldwork'.
 
 Explanation 'resolution-sb' is for Case 'The Speckled Band'.
 Explanation 'resolution-rhl' is for Case 'The Red-Headed League'.
