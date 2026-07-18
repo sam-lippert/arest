@@ -1039,6 +1039,7 @@ namespace Elysium.NormaOracle
 
 		private readonly List<KeyValuePair<string, string>> myTextual = new List<KeyValuePair<string, string>>();
 		private readonly List<string> myRuleRecipes = new List<string>();
+		private readonly List<string> myRingRows = new List<string>();
 		private readonly List<string> myDeferredRules = new List<string>();
 
 		private FactIndexEntry FindEntryByNormalizedSentence(string sentence)
@@ -1602,7 +1603,10 @@ namespace Elysium.NormaOracle
 				bool atJoin = (kv.Key == e1 && kv.Value == j1) || (kv.Key == e2 && kv.Value == j2);
 				pos.Add("N(" + (atJoin ? 2 : kv.Key == e1 ? 1 : 3) + ")");
 			}
-			myRuleRecipes.Add("S2(" + IAtom(headE.Fact.Name) + ", S4(" + IAtom("join") + ", "
+			var headPlayers = new List<string>();
+			foreach (string p in headE.Players) headPlayers.Add(IAtom(p));
+			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S" + headPlayers.Count + "("
+				+ string.Join(", ", headPlayers) + "), S4(" + IAtom("join") + ", "
 				+ legA + ", " + legB + ", S2(" + string.Join(", ", pos) + ")))");
 		}
 
@@ -1749,6 +1753,7 @@ namespace Elysium.NormaOracle
 			rc.RoleCollection.Add(entry.Roles[1]);
 			rc.RingType = (RingConstraintType)Enum.Parse(typeof(RingConstraintType), ringType);
 			rc.Modality = modality;
+			myRingRows.Add("S2(" + IAtom(entry.Fact.Name) + ", " + IAtom(ringType) + ")");
 			Count("ring constraint (" + ringType.ToLowerInvariant() + ")");
 		}
 
@@ -3193,6 +3198,9 @@ namespace Elysium.NormaOracle
 			// canon's closure machinery derives app populations from the
 			// same vocabulary induce emits. Chunked like its siblings.
 			sb.Append("DEF(\"state:rules\", ").Append(IChunked(myRuleRecipes)).Append("),\n\n");
+			// ring constraints per fact type (name, ring type): the alethic
+			// gate surface abduction filters hidden facts against
+			sb.Append("DEF(\"state:rings\", ").Append(myRingRows.Count == 0 ? "S1(PHI())" : IChunked(myRingRows)).Append("),\n\n");
 			// the exclusion surface: one entry per ExclusionConstraint, each a
 			// list of scopes (population name, 1-based positions). A scope over
 			// a SubtypeFact's supertype meta role resolves to the SUBTYPE

@@ -5,6 +5,12 @@
 // it and delete when you're done (standing features are how the last two
 // runners died). The per-law lines are byte-identical to the C# station so a
 // diff of the two captures is the parity check itself.
+if (process.argv[2] === "solve") {
+  // the solve mode: one canon-rendered text atom, printed verbatim —
+  // cross-station byte-identity of this text is the certification
+  console.log(Ev("solve:report", CELLS));
+  process.exit(0);
+}
 const reportName = (process.argv[2] === "app") ? "law:app_report" : "law:report";
 const report = Ev(reportName, CELLS);
 let ok = true;

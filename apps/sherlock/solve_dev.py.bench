@@ -1,0 +1,219 @@
+# -*- coding: utf-8 -*-
+# Bench for the canon solve: family against the real sherlock composed store.
+import io
+
+ROOT = r"C:\Users\lippe\Repos\elysium"
+env = {}
+src = io.open(ROOT + r"\apps\sherlock\composed.sherlock.g.py", encoding="utf-8").read()
+src = src.split('if __name__ == "__main__":')[0]
+exec(src, env)
+Ev, DEFS, CELLS = env["Ev"], env["DEFS"], env["CELLS"]
+store = tuple(CELLS)
+
+def COMP(*fs): return ("COMP",) + fs
+def CONS(*fs): return ("CONS",) + fs
+def COND(p, f, g): return ("COND", p, f, g)
+def ALPHA(f): return ("ALPHA", f)
+def WHILE(p, f): return ("WHILE", p, f)
+def K(x): return ("CONST", x)
+
+T = {}
+h3 = COMP(1, 3)
+
+# solve:cell <name, store> -> the named cell's body (phi if absent)
+T["solve:cell"] = COMP(
+    COND(COMP("null", 2), K(()), COMP(3, 1, 2)),
+    ("CONS", 1,
+     COMP(2, WHILE(COMP("and", CONS(
+            COMP("not", "null", 3),
+            COMP("null", 2))),
+        ("CONS", 1,
+         COND(COMP("eq", CONS(COMP(2, h3), 1)), CONS(h3), K(())),
+         COMP("tl", 3))),
+        ("CONS", 1, K(()), 2))))
+
+# solve:rules store -> the app's own recipes (state:rules); the metamodel
+# closure stays with its standing law machinery
+T["solve:rules"] = COMP("theta:flatten", "solve:cell", CONS(K("state:rules"), "id"))
+
+# solve:pops0 store -> ((name, flat-pop), ...) via the canon's own accessor
+T["solve:pops0"] = COMP(ALPHA(CONS(1, 5)), "law:fts")
+
+# solve:update <pops, name, rows> -> pops with name's rows replaced
+T["solve:update"] = ALPHA(COND(
+    COMP("eq", CONS(1, 2)),
+    CONS(1, 3),
+    "id"))
+# needs name/rows threading: rework as <pops, <name, rows>> via distr
+T["solve:update"] = COMP(
+    ALPHA(COND(
+        COMP("eq", CONS(COMP(1, 1), COMP(1, 2))),
+        CONS(COMP(1, 1), COMP(2, 2)),
+        1)),
+    "distr")
+
+# solve:step <pops, rules> -> <pops', rules>
+# inner machine <pops, rest>: fold each rule's derive:eval into pops
+h2 = COMP(1, 2)
+T["solve:step"] = ("CONS",
+    COMP(1,
+         WHILE(COMP("not", "null", 2),
+             ("CONS",
+              COMP("solve:update", CONS(1, CONS(COMP(1, h2),
+                  COMP("derive:eval", CONS(COMP(2, h2), 1))))),
+              COMP("tl", 2))),
+         ("CONS", 1, 2)),
+    2)
+
+# solve:seed <pops, rules> -> pops ++ (head, phi) for heads not present
+T["solve:seed"] = COMP("cat", CONS(1,
+    COMP("theta:flatten",
+         ALPHA(COND(COMP("read:memberw", CONS(COMP(1, 2), 1)),
+                    K(()),
+                    CONS(CONS(COMP(1, 2), K(()))))),
+         "distl",
+         CONS(COMP(ALPHA(1), 1), 2))))
+
+# solve:closure store -> closed pops
+T["solve:closure"] = COMP(1,
+    WHILE(COMP("not", "eq", CONS("solve:step", "id")), "solve:step"),
+    CONS(COMP("solve:seed", CONS("solve:pops0", "solve:rules")), "solve:rules"))
+
+# solve:assoc <name, pairs> -> rows of the named pair (phi if absent)
+h3a = COMP(1, 3)
+T["solve:assoc"] = COMP(
+    COND(COMP("null", 2), K(()), COMP(2, 1, 2)),
+    ("CONS", 1,
+     COMP(2, WHILE(COMP("and", CONS(COMP("not", "null", 3), COMP("null", 2))),
+        ("CONS", 1,
+         COND(COMP("eq", CONS(COMP(1, h3a), 1)), CONS(h3a), K(())),
+         COMP("tl", 3))),
+        ("CONS", 1, K(()), 2))))
+
+# solve:fts2 store -> fts descriptors with closed pops, PLUS descriptor
+# rows for rule heads the emission lacks (players from state:declared,
+# pops from the closure) - rule heads are always induce-visible
+T["solve:fts2base"] = COMP(
+    ALPHA(("CONS", COMP(1, 2), COMP(2, 2), COMP(3, 2), COMP(4, 2),
+           COMP("solve:assoc", CONS(COMP(1, 2), 1)))),
+    "distl",
+    CONS("solve:closure", "law:fts"))
+T["solve:fts2"] = COMP(
+    ("COMP", "cat", ("CONS", 1,
+        ("COMP", "theta:flatten",
+         ALPHA(COND(COMP("read:memberw", ("CONS", ("COMP", 1, 2), ("COMP", 1, 1))),
+                    K(()),
+                    CONS(("CONS", ("COMP", 1, 2),
+                          ("COMP", "solve:assoc", ("CONS", ("COMP", 1, 2), ("COMP", 2, 1))),
+                          K(()), K(()),
+                          ("COMP", "solve:assoc", ("CONS", ("COMP", 1, 2), ("COMP", 3, 1))))))),
+         "distl",
+         ("CONS", ("CONS", ("COMP", ALPHA(1), 1), "solve:declared", "solve:closure"),
+          ("COMP", ALPHA(1), "solve:rules"))))),
+    CONS("solve:fts2base", "id"))
+
+# solve:scope store -> the app subgraph: fts2 rows whose players share a
+# type with any state:rules head or leg (derived from the rules alone -
+# no app names). Intersection nonempty via double setminus.
+T["solve:rulenames"] = COMP("cat", CONS(
+    ALPHA(1),
+    COMP("theta:flatten", ALPHA(COMP("theta:flatten", ALPHA(COND("atom", CONS("id"), "id")), 2)))))
+# declared (uncollapsed) players: the scoping surface
+T["solve:declared"] = COMP("theta:flatten", "theta:flatten", "solve:cell", CONS(K("state:declared"), "id"))
+T["solve:apptypes"] = COMP(
+    "theta:dedup", "theta:flatten",
+    ALPHA(COND(COMP("read:memberw", CONS(COMP(1, 2), 1)), COMP(2, 2), K(()))),
+    "distl",
+    CONS(COMP("solve:rulenames", "solve:rules"), "solve:declared"))
+# scope: fts2 rows whose DECLARED players intersect apptypes
+T["solve:scope"] = COMP(
+    "theta:flatten",
+    ALPHA(COND(COMP("null", "theta:setminus", ("CONS",
+                COMP("solve:assoc", ("CONS", ("COMP", 1, 2), ("COMP", 1, 1))),
+                ("COMP", "theta:setminus", ("CONS",
+                    COMP("solve:assoc", ("CONS", ("COMP", 1, 2), ("COMP", 1, 1))),
+                    ("COMP", 2, 1))))),
+               K(()),
+               CONS(2))),
+    "distl",
+    CONS(CONS("solve:declared", "solve:apptypes"), "solve:fts2"))
+
+# solve:abduce store -> covered candidates over the scoped closed fts
+T["solve:abduce"] = COMP("induce:covered",
+    CONS("solve:scope", COMP(ALPHA(CONS(1, 2)), "solve:scope")))
+
+# solve:findings store -> rows <target, covered, hidden> for candidates that
+# complete a partially-populated target (covered>0, hidden>0), minimal-hidden
+# per target via the mdl-style ascending scan
+T["solve:findings"] = COMP(
+    2,
+    WHILE(COMP("not", "null", 3),
+        ("CONS",
+         COMP("apndr", CONS(1, COMP(1, 1, h3a))),
+         COND(COMP("and", CONS(
+                 COMP("not", "read:memberw", CONS(COMP(1, 1, h3a), 1)),
+                 COMP("and", CONS(
+                     COMP("gt", CONS(COMP("length", COMP(2, h3a)), K(0))),
+                     COMP("gt", CONS(COMP("length", COMP(3, h3a)), K(0))))))),
+              COMP("apndr", CONS(2, h3a)),
+              2),
+         COMP("tl", 3))),
+    ("CONS", K(()), K(()),
+     COMP(ALPHA(("CONS", CONS(1, K(())), 3, COMP("theta:setminus", CONS(4, 3)))),
+          "system:sort_asc",
+          ALPHA(("CONS", COMP("length", "theta:setminus", ("CONS", 4, 3)), "id")),
+          "solve:abduce")))
+
+# hmm: sort rows by hidden count then scan; rework findings input below
+T["solve:findings"] = COMP(
+    2,
+    WHILE(COMP("not", "null", 3),
+        ("CONS",
+         COMP("apndr", CONS(1, COMP(1, h3a))),
+         COND(COMP("and", CONS(
+                 COMP("not", "read:memberw", CONS(COMP(1, h3a), 1)),
+                 COMP("and", CONS(
+                     COMP("gt", CONS(COMP("length", COMP(2, h3a)), K(0))),
+                     COMP("gt", CONS(COMP("length", COMP(3, h3a)), K(0))))))),
+              COMP("apndr", CONS(2, h3a)),
+              2),
+         COMP("tl", 3))),
+    ("CONS", K(()), K(()),
+     COMP(ALPHA(COMP(2)),
+          "system:sort_asc",
+          ALPHA(("CONS",
+                 COMP("length", "theta:setminus", ("CONS", 4, 3)),
+                 ("CONS", 1, 3, COMP("theta:setminus", ("CONS", 4, 3))))),
+          "solve:abduce")))
+
+# solve:verdicts store -> the derived selections
+T["solve:verdicts"] = COMP("solve:assoc",
+    CONS(K("ExplanationSelectsHypothesis"), "solve:closure"))
+
+# solve:report store -> one text atom
+line2 = COMP("implode", CONS(K(" "), ("CONS", K("VERDICT:"), 1, K("selects"), 2)))
+abd_lines = COMP("theta:flatten", ALPHA(
+    COMP("cat", CONS(
+        CONS(COMP("implode", CONS(K(" "), ("CONS", K("LEARNED:"), 1)))),
+        COMP(ALPHA(COMP("implode", CONS(K(" "), ("COMP", ("CONS", K("ABDUCED:"), 1, 2), "id")))), 3)))))
+T["solve:report"] = COMP(
+    "implode",
+    CONS(K(chr(10)),
+         COMP("cat", CONS(
+             COMP(ALPHA(line2), "solve:verdicts"),
+             COMP(abd_lines, "solve:findings")))))
+
+if True:
+    for n, t in T.items():
+        DEFS[n] = t
+    P = lambda name, x: Ev(name, x)
+    cell = P("solve:cell", ("state:rules", store))
+    print("state:rules cell chunks:", len(cell))
+    rules = P("solve:rules", store)
+    print("total rules:", len(rules), [r[0] for r in rules][:4])
+    pops0 = P("solve:pops0", store)
+    print("pops0 fact types:", len(pops0))
+    closed = P("solve:closure", store)
+    for name, rows in closed:
+        if name in ("CaseStronglySuspectsHypothesis", "ExplanationSelectsHypothesis", "EvidenceIsVettedBySleuth"):
+            print(name, "=>", rows)
