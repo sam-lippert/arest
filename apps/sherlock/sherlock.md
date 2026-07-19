@@ -20,11 +20,18 @@
 ## Entity Types
 
 Case(.Name) is an entity type.
-Observation(.id) is an entity type.
-Hypothesis(.id) is an entity type.
-Explanation(.id) is an entity type.
-Evidence(.id) is an entity type.
+Observation(.Statement) is an entity type.
+Hypothesis(.Claim) is an entity type.
+Explanation(.Title) is an entity type.
+Evidence(.Item) is an entity type.
 Evidence Source(.Name) is an entity type.
+
+## Value Types
+
+The data type of Statement is text.
+The data type of Claim is text.
+The data type of Title is text.
+The data type of Item is text.
 
 ## Fact Types
 
@@ -102,58 +109,58 @@ Transition 'close-case' is triggered by Event Type 'Case is concluded'.
 
 ## Instance Facts
 
-Case 'The Speckled Band' observes Observation 'cause-unknown'.
-Case 'The Speckled Band' observes Observation 'locked-room'.
-Case 'The Speckled Band' observes Observation 'dying-words'.
+Case 'The Speckled Band' observes Observation 'the cause of death is unknown'.
+Case 'The Speckled Band' observes Observation 'the room was locked from the inside'.
+Case 'The Speckled Band' observes Observation 'her dying words named the speckled band'.
 
-Case 'The Red-Headed League' observes Observation 'league-dissolved'.
-Case 'The Red-Headed League' observes Observation 'copying-job'.
-Case 'The Red-Headed League' observes Observation 'cellar-digging'.
+Case 'The Red-Headed League' observes Observation 'the league dissolved without warning'.
+Case 'The Red-Headed League' observes Observation 'the copying work was pointless'.
+Case 'The Red-Headed League' observes Observation 'digging was heard from the cellar'.
 
-Case 'A Study in Scarlet' observes Observation 'rache-writing'.
-Case 'A Study in Scarlet' observes Observation 'no-robbery'.
-Case 'A Study in Scarlet' observes Observation 'poison-death'.
+Case 'A Study in Scarlet' observes Observation 'RACHE was written on the wall'.
+Case 'A Study in Scarlet' observes Observation 'nothing was stolen'.
+Case 'A Study in Scarlet' observes Observation 'the victim was poisoned'.
 
-Case 'The Speckled Band' proposes Hypothesis 'h-gypsies'.
-Case 'The Speckled Band' proposes Hypothesis 'h-snake'.
-Case 'The Red-Headed League' proposes Hypothesis 'h-charity'.
-Case 'The Red-Headed League' proposes Hypothesis 'h-tunnel'.
-Case 'A Study in Scarlet' proposes Hypothesis 'h-riots'.
-Case 'A Study in Scarlet' proposes Hypothesis 'h-revenge'.
+Case 'The Speckled Band' proposes Hypothesis 'the gypsies killed her'.
+Case 'The Speckled Band' proposes Hypothesis 'a trained snake killed her'.
+Case 'The Red-Headed League' proposes Hypothesis 'the league was genuine charity'.
+Case 'The Red-Headed League' proposes Hypothesis 'the league was a pretext to tunnel into the bank vault'.
+Case 'A Study in Scarlet' proposes Hypothesis 'political rioters killed him'.
+Case 'A Study in Scarlet' proposes Hypothesis 'he was killed for revenge'.
 
-Hypothesis 'h-gypsies' contradicts Hypothesis 'h-snake'.
-Hypothesis 'h-snake' contradicts Hypothesis 'h-gypsies'.
-Hypothesis 'h-charity' contradicts Hypothesis 'h-tunnel'.
-Hypothesis 'h-tunnel' contradicts Hypothesis 'h-charity'.
-Hypothesis 'h-riots' contradicts Hypothesis 'h-revenge'.
-Hypothesis 'h-revenge' contradicts Hypothesis 'h-riots'.
+Hypothesis 'the gypsies killed her' contradicts Hypothesis 'a trained snake killed her'.
+Hypothesis 'a trained snake killed her' contradicts Hypothesis 'the gypsies killed her'.
+Hypothesis 'the league was genuine charity' contradicts Hypothesis 'the league was a pretext to tunnel into the bank vault'.
+Hypothesis 'the league was a pretext to tunnel into the bank vault' contradicts Hypothesis 'the league was genuine charity'.
+Hypothesis 'political rioters killed him' contradicts Hypothesis 'he was killed for revenge'.
+Hypothesis 'he was killed for revenge' contradicts Hypothesis 'political rioters killed him'.
 
-Hypothesis 'h-snake' explains Observation 'dying-words'.
-Hypothesis 'h-tunnel' explains Observation 'cellar-digging'.
-Hypothesis 'h-revenge' explains Observation 'rache-writing'.
+Hypothesis 'a trained snake killed her' explains Observation 'her dying words named the speckled band'.
+Hypothesis 'the league was a pretext to tunnel into the bank vault' explains Observation 'digging was heard from the cellar'.
+Hypothesis 'he was killed for revenge' explains Observation 'RACHE was written on the wall'.
 
-Evidence 'ventilator-passage' supports Hypothesis 'h-snake'.
-Evidence 'dummy-bell-rope' supports Hypothesis 'h-snake'.
-Evidence 'gypsy-presence' supports Hypothesis 'h-gypsies'.
-Evidence 'vault-adjacency' supports Hypothesis 'h-tunnel'.
-Evidence 'wage-oddity' supports Hypothesis 'h-tunnel'.
-Evidence 'charity-claim' supports Hypothesis 'h-charity'.
-Evidence 'rache-blood' supports Hypothesis 'h-revenge'.
-Evidence 'wedding-ring' supports Hypothesis 'h-revenge'.
-Evidence 'riot-rumor' supports Hypothesis 'h-riots'.
+Evidence 'the ventilator passage' supports Hypothesis 'a trained snake killed her'.
+Evidence 'the dummy bell rope' supports Hypothesis 'a trained snake killed her'.
+Evidence 'gypsies camped on the grounds' supports Hypothesis 'the gypsies killed her'.
+Evidence 'the shop adjoins the bank vault' supports Hypothesis 'the league was a pretext to tunnel into the bank vault'.
+Evidence 'the absurdly generous wage' supports Hypothesis 'the league was a pretext to tunnel into the bank vault'.
+Evidence 'the league advertisement' supports Hypothesis 'the league was genuine charity'.
+Evidence 'RACHE written in blood' supports Hypothesis 'he was killed for revenge'.
+Evidence 'the wedding ring at the scene' supports Hypothesis 'he was killed for revenge'.
+Evidence 'newspaper riot rumors' supports Hypothesis 'political rioters killed him'.
 
-Evidence 'ventilator-passage' comes from Evidence Source 'Holmes fieldwork'.
-Evidence 'dummy-bell-rope' comes from Evidence Source 'Holmes fieldwork'.
-Evidence 'gypsy-presence' comes from Evidence Source 'village hearsay'.
-Evidence 'vault-adjacency' comes from Evidence Source 'Holmes fieldwork'.
-Evidence 'wage-oddity' comes from Evidence Source 'client account'.
-Evidence 'charity-claim' comes from Evidence Source 'league advertisement'.
-Evidence 'rache-blood' comes from Evidence Source 'Holmes fieldwork'.
-Evidence 'wedding-ring' comes from Evidence Source 'Holmes fieldwork'.
-Evidence 'riot-rumor' comes from Evidence Source 'newspaper speculation'.
+Evidence 'the ventilator passage' comes from Evidence Source 'Holmes fieldwork'.
+Evidence 'the dummy bell rope' comes from Evidence Source 'Holmes fieldwork'.
+Evidence 'gypsies camped on the grounds' comes from Evidence Source 'village hearsay'.
+Evidence 'the shop adjoins the bank vault' comes from Evidence Source 'Holmes fieldwork'.
+Evidence 'the absurdly generous wage' comes from Evidence Source 'client account'.
+Evidence 'the league advertisement' comes from Evidence Source 'league advertisement'.
+Evidence 'RACHE written in blood' comes from Evidence Source 'Holmes fieldwork'.
+Evidence 'the wedding ring at the scene' comes from Evidence Source 'Holmes fieldwork'.
+Evidence 'newspaper riot rumors' comes from Evidence Source 'newspaper speculation'.
 
 Sleuth 'Sherlock Holmes' vouches for Evidence Source 'Holmes fieldwork'.
 
-Explanation 'resolution-sb' is for Case 'The Speckled Band'.
-Explanation 'resolution-rhl' is for Case 'The Red-Headed League'.
-Explanation 'resolution-sis' is for Case 'A Study in Scarlet'.
+Explanation 'the resolution of The Speckled Band' is for Case 'The Speckled Band'.
+Explanation 'the resolution of The Red-Headed League' is for Case 'The Red-Headed League'.
+Explanation 'the resolution of A Study in Scarlet' is for Case 'A Study in Scarlet'.
