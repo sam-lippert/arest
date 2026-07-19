@@ -3,35 +3,44 @@
 <!-- Port of the pre-reset sherlock app (Repos/apps/sherlock), rebuilt for
      genuine machine reasoning per the standing rulings: NO pre-solved
      cases — all three cases enter unsolved, and every conclusion must
-     come from the canon's own mechanisms. Each case carries exactly one
-     honest textual seed (the story's direct clue: the dying words name
-     the speckled band; the digging is heard from the cellar; RACHE is
-     written on the wall). The evidence chain is grounded and NORMA-native
-     (Observation affords Means; Hypothesis relies on Means; availability
-     and strong suspicion derive by two-leg joins), and the explains
-     relation is completed by INDUCTION: the Instance Facts bind the
-     predicate to the Func that derives it — `Derivation Rule 'induce'
-     produces Fact Type 'HypothesisExplainsObservation'` (Derivation Rule
-     is a subtype of Function, so the binding rides Function(.id); the
-     rule's Text IS the Func term). No marker syntax: the designation is
-     itself a fact, in canonical FORML. `Fact` is renamed `Observation`
-     (the metamodel-collision class); same-player m:n uses the
-     `Fact joins Fact` pattern (combination UC + irreflexive ring). -->
+     come from the canon's own mechanisms. The evidence chain is grounded
+     and NORMA-native (Observation affords Means; Hypothesis relies on
+     Means; availability and strong suspicion derive by two-leg joins),
+     and the explains relation is completed by INDUCTION: the Instance
+     Facts bind the predicate to the Func that derives it — `Derivation
+     Rule 'induce' produces Fact Type 'HypothesisExplainsObservation'`
+     (Derivation Rule is a subtype of Function, so the binding rides
+     Function(.id); the rule's Text IS the Func term). No marker syntax:
+     the designation is itself a fact, in canonical FORML.
+
+     v5 (the atomization ruling): evidence is no longer prose. Each
+     observation ATTESTS an elementary fact over real players — CSDP
+     applied to the case domains: persons, rooms, fixtures, phrases,
+     organizations, buildings, items — as fact types with populations
+     and uniqueness constraints. An Observation's reference is a short
+     natural name; its CONTENT is its attestation row. -->
 
 ## Entity Types
 
 Case(.Name) is an entity type.
-Observation(.Statement) is an entity type.
+Observation(.Name) is an entity type.
 Hypothesis(.Claim) is an entity type.
 Explanation(.Title) is an entity type.
 Means(.Description) is an entity type.
+Person(.Name) is an entity type.
+Room(.Name) is an entity type.
+Fixture(.Name) is an entity type.
+Phrase(.Wording) is an entity type.
+Organization(.Name) is an entity type.
+Building(.Name) is an entity type.
+Item(.Name) is an entity type.
 
 ## Value Types
 
-The data type of Statement is text.
 The data type of Claim is text.
 The data type of Title is text.
 The data type of Description is text.
+The data type of Wording is text.
 
 ## Fact Types
 
@@ -60,6 +69,47 @@ Explanation is for Case.
   Each Explanation is for exactly one Case.
 
 Explanation selects Hypothesis. *
+
+### Attestations (the atomic evidence)
+
+Observation attests unexplained death of Person.
+  Each Observation attests unexplained death of at most one Person.
+
+Observation attests inside-locked Room.
+  Each Observation attests inside-locked at most one Room.
+
+Observation attests dying Person spoke Phrase.
+  Each Observation, Person, Phrase combination occurs at most once in the population of Observation attests dying Person spoke Phrase.
+
+Observation attests Fixture connects Room to Room.
+  Each Observation, Fixture, Room, Room combination occurs at most once in the population of Observation attests Fixture connects Room to Room.
+
+Observation attests Fixture hangs over Fixture.
+  Each Observation, Fixture, Fixture combination occurs at most once in the population of Observation attests Fixture hangs over Fixture.
+
+Observation attests abrupt dissolution of Organization.
+  Each Observation attests abrupt dissolution of at most one Organization.
+
+Observation attests pointless work assigned by Organization.
+  Each Observation attests pointless work assigned by at most one Organization.
+
+Observation attests digging heard from Room.
+  Each Observation attests digging heard from at most one Room.
+
+Observation attests Building adjoins Building.
+  Each Observation, Building, Building combination occurs at most once in the population of Observation attests Building adjoins Building.
+
+Observation attests Phrase written on Fixture.
+  Each Observation, Phrase, Fixture combination occurs at most once in the population of Observation attests Phrase written on Fixture.
+
+Observation attests unrobbed Person.
+  Each Observation attests unrobbed at most one Person.
+
+Observation attests poisoned Person.
+  Each Observation attests poisoned at most one Person.
+
+Observation attests Item lay beside Person.
+  Each Observation, Item, Person combination occurs at most once in the population of Observation attests Item lay beside Person.
 
 ## Derivation Rules
 
@@ -104,17 +154,37 @@ Transition 'close-case' is triggered by Event Type 'Case is concluded'.
 Derivation Rule 'induce' has Text 'induce'.
 Derivation Rule 'induce' produces Fact Type 'HypothesisExplainsObservation'.
 
-Case 'The Speckled Band' observes Observation 'the cause of death is unknown'.
-Case 'The Speckled Band' observes Observation 'the room was locked from the inside'.
-Case 'The Speckled Band' observes Observation 'her dying words named the speckled band'.
+Case 'The Speckled Band' observes Observation 'the unexplained death'.
+Case 'The Speckled Band' observes Observation 'the locked room'.
+Case 'The Speckled Band' observes Observation 'the dying words'.
+Case 'The Speckled Band' observes Observation 'the ventilator passage'.
+Case 'The Speckled Band' observes Observation 'the bell rope'.
 
-Case 'The Red-Headed League' observes Observation 'the league dissolved without warning'.
-Case 'The Red-Headed League' observes Observation 'the copying work was pointless'.
-Case 'The Red-Headed League' observes Observation 'digging was heard from the cellar'.
+Case 'The Red-Headed League' observes Observation 'the abrupt dissolution'.
+Case 'The Red-Headed League' observes Observation 'the pointless work'.
+Case 'The Red-Headed League' observes Observation 'the cellar digging'.
+Case 'The Red-Headed League' observes Observation 'the adjoining vault'.
 
-Case 'A Study in Scarlet' observes Observation 'RACHE was written on the wall'.
-Case 'A Study in Scarlet' observes Observation 'nothing was stolen'.
-Case 'A Study in Scarlet' observes Observation 'the victim was poisoned'.
+Case 'A Study in Scarlet' observes Observation 'the wall writing'.
+Case 'A Study in Scarlet' observes Observation 'the untouched valuables'.
+Case 'A Study in Scarlet' observes Observation 'the poisoning'.
+Case 'A Study in Scarlet' observes Observation 'the wedding ring'.
+
+Observation 'the unexplained death' attests unexplained death of Person 'Julia Stoner'.
+Observation 'the locked room' attests inside-locked Room 'her bedroom'.
+Observation 'the dying words' attests dying Person 'Julia Stoner' spoke Phrase 'the speckled band'.
+Observation 'the ventilator passage' attests Fixture 'the ventilator' connects Room 'her bedroom' to Room 'the study'.
+Observation 'the bell rope' attests Fixture 'the bell rope' hangs over Fixture 'the bolted bed'.
+
+Observation 'the abrupt dissolution' attests abrupt dissolution of Organization 'the Red-Headed League'.
+Observation 'the pointless work' attests pointless work assigned by Organization 'the Red-Headed League'.
+Observation 'the cellar digging' attests digging heard from Room 'the cellar'.
+Observation 'the adjoining vault' attests Building 'the pawnshop' adjoins Building 'the bank vault'.
+
+Observation 'the wall writing' attests Phrase 'RACHE' written on Fixture 'the wall'.
+Observation 'the untouched valuables' attests unrobbed Person 'Enoch Drebber'.
+Observation 'the poisoning' attests poisoned Person 'Enoch Drebber'.
+Observation 'the wedding ring' attests Item 'a wedding ring' lay beside Person 'Enoch Drebber'.
 
 Case 'The Speckled Band' proposes Hypothesis 'the gypsies killed her'.
 Case 'The Speckled Band' proposes Hypothesis 'a trained snake killed her'.
@@ -130,21 +200,26 @@ Hypothesis 'the league was a pretext to tunnel into the bank vault' contradicts 
 Hypothesis 'political rioters killed him' contradicts Hypothesis 'he was killed for revenge'.
 Hypothesis 'he was killed for revenge' contradicts Hypothesis 'political rioters killed him'.
 
-Hypothesis 'a trained snake killed her' explains Observation 'her dying words named the speckled band'.
-Hypothesis 'the league was a pretext to tunnel into the bank vault' explains Observation 'digging was heard from the cellar'.
-Hypothesis 'he was killed for revenge' explains Observation 'RACHE was written on the wall'.
+Hypothesis 'a trained snake killed her' explains Observation 'the dying words'.
+Hypothesis 'the league was a pretext to tunnel into the bank vault' explains Observation 'the cellar digging'.
+Hypothesis 'he was killed for revenge' explains Observation 'the wall writing'.
 
-Case 'The Speckled Band' observes Observation 'a ventilator connects her room to the study'.
-Case 'The Speckled Band' observes Observation 'a bell rope hangs over the bolted bed'.
-Case 'The Red-Headed League' observes Observation 'the pawnshop adjoins the bank vault'.
-Case 'A Study in Scarlet' observes Observation 'a wedding ring lay by the body'.
-
-Observation 'a ventilator connects her room to the study' affords Means 'a hidden path to the sleeper'.
-Observation 'a bell rope hangs over the bolted bed' affords Means 'a hidden path to the sleeper'.
-Observation 'the pawnshop adjoins the bank vault' affords Means 'a tunnel into the vault'.
-Observation 'digging was heard from the cellar' affords Means 'a tunnel into the vault'.
-Observation 'RACHE was written on the wall' affords Means 'a motive of vengeance'.
-Observation 'a wedding ring lay by the body' affords Means 'a motive of vengeance'.
+<!-- OPEN RULING (2026-07-19, "Shouldn't most of these be induced from
+     premises?"): these six hand-authored affords rows are overfitting.
+     The intended v6: one seed row, ObservationAffordsMeans bound to the
+     induce Func, and an induce-closure fixpoint learning the covering
+     join (verified recipes: affords = joinon(explains, relies on);
+     explains = joinon(observes, strongly suspects)). Blocked on a real
+     engine defect: solve:closure assumes the declared rules form a DAG,
+     and the two learned rules close a cycle (explains -> affords ->
+     available -> suspects -> explains) that hangs it. See the ledger
+     entry of this date for the full expedition record. -->
+Observation 'the ventilator passage' affords Means 'a hidden path to the sleeper'.
+Observation 'the bell rope' affords Means 'a hidden path to the sleeper'.
+Observation 'the adjoining vault' affords Means 'a tunnel into the vault'.
+Observation 'the cellar digging' affords Means 'a tunnel into the vault'.
+Observation 'the wall writing' affords Means 'a motive of vengeance'.
+Observation 'the wedding ring' affords Means 'a motive of vengeance'.
 
 Hypothesis 'the gypsies killed her' relies on Means 'entry from outside'.
 Hypothesis 'a trained snake killed her' relies on Means 'a hidden path to the sleeper'.

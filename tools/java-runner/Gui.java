@@ -66,7 +66,10 @@ public class Gui {
 
     static void rebuild(Object[] placed) {
         canvas.removeAll();
-        for (Object row : placed) {
+        // later placed rows paint ABOVE earlier ones (canon's z contract);
+        // Swing paints lower child indices on top, so add in reverse
+        for (int i = placed.length - 1; i >= 0; i--) {
+            Object row = placed[i];
             Object[] r = (Object[]) row;
             Function<Object[], JComponent> f = REGISTRY.get((String) r[0]);
             if (f == null) throw new RuntimeException("unregistered control: " + r[0]);
