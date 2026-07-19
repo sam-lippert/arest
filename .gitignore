@@ -1,9 +1,3 @@
-tools/norma-oracle/oracle-report.txt
-tools/norma-oracle/verbalization-report.txt
-tools/norma-oracle/design-state
-tools/norma-oracle/norma-answer
-tools/norma-oracle/design-state.json
-tools/norma-oracle/norma-tables.json
 apps/*/design-state
 apps/*/norma-answer
 apps/*/oracle-report.txt
@@ -11,8 +5,3 @@ apps/*/verbalization-report.txt
 apps/*/verbalization-report.html
 apps/*/.combined/
 apps/*/checker-answer
-tools/js-runner/composed.g.js
-tools/js-runner/*.txt
-tools/js-runner/node_modules/
-tools/java-runner/Composed.g.java
-tools/java-runner/*.class
