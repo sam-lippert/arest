@@ -6,16 +6,17 @@
      come from the canon's own mechanisms. Each case carries exactly one
      honest textual seed (the story's direct clue: the dying words name
      the speckled band; the digging is heard from the cellar; RACHE is
-     written on the wall). The evidence gate is a chain of NORMA-native
-     two-leg derivations (credible from verified source; corroborated
-     from credible support; strongly-suspects from proposal and
-     corroboration), so the derived populations exist for induction to
-     consume: induce completes the explains relation (the abduced
-     conclusions are the MDL-minimal candidate's hidden facts), and the
-     selection derives from the completed evidence-gated picture. `Fact`
-     is renamed `Observation` (the metamodel-collision class); same-player
-     m:n uses the `Fact joins Fact` pattern (combination UC + irreflexive
-     ring). -->
+     written on the wall). The evidence chain is grounded and NORMA-native
+     (Observation affords Means; Hypothesis relies on Means; availability
+     and strong suspicion derive by two-leg joins), and the explains
+     relation is completed by INDUCTION: the Instance Facts bind the
+     predicate to the Func that derives it — `Derivation Rule 'induce'
+     produces Fact Type 'HypothesisExplainsObservation'` (Derivation Rule
+     is a subtype of Function, so the binding rides Function(.id); the
+     rule's Text IS the Func term). No marker syntax: the designation is
+     itself a fact, in canonical FORML. `Fact` is renamed `Observation`
+     (the metamodel-collision class); same-player m:n uses the
+     `Fact joins Fact` pattern (combination UC + irreflexive ring). -->
 
 ## Entity Types
 
@@ -99,6 +100,9 @@ Transition 'close-case' is to Status 'closed'.
 Transition 'close-case' is triggered by Event Type 'Case is concluded'.
 
 ## Instance Facts
+
+Derivation Rule 'induce' has Text 'induce'.
+Derivation Rule 'induce' produces Fact Type 'HypothesisExplainsObservation'.
 
 Case 'The Speckled Band' observes Observation 'the cause of death is unknown'.
 Case 'The Speckled Band' observes Observation 'the room was locked from the inside'.
