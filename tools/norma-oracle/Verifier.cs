@@ -34,6 +34,24 @@ namespace Elysium.NormaOracle
 		private readonly List<FactIndexEntry> myFactIndex = new List<FactIndexEntry>();
 		private readonly HashSet<FactType> myFullyDerived = new HashSet<FactType>();
 		private readonly HashSet<FactType> mySemiDerived = new HashSet<FactType>();
+		private readonly Dictionary<string, string> myMarkerBySentence = new Dictionary<string, string>(StringComparer.Ordinal);
+
+		// derivation markers register per RAW line (declaration text -> mark),
+		// decoupled from the sentence stream: a trailing ". *" before a
+		// stripped header or a rule block was position-fragile in the orphan
+		// path (markers vanished or misattributed by adjacency)
+		public void RegisterMarkers(string markdown)
+		{
+			string noComments = Regex.Replace(markdown, "<!--.*?-->", " ", RegexOptions.Singleline);
+			foreach (string rawLine in noComments.Split('\n'))
+			{
+				string line = rawLine.TrimEnd('\r').Trim();
+				Match m = Regex.Match(line, @"^(.+?\.)\s*(\*\*|\*|\+)\s*$");
+				if (!m.Success) continue;
+				string sent = m.Groups[1].Value.TrimEnd('.').Trim();
+				myMarkerBySentence[NormalizeWords(sent)] = m.Groups[2].Value;
+			}
+		}
 		private readonly HashSet<FactType> myStoredDerived = new HashSet<FactType>();
 		private readonly HashSet<string> mySubtypeDerived = new HashSet<string>(StringComparer.Ordinal);
 		public HashSet<string> FullyDerivedNames()
@@ -449,7 +467,7 @@ namespace Elysium.NormaOracle
 			// marks the fact just mapped as FULLY DERIVED — Codd 1970 1.5:
 			// a stored derivable relation is strong redundancy, so fully
 			// derived fact types leave the stored schema (both emitters).
-			Match mkDerived = System.Text.RegularExpressions.Regex.Match(s, @"^([*+]+)\s+");
+			Match mkDerived = System.Text.RegularExpressions.Regex.Match(s, @"^([*+?]+)\s+");
 			if (mkDerived.Success)
 			{
 				s = s.Substring(mkDerived.Length);
@@ -1033,6 +1051,14 @@ namespace Elysium.NormaOracle
 				ReadingText = text,
 				FullKey = NormalizeWords(full),
 			});
+			// classify by the line-registered derivation marker (position-free)
+			string mark;
+			if (myMarkerBySentence.TryGetValue(NormalizeWords(full), out mark))
+			{
+				if (mark == "*") myFullyDerived.Add(fact);
+				else if (mark == "**") myStoredDerived.Add(fact);
+				else if (mark == "+") mySemiDerived.Add(fact);
+			}
 			Count("fact-type reading (arity " + players.Count + ")");
 			return true;
 		}

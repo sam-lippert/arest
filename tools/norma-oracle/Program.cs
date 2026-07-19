@@ -197,6 +197,10 @@ namespace Elysium.NormaOracle
 			}
 
 			Verifier verifier = new Verifier(store, model);
+			foreach (string f in files)
+			{
+				verifier.RegisterMarkers(System.IO.File.ReadAllText(f));
+			}
 			using (Transaction t = store.TransactionManager.BeginTransaction("declarations"))
 			{
 				foreach (string f in files)
