@@ -1,67 +1,38 @@
-# js-runner — the composed checker, JavaScript parity station
+# js-runner — the one thin runner
 
-A second, independent μ beside `tools/cs-runner`. Same doctrine: the laws are
-canon DEFs (the `law:` family in `arest`), never host code; the canon and the
-carriers enter AS SOURCE — the one tuple literal reads as a `CANON(...)` call
-(the rest-parameter wrap, JS's version of the "one extra name" join) — and
-bun just EXECs the composed file (per Samuel's ruling; node runs it
-identically — the μ is engine-independent, and bun being JavaScriptCore
-rather than V8 makes JS-side agreement itself a two-engine property).
-Nothing is read, eval'd, or interpreted at runtime.
+Seven stations died of the same disease at different speeds: host code.
+First it was fallback lists and guards; at the end it was mode dispatch —
+every canon operation teaching eight hosts a new argv branch. The cure is
+structural. This runner is the whole fleet now, and it can never grow.
 
-    npm run build && npm start          # base: law:report (22 laws), exit 0 iff all T
-    npm run build:order && npm start app # an app's carriers: law:app_report (10 laws)
+**The host contract, final:** the canon's `main` takes `⟨store, args⟩`
+and answers `⟨text, ok⟩`. The tail converts argv to atoms, evaluates
+`main`, prints the text atom verbatim, and exits by the flag:
 
-The compose step is `copy /b` (Windows byte concatenation, the linker's job
-and nothing more): `head.part.js ; arest ; design-state ; mid ; norma-answer ;
-tail.part.js`. `cat` of the same files is byte-identical and is what the parity
-runs use. `composed.g.js` is generated and untracked.
+    const out = Ev("main", [CELLS, process.argv.slice(2)]);
+    console.log(out[0]);
+    process.exit(out[1] === "T" ? 0 : 1);
 
-## Why a JS μ exists again
+That is the entire host surface. All dispatch (base report, app report,
+solve, loud refusal of unknown modes) and ALL rendering (every output
+line) live in canon `main:`. A new operation is a canon edit, never a
+host edit. If you are about to add a branch to the tail, stop — that is
+precisely how the last runners died.
 
-Two JS runners died before this one, both of accretion — fallback name lists,
-guards, app-mode logic, comparison logic leaking in beside the canon. This is
-not that. It is a **parity oracle**: its sole job is to agree-or-disagree with
-the C# station. `head.part.js` is the *only* file with logic, and it mirrors
-`cs-runner/{Vocabulary,Mu}.cs` point for point — the registration vocabulary
-(`DEF` throws on a duplicate name by collection semantics, `law:one_name` is
-the law; plus `A/N/K/PHI/S1..S9` and `CANON`), the μ (atoms through DEFS then
-the primitives, numbers as selectors, the seven forms), the Backus 11.2.3
-primitives with the registered boundary rows of `resolution.md`, and a tail
-that applies the report and prints. If you ever add a guard or a name list to
-this file, delete it — that is precisely how the last two died.
+    npm run build           && bun composed.g.js          # base: 24 laws
+    npm run build:order     && bun composed.g.js app      # an app's 10 laws
+    npm run build:sherlock  && bun composed.g.js solve    # the solve narrative
 
-## Strictness is the point
+`head.part.js` is the strict μ, unchanged from the certified fleet era
+(selector-on-atom throws, duplicate DEF throws, compare-across-kinds
+throws, Backus ⊥ on `tl`/`tlr`/`1r`/`INSERT` of the empty sequence).
+The compose step is byte concatenation; bun execs the composed file;
+nothing is read, eval'd, or interpreted at runtime.
 
-The predecessors were **lenient**, and leniency is what let a selector index a
-string to the character `"F"` and let `ins_asc` "sort" stringified arrays —
-defects the strict C# μ later exposed. This μ is strict in exactly the same
-places, so agreement between the two is meaningful and a re-introduced bug
-flips both identically:
-
-| pathology | lenient js (dead) | this μ / cs-runner |
-|---|---|---|
-| selector on an atom | returns a character | **throws** |
-| selector out of range | `undefined` | **throws** |
-| compare across atom kinds (number vs string, array) | coerces / stringifies | **throws** |
-| duplicate DEF | silent overwrite | **throws** |
-| unresolved atom | `undefined` | **throws** |
-| `tl`/`tlr`/`1r`/`INSERT` on `[]`, `implode` on a non-string | `[]` / coerced string | **throws** (Backus 11.2.3: ⊥) |
-
-## The parity it proves
-
-- **base + apps**: `diff` of the two stations' verdict output is empty (line
-  endings aside — C# emits CRLF, node LF) across all 22 base laws and 10 app
-  laws on each app.
-- **discriminating power** (not just happy path): under a canon mutation
-  (`induce:reset_pair` made identity) both μ flip the *same* laws
-  (`induce-exactness`, `induce-facts-emitted`) to F, byte-identically; the
-  canon restores sha256-identical.
-- **↔ NORMA**: the carriers are NORMA's own RMAP answer, so `schema-match`
-  (canon-RMAP ≡ `norma-answer`) holding under *both* μ is two independent
-  evaluators agreeing the canon reproduces the reference ORM implementation's
-  relational mapping — over a model NORMA validates at 0 errors, nf zero
-  divergence.
-
-A host is composed on demand and its verdict is only as trustworthy as a
-second μ that agrees with it. That second μ is this one.
+The certification story after the reset: the NORMA oracle remains the
+independent semantic anchor, and any second μ — a redeployed station
+from git history, or muc regenerated against this same contract — must
+reproduce this runner's printed atoms byte-for-byte. The deleted fleet
+lives in git (`87ad3e7` and earlier) should a dispute ever need a
+second opinion; its evidentiary work (eight evaluators, byte-identical
+across five languages) is banked in the ledger.

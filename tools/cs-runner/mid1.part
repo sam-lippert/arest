@@ -1,6 +1,0 @@
-
-        ;
-    }
-    public static void LoadCarriers()
-    {
-        DS = CANON
