@@ -3201,6 +3201,32 @@ namespace Elysium.NormaOracle
 			// ring constraints per fact type (name, ring type): the alethic
 			// gate surface abduction filters hidden facts against
 			sb.Append("DEF(\"state:rings\", ").Append(myRingRows.Count == 0 ? "S1(PHI())" : IChunked(myRingRows)).Append("),\n\n");
+			// the verbalization surface: every fact type's reading as
+			// (name, players, template-words) — slots "{i}" interleave with
+			// players so a row renders as its own FORML instance sentence
+			// (synthesize is read's inverse; the output re-ingests)
+			var readingRows = new List<string>();
+			foreach (FactIndexEntry entry in myFactIndex)
+			{
+				if (entry.Fact.IsDeleted) continue;
+				var ps = new List<string>();
+				foreach (string p in entry.Players) ps.Add(IAtom(p));
+				var ws = new List<string>();
+				foreach (string w in entry.ReadingText.Split(' '))
+					if (w.Length > 0) ws.Add(IAtom(w));
+				// template words chunk uniformly (groups of <=9, single group
+				// included); the canon flattens exactly one level
+				var groups = new List<string>();
+				for (int g = 0; g < ws.Count; g += 9)
+				{
+					int n = Math.Min(9, ws.Count - g);
+					groups.Add("S" + n + "(" + string.Join(", ", ws.GetRange(g, n)) + ")");
+				}
+				readingRows.Add("S3(" + IAtom(entry.Fact.Name) + ", S" + ps.Count + "("
+					+ string.Join(", ", ps) + "), " + (groups.Count == 0 ? "S1(PHI())" :
+					"S" + groups.Count + "(" + string.Join(", ", groups) + ")") + ")");
+			}
+			sb.Append("DEF(\"state:readings\", ").Append(IChunked(readingRows)).Append("),\n\n");
 			// the exclusion surface: one entry per ExclusionConstraint, each a
 			// list of scopes (population name, 1-based positions). A scope over
 			// a SubtypeFact's supertype meta role resolves to the SUBTYPE
