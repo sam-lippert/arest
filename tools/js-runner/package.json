@@ -2,12 +2,12 @@
   "name": "elysium-js-runner",
   "private": true,
   "version": "0.0.0",
-  "description": "JavaScript parity station: a strict mu over the composed canon + carriers, byte-concatenated (copy /b) and exec'd, never eval'd.",
+  "description": "The one thin runner: a strict mu plus the fixed host contract (argv atoms in, one text atom out). Composed by byte concatenation, exec'd by bun, never eval'd.",
   "scripts": {
     "build": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\norma-oracle\\design-state + mid2.part.js + ..\\norma-oracle\\norma-answer + tail.part.js composed.g.js >nul",
     "build:order": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\apps\\order\\design-state + mid2.part.js + ..\\..\\apps\\order\\norma-answer + tail.part.js composed.g.js >nul",
     "build:family": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\apps\\family\\design-state + mid2.part.js + ..\\..\\apps\\family\\norma-answer + tail.part.js composed.g.js >nul",
-    "start": "bun composed.g.js",
-    "start:app": "bun composed.g.js app"
+    "build:sherlock": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\apps\\sherlock\\design-state + mid2.part.js + ..\\..\\apps\\sherlock\\norma-answer + tail.part.js composed.g.js >nul",
+    "start": "bun composed.g.js"
   }
 }
