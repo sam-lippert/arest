@@ -1,10 +1,13 @@
-import java.awt.Component;
+import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Font;
+import java.awt.Rectangle;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
@@ -14,34 +17,33 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 
-// The GUI CONTAINER. The abstract UI is laid out in canon (ui:screen
-// answers the whole control tree for an address; ui:controls declares the
-// vocabulary); this platform registers CONCRETE OVERRIDES of the abstract
-// controls ONLY — no layout, no composition, no meaning lives here. A
-// container override realizes "my children in tree order"; a leaf override
-// realizes its payload; a link fires its canon-emitted target address —
-// hypermedia as the engine of application state (Thm 2). The host holds
-// exactly one piece of platform state: the current address.
+// The GUI CONTAINER, the placer. The defaults and the layout algorithms
+// live in canon (ui:style is the Style slots as data; ui:arrange is
+// PerformLayout as canon): this host asks for the PLACED LIST — every
+// concrete control with the rectangle it is TOLD (SetLocation) — reads
+// its colors and font sizes from ui:style, navigates by the addresses on
+// backbtn and itemrow rows, and decides nothing. One piece of platform
+// state: the current address. An unregistered control name throws.
 public class Gui {
     static final Map<String, Function<Object[], JComponent>> REGISTRY =
         new HashMap<String, Function<Object[], JComponent>>();
 
     static Object[] store;
     static volatile Object address = new Object[0]; // the one piece of platform state
-    static final JPanel root = new JPanel(new java.awt.BorderLayout()); // mounts the one walked screen
+    static final JPanel canvas = new JPanel(null);   // absolute: canon owns geometry
+    static final JScrollPane scroller = new JScrollPane(canvas);
+    static final Map<String, String> STYLE = new HashMap<String, String>();
 
-    // toolkit realization of an atom payload; a sequence here is a canon
-    // bug and stays a loud failure
+    static String sv(String prop) { return STYLE.get(prop); }
+    static Color color(String prop) { return Color.decode(sv(prop)); }
+    static int num(String prop) { return Integer.parseInt(sv(prop)); }
+    static Font font(String sizeProp, int style) {
+        return new Font("Segoe UI", style, num(sizeProp));
+    }
+
     static String text(Object atom) {
         if (atom instanceof Object[]) throw new RuntimeException("control payload is a sequence");
         return String.valueOf(atom);
-    }
-
-    static JComponent walk(Object node) {
-        Object[] n = (Object[]) node;
-        Function<Object[], JComponent> f = REGISTRY.get((String) n[0]);
-        if (f == null) throw new RuntimeException("unregistered control: " + n[0]);
-        return f.apply(n);
     }
 
     static void register(String control, Function<Object[], JComponent> impl) {
@@ -52,65 +54,119 @@ public class Gui {
         address = addr;
         new Thread(() -> {
             Object tree = Arest.Ev("ui:screen", new Object[] { store, address });
-            SwingUtilities.invokeLater(() -> rebuild(tree));
+            Object placed = Arest.Ev("ui:arrange", new Object[] { tree, canvasWidth() });
+            SwingUtilities.invokeLater(() -> rebuild((Object[]) placed));
         }).start();
     }
 
-    static void rebuild(Object tree) {
-        root.removeAll();
-        root.add(walk(tree));
-        root.revalidate();
-        root.repaint();
+    static Integer canvasWidth() {
+        int w = scroller.getViewport().getWidth();
+        return Integer.valueOf(w > 0 ? w : 960);
     }
 
-    static JPanel vertical(Object[] n) {
-        JPanel p = new JPanel();
-        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        for (int i = 1; i < n.length; i++) {
-            JComponent c = walk(n[i]);
-            c.setAlignmentX(Component.LEFT_ALIGNMENT);
-            p.add(c);
+    static void rebuild(Object[] placed) {
+        canvas.removeAll();
+        for (Object row : placed) {
+            Object[] r = (Object[]) row;
+            Function<Object[], JComponent> f = REGISTRY.get((String) r[0]);
+            if (f == null) throw new RuntimeException("unregistered control: " + r[0]);
+            JComponent c = f.apply(r);
+            if (c != null) {
+                c.setBounds(num2(r[1]), num2(r[2]), num2(r[3]), num2(r[4]));
+                canvas.add(c);
+            }
         }
-        return p;
+        canvas.revalidate();
+        canvas.repaint();
     }
+
+    static int num2(Object n) { return ((Integer) n).intValue(); }
 
     static void registerComponents() {
-        register("screen", n -> {
-            JScrollPane s = new JScrollPane(vertical(n));
-            s.getVerticalScrollBar().setUnitIncrement(14);
-            return s;
+        register("canvas", r -> {
+            canvas.setBackground(color("layerBg"));
+            canvas.setPreferredSize(new java.awt.Dimension(num2(r[3]), num2(r[4])));
+            return null;
         });
-        register("list", Gui::vertical);
-        register("row", n -> {
-            JPanel p = new JPanel();
-            p.setLayout(new BoxLayout(p, BoxLayout.X_AXIS));
-            for (int i = 1; i < n.length; i++) {
-                p.add(walk(n[i]));
-                p.add(Box.createHorizontalStrut(8));
-            }
-            p.add(Box.createHorizontalGlue());
+        register("headerbar", r -> {
+            JPanel p = new JPanel(null);
+            p.setBackground(color("headerColor"));
+            p.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, color("headerSepColor")));
             return p;
         });
-        register("title", n -> {
-            JLabel l = new JLabel(text(n[1]));
-            l.setFont(l.getFont().deriveFont(Font.BOLD, 17f));
+        register("titletext", r -> {
+            JLabel l = new JLabel(text(r[5]));
+            l.setFont(font("titleSize", Font.BOLD));
+            l.setForeground(color("titleColor"));
             return l;
         });
-        register("field", n -> {
-            JLabel l = new JLabel(text(n[1]));
-            l.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
-            return l;
-        });
-        register("link", n -> {
-            JButton b = new JButton(text(n[1]));
-            b.addActionListener(e -> navigate(n[2]));
+        register("backbtn", r -> {
+            JButton b = new JButton("‹ back");
+            b.setFont(font("textSize", Font.PLAIN));
+            b.setForeground(color("linkColor"));
+            b.setBorderPainted(false);
+            b.setContentAreaFilled(false);
+            b.setFocusPainted(false);
+            b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            b.setHorizontalAlignment(JLabel.LEFT);
+            b.addActionListener(e -> navigate(r[5]));
             return b;
         });
-        register("text", n -> {
-            JTextArea t = new JTextArea(text(n[1]));
+        register("sectionheader", r -> {
+            JLabel l = new JLabel(text(r[5]).toUpperCase(java.util.Locale.ROOT));
+            l.setFont(font("sectionSize", Font.PLAIN));
+            l.setForeground(color("sectionTextColor"));
+            l.setVerticalAlignment(JLabel.BOTTOM);
+            return l;
+        });
+        register("sep", r -> {
+            JPanel p = new JPanel();
+            p.setBackground(color("sepColor"));
+            return p;
+        });
+        register("itemrow", r -> {
+            boolean linked = !(r[7] instanceof Object[] && ((Object[]) r[7]).length == 0);
+            boolean sub = !(r[6] instanceof Object[] && ((Object[]) r[6]).length == 0);
+            JPanel p = new JPanel(null);
+            p.setBackground(color("itemBg"));
+            int h = num2(r[4]);
+            int w = num2(r[3]);
+            JLabel t = new JLabel(text(r[5]));
+            t.setFont(font("textSize", Font.PLAIN));
+            t.setForeground(linked ? color("linkColor") : color("textColor"));
+            t.setBounds(12, sub ? 6 : 0, w - 40, sub ? 22 : h);
+            p.add(t);
+            if (sub) {
+                JLabel s = new JLabel(text(r[6]));
+                s.setFont(font("subtextSize", Font.PLAIN));
+                s.setForeground(color("subtextColor"));
+                s.setBounds(12, 30, w - 40, 18);
+                p.add(s);
+            }
+            if (linked) {
+                JLabel ch = new JLabel("›");
+                ch.setFont(font("titleSize", Font.PLAIN));
+                ch.setForeground(color("chevronColor"));
+                ch.setBounds(w - 26, 0, 18, h);
+                p.add(ch);
+                p.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                Object addr = r[7];
+                p.addMouseListener(new MouseAdapter() {
+                    public void mouseClicked(MouseEvent e) { navigate(addr); }
+                    public void mouseEntered(MouseEvent e) { p.setBackground(color("selectionColor")); }
+                    public void mouseExited(MouseEvent e) { p.setBackground(color("itemBg")); }
+                });
+            }
+            return p;
+        });
+        register("blocktext", r -> {
+            JTextArea t = new JTextArea(text(r[5]));
             t.setEditable(false);
-            t.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
-            return t;
+            t.setFont(new Font(Font.MONOSPACED, Font.PLAIN, num("blockSize")));
+            t.setBackground(color("itemBg"));
+            t.setForeground(color("textColor"));
+            t.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
+            return new JScrollPane(t);
         });
     }
 
@@ -118,16 +174,27 @@ public class Gui {
         Composed.load();
         Composed.loadCarriers();
         store = Arest.CELLS.toArray();
+        Object[] style = (Object[]) Arest.Ev(
+            new Object[] { "COMP", "theta:flatten", "ui:style" }, new Object[0]);
+        for (Object row : style) {
+            Object[] pv = (Object[]) row;
+            STYLE.put((String) pv[0], String.valueOf(pv[1]));
+        }
         registerComponents();
 
         SwingUtilities.invokeLater(() -> {
-            rebuild(Arest.Ev("ui:screen", new Object[] { store, address }));
             JFrame frame = new JFrame("arest");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setContentPane(root);
-            frame.setSize(980, 640);
+            scroller.setBorder(null);
+            scroller.getVerticalScrollBar().setUnitIncrement(16);
+            frame.setContentPane(scroller);
+            frame.setSize(980, 680);
             frame.setLocationByPlatform(true);
             frame.setVisible(true);
+            navigate(address);
+            frame.addComponentListener(new java.awt.event.ComponentAdapter() {
+                public void componentResized(java.awt.event.ComponentEvent e) { navigate(address); }
+            });
         });
     }
 }
