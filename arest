@@ -8409,6 +8409,9 @@ DEF("ui:route",
 DEF("ui:iteminner",
     S4(A("CONS"), S5(A("CONS"), S3(A("COMP"), A("ui:sv"), K(A("pad"))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(3), K(A("T")))), S3(A("COMP"), A("ui:sv"), K(A("textTopSub"))), K(N(0))), S3(A("COMP"), A("-"), S3(A("CONS"), N(1), S3(A("COMP"), A("ui:sv"), K(A("itemReserve"))))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(3), K(A("T")))), S3(A("COMP"), A("ui:sv"), K(A("textHSub"))), N(2))), S5(A("CONS"), S3(A("COMP"), A("ui:sv"), K(A("pad"))), S3(A("COMP"), A("ui:sv"), K(A("subTop"))), S3(A("COMP"), A("-"), S3(A("CONS"), N(1), S3(A("COMP"), A("ui:sv"), K(A("itemReserve"))))), S3(A("COMP"), A("ui:sv"), K(A("subH")))), S5(A("CONS"), S3(A("COMP"), A("-"), S3(A("CONS"), N(1), S3(A("COMP"), A("ui:sv"), K(A("chevReserve"))))), K(N(0)), S3(A("COMP"), A("ui:sv"), K(A("chevW"))), N(2)))),
 
+DEF("ui:renderers",
+    K(S8(A("render:canvas"), A("render:headerbar"), A("render:titletext"), A("render:backbtn"), A("render:sectionheader"), A("render:sep"), A("render:itemrow"), A("render:blocktext")))),
+
 DEF("ui:screen",
     S4(A("COND"), S3(A("COMP"), A("null"), N(2)), A("ui:root"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), K(A("report")))), A("ui:report"), S3(A("COMP"), A("ui:route"), S5(A("CONS"), N(1), N(2), N(3), S3(A("COMP"), A("nav:match"), S3(A("CONS"), S4(A("COMP"), A("nav:map"), A("law:schema0"), N(1)), N(2)))))))),
 
