@@ -23,15 +23,14 @@ Case(.Name) is an entity type.
 Observation(.Statement) is an entity type.
 Hypothesis(.Claim) is an entity type.
 Explanation(.Title) is an entity type.
-Evidence(.Item) is an entity type.
-Evidence Source(.Name) is an entity type.
+Means(.Description) is an entity type.
 
 ## Value Types
 
 The data type of Statement is text.
 The data type of Claim is text.
 The data type of Title is text.
-The data type of Item is text.
+The data type of Description is text.
 
 ## Fact Types
 
@@ -47,18 +46,12 @@ Hypothesis contradicts Hypothesis.
   Each Hypothesis, Hypothesis combination occurs at most once in the population of Hypothesis contradicts Hypothesis.
 No Hypothesis contradicts itself.
 
-Evidence supports Hypothesis.
+Observation affords Means.
 
-Evidence comes from Evidence Source.
-  Each Evidence comes from exactly one Evidence Source.
+Hypothesis relies on Means.
+  Each Hypothesis relies on at most one Means.
 
-Sleuth(.Name) is an entity type.
-
-Sleuth vouches for Evidence Source.
-
-Evidence is vetted by Sleuth. *
-
-Hypothesis is corroborated by Sleuth. *
+Means is available in Case. *
 
 Case strongly suspects Hypothesis. *
 
@@ -69,11 +62,9 @@ Explanation selects Hypothesis. *
 
 ## Derivation Rules
 
-* Evidence is vetted by Sleuth iff Evidence comes from some Evidence Source and that Sleuth vouches for that Evidence Source.
+* Means is available in Case iff some Observation affords Means and some Case observes that Observation.
 
-* Hypothesis is corroborated by Sleuth iff some Evidence supports Hypothesis and that Evidence is vetted by that Sleuth.
-
-* Case strongly suspects Hypothesis iff Case proposes Hypothesis and that Hypothesis is corroborated by some Sleuth.
+* Case strongly suspects Hypothesis iff Hypothesis relies on some Means and that Means is available in that Case.
 
 * Explanation selects Hypothesis iff Explanation is for some Case and that Case strongly suspects that Hypothesis.
 
@@ -139,27 +130,24 @@ Hypothesis 'a trained snake killed her' explains Observation 'her dying words na
 Hypothesis 'the league was a pretext to tunnel into the bank vault' explains Observation 'digging was heard from the cellar'.
 Hypothesis 'he was killed for revenge' explains Observation 'RACHE was written on the wall'.
 
-Evidence 'the ventilator passage' supports Hypothesis 'a trained snake killed her'.
-Evidence 'the dummy bell rope' supports Hypothesis 'a trained snake killed her'.
-Evidence 'gypsies camped on the grounds' supports Hypothesis 'the gypsies killed her'.
-Evidence 'the shop adjoins the bank vault' supports Hypothesis 'the league was a pretext to tunnel into the bank vault'.
-Evidence 'the absurdly generous wage' supports Hypothesis 'the league was a pretext to tunnel into the bank vault'.
-Evidence 'the league advertisement' supports Hypothesis 'the league was genuine charity'.
-Evidence 'RACHE written in blood' supports Hypothesis 'he was killed for revenge'.
-Evidence 'the wedding ring at the scene' supports Hypothesis 'he was killed for revenge'.
-Evidence 'newspaper riot rumors' supports Hypothesis 'political rioters killed him'.
+Case 'The Speckled Band' observes Observation 'a ventilator connects her room to the study'.
+Case 'The Speckled Band' observes Observation 'a bell rope hangs over the bolted bed'.
+Case 'The Red-Headed League' observes Observation 'the pawnshop adjoins the bank vault'.
+Case 'A Study in Scarlet' observes Observation 'a wedding ring lay by the body'.
 
-Evidence 'the ventilator passage' comes from Evidence Source 'Holmes fieldwork'.
-Evidence 'the dummy bell rope' comes from Evidence Source 'Holmes fieldwork'.
-Evidence 'gypsies camped on the grounds' comes from Evidence Source 'village hearsay'.
-Evidence 'the shop adjoins the bank vault' comes from Evidence Source 'Holmes fieldwork'.
-Evidence 'the absurdly generous wage' comes from Evidence Source 'client account'.
-Evidence 'the league advertisement' comes from Evidence Source 'league advertisement'.
-Evidence 'RACHE written in blood' comes from Evidence Source 'Holmes fieldwork'.
-Evidence 'the wedding ring at the scene' comes from Evidence Source 'Holmes fieldwork'.
-Evidence 'newspaper riot rumors' comes from Evidence Source 'newspaper speculation'.
+Observation 'a ventilator connects her room to the study' affords Means 'a hidden path to the sleeper'.
+Observation 'a bell rope hangs over the bolted bed' affords Means 'a hidden path to the sleeper'.
+Observation 'the pawnshop adjoins the bank vault' affords Means 'a tunnel into the vault'.
+Observation 'digging was heard from the cellar' affords Means 'a tunnel into the vault'.
+Observation 'RACHE was written on the wall' affords Means 'a motive of vengeance'.
+Observation 'a wedding ring lay by the body' affords Means 'a motive of vengeance'.
 
-Sleuth 'Sherlock Holmes' vouches for Evidence Source 'Holmes fieldwork'.
+Hypothesis 'the gypsies killed her' relies on Means 'entry from outside'.
+Hypothesis 'a trained snake killed her' relies on Means 'a hidden path to the sleeper'.
+Hypothesis 'the league was genuine charity' relies on Means 'genuine philanthropy'.
+Hypothesis 'the league was a pretext to tunnel into the bank vault' relies on Means 'a tunnel into the vault'.
+Hypothesis 'political rioters killed him' relies on Means 'random street violence'.
+Hypothesis 'he was killed for revenge' relies on Means 'a motive of vengeance'.
 
 Explanation 'the resolution of The Speckled Band' is for Case 'The Speckled Band'.
 Explanation 'the resolution of The Red-Headed League' is for Case 'The Red-Headed League'.
