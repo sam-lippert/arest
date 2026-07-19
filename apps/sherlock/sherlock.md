@@ -233,3 +233,5 @@ Hypothesis 'he was killed for revenge' relies on Means 'a motive of vengeance'.
 Explanation 'the resolution of The Speckled Band' is for Case 'The Speckled Band'.
 Explanation 'the resolution of The Red-Headed League' is for Case 'The Red-Headed League'.
 Explanation 'the resolution of A Study in Scarlet' is for Case 'A Study in Scarlet'.
+
+Domain 'sherlock' has Description 'Abductive case investigation: observations afford means, hypotheses rely on them, explanations select the strongly suspected.'.
