@@ -112,8 +112,10 @@ public class Arest {
             if (s.isEmpty()) return new Object[0];
             return (Object[]) s.split("\\s+"); });
         PRIMS.put("implode", x -> { Object[] p = seq(x); String sep = (String) p[0]; Object[] parts = seq(p[1]);
+            // atoms stringify (numbers included) — js Array.join semantics;
+            // a (String) cast here would diverge from the certified js head
             StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < parts.length; i++) { if (i > 0) sb.append(sep); sb.append((String) parts[i]); }
+            for (int i = 0; i < parts.length; i++) { if (i > 0) sb.append(sep); sb.append(String.valueOf(parts[i])); }
             return sb.toString(); });
         PRIMS.put("slug", x -> { String s = ((String) x).toLowerCase(java.util.Locale.ROOT);
             StringBuilder sb = new StringBuilder();
