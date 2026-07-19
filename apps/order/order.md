@@ -76,3 +76,5 @@ Sale 'o2' has Total '5.00'.
 Sale 'o1' contains Item 'widget' in Quantity '2'.
 Sale 'o1' contains Item 'gadget' in Quantity '1'.
 Sale 'o2' contains Item 'widget' in Quantity '7'.
+
+Domain 'order' has Description 'A sale workflow: draft to placed to paid to shipped, with cancellation.'.

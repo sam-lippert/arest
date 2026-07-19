@@ -24,3 +24,5 @@ Person 'alice' is parent of Person 'bob'.
 Person 'bob' is parent of Person 'carol'.
 Person 'bob' is parent of Person 'dave'.
 Person 'carol' is parent of Person 'erin'.
+
+Domain 'family' has Description 'The datalog classic: parenthood with derived grandparenthood.'.
