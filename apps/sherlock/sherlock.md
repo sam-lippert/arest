@@ -151,8 +151,10 @@ Transition 'close-case' is triggered by Event Type 'Case is concluded'.
 
 ## Instance Facts
 
-Derivation Rule 'induce' has Text 'induce'.
-Derivation Rule 'induce' produces Fact Type 'HypothesisExplainsObservation'.
+Derivation Rule 'induce explains' has Text 'induce'.
+Derivation Rule 'induce explains' produces Fact Type 'HypothesisExplainsObservation'.
+Derivation Rule 'induce affords' has Text 'induce'.
+Derivation Rule 'induce affords' produces Fact Type 'ObservationAffordsMeans'.
 
 Case 'The Speckled Band' observes Observation 'the unexplained death'.
 Case 'The Speckled Band' observes Observation 'the locked room'.
@@ -204,22 +206,22 @@ Hypothesis 'a trained snake killed her' explains Observation 'the dying words'.
 Hypothesis 'the league was a pretext to tunnel into the bank vault' explains Observation 'the cellar digging'.
 Hypothesis 'he was killed for revenge' explains Observation 'the wall writing'.
 
-<!-- OPEN RULING (2026-07-19, "Shouldn't most of these be induced from
-     premises?"): these six hand-authored affords rows are overfitting.
-     The intended v6: one seed row, ObservationAffordsMeans bound to the
-     induce Func, and an induce-closure fixpoint learning the covering
-     join (verified recipes: affords = joinon(explains, relies on);
-     explains = joinon(observes, strongly suspects)). Blocked on a real
-     engine defect: solve:closure assumes the declared rules form a DAG,
-     and the two learned rules close a cycle (explains -> affords ->
-     available -> suspects -> explains) that hangs it. See the ledger
-     entry of this date for the full expedition record. -->
-Observation 'the ventilator passage' affords Means 'a hidden path to the sleeper'.
-Observation 'the bell rope' affords Means 'a hidden path to the sleeper'.
-Observation 'the adjoining vault' affords Means 'a tunnel into the vault'.
+<!-- v6 (the overfitting ruling resolved, 2026-07-19): the six
+     hand-authored affords rows are gone. ONE seed row remains, and both
+     ObservationAffordsMeans and HypothesisExplainsObservation are bound
+     to the induce Func above (per-target rules, selection by Text; the
+     metamodel's "Each Derivation Rule produces exactly one Fact Type"
+     is the once-per-target discipline). The induce-closure fixpoint
+     learns the covering joins - affords = joinon(explains, relies on);
+     explains = joinon(observes, strongly suspects) - and the learned
+     rules close a cycle (explains -> affords -> available -> suspects
+     -> explains) that the closure now holds: solve:update is UNION
+     with dedup (Lemma 1's F_S(P) = P ∪ heads), monotone over finite
+     domains, so the fixpoint terminates where the old REPLACE
+     semantics oscillated. The seed is one of the three affords rows
+     the learned rule derives from the asserted explains evidence, so
+     coverage holds from the first candidate. -->
 Observation 'the cellar digging' affords Means 'a tunnel into the vault'.
-Observation 'the wall writing' affords Means 'a motive of vengeance'.
-Observation 'the wedding ring' affords Means 'a motive of vengeance'.
 
 Hypothesis 'the gypsies killed her' relies on Means 'entry from outside'.
 Hypothesis 'a trained snake killed her' relies on Means 'a hidden path to the sleeper'.
