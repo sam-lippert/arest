@@ -210,3 +210,33 @@ Function '1r' yields Type Expression 'element'.
 Function 'tlr' has Definition Origin 'registered'.
 Function 'tlr' accepts Type Expression 'sequence'.
 Function 'tlr' yields Type Expression 'sequence'.
+
+<!-- The render surface (2026-07-19, the registration ruling: components
+     register INTO DEFS, never a side table): each abstract control's
+     realization is a registered definition a container supplies at its
+     OnSetDefinitions moment; the canon's ui:renderers names the surface,
+     so the manifest's total walk computes these rows. -->
+Function 'render:canvas' has Definition Origin 'registered'.
+Function 'render:canvas' accepts Type Expression 'placed-row'.
+Function 'render:canvas' yields Type Expression 'widget'.
+Function 'render:headerbar' has Definition Origin 'registered'.
+Function 'render:headerbar' accepts Type Expression 'placed-row'.
+Function 'render:headerbar' yields Type Expression 'widget'.
+Function 'render:titletext' has Definition Origin 'registered'.
+Function 'render:titletext' accepts Type Expression 'placed-row'.
+Function 'render:titletext' yields Type Expression 'widget'.
+Function 'render:backbtn' has Definition Origin 'registered'.
+Function 'render:backbtn' accepts Type Expression 'placed-row'.
+Function 'render:backbtn' yields Type Expression 'widget'.
+Function 'render:sectionheader' has Definition Origin 'registered'.
+Function 'render:sectionheader' accepts Type Expression 'placed-row'.
+Function 'render:sectionheader' yields Type Expression 'widget'.
+Function 'render:sep' has Definition Origin 'registered'.
+Function 'render:sep' accepts Type Expression 'placed-row'.
+Function 'render:sep' yields Type Expression 'widget'.
+Function 'render:itemrow' has Definition Origin 'registered'.
+Function 'render:itemrow' accepts Type Expression 'placed-row'.
+Function 'render:itemrow' yields Type Expression 'widget'.
+Function 'render:blocktext' has Definition Origin 'registered'.
+Function 'render:blocktext' accepts Type Expression 'placed-row'.
+Function 'render:blocktext' yields Type Expression 'widget'.
