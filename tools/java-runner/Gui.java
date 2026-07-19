@@ -1,76 +1,109 @@
-import java.awt.BorderLayout;
-import java.awt.FlowLayout;
+import java.awt.Component;
 import java.awt.Font;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 
-// The GUI CONTAINER — MonoCross's demonstration made structural: the same
-// map (canon ui:screen), a different set of REGISTERED components. This
-// host holds exactly one piece of platform state (the last event atom) and
-// knows three element names; everything else — which buttons exist, what an
-// event means, what text shows, how an unknown mode is refused — is decided
-// by the canon. No app names, no mode names, no rendering decisions appear
-// here; extending the UI is a canon edit plus, at most, one registration.
+// The GUI CONTAINER. The abstract UI is laid out in canon (ui:screen
+// answers the whole control tree for an address; ui:controls declares the
+// vocabulary); this platform registers CONCRETE OVERRIDES of the abstract
+// controls ONLY — no layout, no composition, no meaning lives here. A
+// container override realizes "my children in tree order"; a leaf override
+// realizes its payload; a link fires its canon-emitted target address —
+// hypermedia as the engine of application state (Thm 2). The host holds
+// exactly one piece of platform state: the current address.
 public class Gui {
     static final Map<String, Function<Object[], JComponent>> REGISTRY =
         new HashMap<String, Function<Object[], JComponent>>();
 
     static Object[] store;
-    static volatile Object event = new Object[0]; // the one piece of platform state
-    static final JPanel root = new JPanel(new BorderLayout());
+    static volatile Object address = new Object[0]; // the one piece of platform state
+    static final JPanel root = new JPanel(new java.awt.BorderLayout()); // mounts the one walked screen
 
     static JComponent walk(Object node) {
         Object[] n = (Object[]) node;
         Function<Object[], JComponent> f = REGISTRY.get((String) n[0]);
-        if (f == null) throw new RuntimeException("unregistered component: " + n[0]);
+        if (f == null) throw new RuntimeException("unregistered control: " + n[0]);
         return f.apply(n);
     }
 
-    static void register(String element, Function<Object[], JComponent> impl) {
-        REGISTRY.put(element, impl);
+    static void register(String control, Function<Object[], JComponent> impl) {
+        REGISTRY.put(control, impl);
     }
 
-    static void fire(Object ev) {
-        event = ev;
+    static void navigate(Object addr) {
+        address = addr;
         new Thread(() -> {
-            Object tree = Arest.Ev("ui:screen", new Object[] { store, event });
+            Object tree = Arest.Ev("ui:screen", new Object[] { store, address });
             SwingUtilities.invokeLater(() -> rebuild(tree));
         }).start();
     }
 
     static void rebuild(Object tree) {
         root.removeAll();
-        Object[] nodes = (Object[]) tree;
-        root.add(walk(nodes[0]), BorderLayout.NORTH);
-        root.add(walk(nodes[1]), BorderLayout.CENTER);
+        root.add(walk(tree));
         root.revalidate();
         root.repaint();
     }
 
+    static JPanel vertical(Object[] n) {
+        JPanel p = new JPanel();
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        for (int i = 1; i < n.length; i++) {
+            JComponent c = walk(n[i]);
+            c.setAlignmentX(Component.LEFT_ALIGNMENT);
+            p.add(c);
+        }
+        return p;
+    }
+
     static void registerComponents() {
-        register("menu", n -> {
-            JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT));
-            for (Object child : (Object[]) n[1]) bar.add(walk(child));
-            return bar;
+        register("screen", n -> {
+            JScrollPane s = new JScrollPane(vertical(n));
+            s.getVerticalScrollBar().setUnitIncrement(14);
+            return s;
         });
-        register("button", n -> {
+        register("list", Gui::vertical);
+        register("row", n -> {
+            JPanel p = new JPanel();
+            p.setLayout(new BoxLayout(p, BoxLayout.X_AXIS));
+            for (int i = 1; i < n.length; i++) {
+                p.add(walk(n[i]));
+                p.add(Box.createHorizontalStrut(8));
+            }
+            p.add(Box.createHorizontalGlue());
+            return p;
+        });
+        register("title", n -> {
+            JLabel l = new JLabel((String) n[1]);
+            l.setFont(l.getFont().deriveFont(Font.BOLD, 17f));
+            return l;
+        });
+        register("field", n -> {
+            JLabel l = new JLabel((String) n[1]);
+            l.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
+            return l;
+        });
+        register("link", n -> {
             JButton b = new JButton((String) n[1]);
-            b.addActionListener(e -> fire(n[2]));
+            b.addActionListener(e -> navigate(n[2]));
             return b;
         });
         register("text", n -> {
             JTextArea t = new JTextArea((String) n[1]);
             t.setEditable(false);
             t.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
-            return new JScrollPane(t);
+            return t;
         });
     }
 
@@ -81,11 +114,11 @@ public class Gui {
         registerComponents();
 
         SwingUtilities.invokeLater(() -> {
-            rebuild(Arest.Ev("ui:screen", new Object[] { store, event }));
+            rebuild(Arest.Ev("ui:screen", new Object[] { store, address }));
             JFrame frame = new JFrame("arest");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setContentPane(root);
-            frame.setSize(900, 600);
+            frame.setSize(980, 640);
             frame.setLocationByPlatform(true);
             frame.setVisible(true);
         });
