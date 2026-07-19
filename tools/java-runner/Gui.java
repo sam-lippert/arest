@@ -30,6 +30,13 @@ public class Gui {
     static volatile Object address = new Object[0]; // the one piece of platform state
     static final JPanel root = new JPanel(new java.awt.BorderLayout()); // mounts the one walked screen
 
+    // toolkit realization of an atom payload; a sequence here is a canon
+    // bug and stays a loud failure
+    static String text(Object atom) {
+        if (atom instanceof Object[]) throw new RuntimeException("control payload is a sequence");
+        return String.valueOf(atom);
+    }
+
     static JComponent walk(Object node) {
         Object[] n = (Object[]) node;
         Function<Object[], JComponent> f = REGISTRY.get((String) n[0]);
@@ -85,22 +92,22 @@ public class Gui {
             return p;
         });
         register("title", n -> {
-            JLabel l = new JLabel((String) n[1]);
+            JLabel l = new JLabel(text(n[1]));
             l.setFont(l.getFont().deriveFont(Font.BOLD, 17f));
             return l;
         });
         register("field", n -> {
-            JLabel l = new JLabel((String) n[1]);
+            JLabel l = new JLabel(text(n[1]));
             l.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
             return l;
         });
         register("link", n -> {
-            JButton b = new JButton((String) n[1]);
+            JButton b = new JButton(text(n[1]));
             b.addActionListener(e -> navigate(n[2]));
             return b;
         });
         register("text", n -> {
-            JTextArea t = new JTextArea((String) n[1]);
+            JTextArea t = new JTextArea(text(n[1]));
             t.setEditable(false);
             t.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
             return t;
