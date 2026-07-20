@@ -53,7 +53,7 @@ This is metacomposition~\cite[Sec.\,13.3.2]{backus78}. It is the only mechanism 
 An \emph{Applicative REpresentational State Transfer} system is a Backus AST system~\cite[Sec.\,14]{backus78} whose $\mathit{FILE}$ cell contains a population $P$ (Definition~\ref{def:pop}) of a schema $S$ (Definition~\ref{def:schema}), and whose definition cells $\mathit{DEFS}$ hold the FFP objects~\cite[Sec.\,13]{backus78} compiled from FORML\,2 readings together with those registered by the runtime. REST operations are applications of the system function~(\ref{eq:sys}).
 \end{definition}
 
-A small declaration fixes the picture. In FORML\,2~\cite{halpin10}, each reading is one elementary fact:
+A small declaration fixes the picture. In FORML\,2~\cite{norma}, each reading is one elementary fact:
 \begin{lstlisting}
 Order(.OrderId) is an entity type.
 Customer(.Name) is an entity type.
@@ -181,6 +181,10 @@ $\mathit{transitions}(s)$ projects the transition facts restricted to $s$, and $
 
 \noindent \emph{Generating} this set is the novel step. Fielding~\cite{fielding00} fixed hypermedia as a constraint but left the controls for the server author to write by hand, and prior formal treatments model the \emph{client}'s traversal as a machine over the representations it receives~\cite{zuzak11}. Equation~(\ref{eq:links}) works the other side of the wire: the set is complete and current as a function of $P$ and $S$, there are no hand-written links and no undocumented endpoints, and so a client, or an agent reading the API, has no undocumented affordance to hallucinate. A transition graph may cycle; the discipline that keeps every entity live is itself a reading, the deontic obligation that each cycle carry some exit transition, which ensures liveness without demanding structural acyclicity.
 
+\begin{corollary}[The view hierarchy]\label{cor:hier}
+The uniqueness structure of Theorem~\ref{thm:hateoas} orders the schema: $f$ is a \emph{child} of $g$ iff some fact type joins them and a uniqueness constraint spanning $f$'s role alone makes the join functional from $f$ to $g$, the mapping's foreign key. Iterated removal of parentless entity types ranks every type, types on a cycle of the child relation sharing the rank at which removal stalls. The ranking generates the \emph{whole} view hierarchy, not an initial state: the initial representation is the collections of rank~$0$, a collection descends to its entities, an entity's $\mathit{links}(e)$~(\ref{eq:links}) descends further, so every view is a node of the ranked hierarchy, navigation is its edge set, and both are generated as in Theorem~\ref{thm:hateoas}, with no hand-written map. The same ranking lays out the schema itself --- ranks are rows, types are cells --- so the model diagram is one more view, a projection over $S$ drawn by the machinery that draws $P$.
+\end{corollary}
+
 \begin{proposition}[Derivability]\label{prop:derive}
 Every value in the representation $\mathit{repr}(e)$, namely the selectors on $e$'s facts, the derived facts, the constraint violations, and $\mathit{links}(e)$, is $(\rho\,f)\!:\!P$ for some object $f$.
 \end{proposition}
@@ -214,7 +218,7 @@ Storing into a cell with $\downarrow$ changes $D$, so every $\rho$-application o
 \end{align*}
 A browser registers rendering functions, a server registers $\mathit{httpFetch}$ and $\mathit{upsert}$, and one $\mathit{SYSTEM}$ serves browser, server, and storage by varying $\mathit{DEFS}$ rather than the logic. Binding a user interface is then registering a $\mathit{render}$ function, so a fact renders itself. Functions that touch external state run during $\mathit{resolve}_S$, and those that consume the representation run after $\mathit{emit}_S$, which keeps $\mathit{derive}_S$ pure over $P$.
 
-\smallskip\noindent $\rho$ and the whole-state accessor $\rho\mathit{DEFS}$ are Backus's~\cite[Secs.\,13.3,\,14.3.3]{backus78}, and the latter grants a program access to all of $D$ ``for any purpose, including the essential one of computing the successor state.'' Backus represents $D$ as an object precisely because ``in AST systems we shall want to transform $D$ by applying functions to it''~\cite[Sec.\,13.5]{backus78}; this is the licence Section~\ref{sec:boundary} uses for self-modification.
+\smallskip\noindent $\rho$ and the whole-state accessor $\rho\mathit{DEFS}$ are Backus's~\cite[Secs.\,13.3,\,14.3.3]{backus78}, and the latter grants a program access to all of $D$ ``for any purpose, including the essential one of computing the successor state.'' Backus represents $D$ as an object precisely because ``in AST systems we shall want to transform $D$ by applying functions to it''~\cite[Sec.\,13.3.5]{backus78}; this is the licence Section~\ref{sec:boundary} uses for self-modification.
 
 \smallskip\noindent Deletion needs no special operation: an entity that reaches a status with no outgoing transitions has $\mathit{links}(e)=\varphi$ by Theorem~\ref{thm:hateoas} and is excluded from query results by restriction. This is logical deletion; physical reclamation is a compaction that preserves the restricted population $\rho$ observes.
 
@@ -304,9 +308,6 @@ E.F. Codd, ``Relational Completeness of Data Base Sublanguages,'' in \emph{Data 
 
 \bibitem{halpin08}
 T. Halpin and T. Morgan, \emph{Information Modeling and Relational Databases}, 2nd ed., Morgan Kaufmann, 2008.
-
-\bibitem{halpin10}
-T. Halpin and J.P. Wijbenga, ``FORML 2,'' in \emph{Enterprise, Business-Process and Information Systems Modeling (EMMSAD)}, LNBIP 50, pp.~247--260, 2010.
 
 \bibitem{halpin06}
 T. Halpin and M. Curland, ``Automated Verbalization for ORM 2,'' in \emph{OTM Workshops}, pp.~1181--1190, 2006.
