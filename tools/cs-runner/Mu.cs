@@ -64,6 +64,8 @@ public static partial class Arest
         { "gt", x => { var p = Seq(x); return Bool(CompareAtoms(p[0], p[1]) > 0); } },
         { "+", x => { var p = Seq(x); return (int)p[0] + (int)p[1]; } },
         { "-", x => { var p = Seq(x); return (int)p[0] - (int)p[1]; } },
+        { "*", x => { var p = Seq(x); return (int)p[0] * (int)p[1]; } },
+        { "/", x => { var p = Seq(x); return (int)p[0] / (int)p[1]; } },
         { "apply", x => { var p = Seq(x); return Ev(p[0], p[1]); } },
         { "lex", x => ((string)x).Split((char[])null, StringSplitOptions.RemoveEmptyEntries).Cast<object>().ToArray() },
         { "implode", x => { var p = Seq(x); return string.Join((string)p[0], Seq(p[1]).Cast<string>()); } },

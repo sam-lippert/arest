@@ -106,6 +106,13 @@ const PRIMS = new Map(Object.entries({
   "-": x => { const a = at(x,0), b = at(x,1);
     if (typeof a !== "number" || typeof b !== "number") throw new Error("- on non-number");
     return a - b; },
+  "*": x => { const a = at(x,0), b = at(x,1);
+    if (typeof a !== "number" || typeof b !== "number") throw new Error("* on non-number");
+    return a * b; },
+  "/": x => { const a = at(x,0), b = at(x,1);
+    if (typeof a !== "number" || typeof b !== "number") throw new Error("/ on non-number");
+    if (b === 0) throw new Error("division by zero");
+    return Math.trunc(a / b); },
   "apply": x => Ev(at(x,0), at(x,1)),
   "lex": x => { if (typeof x !== "string") throw new Error("lex on non-string");
     return x.split(/\s+/).filter(w => w.length > 0); },
