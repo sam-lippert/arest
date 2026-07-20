@@ -28,16 +28,21 @@ compose
 bun "$G" fire "$ST1" | tee "$W/contB.txt"
 ST2=$(grep "^after:" "$W/contB.txt" | sed 's/after: \([a-z]*\) .*/\1/')
 if [ -z "$ST2" ]; then ST2="$ST1"; fi
-echo "=== BOOT C (replay all; expect $ST2) ==="
+echo "=== BOOT C (replay all; expect $ST2; retract fire #2) ==="
 compose
-bun "$G" check "$ST2" | tee "$W/contC.txt"
+bun "$G" retract "$ST2" journal:2 | tee "$W/contC.txt"
+ST3=$(grep "^after:" "$W/contC.txt" | sed 's/after: \([a-z]*\) .*/\1/')
+echo "=== BOOT D (replay with retraction; expect $ST3) ==="
+compose
+bun "$G" check "$ST3" | tee "$W/contD.txt"
 echo "=== JOURNAL BYTES ==="
 cat "$J"
 echo ""
-if grep -q "CONTINUITY: F" "$W/contB.txt" "$W/contC.txt"; then
+if grep -q "CONTINUITY: F" "$W/contB.txt" "$W/contC.txt" "$W/contD.txt"; then
   echo "CONTINUITY LAW: BROKEN"; exit 1
 fi
-if grep -q "CONTINUITY: T" "$W/contB.txt" && grep -q "CONTINUITY: T" "$W/contC.txt"; then
-  echo "CONTINUITY LAW: HOLDS"; exit 0
+if [ "$ST3" = "$ST1" ] && grep -q "CONTINUITY: T" "$W/contB.txt" \
+   && grep -q "CONTINUITY: T" "$W/contC.txt" && grep -q "CONTINUITY: T" "$W/contD.txt"; then
+  echo "CONTINUITY LAW: HOLDS (retraction reverts to $ST1 and survives reboot)"; exit 0
 fi
 echo "CONTINUITY LAW: INCOMPLETE"; exit 1

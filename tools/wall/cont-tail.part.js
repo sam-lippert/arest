@@ -29,3 +29,11 @@ if (MODE === "fire") {
   console.log("after:", Ev("ui:status", [od[0], "Case", "The Speckled Band"]),
     "jcount:", Ev("ui:jcount", od[0]));
 }
+if (MODE === "retract") {
+  const target = process.argv[4];
+  const od = Ev("ui:navpe", [store, [["master", []], ["detail", []]], ["retract", target]]);
+  Ev("store:append", ["journal", od[2]]);
+  console.log("retracted:", target);
+  console.log("after:", Ev("ui:status", [od[0], "Case", "The Speckled Band"]),
+    "jcount:", Ev("ui:jcount", od[0]));
+}

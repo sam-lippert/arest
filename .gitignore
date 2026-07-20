@@ -23,3 +23,7 @@ tools/norma-oracle/norma-answer
 tools/norma-oracle/oracle-report.txt
 tools/norma-oracle/verbalization-report.txt
 tools/norma-oracle/verbalization-report.html
+tools/wall/csprobe/Composed.g.cs
+tools/wall/cont.g.js
+tools/wall/cont[A-D].txt
+tools/wall/journal.test

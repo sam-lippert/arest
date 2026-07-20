@@ -35,8 +35,13 @@ public static class Probe
             new object[] { "fire", "Case is observed", "Case", "The Speckled Band" } })).Append((char)10);
         sb.Append(Arest.Ev("ui:jentry", new object[] { 42,
             new object[] { "submit", "Case", "va\"l\\ue" } })).Append((char)10);
+        sb.Append(Arest.Ev("ui:jentry", new object[] { 3,
+            new object[] { "retract", "journal:1" } })).Append((char)10);
         sb.Append(Arest.Ev("ui:st", new object[] {
             new object[] { "nested", "row" }, "atom" })).Append((char)10);
+        sb.Append(Show(Arest.Ev("ui:removefirst", new object[] {
+            new object[] { new object[] { "a" }, new object[] { "b" }, new object[] { "a" } },
+            new object[] { "a" } }))).Append((char)10);
         Console.Out.Write(sb.ToString());
     }
 }
