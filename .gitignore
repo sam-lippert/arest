@@ -5,3 +5,21 @@ apps/*/verbalization-report.txt
 apps/*/verbalization-report.html
 apps/*/.combined/
 apps/*/checker-answer
+
+# the toolchain (tracked since 2026-07-20): only build ephemera stay out —
+# composed stations and oracle outputs regenerate on demand. The journal
+# files are NOT ephemera: they are the store of record, and they track.
+bin/
+obj/
+*.class
+tools/js-runner/composed.g.js
+tools/web-runner/composed.page.g.js
+tools/java-runner/Composed.g.java
+tools/cs-runner/Composed.g.cs
+tools/wpf-runner/Composed.g.cs
+tools/ifactr-oracle/Composed.g.cs
+tools/norma-oracle/design-state
+tools/norma-oracle/norma-answer
+tools/norma-oracle/oracle-report.txt
+tools/norma-oracle/verbalization-report.txt
+tools/norma-oracle/verbalization-report.html
