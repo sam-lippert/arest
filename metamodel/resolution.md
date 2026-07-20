@@ -248,6 +248,12 @@ Function 'render:blocktext' yields Type Expression 'widget'.
      escape_html; store:append is the effect verb, enumerable through
      the canon's store:effects the way render:* is through
      ui:renderers. -->
+Function '*' has Definition Origin 'registered'.
+Function '*' accepts Type Expression 'number-pair'.
+Function '*' yields Type Expression 'number'.
+Function '/' has Definition Origin 'registered'.
+Function '/' accepts Type Expression 'number-pair'.
+Function '/' yields Type Expression 'number'.
 Function 'ntoa' has Definition Origin 'registered'.
 Function 'ntoa' accepts Type Expression 'number'.
 Function 'ntoa' yields Type Expression 'text'.

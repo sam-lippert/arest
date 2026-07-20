@@ -119,6 +119,8 @@ public class Arest {
         PRIMS.put("gt", x -> { Object[] p = seq(x); return bool(cmpAtoms(p[0], p[1]) > 0); });
         PRIMS.put("+", x -> { Object[] p = seq(x); return Integer.valueOf((Integer) p[0] + (Integer) p[1]); });
         PRIMS.put("-", x -> { Object[] p = seq(x); return Integer.valueOf((Integer) p[0] - (Integer) p[1]); });
+        PRIMS.put("*", x -> { Object[] p = seq(x); return Integer.valueOf((Integer) p[0] * (Integer) p[1]); });
+        PRIMS.put("/", x -> { Object[] p = seq(x); return Integer.valueOf((Integer) p[0] / (Integer) p[1]); });
         PRIMS.put("apply", x -> { Object[] p = seq(x); return Ev(p[0], p[1]); });
         PRIMS.put("lex", x -> { String s = ((String) x).trim();
             if (s.isEmpty()) return new Object[0];
