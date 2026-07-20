@@ -7930,7 +7930,7 @@ DEF("law:sep_absorbed",
     S4(A("COMP"), A("law:or_all"), S2(A("ALPHA"), S3(A("COMP"), A("law:prefixp"), S3(A("CONS"), S3(A("COMP"), A("slug"), N(1)), S3(A("COMP"), A("slug"), N(2))))), A("distl"))),
 
 DEF("law:schema_match",
-    S4(A("COMP"), A("law:and_all"), S5(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("length"), N(1)), S2(A("CONST"), N(1)))), S3(A("COMP"), A("eq"), S3(A("CONS"), S4(A("COMP"), N(1), N(1), N(1)), S2(A("CONST"), A("Function")))), S3(A("COMP"), A("law:seteq"), S3(A("CONS"), S4(A("COMP"), A("law:names"), N(1), N(2)), S3(A("COMP"), S2(A("ALPHA"), N(1)), N(1)))), S5(A("COMP"), A("law:and_all"), S2(A("ALPHA"), A("law:sep_absorbed")), A("distr"), S3(A("CONS"), S4(A("COMP"), A("law:names"), N(2), N(2)), S4(A("COMP"), N(2), N(1), N(1))))), S3(A("CONS"), A("law:norma"), A("law:schema0")))),
+    A("law:app_schema")),
 
 DEF("law:carrier_name",
     S3(A("COMP"), A("law:or2"), S3(A("CONS"), S3(A("COMP"), A("law:prefixp"), S3(A("CONS"), S2(A("CONST"), A("state:")), A("id"))), S3(A("COMP"), A("law:prefixp"), S3(A("CONS"), S2(A("CONST"), A("norma:")), A("id")))))),
