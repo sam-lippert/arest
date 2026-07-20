@@ -18,4 +18,8 @@ DEF("journal:8", S2(A("retract"), A("journal:5"))),
 
 DEF("journal:9", S2(A("retract"), A("journal:6"))),
 
-DEF("journal:10", S4(A("fire"), A("Ticket is finished"), A("Ticket"), A("retraction")))
+DEF("journal:10", S4(A("fire"), A("Ticket is finished"), A("Ticket"), A("retraction"))),
+
+DEF("journal:11", S4(A("fire"), A("Ticket is started"), A("Ticket"), A("web store append"))),
+
+DEF("journal:12", S4(A("fire"), A("Ticket is finished"), A("Ticket"), A("web store append")))

@@ -128,14 +128,21 @@
     }
   }
 
+  // the storage surface: the one durable write, network-shaped - the
+  // page POSTs the canon's bytes to serve.py, which appends them to the
+  // app's journal; empty bytes never leave (the identity effect)
+  PRIMS.set("store:append", x => {
+    if (x[1] !== "")
+      fetch("/append?d=" + encodeURIComponent(x[0]),
+        { method: "POST", body: x[1], keepalive: true });
+    return "T";
+  });
+
   function navigate(addr) {
-    // ui:navpe answers <store'', stacks', bytes>; this container has no
-    // durable medium (a static server), so the bytes go unappended and
-    // the browser browses the composed journal's world - the one honest
-    // limitation, until a one-line POST endpoint gives the page its write
     const od = Ev("ui:navpe", [store, stacks, addr]);
     store = od[0];
     stacks = od[1];
+    Ev("store:append", ["journal", od[2]]);
     renderPane("master");
     renderPane("detail");
   }
