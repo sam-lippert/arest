@@ -121,7 +121,12 @@ Species passes Fixture. *
 
 Hypothesis gains access via Fixture. *
 
+Building adjoins Building.
+  Each Building, Building combination occurs at most once in the population of Building adjoins Building.
+
 Observation locates digging toward Building. *
+
+Observation reveals a tunnel into Building. *
 
 Observation exhibits Motive. *
 
@@ -181,6 +186,8 @@ Observation attests Item lay beside Person.
 * Hypothesis gains access via Fixture iff Hypothesis posits some Species and that Species passes that Fixture.
 
 * Observation locates digging toward Building iff Observation attests digging heard from some Room and that Room is in that Building.
+
+* Observation reveals a tunnel into Building iff that Observation locates digging toward some Building1 and that Building1 adjoins that Building.
 
 * Observation exhibits Motive iff Observation reads some Phrase and that Phrase indicts that Motive.
 
@@ -314,6 +321,7 @@ Bore '4' pierces Fixture 'the ventilator'.
 Hypothesis 'a trained snake killed her' posits Species 'a swamp adder'.
 Hypothesis 'the gypsies killed her' posits Species 'a human intruder'.
 Room 'the cellar' is in Building 'the pawnshop'.
+Building 'the pawnshop' adjoins Building 'the bank vault'.
 Observation 'the wall writing' reads Phrase 'RACHE'.
 Phrase 'RACHE' indicts Motive 'revenge'.
 
