@@ -34,6 +34,8 @@ Phrase(.Wording) is an entity type.
 Organization(.Name) is an entity type.
 Building(.Name) is an entity type.
 Item(.Name) is an entity type.
+Species(.Name) is an entity type.
+Motive(.Name) is an entity type.
 
 ## Value Types
 
@@ -41,6 +43,8 @@ The data type of Claim is text.
 The data type of Title is text.
 The data type of Description is text.
 The data type of Wording is text.
+The data type of Girth is decimal.
+The data type of Bore is decimal.
 
 ## Fact Types
 
@@ -69,6 +73,57 @@ Explanation is for Case.
   Each Explanation is for exactly one Case.
 
 Explanation selects Hypothesis. *
+
+### The grounding layer (v7: the prose-free ruling)
+
+<!-- 2026-07-20, the ruling: "A snake being trained doesn't necessarily
+     mean that it fits in the vent." The means names were carrying
+     unmodeled physics, and the induced affords/explains pair is
+     abductive - a hypothesis's own explanatory claim manufactured the
+     availability of its own means. The abductive layer STAYS (it is
+     honestly named: suspects), and this layer grounds it: every step
+     below is a join over attested or reference facts, evidence-side
+     only, no hypothesis-side feedback. Comparisons ride as populated
+     reference relations over distinct value types (the finite-domain
+     Codd form: the relevant extension of "fits through" as rows, since
+     the oracle's rule grammar joins and never compares). The last mile
+     - one corroborates head disjoining the three cases' differently
+     shaped grounds into the selects gate - needs multi-rule heads,
+     which the oracle names as its own boundary (one role path holds
+     one rule); until that lands, the grounded facts derive, populate
+     the representations, and are law-checkable beside the abductive
+     verdict they will eventually gate. -->
+
+Species has Girth.
+  Each Species has at most one Girth.
+
+Bore pierces Fixture.
+  Each Bore, Fixture combination occurs at most once in the population of Bore pierces Fixture.
+
+Girth threads Bore.
+  Each Girth, Bore combination occurs at most once in the population of Girth threads Bore.
+
+Hypothesis posits Species.
+  Each Hypothesis posits at most one Species.
+
+Room is in Building.
+  Each Room is in at most one Building.
+
+Observation reads Phrase.
+  Each Observation reads at most one Phrase.
+
+Phrase indicts Motive.
+  Each Phrase indicts at most one Motive.
+
+Species clears Bore. *
+
+Species passes Fixture. *
+
+Hypothesis gains access via Fixture. *
+
+Observation locates digging toward Building. *
+
+Observation exhibits Motive. *
 
 ### Attestations (the atomic evidence)
 
@@ -118,6 +173,16 @@ Observation attests Item lay beside Person.
 * Case strongly suspects Hypothesis iff Hypothesis relies on some Means and that Means is available in that Case.
 
 * Explanation selects Hypothesis iff Explanation is for some Case and that Case strongly suspects that Hypothesis.
+
+* Species clears Bore iff Species has some Girth and that Girth threads that Bore.
+
+* Species passes Fixture iff Species clears some Bore and that Bore pierces that Fixture.
+
+* Hypothesis gains access via Fixture iff Hypothesis posits some Species and that Species passes that Fixture.
+
+* Observation locates digging toward Building iff Observation attests digging heard from some Room and that Room is in that Building.
+
+* Observation exhibits Motive iff Observation reads some Phrase and that Phrase indicts that Motive.
 
 ## State Machine
 
@@ -233,5 +298,23 @@ Hypothesis 'he was killed for revenge' relies on Means 'a motive of vengeance'.
 Explanation 'the resolution of The Speckled Band' is for Case 'The Speckled Band'.
 Explanation 'the resolution of The Red-Headed League' is for Case 'The Red-Headed League'.
 Explanation 'the resolution of A Study in Scarlet' is for Case 'A Study in Scarlet'.
+
+<!-- v7 grounding rows: reference facts (measured or common knowledge in
+     the stories' own text) and the per-case atoms the derivations
+     compose. The threads population is the relevant extension of "fits
+     through" over the declared sizes - 2 threads 4, and NOTHING
+     threads for the intruder's 18: the derived access facts then hold
+     for the adder and are ABSENT for the intruder, which is the
+     snake-fits-the-vent fact, prose-free. -->
+
+Species 'a swamp adder' has Girth '2'.
+Species 'a human intruder' has Girth '18'.
+Girth '2' threads Bore '4'.
+Bore '4' pierces Fixture 'the ventilator'.
+Hypothesis 'a trained snake killed her' posits Species 'a swamp adder'.
+Hypothesis 'the gypsies killed her' posits Species 'a human intruder'.
+Room 'the cellar' is in Building 'the pawnshop'.
+Observation 'the wall writing' reads Phrase 'RACHE'.
+Phrase 'RACHE' indicts Motive 'revenge'.
 
 Domain 'sherlock' has Description 'Abductive case investigation: observations afford means, hypotheses rely on them, explanations select the strongly suspected.'.
