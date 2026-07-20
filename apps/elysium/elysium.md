@@ -69,7 +69,11 @@ Ticket 'the validate leg' covers Function 'ui:validate'.
 Ticket 'the validate leg' covers Function 'ui:navpe'.
 
 Adjudication 'the reports menu' concerns Function 'ui:modes'.
+Adjudication 'the reports menu' is ruled.
 Adjudication 'marker-closure scope' concerns Function 'law:markers'.
+Adjudication 'marker-closure scope' is ruled.
+Adjudication 'the division primitive' is ruled.
+Adjudication 'the initial-representation sentence' is ruled.
 Adjudication 'the division primitive' concerns Function 'ntoa'.
 Adjudication 'the initial-representation sentence' concerns Function 'ui:top'.
 Adjudication 'tools tracking' is ruled.
