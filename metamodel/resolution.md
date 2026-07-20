@@ -240,3 +240,20 @@ Function 'render:itemrow' yields Type Expression 'widget'.
 Function 'render:blocktext' has Definition Origin 'registered'.
 Function 'render:blocktext' accepts Type Expression 'placed-row'.
 Function 'render:blocktext' yields Type Expression 'widget'.
+
+<!-- The storage surface (2026-07-20, the emit ruling: recording is
+     storage registration; the byte form is canon, so a worthy driver
+     holds nothing but the platform's one durable write). ntoa and
+     quote_str sit at the registered boundary beside lex and
+     escape_html; store:append is the effect verb, enumerable through
+     the canon's store:effects the way render:* is through
+     ui:renderers. -->
+Function 'ntoa' has Definition Origin 'registered'.
+Function 'ntoa' accepts Type Expression 'number'.
+Function 'ntoa' yields Type Expression 'text'.
+Function 'quote_str' has Definition Origin 'registered'.
+Function 'quote_str' accepts Type Expression 'text'.
+Function 'quote_str' yields Type Expression 'text'.
+Function 'store:append' has Definition Origin 'registered'.
+Function 'store:append' accepts Type Expression 'designation-and-bytes'.
+Function 'store:append' yields Type Expression 'boolean'.
