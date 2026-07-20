@@ -8440,8 +8440,37 @@ DEF("ui:render",
 DEF("ui:renderers",
     K(S8(A("render:canvas"), A("render:headerbar"), A("render:titletext"), A("render:backbtn"), A("render:sectionheader"), A("render:sep"), A("render:itemrow"), A("render:blocktext")))),
 
+"THE JOURNAL (Def 6's emit leg made durable; Backus 14's AST systems: the applicative core plus one state transition per cycle, and the transition must write through). A command's ADDRESS is the whole event; the journal carrier is an append-only CANON argument list whose entries are uniquely named cells - DEF(journal:n, address) - so boot registers them in file order (= event order; no clock) and ui:replay folds ui:apply/ui:create over them, answering the same store the session held: continuity is a two-boot law, not a hope. ui:navpe is the container's ONE evaluation - navigation, the appended bytes, the journal cell joining the store value - and the byte form is canon (ui:st over the address; quote_str/ntoa at the registered boundary beside lex and escape_html), so a storage driver holds nothing but the platform's one durable write: store:append, enumerable via store:effects. Journal addresses are all-string rows shorter than ten; anything else the strict boundary refuses loudly.",
+
+DEF("ui:jcount",
+    S3(A("COMP"), A("length"), S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S4(A("COMP"), A("not"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("strip_prefix"), S3(A("CONS"), K(A("journal:")), N(2))), N(2))), S2(A("CONS"), A("id")), K(PHI())))))),
+
+DEF("ui:jname",
+    S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("CONS"), K(A("journal:")), A("ntoa"))))),
+
+DEF("ui:st",
+    S4(A("COND"), A("atom"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S4(A("CONS"), K(A("A(")), A("quote_str"), K(A(")"))))), S4(A("COND"), A("null"), K(A("PHI()")), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S6(A("CONS"), K(A("S")), S3(A("COMP"), A("ntoa"), A("length")), K(A("(")), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A(", ")), S2(A("ALPHA"), A("ui:st")))), K(A(")")))))))),
+
+DEF("ui:jentry",
+    S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S6(A("CONS"), K(A(",\n\nDEF(")), S4(A("COMP"), A("quote_str"), A("ui:jname"), N(1)), K(A(", ")), S3(A("COMP"), A("ui:st"), N(2)), K(A(")")))))),
+
+DEF("ui:emit",
+    S4(A("COND"), S3(A("COMP"), A("null"), N(2)), K(A("")), S4(A("COND"), S3(A("COMP"), A("read:memberw"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), K(S2(A("fire"), A("submit"))))), S3(A("COMP"), A("ui:jentry"), S3(A("CONS"), S3(A("COMP"), A("+"), S3(A("CONS"), S3(A("COMP"), A("ui:jcount"), N(1)), K(N(1)))), N(2))), K(A(""))))),
+
+DEF("ui:navpe",
+    S4(A("COND"), S3(A("COMP"), A("null"), N(3)), S3(A("COMP"), S4(A("CONS"), N(1), N(2), K(A(""))), A("ui:navp")), S4(A("COND"), S3(A("COMP"), A("read:memberw"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), K(S2(A("fire"), A("submit"))))), S3(A("COMP"), S4(A("CONS"), S3(A("COMP"), A("apndr"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S4(A("CONS"), K(A("CELL")), S3(A("COMP"), A("ui:jname"), S3(A("COMP"), A("+"), S3(A("CONS"), N(2), K(N(1))))), N(3)))), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), A("ui:jentry"), S3(A("CONS"), S3(A("COMP"), A("+"), S3(A("CONS"), N(2), K(N(1)))), N(3)))), S4(A("CONS"), A("ui:navp"), S3(A("COMP"), A("ui:jcount"), N(1)), N(3))), S3(A("COMP"), S4(A("CONS"), N(1), N(2), K(A(""))), A("ui:navp"))))),
+
+DEF("ui:replay",
+    S4(A("COMP"), N(1), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(2)), S3(A("CONS"), S3(A("COMP"), N(2), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S5(A("COMP"), N(1), N(3), N(1), N(2)), K(A("fire")))), S3(A("COMP"), A("ui:apply"), S3(A("CONS"), N(1), S4(A("COMP"), N(3), N(1), N(2)))), S3(A("COMP"), A("ui:create"), S3(A("CONS"), N(1), S4(A("COMP"), N(3), N(1), N(2)))))), S3(A("COMP"), A("tl"), N(2)))), S3(A("CONS"), A("id"), S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S4(A("COMP"), A("not"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("strip_prefix"), S3(A("CONS"), K(A("journal:")), N(2))), N(2))), S2(A("CONS"), A("id")), K(PHI()))))))),
+
+DEF("store:effects",
+    K(S1(A("store:append")))),
+
+DEF("ui:applye",
+    S3(A("COMP"), S4(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), A("apndr"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S4(A("CONS"), K(A("CELL")), S3(A("COMP"), A("ui:jname"), S3(A("COMP"), A("+"), S3(A("CONS"), N(2), K(N(1))))), N(3)))), S3(A("COMP"), A("ui:jentry"), S3(A("CONS"), S3(A("COMP"), A("+"), S3(A("CONS"), N(2), K(N(1)))), N(3)))), S4(A("CONS"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), K(A("fire")))), A("ui:apply"), A("ui:create")), S3(A("COMP"), A("ui:jcount"), N(1)), N(2)))),
+
 DEF("ui:boot",
-    S3(A("COMP"), N(1), A("solve:fix"))),
+    S4(A("COMP"), A("ui:replay"), N(1), A("solve:fix"))),
 
 DEF("ui:colw",
     S4(A("COMP"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), K(A("abs")))), S3(A("COMP"), N(2), N(1)), N(2))), A("distr"), S3(A("CONS"), N(1), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), S4(A("COMP"), A("length"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("star")))), S2(A("CONS"), K(N(1))), K(PHI())))), N(1)), K(N(0)))), K(N(0)), S3(A("COMP"), A("apply"), S3(A("CONS"), K(A("-")), S2(A("CONS"), S3(A("CONS"), N(2), S3(A("COMP"), S3(A("COMP"), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(2)), S3(A("CONS"), S3(A("COMP"), A("+"), S3(A("CONS"), N(1), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S4(A("COMP"), N(1), N(1), N(2)), K(A("abs")))), S4(A("COMP"), N(2), N(1), N(2)), K(N(0))))), S3(A("COMP"), A("tl"), N(2)))), S3(A("CONS"), K(N(0)), A("id"))), S3(A("CONS"), K(N(0)), N(1))))))))))),
