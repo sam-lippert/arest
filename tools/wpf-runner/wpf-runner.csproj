@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <CarrierDir Condition="'$(App)' == ''">$(MSBuildProjectDirectory)\..\..\apps\sherlock</CarrierDir>
+    <CarrierDir Condition="'$(App)' != ''">$(MSBuildProjectDirectory)\..\..\apps\$(App)</CarrierDir>
+    <ComposedFile>$(MSBuildProjectDirectory)\Composed.g.cs</ComposedFile>
+    <IFactrWpf>$(MSBuildProjectDirectory)\..\..\..\iFactr-WPF</IFactrWpf>
+  </PropertyGroup>
+
+  <!-- The mu and the vocabulary are the cs-runner's, linked verbatim; the
+       compose step is the same copy /b; the iFactr.Wpf components come
+       from the DISTRIBUTION DLLs - the last signed-era binaries - and
+       register INTO DEFS at the container's OnSetDefinitions moment. -->
+  <ItemGroup>
+    <Compile Include="..\cs-runner\Mu.cs" Link="Mu.cs" />
+    <Compile Include="..\cs-runner\Vocabulary.cs" Link="Vocabulary.cs" />
+    <Compile Remove="Composed.g.cs" />
+    <Reference Include="iFactr.Wpf">
+      <HintPath>$(IFactrWpf)\Distribution\iFactr.Wpf.dll</HintPath>
+    </Reference>
+    <Reference Include="iFactr.UI">
+      <HintPath>$(IFactrWpf)\iFactr.UI\Distribution\iFactr.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="MonoCross">
+      <HintPath>$(IFactrWpf)\iFactr.UI\MonoCross\Distribution\MonoCross.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="ComposeCanon" BeforeTargets="CoreCompile">
+    <Exec Command="cmd /c copy /b /y &quot;$(MSBuildProjectDirectory)\..\cs-runner\head.part&quot; + &quot;$(MSBuildProjectDirectory)\..\..\arest&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid1.part&quot; + &quot;$(CarrierDir)\design-state&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid2.part&quot; + &quot;$(CarrierDir)\norma-answer&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid3.part&quot; + &quot;$(CarrierDir)\journal&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid4.part&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\tail.part&quot; &quot;$(ComposedFile)&quot; &gt;nul" />
+    <ItemGroup>
+      <Compile Include="$(ComposedFile)" />
+    </ItemGroup>
+  </Target>
+
+</Project>
