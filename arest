@@ -7752,7 +7752,7 @@ DEF("induce:keep_covered",
     S4(A("COND"), S4(A("COMP"), A("null"), A("theta:setminus"), S3(A("CONS"), S3(A("COMP"), N(3), N(1)), S3(A("COMP"), N(4), N(1)))), A("apndl"), N(2))),
 
 DEF("induce:covered",
-    S5(A("COMP"), S3(A("COMP"), S2(A("INSERT"), A("induce:keep_covered")), A("theta:append_phi")), S2(A("ALPHA"), A("induce:assess")), A("distr"), S3(A("CONS"), A("induce:cand_tree"), S3(A("COMP"), A("induce:pairs_of"), N(1))))),
+    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("length"), K(N(3)))), S5(A("COMP"), S3(A("COMP"), S2(A("INSERT"), A("induce:keep_covered")), A("theta:append_phi")), S2(A("ALPHA"), A("induce:assess")), A("distr"), S3(A("CONS"), S3(A("COMP"), S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("read:memberw"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), S2(A("CONS"), N(1)), K(PHI()))), A("distr")), S3(A("CONS"), S3(A("COMP"), A("induce:cand_tree"), S3(A("CONS"), N(1), N(2))), N(3))), S3(A("COMP"), A("induce:pairs_of"), N(1)))), S5(A("COMP"), S3(A("COMP"), S2(A("INSERT"), A("induce:keep_covered")), A("theta:append_phi")), S2(A("ALPHA"), A("induce:assess")), A("distr"), S3(A("CONS"), A("induce:cand_tree"), S3(A("COMP"), A("induce:pairs_of"), N(1)))))),
 
 DEF("induce:conf_row",
     S3(A("CONS"), S3(A("CONS"), N(1), N(2)), S3(A("COMP"), A("length"), N(3)))),
@@ -8245,7 +8245,7 @@ DEF("solve:rings",
     S4(A("COMP"), A("theta:flatten"), A("solve:cell"), S3(A("CONS"), K(A("state:rings")), A("id")))),
 
 DEF("solve:abduce",
-    S3(A("COMP"), A("induce:covered"), S3(A("CONS"), A("solve:scope"), S3(A("COMP"), S2(A("ALPHA"), S3(A("CONS"), N(1), N(2))), A("solve:scope"))))),
+    S3(A("COMP"), A("induce:covered"), S4(A("CONS"), A("solve:scope"), S3(A("COMP"), S2(A("ALPHA"), S3(A("CONS"), N(1), N(2))), A("solve:scope")), A("solve:induced")))),
 
 DEF("solve:findings",
     S4(A("COMP"), N(2), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(3)), S4(A("CONS"), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), S3(A("COMP"), N(1), N(3))))), S4(A("COND"), S3(A("COMP"), A("read:memberw"), S3(A("CONS"), S3(A("COMP"), N(1), S3(A("COMP"), N(1), N(3))), N(1))), N(2), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(3))))), S3(A("COMP"), A("tl"), N(3)))), S4(A("CONS"), K(PHI()), K(PHI()), A("solve:kept")))),

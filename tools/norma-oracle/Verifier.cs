@@ -1333,7 +1333,15 @@ namespace Elysium.NormaOracle
 				// the external-identity ruling). Clauses resolve VERBATIM
 				// longest-type-first; a cast adds an alias, never a node.
 				var legs = new List<KeyValuePair<FactIndexEntry, KeyValuePair<string, string>>>();
+				var legPos = new List<KeyValuePair<int, int>>();
 				var aliasOf = new Dictionary<string, string>(StringComparer.Ordinal);
+				// SUBSCRIPT VARIABLES (the metamodel's own deferred-note
+				// convention: "Derivation Rule1 reaches Derivation Rule2"):
+				// a token <Type><digits> is a DISTINCT variable of that type,
+				// so same-typed players can join. Clauses resolve by TYPE
+				// (subscript stripped); a twice-typed leg disambiguates
+				// positionally (sentence order = reading order).
+				var typeOfVar = new Dictionary<string, string>(StringComparer.Ordinal);
 				bool ok = true;
 				foreach (string lt in legTexts)
 				{
@@ -1343,7 +1351,8 @@ namespace Elysium.NormaOracle
 					string cur = null;
 					foreach (string key in myTypes.Keys.OrderByDescending(k => k.Length))
 					{
-						if (t.StartsWith(key + " ", StringComparison.Ordinal)) { cur = key; break; }
+						Match vm = Regex.Match(t, @"^(" + Regex.Escape(key) + @"\d*) ");
+						if (vm.Success) { cur = vm.Groups[1].Value; typeOfVar[cur] = key; break; }
 					}
 					if (cur == null) { ok = false; break; }
 					string rest = t.Substring(cur.Length + 1);
@@ -1359,32 +1368,56 @@ namespace Elysium.NormaOracle
 						string mid = null, nxt = null, more = null;
 						foreach (string key in myTypes.Keys.OrderByDescending(k => k.Length))
 						{
-							Match hm2 = Regex.Match(rest, @"^(.+?) (?:some|that) " + Regex.Escape(key) + @"(?: that (.+))?$");
+							Match hm2 = Regex.Match(rest, @"^(.+?) (?:some|that) (" + Regex.Escape(key) + @"\d*)(?: that (.+))?$");
 							if (hm2.Success)
 							{
 								mid = hm2.Groups[1].Value.Trim();
-								nxt = key;
-								more = hm2.Groups[2].Success ? hm2.Groups[2].Value.Trim() : null;
+								nxt = hm2.Groups[2].Value;
+								typeOfVar[nxt] = key;
+								more = hm2.Groups[3].Success ? hm2.Groups[3].Value.Trim() : null;
 								break;
 							}
 						}
 						if (mid == null) { ok = false; break; }
+						string curT = typeOfVar[cur], nxtT = typeOfVar[nxt];
 						List<string> lp;
-						FactIndexEntry legE = ResolveClause(cur + " " + mid + " " + nxt, out lp);
-						if (legE == null || legE.Players.Count != 2 || legE == headE ||
-							legE.Players.LastIndexOf(cur) != legE.Players.IndexOf(cur) ||
-							legE.Players.LastIndexOf(nxt) != legE.Players.IndexOf(nxt)) { ok = false; break; }
+						FactIndexEntry legE = ResolveClause(curT + " " + mid + " " + nxtT, out lp);
+						if (legE == null || legE.Players.Count != 2 || legE == headE) { ok = false; break; }
+						int eAtL, nAtL;
+						if (curT == nxtT)
+						{
+							// twice-typed leg: legal only with DISTINCT variable
+							// tokens; positions by sentence order (= reading order)
+							if (cur == nxt) { ok = false; break; }
+							eAtL = legE.Players.IndexOf(curT);
+							nAtL = legE.Players.LastIndexOf(nxtT);
+							if (eAtL < 0 || nAtL <= eAtL) { ok = false; break; }
+						}
+						else
+						{
+							if (legE.Players.LastIndexOf(curT) != legE.Players.IndexOf(curT) ||
+								legE.Players.LastIndexOf(nxtT) != legE.Players.IndexOf(nxtT)) { ok = false; break; }
+							eAtL = legE.Players.IndexOf(curT);
+							nAtL = legE.Players.IndexOf(nxtT);
+							if (eAtL < 0 || nAtL < 0) { ok = false; break; }
+						}
 						legs.Add(new KeyValuePair<FactIndexEntry, KeyValuePair<string, string>>(legE,
 							new KeyValuePair<string, string>(cur, nxt)));
+						legPos.Add(new KeyValuePair<int, int>(eAtL, nAtL));
 						cur = nxt;
 						rest = more == null ? "" : more;
 					}
 					if (!ok) break;
 				}
 				if (!ok || legs.Count < 1) continue;
-				string rootVar = headE.Players[0];
+				// the root VARIABLE is the first leg's first token; its TYPE
+				// must be the head's first player (subscripted or bare)
+				string rootVar = legs[0].Value.Key;
+				string rootVarT;
+				if (!typeOfVar.TryGetValue(rootVar, out rootVarT)) rootVarT = rootVar;
+				if (rootVarT != headE.Players[0]) continue;
 				ObjectType rootT;
-				if (!myTypes.TryGetValue(rootVar, out rootT)) continue;
+				if (!myTypes.TryGetValue(rootVarT, out rootT)) continue;
 				var rule = new FactTypeDerivationRule(myStore);
 				new FactTypeHasDerivationRule(headE.Fact, rule);
 				rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
@@ -1396,14 +1429,15 @@ namespace Elysium.NormaOracle
 				// or at the sub-path whose step introduced it
 				var boundAt = new Dictionary<string, RolePath>(StringComparer.Ordinal) { { rootVar, lead } };
 				var stepOf = new Dictionary<string, PathedRole>(StringComparer.Ordinal);
-				foreach (var leg in legs)
+				for (int li = 0; li < legs.Count; li++)
 				{
+					var leg = legs[li];
 					string t1 = leg.Value.Key, t2 = leg.Value.Value;
 					string entryVar = boundAt.ContainsKey(t1) ? t1 : (boundAt.ContainsKey(t2) ? t2 : null);
 					if (entryVar == null) { ok = false; break; }
 					string newVar = entryVar == t1 ? t2 : t1;
-					int eAt = leg.Key.Players.IndexOf(entryVar);
-					int nAt = leg.Key.Players.IndexOf(newVar);
+					int eAt = entryVar == t1 ? legPos[li].Key : legPos[li].Value;
+					int nAt = entryVar == t1 ? legPos[li].Value : legPos[li].Key;
 					if (eAt < 0 || nAt < 0) { ok = false; break; }
 					var sub = new RoleSubPath(myStore);
 					boundAt[entryVar].SubPathCollection.Add(sub);
@@ -1425,6 +1459,7 @@ namespace Elysium.NormaOracle
 				}
 				if (!ok) continue;
 				var proj = new RoleSetDerivationProjection(rule, lead);
+				var resolvedVars = new List<string>();
 				for (int i = 0; i < headE.Roles.Count; i++)
 				{
 					string p = headE.Players[i];
@@ -1432,6 +1467,24 @@ namespace Elysium.NormaOracle
 					// (subtype-compatible: the node's type is a subtype of
 					// the head role's player through the one id space)
 					if (aliasOf.ContainsKey(p)) p = aliasOf[p];
+					// resolve the VARIABLE for this head role: the bare type
+					// token when bound, else the k-th variable of the type in
+					// subscript order (head's k-th same-typed role)
+					if (!(p == rootVar || stepOf.ContainsKey(p)))
+					{
+						int k = 0;
+						for (int q = 0; q < i; q++)
+							if (headE.Players[q] == headE.Players[i]) k++;
+						var cands = new List<string>();
+						foreach (var kv in typeOfVar)
+							if (kv.Value == p && (kv.Key == rootVar || stepOf.ContainsKey(kv.Key)))
+								cands.Add(kv.Key);
+						cands.Sort((a, b) => a.Length != b.Length
+							? a.Length.CompareTo(b.Length)
+							: string.CompareOrdinal(a, b));
+						if (k < cands.Count) p = cands[k];
+					}
+					resolvedVars.Add(p);
 					var drp = new DerivedRoleProjection(proj, headE.Roles[i]);
 					if (p == rootVar)
 						new DerivedRoleProjectedFromRolePathRoot(drp, root);
@@ -1440,6 +1493,36 @@ namespace Elysium.NormaOracle
 					else { ok = false; break; }
 				}
 				if (!ok) continue;
+				// the strict two-chain all-binary case records its canon
+				// recipe through the same recorder the general class uses,
+				// so subscripted chains execute in state:rules too. Scoped to
+				// the feature's own footprint: only rules that USE a
+				// subscripted variable record here - unsubscripted chains
+				// keep their prior status exactly (NORMA-built, no recipe),
+				// so no station's closure gains unasked-for work.
+				bool usesSubscript = false;
+				foreach (var kv in typeOfVar)
+					if (kv.Key != kv.Value) { usesSubscript = true; break; }
+				if (usesSubscript && legs.Count == 2 && legs[1].Value.Key == legs[0].Value.Value
+					&& legs[0].Key.Players.Count == 2 && legs[1].Key.Players.Count == 2
+					&& headE.Players.Count == 2)
+				{
+					int rj1 = legPos[0].Value, rj2 = legPos[1].Key;
+					var relocated = new List<KeyValuePair<FactIndexEntry, int>>();
+					bool rok = true;
+					foreach (string pv in resolvedVars)
+					{
+						if (pv == rootVar)
+							relocated.Add(new KeyValuePair<FactIndexEntry, int>(legs[0].Key, legPos[0].Key));
+						else if (pv == legs[0].Value.Value)
+							relocated.Add(new KeyValuePair<FactIndexEntry, int>(legs[0].Key, legPos[0].Value));
+						else if (pv == legs[1].Value.Value)
+							relocated.Add(new KeyValuePair<FactIndexEntry, int>(legs[1].Key, legPos[1].Value));
+						else { rok = false; break; }
+					}
+					if (rok)
+						RecordRuleRecipe(headE, legs[0].Key, legs[1].Key, rj1, rj2, relocated);
+				}
 				var names = new List<string>();
 				foreach (var leg in legs) names.Add(leg.Key.Fact.Name);
 				log.Add(headE.Fact.Name + " := chain over " + string.Join(" -> ", names) + ", fully derived, not stored");
