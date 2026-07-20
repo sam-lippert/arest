@@ -84,7 +84,12 @@ Schema Design passes final checks.
 
 State Machine Definition 'CSDP' is for Object Type 'Schema Design'.
 Status 'step1-elementary-facts' is initial in State Machine Definition 'CSDP'.
-Status 'designed' is terminal in State Machine Definition 'CSDP'.
+<!-- 'designed' is terminal BY DERIVATION (state.md: Status is terminal
+     iff no Transition is from it - a fully derived (*) fact type, so
+     its population is computed, never asserted; the removed assertion
+     was the * discipline violated, redundant today and a divergence
+     risk the day a terminal status gains an exit). -->
+
 
 Transition 'advance-to-step2' is defined in State Machine Definition 'CSDP'.
 Transition 'advance-to-step2' is from Status 'step1-elementary-facts'.
@@ -162,7 +167,7 @@ Relational Mapping groups functional fact types.
 
 State Machine Definition 'Rmap' is for Object Type 'Relational Mapping'.
 Status 'step0-absorb-subtypes' is initial in State Machine Definition 'Rmap'.
-Status 'mapped' is terminal in State Machine Definition 'Rmap'.
+<!-- 'mapped' is terminal by the same derivation; see the CSDP note. -->
 
 Transition 'advance-to-rmap1' is defined in State Machine Definition 'Rmap'.
 Transition 'advance-to-rmap1' is from Status 'step0-absorb-subtypes'.
