@@ -263,3 +263,16 @@ Function 'quote_str' yields Type Expression 'text'.
 Function 'store:append' has Definition Origin 'registered'.
 Function 'store:append' accepts Type Expression 'designation-and-bytes'.
 Function 'store:append' yields Type Expression 'boolean'.
+
+<!-- The encryption surface (2026-07-20, the hooks ruling: don't assume
+     encryption is just there - the core carries the named seam, a host
+     registers real platform crypto only when a domain's data types
+     demand it, and an unregistered hook refuses loudly through the mu).
+     Enumerable via the canon's crypt:effects, the store:effects
+     pattern. -->
+Function 'crypt:encrypt' has Definition Origin 'registered'.
+Function 'crypt:encrypt' accepts Type Expression 'key-and-text'.
+Function 'crypt:encrypt' yields Type Expression 'ciphertext'.
+Function 'crypt:decrypt' has Definition Origin 'registered'.
+Function 'crypt:decrypt' accepts Type Expression 'key-and-ciphertext'.
+Function 'crypt:decrypt' yields Type Expression 'text'.

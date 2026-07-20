@@ -8463,6 +8463,9 @@ DEF("ui:navpe",
 DEF("ui:replay",
     S4(A("COMP"), N(1), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(2)), S3(A("CONS"), S3(A("COMP"), N(2), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S5(A("COMP"), N(1), N(3), N(1), N(2)), K(A("fire")))), S3(A("COMP"), A("ui:apply"), S3(A("CONS"), N(1), S4(A("COMP"), N(3), N(1), N(2)))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S5(A("COMP"), N(1), N(3), N(1), N(2)), K(A("submit")))), S3(A("COMP"), A("ui:create"), S3(A("CONS"), N(1), S4(A("COMP"), N(3), N(1), N(2)))), S3(A("COMP"), A("ui:retract"), S3(A("CONS"), N(1), S4(A("COMP"), N(3), N(1), N(2))))))), S3(A("COMP"), A("tl"), N(2)))), S3(A("CONS"), A("id"), S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S4(A("COMP"), A("not"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("strip_prefix"), S3(A("CONS"), K(A("journal:")), N(2))), N(2))), S2(A("CONS"), A("id")), K(PHI()))))))),
 
+DEF("crypt:effects",
+    K(S2(A("crypt:encrypt"), A("crypt:decrypt")))),
+
 DEF("store:effects",
     K(S1(A("store:append")))),
 
