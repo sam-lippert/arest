@@ -8449,7 +8449,7 @@ DEF("ui:jname",
     S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("CONS"), K(A("journal:")), A("ntoa"))))),
 
 DEF("ui:st",
-    S4(A("COND"), A("atom"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S4(A("CONS"), K(A("A(")), A("quote_str"), K(A(")"))))), S4(A("COND"), A("null"), K(A("PHI()")), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S6(A("CONS"), K(A("S")), S3(A("COMP"), A("ntoa"), A("length")), K(A("(")), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A(", ")), S2(A("ALPHA"), A("ui:st")))), K(A(")")))))))),
+    S4(A("COND"), A("atom"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S4(A("CONS"), K(A("A(")), A("quote_str"), K(A(")"))))), S4(A("COND"), A("null"), K(A("PHI()")), S4(A("COND"), S3(A("COMP"), A("gt"), S3(A("CONS"), A("length"), K(N(9)))), S3(A("COMP"), A("apply"), S3(A("CONS"), K(A("journal:overflow")), A("id"))), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S6(A("CONS"), K(A("S")), S3(A("COMP"), A("ntoa"), A("length")), K(A("(")), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A(", ")), S2(A("ALPHA"), A("ui:st")))), K(A(")"))))))))),
 
 DEF("ui:jentry",
     S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S6(A("CONS"), K(A(",\n\nDEF(")), S4(A("COMP"), A("quote_str"), A("ui:jname"), N(1)), K(A(", ")), S3(A("COMP"), A("ui:st"), N(2)), K(A(")")))))),
