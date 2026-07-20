@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- dotnet build -p:App=order composes against that app's carriers -->
+    <CarrierDir Condition="'$(App)' == ''">$(MSBuildProjectDirectory)\..\norma-oracle</CarrierDir>
+    <CarrierDir Condition="'$(App)' != ''">$(MSBuildProjectDirectory)\..\..\apps\$(App)</CarrierDir>
+    <ComposedFile>$(MSBuildProjectDirectory)\Composed.g.cs</ComposedFile>
+  </PropertyGroup>
+
+  <!-- the compose step is copy /b — byte concatenation, the linker's job
+       and nothing more: part files ; arest ; design-state ; norma-answer.
+       The canon and the carriers appear AS SOURCE and are COMPILED, then
+       the exe is just exec'd — nothing is read or interpreted at runtime. -->
+  <ItemGroup>
+    <Compile Remove="Composed.g.cs" />
+  </ItemGroup>
+
+  <Target Name="ComposeCanon" BeforeTargets="CoreCompile">
+    <Exec Command="cmd /c copy /b /y &quot;$(MSBuildProjectDirectory)\head.part&quot; + &quot;$(MSBuildProjectDirectory)\..\..\arest&quot; + &quot;$(MSBuildProjectDirectory)\mid1.part&quot; + &quot;$(CarrierDir)\design-state&quot; + &quot;$(MSBuildProjectDirectory)\mid2.part&quot; + &quot;$(CarrierDir)\norma-answer&quot; + &quot;$(MSBuildProjectDirectory)\mid3.part&quot; + &quot;$(CarrierDir)\journal&quot; + &quot;$(MSBuildProjectDirectory)\mid4.part&quot; + &quot;$(MSBuildProjectDirectory)\tail.part&quot; &quot;$(ComposedFile)&quot; &gt;nul" />
+    <ItemGroup>
+      <Compile Include="$(ComposedFile)" />
+    </ItemGroup>
+  </Target>
+
+</Project>
