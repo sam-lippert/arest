@@ -99,8 +99,17 @@
       fontSize: px(+sv("textSize")), cursor: "pointer" });
     b.textContent = r[5];
     b.onclick = () => {
-      const i = inputs[r[6]];
-      if (i && i.value) navigate(["submit", r[6], i.value]);
+      // the submit carries the id plus every filled field as <ft, v>
+      // pairs - the I-construction: entity and fact instances in one
+      // command (Def 6's resolve takes both)
+      const group = r[6];
+      const idf = inputs[group];
+      if (!idf || !idf.value) return;
+      const addr = ["submit", group, idf.value];
+      for (const ft in inputs)
+        if (ft !== group && inputs[ft].value) addr.push(ft, inputs[ft].value);
+      for (const ft in inputs) delete inputs[ft];
+      navigate(addr);
     };
     return b;
   });

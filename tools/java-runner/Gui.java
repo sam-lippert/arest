@@ -210,6 +210,41 @@ public class Gui {
         // the storage surface: the one durable write, and nothing else -
         // the byte form, the timing, and the sequence are all canon's
         Arest.register("clock", x -> String.valueOf(System.currentTimeMillis()));
+        // the entry controls: fields register their inputs by fact type,
+        // the button submits <submit, group, id, ft, v...> - values from
+        // every registered field, in field order
+        final java.util.LinkedHashMap<String, javax.swing.JTextField> inputs =
+            new java.util.LinkedHashMap<>();
+        register("textbox", r -> {
+            JPanel p = new JPanel(null);
+            p.setBackground(color("layerBg"));
+            javax.swing.JLabel l = new javax.swing.JLabel(text(r[5]));
+            l.setForeground(color("sectionTextColor"));
+            l.setBounds(0, 0, 300, 20);
+            p.add(l);
+            javax.swing.JTextField t = new javax.swing.JTextField();
+            t.setBounds(0, 22, 300, 28);
+            p.add(t);
+            inputs.put(text(r[6]), t);
+            return p;
+        });
+        register("button", r -> {
+            JButton b = new JButton(text(r[5]));
+            final String group = text(r[6]);
+            b.addActionListener(e -> {
+                javax.swing.JTextField idf = inputs.get(group);
+                if (idf == null || idf.getText().isEmpty()) return;
+                java.util.ArrayList<Object> addr = new java.util.ArrayList<>();
+                addr.add("submit"); addr.add(group); addr.add(idf.getText());
+                for (java.util.Map.Entry<String, javax.swing.JTextField> en : inputs.entrySet())
+                    if (!en.getKey().equals(group) && !en.getValue().getText().isEmpty()) {
+                        addr.add(en.getKey()); addr.add(en.getValue().getText());
+                    }
+                inputs.clear();
+                navigate(addr.toArray());
+            });
+            return b;
+        });
         Arest.register("store:append", x -> {
             Object[] p = (Object[]) x;
             try {

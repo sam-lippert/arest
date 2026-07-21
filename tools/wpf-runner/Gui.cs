@@ -27,6 +27,7 @@ public static class Gui
     static ScrollViewer detailScroller;
     static ScrollViewer scroller;         // the pane being measured
     static readonly Dictionary<string, string> STYLE = new Dictionary<string, string>();
+    static readonly Dictionary<string, TextBox> formInputs = new Dictionary<string, TextBox>();
 
     static string sv(string prop) { return STYLE[prop]; }
     static int num(string prop) { return int.Parse(STYLE[prop]); }
@@ -175,6 +176,39 @@ public static class Gui
                 p.MouseLeave += (s, e) => p.Background = brush("itemBg");
             }
             return p;
+        });
+        Arest.Register("render:textbox", x =>
+        {
+            var r = (object[])x;
+            var p = new Canvas();
+            p.Background = brush("layerBg");
+            var l = label(text(r[5]), "subtextSize", "sectionTextColor", false);
+            Canvas.SetLeft(l, 0); Canvas.SetTop(l, 0); l.Width = 300; l.Height = 20;
+            p.Children.Add(l);
+            var t = new TextBox();
+            Canvas.SetLeft(t, 0); Canvas.SetTop(t, 22); t.Width = 300; t.Height = 26;
+            p.Children.Add(t);
+            formInputs[text(r[6])] = t;
+            return p;
+        });
+        Arest.Register("render:button", x =>
+        {
+            var r = (object[])x;
+            var b = new Button();
+            b.Content = text(r[5]);
+            string group = text(r[6]);
+            b.Click += (s, e) =>
+            {
+                TextBox idf;
+                if (!formInputs.TryGetValue(group, out idf) || idf.Text.Length == 0) return;
+                var addr = new System.Collections.Generic.List<object> { "submit", group, idf.Text };
+                foreach (var kv in formInputs)
+                    if (kv.Key != group && kv.Value.Text.Length > 0)
+                    { addr.Add(kv.Key); addr.Add(kv.Value.Text); }
+                formInputs.Clear();
+                navigate(addr.ToArray());
+            };
+            return b;
         });
         Arest.Register("render:blocktext", x =>
         {
