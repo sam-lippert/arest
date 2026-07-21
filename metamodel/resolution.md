@@ -263,6 +263,9 @@ Function 'quote_str' yields Type Expression 'text'.
 Function 'store:append' has Definition Origin 'registered'.
 Function 'store:append' accepts Type Expression 'designation-and-bytes'.
 Function 'store:append' yields Type Expression 'boolean'.
+Function 'clock' has Definition Origin 'registered'.
+Function 'clock' accepts Type Expression 'sequence'.
+Function 'clock' yields Type Expression 'text'.
 
 <!-- The encryption surface (2026-07-20, the hooks ruling: don't assume
      encryption is just there - the core carries the named seam, a host

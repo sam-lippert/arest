@@ -192,6 +192,9 @@ public static class Gui
         });
         // the storage surface: the one durable write, and nothing else -
         // the byte form, the timing, and the sequence are all canon's
+        Arest.Register("clock", x =>
+            System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                .ToString(System.Globalization.CultureInfo.InvariantCulture));
         Arest.Register("store:append", x =>
         {
             var p = (object[])x;

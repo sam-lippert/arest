@@ -137,6 +137,10 @@
         { method: "POST", body: x[1], keepalive: true });
     return "T";
   });
+  // the clock: command addresses stamp their tau (Fact < Event, and
+  // each Event occurred at exactly one Timestamp); the format is this
+  // host's choice - epoch milliseconds as the string atom
+  PRIMS.set("clock", () => "" + Date.now());
 
   function navigate(addr) {
     const od = Ev("ui:navpe", [store, stacks, addr]);
