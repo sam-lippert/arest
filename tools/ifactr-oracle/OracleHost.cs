@@ -57,6 +57,9 @@ public static class OracleHost
         WpfFactory.Initialize();
         win.Content = WpfFactory.Instance.MainWindow;
         TargetFactory.Initialize(WpfFactory.Instance, new OracleApp());
+        Arest.Register("clock", x =>
+            System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                .ToString(System.Globalization.CultureInfo.InvariantCulture));
         // the storage surface: the one durable write, and nothing else
         Arest.Register("store:append", x =>
         {

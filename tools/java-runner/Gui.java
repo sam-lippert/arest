@@ -209,6 +209,7 @@ public class Gui {
         registerComponents();
         // the storage surface: the one durable write, and nothing else -
         // the byte form, the timing, and the sequence are all canon's
+        Arest.register("clock", x -> String.valueOf(System.currentTimeMillis()));
         Arest.register("store:append", x -> {
             Object[] p = (Object[]) x;
             try {

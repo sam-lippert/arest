@@ -7,6 +7,9 @@ PRIMS.set("store:append", x => {
   require("fs").appendFileSync(process.env.CONT_JOURNAL, x[1]);
   return "T";
 });
+// the harness clock is CONSTANT - determinism by registration, so the
+// journal byte-identity comparisons hold across stations and reruns
+PRIMS.set("clock", () => "0");
 const MODE = process.argv[2];
 const EXPECT = process.argv[3];
 const store = Ev("ui:boot", CELLS.slice());
