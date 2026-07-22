@@ -2880,8 +2880,53 @@ namespace Elysium.NormaOracle
 			}
 
 			AddNote(kind, s, kind == "deontic" ? "qualified deontic prose" : "no direct construction");
+			if (kind == "deontic")
+			{
+				// deontic player resolution: prose deontics never mint types,
+				// so a capitalized phrase that resolves to NO declared type is
+				// a reference nothing anchors ('Tesla Vehicle Offer') - the
+				// class the minted-by-usage report structurally cannot see
+				string bare = Regex.Replace(s, @"'[^']*'", " ");
+				foreach (Match pm in Regex.Matches(bare, @"\b([A-Z][a-z\w]*(?: [A-Z][a-z\w]*)+)\b"))
+				{
+					string phrase = pm.Groups[1].Value;
+					bool known = myTypes.ContainsKey(phrase);
+					if (!known)
+					{
+						// try successively shorter prefixes - the phrase may
+						// embed a known type plus trailing reading words
+						string[] words = phrase.Split(' ');
+						for (int take = words.Length; take >= 1 && !known; take--)
+							if (myTypes.ContainsKey(string.Join(" ", words.Take(take)))) known = true;
+					}
+					if (!known && phrase.EndsWith("s"))
+					{
+						// plural of a declared type resolves
+						known = myTypes.ContainsKey(phrase.Substring(0, phrase.Length - 1));
+					}
+					if (!known)
+					{
+						// a phrase INSIDE a declared name is that name misread
+						// ('Data Processing' in 'Personal Data Processing');
+						// a phrase EXTENDING a declared name ('Tesla Vehicle
+						// Offer' over 'Vehicle Offer') is the undeclared-
+						// subtype pattern and MUST flag - one direction only
+						foreach (string t in myTypes.Keys)
+						{
+							if ((" " + t + " ").Contains(" " + phrase + " "))
+							{ known = true; break; }
+						}
+					}
+					if (!known && !phrase.StartsWith("It ") && !phrase.StartsWith("Each "))
+						myUnresolvedDeonticRefs.Add(phrase);
+				}
+			}
 			return true;
 		}
+
+		// deontic prose phrases that resolve to no declared type - reported,
+		// never blocking (deontics are adjudication surfaces by design)
+		private static readonly SortedSet<string> myUnresolvedDeonticRefs = new SortedSet<string>(StringComparer.Ordinal);
 
 		private static List<UniquenessConstraint> InternalUCs(FactType fact)
 		{
@@ -3742,7 +3787,14 @@ namespace Elysium.NormaOracle
 				w.WriteLine("== types minted by usage, never declared ==");
 				foreach (string name in minted) w.WriteLine("  " + name);
 			}
+			if (myUnresolvedDeonticRefs.Count > 0 && !myDeonticRefsPrinted)
+			{
+				myDeonticRefsPrinted = true;
+				w.WriteLine("== deontic references resolving to no declared type ==");
+				foreach (string phrase in myUnresolvedDeonticRefs) w.WriteLine("  " + phrase);
+			}
 		}
+		private static bool myDeonticRefsPrinted;
 
 		// NORMA implies an objectification for every compound-UC fact type and
 		// gives each role a binary link fact type reading "{0} involves {1}" /
