@@ -3951,6 +3951,43 @@ namespace Elysium.NormaOracle
 		public static string MappingStateCells(Store store, System.Reflection.Assembly abstractionAssembly, System.Reflection.Assembly bridgeAssembly)
 		{
 			var sb = new System.Text.StringBuilder();
+			// FORCE THE FULL ORM->OIAL TRANSFORM: the bridge maintains
+			// mappings incrementally under delayed validation, and a
+			// programmatic build (no .orm load, no deserialization fixups)
+			// leaves most FactTypeMapsTowardsRole links never computed -
+			// 43 of 398 on base when first read. Invoke the transform the
+			// load fixup would have run (rmap-algorithm.md, OMIFORM:287).
+			Type bridgeLinkType = bridgeAssembly.GetTypes().First(x => (x.Name == "AbstractionModelIsForORMModel" || x.Name == "OialModelIsForORMModel") && typeof(ModelElement).IsAssignableFrom(x));
+			var transform = bridgeLinkType.GetMethod("TransformORMtoOial",
+				System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+			if (transform != null)
+			{
+				Type clearMapType = bridgeAssembly.GetTypes().First(x => x.Name == "FactTypeMapsTowardsRole" && typeof(ModelElement).IsAssignableFrom(x));
+				Type absModelType = abstractionAssembly.GetTypes().First(x => x.Name == "AbstractionModel" && typeof(ModelElement).IsAssignableFrom(x));
+				foreach (ModelElement link in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(bridgeLinkType), true).Cast<ModelElement>().ToList())
+				{
+					using (Transaction t = store.TransactionManager.BeginTransaction("force OIAL transform"))
+					{
+						// the load fixup CLEARS before transforming
+						// (OMIFORM:198-212): stale incremental links and
+						// abstraction elements collide with the rebuild
+						foreach (ModelElement m in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(clearMapType), true).Cast<ModelElement>().ToList())
+							m.Delete();
+						foreach (ModelElement am in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(absModelType), true).Cast<ModelElement>().ToList())
+						{
+							foreach (string coll in new[] { "ConceptTypeCollection", "InformationTypeFormatCollection" })
+							{
+								var pc = absModelType.GetProperty(coll);
+								if (pc == null) continue;
+								var items = ((System.Collections.IEnumerable)pc.GetValue(am, null)).Cast<ModelElement>().ToList();
+								foreach (ModelElement it in items) it.Delete();
+							}
+						}
+						transform.Invoke(link, null);
+						t.Commit();
+					}
+				}
+			}
 			Type mapType = bridgeAssembly.GetTypes().First(x => x.Name == "FactTypeMapsTowardsRole" && typeof(ModelElement).IsAssignableFrom(x));
 			var maps = new List<string>();
 			foreach (ModelElement m in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(mapType), true).Cast<ModelElement>())
