@@ -3921,7 +3921,8 @@ namespace Elysium.NormaOracle
 		// stage 1 consumes that state:fts does not carry. state:mapinputs -
 		// one row per non-deleted binary fact type: <factName, role1, role2,
 		// facttypeFlags> where each role = <player, kind, unique, preferred,
-		// mandatoryClass, identifiesOpposite, inOwnPid> and facttypeFlags =
+		// mandatoryClass, identifiesOpposite, inOwnPid, hyphenPrefix
+		// ('' when the reading binds nothing)> and facttypeFlags =
 		// <subtype, unary, objectificationImplied, derivationCompleteness
 		// none|full|partial, derivationStorage none|stored|notstored,
 		// externalDerivation T|F> - the last three are GATE:181-201's
@@ -3929,6 +3930,39 @@ namespace Elysium.NormaOracle
 		// (FullyDerived && (!External || NotStored), subtypes exempt) and
 		// filters mapinputs before stage 1. state:otmeta - one row
 		// per object type: <name, kind, independent>.
+		// The role's hyphen-bound prefix from the fact's reading text
+		// (ResolveRoleName's lexical INPUT, OMIFORM:1681-1763): the
+		// maximal run of '-'-terminated tokens immediately before the
+		// role's placeholder, hyphens stripped, space-joined; '' when
+		// unbound. The mu vocabulary has no character-suffix surgery,
+		// so the lex belongs here beside state:readings' own tokenizer;
+		// the ALGORITHM (side choice, swap, default, join) stays canon.
+		private string HyphenPrefixFor(FactType ft, Role r)
+		{
+			foreach (FactIndexEntry entry in myFactIndex)
+			{
+				if (entry.Fact != ft) continue;
+				int idx = entry.Roles.IndexOf(r);
+				if (idx < 0 || string.IsNullOrEmpty(entry.ReadingText)) return "";
+				string slot = "{" + idx + "}";
+				string[] toks = entry.ReadingText.Split(' ');
+				for (int i = 0; i < toks.Length; i++)
+				{
+					if (toks[i] != slot) continue;
+					var words = new List<string>();
+					int j = i - 1;
+					while (j >= 0 && toks[j].EndsWith("-", StringComparison.Ordinal) && toks[j].Length > 1)
+					{
+						words.Insert(0, toks[j].Substring(0, toks[j].Length - 1));
+						j--;
+					}
+					return string.Join(" ", words);
+				}
+				return "";
+			}
+			return "";
+		}
+
 		public string InputStateCells()
 		{
 			var rows = new List<string>();
@@ -3968,12 +4002,13 @@ namespace Elysium.NormaOracle
 					bool inOwnPid = false;
 					UniquenessConstraint ownPid = p.PreferredIdentifier;
 					if (ownPid != null) inOwnPid = ownPid.RoleCollection.Contains(r);
-					roleInfos.Add("S7(" + IAtom(p.Name) + ", " + IAtom(p.IsValueType ? "value" : "entity")
+					roleInfos.Add("S8(" + IAtom(p.Name) + ", " + IAtom(p.IsValueType ? "value" : "entity")
 						+ ", " + IAtom(suc != null ? "T" : "F")
 						+ ", " + IAtom(suc != null && suc.IsPreferred ? "T" : "F")
 						+ ", " + IAtom(mand)
 						+ ", " + IAtom(identifiesOpp ? "T" : "F")
-						+ ", " + IAtom(inOwnPid ? "T" : "F") + ")");
+						+ ", " + IAtom(inOwnPid ? "T" : "F")
+						+ ", " + IAtom(HyphenPrefixFor(ft, r)) + ")");
 				}
 				while (roleInfos.Count < 2) roleInfos.Add("PHI()");
 				var dr = ft.DerivationRule as FactTypeDerivationRule;
