@@ -263,68 +263,39 @@ namespace Elysium.NormaOracle
 					bool assocForm = s.StartsWith("This association");
 					ObjectType t = EnsureType(
 						(assocForm ? m.Groups[2] : m.Groups[1]).Value.Trim(), false);
-					if (t.PreferredIdentifier == null)
+					myDeclaredNames.Add(t.Name);
+					var comps = new List<string>();
+					foreach (string compRaw in (assocForm ? m.Groups[1] : m.Groups[2]).Value.Split(','))
 					{
-						var farRoles = new List<Role>();
-						foreach (string compRaw in (assocForm ? m.Groups[1] : m.Groups[2]).Value.Split(','))
-						{
-							string comp = compRaw.Trim().TrimStart('.').Trim();
-							ObjectType compT;
-							myTypes.TryGetValue(comp, out compT);
-							if (compT == null)
-							{
-								// unbound component: mint a value type, the
-								// single-refmode precedent (.slug)
-								compT = EnsureType(comp, true);
-								compT.IsValueType = true;
-								EnsureDataType(compT, "text");
-							}
-							FactType ft = new FactType(myStore);
-							Role near = new Role(myStore);
-							Role far = new Role(myStore);
-							ft.RoleCollection.Add(near);
-							ft.RoleCollection.Add(far);
-							near.RolePlayer = t;
-							far.RolePlayer = compT;
-							// each X has exactly one component; the far role
-							// joins the external preferred identifier below
-							MandatoryConstraint mand = MandatoryConstraint.CreateSimpleMandatoryConstraint(near);
-							UniquenessConstraint iuc = UniquenessConstraint.CreateInternalUniquenessConstraint(ft);
-							iuc.RoleCollection.Add(near);
-							var reading = new ReadingOrder(myStore);
-							ft.ReadingOrderCollection.Add(reading);
-							reading.RoleCollection.Add(near);
-							reading.RoleCollection.Add(far);
-							var r = new Reading(myStore);
-							reading.ReadingCollection.Add(r);
-							r.Text = "{0} has {1}";
-							farRoles.Add(far);
-						}
-						UniquenessConstraint euc = new UniquenessConstraint(myStore);
-						euc.Model = myModel;
-						foreach (Role fr in farRoles) euc.RoleCollection.Add(fr);
-						euc.IsPreferred = true;
-						Count("composite reference scheme");
+						comps.Add(compRaw.Trim().TrimStart('.').Trim());
 					}
+					// DEFERRED: schemes build only after every file's
+					// declarations have landed - a component name minted
+					// here could poison a type another file declares
+					// (auth.md's .Customer before customer-auth.md's entity)
+					myDeferredSchemes.Add(new DeferredScheme { Name = t.Name, Comps = comps, IndexPos = myFactIndex.Count });
 					Count("entity-type declaration");
 				}
 				else if ((m = EntityDecl.Match(s)).Success)
 				{
 					ObjectType t = EnsureType(m.Groups[1].Value.Trim(), false);
-					if (t.ReferenceModeString.Length == 0)
-					{
-						t.ReferenceModeString = m.Groups[2].Value.Trim();
-					}
+					myDeclaredNames.Add(t.Name);
+					string mode = m.Groups[2].Value.Trim();
+					// DEFERRED like the composites: whether this mode names an
+					// existing type is only knowable after every declaration
+					myDeferredSchemes.Add(new DeferredScheme { Name = t.Name, Comps = new List<string> { mode }, IndexPos = myFactIndex.Count });
 					Count("entity-type declaration");
 				}
 				else if ((m = EntityDeclBare.Match(s)).Success)
 				{
+					myDeclaredNames.Add(m.Groups[1].Value.Trim());
 					EnsureType(m.Groups[1].Value.Trim(), false);
 					Count("entity-type declaration");
 				}
 				else if ((m = ValueDecl.Match(s)).Success)
 				{
 					string vName = m.Groups[1].Value.Trim();
+					myDeclaredNames.Add(vName);
 					ObjectType vt = EnsureType(vName, true);
 					if (!vt.IsValueType)
 					{
@@ -344,6 +315,148 @@ namespace Elysium.NormaOracle
 			}
 		}
 
+		// names introduced by an explicit declaration sentence vs names
+		// MINTED BY USAGE - role players invented silently, the
+		// undeclared-type class the report names below (static: one
+		// verifier run per process, and the static DumpErrors reads them)
+		private static readonly HashSet<string> myDeclaredNames = new HashSet<string>(StringComparer.Ordinal);
+		private static readonly HashSet<string> myMintedNames = new HashSet<string>(StringComparer.Ordinal);
+
+		// reference schemes queued during declaration, built only after
+		// EVERY file's declarations have landed (cross-file ordering:
+		// auth.md's .Customer component must not mint a value type that
+		// poisons customer-auth.md's entity declaration)
+		private sealed class DeferredScheme { public string Name; public List<string> Comps; public int IndexPos; }
+		private readonly List<DeferredScheme> myDeferredSchemes = new List<DeferredScheme>();
+		// scheme facts stay OUT of myFactIndex (the emitters' surface) until
+		// a file explicitly restates them - then the restatement adopts the
+		// fact at its own stream position, which is the old pipeline's
+		// membership semantics exactly
+		private readonly Dictionary<string, FactIndexEntry> mySchemeFacts = new Dictionary<string, FactIndexEntry>(StringComparer.OrdinalIgnoreCase);
+
+		public void FlushSchemes()
+		{
+			// position-preserving: defer the BUILDING, not the ORDERING -
+			// each scheme's facts insert where declaration would have put
+			// them, so the carriers' fact order (and the canon-RMAP vs
+			// norma:tables agreement the schema-match law certifies) is
+			// unchanged by deferral
+			int inserted = 0;
+			foreach (var scheme in myDeferredSchemes)
+			{
+				int insertAt = scheme.IndexPos + inserted;
+				try
+				{
+					ObjectType t = myTypes[scheme.Name];
+					if (t.ReferenceModeString.Length != 0 || t.PreferredIdentifier != null) continue;
+					if (scheme.Comps.Count == 1 && !myTypes.ContainsKey(scheme.Comps[0]))
+					{
+						// a fresh single mode: NORMA's own refmode machinery,
+						// then index the minted fact so restatements adopt
+						string mode = scheme.Comps[0];
+						t.ReferenceModeString = mode;
+						foreach (Role pr in t.PlayedRoleCollection)
+						{
+							FactType rft = pr.FactType;
+							if (rft == null || rft.RoleCollection.Count != 2) continue;
+							Role other = rft.RoleCollection[0].Role == pr ? rft.RoleCollection[1].Role : rft.RoleCollection[0].Role;
+							if (other.RolePlayer == null || !string.Equals(other.RolePlayer.Name, mode, StringComparison.OrdinalIgnoreCase)) continue;
+							mySchemeFacts[NormalizeWords(t.Name + " has " + other.RolePlayer.Name)] = new FactIndexEntry
+							{
+								Fact = rft,
+								Roles = new List<Role> { pr, other },
+								Players = new List<string> { t.Name, other.RolePlayer.Name },
+								ReadingWords = "has",
+								ReadingText = "{0} has {1}",
+								FullKey = NormalizeWords(t.Name + " has " + other.RolePlayer.Name),
+							};
+							break;
+						}
+					}
+					else
+					{
+						inserted += BuildCompositeScheme(t, scheme.Comps, insertAt);
+					}
+				}
+				catch (Exception ex)
+				{
+					Count("harness-error (scheme)");
+					myMapLog.Add("ERROR building scheme for '" + scheme.Name + "': " + ex.Message);
+				}
+			}
+			myDeferredSchemes.Clear();
+		}
+
+		// one scheme builder for every identification form: composite
+		// declarations, the association verbalization, and single refmodes
+		// whose named type already exists (ReferenceModeString would mint a
+		// twin). Per component: a binary with near-role mandatory + unique;
+		// the far roles form the external preferred identifier.
+		private int BuildCompositeScheme(ObjectType t, IEnumerable<string> comps, int insertAt)
+		{
+			int added = 0;
+			var farRoles = new List<Role>();
+			foreach (string comp in comps)
+			{
+				ObjectType compT;
+				myTypes.TryGetValue(comp, out compT);
+				if (compT == null)
+				{
+					// unbound component: mint a value type, the .slug precedent
+					compT = EnsureType(comp, true);
+					compT.IsValueType = true;
+					EnsureDataType(compT, "text");
+				}
+				FactType ft = new FactType(myStore);
+				Role near = new Role(myStore);
+				Role far = new Role(myStore);
+				ft.RoleCollection.Add(near);
+				ft.RoleCollection.Add(far);
+				near.RolePlayer = t;
+				far.RolePlayer = compT;
+				MandatoryConstraint.CreateSimpleMandatoryConstraint(near);
+				UniquenessConstraint iuc = UniquenessConstraint.CreateInternalUniquenessConstraint(ft);
+				iuc.RoleCollection.Add(near);
+				var reading = new ReadingOrder(myStore);
+				ft.ReadingOrderCollection.Add(reading);
+				reading.RoleCollection.Add(near);
+				reading.RoleCollection.Add(far);
+				var r = new Reading(myStore);
+				reading.ReadingCollection.Add(r);
+				r.Text = "{0} has {1}";
+				// index the scheme fact so an explicit restatement
+				// ("X has Comp.") adopts it instead of minting a twin
+				mySchemeFacts[NormalizeWords(t.Name + " has " + comp)] = new FactIndexEntry
+				{
+					Fact = ft,
+					Roles = new List<Role> { near, far },
+					Players = new List<string> { t.Name, comp },
+					ReadingWords = "has",
+					ReadingText = "{0} has {1}",
+					FullKey = NormalizeWords(t.Name + " has " + comp),
+				};
+				farRoles.Add(far);
+			}
+			if (farRoles.Count == 1)
+			{
+				// one component = the plain refmode shape: an INTERNAL
+				// uniqueness on the far role is the preferred identifier
+				// (a one-role external constraint is TooFewRoleSequences)
+				UniquenessConstraint fuc = UniquenessConstraint.CreateInternalUniquenessConstraint(farRoles[0].FactType);
+				fuc.RoleCollection.Add(farRoles[0]);
+				fuc.IsPreferred = true;
+			}
+			else
+			{
+				UniquenessConstraint euc = new UniquenessConstraint(myStore);
+				euc.Model = myModel;
+				foreach (Role fr in farRoles) euc.RoleCollection.Add(fr);
+				euc.IsPreferred = true;
+			}
+			Count("composite reference scheme");
+			return added;
+		}
+
 		private ObjectType EnsureType(string name, bool isValueType)
 		{
 			ObjectType t;
@@ -356,6 +469,8 @@ namespace Elysium.NormaOracle
 					if (string.Equals(existing.Name, name, StringComparison.Ordinal))
 					{
 						t = existing;
+						// NORMA-minted (refmode expansion) traces to a declaration
+						myDeclaredNames.Add(name);
 						break;
 					}
 				}
@@ -368,6 +483,7 @@ namespace Elysium.NormaOracle
 					{
 						t.IsValueType = true;
 					}
+					myMintedNames.Add(name);
 				}
 				myTypes[name] = t;
 			}
@@ -1063,12 +1179,32 @@ namespace Elysium.NormaOracle
 				return false;
 			}
 			// duplicate reading: the same text over the same players is the same
-			// fact type — reuse it (a second build would mint a
-			// DuplicateReadingSignatureError twin)
+			// fact type — reuse it (fact types are IDEMPOTENT across files;
+			// a domain is a tab, and one fact type may appear in many).
+			// Case-insensitive to match NORMA's expanded-signature semantics:
+			// the signature lowercases, so 'has URL' and 'has url' are twins.
+			// a restatement of a scheme fact ADOPTS it into the index at the
+			// restatement's own stream position (the old pipeline's membership:
+			// scheme facts emit only when a file states them)
+			{
+				string schemeKey = null;
+				if (players.Count == 2) schemeKey = NormalizeWords(players[0] + " " + Regex.Replace(text, @"\{\d\}", " ").Trim() + " " + players[1]);
+				FactIndexEntry adopted;
+				if (schemeKey != null && mySchemeFacts.TryGetValue(schemeKey, out adopted))
+				{
+					mySchemeFacts.Remove(schemeKey);
+					myFactIndex.Add(adopted);
+					myLastFact = adopted.Fact;
+					myLastRoles = adopted.Roles;
+					myLastPlayers = adopted.Players;
+					Count("scheme fact adopted (restated)");
+					return true;
+				}
+			}
 			foreach (FactIndexEntry prior in myFactIndex)
 			{
-				if (string.Equals(prior.ReadingText, text, StringComparison.Ordinal) &&
-					prior.Players.SequenceEqual(players, StringComparer.Ordinal))
+				if (string.Equals(prior.ReadingText, text, StringComparison.OrdinalIgnoreCase) &&
+					prior.Players.SequenceEqual(players, StringComparer.OrdinalIgnoreCase))
 				{
 					myLastFact = prior.Fact;
 					myLastRoles = prior.Roles;
@@ -3558,6 +3694,20 @@ namespace Elysium.NormaOracle
 				if (kv.Value.Count > 8) w.WriteLine("      ... and " + (kv.Value.Count - 8) + " more");
 			}
 			w.WriteLine(total == 0 ? "  (none)" : "  TOTAL BLOCKING ERRORS: " + total);
+			// the silent class: role players invented by usage with no
+			// declaration sentence anywhere - each composes as an accidental
+			// value type and hides a modeling intent nobody wrote down
+			var minted = new List<string>();
+			foreach (string name in myMintedNames)
+			{
+				if (!myDeclaredNames.Contains(name)) minted.Add(name);
+			}
+			if (minted.Count > 0)
+			{
+				minted.Sort(StringComparer.Ordinal);
+				w.WriteLine("== types minted by usage, never declared ==");
+				foreach (string name in minted) w.WriteLine("  " + name);
+			}
 		}
 
 		// NORMA implies an objectification for every compound-UC fact type and
@@ -3606,6 +3756,10 @@ namespace Elysium.NormaOracle
 							foreach (Reading r in ro.ReadingCollection)
 							{
 								string t = r.Text;
+								// idempotent: an already-qualified reading
+								// (an earlier pass) must not qualify again
+								if (Regex.IsMatch(t, @" involves (?:first|second|third|fourth|fifth) | is involved (?:first|second|third|fourth|fifth) in "))
+									continue;
 								string nt = t;
 								if (t.Contains(" involves "))
 									nt = t.Replace(" involves ", " involves " + q + " ");

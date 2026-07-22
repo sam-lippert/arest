@@ -207,6 +207,9 @@ namespace Elysium.NormaOracle
 				{
 					verifier.DeclarePass(fileSentences[f]);
 				}
+				// schemes AFTER every file's declarations: cross-file order
+				// must not decide a component's kind
+				verifier.FlushSchemes();
 				t.Commit();
 			}
 			foreach (string f in files)
@@ -302,6 +305,15 @@ namespace Elysium.NormaOracle
 			Console.WriteLine("== harness map log ==");
 			foreach (string line in verifier.MapLog) Console.WriteLine("  " + line);
 			Console.WriteLine();
+			// second disambiguation sweep: the checker-era readers above build
+			// facts AFTER the first pass, and their rings' link readings would
+			// otherwise reach the report unqualified (the rewriter is
+			// idempotent, so already-qualified readings are untouched)
+			using (Transaction t2 = store.TransactionManager.BeginTransaction("ring link disambiguation (late facts)"))
+			{
+				Verifier.DisambiguateRingLinkReadings(store);
+				t2.Commit();
+			}
 			Console.WriteLine("== NORMA model errors ==");
 			Verifier.DumpErrors(store, Console.Out);
 			Console.WriteLine();
