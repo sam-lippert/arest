@@ -1397,8 +1397,7 @@ namespace Elysium.NormaOracle
 				{
 					rule = new FactTypeDerivationRule(myStore);
 					new FactTypeHasDerivationRule(headE.Fact, rule);
-					rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
-					rule.DerivationStorage = DerivationStorage.NotStored;
+					ApplyDerivationMarkers(headE.Fact, rule);
 				}
 				var lead = new LeadRolePath(myStore);
 				rule.OwnedLeadRolePathCollection.Add(lead);
@@ -1426,7 +1425,7 @@ namespace Elysium.NormaOracle
 					new DerivedRoleProjectedFromPathedRole(drp, steps[i]);
 				}
 				if (!ok) continue;
-				log.Add(headE.Fact.Name + " := join over " + j + " (" + e1.Fact.Name + " x " + e2.Fact.Name + "), fully derived, not stored");
+				log.Add(headE.Fact.Name + " := join over " + j + " (" + e1.Fact.Name + " x " + e2.Fact.Name + "), " + DescribeDerivation(headE.Fact));
 				RecordRuleRecipe(headE, e1, e2, j1, j2, located);
 			}
 			// the value-condition class: a UNARY head whose legs all anchor
@@ -1482,9 +1481,18 @@ namespace Elysium.NormaOracle
 				}
 				var vrule = new FactTypeDerivationRule(myStore);
 				new FactTypeHasDerivationRule(headE.Fact, vrule);
-				vrule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
-				vrule.DerivationStorage = myStoredDerived.Contains(headE.Fact)
-					? DerivationStorage.Stored : DerivationStorage.NotStored;
+				ApplyDerivationMarkers(headE.Fact, vrule);
+				if (myStoredDerived.Contains(headE.Fact))
+				{
+					// LeadRolePathAddedRule (RolePath.cs:6143-6152) clears
+					// ExternalDerivation on any path add at commit, and only
+					// External+Stored escapes GATE:188 - so a stored (**)
+					// fact keeps NO in-store body. Its executable recipe is
+					// parse-side (state:rules/canon); the store carries the
+					// marker triple only.
+					log.Add(headE.Fact.Name + " := conjunction head, " + DescribeDerivation(headE.Fact) + " (body external to store)");
+					continue;
+				}
 				var vlead = new LeadRolePath(myStore);
 				vrule.OwnedLeadRolePathCollection.Add(vlead);
 				var vroot = new RolePathObjectTypeRoot(vlead, rootT);
@@ -1526,8 +1534,8 @@ namespace Elysium.NormaOracle
 				var drp0 = new DerivedRoleProjection(vproj, headE.Roles[0]);
 				new DerivedRoleProjectedFromRolePathRoot(drp0, vroot);
 				log.Add(headE.Fact.Name + " := conjunction at " + rootVar + " ("
-					+ string.Join(" & ", condLegs.Select(l => l.Key.Fact.Name + (l.Value.Value != null ? "='" + l.Value.Value + "'" : ""))) + "), fully derived, "
-					+ (myStoredDerived.Contains(headE.Fact) ? "STORED" : "not stored"));
+					+ string.Join(" & ", condLegs.Select(l => l.Key.Fact.Name + (l.Value.Value != null ? "='" + l.Value.Value + "'" : ""))) + "), "
+					+ DescribeDerivation(headE.Fact));
 			}
 			// the aggregate class: "* <head> iff <V> is the count of <X>
 			// where <source-reading>." — Definition 7's finite bag to one
@@ -1670,8 +1678,7 @@ namespace Elysium.NormaOracle
 				if (!myTypes.TryGetValue(rootVarT, out rootT)) continue;
 				var rule = new FactTypeDerivationRule(myStore);
 				new FactTypeHasDerivationRule(headE.Fact, rule);
-				rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
-				rule.DerivationStorage = DerivationStorage.NotStored;
+				ApplyDerivationMarkers(headE.Fact, rule);
 				var lead = new LeadRolePath(myStore);
 				rule.OwnedLeadRolePathCollection.Add(lead);
 				var root = new RolePathObjectTypeRoot(lead, rootT);
@@ -1802,8 +1809,7 @@ namespace Elysium.NormaOracle
 				if (!myTypes.TryGetValue(groupPlayer, out rootType)) continue;
 				var rule = new FactTypeDerivationRule(myStore);
 				new FactTypeHasDerivationRule(headE.Fact, rule);
-				rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
-				rule.DerivationStorage = DerivationStorage.NotStored;
+				ApplyDerivationMarkers(headE.Fact, rule);
 				var lead = new LeadRolePath(myStore);
 				rule.OwnedLeadRolePathCollection.Add(lead);
 				var root = new RolePathObjectTypeRoot(lead, rootType);
@@ -1914,8 +1920,7 @@ namespace Elysium.NormaOracle
 				{
 					rule = new FactTypeDerivationRule(myStore);
 					new FactTypeHasDerivationRule(headE.Fact, rule);
-					rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
-					rule.DerivationStorage = DerivationStorage.NotStored;
+					ApplyDerivationMarkers(headE.Fact, rule);
 				}
 				var lead = new LeadRolePath(myStore);
 				rule.OwnedLeadRolePathCollection.Add(lead);
@@ -1944,7 +1949,7 @@ namespace Elysium.NormaOracle
 					new DerivedRoleProjectedFromPathedRole(drp, steps[i]);
 				}
 				if (!ok) continue;
-				log.Add(headE.Fact.Name + " := join over " + j + " (" + e1.Fact.Name + " x " + e2.Fact.Name + "), fully derived, not stored");
+				log.Add(headE.Fact.Name + " := join over " + j + " (" + e1.Fact.Name + " x " + e2.Fact.Name + "), " + DescribeDerivation(headE.Fact));
 				RecordRuleRecipe(headE, e1, e2, j1, j2, located);
 			}
 			return log;
@@ -3867,6 +3872,43 @@ namespace Elysium.NormaOracle
 			return log;
 		}
 
+		// INPUT FIDELITY FOR THE DERIVATION MARKERS (rmap-algorithm.md
+		// Section 0; GATE:181-201 is the consumer): '+' semiderived states
+		// sufficient-not-necessary conditions, so asserted rows persist -
+		// PartiallyDerived, which the gateway always keeps. '**' stored is
+		// materialized by the arest runtime, external to NORMA's own
+		// derivation engine - ExternalDerivation + Stored, the one
+		// combination GATE:188 exempts from exclusion. Bare '*' is
+		// FullyDerived + NotStored - gateway-excluded, derived at read
+		// time. Precedence mirrors the state:derived emission: a fact
+		// marked both full and semi is full.
+		private void ApplyDerivationMarkers(FactType fact, FactTypeDerivationRule rule)
+		{
+			if (myStoredDerived.Contains(fact))
+			{
+				rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
+				rule.DerivationStorage = DerivationStorage.Stored;
+				rule.ExternalDerivation = true;
+			}
+			else if (mySemiDerived.Contains(fact) && !myFullyDerived.Contains(fact))
+			{
+				rule.DerivationCompleteness = DerivationCompleteness.PartiallyDerived;
+				rule.DerivationStorage = DerivationStorage.NotStored;
+			}
+			else
+			{
+				rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
+				rule.DerivationStorage = DerivationStorage.NotStored;
+			}
+		}
+
+		private string DescribeDerivation(FactType fact)
+		{
+			if (myStoredDerived.Contains(fact)) return "fully derived, STORED (external)";
+			if (mySemiDerived.Contains(fact) && !myFullyDerived.Contains(fact)) return "semiderived";
+			return "fully derived, not stored";
+		}
+
 		// NORMA'S OWN STAGE-1 DECISIONS AS CARRIER CELLS - the per-decision
 		// certification targets for the canon rmap transcription
 		// (rmap-algorithm.md): state:normamap = each decided fact-type
@@ -3880,7 +3922,12 @@ namespace Elysium.NormaOracle
 		// one row per non-deleted binary fact type: <factName, role1, role2,
 		// facttypeFlags> where each role = <player, kind, unique, preferred,
 		// mandatoryClass, identifiesOpposite, inOwnPid> and facttypeFlags =
-		// <subtype, unary, objectificationImplied>. state:otmeta - one row
+		// <subtype, unary, objectificationImplied, derivationCompleteness
+		// none|full|partial, derivationStorage none|stored|notstored,
+		// externalDerivation T|F> - the last three are GATE:181-201's
+		// inputs; canon's rmap:gate implements the exclusion predicate
+		// (FullyDerived && (!External || NotStored), subtypes exempt) and
+		// filters mapinputs before stage 1. state:otmeta - one row
 		// per object type: <name, kind, independent>.
 		public string InputStateCells()
 		{
@@ -3929,9 +3976,16 @@ namespace Elysium.NormaOracle
 						+ ", " + IAtom(inOwnPid ? "T" : "F") + ")");
 				}
 				while (roleInfos.Count < 2) roleInfos.Add("PHI()");
+				var dr = ft.DerivationRule as FactTypeDerivationRule;
+				string dcomp = dr == null ? "none"
+					: (dr.DerivationCompleteness == DerivationCompleteness.PartiallyDerived ? "partial" : "full");
+				string dstore = dr == null ? "none"
+					: (dr.DerivationStorage == DerivationStorage.Stored ? "stored" : "notstored");
 				rows.Add("S4(" + IAtom(ft.Name) + ", " + roleInfos[0] + ", " + roleInfos[1]
-					+ ", S3(" + IAtom(isSubtype ? "T" : "F") + ", " + IAtom(isUnary ? "T" : "F")
-					+ ", " + IAtom(ft.ImpliedByObjectification != null ? "T" : "F") + "))");
+					+ ", S6(" + IAtom(isSubtype ? "T" : "F") + ", " + IAtom(isUnary ? "T" : "F")
+					+ ", " + IAtom(ft.ImpliedByObjectification != null ? "T" : "F")
+					+ ", " + IAtom(dcomp) + ", " + IAtom(dstore)
+					+ ", " + IAtom(dr != null && dr.ExternalDerivation ? "T" : "F") + "))");
 			}
 			rows.Sort(StringComparer.Ordinal);
 			var ots = new List<string>();
