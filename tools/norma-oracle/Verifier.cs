@@ -3939,9 +3939,14 @@ namespace Elysium.NormaOracle
 		// the ALGORITHM (side choice, swap, default, join) stays canon.
 		private string HyphenPrefixFor(FactType ft, Role r)
 		{
+			// Search by ROLE membership, not by the querying fact: an
+			// objectification's implied link fact holds role proxies whose
+			// Role resolves to the ORIGINAL fact's role - and the hyphen
+			// binding lives on the original reading (the one NORMA's
+			// ResolveRoleName consults).
 			foreach (FactIndexEntry entry in myFactIndex)
 			{
-				if (entry.Fact != ft) continue;
+				if (!entry.Roles.Contains(r)) continue;
 				int idx = entry.Roles.IndexOf(r);
 				if (idx < 0 || string.IsNullOrEmpty(entry.ReadingText)) return "";
 				string slot = "{" + idx + "}";
