@@ -306,6 +306,10 @@ namespace Elysium.NormaOracle
 						}
 						else
 						{
+							// the Resource-squat mechanism: flipping a
+							// pre-existing entity to a value type can orphan a
+							// subtype chain's identification - always say so
+							myMapLog.Add("KIND FLIP: '" + vName + "' was an entity (by usage) and is now declared a value type - if the metamodel or another file meant the entity, this squat orphans its subtree");
 							vt.IsValueType = true;
 						}
 					}
@@ -321,6 +325,7 @@ namespace Elysium.NormaOracle
 		// verifier run per process, and the static DumpErrors reads them)
 		private static readonly HashSet<string> myDeclaredNames = new HashSet<string>(StringComparer.Ordinal);
 		private static readonly HashSet<string> myMintedNames = new HashSet<string>(StringComparer.Ordinal);
+		private static bool myMintedPrinted;
 
 		// reference schemes queued during declaration, built only after
 		// EVERY file's declarations have landed (cross-file ordering:
@@ -840,6 +845,7 @@ namespace Elysium.NormaOracle
 				return true;
 			}
 			ObjectType nesting = EnsureType(nestingName, false);
+			myDeclaredNames.Add(nesting.Name);
 			if (nesting.NestedFactType == null)
 			{
 				nesting.NestedFactType = myLastFact;
@@ -851,6 +857,7 @@ namespace Elysium.NormaOracle
 		private void MapSubtype(string subName, string superName)
 		{
 			ObjectType sub = EnsureType(subName, false);
+			myDeclaredNames.Add(subName); // 'X is a subtype of Y' declares X
 			ObjectType super = EnsureType(superName, false);
 			foreach (ObjectType existing in sub.SupertypeCollection)
 			{
@@ -922,6 +929,14 @@ namespace Elysium.NormaOracle
 			}
 			foreach (Match vm in Regex.Matches(valueList, @"'([^']*)'"))
 			{
+				// idempotent (the tab doctrine): a value already in the
+				// constraint is the same declaration restated, not an overlap
+				bool present = false;
+				foreach (ValueRange existing in constraint.ValueRangeCollection)
+				{
+					if (existing.MinValue == vm.Groups[1].Value) { present = true; break; }
+				}
+				if (present) continue;
 				ValueRange range = new ValueRange(myStore);
 				range.MinValue = vm.Groups[1].Value;
 				range.MaxValue = vm.Groups[1].Value;
@@ -3702,6 +3717,8 @@ namespace Elysium.NormaOracle
 			{
 				if (!myDeclaredNames.Contains(name)) minted.Add(name);
 			}
+			if (myMintedPrinted) minted.Clear();
+			myMintedPrinted = true;
 			if (minted.Count > 0)
 			{
 				minted.Sort(StringComparer.Ordinal);
