@@ -332,7 +332,8 @@ namespace Elysium.NormaOracle
 			// (vocabulary ; arest ; carriers ; apply-and-print) is the
 			// sanctioned host shape whenever one is called for.
 			verifier.WriteDesignState("design-state",
-				Verifier.MappingStateCells(store, assemblies[1], assemblies[2]));
+				verifier.InputStateCells()
+				+ Verifier.MappingStateCells(store, assemblies[1], assemblies[2]));
 			Verifier.WriteNormaAnswer(store, assemblies[4], "norma-answer", verifier.FullyDerivedNames());
 			Console.WriteLine();
 			Console.WriteLine("== carriers ==");

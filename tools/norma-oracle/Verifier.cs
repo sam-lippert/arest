@@ -3875,6 +3875,79 @@ namespace Elysium.NormaOracle
 		// <assimilatorName, assimilatedName, refersToSubtype>. Emitted by
 		// reflection over the abstraction/bridge assemblies (the
 		// DumpRelational pattern), appended to the design-state text.
+		// THE ALGORITHM'S INPUTS (rmap-algorithm.md section A): everything
+		// stage 1 consumes that state:fts does not carry. state:mapinputs -
+		// one row per non-deleted binary fact type: <factName, role1, role2,
+		// facttypeFlags> where each role = <player, kind, unique, preferred,
+		// mandatoryClass, identifiesOpposite, inOwnPid> and facttypeFlags =
+		// <subtype, unary, objectificationImplied>. state:otmeta - one row
+		// per object type: <name, kind, independent>.
+		public string InputStateCells()
+		{
+			var rows = new List<string>();
+			foreach (FactType ft in myStore.ElementDirectory.FindElements<FactType>(true))
+			{
+				if (ft.IsDeleted || ft.Objectification != null) continue;
+				LinkedElementCollection<RoleBase> rc = ft.RoleCollection;
+				bool isSubtype = ft is SubtypeFact;
+				bool isUnary = ft.UnaryPattern != UnaryValuePattern.NotUnary;
+				if (rc.Count != 2 && !isUnary) continue;
+				var roleInfos = new List<string>();
+				foreach (RoleBase rb in rc)
+				{
+					Role r = rb.Role;
+					if (r == null || r.RolePlayer == null) { roleInfos.Add("PHI()"); continue; }
+					ObjectType p = r.RolePlayer;
+					UniquenessConstraint suc = null;
+					MandatoryConstraint smc = null;
+					foreach (ConstraintRoleSequence seq in r.ConstraintRoleSequenceCollection)
+					{
+						UniquenessConstraint uc = seq as UniquenessConstraint;
+						if (uc != null && uc.IsInternal && uc.Modality == ConstraintModality.Alethic
+							&& uc.RoleCollection.Count == 1) suc = uc;
+						MandatoryConstraint mc = seq as MandatoryConstraint;
+						if (mc != null && mc.Modality == ConstraintModality.Alethic
+							&& mc.RoleCollection.Count == 1) smc = mc;
+					}
+					string mand = smc == null ? "none" : (smc.IsImplied ? "implied" : "explicit");
+					Role opp = null;
+					foreach (RoleBase ob in rc) { if (ob.Role != r) { opp = ob.Role; break; } }
+					bool identifiesOpp = false;
+					if (opp != null && opp.RolePlayer != null)
+					{
+						UniquenessConstraint oppPid = opp.RolePlayer.PreferredIdentifier;
+						if (oppPid != null) identifiesOpp = oppPid.RoleCollection.Contains(r);
+					}
+					bool inOwnPid = false;
+					UniquenessConstraint ownPid = p.PreferredIdentifier;
+					if (ownPid != null) inOwnPid = ownPid.RoleCollection.Contains(r);
+					roleInfos.Add("S7(" + IAtom(p.Name) + ", " + IAtom(p.IsValueType ? "value" : "entity")
+						+ ", " + IAtom(suc != null ? "T" : "F")
+						+ ", " + IAtom(suc != null && suc.IsPreferred ? "T" : "F")
+						+ ", " + IAtom(mand)
+						+ ", " + IAtom(identifiesOpp ? "T" : "F")
+						+ ", " + IAtom(inOwnPid ? "T" : "F") + ")");
+				}
+				while (roleInfos.Count < 2) roleInfos.Add("PHI()");
+				rows.Add("S4(" + IAtom(ft.Name) + ", " + roleInfos[0] + ", " + roleInfos[1]
+					+ ", S3(" + IAtom(isSubtype ? "T" : "F") + ", " + IAtom(isUnary ? "T" : "F")
+					+ ", " + IAtom(ft.ImpliedByObjectification != null ? "T" : "F") + "))");
+			}
+			rows.Sort(StringComparer.Ordinal);
+			var ots = new List<string>();
+			foreach (ObjectType ot in myStore.ElementDirectory.FindElements<ObjectType>(true))
+			{
+				if (ot.IsDeleted) continue;
+				ots.Add("S3(" + IAtom(ot.Name) + ", " + IAtom(ot.IsValueType ? "value" : "entity")
+					+ ", " + IAtom(ot.TreatAsIndependent ? "T" : "F") + ")");
+			}
+			ots.Sort(StringComparer.Ordinal);
+			var sb = new System.Text.StringBuilder();
+			sb.Append("DEF(\"state:mapinputs\", ").Append(IChunked(rows)).Append("),\n\n");
+			sb.Append("DEF(\"state:otmeta\", ").Append(IChunked(ots)).Append("),\n\n");
+			return sb.ToString();
+		}
+
 		public static string MappingStateCells(Store store, System.Reflection.Assembly abstractionAssembly, System.Reflection.Assembly bridgeAssembly)
 		{
 			var sb = new System.Text.StringBuilder();
