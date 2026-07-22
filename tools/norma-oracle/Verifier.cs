@@ -3483,7 +3483,7 @@ namespace Elysium.NormaOracle
 		// per-kind entity populations (population inclusion materialized up
 		// the subtype chain); state:declared carries the DECLARED players
 		// alongside for consumers that need pre-collapse names.
-		public void WriteDesignState(string path)
+		public void WriteDesignState(string path, string extraCells = null)
 		{
 			// Declaration Order: position is DATA (2026-07-17 ruling — the
 			// core mechanism for mapping a data type to a list or a form).
@@ -3706,8 +3706,12 @@ namespace Elysium.NormaOracle
 				}
 				if (anyq) quals.Add("S2(" + IAtom(qe.Fact.Name) + ", " + ISeq(perRole) + ")");
 			}
-			sb.Append("DEF(\"state:qualifiers\", ").Append(quals.Count == 0 ? "PHI()" : IChunked(quals)).Append(")\n");
-			sb.Append(")\n");
+			sb.Append("DEF(\"state:qualifiers\", ").Append(quals.Count == 0 ? "PHI()" : IChunked(quals)).Append(")");
+			if (!string.IsNullOrEmpty(extraCells))
+			{
+				sb.Append(",\n\n").Append(extraCells.TrimEnd().TrimEnd(','));
+			}
+			sb.Append("\n)\n");
 			System.IO.File.WriteAllText(path, sb.ToString());
 		}
 
@@ -3861,6 +3865,69 @@ namespace Elysium.NormaOracle
 				}
 			}
 			return log;
+		}
+
+		// NORMA'S OWN STAGE-1 DECISIONS AS CARRIER CELLS - the per-decision
+		// certification targets for the canon rmap transcription
+		// (rmap-algorithm.md): state:normamap = each decided fact-type
+		// mapping <factName, towardsPlayer, depth>; state:normacts = the
+		// concept types <name, topLevel>; state:normaassim = assimilations
+		// <assimilatorName, assimilatedName, refersToSubtype>. Emitted by
+		// reflection over the abstraction/bridge assemblies (the
+		// DumpRelational pattern), appended to the design-state text.
+		public static string MappingStateCells(Store store, System.Reflection.Assembly abstractionAssembly, System.Reflection.Assembly bridgeAssembly)
+		{
+			var sb = new System.Text.StringBuilder();
+			Type mapType = bridgeAssembly.GetTypes().First(x => x.Name == "FactTypeMapsTowardsRole" && typeof(ModelElement).IsAssignableFrom(x));
+			var maps = new List<string>();
+			foreach (ModelElement m in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(mapType), true).Cast<ModelElement>())
+			{
+				object fact = mapType.GetProperty("FactType").GetValue(m, null);
+				object roleBase = mapType.GetProperty("TowardsRole").GetValue(m, null);
+				// the link class persists the depth as 'Depth' (the wrapper
+				// struct's 'MappingDepth' is bridge-internal)
+				var depthProp = mapType.GetProperty("Depth") ?? mapType.GetProperty("MappingDepth");
+				object depth = depthProp == null ? "shallow" : depthProp.GetValue(m, null);
+				if (fact == null || roleBase == null) continue;
+				string factName = (string)fact.GetType().GetProperty("Name").GetValue(fact, null);
+				object role = roleBase.GetType().GetProperty("Role") != null
+					? roleBase.GetType().GetProperty("Role").GetValue(roleBase, null) : roleBase;
+				object player = role.GetType().GetProperty("RolePlayer").GetValue(role, null);
+				string playerName = player == null ? "" : (string)player.GetType().GetProperty("Name").GetValue(player, null);
+				maps.Add("S3(" + IAtom(factName) + ", " + IAtom(playerName) + ", " + IAtom(depth.ToString().ToLowerInvariant()) + ")");
+			}
+			maps.Sort(StringComparer.Ordinal);
+			sb.Append("DEF(\"state:normamap\", ").Append(IChunked(maps)).Append("),\n\n");
+
+			Type ctType = abstractionAssembly.GetTypes().First(x => x.Name == "ConceptType" && typeof(ModelElement).IsAssignableFrom(x));
+			Type asType = abstractionAssembly.GetTypes().First(x => x.Name == "ConceptTypeAssimilatesConceptType" && typeof(ModelElement).IsAssignableFrom(x));
+			var assimilated = new HashSet<ModelElement>();
+			var assims = new List<string>();
+			foreach (ModelElement a in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(asType), true).Cast<ModelElement>())
+			{
+				object parent = asType.GetProperty("AssimilatorConceptType").GetValue(a, null);
+				object child = asType.GetProperty("AssimilatedConceptType").GetValue(a, null);
+				if (parent == null || child == null) continue;
+				assimilated.Add((ModelElement)child);
+				bool sub = false;
+				var subProp = asType.GetProperty("RefersToSubtype");
+				if (subProp != null) sub = (bool)subProp.GetValue(a, null);
+				assims.Add("S3(" + IAtom((string)ctType.GetProperty("Name").GetValue(parent, null))
+					+ ", " + IAtom((string)ctType.GetProperty("Name").GetValue(child, null))
+					+ ", " + IAtom(sub ? "T" : "F") + ")");
+			}
+			assims.Sort(StringComparer.Ordinal);
+
+			var cts = new List<string>();
+			foreach (ModelElement ct in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(ctType), true).Cast<ModelElement>())
+			{
+				string name = (string)ctType.GetProperty("Name").GetValue(ct, null);
+				cts.Add("S2(" + IAtom(name) + ", " + IAtom(assimilated.Contains(ct) ? "F" : "T") + ")");
+			}
+			cts.Sort(StringComparer.Ordinal);
+			sb.Append("DEF(\"state:normacts\", ").Append(IChunked(cts)).Append("),\n\n");
+			sb.Append("DEF(\"state:normaassim\", ").Append(IChunked(assims)).Append("),\n\n");
+			return sb.ToString();
 		}
 
 		public static void DumpRelational(Store store, System.Reflection.Assembly relationalAssembly, TextWriter w)
