@@ -1326,6 +1326,7 @@ namespace Elysium.NormaOracle
 			// a multi-rule head built partially would be wrong, not partial
 			var rulesPerHead = new Dictionary<string, int>(StringComparer.Ordinal);
 			var linearPerHead = new Dictionary<string, int>(StringComparer.Ordinal);
+			var generalPerHead = new Dictionary<string, int>(StringComparer.Ordinal);
 			foreach (string sRaw0 in myDeferredRules)
 			{
 				string s = sRaw0;
@@ -1344,6 +1345,13 @@ namespace Elysium.NormaOracle
 				{
 					linearPerHead.TryGetValue(h, out n);
 					linearPerHead[h] = n + 1;
+				}
+				// the general two-leg class's shape: iff + exactly two clauses
+				Match gm = Regex.Match(s, @"^\* (.+?) iff (.+)\.$");
+				if (gm.Success && Regex.Split(gm.Groups[2].Value.Trim(), @" and (?=that |some )").Length == 2)
+				{
+					generalPerHead.TryGetValue(h, out n);
+					generalPerHead[h] = n + 1;
 				}
 			}
 			foreach (string s in myDeferredRules)
@@ -1846,7 +1854,11 @@ namespace Elysium.NormaOracle
 				string head = m.Groups[1].Value.Trim();
 				int headRules;
 				rulesPerHead.TryGetValue(NormalizeWords(head), out headRules);
-				if (headRules != 1) continue;
+				int generalRules;
+				generalPerHead.TryGetValue(NormalizeWords(head), out generalRules);
+				// a multi-rule head admits IFF every one of its rules is
+				// this class's shape (the linear-class treatment, mirrored)
+				if (headRules != 1 && generalRules != headRules) continue;
 				string[] clauses = Regex.Split(m.Groups[2].Value.Trim(), @" and (?=that |some )");
 				if (clauses.Length != 2) continue;
 				string j = null;
@@ -1872,7 +1884,7 @@ namespace Elysium.NormaOracle
 				FactIndexEntry e1 = FindEntryByNormalizedSentence(leg1);
 				FactIndexEntry e2 = FindEntryByNormalizedSentence(leg2);
 				if (headE == null || e1 == null || e2 == null || headE == e1 || headE == e2) continue;
-				if (headE.Fact.DerivationRule != null) continue;
+				if (headE.Fact.DerivationRule != null && headRules == 1) continue;
 				int j1 = e1.Players.IndexOf(j), j2 = e2.Players.IndexOf(j);
 				if (j1 < 0 || j2 < 0 || e1.Players.LastIndexOf(j) != j1 || e2.Players.LastIndexOf(j) != j2) continue;
 				var located = new List<KeyValuePair<FactIndexEntry, int>>();
@@ -1896,10 +1908,15 @@ namespace Elysium.NormaOracle
 					located.Add(hits[0]);
 				}
 				if (!ok) continue;
-				var rule = new FactTypeDerivationRule(myStore);
-				new FactTypeHasDerivationRule(headE.Fact, rule);
-				rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
-				rule.DerivationStorage = DerivationStorage.NotStored;
+				// get-or-create: a multi-rule head unions one lead per rule
+				var rule = headE.Fact.DerivationRule as FactTypeDerivationRule;
+				if (rule == null)
+				{
+					rule = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(headE.Fact, rule);
+					rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
+					rule.DerivationStorage = DerivationStorage.NotStored;
+				}
 				var lead = new LeadRolePath(myStore);
 				rule.OwnedLeadRolePathCollection.Add(lead);
 				new RolePathObjectTypeRoot(lead, myTypes[j]);
