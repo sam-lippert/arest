@@ -4028,6 +4028,33 @@ namespace Elysium.NormaOracle
 					+ ", " + IAtom(dr != null && dr.ExternalDerivation ? "T" : "F") + "))");
 			}
 			rows.Sort(StringComparer.Ordinal);
+			// THE UNIQUENESS SURFACE (GenerateUniqueness's input,
+			// OMIFORM:1508-1632): every alethic uniqueness constraint with
+			// its ordered member roles as (factName, 1-based role position);
+			// state:ucs - S4(name, isPreferred, internal, S(members)).
+			var ucRows = new List<string>();
+			foreach (UniquenessConstraint uc in myStore.ElementDirectory.FindElements<UniquenessConstraint>(true))
+			{
+				if (uc.IsDeleted || uc.Modality != ConstraintModality.Alethic) continue;
+				var members = new List<string>();
+				bool ok = true;
+				foreach (Role mr in uc.RoleCollection)
+				{
+					FactType mft = mr.BinarizedOrSameFactType;
+					if (mft == null) { ok = false; break; }
+					int pos = 0;
+					for (int i = 0; i < mft.RoleCollection.Count; i++)
+						if (mft.RoleCollection[i].Role == mr) { pos = i + 1; break; }
+					if (pos == 0) { ok = false; break; }
+					members.Add("S2(" + IAtom(mft.Name) + ", N(" + pos + "))");
+				}
+				if (!ok || members.Count == 0) continue;
+				ucRows.Add("S4(" + IAtom(uc.Name)
+					+ ", " + IAtom(uc.IsPreferred ? "T" : "F")
+					+ ", " + IAtom(uc.IsInternal ? "T" : "F")
+					+ ", S" + members.Count + "(" + string.Join(", ", members) + "))");
+			}
+			ucRows.Sort(StringComparer.Ordinal);
 			var ots = new List<string>();
 			foreach (ObjectType ot in myStore.ElementDirectory.FindElements<ObjectType>(true))
 			{
@@ -4039,6 +4066,7 @@ namespace Elysium.NormaOracle
 			var sb = new System.Text.StringBuilder();
 			sb.Append("DEF(\"state:mapinputs\", ").Append(IChunked(rows)).Append("),\n\n");
 			sb.Append("DEF(\"state:otmeta\", ").Append(IChunked(ots)).Append("),\n\n");
+			sb.Append("DEF(\"state:ucs\", ").Append(ucRows.Count == 0 ? "S1(PHI())" : IChunked(ucRows)).Append("),\n\n");
 			return sb.ToString();
 		}
 
