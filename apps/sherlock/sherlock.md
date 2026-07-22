@@ -130,6 +130,20 @@ Observation reveals a tunnel into Building. *
 
 Observation exhibits Motive. *
 
+### v9, the grounded gate: content links state what the hypothesis
+### CLAIMS, scene links state what the case SHOWS; corroboration is
+### their meet - three per-case grounds disjoined over one head
+### (the multi-rule linear class).
+Hypothesis tunnels into Building.
+  Each Hypothesis tunnels into at most one Building.
+Hypothesis is moved by Motive.
+  Each Hypothesis is moved by at most one Motive.
+Fixture is presented in Case.
+  Each Fixture, Case combination occurs at most once in the population of Fixture is presented in Case.
+Building is implicated in Case. *
+Motive is evidenced in Case. *
+Case corroborates Hypothesis. *
+
 ### Attestations (the atomic evidence)
 
 Observation attests unexplained death of Person.
@@ -177,7 +191,7 @@ Observation attests Item lay beside Person.
 
 * Case strongly suspects Hypothesis iff Hypothesis relies on some Means and that Means is available in that Case.
 
-* Explanation selects Hypothesis iff Explanation is for some Case and that Case strongly suspects that Hypothesis.
+* Explanation selects Hypothesis iff Explanation is for some Case and that Case corroborates that Hypothesis.
 
 * Species clears Bore iff Species has some Girth and that Girth threads that Bore.
 
@@ -190,6 +204,16 @@ Observation attests Item lay beside Person.
 * Observation reveals a tunnel into Building iff that Observation locates digging toward some Building1 and that Building1 adjoins that Building.
 
 * Observation exhibits Motive iff Observation reads some Phrase and that Phrase indicts that Motive.
+
+* Building is implicated in Case iff some Observation reveals a tunnel into Building and some Case observes that Observation.
+
+* Motive is evidenced in Case iff some Observation exhibits Motive and some Case observes that Observation.
+
+* Case corroborates Hypothesis iff Hypothesis gains access via some Fixture and that Fixture is presented in that Case.
+
+* Case corroborates Hypothesis iff Hypothesis tunnels into some Building and that Building is implicated in that Case.
+
+* Case corroborates Hypothesis iff Hypothesis is moved by some Motive and that Motive is evidenced in that Case.
 
 ## State Machine
 
@@ -324,5 +348,10 @@ Room 'the cellar' is in Building 'the pawnshop'.
 Building 'the pawnshop' adjoins Building 'the bank vault'.
 Observation 'the wall writing' reads Phrase 'RACHE'.
 Phrase 'RACHE' indicts Motive 'revenge'.
+
+### v9 content + scene rows
+Fixture 'the ventilator' is presented in Case 'The Speckled Band'.
+Hypothesis 'the league was a pretext to tunnel into the bank vault' tunnels into Building 'the bank vault'.
+Hypothesis 'he was killed for revenge' is moved by Motive 'revenge'.
 
 Domain 'sherlock' has Description 'Abductive case investigation: observations afford means, hypotheses rely on them, explanations select the strongly suspected.'.
