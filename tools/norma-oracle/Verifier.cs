@@ -4091,6 +4091,106 @@ namespace Elysium.NormaOracle
 			cts.Sort(StringComparer.Ordinal);
 			sb.Append("DEF(\"state:normacts\", ").Append(IChunked(cts)).Append("),\n\n");
 			sb.Append("DEF(\"state:normaassim\", ").Append(IChunked(assims)).Append("),\n\n");
+
+			// SECTION C TARGETS (rmap-algorithm.md C.2-C.3): the concept-type
+			// children beyond assimilations, with their fact paths - the
+			// per-decision certification surface for canon children and the
+			// path replay stage 2's columns certify against.
+			// state:normarels  - S5(parent, related, name, oppositeName, mandatory)
+			// state:normainfos - S4(parent, formatName, name, mandatory)
+			// state:normauniq  - S4(parent, name, isPreferred, S(childNames))
+			// state:normapaths - S5(kind, parent, target, name, S(factNames))
+			Type relType = abstractionAssembly.GetTypes().First(x => x.Name == "ConceptTypeRelatesToConceptType" && typeof(ModelElement).IsAssignableFrom(x));
+			Type infType = abstractionAssembly.GetTypes().First(x => x.Name == "InformationType" && typeof(ModelElement).IsAssignableFrom(x));
+			Type uniqType = abstractionAssembly.GetTypes().First(x => x.Name == "Uniqueness" && typeof(ModelElement).IsAssignableFrom(x));
+			Func<Type, ModelElement, string, string> propName = (t, el, prop) =>
+			{
+				var p = t.GetProperty(prop);
+				object v = p == null ? null : p.GetValue(el, null);
+				return v == null ? "" : v.ToString();
+			};
+			// ConceptTypeChildHasPathFactType is a BRIDGE link (child in the
+			// abstraction model, fact in ORM) - the ordered path collection
+			// is reached through the bridge link class's static accessor,
+			// not a property on the abstraction element.
+			Type pathLinkType = bridgeAssembly.GetTypes().First(x => x.Name == "ConceptTypeChildHasPathFactType" && typeof(ModelElement).IsAssignableFrom(x));
+			var pathAccessor = pathLinkType.GetMethod("GetPathFactTypeCollection",
+				System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+			Func<Type, ModelElement, string> childPath = (t, el) =>
+			{
+				if (pathAccessor == null) return "PHI()";
+				var seq = new List<string>();
+				foreach (object ft in (System.Collections.IEnumerable)pathAccessor.Invoke(null, new object[] { el }))
+					seq.Add(IAtom((string)ft.GetType().GetProperty("Name").GetValue(ft, null)));
+				if (seq.Count == 0) return "PHI()";
+				return "S" + seq.Count + "(" + string.Join(", ", seq) + ")";
+			};
+			var rels = new List<string>();
+			var paths = new List<string>();
+			foreach (ModelElement r in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(relType), true).Cast<ModelElement>())
+			{
+				object parent = relType.GetProperty("RelatingConceptType").GetValue(r, null);
+				object related = relType.GetProperty("RelatedConceptType").GetValue(r, null);
+				if (parent == null || related == null) continue;
+				string pn = (string)ctType.GetProperty("Name").GetValue(parent, null);
+				string rn = (string)ctType.GetProperty("Name").GetValue(related, null);
+				string nm = propName(relType, r, "Name");
+				rels.Add("S5(" + IAtom(pn) + ", " + IAtom(rn) + ", " + IAtom(nm)
+					+ ", " + IAtom(propName(relType, r, "OppositeName"))
+					+ ", " + IAtom(propName(relType, r, "IsMandatory") == "True" ? "T" : "F") + ")");
+				paths.Add("S5(" + IAtom("rel") + ", " + IAtom(pn) + ", " + IAtom(rn) + ", " + IAtom(nm) + ", " + childPath(relType, r) + ")");
+			}
+			rels.Sort(StringComparer.Ordinal);
+			Func<Type, ModelElement, object> parentOf = (t, el) =>
+			{
+				var p = t.GetProperty("ConceptType") ?? t.GetProperty("Parent");
+				return p == null ? null : p.GetValue(el, null);
+			};
+			var infos = new List<string>();
+			foreach (ModelElement it in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(infType), true).Cast<ModelElement>())
+			{
+				object parent = parentOf(infType, it);
+				object fmt = infType.GetProperty("InformationTypeFormat").GetValue(it, null);
+				if (parent == null || fmt == null) continue;
+				string pn = (string)ctType.GetProperty("Name").GetValue(parent, null);
+				string fn = (string)fmt.GetType().GetProperty("Name").GetValue(fmt, null);
+				string nm = propName(infType, it, "Name");
+				infos.Add("S4(" + IAtom(pn) + ", " + IAtom(fn) + ", " + IAtom(nm)
+					+ ", " + IAtom(propName(infType, it, "IsMandatory") == "True" ? "T" : "F") + ")");
+				paths.Add("S5(" + IAtom("info") + ", " + IAtom(pn) + ", " + IAtom(fn) + ", " + IAtom(nm) + ", " + childPath(infType, it) + ")");
+			}
+			infos.Sort(StringComparer.Ordinal);
+			foreach (ModelElement a in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(asType), true).Cast<ModelElement>())
+			{
+				object parent = asType.GetProperty("AssimilatorConceptType").GetValue(a, null);
+				object child = asType.GetProperty("AssimilatedConceptType").GetValue(a, null);
+				if (parent == null || child == null) continue;
+				paths.Add("S5(" + IAtom("assim")
+					+ ", " + IAtom((string)ctType.GetProperty("Name").GetValue(parent, null))
+					+ ", " + IAtom((string)ctType.GetProperty("Name").GetValue(child, null))
+					+ ", " + IAtom(propName(asType, a, "Name")) + ", " + childPath(asType, a) + ")");
+			}
+			paths.Sort(StringComparer.Ordinal);
+			var uniqs = new List<string>();
+			foreach (ModelElement u in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(uniqType), true).Cast<ModelElement>())
+			{
+				object parent = parentOf(uniqType, u);
+				if (parent == null) continue;
+				var kids = new List<string>();
+				var kp = uniqType.GetProperty("ConceptTypeChildCollection");
+				if (kp != null)
+					foreach (object k in (System.Collections.IEnumerable)kp.GetValue(u, null))
+						kids.Add(IAtom(propName(k.GetType(), (ModelElement)k, "Name")));
+				uniqs.Add("S4(" + IAtom((string)ctType.GetProperty("Name").GetValue(parent, null))
+					+ ", " + IAtom(propName(uniqType, u, "Name"))
+					+ ", " + IAtom(propName(uniqType, u, "IsPreferred") == "True" ? "T" : "F")
+					+ ", " + (kids.Count == 0 ? "PHI()" : "S" + kids.Count + "(" + string.Join(", ", kids) + ")") + ")");
+			}
+			uniqs.Sort(StringComparer.Ordinal);
+			sb.Append("DEF(\"state:normarels\", ").Append(IChunked(rels)).Append("),\n\n");
+			sb.Append("DEF(\"state:normainfos\", ").Append(IChunked(infos)).Append("),\n\n");
+			sb.Append("DEF(\"state:normauniq\", ").Append(IChunked(uniqs)).Append("),\n\n");
+			sb.Append("DEF(\"state:normapaths\", ").Append(IChunked(paths)).Append("),\n\n");
 			return sb.ToString();
 		}
 
