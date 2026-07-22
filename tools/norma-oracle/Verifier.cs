@@ -224,6 +224,16 @@ namespace Elysium.NormaOracle
 
 		#region pass 1: type declarations
 		private static readonly Regex EntityDecl = new Regex(@"^([\w :]+?)\s*\(\s*\.\s*([\w ]+)\s*\)\s+is an entity type\.$");
+		// composite reference scheme (Halpin §7.3): X(.A, .B, ...) - the
+		// components bind existing types (or mint value types, the single-
+		// refmode precedent) through per-component fact types, and an
+		// EXTERNAL uniqueness constraint spanning the far roles is the
+		// preferred identifier
+		private static readonly Regex EntityDeclComposite = new Regex(@"^([\w :]+?)\s*\(\s*\.\s*([\w ]+(?:\s*,\s*\.\s*[\w ]+)+)\s*\)\s+is an entity type\.$");
+		// NORMA's own composite-identification verbalization, as written in
+		// the wild: "This association with A, B provides the preferred
+		// identification scheme for X."
+		private static readonly Regex AssocScheme = new Regex(@"^This association with ([\w ,]+?) provides the preferred identification scheme for ([\w :]+?)\.$");
 		private static readonly Regex EntityDeclBare = new Regex(@"^([\w :]+?)\s+is an entity type\.$");
 		private static readonly Regex ValueDecl = new Regex(@"^([\w :]+?)\s+is a value type\.$");
 
@@ -247,7 +257,58 @@ namespace Elysium.NormaOracle
 		{
 			{
 				Match m;
-				if ((m = EntityDecl.Match(s)).Success)
+				if ((m = EntityDeclComposite.Match(s)).Success
+					|| (m = AssocScheme.Match(s)).Success)
+				{
+					bool assocForm = s.StartsWith("This association");
+					ObjectType t = EnsureType(
+						(assocForm ? m.Groups[2] : m.Groups[1]).Value.Trim(), false);
+					if (t.PreferredIdentifier == null)
+					{
+						var farRoles = new List<Role>();
+						foreach (string compRaw in (assocForm ? m.Groups[1] : m.Groups[2]).Value.Split(','))
+						{
+							string comp = compRaw.Trim().TrimStart('.').Trim();
+							ObjectType compT;
+							myTypes.TryGetValue(comp, out compT);
+							if (compT == null)
+							{
+								// unbound component: mint a value type, the
+								// single-refmode precedent (.slug)
+								compT = EnsureType(comp, true);
+								compT.IsValueType = true;
+								EnsureDataType(compT, "text");
+							}
+							FactType ft = new FactType(myStore);
+							Role near = new Role(myStore);
+							Role far = new Role(myStore);
+							ft.RoleCollection.Add(near);
+							ft.RoleCollection.Add(far);
+							near.RolePlayer = t;
+							far.RolePlayer = compT;
+							// each X has exactly one component; the far role
+							// joins the external preferred identifier below
+							MandatoryConstraint mand = MandatoryConstraint.CreateSimpleMandatoryConstraint(near);
+							UniquenessConstraint iuc = UniquenessConstraint.CreateInternalUniquenessConstraint(ft);
+							iuc.RoleCollection.Add(near);
+							var reading = new ReadingOrder(myStore);
+							ft.ReadingOrderCollection.Add(reading);
+							reading.RoleCollection.Add(near);
+							reading.RoleCollection.Add(far);
+							var r = new Reading(myStore);
+							reading.ReadingCollection.Add(r);
+							r.Text = "{0} has {1}";
+							farRoles.Add(far);
+						}
+						UniquenessConstraint euc = new UniquenessConstraint(myStore);
+						euc.Model = myModel;
+						foreach (Role fr in farRoles) euc.RoleCollection.Add(fr);
+						euc.IsPreferred = true;
+						Count("composite reference scheme");
+					}
+					Count("entity-type declaration");
+				}
+				else if ((m = EntityDecl.Match(s)).Success)
 				{
 					ObjectType t = EnsureType(m.Groups[1].Value.Trim(), false);
 					if (t.ReferenceModeString.Length == 0)
@@ -679,6 +740,18 @@ namespace Elysium.NormaOracle
 			{
 				if (existing == super) { Count("subtype declaration"); return; }
 			}
+			if (sub.IsValueType != super.IsValueType)
+			{
+				// name the offender before NORMA's commit rule throws blind:
+				// mixed entity/value subtyping is a MODEL error, and the model
+				// author needs the pair, not a stack trace
+				throw new InvalidOperationException(
+					"mixed subtype: '" + subName + "' ("
+					+ (sub.IsValueType ? "value" : "entity") + ") is a subtype of '"
+					+ superName + "' (" + (super.IsValueType ? "value" : "entity")
+					+ ") - both sides must be the same kind; declare the missing "
+					+ "entity/value type explicitly");
+			}
 			SubtypeFact subtypeFact = SubtypeFact.Create(sub, super);
 			// Halpin §6.7: "By default, a subtype inherits the primary
 			// reference scheme of the root supertype." SubtypeFact.Create
@@ -1101,6 +1174,7 @@ namespace Elysium.NormaOracle
 			// role path can hold one rule, so only single-rule heads build —
 			// a multi-rule head built partially would be wrong, not partial
 			var rulesPerHead = new Dictionary<string, int>(StringComparer.Ordinal);
+			var linearPerHead = new Dictionary<string, int>(StringComparer.Ordinal);
 			foreach (string sRaw0 in myDeferredRules)
 			{
 				string s = sRaw0;
@@ -1111,6 +1185,15 @@ namespace Elysium.NormaOracle
 				int n;
 				rulesPerHead.TryGetValue(h, out n);
 				rulesPerHead[h] = n + 1;
+				// a multi-rule head may build IFF every one of its rules is
+				// linear-class: the closure is the union of its lead role
+				// paths, and a head split across classes would build
+				// partially, which is wrong rather than partial
+				if (Regex.IsMatch(s, @"^\* (.+?) iff some ([A-Z][\w ]*?) (.+) and that \2 (.+)\.$"))
+				{
+					linearPerHead.TryGetValue(h, out n);
+					linearPerHead[h] = n + 1;
+				}
 			}
 			foreach (string s in myDeferredRules)
 			{
@@ -1119,7 +1202,9 @@ namespace Elysium.NormaOracle
 				string head = m.Groups[1].Value.Trim();
 				int headRules;
 				rulesPerHead.TryGetValue(NormalizeWords(head), out headRules);
-				if (headRules != 1) continue;
+				int linearRules;
+				linearPerHead.TryGetValue(NormalizeWords(head), out linearRules);
+				if (headRules != 1 && linearRules != headRules) continue;
 				string j = m.Groups[2].Value.Trim();
 				if (!myTypes.ContainsKey(j)) continue;
 				string leg1 = Dequantify(j + " " + m.Groups[3].Value.Trim());
@@ -1128,7 +1213,7 @@ namespace Elysium.NormaOracle
 				FactIndexEntry e1 = FindEntryByNormalizedSentence(leg1);
 				FactIndexEntry e2 = FindEntryByNormalizedSentence(leg2);
 				if (headE == null || e1 == null || e2 == null || headE == e1 || headE == e2) continue;
-				if (headE.Fact.DerivationRule != null) continue;
+				if (headE.Fact.DerivationRule != null && headRules == 1) continue;
 				int j1 = e1.Players.IndexOf(j), j2 = e2.Players.IndexOf(j);
 				if (j1 < 0 || j2 < 0 || e1.Players.LastIndexOf(j) != j1 || e2.Players.LastIndexOf(j) != j2) continue;
 				// each head player must be found at exactly one non-join leg position
@@ -1146,10 +1231,16 @@ namespace Elysium.NormaOracle
 					located.Add(hits[0]);
 				}
 				if (!ok) continue;
-				var rule = new FactTypeDerivationRule(myStore);
-				new FactTypeHasDerivationRule(headE.Fact, rule);
-				rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
-				rule.DerivationStorage = DerivationStorage.NotStored;
+				// get-or-create: a multi-rule head holds ONE derivation rule
+				// whose closure is the union of one lead role path per rule
+				var rule = headE.Fact.DerivationRule as FactTypeDerivationRule;
+				if (rule == null)
+				{
+					rule = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(headE.Fact, rule);
+					rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
+					rule.DerivationStorage = DerivationStorage.NotStored;
+				}
 				var lead = new LeadRolePath(myStore);
 				rule.OwnedLeadRolePathCollection.Add(lead);
 				new RolePathObjectTypeRoot(lead, myTypes[j]);
