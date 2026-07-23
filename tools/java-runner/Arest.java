@@ -135,6 +135,19 @@ public class Arest {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < s.length(); i++) { char c = s.charAt(i); if (Character.isLetterOrDigit(c)) sb.append(c); }
             return sb.toString(); });
+        // char-level lex boundary (invariant ASCII on every station)
+        PRIMS.put("chars", x -> { String s = (String) x; Object[] out = new Object[s.length()];
+            for (int i = 0; i < s.length(); i++) out[i] = String.valueOf(s.charAt(i)); return out; });
+        PRIMS.put("charup", x -> { char c = ((String) x).charAt(0);
+            return (c >= 'a' && c <= 'z') ? String.valueOf((char) (c - 32)) : x; });
+        PRIMS.put("chardown", x -> { char c = ((String) x).charAt(0);
+            return (c >= 'A' && c <= 'Z') ? String.valueOf((char) (c + 32)) : x; });
+        PRIMS.put("charisup", x -> { char c = ((String) x).charAt(0);
+            return (c >= 'A' && c <= 'Z') ? "T" : "F"; });
+        PRIMS.put("charislow", x -> { char c = ((String) x).charAt(0);
+            return (c >= 'a' && c <= 'z') ? "T" : "F"; });
+        PRIMS.put("charisdigit", x -> { char c = ((String) x).charAt(0);
+            return (c >= '0' && c <= '9') ? "T" : "F"; });
         PRIMS.put("escape_html", x -> ((String) x).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;"));
         PRIMS.put("strip_prefix", x -> { Object[] p = seq(x); String pre = (String) p[0]; String t = (String) p[1];
             return (t.length() > pre.length() && t.startsWith(pre)) ? t.substring(pre.length()) : t; });

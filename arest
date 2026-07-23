@@ -8750,6 +8750,69 @@ DEF("rmap:ncprows",
 DEF("law:normacolpaths",
     S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("length"), N(1)), S3(A("COMP"), A("length"), N(2)))), S3(A("COMP"), A("eq"), S3(A("CONS"), K(N(0)), S3(A("COMP"), S5(A("COMP"), A("length"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), N(1), N(2))), K(PHI()), S2(A("CONS"), N(1)))), A("distr")), A("id")))))), K(A("T")), K(A("F"))), S3(A("CONS"), A("rmap:colpaths"), A("rmap:ncprows")))),
 
+DEF("theta:or",
+    S4(A("COND"), N(1), K(A("T")), S4(A("COND"), N(2), K(A("T")), K(A("F"))))),
+
+DEF("theta:take",
+    S4(A("COMP"), N(1), S3(A("WHILE"), S3(A("COMP"), A("and"), S3(A("CONS"), S4(A("COMP"), A("not"), A("null"), N(2)), S3(A("COMP"), A("not"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(3), K(N(0))))))), S4(A("CONS"), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(2)))), S3(A("COMP"), A("tl"), N(2)), S3(A("COMP"), A("-"), S3(A("CONS"), N(3), K(N(1)))))), S4(A("CONS"), K(PHI()), N(1), N(2)))),
+
+DEF("theta:drop",
+    S4(A("COMP"), N(1), S3(A("WHILE"), S3(A("COMP"), A("and"), S3(A("CONS"), S4(A("COMP"), A("not"), A("null"), N(1)), S3(A("COMP"), A("not"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(2), K(N(0))))))), S3(A("CONS"), S3(A("COMP"), A("tl"), N(1)), S3(A("COMP"), A("-"), S3(A("CONS"), N(2), K(N(1)))))), A("id"))),
+
+DEF("theta:nth",
+    S3(A("COMP"), N(1), A("theta:drop"))),
+
+DEF("theta:last",
+    S4(A("COMP"), N(1), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(2)), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), S3(A("COMP"), A("tl"), N(2)))), S3(A("CONS"), K(A("?")), A("id")))),
+
+DEF("theta:butlast",
+    S4(A("COMP"), N(1), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), S3(A("COMP"), A("tl"), N(2))), S3(A("CONS"), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(2)))), S3(A("COMP"), A("tl"), N(2)))), S3(A("CONS"), K(PHI()), A("id")))),
+
+DEF("lex:lw",
+    S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), S2(A("ALPHA"), A("chardown")), A("chars"))))),
+
+DEF("lex:word",
+    S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), A("id")))),
+
+DEF("lex:allup",
+    S4(A("COMP"), A("null"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("charisup"), K(A("T")))), K(PHI()), S2(A("CONS"), A("id")))))),
+
+DEF("lex:alnumtok",
+    S4(A("COMP"), A("null"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("charisup"), K(A("T")))), S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("charislow"), K(A("T")))), S3(A("COMP"), A("eq"), S3(A("CONS"), A("charisdigit"), K(A("T")))))))), K(PHI()), S2(A("CONS"), A("id")))))),
+
+DEF("lex:explicit",
+    S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S4(A("COMP"), A("not"), A("null"), A("tl")), A("lex:allup"))), K(A("T")), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("charisdigit"), N(1)), K(A("T")))), K(A("T")), K(A("F"))))),
+
+DEF("lex:adjup",
+    S4(A("COMP"), N(1), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), S3(A("COMP"), A("tl"), N(2))), S3(A("CONS"), S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("charisup"), S3(A("COMP"), N(1), N(2))), K(A("T")))), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("charisup"), S3(A("COMP"), N(1), S3(A("COMP"), A("tl"), N(2)))), K(A("T")))))), K(A("T")), N(1)), S3(A("COMP"), A("tl"), N(2)))), S3(A("CONS"), K(A("F")), A("chars")))),
+
+DEF("lex:tokens",
+    S4(A("COMP"), S4(A("COND"), S3(A("COMP"), A("null"), N(2)), N(1), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), N(2)))), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(3)), S4(A("COND"), S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), K(A(" ")))), S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), K(A("_")))), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), K(A("-")))))))), S4(A("CONS"), S4(A("COND"), S3(A("COMP"), A("null"), N(2)), N(1), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), N(2)))), K(PHI()), S3(A("COMP"), A("tl"), N(3))), S4(A("CONS"), N(1), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(3)))), S3(A("COMP"), A("tl"), N(3))))), S4(A("CONS"), K(PHI()), K(PHI()), A("chars")))),
+
+DEF("lex:caseparts",
+    S4(A("COMP"), S4(A("COND"), S3(A("COMP"), A("null"), N(2)), N(1), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), N(2)))), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(4)), S4(A("COND"), S3(A("COMP"), A("null"), N(2)), S5(A("CONS"), N(1), S2(A("CONS"), S3(A("COMP"), N(1), N(4))), S3(A("COMP"), A("charisup"), S3(A("COMP"), N(1), N(4))), S3(A("COMP"), A("tl"), N(4))), S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(3), K(A("F")))), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("charisup"), S3(A("COMP"), N(1), N(4))), K(A("T")))))), S5(A("CONS"), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), N(2))), S2(A("CONS"), S3(A("COMP"), N(1), N(4))), S3(A("COMP"), A("charisup"), S3(A("COMP"), N(1), N(4))), S3(A("COMP"), A("tl"), N(4))), S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(3), K(A("T")))), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("charisup"), S3(A("COMP"), N(1), N(4))), K(A("F")))), S4(A("COMP"), A("not"), A("null"), S3(A("COMP"), A("tl"), N(2))))))), S5(A("CONS"), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), S3(A("COMP"), A("theta:butlast"), N(2)))), S3(A("CONS"), S3(A("COMP"), A("theta:last"), N(2)), S3(A("COMP"), N(1), N(4))), S3(A("COMP"), A("charisup"), S3(A("COMP"), N(1), N(4))), S3(A("COMP"), A("tl"), N(4))), S5(A("CONS"), N(1), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(4)))), S3(A("COMP"), A("charisup"), S3(A("COMP"), N(1), N(4))), S3(A("COMP"), A("tl"), N(4))))))), S5(A("CONS"), K(PHI()), K(PHI()), K(A("F")), A("id")))),
+
+DEF("lex:parts",
+    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), A("lex:alnumtok"), S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("null"), A("tl")), S2(A("CONS"), S3(A("CONS"), S3(A("COMP"), A("lex:word"), N(1)), K(A("F")))), S2(A("ALPHA"), S3(A("CONS"), A("lex:word"), A("lex:explicit")))), A("lex:caseparts")), S2(A("CONS"), S3(A("CONS"), A("lex:word"), K(A("F")))))), A("lex:tokens"))),
+
+DEF("lex:runeq",
+    S6(A("COMP"), A("null"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("lex:lw"), S3(A("COMP"), N(1), S3(A("COMP"), A("theta:nth"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), A("-"), S3(A("CONS"), S3(A("COMP"), A("+"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2))), K(N(1)))))))), S3(A("COMP"), A("lex:lw"), S3(A("COMP"), N(1), S3(A("COMP"), A("theta:nth"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), A("-"), S3(A("CONS"), S3(A("COMP"), A("+"), S3(A("CONS"), S3(A("COMP"), N(3), N(1)), N(2))), K(N(1)))))))))), K(PHI()), S2(A("CONS"), A("id")))), A("distl"), S3(A("CONS"), N(1), S3(A("COMP"), A("theta:iota"), N(2))))),
+
+DEF("lex:preloop",
+    S3(A("WHILE"), S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("theta:drop"), S3(A("CONS"), S3(A("COMP"), A("theta:iota"), N(3)), N(2)))), S3(A("COMP"), A("lex:runeq"), S3(A("CONS"), S4(A("CONS"), N(1), S3(A("COMP"), A("-"), S3(A("CONS"), N(2), N(3))), N(2)), N(3))), K(A("F"))), S4(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("theta:take"), S3(A("CONS"), N(1), S3(A("COMP"), A("-"), S3(A("CONS"), N(2), N(3))))), S3(A("COMP"), A("theta:drop"), S3(A("CONS"), N(1), N(2))))), S3(A("COMP"), A("-"), S3(A("CONS"), N(2), N(3))), N(3)))),
+
+DEF("lex:leadloop",
+    S3(A("WHILE"), S4(A("COND"), S3(A("COMP"), A("not"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(2), K(N(0))))), S3(A("COMP"), A("lex:runeq"), S3(A("CONS"), S4(A("CONS"), N(1), S3(A("COMP"), A("-"), S3(A("CONS"), N(2), K(N(1)))), N(2)), K(N(1)))), K(A("F"))), S4(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("theta:take"), S3(A("CONS"), N(1), N(2))), S3(A("COMP"), A("theta:drop"), S3(A("CONS"), N(1), S3(A("COMP"), A("+"), S3(A("CONS"), N(2), K(N(1)))))))), S3(A("COMP"), A("-"), S3(A("CONS"), N(2), K(N(1)))), N(3)))),
+
+DEF("lex:trailloop",
+    S3(A("WHILE"), S4(A("COND"), S4(A("COMP"), A("not"), A("null"), S3(A("COMP"), A("theta:drop"), S3(A("CONS"), N(1), S3(A("COMP"), A("+"), S3(A("CONS"), S3(A("COMP"), A("+"), S3(A("CONS"), N(2), S3(A("COMP"), A("-"), S3(A("CONS"), N(3), K(N(1)))))), K(N(1))))))), S3(A("COMP"), A("lex:runeq"), S3(A("CONS"), S4(A("CONS"), N(1), S3(A("COMP"), A("+"), S3(A("CONS"), N(2), S3(A("COMP"), A("-"), S3(A("CONS"), N(3), K(N(1)))))), S3(A("COMP"), A("+"), S3(A("CONS"), S3(A("COMP"), A("+"), S3(A("CONS"), N(2), S3(A("COMP"), A("-"), S3(A("CONS"), N(3), K(N(1)))))), K(N(1))))), K(N(1)))), K(A("F"))), S4(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("theta:take"), S3(A("CONS"), N(1), S3(A("COMP"), A("+"), S3(A("CONS"), N(2), S3(A("COMP"), A("-"), S3(A("CONS"), N(3), K(N(1)))))))), S3(A("COMP"), A("theta:drop"), S3(A("CONS"), N(1), S3(A("COMP"), A("+"), S3(A("CONS"), S3(A("COMP"), A("+"), S3(A("CONS"), N(2), S3(A("COMP"), A("-"), S3(A("CONS"), N(3), K(N(1)))))), K(N(1)))))))), N(2), N(3)))),
+
+DEF("lex:addrun",
+    S4(A("COND"), S3(A("COMP"), A("null"), N(2)), N(1), S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(3), K(N(1)))), S3(A("COMP"), N(1), A("lex:preloop")), S5(A("COMP"), N(1), A("lex:trailloop"), A("lex:leadloop"), A("lex:preloop"))), S4(A("CONS"), S3(A("COMP"), A("cat"), A("id")), S3(A("COMP"), A("length"), N(1)), S3(A("COMP"), A("length"), N(2)))))),
+
+DEF("lex:camel",
+    S4(A("COND"), S3(A("COMP"), A("null"), A("id")), K(A("")), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), A("apndl"), S3(A("CONS"), S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(2), K(A("T")))), S3(A("COMP"), A("lex:adjup"), N(1)))), N(1), S3(A("COMP"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), A("apndl"), S3(A("CONS"), S3(A("COMP"), A("chardown"), N(1)), A("tl"))))), S3(A("COMP"), A("chars"), N(1)))), N(1)), S3(A("COMP"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(2), K(A("T")))), S3(A("COMP"), A("lex:adjup"), N(1)))), N(1), S3(A("COMP"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), A("apndl"), S3(A("CONS"), S3(A("COMP"), A("charup"), N(1)), A("tl"))))), S3(A("COMP"), A("chars"), N(1))))), A("tl")))))))),
+
 DEF("rmap:nrrows",
     S3(A("COMP"), S3(A("WHILE"), S4(A("COMP"), A("not"), A("atom"), S3(A("COMP"), N(1), N(1))), A("theta:flatten")), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("state:normarels")), A("id"))))),
 
