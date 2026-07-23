@@ -3645,6 +3645,35 @@ namespace Elysium.NormaOracle
 					"S" + groups.Count + "(" + string.Join(", ", groups) + ")") + ")");
 			}
 			sb.Append("DEF(\"state:readings\", ").Append(IChunked(readingRows)).Append("),\n\n");
+			// the scheme facts' generated readings: reference-scheme facts
+			// stay out of state:readings (membership semantics above), but
+			// NAMEGEN reads their NORMA-generated '{0} has {1}' when naming
+			// columns - the naming walk needs the same surface
+			var indexedFacts = new HashSet<FactType>();
+			foreach (FactIndexEntry entry in myFactIndex)
+				if (entry.Fact != null) indexedFacts.Add(entry.Fact);
+			var schemeReadingRows = new List<string>();
+			foreach (var sf in mySchemeFacts)
+			{
+				FactIndexEntry entry = sf.Value;
+				if (entry.Fact == null || entry.Fact.IsDeleted || indexedFacts.Contains(entry.Fact)) continue;
+				var sps = new List<string>();
+				foreach (string p0 in entry.Players) sps.Add(IAtom(p0));
+				var sws = new List<string>();
+				foreach (string w in entry.ReadingText.Split(' '))
+					if (w.Length > 0) sws.Add(IAtom(w));
+				var sgroups = new List<string>();
+				for (int g = 0; g < sws.Count; g += 9)
+				{
+					int n = Math.Min(9, sws.Count - g);
+					sgroups.Add("S" + n + "(" + string.Join(", ", sws.GetRange(g, n)) + ")");
+				}
+				schemeReadingRows.Add("S3(" + IAtom(entry.Fact.Name) + ", S" + sps.Count + "("
+					+ string.Join(", ", sps) + "), " + (sgroups.Count == 0 ? "S1(PHI())" :
+					"S" + sgroups.Count + "(" + string.Join(", ", sgroups) + ")") + ")");
+			}
+			schemeReadingRows.Sort(StringComparer.Ordinal);
+			sb.Append("DEF(\"state:schemereadings\", ").Append(schemeReadingRows.Count == 0 ? "S1(PHI())" : IChunked(schemeReadingRows)).Append("),\n\n");
 			// the exclusion surface: one entry per ExclusionConstraint, each a
 			// list of scopes (population name, 1-based positions). A scope over
 			// a SubtypeFact's supertype meta role resolves to the SUBTYPE
