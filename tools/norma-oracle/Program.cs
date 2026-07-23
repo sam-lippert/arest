@@ -334,7 +334,7 @@ namespace Elysium.NormaOracle
 			verifier.WriteDesignState("design-state",
 				verifier.InputStateCells()
 				+ Verifier.MappingStateCells(store, assemblies[1], assemblies[2]));
-			Verifier.WriteNormaAnswer(store, assemblies[4], "norma-answer", verifier.FullyDerivedNames());
+			Verifier.WriteNormaAnswer(store, assemblies[4], assemblies[1], assemblies[3], "norma-answer", verifier.FullyDerivedNames());
 			Console.WriteLine();
 			Console.WriteLine("== carriers ==");
 			Console.WriteLine("  written: design-state, norma-answer (intersection source)");
