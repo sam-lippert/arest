@@ -70,6 +70,13 @@ public static partial class Arest
         { "lex", x => ((string)x).Split((char[])null, StringSplitOptions.RemoveEmptyEntries).Cast<object>().ToArray() },
         { "implode", x => { var p = Seq(x); return string.Join((string)p[0], Seq(p[1]).Cast<string>()); } },
         { "slug", x => new string(((string)x).ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray()) },
+        // char-level lex boundary (invariant ASCII on every station)
+        { "chars", x => ((string)x).Select(c => (object)c.ToString()).ToArray() },
+        { "charup", x => { var c = ((string)x)[0]; return (c >= 'a' && c <= 'z') ? ((char)(c - 32)).ToString() : (string)x; } },
+        { "chardown", x => { var c = ((string)x)[0]; return (c >= 'A' && c <= 'Z') ? ((char)(c + 32)).ToString() : (string)x; } },
+        { "charisup", x => { var c = ((string)x)[0]; return (c >= 'A' && c <= 'Z') ? "T" : "F"; } },
+        { "charislow", x => { var c = ((string)x)[0]; return (c >= 'a' && c <= 'z') ? "T" : "F"; } },
+        { "charisdigit", x => { var c = ((string)x)[0]; return (c >= '0' && c <= '9') ? "T" : "F"; } },
         { "escape_html", x => ((string)x).Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;") },
         { "strip_prefix", x => { var p = Seq(x); var pre = (string)p[0]; var t = (string)p[1];
             return t.Length > pre.Length && t.StartsWith(pre, StringComparison.Ordinal) ? t.Substring(pre.Length) : t; } },

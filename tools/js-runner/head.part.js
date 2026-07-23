@@ -121,6 +121,15 @@ const PRIMS = new Map(Object.entries({
     return w; }).join(at(x,0)),
   "slug": x => { if (typeof x !== "string") throw new Error("slug on non-string");
     return [...x.toLowerCase()].filter(c => /[\p{L}\p{Nd}]/u.test(c)).join(""); },
+  // char-level lex boundary (invariant ASCII on every station, so the
+  // naming lex is byte-identical regardless of host culture)
+  "chars": x => { if (typeof x !== "string") throw new Error("chars on non-string");
+    return [...x]; },
+  "charup": x => (x >= "a" && x <= "z") ? String.fromCharCode(x.charCodeAt(0) - 32) : x,
+  "chardown": x => (x >= "A" && x <= "Z") ? String.fromCharCode(x.charCodeAt(0) + 32) : x,
+  "charisup": x => (x >= "A" && x <= "Z") ? "T" : "F",
+  "charislow": x => (x >= "a" && x <= "z") ? "T" : "F",
+  "charisdigit": x => (x >= "0" && x <= "9") ? "T" : "F",
   "escape_html": x => x.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"),
   "strip_prefix": x => { const pre = at(x,0), t = at(x,1);
     return (t.length > pre.length && t.startsWith(pre)) ? t.slice(pre.length) : t; },
