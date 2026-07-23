@@ -4124,7 +4124,7 @@ namespace Elysium.NormaOracle
 					members.Add("S2(" + IAtom(mft.Name) + ", N(" + pos + "))");
 				}
 				if (!ok || members.Count == 0) continue;
-				djRows.Add("S2(" + IAtom(mc.Name)
+				djRows.Add("S3(" + IAtom(mc.Name) + ", " + IAtom(mc.IsImplied ? "T" : "F")
 					+ ", " + IMemberSeq(members) + ")");
 			}
 			djRows.Sort(StringComparer.Ordinal);

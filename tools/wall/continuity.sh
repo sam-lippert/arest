@@ -6,6 +6,10 @@
 # journal so the app's store of record stays untouched.
 #   sh continuity.sh [app]          (default sherlock)
 APP=${1:-sherlock}
+case "$APP" in
+  order)  export CONT_TYPE="Sale"; export CONT_ID="o1" ;;
+  family) export CONT_TYPE=""; export CONT_ID="" ;;
+esac
 W="$(cd "$(dirname "$0")" && pwd)"
 E="$W/../.."
 J="$W/journal.test"
