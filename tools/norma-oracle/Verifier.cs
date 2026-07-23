@@ -4001,12 +4001,25 @@ namespace Elysium.NormaOracle
 			return "";
 		}
 
+		private static string IMemberSeq(List<string> members)
+		{
+			if (members.Count == 0) return "PHI()";
+			if (members.Count <= 9)
+				return "S" + members.Count + "(" + string.Join(", ", members) + ")";
+			return IChunked(members);
+		}
+
 		public string InputStateCells()
 		{
 			var rows = new List<string>();
 			foreach (FactType ft in myStore.ElementDirectory.FindElements<FactType>(true))
 			{
-				if (ft.IsDeleted || ft.Objectification != null) continue;
+				// objectified ORIGINALS ride the surface too (their role
+				// mandatories are D.4's evidence inputs); flag 7 marks them and
+				// canon's rmap:gate excludes them from mapping exactly where
+				// NORMA does (ShouldIgnoreFactType's Objectification arm,
+				// rmap-algorithm.md 0.1)
+				if (ft.IsDeleted) continue;
 				LinkedElementCollection<RoleBase> rc = ft.RoleCollection;
 				bool isSubtype = ft is SubtypeFact;
 				bool isUnary = ft.UnaryPattern != UnaryValuePattern.NotUnary;
@@ -4055,10 +4068,11 @@ namespace Elysium.NormaOracle
 				string dstore = dr == null ? "none"
 					: (dr.DerivationStorage == DerivationStorage.Stored ? "stored" : "notstored");
 				rows.Add("S4(" + IAtom(ft.Name) + ", " + roleInfos[0] + ", " + roleInfos[1]
-					+ ", S6(" + IAtom(isSubtype ? "T" : "F") + ", " + IAtom(isUnary ? "T" : "F")
+					+ ", S7(" + IAtom(isSubtype ? "T" : "F") + ", " + IAtom(isUnary ? "T" : "F")
 					+ ", " + IAtom(ft.ImpliedByObjectification != null ? "T" : "F")
 					+ ", " + IAtom(dcomp) + ", " + IAtom(dstore)
-					+ ", " + IAtom(dr != null && dr.ExternalDerivation ? "T" : "F") + "))");
+					+ ", " + IAtom(dr != null && dr.ExternalDerivation ? "T" : "F")
+					+ ", " + IAtom(ft.Objectification != null ? "T" : "F") + "))");
 			}
 			rows.Sort(StringComparer.Ordinal);
 			// THE UNIQUENESS SURFACE (GenerateUniqueness's input,
@@ -4085,9 +4099,35 @@ namespace Elysium.NormaOracle
 				ucRows.Add("S4(" + IAtom(uc.Name)
 					+ ", " + IAtom(uc.IsPreferred ? "T" : "F")
 					+ ", " + IAtom(uc.IsInternal ? "T" : "F")
-					+ ", S" + members.Count + "(" + string.Join(", ", members) + "))");
+					+ ", " + IMemberSeq(members) + ")");
 			}
 			ucRows.Sort(StringComparer.Ordinal);
+			// THE DISJUNCTIVE-MANDATORY SURFACE (AssimilationIsSelfEvident's
+			// completion arm, ASM:242-296): every alethic NON-simple
+			// mandatory constraint with its ordered members as (factName,
+			// 1-based role position) - state:djmands, S2(name, S(members)),
+			// the state:ucs pattern.
+			var djRows = new List<string>();
+			foreach (MandatoryConstraint mc in myStore.ElementDirectory.FindElements<MandatoryConstraint>(true))
+			{
+				if (mc.IsDeleted || mc.Modality != ConstraintModality.Alethic || mc.IsSimple) continue;
+				var members = new List<string>();
+				bool ok = true;
+				foreach (Role mr in mc.RoleCollection)
+				{
+					FactType mft = mr.BinarizedOrSameFactType;
+					if (mft == null) { ok = false; break; }
+					int pos = 0;
+					for (int i = 0; i < mft.RoleCollection.Count; i++)
+						if (mft.RoleCollection[i].Role == mr) { pos = i + 1; break; }
+					if (pos == 0) { ok = false; break; }
+					members.Add("S2(" + IAtom(mft.Name) + ", N(" + pos + "))");
+				}
+				if (!ok || members.Count == 0) continue;
+				djRows.Add("S2(" + IAtom(mc.Name)
+					+ ", " + IMemberSeq(members) + ")");
+			}
+			djRows.Sort(StringComparer.Ordinal);
 			var ots = new List<string>();
 			foreach (ObjectType ot in myStore.ElementDirectory.FindElements<ObjectType>(true))
 			{
@@ -4100,6 +4140,7 @@ namespace Elysium.NormaOracle
 			sb.Append("DEF(\"state:mapinputs\", ").Append(IChunked(rows)).Append("),\n\n");
 			sb.Append("DEF(\"state:otmeta\", ").Append(IChunked(ots)).Append("),\n\n");
 			sb.Append("DEF(\"state:ucs\", ").Append(ucRows.Count == 0 ? "S1(PHI())" : IChunked(ucRows)).Append("),\n\n");
+			sb.Append("DEF(\"state:djmands\", ").Append(djRows.Count == 0 ? "S1(PHI())" : IChunked(djRows)).Append("),\n\n");
 			return sb.ToString();
 		}
 
