@@ -4235,27 +4235,86 @@ namespace Elysium.NormaOracle
 			// UnitBased name FK references as the BARE entity and pid columns
 			// as the VALUE TYPE name): per entity with a reference mode -
 			// (entity, modeName, kind popular|unitbased|general, valueTypeName).
+			// Subtype resolution (the C# alternateEntityType semantics:
+			// name from the subtype, KIND from the pattern carrier): climb
+			// supertypes until an own scheme is found, then emit under the
+			// SUBTYPE's name. Composite/no-scheme entities stay absent.
 			var rmRows = new List<string>();
 			foreach (ObjectType ot in myStore.ElementDirectory.FindElements<ObjectType>(true))
 			{
 				if (ot.IsDeleted || ot.IsValueType) continue;
-				IReferenceModePattern rmp = ot.ReferenceModePattern;
-				if (rmp == null) continue;
-				UniquenessConstraint pid = ot.PreferredIdentifier;
-				string vtName = "";
-				if (pid != null && pid.RoleCollection.Count == 1)
+				ObjectType carrier = ot;
+				IReferenceModePattern rmp = null;
+				int guard = 0;
+				while (carrier != null && guard++ < 32)
 				{
-					ObjectType vt = pid.RoleCollection[0].RolePlayer;
-					if (vt != null) vtName = vt.Name;
+					rmp = carrier.ReferenceModePattern;
+					if (rmp != null) break;
+					ObjectType super = null;
+					foreach (Role role in carrier.PlayedRoleCollection)
+					{
+						SubtypeMetaRole subRole = role as SubtypeMetaRole;
+						if (subRole != null)
+						{
+							SubtypeFact sf = subRole.FactType as SubtypeFact;
+							if (sf != null) { super = sf.Supertype; break; }
+						}
+					}
+					carrier = super;
 				}
-				string kind;
-				switch (rmp.ReferenceModeType)
+				string kind, modeName, vtName = "";
+				UniquenessConstraint pid;
+				if (rmp != null && carrier != null)
 				{
-					case ReferenceModeType.Popular: kind = "popular"; break;
-					case ReferenceModeType.UnitBased: kind = "unitbased"; break;
-					default: kind = "general"; break;
+					pid = carrier.PreferredIdentifier;
+					if (pid != null && pid.RoleCollection.Count == 1)
+					{
+						ObjectType vt = pid.RoleCollection[0].RolePlayer;
+						if (vt != null) vtName = vt.Name;
+					}
+					switch (rmp.ReferenceModeType)
+					{
+						case ReferenceModeType.Popular: kind = "popular"; break;
+						case ReferenceModeType.UnitBased: kind = "unitbased"; break;
+						default: kind = "general"; break;
+					}
+					modeName = rmp.Name;
 				}
-				rmRows.Add("S4(" + IAtom(ot.Name) + ", " + IAtom(rmp.Name)
+				else
+				{
+					// has-scheme entities (single-role preferred identifier
+					// without a formal reference-mode pattern): NORMA's
+					// no-pattern naming path gives them the GENERAL behavior
+					// (bare entity for references, the VT name for pid
+					// leaves). Composite and unidentified entities stay
+					// absent (they contribute nothing at their step).
+					carrier = ot;
+					pid = null;
+					int guard2 = 0;
+					while (carrier != null && guard2++ < 32)
+					{
+						pid = carrier.PreferredIdentifier;
+						if (pid != null) break;
+						ObjectType super = null;
+						foreach (Role role in carrier.PlayedRoleCollection)
+						{
+							SubtypeMetaRole subRole = role as SubtypeMetaRole;
+							if (subRole != null)
+							{
+								SubtypeFact sf = subRole.FactType as SubtypeFact;
+								if (sf != null) { super = sf.Supertype; break; }
+							}
+						}
+						carrier = super;
+					}
+					if (pid == null || pid.RoleCollection.Count != 1) continue;
+					ObjectType vt2 = pid.RoleCollection[0].RolePlayer;
+					if (vt2 == null || !vt2.IsValueType) continue;
+					vtName = vt2.Name;
+					kind = "general";
+					modeName = "";
+				}
+				rmRows.Add("S4(" + IAtom(ot.Name) + ", " + IAtom(modeName)
 					+ ", " + IAtom(kind) + ", " + IAtom(vtName) + ")");
 			}
 			rmRows.Sort(StringComparer.Ordinal);
