@@ -152,7 +152,14 @@ const PRIMS = new Map(Object.entries({
 // call memoClear() at the mutation point. Bounded: full clear past the cap.
 const EVMEMO = new Map();
 let EVMEMON = 0;
-function memoClear() { EVMEMO.clear(); EVMEMON = 0; }
+// Backus 13.3.4 defines fetch as a linear walk (`↑n∘tl:x`), and canon's
+// law:find_desc is that walk: filter the descriptors by name, take the
+// first. The MEANING is "the first descriptor named n" — a lookup. The
+// walk is the evaluator's business, so the head indexes it: one pass per
+// descriptor-list object, cached by reference, then O(1) per name. Keyed
+// weakly so a dropped list collects; cleared with the memo at mutations.
+let DESCIDX = new WeakMap();
+function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); }
 // Selective: only cells whose inputs actually repeat (store-applied
 // rmap cells and fetches keyed by the frozen CELLS reference; the
 // walk's ctx-threaded helpers keyed by element references; lex:parts
@@ -193,7 +200,84 @@ const FASTPRIMS = new Map(Object.entries({
   "theta:setminus": x => { const a = seq(at(x, 0)), b = seq(at(x, 1));
     const drop = new Set(b.map(e => JSON.stringify(e)));
     return a.filter(e => !drop.has(JSON.stringify(e))); },
+  // theta:flatten = INSERT cat, and cat copies BOTH operands, so the right
+  // fold recopies every suffix: O(total x sublists) — quadratic in the
+  // number of sublists, which is what made the induce candidate crosses
+  // (10^5 sublists) cost minutes. The VALUE is just the concatenation, so
+  // the head builds it in one linear pass. seq() on each element keeps the
+  // DEF's edge: a non-sequence element is an error, exactly as cat throws.
+  "theta:flatten": x => { const out = [];
+    for (const s of seq(x)) { const a = seq(s);
+      for (let i = 0; i < a.length; i++) out.push(a[i]); }
+    return out; },
+  // the indexed fetch. Mirrors the DEF's edges exactly: distl pairs the
+  // name against each descriptor, keep_named survives those whose head
+  // equals it, the right fold preserves source order, and the empty
+  // survivor list yields PHI. First-named-wins is Backus's own rule for
+  // cells ("the FIRST cell named n"), so the index keeps the first.
+  "law:find_desc": x => { const name = at(x, 0), descs = seq(at(x, 1));
+    let idx = DESCIDX.get(descs);
+    if (idx === undefined) { idx = new Map();
+      for (const d of descs) { if (!Array.isArray(d) || d.length === 0) continue;
+        const k = JSON.stringify(d[0]);
+        if (!idx.has(k)) idx.set(k, d); }
+      DESCIDX.set(descs, idx); }
+    const hit = idx.get(JSON.stringify(name));
+    return hit === undefined ? [] : hit; },
 }));
+// ---- INSERT filter fast path ---------------------------------------------
+// Canon filters with a right fold that prepends every survivor:
+//   INSERT (COND p apndl @2)   or   INSERT (COND p (apndl . CONS v @2) @2)
+// apndl copies its tail, so each survivor recopies the whole accumulator and
+// the fold is quadratic in survivors — measured at 40.8e9 element copies in
+// one law:induce. The VALUE is just the survivors in source order followed by
+// the fold's base, so when the body is exactly that shape the head builds it
+// in one linear pass. Soundness rests on FRAME POSITION: the fold frame is
+// <element, accumulator>, and the body may reach it only through selector 1.
+// Anything handed the whole frame (a bare name, ALPHA/INSERT/WHILE) could
+// read the accumulator, so it is rejected and the fold runs as written.
+function framePure(f) {
+  if (typeof f === "number") return f === 1;
+  if (!Array.isArray(f)) return false;
+  switch (f[0]) {
+    case "CONST": return true;
+    case "COMP": return framePure(f[f.length - 1]);
+    case "CONS": case "COND":
+      for (let i = 1; i < f.length; i++) if (!framePure(f[i])) return false;
+      return true;
+    default: return false;
+  }
+}
+const FOLDPAT = new WeakMap();
+const FOLDPATN = new Map();
+// the fold body is usually a NAME (INSERT law:keep_named), so resolve names
+// to their DEF before matching — a named cell is applied to the same frame.
+function filterFold(body) {
+  if (typeof body === "string") {
+    if (FASTPRIMS.has(body) || !DEFS.has(body)) return null;
+    let p = FOLDPATN.get(body);
+    if (p === undefined) {
+      FOLDPATN.set(body, null);          // cycle guard while resolving
+      p = filterFold(DEFS.get(body));
+      FOLDPATN.set(body, p);
+    }
+    return p;
+  }
+  if (!Array.isArray(body)) return null;
+  let pat = FOLDPAT.get(body);
+  if (pat !== undefined) return pat;
+  pat = null;
+  const then = body[2];
+  if (body[0] === "COND" && body.length === 4 && body[3] === 2 && framePure(body[1])) {
+    if (then === "apndl") pat = { pred: body[1], val: null };
+    else if (Array.isArray(then) && then[0] === "COMP" && then.length === 3
+      && then[1] === "apndl" && Array.isArray(then[2]) && then[2][0] === "CONS"
+      && then[2].length === 3 && then[2][2] === 2 && framePure(then[2][1]))
+      pat = { pred: body[1], val: then[2][1] };
+  }
+  FOLDPAT.set(body, pat);
+  return pat;
+}
 function Ev(f, x) {
   if (typeof f === "number") {
     if (!Array.isArray(x)) throw new Error("selector " + f + " on atom: " + show(x));
@@ -242,7 +326,23 @@ function Ev(f, x) {
     case "INSERT": {
       const xs = seq(x);
       if (xs.length === 0) throw new Error("INSERT on empty");
-      let acc = xs[xs.length - 1];
+      const base = xs[xs.length - 1];
+      // small folds keep the written strategy: the fast path only pays off
+      // once the accumulator is long enough for the copying to bite.
+      const pat = (xs.length > 32 && Array.isArray(base)) ? filterFold(form[1]) : null;
+      if (pat !== null) {
+        const out = [];
+        for (let i = 0; i < xs.length - 1; i++) {
+          // the accumulator slot is null: framePure proved it unreachable,
+          // so a stray read fails loudly instead of reading stale data.
+          const frame = [xs[i], null];
+          if (Ev(pat.pred, frame) === "T")
+            out.push(pat.val === null ? xs[i] : Ev(pat.val, frame));
+        }
+        for (let i = 0; i < base.length; i++) out.push(base[i]);
+        return out;
+      }
+      let acc = base;
       for (let i = xs.length - 2; i >= 0; i--) acc = Ev(form[1], [xs[i], acc]);
       return acc;
     }

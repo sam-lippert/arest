@@ -122,6 +122,21 @@ Domain is a subtype of Function.
 Domain has Description.
   Each Domain has at most one Description.
 
+<!-- The party kinds (ruling 2026-07-24, per Halpin's Subtyping
+     Revisited 4 and the Party pattern): Human, Organization, and
+     Agent are RIGID kinds - an instance belongs for its whole
+     existence; User (instances.md) is a ROLE subtype of Human,
+     migration permitted. Function's one id space is the Party
+     scheme ("a simple global identification scheme for all
+     parties"). Declared in core so the kind anchors before any
+     alphabetically-earlier app file can infer a kind from usage. -->
+Human is an entity type.
+Human is a subtype of Resource.
+Organization is an entity type.
+Organization is a subtype of Resource.
+Agent is an entity type.
+Agent is a subtype of Resource.
+
 ## Value Types
 
 URL is a value type.
