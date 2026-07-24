@@ -4230,6 +4230,36 @@ namespace Elysium.NormaOracle
 			sb.Append("DEF(\"state:ucs\", ").Append(ucRows.Count == 0 ? "S1(PHI())" : IChunked(ucRows)).Append("),\n\n");
 			sb.Append("DEF(\"state:djmands\", ").Append(djRows.Count == 0 ? "S1(PHI())" : IChunked(djRows)).Append("),\n\n");
 			sb.Append("DEF(\"state:factorder\", ").Append(foRows.Count == 0 ? "S1(PHI())" : IChunked(foRows)).Append("),\n\n");
+			// THE REFERENCE-MODE SURFACE (ReferenceModeNaming.cs 3026-3031:
+			// Popular refmodes name as {Entity}{RefMode} both uses; General/
+			// UnitBased name FK references as the BARE entity and pid columns
+			// as the VALUE TYPE name): per entity with a reference mode -
+			// (entity, modeName, kind popular|unitbased|general, valueTypeName).
+			var rmRows = new List<string>();
+			foreach (ObjectType ot in myStore.ElementDirectory.FindElements<ObjectType>(true))
+			{
+				if (ot.IsDeleted || ot.IsValueType) continue;
+				IReferenceModePattern rmp = ot.ReferenceModePattern;
+				if (rmp == null) continue;
+				UniquenessConstraint pid = ot.PreferredIdentifier;
+				string vtName = "";
+				if (pid != null && pid.RoleCollection.Count == 1)
+				{
+					ObjectType vt = pid.RoleCollection[0].RolePlayer;
+					if (vt != null) vtName = vt.Name;
+				}
+				string kind;
+				switch (rmp.ReferenceModeType)
+				{
+					case ReferenceModeType.Popular: kind = "popular"; break;
+					case ReferenceModeType.UnitBased: kind = "unitbased"; break;
+					default: kind = "general"; break;
+				}
+				rmRows.Add("S4(" + IAtom(ot.Name) + ", " + IAtom(rmp.Name)
+					+ ", " + IAtom(kind) + ", " + IAtom(vtName) + ")");
+			}
+			rmRows.Sort(StringComparer.Ordinal);
+			sb.Append("DEF(\"state:refmodes\", ").Append(rmRows.Count == 0 ? "S1(PHI())" : IChunked(rmRows)).Append("),\n\n");
 			return sb.ToString();
 		}
 
