@@ -128,3 +128,5 @@ tools/wall/journal.test
 tools/rust-runner/src/main.rs
 tools/rust-runner/Cargo.lock
 derived-state
+tools/wall/derive-store.g.js
+tools/wall/derive-refresh.g.js

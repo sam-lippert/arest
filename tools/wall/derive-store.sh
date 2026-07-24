@@ -5,7 +5,9 @@
 APP=${1:-base}
 W="$(cd "$(dirname "$0")" && pwd)"
 E="$W/../.."
-if [ "$APP" = "base" ]; then D="$E/tools/norma-oracle"; else D="$E/apps/$APP"; fi
+if [ "$APP" = "base" ]; then D="$E/tools/norma-oracle"
+elif [ -d "$E/apps/$APP" ]; then D="$E/apps/$APP"
+else D="$E/../apps/$APP"; fi
 G="$W/derive-store.g.js"
 cat "$E/tools/js-runner/head.part.js" "$E/arest" \
     "$E/tools/js-runner/mid1.part.js" "$D/design-state" \
