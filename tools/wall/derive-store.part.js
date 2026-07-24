@@ -9,7 +9,8 @@ const SCOPE = ["rmap:gmi","rmap:s1p","rmap:childrenN","rmap:children0",
   "rmap:colpathsP","rmap:colpaths","rmap:cexp","rmap:nreadings",
   "rmap:colnames","rmap:ncprows","rmap:ncp3","rmap:nmrows","rmap:ncrows",
   "rmap:narows","rmap:nrrows","rmap:nirows","rmap:nurows","rmap:ntnames",
-  "rmap:ctab","rmap:g2","rmap:coltabs","rmap:ntabs"];
+  "rmap:ctab","rmap:g2","rmap:coltabs","rmap:pkrows","rmap:fkrows",
+  "rmap:ucrows2","rmap:ntabs"];
 const fs = require("fs");
 const t0 = Date.now();
 let n = 0;
