@@ -125,11 +125,23 @@ Domain has Description.
 <!-- The party kinds (ruling 2026-07-24, per Halpin's Subtyping
      Revisited 4 and the Party pattern): Human, Organization, and
      Agent are RIGID kinds - an instance belongs for its whole
-     existence; User (instances.md) is a ROLE subtype of Human,
-     migration permitted. Function's one id space is the Party
-     scheme ("a simple global identification scheme for all
-     parties"). Declared in core so the kind anchors before any
-     alphabetically-earlier app file can infer a kind from usage. -->
+     existence. Function's one id space is the Party scheme ("a
+     simple global identification scheme for all parties").
+     Declared in core so the kind anchors before any
+     alphabetically-earlier app file can infer a kind from usage.
+
+     User is NOT a subtype of any one kind. It was, briefly, until
+     the audit against Subtyping Revisited 4 asked the paper's own
+     remodel question - "if our business domain includes (now or
+     possibly later) some people or organizations that are not
+     customers, then we do need to remodel" - and the ruling came
+     back that agent users and company users are real. So User is a
+     ROLE subtype of Resource, the mixin, exactly as Fig. 11 hangs
+     Customer off Party rather than off Person: a role type over the
+     one id space, migration permitted, open to every kind. Any
+     facts specific to one kind of user belong on an intersection
+     subtype (Fig. 11's PersonalCustomer/CorporateCustomer), not on
+     User itself. -->        
 Human is an entity type.
 Human is a subtype of Resource.
 Organization is an entity type.
