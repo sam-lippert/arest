@@ -4210,11 +4210,26 @@ namespace Elysium.NormaOracle
 					+ ", " + IAtom(ot.TreatAsIndependent ? "T" : "F") + ")");
 			}
 			ots.Sort(StringComparer.Ordinal);
+			// THE DECLARATION-ORDER SURFACE (the played-role/collection
+			// order every OIAL/DCIL child loop follows - OMIFORM:1145-1168
+			// iterates PlayedRoleCollection, DCILFIXUP:910-995 iterates the
+			// child link collections, both creation-ordered): every fact
+			// type (subtype and implied included) with its position in the
+			// model's element enumeration. UNSORTED - the order IS the row.
+			var foRows = new List<string>();
+			int foIndex = 0;
+			foreach (FactType ft in myStore.ElementDirectory.FindElements<FactType>(true))
+			{
+				if (ft.IsDeleted || string.IsNullOrEmpty(ft.Name)) continue;
+				foIndex++;
+				foRows.Add("S2(" + IAtom(ft.Name) + ", N(" + foIndex + "))");
+			}
 			var sb = new System.Text.StringBuilder();
 			sb.Append("DEF(\"state:mapinputs\", ").Append(IChunked(rows)).Append("),\n\n");
 			sb.Append("DEF(\"state:otmeta\", ").Append(IChunked(ots)).Append("),\n\n");
 			sb.Append("DEF(\"state:ucs\", ").Append(ucRows.Count == 0 ? "S1(PHI())" : IChunked(ucRows)).Append("),\n\n");
 			sb.Append("DEF(\"state:djmands\", ").Append(djRows.Count == 0 ? "S1(PHI())" : IChunked(djRows)).Append("),\n\n");
+			sb.Append("DEF(\"state:factorder\", ").Append(foRows.Count == 0 ? "S1(PHI())" : IChunked(foRows)).Append("),\n\n");
 			return sb.ToString();
 		}
 
