@@ -167,6 +167,32 @@ function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.starts
 const FASTPRIMS = new Map(Object.entries({
   "theta:member": x => bool(seq(at(x, 1)).some(e => deepEq(at(x, 0), e))),
   "theta:filter_eq": x => seq(x).filter(p => deepEq(at(p, 0), at(p, 1))),
+  // access cells - each mirrors its DEF's edges exactly: negative
+  // counts drain, last on empty is "?", nth out-of-range throws the
+  // selector error, dedup keeps LAST occurrences (the right fold),
+  // setminus is a multiset filter of the first argument.
+  "theta:drop": x => { const l = seq(at(x, 0)); const n = at(x, 1);
+    return l.slice(n === 0 ? 0 : (n < 0 ? l.length : Math.min(l.length, n))); },
+  "theta:take": x => { const l = seq(at(x, 0)); const n = at(x, 1);
+    return l.slice(0, n === 0 ? 0 : (n < 0 ? l.length : Math.min(l.length, n))); },
+  "theta:nth": x => { const l = seq(at(x, 0)); const n = at(x, 1);
+    const k = n === 0 ? 0 : (n < 0 ? l.length : Math.min(l.length, n));
+    if (k >= l.length) throw new Error("selector 1 out of range 0");
+    return l[k]; },
+  "theta:last": x => { const l = seq(x); return l.length ? l[l.length - 1] : "?"; },
+  "theta:butlast": x => { const l = seq(x); return l.slice(0, Math.max(0, l.length - 1)); },
+  "theta:iota": x => { if (typeof x !== "number") throw new Error("iota on non-number");
+    const out = []; for (let i = 1; i <= x; i++) out.push(i); return out; },
+  "theta:zip": x => { const a = seq(at(x, 0)), b = seq(at(x, 1));
+    const n = Math.min(a.length, b.length); const out = new Array(n);
+    for (let i = 0; i < n; i++) out[i] = [a[i], b[i]]; return out; },
+  "theta:dedup": x => { const l = seq(x); const seen = new Set(); const out = [];
+    for (let i = l.length - 1; i >= 0; i--) { const k = JSON.stringify(l[i]);
+      if (!seen.has(k)) { seen.add(k); out.push(l[i]); } }
+    out.reverse(); return out; },
+  "theta:setminus": x => { const a = seq(at(x, 0)), b = seq(at(x, 1));
+    const drop = new Set(b.map(e => JSON.stringify(e)));
+    return a.filter(e => !drop.has(JSON.stringify(e))); },
 }));
 function Ev(f, x) {
   if (typeof f === "number") {
