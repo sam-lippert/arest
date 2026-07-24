@@ -127,3 +127,4 @@ tools/wall/journal.test
 # generated procedural projections (transform_rust.py emits src/main.rs per app)
 tools/rust-runner/src/main.rs
 tools/rust-runner/Cargo.lock
+derived-state
