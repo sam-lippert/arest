@@ -36,7 +36,7 @@ Guard Run is a subtype of Resource.
 Citation is an entity type.
 Citation is a subtype of Resource.
 User is an entity type.
-User is a subtype of Human.
+User is a subtype of Resource.
 
 ## Value Types
 
