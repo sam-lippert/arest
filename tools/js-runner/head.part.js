@@ -144,6 +144,30 @@ const PRIMS = new Map(Object.entries({
 // selectors, sequences are the seven functional forms (COMP right-to-left,
 // CONS, CONST, COND, ALPHA, INSERT as a right fold, WHILE). Booleans are the
 // atoms "T" and "F". No law semantics live here. ---------------------------
+// ---- pure-application memo. Evaluation is pure and D is frozen during a
+// step (Backus 14.6), so a named cell applied to the same input is the same
+// value; remembering it is evaluator quality, not semantics. Keys: atoms by
+// value, sequences by reference (small frames by element, so ctx-threaded
+// references hit). Any harness that mutates CELLS between evaluations MUST
+// call memoClear() at the mutation point. Bounded: full clear past the cap.
+const EVMEMO = new Map();
+let EVMEMON = 0;
+function memoClear() { EVMEMO.clear(); EVMEMON = 0; }
+// Selective: only cells whose inputs actually repeat (store-applied
+// rmap cells and fetches keyed by the frozen CELLS reference; the
+// walk's ctx-threaded helpers keyed by element references; lex:parts
+// keyed by the name atom). Whole-frame cells like cn:step see fresh
+// arrays every call - memoizing them is pure overhead.
+const MEMOCN = new Set(["law:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
+  "cn:sfx", "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts"]);
+function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
+// Compiled forms of hot canon list cells (the lex-primitive precedent:
+// the DEF stays the meaning; the head evaluates its extensional equal;
+// the wall certifies identity). Only consulted when the DEF exists.
+const FASTPRIMS = new Map(Object.entries({
+  "theta:member": x => bool(seq(at(x, 1)).some(e => deepEq(at(x, 0), e))),
+  "theta:filter_eq": x => seq(x).filter(p => deepEq(at(p, 0), at(p, 1))),
+}));
 function Ev(f, x) {
   if (typeof f === "number") {
     if (!Array.isArray(x)) throw new Error("selector " + f + " on atom: " + show(x));
@@ -151,7 +175,25 @@ function Ev(f, x) {
     return x[f - 1];
   }
   if (typeof f === "string") {
-    if (DEFS.has(f)) return Ev(DEFS.get(f), x);
+    if (DEFS.has(f)) {
+      const fp = FASTPRIMS.get(f);
+      if (fp !== undefined) return fp(x);
+      if (!memoable(f)) return Ev(DEFS.get(f), x);
+      let node = EVMEMO.get(f);
+      if (node === undefined) { node = new Map(); EVMEMO.set(f, node); }
+      const chain = (Array.isArray(x) && x.length <= 4) ? [x.length, ...x] : [-1, x];
+      for (let i = 0; i < chain.length - 1; i++) {
+        let nn = node.get(chain[i]);
+        if (nn === undefined) { nn = new Map(); node.set(chain[i], nn); }
+        node = nn;
+      }
+      const last = chain[chain.length - 1];
+      if (node.has(last)) return node.get(last);
+      const v = Ev(DEFS.get(f), x);
+      node.set(last, v);
+      if (++EVMEMON > 400000) memoClear();
+      return v;
+    }
     if (PRIMS.has(f)) return PRIMS.get(f)(x);
     throw new Error("unresolved atom: " + f);
   }
