@@ -100,6 +100,28 @@ It is forbidden that a Reading restates the Reference Mode of an Object Type as 
 
 It is forbidden that a Reading conjoins two independent assertions using 'and' when they can be expressed as separate Readings.
 
+### Constraint Invertibility
+
+It is obligatory that each Reading of a Constraint states the same restriction when restated in the opposite Modality.
+<!-- Ruling 2026-07-24: "all constraint verbalizations should be
+     invertable." A constraint means one thing, so its prohibition form
+     and its obligation form must be the same claim; if they are not, the
+     wording is carrying meaning the constraint does not have. The case
+     that produced the rule: the self-modification gate was written `It is
+     forbidden that a Domain Change ... is applied without approval by
+     exactly one Human`, whose obligation form is NOT the same claim -
+     under the negation the cardinality falls inside the negated scope, so
+     the prohibition ALSO reads as forbidding a second approver. Restated
+     as `It is obligatory that each applied Domain Change ... is approved
+     by exactly one Human` it inverts cleanly.
+     The general trap is a QUANTIFIER UNDER A NEGATION: 'without exactly
+     one', 'without some', 'unless every' all shift scope when inverted.
+     State the cardinality positively and negate nothing but the verb.
+     This rule cannot be mechanically checked here - deontic bodies are
+     classified as prose, not mapped to constraint elements - which is
+     precisely why it is written down as a reading rather than trusted to
+     habit. -->        
+
 ### Derivation Rule Acyclicity
 
 <!-- elysium-audit B: the former pair here (irreflexive + asymmetric)

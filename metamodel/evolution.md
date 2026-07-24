@@ -31,9 +31,21 @@ Signal is a subtype of Resource.
 
 Rationale is a value type.
   The data type of Rationale is text.
-Signal Source is a value type.
-  The possible values of Signal Source are 'Constraint Violation', 'Human', 'Error Pattern', 'Feature Request', 'Support Request'.
-  The data type of Signal Source is text.
+<!-- `Signal Source` (retired 2026-07-24) answered TWO questions with one
+     mandatory value: 'Constraint Violation' and 'Error Pattern' named a
+     phenomenon the system detected, 'Feature Request' and 'Support
+     Request' named an artifact a person produced, and 'Human' named who
+     raised it. Since each Signal had exactly one Source those competed,
+     and the self-modification gate below broke in both directions: a
+     person's feature request motivating a core change was REFUSED (its
+     source was 'Feature Request', not 'Human'), while an automated
+     detector's signal could be recorded as 'Human' and PASS, since no
+     actual person was referenced. Split into the two elementary facts
+     the prose was always asking for - who raised it, and what kind of
+     thing it is. -->
+Signal Kind is a value type.
+  The possible values of Signal Kind are 'Constraint Violation', 'Error Pattern', 'Feature Request', 'Support Request'.
+  The data type of Signal Kind is text.
 
 ## Readings
 
@@ -67,8 +79,15 @@ Domain Change is valid. *
 Signal leads to Domain Change.
   Each Signal leads to at most one Domain Change.
 
-Signal has Signal Source.
-  Each Signal has exactly one Signal Source.
+Signal has Signal Kind.
+  Each Signal has exactly one Signal Kind.
+
+Signal is raised by Resource.
+  Each Signal is raised by exactly one Resource.
+  <!-- Resource is the party mixin, so a Human, an Organization or an
+       Agent may raise a signal - which is the point: automated origins
+       finally have a raiser to name. `exactly one` is the throat: every
+       signal is somebody's. -->        
 
 ### Domain Change actions
 
@@ -105,13 +124,36 @@ Each Domain Change proposes some Function.
 
 It is obligatory that each Domain Change has exactly one Rationale.
 
-It is forbidden that a Domain Change targeting Domain 'core' is applied without Signal Source 'Human'.
-It is forbidden that a Domain Change targeting Domain 'evolution' is applied without Signal Source 'Human'.
+<!-- THE SELF-MODIFICATION GATE (reworded 2026-07-24, ruling: "it always
+     has to be one Human. There must be a throat to choke.").
+     The gate moved from the signal's ORIGIN to the change's APPROVAL,
+     because that is where accountability actually sits: what makes a
+     core rewrite answerable is not what prompted it but who signed it
+     off. This also fixes both directions the old wording failed in - an
+     automatically detected constraint violation MAY now motivate a core
+     change, provided a person approves it, and no signal can launder
+     itself past the gate by being labelled 'Human'.
+     `exactly one` is deliberate and is the ruling: a committee is not a
+     throat. It is stated as an OBLIGATION, not as `forbidden ... without
+     approval by exactly one Human`, because under a negation the
+     cardinality falls inside the negated scope and the sentence also
+     reads as forbidding a SECOND approver. `It is obligatory that each
+     ... exactly one ...` is the form the metamodel already uses for a
+     cardinality claim, and deontic bodies here are classified rather
+     than mapped, so an ambiguous one would never have been caught.
+     Note this gate is now load-bearing in a way it was not
+     before - User became a ROLE type over the mixin (5f11814d), so an
+     Agent may be a User and could otherwise approve its own rewrite of
+     the core. The Human requirement is what keeps that from happening,
+     and it must be stated HERE because it is no longer implied by the
+     subtype lattice. -->
+It is obligatory that each applied Domain Change targeting Domain 'core' is approved by exactly one Human.
+It is obligatory that each applied Domain Change targeting Domain 'evolution' is approved by exactly one Human.
 <!-- elysium-audit: the same human-gate for Domain 'ethics' referenced a
      domain declared nowhere in the base readings. Preserved here as a
      forward declaration; reinstate as a reading the moment an ethics
      domain exists:
-       It is forbidden that a Domain Change targeting Domain 'ethics' is applied without Signal Source 'Human'. -->
+       It is obligatory that each applied Domain Change targeting Domain 'ethics' is approved by exactly one Human. -->
 
 ## Derivation Rules
 
