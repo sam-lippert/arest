@@ -102,25 +102,32 @@ It is forbidden that a Reading conjoins two independent assertions using 'and' w
 
 ### Constraint Invertibility
 
-It is obligatory that each Reading of a Constraint states the same restriction when restated in the opposite Modality.
+It is obligatory that each Reading of a Constraint states the same restriction in positive form and in negative form.
 <!-- Ruling 2026-07-24: "all constraint verbalizations should be
-     invertable." A constraint means one thing, so its prohibition form
-     and its obligation form must be the same claim; if they are not, the
-     wording is carrying meaning the constraint does not have. The case
-     that produced the rule: the self-modification gate was written `It is
-     forbidden that a Domain Change ... is applied without approval by
-     exactly one Human`, whose obligation form is NOT the same claim -
-     under the negation the cardinality falls inside the negated scope, so
-     the prohibition ALSO reads as forbidding a second approver. Restated
-     as `It is obligatory that each applied Domain Change ... is approved
-     by exactly one Human` it inverts cleanly.
-     The general trap is a QUANTIFIER UNDER A NEGATION: 'without exactly
-     one', 'without some', 'unless every' all shift scope when inverted.
-     State the cardinality positively and negate nothing but the verb.
-     This rule cannot be mechanically checked here - deontic bodies are
-     classified as prose, not mapped to constraint elements - which is
-     precisely why it is written down as a reading rather than trusted to
-     habit. -->        
+     invertable." This is NORMA's own POSITIVE/NEGATIVE FORM pairing
+     (Halpin & Curland, Automated Verbalization for ORM 2, 2): every
+     constraint verbalizes both ways - positive shows how to SATISFY it,
+     negative how to VIOLATE it - and the pair is generated from one
+     constraint element, so for a mapped constraint invertibility holds BY
+     CONSTRUCTION. Note the axis: positive/negative is FORM; alethic/
+     deontic is MODALITY. This rule is about form.
+     It bites exactly where NORMA's mechanism does not reach - deontic
+     bodies here are classified as prose, never mapped to constraint
+     elements, so nothing generates their negative form and nothing checks
+     it. Hence a reading rather than a habit.
+     The case that produced it: the self-modification gate was first
+     written `It is forbidden that a Domain Change ... is applied without
+     approval by exactly one Human`, whose positive form is NOT the same
+     claim - under the negation the cardinality falls inside the negated
+     scope, so the prohibition ALSO reads as forbidding a SECOND approver.
+     The general trap is A QUANTIFIER UNDER A NEGATION ('without exactly
+     one', 'without some', 'unless every'). State the cardinality
+     positively and negate nothing but the verb.
+     A compound cardinality is still invertible: `exactly one` is NORMA's
+     positive verbalization of a mandatory + uniqueness PAIR, and its
+     negative form is correspondingly two sentences ("... is approved by
+     no Human" / "... by more than one Human"), which is why it does not
+     violate Elementary Fact Decomposition above. -->        
 
 ### Derivation Rule Acyclicity
 
