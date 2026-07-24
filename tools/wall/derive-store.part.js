@@ -27,6 +27,7 @@ for (const name of SCOPE) {
   // incremental: later cells' dispatches fetch this result instead of
   // re-deriving the whole prefix (the run was O(n^2) without it)
   CELLS.push(["CELL", "stored:" + name, v]);
+  memoClear();
   console.log("STORED\t" + name + "\t" + ((Date.now() - s) / 1000).toFixed(0) + "s");
 }
 fs.appendFileSync(process.env.DERIVED_OUT, "\n");

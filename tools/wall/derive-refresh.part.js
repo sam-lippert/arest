@@ -19,6 +19,7 @@ for (const name of REFRESH) {
   // this only lands for carrier-new cells (their dispatches would
   // otherwise re-derive)
   CELLS.push(["CELL", "stored:" + name, v]);
+  memoClear();
   console.log("REFRESHED\t" + name + "\t" + ((Date.now() - s) / 1000).toFixed(0) + "s");
 }
 const path = process.env.DERIVED_OUT;
