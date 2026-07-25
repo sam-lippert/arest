@@ -219,6 +219,8 @@ Prefix is a value type.
   The data type of Prefix is text.
 Header is a value type.
   The data type of Header is text.
+Kind is a value type.
+  The data type of Kind is text.
 Timestamp is a value type.
   The data type of Timestamp is datetime.
 Argument Length is a value type.
