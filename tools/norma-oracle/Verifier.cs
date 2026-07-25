@@ -2399,6 +2399,19 @@ namespace Elysium.NormaOracle
 			{
 				modality = ConstraintModality.Deontic;
 			}
+			// ORM 2 treats deontic as the SAME constraint under a different
+			// modality operator — "Deontic readings use these patterns with the
+			// relevant substitution of modality operators" (tech report 2,
+			// sec. 1.7). The shape regexes below match the BARE pattern, so an
+			// obligatory body must have its operator stripped or it can never
+			// reach them; modality is already captured above and every builder
+			// stamps it. Only OBLIGATORY is stripped: a forbidden body run
+			// through the positive shapes would invert its meaning.
+			if (body.StartsWith("It is obligatory that "))
+			{
+				body = body.Substring(body.IndexOf("that ") + 5).Trim();
+				if (body.Length > 0) body = char.ToUpperInvariant(body[0]) + body.Substring(1);
+			}
 
 			// ring: "No X <words> itself" — X matched longest-type-first so
 			// multi-word players ("Object Type") bind whole
