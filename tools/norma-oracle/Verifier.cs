@@ -3448,6 +3448,21 @@ namespace Elysium.NormaOracle
 			return ISeq(chunks);
 		}
 
+		// Backus 13.2 rule 4: a sequence has arbitrary length n. S(...) is the
+		// arity-free spelling; S1..S9 is notation, not mathematics. Used where a
+		// sequence must stay FLAT regardless of length, so that length is never
+		// encoded as depth — depth already means tenancy here (backus78 14.7,
+		// AREST.tex prop:tenant).
+		private static string IFlatSeq(List<string> elements)
+		{
+			if (elements.Count == 0) return "PHI()";
+			if (elements.Count <= 9)
+			{
+				return "S" + elements.Count + "(" + string.Join(", ", elements) + ")";
+			}
+			return "S(" + string.Join(", ", elements) + ")";
+		}
+
 		// a chunked collection: ALWAYS one level of chunk wrapping, even for
 		// nine or fewer elements, so consumers uniformly flatten once
 		private static string IChunked(List<string> elements)
@@ -3458,7 +3473,11 @@ namespace Elysium.NormaOracle
 			{
 				chunks.Add(ISeq(elements.Skip(i).Take(9).ToList()));
 			}
-			return ISeq(chunks);
+			// the OUTER sequence must stay flat: ISeq would re-chunk above nine
+			// chunks (>81 elements) and silently add a second level, breaking the
+			// "consumers uniformly flatten once" contract stated above. That is
+			// what crashed law:exclusion on auto.dev (~130 object types).
+			return IFlatSeq(chunks);
 		}
 
 		private static string TopSupertype(ObjectType t)

@@ -35,6 +35,12 @@ function A(s) { return s; }
 function N(n) { return n; }
 function K(x) { return ["CONST", x]; }
 function PHI() { return []; }
+// Backus 13.2 rule 4: <x1..xn> is a sequence FOR ANY n. The S1..S9 family
+// is notation, not mathematics, and a carrier that exceeds it must NOT
+// encode its length as depth — depth already means tenancy here (14.7,
+// AREST.tex prop:tenant). S is the arity-free spelling; S1..S9 stay for
+// short literals, where the fixed arity reads better.
+function S(){return Array.prototype.slice.call(arguments);}
 function S1(a){return [a];}
 function S2(a,b){return [a,b];}
 function S3(a,b,c){return [a,b,c];}

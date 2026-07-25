@@ -9,6 +9,7 @@
     "build:family": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\apps\\family\\design-state + mid2.part.js + ..\\..\\apps\\family\\norma-answer + mid3.part.js + ..\\..\\apps\\family\\journal + mid4.part.js + tail.part.js composed.g.js >nul",
     "build:sherlock": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\apps\\sherlock\\design-state + mid2.part.js + ..\\..\\apps\\sherlock\\norma-answer + mid3.part.js + ..\\..\\apps\\sherlock\\journal + mid4.part.js + tail.part.js composed.g.js >nul",
     "build:elysium": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\apps\\elysium\\design-state + mid2.part.js + ..\\..\\apps\\elysium\\norma-answer + mid3.part.js + ..\\..\\apps\\elysium\\journal + mid4.part.js + tail.part.js composed.g.js >nul",
+    "build:autodev": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\..\\apps\\auto.dev\\design-state + mid2.part.js + ..\\..\\..\\apps\\auto.dev\\norma-answer + mid3.part.js + ..\\..\\..\\apps\\auto.dev\\journal + mid4.part.js + tail.part.js composed.g.js >nul",
     "start": "bun composed.g.js"
   }
 }

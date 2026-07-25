@@ -26,6 +26,11 @@ public static partial class Arest
     public static object K(object x) { return new object[] { "CONST", x }; }
     public static object PHI() { return new object[0]; }
 
+    // Backus 13.2 rule 4: a sequence has arbitrary length n. S1..S9 is notation;
+    // a carrier longer than 9 must not encode its length as depth, because depth
+    // already means tenancy here (backus78 14.7, AREST.tex prop:tenant).
+    public static object S(params object[] a) { return a; }
+
     public static object S1(object a) { return new[] { a }; }
     public static object S2(object a, object b) { return new[] { a, b }; }
     public static object S3(object a, object b, object c) { return new[] { a, b, c }; }
