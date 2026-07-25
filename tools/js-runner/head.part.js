@@ -166,7 +166,8 @@ let EVMEMON = 0;
 // weakly so a dropped list collects; cleared with the memo at mutations.
 let DESCIDX = new WeakMap();
 let ENTIDX = new WeakMap();
-function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); }
+let JOINIDX = new WeakMap();
+function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); }
 // Selective: only cells whose inputs actually repeat (store-applied
 // rmap cells and fetches keyed by the frozen CELLS reference; the
 // walk's ctx-threaded helpers keyed by element references; lex:parts
@@ -274,6 +275,53 @@ function framePure(f) {
     default: return false;
   }
 }
+// ---- the filter-join fast path -------------------------------------------
+// COMP(theta:flatten, ALPHA(COND(eq[a,b], emit, PHI)), distr) applied to
+// <list, carrier> distributes the carrier over the list and keeps the pairs
+// whose keys agree — a HASH JOIN WRITTEN AS A NESTED LOOP. canon does this at
+// 23 sites over rmap:gmi; on auto.dev the s1p x gmi pair is 1344 x 1344 =
+// 1,806,336 iterations, and rmap:childrenN0 re-evaluates a 1085-node COND on
+// every one of them.
+//   Backus 12.2 I.7: distl o [f, [g1..gn]] == [[f,g1]..[f,gn]], "the analogous
+//   law holds for distr" — distr's result is determined by its two arguments,
+//   so an equal-keys filter over it may be answered by an index. Meaning is
+//   canon's; this is only strategy.
+// SAFETY: the two sides of the eq must be ROOTED at different frame slots —
+// one reading only the element, one only the carrier. Otherwise the key is not
+// a function of the element alone and no index is valid.
+const JOINPAT = new WeakMap();
+function rootSel(f) {
+  if (typeof f === "number") return f;
+  if (Array.isArray(f) && f[0] === "COMP") return rootSel(f[f.length - 1]);
+  return 0;
+}
+function joinPat(form) {
+  if (JOINPAT.has(form)) return JOINPAT.get(form);
+  let pat = null;
+  // length 4: the <list, carrier> pair arrives as x.
+  // length 5: the pair is built by form[4] — canon usually writes the operand
+  // inline, e.g. COMP(flatten, ALPHA(..), distr, CONS(rmap:gmi, ..)), and
+  // missing that spelling is why the first cut of this path never fired on
+  // rmap:childrenN0, which is the whole 1344x1344 case.
+  if ((form.length === 4 || form.length === 5)
+      && form[1] === "theta:flatten" && form[3] === "distr"
+      && Array.isArray(form[2]) && form[2][0] === "ALPHA") {
+    const body = form[2][1];
+    if (Array.isArray(body) && body[0] === "COND" && body.length === 4
+        && Array.isArray(body[3]) && body[3][0] === "CONST"
+        && Array.isArray(body[3][1]) && body[3][1].length === 0) {
+      const p = body[1];
+      if (Array.isArray(p) && p[0] === "COMP" && p.length === 3 && p[1] === "eq"
+          && Array.isArray(p[2]) && p[2][0] === "CONS" && p[2].length === 3) {
+        const l = p[2][1], r = p[2][2], rl = rootSel(l), rr = rootSel(r);
+        if (rl === 1 && rr === 2) pat = { elem: l, carrier: r, emit: body[2] };
+        else if (rl === 2 && rr === 1) pat = { elem: r, carrier: l, emit: body[2] };
+      }
+    }
+  }
+  JOINPAT.set(form, pat);
+  return pat;
+}
 const FOLDPAT = new WeakMap();
 const FOLDPATN = new Map();
 // the fold body is usually a NAME (INSERT law:keep_named), so resolve names
@@ -337,6 +385,35 @@ function Ev(f, x) {
   const head = form[0];
   switch (head) {
     case "COMP": {
+      // the written strategy only pays to replace once the scan is long
+      // enough for the index build to be worth it
+      const jp = (form.length === 4 || form.length === 5) ? joinPat(form) : null;
+      let jx = jp === null ? null : (form.length === 5 ? Ev(form[4], x) : x);
+      if (jp !== null && Array.isArray(jx) && jx.length === 2
+          && Array.isArray(jx[0]) && jx[0].length > 32) {
+        const list = jx[0], carrier = jx[1];
+        let idx = JOINIDX.get(list);
+        if (idx === undefined) { idx = new Map(); JOINIDX.set(list, idx); }
+        let byKey = idx.get(jp.elem);
+        if (byKey === undefined) {
+          byKey = new Map();
+          for (let i = 0; i < list.length; i++) {
+            const k = JSON.stringify(Ev(jp.elem, [list[i], carrier]));
+            let a = byKey.get(k); if (a === undefined) { a = []; byKey.set(k, a); }
+            a.push(list[i]);
+          }
+          idx.set(jp.elem, byKey);
+        }
+        const want = JSON.stringify(Ev(jp.carrier, [[], carrier]));
+        const hits = byKey.get(want);
+        if (hits === undefined) return [];
+        const out = [];
+        for (let i = 0; i < hits.length; i++) {
+          const vs = seq(Ev(jp.emit, [hits[i], carrier]));
+          for (let j = 0; j < vs.length; j++) out.push(vs[j]);
+        }
+        return out;
+      }
       let v = x;
       for (let i = form.length - 1; i >= 1; i--) v = Ev(form[i], v);
       return v;
