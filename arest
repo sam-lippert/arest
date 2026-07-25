@@ -8775,7 +8775,7 @@ DEF("rmap:fullheads",
     S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(2), K(A("full")))), S2(A("CONS"), N(1)), K(PHI()))), S3(A("WHILE"), S4(A("COMP"), A("not"), A("atom"), S3(A("COMP"), N(1), N(1))), A("theta:flatten")), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("state:derived")), A("id"))))),
 
 DEF("rmap:tables:derive",
-    S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), K(A("T")))), S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), K(A("F")), K(A("T"))), K(A("F"))), S2(A("CONS"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), A("lex"), S3(A("COMP"), N(1), N(1)))))), K(PHI()))), A("distr"), S3(A("CONS"), A("rmap:cts"), A("rmap:fullheads")))),
+    S3(A("COMP"), A("cat"), S3(A("CONS"), S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), K(A("T")))), S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), K(A("F")), K(A("T"))), K(A("F"))), S2(A("CONS"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), A("lex"), S3(A("COMP"), N(1), N(1)))))), K(PHI()))), A("distr"), S3(A("CONS"), A("rmap:cts"), A("rmap:fullheads"))), A("rmap:sepnames")))),
 
 DEF("rmap:tables",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:tables")), A("id"))), K(A("#")))), A("rmap:tables:derive"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:tables")), A("id"))))),
@@ -9277,4 +9277,12 @@ DEF("rmap:b3rows",
          K(A("T")), K(PHI()))),
       A("rmap:vtcts")))
 
+,
+
+// ---- D.2 (AssimilationMapping.cs:429-432): Absorb iff the fact is a
+// SubtypeFact OR ImpliedByObjectification; every OTHER deep assimilation is
+// SEPARATE and keeps its own table. gmi flag slot 1 is is-subtype, slot 3 is
+// objectification-implied. These are the Separate ones, pascal-cased.
+DEF("rmap:sepnames",
+    S3(A("COMP"), S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(1), N(2)))), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(3), N(2)), K(A("deep")))))), S4(A("COND"), S3(A("COMP"), A("law:or2"), S3(A("CONS"), S3(A("COMP"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(4)), K(A("T")))), N(1)), S3(A("COMP"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(3), N(4)), K(A("T")))), N(1)))), K(PHI()), S2(A("CONS"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), A("lex"), S4(A("COND"), S3(A("COMP"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(4)), K(A("T")))), N(1)), S3(A("COMP"), S3(A("COMP"), N(1), N(2)), N(1)), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), S3(A("COMP"), N(1), N(2)), N(1)), S3(A("COMP"), N(2), N(2)))), S3(A("COMP"), S3(A("COMP"), N(1), N(3)), N(1)), S3(A("COMP"), S3(A("COMP"), N(1), N(2)), N(1))))))))), K(PHI()))), A("distr"), S3(A("CONS"), N(2), N(1)))), A("distr")), S3(A("CONS"), A("rmap:s1p"), A("rmap:gmi"))))
 )
