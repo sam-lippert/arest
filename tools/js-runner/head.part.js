@@ -165,7 +165,8 @@ let EVMEMON = 0;
 // descriptor-list object, cached by reference, then O(1) per name. Keyed
 // weakly so a dropped list collects; cleared with the memo at mutations.
 let DESCIDX = new WeakMap();
-function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); }
+let ENTIDX = new WeakMap();
+function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); }
 // Selective: only cells whose inputs actually repeat (store-applied
 // rmap cells and fetches keyed by the frozen CELLS reference; the
 // walk's ctx-threaded helpers keyed by element references; lex:parts
@@ -221,6 +222,25 @@ const FASTPRIMS = new Map(Object.entries({
   // equals it, the right fold preserves source order, and the empty
   // survivor list yields PHI. First-named-wins is Backus's own rule for
   // cells ("the FIRST cell named n"), so the index keeps the first.
+  // cn:entsat = COMP(theta:flatten, ALPHA(COND(eq(<1,1>,<2>), <2,1>, PHI)), distr)
+  // — distribute the key over the list, keep entries whose first field equals
+  // it, emit their second, flatten. That is an ASSOC LOOKUP written as a scan,
+  // and the profile charges it 5.3M eq. The index keys on the first field only,
+  // so an entry whose SECOND field is not a sequence still throws exactly where
+  // the fold would have thrown: at the matching entry, never at an unmatched one.
+  "cn:entsat": x => { const l = seq(at(x, 0)), k = at(x, 1);
+    let idx = ENTIDX.get(l);
+    if (idx === undefined) { idx = new Map();
+      for (const e of l) { if (!Array.isArray(e) || e.length < 2) continue;
+        const kk = JSON.stringify(e[0]);
+        let a = idx.get(kk); if (a === undefined) { a = []; idx.set(kk, a); }
+        a.push(e[1]); }
+      ENTIDX.set(l, idx); }
+    const hit = idx.get(JSON.stringify(k));
+    if (hit === undefined) return [];
+    const out = [];
+    for (const v of hit) { const vs = seq(v); for (let i = 0; i < vs.length; i++) out.push(vs[i]); }
+    return out; },
   "law:find_desc": x => { const name = at(x, 0), descs = seq(at(x, 1));
     let idx = DESCIDX.get(descs);
     if (idx === undefined) { idx = new Map();
