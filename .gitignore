@@ -109,6 +109,7 @@ bin/
 obj/
 *.class
 tools/js-runner/composed.g.js
+tools/js-runner/probe.g.js
 tools/web-runner/composed.page.g.js
 tools/java-runner/Composed.g.java
 tools/cs-runner/Composed.g.cs
