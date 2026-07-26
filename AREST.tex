@@ -25,7 +25,7 @@
 
 \title{\textbf{Compiling Facts into Applications}}
 
-\author{Samuel Lippert\\Drivly Inc}
+\author{Samuel Lippert}
 
 \date{}
 
@@ -80,7 +80,7 @@ Transition 'ship' is triggered by
 \end{lstlisting}
 Each reading is atomic, and each maps to a column: the entity references to keys, the binary fact types to foreign keys, the uniqueness reading to a restriction, and the transition facts to the machine's rows. The decomposition into atomic facts \emph{is} the mapping to the relational schema, and together they compile to a table, a foreign key, a uniqueness restriction, and a transition that fires when its trigger fact enters $P$. A \texttt{POST /orders} request creates an Order and returns its status with the actions available from it; following the \texttt{place} action advances the machine to \texttt{Placed}, after which the representation offers \texttt{ship} and no longer \texttt{place}.
 
-\smallskip\noindent\textbf{Finite, therefore algorithmic.} The population is a finite set. This is not a modeling convenience but the precondition of computation: an algorithm is finite, so whatever an application computes lives in the finite fragment. Finiteness is meant per operation. Each system step terminates over the current finite $P$, while the event stream is unbounded over time, so the object stays algorithmic at every point. Finiteness earns the guarantees the rest of the paper reads off: evaluation is finite model-checking, so it is decidable; the reflection of~(\ref{eq:metacomp}) is consistent without Scott's domains, because the function space over a finite set is itself a finite set; and derivation reaches a least fixed point in finitely many steps (Lemma~\ref{lem:finite}). The place where this stops, namely the arbitrary registered functions of Definition~\ref{def:reg} whose termination is in general undecidable, is the only point at which general computation re-enters, and Corollary~\ref{cor:boundary} makes it an enumerable fact set.
+\smallskip\noindent\textbf{Finite, therefore algorithmic.} The population is a finite set. This is not a modeling convenience but the precondition of computation: an algorithm is finite, so whatever an application computes lives in the finite fragment. Finiteness is meant per operation. Each system step terminates over the current finite $P$, while the event stream is unbounded over time, so the object stays algorithmic at every point. Finiteness earns the guarantees the rest of the paper reads off: evaluation is finite model-checking, so it is decidable; the reflection of~(\ref{eq:metacomp}) is consistent without Scott's domains~\cite{scott76}, the continuous lattices a reflexive semantics ordinarily needs to let a space denote its own function space, because the function space over a finite set is itself a finite set; and derivation reaches a least fixed point in finitely many steps (Lemma~\ref{lem:finite}). The place where this stops, namely the arbitrary registered functions of Definition~\ref{def:reg} whose termination is in general undecidable, is the only point at which general computation re-enters, and Corollary~\ref{cor:boundary} makes it an enumerable fact set.
 
 
 \section{ORM over Backus's AST}\label{sec:mapping}
@@ -295,7 +295,7 @@ The gap between domain knowledge and running software, where requirements drift 
 Claude (Anthropic) assisted with implementation and manuscript preparation. The architectural decisions and the composition of FFP/AST with REST are the author's.
 
 \bibliographystyle{plain}
-\begin{thebibliography}{13}
+\begin{thebibliography}{14}
 
 \bibitem{backus78}
 J. Backus, ``Can Programming Be Liberated from the von Neumann Style? A Functional Style and Its Algebra of Programs,'' \emph{Commun.\ ACM}, 21(8):613--641, 1978.
@@ -314,6 +314,9 @@ T. Halpin and M. Curland, ``Automated Verbalization for ORM 2,'' in \emph{OTM Wo
 
 \bibitem{vanemden76}
 M.H. van Emden and R.A. Kowalski, ``The Semantics of Predicate Logic as a Programming Language,'' \emph{J.\ ACM}, 23(4):733--742, 1976.
+
+\bibitem{scott76}
+D.S. Scott, ``Data Types as Lattices,'' \emph{SIAM J.\ Comput.}, 5(3):522--587, 1976.
 
 \bibitem{tarski55}
 A. Tarski, ``A lattice-theoretical fixpoint theorem and its applications,'' \emph{Pacific J.\ Math.}, 5(2):285--309, 1955.
