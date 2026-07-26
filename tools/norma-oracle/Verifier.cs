@@ -4156,9 +4156,17 @@ namespace Elysium.NormaOracle
 						UniquenessConstraint oppPid = opp.RolePlayer.PreferredIdentifier;
 						if (oppPid != null) identifiesOpp = oppPid.RoleCollection.Contains(r);
 					}
+					// PERM:1178-1187 excludes a functional role when the OPPOSITE
+					// role carries the uniqueness constraint that is this object
+					// type's preferred identifier ("opposite part of the preferred
+					// identifier for this ObjectType", rmap-algorithm.md:111) - so
+					// the membership test takes opp, not r. A preferred identifier's
+					// roles are played by the identifying value types, never by the
+					// identified entity, so Contains(r) was false on every row of
+					// every station (7587 of 7587).
 					bool inOwnPid = false;
 					UniquenessConstraint ownPid = p.PreferredIdentifier;
-					if (ownPid != null) inOwnPid = ownPid.RoleCollection.Contains(r);
+					if (ownPid != null && opp != null) inOwnPid = ownPid.RoleCollection.Contains(opp);
 					roleInfos.Add("S8(" + IAtom(p.Name) + ", " + IAtom(p.IsValueType ? "value" : "entity")
 						+ ", " + IAtom(suc != null ? "T" : "F")
 						+ ", " + IAtom(suc != null && suc.IsPreferred ? "T" : "F")
