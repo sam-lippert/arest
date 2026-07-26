@@ -3520,6 +3520,31 @@ namespace Elysium.NormaOracle
 		// per-kind entity populations (population inclusion materialized up
 		// the subtype chain); state:declared carries the DECLARED players
 		// alongside for consumers that need pre-collapse names.
+		// The carrier paths are RELATIVE, so the working directory chooses which
+		// station gets overwritten. Run from a station's directory by mistake and
+		// its certified inputs are replaced by whatever the given sources happen
+		// to describe - silently, and with exit 0. That has happened once: an
+		// 8797-byte model landed on a 513856-byte artifact and only a hand-made
+		// backup saved it. So say where the bytes are going, and refuse a
+		// collapse outright unless it is asked for.
+		private static void WriteCarrier(string path, string content)
+		{
+			string full = System.IO.Path.GetFullPath(path);
+			long had = System.IO.File.Exists(full) ? new System.IO.FileInfo(full).Length : 0L;
+			long now = System.Text.Encoding.UTF8.GetByteCount(content);
+			Console.WriteLine("  writing " + full + "  (" + had + " -> " + now + " bytes)");
+			if (had > 0 && now * 4 < had &&
+				string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AREST_ORACLE_ALLOW_SHRINK")))
+			{
+				throw new InvalidOperationException(
+					"refusing to shrink " + full + " from " + had + " to " + now +
+					" bytes. This usually means the working directory is a station whose" +
+					" sources are not the ones being read. Set AREST_ORACLE_ALLOW_SHRINK=1" +
+					" if the collapse is intended.");
+			}
+			System.IO.File.WriteAllText(full, content);
+		}
+
 		public void WriteDesignState(string path, string extraCells = null)
 		{
 			// Declaration Order: position is DATA (2026-07-17 ruling — the
@@ -3778,7 +3803,7 @@ namespace Elysium.NormaOracle
 				sb.Append(",\n\n").Append(extraCells.TrimEnd().TrimEnd(','));
 			}
 			sb.Append("\n)\n");
-			System.IO.File.WriteAllText(path, sb.ToString());
+			WriteCarrier(path, sb.ToString());
 		}
 
 		public static void WriteNormaAnswer(Store store, System.Reflection.Assembly relationalAssembly, System.Reflection.Assembly abstractionAssembly, System.Reflection.Assembly dcilBridgeAssembly, string path, HashSet<string> excludeFullyDerived)
@@ -3888,7 +3913,7 @@ namespace Elysium.NormaOracle
 			sb.Append("DEF(\"norma:colpaths\", ").Append(colPaths.Count == 0 ? "S1(PHI())" : IChunked(colPaths)).Append("),\n\n");
 			sb.Append("DEF(\"norma:constraints\", ").Append(constraintRows.Count == 0 ? "S1(PHI())" : IChunked(constraintRows)).Append(")\n");
 			sb.Append(")\n");
-			System.IO.File.WriteAllText(path, sb.ToString());
+			WriteCarrier(path, sb.ToString());
 		}
 		#endregion
 
