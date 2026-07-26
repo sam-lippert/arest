@@ -333,7 +333,7 @@ namespace Elysium.NormaOracle
 			// sanctioned host shape whenever one is called for.
 			verifier.WriteDesignState("design-state",
 				verifier.InputStateCells()
-				+ Verifier.MappingStateCells(store, assemblies[1], assemblies[2]));
+				+ Verifier.MappingStateCells(store, assemblies[1], assemblies[2], assemblies[4]));
 			Verifier.WriteNormaAnswer(store, assemblies[4], assemblies[1], assemblies[3], "norma-answer", verifier.FullyDerivedNames());
 			Console.WriteLine();
 			Console.WriteLine("== carriers ==");
