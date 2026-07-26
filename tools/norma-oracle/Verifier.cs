@@ -4328,11 +4328,51 @@ namespace Elysium.NormaOracle
 			// child link collections, both creation-ordered): every fact
 			// type (subtype and implied included) with its position in the
 			// model's element enumeration. UNSORTED - the order IS the row.
-			var foRows = new List<string>();
-			int foIndex = 0;
+			// ... with ONE stabilisation, and it is narrower than it looks.
+			// The implied fact types NORMA generates for an objectification are
+			// materialised by a deferred rule pass whose internal order it does
+			// not fix, so state:factorder is not reproducible. Measured, the
+			// permutation swaps WHOLE GROUPS - an objectification's implied set
+			// moving as a unit - while each group's internal sequence is
+			// preserved. Canon is sensitive to the WITHIN-group order (it reads
+			// this surface through cn:foidx to number uniqueness constraints) and
+			// insensitive to the BETWEEN-group order (two natural permutations
+			// derive byte-identically). NORMA is insensitive to both, reaching
+			// these facts through the concept type structure rather than the
+			// enumeration.
+			// So: order the GROUPS by their objectification and leave each
+			// group's members exactly as enumerated. Sorting the members instead
+			// - the obvious move, and the one tried first - interleaves different
+			// objectifications and destroys the one thing canon does read.
+			var foFacts = new List<FactType>();
 			foreach (FactType ft in myStore.ElementDirectory.FindElements<FactType>(true))
 			{
 				if (ft.IsDeleted || string.IsNullOrEmpty(ft.Name)) continue;
+				foFacts.Add(ft);
+			}
+			Func<FactType, string> groupKey = delegate(FactType ft)
+			{
+				Objectification o = ft.ImpliedByObjectification;
+				if (o == null) return null;
+				FactType nested = o.NestedFactType;
+				return nested != null && !string.IsNullOrEmpty(nested.Name) ? nested.Name : "";
+			};
+			for (int i = 0; i < foFacts.Count; )
+			{
+				if (groupKey(foFacts[i]) == null) { i++; continue; }
+				int j = i;
+				while (j < foFacts.Count && groupKey(foFacts[j]) != null) j++;
+				// OrderBy is a STABLE sort, which is the whole point: groups move,
+				// members within a group keep their enumeration order.
+				var run = foFacts.GetRange(i, j - i)
+					.OrderBy(groupKey, StringComparer.Ordinal).ToList();
+				for (int k = 0; k < run.Count; k++) foFacts[i + k] = run[k];
+				i = j;
+			}
+			var foRows = new List<string>();
+			int foIndex = 0;
+			foreach (FactType ft in foFacts)
+			{
 				foIndex++;
 				foRows.Add("S2(" + IAtom(ft.Name) + ", N(" + foIndex + "))");
 			}
