@@ -4115,6 +4115,66 @@ namespace Elysium.NormaOracle
 			return IChunked(members);
 		}
 
+		// A constraint's identity in the MODEL is its ordered member roles plus the
+		// flags that distinguish two constraints over the same roles. NORMA hands
+		// out InternalUniquenessConstraint<N> / ImpliedMandatoryConstraint<N> in a
+		// deferred rule pass whose internal order it does not fix, so that name
+		// binds to a different constraint on every run, and a surface sorted by it
+		// is a stable sort over an unstable key. Building the emitted name from
+		// model content instead makes state:ucs and state:djmands reproducible.
+		private static string CanonicalConstraintKey(string kind, string flags, List<string> members)
+		{
+			return kind + ":" + flags + ":" + string.Join("+", members);
+		}
+
+		// Injectivity is the whole requirement for a key canon only ever joins on,
+		// so a collision must not be papered over: sort by key and give each repeat
+		// a deterministic ordinal. Two alethic constraints over identical roles with
+		// identical flags should not occur; if they do, the surface stays stable and
+		// keeps them distinct rather than merging two rows into one.
+		private static List<KeyValuePair<string, string>> DisambiguateKeys(
+			List<KeyValuePair<string, string>> keyed)
+		{
+			keyed.Sort(delegate(KeyValuePair<string, string> x, KeyValuePair<string, string> y)
+			{
+				int c = StringComparer.Ordinal.Compare(x.Key, y.Key);
+				return c != 0 ? c : StringComparer.Ordinal.Compare(x.Value, y.Value);
+			});
+			var outRows = new List<KeyValuePair<string, string>>(keyed.Count);
+			string prev = null;
+			int dup = 0;
+			foreach (KeyValuePair<string, string> kv in keyed)
+			{
+				if (kv.Key == prev)
+				{
+					dup++;
+					outRows.Add(new KeyValuePair<string, string>(kv.Key + ":" + dup, kv.Value));
+				}
+				else
+				{
+					prev = kv.Key;
+					dup = 0;
+					outRows.Add(kv);
+				}
+			}
+			return outRows;
+		}
+
+		private static List<string> MemberKeyParts(LinkedElementCollection<Role> roles)
+		{
+			var parts = new List<string>();
+			foreach (Role mr in roles)
+			{
+				FactType kft = mr.BinarizedOrSameFactType;
+				if (kft == null) continue;
+				int kpos = 0;
+				for (int i = 0; i < kft.RoleCollection.Count; i++)
+					if (kft.RoleCollection[i].Role == mr) { kpos = i + 1; break; }
+				parts.Add(kft.Name + "#" + kpos);
+			}
+			return parts;
+		}
+
 		public string InputStateCells()
 		{
 			var rows = new List<string>();
@@ -4194,6 +4254,7 @@ namespace Elysium.NormaOracle
 			// its ordered member roles as (factName, 1-based role position);
 			// state:ucs - S4(name, isPreferred, internal, S(members)).
 			var ucRows = new List<string>();
+			var ucKeyed = new List<KeyValuePair<string, string>>();
 			foreach (UniquenessConstraint uc in myStore.ElementDirectory.FindElements<UniquenessConstraint>(true))
 			{
 				if (uc.IsDeleted || uc.Modality != ConstraintModality.Alethic) continue;
@@ -4210,11 +4271,16 @@ namespace Elysium.NormaOracle
 					members.Add("S2(" + IAtom(mft.Name) + ", N(" + pos + "))");
 				}
 				if (!ok || members.Count == 0) continue;
-				ucRows.Add("S4(" + IAtom(uc.Name)
-					+ ", " + IAtom(uc.IsPreferred ? "T" : "F")
-					+ ", " + IAtom(uc.IsInternal ? "T" : "F")
-					+ ", " + IMemberSeq(members) + ")");
+				ucKeyed.Add(new KeyValuePair<string, string>(
+					CanonicalConstraintKey("UC",
+						(uc.IsInternal ? "i" : "e") + (uc.IsPreferred ? "p" : "n"),
+						MemberKeyParts(uc.RoleCollection)),
+					", " + IAtom(uc.IsPreferred ? "T" : "F")
+						+ ", " + IAtom(uc.IsInternal ? "T" : "F")
+						+ ", " + IMemberSeq(members) + ")"));
 			}
+			foreach (var kv in DisambiguateKeys(ucKeyed))
+				ucRows.Add("S4(" + IAtom(kv.Key) + kv.Value);
 			ucRows.Sort(StringComparer.Ordinal);
 			// THE DISJUNCTIVE-MANDATORY SURFACE (AssimilationIsSelfEvident's
 			// completion arm, ASM:242-296): every alethic NON-simple
@@ -4222,6 +4288,7 @@ namespace Elysium.NormaOracle
 			// 1-based role position) - state:djmands, S2(name, S(members)),
 			// the state:ucs pattern.
 			var djRows = new List<string>();
+			var djKeyed = new List<KeyValuePair<string, string>>();
 			foreach (MandatoryConstraint mc in myStore.ElementDirectory.FindElements<MandatoryConstraint>(true))
 			{
 				if (mc.IsDeleted || mc.Modality != ConstraintModality.Alethic || mc.IsSimple) continue;
@@ -4238,9 +4305,14 @@ namespace Elysium.NormaOracle
 					members.Add("S2(" + IAtom(mft.Name) + ", N(" + pos + "))");
 				}
 				if (!ok || members.Count == 0) continue;
-				djRows.Add("S3(" + IAtom(mc.Name) + ", " + IAtom(mc.IsImplied ? "T" : "F")
-					+ ", " + IMemberSeq(members) + ")");
+				djKeyed.Add(new KeyValuePair<string, string>(
+					CanonicalConstraintKey("DJ", mc.IsImplied ? "i" : "e",
+						MemberKeyParts(mc.RoleCollection)),
+					", " + IAtom(mc.IsImplied ? "T" : "F")
+						+ ", " + IMemberSeq(members) + ")"));
 			}
+			foreach (var kv in DisambiguateKeys(djKeyed))
+				djRows.Add("S3(" + IAtom(kv.Key) + kv.Value);
 			djRows.Sort(StringComparer.Ordinal);
 			var ots = new List<string>();
 			foreach (ObjectType ot in myStore.ElementDirectory.FindElements<ObjectType>(true))
