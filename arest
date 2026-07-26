@@ -8714,6 +8714,9 @@ DEF("law:normamap",
 DEF("rmap:assim:derive",
     S3(A("COMP"), A("rmap:assim_of"), S3(A("CONS"), A("rmap:s1p"), A("rmap:gmi")))),
 
+DEF("rmap:absorbed",
+    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(3), K(A("T")))), S2(A("CONS"), N(2)), K(PHI()))), A("rmap:assim"))),
+
 DEF("rmap:assim",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:assim")), A("id"))), K(A("#")))), A("rmap:assim:derive"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:assim")), A("id"))))),
 
@@ -8808,7 +8811,7 @@ DEF("rmap:pidchains",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:pidchains")), A("id"))), K(A("#")))), A("rmap:pidchains:derive"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:pidchains")), A("id"))))),
 
 DEF("rmap:tablects:derive",
-    S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), K(A("T")))), S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), K(A("F")), K(A("T"))), K(A("F"))), S2(A("CONS"), S3(A("COMP"), N(1), N(1))), K(PHI()))), A("distr"), S3(A("CONS"), A("rmap:cts"), A("rmap:fullheads")))),
+    S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(2)))), K(PHI()), S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(1), N(2)))), K(PHI()), S2(A("CONS"), S3(A("COMP"), N(1), N(1)))))), A("distr"), S3(A("CONS"), A("rmap:cts"), S3(A("CONS"), A("rmap:fullheads"), A("rmap:absorbed"))))),
 
 DEF("rmap:tablects",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:tablects")), A("id"))), K(A("#")))), A("rmap:tablects:derive"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:tablects")), A("id"))))),
