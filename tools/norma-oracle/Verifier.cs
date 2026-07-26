@@ -4752,7 +4752,22 @@ namespace Elysium.NormaOracle
 											conCols.Add(IAtom((string)sc.GetType().GetProperty("Name").GetValue(sc, null)));
 									}
 							}
-							conRows.Add("S3(" + IAtom(conTableName)
+							// KIND IS PART OF THE KEY. A table can carry a uniqueness
+							// constraint and a reference constraint over the SAME single
+							// column - Function has both on transitionPredicateId - and
+							// keying on (table, columns) alone collides them, so one
+							// lookup wins and the other reads a position belonging to a
+							// different constraint. That collision, not the order, was
+							// the whole of the 2% disagreement measured at 4541e74c.
+							// The kinds match norma:constraints' own: pk, uc, fk.
+							string conKind = "fk";
+							var primProp = con.GetType().GetProperty("IsPrimary");
+							if (colProp != null && colProp.GetValue(con, null) != null &&
+								con.GetType().GetProperty("ColumnReferenceCollection") == null)
+								conKind = (primProp != null && (bool)primProp.GetValue(con, null)) ? "pk" : "uc";
+							else if (primProp != null)
+								conKind = (bool)primProp.GetValue(con, null) ? "pk" : "uc";
+							conRows.Add("S4(" + IAtom(conKind) + ", " + IAtom(conTableName)
 								+ ", " + (conCols.Count == 0 ? "PHI()" : "S" + conCols.Count + "(" + string.Join(", ", conCols) + ")")
 								+ ", N(" + conPos + "))");
 						}
