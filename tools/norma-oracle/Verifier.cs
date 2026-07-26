@@ -4513,7 +4513,7 @@ namespace Elysium.NormaOracle
 			return sb.ToString();
 		}
 
-		public static string MappingStateCells(Store store, System.Reflection.Assembly abstractionAssembly, System.Reflection.Assembly bridgeAssembly)
+		public static string MappingStateCells(Store store, System.Reflection.Assembly abstractionAssembly, System.Reflection.Assembly bridgeAssembly, System.Reflection.Assembly relationalAssembly = null)
 		{
 			var sb = new System.Text.StringBuilder();
 			// FORCE THE FULL ORM->OIAL TRANSFORM: the bridge maintains
@@ -4702,6 +4702,65 @@ namespace Elysium.NormaOracle
 			sb.Append("DEF(\"state:normainfos\", ").Append(IChunked(infos)).Append("),\n\n");
 			sb.Append("DEF(\"state:normauniq\", ").Append(IChunked(uniqs)).Append("),\n\n");
 			sb.Append("DEF(\"state:normapaths\", ").Append(IChunked(paths)).Append("),\n\n");
+
+			// THE ORDER NORMA NUMBERS FROM. Utility.GenerateUniqueNames walks
+			// IterateConstraints (NameGeneration.cs:171, :415) - schema.TableCollection,
+			// then each table's CONSTRAINT COLLECTION in ADD order - and appends
+			// 1, 2, 3 to colliding generated names, which is where the digits in
+			// Function_UC1 and CacheEntry_FK2 come from. That order is a fact
+			// about how the model was BUILT, and the answer records what was
+			// built; nine orderings derivable from the answer have been measured
+			// against it and every one failed.
+			// EMIT THE POSITION ONLY, keyed on (table, columns). Canon still
+			// derives the NAME from it and still applies the single-vs-multiple
+			// rule. The name would be an answer canon is meant to compute; the
+			// position is a fact canon cannot compute. Sorting the rows is
+			// harmless because the ordinal rides IN the row.
+			if (relationalAssembly != null)
+			{
+				Type conTableType = relationalAssembly.GetTypes().FirstOrDefault(x => x.Name == "Table" && typeof(ModelElement).IsAssignableFrom(x));
+				Type conLinkType = relationalAssembly.GetTypes().FirstOrDefault(x => x.Name == "TableContainsConstraint" && typeof(ModelElement).IsAssignableFrom(x));
+				var conAccessor = conLinkType == null ? null : conLinkType.GetMethod("GetConstraintCollection",
+					System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+				var conRows = new List<string>();
+				if (conTableType != null && conAccessor != null)
+				{
+					foreach (ModelElement conTable in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(conTableType), true))
+					{
+						string conTableName = (string)conTableType.GetProperty("Name").GetValue(conTable, null);
+						int conPos = 0;
+						foreach (object con in (System.Collections.IEnumerable)conAccessor.Invoke(null, new object[] { conTable }))
+						{
+							++conPos;
+							// uniqueness constraints carry ColumnCollection; reference
+							// constraints carry ColumnReferenceCollection and their
+							// source columns hang off each reference. Reading only the
+							// former left 164 of 226 rows keyless.
+							var colProp = con.GetType().GetProperty("ColumnCollection");
+							var conCols = new List<string>();
+							if (colProp != null)
+								foreach (object c in (System.Collections.IEnumerable)colProp.GetValue(con, null))
+									conCols.Add(IAtom((string)c.GetType().GetProperty("Name").GetValue(c, null)));
+							if (conCols.Count == 0)
+							{
+								var refProp = con.GetType().GetProperty("ColumnReferenceCollection");
+								if (refProp != null)
+									foreach (object cr in (System.Collections.IEnumerable)refProp.GetValue(con, null))
+									{
+										object sc = cr.GetType().GetProperty("SourceColumn").GetValue(cr, null);
+										if (sc != null)
+											conCols.Add(IAtom((string)sc.GetType().GetProperty("Name").GetValue(sc, null)));
+									}
+							}
+							conRows.Add("S3(" + IAtom(conTableName)
+								+ ", " + (conCols.Count == 0 ? "PHI()" : "S" + conCols.Count + "(" + string.Join(", ", conCols) + ")")
+								+ ", N(" + conPos + "))");
+						}
+					}
+				}
+				conRows.Sort(StringComparer.Ordinal);
+				sb.Append("DEF(\"state:conorder\", ").Append(conRows.Count == 0 ? "S1(PHI())" : IChunked(conRows)).Append("),\n\n");
+			}
 			return sb.ToString();
 		}
 
