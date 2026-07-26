@@ -4339,12 +4339,26 @@ namespace Elysium.NormaOracle
 			foreach (var kv in DisambiguateKeys(djKeyed))
 				djRows.Add("S3(" + IAtom(kv.Key) + kv.Value);
 			djRows.Sort(StringComparer.Ordinal);
+			// DECLARATION ORDER OF OBJECT TYPES. NORMA walks model.ObjectTypeCollection
+			// (OMIFORM:1083-1102) to build oialModel.ConceptTypeCollection, and the
+			// DCIL bridge later walks THAT collection to add each table's constraints
+			// (DCILFIXUP:518-531), so this order is what <Table>_UC<n> is numbered
+			// from. It is the order object types were DECLARED - an entity type is
+			// created at its own sentence, an objectified fact type when its fact is
+			// objectified - which is why it cannot be recovered from the order facts
+			// mentioning them appear. Sorting this surface by name discards it, so the
+			// position rides in the row and the sort stays harmless.
 			var ots = new List<string>();
+			var otPos = new Dictionary<ObjectType, int>();
+			int otIndex = 0;
+			foreach (ObjectType declared in myModel.ObjectTypeCollection) otPos[declared] = ++otIndex;
 			foreach (ObjectType ot in myStore.ElementDirectory.FindElements<ObjectType>(true))
 			{
 				if (ot.IsDeleted) continue;
-				ots.Add("S3(" + IAtom(ot.Name) + ", " + IAtom(ot.IsValueType ? "value" : "entity")
-					+ ", " + IAtom(ot.TreatAsIndependent ? "T" : "F") + ")");
+				int p;
+				ots.Add("S4(" + IAtom(ot.Name) + ", " + IAtom(ot.IsValueType ? "value" : "entity")
+					+ ", " + IAtom(ot.TreatAsIndependent ? "T" : "F")
+					+ ", N(" + (otPos.TryGetValue(ot, out p) ? p : 0) + "))");
 			}
 			ots.Sort(StringComparer.Ordinal);
 			// THE DECLARATION-ORDER SURFACE (the played-role/collection
