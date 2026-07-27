@@ -4688,14 +4688,36 @@ namespace Elysium.NormaOracle
 			{
 				object parent = parentOf(uniqType, u);
 				if (parent == null) continue;
+				var kidNames = new List<string>();
 				var kids = new List<string>();
 				var kp = uniqType.GetProperty("ConceptTypeChildCollection");
 				if (kp != null)
 					foreach (object k in (System.Collections.IEnumerable)kp.GetValue(u, null))
-						kids.Add(IAtom(propName(k.GetType(), (ModelElement)k, "Name")));
-				uniqs.Add("S4(" + IAtom((string)ctType.GetProperty("Name").GetValue(parent, null))
-					+ ", " + IAtom(propName(uniqType, u, "Name"))
-					+ ", " + IAtom(propName(uniqType, u, "IsPreferred") == "True" ? "T" : "F")
+					{
+						string kn = propName(k.GetType(), (ModelElement)k, "Name");
+						kidNames.Add(kn);
+						kids.Add(IAtom(kn));
+					}
+				// SAME DEFECT AS state:ucs AND state:djmands, missed when those were
+				// fixed: the OIAL Uniqueness carries NORMA's deferred-pass name, and
+				// InternalUniquenessConstraint<N> binds to a different constraint on
+				// every run. Two runs over the largest station put 250 and 258 on the
+				// same constraint, which is the only thing left making a regenerated
+				// design state differ from itself. Sorting the surface by that name is
+				// a stable sort over an unstable key. The canon drops this field
+				// entirely (rmap:nurows:derive keeps 1, 3 and 4), so nothing reads it -
+				// and an unstable field nothing reads is exactly the kind that costs a
+				// carrier its byte-reproducibility for no gain. Name it from content.
+				string uName = propName(uniqType, u, "Name");
+				bool autoNamed = System.Text.RegularExpressions.Regex.IsMatch(
+					uName ?? "", "^(Internal|External|Implied)[A-Za-z]*Constraint[0-9]+$");
+				string parentName = (string)ctType.GetProperty("Name").GetValue(parent, null);
+				bool preferred = propName(uniqType, u, "IsPreferred") == "True";
+				uniqs.Add("S4(" + IAtom(parentName)
+					+ ", " + IAtom(autoNamed
+						? CanonicalConstraintKey("uniq", parentName + (preferred ? "|P" : ""), kidNames)
+						: uName)
+					+ ", " + IAtom(preferred ? "T" : "F")
 					+ ", " + (kids.Count == 0 ? "PHI()" : "S" + kids.Count + "(" + string.Join(", ", kids) + ")") + ")");
 			}
 			uniqs.Sort(StringComparer.Ordinal);
