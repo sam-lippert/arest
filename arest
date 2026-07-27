@@ -7348,12 +7348,6 @@ DEF("rmap:sdedges",
 DEF("rmap:otmeta",
     S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("state:otmeta")), A("id")))), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("state:otmeta")), A("id"))), S3(A("COMP"), S3(A("WHILE"), S4(A("COMP"), A("not"), A("atom"), S3(A("COMP"), N(1), N(1))), A("theta:flatten")), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("state:otmeta")), A("id")))))),
 
-DEF("rmap:conorder",
-    S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("state:conorder")), A("id")))), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("state:conorder")), A("id"))), S3(A("COMP"), S3(A("WHILE"), S4(A("COMP"), A("not"), A("atom"), S3(A("COMP"), N(1), N(1))), A("theta:flatten")), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("state:conorder")), A("id")))))),
-
-DEF("cn:copos",
-    S6(A("COMP"), A("cn:minint"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(1), N(2)))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(2), N(2)))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), N(3), N(1)))), S3(A("COMP"), N(3), N(2)))), S2(A("CONS"), S3(A("COMP"), N(4), N(1))), K(PHI())), K(PHI())), K(PHI()))), A("distr"), S3(A("CONS"), S3(A("COMP"), A("rmap:conorder"), N(1)), N(2)))),
-
 DEF("rmap:otindep",
     S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(3), K(A("T")))), S2(A("CONS"), N(1)), K(PHI()))), A("rmap:otmeta"))),
 
