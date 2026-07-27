@@ -4303,12 +4303,29 @@ namespace Elysium.NormaOracle
 					: (dr.DerivationCompleteness == DerivationCompleteness.PartiallyDerived ? "partial" : "full");
 				string dstore = dr == null ? "none"
 					: (dr.DerivationStorage == DerivationStorage.Stored ? "stored" : "notstored");
+				// Fields 8 and 9 are the two facts the subtype depth formula needs
+				// (OialModelIsForORMModel.cs:364). They are reported rather than
+				// decided: canon composes the disjunction itself, because a single
+				// precomputed "this subtype is absorbed" flag would be NORMA's
+				// answer with its rule left behind in C#.
+				//
+				// Both are read through SubtypeFact's own accessors, and that is
+				// the point of resolving them here. Role order is NOT an invariant
+				// -- SubtypeFact.SupertypeRole tries roles[1] then falls back,
+				// noting "this is not guaranteed (the user can switch them in the
+				// xml)" -- so which of roleInfos[0]/[1] holds the subtype cannot be
+				// assumed positionally, and canon must not have to guess.
+				SubtypeFact sf = ft as SubtypeFact;
+				bool providesPid = sf != null && sf.ProvidesPreferredIdentifier;
+				bool subAuto = sf != null && EntityIsAutoIdentified(sf.Subtype);
 				rows.Add("S4(" + IAtom(ft.Name) + ", " + roleInfos[0] + ", " + roleInfos[1]
-					+ ", S7(" + IAtom(isSubtype ? "T" : "F") + ", " + IAtom(isUnary ? "T" : "F")
+					+ ", S9(" + IAtom(isSubtype ? "T" : "F") + ", " + IAtom(isUnary ? "T" : "F")
 					+ ", " + IAtom(ft.ImpliedByObjectification != null ? "T" : "F")
 					+ ", " + IAtom(dcomp) + ", " + IAtom(dstore)
 					+ ", " + IAtom(dr != null && dr.ExternalDerivation ? "T" : "F")
-					+ ", " + IAtom(ft.Objectification != null ? "T" : "F") + "))");
+					+ ", " + IAtom(ft.Objectification != null ? "T" : "F")
+					+ ", " + IAtom(providesPid ? "T" : "F")
+					+ ", " + IAtom(subAuto ? "T" : "F") + "))");
 			}
 			rows.Sort(StringComparer.Ordinal);
 			// THE UNIQUENESS SURFACE (GenerateUniqueness's input,
