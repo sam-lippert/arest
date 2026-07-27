@@ -8839,7 +8839,7 @@ DEF("rmap:colpathsP",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:colpathsP")), A("id"))), K(A("#")))), A("rmap:colpathsP:derive"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:colpathsP")), A("id"))))),
 
 DEF("rmap:colpaths:derive",
-    S3(A("COMP"), S2(A("ALPHA"), S4(A("CONS"), N(1), N(2), S3(A("COMP"), S2(A("ALPHA"), S5(A("CONS"), N(1), N(2), N(3), N(4))), N(3)))), A("rmap:colpathsP"))),
+    S4(A("COMP"), S2(A("ALPHA"), S4(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)), S4(A("COMP"), S2(A("ALPHA"), S5(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(3), N(1)), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), K(A("info")))), S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("COMP"), N(3), N(1)), N(2))), S3(A("COMP"), A("rmap:valuecolname"), S3(A("COMP"), N(3), N(1))), S3(A("COMP"), N(4), N(1))), S3(A("COMP"), N(4), N(1))))), A("distr"), S3(A("CONS"), S3(A("COMP"), N(3), N(1)), N(2))))), A("distr"), S3(A("CONS"), A("rmap:colpathsP"), A("rmap:vtcts")))),
 
 DEF("rmap:colpaths",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:colpaths")), A("id"))), K(A("#")))), A("rmap:colpaths:derive"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:colpaths")), A("id"))))),
