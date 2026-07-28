@@ -1621,6 +1621,40 @@ namespace Elysium.NormaOracle
 				var vproj = new RoleSetDerivationProjection(vrule, vlead);
 				var drp0 = new DerivedRoleProjection(vproj, headE.Roles[0]);
 				new DerivedRoleProjectedFromRolePathRoot(drp0, vroot);
+				// EMIT the executable recipe. This arm has always built the NORMA rule
+				// and never emitted one - myRuleRecipes.Add lived at exactly one site,
+				// inside RecordRuleRecipe, reachable only from the binary-join paths - so
+				// a conjunction's head never reached state:rules and law:markers counted
+				// it missing even though the rule had been understood.
+				//
+				// ONE-LEG ONLY, deliberately. A single leg needs no join bookkeeping: it
+				// is a select on the non-root column when the leg carries a constant,
+				// then a projection onto the root column. The n-leg case needs the join
+				// column positions worked out per leg and that wants fitting offline
+				// against real condLegs before any of it is written here.
+				//
+				// The shapes are precedented, not guessed: a unary head with a
+				// one-column projection S1(N(1)) already runs in rules:metamodel
+				// (DomainChangeIsValid), and solve:fts2 copies a rule row's players
+				// field wholesale into the descriptor without indexing it, so a
+				// one-element list is safe there.
+				if (condLegs.Count == 1 && headE.Players.Count == 1)
+				{
+					var leg0 = condLegs[0];
+					int rootAt = leg0.Value.Key;
+					string src = IAtom(leg0.Key.Fact.Name);
+					if (leg0.Value.Value != null)
+					{
+						// sel's third element is a SELECTOR, not an index - see
+						// derive:eval's sel arm, which pairs it with the value and hands
+						// both to derive:filter_sel. Columns are 1-based.
+						src = "S4(" + IAtom("sel") + ", " + src + ", N(" + (2 - rootAt)
+							+ "), " + IAtom(leg0.Value.Value) + ")";
+					}
+					myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S1("
+						+ IAtom(headE.Players[0]) + "), S3(" + IAtom("proj") + ", " + src
+						+ ", S1(N(" + (rootAt + 1) + "))))");
+				}
 				log.Add(headE.Fact.Name + " := conjunction at " + rootVar + " ("
 					+ string.Join(" & ", condLegs.Select(l => l.Key.Fact.Name + (l.Value.Value != null ? "='" + l.Value.Value + "'" : ""))) + "), "
 					+ DescribeDerivation(headE.Fact));
