@@ -9190,12 +9190,18 @@ DEF("rmap:ncp3:derive",
 DEF("rmap:ncp3",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:ncp3")), A("id"))), K(A("#")))), A("rmap:ncp3:derive"), S3(A("COMP"), A("law:fetch"), S3(A("CONS"), K(A("stored:rmap:ncp3")), A("id"))))),
 
+DEF("rmap:colnames_c",
+    S4(A("COMP"), S2(A("ALPHA"), A("rmap:collapse_nrow")), A("distl"), S3(A("CONS"), A("rmap:freeruns"), A("rmap:colnames")))),
+DEF("rmap:ncp3_c",
+    S4(A("COMP"), S2(A("ALPHA"), A("rmap:collapse_nrow")), A("distl"), S3(A("CONS"), A("rmap:freeruns"), A("rmap:ncp3")))),
+DEF("rmap:normacolnames_pair_c",
+    S3(A("CONS"), A("rmap:colnames_c"), A("rmap:ncp3_c"))),
 DEF("rmap:normacolnames_pair",
     S3(A("CONS"), A("rmap:colnames"), A("rmap:ncp3"))),
 DEF("rmap:normacolnames_witness",
-    S3(A("COMP"), A("rmap:pairdiff"), A("rmap:normacolnames_pair"))),
+    S3(A("COMP"), A("rmap:pairdiff"), A("rmap:normacolnames_pair_c"))),
 DEF("law:normacolnames",
-    S4(A("COMP"), A("law:paircheck"), S3(A("CONS"), A("id"), A("rmap:pairdiff")), A("rmap:normacolnames_pair"))),
+    S4(A("COMP"), A("law:paircheck"), S3(A("CONS"), A("id"), A("rmap:pairdiff")), A("rmap:normacolnames_pair_c"))),
 
 DEF("cn:mandfor",
     S3(A("COMP"), N(1), S3(A("COMP"), A("apndr"), S3(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), K(A("info")))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(1), N(2)))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(6), N(1)), S3(A("COMP"), N(2), N(2)))), S2(A("CONS"), S3(A("COMP"), N(5), N(1))), K(PHI())), K(PHI())), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(1), N(2)))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(7), N(1)), S3(A("COMP"), N(2), N(2)))), S2(A("CONS"), S3(A("COMP"), N(6), N(1))), K(PHI())), K(PHI())))), A("distr"), S3(A("CONS"), N(1), S3(A("CONS"), N(2), N(3)))), S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), K(A("info")))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(1), N(2)))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("theta:take"), S3(A("CONS"), S3(A("COMP"), N(6), N(1)), S3(A("COMP"), A("length"), S3(A("COMP"), N(2), N(2))))), S3(A("COMP"), N(2), N(2)))), S2(A("CONS"), S3(A("COMP"), N(5), N(1))), K(PHI())), K(PHI())), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(1), N(2)))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("theta:take"), S3(A("CONS"), S3(A("COMP"), N(7), N(1)), S3(A("COMP"), A("length"), S3(A("COMP"), N(2), N(2))))), S3(A("COMP"), N(2), N(2)))), S2(A("CONS"), S3(A("COMP"), N(6), N(1))), K(PHI())), K(PHI())))), A("distr"), S3(A("CONS"), N(1), S3(A("CONS"), N(2), N(3)))))), K(A("T")))))),
@@ -9369,6 +9375,27 @@ DEF("rmap:freepairs",
     S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("COMP"), N(1), S3(A("COMP"), N(1), N(2))), N(1))), S2(A("CONS"), S3(A("CONS"), S3(A("COMP"), N(1), S3(A("COMP"), N(2), S3(A("COMP"), N(1), N(2)))), S3(A("COMP"), N(1), S3(A("COMP"), N(3), S3(A("COMP"), N(1), N(2)))))), K(PHI()))), A("distl"), S3(A("CONS"), A("rmap:mapdiffnames"), A("rmap:onetoones")))),
 DEF("rmap:freesubs",
     S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S3(A("CONS"), S3(A("CONS"), N(1), S4(A("COND"), S3(A("COMP"), A("le"), S3(A("CONS"), N(1), N(2))), N(1), N(2))), S3(A("CONS"), N(2), S4(A("COND"), S3(A("COMP"), A("le"), S3(A("CONS"), N(1), N(2))), N(1), N(2))))), A("rmap:freepairs"))),
+"The free-pair collapse, at part-run granularity. rmap:freesubs collapses a free pair's object type names where they stand as WHOLE CELLS; a column name is a compound, so the same collapse must reach the run of lex:parts parts the free rel step contributed. Both walk orders are emitted because the direction is what is free; both map to the pair's representative rendered twice, so the two orders become identical without any ordering step.",
+
+DEF("rmap:freeruns",
+    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S3(A("CONS"), S3(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("lex:parts"), N(1)), S3(A("COMP"), A("lex:parts"), N(2)))), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("lex:parts"), S4(A("COND"), S3(A("COMP"), A("le"), S3(A("CONS"), N(1), N(2))), N(1), N(2))), S3(A("COMP"), A("lex:parts"), S4(A("COND"), S3(A("COMP"), A("le"), S3(A("CONS"), N(1), N(2))), N(1), N(2)))))), S3(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("lex:parts"), N(2)), S3(A("COMP"), A("lex:parts"), N(1)))), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("lex:parts"), S4(A("COND"), S3(A("COMP"), A("le"), S3(A("CONS"), N(1), N(2))), N(1), N(2))), S3(A("COMP"), A("lex:parts"), S4(A("COND"), S3(A("COMP"), A("le"), S3(A("CONS"), N(1), N(2))), N(1), N(2)))))))), A("rmap:freepairs"))),
+
+"lex:camel downcases the leading part's first character, so a rendered name has already lost the case a part carried in first position. lex:lwparts compares parts through that loss and nothing else.",
+
+DEF("lex:lwparts",
+    S2(A("ALPHA"), S3(A("COMP"), A("lex:lw"), N(1)))),
+
+DEF("lex:runat",
+    S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("lex:lwparts"), S3(A("COMP"), A("theta:take"), S3(A("CONS"), N(1), S3(A("COMP"), A("length"), N(2))))), S3(A("COMP"), A("lex:lwparts"), N(2))))),
+
+"Left-to-right contiguous part-run substitution: at each position take the first substitution whose run matches, splice its replacement and advance past the run; otherwise emit one part and advance one. Order-preserving, so it can never accept a permutation the way a multiset compare would.",
+
+DEF("lex:subruns",
+    S4(A("COMP"), N(1), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(2)), S3(A("COMP"), S4(A("COND"), S4(A("COMP"), A("not"), A("null"), N(4)), S4(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), S3(A("COMP"), N(2), S3(A("COMP"), N(1), N(4)))))), S3(A("COMP"), A("theta:drop"), S3(A("CONS"), N(2), S3(A("COMP"), A("length"), S3(A("COMP"), N(1), S3(A("COMP"), N(2), S3(A("COMP"), N(1), N(4))))))), N(3)), S4(A("CONS"), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(2)))), S3(A("COMP"), A("tl"), N(2)), N(3))), S5(A("CONS"), N(1), N(2), N(3), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("theta:Filter"), K(S3(A("COMP"), A("lex:runat"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(2)))))), S3(A("COMP"), A("distl"), S3(A("CONS"), N(2), N(3)))))))), S4(A("CONS"), K(PHI()), N(1), N(2)))),
+
+DEF("rmap:collapse_nrow",
+    S4(A("CONS"), S3(A("COMP"), N(1), N(2)), S3(A("COMP"), A("lex:camel"), S3(A("COMP"), A("lex:subruns"), S3(A("CONS"), S3(A("COMP"), A("lex:parts"), S3(A("COMP"), N(2), N(2))), N(1)))), S3(A("COMP"), N(3), N(2)))),
+
 DEF("rmap:collapse_row",
     S3(A("COMP"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("theta:Filter"), K(S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), N(1))))), S3(A("COMP"), A("distl"), S3(A("CONS"), N(2), N(1)))))), N(2), S3(A("COMP"), N(2), S3(A("COMP"), N(2), S3(A("COMP"), N(1), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("theta:Filter"), K(S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), N(1))))), S3(A("COMP"), A("distl"), S3(A("CONS"), N(2), N(1)))))))))), A("distl"))),
 DEF("rmap:relsN_c",
