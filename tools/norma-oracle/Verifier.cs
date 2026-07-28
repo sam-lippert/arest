@@ -3555,14 +3555,40 @@ namespace Elysium.NormaOracle
 		// 8797-byte model landed on a 513856-byte artifact and only a hand-made
 		// backup saved it. So say where the bytes are going, and refuse a
 		// collapse outright unless it is asked for.
+		// The shrink guard below was not enough, and the second incident proves the
+		// invariant was the wrong one. On 2026-07-28 this station's carriers were
+		// overwritten with the support.auto.dev app model: 558,488 -> 1,077,078 bytes,
+		// a 1.93x GROWTH, so nothing about a size ratio could have caught it, and base
+		// spent hours judging a different program while looking merely "regenerated".
+		// Size is not identity. Record WHICH SOURCE produced a carrier, in a sidecar
+		// beside it, and refuse to overwrite a carrier that came from a different one.
+		// A missing sidecar is not an error - carriers predating this check simply get
+		// one on their next legitimate write.
+		public static string CarrierSourceId;
+
 		private static void WriteCarrier(string path, string content)
 		{
 			string full = System.IO.Path.GetFullPath(path);
+			string stamp = full + ".source";
 			long had = System.IO.File.Exists(full) ? new System.IO.FileInfo(full).Length : 0L;
 			long now = System.Text.Encoding.UTF8.GetByteCount(content);
 			Console.WriteLine("  writing " + full + "  (" + had + " -> " + now + " bytes)");
-			if (had > 0 && now * 4 < had &&
-				string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AREST_ORACLE_ALLOW_SHRINK")))
+			bool allow = !string.IsNullOrEmpty(
+				Environment.GetEnvironmentVariable("AREST_ORACLE_ALLOW_SHRINK"));
+			if (had > 0 && !string.IsNullOrEmpty(CarrierSourceId) && System.IO.File.Exists(stamp))
+			{
+				string prev = System.IO.File.ReadAllText(stamp).Trim();
+				if (!string.Equals(prev, CarrierSourceId, StringComparison.OrdinalIgnoreCase) && !allow)
+				{
+					throw new InvalidOperationException(
+						"refusing to overwrite " + full + ": it was generated from " + prev +
+						" but this run read " + CarrierSourceId + ". The carrier paths are" +
+						" relative, so a run started in the wrong directory lands one" +
+						" station's model on another's certified inputs. Set" +
+						" AREST_ORACLE_ALLOW_SHRINK=1 only if the repoint is intended.");
+				}
+			}
+			if (had > 0 && now * 4 < had && !allow)
 			{
 				throw new InvalidOperationException(
 					"refusing to shrink " + full + " from " + had + " to " + now +
@@ -3571,6 +3597,10 @@ namespace Elysium.NormaOracle
 					" if the collapse is intended.");
 			}
 			System.IO.File.WriteAllText(full, content);
+			if (!string.IsNullOrEmpty(CarrierSourceId))
+			{
+				System.IO.File.WriteAllText(stamp, CarrierSourceId);
+			}
 		}
 
 		public void WriteDesignState(string path, string extraCells = null)
