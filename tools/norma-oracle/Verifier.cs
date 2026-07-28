@@ -2074,6 +2074,51 @@ namespace Elysium.NormaOracle
 				log.Add(headE.Fact.Name + " := join over " + j + " (" + e1.Fact.Name + " x " + e2.Fact.Name + "), " + DescribeDerivation(headE.Fact));
 				RecordRuleRecipe(headE, e1, e2, j1, j2, located);
 			}
+			// EVERY ARM ABOVE `continue`s SILENTLY WHEN IT DECLINES A RULE, and
+			// the tool then reports only its successes. That silence is what made
+			// the derivation question expensive: five fires went into inferring
+			// this parser's behaviour from regexes over the corpus, and the
+			// resulting taxonomy was wrong in both directions - chains and
+			// multi-bullet counted as blockers when they build, literals counted
+			// as supported when their arm is narrower than assumed. The tool knew
+			// which rules it had dropped the whole time.
+			//
+			// So say it. Report-only: nothing above changes, and no emitted line
+			// contains ":= ", so every built-count measured off this log stays
+			// comparable across the change.
+			//
+			// The diagnosis is deliberately the CHEAPEST HONEST ONE - whether the
+			// head resolved to a declared fact type at all. That single bit
+			// separates the two causes that actually dominate: a rule naming a
+			// fact type nobody declared (the head never resolves, and the body is
+			// never even read - so any classification of that body is fiction),
+			// versus a head that resolves and a body no arm accepts. Guessing at
+			// finer reasons here would re-create the inference habit this is
+			// meant to retire.
+			int unbuiltHeadless = 0, unbuiltUnmatched = 0;
+			foreach (string sRaw2 in myDeferredRules)
+			{
+				string s2 = sRaw2;
+				while (s2.StartsWith("* * ")) s2 = s2.Substring(2);
+				Match um = Regex.Match(s2, @"^\* (.+?) iff (.+)\.$");
+				if (!um.Success) continue;
+				FactIndexEntry uE = FindEntryByNormalizedSentence(um.Groups[1].Value.Trim());
+				if (uE == null)
+				{
+					unbuiltHeadless++;
+					log.Add("UNBUILT (head names no declared fact type): " + s2);
+				}
+				else if (uE.Fact.DerivationRule == null)
+				{
+					unbuiltUnmatched++;
+					log.Add("UNBUILT (head resolves, no arm matched the body): " + s2);
+				}
+			}
+			if (unbuiltHeadless != 0 || unbuiltUnmatched != 0)
+			{
+				log.Add("UNBUILT SUMMARY: " + unbuiltHeadless + " with an undeclared head, "
+					+ unbuiltUnmatched + " with a body no arm accepts");
+			}
 			return log;
 		}
 
