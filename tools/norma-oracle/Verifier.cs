@@ -1221,6 +1221,43 @@ namespace Elysium.NormaOracle
 			{
 				return false;
 			}
+			// THE SILENT FOLD, made loud. Players are found by scanning for names
+			// already in myTypes, so an object type the sentence NAMES but which was
+			// never introduced records no hit: its text simply stays in the reading and
+			// its role is gone. "Customer has Residence." becomes the unary
+			// "{0} has Residence" with no counter and no log line.
+			//
+			// REPORTING ONLY: nothing below this point reads `unbound`, the arity is
+			// untouched, and the carrier comes back byte-identical - measured.
+			//
+			// PRECISION IS MODEST AND THE COUNT IS NOT A DEFECT COUNT. On the real
+			// station input (apps/auto.dev/.combined, the 44 files that reproduce the
+			// shipped carrier byte for byte) this reports 83, of which only order-15 are
+			// genuine dropped roles - Residence, Style, Engine, Drivetrain,
+			// Transmission, Data, Fresh Until, Noun, Personal Data, Deadline. The rest
+			// are sentence-initial capitals ("Not every API is...", "Every Customer
+			// is...") and prose. Treat the output as a triage list to read, never as a
+			// metric to quote.
+			{
+				string residual = Regex.Replace(text, @"\{\d\}", " ");
+				var unbound = new List<string>();
+				foreach (Match um in Regex.Matches(residual, @"\p{Lu}[\w-]*(?:\s+\p{Lu}[\w-]*)*"))
+				{
+					// length guard only, deliberately NO word list: a single capital is
+					// the article "A" starting a sentence, never a type name here. HTTP
+					// verbs and the like still report - a fallback name list is exactly
+					// what killed the two runners before this one, and a few obvious
+					// false positives in a triage log cost less than a hidden real case.
+					string cand = um.Value.Trim();
+					if (cand.Length > 1 && !myTypes.ContainsKey(cand)) unbound.Add(cand);
+				}
+				if (unbound.Count > 0)
+				{
+					Count("role dropped (type never introduced)");
+					myMapLog.Add("UNBOUND TYPE in '" + Shorten(body) + "': "
+						+ string.Join(", ", unbound) + " (arity " + players.Count + ")");
+				}
+			}
 			// duplicate reading: the same text over the same players is the same
 			// fact type — reuse it (fact types are IDEMPOTENT across files;
 			// a domain is a tab, and one fact type may appear in many).
