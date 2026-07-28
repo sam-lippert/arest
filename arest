@@ -9114,7 +9114,7 @@ DEF("theta:zip",
     S4(A("COMP"), N(1), S3(A("WHILE"), S4(A("COND"), S3(A("COMP"), A("null"), N(2)), K(A("F")), S4(A("COND"), S3(A("COMP"), A("null"), N(3)), K(A("F")), K(A("T")))), S4(A("CONS"), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), S3(A("COMP"), N(1), N(3))))), S3(A("COMP"), A("tl"), N(2)), S3(A("COMP"), A("tl"), N(3)))), S4(A("CONS"), K(PHI()), N(1), N(2)))),
 
 DEF("cn:smeta",
-    S4(A("CONS"), N(3), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("assim")))), K(A("")), S4(A("COND"), S3(A("COMP"), A("null"), N(5)), K(A("")), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("info")))), S3(A("COMP"), A("theta:last"), N(5)), S3(A("COMP"), N(1), N(5))))), N(6))),
+    S6(A("CONS"), N(3), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("assim")))), K(A("")), S4(A("COND"), S3(A("COMP"), A("null"), N(5)), K(A("")), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("info")))), S3(A("COMP"), A("theta:last"), N(5)), S3(A("COMP"), N(1), N(5))))), N(6), N(2), N(4))),
 
 DEF("rmap:valuecolname",
     S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("CONS"), A("id"), K(A("Value")))))),
