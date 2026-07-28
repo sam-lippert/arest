@@ -185,13 +185,29 @@ namespace Elysium.NormaOracle
 				return 0;
 			}
 
-			string metamodelDir = args.Length > 0 ? args[0] : System.IO.Path.Combine("..", "..", "metamodel");
+			// SEVERAL directories, not one. Taking a single directory is why every app
+			// station carries its own COPY of the eleven metamodel files inside
+			// .combined - a second metamodel by construction, which is exactly what the
+			// merge was supposed to end. The copy has already cost two fires: one
+			// tracing a carrier byte-difference that was only the copy lagging a ruling,
+			// and one proposing that lag as the cause of an unrelated red law.
+			// Reading the metamodel by REFERENCE removes the duplicate rather than
+			// refreshing it - 566a1043 refreshed it and it came back, because a refresh
+			// does not fix a mechanism that regenerates the problem.
+			string[] sourceDirs = args.Length > 0
+				? args
+				: new string[] { System.IO.Path.Combine("..", "..", "metamodel") };
 			// Carriers are written relative to the CWD while the model is read from
 			// here, so the two can disagree. Record which source this run read;
 			// Verifier.WriteCarrier refuses to land it on a carrier built from a
 			// different one. See the comment there for the incident this exists for.
-			Verifier.CarrierSourceId = System.IO.Path.GetFullPath(metamodelDir);
-			string[] files = System.IO.Directory.GetFiles(metamodelDir, "*.md");
+			// With several dirs the identity is all of them, in order.
+			var srcIds = new List<string>();
+			foreach (string d in sourceDirs) srcIds.Add(System.IO.Path.GetFullPath(d));
+			Verifier.CarrierSourceId = string.Join(";", srcIds);
+			var fileList = new List<string>();
+			foreach (string d in sourceDirs) fileList.AddRange(System.IO.Directory.GetFiles(d, "*.md"));
+			string[] files = fileList.ToArray();
 			Array.Sort(files, (x, y) => string.CompareOrdinal(
 				System.IO.Path.GetFileName(x) == "core.md" ? "0" : System.IO.Path.GetFileName(x),
 				System.IO.Path.GetFileName(y) == "core.md" ? "0" : System.IO.Path.GetFileName(y)));
