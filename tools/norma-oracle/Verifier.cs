@@ -3559,13 +3559,18 @@ namespace Elysium.NormaOracle
 		// most nine, and consumers flatten exactly one level; fixed-shape
 		// positions (the 5-slot descriptor, a row, a uc span) are direct
 		// S-constructors.
+		// Atoms are emitted into a JS source file, so the two characters that can
+		// close or corrupt the literal must be escaped. This used to throw on a
+		// double quote, which made a legitimate model unrepresentable: us-law's
+		// statutory Descriptions quote the statutes they cite (FTC Negative Option
+		// Rule, 16 CFR 425, effective 2024 - "click to cancel").
+		// PROVABLY A NO-OP FOR EXISTING CARRIERS: measured across auto.dev, family
+		// and base, zero atoms contain a backslash, and none can contain a quote
+		// because that used to throw. So no shipped byte moves; the escape only
+		// admits text that previously could not be emitted at all.
 		private static string IAtom(string s)
 		{
-			if (s.IndexOf('"') >= 0)
-			{
-				throw new InvalidOperationException("double quote in atom: " + s);
-			}
-			return "A(\"" + s + "\")";
+			return "A(\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\")";
 		}
 
 		private static string ISeq(List<string> elements)
@@ -4575,18 +4580,65 @@ namespace Elysium.NormaOracle
 				FactType nested = o.NestedFactType;
 				return nested != null && !string.IsNullOrEmpty(nested.Name) ? nested.Name : "";
 			};
-			for (int i = 0; i < foFacts.Count; )
+			// WITHIN-GROUP ORDER IS NORMA'S RULE, NOT A TIDY SORT OF MINE.
+			// Objectification.cs:409-423 builds the implied set by walking the nested
+			// fact type's RoleCollection BY INDEX ("Add implied fact types, one for
+			// each role"), and :1279 links each implied fact back to its nested role
+			// via `nearRoleProxy.TargetRole = nestedRole`. So a member's canonical
+			// position is that role's index in the nested fact type.
+			// CORRECTION TO THE NOTE ABOVE (measured, cont 468): the claim that each
+			// group's internal sequence is preserved across processes is FALSE. The
+			// internal order tracks the SLOT, not the group -
+			//   CustomerHasPaymentMethod is (PaymentMethod, Customer) in one process
+			//                            and (Customer, PaymentMethod) in the next.
+			// Since canon READS this order through cn:foidx to number uniqueness
+			// constraints, that flap is the dangerous kind, not the inert
+			// between-group kind. Pinning it to NORMA's creation order fixes it at
+			// the source rather than correlating with whichever order showed up.
+			Func<FactType, int> memberIndex = delegate(FactType ft)
 			{
-				if (groupKey(foFacts[i]) == null) { i++; continue; }
-				int j = i;
-				while (j < foFacts.Count && groupKey(foFacts[j]) != null) j++;
-				// OrderBy is a STABLE sort, which is the whole point: groups move,
-				// members within a group keep their enumeration order.
-				var run = foFacts.GetRange(i, j - i)
-					.OrderBy(groupKey, StringComparer.Ordinal).ToList();
-				for (int k = 0; k < run.Count; k++) foFacts[i + k] = run[k];
-				i = j;
+				Objectification o = ft.ImpliedByObjectification;
+				if (o == null) return -1;
+				FactType nested = o.NestedFactType;
+				if (nested == null) return -1;
+				LinkedElementCollection<RoleBase> nestedRoles = nested.RoleCollection;
+				foreach (RoleBase rb in ft.RoleCollection)
+				{
+					RoleProxy proxy = rb as RoleProxy;
+					if (proxy != null && proxy.TargetRole != null)
+					{
+						return nestedRoles.IndexOf(proxy.TargetRole);
+					}
+				}
+				return -1;
+			};
+			// GLOBAL, not per-run. The per-run version this replaces could not fix
+			// the residual flap cont 469 measured (2 distinct design-states in 10
+			// runs, the differing rows 520 positions apart): 51 of the 66 implied
+			// runs hold exactly ONE group, so sorting inside a run is a no-op there,
+			// and two groups landing in DIFFERENT runs can never be ordered against
+			// each other. So collect every implied slot, sort the occupants globally
+			// by (group, member), and lay them back into those same slots. Slots are
+			// stable across processes - measured, run boundaries identical - so only
+			// the occupancy needed pinning.
+			//
+			// A GROUP MAY NOW STRADDLE A RUN BOUNDARY, and that is safe - read from
+			// canon, not assumed. cn:foidx (arest:9246) is nothing but
+			// `law:fetch state:factorder` flattened to a list of S2(name, index)
+			// rows, and every consumer reaches it through cn:posin (position lookup)
+			// or cn:minint (minimum over a group) at arest:9304 and :9310. Position,
+			// never adjacency. Non-consecutive members of one group therefore change
+			// no name canon derives: laying groups in sorted order keeps min(A) <
+			// min(B) whenever A sorts before B, which is all cn:minint reads.
+			var foSlots = new List<int>();
+			for (int i = 0; i < foFacts.Count; i++)
+			{
+				if (groupKey(foFacts[i]) != null) foSlots.Add(i);
 			}
+			var foOccupants = foSlots.Select(s => foFacts[s])
+				.OrderBy(groupKey, StringComparer.Ordinal)
+				.ThenBy(memberIndex).ToList();
+			for (int k = 0; k < foSlots.Count; k++) foFacts[foSlots[k]] = foOccupants[k];
 			var foRows = new List<string>();
 			int foIndex = 0;
 			foreach (FactType ft in foFacts)
