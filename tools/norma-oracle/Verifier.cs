@@ -868,6 +868,35 @@ namespace Elysium.NormaOracle
 				return;
 			}
 			Count("unrecognized");
+			// THE UNBOUND-TYPE DIAGNOSIS LIVES INSIDE MapFactReading, AFTER its
+			// hits.Count check - so the one case where NOTHING resolved, which is
+			// the case that most needs naming, is the one case it never reports.
+			// A sentence naming no declared type at all lands here as bare text and
+			// the reader is left to work out which name was missing.
+			//
+			// Witness (cont 476): `Personal Data Breach has notification deadline.`
+			// Personal Data Breach is never declared as an entity type anywhere in
+			// auto.dev - it appears only inside readings - so this sentence has zero
+			// hits and vanishes with no reason attached. Two fires read the model,
+			// saw the declaration sitting in the file, and concluded the fact type
+			// existed. Same shape of silence as 6fb6dee2 and one layer further up.
+			//
+			// Report-only, and deliberately the SAME candidate scan as the in-mapper
+			// report so the two agree: capitalized runs, length guard, no word list.
+			// It over-reports prose, which is why the line says "names no declared
+			// type" rather than pretending to be a defect count.
+			{
+				var missing = new List<string>();
+				foreach (Match cm in Regex.Matches(s, @"\p{Lu}[\w-]*(?:\s+\p{Lu}[\w-]*)*"))
+				{
+					string cand = cm.Value.Trim();
+					if (cand.Length > 1 && !myTypes.ContainsKey(cand) && !missing.Contains(cand))
+						missing.Add(cand);
+				}
+				if (missing.Count > 0)
+					myMapLog.Add("UNRECOGNIZED, names no declared type ("
+						+ string.Join(", ", missing) + "): " + Shorten(s));
+			}
 			myUnrecognized.Add(Shorten(s));
 		}
 
