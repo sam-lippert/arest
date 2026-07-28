@@ -186,6 +186,11 @@ namespace Elysium.NormaOracle
 			}
 
 			string metamodelDir = args.Length > 0 ? args[0] : System.IO.Path.Combine("..", "..", "metamodel");
+			// Carriers are written relative to the CWD while the model is read from
+			// here, so the two can disagree. Record which source this run read;
+			// Verifier.WriteCarrier refuses to land it on a carrier built from a
+			// different one. See the comment there for the incident this exists for.
+			Verifier.CarrierSourceId = System.IO.Path.GetFullPath(metamodelDir);
 			string[] files = System.IO.Directory.GetFiles(metamodelDir, "*.md");
 			Array.Sort(files, (x, y) => string.CompareOrdinal(
 				System.IO.Path.GetFileName(x) == "core.md" ? "0" : System.IO.Path.GetFileName(x),
