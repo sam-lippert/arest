@@ -1380,9 +1380,45 @@ namespace Elysium.NormaOracle
 		private readonly List<string> myRingRows = new List<string>();
 		private readonly List<string> myDeferredRules = new List<string>();
 
+		// FORML names two variables of ONE type by subscripting, so
+		// `Domain1 reaches Domain2` is a rule over the declared ring fact type
+		// `Domain reaches Domain` (core.md:533, marked fully derived). The digit
+		// identifies the VARIABLE, not the type, so a sentence carrying one has to
+		// resolve to the unsubscripted fact type or the rule is dropped with the
+		// misleading report that its head names nothing declared.
+		//
+		// MEASURED BEFORE WRITING THIS (cont 475), because reading the arms had
+		// suggested ring-ness was the whole story and it is not: a non-ring rule
+		// that builds STOPS building when a needless subscript is added. The
+		// subscript is independently fatal, so this is not merely ring bookkeeping.
+		//
+		// Applied ONLY as a fallback, after the literal key misses, so nothing that
+		// resolves today can change meaning. Replacement is anchored on DECLARED
+		// type names and longest-first, which keeps quoted literals and bare
+		// numbers untouched and stops a short type name eating a longer one.
+		private string StripSubscripts(string sentence)
+		{
+			var names = new List<string>(myTypes.Keys);
+			names.Sort(delegate(string a, string b) { return b.Length.CompareTo(a.Length); });
+			string s = sentence;
+			foreach (string tn in names)
+			{
+				if (tn.Length == 0) continue;
+				s = Regex.Replace(s, Regex.Escape(tn) + @"\d+", tn);
+			}
+			return s;
+		}
+
 		private FactIndexEntry FindEntryByNormalizedSentence(string sentence)
 		{
-			string key = NormalizeWords(sentence);
+			FactIndexEntry hit = FindEntryByExactKey(NormalizeWords(sentence));
+			if (hit != null) return hit;
+			string stripped = StripSubscripts(sentence);
+			return stripped == sentence ? null : FindEntryByExactKey(NormalizeWords(stripped));
+		}
+
+		private FactIndexEntry FindEntryByExactKey(string key)
+		{
 			FactIndexEntry found = null;
 			foreach (FactIndexEntry e in myFactIndex)
 			{
