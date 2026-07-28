@@ -168,19 +168,41 @@ namespace Elysium.NormaOracle
 		public static List<string> ExtractSentences(string markdown)
 		{
 			// strip comments, headers, code fences; join wrapped lines; split on '.'
+			// A BLANK LINE OR HEADING ENDS A SENTENCE. These used to be `continue`d -
+			// skipped, never terminating - so the whole file joined into one string that
+			// split only on '.'. A line with no terminal period therefore swallowed
+			// everything after it up to the next period, straight across blank lines and
+			// headings. offers.md's period-less "## Cross-domain References" list ate a
+			// declaration two paragraphs below it:
+			//
+			//   [API 'offers' (from api-products) Customer (from customer-auth) ...
+			//    Offer Provider(.Provider Name) is an entity type.]
+			//
+			// one run-on matching no pattern, so Offer Provider was never declared and
+			// every sentence naming it silently lost that role. The only thing that ever
+			// said so was the "deontic references resolving to no declared type" report.
+			//
+			// No sentence in this corpus spans a blank line or a heading - a markdown
+			// paragraph is exactly the unit a wrapped sentence lives inside - so
+			// splitting per paragraph keeps the line-joining this was built for and
+			// stops the swallowing.
 			string noComments = Regex.Replace(markdown, "<!--.*?-->", " ", RegexOptions.Singleline);
 			List<string> sentences = new List<string>();
+			var paragraphs = new List<string>();
 			var sb = new System.Text.StringBuilder();
 			foreach (string rawLine in noComments.Split('\n'))
 			{
 				string line = rawLine.TrimEnd('\r').Trim();
 				if (line.Length == 0 || line.StartsWith("#") || line.StartsWith("```") || line.StartsWith("|"))
 				{
+					if (sb.Length > 0) { paragraphs.Add(sb.ToString()); sb.Clear(); }
 					continue;
 				}
 				sb.Append(line).Append(' ');
 			}
-			string joined = sb.ToString();
+			if (sb.Length > 0) paragraphs.Add(sb.ToString());
+			foreach (string joined in paragraphs)
+			{
 			// split into sentences on '.' followed by space/end, but not inside quotes
 			var current = new System.Text.StringBuilder();
 			bool inQuote = false;
@@ -218,6 +240,7 @@ namespace Elysium.NormaOracle
 			}
 			string tail = current.ToString().Trim();
 			if (tail.Length > 1) sentences.Add(tail);
+			}
 			return sentences;
 		}
 		#endregion
