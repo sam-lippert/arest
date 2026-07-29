@@ -2804,7 +2804,20 @@ namespace Arest.NormaOracle
 					// false positive c134c964 removed. A LOW ratio is a model-defect
 					// CANDIDATE for a human to check, nothing more.
 					{
-						string[] ulegs = um.Groups[2].Value.Split(new[] { " and " }, StringSplitOptions.None);
+						// An AGGREGATE body is not a conjunction of legs — it is
+						// "<value> is the count|sum of <type> WHERE <conditions>", and
+						// Halpin states the shape plainly (p.33, the nrChildren example):
+						// the function "returns a count of the number of fact instances
+						// WHERE that person appears as the parent". So the where-clause is a
+						// SELECTION over the counted type and ITS conditions are the legs;
+						// the "<value> is the count of <type>" prefix names no fact type and
+						// must not be resolved as one. Without this the splitter reported
+						// 0/1 on every aggregate rule, which said only that the splitter
+						// could not read them.
+						string ubody = um.Groups[2].Value;
+						Match uagg = Regex.Match(ubody, @"^.+? is the (?:count|sum) of .+? where (.+)$");
+						if (uagg.Success) ubody = uagg.Groups[1].Value;
+						string[] ulegs = ubody.Split(new[] { " and " }, StringSplitOptions.None);
 						int ures = 0;
 						foreach (string ul in ulegs)
 						{
