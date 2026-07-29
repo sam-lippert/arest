@@ -82,9 +82,9 @@ Predicate is a subtype of Function.
 
 Constraint is an entity type.
   Constraint is a subtype of Function.
-  Set Comparison Constraint is a subtype of Constraint.
-  Frequency Constraint is a subtype of Constraint.
-  Cardinality Constraint is a subtype of Constraint.
+* Each Set Comparison Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'set-comparison'.
+* Each Frequency Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'frequency'.
+* Each Cardinality Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'cardinality'.
   Ring Constraint is a subtype of Constraint.
   {Set Comparison Constraint, Frequency Constraint, Cardinality Constraint} are mutually exclusive subtypes of Constraint.
 <!-- #66: Ring Constraint was SPOKEN of by two deontic sentences (core.md:945,
