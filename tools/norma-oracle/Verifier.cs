@@ -1729,6 +1729,15 @@ namespace Elysium.NormaOracle
 			// scalar as NORMA's own CalculatedPathValue (Count, aggregated
 			// per path root), the literature's flagship derived-fact example
 			Function countFn = null;
+			// the offset class's operator, minted on first use like Count and
+			// Equals. NON-aggregate by construction: IsAggregate is DERIVED from
+			// whether any parameter has BagInput (RolePath.cs:8588-8607), and both
+			// of Add's parameters are scalar, so it stays false without being set.
+			Function addFn = null;
+			foreach (Function fn in myStore.ElementDirectory.FindElements<Function>(true))
+			{
+				if (!fn.IsDeleted && !fn.IsAggregate && fn.Name == "Add") { addFn = fn; break; }
+			}
 			foreach (Function fn in myStore.ElementDirectory.FindElements<Function>(true))
 			{
 				if (!fn.IsDeleted && fn.IsAggregate && fn.Name == "Count") { countFn = fn; break; }
@@ -2022,6 +2031,121 @@ namespace Elysium.NormaOracle
 				var drpValue = new DerivedRoleProjection(proj, headE.Roles[vAt]);
 				new DerivedRoleProjectedFromCalculatedPathValue(drpValue, cpv);
 				log.Add(headE.Fact.Name + " := Count(" + x + ") per " + groupPlayer + " over " + src.Fact.Name + ", fully derived, not stored");
+			}
+			// THE OFFSET CLASS: "* <head> iff <leg> and <headValue> is [that]
+			// <legValue> plus <Duration>" — one leg, one binary operator, the
+			// result projected onto the head's value role. The corpus writes it
+			// three times and all three are temporal (a Date or Timestamp offset
+			// by a declared window).
+			//
+			// THE SECOND OPERAND IS BOUND BY NO LEG. `Expiry Window Hours` is a
+			// value type carrying its value as a population (`... is 48.`), so
+			// there is no role to step to. Binding it to a PathConstant — the
+			// mechanism the equals arm uses — would BAKE the literal into the
+			// derivation and lose the reference: change the window and the rule
+			// still says 48. Right answer, wrong rule.
+			// NORMA has the honest binding: CalculatedPathValueInputBindsToRolePathRoot.
+			// A second RolePathObjectTypeRoot over the duration TYPE is a variable
+			// ranging over that type's own population, so the operand is bound by
+			// the type's extension and Ullman safety holds without a special case.
+			//
+			// Roles are identified POSITIONALLY, not by the role names in the
+			// sentence: head and leg share exactly one player (the entity), and
+			// each one's OTHER role is its value. Matching `expires- Timestamp`
+			// against a player named `Timestamp` would be parsing decoration.
+			foreach (string sRaw3 in myDeferredRules)
+			{
+				Match om = Regex.Match(sRaw3,
+					@"^\* (.+?) iff (.+?) and ([\w\- ]+?) is (?:that )?([\w\- ]+?) plus ([\w ]+?)\.$");
+				if (!om.Success) continue;
+				int oRules;
+				rulesPerHead.TryGetValue(NormalizeWords(om.Groups[1].Value.Trim()), out oRules);
+				if (oRules != 1) continue;
+				FactIndexEntry oHead = FindEntryByNormalizedSentence(om.Groups[1].Value.Trim());
+				FactIndexEntry oLeg = FindEntryByNormalizedSentence(
+					Dequantify(" " + om.Groups[2].Value.Trim() + " ").Trim());
+				if (oHead == null || oLeg == null || oHead == oLeg) continue;
+				if (oHead.Fact.DerivationRule != null) continue;
+				if (oHead.Players.Count != 2 || oLeg.Players.Count != 2) continue;
+				// THE ENTITY IS THE PLAYER THAT IS NOT A VALUE TYPE, and it has to
+				// be found that way rather than as "the player head and leg share".
+				// A Timestamp offset by hours is still a Timestamp, so in every
+				// temporal case the head and leg carry the SAME value type and BOTH
+				// players are shared - overlap identifies nothing. Measured: the
+				// first cut of this arm rejected all three rules as ambiguous.
+				int hEnt = -1, lEnt = -1;
+				for (int i = 0; i < 2; i++)
+				{
+					ObjectType pt;
+					if (myTypes.TryGetValue(oHead.Players[i], out pt) && !pt.IsValueType)
+					{
+						if (hEnt >= 0) { hEnt = -1; break; }
+						hEnt = i;
+					}
+				}
+				for (int i = 0; i < 2; i++)
+				{
+					ObjectType pt;
+					if (myTypes.TryGetValue(oLeg.Players[i], out pt) && !pt.IsValueType)
+					{
+						if (lEnt >= 0) { lEnt = -1; break; }
+						lEnt = i;
+					}
+				}
+				if (hEnt < 0 || lEnt < 0) continue;
+				string shared = oHead.Players[hEnt];
+				if (oLeg.Players[lEnt] != shared) continue;
+				ObjectType oEntType, oDurType;
+				if (!myTypes.TryGetValue(shared, out oEntType)) continue;
+				if (!myTypes.TryGetValue(om.Groups[5].Value.Trim(), out oDurType)) continue;
+				if (addFn == null)
+				{
+					addFn = new Function(myStore);
+					addFn.Name = "Add";
+					addFn.OperatorSymbol = "+";
+					addFn.Model = myModel;
+					var ap1 = new FunctionParameter(myStore); ap1.Function = addFn; ap1.Name = "left";
+					var ap2 = new FunctionParameter(myStore); ap2.Function = addFn; ap2.Name = "right";
+				}
+				var oRule = new FactTypeDerivationRule(myStore);
+				new FactTypeHasDerivationRule(oHead.Fact, oRule);
+				ApplyDerivationMarkers(oHead.Fact, oRule);
+				var oLead = new LeadRolePath(myStore);
+				oRule.OwnedLeadRolePathCollection.Add(oLead);
+				var oRoot = new RolePathObjectTypeRoot(oLead, oEntType);
+				var oEntry = new PathedRole(oLead, oLeg.Roles[lEnt]);
+				oEntry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+				var oStep = new PathedRole(oLead, oLeg.Roles[1 - lEnt]);
+				oStep.PathedRolePurpose = PathedRolePurpose.SameFactType;
+				// A ROLE PATH HOLDS AT MOST ONE ROOT - the link's multiplicity is
+				// 0..1, and adding a second threw
+				// "Domain role ... can hold at most 1 link: RolePath of
+				//  RolePathObjectTypeRoot".
+				// A second free variable is a SUB-PATH with its own root, which is
+				// how NORMA splits a path. Found by building it wrong first; the
+				// constraint is not visible from the constructor's signature.
+				var oSub = new RoleSubPath(myStore);
+				oLead.SubPathCollection.Add(oSub);
+				var oDurRoot = new RolePathObjectTypeRoot(oSub, oDurType);
+				var oCpv = new CalculatedPathValue(myStore);
+				oLead.CalculatedValueCollection.Add(oCpv);
+				oCpv.Function = addFn;
+				var oParams = new List<FunctionParameter>(addFn.ParameterCollection);
+				var oIn1 = new CalculatedPathValueInput(myStore);
+				oCpv.InputCollection.Add(oIn1);
+				new CalculatedPathValueInputCorrespondsToFunctionParameter(oIn1, oParams[0]);
+				new CalculatedPathValueInputBindsToPathedRole(oIn1, oStep);
+				var oIn2 = new CalculatedPathValueInput(myStore);
+				oCpv.InputCollection.Add(oIn2);
+				new CalculatedPathValueInputCorrespondsToFunctionParameter(oIn2, oParams[1]);
+				new CalculatedPathValueInputBindsToRolePathRoot(oIn2, oDurRoot);
+				var oProj = new RoleSetDerivationProjection(oRule, oLead);
+				var oDrpEnt = new DerivedRoleProjection(oProj, oHead.Roles[hEnt]);
+				new DerivedRoleProjectedFromRolePathRoot(oDrpEnt, oRoot);
+				var oDrpVal = new DerivedRoleProjection(oProj, oHead.Roles[1 - hEnt]);
+				new DerivedRoleProjectedFromCalculatedPathValue(oDrpVal, oCpv);
+				log.Add(oHead.Fact.Name + " := " + oLeg.Fact.Name + " + " + oDurType.Name
+					+ " per " + shared + ", " + DescribeDerivation(oHead.Fact));
 			}
 			// LEFTOVERS PASS — the object-join arm of the linear two-leg
 			// class: exactly two clauses joined by " and ", sharing ONE type
