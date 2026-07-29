@@ -2429,7 +2429,33 @@ namespace Elysium.NormaOracle
 			// versus a head that resolves and a body no arm accepts. Guessing at
 			// finer reasons here would re-create the inference habit this is
 			// meant to retire.
-			int unbuiltHeadless = 0, unbuiltUnmatched = 0;
+			// A HEAD WITH SEVERAL RULES IS NOT BUILT WHEN ONE OF THEM IS. Testing
+			// `Fact.DerivationRule == null` was right while every head carried one
+			// rule and became wrong the moment the copy arm landed: `Domain reaches
+			// Domain` has a base case AND a transitive case, the copy arm built the
+			// base, and the transitive rule then reported as built because its head
+			// had acquired a derivation. base's count fell 23 -> 19 while two rules
+			// were built - the two that vanished had not built at all.
+			//
+			// So count the RULES resolving to each fact type and compare against the
+			// LEAD PATHS its derivation actually owns. A derivation rule may own
+			// several lead paths (that is how a union of bullets is expressed), so
+			// paths-vs-rules is the honest comparison and null-vs-not is not.
+			// This is the fourth silent drop of the session and the second I wrote.
+			var uRuleCount = new Dictionary<FactType, int>();
+			foreach (string sPre in myDeferredRules)
+			{
+				string sp = sPre;
+				while (sp.StartsWith("* * ")) sp = sp.Substring(2);
+				Match pm = Regex.Match(sp, @"^\* (.+?) iff (.+)\.$");
+				if (!pm.Success) continue;
+				FactIndexEntry pe = FindEntryByNormalizedSentence(pm.Groups[1].Value.Trim());
+				if (pe == null) continue;
+				int pc;
+				uRuleCount.TryGetValue(pe.Fact, out pc);
+				uRuleCount[pe.Fact] = pc + 1;
+			}
+			int unbuiltHeadless = 0, unbuiltUnmatched = 0, unbuiltPartial = 0;
 			foreach (string sRaw2 in myDeferredRules)
 			{
 				string s2 = sRaw2;
@@ -2441,17 +2467,29 @@ namespace Elysium.NormaOracle
 				{
 					unbuiltHeadless++;
 					log.Add("UNBUILT (head names no declared fact type): " + s2);
+					continue;
 				}
-				else if (uE.Fact.DerivationRule == null)
+				RoleProjectedDerivationRule udr = uE.Fact.DerivationRule;
+				if (udr == null)
 				{
 					unbuiltUnmatched++;
 					log.Add("UNBUILT (head resolves, no arm matched the body): " + s2);
+					continue;
+				}
+				int want, have = udr.OwnedLeadRolePathCollection.Count;
+				uRuleCount.TryGetValue(uE.Fact, out want);
+				if (have < want)
+				{
+					unbuiltPartial++;
+					log.Add("UNBUILT (head has " + have + " path(s) for " + want
+						+ " rule(s) - this one may be the unbuilt member): " + s2);
 				}
 			}
-			if (unbuiltHeadless != 0 || unbuiltUnmatched != 0)
+			if (unbuiltHeadless != 0 || unbuiltUnmatched != 0 || unbuiltPartial != 0)
 			{
 				log.Add("UNBUILT SUMMARY: " + unbuiltHeadless + " with an undeclared head, "
-					+ unbuiltUnmatched + " with a body no arm accepts");
+					+ unbuiltUnmatched + " with a body no arm accepts, "
+					+ unbuiltPartial + " on a head whose paths are fewer than its rules");
 			}
 			return log;
 		}
