@@ -50,7 +50,17 @@ It is obligatory that when an asserted Fact Type has exactly two Roles that both
        a derived fact type (TR on reaches) may still be declared as
        documentation. -->
 
-It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spanning its Roles when the Reading of that Fact Type contains a capitalized-word-prefixed form of its Ring Object Type, or when some Object Type ending in that Ring Object Type is declared elsewhere in the corpus.
+It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spanning its Roles when the Reading of that Fact Type contains a capitalized-word-prefixed form of the Name of the Object Type that its Roles reference, or when some Object Type has Name ending in that Name.
+<!-- #66: this sentence said "its Ring Object Type" twice. That was never a
+     type — it is prose shorthand for "the Object Type both ring Roles
+     reference", exactly as :40 above spells it, and the audit note below
+     already called the two conditions parse-time artifacts. So the fix is to
+     say it in declared vocabulary, NOT to declare a type that does not exist:
+     inventing `Ring Object Type` to satisfy the resolver would have put a
+     fiction in the model to silence a report. BOTH conditions are preserved
+     verbatim in force — the note below makes this sentence the source of truth
+     for the suppression patterns, and dropping either re-enables 9 false
+     positives on the eu-law corpus. -->
 <!-- arest-audit H (prose split, per the vindicated 10.2 scrub): the two
      conditions reflect compound-noun parse-time artifacts (eu-law
      `Personal Data Breach … Personal Data` and Biometric/Genetic/Personal

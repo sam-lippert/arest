@@ -85,7 +85,22 @@ Constraint is an entity type.
   Set Comparison Constraint is a subtype of Constraint.
   Frequency Constraint is a subtype of Constraint.
   Cardinality Constraint is a subtype of Constraint.
+  Ring Constraint is a subtype of Constraint.
   {Set Comparison Constraint, Frequency Constraint, Cardinality Constraint} are mutually exclusive subtypes of Constraint.
+<!-- #66: Ring Constraint was SPOKEN of by two deontic sentences (core.md:945,
+     :955) and declared nowhere, so both obligations resolved to no type and
+     were enforced by nothing — meaning present in the text, absent from the
+     machinery. Declared as an ASSERTED subtype because that is what the
+     reference implementation does: NORMA's RingConstraint is a CLASS subtype
+     (RingConstraint : SingleChildSequenceConstraint) that additionally carries
+     a ring-type attribute, so subtype-and-attribute is ORM-legitimate rather
+     than redundant, and the tie between the two is what
+     RingConstraintTypeNotSpecifiedError enforces there and the obligation
+     below enforces here. Deliberately NOT added to the exclusion set above:
+     both exclusion declarations in this metamodel are 3-element and a 4-element
+     one is unprecedented here, so widening it is a separate ruling with its own
+     evidence, not a silent rider on a declaration fix. -->
+  It is obligatory that each Ring Constraint is of some Constraint Type that has Constraint Type Family 'ring'.
 
 Constraint Type is an entity type.
 Constraint Type is a subtype of Function.
@@ -586,6 +601,16 @@ ConstraintHasConstraintMatchKeyword objectifies "Constraint has Constraint Match
 ConstraintHasConstraintMatchKeyword is a subtype of Function.
 
 ### Constraint Type (merged #13: NORMA ConstraintType — one classifier carrying code, Name, Label, Family, and Violation Template)
+Constraint is of Constraint Type.
+  Each Constraint is of exactly one Constraint Type.
+<!-- #66 root cause (cont 583): NO fact type joined Constraint to Constraint
+     Type at all, so every sentence of the form "Constraint of Constraint Type
+     'IR'" (validation.md:40, :53, :68) named a path that did not exist. The
+     cardinality is not a preference: NORMA raises
+     RingConstraintTypeNotSpecifiedError when the type is left unset, i.e. the
+     typing is MANDATORY, which gives exactly one. The shape is the metamodel's
+     own precedent for a kind-attribute, core.md:268-269
+     `Object Type is of OT Kind. / Each Object Type is of exactly one OT Kind.` -->
 Constraint Type has Name.
   Each Constraint Type has at most one Name.
 Constraint Type has Constraint Type Label.
