@@ -2321,7 +2321,7 @@ namespace Elysium.NormaOracle
 				// a multi-rule head admits IFF every one of its rules is
 				// this class's shape (the linear-class treatment, mirrored)
 				if (headRules != 1 && generalRules != headRules) continue;
-				string[] clauses = Regex.Split(m.Groups[2].Value.Trim(), @" and (?=that |some )");
+string[] clauses = Regex.Split(m.Groups[2].Value.Trim(), @" and (?=that |some )");
 				if (clauses.Length != 2) continue;
 				string j = null;
 				foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
@@ -2501,7 +2501,21 @@ namespace Elysium.NormaOracle
 		private void RecordRuleRecipe(FactIndexEntry headE, FactIndexEntry e1, FactIndexEntry e2,
 			int j1, int j2, List<KeyValuePair<FactIndexEntry, int>> located)
 		{
-			if (headE.Players.Count != 2 || e1.Players.Count != 2 || e2.Players.Count != 2) return;
+			// A UNARY RIGHT LEG IS JOINABLE and was being refused, so
+			// `LogEntryConcernsEEACustomer := join over Customer (LogEntryHasCustomer
+			// x CustomerIsInEEA)` built in NORMA and emitted no recipe - canon never
+			// learned the derivation and the fact type stayed in marker-closure's
+			// witness. Asked the algebra rather than assuming:
+			//     theta:NatJoin(2) over [[e1 c1] [e2 c2] [e3 c1]] x [[c1]]
+			//         ->  [[e1 c1] [e3 c1]]
+			// joins on the shared column, two columns out. The recipe was always
+			// expressible; only this guard refused it.
+			// The LEFT leg must stay binary: legA flips with proj(N(2), N(1)) when its
+			// join column is not last, and that flip is meaningless on a one-column
+			// relation. Positions need no special case - a head player in a unary right
+			// leg can only sit AT the join column, which the atJoin branch maps to 2.
+			if (headE.Players.Count != 2 || e1.Players.Count != 2) return;
+			if (e2.Players.Count != 2 && !(e2.Players.Count == 1 && j2 == 0)) return;
 			string legA = j1 == 1 ? IAtom(e1.Fact.Name)
 				: "S3(" + IAtom("proj") + ", " + IAtom(e1.Fact.Name) + ", S2(N(2), N(1)))";
 			string legB = j2 == 0 ? IAtom(e2.Fact.Name)
