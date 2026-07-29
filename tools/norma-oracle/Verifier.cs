@@ -1741,6 +1741,108 @@ namespace Arest.NormaOracle
 				ObjectType subOT, supOT;
 				if (!myTypes.TryGetValue(subN, out subOT) || !myTypes.TryGetValue(supN, out supOT)) continue;
 				if (subOT.DerivationRule != null) continue;
+				// THE CHAINED (TWO-HOP) QUALIFYING PREDICATE, tried FIRST because it is the
+				// more specific shape: the one-hop regex below would otherwise swallow it
+				// (verb = 'is of some Constraint Type that has Constraint Type Family') and
+				// then decline on the fact-type lookup, which is what it does today.
+				//     * Each Set Comparison Constraint is a Constraint that is of some
+				//       Constraint Type that has Constraint Type Family 'set-comparison'.
+				// Halpin's book p.381: 'in practice MORE COMPLICATED SUBTYPE DEFINITIONS ARE
+				// SOMETIMES REQUIRED', worked over two fact types ('each LargeUScity is a
+				// City that is in Country US and has Population > 1000000'). That example is
+				// a CONJUNCTION over two roles of the supertype; this is a CHAIN THROUGH an
+				// intermediate entity type, which the same section licenses only via 'these
+				// definitions must refer to roles played by the supertype(s)' -- the FIRST
+				// hop does, and the second joins on. Recorded as the weaker warrant rather
+				// than claimed as the worked example.
+				// Why the metamodel needs it: the discriminating literal lives on Constraint
+				// Type Family, not on Constraint, so no one-hop form can reach it. Left
+				// undefined the three subtypes stay ASSERTED, and per Halpin's 'Subtyping
+				// Revisited' Sec 3 an asserted subtype's exclusion 'must be explicitly
+				// declared, since it is not derivable' -- which is why core.md's declared
+				// exclusion is load-bearing today and why #36's deletion half needs this.
+				Match cm = Regex.Match(sm.Groups[3].Value.Trim(),
+					@"^(.+?)\s+some\s+([A-Z][\w ]*?)\s+(?:that|who|which)\s+(.+?)\s+'([^']*)'\s*$");
+				if (cm.Success)
+				{
+					string verb1 = cm.Groups[1].Value.Trim();
+					string midN = cm.Groups[2].Value.Trim();
+					string verb2 = cm.Groups[3].Value.Trim();
+					string clit = cm.Groups[4].Value;
+					FactIndexEntry q1 = FindEntryByNormalizedSentence(NormalizeWords(supN + " " + verb1 + " " + midN));
+					FactIndexEntry q2 = FindEntryByNormalizedSentence(NormalizeWords(midN + " " + verb2));
+					if (q1 == null || q2 == null || q1.Roles.Count != 2 || q2.Roles.Count != 2) continue;
+					int supAt = q1.Players.IndexOf(supN), midAt1 = q1.Players.IndexOf(midN);
+					int midAt2 = q2.Players.IndexOf(midN);
+					if (supAt < 0 || midAt1 < 0 || midAt2 < 0 || supAt == midAt1) continue;
+					if (eqFn == null)
+					{
+						eqFn = new Function(myStore);
+						eqFn.Name = "Equals";
+						eqFn.IsBoolean = true;
+						eqFn.Model = myModel;
+						var cpa = new FunctionParameter(myStore); cpa.Function = eqFn; cpa.Name = "left";
+						var cpb = new FunctionParameter(myStore); cpb.Function = eqFn; cpb.Name = "right";
+					}
+					var crule = new SubtypeDerivationRule(myStore);
+					new SubtypeHasDerivationRule(subOT, crule);
+					crule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
+					crule.DerivationStorage = DerivationStorage.NotStored;
+					var clead = new LeadRolePath(myStore);
+					crule.OwnedLeadRolePathCollection.Add(clead);
+					new RolePathObjectTypeRoot(clead, supOT);
+					// hop 1: enter the supertype's role, cross to the intermediate
+					var h1in = new PathedRole(clead, q1.Roles[supAt]);
+					h1in.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+					var h1out = new PathedRole(clead, q1.Roles[midAt1]);
+					h1out.PathedRolePurpose = PathedRolePurpose.SameFactType;
+					// hop 2: JOIN into the second fact type on the intermediate, then cross to
+					// the value. PostInnerJoin is what makes this a join rather than a second
+					// independent entry.
+					var h2in = new PathedRole(clead, q2.Roles[midAt2]);
+					h2in.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+					var h2out = new PathedRole(clead, q2.Roles[1 - midAt2]);
+					h2out.PathedRolePurpose = PathedRolePurpose.SameFactType;
+					var ccpv = new CalculatedPathValue(myStore);
+					ccpv.Function = eqFn;
+					var cInL = new CalculatedPathValueInput(myStore); ccpv.InputCollection.Add(cInL);
+					var cInR = new CalculatedPathValueInput(myStore); ccpv.InputCollection.Add(cInR);
+					int cpi = 0;
+					foreach (FunctionParameter fp in eqFn.ParameterCollection)
+					{
+						if (cpi == 0) new CalculatedPathValueInputCorrespondsToFunctionParameter(cInL, fp);
+						else if (cpi == 1) { new CalculatedPathValueInputCorrespondsToFunctionParameter(cInR, fp); break; }
+						cpi++;
+					}
+					new CalculatedPathValueInputBindsToPathedRole(cInL, h2out);
+					var cpc = new PathConstant(myStore);
+					cpc.LexicalValue = clit;
+					new CalculatedPathValueInputBindsToPathConstant(cInR, cpc);
+					clead.CalculatedConditionCollection.Add(ccpv);
+					// THE RECIPE, in RecordRuleRecipe's own column convention (see 2711): joined
+					// columns are (left-non-join, JOIN, right-non-join) = 1,2,3; legA wants its
+					// join column LAST, legB wants it FIRST, and a leg whose join column sits
+					// elsewhere is flipped with proj(N(2),N(1)). The literal rides on legB as a
+					// `sel`, which is legal in a leg slot because derive:src is
+					// COND(atom, derive:pop, derive:eval) -- a NON-ATOM operand RECURSES -- and
+					// nested legs already ship on all five stations under 52/0 walls.
+					// The join form's FOURTH operand is itself the projection (derive:eval's join
+					// arm is apply(theta:Project(4.1), apply(theta:NatJoin(2), ...))), so no outer
+					// proj is wrapped: the subtype's members are the supertype column, i.e. the
+					// left-non-join column, 1.
+					string legA = midAt1 == 1 ? IAtom(q1.Fact.Name)
+						: "S3(" + IAtom("proj") + ", " + IAtom(q1.Fact.Name) + ", S2(N(2), N(1)))";
+					string sel2 = "S4(" + IAtom("sel") + ", " + IAtom(q2.Fact.Name)
+						+ ", N(" + (2 - midAt2) + "), " + IAtom(clit) + ")";
+					string legB = midAt2 == 0 ? sel2
+						: "S3(" + IAtom("proj") + ", " + sel2 + ", S2(N(2), N(1)))";
+					myRuleRecipes.Add("S3(" + IAtom(subN) + ", S1(" + IAtom(subN) + "), S4("
+						+ IAtom("join") + ", " + legA + ", " + legB + ", S1(N(1))))");
+					Count("subtype derivation rule BUILT (chained predicate, Halpin 9.6 p.381)");
+					log.Add(subN + " := " + supN + " -> " + midN + " where " + verb2
+						+ " = '" + clit + "', chained subtype rule, fully derived");
+					continue;
+				}
 				// split the trailing quoted literal off the qualifying predicate
 				Match pm = Regex.Match(sm.Groups[3].Value.Trim(), @"^(.+?)\s+'([^']*)'\s*$");
 				if (!pm.Success) continue;
