@@ -86,7 +86,6 @@ Constraint is an entity type.
 * Each Frequency Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'frequency'.
 * Each Cardinality Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'cardinality'.
 * Each Ring Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'ring'.
-  {Set Comparison Constraint, Frequency Constraint, Cardinality Constraint} are mutually exclusive subtypes of Constraint.
 <!-- #66: Ring Constraint was SPOKEN of by two deontic sentences (core.md:945,
      :955) and declared nowhere, so both obligations resolved to no type and
      were enforced by nothing — meaning present in the text, absent from the
