@@ -1,6 +1,6 @@
 # norma-oracle
 
-Verifies the Elysium metamodel readings against NORMA — the reference ORM 2
+Verifies the Arest metamodel readings against NORMA — the reference ORM 2
 implementation — without an AREST math runner: it parses the FORML 2
 declaration fragment out of `metamodel/*.md`, builds one ORM model through
 NORMA's own object model (headless DSL store, booted the way NORMA's

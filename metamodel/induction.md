@@ -14,7 +14,7 @@ Prop 3 (prop:derive): induce is a ρ-application over P that returns
 candidate populations as facts in P. The induction posture is Codd 1970
 §2.3 itself: a system "might, over a period of time, make attempts to
 induce the redundancies, but such attempts would be fallible" — hence
-candidates plus a judge, never silent adoption. Note (elysium-audit
+candidates plus a judge, never silent adoption. Note (arest-audit
 sweep): induce has no section of its own in the current paper and never
 did in any checkpointed draft — the old "§3 + Theorem 4" citation was
 loose; it rides Prop 3's licence and Codd's posture.

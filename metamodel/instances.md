@@ -1,6 +1,6 @@
 # AREST Instances: Runtime Entities
 
-<!-- Layer (elysium-batch task 3): AREST-extension vocabulary end to end —
+<!-- Layer (arest-batch task 3): AREST-extension vocabulary end to end —
      the runtime side (Resource, State Machine, Event, Fact instances,
      Guard Run, User, Citation). ORM canon models schemas; populations
      here are Thm 1's FILE cell made addressable. Everything homes under
@@ -193,7 +193,7 @@ Resource belongs to Domain. *
 Resource has Reference.
   Each Resource has exactly one Reference.
   For each Reference, at most one Resource has that Reference.
-  <!-- elysium (Halpin sweep): reversal of the ruling-4 retirement, on
+  <!-- arest (Halpin sweep): reversal of the ruling-4 retirement, on
        Halpin's own grounds. Ruling 4 removed this reading because the
        (.Reference) reference mode minted the identical fact type. The
        sweep then removed the mode itself — Resource is a subtype of
@@ -220,7 +220,7 @@ FactFillsRole uses Resource.
        filled-role pair objectifies, its resource rides functionally
        (exactly one — a filling IS a usage), and the compound-key ternary
        leaves the schema. -->
-<!-- elysium (Halpin, "Objectification and Atomicity", 2020-04-28): the
+<!-- arest (Halpin, "Objectification and Atomicity", 2020-04-28): the
      former `Resource Role` objectification is retired. Its UC spans
      {Fact, Role} — two of three roles — and the note restricts
      objectification to fact types with a SPANNING uniqueness constraint
@@ -237,7 +237,7 @@ FactFillsRole uses Resource.
 User has Email.
   Each User has exactly one Email.
   For each Email, at most one User has that Email.
-  <!-- elysium (Halpin sweep): formerly User(.Email) — an email is
+  <!-- arest (Halpin sweep): formerly User(.Email) — an email is
        mutable data, not identity; identification inherits Function(.id)
        and the email survives as a mandatory 1:1 secondary reference. -->
 
@@ -271,7 +271,7 @@ StateMachineIsInstanceOfObjectType is a subtype of Function.
      987 ruling: complete the self-description, never scope it. -->
 State Machine is for Resource.
   For each Resource, at most one State Machine is for that Resource.
-<!-- elysium-audit F: a duplicate `State Machine is for Resource. *` stood
+<!-- arest-audit F: a duplicate `State Machine is for Resource. *` stood
      here — a fully-derived marker whose rule was REMOVED 2026-06-12 (see
      the note below); the orphaned `*` declared meaning the readings could
      not deliver, while the real writers are the SM seed and the task-929
@@ -384,7 +384,7 @@ Guard Run has Result.
      and retire the bridge; until then the bridge is the readings-only form
      that materialises the single-sourced domain. -->
 
-<!-- elysium audit-fix A1 (2026-07-15): the four bridge rules are LIVE
+<!-- arest audit-fix A1 (2026-07-15): the four bridge rules are LIVE
      again. The 2026-06-22 disablement ("convergence-cycle ...
      absorbed-Function self-reference") was a defect of the killed host's
      deriver, never of the math — these are stratified positive joins with

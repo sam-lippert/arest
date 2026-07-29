@@ -1,5 +1,5 @@
 // The NORMA oracle's headless store: a Microsoft.VisualStudio.Modeling.Store
-// hosting NORMA's ORM object model outside Visual Studio, so the Elysium
+// hosting NORMA's ORM object model outside Visual Studio, so the Arest
 // readings can be verified against the reference ORM 2 implementation.
 // Shaped after NORMA's own ORM2CommandLineTest ORMStore (the designed non-VS
 // entry point); UI-facing services are inert stubs.
@@ -15,7 +15,7 @@ using ORMSolutions.ORMArchitect.Framework.Diagrams;
 using ORMSolutions.ORMArchitect.Framework.Shell;
 using ORMSolutions.ORMArchitect.Framework.Shell.DynamicSurveyTreeGrid;
 
-namespace Elysium.NormaOracle
+namespace Arest.NormaOracle
 {
 	public class OracleStore : Store, IORMToolServices, IFrameworkServices, IModelingEventManagerProvider, ISerializationContextHost, IORMFontAndColorService
 	{

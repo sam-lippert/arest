@@ -5,7 +5,7 @@
     <TargetFramework>net48</TargetFramework>
     <LangVersion>9.0</LangVersion>
     <Nullable>disable</Nullable>
-    <RootNamespace>Elysium.NormaOracle</RootNamespace>
+    <RootNamespace>Arest.NormaOracle</RootNamespace>
     <AssemblyName>norma-oracle</AssemblyName>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

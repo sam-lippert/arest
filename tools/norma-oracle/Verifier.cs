@@ -1,5 +1,5 @@
 // The readings verifier: parse the FORML 2 declaration fragment out of the
-// Elysium metamodel readings, build one ORM model through NORMA's public
+// Arest metamodel readings, build one ORM model through NORMA's public
 // object model, and report (a) the sentence census, (b) NORMA's own model
 // errors, (c) the live RMAP result (ConceptualDatabase tables).
 //
@@ -18,7 +18,7 @@ using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Modeling;
 using ORMSolutions.ORMArchitect.Core.ObjectModel;
 
-namespace Elysium.NormaOracle
+namespace Arest.NormaOracle
 {
 	internal sealed class Verifier
 	{
@@ -684,8 +684,20 @@ namespace Elysium.NormaOracle
 			// derived subtype (Halpin Fig 13.29 form): "* Each Entity Type is an
 			// Object Type that is of OT Kind 'entity'." — map the subtype edge,
 			// defer the defining rule like any derivation
+			//
+			// The relative pronoun is not always "that". Halpin §6.5 (p.253) fixes
+			// the operator set for a qualified subtype definition: `is a`/`is an`
+			// means "is defined as", and "WHO", "THAT", or "WHICH" follows the
+			// supertype name — "for persons, 'who' sounds more natural than
+			// 'that'". Accepting only `that` silently dropped the WHOLE subtype
+			// for the "who" form: measured on a minimal A/B, the `that` model
+			// mapped an edge + declaration + preferred identification while its
+			// `who` twin reported "(none matched the class)" — no edge, no
+			// declaration, nothing. Not a deferral, a loss. The metamodel happens
+			// to use `that` throughout, which is why five green stations never
+			// showed it (INERT, not correct).
 			{
-				Match dm = Regex.Match(s, @"^\* Each ([\w ]+?) is an? ([\w ]+?) that\b");
+				Match dm = Regex.Match(s, @"^\* Each ([\w ]+?) is an? ([\w ]+?) (?:that|who|which)\b");
 				if (dm.Success)
 				{
 					MapSubtype(dm.Groups[1].Value.Trim(), dm.Groups[2].Value.Trim());

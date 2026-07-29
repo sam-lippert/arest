@@ -12,7 +12,7 @@ using ORMSolutions.ORMArchitect.Core.Load;
 using ORMSolutions.ORMArchitect.Framework;
 using ORMSolutions.ORMArchitect.Framework.Shell;
 
-namespace Elysium.NormaOracle
+namespace Arest.NormaOracle
 {
 	internal static class Program
 	{
@@ -108,7 +108,7 @@ namespace Elysium.NormaOracle
 			// initialization) exactly as they do for a real .orm file.
 			string seed =
 				"<ormRoot:ORM2 xmlns:ormRoot=\"http://schemas.neumont.edu/ORM/2006-04/ORMRoot\" xmlns:orm=\"http://schemas.neumont.edu/ORM/2006-04/ORMCore\">" +
-				"<orm:ORMModel id=\"_" + Guid.NewGuid() + "\" Name=\"Elysium\"/>" +
+				"<orm:ORMModel id=\"_" + Guid.NewGuid() + "\" Name=\"Arest\"/>" +
 				"</ormRoot:ORM2>";
 			using (Transaction t = store.TransactionManager.BeginTransaction("load"))
 			{
@@ -128,7 +128,7 @@ namespace Elysium.NormaOracle
 			}
 			Console.WriteLine("store loaded: " + store.DomainModels.Count + " domain models");
 
-			// 3. Parse the Elysium metamodel readings and build the ORM model.
+			// 3. Parse the Arest metamodel readings and build the ORM model.
 			ORMModel model = store.ElementDirectory.FindElements<ORMModel>(false).First();
 			Console.WriteLine("seed model: " + model.Name + ", intrinsic data types: " + model.DataTypeCollection.Count);
 
@@ -521,7 +521,7 @@ namespace Elysium.NormaOracle
 				}
 				string seedB =
 					"<ormRoot:ORM2 xmlns:ormRoot=\"http://schemas.neumont.edu/ORM/2006-04/ORMRoot\" xmlns:orm=\"http://schemas.neumont.edu/ORM/2006-04/ORMCore\">" +
-					"<orm:ORMModel id=\"_" + Guid.NewGuid() + "\" Name=\"ElysiumNf\"/>" +
+					"<orm:ORMModel id=\"_" + Guid.NewGuid() + "\" Name=\"ArestNf\"/>" +
 					"</ormRoot:ORM2>";
 				using (System.IO.MemoryStream seedStream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(seedB)))
 				{

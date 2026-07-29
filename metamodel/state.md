@@ -1,6 +1,6 @@
 # AREST State: Behavioral Entities
 
-<!-- Layer (elysium-batch task 3): AREST-extension vocabulary end to end —
+<!-- Layer (arest-batch task 3): AREST-extension vocabulary end to end —
      Harel statecharts carried through ORM (SMD, Status, Transition,
      Guard, Stream). Not part of Halpin's metamodel; the ORM-canonical
      vocabulary it consumes (Object Type, Predicate, Fact Type,
@@ -110,7 +110,7 @@ Guard guards Transition.
 
 ## Derivation Rules
 
-<!-- elysium-batch ruling 5: Moore and Mealy are two views of one
+<!-- arest-batch ruling 5: Moore and Mealy are two views of one
      operation. Moore -> Mealy is the monotone direction (an action
      attached to a status is performed by every transition entering it),
      so the Mealy relation is semi-derived (+): directly assertable for
@@ -252,7 +252,7 @@ Guard guards Transition.
      inherited); consumer-side firing precedence picks the direct row. -->
 * Status1 has effective Transition1 to Status2 on Event Type iff Transition1 is from State Machine Definition1 and Transition1 is to Status2 and Transition1 is triggered by Event Type and Status1 is defined in State Machine Definition1.
 
-<!-- elysium-audit C: transitive reachability over declared transitions,
+<!-- arest-audit C: transitive reachability over declared transitions,
      feeding the Liveness obligation under ## Constraints. -->
 
 * Status1 reaches Status2 in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from Status1 and that Transition is to Status2.
@@ -287,7 +287,7 @@ Status reaches Status in State Machine Definition. *
   Each Status, Status, State Machine Definition combination occurs at most once in the population of Status reaches Status in State Machine Definition.
 
 It is obligatory that if some Status1 reaches Status1 in some State Machine Definition then some Status2 reaches Status1 in that State Machine Definition and Status1 reaches Status2 in that State Machine Definition and some Transition is defined in that State Machine Definition and that Transition is from Status2 and that Transition is to some Status3 and it is not true that Status3 reaches Status2 in that State Machine Definition.
-<!-- elysium-batch ruling 6 (fidelity over improvement — replacing the
+<!-- arest-batch ruling 6 (fidelity over improvement — replacing the
      audit-C strengthening, which was denied): the paper's sentence is
      "the deontic obligation that each cycle carry some exit transition"
      (AREST.tex, after Thm 2), formalized at status granularity: a cyclic
