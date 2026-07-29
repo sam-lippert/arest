@@ -2322,11 +2322,27 @@ namespace Arest.NormaOracle
 				// FactIsOfFunction -- canon writes those as a bare proj rename) or
 				// three (StateMachineIsInstanceOfStateMachineDefinition -- canon
 				// nests two joins). Both are separate increments, not this one.
-				if (legs.Count == 2 && legs[1].Value.Key == legs[0].Value.Value
+				// A REVERSED SECOND LEG is joinable and was being refused. legs are stored
+				// as the SENTENCE reads them, not in traversal order, so a clause like
+				// "that Status is effective initial in that State Machine Definition"
+				// ENTERS at Status: the shared variable is leg 1's EXIT, not its entry, and
+				// the forward-only link test declined it. Found by INSTRUMENTING the guard
+				// rather than guessing the site (the #76 rule): link=False with
+				// l0exit == l1exit == State Machine Definition.
+				// The join variable is legs[0].Value.Value either way; what changes is where
+				// it sits in leg 1 and which token carries the head player. RecordRuleRecipe
+				// ALREADY flips legB to proj<N(2),N(1)> when j2 != 0 -- exactly the shape
+				// canon hand-writes for this rule -- so the recorder needed no change at all;
+				// only the outer test had to admit the orientation.
+				bool fwd2 = legs.Count == 2 && legs[1].Value.Key == legs[0].Value.Value;
+				bool rev2 = legs.Count == 2 && !fwd2
+					&& legs[1].Value.Value == legs[0].Value.Value
+					&& legs[1].Value.Key != legs[0].Value.Value;
+				if ((fwd2 || rev2)
 					&& legs[0].Key.Players.Count == 2 && legs[1].Key.Players.Count == 2
 					&& headE.Players.Count == 2)
 				{
-					int rj1 = legPos[0].Value, rj2 = legPos[1].Key;
+					int rj1 = legPos[0].Value, rj2 = fwd2 ? legPos[1].Key : legPos[1].Value;
 					var relocated = new List<KeyValuePair<FactIndexEntry, int>>();
 					bool rok = true;
 					foreach (string pv in resolvedVars)
@@ -2335,8 +2351,9 @@ namespace Arest.NormaOracle
 							relocated.Add(new KeyValuePair<FactIndexEntry, int>(legs[0].Key, legPos[0].Key));
 						else if (pv == legs[0].Value.Value)
 							relocated.Add(new KeyValuePair<FactIndexEntry, int>(legs[0].Key, legPos[0].Value));
-						else if (pv == legs[1].Value.Value)
-							relocated.Add(new KeyValuePair<FactIndexEntry, int>(legs[1].Key, legPos[1].Value));
+						else if (pv == (fwd2 ? legs[1].Value.Value : legs[1].Value.Key))
+							relocated.Add(new KeyValuePair<FactIndexEntry, int>(legs[1].Key,
+								fwd2 ? legPos[1].Value : legPos[1].Key));
 						else { rok = false; break; }
 					}
 					if (rok)
