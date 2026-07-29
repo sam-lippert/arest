@@ -190,9 +190,23 @@ function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENT
 // Both are memoised, not rewritten: canon keeps the meaning, the head stops
 // recomputing it. Correctness needs nothing beyond purity, which is what
 // Backus 14.6 already guarantees while D is frozen.
+// induce:sig_of is the same case one level up, and it is the single biggest one
+// in the wall. It is COMP(COND(null, PHI, N(2)), law:find_desc) — a PURE lookup
+// of a named descriptor's signature — applied at 80 sites across 8 candidate
+// generators, and it fired 28,200,366 times inside law:induce alone, with
+// law:find_desc firing 28,203,649 (i.e. once each). Its argument is the pair
+// <name, descs>: descs is a stable reference (were it fresh, DESCIDX would
+// rebuild per call and dominate the profile) and name ranges over the model's
+// fact-type names, so the distinct-input count is in the hundreds.
+//   Bancilhon-Ramakrishnan 1986 sec 4.7 ranks this defect FIRST of the three
+// that determine recursive-rule performance — "the repeated firing of a rule on
+// the same data ... an iterative control strategy that does not remember
+// previous firings" — and sizes the class at orders of magnitude. law:induce IS
+// rule-firing over derivation candidates, so that is the governing reference,
+// not an analogy.
 const MEMOCN = new Set(["law:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
   "cn:sfx", "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts",
-  "cn:chrank", "lex:lw"]);
+  "cn:chrank", "lex:lw", "induce:sig_of"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot canon list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
