@@ -2785,7 +2785,35 @@ namespace Arest.NormaOracle
 				if (udr == null)
 				{
 					unbuiltUnmatched++;
-					log.Add("UNBUILT (head resolves, no arm matched the body): " + s2);
+					// "no arm matched the body" CONFLATES TWO DIFFERENT THINGS that want
+					// opposite work: a body the oracle cannot EXPRESS (a capability gap,
+					// work for the oracle) and a body that REFERENCES something undeclared
+					// (a model defect, work for the model). Measured instance: `* VDP is
+					// sourced from Listing Source iff some Listing has that VDP and that
+					// Listing is sourced from that Listing Source.` needs no capability the
+					// oracle lacks — one join variable, two legs, binary head — but its
+					// first leg names "Listing has VDP", and auto.dev declares only the
+					// TERNARY "Listing has VDP via Listing Channel". The leg dangles.
+					//
+					// So report HOW MANY LEGS RESOLVE, as a measurement and NOT as a
+					// verdict. Deliberately not re-partitioning the summary counts: the
+					// leg-to-reading mapping is arm-specific, this probe uses only the
+					// common Dequantify + lookup, and a rule whose legs it cannot resolve
+					// may still be perfectly expressible by an arm that reads them
+					// differently. Claiming a partition here would repeat exactly the
+					// false positive c134c964 removed. A LOW ratio is a model-defect
+					// CANDIDATE for a human to check, nothing more.
+					{
+						string[] ulegs = um.Groups[2].Value.Split(new[] { " and " }, StringSplitOptions.None);
+						int ures = 0;
+						foreach (string ul in ulegs)
+						{
+							string ut = Dequantify(" " + ul.Trim() + " ").Trim();
+							if (ut.Length != 0 && FindEntryByNormalizedSentence(ut) != null) ures++;
+						}
+						log.Add("UNBUILT (head resolves, no arm matched the body) [legs resolving "
+							+ ures + "/" + ulegs.Length + "]: " + s2);
+					}
 					continue;
 				}
 				int want, have = udr.OwnedLeadRolePathCollection.Count;
