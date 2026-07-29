@@ -2790,6 +2790,18 @@ namespace Arest.NormaOracle
 				}
 				int want, have = udr.OwnedLeadRolePathCollection.Count;
 				uRuleCount.TryGetValue(uE.Fact, out want);
+				// A STORED (**) derived fact HAS NO IN-STORE BODY BY DESIGN, so
+				// zero paths is correct for it and not a partial build. The
+				// value-condition arm states the mechanism where it skips them
+				// (LeadRolePathAddedRule, RolePath.cs:6143-6152, clears
+				// ExternalDerivation on any path add at commit, and only
+				// External+Stored escapes GATE:188). This census did not know
+				// that and reported `Object Type is instantiable` — declared
+				// `Object Type is instantiable. **` at core.md:363 — as a head
+				// with "0 path(s) for 1 rule(s)". It is not a defect, and the
+				// false positive nearly cost a fire: it was written up as the
+				// sharpest lead in the census before the marker was read.
+				if (myStoredDerived.Contains(uE.Fact)) continue;
 				if (have < want)
 				{
 					unbuiltPartial++;
