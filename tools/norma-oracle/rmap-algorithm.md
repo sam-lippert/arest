@@ -146,6 +146,8 @@ Otherwise **no concept type** (OMIFORM:1880).
 
 **B.3 Value types → concept type only when independent/otherwise qualified** (same rules). A qualifying value type concept type additionally gets an `InformationType` named `"<Name>Value"` mandatory, plus a preferred `Uniqueness` named `"<Name>Uniqueness"` (OMIFORM:1104-1128). Every non-ignored value type first yields an `InformationTypeFormat` named `<ValueType.Name>` (OMIFORM:1051-1073).
 
+> *Canon encoding* (`rmap:vtnames`, `rmap:vtcts`): a predicate under `theta:Filter` sees only its ELEMENT, never `CELLS`, so the concept-type list rides along via `distr` rather than being fetched inside the predicate.
+
 **B.4 `ObjectTypeIsTopLevelConceptType`** (OMIFORM:1771-1795): is a concept type (B.1) AND has **no** deep mapping away from it (no considered fact with `FromObjectType==objectType && Deep`). Top-level ⇒ candidate for its own table; non-top-level ⇒ absorbed via assimilation.
 
 `ConceptType.Name = objectType.Name` (OMIFORM:1097).
@@ -189,6 +191,8 @@ Otherwise create `Table` with initial `Name = conceptType.Name` and `TableIsPrim
 > **DEFAULT = `Absorb` iff the fact is a `SubtypeFact` OR `factType.ImpliedByObjectification != null`; otherwise `Separate`.** (Multi-fact-path assimilations default to `Absorb`, ASM:157.)
 
 So by default: **subtypes are absorbed into the supertype table; objectification-implied deep facts are absorbed; all other (entity→entity) deep assimilations are `Separate` (own table + FK).** `Partition` is never a default.
+
+> *Canon encoding* (`rmap:sepnames`): `rmap:gmi` flag slot 1 is is-subtype and slot 3 is objectification-implied, so the `Separate` set is the deep assimilations with NEITHER flag set — pascal-cased. Note this is the D.2 clause the discipline block names as a past correlate: reproduce the RULE (both flags, either one absorbing) and not merely the answer for the models at hand.
 
 **D.2.1 `ObjectTypeAbsorptionChoice` enum** (ASM:41-83) is the object-type-level *aggregate view* shown in the property grid; it is computed from the per-assimilation `AssimilationAbsorptionChoice`s (ASM `GetValue`, 807-862) and setting it rewrites the underlying per-assimilation choices (ASM:889-1056). Generation reads only the per-assimilation `AssimilationAbsorptionChoice`.
 

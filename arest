@@ -9490,10 +9490,6 @@ DEF("law:report",
 DEF("law:all",
     S4(A("COMP"), A("law:and_all"), S2(A("ALPHA"), N(2)), A("law:report")))
 ,
-// ---- B.3 (OMIFORM:1104-1128): a value-type concept type also gets an
-// InformationType named <Name>Value whose format is <Name>. A predicate under
-// theta:Filter sees only its ELEMENT, never CELLS, so the concept-type list
-// rides along via distr rather than being fetched inside the predicate.
 DEF("rmap:vtnames",
     S3(A("COMP"), S2(A("ALPHA"), N(1)),
       S3(A("COMP"), A("apply"), S3(A("CONS"),
@@ -9535,10 +9531,6 @@ DEF("rmap:b3pidchains",
               K(PHI()), K(A("T"))))))),
       A("rmap:vtcts"))),
 
-// ---- D.2 (AssimilationMapping.cs:429-432): Absorb iff the fact is a
-// SubtypeFact OR ImpliedByObjectification; every OTHER deep assimilation is
-// SEPARATE and keeps its own table. gmi flag slot 1 is is-subtype, slot 3 is
-// objectification-implied. These are the Separate ones, pascal-cased.
 DEF("rmap:sepnames",
     S3(A("COMP"), S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(1), N(2)))), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(3), N(2)), K(A("deep")))))), S4(A("COND"), S3(A("COMP"), A("law:or2"), S3(A("CONS"), S3(A("COMP"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(4)), K(A("T")))), N(1)), S3(A("COMP"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(3), N(4)), K(A("T")))), N(1)))), K(PHI()), S2(A("CONS"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), A("lex"), S4(A("COND"), S3(A("COMP"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(4)), K(A("T")))), N(1)), S3(A("COMP"), S3(A("COMP"), N(1), N(2)), N(1)), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), S3(A("COMP"), N(1), N(2)), N(1)), S3(A("COMP"), N(2), N(2)))), S3(A("COMP"), S3(A("COMP"), N(1), N(3)), N(1)), S3(A("COMP"), S3(A("COMP"), N(1), N(2)), N(1))))))))), K(PHI()))), A("distr"), S3(A("CONS"), N(2), N(1)))), A("distr")), S3(A("CONS"), A("rmap:s1p"), A("rmap:gmi"))))
 )
