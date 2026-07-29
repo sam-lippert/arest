@@ -1176,6 +1176,23 @@ namespace Arest.NormaOracle
 
 		// nf round-trip surfaces: normalized reading signatures and UC spans,
 		// comparable across two independently parsed models
+		/// <summary>
+		/// The key under which a derivation rule's HEAD is counted. Keyed by the
+		/// RESOLVED FACT TYPE wherever the head resolves, because NormalizeWords does
+		/// not strip subscripts: `Domain1 reaches Domain2` and `Domain1 reaches Domain3`
+		/// are ONE fact type written two ways, and keying on the text counted them as
+		/// two single-rule heads. The guards read these counts to decide whether a
+		/// union is safe, so a miscount of 1 tells an arm it is the only rule and lets
+		/// it build a single-path derivation for a multi-rule fact type -- the partial
+		/// build the pre-pass itself calls "wrong rather than partial".
+		/// Falls back to the normalized text when the head does not resolve, so
+		/// undeclared heads keep their existing behaviour.
+		/// </summary>
+		private string RuleHeadKey(string headText)
+		{
+			FactIndexEntry he = FindEntryByNormalizedSentence(headText.Trim());
+			return he != null ? ("\u0001ft:" + he.Fact.Id.ToString()) : NormalizeWords(headText);
+		}
 		public static string NormalizeWords(string words)
 		{
 			return Regex.Replace(words.Replace("- ", " ").TrimEnd('-'), @"\s+", " ").Trim().ToLowerInvariant();
@@ -1570,7 +1587,7 @@ namespace Arest.NormaOracle
 				while (s.StartsWith("* * ")) s = s.Substring(2);
 				Match hm = Regex.Match(s, @"^\* (.+?) iff ");
 				if (!hm.Success) continue;
-				string h = NormalizeWords(hm.Groups[1].Value.Trim());
+				string h = RuleHeadKey(hm.Groups[1].Value.Trim());
 				int n;
 				rulesPerHead.TryGetValue(h, out n);
 				rulesPerHead[h] = n + 1;
@@ -1597,9 +1614,9 @@ namespace Arest.NormaOracle
 				if (!m.Success) continue;
 				string head = m.Groups[1].Value.Trim();
 				int headRules;
-				rulesPerHead.TryGetValue(NormalizeWords(head), out headRules);
+				rulesPerHead.TryGetValue(RuleHeadKey(head), out headRules);
 				int linearRules;
-				linearPerHead.TryGetValue(NormalizeWords(head), out linearRules);
+				linearPerHead.TryGetValue(RuleHeadKey(head), out linearRules);
 				if (headRules != 1 && linearRules != headRules) continue;
 				string j = m.Groups[2].Value.Trim();
 				if (!myTypes.ContainsKey(j)) continue;
@@ -1931,7 +1948,7 @@ namespace Arest.NormaOracle
 				if (!m.Success) continue;
 				string head = m.Groups[1].Value.Trim();
 				int headRules;
-				rulesPerHead.TryGetValue(NormalizeWords(head), out headRules);
+				rulesPerHead.TryGetValue(RuleHeadKey(head), out headRules);
 				if (headRules != 1) continue;
 				FactIndexEntry headE = FindEntryByNormalizedSentence(head);
 				if (headE == null || headE.Fact.DerivationRule != null || headE.Players.Count != 1) continue;
@@ -2106,7 +2123,7 @@ namespace Arest.NormaOracle
 				if (!m.Success) continue;
 				string head = m.Groups[1].Value.Trim();
 				int headRules;
-				rulesPerHead.TryGetValue(NormalizeWords(head), out headRules);
+				rulesPerHead.TryGetValue(RuleHeadKey(head), out headRules);
 				if (headRules != 1) continue;
 				FactIndexEntry headE = FindEntryByNormalizedSentence(head);
 				if (headE == null || headE.Fact.DerivationRule != null || headE.Players.Count != 2) continue;
@@ -2323,7 +2340,7 @@ namespace Arest.NormaOracle
 				string v = m.Groups[2].Value.Trim();
 				string x = m.Groups[3].Value.Trim();
 				int headRules;
-				rulesPerHead.TryGetValue(NormalizeWords(head), out headRules);
+				rulesPerHead.TryGetValue(RuleHeadKey(head), out headRules);
 				if (headRules != 1) continue;
 				FactIndexEntry headE = FindEntryByNormalizedSentence(head);
 				FactIndexEntry src = FindEntryByNormalizedSentence(Dequantify(" " + m.Groups[4].Value.Trim()).Trim());
@@ -2393,7 +2410,7 @@ namespace Arest.NormaOracle
 					@"^\* (.+?) iff (.+?) and ([\w\- ]+?) is (?:that )?([\w\- ]+?) plus ([\w ]+?)\.$");
 				if (!om.Success) continue;
 				int oRules;
-				rulesPerHead.TryGetValue(NormalizeWords(om.Groups[1].Value.Trim()), out oRules);
+				rulesPerHead.TryGetValue(RuleHeadKey(om.Groups[1].Value.Trim()), out oRules);
 				if (oRules != 1) continue;
 				FactIndexEntry oHead = FindEntryByNormalizedSentence(om.Groups[1].Value.Trim());
 				FactIndexEntry oLeg = FindEntryByNormalizedSentence(
@@ -2511,7 +2528,7 @@ namespace Arest.NormaOracle
 				// one leg only; anything joined or alternated belongs to another arm
 				if (cLegTxt.Contains(" and ") || cLegTxt.Contains(" or ")) continue;
 				int cRules;
-				rulesPerHead.TryGetValue(NormalizeWords(cHeadTxt), out cRules);
+				rulesPerHead.TryGetValue(RuleHeadKey(cHeadTxt), out cRules);
 				if (cRules != 1) continue;
 				FactIndexEntry cHead = FindEntryByNormalizedSentence(cHeadTxt);
 				FactIndexEntry cLeg = FindEntryByNormalizedSentence(
@@ -2586,9 +2603,9 @@ namespace Arest.NormaOracle
 				if (!m.Success) continue;
 				string head = m.Groups[1].Value.Trim();
 				int headRules;
-				rulesPerHead.TryGetValue(NormalizeWords(head), out headRules);
+				rulesPerHead.TryGetValue(RuleHeadKey(head), out headRules);
 				int generalRules;
-				generalPerHead.TryGetValue(NormalizeWords(head), out generalRules);
+				generalPerHead.TryGetValue(RuleHeadKey(head), out generalRules);
 				// a multi-rule head admits IFF every one of its rules is
 				// this class's shape (the linear-class treatment, mirrored)
 				if (headRules != 1 && generalRules != headRules) continue;				// The split only fired when the SECOND clause opened with `that` or
