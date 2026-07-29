@@ -85,22 +85,27 @@ Constraint is an entity type.
 * Each Set Comparison Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'set-comparison'.
 * Each Frequency Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'frequency'.
 * Each Cardinality Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'cardinality'.
-  Ring Constraint is a subtype of Constraint.
+* Each Ring Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'ring'.
   {Set Comparison Constraint, Frequency Constraint, Cardinality Constraint} are mutually exclusive subtypes of Constraint.
 <!-- #66: Ring Constraint was SPOKEN of by two deontic sentences (core.md:945,
      :955) and declared nowhere, so both obligations resolved to no type and
      were enforced by nothing — meaning present in the text, absent from the
-     machinery. Declared as an ASSERTED subtype because that is what the
-     reference implementation does: NORMA's RingConstraint is a CLASS subtype
-     (RingConstraint : SingleChildSequenceConstraint) that additionally carries
-     a ring-type attribute, so subtype-and-attribute is ORM-legitimate rather
-     than redundant, and the tie between the two is what
-     RingConstraintTypeNotSpecifiedError enforces there and the obligation
-     below enforces here. Deliberately NOT added to the exclusion set above:
+     machinery. Declared as a DERIVED subtype. 88b218a8 made it ASSERTED and
+     added a separate obligation tying it to Constraint Type Family 'ring',
+     because the one-hop arm could not express a chained predicate; that
+     commit's own note defended the pair as "the tie between the two".
+     6ddb4182 shipped the chained arm, so THE TIE IS THE DEFINITION and the
+     obligation is retired: it restated the predicate word for word, which is
+     one meaning in two places. NORMA's RingConstraint is a CLASS subtype
+     (RingConstraint : SingleChildSequenceConstraint) carrying a ring-type
+     attribute, and Halpin's "Subtyping Revisited" Sec 3 permits asserted,
+     derived and semi-derived alike -- so deriving it is the choice that removes
+     the duplication, not the only legal one. Sec 3 also fixes the consequence:
+     only an ASSERTED subtype needs its exclusion declared "since it is not
+     derivable". Deliberately NOT added to the exclusion set above:
      both exclusion declarations in this metamodel are 3-element and a 4-element
      one is unprecedented here, so widening it is a separate ruling with its own
      evidence, not a silent rider on a declaration fix. -->
-  It is obligatory that each Ring Constraint is of some Constraint Type that has Constraint Type Family 'ring'.
 
 Constraint Type is an entity type.
 Constraint Type is a subtype of Function.
