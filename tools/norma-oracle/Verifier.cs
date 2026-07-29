@@ -2297,17 +2297,32 @@ namespace Arest.NormaOracle
 					else { ok = false; break; }
 				}
 				if (!ok) continue;
-				// the strict two-chain all-binary case records its canon
-				// recipe through the same recorder the general class uses,
-				// so subscripted chains execute in state:rules too. Scoped to
-				// the feature's own footprint: only rules that USE a
-				// subscripted variable record here - unsubscripted chains
-				// keep their prior status exactly (NORMA-built, no recipe),
-				// so no station's closure gains unasked-for work.
-				bool usesSubscript = false;
-				foreach (var kv in typeOfVar)
-					if (kv.Key != kv.Value) { usesSubscript = true; break; }
-				if (usesSubscript && legs.Count == 2 && legs[1].Value.Key == legs[0].Value.Value
+				// the strict two-chain all-binary case records its canon recipe
+				// through the same recorder the general class uses.
+				//
+				// f9b2bd80 gated this on usesSubscript, scoping the feature to its
+				// own footprint "so no station's closure gains unasked-for work".
+				// THAT GATE IS NOW LIFTED, and the reason it was right then and wrong
+				// now is b6d93bd5: until then NOTHING FED state:rules TO derive, so a
+				// recipe was unasked-for work in the literal sense -- it could not be
+				// evaluated and could not be checked. rules:station put the cell on a
+				// derivation path and law:station_rules holds every recipe in it to
+				// being evaluable, so a recorded chain is now both executed and
+				// verified rather than merely stored.
+				// MEASURED, not hoped: on base this records three chains whose target
+				// recipes canon already hand-writes in rules:metamodel, and the
+				// recorder's output equals them term for term --
+				//     ResourceBelongsToDomain  <join, ResourceIsOfFunction,
+				//                               FunctionBelongsToDomain, <N1,N3>>
+				//     FactBelongsToDomain      the same shape
+				//     StateMachineIsCurrentlyInStatus  legB flipped by proj<N2,N1>
+				// so the differential's DIFFERS count stays 0 while MATCH rises.
+				// The remaining chains stay recipe-less for STRUCTURAL reasons the
+				// conditions below state: one leg (ResourceIsOfFunction,
+				// FactIsOfFunction -- canon writes those as a bare proj rename) or
+				// three (StateMachineIsInstanceOfStateMachineDefinition -- canon
+				// nests two joins). Both are separate increments, not this one.
+				if (legs.Count == 2 && legs[1].Value.Key == legs[0].Value.Value
 					&& legs[0].Key.Players.Count == 2 && legs[1].Key.Players.Count == 2
 					&& headE.Players.Count == 2)
 				{
