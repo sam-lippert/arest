@@ -1,6 +1,6 @@
 # AREST Core Metamodel
 
-<!-- elysium-batch (Samuel's ruling, 2026-07-15): the metamodel is canonical
+<!-- arest-batch (Samuel's ruling, 2026-07-15): the metamodel is canonical
      FORML/ORM/Halpin. Legacy GraphDL vocabulary is renamed in all operative
      sentences: Noun -> Object Type, the old {entity, value} enum -> OT Kind
      (Halpin Fig 13.29: "each EntityType is an ObjectType that is of OTkind
@@ -9,7 +9,7 @@
      written; canon cell names (e.g. Noun_is_instantiable) still reflect the
      old vocabulary until the evaluator-phase reconciliation. -->
 
-<!-- Layer map (elysium-batch task 3): two vocabularies share this file.
+<!-- Layer map (arest-batch task 3): two vocabularies share this file.
      ORM-canonical — echoes of Halpin's metamodel (Fig 13.29) and NORMA's
      ORM2Core: Object Type, OT Kind, Entity Type, Value Type, Fact Type,
      Predicate, Reading, Role, Constraint, Constraint Type, Derivation
@@ -26,7 +26,7 @@
 ## Entity Types
 
 Function(.id) is an entity type.
-  <!-- elysium (Halpin sweep, 2026-07-15): the ONLY declared reference
+  <!-- arest (Halpin sweep, 2026-07-15): the ONLY declared reference
        mode in the metamodel. Book (2nd-ed text) §6.7: "By default, a
        subtype inherits the primary reference scheme of the root
        supertype; in this case the reference scheme is not displayed on
@@ -46,7 +46,7 @@ Object Type is a subtype of Function.
   Event Type is a subtype of Function.
   Fact Type is a subtype of Event Type.
   {Event Type, Constraint, Derivation Rule} are mutually exclusive subtypes of Function.
-  <!-- elysium-batch ruling 1 (FFP): one root. Everything the metamodel
+  <!-- arest-batch ruling 1 (FFP): one root. Everything the metamodel
        names is a cell in D; the ORM spelling is a subtype edge to
        Function (schema content) or to Resource (runtime instances, itself
        a Function subtype). Backus has no lattice — atoms and sequences,
@@ -56,13 +56,13 @@ Object Type is a subtype of Function.
        addressable Resources by reflection (instance-of), never by a second
        subtype path. The former Resource placements of this trio migrate
        accordingly. -->
-  <!-- elysium-audit A: State Machine Definition removed from the exclusive
+  <!-- arest-audit A: State Machine Definition removed from the exclusive
        list. state.md declares `State Machine Definition is a subtype of
        Status` (the Harel nesting, deliberate per instances.md task-987),
        so SMD and Status cannot also be mutually exclusive siblings — the
        pair of declarations forced SMD's population empty. SMD inherits
        Status's exclusions through the subtype.
-       elysium-audit I (NORMA CompatibleSupertypesError): Status removed
+       arest-audit I (NORMA CompatibleSupertypesError): Status removed
        too. Its home is `Status is a subtype of Noun` (state.md); listing
        it here also made it a direct Resource subtype, giving Status two
        unrelated identification paths (Noun -> Function.id vs
@@ -112,7 +112,7 @@ External System is a subtype of Function.
 
 Domain is an entity type.
 Domain is a subtype of Function.
-  <!-- elysium-batch ruling 2: Domain is the namespace unit `Function
+  <!-- arest-batch ruling 2: Domain is the namespace unit `Function
        belongs to Domain` requires — declared at last, schema-side under
        Function. Access and Scope are organization-domain vocabulary per
        Cor 2 (authorization is a derivation over User/Organization facts,
@@ -244,7 +244,7 @@ Role Relationship is a value type.
   The data type of Role Relationship is text.
 
 
-<!-- elysium-batch ruling 2 (organizations-domain vocabulary, moved out):
+<!-- arest-batch ruling 2 (organizations-domain vocabulary, moved out):
 Scope is a value type.
   The possible values of Scope are 'organization', 'public'. -->
 
@@ -268,7 +268,7 @@ Constraint Match Keyword is a value type.
 Object Type is of OT Kind.
   Each Object Type is of exactly one OT Kind.
 
-<!-- elysium-batch (Halpin Fig 13.29, verbatim shape): the kinds as
+<!-- arest-batch (Halpin Fig 13.29, verbatim shape): the kinds as
      derived subtypes — "each EntityType is an ObjectType that is of
      OTkind 'Entity'". -->
 * Each Entity Type is an Object Type that is of OT Kind 'entity'.
@@ -466,7 +466,7 @@ Fact is referenced by Predicate.
   It is possible that more than one Predicate references the same Fact.
 FactIsReferencedByPredicate objectifies "Fact is referenced by Predicate".
 FactIsReferencedByPredicate is a subtype of Function.
-<!-- elysium-batch ruling 5: Moore/Mealy action attachment lives in
+<!-- arest-batch ruling 5: Moore/Mealy action attachment lives in
      state.md, single home; the Mealy relation is semi-derived there
      (Moore folds into it on entry). -->
 
@@ -479,7 +479,7 @@ Function has Header.
   Each Function has each Header at most once.
 FunctionHasHeader objectifies "Function has Header".
 FunctionHasHeader is a subtype of Function.
-<!-- elysium-batch ruling 2 (organizations-domain vocabulary, moved out):
+<!-- arest-batch ruling 2 (organizations-domain vocabulary, moved out):
 Function has Scope.
   Each Function has at most one Scope. -->
 Function belongs to Domain.
@@ -527,7 +527,7 @@ Definition Origin is a value type.
   The data type of Definition Origin is text.
 Function has Definition Origin.
   Each Function has at most one Definition Origin.
-  <!-- elysium-audit E: Def 9 — a definition is ⟨name, dom, cod, origin,
+  <!-- arest-audit E: Def 9 — a definition is ⟨name, dom, cod, origin,
        impl⟩ with origin ∈ {compiled, registered}; Eq 5 filters DEFS on
        origin = 'registered', Cor 5 identifies that restriction with the
        decidability frontier, and Cor 1 reads rule bodies as data. Without
@@ -545,7 +545,7 @@ Function accepts Type Expression.
   Each Function accepts at most one Type Expression.
 Function yields Type Expression.
   Each Function yields at most one Type Expression.
-  <!-- elysium-batch ruling 11: Def 9's dom and cod — accepts is dom,
+  <!-- arest-batch ruling 11: Def 9's dom and cod — accepts is dom,
        yields is cod. Values are lexical type expressions: an Object Type
        name where the signature is simple, an FFP shape expression where
        structured. Carried exactly for DEFS entries, like Definition
@@ -570,7 +570,7 @@ Function has Implementation.
        interesting area — the reason this cell exists — is registering
        the alpha/fold-class combinators through FFP/AST so that fact
        types, facts, objects, CSDP, and RMAP are themselves DEFINED
-       symbolically at the arest-elysium level: the algebra of programs
+       symbolically at the arest-arest level: the algebra of programs
        over the fact algebra. Population arrives with the canon
        manifest. -->
 
@@ -606,7 +606,7 @@ Frequency Constraint has Max Occurrence.
   Each Frequency Constraint has at most one Max Occurrence.
 
 ### Cardinality Constraint (subtype of Constraint)
-<!-- elysium-audit D: Def 2 lists cardinality among the constraint kinds —
+<!-- arest-audit D: Def 2 lists cardinality among the constraint kinds —
      a bound on the SIZE of a type's population (NORMA CardinalityConstraint),
      distinct from frequency's per-value occurrence bound. It was absent from
      this metamodel. Cor 2 leans on the kind directly: "a rate limit is a
@@ -698,7 +698,7 @@ No Object Type is subtype of itself.
 If Object Type1 is subtype of Object Type2, then Object Type2 is not subtype of Object Type1.
 If Object Type1 is subtype of Object Type2 and Object Type2 is subtype of Object Type3, then Object Type1 is subtype of Object Type3.
 
-<!-- elysium-audit B: the former rings here (irreflexive + intransitive; and
+<!-- arest-audit B: the former rings here (irreflexive + intransitive; and
      validation.md carried irreflexive + asymmetric) contradicted Lem 1 and
      each other. Lem 1 licenses arbitrary recursion — self- and mutual
      recursion included (transitive closure is a legitimate rule) — and
@@ -815,7 +815,7 @@ Derivation Rule depends on Derivation Rule. *
 * Fact Type has Arity iff Arity is the count of Role where Fact Type has Role.
 
 * Derivation Rule1 depends on Derivation Rule2 iff Derivation Rule1 has antecedent Fact Type and Derivation Rule2 produces that Fact Type.
-<!-- elysium-audit B: "some other Derivation Rule" dropped from this rule —
+<!-- arest-audit B: "some other Derivation Rule" dropped from this rule —
      it filtered self-loops out of the dependency graph, so a
      value-introducing self-recursive rule (a 1-cycle Lem 1 must refuse)
      was invisible to the Cor 1 check. Self-dependency is a legitimate,
@@ -842,7 +842,7 @@ push; until then the Rust synthesis continues to cover them.
 
 ### Subtype inheritance
 
-<!-- elysium-audit H2 (10.2, oracle-found prose — this block parsed into
+<!-- arest-audit H2 (10.2, oracle-found prose — this block parsed into
      garbage fact types): Every fact that binds a subtype also binds the
      supertype: if Noun1 is a subtype of Noun2 and a Fact uses a Resource
      whose Noun is Noun1 for some Role, then that same Resource is also an
@@ -935,7 +935,7 @@ the standard violation surface.
 
 ### Layer 2: ring validity — same-object type spans
 
-<!-- elysium-audit H2 (10.2): A ring constraint (IR, AS, AT, SY, IT, TR,
+<!-- arest-audit H2 (10.2): A ring constraint (IR, AS, AT, SY, IT, TR,
      AC, RF) must span roles whose Nouns are identical. A ring across mixed
      nouns is nonsensical — "No Customer is-subtype-of Address" has nothing
      to forbid. The killed host's check.rs emitted an Error-level
@@ -946,7 +946,7 @@ It is obligatory that each Ring Constraint spans two Roles and both Roles are pl
 
 ### Layer 3: ring completeness — declare the ring on a same-object type binary
 
-<!-- elysium-audit H2 (10.2): A binary Fact Type whose two Roles share the
+<!-- arest-audit H2 (10.2): A binary Fact Type whose two Roles share the
      same Noun almost always wants an explicit ring constraint — without
      one, nothing prevents the self-reference cycle the schema is
      implicitly modelling. check.rs emits a Hint-level diagnostic pointing
@@ -965,7 +965,7 @@ decomposing each user-authored rule into a `Join Path` +
 rule text with Rust heuristics.
 -->
 
-<!-- elysium-audit H2 (10.2):
+<!-- arest-audit H2 (10.2):
 Backus §11.2.4 / Def 7 correspondence (Table 1 of pre-2026-07-13 drafts):
   Join Path       ↔ Composition (COMP)
   Role Sequence   ↔ Construction (CONS)
@@ -1081,7 +1081,7 @@ It is obligatory that each Antecedent Clause has some Clause Shape.
 ## Migration (#348)
 
 ### Rationale
-<!-- elysium-audit H2 (10.2): Population-level rewriting when a schema
+<!-- arest-audit H2 (10.2): Population-level rewriting when a schema
      evolves. Cor 4 (cor:closure) stages migration as derivation rules /
      transition triggers / deontic rules; none is shaped for "rewrite facts
      of one Fact Type into facts of another," so Migration names it
@@ -1114,7 +1114,7 @@ It is obligatory that each Migration produces some Fact Type as target.
 ## Migration Application (#349)
 
 ### Rationale
-<!-- elysium-audit H2 (10.2): Migration firing emits a Migration
+<!-- arest-audit H2 (10.2): Migration firing emits a Migration
      Application per source fact touched, recording which target facts were
      produced and when. Prop 3 (prop:derive; Theorem 5 in pre-2026-07-13
      drafts) holds because Migration Application is itself a fact: the
@@ -1181,7 +1181,7 @@ Value Range is an entity type.
 Value Range is a subtype of Function.
 Facet is an entity type.
 Facet is a subtype of Function.
-<!-- elysium-batch ruling 3a (NORMA-correct): the reified Value entity is
+<!-- arest-batch ruling 3a (NORMA-correct): the reified Value entity is
      retired — NORMA's ValueRange carries MinValue/MaxValue lexically and
      has no Value instance entity. Bounds carry Lexical Value directly.
 Value(.id) is an entity type. -->
@@ -1353,7 +1353,7 @@ Constraint Type 'VC' has Name 'ValueComparison'.
 
 ### Conceptual Data Types (#279)
 
-<!-- elysium-audit H2 (10.2): NORMA's portable data-type catalog. Each leaf
+<!-- arest-audit H2 (10.2): NORMA's portable data-type catalog. Each leaf
      Conceptual Data Type is classified into exactly one of eight Data Type
      Groups. The "is in" facts below are the single source of truth for the
      leaf codes and group membership. A value type opts into a data type
@@ -1407,7 +1407,7 @@ Conceptual Data Type 'objectId' is in Data Type Group 'other'.
 Conceptual Data Type 'unspecified' is in Data Type Group 'unspecified'.
 Conceptual Data Type 'userDefined' is in Data Type Group 'userDefined'.
 
-<!-- elysium-audit H2 (10.2): JSON-Schema projection of the catalog
+<!-- arest-audit H2 (10.2): JSON-Schema projection of the catalog
      (#279 P2a). Each leaf carries one JSON Type and, for temporal / binary
      / uuid leaves, a JSON Format; these absorb jsonType / jsonFormat onto
      the Conceptual Data Type cell via RMAP, the same way

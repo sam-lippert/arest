@@ -90,7 +90,7 @@ target-c/
 target2/
 
 # ============================================================
-# elysium (merged 2026-07-20): carriers regenerate on demand;
+# arest rebuild (merged 2026-07-20): carriers regenerate on demand;
 # composed stations and oracle outputs are build ephemera.
 # The journal files are NOT ephemera - they track.
 # ============================================================

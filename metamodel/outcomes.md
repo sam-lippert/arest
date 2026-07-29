@@ -75,7 +75,7 @@ Violation is triggered by Resource.
   Each Violation is triggered by at most one Resource.
 Failure is triggered by Resource.
   Each Failure is triggered by at most one Resource.
-  <!-- elysium-audit: provenance parity with Violation. evolution.md's
+  <!-- arest-audit: provenance parity with Violation. evolution.md's
        validity rules read it — a staged Domain Change application that
        cannot parse emits a Failure (Failure Type 'parse') triggered by
        the change, mirroring how a gate refusal emits a Violation

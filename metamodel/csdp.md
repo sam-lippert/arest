@@ -2,7 +2,7 @@
 
 ## Description
 
-<!-- elysium-audit H (10.2 discipline: readings files carry sentences of R
+<!-- arest-audit H (10.2 discipline: readings files carry sentences of R
      and comments; bare prose invites prose-as-name compile artifacts):
      Halpin's Conceptual Schema Design Procedure (7 steps) as an
      EXECUTABLE state machine of the framework itself, not prose and not
@@ -63,7 +63,7 @@ Schema Design has Design Note.
 
 ### CSDP step-completion event facts
 
-<!-- elysium (2026-07-15): the procedure these step facts narrate is now
+<!-- arest (2026-07-15): the procedure these step facts narrate is now
      DEFINED in the canon — `arest` carries csdp (seven steps composed;
      s1/s3/s6-acceptance as registered seams, s2/s4/s5/s7 computable:
      population gate, uniqueness induction from example populations,

@@ -75,7 +75,7 @@ human-readability and tooling that walks the rule set as named
 records (e.g. UI surfaces, diagnostics).
 -->
 
-<!-- elysium-audit G: subjects were bare quoted ids ('rule-child' has
+<!-- arest-audit G: subjects were bare quoted ids ('rule-child' has
      Pattern …) with no entity-type name. `has Pattern` is ambiguous across
      Pluralization Rule, Noun, Facet, and Format — the bare form cannot
      resolve its fact type by reading alone (Def 4's fragment resolves

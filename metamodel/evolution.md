@@ -4,7 +4,7 @@
 
 Domain Change is an entity type.
 Domain Change is a subtype of Resource.
-  <!-- elysium-audit: joins the established schema-entity-as-Resource
+  <!-- arest-audit: joins the established schema-entity-as-Resource
        pattern (core.md: Event Type, Status, Constraint, Derivation Rule
        are Resource subtypes), so the outcome provenance fact types
        (`Violation is triggered by Resource`, `Failure is triggered by
@@ -12,7 +12,7 @@ Domain Change is a subtype of Resource.
        below join through them. -->
 Signal is an entity type.
 Signal is a subtype of Resource.
-<!-- elysium-audit I+J (NORMA CompatibleSupertypesError x4; Samuel's
+<!-- arest-audit I+J (NORMA CompatibleSupertypesError x4; Samuel's
      ontology lens, 2026-07-15): `Model Element(.id)` is retired. As a
      second identification root declared a supertype of Reading / Noun /
      Constraint / Fact Type / Status / Transition, it handed four types two
@@ -115,7 +115,7 @@ Domain Change is applied.
 
 ## Constraints
 
-<!-- elysium-audit I+J: the former `## Subtypes` block (Model Element as a
+<!-- arest-audit I+J: the former `## Subtypes` block (Model Element as a
      supertype of six proposable kinds) collapsed first to an inclusive-or
      over six fact types, then — per the ontology lens — to the one open
      mandatory below: a Domain Change proposes a definition, and Function
@@ -149,7 +149,7 @@ It is obligatory that each Domain Change has exactly one Rationale.
      subtype lattice. -->
 It is obligatory that each applied Domain Change targeting Domain 'core' is approved by exactly one Human.
 It is obligatory that each applied Domain Change targeting Domain 'evolution' is approved by exactly one Human.
-<!-- elysium-audit: the same human-gate for Domain 'ethics' referenced a
+<!-- arest-audit: the same human-gate for Domain 'ethics' referenced a
      domain declared nowhere in the base readings. Preserved here as a
      forward declaration; reinstate as a reading the moment an ethics
      domain exists:
@@ -157,7 +157,7 @@ It is obligatory that each applied Domain Change targeting Domain 'evolution' is
 
 ## Derivation Rules
 
-<!-- elysium-audit (real rules, replacing prose that claimed validity was
+<!-- arest-audit (real rules, replacing prose that claimed validity was
      "implemented by the compile pipeline" — a `*` marker whose rule lives
      in a host is drift wearing a derivation mark. Per 11.2/Cor 4 the
      staged ingestion of a Domain Change is a create judged by the gate,
@@ -209,7 +209,7 @@ Transition 'apply' is from Status 'Approved'.
 Transition 'apply' is to Status 'Applied'.
 Transition 'apply' is triggered by Event Type 'Domain Change is applied'.
 
-<!-- elysium-audit: validity wired into the machine through the Guard
+<!-- arest-audit: validity wired into the machine through the Guard
      vocabulary (state.md) — approval is affordable only for a change the
      staged gate run judged valid. Evolution is core AREST: the
      self-modification SM uses the framework's own guard machinery. -->

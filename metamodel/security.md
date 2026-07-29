@@ -11,7 +11,7 @@ reject any `External System has URL` whose host sits inside one of
 the listed blocks.
 -->
 
-<!-- elysium-audit H (10.2 discipline): Before #894 this list lived as a
+<!-- arest-audit H (10.2 discipline): Before #894 this list lived as a
      `forbidden_v4 = a == 127 || …` chain in
      `crates/arest/src/parse_forml2.rs::is_forbidden_url`. The Sweep-1
      dispatch-to-data lift moves it here so operators can add or retract
@@ -52,7 +52,7 @@ It is forbidden that External System URL resolves to host in CIDR Block.
 
 ## Instance Facts
 
-<!-- elysium-audit H (10.2 discipline): The eight CIDR Block entries below
+<!-- arest-audit H (10.2 discipline): The eight CIDR Block entries below
      mirror the pre-#894 hardcoded IPv4/IPv6 dispatch in
      `is_forbidden_url`. Each row's `Block Kind` documents the rationale;
      `cidr_contains` only reads the id (the CIDR string itself, now the Function id). Order

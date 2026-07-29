@@ -51,7 +51,7 @@ It is obligatory that when an asserted Fact Type has exactly two Roles that both
        documentation. -->
 
 It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spanning its Roles when the Reading of that Fact Type contains a capitalized-word-prefixed form of its Ring Object Type, or when some Object Type ending in that Ring Object Type is declared elsewhere in the corpus.
-<!-- elysium-audit H (prose split, per the vindicated 10.2 scrub): the two
+<!-- arest-audit H (prose split, per the vindicated 10.2 scrub): the two
      conditions reflect compound-noun parse-time artifacts (eu-law
      `Personal Data Breach … Personal Data` and Biometric/Genetic/Personal
      Data sharing the `Data` suffix) and were read by the killed host's
@@ -89,7 +89,7 @@ It is obligatory that each subtype Object Type has some totality or exclusion Co
 ### Reference Mode Redundancy
 
 It is forbidden that a Reading restates the Reference Mode of an Object Type as a separate Fact Type.
-<!-- elysium-batch ruling 4: un-commented and reworded to canonical
+<!-- arest-batch ruling 4: un-commented and reworded to canonical
      vocabulary. NORMA models the machinery as ReferenceMode +
      ReferenceModeKind (General/Popular/UnitBased; ORM2Core.xsd): the mode
      mints the value type and the identifying fact type, so restating it
@@ -131,7 +131,7 @@ It is obligatory that each Reading of a Constraint states the same restriction i
 
 ### Derivation Rule Acyclicity
 
-<!-- elysium-audit B: the former pair here (irreflexive + asymmetric)
+<!-- arest-audit B: the former pair here (irreflexive + asymmetric)
      forbade self- and mutual recursion, which Lem 1 licenses, and
      disagreed with core.md's (also wrong) irreflexive + intransitive.
      The faithful constraint — no VALUE-INTRODUCING rule on a dependency
