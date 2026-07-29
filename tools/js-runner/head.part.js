@@ -173,8 +173,26 @@ function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENT
 // walk's ctx-threaded helpers keyed by element references; lex:parts
 // keyed by the name atom). Whole-frame cells like cn:step see fresh
 // arrays every call - memoizing them is pure overhead.
+// cn:chrank and lex:lw are the SAME "keyed by the name atom" case as lex:parts
+// beside them, and were simply missed. Both are pure functions of ONE atom, so
+// the memo key is that atom by value and the entry count is bounded by the
+// number of distinct inputs, not by the number of calls.
+//   cn:chrank is the rank of a character in the FIXED 37-char alphabet
+//   "0123456789:abcdefghijklmnopqrstuvwxyz" — a table lookup written as a WHILE
+//   walk that rebuilds the alphabet from the string constant on every call. It
+//   is the same shape as law:find_desc above ("the MEANING is a lookup; the walk
+//   is the evaluator's business"), and it ran 567,148 times inside ONE law with
+//   at most ~37 distinct inputs. Its loop is the top four counters in the
+//   profile: eq 77.4M, null 20.2M, tl 13.8M, + 11.8M.
+//   lex:lw lowercases a word (implode . ALPHA chardown . chars) and ran 544,712
+//   times for 7.55M chardown calls — ~13.9 characters per word, i.e. essentially
+//   every chardown in the profile.
+// Both are memoised, not rewritten: canon keeps the meaning, the head stops
+// recomputing it. Correctness needs nothing beyond purity, which is what
+// Backus 14.6 already guarantees while D is frozen.
 const MEMOCN = new Set(["law:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
-  "cn:sfx", "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts"]);
+  "cn:sfx", "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts",
+  "cn:chrank", "lex:lw"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot canon list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
