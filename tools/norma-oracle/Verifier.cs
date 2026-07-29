@@ -1438,6 +1438,30 @@ namespace Elysium.NormaOracle
 			return s;
 		}
 
+		// The variable each role is bound to, as the sentence WRITES it: the player's
+		// name plus whatever subscript follows it at that occurrence. `Domain1 reaches
+		// Domain2` over players [Domain, Domain] yields ["Domain1", "Domain2"], which
+		// is the only thing distinguishing the two roles of a ring fact type. For a
+		// sentence with no subscripts the tokens are the bare names, which already
+		// distinguish the roles of a non-ring one.
+		// Returns null when a player cannot be located in the text, so callers decline
+		// rather than bind to a guess.
+		private List<string> SubscriptedTokens(string text, List<string> players)
+		{
+			var toks = new List<string>();
+			int from = 0;
+			foreach (string p in players)
+			{
+				int at = text.IndexOf(p, from, StringComparison.Ordinal);
+				if (at < 0) return null;
+				int end = at + p.Length;
+				while (end < text.Length && char.IsDigit(text[end])) end++;
+				toks.Add(text.Substring(at, end - at));
+				from = end;
+			}
+			return toks;
+		}
+
 		private FactIndexEntry FindEntryByNormalizedSentence(string sentence)
 		{
 			FactIndexEntry hit = FindEntryByExactKey(NormalizeWords(sentence));
@@ -2185,6 +2209,88 @@ namespace Elysium.NormaOracle
 				new DerivedRoleProjectedFromCalculatedPathValue(oDrpVal, oCpv);
 				log.Add(oHead.Fact.Name + " := " + oLeg.Fact.Name + " + " + oDurType.Name
 					+ " per " + shared + ", " + DescribeDerivation(oHead.Fact));
+			}
+			// THE COPY CLASS: "* <head> iff <one leg>." — a binary head taking a
+			// binary leg's population unchanged. It is the simplest derivation
+			// there is, the base case of every transitive closure the metamodel
+			// writes ("Domain1 reaches Domain2 iff Domain1 is contained in
+			// Domain2"), and no arm took it: every other arm wants two legs or a
+			// unary head.
+			//
+			// MEASURED before writing it, because #76 had this filed as a RING
+			// problem and it is not: a well-formed NON-ring copy
+			// ("Thing has Alpha iff Thing owns Alpha", same players, different
+			// predicate) does not build either. Ring was never the blocker for
+			// this shape — the shape had no arm.
+			//
+			// Head roles map to leg roles by the SUBSCRIPTED token as written, so
+			// a ring copy costs nothing extra: Domain1 -> whichever leg role says
+			// Domain1. #74 strips subscripts so the sentence RESOLVES; here they
+			// are read back to BIND. Where a rule carries no subscripts the tokens
+			// are the bare type names, which distinguishes the roles of a non-ring
+			// fact type and is exactly the case that needs no disambiguation.
+			foreach (string sRaw4 in myDeferredRules)
+			{
+				string s4 = sRaw4;
+				while (s4.StartsWith("* * ")) s4 = s4.Substring(2);
+				Match cpm = Regex.Match(s4, @"^\* (.+?) iff (.+?)\.$");
+				if (!cpm.Success) continue;
+				string cHeadTxt = cpm.Groups[1].Value.Trim();
+				string cLegTxt = cpm.Groups[2].Value.Trim();
+				// one leg only; anything joined or alternated belongs to another arm
+				if (cLegTxt.Contains(" and ") || cLegTxt.Contains(" or ")) continue;
+				int cRules;
+				rulesPerHead.TryGetValue(NormalizeWords(cHeadTxt), out cRules);
+				if (cRules != 1) continue;
+				FactIndexEntry cHead = FindEntryByNormalizedSentence(cHeadTxt);
+				FactIndexEntry cLeg = FindEntryByNormalizedSentence(
+					Dequantify(" " + cLegTxt + " ").Trim());
+				if (cHead == null || cLeg == null || cHead == cLeg) continue;
+				if (cHead.Fact.DerivationRule != null) continue;
+				if (cHead.Players.Count != 2 || cLeg.Players.Count != 2) continue;
+				List<string> cHeadTok = SubscriptedTokens(cHeadTxt, cHead.Players);
+				List<string> cLegTok = SubscriptedTokens(cLegTxt, cLeg.Players);
+				if (cHeadTok == null || cLegTok == null) continue;
+				// every head role must land on exactly one leg role
+				var cMap = new int[2];
+				bool cOk = true;
+				for (int i = 0; i < 2 && cOk; i++)
+				{
+					int found = -1;
+					for (int j = 0; j < 2; j++)
+					{
+						if (cLegTok[j] != cHeadTok[i]) continue;
+						if (found >= 0) { cOk = false; break; }
+						found = j;
+					}
+					if (found < 0) cOk = false;
+					else cMap[i] = found;
+				}
+				if (!cOk || cMap[0] == cMap[1]) continue;
+				ObjectType cRootType;
+				if (!myTypes.TryGetValue(cLeg.Players[0], out cRootType)) continue;
+				var cRule = new FactTypeDerivationRule(myStore);
+				new FactTypeHasDerivationRule(cHead.Fact, cRule);
+				ApplyDerivationMarkers(cHead.Fact, cRule);
+				var cLead = new LeadRolePath(myStore);
+				cRule.OwnedLeadRolePathCollection.Add(cLead);
+				var cRoot = new RolePathObjectTypeRoot(cLead, cRootType);
+				var cEntry = new PathedRole(cLead, cLeg.Roles[0]);
+				cEntry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+				var cStep = new PathedRole(cLead, cLeg.Roles[1]);
+				cStep.PathedRolePurpose = PathedRolePurpose.SameFactType;
+				var cPathed = new PathedRole[] { cEntry, cStep };
+				var cProj = new RoleSetDerivationProjection(cRule, cLead);
+				for (int i = 0; i < 2; i++)
+				{
+					var drp = new DerivedRoleProjection(cProj, cHead.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drp, cPathed[cMap[i]]);
+				}
+				log.Add(cHead.Fact.Name + " := copy of " + cLeg.Fact.Name
+					+ " (" + cHeadTok[0] + "->" + cLegTok[cMap[0]] + ", "
+					+ cHeadTok[1] + "->" + cLegTok[cMap[1]] + "), "
+					+ DescribeDerivation(cHead.Fact));
+				if (cRoot == null) { }
 			}
 			// LEFTOVERS PASS — the object-join arm of the linear two-leg
 			// class: exactly two clauses joined by " and ", sharing ONE type
