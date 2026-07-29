@@ -1,5 +1,5 @@
 {
-  "name": "elysium-js-runner",
+  "name": "arest-js-runner",
   "private": true,
   "version": "0.0.0",
   "description": "The one thin runner: a strict mu plus the fixed host contract (argv atoms in, one text atom out). Composed by byte concatenation, exec'd by bun, never eval'd.",
@@ -8,7 +8,7 @@
     "build:order": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\..\\apps\\order\\design-state + mid2.part.js + ..\\..\\..\\apps\\order\\norma-answer + mid3.part.js + ..\\..\\..\\apps\\order\\journal + mid4.part.js + tail.part.js composed.g.js >nul",
     "build:family": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\..\\apps\\family\\design-state + mid2.part.js + ..\\..\\..\\apps\\family\\norma-answer + mid3.part.js + ..\\..\\..\\apps\\family\\journal + mid4.part.js + tail.part.js composed.g.js >nul",
     "build:sherlock": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\..\\apps\\sherlock\\design-state + mid2.part.js + ..\\..\\..\\apps\\sherlock\\norma-answer + mid3.part.js + ..\\..\\..\\apps\\sherlock\\journal + mid4.part.js + tail.part.js composed.g.js >nul",
-    "build:elysium": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\..\\apps\\elysium\\design-state + mid2.part.js + ..\\..\\..\\apps\\elysium\\norma-answer + mid3.part.js + ..\\..\\..\\apps\\elysium\\journal + mid4.part.js + tail.part.js composed.g.js >nul",
+    "build:arest": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\..\\apps\\arest\\design-state + mid2.part.js + ..\\..\\..\\apps\\arest\\norma-answer + mid3.part.js + ..\\..\\..\\apps\\arest\\journal + mid4.part.js + tail.part.js composed.g.js >nul",
     "build:autodev": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\..\\apps\\auto.dev\\design-state + mid2.part.js + ..\\..\\..\\apps\\auto.dev\\norma-answer + mid3.part.js + ..\\..\\..\\apps\\auto.dev\\journal + mid4.part.js + tail.part.js composed.g.js >nul",
     "start": "bun composed.g.js"
   }

@@ -4,7 +4,7 @@
 # carrier of that name - the worthy driver, network-shaped: the bytes,
 # their name, and their sequence are all canon's; this end holds the
 # platform's single irreducible act. Single-writer by usage.
-#   python serve.py [port] [appdir]        (default 8137, ../../apps/elysium)
+#   python serve.py [port] [appdir]        (default 8137, ../../apps/arest)
 import io
 import os
 import sys
@@ -12,7 +12,7 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8137
 APPDIR = os.path.abspath(sys.argv[2] if len(sys.argv) > 2
-                         else os.path.join("..", "..", "apps", "elysium"))
+                         else os.path.join("..", "..", "apps", "arest"))
 
 class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
