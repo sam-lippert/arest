@@ -1602,7 +1602,29 @@ namespace Elysium.NormaOracle
 						if (c != j1 && e1.Players[c] == p) hits.Add(new KeyValuePair<FactIndexEntry, int>(e1, c));
 					for (int c = 0; c < e2.Players.Count; c++)
 						if (c != j2 && e2.Players[c] == p) hits.Add(new KeyValuePair<FactIndexEntry, int>(e2, c));
-					if (hits.Count != 1) { ok = false; break; }
+					if (hits.Count != 1)
+					{
+						// A RING HEAD IS AMBIGUOUS BY NAME: its two players share a type
+						// name, so each finds a candidate in both legs and hits.Count is 2
+						// with nothing else objecting. The subscript is what the sentence
+						// uses to tell them apart, so read it back rather than declining.
+						// Engaged ONLY once the name match is already ambiguous, so every
+						// rule that resolves today takes the identical path.
+						List<string> hTok = SubscriptedTokens(head, headE.Players);
+						List<string> t1 = SubscriptedTokens(leg1, e1.Players);
+						List<string> t2 = SubscriptedTokens(leg2, e2.Players);
+						if (hTok == null || t1 == null || t2 == null) { ok = false; break; }
+						var narrowed = new List<KeyValuePair<FactIndexEntry, int>>();
+						foreach (var h in hits)
+						{
+							string tok = h.Key == e1 ? t1[h.Value] : t2[h.Value];
+							if (tok == hTok[i]) narrowed.Add(h);
+						}
+						// still ambiguous, or no subscript to disambiguate with: decline
+						if (narrowed.Count != 1) { ok = false; break; }
+						located.Add(narrowed[0]);
+						continue;
+					}
 					located.Add(hits[0]);
 				}
 				if (!ok) continue;
@@ -2320,8 +2342,27 @@ namespace Elysium.NormaOracle
 				generalPerHead.TryGetValue(NormalizeWords(head), out generalRules);
 				// a multi-rule head admits IFF every one of its rules is
 				// this class's shape (the linear-class treatment, mirrored)
-				if (headRules != 1 && generalRules != headRules) continue;
-string[] clauses = Regex.Split(m.Groups[2].Value.Trim(), @" and (?=that |some )");
+				if (headRules != 1 && generalRules != headRules) continue;				// The split only fired when the SECOND clause opened with `that` or
+				// `some`, which is a surface accident rather than a property of the
+				// rule. `Node1 owns some Thing and Node2 holds that Thing` and the
+				// metamodel's `... has antecedent Fact Type and Derivation Rule2
+				// produces that Fact Type` both name their variable before the verb
+				// and arrived as ONE clause. Traced, not guessed: tagging every exit
+				// in this arm showed notTwoClauses firing, three fires after I had
+				// started guessing sites further downstream.
+				// A body with exactly ONE " and " has an unambiguous split point, so
+				// use it when the lookahead misses. Bodies the lookahead already
+				// splits are untouched, and `X has A and B and that C` still takes the
+				// lookahead path rather than being cut into three.
+				string[] clauses = Regex.Split(m.Groups[2].Value.Trim(), @" and (?=that |some )");
+				if (clauses.Length != 2)
+				{
+					string body2 = m.Groups[2].Value.Trim();
+					var ands = Regex.Matches(body2, @" and ");
+					if (ands.Count == 1)
+						clauses = new string[] { body2.Substring(0, ands[0].Index),
+							body2.Substring(ands[0].Index + 5) };
+				}
 				if (clauses.Length != 2) continue;
 				string j = null;
 				foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
@@ -2366,7 +2407,29 @@ string[] clauses = Regex.Split(m.Groups[2].Value.Trim(), @" and (?=that |some )"
 						if (c != j1 && e1.Players[c] == p) hits.Add(new KeyValuePair<FactIndexEntry, int>(e1, c));
 					for (int c = 0; c < e2.Players.Count; c++)
 						if (c != j2 && e2.Players[c] == p) hits.Add(new KeyValuePair<FactIndexEntry, int>(e2, c));
-					if (hits.Count != 1) { ok = false; break; }
+					if (hits.Count != 1)
+					{
+						// A RING HEAD IS AMBIGUOUS BY NAME: its two players share a type
+						// name, so each finds a candidate in both legs and hits.Count is 2
+						// with nothing else objecting. The subscript is what the sentence
+						// uses to tell them apart, so read it back rather than declining.
+						// Engaged ONLY once the name match is already ambiguous, so every
+						// rule that resolves today takes the identical path.
+						List<string> hTok = SubscriptedTokens(head, headE.Players);
+						List<string> t1 = SubscriptedTokens(leg1, e1.Players);
+						List<string> t2 = SubscriptedTokens(leg2, e2.Players);
+						if (hTok == null || t1 == null || t2 == null) { ok = false; break; }
+						var narrowed = new List<KeyValuePair<FactIndexEntry, int>>();
+						foreach (var h in hits)
+						{
+							string tok = h.Key == e1 ? t1[h.Value] : t2[h.Value];
+							if (tok == hTok[i]) narrowed.Add(h);
+						}
+						// still ambiguous, or no subscript to disambiguate with: decline
+						if (narrowed.Count != 1) { ok = false; break; }
+						located.Add(narrowed[0]);
+						continue;
+					}
 					located.Add(hits[0]);
 				}
 				if (!ok) continue;
