@@ -8403,7 +8403,7 @@ DEF("solve:rulenames",
     S3(A("COMP"), A("cat"), S3(A("CONS"), S2(A("ALPHA"), N(1)), S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), A("atom"), S2(A("CONS"), A("id")), A("id"))), N(3))))))),
 
 DEF("solve:declared",
-    S5(A("COMP"), A("theta:flatten"), A("theta:flatten"), A("solve:cell"), S3(A("CONS"), K(A("state:declared")), A("id")))),
+    S4(A("COMP"), A("theta:flatten"), A("solve:cell"), S3(A("CONS"), K(A("state:declared")), A("id")))),
 
 DEF("solve:apptypes",
     S6(A("COMP"), A("theta:dedup"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("read:memberw"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), N(1))), S3(A("COMP"), N(2), N(2)), K(PHI()))), A("distl"), S3(A("CONS"), S3(A("COMP"), A("solve:rulenames"), A("solve:rules")), A("solve:declared")))),
@@ -8440,7 +8440,7 @@ DEF("solve:verdicts",
 "VERBALIZATION (synthesize, the read inverse): state:readings rows <name, players, chunked template words> carry every fact type's reading; solve:say interleaves a population row into the template as a quoted FORML instance sentence, solve:phrase renders the fact-type phrase itself. The solve report speaks these sentences - its output is a readings file, re-ingestable by the reader. Slots cover arities to four; the words chunk uniformly and flatten once. The paper's claim made output: facts verbalize.",
 
 DEF("solve:readings",
-    S6(A("COMP"), S2(A("ALPHA"), S4(A("CONS"), N(1), N(2), S3(A("COMP"), A("theta:flatten"), N(3)))), A("theta:flatten"), A("theta:flatten"), A("solve:cell"), S3(A("CONS"), K(A("state:readings")), A("id")))),
+    S5(A("COMP"), S2(A("ALPHA"), S4(A("CONS"), N(1), N(2), S3(A("COMP"), A("theta:flatten"), N(3)))), A("theta:flatten"), A("solve:cell"), S3(A("CONS"), K(A("state:readings")), A("id")))),
 
 DEF("solve:slot",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("{0}")))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(4), K(A("T")))), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S5(A("CONS"), S3(A("COMP"), N(1), N(2)), K(A(" '")), S3(A("COMP"), N(1), N(3)), K(A("'"))))), S3(A("COMP"), N(1), N(2))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("{1}")))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(4), K(A("T")))), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S5(A("CONS"), S3(A("COMP"), N(2), N(2)), K(A(" '")), S3(A("COMP"), N(2), N(3)), K(A("'"))))), S3(A("COMP"), N(2), N(2))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("{2}")))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(4), K(A("T")))), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S5(A("CONS"), S3(A("COMP"), N(3), N(2)), K(A(" '")), S3(A("COMP"), N(3), N(3)), K(A("'"))))), S3(A("COMP"), N(3), N(2))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("{3}")))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(4), K(A("T")))), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S5(A("CONS"), S3(A("COMP"), N(4), N(2)), K(A(" '")), S3(A("COMP"), N(4), N(3)), K(A("'"))))), S3(A("COMP"), N(4), N(2))), N(1)))))),
