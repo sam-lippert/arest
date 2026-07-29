@@ -2989,14 +2989,41 @@ namespace Arest.NormaOracle
 			//         ->  [[e1 c1] [e3 c1]]
 			// joins on the shared column, two columns out. The recipe was always
 			// expressible; only this guard refused it.
-			// The LEFT leg must stay binary: legA flips with proj(N(2), N(1)) when its
-			// join column is not last, and that flip is meaningless on a one-column
-			// relation. Positions need no special case - a head player in a unary right
-			// leg can only sit AT the join column, which the atJoin branch maps to 2.
-			if (headE.Players.Count != 2 || e1.Players.Count != 2) return;
+			// The left leg may be WIDER THAN BINARY. The note above was right about a
+			// UNARY leg (a flip is meaningless on one column) and wrong about wider ones:
+			// `Event caused Transition in State Machine` is TERNARY, so
+			// TransitionOccurredAtTimestamp built in NORMA and emitted no recipe -- the
+			// last of the five join-over rules to be refused while the other four emitted.
+			// canon hand-writes a PROJECTION, not a flip:
+			//     <proj, EventCausedTransitionInStateMachine, <N2,N1>>
+			// which is <the column e1 contributes, the JOIN column> with the join column
+			// LAST -- exactly what theta:NatJoin(2) requires. So legA generalises from
+			// "flip a binary" to "project any arity down to <contributed, join>": the same
+			// operator, a wider input.
+			// THE GENERAL FORM SUBSUMES THE BINARY ONE. binary+j1==0 yields
+			// proj(e1, <N(2),N(1)>), identical to the old flip; binary+j1==1 makes the
+			// projection the IDENTITY, and canon writes that leg BARE, so it stays bare
+			// rather than emitting proj(e1, <N(1),N(2)>) -- semantically equal, and it
+			// would break every existing MATCH.
+			// AMBIGUITY IS REFUSED: projecting a wide leg to two columns DISCARDS the rest,
+			// so it is sound only when e1 contributes EXACTLY ONE head player that is not
+			// the join column. Two head players in a wide leg would silently lose one.
+			if (headE.Players.Count != 2) return;
+			if (e1.Players.Count < 2) return;
+			if (j1 < 0 || j1 >= e1.Players.Count) return;
 			if (e2.Players.Count != 2 && !(e2.Players.Count == 1 && j2 == 0)) return;
-			string legA = j1 == 1 ? IAtom(e1.Fact.Name)
-				: "S3(" + IAtom("proj") + ", " + IAtom(e1.Fact.Name) + ", S2(N(2), N(1)))";
+			int otherAt = -1, e1Heads = 0;
+			foreach (var kvA in located)
+			{
+				if (kvA.Key != e1) continue;
+				e1Heads++;
+				if (kvA.Value != j1) otherAt = kvA.Value;
+			}
+			if (e1.Players.Count > 2 && (e1Heads != 1 || otherAt < 0)) return;
+			if (otherAt < 0) otherAt = 1 - j1;
+			string legA = (e1.Players.Count == 2 && j1 == 1) ? IAtom(e1.Fact.Name)
+				: "S3(" + IAtom("proj") + ", " + IAtom(e1.Fact.Name)
+					+ ", S2(N(" + (otherAt + 1) + "), N(" + (j1 + 1) + ")))";
 			string legB = j2 == 0 ? IAtom(e2.Fact.Name)
 				: "S3(" + IAtom("proj") + ", " + IAtom(e2.Fact.Name) + ", S2(N(2), N(1)))";
 			var pos = new List<string>();
