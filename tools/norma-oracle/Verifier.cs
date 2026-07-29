@@ -1477,6 +1477,45 @@ namespace Elysium.NormaOracle
 			// a fully-derived head is the CWA closure over ALL its rules; one
 			// role path can hold one rule, so only single-rule heads build —
 			// a multi-rule head built partially would be wrong, not partial
+			// NESTED `that` IS THE SAME DERIVATION WRITTEN DIFFERENTLY, and only one
+			// surface was accepted. Measured A/B on identical semantics:
+			//     Thing has Gamma iff Thing has Alpha and that Alpha maps to Gamma.  BUILDS
+			//     Thing has Gamma iff Thing has Alpha that maps to Gamma.            did not
+			// Both are well formed and Ullman-safe; the second nests the continuation on the
+			// bound variable instead of naming it again after `and`. Every arm splits bodies
+			// on " and ", so the nested form arrives as ONE leg no arm can read.
+			//
+			// So restore the elided variable rather than teach the arms a second shape:
+			//     <...> <Type> that <rest>   ->   <...> <Type> and that <Type> <rest>
+			// The variable inserted is the DECLARED TYPE immediately before ` that `, which
+			// is what the nesting elided - not a guess. Done here because myTypes is complete
+			// by this point and every arm reads myDeferredRules after it.
+			//
+			// Conservative by construction: skipped when the clause already says `and that`,
+			// when no declared type sits at the nesting point, and for the leading-`that`
+			// continuation surface the chain arm already takes.
+			for (int di = 0; di < myDeferredRules.Count; di++)
+			{
+				string dr = myDeferredRules[di], prev;
+				do
+				{
+					prev = dr;
+					Match nm2 = Regex.Match(dr, @" (?<t>[A-Z][\w\-]*(?: [A-Z][\w\-]*)*) that (?!is an?\b)(?<rest>\S)");
+					if (!nm2.Success) break;
+					string ty = nm2.Groups["t"].Value;
+					if (!myTypes.ContainsKey(ty)) break;
+					int at = nm2.Index;
+					if (at >= 5 && dr.Substring(0, at).EndsWith(" and")) break;
+					dr = dr.Substring(0, at) + " " + ty + " and that " + ty + " "
+						+ dr.Substring(nm2.Groups["rest"].Index);
+				} while (dr != prev);
+				if (dr != myDeferredRules[di])
+				{
+					myMapLog.Add("NESTED-THAT normalised: " + Shorten(myDeferredRules[di])
+						+ "  ->  " + Shorten(dr));
+					myDeferredRules[di] = dr;
+				}
+			}
 			var rulesPerHead = new Dictionary<string, int>(StringComparer.Ordinal);
 			var linearPerHead = new Dictionary<string, int>(StringComparer.Ordinal);
 			var generalPerHead = new Dictionary<string, int>(StringComparer.Ordinal);
