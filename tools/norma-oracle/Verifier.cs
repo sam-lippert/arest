@@ -2424,6 +2424,7 @@ namespace Arest.NormaOracle
 				new DerivedRoleProjectedFromRolePathRoot(drpGroup, root);
 				var drpValue = new DerivedRoleProjection(proj, headE.Roles[vAt]);
 				new DerivedRoleProjectedFromCalculatedPathValue(drpValue, cpv);
+				RecordCountRecipe(headE, src, vAt, gAt);
 				log.Add(headE.Fact.Name + " := Count(" + x + ") per " + groupPlayer + " over " + src.Fact.Name + ", fully derived, not stored");
 			}
 			// THE OFFSET CLASS: "* <head> iff <leg> and <headValue> is [that]
@@ -2933,6 +2934,32 @@ namespace Arest.NormaOracle
 		// today without its RULE, and would mis-encode any one-leg chain whose types
 		// do not stand in a subtype relation. Each head player must be the leg's
 		// player at that position, or an ancestor of it.
+		// THE AGGREGATE RECIPE. The count arm builds a complete NORMA rule --
+		// CalculatedPathValue over Count, an aggregation context, both
+		// DerivedRoleProjections -- and then only logs, so unlike the chain arm
+		// there was no guard to widen: the emitter was simply absent. canon
+		// hand-writes <count, FactTypeHasRole, N1>, and derive:eval reads the form
+		// as <"count", source, groupColumn>.
+		// COLUMN ORDER IS CHECKED, NOT ASSUMED: derive:count_for is
+		// CONS(N(1), length . derive:filter_sel(...)), so every output row is
+		// <groupValue, count> -- GROUP FIRST. The head must therefore read
+		// (group, count), which is vAt == 1.
+		// A head reading (count, group) would need proj(count(...), <N(2),N(1)>) --
+		// expressible, since a source slot may be a sub-recipe -- but no such rule
+		// exists today and emitting the UNFLIPPED recipe for it would be right for
+		// the one case that exists and wrong by construction. Declined instead.
+		private void RecordCountRecipe(FactIndexEntry headE, FactIndexEntry src, int vAt, int gAt)
+		{
+			if (headE.Players.Count != 2) return;
+			if (vAt != 1) return;
+			if (gAt < 0 || gAt >= src.Players.Count) return;
+			var headPlayers = new List<string>();
+			foreach (string p in headE.Players) headPlayers.Add(IAtom(p));
+			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S" + headPlayers.Count + "("
+				+ string.Join(", ", headPlayers) + "), S3(" + IAtom("count") + ", "
+				+ IAtom(src.Fact.Name) + ", N(" + (gAt + 1) + ")))");
+		}
+
 		private void RecordRenameRecipe(FactIndexEntry headE, FactIndexEntry e1, int rootAt, int exitAt)
 		{
 			if (headE.Players.Count != 2 || e1.Players.Count != 2) return;
