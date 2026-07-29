@@ -94,7 +94,54 @@ It is forbidden that a Role stores a value that is derivable from existing Fact 
 
 ### Subtype Constraint Declaration
 
-It is obligatory that each subtype Object Type has some totality or exclusion Constraint declared for its supertype relationship.
+<!-- #36 (cont 656): this section previously asserted
+
+       "It is obligatory that each subtype Object Type has some totality or
+        exclusion Constraint declared for its supertype relationship."
+
+     That sentence is FALSE, and it is retired rather than narrowed. Its source
+     is "Subtyping Revisited" Sec 3, which says of the asserted Patient
+     subtypes: "the exclusive-or constraint INDICATING THAT PATIENT IS
+     PARTITIONED INTO THESE TWO SUBTYPES must be explicitly declared, since it
+     is not derivable."
+     The requirement is CONDITIONAL ON THE PARTITION HOLDING. It says: what you
+     cannot derive, you must declare. It does not say every subtype stands in
+     an exclusion or totality constraint — and the same paper's Fig. 5(a) shows
+     Grandparent+ as the ONLY subtype of Person with neither constraint.
+
+     Our own metamodel falsifies it four times over. An exclusion constraint
+     needs at least two arguments, and a totality constraint over a single
+     subtype asserts subtype = supertype. So every supertype with exactly ONE
+     subtype makes the obligation unsatisfiable except by asserting something
+     false, and there are four:
+         Fact Type              is a subtype of Event Type   (core.md:47)
+         HTTP Method            is a subtype of Predicate    (core.md:81)
+         Fact                   is a subtype of Event        (instances.md:31)
+         State Machine Definition is a subtype of Status     (state.md:14)
+     Not every Event Type is a Fact Type, not every Predicate is an HTTP
+     Method, not every Event is a Fact, not every Status is a State Machine
+     Definition — so the missing constraints are missing correctly.
+
+     cont 636 proposed narrowing it to "each ASSERTED subtype". THAT AXIS IS
+     WRONG: all four counterexamples are asserted, so the narrowing leaves
+     every one of them standing. The trigger is whether a partition holds, not
+     how the subtype is populated.
+
+     AND THAT ANTECEDENT IS NOT IN THE MODEL. "An exclusion that holds but is
+     undeclared" is precisely what an undeclared constraint makes invisible, so
+     the paper's rule cannot be written as an obligation over the population at
+     all. It is an instruction to the MODELLER, not a constraint on models, and
+     stating it as an obligation converted advice into a false universal — the
+     same class as #66's deontic sentences that named no type and #82's markers
+     with no deliverer, except that this one was not merely unenforced but
+     wrong. Kept here as prose so it is not re-derived and re-added. -->
+
+The rule that IS checkable, and that the metamodel now satisfies, is its
+contrapositive: an exclusion or totality Constraint over DERIVED subtypes adds
+nothing, because their definitions already entail it (Halpin, *Information
+Modeling and Relational Databases*, p.381). Such a Constraint is redundant
+rather than erroneous — ORM 2 permits declaring it so long as it is marked
+derived — so this is recorded as guidance, not as an obligation.
 
 ### Reference Mode Redundancy
 
