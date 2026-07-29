@@ -1007,15 +1007,24 @@ namespace Arest.NormaOracle
 			Count("subtype declaration");
 		}
 
-		private bool RootsAtFunction(ObjectType t)
+		// Transitive ancestry over SupertypeCollection, reflexive at the name.
+		// RootsAtFunction was this walk with "Function" baked in; it is now one
+		// walk with a parameter, so the subtype-cast check in RecordRenameRecipe
+		// and the one-table Function rule cannot drift apart.
+		private bool RootsAt(ObjectType t, string ancestor)
 		{
 			if (t == null) return false;
-			if (t.Name == "Function") return true;
+			if (t.Name == ancestor) return true;
 			foreach (ObjectType sup in t.SupertypeCollection)
 			{
-				if (RootsAtFunction(sup)) return true;
+				if (RootsAt(sup, ancestor)) return true;
 			}
 			return false;
+		}
+
+		private bool RootsAtFunction(ObjectType t)
+		{
+			return RootsAt(t, "Function");
 		}
 
 		private void MapValueEnum(string typeName, string valueList)
@@ -2334,6 +2343,8 @@ namespace Arest.NormaOracle
 				// ALREADY flips legB to proj<N(2),N(1)> when j2 != 0 -- exactly the shape
 				// canon hand-writes for this rule -- so the recorder needed no change at all;
 				// only the outer test had to admit the orientation.
+				if (legs.Count == 1)
+					RecordRenameRecipe(headE, legs[0].Key, legPos[0].Key, legPos[0].Value);
 				bool fwd2 = legs.Count == 2 && legs[1].Value.Key == legs[0].Value.Value;
 				bool rev2 = legs.Count == 2 && !fwd2
 					&& legs[1].Value.Value == legs[0].Value.Value
@@ -2912,6 +2923,33 @@ namespace Arest.NormaOracle
 		// (join = left's last column meets right's first; proj flips a leg
 		// into that arrangement). v1 records the all-binary shape — wider
 		// legs stay rules:metamodel-side.
+		// A ONE-LEG CHAIN IS A RENAME. `Resource is of Function iff Resource is
+		// instance of some Object Type` has no join column, so RecordRuleRecipe
+		// cannot be its site; canon hand-writes <proj, FT, <N1,N2>> because Object
+		// Type is a subtype of Function and populations share ONE ID SPACE, so the
+		// pair IS a <Resource, Function> pair read at the supertype.
+		// THE CAST IS CHECKED RATHER THAN ASSUMED: emitting a rename for every
+		// one-leg chain would reproduce canon's answer for the two rules that exist
+		// today without its RULE, and would mis-encode any one-leg chain whose types
+		// do not stand in a subtype relation. Each head player must be the leg's
+		// player at that position, or an ancestor of it.
+		private void RecordRenameRecipe(FactIndexEntry headE, FactIndexEntry e1, int rootAt, int exitAt)
+		{
+			if (headE.Players.Count != 2 || e1.Players.Count != 2) return;
+			if (rootAt < 0 || exitAt < 0 || rootAt == exitAt) return;
+			if (rootAt > 1 || exitAt > 1) return;
+			ObjectType tRoot, tExit;
+			if (!myTypes.TryGetValue(e1.Players[rootAt], out tRoot)) return;
+			if (!myTypes.TryGetValue(e1.Players[exitAt], out tExit)) return;
+			if (!RootsAt(tRoot, headE.Players[0])) return;
+			if (!RootsAt(tExit, headE.Players[1])) return;
+			var headPlayers = new List<string>();
+			foreach (string p in headE.Players) headPlayers.Add(IAtom(p));
+			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S" + headPlayers.Count + "("
+				+ string.Join(", ", headPlayers) + "), S3(" + IAtom("proj") + ", "
+				+ IAtom(e1.Fact.Name) + ", S2(N(" + (rootAt + 1) + "), N(" + (exitAt + 1) + "))))");
+		}
+
 		private void RecordRuleRecipe(FactIndexEntry headE, FactIndexEntry e1, FactIndexEntry e2,
 			int j1, int j2, List<KeyValuePair<FactIndexEntry, int>> located)
 		{
