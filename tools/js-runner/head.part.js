@@ -336,7 +336,8 @@ function joinPat(form) {
   // missing that spelling is why the first cut of this path never fired on
   // rmap:childrenN0, which is the whole 1344x1344 case.
   if ((form.length === 4 || form.length === 5)
-      && form[1] === "theta:flatten" && form[3] === "distr"
+      && form[1] === "theta:flatten"
+      && (form[3] === "distr" || form[3] === "distl")
       && Array.isArray(form[2]) && form[2][0] === "ALPHA") {
     const body = form[2][1];
     if (Array.isArray(body) && body[0] === "COND" && body.length === 4
@@ -346,8 +347,13 @@ function joinPat(form) {
       if (Array.isArray(p) && p[0] === "COMP" && p.length === 3 && p[1] === "eq"
           && Array.isArray(p[2]) && p[2][0] === "CONS" && p[2].length === 3) {
         const l = p[2][1], r = p[2][2], rl = rootSel(l), rr = rootSel(r);
-        if (rl === 1 && rr === 2) pat = { elem: l, carrier: r, emit: body[2] };
-        else if (rl === 2 && rr === 1) pat = { elem: r, carrier: l, emit: body[2] };
+        // distr frames are <element, carrier>; distl frames are <carrier, element>.
+        // So the ELEMENT sits at slot 1 under distr and at slot 2 under distl,
+        // and the resolution below inverts with it.
+        const dl = form[3] === "distl";
+        const es = dl ? 2 : 1, cs = dl ? 1 : 2;
+        if (rl === es && rr === cs) pat = { elem: l, carrier: r, emit: body[2], distl: dl };
+        else if (rl === cs && rr === es) pat = { elem: r, carrier: l, emit: body[2], distl: dl };
       }
     }
   }
@@ -422,26 +428,27 @@ function Ev(f, x) {
       const jp = (form.length === 4 || form.length === 5) ? joinPat(form) : null;
       let jx = jp === null ? null : (form.length === 5 ? Ev(form[4], x) : x);
       if (jp !== null && Array.isArray(jx) && jx.length === 2
-          && Array.isArray(jx[0]) && jx[0].length > 32) {
-        const list = jx[0], carrier = jx[1];
+          && Array.isArray(jx[jp.distl ? 1 : 0]) && jx[jp.distl ? 1 : 0].length > 32) {
+        // distl delivers <carrier, list>, distr delivers <list, carrier>
+        const list = jp.distl ? jx[1] : jx[0], carrier = jp.distl ? jx[0] : jx[1];
         let idx = JOINIDX.get(list);
         if (idx === undefined) { idx = new Map(); JOINIDX.set(list, idx); }
         let byKey = idx.get(jp.elem);
         if (byKey === undefined) {
           byKey = new Map();
           for (let i = 0; i < list.length; i++) {
-            const k = JSON.stringify(Ev(jp.elem, [list[i], carrier]));
+            const k = JSON.stringify(Ev(jp.elem, jp.distl ? [carrier, list[i]] : [list[i], carrier]));
             let a = byKey.get(k); if (a === undefined) { a = []; byKey.set(k, a); }
             a.push(list[i]);
           }
           idx.set(jp.elem, byKey);
         }
-        const want = JSON.stringify(Ev(jp.carrier, [[], carrier]));
+        const want = JSON.stringify(Ev(jp.carrier, jp.distl ? [carrier, []] : [[], carrier]));
         const hits = byKey.get(want);
         if (hits === undefined) return [];
         const out = [];
         for (let i = 0; i < hits.length; i++) {
-          const vs = seq(Ev(jp.emit, [hits[i], carrier]));
+          const vs = seq(Ev(jp.emit, jp.distl ? [carrier, hits[i]] : [hits[i], carrier]));
           for (let j = 0; j < vs.length; j++) out.push(vs[j]);
         }
         return out;
