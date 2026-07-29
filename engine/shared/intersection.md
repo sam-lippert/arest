@@ -25,12 +25,22 @@ determines the implementation.
 
 ## The file shape
 
-One tuple literal per file. Elements evaluate left to right in both languages. The
-first element may be a double-quoted string (the file's own description); every
-other element is a DEF(name, tree) call. Nothing else: no imports, no assignments,
-no host functions, no comments (the comment syntaxes do not intersect), and
-double-quoted strings only, since a multi-character single-quoted string is a broken
-char literal to the C-family tokenizers. No trailing comma before the file's closing
+One tuple literal per file. Elements evaluate left to right in both languages. Every
+element is either a DEF(name, tree) call or a double-quoted description string.
+Nothing else: no imports, no assignments, no host functions, no comments (the comment
+syntaxes do not intersect), and double-quoted strings only, since a multi-character
+single-quoted string is a broken char literal to the C-family tokenizers.
+
+Because the comment syntaxes do not intersect, a **description string IS the comment
+mechanism** — it is the only way to carry commentary inside a canon file. A string
+element is legal in every host: a tuple element in Python and Rust (the latter under
+`#[allow(path_statements)]`), a varargs argument in C# and Java, an operand of JS's
+comma operator. (This paragraph previously said only the FIRST element may be a
+string. That predated the merge of the several `shared/*.canon` files into one canon
+at the repo root, which necessarily carried each merged file's own docstring inline:
+canon is 1206 top-level elements = 1152 DEF + 54 string + 0 other, and the strings are
+those docstrings plus dated design notes. `engine/tests/test_intersection_shape.py`
+holds every canon file to the invariant as stated here.) No trailing comma before the file's closing
 paren: the C# and Java hosts consume the same bytes as a varargs method call (a
 generated `T` + file + `;` wrap, their include!), and neither language accepts a
 trailing comma in an argument list. Python and Rust accept both forms, so the
