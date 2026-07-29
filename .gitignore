@@ -108,8 +108,12 @@ apps/*/checker-answer
 bin/
 obj/
 *.class
-tools/js-runner/composed.g.js
-tools/js-runner/probe.g.js
+# every composed .g.js, not two of them by name. Listing them individually is
+# why 53 stray probes (dump*.g.js, probeA.g.js, cw.g.js, ...) accumulated here
+# unignored: each new probe got a new name and nobody added it. A composed file
+# is a byte-concatenation of head + canon + carriers + a tail, so it is always
+# regenerable and never worth tracking.
+tools/js-runner/*.g.js
 tools/web-runner/composed.page.g.js
 tools/java-runner/Composed.g.java
 tools/cs-runner/Composed.g.cs
@@ -117,6 +121,10 @@ tools/wpf-runner/Composed.g.cs
 tools/ifactr-oracle/Composed.g.cs
 tools/norma-oracle/design-state
 tools/norma-oracle/norma-answer
+# the provenance sidecars WriteCarrier stamps beside each carrier
+# (Verifier.cs:4303) -- same class as the carrier they annotate.
+tools/norma-oracle/*.source
+tools/norma-oracle/*.metamodel
 tools/norma-oracle/oracle-report.txt
 tools/norma-oracle/verbalization-report.txt
 tools/norma-oracle/verbalization-report.html
