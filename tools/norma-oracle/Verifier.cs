@@ -54,6 +54,14 @@ namespace Arest.NormaOracle
 		}
 		private readonly HashSet<FactType> myStoredDerived = new HashSet<FactType>();
 		private readonly HashSet<string> mySubtypeDerived = new HashSet<string>(StringComparer.Ordinal);
+		// The qualified subtype DEFINITIONS, kept whole. mySubtypeDerived above
+		// holds only the subtype NAME (it feeds the state:derived marker), but
+		// building the defining rule needs the qualifying clause too, and the
+		// clause cannot be handled at map time — the fact type it steps through
+		// may not be mapped yet. They cannot go on myDeferredRules: that pass
+		// (see the `iff` loop below) is guarded by `^\* (.+?) iff `, and a
+		// subtype definition has no `iff`, so it would be dropped silently.
+		private readonly List<string> mySubtypeDefs = new List<string>();
 		public HashSet<string> FullyDerivedNames()
 		{
 			var names = new HashSet<string>(StringComparer.Ordinal);
@@ -702,6 +710,7 @@ namespace Arest.NormaOracle
 				{
 					MapSubtype(dm.Groups[1].Value.Trim(), dm.Groups[2].Value.Trim());
 					mySubtypeDerived.Add(dm.Groups[1].Value.Trim());
+					mySubtypeDefs.Add(s);
 					Count("derived subtype (edge mapped; rule deferred)");
 					return;
 				}
@@ -1687,6 +1696,132 @@ namespace Arest.NormaOracle
 			foreach (Function fn in myStore.ElementDirectory.FindElements<Function>(true))
 			{
 				if (!fn.IsDeleted && fn.IsBoolean && fn.Name == "Equals") { eqFn = fn; break; }
+			}
+			// THE QUALIFIED SUBTYPE DEFINITION — Halpin 6.5 (p.253), Fig 13.29:
+			//     * Each Entity Type is an Object Type that is of OT Kind 'entity'.
+			// Halpin is explicit that these "definitions are FORMAL - they are not just
+			// comments", so a transcriber that maps only the edge drops model content.
+			// Until now this arm mapped the SubtypeFact and stopped, counting "rule
+			// deferred" - but nothing downstream ever built it, so the subtype carried a
+			// state:derived marker with NO deliverer, which is precisely what
+			// marker-closure reads against rules:metamodel.
+			//
+			// NORMA has the mechanism and we drove it ZERO times: SubtypeDerivationRule
+			// (: RolePathOwner) attached to the SUBTYPE OBJECT TYPE via
+			// SubtypeHasDerivationRule - ObjectType.DerivationRule, NOT the SubtypeFact.
+			// Attaching it to the fact edge by analogy with FactTypeDerivationRule is the
+			// obvious wrong guess; DomainClasses.cs:6114 settles it.
+			//
+			// NO PROJECTION. RoleSetDerivationProjection/DerivedRoleProjection bind a
+			// derived head's roles to path variables; a subtype definition has no head
+			// roles - it defines MEMBERSHIP. Copying the join arm wholesale would attach a
+			// projection with nothing to project, which constructs cleanly and only fails
+			// at validate time.
+			//
+			// The literal IS baked, deliberately, and this is the exact inverse of the
+			// offset arm's ruling below ("would BAKE the literal ... change the window and
+			// the rule still says 48. Right answer, wrong rule."). There the operand was a
+			// REFERENCE to a value type carrying its value as a population. Here 'entity'
+			// is a discriminator drawn from `The possible values of OT Kind are
+			// 'entity','value'` - change the literal and the SUBTYPE changes. So a
+			// PathConstant is the meaning here, not a shortcut.
+			// Kill switch, following the AREST_NO_* convention of docs/15: with it set the
+			// arm declines and the oracle reproduces the asserted-subtype answer, so the
+			// derived-vs-asserted Rmap difference can be A/B'd in one build.
+			bool noSubtypeRule = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AREST_NO_SUBTYPE_RULE"));
+			foreach (string sd in noSubtypeRule ? new List<string>() : mySubtypeDefs)
+			{
+				Match sm = Regex.Match(sd, @"^\* Each ([\w ]+?) is an? ([\w ]+?) (?:that|who|which) (.+?)\s*\.?$");
+				if (!sm.Success) continue;
+				// myTypes is keyed by the DECLARED name under StringComparer.Ordinal, and
+				// FindEntryByNormalizedSentence wants the NORMALIZED form. Normalizing both
+				// missed every type ("entity type" vs "Entity Type") - traced, not guessed.
+				string subN = sm.Groups[1].Value.Trim();
+				string supN = sm.Groups[2].Value.Trim();
+				ObjectType subOT, supOT;
+				if (!myTypes.TryGetValue(subN, out subOT) || !myTypes.TryGetValue(supN, out supOT)) continue;
+				if (subOT.DerivationRule != null) continue;
+				// split the trailing quoted literal off the qualifying predicate
+				Match pm = Regex.Match(sm.Groups[3].Value.Trim(), @"^(.+?)\s+'([^']*)'\s*$");
+				if (!pm.Success) continue;
+				string verb = pm.Groups[1].Value.Trim();
+				FactIndexEntry qe = FindEntryByNormalizedSentence(NormalizeWords(supN + " " + verb));
+				if (qe == null || qe.Roles.Count != 2) continue;
+				int rootAt = qe.Players.IndexOf(supN);
+				if (rootAt < 0) continue;
+				if (eqFn == null)
+				{
+					eqFn = new Function(myStore);
+					eqFn.Name = "Equals";
+					eqFn.IsBoolean = true;
+					eqFn.Model = myModel;
+					var pa3 = new FunctionParameter(myStore); pa3.Function = eqFn; pa3.Name = "left";
+					var pb3 = new FunctionParameter(myStore); pb3.Function = eqFn; pb3.Name = "right";
+				}
+				var srule = new SubtypeDerivationRule(myStore);
+				new SubtypeHasDerivationRule(subOT, srule);
+				// BOTH properties, explicitly — the same pair ApplyDerivationMarkers sets for
+				// fact-type rules. rmap-algorithm.md:39 fixes the marker mapping:
+				// `*` => FullyDerived + NotStored. Setting only completeness left storage at
+				// whatever the default is, and canon's D.4 arm keys on state:derived's
+				// 'subtype' mode as a stand-in for "fully derived and not stored". With both
+				// set here that stand-in is exact BY CONSTRUCTION rather than by the accident
+				// that the arm's `^\* Each ` regex cannot currently accept a `**` subtype.
+				srule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
+				srule.DerivationStorage = DerivationStorage.NotStored;
+				var slead = new LeadRolePath(myStore);
+				srule.OwnedLeadRolePathCollection.Add(slead);
+				new RolePathObjectTypeRoot(slead, supOT);
+				var sEnter = new PathedRole(slead, qe.Roles[rootAt]);
+				sEnter.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+				var sVal = new PathedRole(slead, qe.Roles[1 - rootAt]);
+				sVal.PathedRolePurpose = PathedRolePurpose.SameFactType;
+				var scpv = new CalculatedPathValue(myStore);
+				scpv.Function = eqFn;
+				var sInL = new CalculatedPathValueInput(myStore);
+				scpv.InputCollection.Add(sInL);
+				var sInR = new CalculatedPathValueInput(myStore);
+				scpv.InputCollection.Add(sInR);
+				int spi = 0;
+				foreach (FunctionParameter fp in eqFn.ParameterCollection)
+				{
+					if (spi == 0) new CalculatedPathValueInputCorrespondsToFunctionParameter(sInL, fp);
+					else if (spi == 1) { new CalculatedPathValueInputCorrespondsToFunctionParameter(sInR, fp); break; }
+					spi++;
+				}
+				new CalculatedPathValueInputBindsToPathedRole(sInL, sVal);
+				var spc = new PathConstant(myStore);
+				spc.LexicalValue = pm.Groups[2].Value;
+				new CalculatedPathValueInputBindsToPathConstant(sInR, spc);
+				// the CONDITION attachment - "the calculated values that must be satisfied
+				// by the path" (LeadRolePath.CalculatedConditionCollection,
+				// DomainClasses.cs:12817). FIRST condition-shaped use in this file: every
+				// other CalculatedPathValue here is PROJECTED as a value, so there is no
+				// in-repo precedent to pattern-match against.
+				slead.CalculatedConditionCollection.Add(scpv);
+				// EMIT THE RECIPE. Building the NORMA rule is not enough: state:rules is
+				// what the closure machinery runs and what marker-closure reads against
+				// rules:metamodel, and it comes from myRuleRecipes alone. Six arms have
+				// now moved `built` without moving coverage by skipping this.
+				//
+				// The shape is NOT invented - canon already hand-writes these two rules in
+				// rules:metamodel, verbatim:
+				//   S2(A("Entity Type"), S3(A("proj"),
+				//        S4(A("sel"), A("ObjectTypeIsOfOTKind"), N(2), A("entity")),
+				//        S1(N(1))))
+				// and the one-leg conjunction arm above already computes exactly that
+				// shape: selector N(2-rootAt), projection N(rootAt+1). With the supertype
+				// at position 0 the two agree term for term. state:rules rows carry the
+				// players field that rules:metamodel rows omit (solve:fts2 copies it into
+				// the descriptor), hence S3(name, players, recipe) here against canon's
+				// S2(name, recipe).
+				myRuleRecipes.Add("S3(" + IAtom(subN) + ", S1(" + IAtom(subN) + "), S3("
+					+ IAtom("proj") + ", S4(" + IAtom("sel") + ", " + IAtom(qe.Fact.Name)
+					+ ", N(" + (2 - rootAt) + "), " + IAtom(pm.Groups[2].Value) + "), S1(N("
+					+ (rootAt + 1) + "))))");
+				Count("subtype derivation rule BUILT (Halpin 6.5 qualified definition)");
+				log.Add(subN + " := " + supN + " where " + verb + " = '" + pm.Groups[2].Value
+					+ "', subtype rule, fully derived");
 			}
 			foreach (string s in myDeferredRules)
 			{
@@ -4934,10 +5069,32 @@ namespace Arest.NormaOracle
 				}
 				while (roleInfos.Count < 2) roleInfos.Add("PHI()");
 				var dr = ft.DerivationRule as FactTypeDerivationRule;
-				string dcomp = dr == null ? "none"
-					: (dr.DerivationCompleteness == DerivationCompleteness.PartiallyDerived ? "partial" : "full");
-				string dstore = dr == null ? "none"
-					: (dr.DerivationStorage == DerivationStorage.Stored ? "stored" : "notstored");
+				// A SUBTYPE fact carries no derivation rule of its own. NORMA hangs a
+				// SubtypeDerivationRule off the subtype OBJECT TYPE
+				// (ObjectType.DerivationRule, DomainClasses.cs:6114), so reading only
+				// ft.DerivationRule reported none/none for every derived subtype.
+				// MEASURED, not inferred: with the subtype arm on and off, this row's
+				// facttypeFlags were byte-identical, slots 4/5 both 'none'. Canon's
+				// rmap:gate already implements NORMA's predicate
+				// (FullyDerived && (!External || NotStored), AssimilationMapping.cs:210)
+				// and simply was never told the subtype was derived.
+				//
+				// REPORTED, NOT DECIDED — same discipline as fields 8 and 9 below: the
+				// completeness and storage are handed over as facts and canon composes
+				// the exclusion itself. Deciding absorption here would leave NORMA's
+				// rule behind in C#.
+				var subFact = ft as SubtypeFact;
+				SubtypeDerivationRule sdr = subFact != null ? subFact.Subtype.DerivationRule : null;
+				string dcomp = dr != null
+					? (dr.DerivationCompleteness == DerivationCompleteness.PartiallyDerived ? "partial" : "full")
+					: sdr != null
+						? (sdr.DerivationCompleteness == DerivationCompleteness.PartiallyDerived ? "partial" : "full")
+						: "none";
+				string dstore = dr != null
+					? (dr.DerivationStorage == DerivationStorage.Stored ? "stored" : "notstored")
+					: sdr != null
+						? (sdr.DerivationStorage == DerivationStorage.Stored ? "stored" : "notstored")
+						: "none";
 				// Fields 8 and 9 are the two facts the subtype depth formula needs
 				// (OialModelIsForORMModel.cs:364). They are reported rather than
 				// decided: canon composes the disjunction itself, because a single
