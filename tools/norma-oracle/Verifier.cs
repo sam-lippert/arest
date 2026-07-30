@@ -2242,6 +2242,15 @@ namespace Arest.NormaOracle
 				// or at the sub-path whose step introduced it
 				var boundAt = new Dictionary<string, RolePath>(StringComparer.Ordinal) { { rootVar, lead } };
 				var stepOf = new Dictionary<string, PathedRole>(StringComparer.Ordinal);
+				// the chain as the traversal RESOLVES it: per leg, its entry and exit
+				// COLUMN positions and the variable it introduces. Collected here rather
+				// than recomputed, because sentence order is not traversal order
+				// (instances.md:445's third clause reads SMDef-first and is entered at
+				// Object Type) and one resolution is better than two that can disagree.
+				var foldLegs = new List<FactIndexEntry>();
+				var foldPos = new List<KeyValuePair<int, int>>();
+				var foldVars = new List<string>();
+				bool foldLinear = true;
 				for (int li = 0; li < legs.Count; li++)
 				{
 					var leg = legs[li];
@@ -2252,6 +2261,10 @@ namespace Arest.NormaOracle
 					int eAt = entryVar == t1 ? legPos[li].Key : legPos[li].Value;
 					int nAt = entryVar == t1 ? legPos[li].Value : legPos[li].Key;
 					if (eAt < 0 || nAt < 0) { ok = false; break; }
+					if (li > 0 && entryVar != foldVars[li - 1]) foldLinear = false;
+					foldLegs.Add(leg.Key);
+					foldPos.Add(new KeyValuePair<int, int>(eAt, nAt));
+					foldVars.Add(newVar);
 					var sub = new RoleSubPath(myStore);
 					boundAt[entryVar].SubPathCollection.Add(sub);
 					var entry = new PathedRole(sub, leg.Key.Roles[eAt]);
@@ -2343,6 +2356,12 @@ namespace Arest.NormaOracle
 				// ALREADY flips legB to proj<N(2),N(1)> when j2 != 0 -- exactly the shape
 				// canon hand-writes for this rule -- so the recorder needed no change at all;
 				// only the outer test had to admit the orientation.
+				if (legs.Count >= 3 && foldVars.Count == legs.Count)
+				{
+					string lastVar = foldVars[foldVars.Count - 1], lastVarT;
+					if (!typeOfVar.TryGetValue(lastVar, out lastVarT)) lastVarT = lastVar;
+					RecordChainFoldRecipe(headE, foldLegs, foldPos, foldLinear, rootVarT, lastVarT);
+				}
 				if (legs.Count == 1)
 					RecordRenameRecipe(headE, legs[0].Key, legPos[0].Key, legPos[0].Value);
 				bool fwd2 = legs.Count == 2 && legs[1].Value.Key == legs[0].Value.Value;
@@ -2958,6 +2977,49 @@ namespace Arest.NormaOracle
 			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S" + headPlayers.Count + "("
 				+ string.Join(", ", headPlayers) + "), S3(" + IAtom("count") + ", "
 				+ IAtom(src.Fact.Name) + ", N(" + (gAt + 1) + ")))");
+		}
+
+		// A MULTI-LEG CHAIN FOLDS. RecordRuleRecipe takes a fixed PAIR, so a chain of
+		// three or more legs had no site: canon left-associates the joins,
+		//   <join, <join, leg0, leg1, <N1,N3>>, <proj, leg2, <N2,N1>>, <N1,N3>>
+		// and each join yields (left-non-join, JOIN, right-non-join) = 1,2,3, so
+		// projecting <N1,N3> keeps the accumulator at two columns (root, current exit).
+		// That invariant is what makes the fold work at every step: the accumulator is
+		// always shaped like a left leg whose join column is already last.
+		// Orientation per leg is the SAME pair of rules the two-leg recorder uses --
+		// leg 0 with its EXIT last, every later leg JOIN-COLUMN-FIRST -- and the
+		// identity cases stay BARE so the emitted tree is byte-equal to canon's.
+		// LINEARITY IS REQUIRED AND CHECKED: the fold assumes each leg enters at the
+		// variable its predecessor introduced. A leg closing back onto an already-bound
+		// variable is a different topology and would fold wrong, silently, so it is
+		// refused. Two-leg chains stay on RecordRuleRecipe's proven path; this fires
+		// only at three or more.
+		private void RecordChainFoldRecipe(FactIndexEntry headE, List<FactIndexEntry> legsIn,
+			List<KeyValuePair<int, int>> posIn, bool linear, string rootVarT, string lastVarT)
+		{
+			if (!linear) return;
+			if (legsIn.Count < 3) return;
+			if (headE.Players.Count != 2) return;
+			for (int i = 0; i < legsIn.Count; i++)
+				if (legsIn[i].Players.Count != 2) return;
+			// the head must be exactly (root, last exit); anything else means the chain
+			// does not project onto the head the way this fold assumes
+			if (rootVarT != headE.Players[0]) return;
+			if (lastVarT != headE.Players[1]) return;
+			string acc = posIn[0].Value == 1 ? IAtom(legsIn[0].Fact.Name)
+				: "S3(" + IAtom("proj") + ", " + IAtom(legsIn[0].Fact.Name)
+					+ ", S2(N(" + (posIn[0].Key + 1) + "), N(" + (posIn[0].Value + 1) + ")))";
+			for (int i = 1; i < legsIn.Count; i++)
+			{
+				string legB = posIn[i].Key == 0 ? IAtom(legsIn[i].Fact.Name)
+					: "S3(" + IAtom("proj") + ", " + IAtom(legsIn[i].Fact.Name)
+						+ ", S2(N(" + (posIn[i].Key + 1) + "), N(" + (posIn[i].Value + 1) + ")))";
+				acc = "S4(" + IAtom("join") + ", " + acc + ", " + legB + ", S2(N(1), N(3)))";
+			}
+			var headPlayers = new List<string>();
+			foreach (string p in headE.Players) headPlayers.Add(IAtom(p));
+			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S" + headPlayers.Count + "("
+				+ string.Join(", ", headPlayers) + "), " + acc + ")");
 		}
 
 		private void RecordRenameRecipe(FactIndexEntry headE, FactIndexEntry e1, int rootAt, int exitAt)
