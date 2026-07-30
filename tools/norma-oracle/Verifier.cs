@@ -2378,6 +2378,61 @@ namespace Arest.NormaOracle
 				foreach (var leg in legs) names.Add(leg.Key.Fact.Name);
 				log.Add(headE.Fact.Name + " := chain over " + string.Join(" -> ", names) + ", fully derived, not stored");
 			}
+			// THE NEGATION CLASS: `iff <positive> and no <Type> <clause> where <clause>`.
+			// The scope note above lists negation as exceeding a single role path; §296 and
+			// ORM2Core.xsd's PathedRoleType.IsNegated say otherwise, so that is wrong on this
+			// item. This arm takes the RECIPE half: no NORMA path is built here (that wants
+			// IsNegated wiring and is its own increment), but the executable recipe is emitted,
+			// exactly as the stored-derived conjunction does.
+			// Each side is a BARE fact type or the two-leg join JoinRecipe already builds, and
+			// minus wraps them -- no new recipe shape. legA is the clause holding the head's
+			// FIRST player, since legA's non-join column becomes column 1 of the join.
+			foreach (string s in myDeferredRules)
+			{
+				Match nm = Regex.Match(s, @"^\* (.+?) iff (.+?) and no ([A-Z][\w ]*?) (.+?) where (.+)\.$");
+				if (!nm.Success) continue;
+				string nHead = nm.Groups[1].Value.Trim();
+				int nHeadRules;
+				rulesPerHead.TryGetValue(RuleHeadKey(nHead), out nHeadRules);
+				if (nHeadRules != 1) continue;
+				FactIndexEntry nHeadE = FindEntryByNormalizedSentence(nHead);
+				if (nHeadE == null || nHeadE.Players.Count != 2) continue;
+				string negVar = nm.Groups[3].Value.Trim();
+				// the negated side: the existential's own clause, and the where clause
+				string negMain = Dequantify(" " + negVar + " " + nm.Groups[4].Value.Trim()).Trim();
+				string negWhere = Dequantify(" " + nm.Groups[5].Value.Trim()).Trim();
+				string negRecipe = TwoClauseRecipe(nHeadE, negWhere, negMain, negVar);
+				if (negRecipe == null) continue;
+				// the positive side: one clause (a bare fact type) or two joined on a variable
+				string pos = nm.Groups[2].Value.Trim();
+				string posRecipe = null;
+				string[] posParts = Regex.Split(pos, @" and (?=that |some )");
+				if (posParts.Length == 1)
+				{
+					FactIndexEntry pe = FindEntryByNormalizedSentence(Dequantify(" " + pos).Trim());
+					if (pe != null && pe.Players.Count == 2
+						&& pe.Players[0] == nHeadE.Players[0] && pe.Players[1] == nHeadE.Players[1])
+						posRecipe = IAtom(pe.Fact.Name);
+				}
+				else if (posParts.Length == 2)
+				{
+					Match pv = Regex.Match(posParts[0].Trim(), @"^(?:some|that) ([A-Z][\w ]*?) ");
+					if (pv.Success)
+					{
+						string p1 = Dequantify(" " + posParts[0].Trim()).Trim();
+						string p2 = Dequantify(" " + posParts[1].Trim()).Trim();
+						posRecipe = TwoClauseRecipe(nHeadE, p2, p1, pv.Groups[1].Value.Trim());
+					}
+				}
+				if (posRecipe == null) continue;
+				var nHeadPlayers = new List<string>();
+				foreach (string pp in nHeadE.Players) nHeadPlayers.Add(IAtom(pp));
+				myRuleRecipes.Add("S3(" + IAtom(nHeadE.Fact.Name) + ", S" + nHeadPlayers.Count + "("
+					+ string.Join(", ", nHeadPlayers) + "), S3(" + IAtom("minus") + ", "
+					+ posRecipe + ", " + negRecipe + "))");
+				log.Add(nHeadE.Fact.Name + " := negation (positive minus no-" + negVar
+					+ "), fully derived, not stored");
+			}
 			foreach (string s in myDeferredRules)
 			{
 				Match m = Regex.Match(s, @"^\* (.+?) iff ([\w ]+?) is the count of ([\w ]+?) where (.+)\.$");
@@ -3068,7 +3123,41 @@ namespace Arest.NormaOracle
 				+ IAtom(e1.Fact.Name) + ", S2(N(" + (rootAt + 1) + "), N(" + (exitAt + 1) + "))))");
 		}
 
-		private void RecordRuleRecipe(FactIndexEntry headE, FactIndexEntry e1, FactIndexEntry e2,
+		// Two clauses sharing an existential variable, compiled to the join recipe.
+		// clauseA is the one holding the head's FIRST player and becomes legA, so its
+		// non-join column lands in column 1 of the join. Returns null when either clause
+		// fails to resolve, when the shared variable is not a player of both, or when a
+		// head player cannot be located -- silence beats a recipe built on a guess.
+		private string TwoClauseRecipe(FactIndexEntry headE, string clauseA, string clauseB,
+			string joinVar)
+		{
+			FactIndexEntry a = FindEntryByNormalizedSentence(clauseA);
+			FactIndexEntry b = FindEntryByNormalizedSentence(clauseB);
+			if (a == null || b == null || a == b) return null;
+			if (a.Players.Count != 2 || b.Players.Count != 2) return null;
+			int ja = a.Players.IndexOf(joinVar), jb = b.Players.IndexOf(joinVar);
+			if (ja < 0 || jb < 0) return null;
+			// each head player must sit in exactly one of the two clauses, away from the join
+			var located = new List<KeyValuePair<FactIndexEntry, int>>();
+			foreach (string hp in headE.Players)
+			{
+				int ia = a.Players.IndexOf(hp), ib = b.Players.IndexOf(hp);
+				if (ia >= 0 && ia != ja)
+					located.Add(new KeyValuePair<FactIndexEntry, int>(a, ia));
+				else if (ib >= 0 && ib != jb)
+					located.Add(new KeyValuePair<FactIndexEntry, int>(b, ib));
+				else return null;
+			}
+			return JoinRecipe(headE, a, b, ja, jb, located);
+		}
+
+		// THE TWO-LEG JOIN RECIPE, or null when the shape is refused. Extracted from
+		// RecordRuleRecipe so the minus form can compile its POSITIVE and NEGATIVE sides
+		// with the SAME rules -- canon writes both sides of a negated rule as this exact
+		// join shape, so a second copy of the orientation logic would be two things to
+		// keep in step. Callable three times: positive side, negative side, and the
+		// original two-leg path.
+		private string JoinRecipe(FactIndexEntry headE, FactIndexEntry e1, FactIndexEntry e2,
 			int j1, int j2, List<KeyValuePair<FactIndexEntry, int>> located)
 		{
 			// A UNARY RIGHT LEG IS JOINABLE and was being refused, so
@@ -3099,10 +3188,10 @@ namespace Arest.NormaOracle
 			// AMBIGUITY IS REFUSED: projecting a wide leg to two columns DISCARDS the rest,
 			// so it is sound only when e1 contributes EXACTLY ONE head player that is not
 			// the join column. Two head players in a wide leg would silently lose one.
-			if (headE.Players.Count != 2) return;
-			if (e1.Players.Count < 2) return;
-			if (j1 < 0 || j1 >= e1.Players.Count) return;
-			if (e2.Players.Count != 2 && !(e2.Players.Count == 1 && j2 == 0)) return;
+			if (headE.Players.Count != 2) return null;
+			if (e1.Players.Count < 2) return null;
+			if (j1 < 0 || j1 >= e1.Players.Count) return null;
+			if (e2.Players.Count != 2 && !(e2.Players.Count == 1 && j2 == 0)) return null;
 			int otherAt = -1, e1Heads = 0;
 			foreach (var kvA in located)
 			{
@@ -3110,7 +3199,7 @@ namespace Arest.NormaOracle
 				e1Heads++;
 				if (kvA.Value != j1) otherAt = kvA.Value;
 			}
-			if (e1.Players.Count > 2 && (e1Heads != 1 || otherAt < 0)) return;
+			if (e1.Players.Count > 2 && (e1Heads != 1 || otherAt < 0)) return null;
 			if (otherAt < 0) otherAt = 1 - j1;
 			string legA = (e1.Players.Count == 2 && j1 == 1) ? IAtom(e1.Fact.Name)
 				: "S3(" + IAtom("proj") + ", " + IAtom(e1.Fact.Name)
@@ -3126,11 +3215,20 @@ namespace Arest.NormaOracle
 				bool atJoin = (kv.Key == e1 && kv.Value == j1) || (kv.Key == e2 && kv.Value == j2);
 				pos.Add("N(" + (atJoin ? 2 : kv.Key == e1 ? 1 : 3) + ")");
 			}
+			return "S4(" + IAtom("join") + ", " + legA + ", " + legB
+				+ ", S2(" + string.Join(", ", pos) + "))";
+		}
+
+		// The wrapper: <target, columnTypes, recipe>. The recipe itself is JoinRecipe's.
+		private void RecordRuleRecipe(FactIndexEntry headE, FactIndexEntry e1, FactIndexEntry e2,
+			int j1, int j2, List<KeyValuePair<FactIndexEntry, int>> located)
+		{
+			string recipe = JoinRecipe(headE, e1, e2, j1, j2, located);
+			if (recipe == null) return;
 			var headPlayers = new List<string>();
 			foreach (string p in headE.Players) headPlayers.Add(IAtom(p));
 			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S" + headPlayers.Count + "("
-				+ string.Join(", ", headPlayers) + "), S4(" + IAtom("join") + ", "
-				+ legA + ", " + legB + ", S2(" + string.Join(", ", pos) + ")))");
+				+ string.Join(", ", headPlayers) + "), " + recipe + ")");
 		}
 
 		private static string Dequantify(string leg)
