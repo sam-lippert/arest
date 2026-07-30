@@ -2003,6 +2003,7 @@ namespace Arest.NormaOracle
 					// fact keeps NO in-store body. Its executable recipe is
 					// parse-side (state:rules/canon); the store carries the
 					// marker triple only.
+					RecordConjunctionRecipe(headE, condLegs);
 					log.Add(headE.Fact.Name + " := conjunction head, " + DescribeDerivation(headE.Fact) + " (body external to store)");
 					continue;
 				}
@@ -2063,23 +2064,7 @@ namespace Arest.NormaOracle
 				// (DomainChangeIsValid), and solve:fts2 copies a rule row's players
 				// field wholesale into the descriptor without indexing it, so a
 				// one-element list is safe there.
-				if (condLegs.Count == 1 && headE.Players.Count == 1)
-				{
-					var leg0 = condLegs[0];
-					int rootAt = leg0.Value.Key;
-					string src = IAtom(leg0.Key.Fact.Name);
-					if (leg0.Value.Value != null)
-					{
-						// sel's third element is a SELECTOR, not an index - see
-						// derive:eval's sel arm, which pairs it with the value and hands
-						// both to derive:filter_sel. Columns are 1-based.
-						src = "S4(" + IAtom("sel") + ", " + src + ", N(" + (2 - rootAt)
-							+ "), " + IAtom(leg0.Value.Value) + ")";
-					}
-					myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S1("
-						+ IAtom(headE.Players[0]) + "), S3(" + IAtom("proj") + ", " + src
-						+ ", S1(N(" + (rootAt + 1) + "))))");
-				}
+				RecordConjunctionRecipe(headE, condLegs);
 				log.Add(headE.Fact.Name + " := conjunction at " + rootVar + " ("
 					+ string.Join(" & ", condLegs.Select(l => l.Key.Fact.Name + (l.Value.Value != null ? "='" + l.Value.Value + "'" : ""))) + "), "
 					+ DescribeDerivation(headE.Fact));
@@ -2994,6 +2979,50 @@ namespace Arest.NormaOracle
 		// variable is a different topology and would fold wrong, silently, so it is
 		// refused. Two-leg chains stay on RecordRuleRecipe's proven path; this fires
 		// only at three or more.
+		// THE CONJUNCTION RECIPE, for one or two conditions on a shared root.
+		// Extracted so the STORED (**) path can emit it too: a stored fact keeps no
+		// in-store NORMA body (LeadRolePathAddedRule clears ExternalDerivation on any
+		// path add), but its executable recipe is parse-side -- the arm's own comment
+		// says so, and AREST.tex def:derive agrees that completeness and storage are
+		// ORTHOGONAL, so `**` means derived AND materialized and says nothing about
+		// whether a rule exists. canon hand-writes the recipe; the silence was ours.
+		// ONE leg is a select-then-project. TWO legs join on the shared root column:
+		//   <joinon, srcA, srcB, <<N(rootA), N(rootB)>>, <N(rootA)>>
+		// THREE or more are DECLINED -- nesting joinons is a different shape and no
+		// such rule exists in the corpus, so emitting one would be a guess.
+		private void RecordConjunctionRecipe(FactIndexEntry headE,
+			List<KeyValuePair<FactIndexEntry, KeyValuePair<int, string>>> condLegs)
+		{
+			if (headE.Players.Count != 1) return;
+			if (condLegs.Count < 1 || condLegs.Count > 2) return;
+			var srcs = new List<string>();
+			var roots = new List<int>();
+			foreach (var leg in condLegs)
+			{
+				int rootAt = leg.Value.Key;
+				if (rootAt < 0 || leg.Key.Players.Count != 2) return;
+				string src = IAtom(leg.Key.Fact.Name);
+				if (leg.Value.Value != null)
+					// sel's third element is a SELECTOR, not an index - see derive:eval's
+					// sel arm, which pairs it with the value and hands both to
+					// derive:filter_sel. Columns are 1-based.
+					src = "S4(" + IAtom("sel") + ", " + src + ", N(" + (2 - rootAt)
+						+ "), " + IAtom(leg.Value.Value) + ")";
+				srcs.Add(src);
+				roots.Add(rootAt);
+			}
+			string recipe;
+			if (srcs.Count == 1)
+				recipe = "S3(" + IAtom("proj") + ", " + srcs[0]
+					+ ", S1(N(" + (roots[0] + 1) + ")))";
+			else
+				recipe = "S5(" + IAtom("joinon") + ", " + srcs[0] + ", " + srcs[1]
+					+ ", S1(S2(N(" + (roots[0] + 1) + "), N(" + (roots[1] + 1) + ")))"
+					+ ", S1(N(" + (roots[0] + 1) + ")))";
+			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S1("
+				+ IAtom(headE.Players[0]) + "), " + recipe + ")");
+		}
+
 		private void RecordChainFoldRecipe(FactIndexEntry headE, List<FactIndexEntry> legsIn,
 			List<KeyValuePair<int, int>> posIn, bool linear, string rootVarT, string lastVarT)
 		{
