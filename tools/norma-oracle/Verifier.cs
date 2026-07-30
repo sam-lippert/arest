@@ -1590,6 +1590,9 @@ namespace Arest.NormaOracle
 			var rulesPerHead = new Dictionary<string, int>(StringComparer.Ordinal);
 			var linearPerHead = new Dictionary<string, int>(StringComparer.Ordinal);
 			var generalPerHead = new Dictionary<string, int>(StringComparer.Ordinal);
+			// the same counts keyed by the RESOLVED FACT NAME: emitted recipes carry that name,
+			// while rulesPerHead is keyed by RuleHeadKey's fact-type id
+			var rulesPerFactName = new Dictionary<string, int>(StringComparer.Ordinal);
 			foreach (string sRaw0 in myDeferredRules)
 			{
 				string s = sRaw0;
@@ -1600,6 +1603,13 @@ namespace Arest.NormaOracle
 				int n;
 				rulesPerHead.TryGetValue(h, out n);
 				rulesPerHead[h] = n + 1;
+				FactIndexEntry he0 = FindEntryByNormalizedSentence(hm.Groups[1].Value.Trim());
+				if (he0 != null)
+				{
+					int nf;
+					rulesPerFactName.TryGetValue(he0.Fact.Name, out nf);
+					rulesPerFactName[he0.Fact.Name] = nf + 1;
+				}
 				// a multi-rule head may build IFF every one of its rules is
 				// linear-class: the closure is the union of its lead role
 				// paths, and a head split across classes would build
@@ -2975,6 +2985,40 @@ namespace Arest.NormaOracle
 				log.Add("UNBUILT SUMMARY: " + unbuiltHeadless + " with an undeclared head, "
 					+ unbuiltUnmatched + " with a body no arm accepts, "
 					+ unbuiltPartial + " on a head whose paths are fewer than its rules");
+			}
+			// THE PARTIAL-HEAD INVARIANT. A head's population is the union of ALL its rules
+			// (derive:merge_news folds every rule's news into the target), so emitting a STRICT
+			// SUBSET under-approximates it. The build guards enforce all-or-none by declining
+			// multi-rule heads outright; this reports whether that HELD, because nothing else can
+			// see it. The canon differential compares rule-by-rule, so a 1-of-3 head scores as a
+			// MATCH; builtgap counts it as reaching; law:station_rules only asks whether a recipe
+			// RUNS; and a closure sweep reads it as an IMPROVEMENT, since a partial target still
+			// counts as produced. Four instruments moving the right way for a change that loses
+			// facts.
+			// It cannot be a law: a head's TOTAL rule count lives only in the FORML source, and
+			// state:rules cannot know what is missing from itself.
+			{
+				var emittedPerTarget = new Dictionary<string, int>(StringComparer.Ordinal);
+				foreach (string rr in myRuleRecipes)
+				{
+					Match tm = Regex.Match(rr, "^S3\\(\"([^\"]*)\"");
+					if (!tm.Success) continue;
+					int c;
+					emittedPerTarget.TryGetValue(tm.Groups[1].Value, out c);
+					emittedPerTarget[tm.Groups[1].Value] = c + 1;
+				}
+				int partialHeads = 0;
+				foreach (var kv in emittedPerTarget)
+				{
+					int total;
+					if (!rulesPerFactName.TryGetValue(kv.Key, out total)) continue;
+					if (kv.Value >= total) continue;
+					partialHeads++;
+					log.Add("PARTIAL HEAD (under-approximates: " + kv.Value + " of " + total
+						+ " rules emitted): " + kv.Key);
+				}
+				log.Add("partial heads (a strict subset of a head's rules emitted): "
+					+ partialHeads);
 			}
 			return log;
 		}
