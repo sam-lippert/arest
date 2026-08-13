@@ -5,7 +5,7 @@ The parser is not a program. It is this file.
 
 Stage-1 (#285) tokenizes input into `Statement` cells with structured
 fields; Stage-2 (#280) applies the derivation rules below to populate
-downstream metamodel cells (`Noun`, `Fact Type`, `Role`,
+downstream metamodel cells (`Object Type`, `Fact Type`, `Role`,
 `Instance Fact`, `Derivation Rule`, `Constraint`).
 
 This file uses only Stage-1 bootstrap productions: entity types, value
@@ -24,8 +24,8 @@ Translator(.name) is an entity type.
 ## Value Types
 
 Text is a value type.
-Head Noun is a value type.
-Verb is a value type.
+Head Object Type is a value type.
+Predicate is a value type.
 Trailing Marker is a value type.
   The possible values of Trailing Marker are 'is an entity type', 'is a value type', 'is abstract', 'is acyclic', 'is asymmetric', 'is antisymmetric', 'is intransitive', 'is irreflexive', 'is reflexive', 'is symmetric', 'is transitive', 'are mutually exclusive', 'is partitioned into', 'is a subtype of'.
 Quantifier is a value type.
@@ -72,8 +72,8 @@ Universal Quantifier Keyword is a value type.
   The possible values of Universal Quantifier Keyword are 'for each ', 'given any ', 'every ', 'each '.
 Extraction Clause Keyword is a value type.
   The possible values of Extraction Clause Keyword are 'is extracted from', 'is derived from'.
-Noun Has Noun Literal Keyword is a value type.
-  The possible values of Noun Has Noun Literal Keyword are ' has '.
+Object Type Has Object Type Literal Keyword is a value type.
+  The possible values of Object Type Has Object Type Literal Keyword are ' has '.
 Entity Ref Scheme Literal Keyword is a value type.
   The possible values of Entity Ref Scheme Literal Keyword are ' is not', ' is'.
 Temporal Predicate Keyword is a value type.
@@ -120,16 +120,16 @@ Set Constraint Kind Code is a value type.
   The possible values of Set Constraint Kind Code are 'EQ', 'SS', 'XO', 'OR', 'XC'.
 Set Constraint Arbitration Rule is a value type.
   The possible values of Set Constraint Arbitration Rule are 'derivation_rule_wins', 'subset_wins', 'derivation_rule_wins', 'derivation_rule_wins', 'derivation_rule_wins'.
-Object Type Source Kind is a value type.
-  The possible values of Object Type Source Kind are 'Abstract Declaration', 'Partition Declaration', 'Entity Type Declaration', 'Value Type Declaration', 'Subtype Declaration'.
-Object Type is a value type.
-  The possible values of Object Type are 'abstract', 'abstract', 'entity', 'value', 'entity'.
+Object Kind Source Kind is a value type.
+  The possible values of Object Kind Source Kind are 'Abstract Declaration', 'Partition Declaration', 'Entity Type Declaration', 'Value Type Declaration', 'Subtype Declaration'.
+Object Kind is a value type.
+  The possible values of Object Kind are 'abstract', 'abstract', 'entity', 'value', 'entity'.
 
 ## Fact Types
 
 Statement has Text.
-Statement has Head Noun.
-Statement has Verb.
+Statement has Head Object Type.
+Statement has Predicate.
 Statement has Trailing Marker.
 Statement has Quantifier.
 Statement has Derivation Marker.
@@ -150,7 +150,7 @@ Statement has Classification.
 Classification has Translator.
 
 Statement has Role Reference.
-Role Reference has Head Noun.
+Role Reference has Head Object Type.
 Role Reference has Literal Value.
 Role Reference has Role Position.
 
@@ -235,30 +235,30 @@ Statement has Classification 'Entity Type Declaration' iff Statement has Trailin
 
 Statement has Classification 'Value Type Declaration' iff Statement has Trailing Marker 'is a value type'.
 
-Statement has Classification 'Subtype Declaration' iff Statement has Verb 'is a subtype of'.
+Statement has Classification 'Subtype Declaration' iff Statement has Predicate 'is a subtype of'.
 
-Statement has Classification 'Partition Declaration' iff Statement has Verb 'is partitioned into'.
+Statement has Classification 'Partition Declaration' iff Statement has Predicate 'is partitioned into'.
 
 Statement has Classification 'Abstract Declaration' iff Statement has Trailing Marker 'is abstract'.
 
-<!-- task-951: two surface forms lower to the same Verb token, so a single
+<!-- task-951: two surface forms lower to the same Predicate token, so a single
      recognizer covers both. Stage-1's extract_enum_values accepts either:
 
-       1. "The possible values of <Noun> are 'v1', 'v2', ..."  (FORML2 spec)
-       2. "<Noun> enumerates 'v1', 'v2', ..."                  (shorthand alias)
+       1. "The possible values of <Object Type> are 'v1', 'v2', ..."  (FORML2 spec)
+       2. "<Object Type> enumerates 'v1', 'v2', ..."                  (shorthand alias)
 
-     Form (2) is mechanical sugar — stage-1 strips the Noun and the literal
+     Form (2) is mechanical sugar — stage-1 strips the Object Type and the literal
      'enumerates' keyword, then routes the remaining 'v1', 'v2', ... list to
-     the same Enum_Value tokenizer, and overrides Verb to 'the possible
+     the same Enum_Value tokenizer, and overrides Predicate to 'the possible
      values of' so this classifier fires identically. There is no separate
      classifier rule for the shorthand. -->
-Statement has Classification 'Enum Values Declaration' iff Statement has Verb 'the possible values of'.
+Statement has Classification 'Enum Values Declaration' iff Statement has Predicate 'the possible values of'.
 
 <!-- #279 P1: `The data type of <ValueType> is <code>.` assigns a portable
      Conceptual Data Type to a value type. Stage-1 recognises the leading
-     phrase and overrides Verb to 'the data type of' (mirroring the enum
-     declaration's Verb override), so this single recognizer fires. -->
-Statement has Classification 'Data Type Declaration' iff Statement has Verb 'the data type of'.
+     phrase and overrides Predicate to 'the data type of' (mirroring the enum
+     declaration's Predicate override), so this single recognizer fires. -->
+Statement has Classification 'Data Type Declaration' iff Statement has Predicate 'the data type of'.
 
 Statement has Classification 'Derivation Rule' iff Statement has Keyword 'iff'.
 Statement has Classification 'Derivation Rule' iff Statement has Keyword 'if'.
@@ -328,14 +328,14 @@ Classification 'State Machine Reading' has Translator 'translate_state_machines'
 Classification 'Finality Declaration' has Translator 'translate_finality'.
 Classification 'Negation Reading' has Translator 'translate_negation'.
 
-Statement has Classification 'State Machine Reading' iff Statement has Verb 'is for Noun' and Statement has Literal Role.
-Statement has Classification 'State Machine Reading' iff Statement has Verb 'is initial in State Machine Definition' and Statement has Literal Role.
-Statement has Classification 'State Machine Reading' iff Statement has Verb 'is from Status' and Statement has Literal Role.
-Statement has Classification 'State Machine Reading' iff Statement has Verb 'is to Status' and Statement has Literal Role.
-Statement has Classification 'State Machine Reading' iff Statement has Verb 'is triggered by Fact Type' and Statement has Literal Role.
-Statement has Classification 'State Machine Reading' iff Statement has Verb 'is guarded by Fact Type' and Statement has Literal Role.
-Statement has Classification 'State Machine Reading' iff Statement has Verb 'emits' and Statement has Literal Role.
-Statement has Classification 'Finality Declaration' iff Statement has Verb 'becomes final at depth'.
-Statement has Classification 'Negation Reading' iff Statement has Verb 'does not'.
-Statement has Classification 'Negation Reading' iff Statement has Verb 'is not'.
-Statement has Classification 'Subtype Declaration' iff Statement has Verb 'are mutually exclusive subtypes of'.
+Statement has Classification 'State Machine Reading' iff Statement has Predicate 'is for Object Type' and Statement has Literal Role.
+Statement has Classification 'State Machine Reading' iff Statement has Predicate 'is initial in State Machine Definition' and Statement has Literal Role.
+Statement has Classification 'State Machine Reading' iff Statement has Predicate 'is from Status' and Statement has Literal Role.
+Statement has Classification 'State Machine Reading' iff Statement has Predicate 'is to Status' and Statement has Literal Role.
+Statement has Classification 'State Machine Reading' iff Statement has Predicate 'is triggered by Fact Type' and Statement has Literal Role.
+Statement has Classification 'State Machine Reading' iff Statement has Predicate 'is guarded by Fact Type' and Statement has Literal Role.
+Statement has Classification 'State Machine Reading' iff Statement has Predicate 'emits' and Statement has Literal Role.
+Statement has Classification 'Finality Declaration' iff Statement has Predicate 'becomes final at depth'.
+Statement has Classification 'Negation Reading' iff Statement has Predicate 'does not'.
+Statement has Classification 'Negation Reading' iff Statement has Predicate 'is not'.
+Statement has Classification 'Subtype Declaration' iff Statement has Predicate 'are mutually exclusive subtypes of'.

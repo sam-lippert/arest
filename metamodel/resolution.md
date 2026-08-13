@@ -111,13 +111,13 @@ Function 'lex' yields Type Expression 'token-records'.
 Function 'implode' has Definition Origin 'registered'.
 Function 'implode' accepts Type Expression 'separator-and-words'.
 Function 'implode' yields Type Expression 'text'.
-Function 'slug' has Definition Origin 'registered'.
-Function 'slug' accepts Type Expression 'text'.
-Function 'slug' yields Type Expression 'identifier'.
-Function 'escape_html' has Definition Origin 'registered'.
+Function 'escape_html' has Definition Origin 'compiled'.
 Function 'escape_html' accepts Type Expression 'text'.
 Function 'escape_html' yields Type Expression 'html-text'.
-Function 'strip_prefix' has Definition Origin 'registered'.
+Function 'slug' has Definition Origin 'compiled'.
+Function 'slug' accepts Type Expression 'text'.
+Function 'slug' yields Type Expression 'identifier'.
+Function 'strip_prefix' has Definition Origin 'compiled'.
 Function 'strip_prefix' accepts Type Expression 'prefix-and-text'.
 Function 'strip_prefix' yields Type Expression 'text'.
 
@@ -130,7 +130,6 @@ Domain 'theta' has Description 'The adequate relational algebra of Codd 2.2 as c
 Domain 'system' has Description 'The AST system layer as canon: cell reflection, state machine rows, compiled-rule builders, scheduler classification, views, and render.'.
 Domain 'ast' has Description 'Cells, fetch, store, and DefineIn per Backus 13.3.4 and 13.3.5.'.
 Domain 'constraints' has Description 'The constraint family builders: uniqueness, mandatory, subset, equality, exclusion, value, frequency.'.
-Domain 'monad' has Description 'The two monadic helpers of the command pipeline.'.
 Domain 'csdp' has Description 'The Conceptual Schema Design Procedure as canon: seven steps composed, three registered seams.'.
 Domain 'rmap' has Description 'Relational mapping as canon: the store form, absorption and separation.'.
 Domain 'manifest' has Description 'Def 9 origins computed from the store: the enumerable boundary as set arithmetic.'.
@@ -245,7 +244,14 @@ Function 'render:blocktext' yields Type Expression 'widget'.
      storage registration; the byte form is canon, so a worthy driver
      holds nothing but the platform's one durable write). ntoa and
      quote_str sit at the registered boundary beside lex and
-     escape_html; store:append is the effect verb, enumerable through
+     escape_html. (store:append WAS listed here as the effect verb and is
+     gone 2026-08-12: Backus 13.3.4 defines store in the ALGEBRA --
+     down-arrow-n = pair -> (push n).[1, (pop n).2] over apndl/tl/eq/length --
+     and canon already carries it as ast:Store/ast:Pop/ast:Purge. No host ever
+     implemented store:append and nothing but the now-deleted store:effects
+     named it, so it was a false row in the enumerable boundary: Cor 6 is
+     meant to be the honest list of where unverified computation enters, and
+     it claimed a host capability that did not exist.) Enumerable through
      the canon's store:effects the way render:* is through
      ui:renderers. -->
 Function '*' has Definition Origin 'registered'.
@@ -254,15 +260,12 @@ Function '*' yields Type Expression 'number'.
 Function '/' has Definition Origin 'registered'.
 Function '/' accepts Type Expression 'number-pair'.
 Function '/' yields Type Expression 'number'.
-Function 'ntoa' has Definition Origin 'registered'.
+Function 'ntoa' has Definition Origin 'compiled'.
 Function 'ntoa' accepts Type Expression 'number'.
 Function 'ntoa' yields Type Expression 'text'.
-Function 'quote_str' has Definition Origin 'registered'.
+Function 'quote_str' has Definition Origin 'compiled'.
 Function 'quote_str' accepts Type Expression 'text'.
 Function 'quote_str' yields Type Expression 'text'.
-Function 'store:append' has Definition Origin 'registered'.
-Function 'store:append' accepts Type Expression 'designation-and-bytes'.
-Function 'store:append' yields Type Expression 'boolean'.
 Function 'clock' has Definition Origin 'registered'.
 Function 'clock' accepts Type Expression 'sequence'.
 Function 'clock' yields Type Expression 'text'.

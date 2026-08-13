@@ -114,6 +114,14 @@ obj/
 # is a byte-concatenation of head + canon + carriers + a tail, so it is always
 # regenerable and never worth tracking.
 tools/js-runner/*.g.js
+# the stations wall's whole output tree (composed sources + per-station
+# stdout it diffs), by DIRECTORY per the lesson above — never by name.
+tools/wall/stations.out/
+# the rust station's composed sources: compose.py's chunked projection of the
+# canon and carriers. Same rule as every other composed file — a byte
+# concatenation of head + canon + carriers is always regenerable and never
+# worth tracking. By PATTERN, not by name.
+tools/rust-station/src/*.g.rs
 tools/web-runner/composed.page.g.js
 tools/java-runner/Composed.g.java
 tools/cs-runner/Composed.g.cs

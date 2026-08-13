@@ -8,6 +8,6 @@
 // Paths are relative to the package root (engine/rust/), one level up from the
 // `../../shared` main.rs uses relative to engine/rust/src/.
 fn main() {
-    println!("cargo:rerun-if-changed=../shared/arest.canon");
+    println!("cargo:rerun-if-changed=../../arest");
     println!("cargo:rerun-if-changed=../shared/scenarios.canon");
 }

@@ -25,14 +25,27 @@ def _show(o):
     return str(o)
 
 
+def _parse(stdout):
+    """See the identical note in test_java_kernel.py: a value may span lines
+    (the DDL cases answer real CREATE TABLE text), so a line-at-a-time split
+    truncates the host's answer and reports it as divergent when it is right."""
+    out, cur = {}, None
+    for line in stdout.splitlines():
+        if "=" in line and not line.startswith(" ") and not line.startswith(")"):
+            k, v = line.split("=", 1)
+            out[k], cur = v, k
+        elif cur is not None:
+            out[cur] += "\n" + line
+    return out
+
+
 @pytest.mark.skipif(shutil.which("dotnet") is None, reason="no dotnet host")
 def test_the_csharp_kernel_agrees_with_the_python_evaluator():
     out = subprocess.run(["dotnet", "run", "--project", _CSPROJ],
                          capture_output=True, text=True, timeout=600,
                          encoding="utf-8")
     assert out.returncode == 0, out.stderr[-800:]
-    lines = {l.split("=", 1)[0]: l.split("=", 1)[1]
-             for l in out.stdout.splitlines() if "=" in l}
+    lines = _parse(out.stdout)
     assert int(lines["defs"]) >= 106
 
     max2 = from_lam(_ap(A("system:max2"), to_lam(("305", "1190"))))
@@ -60,6 +73,10 @@ def _python_cases():
     from pyarest import canon
     from pyarest import reduce as _r
     from pyarest.lam import atom as A
+    # BIND THE CANON — see the identical note in test_java_kernel.py. Without it
+    # the python reference side reduces with an empty store and reports the
+    # other host as divergent for any case needing a canon DEF.
+    canon.load_all()
     out = {}
     for name, pair in canon.read("scenarios.canon"):
         expr = _r.apply(A(1), pair)

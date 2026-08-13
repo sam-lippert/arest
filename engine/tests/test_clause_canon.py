@@ -7,7 +7,7 @@ Employee_is_a_manager, and stripping the article resolved the clause to a
 cell that does not exist — a silently unenforced constraint); otherwise
 the full strip (+ an/a) answers regardless. The Python _clause_ft
 (compiler.py) is the behavioral spec and becomes a thin caller; the
-constraint clauses of the shared/base corpus are the twin oracle."""
+constraint clauses of the metamodel corpus are the twin oracle."""
 import pyarest.prims  # noqa: F401
 from pyarest.lam import atom as A, to_lam, from_lam
 from pyarest.reduce import apply
@@ -51,7 +51,7 @@ def test_the_canonical_clause_resolution_twins_the_python_over_the_corpus():
     from pyarest import forml
     from pyarest.compiler import _clause_ft, _Known
     root = os.path.join(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__))), "shared", "base")
+        os.path.dirname(os.path.abspath(__file__)))), "metamodel")
     text = "\n\n".join(open(os.path.join(root, f), encoding="utf-8").read()
                        for f in sorted(os.listdir(root)) if f.endswith(".md"))
     stmts = forml.statements(text)

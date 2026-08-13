@@ -217,7 +217,7 @@ Android Navigation Pane 'Detail' occupies Android Pane Slot 'detail'.
 Android Navigation Pane 'Popover' occupies Android Pane Slot 'popover'.
 
 ### Pane layout_weight values per Form Factor
-### Source: iFactr.Droid/Resources/layout*/main.axml
+### Source: iFactr.Droid/Object Type Instances/layout*/main.axml
 ### phone-portrait  : single FrameLayout (master_fragment fills parent; no detail)
 ### phone-landscape : master weight 1, detail weight 2  (layout-land/main.axml)
 ### tablet          : master weight 2, detail weight 3  (layout-large/main.axml)
@@ -233,7 +233,7 @@ Android Navigation Pane 'Master' has Pane Weight 1 in Form Factor 'tablet-landsc
 Android Navigation Pane 'Detail' has Pane Weight 2 in Form Factor 'tablet-landscape'.
 
 ### iFactr Android platform default dimensions
-### Source: iFactr.Droid/Resources/values/dimensions.xml + AndroidDefaults.cs
+### Source: iFactr.Droid/Object Type Instances/values/dimensions.xml + AndroidDefaults.cs
 
 Material Spacing Token 'ifactr-cell-height' has Dp 48.
 Material Spacing Token 'ifactr-cell-height' has Description 'CellHeight — default row height for an IListView cell. Matches Material single-line list item 48dp.'.

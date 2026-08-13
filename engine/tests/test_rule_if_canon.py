@@ -1,8 +1,8 @@
 """#18: the rule-form reading translators (rule_if / rule_iff), canonized.
-_cook_rule_if resolves the ENTIRE body parse at the Stage-1 boundary (clause
+_compile_rule_if resolves the ENTIRE body parse at the Stage-1 boundary (clause
 split, column map, comparators-as-filter-trees, coercion aliases, negation
 groups, the aggregate extraction, the head shape incl. skolem existentials);
-the translator is the generic system:h_crows body (hosts _h_rule_if/_h_rule_iff
+the translator is the generic system:h_constraint body (hosts _h_rule_if/_h_rule_iff
 are the crows aliases), and every compiled object is an obj SPEC applied
 through DEFS — system:compile_rule (+ one compile_rule_delta per atom seat),
 system:compile_agg_rule, and the NEW system:compile_rule_neg (the stratified
@@ -16,7 +16,7 @@ import zlib
 import pyarest.prims  # noqa: F401
 import pyarest.lam as L
 from pyarest import canon, compiler, defs, system
-from pyarest.compiler import _Known, _cook_rule_if, _cook_rule_iff
+from pyarest.compiler import _Known, _compile_rule_if, _compile_rule_iff
 from pyarest.lam import from_lam, to_lam, atom as A
 from pyarest.reduce import apply as R
 
@@ -65,8 +65,8 @@ def _derive(obj_tree, D):
 
 # ---- the cook: golden spec shapes (the old monolith's builder arguments, as data) ----
 
-def test_cook_plain_copy_rule_specs_and_rows():
-    rows, mid, ospecs = _cook_rule_if(PLAIN, K)
+def test_compile_plain_copy_rule_specs_and_rows():
+    rows, mid, ospecs = _compile_rule_if(PLAIN, K)
     cid = _cid(*PLAIN)
     assert mid == ()
     assert ospecs == (
@@ -82,25 +82,25 @@ def test_cook_plain_copy_rule_specs_and_rows():
     assert ("ruleAtom", (cid, 1, "Person_smokes")) in rows
 
 
-def test_cook_join_linear_chain_and_delta_seats():
-    _rows, _mid, ospecs = _cook_rule_if(JOIN2, K)
+def test_compile_join_linear_chain_and_delta_seats():
+    _rows, _mid, ospecs = _compile_rule_if(JOIN2, K)
     atoms = (("Person_owns_Car", 2, ()), ("Car_is_fast", 1, ()))
     assert ospecs[0][1:] == ("system:compile_rule", (atoms, (1,), ()))
     assert [o[1] for o in ospecs[1:]] == ["system:compile_rule_delta"] * 2
     assert [o[2][3] for o in ospecs[1:]] == [1, 2]  # one ~d per atom seat, 1-based
 
 
-def test_cook_comparator_and_body_literal_are_filter_trees():
-    _r, _m, ospecs = _cook_rule_if(FILTERED, K)
+def test_compile_comparator_and_body_literal_are_filter_trees():
+    _r, _m, ospecs = _compile_rule_if(FILTERED, K)
     assert ospecs[0][2] == ((("Person_has_Age", 2, ()),), (1,),
                             (("COMP", "ge", ("CONS", 2, ("CONST", 65))),))
-    _r, _m, ospecs = _cook_rule_if(BODYLIT, K)
+    _r, _m, ospecs = _compile_rule_if(BODYLIT, K)
     assert ospecs[0][2] == ((("Layer_has_Load", 2, ()),), (1,),
                             (("COMP", "eq", ("CONS", 2, ("CONST", 0))),))
 
 
-def test_cook_negation_spec_and_rows():
-    rows, _m, ospecs = _cook_rule_if(NEGATION, K)
+def test_compile_negation_spec_and_rows():
+    rows, _m, ospecs = _compile_rule_if(NEGATION, K)
     cid = _cid(*NEGATION)
     assert ospecs == ((cid, "system:compile_rule_neg", (
         (("Layer_stacks_into_Stratum_Stack", 2, ()),),
@@ -113,8 +113,8 @@ def test_cook_negation_spec_and_rows():
     assert not any(r[0] == "ruleAtom" for r in rows)  # no ~d under negation
 
 
-def test_cook_aggregate_spec_and_rows():
-    rows, _m, ospecs = _cook_rule_if(AGGREGATE, K)
+def test_compile_aggregate_spec_and_rows():
+    rows, _m, ospecs = _compile_rule_if(AGGREGATE, K)
     cid = _cid(*AGGREGATE)
     assert ospecs == ((cid, "system:compile_agg_rule",
                        ((("Task_has_Cost", 2, ()),), (1,), 2, "count", ())),)
@@ -122,8 +122,8 @@ def test_cook_aggregate_spec_and_rows():
     assert not any(r[0] == "ruleAtom" for r in rows)  # no ~d under aggregation
 
 
-def test_cook_skolem_head_spec_and_rows():
-    rows, _m, ospecs = _cook_rule_if(SKOLEM, K)
+def test_compile_skolem_head_spec_and_rows():
+    rows, _m, ospecs = _compile_rule_if(SKOLEM, K)
     cid = _cid(*SKOLEM)
     assert ospecs[0][2] == ((("View_offers_Transition", 2, ()),),
                             (("COMP", "skolem",
@@ -132,17 +132,17 @@ def test_cook_skolem_head_spec_and_rows():
     assert ("ruleSkolem", (cid, "View_Element_renders_Transition")) in rows
 
 
-def test_cook_rule_iff_marker_resolves_the_kind():
-    rows, _m, _o = _cook_rule_iff(("**",) + PLAIN, K)
+def test_compile_rule_iff_marker_resolves_the_kind():
+    rows, _m, _o = _compile_rule_iff(("**",) + PLAIN, K)
     assert ("derivation", ("Person_is_risky", "derived-and-stored")) in rows
-    rows, _m, _o = _cook_rule_iff((None,) + PLAIN, K)
+    rows, _m, _o = _compile_rule_iff((None,) + PLAIN, K)
     assert ("derivation", ("Person_is_risky", "fully-derived")) in rows
 
 
-def test_cook_diag_rule_stays_m_facts_only():
+def test_compile_diag_rule_stays_m_facts_only():
     # an unbound head variable WITH a negation group: no skolem rescue (that
     # branch requires `not negs`) — the rule stays M-facts only and SAYS WHY
-    rows, _m, ospecs = _cook_rule_if(
+    rows, _m, ospecs = _compile_rule_if(
         ("Person1 is risky", "Task1 has Cost1 and no Car1 carries Task1"), K)
     assert ospecs == ()
     assert any(r[0] == "ruleDiag" for r in rows)
@@ -152,7 +152,7 @@ def test_cook_diag_rule_stays_m_facts_only():
 
 def test_rule_translator_twins_host_canon():
     for raw in (PLAIN, JOIN2, FILTERED, BODYLIT, NEGATION, AGGREGATE, SKOLEM):
-        g = _cook_rule_if(raw, K)
+        g = _compile_rule_if(raw, K)
         ca, cobjs = _canon(g)
         ha, hobjs = _host(g)
         assert ca == ha, raw
@@ -160,7 +160,7 @@ def test_rule_translator_twins_host_canon():
 
 
 def test_rule_iff_alias_twins_host():
-    g = _cook_rule_iff(("*",) + JOIN2, K)
+    g = _compile_rule_iff(("*",) + JOIN2, K)
     ca, cobjs = _canon(g, name="system:h_rule_iff")
     ha, hobjs = _host(g)
     assert (ca, cobjs) == (ha, hobjs)
@@ -170,7 +170,7 @@ def test_rule_iff_alias_twins_host():
 # (the old monolith called these builders with exactly these arguments)
 
 def _crows_objs(g):
-    return compiler._h_crows(g, None, "alethic")[1]
+    return compiler._h_constraint(g, None, "alethic")[1]
 
 
 def test_specs_rebuild_the_engine_builder_objects():
@@ -191,12 +191,12 @@ def test_specs_rebuild_the_engine_builder_objects():
             [2], [], []),
     }
     for raw, host_obj in want.items():
-        built = _crows_objs(_cook_rule_if(raw, K))[0][1]
+        built = _crows_objs(_compile_rule_if(raw, K))[0][1]
         assert from_lam(built) == from_lam(host_obj), raw
 
 
 def test_delta_specs_rebuild_the_delta_builders():
-    g = _cook_rule_if(JOIN2, K)
+    g = _compile_rule_if(JOIN2, K)
     objs = _crows_objs(g)
     for i in (0, 1):
         host_obj = system.compile_rule_delta(["Person_owns_Car", "Car_is_fast"],
@@ -220,7 +220,7 @@ def test_join_filter_agg_neg_extensional():
          {("t1", 2), ("t2", 1)}),
     )
     for raw, D, want in cases:
-        g = _cook_rule_if(raw, K)
+        g = _compile_rule_if(raw, K)
         c_obj = _canon(g)[1][0][1]
         h_obj = _host(g)[1][0][1]
         assert c_obj == h_obj, raw
@@ -230,7 +230,7 @@ def test_join_filter_agg_neg_extensional():
 
 
 def test_skolem_extensional_mints_the_same_ids():
-    g = _cook_rule_if(SKOLEM, K)
+    g = _compile_rule_if(SKOLEM, K)
     D = _D(("View_offers_Transition", (("v1", "t1"), ("v1", "t2"))))
     c_rows = _derive(_canon(g)[1][0][1], D)
     h_rows = _derive(_host(g)[1][0][1], D)

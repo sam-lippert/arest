@@ -3,11 +3,11 @@
 ## Entity Types
 
 Violation is an entity type.
-Violation is a subtype of Resource.
+Violation is a subtype of Object Type Instance.
 Failure is an entity type.
-Failure is a subtype of Resource.
+Failure is a subtype of Object Type Instance.
 Batch is an entity type.
-Batch is a subtype of Resource.
+Batch is a subtype of Object Type Instance.
 
 ## Value Types
 
@@ -71,10 +71,10 @@ Failure occurred at Timestamp.
 ### Causal Links
 Failure is caused by Violation.
   Each Failure is caused by at most one Violation.
-Violation is triggered by Resource.
-  Each Violation is triggered by at most one Resource.
-Failure is triggered by Resource.
-  Each Failure is triggered by at most one Resource.
+Violation is triggered by Object Type Instance.
+  Each Violation is triggered by at most one Object Type Instance.
+Failure is triggered by Object Type Instance.
+  Each Failure is triggered by at most one Object Type Instance.
   <!-- arest-audit: provenance parity with Violation. evolution.md's
        validity rules read it — a staged Domain Change application that
        cannot parse emits a Failure (Failure Type 'parse') triggered by

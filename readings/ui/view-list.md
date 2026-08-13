@@ -1,43 +1,58 @@
 # AREST UI: Collection-List View Derivation — task-934-2
 
-> **Status: task-934-2 — LIVE. These two shared-frontier skolem rules compile
-> (real parser+compiler) through the join-skolem path (≥2 antecedents, shared
-> entity-typed frontier), registered in `lib.rs` UI_VIEW_READINGS after
-> `view-menu`. Full ~593-FT metamodel compiles GREEN (no hang, `*`-View lazy
-> only). Proven by
-> `collection_list_view_derivation_compiled_from_authored_reading` in
-> `compile_explicit_derivation_tests.rs`.**
+> **Status: canonized 2026-08-01.** The former status block cited
+> `lib.rs`, `UI_VIEW_READINGS`, and tests in `crates/arest/` — a source
+> layout absent from this repository, so none of it was verifiable. It is
+> removed rather than restated. What the reading asserts is the model.
 
 ## Overview
 
-A collection view-projection.View of a Noun lists its instances. Each row is a `ViewElement`
-that renders one `Resource` instance of that Noun. The derivation is lazy
-(resolved at fetch time via `resolve_view`) and uses a SKOLEM head variable so
-the `ViewElement` identity is deterministic and idempotent across re-reads.
+A collection view-projection.View of an Object Type lists its instances. Each row is a `ViewElement`
+that renders one `Object Type Instance` instance of that Object Type. The derivation is lazy
+(resolved at fetch time via `resolve_view`). ViewElement identity comes from
+the objectified association's identification scheme below, so it is stable
+across re-reads by construction.
 
 This is design-doc §3.1/§4.6 (collection rows) instantiated as a predicate
 reading. The join is simpler than the menu (3-antecedent chain vs 5-antecedent
-chain), but uses the same join-skolem mechanism proven in task-934-3.
+chain), and objectifies the same way.
 
 ## The Derivation (Predicate Reading Form)
 
-The rule shape (using the `(E)` parenthesised existential syntax from
-`skolem-head-design.md` §5):
+<!-- Canonized 2026-08-01, same treatment as view-detail.md. Both rules
+     shared one antecedent join, which is the tell that the frontier was an
+     undeclared identifying association. Declared, given a UC spanning both
+     roles (Halpin, *Objectification and Atomicity*, rev. 2020-04-28:
+     objectification requires a spanning UC), and objectified — so the head
+     is projective per Def. 4 and the `(E)` syntax is unnecessary. -->
+
+### ViewElement (objectification of "View lists Object Type Instance")
 
 ```
-* ViewElement (E) renders Resource (R) iff
-    view-projection.View is for Noun
+View lists Object Type Instance.
+  Each View, Object Type Instance combination occurs at most once in the population of
+    View lists Object Type Instance.
+  This association with View, Object Type Instance provides the preferred
+    identification scheme for ViewElement.
+```
+
+The association is populated by one projective rule:
+
+```
+* View lists Object Type Instance if and only if
+    view-projection.View is for Object Type
     and view-projection.View has View Kind 'collection'
-    and Resource (R) is instance of Noun.
+    and Object Type Instance is instance of Object Type.
 ```
 
-and the companion rule (same frontier → same `E`):
+and the Component Role derives from the View it involves rather than by
+restating the join — which also makes explicit what the original pair left
+implicit, that 'list' followed from the View Kind and not from the
+Object Type Instance:
 
 ```
-* ViewElement (E) has Component Role 'list' iff
-    view-projection.View is for Noun
-    and view-projection.View has View Kind 'collection'
-    and Resource (R) is instance of Noun.
+* ViewElement has Component Role 'list' if and only if
+    ViewElement involves View and that View has View Kind 'collection'.
 ```
 
 Both rules carry `*` (lazy, `view-projection.View` materialization policy — never enters the
@@ -49,29 +64,27 @@ a per-antecedent predicate filter over the `View_has_View_Kind` cell.
 ## Fact Types
 
 `ViewElement has Component Role` is already declared `*` (fully-derived) in
-`view-projection.md`. The collection-specific `renders Resource` link is
+`view-projection.md`. The collection-specific `renders Object Type Instance` link is
 declared here. The `*` suffix marks it view-projection.View-materialized so the forward chain
 never eager-evaluates the join over the ~593-FT metamodel.
 
-ViewElement renders Resource. *
+ViewElement renders Object Type Instance. *
 
 ## Derivation Rules
 
-The two shared-frontier skolem rules (single-line registration form of the
-prose above). The `(E)` head variable is fresh (existential); the parser
-records a `SkolemHeadRole` and promotes the 3-way `and`-chain to a Join whose
-skolem frontier is the entity-typed antecedent nouns — `view-projection.View`, `Noun`,
-`Resource` (in order of first antecedent-FT-role occurrence). `view-projection.View is for
-exactly one Noun` (UC in view-projection.md), so the (view-projection.View, Noun, Resource)
-frontier effectively gives one ViewElement per (view-projection.View, Resource) binding.
+Single-line registration form of the prose above. `View is for exactly one
+Object Type` (UC in view-projection.md), so the objectified association's
+identifying pair is effectively (View, Object Type Instance) — one ViewElement per row,
+which is the design intent stated as identification rather than as a
+consequence of which nouns happened to enter a hash.
 
 Component Role 'list' is chosen because §3.1 of the design doc maps each
 collection row instance to the `list` Component (the `list` value is already
 in the `components.md` enum — no new value needed). The `list` role labels
 the row cell in the list view surface, matching iFactr's `IContentCell` shape.
 
-* ViewElement (E) renders Resource (R) iff view-projection.View is for Noun and view-projection.View has View Kind 'collection' and Resource (R) is instance of Noun.
-* ViewElement (E) has Component Role 'list' iff view-projection.View is for Noun and view-projection.View has View Kind 'collection' and Resource (R) is instance of Noun.
+* View lists Object Type Instance if and only if view-projection.View is for Object Type and view-projection.View has View Kind 'collection' and Object Type Instance is instance of Object Type.
+* ViewElement has Component Role 'list' if and only if ViewElement involves View and that View has View Kind 'collection'.
 
 ## Metamodel Fact-Type Names (Verified)
 
@@ -80,70 +93,49 @@ and `readings/core/instances.md`:
 
 | FORML 2 reading text               | Cell name                      |
 |------------------------------------|-------------------------------|
-| view-projection.View is for Noun                   | `View_is_for_Noun`            |
+| view-projection.View is for Object Type                   | `View_is_for_Object_Type`            |
 | view-projection.View has View Kind 'collection'    | `View_has_View_Kind`          |
-| Resource is instance of Noun       | `Resource_is_instance_of_Noun`|
+| Object Type Instance is instance of Object Type       | `Object Type Instance_is_instance_of_Object_Type`|
 
-`View_is_for_Noun` and `View_has_View_Kind` are declared in `view-projection.md`.
-`Resource_is_instance_of_Noun` is declared in `readings/core/instances.md`.
+`View_is_for_Object_Type` and `View_has_View_Kind` are declared in `view-projection.md`.
+`Object Type Instance_is_instance_of_Object_Type` is declared in `readings/core/instances.md`.
 `View Kind` is a value type (not entity-typed) — it is excluded from the
-entity-typed frontier (only `view-projection.View`, `Noun`, `Resource` enter the hash seed).
+entity-typed frontier (it is not part of the identifying tuple).
 
 ## Join Chain
 
 ```
-view-projection.View is for Noun                          (view-projection.View → Noun_N)
+view-projection.View is for Object Type                          (view-projection.View → Object_Type_N)
   ⋈ view-projection.View has View Kind 'collection'      (view-projection.View → View_Kind, filtered to 'collection')
-  ⋈ Resource is instance of Noun         (Resource → Noun_N)     [join on Noun_N]
+  ⋈ Object Type Instance is instance of Object Type         (Object Type Instance → Object_Type_N)     [join on Object_Type_N]
 ```
 
-Join keys (shared by ≥2 antecedents): `view-projection.View` (appears in FTs 1+2), `Noun`
+Join keys (shared by ≥2 antecedents): `view-projection.View` (appears in FTs 1+2), `Object Type`
 (appears in FTs 1+3).
-Frontier (entity-typed antecedent nouns, in order): `view-projection.View`, `Noun`, `Resource`.
-Frontier hash seed: `fnv1a64(view-projection.View + "|" + Noun + "|" + Resource)` → `ve_<16 hex>`.
 
-Because each view-projection.View is for exactly one Noun (UC from view-projection.md), the
-`(view-projection.View, Noun)` pair collapses to `(view-projection.View)` as the discriminating prefix, so
-the effective granularity is one ViewElement per (view-projection.View, Resource) pair —
+Because each view-projection.View is for exactly one Object Type (UC from view-projection.md), the
+`(view-projection.View, Object Type)` pair collapses to `(view-projection.View)` as the discriminating prefix, so
+the effective granularity is one ViewElement per (view-projection.View, Object Type Instance) pair —
 exactly the design-doc §3.1 intent.
 
-## Skolem Head Properties
+## ViewElement Properties
 
-- **Deterministic**: `ve_<fnv>` is a pure function of `(view-projection.View, Noun, Resource)`.
-  Re-reading the same population reproduces the same ids.
-- **Idempotent**: same frontier → same id → no duplicate `ViewElement` across
-  re-read passes (semi-oblivious / Skolem chase correctness).
-- **Lazy**: both rules emit `view:{cell}` defs, never `derivation:{cell}` defs.
-  Resolved via `resolve_view` at `Func::Fetch` / `Func::FetchOrPhi` time.
-- **Filter-correct**: only Views with View Kind = 'collection' produce
-  ViewElements — the literal pin is applied as an antecedent predicate in
-  `compile_join_derivation` (the `antecedent_role_literals` path, #814b).
+Each property below used to be a consequence of hashing the frontier. Under
+objectification they follow from the identification scheme instead, which is
+a stronger footing: the old versions were guarantees the host had to keep,
+these are things the model cannot express otherwise.
 
-## Remaining Work
+- **Deterministic**: identity is the identifying tuple itself, not a function
+  computed over it. Re-reading the same population yields the same
+  ViewElements because they are the same facts.
+- **Idempotent**: duplicates are not *prevented*, they are unrepresentable —
+  the UC spans the association's roles, so a second ViewElement for the same
+  tuple is a uniqueness violation rather than a second row.
+- **Lazy**: the rules emit `view:{cell}` defs, never `derivation:{cell}`
+  defs, resolved at `Func::Fetch` / `Func::FetchOrPhi` time.
 
-### (1) Instance-detail view (§3.2)
-The per-Noun instance detail/form view (one ViewElement per Fact Type of the
-Noun, keyed by value type → Component Role) — deferred to task-934-2b. Requires
-a 4-antecedent join over `View_is_for_Noun` × `View_has_View_Kind 'instance'`
-× `Fact_Type_has_Role` × `Role_is_played_by_Noun`, plus the §4.2 value-type →
-Component Role mapping chain.
-
-### (2) Row caption (reference-scheme value)
-Design §3.1: `IContentCell.TextLabel` = the instance's reference-scheme value
-(the absorbing ref-scheme FT value). Requires joining on `Resource_has_Reference`
-or `Noun_has_Reference_Scheme` and reading the identity value — deferred.
-
-### (3) Guard-negation filtering
-Design §4.6: suppressing draft/archived items requires negative antecedents
-(parser negation, not yet available as a user-authoring surface in FORML 2).
-
-## Test Coverage
-
-`crates/arest/src/compile_explicit_derivation_tests.rs`:
-- `collection_list_view_derivation_compiled_from_authored_reading` — GREEN:
-  proves (a) 3 VEs for a Noun with 3 instances + a collection view-projection.View,
-  (b) 0 VEs for a Noun with 0 instances, (c) deterministic `ve_<fnv>` ids,
-  (d) idempotent across 2 passes, (e) Resource carried through,
-  (f) shared frontier → same VE id in both rules (renders + Component Role),
-  (g) no eager `derivation:` def, (h) literal filter — 'instance'-kind view-projection.View
-  produces zero VEs.
+<!-- Trimmed 2026-08-01. Everything from here down was "Remaining Work"
+     and "Test Coverage" — issue-tracker state and test-name inventories
+     citing crates/arest/, a source layout this repository does not have.
+     Neither is runtime-necessary, so neither belongs in a reading. The
+     model above stands without them. -->

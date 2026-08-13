@@ -1,6 +1,6 @@
 # model_d fold → Rust: port spec (#20, the slice after cooks)
 
-op_compile_model's translation layer (cooks.rs, 310404b4) emits per-statement
+op_compile_model's translation layer (compile.rs, 310404b4) emits per-statement
 ⟨asserts, objs⟩ at zero divergence. This spec is the FOLD that turns those
 fires into the store: today Rust's `model_d` starts empty and stays empty;
 after this slice the op returns a compiled D.
@@ -24,7 +24,7 @@ Thread D statement by statement in dispatch order; per fire:
    - Find the FIRST cell named `cell` (first-match-wins, like srv.cells).
    - Absent → fresh singleton population `(fact,)`, cell PREPENDED to D.
    - Present → dedup by `_eqobj` (TYPE-STRICT: `1 ≠ "1" ≠ 1.0` — the same
-     discipline the cook differential enforced); if already a member, the
+     discipline the compile step differential enforced); if already a member, the
      population object is REUSED unchanged; else the fact PREPENDS (new fact
      at the HEAD of the population).
    - Either way the cell RE-TOPS: the (possibly new) cell moves to the FRONT

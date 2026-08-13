@@ -129,38 +129,6 @@ public class Reducer {
     static volatile AlphaStrategy ALPHA_OVERRIDE = null;
     public static void registerAlpha(AlphaStrategy s) { ALPHA_OVERRIDE = s; }
 
-    static boolean jsonValue(Object x, StringBuilder out) {
-        if (x instanceof String) {
-            String s = (String) x;
-            out.append('"');
-            for (int i = 0; i < s.length(); i++) {
-                char c = s.charAt(i);
-                if (c == '"') out.append("\\\"");
-                else if (c == '\\') out.append("\\\\");
-                else if (c == '\n') out.append("\\n");
-                else if (c == '\t') out.append("\\t");
-                else if (c == '\r') out.append("\\r");
-                else if (c < 0x20) out.append(String.format("\\u%04x", (int) c));
-                else out.append(c);
-            }
-            out.append('"');
-            return true;
-        }
-        if (x instanceof Long) { out.append(x.toString()); return true; }
-        if (x instanceof Double) { out.append(x.toString()); return true; }
-        if (x instanceof Object[]) {
-            Object[] xs = (Object[]) x;
-            out.append('[');
-            for (int i = 0; i < xs.length; i++) {
-                if (i > 0) out.append(',');
-                if (!jsonValue(xs[i], out)) return false;
-            }
-            out.append(']');
-            return true;
-        }
-        return false;
-    }
-
     static boolean eqObj(Object a, Object b) {
         if (isSeq(a) && isSeq(b)) {
             Object[] sa = (Object[]) a, sb = (Object[]) b;
@@ -209,6 +177,12 @@ public class Reducer {
 
     static Object cmp(Object a, Object b, DblRel rel, StrRel rels) {
         if (isSeq(a) || isSeq(b)) return BOT;
+        // COERCE FIRST. The store carries LEXICAL atoms — test_polyglot pins
+        // (4997, "11000") as "mixed int/lexical (claude's totals)" and
+        // ("9","10") as "comparators COERCE" — so a numeric-looking string is
+        // a number here, as it is to + and kin. #31 normalises value-typed
+        // fillers at the READING boundary only; it does not govern every path
+        // into the store, which is why the base still coerces.
         Double na = toNum(a), nb = toNum(b);
         if (na != null && nb != null) return rel.f(na, nb) ? T : F;
         if (a instanceof String && b instanceof String)
@@ -266,17 +240,8 @@ public class Reducer {
             for (int i = whole.length - 1; i >= 1; i--) acc = app(whole[i], acc);
             return expr(acc);
         }
-        if (name.equals("CONS")) {
-            Object[] whole = (Object[]) o[0];
-            Object[] out = new Object[whole.length - 1];
-            for (int i = 1; i < whole.length; i++)
-                out[i - 1] = mu(app(whole[i], o[1]));
-            return val(mkSeq(out));
-        }
-        if (name.equals("CONST")) {
-            Object[] whole = (Object[]) o[0];
-            return val(whole.length >= 2 ? whole[1] : BOT);
-        }
+        // CONS is CANON -- Backus 13.3.2. Deleted here.
+        // CONST is CANON -- Backus 13.3.2. Deleted here.
         if (name.equals("COND")) {
             Object[] whole = (Object[]) o[0];
             if (whole.length < 4) return val(BOT);
@@ -352,27 +317,32 @@ public class Reducer {
         }
         if (name.equals("eq"))
             return val(o != null && o.length == 2 ? (eqObj(o[0], o[1]) ? T : F) : BOT);
-        if (name.equals("cellkey")) {
-            // The cell-naming boundary op (spec D5): a pair of atoms answers the
-            // atom "a:b". Strings pass through, integers stringify, anything else
-            // bottoms, mirroring the Python and Rust twins.
-            if (o == null || o.length != 2) return val(BOT);
-            String a = o[0] instanceof String ? (String) o[0]
-                     : o[0] instanceof Long ? o[0].toString() : null;
-            String b = o[1] instanceof String ? (String) o[1]
-                     : o[1] instanceof Long ? o[1].toString() : null;
-            return val(a == null || b == null ? BOT : a + ":" + b);
+        // cellkey is CANON -- DEF("cellkey"). Deleted here.
+        // ---- the char/format base. Absent from this host, engine/csharp and
+        // engine/rust while python and all four stations had them, so every
+        // canon def that spells a word — lex:lw, lex:adjup, lex:tokens,
+        // lex:camel, cn:pascalw, cn:otparts, ui:jname, ui:st, cn:hyph,
+        // cn:number, rmap:fkrows:derive — answered BOTTOM here: canon held
+        // defs this host could not reduce, the "/" finding over again.
+        // FIRST CHARACTER, not whole-string — python and the java/cs/rust
+        // stations all take charAt(0); only head.part.js compares the whole
+        // string, so it is the outlier. ASCII by contract, so literal ranges.
+        // The empty atom passes through and answers "F", matching python.
+        if (name.equals("chars")) {
+            if (!(x instanceof String)) return val(BOT);
+            String cx = (String) x;
+            Object[] cs = new Object[cx.length()];
+            for (int i = 0; i < cx.length(); i++) cs[i] = String.valueOf(cx.charAt(i));
+            return val(cs);
         }
-        if (name.equals("escape_html")) {
-            // The html escape transducer (the render's ONE boundary piece):
-            // & < > " to entities, ints stringify, sequences bottom.
-            // Mirrors the Python/Rust/C# twins.
-            String v = x instanceof String ? (String) x
-                     : x instanceof Long ? x.toString() : null;
-            if (v == null) return val(BOT);
-            return val(v.replace("&", "&amp;").replace("<", "&lt;")
-                        .replace(">", "&gt;").replace("\"", "&quot;"));
-        }
+        // charup is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
+        // chardown is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
+        // charisup is CANON -- range test over 1 . chars. Deleted here.
+        // charislow is CANON -- range test over 1 . chars. Deleted here.
+        // charisdigit is CANON -- range test over 1 . chars. Deleted here.
+        // ntoa is CANON -- DEF("ntoa"). Deleted here.
+        // quote_str is CANON -- DEF("quote_str"). Deleted here.
+        // escape_html is CANON -- char fold over chars/implode. Deleted here.
         if (name.equals("stage1_fields")) {
             // stage-1 at the lex boundary (spec D5); text and sid must be
             // strings exactly as the python twin checks.
@@ -412,25 +382,10 @@ public class Reducer {
             }
             return val(outRows);
         }
-        if (name.equals("render:json")) {
-            // the JSON view emitter (react/Worker target): the element
-            // tree itself, compact JSON. Mirrors python/rust/C#.
-            StringBuilder out = new StringBuilder();
-            if (!jsonValue(x, out)) return val(BOT);
-            return val(out.toString());
-        }
-        if (name.equals("strip_prefix")) {
-            // the prefix-strip base op (spec D5, generic string algebra
-            // beside implode/slug): <prefix, s> answers s with a leading
-            // prefix removed, or s unchanged. Mirrors the four kernels.
-            if (o == null || o.length != 2) return val(BOT);
-            String p = o[0] instanceof String ? (String) o[0]
-                     : o[0] instanceof Long ? o[0].toString() : null;
-            String s = o[1] instanceof String ? (String) o[1]
-                     : o[1] instanceof Long ? o[1].toString() : null;
-            if (p == null || s == null) return val(BOT);
-            return val(s.startsWith(p) ? s.substring(p.length()) : s);
-        }
+        // (render:json is CANON — DEF("render:json") with render:json_atom /
+        // render:json_seq, beside system:show. The jsonValue helper above goes
+        // with it; see the note in engine/python/engine.py.)
+        // strip_prefix is CANON -- DEF("strip_prefix"). Deleted here.
         if (name.equals("skolem")) {
             // The skolem boundary op (task-970, spec D5 beside cellkey): an
             // existential head's fresh id as a PURE function of its frontier —
@@ -477,11 +432,7 @@ public class Reducer {
             }
             return val(sb.toString());
         }
-        if (name.equals("slug")) {
-            String t = x instanceof String ? (String) x
-                     : x instanceof Long ? x.toString() : null;
-            return val(t == null ? BOT : slug(t));
-        }
+        // slug is CANON -- DEF("slug"). Deleted here.
         if (name.equals("apndl")) {
             if (o == null || o.length != 2 || !isSeq(o[1])) return val(BOT);
             Object[] ys = (Object[]) o[1];
@@ -534,7 +485,8 @@ public class Reducer {
         }
         if (name.equals("not"))
             return val(T.equals(x) ? F : (F.equals(x) ? T : BOT));
-        if (name.equals("and") || name.equals("or")) {
+        // or is CANON -- DEF("or"), strict per Backus 11.2.3. Deleted here.
+        if (name.equals("and")) {
             if (o == null || o.length != 2) return val(BOT);
             boolean ta = T.equals(o[0]), fa = F.equals(o[0]);
             boolean tb = T.equals(o[1]), fb = F.equals(o[1]);
@@ -554,20 +506,7 @@ public class Reducer {
             System.arraycopy(s, 0, out, 0, out.length);
             return val(out);
         }
-        if (name.equals("rotl") || name.equals("rotr")) {
-            if (!isSeq(x)) return val(BOT);
-            Object[] s = (Object[]) x;
-            if (s.length == 0) return val(s);
-            Object[] out = new Object[s.length];
-            if (name.equals("rotl")) {
-                System.arraycopy(s, 1, out, 0, s.length - 1);
-                out[s.length - 1] = s[0];
-            } else {
-                out[0] = s[s.length - 1];
-                System.arraycopy(s, 0, out, 1, s.length - 1);
-            }
-            return val(out);
-        }
+        // rotl/rotr are CANON -- DEF("rotl"), DEF("rotr"). Deleted here.
         if (name.equals("trans")) {
             if (!isSeq(x)) return val(BOT);
             Object[] rows = (Object[]) x;
@@ -593,11 +532,18 @@ public class Reducer {
         if (name.equals("*")) return val(o != null && o.length == 2
             ? arith(o[0], o[1], new LongOp() { public long f(long a, long b) { return a * b; } },
                     new DblOp() { public double f(double a, double b) { return a * b; } }) : BOT);
-        if (name.equals("div")) {
+        // "/" not "div", and INTEGER division truncating toward zero. Two
+        // lineages had drifted apart: the engine hosts mirrored python's true
+        // division (engine/rust even says "// Python / is float") while the
+        // stations mirrored Arest.java's Integer arithmetic — and because
+        // canon spelled it "div" here and "/" there, the two were never
+        // compared. The atom domain has no float: canon, design-state and
+        // norma-answer hold zero float literals.
+        if (name.equals("/")) {
             if (o == null || o.length != 2) return val(BOT);
             if (o[0] instanceof String || o[1] instanceof String) return val(BOT);
             Double na = toNum(o[0]), nb = toNum(o[1]);
-            if (na != null && nb != null && nb != 0) return val(na / nb);
+            if (na != null && nb != null && nb != 0) return val((long) (na / nb));
             return val(BOT);
         }
         if (name.equals("ge")) return val(o != null && o.length == 2
@@ -680,19 +626,5 @@ public class Reducer {
         return tok;
     }
 
-    static String slug(String t) {
-        StringBuilder sb = new StringBuilder();
-        boolean run = false;
-        for (int i = 0; i < t.length(); i++) {
-            char c = t.charAt(i);
-            if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
-                sb.append(c);
-                run = false;
-            } else if (!run) { sb.append('_'); run = true; }
-        }
-        int st = 0, en = sb.length();
-        while (st < en && sb.charAt(st) == '_') st++;
-        while (en > st && sb.charAt(en - 1) == '_') en--;
-        return sb.substring(st, en);
-    }
+    // slug helper deleted: slug is CANON, this had no callers.
 }

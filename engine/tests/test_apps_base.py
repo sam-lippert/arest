@@ -88,7 +88,7 @@ def test_the_vendored_base_is_the_old_engines_backbone():
     # added with task 11, ebaf484f); no compile here (the suite pays the base
     # ingest only through the registry tests' tiny base)
     from pyarest import canon as paths
-    d = os.path.join(paths.root(), "shared", "base")
+    d = os.path.join(os.path.dirname(paths.root()), "metamodel")
     names = sorted(os.listdir(d))
     assert names == ["core.md", "csdp.md", "evolution.md", "induction.md",
                      "instances.md", "naming.md", "outcomes.md", "resolution.md",

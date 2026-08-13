@@ -41,10 +41,19 @@ public final class CanonLoader {
 
     // slice size; the heaviest pre-merge method (system, 223 defs) compiled,
     // so CHUNK carries ample margin under the 64KB bytecode ceiling
-    static final int CHUNK = 100;
+    static final int CHUNK = 40;
 
     static String sharedPath(String name) {
         String dir = System.getProperty("arest.shared", "../shared");
+        // The canonical name "arest.canon" resolves to the REPO-ROOT canon,
+        // matching python/canon.py's rule. engine/shared/arest.canon was the
+        // predecessor: 360 defs in four namespaces, a strict subset of the
+        // root canon's 1155 across twenty-four, abandoned 2026-07-14 when
+        // development moved to the root file. Loading the fragment meant this
+        // host and pyarest ran different canons under one name.
+        if ("arest.canon".equals(name)) {
+            return dir + "/../../arest";
+        }
         return dir + "/" + name;
     }
 

@@ -482,7 +482,7 @@ It is obligatory that each Toolkit has some Toolkit Version.
        binding wins regardless of MonoView constraints. The form
        mirrors the gap-detection rule's `no Component is implemented
        by Toolkit` negation idiom — FORML 2 antecedents support
-       `no <other Noun> is such that ...` set-emptiness checks but
+       `no <other Object Type> is such that ...` set-emptiness checks but
        not numeric cardinality. The runtime (#493) still surfaces a
        soft-warning Notice if the resulting toolkit conflicts with
        the MonoView's preferred toolkit family — the user gets the

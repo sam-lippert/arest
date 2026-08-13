@@ -141,7 +141,7 @@ No Directory may cycle back to itself via one or more traversals through has par
 
 ## Derivation Rules
 
-* File has Size iff File has ContentRef and Size is the byte-length of ContentRef.
+* File has Size if and only if File has ContentRef and Size is the byte-length of ContentRef.
 
 ## Instance Facts
 

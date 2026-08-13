@@ -694,7 +694,7 @@ def main(argv):
                     help="output file (default stdout)")
     ap.add_argument("--base", default="none",
                     help="'none' (bare Registry, cli.py's default), "
-                         "'default' (the vendored shared/base, the live MCP "
+                         "'default' (the metamodel, the live MCP "
                          "server's parity default), or a directory path")
     ap.add_argument("--compile", dest="compile_mode", default="auto",
                     choices=("auto", "always", "never"))

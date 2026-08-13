@@ -1,0 +1,27 @@
+[package]
+name = "arest-station"
+version = "0.1.0"
+edition = "2021"
+
+# No dependencies, on purpose. A station is the registration vocabulary, a
+# strict mu, the Backus base, and the six-line host contract — nothing that
+# needs a crate. The sibling stations (js head.part.js, java Arest.java, cs
+# Mu.cs) carry no dependencies either; tools/rust-runner's `arest-proc` is a
+# DIFFERENT artifact (the procedural projection, which uses rayon), not a mu.
+[dependencies]
+
+[[bin]]
+name = "arest-station"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+
+# The station is compared against three JIT'd hosts (bun, the JVM, .NET), so an
+# unoptimized build is not a fair or useful comparison — but full release never
+# finishes: LLVM cannot chew one ~1.7 MB include!d expression in reasonable
+# time. opt-level 1 optimizes the mu and the base while leaving the giant canon
+# body cheap to codegen; the whole point is that DEF calls are executed once at
+# load, so nothing is lost by not optimizing them.
+[profile.dev]
+opt-level = 1

@@ -22,7 +22,7 @@ loose; it rides Prop 3's licence and Codd's posture.
 
 ## Entity Types
 Hypothesis Candidate is an entity type.
-Hypothesis Candidate is a subtype of Resource.
+Hypothesis Candidate is a subtype of Object Type Instance.
 Scoring Rule is an entity type.
 Scoring Rule is a subtype of Function.
 

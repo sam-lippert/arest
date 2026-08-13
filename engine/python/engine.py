@@ -2323,27 +2323,7 @@ def absorb_rows(D, table_key, partition):
 # The cell-naming boundary op, as the reference TS engine computes it in the worker
 # (12-physical-mapping.md: cellKey('Order','org-1') gives 'Order:org-1'). Strings are
 # outside the algebra, so joining a name is a registered value op (spec D5).
-def _cellkey_impl(mu):
-    from . import defs as _d
-    import pyarest.lam as L
-
-    def g(o):
-        it = _d._items(L._list(o))
-        if len(it) != 2:
-            return L.BOT
-        a, b = _d._aval(it[0]), _d._aval(it[1])
-        if a is None or b is None or isinstance(a, tuple) or isinstance(b, tuple):
-            return L.BOT
-        return L.atom(f"{a}:{b}")
-    return g
-
-
-def _register_cellkey():
-    from .defs import register
-    register("cellkey", _cellkey_impl)
-
-
-_register_cellkey()
+# cellkey is CANON -- DEF("cellkey", implode . <K(":"), id>). Deleted here.
 
 
 # The skolem boundary op (task-970's value-invention leaf, mapped to 0.9.0):
@@ -2390,90 +2370,42 @@ _register_skolem()
 # (the doctrine correction, 2026-07-08: meaning in canon, boundary for
 # TRANSDUCTION only). Byte-level entity substitution, the lex family:
 # & < > " to their entities; ints stringify; sequences bottom.
-def _escape_html_impl(mu):
-    from . import defs as _d
-    import pyarest.lam as L
-
-    def g(o):
-        v = _d._aval(o)
-        if v is None or isinstance(v, tuple) or isinstance(v, bool):
-            return L.BOT
-        s = (str(v).replace("&", "&amp;").replace("<", "&lt;")
-             .replace(">", "&gt;").replace('"', "&quot;"))
-        return L.atom(s)
-    return g
+# (_escape_html_impl moved to kernel.py — the base belongs to the kernel;
+# the spine must not shadow it.)
 
 
-def _register_escape_html():
-    from .defs import register
-    register("escape_html", _escape_html_impl)
-
-
-_register_escape_html()
+# (escape_html is registered by kernel.register_base() — it is a base prim, not
+# a spine op. See the note at the foot of this file.)
 
 
 # The prefix-strip base op — generic string algebra beside implode and
 # slug (spec D5): ⟨prefix, s⟩ answers s with a leading prefix removed,
 # or s unchanged. No policy — the CHOICE of what to strip is canon's
 # (system:sqlcol_base strips the noun off a unary fact type's name).
-def _strip_prefix_impl(mu):
-    from . import defs as _d
-    import pyarest.lam as L
-
-    def g(o):
-        it = _d._items(L._list(o))
-        if len(it) != 2:
-            return L.BOT
-        vals = []
-        for x in it:
-            v = _d._aval(x)
-            if not isinstance(v, (str, int)) or isinstance(v, bool):
-                return L.BOT
-            vals.append(str(v))
-        pre, s = vals
-        return L.atom(s[len(pre):] if s.startswith(pre) else s)
-    return g
+# (_strip_prefix_impl moved to kernel.py — see the note at the foot of this
+# file. The base belongs to the kernel; the spine must not shadow it.)
 
 
-# The JSON view emitter — the react/Worker render target (the binding
-# doctrine: a react component consumes the element TREE + the apply
-# endpoint and nothing else, so the "render" is the tree itself as
-# JSON — a pure transducer beside render:html, no widget knowledge).
-def _render_json_impl(mu):
-    from . import defs as _d
-    import pyarest.lam as L
-    import json
-
-    def _plain(o):
-        v = _d._aval(o)
-        if v is not None and not isinstance(v, tuple):
-            return v
-        it = _d._items(L._list(o))
-        return [_plain(x) for x in it]
-
-    def g(o):
-        try:
-            return L.atom(json.dumps(_plain(o), ensure_ascii=False,
-                                     separators=(",", ":")))
-        except Exception:
-            return L.BOT
-    return g
+# (render:json is CANON now — DEF("render:json") beside system:show in the
+# repo-root canon, with render:json_atom / render:json_seq. This host's
+# emitter was a `json.dumps` transducer, and the same function existed four
+# more times: engine/java Reducer.jsonValue, engine/csharp Reducer, and
+# engine/rust's v_json (twice, Scott and native). A fold from a value to a
+# string has no boundary in it, so it was never a boundary op — and it was
+# declared nowhere in the metamodel, unlike the 44 `Definition Origin
+# 'registered'` render functions, which emit WIDGETS. Verified equal on both
+# lineages before this deletion: the stations went 17 -> 16 refused and now
+# print '["menu",[["button","finish","completed"]]]', the same bytes
+# engine/rust prints, with the 53 laws and the report md5 unmoved.)
 
 
-def _register_render_json():
-    from .defs import register
-    register("render:json", _render_json_impl)
-
-
-_register_render_json()
-
-
-def _register_strip_prefix():
-    from .defs import register
-    register("strip_prefix", _strip_prefix_impl)
-
-
-_register_strip_prefix()
+# strip_prefix is registered by kernel.register_base(), NOT here. It is a base
+# primitive (metamodel/resolution.md declares it 'registered' beside lex /
+# implode / slug / escape_html), and a base primitive that lives in the spine
+# is invisible to the thin host, which is how thin.py answered BOTTOM for it
+# while all seven other hosts answered a value. Registering it in both places
+# would leave one host holding two definitions of one prim, decided by import
+# order — so this file no longer defines or registers it.
 
 
 # The reference RENDER function (AREST.tex §Platform binding, verbatim:
@@ -2546,83 +2478,16 @@ _register_render_html()
 # slug (text → id atom; ID MINTING is a boundary act, names are data). All
 # sequence algebra above them (the mixfix scan, type spans, Stage-1's
 # vocabulary matcher) is canonical territory.
-def _lex_impl(mu):
-    import re
-    from . import defs as _d
-    from .lam import to_lam
-    import pyarest.lam as L
-
-    def g(o):
-        t = _d._aval(o)
-        if t is None or isinstance(t, tuple):
-            return L.BOT
-        text = str(t)
-        spans = [m.span() for m in re.finditer(r"'[^']*'", text)]
-        rows = []
-        for m in re.finditer(r"\S+", text):
-            tok, s, e = m.group(0), m.start(), m.end()
-            k = next((i + 1 for i, (a, b) in enumerate(spans)
-                      if s < b and a < e), 0)
-            qtext = ""
-            if k:
-                a, b = spans[k - 1]
-                qtext = text[max(s, a + 1):min(e, b - 1)]
-            nopunct = tok.strip(".;:,")
-            base = nopunct.rstrip("0123456789")
-            # field 8 is the token's TEMPLATE form under NORMA hyphen binding
-            # (#24, retiring the touching bind): a one-sided touching hyphen is
-            # the bind marker and is consumed ('adj-'/'-adj' -> the word), the
-            # doubled hyphen escapes to one literal hyphen ('FORE--'->'FORE-',
-            # '--W'->'-W'), anything else (incl. 'from-Status') is as written.
-            # The compiler's _hyphen_tpl is the certified host twin.
-            tpl = tok
-            if len(tpl) > 2 and tpl.endswith("--"):
-                tpl = tpl[:-1]
-            elif len(tpl) > 2 and tpl.startswith("--"):
-                tpl = tpl[1:]
-            elif len(tpl) > 1 and tpl.endswith("-") and not tpl.endswith("--"):
-                tpl = tpl[:-1]
-            elif len(tpl) > 1 and tpl.startswith("-") and not tpl.startswith("--"):
-                tpl = tpl[1:]
-            rows.append((tok, nopunct, base, nopunct[len(base):], tok.lower(),
-                         qtext, "T" if base and base[0].isupper() else "F",
-                         tpl, "T" if k else "F", k))
-        return to_lam(tuple(rows))
-    return g
+# (_lex_impl moved to kernel.py — the base belongs to the kernel;
+# the spine must not shadow it.)
 
 
-def _implode_impl(mu):
-    from . import defs as _d
-    import pyarest.lam as L
-
-    def g(o):
-        it = _d._items(L._list(o))
-        if len(it) != 2:
-            return L.BOT
-        sep = _d._aval(it[0])
-        if sep is None or isinstance(sep, tuple):
-            return L.BOT
-        parts = []
-        for w in _d._items(L._list(it[1])):
-            v = _d._aval(w)
-            if v is None or isinstance(v, tuple):
-                return L.BOT
-            parts.append(str(v))
-        return L.atom(str(sep).join(parts))
-    return g
+# (_implode_impl moved to kernel.py — the base belongs to the kernel;
+# the spine must not shadow it.)
 
 
-def _slug_impl(mu):
-    import re
-    from . import defs as _d
-    import pyarest.lam as L
-
-    def g(o):
-        t = _d._aval(o)
-        if t is None or isinstance(t, tuple):
-            return L.BOT
-        return L.atom(re.sub(r"[^0-9A-Za-z]+", "_", str(t)).strip("_"))
-    return g
+# (_slug_impl moved to kernel.py — the base belongs to the kernel;
+# the spine must not shadow it.)
 
 
 _S1_QUOTED_SPAN = None
@@ -2700,9 +2565,9 @@ def _stage1_fields_impl(mu):
 
 def _register_lex_boundary():
     from .defs import register
-    register("lex", _lex_impl)
-    register("implode", _implode_impl)
-    register("slug", _slug_impl)
+    # lex / implode / slug moved to kernel.register_base(): resolution.md
+    # declares them 'registered' base, so the thin host must carry them.
+    # stage1_fields is genuinely spine and stays here.
     register("stage1_fields", _stage1_fields_impl)
 
 
@@ -3557,7 +3422,7 @@ def finiteness_check(D):
         reads.setdefault(r, set()).add(ft)
     for (r, ft) in _pop_rows(D, "ruleDerives"):
         derives.setdefault(r, set()).add(ft)
-    boundary = (set(defs._registered) - set(prims.BASE)) | {"+", "-", "*", "div", "length", "apply"}
+    boundary = (set(defs._registered) - set(prims.BASE)) | {"+", "-", "*", "/", "length", "apply"}
 
     def _atoms(v):
         if isinstance(v, tuple):

@@ -57,8 +57,8 @@ def test_base_ops_agree_across_kernels():
         (A("lt"), to_lam(("9", "10")), None),                 # comparators COERCE: 9 < 10
         (A("lt"), to_lam((4997, "11000")), None),             # mixed int/lexical (claude's totals)
         (A("ge"), to_lam(("305", "1190")), None),             # multi-digit text orders numerically
-        (A("div"), to_lam((4, 2)), None),                     # Python /: float
-        (A("div"), to_lam((4, 0)), None),                     # ÷0 = ⊥
+        (A("/"), to_lam((4, 2)), None),                       # integer: 2 (no float in the atom domain)
+        (A("/"), to_lam((4, 0)), None),                     # ÷0 = ⊥
         (A("lt"), to_lam(("apple", "pear")), None),           # string ordering
         (A("trans"), to_lam(((1, 2), (3, 4), (5, 6))), None),
         (A("trans"), to_lam(((1, 2), (3,))), None),           # ragged: ⊥

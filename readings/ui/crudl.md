@@ -21,7 +21,7 @@
 >
 > This reading is the iFactr DECORATION (Action Type / Control Kind / Request
 > Type per Operation). The permission gate (`User is authorized for Operation on
-> Noun`) and the view-context applicability (`Operation applies in View Context`)
+> Object Type`) and the view-context applicability (`Operation applies in View Context`)
 > are the access SUBSTRATE; the HATEOAS CRUDL menu
 > (command::crudl_menu_operations) projects `authorized` ∩ applies-in-context and
 > then decorates each surviving Operation with the iFactr metadata below.

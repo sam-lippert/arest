@@ -99,6 +99,25 @@ Status has effective Transition to Status on Event Type. *
   Each Status, Transition, Status, Event Type combination occurs at most once in the population of Status has effective Transition to Status on Event Type.
 
 ### Guard
+
+<!-- TRANSITION GROUNDEDNESS holds by construction here, so no deontic is
+     declared for it. The paper states the condition: "an add or delete may
+     not occur under negation or disjunction, and each disjunctive branch
+     must carry a positive event; negation may guard a transition but never
+     supplies its effect."
+     This decomposition separates the two structurally. A Transition's
+     EFFECT is carried by `Transition is triggered by Event Type` — exactly
+     one, asserted positively — while a Guard only `references Fact Type`
+     and `guards Transition`. A Guard therefore has no way to supply an
+     effect, and there is no branch of a Transition lacking a positive
+     event, because every Transition has exactly one. Negation can only ever
+     appear inside a Guard's role path, which is precisely where the paper
+     permits it.
+     Recorded so the condition is not re-derived and added as a missing
+     obligation: written as a deontic it would name no populatable
+     violation, the same failure validation.md documents for Subtype
+     Constraint Declaration. See core.md's Negation section for the two
+     negations themselves. -->
 Guard references Fact Type.
   It is possible that some Guard references more than one Fact Type and that for some Fact Type, more than one Guard references that Fact Type.
   For each combination of Guard and Fact Type, that Guard references that Fact Type at most once.
@@ -302,6 +321,7 @@ It is obligatory that if some Status1 reaches Status1 in some State Machine Defi
 ## Instance Facts
 
 <!-- organizations-domain (ruling 2): Domain 'state' has Access 'public'. -->
+Domain 'state' has Description 'Status, Transition and Guard as a Mealy machine over Object Type Instances: a State Machine Definition is for an Object Type, and an Event Type causes a Transition whose Guard decides it.'.
 
 <!-- task-965 lift (shipped 6393ceb3): the HATEOAS destructive-affordance
      rule, lifted from a Rust literal (command.rs http_method_for_status)

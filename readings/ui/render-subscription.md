@@ -4,7 +4,7 @@ The LIVE half of §5.2 Platform Binding (pb-live-binding-reeval). A Render
 Subscription is a STANDING render: a client that wants an entity's view
 not just now but whenever it changes. Per the whitepaper, a subscriber
 is "a ρ-application not yet evaluated" — this reading reifies exactly
-that as facts. A subscription names WHAT to watch (a Noun, optionally
+that as facts. A subscription names WHAT to watch (a Object Type, optionally
 one entity instance), HOW to render it (a Render Target from
 `readings/ui/render-target.md`), and WHERE to deliver (a callback URI,
 reusing the `callback URI` value type the task-919 Function dispatch
@@ -37,8 +37,8 @@ Entity Id is a value type.
 
 ### Render Subscription
 
-Render Subscription is for Noun.
-  Each Render Subscription is for exactly one Noun.
+Render Subscription is for Object Type.
+  Each Render Subscription is for exactly one Object Type.
 
 Render Subscription watches Entity Id.
   Each Render Subscription watches at most one Entity Id.
@@ -60,5 +60,5 @@ No two Render Subscriptions share the same Name.
 
 ## Deontic Constraints
 
-It is obligatory that each Render Subscription is for some Noun.
+It is obligatory that each Render Subscription is for some Object Type.
 It is obligatory that each Render Subscription renders via some Render Target.

@@ -27,6 +27,16 @@ static class RoslynLoader
         var dir = AppContext.BaseDirectory;
         for (var i = 0; i < 8 && dir != null; i++)
         {
+            // The canonical name "arest.canon" is the REPO-ROOT canon, matching
+            // python/canon.py and java/CanonLoader. engine/shared/arest.canon
+            // was the abandoned 360-def predecessor of the root canon's 1155;
+            // loading it meant this host ran a different canon under one name.
+            // UNVERIFIED: no build run.
+            if (name == "arest.canon")
+            {
+                var rootCanon = Path.Combine(dir, "arest");
+                if (File.Exists(rootCanon)) return rootCanon;
+            }
             var probe = Path.Combine(dir, "shared", name);
             if (File.Exists(probe)) return probe;
             dir = Path.GetDirectoryName(dir.TrimEnd(Path.DirectorySeparatorChar));

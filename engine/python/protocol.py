@@ -1580,12 +1580,7 @@ def fetch_and_store(D, url, fetch=None):
 MODULE = None
 
 
-def _module_readings():
-    global MODULE
-    if MODULE is None:
-        from . import canon as paths
-        MODULE = open(paths.shared("federation.md"), encoding="utf-8").read()
-    return MODULE
+# _module_readings deleted: no caller in the package.
 
 
 def _lookup(D, ft, key):
@@ -1642,9 +1637,22 @@ _MARKER = ".pyarest-active-app"
 
 
 def default_base():
-    """The vendored base readings directory (shared/base), or None if absent."""
-    from . import canon as paths
-    d = os.path.join(paths.root(), "shared", "base")
+    """The base readings directory, or None if absent.
+
+    This is metamodel/, per metamodel/layout.md's declared 'metamodel'
+    Source Location. It used to be shared/base — a second copy of the same
+    metamodel in the pre-rename vocabulary, carrying nothing metamodel/ lacks
+    (its only two candidate gaps were an untested `Bound has Value` and
+    `Signal Source`, which metamodel/evolution.md records as retired
+    2026-07-24). Resolving here rather than at call sites keeps one place
+    that knows where base readings live, until hosts read the location from
+    the canon instead of computing it.
+    """
+    from . import compiler
+    try:
+        d = compiler.metamodel_dir()
+    except RuntimeError:
+        return None
     return d if os.path.isdir(d) else None
 
 
@@ -1913,7 +1921,7 @@ class Registry:
         from . import defs as _defs
         # An app's sidecar must carry only its OWN defs, never a frozen copy of the
         # shared engine canon. The engine canon is namespaced (system:/ast:/theta:/
-        # constraints:/monad:); an app's own defs are bare-named (the 8 op dispatchers
+        # constraints:); an app's own defs are bare-named (the 8 op dispatchers
         # resolve/derive/validate/emit/create/run/rmap/csdp — verified identical across
         # the whole app corpus). Freezing the 325 namespaced engine defs SHADOWED every
         # later canon fix for already-compiled apps: NEval::mu resolves process-before-

@@ -165,7 +165,7 @@ fn verb_ops_answer_over_a_store_built_via_serve_ops() {
 fn host_overrides_are_a_subset_of_the_canon_catalog() {
     // The Resolution Registry's cross-layer assertion (docs ch. 15): every
     // override name this host registers (HOST_OVERRIDES) must appear in the
-    // canon-side catalog (shared/base/resolution.md, `Operation is
+    // canon-side catalog (metamodel/resolution.md, `Operation is
     // overridable`), read back through the real flow — base_seed thaws or
     // recomputes the base store, and the query op answers the compiled rows.
     let mut s = Serve::spawn();
@@ -177,7 +177,7 @@ fn host_overrides_are_a_subset_of_the_canon_catalog() {
         assert!(
             rows.contains(&quoted),
             "host override {name:?} is not in the canon catalog \
-             (shared/base/resolution.md); catalog rows: {rows}"
+             (metamodel/resolution.md); catalog rows: {rows}"
         );
     }
 }

@@ -114,10 +114,16 @@ def slices(items, prefix):
 def main():
     arest, ds, na, journal, out = (sys.argv[1], sys.argv[2], sys.argv[3],
                                    sys.argv[4], sys.argv[5])
+    # the shared case table is OPTIONAL and loads as one more carrier, so
+    # Program.java stays the six-line contract. It rides in the same binary as
+    # the laws because the case cells leave law:report byte-identical.
+    cases = sys.argv[6] if len(sys.argv) > 6 else None
     rn, rb = slices(split_top(strip_outer(read(arest))), "r")
     dn, db = slices(split_top(strip_outer(read(ds))), "d")
     nn, nb = slices(split_top(strip_outer(read(na))), "n")
     en, eb = slices(split_top(strip_outer('("journal"' + read(journal) + ")")), "e")
+    sn, sb = (slices(split_top(strip_outer(read(cases))), "s") if cases
+              else ([], []))
     hb = ["    static Object " + name + "() { return " + body + "; }" for name, body in helpers]
     j = ("    static Object[] j(Object[][] parts) {\n"
          "        int n = 0;\n"
@@ -137,15 +143,17 @@ def main():
          "// carrier byte appears verbatim below; helpers are hoisted balanced",
          "// subexpressions, slices are the tuple's items in registration order.",
          "final class Composed extends Arest {",
-         "    static Object[] ROOT, DS, NA, J;",
+         "    static Object[] ROOT, DS, NA, J, SC;",
          j,
          "    static void load() { loadRoot(); }",
          loader("loadRoot", "ROOT", rn),
          loader("loadCarriers0", "DS", dn),
          loader("loadCarriers1", "NA", nn),
-         loader("loadCarriers2", "J", en),
-         "    static void loadCarriers() { loadCarriers0(); loadCarriers1(); loadCarriers2(); }"]
-        + rb + db + nb + eb + hb
+         loader("loadCarriers2", "J", en)]
+        + ([loader("loadCases", "SC", sn)] if sn else [])
+        + ["    static void loadCarriers() { loadCarriers0(); loadCarriers1(); loadCarriers2();"
+           + (" loadCases();" if sn else "") + " }"]
+        + rb + db + nb + eb + sb + hb
         + ["}"])
     with io.open(out, "w", encoding="utf-8", newline="\n") as f:
         f.write(src + "\n")
