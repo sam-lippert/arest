@@ -2,21 +2,38 @@
 
 <!-- arest-batch (Samuel's ruling, 2026-07-15): the metamodel is canonical
      FORML/ORM/Halpin. Legacy GraphDL vocabulary is renamed in all operative
-     sentences: Noun -> Object Type, the old {entity, value} enum -> OT Kind
+     sentences: Noun -> Object Type, the old {entity, value} enum -> Object Kind
      (Halpin Fig 13.29: "each EntityType is an ObjectType that is of OTkind
      'Entity'"), Verb -> Predicate, Reference Scheme -> Reference Mode.
      Historical comments below retain the names in use when they were
-     written; canon cell names (e.g. Noun_is_instantiable) still reflect the
-     old vocabulary until the evaluator-phase reconciliation. -->
+     written.
+
+     Two amendments, 2026-08-02:
+
+     (1) The enum is Object Kind, not OT Kind. `OTkind` is Halpin's label on
+     Figure 13.29 — a diagram label, abbreviated for space on a figure, not
+     a verbalization. A reading is the sentence a domain expert validates,
+     so an abbreviation is the one thing that cannot go there: "Object Type
+     is of Object Kind 'value'" reads aloud, "is of OT Kind" does not. The
+     quotation of Halpin above is left verbatim because it is a quotation;
+     the departure is from his figure label, not from his model.
+
+     (2) The note's last clause was backwards and is removed. It claimed
+     canon cell names still carried the old vocabulary. In fact the canon
+     held three legacy strings total (`State_Machine_Definition_is_for_Noun`
+     and two copies of the reading fragment "is for Noun"), while `Noun`
+     survived in 91 live places across the READINGS. Both are now clean;
+     the stale artifacts are the serialized stores, which are keyed by the
+     old cell names until regenerated. -->
 
 <!-- Layer map (arest-batch task 3): two vocabularies share this file.
      ORM-canonical — echoes of Halpin's metamodel (Fig 13.29) and NORMA's
-     ORM2Core: Object Type, OT Kind, Entity Type, Value Type, Fact Type,
+     ORM2Core: Object Type, Object Kind, Entity Type, Value Type, Fact Type,
      Predicate, Reading, Role, Constraint, Constraint Type, Derivation
      Rule, Reference Mode, Join Path/Join/Role Sequence/Role Projection,
      Value Range/Bound/Facet, Unit/Dimension, Conceptual Data Type/Data
      Type Group. AREST-extension: Function (the FFP root and DEFS cell),
-     Resource, Event Type as Fact Type supertype, Definition Origin, Type
+     Object Type Instance, Event Type as Fact Type supertype, Definition Origin, Type
      Expression, Domain, Migration, Language/Format, External System,
      schema:Thing, and the HTTP/API/JSON/SQL projection vocabulary.
      state.md (Harel SMDs) and instances.md (runtime) are AREST layers
@@ -40,21 +57,66 @@ Function(.id) is an entity type.
        stripped: every subtype identifies through Function(.id) — a
        Def 9 definition's name IS its identity, one id space in D.
        Former natural-key modes survive as data where they carry
-       information beyond identity (Resource has Reference, User has
+       information beyond identity (Object Type Instance has Reference, User has
        Email — mandatory 1:1 secondary references). -->
 Object Type is a subtype of Function.
+  Entity Type is a subtype of Object Type.
+  Value Type is a subtype of Object Type.
+  For each Object Type, exactly one of the following holds:
+      that Object Type is an Entity Type;
+      that Object Type is a Value Type.
+  <!-- Added 2026-08-02. The two defining conditions were already declared
+       below as derived rules, but the subtypes themselves were never
+       declared, so both rules had heads naming types the model did not
+       contain. Halpin's Fig 13.29 compresses this into the OTkind
+       attribute; the later editions spell out the partition.
+
+       The verbalization is NORMA's, not a shorthand: the
+       ForEachIndentedQuantifier snippet ("for each {0},") composed with
+       GroupExclusiveOr ("exactly one of the following holds:") and the
+       CompoundList separators. GroupExclusiveOr is exclusion AND
+       exhaustion in one, which is why no separate totality line appears —
+       an earlier draft of this block carried one and it was redundant.
+       Plain exclusion without exhaustion is GroupExclusion, "at most one
+       of the following holds", which is what the other eight partitions in
+       this corpus needed. -->
+
+<!-- Abstractness is deliberately NOT declared here (2026-08-02). An
+     Object Type is abstract when it is a supertype that does not absorb
+     its subtypes — one table per subtype, none for the supertype. That is
+     a consequence of the Rmap absorption outcome, so it derives; asserting
+     it would be modeling the symptom.
+
+     What it would derive FROM does not exist yet. csdp.md models Rmap as a
+     machine whose step 0 is absorption, but as an event that advances the
+     procedure ('Relational Mapping absorbs subtypes'), never as a per-type
+     outcome — there is no `Subtype is absorbed into Object Type` fact.
+     Given one, this is a one-line derived unary:
+
+       *Object Type is abstract if and only if some Object Type is a
+        subtype of that Object Type and is not absorbed into it.
+
+     Until then, note the live consequence: forml2-grammar.md accepts
+     `is abstract` as a Trailing Marker (:30) and classifies it (:240), but
+     the metamodel has no head for it, which is why the grammar carries
+     'abstract' as a third value in its Object Kind column. That third
+     value is the symptom of this same gap, not a kind. -->
+
   Event Type is a subtype of Function.
   Fact Type is a subtype of Event Type.
-  {Event Type, Constraint, Derivation Rule} are mutually exclusive subtypes of Function.
+  For each Function, at most one of the following holds:
+      that Function is an Event Type;
+      that Function is a Constraint;
+      that Function is a Derivation Rule.
   <!-- arest-batch ruling 1 (FFP): one root. Everything the metamodel
        names is a cell in D; the ORM spelling is a subtype edge to
-       Function (schema content) or to Resource (runtime instances, itself
+       Function (schema content) or to Object Type Instance (runtime instances, itself
        a Function subtype). Backus has no lattice — atoms and sequences,
        kind by head atom — so these edges are fragment R's per-type
        statement of rho's totality, the same way the spanning UCs state
        Def 3's set semantics per fact type. Schema elements surface as
-       addressable Resources by reflection (instance-of), never by a second
-       subtype path. The former Resource placements of this trio migrate
+       addressable Object Type Instances by reflection (instance-of), never by a second
+       subtype path. The former Object Type Instance placements of this trio migrate
        accordingly. -->
   <!-- arest-audit A: State Machine Definition removed from the exclusive
        list. state.md declares `State Machine Definition is a subtype of
@@ -64,11 +126,11 @@ Object Type is a subtype of Function.
        Status's exclusions through the subtype.
        arest-audit I (NORMA CompatibleSupertypesError): Status removed
        too. Its home is `Status is a subtype of Noun` (state.md); listing
-       it here also made it a direct Resource subtype, giving Status two
+       it here also made it a direct Object Type Instance subtype, giving Status two
        unrelated identification paths (Noun -> Function.id vs
-       Resource.Reference). Status's schema-side identity flows through
-       Noun; schema elements surface as Resources by reflection
-       (`Resource is instance of Noun`, instances.md), not by subtyping. -->
+       Object Type Instance.Reference). Status's schema-side identity flows through
+       Noun; schema elements surface as Object Type Instances by reflection
+       (`Object Type Instance is instance of Noun`, instances.md), not by subtyping. -->
 
 
 Reading is an entity type.
@@ -155,18 +217,18 @@ Domain has Description.
      possibly later) some people or organizations that are not
      customers, then we do need to remodel" - and the ruling came
      back that agent users and company users are real. So User is a
-     ROLE subtype of Resource, the mixin, exactly as Fig. 11 hangs
+     ROLE subtype of Object Type Instance, the mixin, exactly as Fig. 11 hangs
      Customer off Party rather than off Person: a role type over the
      one id space, migration permitted, open to every kind. Any
      facts specific to one kind of user belong on an intersection
      subtype (Fig. 11's PersonalCustomer/CorporateCustomer), not on
      User itself. -->        
 Human is an entity type.
-Human is a subtype of Resource.
+Human is a subtype of Object Type Instance.
 Organization is an entity type.
-Organization is a subtype of Resource.
+Organization is a subtype of Object Type Instance.
 Agent is an entity type.
-Agent is a subtype of Resource.
+Agent is a subtype of Object Type Instance.
 
 ## Value Types
 
@@ -188,6 +250,20 @@ Arity is a value type.
   The data type of Arity is integer.
 Position is a value type.
   The data type of Position is integer.
+Sequence Number is a value type.
+  The data type of Sequence Number is integer.
+  <!-- Which argument sequence of a constraint a span belongs to. Paired
+       with Position it gives the 1.1 / 1.2 / 2.1 numbering.
+
+       The number is family-neutral; what the pair MEANS is the Constraint
+       Type's. Subset reads 1 as included in 2, so sequence 1 is the
+       antecedent and a materializing subset fills 2. Equality reads 1 as
+       equal to 2, which is symmetric — a materializing equality provides
+       in both directions. Exclusion reads them as disjoint and can only
+       refuse, so it never carries a Derivation Mode. Reading the ordinal
+       as "1 = subset" would re-specialize the mechanism to the one family
+       it started in. -->
+
 Min Occurrence is a value type.
   The data type of Min Occurrence is integer.
 Max Occurrence is a value type.
@@ -196,9 +272,9 @@ Name is a value type.
   The data type of Name is text.
 Plural is a value type.
   The data type of Plural is text.
-OT Kind is a value type.
-  The possible values of OT Kind are 'entity', 'value'.
-  The data type of OT Kind is text.
+Object Kind is a value type.
+  The possible values of Object Kind are 'entity', 'value'.
+  The data type of Object Kind is text.
 <!-- `Format` was a value type here (legacy widget Format: 'text', 'date',
      'boolean'). It is PROMOTED to a first-class, extensible entity type
      `Format(.Name)` in the NORMA Value Domain section below (alongside
@@ -268,8 +344,36 @@ Scope is a value type.
   The possible values of Scope are 'organization', 'public'. -->
 
 Derivation Mode is a value type.
-  The possible values of Derivation Mode are 'fully-derived', 'derived-and-stored', 'semi-derived'.
+  The possible values of Derivation Mode are 'fully-derived', 'derived-and-stored', 'semi-derived', 'semi-derived-and-stored'.
   The data type of Derivation Mode is text.
+  <!-- marker ruling (Samuel, 2026-08-04): 'semi-derived-and-stored' added. The
+       enum carried three of Halpin's four ORM 2 derivation markers, so the
+       corpus could not express `++` at all. The four are orthogonal, storage on
+       one axis and assertability on the other:
+         *   derive at runtime
+         **  derive and store
+         +   derive or assert
+         ++  derive and store, or assert
+       The missing mode is the only one that supports a computed DEFAULT an
+       author may then override. A runtime-derived cell (`*`, `+`) recomputes on
+       every read, so an assertion to the contrary is overwritten, which is the
+       non-monotonic retraction Lem 1 excludes and which state.md already hit on
+       effective-initial. A STORED cell is materialized once and persists, so a
+       later assertion survives until the next materialization.
+       First use: `Subscription is set to cancel at period end` in
+       apps/auto.dev/plans-subscriptions.md, where an admin-provisioned trial
+       must default to cancelling at trial end and an admin may deliberately
+       assert otherwise.
+       AREST.tex enumerates only three ("fully derived (*), derived and stored
+       (**, materialized), or semi-derived (+, also directly assertable)") and
+       carries the same gap. Not corrected here; the readings lead.
+       Follow-up, not taken unilaterally: NORMA models this as TWO orthogonal
+       enums, completeness (fully / partially derived) crossed with storage
+       (derived / derived and stored), which yields the four markers as products
+       rather than as a flat list. Splitting this value type that way is the
+       faithful modeling and would make the orthogonality structural, but it
+       changes the shape of an existing populated value type. -->
+
 
 Constraint Type Label is a value type.
   The data type of Constraint Type Label is text.
@@ -284,14 +388,14 @@ Constraint Match Keyword is a value type.
 ## Fact Types
 
 ### Object Type
-Object Type is of OT Kind.
-  Each Object Type is of exactly one OT Kind.
+Object Type is of Object Kind.
+  Each Object Type is of exactly one Object Kind.
 
 <!-- arest-batch (Halpin Fig 13.29, verbatim shape): the kinds as
      derived subtypes — "each EntityType is an ObjectType that is of
      OTkind 'Entity'". -->
-* Each Entity Type is an Object Type that is of OT Kind 'entity'.
-* Each Value Type is an Object Type that is of OT Kind 'value'.
+* Each Entity Type is an Object Type that is of Object Kind 'entity'.
+* Each Value Type is an Object Type that is of Object Kind 'value'.
 Object Type has Plural.
   Each Object Type has at most one Plural.
 <!-- one-table wave (2026-07-16): `Object Type has value-type- Name` (the
@@ -400,7 +504,7 @@ Object Type is instantiable. **
        `compile_noun_is_instantiable_compile_time_cell_matches_procedural_predicate`
        in compile.rs. -->
 
-It is impossible that a Resource is an instance of a Object Type that is not instantiable.
+It is impossible that an Object Type Instance is an instance of a Object Type that is not instantiable.
   <!-- task-961 Phase B/C — the declarative instantiability constraint. ALETHIC
        (AREST.tex §328 "It is impossible that …"): instantiating an entity of
        a noun that is not in either the derived `Noun_is_instantiable` cell OR
@@ -455,6 +559,34 @@ Constraint spans Role.
   Each Constraint spans some Role.
 Constraint Span objectifies "Constraint spans Role".
 Constraint Span is a subtype of Function.
+Constraint Span has Sequence Number.
+  Each Constraint Span has exactly one Sequence Number.
+Constraint Span has Position.
+  Each Constraint Span has exactly one Position.
+  <!-- Added 2026-08-05 (Samuel: "the subset is sequence 1, with roles
+       numbered 1.1, 1.2, etc, and the superset is sequence 2"). The span
+       was a pure Constraint x Role pair, recording WHICH roles a constraint
+       spans but never in what sequence or order — so for a set-comparison
+       constraint nothing said which spanned roles belonged to which
+       argument sequence, and the ordered arguments of a compound span were
+       unordered. Sequence Number and Position are that numbering: 1.1 is
+       Sequence Number 1, Position 1. The families read the sequences
+       differently (see Sequence Number); the span only numbers them.
+
+       This is what `Derivation Rule is provided by Constraint` was standing
+       in for. The 2026-07-15 ruling says a materializing constraint's
+       derivation "compiles from the constraint's own role sequences", but
+       the sequences were not in the model, so the rule could not be
+       recomputed from its constraint and had to be reachable by a stored
+       link. With the ordinals declared, antecedent is the spans at Sequence
+       Number 1 and consequent the spans at 2, and the link becomes what it
+       looked like all along: one bit (does this constraint materialize)
+       that `Constraint has Derivation Mode` could carry instead.
+
+       NORMA models this as Role Sequence with Position (1154); that entity
+       exists here but belongs to the derivation-body decomposition and is
+       never linked to Constraint. Numbering the span directly matches the
+       flattened 1.1/1.2 form and needs no new wiring. -->
   <!-- objectification legal per Halpin, "Objectification and Atomicity"
        (2020-04-28): the UC above spans both roles. one-table wave
        (2026-07-16): identity through the one id space (the subtype), the
@@ -553,7 +685,7 @@ Function has Definition Origin.
        an origin fact the boundary is not a query over P — it lived only in
        host kernels (the 17 boundary atoms were undeclared in-canon; the
        rebuild's manifest DEF is the ready salvage). At-most-one rather
-       than exactly-one: Function's population includes runtime Resources
+       than exactly-one: Function's population includes runtime Object Type Instances
        (instances.md) that carry no definition; origin is mandatory exactly
        for DEFS entries. Signature (dom/cod) facts follow when the canon
        manifest lands. -->
@@ -614,7 +746,7 @@ Constraint is of Constraint Type.
      RingConstraintTypeNotSpecifiedError when the type is left unset, i.e. the
      typing is MANDATORY, which gives exactly one. The shape is the metamodel's
      own precedent for a kind-attribute, core.md:268-269
-     `Object Type is of OT Kind. / Each Object Type is of exactly one OT Kind.` -->
+     `Object Type is of Object Kind. / Each Object Type is of exactly one Object Kind.` -->
 Constraint Type has Name.
   Each Constraint Type has at most one Name.
 Constraint Type has Constraint Type Label.
@@ -680,14 +812,14 @@ For each Status, some Transition is from that Status or some Transition is to th
 
 If some Role is used in some Reading where some Fact Type has that Reading then that Fact Type has that Role.
 <!-- residue fix (2026-07-16): both sentences below were phrased over `Fact
-     uses Resource for Role`, the ternary the one-table nesting
-     transformation retired (Fact fills Role + FactFillsRole uses Resource)
+     uses Object Type Instance for Role`, the ternary the one-table nesting
+     transformation retired (Fact fills Role + RoleInstance uses Object Type Instance)
      — the dangling-reference class. Rewritten over the current readings. -->
 If some Fact fills some Role then that Fact is of some Fact Type that has that Role.
-It is obligatory that each Resource that some FactFillsRole uses is instance of some Object Type that plays the Role that FactFillsRole fills.
+It is obligatory that each Object Type Instance that some RoleInstance uses is instance of some Object Type that plays the Role that RoleInstance fills.
   <!-- derived residue note (2026-07-17): the role-typing subset is
        expressible in NORMA only through the IMPLIED link fact types of
-       the FactFillsRole objectification (the sequence needs the pair's
+       the RoleInstance objectification (the sequence needs the pair's
        Fact and Role components, and the nesting transformation traded
        the flat ternary for link-machinery-only access — Halpin's own
        prescription). Implied link readings are not A-declared
@@ -699,7 +831,7 @@ It is obligatory that each Resource that some FactFillsRole uses is instance of 
      it stands as the deontic obligation above until link-fact readings or
      the evaluator's validate step carry it. -->
 
-If some Fact Type defines some Fact then some Resource that is that Fact is instance of some Object Type that is that Fact Type.
+If some Fact Type defines some Fact then some Object Type Instance that is that Fact is instance of some Object Type that is that Fact Type.
 If some Fact is referenced by some Predicate and that Fact is of some Fact Type then some Reading is used by that Predicate where that Fact Type has that Reading.
 If some Guard Run is for some Guard and that Guard Run references some Fact then that Guard references some Fact Type where that Fact is of that Fact Type.
 <!-- exec (canonical alignment, 2026-07-16): both sentences above were
@@ -817,12 +949,26 @@ Derivation Rule has Text.
 Derivation Rule is provided by Constraint.
   Each Derivation Rule is provided by at most one Constraint.
   For each Constraint, at most one Derivation Rule is provided by that Constraint.
-  <!-- exec ruling (2026-07-16): the derivation a materializing
-       constraint supplies (see "Derivations provided by constraints"
-       below). A provided rule carries no authored Text — its content
-       compiles from the providing constraint's role sequences. Optional
-       both ways: most rules are authored, most constraints only
-       restrict. -->
+  <!-- exec ruling (2026-07-15, commit 3f76bcda): the derivation a
+       materializing constraint supplies. A provided rule carries no
+       authored Text — its content compiles from the providing
+       constraint's role sequences. Optional both ways: most rules are
+       authored, most constraints only restrict.
+
+       Considered and rejected 2026-08-05: replacing this with `Constraint
+       has Derivation Mode`, on the reasoning that the link stores only one
+       real bit (whether this constraint materializes) and everything else
+       recomputes. The reasoning holds; the replacement does not, because
+       the recomputation is not expressible. The ruling names an
+       "antecedent sequence" and a "consequent sequence", but the metamodel
+       has only `Constraint spans Role` (543) and `Fact Type has Role`
+       (529) — nothing distinguishes which of a constraint's spanned roles
+       are antecedent and which consequent, and Role Sequence (1126)
+       belongs to the derivation-body decomposition and is never linked to
+       Constraint. So a rule reached only from its constraint cannot find
+       its own head. Retiring this link needs
+       `Constraint has antecedent Role Sequence` / `... consequent ...`
+       declared first; that is the real gap, and it is why the link exists. -->
 Derivation Rule has antecedent Fact Type.
   Each Derivation Rule, Fact Type combination occurs at most once in the population of Derivation Rule has antecedent Fact Type.
 DerivationRuleHasAntecedentFactType objectifies "Derivation Rule has antecedent Fact Type".
@@ -854,9 +1000,9 @@ Derivation Rule depends on Derivation Rule. *
 
 * Derivation Rule1 reaches Derivation Rule3 iff Derivation Rule1 depends on Derivation Rule2 and Derivation Rule2 reaches Derivation Rule3.
 
-* Object Type is instantiable iff Object Type is of OT Kind 'entity' and Object Type has some Reference Mode.
+* Object Type is instantiable iff Object Type is of Object Kind 'entity' and Object Type has some Reference Mode.
 
-Constraint is semantic iff Constraint has modality of Modality Type 'Deontic' and Constraint spans some Role and that Role is played by some Object Type and no Resource is instance of that Object Type.
+Constraint is semantic iff Constraint has modality of Modality Type 'Deontic' and Constraint spans some Role and that Role is played by some Object Type and no Object Type Instance is instance of that Object Type.
 
 ## Implicit Derivation Rules (#316 / #287c)
 
@@ -873,21 +1019,21 @@ push; until then the Rust synthesis continues to cover them.
 
 <!-- arest-audit H2 (10.2, oracle-found prose — this block parsed into
      garbage fact types): Every fact that binds a subtype also binds the
-     supertype: if Noun1 is a subtype of Noun2 and a Fact uses a Resource
-     whose Noun is Noun1 for some Role, then that same Resource is also an
-     instance of Noun2. In ORM this IS `Resource is instance of Noun` —
+     supertype: if Noun1 is a subtype of Noun2 and a Fact uses an Object Type Instance
+     whose Noun is Noun1 for some Role, then that same Object Type Instance is also an
+     instance of Noun2. In ORM this IS `Object Type Instance is instance of Noun` —
      subtyping is population inclusion (Halpin, "Subtyping Revisited"), so
      instance-of is transitive and the runtime mirror is deliberately
      over-broad to carry it. Inheritance proper is PROPERTY reuse, not a
      distinct membership relation. -->
 
-<!-- RETIRED 2026-07-09 (challenged + NORMA-verified): `Resource is
+<!-- RETIRED 2026-07-09 (challenged + NORMA-verified): `Object Type Instance is
      inherited instance of Noun` was a non-canonical relation — ORM has
      no separate "inherited membership", and it only existed to prop up
      the (also non-canonical, now relaxed) `instance of exactly one
      Noun`. It had ZERO readers in base or apps (grep: only its own
      declaration), so retiring it removes dead derived data.
-* Resource is inherited instance of Noun iff Resource is instance of some subtype of that Noun. -->
+* Object Type Instance is inherited instance of Noun iff Object Type Instance is instance of some subtype of that Noun. -->
 
 
 ### Derivations provided by constraints
@@ -923,6 +1069,7 @@ Fact is in consequent Fact Type. *
 
 * Fact is in consequent Fact Type1 iff some Derivation Rule is provided by some Constraint and that Derivation Rule produces Fact Type1 and that Derivation Rule has antecedent some Fact Type2 and that Fact is of some Function that is that Fact Type2.
 
+
 ### Transitivity of binary Fact Types
 
 <!--
@@ -940,15 +1087,15 @@ No Fact joins itself.
      finally in the fragment. A fact chain-composes with a distinct
      fact when the resource it uses at a position-2 role is the
      resource the other uses at a position-1 role — positions through
-     RoleIsUsedInReading has Position, usage through FactFillsRole uses
-     Resource. Recipes #38/#39 of rules:metamodel: the flat form
+     RoleIsUsedInReading has Position, usage through RoleInstance uses
+     Object Type Instance. Recipes #38/#39 of rules:metamodel: the flat form
      unfolds both nested attachments (their extensional first columns
      open into components), two cmp mirrors hold the distinctness the
      sketch's "some other Fact" asked for, so the ring is irreflexive
-     by construction. The anaphoric FactFillsRole / RoleIsUsedInReading
+     by construction. The anaphoric RoleInstance / RoleIsUsedInReading
      references bind nearest-antecedent. -->
 
-* Fact1 joins Fact2 iff Fact1 fills some Role1 and that FactFillsRole uses some Resource and that Role1 is used in some Reading1 and that RoleIsUsedInReading has Position 2 and some other Fact2 fills some Role2 and that FactFillsRole uses that Resource and that Role2 is used in some Reading2 and that RoleIsUsedInReading has Position 1.
+* Fact1 joins Fact2 iff Fact1 fills some Role1 and that RoleInstance uses some Object Type Instance and that Role1 is used in some Reading1 and that RoleIsUsedInReading has Position 2 and some other Fact2 fills some Role2 and that RoleInstance uses that Object Type Instance and that Role2 is used in some Reading2 and that RoleIsUsedInReading has Position 1.
 
 ## Check-Readings Deontic Obligations (#288)
 
@@ -1072,6 +1219,92 @@ DerivationRuleHasRoleProjection is a subtype of Function.
 Fact Type has Derivation Storage Type.
   Each Fact Type has at most one Derivation Storage Type.
 
+## Negation
+
+<!--
+There are TWO negations here, and conflating them is what left the model
+with none. NORMA carries both, and the paper names both.
+
+(1) PATH NEGATION — inference from absence. NORMA holds it as a boolean at
+    three positions in a role path, declared as DomainProperty entries in
+    ORMCore.dsl:
+      LeadRolePath.IsNegated   "Indicates a negated path root."
+      PathedRole.IsNegated     "Indicates that this step in the path is
+                                negated."
+      RolePath.SplitIsNegated  "Indicates if the tail split in its entirety
+                                should be treated as a negation."
+    The paper names the same three: negation is admitted "inside derivation
+    role paths, where a step, a root, or a branch may be negated."
+
+    Negation is ORTHOGONAL to join flavour — NORMA has no 'anti' join kind.
+    That is why `Join Type 'anti'` is retired (see Join Types under Instance
+    Facts): an anti-join is how a negated step EVALUATES, not what it is
+    ("a negated role path ... evaluates as a finite anti-join against a
+    completed lower stratum"). Carrying both gave two ways to say "negated
+    step" and made negation exclusive with inner/outer, which it is not.
+    The step flag sits on `Join` because that is where `Join Type` sat, so
+    the granularity is unchanged — only the axis is.
+
+    BRANCH NEGATION IS NOT MODELLED. SplitIsNegated negates a tail split,
+    and this decomposition has no split: `Join Path has Join` is a flat list
+    with no branch structure. The gap is structural and pre-dates negation —
+    a split entity has to come first — so it is recorded rather than faked.
+
+(2) EXPLICIT NEGATION — epistemic falsity, never inferred from absence:
+    "An epistemic falsity, verbalized 'it is known to be false that,' enters
+    P as an explicit negation fact." Definition 2 puts it in the SCHEMA, not
+    the evaluator: the fact domain F "includes the paired explicit-negation
+    type of each negatable fact type." So negatability is not a flag — a
+    Fact Type is negatable exactly when it has a pair.
+
+    The three-valued reading follows from the pairing instead of being
+    stored: a ground fact is true if it is in P, false if its pair is in P,
+    unknown otherwise, and under the closed-world assumption on a noun
+    unknown collapses to false. That is a reading of the CANDIDATE fact
+    space, not a property of a Fact — every Fact in P is trivially true — so
+    no `Fact has Truth Value` is declared.
+
+    Def 2's consistency condition ("excludes a ground fact and its pair from
+    occurring together") compares two facts tuple-wise: the same filler in
+    each corresponding role. `Fact fills Role` and `RoleInstance uses Object
+    Type Instance` supply the parts, but FORML 2 has no quantifier over
+    corresponding roles, so the condition is NOT written here as an
+    obligation against vocabulary that cannot carry it — the same
+    adjudication validation.md made for Subtype Constraint Declaration. The
+    evaluator enforces it; the schema owns the pairing below.
+
+The verbalization sign axis ("it is not true that" / "it is known to be
+false that" / "it is not known to be false that") is a third thing again,
+and it is already modelled: validation.md's Constraint Invertibility carries
+NORMA's positive/negative form pairing.
+-->
+
+Join Path is negated.
+
+Join is negated.
+
+Explicit Negation Fact Type is a subtype of Fact Type.
+
+Explicit Negation Fact Type negates Fact Type.
+  Each Explicit Negation Fact Type negates exactly one Fact Type.
+  For each Fact Type, at most one Explicit Negation Fact Type negates that Fact Type.
+
+<!-- NO ¬¬ PROHIBITION IS DECLARED, and the omission is deliberate.
+     A sentence forbidding an Explicit Negation Fact Type from negating an
+     Explicit Negation Fact Type was drafted here and withdrawn on three
+     counts. It is unsourced: neither Def 2 nor NORMA forbids it. It is
+     probably FALSE under the very reading this section adopts — double
+     negation does not eliminate in a three-valued open-world logic, so
+     "it is known to be false that it is known to be false that P" is not P,
+     and a modeller may have cause to say it. And it mis-modelled: the
+     compiler mints a fact type per deontic body, so the sentence produced
+     `an_Explicit_Negation_Fact_Type_negates_an_Explicit_Negation_Fact_Type`
+     — a SECOND predicate for what `negates` already says, and the only
+     article-prefixed same-object-type binary in M, which then owes a ring
+     constraint under Layer 3 above.
+     The 1:1 pairing above already carries what "paired" means. Recorded so
+     the prohibition is not re-derived and re-added. -->
+
 ## Antecedent Clause Shape (#281)
 
 <!--
@@ -1152,7 +1385,7 @@ It is obligatory that each Migration produces some Fact Type as target.
      preserved and Cor 4 (cor:closure) survives. -->
 
 Migration Application is an entity type.
-Migration Application is a subtype of Resource.
+Migration Application is a subtype of Object Type Instance.
 
 Migration Application has Migration.
   Each Migration Application has exactly one Migration.
@@ -1611,7 +1844,14 @@ Join Type 'inner' has Name 'inner'.
 Join Type 'outer' has Name 'outer'.
 Join Type 'left-outer' has Name 'left-outer'.
 Join Type 'right-outer' has Name 'right-outer'.
-Join Type 'anti' has Name 'anti'.
+<!-- 'anti' retired with the Negation section above. NORMA has no 'anti'
+     join kind: negation is an orthogonal boolean on the path (IsNegated),
+     and the anti-join is how a negated step EVALUATES. Fused into this
+     enum it made negation exclusive with inner/outer and gave a second way
+     to say what `Join is negated` says. No derivation read this value —
+     the machinery is system:compile_rule_neg, which builds the anti-join
+     from the negation, not from a join kind. -->
+
 
 ### HTTP Methods
 

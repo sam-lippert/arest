@@ -3,15 +3,15 @@
 ## Entity Types
 
 Domain Change is an entity type.
-Domain Change is a subtype of Resource.
-  <!-- arest-audit: joins the established schema-entity-as-Resource
+Domain Change is a subtype of Object Type Instance.
+  <!-- arest-audit: joins the established schema-entity-as-Object Type Instance
        pattern (core.md: Event Type, Status, Constraint, Derivation Rule
-       are Resource subtypes), so the outcome provenance fact types
-       (`Violation is triggered by Resource`, `Failure is triggered by
-       Resource`) type-check against a Domain Change — the validity rules
+       are Object Type Instance subtypes), so the outcome provenance fact types
+       (`Violation is triggered by Object Type Instance`, `Failure is triggered by
+       Object Type Instance`) type-check against a Domain Change — the validity rules
        below join through them. -->
 Signal is an entity type.
-Signal is a subtype of Resource.
+Signal is a subtype of Object Type Instance.
 <!-- arest-audit I+J (NORMA CompatibleSupertypesError x4; Samuel's
      ontology lens, 2026-07-15): `Model Element(.id)` is retired. As a
      second identification root declared a supertype of Reading / Noun /
@@ -82,9 +82,9 @@ Signal leads to Domain Change.
 Signal has Signal Kind.
   Each Signal has exactly one Signal Kind.
 
-Signal is raised by Resource.
-  Each Signal is raised by exactly one Resource.
-  <!-- Resource is the party mixin, so a Human, an Organization or an
+Signal is raised by Object Type Instance.
+  Each Signal is raised by exactly one Object Type Instance.
+  <!-- Object Type Instance is the party mixin, so a Human, an Organization or an
        Agent may raise a signal - which is the point: automated origins
        finally have a raiser to name. `exactly one` is the throat: every
        signal is somebody's. -->        

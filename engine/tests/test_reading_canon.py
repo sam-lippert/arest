@@ -11,7 +11,7 @@ Title-case-run guard (a match whose continuation token is Title-case with no
 known name covering the extended span is predicate text). system:ftid —
 ⟨template, roles⟩ → the stable fact-type id (roles substituted back, slugged).
 The Python _reading/_ftid_from are the behavioral spec and become thin
-callers; the whole shared/base corpus is the twin oracle."""
+callers; the whole metamodel corpus is the twin oracle."""
 import os
 
 import pyarest.prims  # noqa: F401
@@ -98,11 +98,11 @@ def test_ftid_substitutes_back_and_slugs():
 
 
 def test_the_canonical_scan_twins_the_python_reading_over_the_base_corpus():
-    """The strongest oracle: every fact-type reading in shared/base answers the
+    """The strongest oracle: every fact-type reading in metamodel answers the
     SAME (template, roles) through the canonical object as through _reading."""
     from pyarest import forml
     root = os.path.join(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__))), "shared", "base")
+        os.path.dirname(os.path.abspath(__file__)))), "metamodel")
     text = "\n\n".join(open(os.path.join(root, f), encoding="utf-8").read()
                        for f in sorted(os.listdir(root)) if f.endswith(".md"))
     stmts = forml.statements(text)

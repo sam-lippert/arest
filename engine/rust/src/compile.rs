@@ -1,4 +1,4 @@
-//! The Stage-1 COOK boundary, native (#20, the usability push; #18's doctrine).
+//! The Stage-1 compile boundary, native (#20, the usability push; #18's doctrine).
 //!
 //! Python's `_COOK` table (compiler.py) performs every text→X resolution a
 //! translator body needs BEFORE the translator sees its groups: reading→ftid,
@@ -10,14 +10,14 @@
 //! DOCTRINE SPLIT (the mission's note): _reading/_ftid ride main.rs's
 //! certified-equal native twins (reading_split/ftid_from — the same functions
 //! the prepass already trusts); system:cs_rows and system:sm_rows are REDUCED
-//! FROM THE CANON exactly as Python's _cook_cs/_sm_rows reduce them (parity by
+//! FROM THE CANON exactly as Python's _compile_cs/_sm_rows reduce them (parity by
 //! construction); only what is genuinely host regex in Python — the
 //! productions, _num, _slug, the quantifier strips, the rule-body scans — is
 //! hand-rolled here, zero-dep, in the skeleton's own style.
 //!
 //! Every function names its Python original; the acceptance is the per-kind
 //! differential (emitted rows verbatim-equal, obj specs from_lam-equal)
-//! against python compile_model over the shared/base corpus.
+//! against python compile_model over the metamodel corpus.
 
 use super::*;
 use std::collections::BTreeMap;
@@ -762,8 +762,8 @@ pub struct Crows {
 type Asserts = Vec<(String, Val)>;
 type Objs = Vec<(String, V)>;
 
-// _h_crows (compiler.py): the generic constraint translator over cooked groups
-fn h_crows(g: &Crows, m: &str, srv: &Srv) -> Result<(Asserts, Objs), String> {
+// _h_constraint (compiler.py): the generic constraint translator over compiled groups
+fn h_constraint(g: &Crows, m: &str, srv: &Srv) -> Result<(Asserts, Objs), String> {
     let mut rows: Asserts = g.decl.clone();
     for mid in &g.mid {
         match mid {
@@ -833,7 +833,7 @@ fn mandatory_parts(
 
 // ============================ the cooks ======================================
 
-// _cook_ring
+// _compile_ring
 fn cook_ring(g: &[Option<String>], k: &Known) -> (Vec<(String, Val)>, String, String, String, String) {
     let g0 = g[0].as_deref().unwrap_or("");
     let g1 = g[1].as_deref().unwrap_or("");
@@ -847,7 +847,7 @@ fn cook_ring(g: &[Option<String>], k: &Known) -> (Vec<(String, Val)>, String, St
     )
 }
 
-// _cook_frequency
+// _compile_frequency
 fn cook_frequency(g: &[Option<String>], k: &Known) -> (String, String, Vec<i64>, Val) {
     let g0 = g[0].as_deref().unwrap_or("");
     let g1 = g[1].as_deref().unwrap_or("");
@@ -880,7 +880,7 @@ fn cook_frequency(g: &[Option<String>], k: &Known) -> (String, String, Vec<i64>,
     )
 }
 
-// _cook_value_constraint
+// _compile_value_constraint
 fn cook_value_constraint(g: &[Option<String>]) -> (String, String, String, String, Val) {
     let g0 = g[0].as_deref().unwrap_or("");
     let g1 = g[1].as_deref().unwrap_or("");
@@ -894,7 +894,7 @@ fn cook_value_constraint(g: &[Option<String>]) -> (String, String, String, Strin
     )
 }
 
-// _cook_uniqueness (+ the 'exactly one' mandatory rider)
+// _compile_uniqueness (+ the 'exactly one' mandatory rider)
 fn cook_uniqueness(g: &[Option<String>], k: &Known) -> Crows {
     let g0 = g[0].as_deref().unwrap_or("");
     let g1 = g[1].as_deref().unwrap_or("");
@@ -930,7 +930,7 @@ fn cook_uniqueness(g: &[Option<String>], k: &Known) -> Crows {
     Crows { decl, mid, ospecs }
 }
 
-// _cook_mandatory
+// _compile_mandatory
 fn cook_mandatory(g: &[Option<String>], k: &Known) -> Crows {
     let g0 = g[0].as_deref().unwrap_or("");
     let g1 = g[1].as_deref().unwrap_or("");
@@ -947,7 +947,7 @@ fn cook_mandatory(g: &[Option<String>], k: &Known) -> Crows {
     }
 }
 
-// _cook_neg_uniqueness: the same uc constraint, NO spans row, NO conditional
+// _compile_neg_uniqueness: the same uc constraint, NO spans row, NO conditional
 fn cook_neg_uniqueness(g: &[Option<String>], k: &Known) -> Crows {
     let joined = g
         .iter()
@@ -967,7 +967,7 @@ fn cook_neg_uniqueness(g: &[Option<String>], k: &Known) -> Crows {
     }
 }
 
-// _cook_neg_mandatory
+// _compile_neg_mandatory
 fn cook_neg_mandatory(g: &[Option<String>], k: &Known) -> Crows {
     let joined = g
         .iter()
@@ -987,7 +987,7 @@ fn cook_neg_mandatory(g: &[Option<String>], k: &Known) -> Crows {
     }
 }
 
-// _cook_for_each_mandatory
+// _compile_for_each_mandatory
 fn cook_for_each_mandatory(g: &[Option<String>], k: &Known) -> Crows {
     let subj = g[0].as_deref().unwrap_or("").trim().to_string();
     let clause = dequalify(g[1].as_deref().unwrap_or(""), k);
@@ -1009,7 +1009,7 @@ fn cook_for_each_mandatory(g: &[Option<String>], k: &Known) -> Crows {
     }
 }
 
-// _cook_inverse_uc
+// _compile_inverse_uc
 fn cook_inverse_uc(g: &[Option<String>], k: &Known) -> Crows {
     let g0 = g[0].as_deref().unwrap_or("");
     let g1 = g[1].as_deref().unwrap_or("");
@@ -1065,7 +1065,7 @@ fn uc_columns(names: &[String], rtypes: &[String]) -> (Vec<i64>, Vec<String>) {
     (roles, missing)
 }
 
-// _cook_spanning: 'In each population of <reading>, each A, B …'
+// _compile_spanning: 'In each population of <reading>, each A, B …'
 fn cook_spanning(g: &[Option<String>], k: &Known) -> Result<Crows, String> {
     let g0 = g[0].as_deref().unwrap_or("");
     let g1 = g[1].as_deref().unwrap_or("");
@@ -1095,7 +1095,7 @@ fn cook_spanning(g: &[Option<String>], k: &Known) -> Result<Crows, String> {
     })
 }
 
-// _cook_spanning_corpus: the roles-first spelling; the reading declares
+// _compile_spanning_corpus: the roles-first spelling; the reading declares
 fn cook_spanning_corpus(g: &[Option<String>], k: &Known) -> Result<Crows, String> {
     let g0 = g[0].as_deref().unwrap_or("");
     let g1 = g[1].as_deref().unwrap_or("");
@@ -1140,7 +1140,7 @@ fn cook_negation(g: &[Option<String>], k: &Known) -> Crows {
     }
 }
 
-// _cook_subtype: the inclusion rule + the subset check
+// _compile_subtype: the inclusion rule + the subset check
 fn cook_subtype(sub: &str, sup: &str) -> Crows {
     let sub = sub.trim();
     let sup = sup.trim();
@@ -1191,7 +1191,7 @@ fn cook_subtype(sub: &str, sup: &str) -> Crows {
     }
 }
 
-// _cook_fact: marker strip, quote detection, ids, ft resolution, subtype lift
+// _compile_fact: marker strip, quote detection, ids, ft resolution, subtype lift
 fn cook_fact(g0: &str, k: &Known) -> Crows {
     let (kind, rd) = strip_derivation(g0);
     if rd.contains('\'') {
@@ -1249,7 +1249,7 @@ fn cook_fact(g0: &str, k: &Known) -> Crows {
     }
 }
 
-// _cook_derivation_rule: the linear role-path derivation
+// _compile_derivation_rule: the linear role-path derivation
 fn cook_derivation_rule(g: &[Option<String>], k: &Known) -> Crows {
     let derived = g[0].as_deref().unwrap_or("");
     let root = g[1].as_deref().unwrap_or("");
@@ -1308,7 +1308,7 @@ fn cook_derivation_rule(g: &[Option<String>], k: &Known) -> Crows {
     }
 }
 
-// _cook_neg_pair: NORMA's unary negation — the paired positive-shaped
+// _compile_neg_pair: NORMA's unary negation — the paired positive-shaped
 // negation fact type with the pair exclusion auto-asserted
 fn cook_neg_pair(g: &[Option<String>], k: &Known) -> Crows {
     let subj = g[0].as_deref().unwrap_or("");
@@ -1423,7 +1423,7 @@ fn split_and_quote_aware(body: &str) -> Vec<&str> {
     out
 }
 
-// _cook_class_rule: the grammar-as-readings recognizer form
+// _compile_class_rule: the grammar-as-readings recognizer form
 fn cook_class_rule(g: &[Option<String>]) -> Crows {
     let subjh = g[0].as_deref().unwrap_or("");
     let fieldh = g[1].as_deref().unwrap_or("");
@@ -1493,10 +1493,10 @@ fn cook_class_rule(g: &[Option<String>]) -> Crows {
 }
 
 // ============================ the rule cook (the big one) ====================
-// _cook_rule_if (compiler.py): the whole body resolution — clause split,
+// _compile_rule_if (compiler.py): the whole body resolution — clause split,
 // column map, comparators-as-filters, coercion aliases, negation groups, the
-// aggregate, and the head shape including skolem existentials — cooked to the
-// generic crows groups ⟨rows, ⟨⟩, obj_specs⟩.
+// aggregate, and the head shape including skolem existentials — compiled to the
+// generic constraint-row groups ⟨rows, ⟨⟩, obj_specs⟩.
 
 // python dict semantics for the variable → column map (insertion-ordered)
 #[derive(Default, Clone)]
@@ -2081,7 +2081,7 @@ fn marker_kind(marker: &str) -> &'static str {
 }
 
 // ============================ the set-comparison family ======================
-// _cook_cs (compiler.py): system:cs_rows REDUCED FROM THE CANON (python's own
+// _compile_cs (compiler.py): system:cs_rows REDUCED FROM THE CANON (python's own
 // path — parity by construction), the cid mint and per-attach operands here.
 
 fn cs_prefix(kind: &str) -> &'static str {
@@ -2238,7 +2238,7 @@ fn h_brace_subtypes(
     let mut asserts: Asserts = Vec::new();
     let mut objs: Objs = Vec::new();
     for s in &subs {
-        let (a, o) = h_crows(&cook_subtype(s, g2), m, srv)?;
+        let (a, o) = h_constraint(&cook_subtype(s, g2), m, srv)?;
         asserts.extend(a);
         objs.extend(o);
     }
@@ -2286,7 +2286,7 @@ fn cs_call(
     srv: &Srv,
 ) -> Result<(Asserts, Objs), String> {
     let crows = cook_cs(kind, subj, clause_fts, raws, srv)?;
-    h_crows(&crows, m, srv)
+    h_constraint(&crows, m, srv)
 }
 
 // _h_set_comparison
@@ -2529,7 +2529,7 @@ fn h_subset_trailing(
             .map(|(cell, _b, _o)| (cell.clone(), builder.clone(), Val::T(op.clone())))
             .collect(),
     };
-    h_crows(&redirected, m, srv)
+    h_constraint(&redirected, m, srv)
 }
 
 // _h_subset (compiler.py): NORMA's Conditional snippet 'if {0} then {1}' (usedBy
@@ -2634,7 +2634,7 @@ fn h_subset(
             })
             .collect(),
     };
-    h_crows(&redirected, m, srv)
+    h_constraint(&redirected, m, srv)
 }
 
 // the deontic fact_type_reading transform (_plan, compiler.py): the inner
@@ -2669,7 +2669,7 @@ fn deontic_fact(
     } else {
         rd.clone()
     };
-    let (mut facts, mut objs) = h_crows(&cook_fact(&dequoted, k), m, srv)?;
+    let (mut facts, mut objs) = h_constraint(&cook_fact(&dequoted, k), m, srv)?;
     let (ft, _decl) = fact_type(&dequoted, k);
     let (op, prefix) = if sign == "positive" {
         ("deontic_obligatory", "It is obligatory that ")
@@ -3591,7 +3591,7 @@ pub fn plan(
             ),
             _ => unreachable!(),
         };
-        return h_crows(&crows, m, srv);
+        return h_constraint(&crows, m, srv);
     }
     match kind {
         "entity_type" | "value_type" => {

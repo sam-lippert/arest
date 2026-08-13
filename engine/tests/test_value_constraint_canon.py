@@ -1,5 +1,5 @@
 """#18: the value-constraint reading handler, canonized — third constraint-family
-translator. Cooked groups ⟨name, spec, cid, builder_name, operand⟩ (the spec parse is
+translator. Compiled groups ⟨name, spec, cid, builder_name, operand⟩ (the spec parse is
 the string boundary); the canon twin emits the two rows and ⟨cid, (builder : operand)⟩
 through DEFS. Extensional obj certification over range and enumeration builders."""
 import pyarest.prims  # noqa: F401

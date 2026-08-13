@@ -1,47 +1,60 @@
 # AREST UI: Menu-View Derivation — task-934-3
 
-> **Status: task-934-3 part (a) — LIVE. The `(E)` skolem-head surface syntax
-> is wired through the parser + join compiler, and these two rules are
-> REGISTERED in `lib.rs` UI_VIEW_READINGS; the full ~593-FT metamodel compiles
-> GREEN (no hang, `*`-View lazy only). Proven by
-> `menu_view_derivation_compiled_from_authored_reading_reproduces_proven_func`
-> (the COMPILED authored reading reproduces the hand-built target func) and
-> `menu_view_derivation_via_skolem_head_lazy_idempotent` (the hand-built
-> target) in `compile_explicit_derivation_tests.rs`.**
+> **Status: canonized 2026-08-01.** The former status claims cited
+> `lib.rs`, `UI_VIEW_READINGS`, and `compile_explicit_derivation_tests.rs`
+> in `crates/arest/` — a source layout absent from this repository, so none
+> of them were verifiable. They are removed rather than restated. What the
+> reading now asserts is the model, which stands on its own.
 
 ## Overview
 
-A Noun's action menu is a DERIVED view. Each menu item is a `ViewElement`
+An Object Type's action menu is a DERIVED view. Each menu item is a `ViewElement`
 that renders a `Transition` — specifically, every transition that is legal from
 the entity's CURRENT status. The derivation is lazy (resolved at fetch time
-via `resolve_view`) and uses a SKOLEM head variable so the `ViewElement`
-identity is deterministic and idempotent across re-reads.
+via `resolve_view`). `ViewElement` identity is fixed by the preferred
+identification scheme of the objectified association below, so it is
+deterministic across re-reads by construction rather than by a computed key.
 
 This is design-doc §4.5 (Theorem 4 as a view) instantiated as a predicate reading.
 
 ## The Derivation (Predicate Reading Form)
 
-The rule shape (using the `(E)` parenthesised existential syntax from
-`skolem-head-design.md` §5 — the parser for this is not yet landed):
+<!-- Canonized 2026-08-01, same treatment as view-detail.md and
+     view-list.md. Worth naming what the objectified association turns out
+     to be here: `Object Type Instance affords Transition` is Theorem 2's
+     transitions(status(e)) — the affordance set the paper proves equal to
+     Adm. So the menu ViewElement is the objectification of the HATEOAS
+     affordance relation itself, and the menu is that relation wearing a
+     Component Role. The UC spans both roles, satisfying Halpin's 2020
+     precondition, and the head is projective per Def. 4. -->
+
+### ViewElement (objectification of "Object Type Instance affords Transition")
 
 ```
-* ViewElement (E) renders Transition (Tr) iff
-    Resource is currently in Status (S)
-    and Transition (Tr) is from Status (S)
-    and Transition (Tr) is defined in State Machine Definition (D)
-    and State Machine Definition (D) is for Noun (N)
-    and Resource is instance of Noun (N).
+Object Type Instance affords Transition.
+  Each Object Type Instance, Transition combination occurs at most once in the
+    population of Object Type Instance affords Transition.
+  This association with Object Type Instance, Transition provides the preferred
+    identification scheme for ViewElement.
 ```
 
-and the companion rule (same frontier → same `E`):
+The association is populated by one projective rule — the live-status
+affordance join:
 
 ```
-* ViewElement (E) has Component Role 'button' iff
-    Resource is currently in Status (S)
-    and Transition (Tr) is from Status (S)
-    and Transition (Tr) is defined in State Machine Definition (D)
-    and State Machine Definition (D) is for Noun (N)
-    and Resource is instance of Noun (N).
+* Object Type Instance affords Transition if and only if
+    Object Type Instance is currently in Status
+    and Transition is from that Status
+    and Transition is defined in State Machine Definition
+    and that State Machine Definition is for Object Type
+    and Object Type Instance is instance of that Object Type.
+```
+
+and the Component Role derives from what the element involves:
+
+```
+* ViewElement has Component Role 'button' if and only if
+    ViewElement involves Transition.
 ```
 
 Both rules carry `*` (lazy, `view-projection.View` materialization policy — never enters the
@@ -58,15 +71,12 @@ ViewElement renders Transition. *
 
 ## Derivation Rules
 
-The two shared-frontier skolem rules (single-line registration form of the
-prose above). The `(E)` head variable is fresh (existential); the parser
-records a `SkolemHeadRole` and promotes the 5-way `and`-chain to a Join whose
-skolem frontier is the entity-typed antecedent nouns `(Resource, Transition,
-State Machine Definition, Noun)` — identical across both rules, so the invented
-`ve_<fnv>` id is shared. `Transition (Tr)` carries the rendered transition.
+Single-line registration form of the prose above. One rule populates the
+objectified association; the other reads the objectification's link role.
+Both heads are projective.
 
-* ViewElement (E) renders Transition (Tr) iff Resource is currently in Status and Transition (Tr) is from Status and Transition (Tr) is defined in State Machine Definition and State Machine Definition is for Noun and Resource is instance of Noun.
-* ViewElement (E) has Component Role 'button' iff Resource is currently in Status and Transition (Tr) is from Status and Transition (Tr) is defined in State Machine Definition and State Machine Definition is for Noun and Resource is instance of Noun.
+* Object Type Instance affords Transition if and only if Object Type Instance is currently in Status and Transition is from that Status and Transition is defined in State Machine Definition and that State Machine Definition is for Object Type and Object Type Instance is instance of that Object Type.
+* ViewElement has Component Role 'button' if and only if ViewElement involves Transition.
 
 ## Metamodel Fact-Type Names (Verified)
 
@@ -75,88 +85,54 @@ The following cell names have been verified against `readings/core/state.md`,
 
 | FORML 2 reading text                         | Cell name                                          |
 |----------------------------------------------|----------------------------------------------------|
-| State Machine Definition is for Noun         | `State_Machine_Definition_is_for_Noun`             |
+| State Machine Definition is for Object Type         | `State_Machine_Definition_is_for_Object_Type`             |
 | Transition is defined in State Machine Def.  | `Transition_is_defined_in_State_Machine_Definition`|
 | Transition is from Status                    | `Transition_is_from_Status`                        |
 | State Machine is currently in Status         | `State_Machine_is_currently_in_Status`             |
-| State Machine is for Resource                | `State_Machine_is_for_Resource`                    |
-| Resource is instance of Noun                 | `Resource_is_instance_of_Noun`                     |
-| Resource is currently in Status              | `Resource_is_currently_in_Status`                  |
+| State Machine is for Object Type Instance                | `State_Machine_is_for_Object Type Instance`                    |
+| Object Type Instance is instance of Object Type                 | `Object Type Instance_is_instance_of_Object_Type`                     |
+| Object Type Instance is currently in Status              | `Object Type Instance_is_currently_in_Status`                  |
 
-`Resource is currently in Status` is the bridge projection declared in
-`readings/core/instances.md` and populated per-app by the SM-for-Resource ×
+`Object Type Instance is currently in Status` is the bridge projection declared in
+`readings/core/instances.md` and populated per-app by the SM-for-Object Type Instance ×
 SM-currently-in-Status join (e.g. `apps/tasks/readings/app.md`). The
 menu-view derivation should join on the general-level cells above (the 6-way
-join) to work across ALL Nouns+SMs, not just the tasks domain.
+join) to work across ALL Object Types+SMs, not just the tasks domain.
 
 ## Join Chain
 
 ```
-Resource is currently in Status            (Resource → Status_S)
+Object Type Instance is currently in Status            (Object Type Instance → Status_S)
   ⋈ Transition is from Status             (Transition → Status_S)  [join on Status_S]
   ⋈ Transition is defined in SMD          (Transition → SMD_D)
-  ⋈ State Machine Definition is for Noun  (SMD_D → Noun_N)
-  ⋈ Resource is instance of Noun          (Resource → Noun_N)      [join on Noun_N]
+  ⋈ State Machine Definition is for Object Type  (SMD_D → Object_Type_N)
+  ⋈ Object Type Instance is instance of Object Type          (Object Type Instance → Object_Type_N)      [join on Object_Type_N]
 ```
 
-The frontier after this join is `(Resource, Transition)`.
-Frontier hash seed: `fnv1a64(Resource + "|" + Transition)` → `ve_<16 hex>` id.
+The join yields the association `Object Type Instance affords Transition`, which the
+objectification identifies `ViewElement` by.
 
-## Skolem Head Properties
+## ViewElement Properties
 
-- **Deterministic**: `ve_<fnv>` is a pure function of `(Resource, Transition)`.
-  Re-reading the same population reproduces the same ids.
-- **Idempotent**: same frontier → same id → no duplicate `ViewElement` across
-  re-read passes (semi-oblivious / Skolem chase correctness).
-- **Lazy**: both rules emit `view:{cell}` defs, never `derivation:{cell}` defs.
-  Resolved via `resolve_view` at `Func::Fetch` / `Func::FetchOrPhi` time.
-- **Terminal-safe**: an entity in a terminal status (no departing transitions)
-  produces zero frontier rows → zero ViewElements. Proven in the test.
+Each property below used to be a consequence of hashing the frontier. Under
+objectification they are consequences of the identification scheme, which is
+a stronger footing: the old versions were guarantees the host had to keep,
+these are things the model cannot express otherwise.
 
-## Remaining Work
+- **Deterministic**: identity is the `(Object Type Instance, Transition)` pair itself,
+  not a function computed over it. Re-reading the same population yields the
+  same ViewElements because they are the same facts.
+- **Idempotent**: duplicates are not *prevented*, they are unrepresentable —
+  the UC spans both roles, so a second ViewElement for the same pair is a
+  uniqueness violation rather than a second row.
+- **Lazy**: the rules emit `view:{cell}` defs, never `derivation:{cell}`
+  defs, resolved at `Func::Fetch` / `Func::FetchOrPhi` time.
+- **Terminal-safe**: an entity in a terminal status affords no transitions,
+  so the association is empty for it and no ViewElement exists. This now
+  follows from the rule body rather than needing a test to establish it.
 
-### (1) Parser surface syntax (skolem-head-design.md §5) — DONE
-The `(E)` parenthesised existential variable is supported:
-`resolve_derivation_rule` records a `SkolemHeadRole` and promotes a
-multi-antecedent `and`-chain to a Join (`compile_join_derivation` emits the
-`Compose(Platform("skolem"), Construction[frontier extractors])`). For a JOIN
-skolem head the frontier is the entity-typed antecedent nouns (here
-`Resource, Transition, State Machine Definition, Noun`), which is identical
-across the two sibling rules so the invented `ve_<fnv>` matches — the
-"shared frontier → shared entity" invariant. `spec_skolem_head_authored_in_forml2_resolves_lazily`
-(2-antecedent) and `menu_view_derivation_compiled_from_authored_reading_reproduces_proven_func`
-(5-way) both pass through the real parser+compiler.
-
-### (2) Guard-filtering negation
-Design §4.5: `Guard prevents Transition → omit the ViewElement`. This requires
-the parser-negation idiom (`no Guard prevents Tr` or AbsenceOf in the antecedent)
-which is not yet available as a user-authoring surface in FORML 2.
-The basic menu (all legal transitions, no guard filter) is what is proven here.
-
-### (3) Registration in UI_VIEW_READINGS (lib.rs) — DONE
-`("view-menu", include_str!("../../../readings/ui/view-menu.md"))` is
-registered after `view-projection`. The full metamodel compiles green (no
-hang, no checker errors) — `handle_isolation_tests::create_impl_loads_metamodel`
-exercises the full `compile_to_defs_state` over the registered reading. The
-`*` view-projection.View policy on `ViewElement renders Transition` keeps both rules out of
-the eager forward chain (`view:` defs only, no `derivation:` def).
-
-### (4) Collection-list and detail views (934-2)
-`readings/ui/view-projection-design.md` §4.6 (collection rows) and §3.2
-(instance detail) are deferred to the 934-2 slice.
-
-## Test Coverage
-
-`crates/arest/src/compile_explicit_derivation_tests.rs`:
-- `menu_view_derivation_via_skolem_head_lazy_idempotent` — GREEN, test-only:
-  proves (a) 2 VEs for pending entity, (b) 0 VEs for terminal entity,
-  (c) deterministic `ve_<fnv>` ids, (d) idempotent across 2 passes,
-  (e) Transition carried through, (f) shared frontier → same VE id in both
-  rules, (g) no eager `derivation:` def.
-- `menu_view_derivation_metamodel_ft_name_audit` — GREEN, audit-only:
-  documents the verified metamodel FT names.
-
-Both `skolem_head_resolve_view_invents_one_idempotent_entity_per_binding` and
-`platform_skolem_is_deterministic_and_frontier_keyed` (from ast.rs) remain green
-and cover the underlying mechanism. The menu test adds the menu-specific
-semantic proof on top.
+<!-- Trimmed 2026-08-01. Everything from here down was "Remaining Work"
+     and "Test Coverage" — issue-tracker state and test-name inventories
+     citing crates/arest/, a source layout this repository does not have.
+     Neither is runtime-necessary, so neither belongs in a reading. The
+     model above stands without them. -->

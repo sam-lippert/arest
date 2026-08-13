@@ -1,4 +1,4 @@
-"""#18: the GENERIC constraint translator system:h_crows — one canon body the family
+"""#18: the GENERIC constraint translator system:h_constraint — one canon body the family
 shares (h_uniqueness / h_mandatory are name aliases). Cooked ⟨decl_rows, mid, obj_specs⟩:
 mid ⟨c, tail⟩ entries complete with the modality (apndr over distr), ⟨w, row⟩ pass through,
 obj specs apply their canonical builder through DEFS. Optionality = the empty sequence —
@@ -41,12 +41,12 @@ def _canon(name, groups):
 
 
 def _host(groups):
-    a, o = compiler._h_crows(groups, None, "alethic")
+    a, o = compiler._h_constraint(groups, None, "alethic")
     return a, o
 
 
 def test_crows_asserts_twin_host():
-    for name, g in (("system:h_crows", UC), ("system:h_uniqueness", UCM),
+    for name, g in (("system:h_constraint", UC), ("system:h_uniqueness", UCM),
                     ("system:h_mandatory", MAND)):
         assert _canon(name, g)[0] == _host(g)[0], name
 
@@ -63,7 +63,7 @@ def test_crows_shape():
 
 
 def test_crows_uniqueness_obj_extensional():
-    cobjs = _canon("system:h_crows", UC)[1]
+    cobjs = _canon("system:h_constraint", UC)[1]
     hobjs = _host(UC)[1]
     assert from_lam(R(A(1), R(A(1), cobjs))) == hobjs[0][0] == "User_has_Email_uc"
     pop = (("a", "x"), ("a", "y"), ("b", "z"))            # duplicate key "a"
@@ -79,7 +79,7 @@ def test_crows_nullary_obj_two_mode():
     # certified extensionally: both flag the entity participating in two clauses
     g = ((), (("w", ("constraint", ("x1", "exclusion", "N", ("A", "B"), "alethic"))),),
          (("x1", "constraints:exclusion", ()),))
-    cobjs = _canon("system:h_crows", g)[1]
+    cobjs = _canon("system:h_constraint", g)[1]
     hobjs = _host(g)[1]
     assert from_lam(R(A(1), R(A(1), cobjs))) == hobjs[0][0] == "x1"
     pop = (("e1", "A"), ("e1", "B"), ("e2", "A"))
@@ -94,8 +94,8 @@ def test_crows_cooks():
     class K2(set):
         pass
     # uniqueness cook needs a Known-like: use the real one via a tiny corpus
-    from pyarest.compiler import _cook_mandatory, _Known
+    from pyarest.compiler import _compile_mandatory, _Known
     k = _Known({"User", "Email"}, {}, set(), set())
-    g = _cook_mandatory(("Each User", "has some Email"), k)
+    g = _compile_mandatory(("Each User", "has some Email"), k)
     assert g[1][0][0] == "c" and g[1][1][0] == "w"
     assert g[2][0][1] == "constraints:scoped_mandatory_entities"

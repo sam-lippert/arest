@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <Target Name="ComposeCanon" BeforeTargets="CoreCompile">
-    <Exec Command="cmd /c copy /b /y &quot;$(MSBuildProjectDirectory)\head.part&quot; + &quot;$(MSBuildProjectDirectory)\..\..\arest&quot; + &quot;$(MSBuildProjectDirectory)\mid1.part&quot; + &quot;$(CarrierDir)\design-state&quot; + &quot;$(MSBuildProjectDirectory)\mid2.part&quot; + &quot;$(CarrierDir)\norma-answer&quot; + &quot;$(MSBuildProjectDirectory)\mid3.part&quot; + &quot;$(CarrierDir)\journal&quot; + &quot;$(MSBuildProjectDirectory)\mid4.part&quot; + &quot;$(MSBuildProjectDirectory)\tail.part&quot; &quot;$(ComposedFile)&quot; &gt;nul" />
+    <Exec Command="cmd /c copy /b /y &quot;$(MSBuildProjectDirectory)\head.part&quot; + &quot;$(MSBuildProjectDirectory)\..\..\arest&quot; + &quot;$(MSBuildProjectDirectory)\mid1.part&quot; + &quot;$(CarrierDir)\design-state&quot; + &quot;$(MSBuildProjectDirectory)\mid2.part&quot; + &quot;$(CarrierDir)\norma-answer&quot; + &quot;$(MSBuildProjectDirectory)\mid3.part&quot; + &quot;$(CarrierDir)\journal&quot; + &quot;$(MSBuildProjectDirectory)\mid4.part&quot; + &quot;$(MSBuildProjectDirectory)\midcases.part&quot; + &quot;$(MSBuildProjectDirectory)\..\..\engine\shared\scenarios.canon&quot; + &quot;$(MSBuildProjectDirectory)\tail.part&quot; &quot;$(ComposedFile)&quot; &gt;nul" />
     <ItemGroup>
       <Compile Include="$(ComposedFile)" />
     </ItemGroup>

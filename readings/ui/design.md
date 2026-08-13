@@ -16,7 +16,9 @@ icon bake at #434 has a closed enumeration to compile against.
 Theme(.Name) is an entity type.
   Dark Theme is a subtype of Theme.
   Light Theme is a subtype of Theme.
-  {Dark Theme, Light Theme} are mutually exclusive subtypes of Theme.
+  For each Theme, at most one of the following holds:
+      that Theme is a Dark Theme;
+      that Theme is a Light Theme.
 
 ColorToken(.Name) is an entity type.
 
@@ -31,7 +33,9 @@ IconToken(.Name) is an entity type.
 FontFamily(.Name) is an entity type.
   Sans Family is a subtype of FontFamily.
   Mono Family is a subtype of FontFamily.
-  {Sans Family, Mono Family} are mutually exclusive subtypes of FontFamily.
+  For each FontFamily, at most one of the following holds:
+      that FontFamily is a Sans Family;
+      that FontFamily is a Mono Family.
 
 ## Value Types
 

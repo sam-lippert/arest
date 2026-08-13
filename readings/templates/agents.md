@@ -31,8 +31,8 @@ Agent Definition has Prompt.
 Agent is instance of Agent Definition.
   Each Agent is instance of exactly one Agent Definition.
 
-Agent is for Resource.
-  Each Agent is for at most one Resource.
+Agent is for Object Type Instance.
+  Each Agent is for at most one Object Type Instance.
 
 ### Completion
 Completion belongs to Agent.
@@ -47,12 +47,12 @@ Completion has output Text.
 Completion occurred at Timestamp.
   Each Completion occurred at exactly one Timestamp.
 
-### Verb connection
-Verb invokes Agent Definition.
-  Each Verb invokes at most one Agent Definition.
+### Predicate connection
+Predicate invokes Agent Definition.
+  Each Predicate invokes at most one Agent Definition.
 
 <!--
-  Engine wiring: when a Verb invokes an Agent Definition, the verb
+  Engine wiring: when a Predicate invokes an Agent Definition, the verb
   name resolves to `Func::Platform(name)` in DEFS. The handler
   (installed per-target via `arest::externals` / `install_platform_fn`
   or `install_async_platform_fn`) walks the Agent Definition's `uses

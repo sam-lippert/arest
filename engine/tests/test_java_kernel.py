@@ -26,6 +26,25 @@ def _show(o):
     return str(o)
 
 
+def _parse(stdout):
+    """name=value per line, EXCEPT that a value may span lines.
+
+    The DDL cases answer real CREATE TABLE text, newlines and all, so a
+    line-at-a-time split truncated java's answer at the first newline and
+    reported the host as divergent when it was right -- the same shape of
+    harness bug as the missing canon.load_all() before it. A continuation
+    line is one that does not open a new `name=` at column 0.
+    """
+    out, cur = {}, None
+    for line in stdout.splitlines():
+        if "=" in line and not line.startswith(" ") and not line.startswith(")"):
+            k, v = line.split("=", 1)
+            out[k], cur = v, k
+        elif cur is not None:
+            out[cur] += "\n" + line
+    return out
+
+
 @pytest.mark.skipif(not os.path.exists(_JDK), reason="no JDK")
 def test_the_java_kernel_agrees_with_the_python_evaluator():
     # same-bytes native execution: the java host compiles the raw
@@ -42,8 +61,7 @@ def test_the_java_kernel_agrees_with_the_python_evaluator():
                          capture_output=True, text=True, timeout=300,
                          encoding="utf-8", cwd=_JAVA)
     assert out.returncode == 0, out.stderr[-800:]
-    lines = {l.split("=", 1)[0]: l.split("=", 1)[1]
-             for l in out.stdout.splitlines() if "=" in l}
+    lines = _parse(out.stdout)
     assert int(lines["defs"]) >= 106
 
     max2 = from_lam(_ap(A("system:max2"), to_lam(("305", "1190"))))
@@ -71,6 +89,15 @@ def _python_cases():
     from pyarest import canon
     from pyarest import reduce as _r
     from pyarest.lam import atom as A
+    # BIND THE CANON. Without this the python REFERENCE side of the differential
+    # reduces with an empty store, so any case needing a canon DEF answers with
+    # its own operand instead of a value — and the harness then reports the
+    # OTHER host as divergent. case:create-commits read as
+    # java "'committed'" vs python "(('F1', (('b','y'))))": java was right.
+    # thin.py has always called this (its own docstring: "kernel, then
+    # canon.load_all() to bind the intersection source"); this harness did not,
+    # which stayed invisible while every case exercised only base prims.
+    canon.load_all()
     out = {}
     for name, pair in canon.read("scenarios.canon"):
         expr = _r.apply(A(1), pair)

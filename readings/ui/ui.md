@@ -9,7 +9,12 @@ View(.id) is an entity type.
   Grid View is a subtype of View.
   Canvas View is a subtype of View.
   Tab View is a subtype of View.
-  {List View, Browser View, Grid View, Canvas View, Tab View} are mutually exclusive subtypes of View.
+  For each View, at most one of the following holds:
+      that View is a List View;
+      that View is a Browser View;
+      that View is a Grid View;
+      that View is a Canvas View;
+      that View is a Tab View.
 
 ### Navigation
 History Stack(.id) is an entity type.
@@ -19,7 +24,9 @@ Tab Item(.id) is an entity type.
 Cell(.id) is an entity type.
   Grid Cell is a subtype of Cell.
   Rich Content Cell is a subtype of Cell.
-  {Grid Cell, Rich Content Cell} are mutually exclusive subtypes of Cell.
+  For each Cell, at most one of the following holds:
+      that Cell is a Grid Cell;
+      that Cell is a Rich Content Cell.
 
 Section(.id) is an entity type.
 Section Header(.id) is an entity type.
@@ -39,7 +46,19 @@ Control(.id) is an entity type.
   Select List is a subtype of Control.
   Image is a subtype of Control.
   Checkbox is a subtype of Control.
-  {Button, Text Box, Text Area, Password Box, Label, Date Picker, Time Picker, Slider, Switch, Select List, Image, Checkbox} are mutually exclusive subtypes of Control.
+  For each Control, at most one of the following holds:
+      that Control is a Button;
+      that Control is a Text Box;
+      that Control is a Text Area;
+      that Control is a Password Box;
+      that Control is a Label;
+      that Control is a Date Picker;
+      that Control is a Time Picker;
+      that Control is a Slider;
+      that Control is a Switch;
+      that Control is a Select List;
+      that Control is an Image;
+      that Control is a Checkbox.
 
 ### Menus and Toolbars
 Menu(.id) is an entity type.
@@ -48,7 +67,9 @@ Toolbar(.id) is an entity type.
 Toolbar Item(.id) is an entity type.
   Toolbar Button is a subtype of Toolbar Item.
   Toolbar Separator is a subtype of Toolbar Item.
-  {Toolbar Button, Toolbar Separator} are mutually exclusive subtypes of Toolbar Item.
+  For each Toolbar Item, at most one of the following holds:
+      that Toolbar Item is a Toolbar Button;
+      that Toolbar Item is a Toolbar Separator.
 
 Search Box(.id) is an entity type.
 
@@ -64,8 +85,8 @@ Search Box is a subtype of Element.
 
 Dashboard(.Name) is an entity type.
 Widget(.Widget Id) is an entity type.
-Entity List(.Noun + Domain) is an entity type.
-List Item(.Entity List + Resource) is an entity type.
+Entity List(.Object Type + Domain) is an entity type.
+List Item(.Entity List + Object Type Instance) is an entity type.
 Page(.Entity List + Page Number) is an entity type.
 
 ### Platform Registration
@@ -139,8 +160,8 @@ View has Color as title color.
   Each View has at most one title Color.
 View has Preferred Orientation.
   Each View has at most one Preferred Orientation.
-Noun is displayed by Element.
-  Each Noun is displayed by at most one Element.
+Object Type is displayed by Element.
+  Each Object Type is displayed by at most one Element.
 
 ### List View
 List View has Column Mode.
@@ -302,14 +323,14 @@ Widget has Position.
   Each Widget has exactly one Position.
 Widget has Widget Type.
   Each Widget has exactly one Widget Type.
-Widget references Noun.
-  Each Widget references at most one Noun.
+Widget references Object Type.
+  Each Widget references at most one Object Type.
 Widget has Column Count.
   Each Widget has at most one Column Count.
 
 ### Entity List (reactive live view)
-Entity List displays Resource instances of Noun.
-  Each Entity List displays instances of exactly one Noun.
+Entity List displays Object Type Instance instances of Object Type.
+  Each Entity List displays instances of exactly one Object Type.
 Entity List belongs to Domain.
   Each Entity List belongs to exactly one Domain.
 Entity List has Polling Interval.
@@ -338,8 +359,8 @@ Page has Page Number.
 ### List Item
 List Item belongs to Page.
   Each List Item belongs to exactly one Page.
-List Item displays Resource.
-  Each List Item displays exactly one Resource.
+List Item displays Object Type Instance.
+  Each List Item displays exactly one Object Type Instance.
 List Item has display- Text.
   Each List Item has at most one display- Text.
 List Item has display-sub- Text.
@@ -351,7 +372,7 @@ List Item has Display Image Path.
 
 ## Constraints
 
-Each Entity List has at most one List Item per Resource.
+Each Entity List has at most one List Item per Object Type Instance.
 Each Entity List has at most one Page per Page Number.
 No View Renderer is for the same View on the same Platform more than once.
 
@@ -363,7 +384,7 @@ No View Renderer is for the same View on the same Platform more than once.
 # IListItem-style abstraction MonoView (iFactr) and similar
 # cross-platform abstractions natively expose. What was wrong was
 # computing those values inside the schema's forward chain via
-# CWA-stratified negation (`Resource has no Reference`). The native
+# CWA-stratified negation (`Object Type Instance has no Reference`). The native
 # idiom for "prefer A, fall back to B" in abstract rendering is a
 # declarative binding chain on the UI element itself, not an
 # AbsenceOf-guarded derivation. Re-introduce the display-* FTs when

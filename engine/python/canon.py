@@ -30,8 +30,25 @@ def root():
     return _ROOT
 
 
+# THE canon is ONE file at the REPO ROOT, named `arest`. It is not in shared/ and
+# is not copied there: engine/shared/arest.canon was a CURATED SUBSET carrying 362
+# DEFs against canon's 1153, and the 18 names the MCP host resolves -- actions ask
+# cells create csdp derive explain get induce lt nav propose query retract rmap
+# schema validate verify -- were ALL among the missing. Layer 1's resolution order
+# (prim -> process -> canon -> bottom) therefore ended in bottom for the MCP's own
+# verb table, so the host's match arms were the only copy that ran. See #88.
+_CANON = "arest.canon"
+
+
 def shared(name):
-    """A canonical shared source file (readings any host ingests)."""
+    """A canonical shared source file (readings any host ingests).
+
+    The canonical name `arest.canon` resolves to the repo-root canon; every other
+    intersection file lives in shared/. Redirecting HERE rather than at the call
+    sites is deliberate: read(), read_native() and load() all funnel through this
+    one function, so canon.py keeps owning "how shared sources are FOUND"."""
+    if name == _CANON:
+        return os.path.join(os.path.dirname(_ROOT), "arest")
     return os.path.join(_ROOT, "shared", name)
 
 

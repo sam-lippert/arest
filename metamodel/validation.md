@@ -30,7 +30,7 @@ It is forbidden that a Fact Type is objectified when no Constraint of Constraint
      exemption: a unary's single role is a spanning UC, asserted or
      implied. NORMA as shipped still implements the ORM 2 relaxation,
      so the oracle checks this rule itself at objectification time.
-     First enforcement: the former Resource Role objectification
+     First enforcement: the former Object Type Instance Role objectification
      (instances.md) was retired under this rule. -->
 
 
@@ -76,6 +76,50 @@ It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS'
 ### Ring Constraint Validity
 
 <!-- It is forbidden that a Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spans Roles of a Fact Type where those Roles reference different Nouns. -->
+
+### Value Comparison Type Compatibility
+
+It is obligatory that each Constraint of Constraint Type 'VC' spans Roles that are played by Object Types of the same Conceptual Data Type.
+
+<!-- 2026-08-08. Recorded because the implementations disagree exactly where
+     this model was silent, which is the signature of a missing fact rather
+     than a bug. `⟦lt⟧(Int, Str)` — comparing a number against a string atom —
+     has THREE live readings across the fleet:
+         engine/csharp, engine/java, engine/rust   coerce, answer T
+         engine/python                             refuses, answers ⊥
+         tools/java-runner (cmpAtoms)              throws
+     Each is a defensible reading of an unstated rule, and each host filled
+     the silence on its own.
+
+     The asymmetry that names the gap: RING constraints carry an explicit
+     compatibility obligation ("both Roles are played by the same Object
+     Type", Layer 2 above) while Value Comparison carried none, though
+     `Constraint Type 'VC' has Name 'ValueComparison'` has been declared all
+     along. Halpin's requirement — a value comparison holds between roles of
+     compatible type — was assumed by every implementer and written down by
+     none.
+
+     WHY DEONTIC RATHER THAN ALETHIC. The legs do not all exist yet: nothing
+     yet relates a VC Constraint's spanned Roles to the Conceptual Data Types
+     of their players, so an alethic reading would block a commit on a
+     structure the schema cannot yet express. Deontic records the obligation
+     without demanding its referents up front — a todo with teeth, surfacing
+     as a Violation through the Def 6 / Thm 1 path until satisfied, exactly
+     as the deontics-are-violable ruling intends.
+
+     WHAT IT DOES NOT DECIDE. It says comparison is well formed only within a
+     Conceptual Data Type; it does not choose T, ⊥ or throw for the ill-formed
+     case. That answer follows once the obligation is enforceable, and it must
+     be one answer across all seven hosts. Until then the ⟦lt⟧(Int,Str) split
+     stands as a known outstanding item, not a silent divergence.
+
+     Derived, and NOT covered by this: ⟦cmp⟧(Str, Str) is ORDINAL. system:max2's
+     sole caller is system:mint_next, which composes "+" after the fold, and +
+     demands numbers on every station — so max2's operands are numeric on the
+     only reachable path, and #31 already coerces value-typed role fillers at
+     the reading boundary ('40' as Budget Hours becomes 40; '42' as a Task id
+     stays a string). The boundary decides the type; the base must not decide
+     again. -->
 
 ### Singular Naming
 
@@ -134,14 +178,21 @@ It is forbidden that a Role stores a value that is derivable from existing Fact 
      stating it as an obligation converted advice into a false universal — the
      same class as #66's deontic sentences that named no type and #82's markers
      with no deliverer, except that this one was not merely unenforced but
-     wrong. Kept here as prose so it is not re-derived and re-added. -->
+     wrong. Kept here as prose so it is not re-derived and re-added.
 
-The rule that IS checkable, and that the metamodel now satisfies, is its
-contrapositive: an exclusion or totality Constraint over DERIVED subtypes adds
-nothing, because their definitions already entail it (Halpin, *Information
-Modeling and Relational Databases*, p.381). Such a Constraint is redundant
-rather than erroneous — ORM 2 permits declaring it so long as it is marked
-derived — so this is recorded as guidance, not as an obligation.
+     The rule that IS checkable, and that the metamodel now satisfies, is its
+     contrapositive: an exclusion or totality Constraint over DERIVED subtypes
+     adds nothing, because their definitions already entail it (Halpin,
+     Information Modeling and Relational Databases, p.381). Such a Constraint
+     is redundant rather than erroneous — ORM 2 permits declaring it so long as
+     it is marked derived — so this is recorded as guidance, not an obligation.
+
+     (This paragraph sat OUTSIDE the comment, so the harness read it as three
+     sentences and could parse none of them: guidance is not a verbalization,
+     and every line that is not a comment here is a sentence the model must be
+     able to state. The stray "**" in the unrecognized list was this text too —
+     the italic markers around the book title, which the marker regex reads as
+     a derivation marker. Folded in, with the title left unemphasised.) -->
 
 ### Reference Mode Redundancy
 
@@ -151,7 +202,7 @@ It is forbidden that a Reading restates the Reference Mode of an Object Type as 
      ReferenceModeKind (General/Popular/UnitBased; ORM2Core.xsd): the mode
      mints the value type and the identifying fact type, so restating it
      as an explicit reading duplicates the model. First enforcement:
-     instances.md's `Resource has Reference` retired. -->
+     instances.md's `Object Type Instance has Reference` retired. -->
 
 ### Elementary Fact Decomposition
 

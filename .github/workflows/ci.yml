@@ -1,10 +1,33 @@
 # CI for AREST — the 0.9.0 engine (engine/ is the codebase of record;
 # the old crates/ + TS orchestration retired 2026-07-08, ledger entry
-# "the old rust goes"). Two legs mirror the local gates:
-#   - python: the fast suites (the full 3-chunk broad gate stays a
-#     local/nightly concern; this leg pins the load-bearing families)
-#   - rust: cargo test in engine/rust (derive, mcp, serve_ops,
-#     native_apply — the resident's whole certified surface)
+# "the old rust goes").
+#
+# THE WALL IS THE GATE. A law is a canon DEF the mu applies ("THE LAWS AS
+# CANON", 2026-07-16: "a law written in a host IS the meaning-location
+# failure"), so the verification of record is canon's own law:report
+# evaluated over the composed store — not host test code. That gate had
+# never run in CI; the `wall` leg below is it.
+#
+# The `python` and `rust` legs are HOST TEST CODE and are therefore
+# scheduled for retirement, not extension. Each retires when its subject
+# lands in canon and the wall covers it. Do not add cases to them; add a
+# law to `law:report` in `arest` instead.
+#
+# STATION PARITY IS NOW A MEASUREMENT (2026-08-06). js, java and cs each
+# evaluate all 53 laws over the base carriers and print BYTE-IDENTICAL
+# atoms (md5 1219ce08..., 1664 bytes, exit 0; js 49.7s / java 29.7s /
+# cs 80.1s). Previously java and cs ran >20 min without finishing: their
+# heads lacked both of the js head's evaluator optimizations (the
+# pure-application memo and FASTPRIMS' 14 compiled theta: cells). Controls
+# on the js station proved each necessary and neither sufficient; both are
+# now ported, and byte-identity is what certifies them as extensional
+# equals rather than semantics.
+#
+# ONE blocker remains before the host suites can go: there is no rust
+# station driving canon `main` (tools/rust-runner exists but is not wired
+# to the wall), so `cargo test` has no canon-side replacement yet.
+# Deleting the host suites before that holds would leave no verification.
+#
 # The frozen worker surface (src/, wrangler) is deliberately NOT built
 # here: its wasm fed from the retired crates; the successor WASM path
 # builds from engine/rust when that rung starts (see the ledger).
@@ -22,6 +45,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The canon gate: canon judges, the harness only drives. Every verdict
+  # printed is a law's own atom, and the runner exits nonzero iff some
+  # law answered F (tail.part.js: `process.exit(out[1] === "T" ? 0 : 1)`).
+  wall:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      # java (compose.py needs python) and dotnet are preinstalled on
+      # windows-latest; a station that is missing prints SKIPPED, never a pass.
+      - name: law:report on every station, held byte-identical
+        shell: bash
+        run: sh tools/wall/stations.sh
+
   python:
     runs-on: windows-latest
     timeout-minutes: 45

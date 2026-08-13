@@ -27,15 +27,30 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TAGS = {"ALPHA", "BU", "COMP", "COND", "CONS", "CONST", "INSERT",
         "WHILE", "DEFS"}
 BASE = {"id", "tl", "atom", "null", "eq", "apndl", "apndr", "distl",
-        "distr", "length", "reverse", "cat", "not", "and", "or", "1r",
-        "tlr", "rotl", "rotr", "trans", "+", "-", "*", "div", "ge",
+        "distr", "length", "reverse", "cat", "not", "and", "1r",
+        # rotl/rotr left the host base the way `or` did: Backus 11.2.3 lists
+        # them as language primitives, but canon DEFs them (rotl = apndr∘[tl,1],
+        # rotr = apndl∘[1r,tlr]), so no host owes an implementation.
+        "tlr", "trans", "+", "-", "*", "/", "ge",
         "gt", "le", "lt", "apply"}
-D5 = {"cellkey", "lex", "slug", "implode", "escape_html", "skolem",
-      "strip_prefix", "stage1_fields",
-      # the JSON view emitter (2026-07-09): the react/Worker target
-      # consumes the element TREE itself — its "render" is the tree's
-      # JSON spelling, pure format transduction (the implode class)
-      "render:json"}
+D5 = {"lex", "implode", "skolem",
+      "stage1_fields",
+      # the char-level lex boundary. All four kernels dispatch these and
+      # always did, but the table never named them, so every kernel was
+      # reported as dispatching ops "with no canon story". They are the
+      # same string algebra as strip_prefix and implode, one character
+      # wide, and they are what the naming lex is built from (lex:lw is
+      # implode . ALPHA chardown . chars).
+      "chars"}
+      # render:json LEFT this table (2026-08-09) because it left the hosts:
+      # it is canon now — DEF("render:json") with render:json_atom /
+      # render:json_seq, beside system:show. The row's own comment already
+      # said what it was, "pure format transduction (the implode class)",
+      # and a pure transduction from a value to a string has no boundary in
+      # it. It was implemented five times (python, java, C#, and rust twice,
+      # Scott and native); all five are deleted. cellkey is next: it also has
+      # a canon DEF now (implode . <K(':'), id>), and once the hosts drop
+      # their copies it leaves this table the same way.
 # certified-equal overrides: the host name -> the canon DEF of record
 OVERRIDES = {
     "render:html": "system:render_html",
@@ -59,7 +74,17 @@ OVERRIDES = {
 
 
 def _canon_defs():
+    # THE canon is the repo-root file `arest`, not engine/shared. shared/ now
+    # holds only scenarios.canon (the cross-host case table) — the four
+    # shared/*.canon files this once read are gone, so this returned a set of
+    # `case:` names and every "has no canon DEF" assertion below was really
+    # asserting "is not a scenario". engine/rust says it plainly at its own
+    # include!: "THE canon, at the repo root. Not a curated copy."
     names = set()
+    root_canon = os.path.join(ROOT, "..", "arest")
+    if os.path.exists(root_canon):
+        src = open(root_canon, encoding="utf-8").read()
+        names |= set(re.findall(r'DEF\("([^"]+)"', src))
     shared = os.path.join(ROOT, "shared")
     for f in os.listdir(shared):
         if f.endswith(".canon"):
@@ -115,8 +140,18 @@ def _csharp_ops():
 
 
 def _python_ops():
-    return set(re.findall(r'register\("([^"]+)"',
-                          _src("python", "engine.py")))
+    # BOTH files, because the base moved. escape_html / implode / lex / slug /
+    # strip_prefix are registered by kernel.register_base() now, not by the
+    # spine — engine.py's own foot-note says so ("the base belongs to the
+    # kernel; the spine must not shadow it"). Scanning only engine.py made
+    # this test report five boundary ops as missing when they had merely
+    # moved to where they belong.
+    ops = set(re.findall(r'register\("([^"]+)"', _src("python", "engine.py")))
+    # kernel.py does NOT call register(name, ...) — register_base() builds one
+    # dict literal, so the names are keys: "implode": _implode, ...
+    kern = _src("python", "kernel.py")
+    ops |= set(re.findall(r'"([a-z_0-9:]+)"\s*:\s*_[a-z_]', kern))
+    return ops
 
 
 def test_every_kernel_dispatches_the_shared_vocabulary():
@@ -221,7 +256,7 @@ DELEGATED = set()
 
 
 def _catalog():
-    src = _src("shared", "base", "resolution.md")
+    src = _src("..", "metamodel", "resolution.md")
     return set(re.findall(r"Operation '([^']+)' is overridable", src))
 
 
@@ -283,7 +318,7 @@ def test_def_override_rows_are_registered_meaning():
             " must land in shared/*.canon first")
         assert name in cat, (
             f"DEF_OVERRIDES row {name!r} has no catalog row — declare it"
-            " overridable in shared/base/resolution.md")
+            " overridable in metamodel/resolution.md")
 
 
 def _rust_verb_override_rows():
@@ -298,7 +333,7 @@ def test_verb_override_rows_are_catalog_members():
     for name in _rust_verb_override_rows():
         assert name in cat, (
             f"VERB_OVERRIDES row {name!r} has no catalog row — declare it"
-            " overridable in shared/base/resolution.md")
+            " overridable in metamodel/resolution.md")
 
 
 def test_delegated_verbs_are_a_drain_queue():
@@ -309,3 +344,103 @@ def test_delegated_verbs_are_a_drain_queue():
     assert not overlap, (
         f"verbs are both catalog and delegated: {sorted(overlap)} — remove"
         " them from DELEGATED; the catalog row supersedes the queue entry")
+
+
+# ---------------------------------------------------------------------------
+# THE ORPHAN GATE (2026-08-12). The gates above prove a host stopped
+# DISPATCHING an op. Nothing proved it stopped IMPLEMENTING one, and that blind
+# spot cost 79 lines in one day: slug's 15-line body survived in engine/java and
+# engine/csharp for three increments after "deleted", ten dead impls sat in
+# kernel.py, and _d_cons/_d_const/_p_cons/_p_const outlived CONS/CONST becoming
+# canon. A dead helper still compiles, still gets read, still gets maintained.
+#
+# Reference-count per file and you drown in false positives, so the exemptions
+# below are the four real reasons a definition is live without a syntactic call:
+#   - the registration VOCABULARY (A/K/PHI/S1..S9): called by the CANON text
+#     concatenated in at compose time, which is not in the host file;
+#   - ENTRY POINTS invoked by the runtime or the harness, not by the host;
+#   - TABLE MEMBERS (engine/rust's ov_* overrides) named in a table, not called;
+#   - the Scott/lambda surface, which is public API for six pyarest modules.
+_ORPHAN_OK = {
+    "A", "N", "K", "PHI", "S", "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8",
+    "S9", "CANON", "DEF", "register", "Register", "registerAlpha",
+    "RegisterAlpha", "run", "main", "loadCanon", "LoadCanon", "memoClear",
+    "to_lam", "from_lam",
+}
+_ORPHAN_PAT = {
+    ".js": r"^function (\w+)\s*\(",
+    ".java": r"^\s{4}(?:public |private )?static \w[\w<>\[\], ]*? (\w+)\s*\(",
+    ".cs": r"^\s{4}(?:internal |public |private )?static \w[\w<>\[\]?, ]*? (\w+)\s*\(",
+    ".rs": r"^fn (\w+)\s*[(<]",
+}
+
+
+def test_no_host_defines_what_no_dispatch_reaches():
+    import os as _os
+    hosts = [
+        _os.path.join(ROOT, "..", "tools", "js-runner", "head.part.js"),
+        _os.path.join(ROOT, "..", "tools", "java-runner", "Arest.java"),
+        _os.path.join(ROOT, "..", "tools", "cs-runner", "Mu.cs"),
+        _os.path.join(ROOT, "..", "tools", "rust-station", "src", "main.rs"),
+        _os.path.join(ROOT, "java", "Reducer.java"),
+        _os.path.join(ROOT, "csharp", "Reducer.cs"),
+        _os.path.join(ROOT, "rust", "src", "main.rs"),
+    ]
+    orphans = {}
+    for path in hosts:
+        if not _os.path.exists(path):
+            continue
+        ext = _os.path.splitext(path)[1]
+        pat = _ORPHAN_PAT.get(ext)
+        if pat is None:
+            continue
+        src = open(path, encoding="utf-8").read()
+        dead = []
+        for m in re.finditer(pat, src, re.M):
+            name = m.group(1)
+            if name in _ORPHAN_OK or name.startswith("ov_"):
+                continue
+            # a live definition is named somewhere OTHER than its own header:
+            # called, passed, or listed in a dispatch table.
+            hits = len(re.findall(r"(?<![\w.])%s(?![\w])" % re.escape(name), src))
+            if hits <= 1:
+                dead.append(name)
+        if dead:
+            orphans[_os.path.basename(path)] = sorted(dead)
+    assert not orphans, (
+        "host defines what no dispatch reaches: %s — the op moved to canon but "
+        "its implementation stayed. Delete the body, not just the registration."
+        % orphans)
+
+
+def test_no_python_module_defines_what_nothing_calls():
+    # The gate above reads each host file alone, which is right for the four
+    # stations and the java/cs/rust engines: each is ONE file and its canon
+    # arrives by concatenation. pyarest is a PACKAGE, so a helper defined in
+    # kernel.py may be called only from engine.py — per-file counting would
+    # report every cross-module helper as dead. Count across the package.
+    #
+    # This found _ftid in compiler.py, a host reimplementation of canon's
+    # system:ftid (which case:reading-ftid exercises) left behind when the
+    # caller went away.
+    import os as _os
+    pdir = _os.path.join(ROOT, "python")
+    src = {}
+    for f in _os.listdir(pdir):
+        if f.endswith(".py"):
+            src[f] = open(_os.path.join(pdir, f), encoding="utf-8").read()
+    whole = "".join(src.values())
+    orphans = {}
+    for fname, text in sorted(src.items()):
+        dead = []
+        for m in re.finditer(r"^def (_\w+)\s*\(", text, re.M):
+            name = m.group(1)
+            if name.startswith("__"):
+                continue
+            if len(re.findall(r"(?<![\w])%s(?![\w])" % re.escape(name), whole)) <= 1:
+                dead.append(name)
+        if dead:
+            orphans[fname] = sorted(dead)
+    assert not orphans, (
+        "pyarest defines what nothing calls: %s — the op moved to canon but its "
+        "implementation stayed." % orphans)

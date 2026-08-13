@@ -46,7 +46,14 @@ namespace Arest.NormaOracle
 			foreach (string rawLine in noComments.Split('\n'))
 			{
 				string line = rawLine.TrimEnd('\r').Trim();
-				Match m = Regex.Match(line, @"^(.+?\.)\s*(\*\*|\*|\+)\s*$");
+				// `\+\+` BEFORE `\+`, for the same reason `\*\*` precedes `\*`:
+				// alternation is ordered, so a lone `\+` matches the first plus of
+				// `++` and then `\s*$` cannot absorb the second, the Match FAILS,
+				// and `continue` below skips the rule ENTIRELY -- not merely its
+				// marker. core.md's marker ruling added 'semi-derived-and-stored'
+				// precisely to express `++`, and this regex has never been able to
+				// see one, so the corpus's only `++` rule has been dropped whole.
+				Match m = Regex.Match(line, @"^(.+?\.)\s*(\*\*|\*|\+\+|\+)\s*$");
 				if (!m.Success) continue;
 				string sent = m.Groups[1].Value.TrimEnd('.').Trim();
 				myMarkerBySentence[NormalizeWords(sent)] = m.Groups[2].Value;
@@ -247,7 +254,15 @@ namespace Arest.NormaOracle
 				}
 			}
 			string tail = current.ToString().Trim();
-			if (tail.Length > 1) sentences.Add(tail);
+			// A TRAILING DERIVATION MARKER IS NOT A SENTENCE. RegisterMarkers
+			// already reads it per raw line ("^(.+?\.)\s*(\*\*|\*|\+)\s*$"), so
+			// re-emitting it here can only produce a sentence nothing can parse.
+			// The guard used to be `tail.Length > 1`, which drops a lone "*" by
+			// accident of length and therefore emitted "**" — and "Object Type is
+			// instantiable. **" is the corpus's only derived-AND-stored marker, so
+			// it was the one declaration that reported itself unrecognized. Match
+			// on what the marker IS, not on how long it happens to be.
+			if (tail.Length > 1 && !Regex.IsMatch(tail, @"^(\*\*|\*|\+)$")) sentences.Add(tail);
 			}
 			return sentences;
 		}
@@ -675,6 +690,15 @@ namespace Arest.NormaOracle
 		private static readonly Regex SubtypeDecl = new Regex(@"^([\w :]+?)\s+is a subtype of\s+([\w :]+?)\.$");
 		private static readonly Regex SupertypeDecl = new Regex(@"^([\w :]+?)\s+is a supertype of\s+([\w :]+?)\.$");
 		private static readonly Regex ExclusiveSubtypes = new Regex(@"^\{(.+?)\}\s+are mutually exclusive subtypes of\s+([\w :]+?)\.$");
+		// NORMA's OWN group verbalization of the same constraint, which is what
+		// this corpus actually writes: "For each P, exactly one of the following
+		// holds: that P is an A; that P is a B." GroupExclusiveOr ("exactly one")
+		// is exclusion AND exhaustion; GroupExclusion ("at most one") is exclusion
+		// alone. The brace spelling above occurs nowhere in the corpus.
+		private static readonly Regex GroupSubtypeConstraint = new Regex(
+			@"^For each ([\w :]+?), (exactly one|at most one) of the following holds:\s*(.+?)\.?$");
+		private static readonly Regex GroupSubtypeItem = new Regex(
+			@"^that\s+.+?\s+is an?\s+(.+?)\.?$");
 		private static readonly Regex PossibleValues = new Regex(@"^The possible values of\s+([\w :]+?)\s+are\s+(.+)\.$");
 		private static readonly Regex DataTypeDecl = new Regex(@"^The data type of\s+([\w :]+?)\s+is\s+(\w+)");
 
@@ -744,6 +768,12 @@ namespace Arest.NormaOracle
 				{
 					mySemiDerived.Add(myLastFact);
 				}
+				if (mkDerived.Groups[1].Value == "++" && myLastFact != null &&
+					!System.Text.RegularExpressions.Regex.IsMatch(s, @"\biff?\b"))
+				{
+					mySemiDerived.Add(myLastFact);
+					myStoredDerived.Add(myLastFact);
+				}
 			}
 			if (s.Contains(" or some ") || s.Contains(" or that ") || s.Contains(" or is "))
 			{
@@ -776,6 +806,32 @@ namespace Arest.NormaOracle
 				myTextual.Add(new KeyValuePair<string, string>("subtype-exclusion", s));
 				Count("subtype exclusivity (subtypes mapped)");
 				return;
+			}
+			if ((m = GroupSubtypeConstraint.Match(s)).Success)
+			{
+				string parent = m.Groups[1].Value.Trim();
+				bool exhaustive = m.Groups[2].Value == "exactly one";
+				var kids = new List<string>();
+				foreach (string item in m.Groups[3].Value.Split(';'))
+				{
+					Match im = GroupSubtypeItem.Match(item.Trim());
+					if (im.Success) kids.Add(im.Groups[1].Value.Trim());
+				}
+				if (kids.Count >= 2)
+				{
+					foreach (string child in kids) MapSubtype(child, parent);
+					// hand the existing builders the shape they already parse
+					string canonical = "{" + string.Join(", ", kids) +
+						"} are mutually exclusive subtypes of " + parent + ".";
+					myTextual.Add(new KeyValuePair<string, string>("subtype-exclusion", canonical));
+					if (exhaustive)
+					{
+						myTextual.Add(new KeyValuePair<string, string>("subtype-totality", canonical));
+					}
+					Count(exhaustive ? "subtype partition (NORMA group form)"
+						: "subtype exclusion (NORMA group form)");
+					return;
+				}
 			}
 			if ((m = PossibleValues.Match(s)).Success)
 			{
@@ -1446,6 +1502,11 @@ namespace Arest.NormaOracle
 				if (mark == "*") myFullyDerived.Add(fact);
 				else if (mark == "**") myStoredDerived.Add(fact);
 				else if (mark == "+") mySemiDerived.Add(fact);
+				// `++` needs no fourth set. The markers are ORTHOGONAL -- core.md's
+				// marker ruling: "storage on one axis and assertability on the other"
+				// -- so semi-derived-and-stored is exactly the conjunction of the two
+				// sets that already exist.
+				else if (mark == "++") { mySemiDerived.Add(fact); myStoredDerived.Add(fact); }
 			}
 			Count("fact-type reading (arity " + players.Count + ")");
 			return true;
@@ -3987,6 +4048,45 @@ namespace Arest.NormaOracle
 			// subtype exclusion: {A, B, C} are mutually exclusive subtypes of P
 			// — an exclusion constraint over the subtype-fact roles, NORMA's
 			// own modeling of exclusive subtypes
+			// the exhaustion half of GroupExclusiveOr: every supertype instance
+			// plays one of the subtype roles. NORMA models it as a disjunctive
+			// mandatory over the SUPERTYPE meta roles — the same roles the
+			// exclusion below spans, which is the only surface it admits
+			// external constraints on.
+			if (kind == "subtype-totality")
+			{
+				Match tm = ExclusiveSubtypes.Match(body + ".");
+				if (tm.Success)
+				{
+					string parent = tm.Groups[2].Value.Trim();
+					var roles = new List<Role>();
+					foreach (string part in tm.Groups[1].Value.Split(','))
+					{
+						string child = part.Trim();
+						if (child.Length == 0) continue;
+						foreach (SubtypeFact sf in myStore.ElementDirectory.FindElements<SubtypeFact>(true))
+						{
+							if (!sf.IsDeleted && sf.Subtype != null && sf.Supertype != null &&
+								sf.Subtype.Name == child && sf.Supertype.Name == parent)
+							{
+								roles.Add(sf.SupertypeRole.Role);
+								break;
+							}
+						}
+					}
+					if (roles.Count >= 2)
+					{
+						MandatoryConstraint mc = new MandatoryConstraint(myStore);
+						mc.Model = myModel;
+						foreach (Role r in roles) mc.RoleCollection.Add(r);
+						mc.Modality = modality;
+						Count("disjunctive mandatory constraint (subtype totality)");
+						return true;
+					}
+				}
+				AddNote(kind, s, "subtype facts not found");
+				return false;
+			}
 			if (kind == "subtype-exclusion")
 			{
 				Match xm = ExclusiveSubtypes.Match(body + ".");

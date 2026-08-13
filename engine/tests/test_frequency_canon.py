@@ -1,5 +1,5 @@
 """#18: the frequency-constraint reading handler, canonized — the second constraint-family
-translator. Cooked groups ⟨cid, ft, roles, builder_operand⟩; the canon twin prepends the
+translator. Compiled groups ⟨cid, ft, roles, builder_operand⟩; the canon twin prepends the
 constraint row to the per-role spans rows (α over distl — the first MAPPED row family) and
 emits ⟨cid, (constraints:frequency : operand)⟩. Extensional obj certification like ring."""
 import pyarest.prims  # noqa: F401

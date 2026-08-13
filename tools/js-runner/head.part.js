@@ -80,6 +80,14 @@ function deepEq(a, b) {
 // code unit, which equals C#'s string.CompareOrdinal); anything else THROWS,
 // exactly as C# throws casting a non-string to string. This is the strictness
 // the lenient js mu lacked.
+//
+// It does NOT coerce a numeric-looking string, and that is mathematics, not
+// pedantry: canon's eq does not coerce either (eq<1,"1"> = F, case:eq-nateq),
+// and a coercing <= gives le<1,"1"> = T with le<"1",1> = T while eq<1,"1"> is
+// F — antisymmetry violated, so <= would not be an order at all. The engine
+// kernels DO coerce here and are the ones carrying the drift; the store's
+// mixed int/lexical atoms are a READING-BOUNDARY defect (#31), to be fixed
+// where text becomes values, not by breaking the order axioms in every host.
 function cmp(a, b) {
   if (typeof a === "number" && typeof b === "number") return a < b ? -1 : a > b ? 1 : 0;
   if (typeof a === "string" && typeof b === "string") return a < b ? -1 : a > b ? 1 : 0;
@@ -103,6 +111,21 @@ const PRIMS = new Map(Object.entries({
   "not": x => bool(!(x === "T")),
   "and": x => bool(at(x,0) === "T" && at(x,1) === "T"),
   "length": x => seq(x).length,
+  // lt / reverse / trans are Backus 11.2.3 base. They were added to the java,
+  // cs and rust stations and MISSED here, so this head alone could not reduce
+  // them — invisible to the law report, which never routes through them, and
+  // invisible to the station diff until the case table crossed the lineages.
+  "lt": x => bool(cmp(at(x,0), at(x,1)) < 0),
+  "reverse": x => seq(x).slice().reverse(),
+  "trans": x => { const rows = seq(x);
+    if (rows.length === 0) return [];
+    const w = seq(rows[0]).length;
+    const out = [];
+    // at() bounds-checks, so a RAGGED input refuses here exactly as it does
+    // on the other stations and in python; indexing raw would answer a row
+    // holding undefined, which is not a value in the atom domain at all.
+    for (let c = 0; c < w; c++) out.push(rows.map(r => at(r, c)));
+    return out; },
   "le": x => bool(cmp(at(x,0), at(x,1)) <= 0),
   "ge": x => bool(cmp(at(x,0), at(x,1)) >= 0),
   "gt": x => bool(cmp(at(x,0), at(x,1)) > 0),
@@ -120,28 +143,74 @@ const PRIMS = new Map(Object.entries({
     if (b === 0) throw new Error("division by zero");
     return Math.trunc(a / b); },
   "apply": x => Ev(at(x,0), at(x,1)),
+  // lex yields TOKEN-RECORDS, ten fields per token, exactly as
+  // metamodel/resolution.md types it. This head answered a flat word list, as
+  // did the java, cs and rust stations, so canon's system: family — sqlname
+  // (5 . 1 . lex . slug, the 5th FIELD of token 1), rp_step (field 8, the
+  // hyphen template), cf_dropw (filters on field 1) — was reading characters
+  // here and fields in the engine kernels. One name, two functions, split by
+  // lineage. Fields: tok, nopunct, base, ordinal-suffix, lower, quoted-text,
+  // initial-cap, hyphen-template, is-quoted, quote-index.
   "lex": x => { if (typeof x !== "string") throw new Error("lex on non-string");
-    return x.split(/\s+/).filter(w => w.length > 0); },
+    const text = x, spans = [];
+    for (const m of text.matchAll(/'[^']*'/g)) spans.push([m.index, m.index + m[0].length]);
+    const strip = (s, cs) => { let a = 0, b = s.length;
+      while (a < b && cs.includes(s[a])) a++;
+      while (b > a && cs.includes(s[b - 1])) b--;
+      return s.slice(a, b); };
+    const rstrip = (s, cs) => { let b = s.length;
+      while (b > 0 && cs.includes(s[b - 1])) b--; return s.slice(0, b); };
+    const rows = [];
+    for (const m of text.matchAll(/\S+/g)) {
+      const tok = m[0], s = m.index, e = s + tok.length;
+      let k = 0;
+      for (let i = 0; i < spans.length; i++)
+        if (s < spans[i][1] && spans[i][0] < e) { k = i + 1; break; }
+      let qtext = "";
+      if (k) qtext = text.slice(Math.max(s, spans[k - 1][0] + 1),
+                                Math.min(e, spans[k - 1][1] - 1));
+      const nopunct = strip(tok, ".;:,");
+      const base = rstrip(nopunct, "0123456789");
+      // field 8 is the NORMA hyphen template (#24): a one-sided touching
+      // hyphen is the bind marker and is consumed, a doubled one escapes to
+      // a single literal hyphen, anything else is as written.
+      let tpl = tok;
+      if (tpl.length > 2 && tpl.endsWith("--")) tpl = tpl.slice(0, -1);
+      else if (tpl.length > 2 && tpl.startsWith("--")) tpl = tpl.slice(1);
+      else if (tpl.length > 1 && tpl.endsWith("-")) tpl = tpl.slice(0, -1);
+      else if (tpl.length > 1 && tpl.startsWith("-")) tpl = tpl.slice(1);
+      rows.push([tok, nopunct, base, nopunct.slice(base.length), tok.toLowerCase(),
+                 qtext, (base.length > 0 && base[0] >= "A" && base[0] <= "Z") ? "T" : "F",
+                 tpl, k ? "T" : "F", k]);
+    }
+    return rows; },
+  // ATOMS stringify, numbers included — which is what Arest.java's implode
+  // already documents as "js Array.join semantics", what Mu.cs and the rust
+  // station do, and what all three engine kernels do. This head was the one
+  // that threw, contradicting the sibling it was transliterated into. It has
+  // to stringify for canon to own a renderer at all: system:isnum is
+  // not eq<x, implode<empty,<x>>>, and a base with NO operation total over
+  // the atom domain leaves canon unable to tell 42 from the text 42.
+  // Sequences still refuse — only atoms are words.
   "implode": x => seq(at(x,1)).map(w => {
-    if (typeof w !== "string") throw new Error("implode on non-string");
-    return w; }).join(at(x,0)),
-  "slug": x => { if (typeof x !== "string") throw new Error("slug on non-string");
-    return [...x.toLowerCase()].filter(c => /[\p{L}\p{Nd}]/u.test(c)).join(""); },
+    if (Array.isArray(w)) throw new Error("implode on sequence");
+    return "" + w; }).join(at(x,0)),
+  // slug yields an IDENTIFIER (resolution.md): every run of non-alphanumerics
+  // becomes ONE underscore and the ends are trimmed. Canon defines the same
+  // function as sl:slug; this registration stays only until both carriers are
+  // regenerated and slug can leave the boundary manifest.
+  // slug is CANON -- DEF("slug") with slug:alnum/step/trimlead. Deleted here.
   // char-level lex boundary (invariant ASCII on every station, so the
   // naming lex is byte-identical regardless of host culture)
   "chars": x => { if (typeof x !== "string") throw new Error("chars on non-string");
     return [...x]; },
-  "charup": x => (x >= "a" && x <= "z") ? String.fromCharCode(x.charCodeAt(0) - 32) : x,
-  "chardown": x => (x >= "A" && x <= "Z") ? String.fromCharCode(x.charCodeAt(0) + 32) : x,
-  "charisup": x => (x >= "A" && x <= "Z") ? "T" : "F",
-  "charislow": x => (x >= "a" && x <= "z") ? "T" : "F",
-  "charisdigit": x => (x >= "0" && x <= "9") ? "T" : "F",
-  "escape_html": x => x.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"),
-  "strip_prefix": x => { const pre = at(x,0), t = at(x,1);
-    return (t.length > pre.length && t.startsWith(pre)) ? t.slice(pre.length) : t; },
-  "ntoa": x => { if (typeof x !== "number") throw new Error("ntoa on non-number"); return "" + x; },
-  "quote_str": x => { if (typeof x !== "string") throw new Error("quote_str on non-string");
-    return "\"" + x.replace(/\\/g, "\\\\").replace(/"/g, "\\\"").replace(/\n/g, "\\n").replace(/\r/g, "\\r") + "\""; },
+  // FIRST CHARACTER. This head used to compare the WHOLE string — x >= "a" &&
+  // x <= "z" — which agrees for the single chars `chars` yields but not
+  // otherwise: charup("zebra") answered "zebra" here and "Z" on the other
+  // seven hosts, since python and the java/cs/rust stations all take the
+  // leading char. One operation, one meaning; this head was the outlier.
+  // charup is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
+  // chardown is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
   "1r": x => { const a = seq(x); if (a.length === 0) throw new Error("1r on empty"); return a[a.length - 1]; },
   "tlr": x => { const a = seq(x); if (a.length === 0) throw new Error("tlr on empty"); return a.slice(0, a.length - 1); },
 }));
@@ -204,7 +273,7 @@ function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENT
 // previous firings" — and sizes the class at orders of magnitude. law:induce IS
 // rule-firing over derivation candidates, so that is the governing reference,
 // not an analogy.
-const MEMOCN = new Set(["law:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
+const MEMOCN = new Set(["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
   "cn:sfx", "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts",
   "cn:chrank", "lex:lw", "induce:sig_of"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
@@ -274,7 +343,7 @@ const FASTPRIMS = new Map(Object.entries({
     const out = [];
     for (const v of hit) { const vs = seq(v); for (let i = 0; i < vs.length; i++) out.push(vs[i]); }
     return out; },
-  "law:find_desc": x => { const name = at(x, 0), descs = seq(at(x, 1));
+  "theta:find_desc": x => { const name = at(x, 0), descs = seq(at(x, 1));
     let idx = DESCIDX.get(descs);
     if (idx === undefined) { idx = new Map();
       for (const d of descs) { if (!Array.isArray(d) || d.length === 0) continue;
@@ -421,6 +490,28 @@ function Ev(f, x) {
   }
   const form = seq(f);
   const head = form[0];
+  // ---- tau clause (c): METACOMPOSITION (Backus 13.3.2, 13.4) --------------
+  //     (rho <x1..xn>):y = (rho x1):<<x1..xn>, y>
+  // This head used to be MATCHED by the switch below and never FETCHED, which
+  // meant the combining forms were host code by construction: a canon
+  // DEF("CONS", ...) was unreachable, because the switch intercepted before
+  // any lookup. That is the difference between an FP system, whose set of
+  // forms "is fixed once and for all, and this set determines the power of
+  // the system in a major way" (13.1), and an FFP system, where
+  // metacomposition "permits the definition of new functional forms, in
+  // effect, merely by defining new functions" (13.3.2). engine/rust had this
+  // rule; the js head did not, and java/cs/rust-station were transliterated
+  // from the js head, so all four CERTIFIED stations lacked the only
+  // mechanism the whole construction rests on.
+  //
+  // Fetching the head restores it, and it is the SAME rule already obeyed for
+  // atoms in operator position a few lines above: consult DEFS, then fall to
+  // the host. The switch below is now the primitive arm of that rule -- the
+  // fast path taken only when the form atom is NOT shadowed by canon -- so it
+  // is an optimization of the general case, not a separate dispatch. A
+  // sequence head (a computed form) goes the general way, which the switch
+  // could never express at all.
+  if (typeof head !== "string" || DEFS.has(head)) return Ev(head, [f, x]);
   switch (head) {
     case "COMP": {
       // the written strategy only pays to replace once the scan is long
@@ -457,12 +548,14 @@ function Ev(f, x) {
       for (let i = form.length - 1; i >= 1; i--) v = Ev(form[i], v);
       return v;
     }
-    case "CONS": {
-      const out = new Array(form.length - 1);
-      for (let i = 1; i < form.length; i++) out[i - 1] = Ev(form[i], x);
-      return out;
-    }
-    case "CONST": return form[1];
+    // CONS and CONST are CANON now -- DEF("CONS", COMP(ALPHA(apply), tl, distr))
+    // and DEF("CONST", COMP(2,1)), both Backus 13.3.2 verbatim. They are reached
+    // through tau clause (c) above, which fetches the head instead of matching
+    // it, so these two arms are dead: the switch is only the primitive arm, and
+    // canon defines these. Deleting them is the point -- equivalence was already
+    // proven (java and cs resolved them through their own switch while js
+    // resolved them through canon, byte-identical), but only removal proves
+    // REPLACEMENT. Eight copies of two theorems of the base, gone.
     case "COND": return Ev(form[1], x) === "T" ? Ev(form[2], x) : Ev(form[3], x);
     case "ALPHA": return seq(x).map(e => Ev(form[1], e));
     case "INSERT": {

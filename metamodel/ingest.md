@@ -1,9 +1,22 @@
 # Event Ingest
 
+<!-- Ported 2026-07-31 from readings/core/ingest.md (last touched
+     2026-05-05). No counterpart existed under metamodel/, so this file was
+     the residue of the readings/core -> metamodel merge rather than a
+     superseded copy. Vocabulary map applied per the 2026-07-15 ruling in
+     core.md: the (.id) and (.Name) reference modes are dropped and both
+     entity types identify through Function(.id); "reference scheme" ->
+     "reference mode" in the derivation rule. Fact types, constraints, the
+     derivation rule, and instance facts are otherwise carried over
+     verbatim. This is the Cor. 3 path -- an external event entering P
+     through the same store as any other fact. -->
+
 ## Entity Types
 
-Webhook Event(.id) is an entity type.
-Webhook Event Type(.Name) is an entity type.
+Webhook Event is an entity type.
+Webhook Event is a subtype of Function.
+Webhook Event Type is an entity type.
+Webhook Event Type is a subtype of Function.
 
 ## Value Types
 
@@ -34,7 +47,7 @@ Webhook Event Type belongs to External System.
 ### Yields
 
 Webhook Event Type yields Fact Type with Role from JSON Path.
-  For each Webhook Event Type, Fact Type, Role combination, that triple has at most one JSON Path.
+  Each Webhook Event Type, Fact Type, Role combination occurs at most once.
   It is possible that some Webhook Event Type yields more than one Fact Type.
   It is possible that more than one Webhook Event Type yields the same Fact Type.
 
@@ -49,11 +62,11 @@ It is obligatory that for each Webhook Event Type that yields some Fact Type, ev
 * Webhook Event yields Fact iff Webhook Event has Webhook Event Type
   and Webhook Event Type yields Fact Type
   and Fact is of that Fact Type
-  and for each Role of that Fact Type some Resource fills that Role
-  where that Resource is found by reference scheme over the value at
+  and for each Role of that Fact Type some Object Type Instance fills that Role
+  where that Object Type Instance is found by reference mode over the value at
   JSON Path in the Payload of that Webhook Event.
 
 ## Instance Facts
 
-Domain 'ingest' has Access 'public'.
+<!-- organizations-domain (ruling 2): Domain 'ingest' has Access 'public'. -->
 Domain 'ingest' has Description 'Webhook event ingest. External system pushes a Webhook Event carrying a Payload; the Webhook Event Type declares which Fact Types it yields and the JSON Paths that fill each Role.'.

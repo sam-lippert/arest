@@ -74,10 +74,40 @@ def initial_D():
     return L.SEQ(L.CONS(ast.cell("FILE", to_lam(())))(L.NIL))
 
 
+def metamodel_dir():
+    """The one metamodel: <repo>/metamodel, found by walking up from this file.
+
+    Not a copy held here. A host that carries its own metamodel carries one
+    that can go stale, and three did: this module's former M_READINGS string,
+    engine/shared/base/, and the base.store.json compiled from it. All three
+    drifted from metamodel/ and from each other.
+    """
+    import os
+    here = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(6):
+        cand = os.path.join(here, "metamodel")
+        if os.path.isdir(cand):
+            return cand
+        here = os.path.dirname(here)
+    raise RuntimeError("metamodel/ not found by walking up from %s" % __file__)
+
+
+def M_readings():
+    """M's readings, concatenated in name order, read from metamodel/."""
+    import os, io
+    d = metamodel_dir()
+    parts = []
+    for fn in sorted(os.listdir(d)):
+        if fn.endswith(".md"):
+            with io.open(os.path.join(d, fn), encoding="utf-8") as f:
+                parts.append(f.read())
+    return "\n".join(parts)
+
+
 def M_store():
     """Ingest M's own readings: (D, report) where D's meta-cells describe M itself."""
     from . import forml
-    return forml.compile_model(M_READINGS)
+    return forml.compile_model(M_readings())
 
 
 def _rows(D, name):
@@ -295,7 +325,7 @@ _CLASSIFY = [
     # the negative lookahead keeps this off the set_comparison exclusion 'For each X,
     # at most one OF THE FOLLOWING HOLDS: ...' (line 290): both used to co-match, and the
     # prepass then declared a PHANTOM 'of_the_following_holds_...' fact type + a bogus
-    # inverse-uc from _cook_inverse_uc's f"{g2} {g0}" reading (task 17 name-hygiene; NORMA
+    # inverse-uc from _compile_inverse_uc's f"{g2} {g0}" reading (task 17 name-hygiene; NORMA
     # verbalizes exclusion as 'no X the same Y', never 'at most one of the following holds')
     ("inverse_uc", re.compile(r"^[Ff]or each (.+?), (at most one|exactly one) (?!of the following holds)(.+) (?:that|those) .+\.$")),
     ("subset", re.compile(r"^[Ii]f (.+) then (.+)\.$")),                      # 'if A then B' = subset (modus ponens)
@@ -421,13 +451,19 @@ def _context_of(D):
     edges, fact-type slugs — so a model can compile ATOP a preloaded base (the old
     engine folds CORE_READINGS ahead of every app; this is the same seam with the
     base thawed from frozen ingestion instead of recompiled)."""
-    names = {r[0] for r in system._pop_rows(D, "instanceOf")
-             if len(r) >= 2 and r[1] in ("ObjectType", "ValueType")}
-    vals = {r[0] for r in system._pop_rows(D, "instanceOf")
-            if len(r) >= 2 and r[1] == "ValueType"}
-    fts = {f[0] for f in system._pop_rows(D, "factType") if f}
-    edges = [(r[0], r[1]) for r in system._pop_rows(D, "subtype") if len(r) >= 2]
-    return names, edges, fts, vals
+    # THE SWITCHOVER (2026-08-08): system:ctx_of is the implementation and
+    # this is the thin caller. Each component is one canon shape — FetchPop
+    # the cell, theta:Filter the rows, project — and system:ev_entities
+    # already had that shape for ObjectType alone, so ctx_names/ctx_vals/
+    # ctx_fts/ctx_edges are its siblings rather than new machinery.
+    #
+    # The twin comparison in test_ctx_canon can no longer catch drift here
+    # (it now compares canon to itself); test_ctx_of_pins_survive_the_
+    # switchover is the oracle that outlives this edit.
+    from .lam import atom as _A_, from_lam as _from_lam_
+    from .reduce import apply as _apply_
+    names, edges, fts, vals = _from_lam_(_apply_(_A_("system:ctx_of"), D))
+    return (set(names), [tuple(e) for e in edges], set(fts), set(vals))
 
 
 def _prepass_context(stmts, names, extra_edges=(), extra_fts=()):
@@ -583,15 +619,25 @@ def _subject(text, known):
     boundary): used by negation/inverse-uc where only the subject is needed. LONGEST
     name first: 'State Machine Definition has …' must never truncate its subject to a
     declared prefix type ('State Machine') — set order made it nondeterministic."""
-    for k in sorted(known, key=lambda s: -len(s)):
-        if text == k or text.startswith(k + " "):
-            return k, text[len(k):].strip()
-    first = text.split(" ", 1)
-    return first[0], (first[1] if len(first) > 1 else "")
+    # THE SWITCHOVER (2026-08-08): system:ctx_subject is the implementation.
+    # It matches WORD SEQUENCES (read:isprefix) rather than characters, which
+    # is the same test at a word boundary without the `k + " "` hack, and it
+    # folds with system:ctx_longer instead of sorting — the sort here existed
+    # only so the first hit would be the longest, which INSERT says directly.
+    # The remainder is still computed here: canon answers the subject, and the
+    # caller wants the split, so the tail is a host-side slice of the input.
+    from .lam import atom as _A_, to_lam as _to_lam_, from_lam as _from_lam_
+    from .reduce import apply as _apply_
+    W = tuple(text.split())
+    if not W:
+        return "", ""
+    got = _from_lam_(_apply_(_A_("system:ctx_subject"), _to_lam_(
+        (W, tuple(tuple(k.split()) for k in known)))))
+    subj = " ".join(got) if isinstance(got, tuple) else str(got)
+    return subj, text[len(subj):].strip()
 
 
-def _ftid(a, pred, b):
-    return (a + " " + pred + " " + b).replace(" ", "_")
+# _ftid deleted: no caller in the package.
 
 
 def _num(s):
@@ -658,7 +704,7 @@ def _reading(text, known):
     THE MEANING IS CANONICAL: system:reading_parse (shared/system.canon, over the
     lex boundary) answers the same (template, roles); this host scan is its
     certified-equal performant override, the equality enforced over the whole
-    shared/base corpus by test_reading_canon."""
+    metamodel corpus by test_reading_canon."""
     kset = sorted(known, key=lambda k: -len(k.split()))
     toks, roles, out, i = text.split(), [], [], 0
     while i < len(toks):
@@ -840,8 +886,8 @@ def _mandatory_parts(ft, subject, m, pos=1):
         [(cid, C.scoped_mandatory_entities(subject)), (cid + "_e", C.scoped_mandatory_facts(ft))]
 
 
-def _h_crows(g, k, m):
-    # #18: the GENERIC constraint translator (canon system:h_crows). g arrives COOKED as
+def _h_constraint(g, k, m):
+    # #18: the GENERIC constraint translator (canon system:h_constraint). g arrives COOKED as
     # ⟨decl_rows, mid, obj_specs⟩: decl_rows pass through; mid entries are ⟨"c", tail⟩
     # (a constraint-row tail the translator completes with the modality) or ⟨"w", row⟩
     # (a whole row); obj_specs ⟨cid, builder, operand⟩ apply the canonical builder
@@ -860,11 +906,11 @@ def _h_crows(g, k, m):
                   for cid, b, op in ospecs]
 
 
-_h_uniqueness = _h_crows
-_h_mandatory = _h_crows
+_h_uniqueness = _h_constraint
+_h_mandatory = _h_constraint
 
-_h_neg_uniqueness = _h_crows
-_h_neg_mandatory = _h_crows
+_h_neg_uniqueness = _h_constraint
+_h_neg_mandatory = _h_constraint
 
 def _uc_columns(names, rtypes):
     """Resolve a composite UC's named columns against the reading's role
@@ -886,8 +932,8 @@ def _uc_columns(names, rtypes):
 
 # the spanning pair, for_each and inverse_uc: crows hosts — their kind-specific
 # resolution lives in the _COOK table (the docstrings ride the cooks)
-_h_spanning = _h_crows
-_h_spanning_corpus = _h_crows
+_h_spanning = _h_constraint
+_h_spanning_corpus = _h_constraint
 
 
 def _dequalify(text, known):
@@ -904,7 +950,7 @@ def _dequalify(text, known):
     return " ".join(out)
 
 
-_h_for_each_mandatory = _h_crows
+_h_for_each_mandatory = _h_constraint
 
 
 def _h_frequency(g, k, m):
@@ -930,7 +976,7 @@ def _h_ring(g, k, m):
         [(cid, _apply(_A(builder), to_lam((1, 2))))]
 
 
-_h_subtype = _h_crows
+_h_subtype = _h_constraint
 
 
 def _h_brace_subtypes(g, k, m):
@@ -941,7 +987,7 @@ def _h_brace_subtypes(g, k, m):
     subs = tuple(s.strip() for s in g[0].split(","))
     A_, objs = [], []
     for s in subs:
-        a, o = _h_crows(_cook_subtype((s, g[2]), k), k, m)
+        a, o = _h_constraint(_compile_subtype((s, g[2]), k), k, m)
         A_ += a
         objs += o
     if g[1]:
@@ -968,13 +1014,30 @@ def _clause_ft(text, known):
     strip stays as the fallback, itself preferring a declared hit, so article-free
     models keep their ids. The string boundary of set-comparison/subset clause
     resolution (full RolePath unification is Stage 2)."""
-    t = re.sub(r"\s+", " ", text.strip())
-    fts = getattr(known, "fts", None) or ()
-    ft_min, _ = _fact_type(_QUANT_MIN.sub("", t).strip(), known)
-    if ft_min in fts:
-        return ft_min
-    ft_full, _facts = _fact_type(_QUANT.sub("", t).strip(), known)
-    return ft_full
+    # THE SWITCHOVER (2026-08-08): this body WAS the behavioral spec; the
+    # canonical object system:clause_ft is now the implementation and this is
+    # the thin caller its own test docstring called for — "the Python
+    # _clause_ft (compiler.py) is the behavioral spec and becomes a thin
+    # caller". The canon family it dispatches to is system:cf_dropq (the
+    # minimal some/that/each/no strip), system:cf_drop_full (+ an/a), and
+    # system:cf_scan = system:ftid o system:reading_parse; the declared-hit
+    # preference lives there now, not here. Two copies of a resolver is the
+    # duplication this repo is digging out of, so the host keeps none.
+    #
+    # NOTE ON THE ORACLE: test_clause_canon's corpus test compared THIS
+    # against system:clause_ft. With the host delegating, it now compares
+    # canon to itself and can no longer catch drift — it passed immediately
+    # before this edit, which is what certifies the swap; from here the
+    # meaningful oracle is the pinned expectations in that file's other three
+    # cases, plus the constraint families' own tests.
+    from .lam import atom as _A_, to_lam as _to_lam_, from_lam as _from_lam_
+    from .reduce import apply as _apply_
+    return _from_lam_(_apply_(_A_("system:clause_ft"), _to_lam_((
+        re.sub(r"\s+", " ", text.strip()),
+        tuple(sorted(known)),
+        tuple(sorted(_IMPLICIT_STOP)),
+        tuple(sorted(getattr(known, "fts", None) or ())),
+    ))))
 
 
 # WHICH constraint fact a statement asserts and WHERE each scoped object
@@ -995,7 +1058,7 @@ def _cs_call(kind, subj, clause_fts, raws, m):
     the attach rows (canon); the cid minting ([:40] prefix policy, 'no take prim joins
     the kernel for cosmetics') and the per-attach builder operands are the boundary's.
     Nullary top-level builders spec operand () — the NAME is the object."""
-    a, o = _h_crows(_cook_cs(kind, subj, clause_fts, raws), None, m)
+    a, o = _h_constraint(_compile_cs(kind, subj, clause_fts, raws), None, m)
     return a, o
 
 
@@ -1017,7 +1080,7 @@ _CS_SPEC = {
 }
 
 
-def _cook_cs(kind, subj, clause_fts, raws):
+def _compile_cs(kind, subj, clause_fts, raws):
     from .reduce import apply as _apply
     from .lam import atom as _A, from_lam as _fl
     rows = _fl(_apply(_A("system:cs_rows"),
@@ -1095,10 +1158,10 @@ def _h_subset(g, k, m):
                          + ante[:60])
     proj_a = tuple(a_roles.index(n) + 1 for n in shared)
     proj_b = tuple(b_roles.index(n) + 1 for n in shared)
-    decl, mid, ospecs = _cook_cs("subset", "", [a_ft, b_ft],
+    decl, mid, ospecs = _compile_cs("subset", "", [a_ft, b_ft],
                                  [ante.strip(), cons_txt.strip()])
     op = (b_ft, proj_a, proj_b)
-    return _h_crows((decl, mid,
+    return _h_constraint((decl, mid,
                      tuple((cell, "constraints:scoped_subset_projected", op)
                            for (cell, _b, _o) in ospecs)),
                     k, m)
@@ -1218,8 +1281,8 @@ def _h_subset_trailing(g, k, m, sign="positive"):
     # case only); enforcement is the checker. #18: the checker rides as an
     # apply-SPEC — the projected builders are parameterized canon
     # applications over ⟨cell, proj_p, proj_c[, filter_pos, filter_lit]⟩ —
-    # and the whole handler is the generic crows body over the cooked groups.
-    decl, mid, ospecs = _cook_cs("subset", "", [y_ft, x_ft],
+    # and the whole handler is the generic crows body over the compiled groups.
+    decl, mid, ospecs = _compile_cs("subset", "", [y_ft, x_ft],
                                  [cond_txt.strip(), head_txt.strip()])
     builder = ("constraints:scoped_exclusion_projected" if forbidden
                else "constraints:scoped_subset_projected")
@@ -1227,11 +1290,11 @@ def _h_subset_trailing(g, k, m, sign="positive"):
     if filter_lit is not None:
         builder += "_filtered"
         op = op + (filter_pos, filter_lit)
-    return _h_crows((decl, mid,
+    return _h_constraint((decl, mid,
                      tuple((cell, builder, op) for (cell, _b, _o) in ospecs)),
                     k, m)
 
-_h_negation = _h_crows
+_h_negation = _h_constraint
 
 
 def _conj(rest):
@@ -1245,7 +1308,7 @@ def _conj(rest):
 _CLAUSE_RE = re.compile(r"^(\S.*?) has (\S.*?)(?: '(.+?)')?$")
 
 
-_h_class_rule = _h_crows
+_h_class_rule = _h_constraint
 
 
 def stage1_vocabulary(D):
@@ -1326,17 +1389,17 @@ def _A2():
     return _A(2)
 
 
-_h_neg_pair = _h_crows
+_h_neg_pair = _h_constraint
 
 def _h_possibility(g, k, m):
     return [("possibility", (g[0][:80], m))], []
 
-_h_inverse_uc = _h_crows
+_h_inverse_uc = _h_constraint
 
 _QUOTED = re.compile(r"'([^']*)'")
 
 
-_h_fact = _h_crows
+_h_fact = _h_constraint
 
 
 # ---- the state-machine readings (whitepaper §1): a machine is a SET OF FACTS in M ----
@@ -1491,9 +1554,9 @@ _CMP_OPS = {"exceeds": "gt", "is greater than": "gt", "is less than": "lt",
             "is at least": "ge", "is at most": "le", "equals": "eq"}
 
 
-# #18: rule_if arrives COOKED (_cook_rule_if — the whole body parse is the
+# #18: rule_if arrives COOKED (_compile_rule_if — the whole body parse is the
 # boundary's); the translator is the generic crows body, canon system:h_rule_if
-_h_rule_if = _h_crows
+_h_rule_if = _h_constraint
 
 
 # NORMA's derivation-storage markers in LEADING position (the corpus's spelling;
@@ -1502,10 +1565,10 @@ _MARKER_KIND = {"*": "fully-derived", "**": "derived-and-stored",
                 "+": "semi-derived", "++": "partially-derived-and-stored"}
 
 
-_h_rule_iff = _h_crows
+_h_rule_iff = _h_constraint
 
 
-_h_derivation_rule = _h_crows
+_h_derivation_rule = _h_constraint
 
 
 _PLAN = {
@@ -1536,7 +1599,7 @@ _PLAN = {
 # stays the pure ⟨groups, known, mod⟩ -> ⟨rows, phi⟩ object the canon defines. The SM
 # trigger/guard clause resolves reading -> fact-type id here (the sm_rows doctrine:
 # literals arrive RESOLVED; the resolution is the boundary's step, not the object's).
-def _cook_ring(g, k):
+def _compile_ring(g, k):
     """ring: resolve the reading -> ⟨decl_rows, cid, kind_tag, ft, builder_name⟩ so the
     translator is pure assembly + (builder : roles) through DEFS (the constraint objects
     are already canon applications — C.ring_* = apply(constraints:ring_*, roles))."""
@@ -1545,7 +1608,7 @@ def _cook_ring(g, k):
             "constraints:ring_" + g[1])
 
 
-def _cook_frequency(g, k):
+def _compile_frequency(g, k):
     """frequency: resolve the reading + role names -> ⟨cid, ft, roles, builder_operand⟩;
     the operand carries the bounds in the canonical optional encoding (absent = ())."""
     template, rtypes = _reading(g[0], k)
@@ -1558,17 +1621,10 @@ def _cook_frequency(g, k):
     return (ftn + "_freq", ftn, roles, (roles, lo, hi))
 
 
-def _value_constraint(spec):
-    """The value spec as its checker OBJECT — the historical surface, kept as the
-    spec parse's semantic checkpoint (test_modality pins it): the chosen canonical
-    builder applied to its operand."""
-    from .reduce import apply as _apply
-    from .lam import atom as _A
-    b, op = _value_spec(spec)
-    return _apply(_A(b), to_lam(op))
+# _value_constraint deleted: no caller in the package.
 
 
-def _cook_value_constraint(g, k):
+def _compile_value_constraint(g, k):
     """value constraint: parse the spec -> ⟨name, spec, cid, builder_name, operand⟩."""
     builder, bop = _value_spec(g[1])
     return (g[0], g[1], g[0] + "_vc", builder, bop)
@@ -1580,8 +1636,8 @@ def _mand_specs(mand, ft, subject):
             (mand + "_e", "constraints:scoped_mandatory_facts", ft))
 
 
-def _cook_uniqueness(g, k):
-    """uniqueness (+ its 'exactly one' mandatory rider) -> the generic crows groups
+def _compile_uniqueness(g, k):
+    """uniqueness (+ its 'exactly one' mandatory rider) -> the generic constraint-row groups
     ⟨decl_rows, mid, obj_specs⟩; the conditional rider is just MORE ELEMENTS."""
     reading = g[0] + " " + g[2]
     ft, decl = _fact_type(reading, k)
@@ -1598,8 +1654,8 @@ def _cook_uniqueness(g, k):
     return (tuple(decl), tuple(mid), tuple(ospecs))
 
 
-def _cook_mandatory(g, k):
-    """mandatory -> the generic crows groups (the same shape, no conditional)."""
+def _compile_mandatory(g, k):
+    """mandatory -> the generic constraint-row groups (the same shape, no conditional)."""
     ft, decl = _fact_type(g[0] + " " + g[1], k)
     subject = _subject(g[0], k)[0]
     mand = ft + "_mand"
@@ -1607,7 +1663,7 @@ def _cook_mandatory(g, k):
     return (tuple(decl), tuple(mid), tuple(_mand_specs(mand, ft, subject)))
 
 
-def _cook_neg_uniqueness(g, k):
+def _compile_neg_uniqueness(g, k):
     """neg uniqueness: reconstruct the reading; the same uc constraint, NO spans row
     and NO conditional (the host's historical shape, preserved exactly)."""
     ft, decl = _fact_type(" ".join(g), k)
@@ -1616,7 +1672,7 @@ def _cook_neg_uniqueness(g, k):
             ((uc, "constraints:uniqueness", (1,)),))
 
 
-def _cook_neg_mandatory(g, k):
+def _compile_neg_mandatory(g, k):
     """neg mandatory: reconstruct the reading; the standard mandatory pair at pos 1."""
     ft, decl = _fact_type(" ".join(g), k)
     subject = _subject(g[0], k)[0]
@@ -1626,7 +1682,7 @@ def _cook_neg_mandatory(g, k):
             tuple(_mand_specs(mand, ft, subject)))
 
 
-def _cook_for_each_mandatory(g, k):
+def _compile_for_each_mandatory(g, k):
     """'For each S, some <clause over S>.' — the clause declares the fact type
     (implicitly, old-corpus style) and S's role in it is mandatory."""
     subject, clause = g[0].strip(), _dequalify(g[1], k)
@@ -1639,7 +1695,7 @@ def _cook_for_each_mandatory(g, k):
             tuple(_mand_specs(mand, ft, subject)))
 
 
-def _cook_inverse_uc(g, k):
+def _compile_inverse_uc(g, k):
     """The inverse-role UC anchors to the FACT TYPE at the subject's computed position
     (a real role-2 uniqueness, so doubly-functional 1:1 fact types are detectable);
     'exactly one' adds the mandatory at the same position, Halpin's fewer-nulls signal.
@@ -1659,7 +1715,7 @@ def _cook_inverse_uc(g, k):
     return (tuple(decl), tuple(mid), tuple(ospecs))
 
 
-def _cook_fact(g, k):
+def _compile_fact(g, k):
     """fact reading: the marker strip, quote detection, ids extraction, ft resolution,
     and the subtype lift are ALL the boundary's; the translator is a bare row emitter.
     An INSTANCE fact's row lands in the ft's OWN cell — the cell name is a VALUE
@@ -1690,7 +1746,7 @@ def _cook_fact(g, k):
     return (tuple(decl), mid, ())
 
 
-def _cook_derivation_rule(g, k):
+def _compile_derivation_rule(g, k):
     """the role-path derivation: the path split, clause_ft resolutions, and the 2-hop
     join detection are the boundary's; join_rule2 is a canon application. A two-hop
     linear path (root -V1-> T, T -V2-> ...) is a join on the shared type projecting
@@ -1711,7 +1767,7 @@ def _cook_derivation_rule(g, k):
     return (tuple(rows), (), ospecs)
 
 
-def _cook_neg_pair(g, k):
+def _compile_neg_pair(g, k):
     """NORMA's unary negation pattern (UnaryValuePattern.Negation, FactType.cs): 'X is
     not R.' / 'X does not R.' creates the PAIRED positive-shaped negation fact type,
     linked by negOf, with the pair exclusion auto-asserted (nothing is both). Negative
@@ -1721,7 +1777,7 @@ def _cook_neg_pair(g, k):
     top-level builder — operand (), the name is the object."""
     subj, mode, rest = g
     if subj not in k:
-        return _cook_fact((f"{subj} {mode} {rest}",), k)      # unknown subject: plain reading
+        return _compile_fact((f"{subj} {mode} {rest}",), k)      # unknown subject: plain reading
     pos_read = f"{subj} is {rest}" if mode == "is not" else f"{subj} {_conj(rest)}"
     pos, decl_p = _fact_type(pos_read, k)
     neg, decl_n = _fact_type(f"{subj} {mode} {rest}", k)
@@ -1734,7 +1790,7 @@ def _cook_neg_pair(g, k):
     return (decl, mid, ospecs)
 
 
-def _cook_class_rule(g, k):
+def _compile_class_rule(g, k):
     """The grammar-as-readings recognizer form (forml2-grammar.md): 'Statement has
     Classification C iff Statement has Field ⟨lit⟩ [and …]' compiles into an ordinary
     rule deriving ⟨sid, C⟩ from the field cells — the parser IS the file, run by
@@ -1769,7 +1825,7 @@ def _cook_class_rule(g, k):
     return (tuple(rows), (), ((rid, "system:class_rule", (pred_clauses, headlit)),))
 
 
-def _cook_subtype(g, k):
+def _compile_subtype(g, k):
     """A subtype declaration MEANS upward inclusion — subtype instances ARE supertype
     instances — so it installs the derivation rule super(x) <- sub(x) through the
     ordinary rule machinery (semi-naive variants included; chains compose round by
@@ -1790,11 +1846,11 @@ def _cook_subtype(g, k):
              (rid + "~d1", "system:compile_rule_delta", (atoms, (1,), (), 1))))
 
 
-def _cook_spanning(g, k):
+def _compile_spanning(g, k):
     """'In each population of <reading>, each A, B combination occurs at most once.'
     The names RESOLVE against the reading (this spelling hardcoded roles [1, 2] and
     ignored the names until 2026-07-09); unresolvable names raise, and the raise
-    surfaces as the handler's refusal exactly as before (the cook runs inside it)."""
+    surfaces as the handler's refusal exactly as before (the compile step runs inside it)."""
     ftn = g[0].replace(" ", "_")
     names = [s.strip() for s in g[1].split(",")]
     _t, rtypes = _reading(g[0], k)
@@ -1807,7 +1863,7 @@ def _cook_spanning(g, k):
             ((cid, "constraints:uniqueness", tuple(roles)),))
 
 
-def _cook_spanning_corpus(g, k):
+def _compile_spanning_corpus(g, k):
     """'Each A, B combination occurs at most once in the population of <reading>.'
     — the roles-first spelling; the reading declares implicitly, old-corpus style."""
     names = [s.strip() for s in g[0].split(",")]
@@ -1844,11 +1900,11 @@ def _atom_specs(atom_fts, widths, joins):
                  for ft, w, j in zip(atom_fts, widths, js))
 
 
-def _cook_rule_if(g, k, sign="", kind="fully-derived"):
+def _compile_rule_if(g, k, sign="", kind="fully-derived"):
     """The book's rule form: Head if Clause [and Clause…] — the WHOLE resolution
     (clause split, column map, comparators-as-filters, coercion aliases, negation
     groups, the aggregate, the head shape incl. skolem existentials) is boundary
-    work, cooked to the generic crows groups ⟨rows, ⟨⟩, obj_specs⟩. Fact-type
+    work, compiled to the generic constraint-row groups ⟨rows, ⟨⟩, obj_specs⟩. Fact-type
     clauses join linearly on shared variables; COMPARATOR clauses (the corpus's
     word comparators, a bound variable against a literal or another bound
     variable) do not join — they RESTRICT the running tuple as filter trees;
@@ -2109,39 +2165,39 @@ def _cook_rule_if(g, k, sign="", kind="fully-derived"):
     return (tuple(A_), (), tuple(ospecs))
 
 
-def _cook_rule_iff(g, k):
+def _compile_rule_iff(g, k):
     """The unnumbered anaphoric rule: strip the storage marker, then the one rule
     cook — numbered and unnumbered spellings are the same mechanism (the old
     _h_rule_iff delegation, moved whole to the boundary)."""
     marker, head, body = g
-    return _cook_rule_if((head, body), k,
+    return _compile_rule_if((head, body), k,
                          kind=_MARKER_KIND.get(marker or "*", "fully-derived"))
 
 
 _COOK = {
     "sm_trigger": lambda g, k: (g[0], _clause_ft(g[1], k)),
     "sm_guard": lambda g, k: (g[0], _clause_ft(g[1], k)),
-    "ring": _cook_ring,
-    "frequency": _cook_frequency,
-    "value_constraint": _cook_value_constraint,
-    "uniqueness": _cook_uniqueness,
-    "mandatory": _cook_mandatory,
-    "neg_uniqueness": _cook_neg_uniqueness,
-    "neg_mandatory": _cook_neg_mandatory,
-    "for_each_mandatory": _cook_for_each_mandatory,
-    "inverse_uc": _cook_inverse_uc,
-    "spanning_uc": _cook_spanning,
-    "spanning_uc2": _cook_spanning_corpus,
+    "ring": _compile_ring,
+    "frequency": _compile_frequency,
+    "value_constraint": _compile_value_constraint,
+    "uniqueness": _compile_uniqueness,
+    "mandatory": _compile_mandatory,
+    "neg_uniqueness": _compile_neg_uniqueness,
+    "neg_mandatory": _compile_neg_mandatory,
+    "for_each_mandatory": _compile_for_each_mandatory,
+    "inverse_uc": _compile_inverse_uc,
+    "spanning_uc": _compile_spanning,
+    "spanning_uc2": _compile_spanning_corpus,
     # negation: one whole row, no objs — pure crows
     "negation": lambda g, k: ((), (("w", ("negation",
         (_subject(g[0], k)[0], _subject(g[0], k)[1] + " " + g[1]))),), ()),
-    "subtype_of": _cook_subtype,
-    "fact_type_reading": _cook_fact,
-    "derivation_rule": _cook_derivation_rule,
-    "class_rule": _cook_class_rule,
-    "neg_pair": _cook_neg_pair,
-    "rule_if": _cook_rule_if,
-    "rule_iff": _cook_rule_iff,
+    "subtype_of": _compile_subtype,
+    "fact_type_reading": _compile_fact,
+    "derivation_rule": _compile_derivation_rule,
+    "class_rule": _compile_class_rule,
+    "neg_pair": _compile_neg_pair,
+    "rule_if": _compile_rule_if,
+    "rule_iff": _compile_rule_iff,
 }
 
 
@@ -2177,7 +2233,7 @@ def _plan(kind, g, known, modality="alethic", sign=""):
         ids = tuple(_QUOTED.findall(reading))
         dequoted = (re.sub(r"\s+", " ", _QUOTED.sub("", reading)).strip()
                     if ids else reading)
-        facts, objs = _h_crows(_cook_fact((dequoted,), known), known, modality)
+        facts, objs = _h_constraint(_compile_fact((dequoted,), known), known, modality)
         ft, _decl = _fact_type(dequoted, known)
         op = ("deontic_obligatory" if sign == "positive"
               else "deontic_forbidden")

@@ -69,7 +69,7 @@ each twinned by a parity pin in `tests/derive.rs`. When `prim` returns `None`, t
 choice is real and correct — but it is expressed as hand-placed arms in a 250-line
 `match`, discoverable only by reading it.
 
-The `_h_*` translator cooks (`src/cooks.rs`, dispatched through `native_cook`,
+The `_h_*` translator cooks (`src/compile.rs`, dispatched through `native_cook`,
 `main.rs:5394`) are the same shape one level up: a native translator fires when a
 translator name *carries no canon DEF*, else the canon body reduces.
 

@@ -117,11 +117,29 @@ impl Mcp {
 
     // rpc_slow: for calls that embed a full native base-atop compile in a
     // DEBUG binary (native apps_compile; a committed retract's rebuild).
+    //
+    // Budget raised 300s -> 900s (2026-08-06) because THE BASE GREW, not
+    // because the compile regressed. engine/shared/base/ — a second copy of
+    // the metamodel in the older vocabulary — was retired, so base_seed_paths
+    // now resolves the base readings to metamodel/, which is authoritative.
+    // That corpus is 1584 live statements, and re-materializing it took
+    // engine/shared/base.store.json from 485,674 to 1,216,685 bytes. The
+    // compile is doing strictly more work, and at 300s this test timed out
+    // with "a debug native compile hung" when nothing had hung.
+    //
+    // The number is a symptom, and it should not stay comfortable. Half a
+    // 1584-statement compile costing minutes is the C64 objection exactly —
+    // intrinsic Rmap cost is human-scale, so a long leg indicts the
+    // evaluator, not the model. The js/java/cs stations answered the same
+    // class of complaint with a pure-application memo plus compiled forms of
+    // the hot theta: cells (see tools/wall/stations.sh for the measurements);
+    // the native compile has had neither pass. Fix the evaluator and this
+    // budget should come back down, rather than drifting up again.
     fn rpc_slow(&mut self, line: &str) -> String {
         self.send(line);
         self.rx
-            .recv_timeout(Duration::from_secs(300))
-            .expect("no MCP reply within 300s (a debug native compile hung)")
+            .recv_timeout(Duration::from_secs(900))
+            .expect("no MCP reply within 900s (a debug native compile hung)")
     }
 }
 
@@ -511,7 +529,7 @@ fn the_write_path_retracts_with_no_python() {
     assert!(r.contains(r#"\"ok\":true"#), "{r}");
 
     // ---- no such fact: refused without touching the store ----
-    // (Age literals coerce to integers at the cook boundary, so the wire
+    // (Age literals coerce to integers at the compile step boundary, so the wire
     // fact speaks the store's types: 99, not "99")
     let r = c.rpc(concat!(
         r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":"#,

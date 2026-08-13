@@ -1,42 +1,42 @@
 # AREST Instances: Runtime Entities
 
 <!-- Layer (arest-batch task 3): AREST-extension vocabulary end to end —
-     the runtime side (Resource, State Machine, Event, Fact instances,
+     the runtime side (Object Type Instance, State Machine, Event, Fact instances,
      Guard Run, User, Citation). ORM canon models schemas; populations
      here are Thm 1's FILE cell made addressable. Everything homes under
-     Resource, itself a Function subtype (FFP: one root). -->
+     Object Type Instance, itself a Function subtype (FFP: one root). -->
 
 ## Entity Types
 
-Resource is an entity type.
-  Resource is a subtype of Function.
-<!-- 2026-07-09 (Samuel, NORMA-grounded): Resource was a subtype of Noun, a
+Object Type Instance is an entity type.
+  Object Type Instance is a subtype of Function.
+<!-- 2026-07-09 (Samuel, NORMA-grounded): Object Type Instance was a subtype of Noun, a
      GraphDL "Graph Schema is a Noun" artifact. In NORMA's own metamodel
      (ORMCoreMetaModel.orm) ObjectType and FactType are DISJOINT SIBLINGS —
      both <: ORMNamedElement, and FactType is NEVER a subtype of ObjectType.
      Halpin: subtyping holds only between object types; a fact type is
      "predicate + its object types", not an object type. Because Fact Type <
-     Event Type < Resource, the old `Resource < Noun` made every fact type a
+     Event Type < Object Type Instance, the old `Object Type Instance < Noun` made every fact type a
      Noun by population inclusion, tripping the mandatory noun-classification
      facts (Object Type / World Assumption) on 494 fact types. Reparenting
-     Resource under Function (beside Noun, mirroring ObjectType/FactType both
+     Object Type Instance under Function (beside Noun, mirroring ObjectType/FactType both
      under ORMNamedElement) makes Fact Type a sibling of Noun, not a subtype.
-     Category stays instance-of: `Resource is instance of Noun` below is a
+     Category stays instance-of: `Object Type Instance is instance of Noun` below is a
      genuine instance-of fact between disjoint types, most-specific per
      NORMA's ObjectTypeHasObjectTypeInstance (Multiplicity One) with
      WalkSupertypes delegation for supertype-walking consumers. -->
 Event is an entity type.
-  Event is a subtype of Resource.
+  Event is a subtype of Object Type Instance.
 Fact is an entity type.
   Fact is a subtype of Event.
 State Machine is an entity type.
-State Machine is a subtype of Resource.
+State Machine is a subtype of Object Type Instance.
 Guard Run is an entity type.
-Guard Run is a subtype of Resource.
+Guard Run is a subtype of Object Type Instance.
 Citation is an entity type.
-Citation is a subtype of Resource.
+Citation is a subtype of Object Type Instance.
 User is an entity type.
-User is a subtype of Resource.
+User is a subtype of Object Type Instance.
 
 ## Value Types
 
@@ -86,7 +86,7 @@ Fact is of Fact Type.
 Fact is of Function. *
   Each Fact, Function combination occurs at most once in the population of Fact is of Function.
   <!-- ns-2 (ns-derive-population-domains): the single-sourcing BRIDGE for a
-       Fact's domain. A Fact Type IS a Function (Fact Type < Resource < Noun <
+       Fact's domain. A Fact Type IS a Function (Fact Type < Object Type Instance < Noun <
        Function; same identity, same id), so this fully-derived FT re-labels
        the Fact Type a Fact is of as that same Function. It stores NO domain —
        it only re-projects the existing `Fact is of Fact Type` value under a
@@ -98,7 +98,7 @@ Fact belongs to Domain. *
   Each Fact belongs to at most one Domain.
   <!-- ns-2 (ns-derive-population-domains): a Fact does NOT store its own
        domain — it DERIVES it from its Fact Type, keeping domain single-sourced
-       on Function (a Fact Type is a subtype of Function via Resource < Noun <
+       on Function (a Fact Type is a subtype of Function via Object Type Instance < Noun <
        Function; core.md "Function belongs to Domain"). The `*` marks this Fact
        Type as fully derived; the rule is under "## Derivation Rules" below.
        Fact never stored a domain, so nothing is removed — this only adds the
@@ -146,12 +146,12 @@ Fact Type cites Citation.
 FactTypeCitesCitation objectifies "Fact Type cites Citation".
 FactTypeCitesCitation is a subtype of Function.
 
-### Resource
-Resource is instance of Object Type.
-  Each Resource, Object Type combination occurs at most once in the population of Resource is instance of Object Type.
-  Each Resource is instance of some Object Type.
-ResourceIsInstanceOfObjectType objectifies "Resource is instance of Object Type".
-ResourceIsInstanceOfObjectType is a subtype of Function.
+### Object Type Instance
+Object Type Instance is instance of Object Type.
+  Each Object Type Instance, Object Type combination occurs at most once in the population of Object Type Instance is instance of Object Type.
+  Each Object Type Instance is instance of some Object Type.
+ObjectTypeInstanceIsInstanceOfObjectType objectifies "Object Type Instance is instance of Object Type".
+ObjectTypeInstanceIsInstanceOfObjectType is a subtype of Function.
 <!-- 'exactly one Noun' was NON-CANONICAL (challenged 2026-07-09, verified
      against Halpin, "Subtyping Revisited", NORMA): in ORM subtyping is
      population inclusion — "all instances of one type are also instances
@@ -160,68 +160,68 @@ ResourceIsInstanceOfObjectType is a subtype of Function.
      the MalePatient and Patient populations). Membership is transitive;
      there is no single type per entity. The old uniqueness fired alethic
      on every subtype/multi-typed id on recompile. Mandatory only now
-     (every Resource has some type). 'inherited' in ORM is PROPERTY reuse
+     (every Object Type Instance has some type). 'inherited' in ORM is PROPERTY reuse
      (a subtype plays the supertype's roles because it IS a supertype
      instance), not a separate membership relation — so the over-broad
      mirror (instance of every role-noun, supertypes included) is the
-     CORRECT transitive membership, and 'Resource is inherited instance
+     CORRECT transitive membership, and 'Object Type Instance is inherited instance
      of Noun' is a non-canonical crutch (retire separately). -->
 
-Resource is of Function. *
-  Each Resource, Function combination occurs at most once in the population of Resource is of Function.
+Object Type Instance is of Function. *
+  Each Object Type Instance, Function combination occurs at most once in the population of Object Type Instance is of Function.
   <!-- ns-2 (ns-derive-population-domains): the single-sourcing BRIDGE for a
-       Resource's domain. A Noun IS a Function (Noun < Function; same identity,
-       same id), so this fully-derived FT re-labels the Noun a Resource is an
+       Object Type Instance's domain. A Noun IS a Function (Noun < Function; same identity,
+       same id), so this fully-derived FT re-labels the Noun an Object Type Instance is an
        instance of as that same Function. It stores NO domain — it only
-       re-projects the existing `Resource is instance of Noun` value under a
+       re-projects the existing `Object Type Instance is instance of Noun` value under a
        `Function` role so the domain rule below can JOIN on `Function` (the
        role `Function belongs to Domain` carries), exactly as Violation/Failure
        join on the Function they are against. See the rule under
        "## Derivation Rules". -->
-Resource belongs to Domain. *
-  Each Resource belongs to at most one Domain.
-  <!-- ns-2 (ns-derive-population-domains): a Resource does NOT store its own
+Object Type Instance belongs to Domain. *
+  Each Object Type Instance belongs to at most one Domain.
+  <!-- ns-2 (ns-derive-population-domains): an Object Type Instance does NOT store its own
        domain — it DERIVES it from the Noun it is an instance of, keeping
        domain single-sourced on Function (a Noun is a subtype of Function;
        core.md "Function belongs to Domain"). The `*` marks this Fact Type as
-       fully derived; the rule is under "## Derivation Rules" below. Resource
+       fully derived; the rule is under "## Derivation Rules" below. Object Type Instance
        never stored a domain, so nothing is removed — this only adds the
-       derivation so a Resource's domain is the domain of its Noun. Distinct
+       derivation so an Object Type Instance's domain is the domain of its Noun. Distinct
        from the createEntity `domain` command field (ast.rs `same_identity` /
        `annotate_noun_domain`), which is the per-FILE namespace tag, not a
        stored population-level domain fact. -->
-Resource has Reference.
-  Each Resource has exactly one Reference.
-  For each Reference, at most one Resource has that Reference.
+Object Type Instance has Reference.
+  Each Object Type Instance has exactly one Reference.
+  For each Reference, at most one Object Type Instance has that Reference.
   <!-- arest (Halpin sweep): reversal of the ruling-4 retirement, on
        Halpin's own grounds. Ruling 4 removed this reading because the
        (.Reference) reference mode minted the identical fact type. The
-       sweep then removed the mode itself — Resource is a subtype of
+       sweep then removed the mode itself — Object Type Instance is a subtype of
        Function and inherits Function(.id) per §6.7's default — so
        Reference is no longer identity but data: the runtime address, a
        mandatory 1:1 secondary reference. With no mode there is no minted
        fact type to restate, so the Reference Mode Redundancy deontic is
        satisfied. -->
-Resource has Value.
-  Each Resource has at most one Value.
-Resource is created by User.
-  Each Resource is created by at most one User.
+Object Type Instance has Value.
+  Each Object Type Instance has at most one Value.
+Object Type Instance is created by User.
+  Each Object Type Instance is created by at most one User.
 
-### Fact uses Resource for Role
+### Fact uses Object Type Instance for Role
 Fact fills Role.
   Each Fact, Role combination occurs at most once in the population of Fact fills Role.
   Each Fact fills some Role.
-FactFillsRole objectifies "Fact fills Role".
-FactFillsRole is a subtype of Function.
-FactFillsRole uses Resource.
-  Each FactFillsRole uses exactly one Resource.
+RoleInstance objectifies "Fact fills Role".
+RoleInstance is a subtype of Function.
+RoleInstance uses Object Type Instance.
+  Each RoleInstance uses exactly one Object Type Instance.
   <!-- one-table wave (2026-07-16): Halpin's nesting transformation of the
-       former `Fact uses Resource for Role` (compound key Fact+Role): the
+       former `Fact uses Object Type Instance for Role` (compound key Fact+Role): the
        filled-role pair objectifies, its resource rides functionally
        (exactly one — a filling IS a usage), and the compound-key ternary
        leaves the schema. -->
 <!-- arest (Halpin, "Objectification and Atomicity", 2020-04-28): the
-     former `Resource Role` objectification is retired. Its UC spans
+     former `Object Type Instance Role` objectification is retired. Its UC spans
      {Fact, Role} — two of three roles — and the note restricts
      objectification to fact types with a SPANNING uniqueness constraint
      (the ORM 2 any-fact-type relaxation is retracted; flattened, a
@@ -229,7 +229,7 @@ FactFillsRole uses Resource.
      facts against it are non-atomic conjunctions). The old association
      sentence also contradicted the declared UC by claiming the full
      triple as the identification scheme. Nothing in the corpus played a
-     role against Resource Role, which is exactly the note's prescription
+     role against Object Type Instance Role, which is exactly the note's prescription
      case: the objectified type hosts no other roles, so prefer the
      unnested schema. The ternary stays as the plain fact type above. -->
 
@@ -250,9 +250,9 @@ State Machine is instance of Object Type.
 StateMachineIsInstanceOfObjectType objectifies "State Machine is instance of Object Type".
 StateMachineIsInstanceOfObjectType is a subtype of Function.
 <!-- 'exactly one Noun' relaxed 2026-07-09 (Samuel: fix the SM readings),
-     the SAME non-canonical case as Resource (see the Resource note). This
+     the SAME non-canonical case as Object Type Instance (see the Object Type Instance note). This
      ft is a REFLECTION cell (protocol.py REFLECTION set) like
-     Resource_is_instance_of_Noun, populated by schema self-description,
+     Object Type Instance_is_instance_of_Noun, populated by schema self-description,
      so an SMD reflects as an instance of Noun AND State Machine
      Definition via SMD < Status < Noun (deliberate — the Harel nesting,
      state.md). Transitive membership is correct; the uniqueness was not.
@@ -262,49 +262,49 @@ StateMachineIsInstanceOfObjectType is a subtype of Function.
 
 <!-- task-987 / junk-writer-3: the SM seed has ALWAYS written this
      triple at runtime (compile.rs sm seed: instance_of_Noun +
-     for_Resource + currently_in_Status), but the fact type was never
+     for_Object Type Instance + currently_in_Status), but the fact type was never
      DECLARED — so cor:closure's orphan GC dropped the population at
      every compile and the next SM init re-minted it, forever
      (arc-agi-3 issue-13 forensics). Declaring the engine's own
      vocabulary makes the population legal, persistent, queryable
      (a 3NF table), and subject to validate — the substrate-derived
      987 ruling: complete the self-description, never scope it. -->
-State Machine is for Resource.
-  For each Resource, at most one State Machine is for that Resource.
-<!-- arest-audit F: a duplicate `State Machine is for Resource. *` stood
+State Machine is for Object Type Instance.
+  For each Object Type Instance, at most one State Machine is for that Object Type Instance.
+<!-- arest-audit F: a duplicate `State Machine is for Object Type Instance. *` stood
      here — a fully-derived marker whose rule was REMOVED 2026-06-12 (see
      the note below); the orphaned `*` declared meaning the readings could
      not deliver, while the real writers are the SM seed and the task-929
      backfill. The asserted fact type above is the truth. -->
 
 <!-- [REMOVED 2026-06-12, board-derived-layer poisoning] The rule
-     `* State Machine is for Resource iff Resource is instance of Noun
+     `* State Machine is for Object Type Instance iff Object Type Instance is instance of Noun
      and some State Machine Definition is for that Noun.` is
      UNDERSPECIFIED: it cannot bind WHICH State Machine, so it emitted
      one-role partial tuples. Starved for months (its antecedent
-     `Resource is instance of Noun` was empty), it activated the moment
+     `Object Type Instance is instance of Noun` was empty), it activated the moment
      the task-987 membership reflection populated that cell — the
-     partials landed first in the Resource-keyed cell and
-     KeyConflict-displaced every real SM-for-Resource fact, emptying
+     partials landed first in the Object Type Instance-keyed cell and
+     KeyConflict-displaced every real SM-for-Object Type Instance fact, emptying
      the entire Task derived layer downstream (status bridge,
      recommendation markers). The REAL writers are the SM seed
-     (compile.rs s0 trio) and the task-929 for-Resource backfill; the
+     (compile.rs s0 trio) and the task-929 for-Object Type Instance backfill; the
      chain-side arity-completeness guard is the defense-in-depth. -->
 
 
-### State (projected from SM via State Machine is for Resource × State Machine is currently in Status)
+### State (projected from SM via State Machine is for Object Type Instance × State Machine is currently in Status)
 <!-- task-742 rename context: post-rename the canonical SM status
      lives in State_Machine_is_currently_in_Status, keyed by the
-     SM entity id; the per-Resource projection materialises via the
-     SM-for-Resource role chain. Resource is an abstract noun so
-     RMAP cannot absorb the status into a Resource cell -- there
-     IS no Resource cell. App-level readings (e.g. apps/tasks/
+     SM entity id; the per-Object Type Instance projection materialises via the
+     SM-for-Object Type Instance role chain. Object Type Instance is an abstract noun so
+     RMAP cannot absorb the status into an Object Type Instance cell -- there
+     IS no Object Type Instance cell. App-level readings (e.g. apps/tasks/
      readings/app.md) carry the explicit projection
-     "Resource is currently in Status iff some State Machine is
-     for that Resource and that State Machine is currently in
+     "Object Type Instance is currently in Status iff some State Machine is
+     for that Object Type Instance and that State Machine is currently in
      that Status."  -->
-Resource is currently in Status. *
-  Each Resource is currently in at most one Status.
+Object Type Instance is currently in Status. *
+  Each Object Type Instance is currently in at most one Status.
 
 <!-- task-955/924 (exec-6 hygiene: was a #-styled pseudo-comment): key the
      SM-keyed status projection so it stays single-valued. The killed
@@ -359,23 +359,23 @@ Guard Run has Result.
      role NOUN-NAME, and the relating clause must resolve to a declared FT (the
      SchemaCatalog is keyed by role noun-SET). The outcomes rules join directly
      because `is against Function` and `Function belongs to Domain` both carry a
-     `Function` role. A Resource's natural relating fact is `is instance of
+     `Function` role. An Object Type Instance's natural relating fact is `is instance of
      Noun` and a Fact's is `is of Fact Type` — those carry a `Noun` / `Fact
      Type` role, and a clause `that Noun belongs to Domain` neither resolves to
      the Function-keyed `Function belongs to Domain` FT (noun-set `[Domain,
      Noun]` is not declared) nor shares its `Function` role, so no join forms.
 
-     A Noun IS a Function and a Fact Type IS a Function (Fact Type < Resource <
+     A Noun IS a Function and a Fact Type IS a Function (Fact Type < Object Type Instance <
      Noun < Function), with the SAME identity / id. So the fully-derived bridge
-     FTs `Resource is of Function` / `Fact is of Function` (declared above)
+     FTs `Object Type Instance is of Function` / `Fact is of Function` (declared above)
      re-label that same value under a `Function` role — a 1-antecedent
      ModusPonens with a computed-binding rename (`Function is Noun` /
      `Function is Fact Type`); they STORE NO domain. The domain rules then relate
      via `is of Function` and JOIN on `Function` with `Function belongs to
      Domain` — byte-for-byte the Violation / Failure shape — and the Domain
-     value propagates onto the Resource / Fact consequent. Domain stays
+     value propagates onto the Object Type Instance / Fact consequent. Domain stays
      single-sourced on Function throughout (the only Domain-valued fact lives on
-     the Function; Resource / Fact / the bridge store none).
+     the Function; Object Type Instance / Fact / the bridge store none).
 
      A future engine fix (filed task `derivation-subtype-join-resolution`) that
      resolves a subtype-subject `belongs to Domain` clause to the Function FT
@@ -394,30 +394,30 @@ Guard Run has Result.
      so "some Object Type that is that Function" binds by identity.
      Evaluator-phase gate obligation: prove convergence on
      subtype-identity joins before claiming these cells. -->
-* Resource is of Function iff that Resource is instance of some Object Type that is that Function.
+* Object Type Instance is of Function iff that Object Type Instance is instance of some Object Type that is that Function.
 
-* Resource belongs to Domain iff that Resource is of some Function that belongs to that Domain.
+* Object Type Instance belongs to Domain iff that Object Type Instance is of some Function that belongs to that Domain.
 
 <!-- `Fact is of Fact Type` is a BASE fact type, populated by population
      reflection (the killed host did this in compile.rs
      `reflect_schema_cells`; the evaluator must reflect populated
      fact-type cells the same way) — every populated row of a fact-type
      cell IS a Fact of that fact type, the instance-object mirror of
-     `Resource is instance of Noun`. It is VALIDATED, not derived, by the
-     subset constraint in core.md (`If some Fact uses some Resource for some
+     `Object Type Instance is instance of Noun`. It is VALIDATED, not derived, by the
+     subset constraint in core.md (`If some Fact uses some Object Type Instance for some
      Role then that Fact is of some Fact Type that has that Role`). -->
 * Fact is of Function iff that Fact is of some Fact Type that is that Function.
 
 * Fact belongs to Domain iff that Fact is of some Function that belongs to that Domain.
 
-<!-- sm-retire-forml2: SM/Resource status projections lifted from imperative
+<!-- sm-retire-forml2: SM/Object Type Instance status projections lifted from imperative
      Rust into reading-level derivations.
 
      (1) instance-of-definition (noun-scoped): replaces the compile-time-baked
          definition_id / compile_sm_instance_of_definition_backfill_for. A State
          Machine is an instance of the SM Definition that governs the Noun its
-         Resource is an instance of. 3-antecedent equi-join, derivation.md
-         shape 6. NOTE: `State Machine is for Resource` (the WHICH-SM binding)
+         Object Type Instance is an instance of. 3-antecedent equi-join, derivation.md
+         shape 6. NOTE: `State Machine is for Object Type Instance` (the WHICH-SM binding)
          is NOT lifted — the `same entity as` identity equi-binding the safe
          rule would need is NOT supported by the parser (verified: no
          `same entity as` lowering in parse_forml2), and the underspecified
@@ -425,9 +425,9 @@ Guard Run has Result.
          real facts (instances.md 155-167). So compile_sm_for_resource_backfill_for
          is RETAINED.
 
-     (2) Resource-is-currently-in-Status projection: lifts the per-app
+     (2) Object Type Instance-is-currently-in-Status projection: lifts the per-app
          projection (apps/tasks/readings/app.md) to core, replacing the
-         imperative Resource_is_currently_in_Status maintenance block in
+         imperative Object Type Instance_is_currently_in_Status maintenance block in
          command.rs. 2-antecedent equi-join (derivation.md shape 6),
          single-valued.
 
@@ -442,9 +442,9 @@ Guard Run has Result.
          on State_Machine_is_currently_in_Status (instances.md 184-193) collapses
          the seed emit and the fold emits to last-write-wins. -->
 
-* State Machine is instance of State Machine Definition iff that State Machine is for some Resource and that Resource is instance of some Object Type and that State Machine Definition is for that Object Type.
+* State Machine is instance of State Machine Definition iff that State Machine is for some Object Type Instance and that Object Type Instance is instance of some Object Type and that State Machine Definition is for that Object Type.
 
-* Resource is currently in Status iff some State Machine is for that Resource and that State Machine is currently in that Status.
+* Object Type Instance is currently in Status iff some State Machine is for that Object Type Instance and that State Machine is currently in that Status.
 
 * State Machine is currently in Status iff that State Machine is instance of some State Machine Definition and that Status is effective initial in that State Machine Definition.
 
@@ -453,3 +453,4 @@ Guard Run has Result.
 ## Instance Facts
 
 <!-- organizations-domain (ruling 2): Domain 'instances' has Access 'public'. -->
+Domain 'instances' has Description 'The instance level: Object Type Instances, Facts, Role Instances and the State Machines that carry them — the population the metamodel's types are populated BY, and what a Fact is of a Function means.'.

@@ -43,13 +43,13 @@ def test_a_derivation_marker_appends_the_link():
 
 
 def test_the_canonical_plan_twins_the_python_over_the_corpus():
-    """Every fact-type DECLARATION in shared/base asserts the same M-rows
+    """Every fact-type DECLARATION in metamodel asserts the same M-rows
     through system:ft_rows as through _fact_type (the scan supplies
     template+roles to both; the plan is what's compared)."""
     import os
     from pyarest import forml
     root = os.path.join(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__))), "shared", "base")
+        os.path.dirname(os.path.abspath(__file__)))), "metamodel")
     text = "\n\n".join(open(os.path.join(root, f), encoding="utf-8").read()
                        for f in sorted(os.listdir(root)) if f.endswith(".md"))
     stmts = forml.statements(text)

@@ -31,7 +31,7 @@ Usage:
   APPS_DIR=/path/to/apps  AREST_BIN=/path/to/arest.exe     # optional overrides
 
 Exit 0 iff every app's twins-on store is byte-identical to its twins-off store.
-Run it after ANY change to a certified-twin arm in `fn prim` (cooks.rs / main.rs)
+Run it after ANY change to a certified-twin arm in `fn prim` (compile.rs / main.rs)
 or to a theta canon DEF (arest.canon) — a divergence here means a twin has drifted
 from its canon meaning, which no cross-host parity run would catch (both hosts could
 share the same fast twin and the same drift).

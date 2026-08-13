@@ -20,8 +20,12 @@
 //! newline-delimited JSON-RPC 2.0 over stdio against an apps directory of
 //! persisted stores; see "the MCP binding" below.
 
-mod cooks;
-mod uilayout;
+mod compile;
+// uilayout DELETED 2026-08-12: 760 lines, ZERO call sites in main.rs and
+// nowhere else in the repo. It was a private mod, not a pub mod, so the
+// arest_core lib target could not export it either. Canon has the ui: family
+// for what it computed (67 DEFs:
+// ui:colw, ui:rowsep, ui:place, ui:clamp, ui:above) for what it computed.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -165,11 +169,7 @@ fn trans_rows(rl: &V) -> V {
     }
 }
 
-fn seqc_l(l: V) -> V {
-    // SEQC: the ⊥-collapsing constructor via the ANYBOT fold (§11.2.1)
-    let any = foldr(&|h, a| if isbot(&h) { tru() } else { a }, fls(), &l);
-    if tobool(&any) { bot() } else { seq(l) }
-}
+// seqc_l deleted: no caller reached it. The bottom-collapsing constructor
 
 // ============================ the object union ===============================
 fn atom(l: Leaf) -> V {
@@ -587,13 +587,7 @@ fn register_base() {
         if !(tf(&p) && tf(&q)) { return bot(); }
         bool2a(eqobj(&p, &at()) && eqobj(&q, &at()))
     }));
-    register("or", Rc::new(|_mu, o| {
-        if !pair_b(&o) { return bot(); }
-        let (p, q) = (nth(&o, 0), nth(&o, 1));
-        let tf = |v: &V| eqobj(v, &at()) || eqobj(v, &af());
-        if !(tf(&p) && tf(&q)) { return bot(); }
-        bool2a(eqobj(&p, &at()) || eqobj(&q, &at()))
-    }));
+    // or is CANON -- DEF("or"), strict per Backus 11.2.3. Deleted here.
     register("1r", Rc::new(|_mu, o| match shape(&o) {
         Shape::Seq(l) => head(&revl(&l)),                     // 1r = HEAD ∘ REVL (lam.py)
         _ => bot(),
@@ -609,21 +603,7 @@ fn register_base() {
         Shape::Seq(rl) => trans_rows(&rl),                    // the Y-recursive term (lam.py)
         _ => bot(),
     }));
-    register("rotl", Rc::new(|_mu, o| match shape(&o) {
-        Shape::Seq(l) => {
-            if tobool(&lnull(&l)) { return phi(); }
-            seq(lappend(&tail(&l), &cons(head(&l), nil())))   // APPEND(t)(⟨h⟩) (lam.py)
-        }
-        _ => bot(),
-    }));
-    register("rotr", Rc::new(|_mu, o| match shape(&o) {
-        Shape::Seq(l) => {
-            if tobool(&lnull(&l)) { return phi(); }
-            let r = revl(&l);                                 // ⟨CONS(HEAD r)(REVL(TAIL r))⟩
-            seq(cons(head(&r), revl(&tail(&r))))
-        }
-        _ => bot(),
-    }));
+    // rotl/rotr are CANON -- DEF("rotl"), DEF("rotr"). Deleted here.
     // arithmetic and comparison at the value boundary (same-type or numeric domain,
     // int/float one numeric domain for arithmetic; int+int stays int; ÷ is always
     // float and ÷0 = ⊥ — mirroring Python semantics exactly)
@@ -646,16 +626,27 @@ fn register_base() {
     register("+", arith(|a, b| a + b, |a, b| a + b));
     register("-", arith(|a, b| a - b, |a, b| a - b));
     register("*", arith(|a, b| a * b, |a, b| a * b));
-    register("div", Rc::new(|_mu, o| {
+    // "/" not "div", and an INTEGER answer. The old comment here — "Python /
+    // is float" — is the divergence's own confession: this host mirrored
+    // python's true division while the stations mirrored Arest.java's Integer
+    // arithmetic, and the div/"/" name split meant the two lineages were never
+    // compared. The atom domain carries no float (zero float literals in
+    // canon, design-state or norma-answer), so Leaf::I truncating toward zero
+    // is the answer every host now gives.
+    register("/", Rc::new(|_mu, o| {
         if !pair_b(&o) { return bot(); }
         match (aval(&nth(&o, 0)).and_then(|l| num(&l)), aval(&nth(&o, 1)).and_then(|l| num(&l))) {
-            (Some(a), Some(b)) if b != 0.0 => atom(Leaf::F(a / b)), // Python / is float
+            (Some(a), Some(b)) if b != 0.0 => atom(Leaf::I((a / b) as i64)),
             _ => bot(),
         }
     }));
     fn cmp(rel_n: fn(f64, f64) -> bool, rel_s: fn(&str, &str) -> bool) -> Prim {
         Rc::new(move |_mu, o| {
             if !pair_b(&o) { return bot(); }
+            // cnum, not num: the store carries LEXICAL atoms, so a
+            // numeric-looking string is a number here — test_polyglot pins
+            // (4997, "11000") as "mixed int/lexical (claude's totals)". #31
+            // normalises value-typed fillers at the READING boundary only.
             match (aval(&nth(&o, 0)), aval(&nth(&o, 1))) {
                 (Some(a), Some(b)) => match (cnum(&a), cnum(&b)) {
                     (Some(x), Some(y)) => bool2a(rel_n(x, y)),
@@ -687,17 +678,8 @@ fn register_base() {
         let y = nth(&a, 1);
         params(&a).into_iter().rev().fold(y, |acc, f| mkapp(f, acc))
     }));
-    register("CONS", Rc::new(|mu, a| {
-        let y = nth(&a, 1);
-        seqc(params(&a).into_iter().map(|f| mu.app(mkapp(f, y.clone()))).collect())
-    }));
-    register("CONST", Rc::new(|_mu, a| {
-        let quoted = nth(&nth(&a, 0), 1);
-        match shape(&nth(&a, 1)) {
-            Shape::Bot => bot(), // ⊥-preserving: x̄ : ⊥ = ⊥
-            _ => quoted,
-        }
-    }));
+    // CONS is CANON -- Backus 13.3.2. Deleted here.
+    // CONST is CANON -- Backus 13.3.2. Deleted here.
     register("ALPHA", Rc::new(|mu, a| {
         let f = nth(&nth(&a, 0), 1);
         match shape(&nth(&a, 1)) {
@@ -740,31 +722,11 @@ fn register_base() {
             bot()
         }
     }));
-    register("BU", Rc::new(|mu, a| {
-        let whole = nth(&a, 0);
-        mu.app(mkapp(nth(&whole, 1), seqc(vec![nth(&whole, 2), nth(&a, 1)])))
-    }));
+    // BU is CANON -- DEF("BU"), Backus 13.3.2. Deleted here.
 
     // beyond the base: the enumerable boundary registrations pyarest carries
     register("DEFS", Rc::new(|_mu, _o| step_d().unwrap_or_else(bot))); // §14.3.3
-    register("cellkey", Rc::new(|_mu, o| {
-        let it = items(&list_of(&o));
-        if it.len() != 2 { return bot(); }
-        match (aval(&it[0]), aval(&it[1])) {
-            (Some(a), Some(b)) => {
-                let s = |l: &Leaf| match l {
-                    Leaf::S(s) => Some(s.clone()),
-                    Leaf::I(i) => Some(i.to_string()),
-                    _ => None,
-                };
-                match (s(&a), s(&b)) {
-                    (Some(x), Some(y)) => atom(Leaf::S(format!("{}:{}", x, y))),
-                    _ => bot(),
-                }
-            }
-            _ => bot(),
-        }
-    }));
+    // cellkey is CANON -- DEF("cellkey"). Deleted here.
     // the skolem boundary op (task-970 mapped to 0.9.0): an existential
     // head's fresh id as a PURE function of its frontier — 've_' +
     // fnv1a64_hex(values joined '|'). Determinism is the idempotence crux
@@ -797,22 +759,7 @@ fn register_base() {
     // and slug (spec D5): ⟨prefix, s⟩ answers s with a leading prefix
     // removed, or s unchanged. No policy — the CHOICE of what to strip
     // is canon's (system:sqlcol_base). Mirrors the four kernels.
-    register("strip_prefix", Rc::new(|_mu, o| {
-        let it = items(&list_of(&o));
-        if it.len() != 2 {
-            return bot();
-        }
-        let p = match aval(&it[0]).and_then(|l| leaf_str(&l)) {
-            Some(s) => s,
-            None => return bot(),
-        };
-        let s = match aval(&it[1]).and_then(|l| leaf_str(&l)) {
-            Some(s) => s,
-            None => return bot(),
-        };
-        let t = s.strip_prefix(&p).map(|t| t.to_string()).unwrap_or(s);
-        atom(Leaf::S(t))
-    }));
+    // strip_prefix is CANON -- DEF("strip_prefix"). Deleted here.
     // stage-1 field extraction at the lex boundary (spec D5; the
     // 2026-07-07 ruling). Text and sid must be string atoms exactly as
     // the python twin checks; vocabulary pairs and nouns stringify.
@@ -862,21 +809,41 @@ fn register_base() {
     // the html escape transducer (the render's ONE boundary piece; the
     // doctrine correction 2026-07-08): & < > " to entities, ints
     // stringify, sequences bottom. Mirrors the Python/Java/C# twins.
-    register("escape_html", Rc::new(|_mu, o| {
-        match aval(&o) {
-            Some(l) => {
-                let s = match &*l {
-                    Leaf::S(s) => s.clone(),
-                    Leaf::I(i) => i.to_string(),
-                    _ => return bot(),
-                };
-                let e = s.replace('&', "&amp;").replace('<', "&lt;")
-                    .replace('>', "&gt;").replace('"', "&quot;");
-                atom(Leaf::S(e))
-            }
-            None => bot(),
-        }
+    // escape_html is CANON -- char fold over chars/implode. Deleted here.
+    // ---- the char-level lex boundary (BASE COMPLETION, 2026-08-09) ----------
+    // These eight were registered ONLY on the native carrier (the resolution
+    // registry's NEval arms, ~line 2670), never on the Scott path this
+    // register_base feeds -- so this host ran two evaluators whose BASES
+    // DISAGREED, and the case table caught it the first time both lineages
+    // answered the same 102 rows: chars/charup/chardown/charisup/charislow/
+    // charisdigit/ntoa/quote_str all bottomed here while every station
+    // answered. THIN = COMPLETE BASE + ZERO MEANING; a base present on one
+    // of a host's two evaluators is not a complete base.
+    //
+    // Transliterated from tools/js-runner/head.part.js, which is the certified
+    // reference: FIRST CHARACTER (not the whole string -- that outlier bug is
+    // recorded in the js head's own comment), invariant ASCII on every host so
+    // the naming lex stays byte-identical regardless of culture, and js's
+    // pass-through on a non-string atom (`x[0]` is undefined, so the range
+    // tests fail and the operand is returned) preserved exactly.
+    register("chars", Rc::new(|_mu, o| match aval(&o) {
+        // strict: js throws "chars on non-string"
+        Some(l) => match &*l {
+            Leaf::S(s) => seqv(s.chars().map(|c| atom(Leaf::S(c.to_string()))).collect()),
+            _ => bot(),
+        },
+        None => bot(),
     }));
+    // charup / chardown are CANON -- literal alphabet relation (Codd 2.3.5).
+    // Deleted here. (The first cut left these two `}));` orphaned: the
+    // end-marker matched before the closing delimiter, so the bodies went and
+    // their terminators stayed. cargo caught it; nothing else could, because
+    // engine/rust was not rebuilt for two increments.)
+    // charisup is CANON -- range test over 1 . chars. Deleted here.
+    // charislow is CANON -- range test over 1 . chars. Deleted here.
+    // charisdigit is CANON -- range test over 1 . chars. Deleted here.
+    // ntoa is CANON -- DEF("ntoa"). Deleted here.
+    // quote_str is CANON -- DEF("quote_str"). Deleted here.
     register("lex", Rc::new(|_mu, o| {
         let t = match aval(&o).and_then(|l| leaf_str(&l)) {
             Some(t) => t,
@@ -919,22 +886,10 @@ fn register_base() {
         }
         atom(Leaf::S(parts.join(&sep)))
     }));
-    // the JSON view emitter (react/Worker target): the element tree
-    // itself, compact JSON. Mirrors python/java/C#.
-    register("render:json", Rc::new(|_mu, o| {
-        let mut out = String::new();
-        if v_json(&o, &mut out) {
-            atom(Leaf::S(out))
-        } else {
-            bot()
-        }
-    }));
-    register("slug", Rc::new(|_mu, o| {
-        match aval(&o).and_then(|l| leaf_str(&l)) {
-            Some(t) => atom(Leaf::S(slug_str(&t))),
-            None => bot(),
-        }
-    }));
+    // (render:json is CANON — DEF("render:json") with render:json_atom /
+    // render:json_seq, beside system:show; json_escape_into/v_json went with
+    // it. See the note in engine/python/engine.py.)
+    // slug is CANON -- DEF("slug"). Deleted here.
 }
 
 // the tokenizer boundary (spec D5's slot, beside cellkey): ONE lexing
@@ -1139,10 +1094,10 @@ fn sql_name(s: &str) -> String {
     if t.is_empty() { "t".into() } else { t }
 }
 
-// the JSON spelling of a value (render:json, the react/Worker view
-// target): atoms to scalars, seqs to arrays — python json.dumps
-// compact, ensure_ascii=False: only quote, backslash, and C0 controls
-// escape. A pure format transducer (the implode class).
+// RESTORED. Deleted with render:json's helpers on 2026-08-09 on the strength of
+// a call-site check that only read main.rs -- compile.rs calls it in four
+// places. The op it served (render:json) really is canon now; this escaper is
+// not that op, it is a string routine the COMPILER uses, and it stays.
 fn json_escape_into(s: &str, out: &mut String) {
     out.push('"');
     for c in s.chars() {
@@ -1152,44 +1107,11 @@ fn json_escape_into(s: &str, out: &mut String) {
             '\n' => out.push_str("\\n"),
             '\t' => out.push_str("\\t"),
             '\r' => out.push_str("\\r"),
-            c if (c as u32) < 0x20 => {
-                out.push_str(&format!("\\u{:04x}", c as u32));
-            }
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
             c => out.push(c),
         }
     }
     out.push('"');
-}
-
-fn v_json(v: &V, out: &mut String) -> bool {
-    match aval(v) {
-        Some(l) => {
-            match &*l {
-                Leaf::S(s) => json_escape_into(s, out),
-                Leaf::I(i) => out.push_str(&i.to_string()),
-                Leaf::F(f) => out.push_str(&f.to_string()),
-                _ => return false,
-            }
-            true
-        }
-        None => {
-            let it = items(&list_of(v));
-            if isbot(v) {
-                return false;
-            }
-            out.push('[');
-            for (i, e) in it.iter().enumerate() {
-                if i > 0 {
-                    out.push(',');
-                }
-                if !v_json(e, out) {
-                    return false;
-                }
-            }
-            out.push(']');
-            true
-        }
-    }
 }
 
 fn slug_str(t: &str) -> String {
@@ -1261,26 +1183,7 @@ fn register_overrides() {
         }
         _ => bot(),
     }));
-    fastreg("rotl", Rc::new(|_mu, o| match shape(&o) {
-        Shape::Seq(l) => {
-            let mut xs = items(&l);
-            if xs.is_empty() { return phi(); }
-            let h = xs.remove(0);
-            xs.push(h);
-            seq(from_vec(xs))
-        }
-        _ => bot(),
-    }));
-    fastreg("rotr", Rc::new(|_mu, o| match shape(&o) {
-        Shape::Seq(l) => {
-            let mut xs = items(&l);
-            if xs.is_empty() { return phi(); }
-            let last = xs.pop().unwrap();
-            xs.insert(0, last);
-            seq(from_vec(xs))
-        }
-        _ => bot(),
-    }));
+    // rotl/rotr are CANON -- DEF("rotl"), DEF("rotr"). Deleted here.
     fastreg("trans", Rc::new(|_mu, o| match shape(&o) {
         Shape::Seq(l) => {
             let rows = items(&l);
@@ -1374,7 +1277,7 @@ fn set_theta_arms_off(v: bool) {
 // AREST_PYTHON_COMPILE (apps_compile).
 //
 // HOST_OVERRIDES enumerates every override name this host registers. The canon
-// carries the CATALOG (shared/base/resolution.md, `Operation is overridable`);
+// carries the CATALOG (metamodel/resolution.md, `Operation is overridable`);
 // the host's names must be a subset of the catalog, asserted by the
 // host_overrides_are_a_subset_of_the_canon_catalog test. Registering a new
 // override means: a catalog row (canon), a HOST_OVERRIDES row (here), the
@@ -1478,7 +1381,7 @@ fn n_pairv(x: &N) -> Option<(N, N)> {
 // registered, killed, or the row defers on shape) falls through to the
 // reference reduction, and a DEFS cell of the same name still wins in mu's
 // precedence, then process, then NCANON. Registering a new override means a
-// row here, a catalog row (shared/base/resolution.md), a HOST_OVERRIDES row,
+// row here, a catalog row (metamodel/resolution.md), a HOST_OVERRIDES row,
 // and a parity pin — never a dispatch edit. theta:NatJoin is the one
 // SHAPE-keyed override: natjoin_config recognizes the DEF's built term at
 // the application seam, under the same kill name and discipline.
@@ -2216,9 +2119,47 @@ struct NEval {
     process: Vec<(String, N)>,        // compiled process defs (converted once)
     defs_n: N,                        // the retained store as N (the DEFS accessor)
     fuel: std::cell::Cell<i64>,       // <0 = unbounded
+    // Name -> index of the FIRST cell with that name. Built once, lazily,
+    // because `cells` is immutable for an NEval's whole life (the store-side
+    // mutations live on Srv's vectors, never here). See cell_of below.
+    index: std::cell::RefCell<Option<HashMap<String, usize>>>,
 }
 
 impl NEval {
+    // THE FETCH, INDEXED. Backus 13.3.4 defines fetch as a linear walk
+    // (`↑n∘tl:x`) and this was literally one: `self.cells.iter().find(..)` ran
+    // per NAMED APPLICATION, O(cells) every single time, with cells in the
+    // thousands once the metamodel is seeded. But the MEANING is "the first
+    // cell named n" — a lookup — and Codd's whole point is that a store is
+    // addressed by CONTENT, not by walking it: a scan is a storage detail
+    // leaking into evaluation. FastStore already reached this conclusion for
+    // the store side (its `active` map, same first-match-wins rule); NEval
+    // simply never got it, which is why the native compile was the one host
+    // path that would not finish.
+    //
+    // Semantics are unchanged: `.find()` returns the FIRST match, and the
+    // index preserves that by inserting each key only on first sight
+    // (`or_insert`). Keying is FastStore::key — type-strict and mirroring
+    // Leaf::nateq exactly, so the index and the old `nateq` scan agree on
+    // every comparison, including the length-prefixed string branch that
+    // stops one name imitating another.
+    fn cell_of(&self, l: &Leaf) -> Option<N> {
+        {
+            let mut idx = self.index.borrow_mut();
+            if idx.is_none() {
+                let mut m: HashMap<String, usize> = HashMap::with_capacity(self.cells.len());
+                for (i, (k, _)) in self.cells.iter().enumerate() {
+                    m.entry(FastStore::key(k)).or_insert(i);
+                }
+                *idx = Some(m);
+            }
+        }
+        let idx = self.index.borrow();
+        idx.as_ref()
+            .and_then(|m| m.get(&FastStore::key(l)))
+            .map(|&i| self.cells[i].1.clone())
+    }
+
     fn mu(&self, e: N) -> N {
         // an application node reduces; a value is its own meaning
         let (f0, x0) = match &e {
@@ -2252,8 +2193,8 @@ impl NEval {
             }
             N::A(l) => {
                 let lc: &Leaf = l;
-                if let Some((_, sd)) = self.cells.iter().find(|(k, _)| k.nateq(lc)) {
-                    return self.mu(napp(sd.clone(), x));     // the step's DEFS cell first
+                if let Some(sd) = self.cell_of(lc) {
+                    return self.mu(napp(sd, x));             // the step's DEFS cell first
                 }
                 if let Some(r) = self.prim(lc, &x) {
                     // the coverage tracer's second stage: a KNOWN prim
@@ -2382,23 +2323,15 @@ impl NEval {
                 _ => N::Bot,
             },
             "not" => if n_is_t(x) { n_af() } else if n_is_f(x) { n_at() } else { N::Bot },
-            "and" | "or" => match pairv(x) {
+            // or is CANON -- DEF("or"), strict per Backus 11.2.3. Deleted here.
+            "and" => match pairv(x) {
                 Some((a, b)) if (n_is_t(&a) || n_is_f(&a)) && (n_is_t(&b) || n_is_f(&b)) =>
                     nb(if s == "and" { n_is_t(&a) && n_is_t(&b) } else { n_is_t(&a) || n_is_t(&b) }),
                 _ => N::Bot,
             },
             "1r" => match seqv(x) { Some(v) if !v.is_empty() => v[v.len() - 1].clone(), _ => N::Bot },
             "tlr" => match seqv(x) { Some(v) if !v.is_empty() => N::S(Rc::new(v[..v.len() - 1].to_vec())), _ => N::Bot },
-            "rotl" => match seqv(x) {
-                Some(v) => if v.is_empty() { N::S(Rc::new(vec![])) } else {
-                    let mut w = v[1..].to_vec(); w.push(v[0].clone()); N::S(Rc::new(w)) },
-                None => N::Bot,
-            },
-            "rotr" => match seqv(x) {
-                Some(v) => if v.is_empty() { N::S(Rc::new(vec![])) } else {
-                    let mut w = vec![v[v.len() - 1].clone()]; w.extend(v[..v.len() - 1].iter().cloned()); N::S(Rc::new(w)) },
-                None => N::Bot,
-            },
+            // rotl/rotr are CANON -- DEF("rotl"), DEF("rotr"). Deleted here.
             "trans" => match seqv(x) {
                 Some(rows) => {
                     if rows.iter().any(|r| !matches!(r, N::S(_))) { return Some(N::Bot); }
@@ -2427,14 +2360,26 @@ impl NEval {
                 }
                 None => N::Bot,
             },
-            "div" => match pairv(x) {
+            // "/" not "div": one operation, one name — see engine/csharp
+            // Reducer.cs and engine/python kernel.py. canon spelled it "/" in
+            // ui:colw and "div" in system:compile_agg_rule, so each spelling
+            // bottomed on half the fleet.
+            // Leaf::I, matching register("/") above. This host has TWO paths —
+            // the Scott register and this native arm — and they must be
+            // observationally equal; a float here against an integer there
+            // would diverge silently inside one host, which is the same trap
+            // the python kernel/_NATIVE pair fell into.
+            "/" => match pairv(x) {
                 Some((a, b)) => match (numv(&a), numv(&b)) {
-                    (Some(p), Some(q)) if q != 0.0 => N::A(Rc::new(Leaf::F(p / q))),
+                    (Some(p), Some(q)) if q != 0.0 => N::A(Rc::new(Leaf::I((p / q) as i64))),
                     _ => N::Bot,
                 },
                 None => N::Bot,
             },
             "ge" | "gt" | "le" | "lt" => match pairv(x) {
+                // num, not cnum — strict, matching the register-side cmp above
+                // and both python paths; this host's two evaluators must stay
+                // observationally equal.
                 Some((N::A(a), N::A(b))) => match (cnum(&a), cnum(&b)) {
                     (Some(p), Some(q)) => nb(match s { "ge" => p >= q, "gt" => p > q, "le" => p <= q, _ => p < q }),
                     _ => match (&*a, &*b) {
@@ -2449,17 +2394,7 @@ impl NEval {
                 Some((N::S(whole), y)) => whole[1..].iter().rev().fold(y, |acc, f| napp(f.clone(), acc)),
                 _ => N::Bot,
             },
-            "CONS" => match pairv(x) {
-                Some((N::S(whole), y)) => nseq(whole[1..].iter().map(|f| self.mu(napp(f.clone(), y.clone()))).collect()),
-                _ => N::Bot,
-            },
-            "CONST" => match pairv(x) {
-                Some((N::S(whole), y)) => {
-                    if matches!(y, N::Bot) { N::Bot }
-                    else if whole.len() >= 2 { whole[1].clone() } else { N::Bot }
-                }
-                _ => N::Bot,
-            },
+            // CONS/CONST are CANON -- DEF("CONS"), DEF("CONST"), Backus 13.3.2. Deleted here.
             "ALPHA" => match pairv(x) {
                 Some((N::S(whole), N::S(ys))) if whole.len() >= 2 =>
                     nseq(ys.iter().map(|yi| self.mu(napp(whole[1].clone(), yi.clone()))).collect()),
@@ -2498,27 +2433,10 @@ impl NEval {
                 }
                 _ => N::Bot,
             },
-            "BU" => match pairv(x) {
-                Some((N::S(whole), y)) if whole.len() >= 3 =>
-                    self.mu(napp(whole[1].clone(), nseq(vec![whole[2].clone(), y]))),
-                _ => N::Bot,
-            },
+            // BU is CANON -- DEF("BU"), Backus 13.3.2. Deleted here.
             "DEFS" => self.defs_n.clone(),
 
-            "cellkey" => match pairv(x) {
-                Some((N::A(a), N::A(b))) => {
-                    let sv = |l: &Leaf| match l {
-                        Leaf::S(t) => Some(t.clone()),
-                        Leaf::I(i) => Some(i.to_string()),
-                        _ => None,
-                    };
-                    match (sv(&a), sv(&b)) {
-                        (Some(p), Some(q)) => N::A(Rc::new(Leaf::S(format!("{}:{}", p, q)))),
-                        _ => N::Bot,
-                    }
-                }
-                _ => N::Bot,
-            },
+    // cellkey is CANON -- DEF("cellkey"). Deleted here.
 
             "stage1_fields" => match x {
                 N::S(v) if v.len() == 4 => {
@@ -2570,38 +2488,44 @@ impl NEval {
                 }
                 _ => N::Bot,
             },
-            "render:json" => {
-                let v = n_to_v(x);
-                let mut out = String::new();
-                if v_json(&v, &mut out) {
-                    N::A(Rc::new(Leaf::S(out)))
-                } else {
-                    N::Bot
-                }
-            }
-            "strip_prefix" => match pairv(x) {
-                Some((N::A(a), N::A(b))) => match (leaf_str(&a), leaf_str(&b)) {
-                    (Some(p), Some(s)) => {
-                        let t = s.strip_prefix(&p).map(|t| t.to_string()).unwrap_or(s);
-                        N::A(Rc::new(Leaf::S(t)))
-                    }
+            // (render:json is CANON — the native carrier resolves it through
+            // NCANON like any other DEF. This arm was the SECOND copy of the
+            // emitter inside this one host, which is how a host with two
+            // evaluators drifts: the same operation had to be written, and
+            // kept in step, twice.)
+            // strip_prefix is CANON -- DEF("strip_prefix"). Deleted here.
+            // ---- the char/format base. Absent from this host, engine/java and
+            // engine/csharp while python and all four stations had them, so
+            // every canon def that spells a word — lex:lw, lex:adjup,
+            // lex:tokens, lex:camel, cn:pascalw, cn:otparts, ui:jname, ui:st,
+            // cn:hyph, cn:number, rmap:fkrows:derive — answered BOTTOM here:
+            // canon held defs this host could not reduce, the "/" finding
+            // again. FIRST CHARACTER, not whole-string: python and the
+            // java/cs/rust stations all take the leading char and only
+            // head.part.js compares the whole string, so it is the outlier.
+            // The range tests also keep this ASCII-safe, since a char is only
+            // cast to u8 once it is known to be in 'a'..='z' / 'A'..='Z'.
+            "chars" => match x {
+                N::A(l) => match &**l {
+                    Leaf::S(s) => nseq(
+                        s.chars()
+                            .map(|c| N::A(Rc::new(Leaf::S(c.to_string()))))
+                            .collect(),
+                    ),
                     _ => N::Bot,
                 },
                 _ => N::Bot,
             },
-            "escape_html" => match x {
-                N::A(l) => {
-                    let s = match &**l {
-                        Leaf::S(s) => s.clone(),
-                        Leaf::I(i) => i.to_string(),
-                        _ => return Some(N::Bot),
-                    };
-                    let e = s.replace('&', "&amp;").replace('<', "&lt;")
-                        .replace('>', "&gt;").replace('"', "&quot;");
-                    N::A(Rc::new(Leaf::S(e)))
-                }
-                _ => N::Bot,
-            },
+            // charup is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
+            // chardown is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
+            // charisup is CANON -- range test over 1 . chars. Deleted here.
+            // charislow is CANON -- range test over 1 . chars. Deleted here.
+            // charisdigit is CANON -- range test over 1 . chars. Deleted here.
+            // the stations THROW on a non-number; this lineage answers BOTTOM,
+            // the same refusal it uses for div-by-zero.
+            // ntoa is CANON -- DEF("ntoa"). Deleted here.
+            // quote_str is CANON -- DEF("quote_str"). Deleted here.
+            // escape_html is CANON -- char fold over chars/implode. Deleted here.
             "skolem" => match x {
                 N::S(xs) if !xs.is_empty() => {
                     let mut vals: Vec<String> = Vec::new();
@@ -2682,13 +2606,7 @@ impl NEval {
                 }
                 _ => N::Bot,
             },
-            "slug" => match x {
-                N::A(l) => match leaf_str(l) {
-                    Some(t) => N::A(Rc::new(Leaf::S(slug_str(&t)))),
-                    None => N::Bot,
-                },
-                _ => N::Bot,
-            },
+            // slug is CANON on the native carrier too. Deleted here.
             _ => return None,
         })
     }
@@ -2951,6 +2869,7 @@ fn neval_rule(ncells: &[(Leaf, N)], nprocess: &[(String, N)], nd: &N, rid: &Leaf
         process: nprocess.to_vec(),
         defs_n: nd.clone(),
         fuel: std::cell::Cell::new(-1), // None means unbounded; -1 is the native carrier's unbounded
+        index: Default::default(),
     };
     n_to_v(&ev.mu(napp(atom_n(rid), operand)))
 }
@@ -3247,7 +3166,7 @@ fn handle(j: &J, srv: &mut Srv, serve: bool) -> String {
                         // sidecar-staleness fix: an app sidecar carries its OWN defs
                         // (the 8 bare op names, which are NOT in NCANON) plus — in a
                         // pre-fix store — a frozen copy of the shared engine canon (the
-                        // namespaced system:/ast:/theta:/constraints:/monad: defs). Skip
+                        // namespaced system:/ast:/theta:/constraints: defs). Skip
                         // the namespaced ones so they resolve LIVE from NCANON instead of
                         // the stale frozen snapshot, which shadowed every later canon fix
                         // (NEval::mu resolves process-before-NCANON; the 2026-07-12 nav
@@ -3302,6 +3221,7 @@ fn handle(j: &J, srv: &mut Srv, serve: bool) -> String {
                     process: srv.nprocess.clone(),
                     defs_n: srv.nd.clone(),
                     fuel: std::cell::Cell::new(fuel),
+                    index: Default::default(),
                 };
                 let res = ev.mu(napp(f, x));
                 let mut s = String::new();
@@ -3418,6 +3338,7 @@ fn reduce_over_n(srv: &Srv, f: V, x: V, fuel: i64) -> V {
         process: srv.nprocess.clone(),
         defs_n: srv.nd.clone(),
         fuel: std::cell::Cell::new(fuel),
+        index: Default::default(),
     };
     n_to_v(&ev.mu(napp(v_to_n(&f), v_to_n(&x))))
 }
@@ -3435,6 +3356,7 @@ fn native_verbalize(srv: &Srv, id: &V) -> V {
         process: srv.nprocess.clone(),
         defs_n: srv.nd.clone(),
         fuel: std::cell::Cell::new(-1),
+        index: Default::default(),
     };
     n_to_v(&ev.mu(napp(
         napp(N::A(Rc::new(Leaf::S("system:verbalize".into()))), v_to_n(id)),
@@ -3508,14 +3430,17 @@ fn set_key(v: &V, out: &mut String) {
                 out.push_str(&i.to_string());
             }
             Leaf::F(f) => {
-                out.push('n');
-                // an integral float keys like its int (Python 1 == 1.0);
-                // the range guard keeps the cast exact
-                if f.fract() == 0.0 && f.is_finite() && f.abs() < 9.0e18 {
-                    out.push_str(&(*f as i64).to_string());
-                } else {
-                    out.push_str(&format!("{}", f));
-                }
+                // WAS: an integral float keyed like its int, "Python 1 == 1.0".
+                // That is the PLATFORM's untyped numeric tower passing through
+                // the value boundary. Canon's eq is NATEQ -- kernel.py's own
+                // words, "same ORM type + equal" -- so an Integer 2 and a
+                // Decimal 2.0 are values of DIFFERENT TYPES and eq answers F.
+                // Keying them the same made the host's identity disagree with
+                // canon's, which is what blocked moving the id dedup and the
+                // last-wins rule into canon at all. The 'f' tag keeps floats in
+                // their own space, so key_of now agrees with eq.
+                out.push('f');
+                out.push_str(&format!("{}", f));
             }
             Leaf::AppTag => out.push('t'),
         },
@@ -4064,6 +3989,7 @@ impl FastStore {
             process,
             defs_n: nd,
             fuel: std::cell::Cell::new(-1),
+            index: Default::default(),
         }
     }
 
@@ -4524,6 +4450,22 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
     // rules the upper stratum runs after the closure settles (an aggregate
     // head supersedes instead of unioning, so the closure must never run
     // one)
+    // THE MEANING OF RECORD IS CANON -- DEF("derive:rulesplit") (with
+    // derive:aggids / rs_guard / rs_isagg / rs_step), certified on all four
+    // stations by case:aggids, case:rules-plain, case:rules-agg and
+    // case:rulesplit. This loop is its NATIVE FAST PATH, the certified-twin
+    // pattern theta:member and theta:dedup already carry.
+    //
+    // MEASURED, not assumed. Wiring the canon call here took the op suite from
+    // 409s to 999s, and folding the two passes into one changed nothing
+    // (1042s) -- the cost is not the split's shape. op_run_rules is called
+    // from SEVEN sites, several inside the compile paths base_seed drives, and
+    // the table is 143 ruleDerives rows against a single ruleAgg id. A
+    // 143-element fold with a one-element membership test is C64-scale work;
+    // taking ten minutes of it indicts the CARRIER, exactly as the ruling
+    // says, and the answer there is to make the evaluator memo pure
+    // applications -- not to keep the meaning in Rust. Until it does, the
+    // canon DEF is the meaning and this is the override.
     let mut aggids: HashSet<String> = HashSet::new();
     for r in store.pop_rows(&leaf("ruleAgg")) {
         let it = items(&list_of(&r));
@@ -5614,21 +5556,21 @@ fn sm_suspect(stmt: &str) -> bool {
 
 // The _COOK boundary (compiler.py, the #18 doctrine at system.canon:5504):
 // Stage-1 text→X resolution the HOST performs before a translator body sees
-// its groups. PORTED (#20): src/cooks.rs carries the productions (the
+// its groups. PORTED (#20): src/compile.rs carries the productions (the
 // _CLASSIFY table with group extraction), every _COOK entry (rule_if/rule_iff
 // included), the cs_rows/sm_rows canon reductions, and the _plan/_h_* handler
 // layer, so the dispatch loop below translates natively when a translator name
 // carries no canon DEF. native_cook is that boundary: production match →
-// cooks::cook → the crows groups through the translator body, answering the
+// compile::cook → the constraint-row groups through the translator body, answering the
 // per-statement ⟨asserts, objs⟩ (python _stmt_translator_impl's contract).
 fn native_cook(
     t: &str,
     inner: &str,
     mfield: &str,
-    known: &cooks::Known,
+    known: &compile::Known,
     srv: &Srv,
-) -> Result<Option<cooks::Fire>, String> {
-    cooks::translate(translator_kinds(t), inner, mfield, known, srv)
+) -> Result<Option<compile::Fire>, String> {
+    compile::translate(translator_kinds(t), inner, mfield, known, srv)
 }
 
 // register_translators' table (compiler.py:2151): the Stage-1 kinds each
@@ -6648,7 +6590,7 @@ fn context_of(
     let strv = |x: &V| aval(x).and_then(|l| leaf_str(&l));
     let mut names: std::collections::HashSet<String> = std::collections::HashSet::new();
     // #31: the VALUE-TYPE names ride the context too — a quoted instance-fact
-    // literal filling a value-typed role coerces via _num at the cook boundary
+    // literal filling a value-typed role coerces via _num at the compile step boundary
     let mut vals: std::collections::HashSet<String> = std::collections::HashSet::new();
     for r in pop_rows(cells, &leaf("instanceOf")) {
         let it = items(&list_of(&r));
@@ -6827,7 +6769,7 @@ fn grammar_tables(
 // ============================ the model_d fold (#20, the port after cooks) ===
 // meta.initial_D (compiler.py:71) / run_append (engine.py:224) / ast:DefineIn
 // (engine.py:71, shared/ast.canon:58), native twins. op_compile_model's
-// dispatch loop already produces per-statement Fires (cooks::translate,
+// dispatch loop already produces per-statement Fires (compile::translate,
 // #20 cooks); this section folds them into an actual store, in emission
 // order, for byte parity with python's g() (compiler.py's
 // _stmt_translator_impl, ~:2240 — asserts THEN objs, per fire).
@@ -6903,18 +6845,18 @@ fn store_move(cells: &mut Vec<(Leaf, V)>, name: &str, contents: V) {
 // run_append (engine.py:224 — mirrored precisely): D' = Store(cell):
 // ⟨resolve_default(fact, FetchPop(cell, D)), D⟩. Absent cell -> fresh
 // singleton population, cell PREPENDED. Present -> _eqobj dedup
-// (type-strict: 1 ≠ "1" ≠ 1.0, the cook differential's own discipline)
+// (type-strict: 1 ≠ "1" ≠ 1.0, the compile step differential's own discipline)
 // REUSES the old population unchanged on a hit; otherwise the fact
 // PREPENDS. Either way the cell re-tops via store_move. Non-plain contents
 // (the decoded shape isn't a Seq) is python's canonical-`run`-fallback arm;
 // every compile-time cell here is plain by construction — a hit means a
 // genuine port gap, so this errors loudly rather than silently diverging.
 fn run_append_native(
-    fact: &cooks::Val,
+    fact: &compile::Val,
     cells: &mut Vec<(Leaf, V)>,
     cell_name: &str,
 ) -> Result<(), String> {
-    let fact_v = cooks::val_to_v(fact);
+    let fact_v = compile::val_to_v(fact);
     let found = cells
         .iter()
         .position(|(k, _)| matches!(k, Leaf::S(s) if s == cell_name));
@@ -6957,7 +6899,7 @@ fn define_in_native(name: &str, obj: &V, cells: &mut Vec<(Leaf, V)>) {
 // One Fire's fold: asserts THEN objs, each list in emission order
 // (compiler.py's g(): "for cell,fact in asserts: D = ast.run_append(...);
 // for name,obj in objs: D = DefineIn(...)").
-fn fold_fire(fire: &cooks::Fire, cells: &mut Vec<(Leaf, V)>) -> Result<(), String> {
+fn fold_fire(fire: &compile::Fire, cells: &mut Vec<(Leaf, V)>) -> Result<(), String> {
     for (cell, fact) in &fire.asserts {
         run_append_native(fact, cells, cell)?;
     }
@@ -7109,7 +7051,7 @@ fn rekey_transitions_native(cells: &mut Vec<(Leaf, V)>) {
 // pattern the view_menu/actions sites (main.rs, "actions" op) and op_run_rules's
 // own canon-first partition fallback already use. These are NEW, STANDALONE
 // helpers (not a refactor of that fallback block or of op_run_rules) -- the
-// CONSTRAINT is to leave cooks.rs, the model_d fold functions, rekey, and the
+// CONSTRAINT is to leave compile.rs, the model_d fold functions, rekey, and the
 // landed reassembly semantics untouched; duplicating the small amount of
 // canon-eval plumbing costs nothing and keeps zero risk to those proven paths.
 
@@ -7459,6 +7401,7 @@ fn machine_fold_native(cells: &[(Leaf, V)], srv: &Srv) -> (Vec<(Leaf, V)>, bool)
         process: srv.nprocess.clone(),
         defs_n: nd.clone(),
         fuel: std::cell::Cell::new(-1),
+        index: Default::default(),
     };
 
     let triples = mf_sm_triples(cells, &ev);
@@ -7843,6 +7786,7 @@ fn layout_cells_native(cells: &[(Leaf, V)], srv: &Srv) -> Vec<(Leaf, V)> {
         process: srv.nprocess.clone(),
         defs_n: nd.clone(),
         fuel: std::cell::Cell::new(-1),
+        index: Default::default(),
     };
 
     let (part, pairs_v) = mf_partition(&ev, &nd);
@@ -7941,6 +7885,7 @@ fn scheduler_cells_native(cells: &[(Leaf, V)], srv: &Srv) -> Vec<(Leaf, V)> {
         process: srv.nprocess.clone(),
         defs_n: nd.clone(),
         fuel: std::cell::Cell::new(-1),
+        index: Default::default(),
     };
     let hc = classify_heads_native(cells);
     let mut rows: Vec<V> = Vec::new();
@@ -8159,6 +8104,7 @@ fn generator_cells_native(cells: &[(Leaf, V)], srv: &Srv) -> Vec<(Leaf, V)> {
         process: srv.nprocess.clone(),
         defs_n: nd.clone(),
         fuel: std::cell::Cell::new(-1),
+        index: Default::default(),
     };
     let triples: Vec<(String, String, String)> = mf_sm_triples(cells, &ev)
         .into_iter()
@@ -8405,7 +8351,7 @@ fn compile_lines_native(
     ]);
     let empty_cls: HashSet<String> = HashSet::new();
     let mut folded_any = false;
-    let kn = cooks::Known::new(&names, &subs, &fts, &plain, &vals);
+    let kn = compile::Known::new(&names, &subs, &fts, &plain, &vals);
 
     for (i, (stmt, m, inner, sg)) in work.iter().enumerate() {
         let sid = format!("s{}", i + 1);
@@ -8467,7 +8413,7 @@ fn compile_lines_native(
                 folded_any = true;
                 continue;
             }
-            let cooked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let compiled = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 native_cook(t, inner, &mfield, &kn, srv)
             }))
             .unwrap_or_else(|p| {
@@ -8478,7 +8424,7 @@ fn compile_lines_native(
                     .unwrap_or_else(|| "non-string panic payload".into());
                 Err(format!("cook panicked: {}", msg))
             });
-            if let Ok(Some(fire)) = cooked {
+            if let Ok(Some(fire)) = compiled {
                 fold_fire(&fire, &mut model_cells).map_err(|e| {
                     format!("status_facts fold: {} (statement: {})", e, stmt)
                 })?;
@@ -8821,10 +8767,17 @@ fn base_seed_paths(j: &J) -> Result<(std::path::PathBuf, std::path::PathBuf), St
     let shared: Option<std::path::PathBuf> = if explicit_dir.is_none() || explicit_store.is_none() {
         let exe = std::env::current_exe()
             .map_err(|e| format!("no executable path to walk for the base seed: {}", e))?;
+        // The landmark is the canon itself, at the repo root. Walk the
+        // executable's ancestors for the directory holding `arest`, then take
+        // its engine/shared. This used to test shared/forml2-grammar.store.json,
+        // which made a build artifact load-bearing for directory discovery, and
+        // briefly tested shared/arest.canon — the abandoned 360-def predecessor,
+        // now deleted. metamodel/layout.md declares the canon the boot anchor
+        // from which every other location resolves. UNVERIFIED: no build run.
         exe.ancestors()
             .skip(1)
-            .map(|dir| dir.join("shared"))
-            .find(|cand| cand.join("forml2-grammar.store.json").is_file())
+            .find(|dir| dir.join("arest").is_file())
+            .map(|repo| repo.join("engine").join("shared"))
     } else {
         None
     };
@@ -8837,7 +8790,14 @@ fn base_seed_paths(j: &J) -> Result<(std::path::PathBuf, std::path::PathBuf), St
                  shared/forml2-grammar.store.json; pass base_dir"
                     .to_string()
             })?
-            .join("base"),
+            // metamodel/layout.md declares the 'metamodel' Source Location at
+            // ../../metamodel from the canon root, which is this `shared` dir.
+            // This was `.join("base")` — a second copy of the same metamodel in
+            // the pre-rename vocabulary (Noun/Verb/Reference Scheme), carrying
+            // nothing metamodel/ lacks. UNVERIFIED: changed without a build.
+            .join("..")
+            .join("..")
+            .join("metamodel"),
     };
     let store_path = match explicit_store {
         Some(s) => s,
@@ -9557,6 +9517,7 @@ fn create_handlers_native(cells: &[(Leaf, V)], srv: &Srv) -> Result<Vec<(Leaf, V
         process: srv.nprocess.clone(),
         defs_n: nd.clone(),
         fuel: std::cell::Cell::new(-1),
+        index: Default::default(),
     };
     let (part, pairs_v) = mf_partition(&ev, &nd);
     let trig_fts: HashSet<String> = pop_rows(cells, &leaf("smTrigger"))
@@ -9645,6 +9606,7 @@ fn rp_flush(
         process: srv.nprocess.clone(),
         defs_n: nd.clone(),
         fuel: std::cell::Cell::new(-1),
+        index: Default::default(),
     };
     let mut out: Vec<(Leaf, V)> = cells.to_vec();
     for (ft, rows) in buf.drain(..) {
@@ -9691,6 +9653,7 @@ fn replay_entries_native(
         process: srv.nprocess.clone(),
         defs_n: nd0.clone(),
         fuel: std::cell::Cell::new(-1),
+        index: Default::default(),
     };
     let (part, pairs_v) = mf_partition(&ev0, &nd0);
     let trig_fts: HashSet<String> = pop_rows(cells, &leaf("smTrigger"))
@@ -9765,6 +9728,7 @@ fn replay_entries_native(
                     process: srv.nprocess.clone(),
                     defs_n: ndm.clone(),
                     fuel: std::cell::Cell::new(-1),
+                    index: Default::default(),
                 };
                 out = mf_bulk_absorbed_install(&out, &evm, &table, &ft, &rows, &pairs_v, false);
             } else {
@@ -9815,6 +9779,7 @@ fn replay_entries_native(
                 process: srv.nprocess.clone(),
                 defs_n: ndt.clone(),
                 fuel: std::cell::Cell::new(-1),
+                index: Default::default(),
             };
             let fact_n = row_n(&fact);
             let d2n = rp_create_from_spec(&evt, &ndt, &ft, fact_n, &spec);
@@ -10054,7 +10019,7 @@ fn op_compile_model(j: &J, srv: &mut Srv) -> Result<String, String> {
     let mut folded_any = false;
     // the native cook context (#20): the SAME names/subs/fts/plain/vals the
     // ctx operand carries, in cooks form, built once per compile
-    let kn = cooks::Known::new(&names, &subs, &fts, &plain, &vals);
+    let kn = compile::Known::new(&names, &subs, &fts, &plain, &vals);
     // {"trace":1} answers the per-statement ⟨asserts, objs⟩ emissions — the
     // differential's dump (python compile per-statement fires, verbatim)
     let trace_on = matches!(jget(j, "trace"), Some(J::I(1)));
@@ -10175,7 +10140,7 @@ fn op_compile_model(j: &J, srv: &mut Srv) -> Result<String, String> {
             // unwrap on an adversarial reading must degrade to python's
             // per-statement semantics (raise -> unclassified, compile
             // continues), never kill the resident. Payload -> the Err lane.
-            let cooked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+            let compiled = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
                 || native_cook(t, inner, &mfield, &kn, srv),
             ))
             .unwrap_or_else(|p| {
@@ -10186,7 +10151,7 @@ fn op_compile_model(j: &J, srv: &mut Srv) -> Result<String, String> {
                     .unwrap_or_else(|| "non-string panic payload".into());
                 Err(format!("cook panicked: {}", msg))
             });
-            match cooked {
+            match compiled {
                 Ok(Some(fire)) => {
                     // the translator fired: python's _plan answered its
                     // ⟨asserts, objs⟩ (the acceptance surface of the
@@ -10204,7 +10169,7 @@ fn op_compile_model(j: &J, srv: &mut Srv) -> Result<String, String> {
                     folded_any = true;
                     if trace_on {
                         let mut f = String::new();
-                        cooks::fire_json(t, &fire, &mut f);
+                        compile::fire_json(t, &fire, &mut f);
                         fires.push(f);
                     }
                 }
@@ -10641,24 +10606,86 @@ fn op_compile_model(j: &J, srv: &mut Srv) -> Result<String, String> {
 // connection byte for byte) plus the insertion rows; the consumer
 // materializes them (the old sql verb's :memory: move, sql.rs:48).
 
-fn ddl_sql_name(name: &str) -> String {
-    // ddl._sql_name: non-alnum RUNS collapse to one "_", strip, lower ( ==
-    // this host's sql_name/slug_str pair) PLUS the sqlite_ namespace guard
-    // (the codex app's 'SQLite Fact Base' noun projected to sqlite_fact_base
-    // and the CREATE refused — prefix our way out)
-    let s = sql_name(name);
-    if s.starts_with("sqlite_") {
-        format!("t_{}", s)
-    } else {
-        s
+// ddl._sql_name is CANON -- DEF("rmap:ddl_name"): slug, lowered (strdown),
+// "t" when that leaves nothing, and the sqlite_ namespace guard the old
+// comment recorded as a real defect rather than a precaution (the codex app's
+// 'SQLite Fact Base' noun projected to sqlite_fact_base and SQLite REFUSED the
+// CREATE). MEMOIZED here: the name of a table is asked for repeatedly across
+// the column loops, and a memo over a pure function is an extensional equal --
+// the FASTPRIMS/EVMEMO class the js head is certified under, never a second
+// meaning. Without it the 442-table projection re-reduces the same few hundred
+// names thousands of times.
+fn ddl_sql_name(srv: &Srv, name: &str) -> String {
+    thread_local! {
+        static MEMO: std::cell::RefCell<HashMap<String, String>> =
+            std::cell::RefCell::new(HashMap::new());
+    }
+    MEMO.with(|m| {
+        if let Some(hit) = m.borrow().get(name) {
+            return hit.clone();
+        }
+        let out = ddl_str(srv, "rmap:ddl_name", atom(Leaf::S(name.to_string())));
+        m.borrow_mut().insert(name.to_string(), out.clone());
+        out
+    })
+}
+
+// ---- the DDL grammar is CANON (rmap:ddl_table / rmap:ddl_col / rmap:ddl_q /
+// rmap:ddl_ref). What stays here is DERIVING the column specs -- which fact
+// type absorbs into which table, which role plays a reference, how a repeated
+// player disambiguates -- and that is store analysis, not text. The quoting,
+// the four-space indent, the ",\n" between lines, the trailing PRIMARY KEY
+// clause and both CREATE forms left. A spec is <name, type, refs>, refs being
+// "" or a REFERENCES clause, so ONE arm serves the plain and the foreign-key
+// column where this file carried two.
+// the _N suffixing both column loops carried: first occurrence keeps the base,
+// the Nth gets _N. CANON -- DEF("rmap:coldisamb"). It was written twice here,
+// which is precisely the drift a one-naming-pass invariant cannot survive.
+fn disamb(srv: &Srv, bases: Vec<String>) -> Vec<String> {
+    let xs: Vec<V> = bases.iter().map(|b| atom(Leaf::S(b.clone()))).collect();
+    let out = reduce_over_n(srv, atom(Leaf::S("rmap:coldisamb".to_string())),
+                            seqv(xs), -1);
+    items(&list_of(&out))
+        .iter()
+        .map(|v| match aval(v) {
+            Some(l) => leaf_text(&l),
+            None => String::new(),
+        })
+        .collect()
+}
+
+fn ddl_spec(name: &str, ty: &str, refs: &str) -> V {
+    seqv(vec![atom(Leaf::S(name.to_string())),
+              atom(Leaf::S(ty.to_string())),
+              atom(Leaf::S(refs.to_string()))])
+}
+
+fn ddl_ref(srv: &Srv, parent: &str, keycol: &str) -> String {
+    ddl_str(srv, "rmap:ddl_ref",
+            seqv(vec![atom(Leaf::S(parent.to_string())),
+                      atom(Leaf::S(keycol.to_string()))]))
+}
+
+fn ddl_text(srv: &Srv, table: &str, specs: Vec<V>, keycols: Vec<String>) -> String {
+    let keys: Vec<V> = keycols.into_iter().map(|k| atom(Leaf::S(k))).collect();
+    ddl_str(srv, "rmap:ddl_table",
+            seqv(vec![atom(Leaf::S(table.to_string())), seqv(specs), seqv(keys)]))
+}
+
+fn ddl_str(srv: &Srv, def: &str, arg: V) -> String {
+    // reduce_over_n, not reduce_over: the NEval carrier, for the reason the
+    // cells op carries -- the Scott mu does not return on a resident-sized
+    // store. Same canon either way.
+    let out = reduce_over_n(srv, atom(Leaf::S(def.to_string())), arg, -1);
+    match aval(&out) {
+        Some(l) => leaf_text(&l),
+        None => String::new(),
     }
 }
 
-fn sql_q(name: &str) -> String {
-    // ddl._q verbatim: every emitted identifier is quoted — the base metamodel
-    // projects tables named constraint, transition, view (SQL reserved words)
-    format!("\"{}\"", name)
-}
+// sql_q is CANON -- DEF("rmap:ddl_q"). Deleted here. ddl._q's ruling moved
+// with it: every emitted identifier is quoted, because the base metamodel
+// projects tables named constraint, transition and view (SQL reserved words).
 
 struct ProjTable {
     key: String,          // the raw generate key (entity noun or fact type id)
@@ -10714,85 +10741,75 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
     // the partition FROM rmapColumns: absorbed ft -> table, per-table columns
     // in cell order (layout_cells wrote ⟨table, 2+j, ft⟩ in table_columns
     // order, so sorting by the col number reproduces it exactly)
-    let mut absorbed: HashMap<String, String> = HashMap::new();
-    let mut table_cols: HashMap<String, Vec<(i64, String)>> = HashMap::new();
-    for r in pop("rmapColumns") {
-        let it = row_items(r);
-        if it.len() >= 3 {
-            if let (Some(t), Some(c), Some(ft)) = (sstr(&it[0]), ipos(&it[1]), sstr(&it[2])) {
-                absorbed.insert(ft.clone(), t.clone());
-                table_cols.entry(t).or_default().push((c, ft));
-            }
-        }
-    }
-    for v in table_cols.values_mut() {
-        v.sort();
-    }
+    // CANON -- DEF("rmap:colfts") and DEF("rmap:coltables") project the two
+    // things anything downstream wants off these rows: which fact types were
+    // absorbed, and which tables absorb. Both maps this loop built existed
+    // only to feed those two answers, so both are gone.
+    // the rows themselves, handed to canon per table: rmap:colsof does the
+    // restrict/order/project that the HashMap-plus-sort used to do here
+    let colrows: V = seqv(pop("rmapColumns").to_vec());
     // the domain: declared fact types (partition keys == factType rows); own
     // = the non-absorbed remainder, exactly python's {ft: key} where key == ft
-    let mut declared: Vec<String> = Vec::new();
-    let mut seen_ft: HashSet<String> = HashSet::new();
-    for r in pop("factType") {
-        let it = row_items(r);
-        if let Some(ft) = it.first().and_then(&sstr) {
-            if seen_ft.insert(ft.clone()) {
-                declared.push(ft);
-            }
-        }
-    }
-    let mut own: Vec<String> = declared
-        .iter()
-        .filter(|ft| !absorbed.contains_key(*ft))
-        .cloned()
-        .collect();
-    own.sort();
-    let own_set: HashSet<String> = own.iter().cloned().collect();
+    // CANON -- DEF("rmap:owntables"): dedup the factType rows' names, subtract
+    // the absorbed ones, sort. The absorbed KEYS go in as the exclusion set;
+    // their iteration order does not reach the answer, because setminus keeps
+    // the LIST's order and the result is sorted anyway.
+    let absk = reduce_over_n(srv, atom(Leaf::S("rmap:colfts".to_string())),
+                             colrows.clone(), -1);
+    let ownv = reduce_over_n(srv, atom(Leaf::S("rmap:owntables".to_string())),
+                             seqv(vec![seqv(pop("factType").to_vec()), absk]), -1);
+    let own: Vec<String> = items(&list_of(&ownv)).iter().filter_map(|v| sstr(v)).collect();
+    // own_set went with the entity_tables loop: rmap:entitytables does that
+    // membership test now, so nothing here needs the set form
     // roles: ft -> [(pos, player)] sorted (python tuple sort: pos then player),
     // with the ft FIRST-SEEN order kept — the entity-id sweep below walks
     // roles.items() in python's dict insertion order, and a store carrying two
     // ==-equal ids of different display (5 beside 5.0) keeps the first seen
+    // the grouping is CANON -- DEF("rmap:rolegroups") over the `role` rows:
+    // <ft, <<pos,player>...>> per fact type, positions ordered, fact types in
+    // FIRST-SEEN order (which role_ft_order kept and the entity sweep walks).
+    // ONE reduction for the whole cell, not one per fact type.
     let mut roles: HashMap<String, Vec<(i64, String)>> = HashMap::new();
     let mut role_ft_order: Vec<String> = Vec::new();
-    for r in pop("role") {
-        let it = row_items(r);
-        if it.len() >= 4 {
-            if let (Some(ft), Some(p), Some(player)) = (sstr(&it[1]), ipos(&it[2]), sstr(&it[3])) {
-                if !roles.contains_key(&ft) {
-                    role_ft_order.push(ft.clone());
+    let grouped = reduce_over_n(srv, atom(Leaf::S("rmap:rolegroups".to_string())),
+                                seqv(pop("role").to_vec()), -1);
+    for g in items(&list_of(&grouped)) {
+        let gi = items(&list_of(&g));
+        if gi.len() < 2 {
+            continue;
+        }
+        let ft = match aval(&gi[0]) {
+            Some(l) => leaf_text(&l),
+            None => continue,
+        };
+        let mut rs: Vec<(i64, String)> = Vec::new();
+        for pr in items(&list_of(&gi[1])) {
+            let pi = items(&list_of(&pr));
+            if pi.len() >= 2 {
+                if let (Some(p), Some(player)) = (ipos(&pi[0]), sstr(&pi[1])) {
+                    rs.push((p, player));
                 }
-                roles.entry(ft).or_default().push((p, player));
             }
         }
+        role_ft_order.push(ft.clone());
+        roles.insert(ft, rs);
     }
-    for v in roles.values_mut() {
-        v.sort();
-    }
-    // reference modes: refScheme wins (dict build, last row wins), refMode
-    // fills the gaps (setdefault, first row wins); absent -> "id"
-    let mut refm: HashMap<String, String> = HashMap::new();
-    for r in pop("refScheme") {
-        let it = row_items(r);
-        if it.len() >= 2 {
-            if let (Some(n), Some(m)) = (sstr(&it[0]), sstr(&it[1])) {
-                refm.insert(n, m);
-            }
-        }
-    }
-    for r in pop("refMode") {
-        let it = row_items(r);
-        if it.len() >= 2 {
-            if let (Some(n), Some(m)) = (sstr(&it[0]), sstr(&it[1])) {
-                refm.entry(n).or_insert(m);
-            }
-        }
-    }
+    // the reference mode and the key column it names are CANON --
+    // DEF("rmap:keyof"): refScheme LAST row wins, refMode FIRST row wins and
+    // only where refScheme said nothing, absent from both is "id". The two
+    // cells go to canon as they are.
+    let schemerows: V = seqv(pop("refScheme").to_vec());
+    let moderows: V = seqv(pop("refMode").to_vec());
+    // CANON -- DEF("rmap:entities"): restrict instanceOf to its ObjectType
+    // rows and project the name, length guard included. sstr still filters to
+    // STRING names here, which is what this loop always did -- a non-string
+    // where a name belongs drops the row rather than entering the set.
+    let entnames = reduce_over_n(srv, atom(Leaf::S("rmap:entities".to_string())),
+                                 seqv(pop("instanceOf").to_vec()), -1);
     let mut entities: HashSet<String> = HashSet::new();
-    for r in pop("instanceOf") {
-        let it = row_items(r);
-        if it.len() >= 2 && matches!(sstr(&it[1]).as_deref(), Some("ObjectType")) {
-            if let Some(n) = sstr(&it[0]) {
-                entities.insert(n);
-            }
+    for n in items(&list_of(&entnames)) {
+        if let Some(s) = sstr(&n) {
+            entities.insert(s);
         }
     }
     // NOTE ddl._analyze also reads the mandatory constraints (generate's
@@ -10802,48 +10819,77 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
     // every declared entity gets a table, plus every absorbing table that is
     // not itself an own-table fact type (python: entities | (partition.values()
     // - set(own)))
-    let mut entity_tables: HashSet<String> = entities.clone();
-    for t in table_cols.keys() {
-        if !own_set.contains(t) {
-            entity_tables.insert(t.clone());
-        }
-    }
+    // CANON -- DEF("rmap:entitytables"): every declared entity, plus every
+    // absorbing table that is not itself an own-table fact type. Order is
+    // irrelevant -- it lands back in a set, which is what it always was.
+    let entv: Vec<V> = entities.iter().map(|e| atom(Leaf::S(e.clone()))).collect();
+    let tkv = reduce_over_n(srv, atom(Leaf::S("rmap:coltables".to_string())),
+                            colrows.clone(), -1);
+    let ownv2: Vec<V> = own.iter().map(|o| atom(Leaf::S(o.clone()))).collect();
+    let etv = reduce_over_n(srv, atom(Leaf::S("rmap:entitytables".to_string())),
+                            seqv(vec![seqv(entv), tkv, seqv(ownv2)]), -1);
+    let entity_tables: HashSet<String> =
+        items(&list_of(&etv)).iter().filter_map(|v| sstr(v)).collect();
+    // memoized for the reason ddl_sql_name is: a key column is asked for once
+    // per referencing role, and a memo over a pure function is an extensional
+    // equal, never a second meaning
+    let kmemo: std::cell::RefCell<HashMap<String, String>> =
+        std::cell::RefCell::new(HashMap::new());
     let key_col = |name: &str| -> String {
-        let m = refm.get(name).map(|s| s.as_str()).unwrap_or("id");
-        format!("{}_{}", ddl_sql_name(name), ddl_sql_name(m))
+        let hit = kmemo.borrow().get(name).cloned();
+        if let Some(h) = hit {
+            return h;
+        }
+        let out = ddl_str(srv, "rmap:keyof",
+                          seqv(vec![atom(Leaf::S(name.to_string())),
+                                    schemerows.clone(), moderows.clone()]));
+        kmemo.borrow_mut().insert(name.to_string(), out.clone());
+        out
     };
     // ddl._entity_columns: the ordered absorbed columns of an entity table,
     // (ft, col, kind 0=unary/1=value/2=ref, other), deduped by base with the
     // position suffix from 2 — one naming pass, so DDL and rows never disagree
     let entity_columns = |table: &str| -> Vec<(String, String, u8, Option<String>)> {
         let mut out = Vec::new();
-        let mut seen: HashMap<String, usize> = HashMap::new();
-        if let Some(fts) = table_cols.get(table) {
-            for (_c, ft) in fts {
-                let rs = roles.get(ft).map(|v| v.as_slice()).unwrap_or(&[]);
-                let (base, kind, other): (String, u8, Option<String>) = if rs.len() == 1 {
-                    let b = match ft.strip_prefix(table) {
-                        Some(rest) => ddl_sql_name(rest),
-                        None => ddl_sql_name(ft),
-                    };
-                    (b, 0, None)
-                } else {
-                    let other = rs.iter().map(|(_p, t)| t.clone()).find(|t| t != table);
-                    match &other {
-                        Some(o) if entities.contains(o) && entity_tables.contains(o) => {
-                            (key_col(o), 2, other.clone())
-                        }
-                        Some(o) => (ddl_sql_name(o), 1, other.clone()),
-                        None => (ddl_sql_name(ft), 1, None),
-                    }
+        // the column ORDER is CANON -- DEF("rmap:colsof") restricts rmapColumns
+        // to this table, orders by the column NUMBER and projects the fact type.
+        // That order is load-bearing: it is what makes the DDL's columns and
+        // the rows' values line up, and it used to be a HashMap plus a sort.
+        let ordered = reduce_over_n(srv, atom(Leaf::S("rmap:colsof".to_string())),
+                                    seqv(vec![atom(Leaf::S(table.to_string())),
+                                              colrows.clone()]), -1);
+        for ftv in items(&list_of(&ordered)) {
+            let ft = match aval(&ftv) {
+                Some(l) => leaf_text(&l),
+                None => continue,
+            };
+            let rs = roles.get(&ft).map(|v| v.as_slice()).unwrap_or(&[]);
+            let (base, kind, other): (String, u8, Option<String>) = if rs.len() == 1 {
+                let b = match ft.strip_prefix(table) {
+                    Some(rest) => ddl_sql_name(srv, rest),
+                    None => ddl_sql_name(srv, &ft),
                 };
-                let n = seen.entry(base.clone()).or_insert(0);
-                *n += 1;
-                let col = if *n == 1 { base } else { format!("{}_{}", base, *n) };
-                out.push((ft.clone(), col, kind, other));
-            }
+                (b, 0, None)
+            } else {
+                let other = rs.iter().map(|(_p, t)| t.clone()).find(|t| t != table);
+                match &other {
+                    Some(o) if entities.contains(o) && entity_tables.contains(o) => {
+                        (key_col(o), 2, other.clone())
+                    }
+                    Some(o) => (ddl_sql_name(srv, o), 1, other.clone()),
+                    None => (ddl_sql_name(srv, &ft), 1, None),
+                }
+            };
+            out.push((ft, base, kind, other));
         }
-        out
+        // the _N suffixing is CANON -- DEF("rmap:coldisamb"). Collect the bases,
+        // disambiguate the whole list at once, then put the names back: one
+        // naming pass is what keeps the DDL and the rows agreeing.
+        let named = disamb(srv, out.iter().map(|c| c.1.clone()).collect());
+        out.into_iter()
+            .zip(named)
+            .map(|((ft, _base, kind, other), col)| (ft, col, kind, other))
+            .collect()
     };
 
     let mut out_tables: Vec<ProjTable> = Vec::new();
@@ -10857,50 +10903,59 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
     for table in &sorted_entity {
         let ecols = entity_columns(table);
         let kc = key_col(table);
-        let mut lines: Vec<String> = vec![format!("    {} TEXT PRIMARY KEY", sql_q(&kc))];
+        let mut specs: Vec<V> = vec![ddl_spec(&kc, "TEXT PRIMARY KEY", "")];
         let mut parents: Vec<String> = Vec::new();
         for (ft, col, kind, other) in &ecols {
             let _ = ft;
             if *kind == 0 {
-                lines.push(format!("    {} BOOLEAN", sql_q(col))); // absorbed unary
+                specs.push(ddl_spec(col, "BOOLEAN", ""));      // absorbed unary
                 continue;
             }
             let refs = if *kind == 2 {
                 let o = other.as_ref().expect("ref kind carries its player");
-                let p = ddl_sql_name(o);
+                let p = ddl_sql_name(srv, o);
                 if !parents.contains(&p) {
                     parents.push(p.clone());
                 }
-                format!(" REFERENCES {}({})", sql_q(&p), sql_q(&key_col(o)))
+                ddl_ref(srv, &p, &key_col(o))
             } else {
                 String::new()
             };
-            lines.push(format!("    {} TEXT{}", sql_q(col), refs));
+            specs.push(ddl_spec(col, "TEXT", &refs));
         }
-        let create = format!(
-            "CREATE TABLE IF NOT EXISTS {} (\n{}\n);",
-            sql_q(&ddl_sql_name(table)),
-            lines.join(",\n")
-        );
+        // keycols phi: the entity form carries its key on the first column's
+        // own type, so canon emits no trailing PRIMARY KEY clause
+        let create = ddl_text(srv, &ddl_sql_name(srv, table), specs, Vec::new());
         // the derived entity population: every id the entity's roles mention,
         // plus its own cell — set semantics over python == (set_key coalesces
         // 5 and 5.0, keeps "5" distinct), first-seen representative kept
         let mut ids: Vec<(String, V)> = Vec::new();
         let mut id_seen: HashSet<String> = HashSet::new();
-        for ft in &role_ft_order {
-            for (p, player) in &roles[ft] {
-                if player != table {
-                    continue;
-                }
-                for row in pop(ft) {
-                    let it = row_items(row);
-                    if *p >= 1 && it.len() >= *p as usize {
-                        let v = it[*p as usize - 1].clone();
-                        let k = key_of(&v);
-                        if id_seen.insert(k.clone()) {
-                            ids.push((k, v));
-                        }
-                    }
+        // CANON -- DEF("rmap:playerpos") answers which fact types name this
+        // table and at which role position; DEF("rmap:atpos") projects that
+        // position out of the population, carrying both guards (position >= 1
+        // and row long enough) that this loop spelled out. playerpos walks the
+        // groups in rolegroups order, which is the first-seen fact type order
+        // this sweep has always depended on.
+        let pps = reduce_over_n(srv, atom(Leaf::S("rmap:playerpos".to_string())),
+                                seqv(vec![atom(Leaf::S(table.to_string())),
+                                          grouped.clone()]), -1);
+        for pp in items(&list_of(&pps)) {
+            let pi = items(&list_of(&pp));
+            if pi.len() < 2 {
+                continue;
+            }
+            let ft = match sstr(&pi[0]) {
+                Some(s) => s,
+                None => continue,
+            };
+            let vals = reduce_over_n(srv, atom(Leaf::S("rmap:atpos".to_string())),
+                                     seqv(vec![pi[1].clone(),
+                                               seqv(pop(&ft).to_vec())]), -1);
+            for v in items(&list_of(&vals)) {
+                let k = key_of(&v);
+                if id_seen.insert(k.clone()) {
+                    ids.push((k, v));
                 }
             }
         }
@@ -10923,20 +10978,31 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
         let mut colvals: Vec<ColVals> = Vec::new();
         for (ft, _col, kind, _o) in &ecols {
             if *kind == 0 {
+                // CANON -- rmap:atpos at position 1. The unary column needs no
+                // DEF of its own; a general projection already covers it.
+                let ids1 = reduce_over_n(srv, atom(Leaf::S("rmap:atpos".to_string())),
+                                         seqv(vec![atom(Leaf::I(1)),
+                                                   seqv(pop(ft).to_vec())]), -1);
                 let mut m = HashSet::new();
-                for row in pop(ft) {
-                    let it = row_items(row);
-                    if !it.is_empty() {
-                        m.insert(key_of(&it[0]));
-                    }
+                for v in items(&list_of(&ids1)) {
+                    m.insert(key_of(&v));
                 }
                 colvals.push(ColVals::Unary(m));
             } else {
+                // CANON -- DEF("rmap:valpairs"): <id,value> in ROW ORDER, the
+                // short rows dropped. The map insert below is what makes a
+                // later row win, keyed by THIS host's value identity (key_of
+                // coalesces 5 with 5.0, keeps "5" distinct) -- deliberately not
+                // moved, because expressing last-wins in canon would decide
+                // whether canon's eq is that identity, and that is its own
+                // question rather than a side effect of this projection.
+                let prs = reduce_over_n(srv, atom(Leaf::S("rmap:valpairs".to_string())),
+                                        seqv(pop(ft).to_vec()), -1);
                 let mut m: HashMap<String, V> = HashMap::new();
-                for row in pop(ft) {
-                    let it = row_items(row);
-                    if it.len() >= 2 {
-                        m.insert(key_of(&it[0]), it[1].clone()); // dict build: last wins
+                for pr in items(&list_of(&prs)) {
+                    let pi = items(&list_of(&pr));
+                    if pi.len() >= 2 {
+                        m.insert(key_of(&pi[0]), pi[1].clone()); // last wins
                     }
                 }
                 colvals.push(ColVals::Val(m));
@@ -10958,7 +11024,7 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
         counts.push((table.clone(), ids.len().to_string()));
         out_tables.push(ProjTable {
             key: table.clone(),
-            sql: ddl_sql_name(table),
+            sql: ddl_sql_name(srv, table),
             create,
             cols,
             rows,
@@ -10974,37 +11040,31 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
             counts.push((ft.clone(), "null".to_string()));
             continue;
         }
-        let mut lines: Vec<String> = Vec::new();
-        let mut key: Vec<String> = Vec::new();
-        let mut seen: HashMap<String, usize> = HashMap::new();
+        let mut specs: Vec<V> = Vec::new();
         let mut parents: Vec<String> = Vec::new();
-        for (_p, player) in rs {
-            let base = if entities.contains(player) {
-                key_col(player)
-            } else {
-                ddl_sql_name(player)
-            };
-            let n = seen.entry(base.clone()).or_insert(0);
-            *n += 1;
-            let col = if *n == 1 { base } else { format!("{}_{}", base, *n) };
+        // bases first, then ONE canon disambiguation pass, then the specs --
+        // the same rmap:coldisamb the entity columns use, where this loop used
+        // to keep its own `seen` map
+        let bases: Vec<String> = rs
+            .iter()
+            .map(|(_p, player)| {
+                if entities.contains(player) { key_col(player) } else { ddl_sql_name(srv, player) }
+            })
+            .collect();
+        let key: Vec<String> = disamb(srv, bases);
+        for ((_p, player), col) in rs.iter().zip(key.iter()) {
             let refs = if entities.contains(player) && entity_tables.contains(player) {
-                let p = ddl_sql_name(player);
+                let p = ddl_sql_name(srv, player);
                 if !parents.contains(&p) {
                     parents.push(p.clone());
                 }
-                format!(" REFERENCES {}({})", sql_q(&p), sql_q(&key_col(player)))
+                ddl_ref(srv, &p, &key_col(player))
             } else {
                 String::new()
             };
-            lines.push(format!("    {} TEXT{}", sql_q(&col), refs)); // NOT NULL soft-stripped
-            key.push(col);
+            specs.push(ddl_spec(col, "TEXT", &refs));  // NOT NULL soft-stripped
         }
-        let create = format!(
-            "CREATE TABLE IF NOT EXISTS {} (\n{},\n    PRIMARY KEY ({})\n);",
-            sql_q(&ddl_sql_name(ft)),
-            lines.join(",\n"),
-            key.iter().map(|c| sql_q(c)).collect::<Vec<_>>().join(", ")
-        );
+        let create = ddl_text(srv, &ddl_sql_name(srv, ft), specs, key.clone());
         let all = pop(ft);
         let mut rows: Vec<Vec<V>> = Vec::new();
         let mut narrow = 0usize;
@@ -11026,7 +11086,7 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
         counts.push((ft.clone(), count));
         out_tables.push(ProjTable {
             key: ft.clone(),
-            sql: ddl_sql_name(ft),
+            sql: ddl_sql_name(srv, ft),
             create,
             cols: key,
             rows,
@@ -11037,29 +11097,35 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
     // ---- Kahn parents-first (the old engine's Phase 3, rmap.rs:1676-1700):
     // ready = every referenced parent already placed, self-references pass,
     // externals pass; ready sorted by name; a cycle appends the rest sorted ----
-    let names: HashSet<String> = out_tables.iter().map(|t| t.sql.clone()).collect();
-    let mut placed: HashSet<String> = HashSet::new();
+    // Kahn parents-first is CANON -- DEF("rmap:ddl_order") over <sql,parents>.
+    // The wave structure, the per-wave sort, the self/external passes and the
+    // cycle's sorted remainder all left; what stays is carrying the answer
+    // back to indices, because the tables themselves live here.
+    let tabs: Vec<V> = out_tables
+        .iter()
+        .map(|t| {
+            let ps: Vec<V> = t.parents.iter().map(|p| atom(Leaf::S(p.clone()))).collect();
+            seqv(vec![atom(Leaf::S(t.sql.clone())), seqv(ps)])
+        })
+        .collect();
+    let ordered = reduce_over_n(srv, atom(Leaf::S("rmap:ddl_order".to_string())),
+                                seqv(tabs), -1);
+    // name -> the indices carrying it, consumed in turn: two tables CAN share
+    // an sql name, and canon answers the name once per table, so popping keeps
+    // both instead of dropping the second
+    let mut byname: HashMap<String, Vec<usize>> = HashMap::new();
+    for (i, t) in out_tables.iter().enumerate() {
+        byname.entry(t.sql.clone()).or_default().push(i);
+    }
     let mut order: Vec<usize> = Vec::new();
-    let mut remaining: Vec<usize> = (0..out_tables.len()).collect();
-    while !remaining.is_empty() {
-        let (mut ready, rest): (Vec<usize>, Vec<usize>) = remaining.iter().partition(|&&i| {
-            out_tables[i]
-                .parents
-                .iter()
-                .all(|p| p == &out_tables[i].sql || placed.contains(p) || !names.contains(p))
-        });
-        if ready.is_empty() {
-            let mut rest_sorted = rest;
-            rest_sorted.sort_by(|&a, &b| out_tables[a].sql.cmp(&out_tables[b].sql));
-            order.extend(rest_sorted);
-            break;
+    for nm in items(&list_of(&ordered)) {
+        if let Some(l) = aval(&nm) {
+            if let Some(v) = byname.get_mut(&leaf_text(&l)) {
+                if !v.is_empty() {
+                    order.push(v.remove(0));
+                }
+            }
         }
-        ready.sort_by(|&a, &b| out_tables[a].sql.cmp(&out_tables[b].sql));
-        for &i in &ready {
-            placed.insert(out_tables[i].sql.clone());
-        }
-        order.extend(ready);
-        remaining = rest;
     }
 
     // ---- the answer: DDL + rows in Kahn order, plus the project report ----
@@ -11215,37 +11281,51 @@ fn op_answer(op: &str, j: &J, srv: &mut Srv) -> Result<String, String> {
                 Some(J::S(p)) => Some(p.to_lowercase()),
                 _ => None,
             };
-            let mut entries: Vec<(String, String)> = Vec::new();
-            for (k, contents) in &srv.cells {
-                let name = match k {
-                    Leaf::S(s) => s.clone(),
-                    Leaf::I(i) => i.to_string(),
-                    Leaf::F(f) => format!("{}", f),
-                    Leaf::AppTag => continue,
-                };
-                if let Some(p) = &pat {
-                    if !name.to_lowercase().contains(p.as_str()) {
-                        continue;
-                    }
-                }
-                let mut e = String::from("{\"name\":");
-                match k {
-                    Leaf::S(s) => esc(s, &mut e),
-                    _ => e.push_str(&name),                   // numeric names stay numbers
-                }
-                e.push_str(",\"rows\":");
-                match shape(contents) {
-                    Shape::Seq(l) => e.push_str(&items(&l).len().to_string()),
-                    _ => e.push_str("null"),                  // an atom cell has no rows
-                }
-                e.push('}');
-                entries.push((name, e));
-            }
-            entries.sort();
+            // the names, the counts and the SORT are CANON -- store:namerows
+            // over <CELL,name,contents>. srv.cells is already the first-match-
+            // wins index FetchPop sees, so handing canon that sequence is the
+            // same population this op always listed. What stays host is what
+            // is genuinely host: the pattern filter and the JSON rendering.
+            // An atom cell answers phi (no population), which prints null --
+            // length of an atom is bottom, and a sequence CONTAINING bottom is
+            // bottom (13.2), so canon guards it rather than letting it collapse
+            // the whole listing. A 0-row SEQUENCE cell still answers 0.
+            let cellseq: Vec<V> = srv.cells.iter()
+                .filter(|(k, _)| !matches!(k, Leaf::AppTag))
+                .map(|(k, contents)| seqv(vec![atom(Leaf::S("CELL".to_string())),
+                                               atom(k.clone()), contents.clone()]))
+                .collect();
+            // reduce_over_n, NOT reduce_over: store:namerows sorts, and a
+            // resident base is ~1000 cells, so the Scott mu runs an insertion
+            // sort's ~n^2 comparisons Church-encoded and does not return (it
+            // hung past 240s on the first wiring). Same canon, faster carrier
+            // -- native_verbalize's own idiom, and the C64 ruling's case: a
+            // long leg indicts the evaluator, never the meaning.
+            let listed = reduce_over_n(srv, atom(Leaf::S("store:namerows".to_string())),
+                                       seqv(cellseq), -1);
             let mut r = String::from("{\"cells\":[");
-            for (i, (_n, e)) in entries.iter().enumerate() {
-                if i > 0 { r.push(','); }
-                r.push_str(e);
+            let mut first = true;
+            for pair in items(&list_of(&listed)) {
+                let it = items(&list_of(&pair));
+                if it.len() < 2 { continue; }
+                let nleaf = match aval(&it[0]) { Some(l) => l, None => continue };
+                let name = leaf_text(&nleaf);
+                if let Some(p) = &pat {
+                    if !name.to_lowercase().contains(p.as_str()) { continue; }
+                }
+                if !first { r.push(','); }
+                first = false;
+                r.push_str("{\"name\":");
+                match &*nleaf {
+                    Leaf::S(s) => esc(s, &mut r),
+                    _ => r.push_str(&name),                   // numeric names stay numbers
+                }
+                r.push_str(",\"rows\":");
+                match aval(&it[1]) {
+                    Some(l) => r.push_str(&leaf_text(&l)),    // the count
+                    None => r.push_str("null"),               // phi: an atom cell
+                }
+                r.push('}');
             }
             r.push_str("]}");
             Ok(r)
@@ -11339,6 +11419,7 @@ fn op_answer(op: &str, j: &J, srv: &mut Srv) -> Result<String, String> {
                 process: srv.nprocess.clone(),
                 defs_n: srv.nd.clone(),
                 fuel: std::cell::Cell::new(-1),
+                index: Default::default(),
             };
             let res = n_to_v(&ev.mu(napp(f, x)));
             let mut r = String::from("{\"result\":");
@@ -12262,6 +12343,7 @@ fn apply_core(args: &J, app: &str, srv: &mut Srv)
             process: srv.nprocess.clone(),
             defs_n: srv.nd.clone(),
             fuel: std::cell::Cell::new(-1),
+            index: Default::default(),
         };
         // rp_reduce_apply (#20, the replay slice) factors out exactly this
         // reduction -- apply(handler, <fact, D>) on the native carrier -- so
@@ -12517,6 +12599,7 @@ fn val_ctx(srv: &Srv) -> ValCtx {
         process: srv.nprocess.clone(),
         defs_n: srv.nd.clone(),
         fuel: std::cell::Cell::new(-1),
+        index: Default::default(),
     };
     let (part, pairs_v) = mf_partition(&ev, &srv.nd);
     // ruleCopies: {(antecedent, consequent)} discharged inclusions (subtype/subset)
@@ -12559,6 +12642,7 @@ fn assemble_validator_for(
         process: srv.nprocess.clone(),
         defs_n: srv.nd.clone(),
         fuel: std::cell::Cell::new(-1),
+        index: Default::default(),
     };
     let absorbed = |ft: &str| ctx.part.get(ft).map(|t| t != ft).unwrap_or(false);
     // _vp(ft) for an ABSORBED ft: the PURE-DATA population spec ⟨"view", table, col⟩
@@ -13026,6 +13110,7 @@ fn view_trees_json(noun: &str, id: &str, srv: &Srv) -> Result<String, (i64, Stri
         process: srv.nprocess.clone(),
         defs_n: srv.nd.clone(),
         fuel: std::cell::Cell::new(-1),
+        index: Default::default(),
     };
     let na = |s: &str| N::A(Rc::new(Leaf::S(s.to_string())));
     let view = ev.mu(napp(
@@ -13326,6 +13411,7 @@ fn store_call(tool: &str, args: &J, app: &str, srv: &mut Srv)
                 process: srv.nprocess.clone(),
                 defs_n: srv.nd.clone(),
                 fuel: std::cell::Cell::new(-1),
+                index: Default::default(),
             };
             let na = |s: &str| N::A(Rc::new(Leaf::S(s.to_string())));
             let view = ev.mu(napp(
@@ -13437,6 +13523,7 @@ fn store_call(tool: &str, args: &J, app: &str, srv: &mut Srv)
                 process: srv.nprocess.clone(),
                 defs_n: srv.nd.clone(),
                 fuel: std::cell::Cell::new(-1),
+                index: Default::default(),
             };
             let na = |s: &str| N::A(Rc::new(Leaf::S(s.to_string())));
             let edges = ev.mu(napp(
@@ -13554,6 +13641,7 @@ fn store_call(tool: &str, args: &J, app: &str, srv: &mut Srv)
                 process: srv.nprocess.clone(),
                 defs_n: srv.nd.clone(),
                 fuel: std::cell::Cell::new(-1),
+                index: Default::default(),
             };
             let mut status: Option<String> = None;
             if let Some(ft) = status_ft {
@@ -13805,7 +13893,7 @@ fn store_call(tool: &str, args: &J, app: &str, srv: &mut Srv)
 // verify/validate). resolve_verb consults the same one kill switch as the
 // DEF layer, so AREST_NO_OVERRIDE=<name> forces any verb to its reference
 // and =* is the pure-reference oracle. Registering a new verb override
-// means a row here, a catalog row (shared/base/resolution.md), a
+// means a row here, a catalog row (metamodel/resolution.md), a
 // HOST_OVERRIDES row, and a parity pin — never a dispatch edit. The
 // read-family store routing at the top of mcp_call_inner is the wasm-shared
 // hostless binding with the same kill seam consulted inline.
@@ -14742,7 +14830,13 @@ fn canon_defs() -> Vec<(String, V)> {
         let S7 = |a: V, b: V, c: V, d: V, e: V, f: V, g: V| seqv(vec![a, b, c, d, e, f, g]);
         let S8 = |a: V, b: V, c: V, d: V, e: V, f: V, g: V, h: V| seqv(vec![a, b, c, d, e, f, g, h]);
         let S9 = |a: V, b: V, c: V, d: V, e: V, f: V, g: V, h: V, i: V| seqv(vec![a, b, c, d, e, f, g, h, i]);
-        include!("../../shared/arest.canon");
+        // THE canon, at the repo root. Not a curated copy: engine/shared/arest.canon
+        // held 362 DEFs against canon's 1153, and the 18 names the host resolves
+        // (actions ask cells create csdp derive explain get induce lt nav propose
+        // query retract rmap schema validate verify) were ALL among the missing, so
+        // Layer 1 ended in bottom for the MCP's own verb table and the host's match
+        // arms were the only copy that ran (#88, cont 514/515).
+        include!("../../../arest");
     }
     out.into_inner()
 }
@@ -15206,6 +15300,7 @@ pub mod worker {
             process: Vec::new(),
             defs_n: N::Bot,
             fuel: std::cell::Cell::new(-1),
+            index: Default::default(),
         };
         let res = n_to_v(&ev.mu(napp(f, x)));
         let mut out = String::from("{\"result\":");
@@ -15246,6 +15341,7 @@ mod theta_arms_tests {
             process: Vec::new(),
             defs_n: N::Bot,
             fuel: std::cell::Cell::new(-1),
+            index: Default::default(),
         }
     }
 

@@ -12,7 +12,7 @@ from pyarest.reduce import apply as R
 
 canon.load_all()
 
-# cooked groups: ⟨decl_rows, cid, kind_tag, ft, builder_name⟩
+# compiled groups: ⟨decl_rows, cid, kind_tag, ft, builder_name⟩
 COOKED = [
     (((("factType", ("X_likes_X", "{0} likes {1}")),
        ("role", ("X_likes_X.1", "X_likes_X", 1, "X")),

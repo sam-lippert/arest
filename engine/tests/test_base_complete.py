@@ -40,9 +40,13 @@ def test_rotl_rotr():
 
 
 def test_div():
-    assert both(A("div"), (6, 3)) == 2.0
-    assert both(A("div"), (1, 0)) == "⊥"                         # ÷0 = ⊥
-    assert both(A("div"), ("a", 2)) == "⊥"
+    # INTEGER division: the stations' atom domain is String|Integer|
+    # Object[] with no float at all, so 2.0 was unrepresentable on
+    # half the fleet. Unlike the comparison coercion (which every host
+    # CAN express), this one is forced by the value model.
+    assert both(A("/"), (6, 3)) == 2
+    assert both(A("/"), (1, 0)) == "⊥"                         # ÷0 = ⊥
+    assert both(A("/"), ("a", 2)) == "⊥"
 
 
 def test_bu_binary_to_unary():

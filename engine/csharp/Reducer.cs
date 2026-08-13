@@ -150,41 +150,6 @@ static class Reducer
     public static void RegisterAlpha(System.Func<object[], object> s)
         => AlphaOverride = s;
 
-    static bool JsonValue(object x, System.Text.StringBuilder outp)
-    {
-        if (x is string s)
-        {
-            outp.Append('"');
-            foreach (var c in s)
-            {
-                if (c == '"') outp.Append("\\\"");
-                else if (c == '\\') outp.Append("\\\\");
-                else if (c == '\n') outp.Append("\\n");
-                else if (c == '\t') outp.Append("\\t");
-                else if (c == '\r') outp.Append("\\r");
-                else if (c < (char)0x20)
-                    outp.Append("\\u").Append(((int)c).ToString("x4"));
-                else outp.Append(c);
-            }
-            outp.Append('"');
-            return true;
-        }
-        if (x is long l) { outp.Append(l); return true; }
-        if (x is double d) { outp.Append(d); return true; }
-        if (x is object[] xs)
-        {
-            outp.Append('[');
-            for (var i = 0; i < xs.Length; i++)
-            {
-                if (i > 0) outp.Append(',');
-                if (!JsonValue(xs[i], outp)) return false;
-            }
-            outp.Append(']');
-            return true;
-        }
-        return false;
-    }
-
     static bool EqObj(object a, object b)
     {
         if (a is object[] sa && b is object[] sb)
@@ -221,6 +186,12 @@ static class Reducer
                       Func<string, string, bool> rels)
     {
         if (IsSeq(a) || IsSeq(b)) return Bot.Value;
+        // COERCE FIRST. The store carries LEXICAL atoms — test_polyglot pins
+        // (4997, "11000") as "mixed int/lexical (claude's totals)" and
+        // ("9","10") as "comparators COERCE" — so a numeric-looking string is
+        // a number here, as it is to + and kin. #31 normalises value-typed
+        // fillers at the READING boundary only; it does not govern every path
+        // into the store, which is why the base still coerces.
         var na = ToNum(a); var nb = ToNum(b);
         if (na is double da && nb is double db) return rel(da, db) ? T : F;
         if (a is string x && b is string y) return rels(x, y) ? T : F;
@@ -282,16 +253,8 @@ static class Reducer
                     acc = App(whole[i], acc);
                 next = true; return acc;
             }
-            case "CONS":
-            {
-                var o = Pair(); var whole = (object[])o[0]; var arg = o[1];
-                return MkSeq(whole.Skip(1).Select(f => Mu(App(f, arg))));
-            }
-            case "CONST":
-            {
-                var o = Pair(); var whole = (object[])o[0];
-                return whole.Length >= 2 ? whole[1] : Bot.Value;
-            }
+            // CONS is CANON -- Backus 13.3.2. Deleted here.
+            // CONST is CANON -- Backus 13.3.2. Deleted here.
             case "COND":
             {
                 var o = Pair(); var whole = (object[])o[0]; var arg = o[1];
@@ -414,23 +377,11 @@ static class Reducer
                     return Equals(o[0], T) && Equals(o[1], T) ? T : F;
                 return Bot.Value;
             }
-            case "or":
-            {
-                var o = Pair();
-                if (o is { Length: 2 } && (Equals(o[0], T) || Equals(o[0], F))
-                                       && (Equals(o[1], T) || Equals(o[1], F)))
-                    return Equals(o[0], T) || Equals(o[1], T) ? T : F;
-                return Bot.Value;
-            }
+            // or is CANON -- DEF("or"), strict per Backus 11.2.3. Deleted here.
             case "1r": return x is object[] s5 && s5.Length >= 1 ? s5[^1] : Bot.Value;
             case "tlr": return x is object[] s6 && s6.Length >= 1
                                ? s6.Take(s6.Length - 1).ToArray() : Bot.Value;
-            case "rotl": return x is object[] s7 && s7.Length > 0
-                               ? s7.Skip(1).Concat(s7.Take(1)).ToArray()
-                               : (x is object[] e7 ? e7 : Bot.Value);
-            case "rotr": return x is object[] s8 && s8.Length > 0
-                               ? s8.Skip(s8.Length - 1).Concat(s8.Take(s8.Length - 1)).ToArray()
-                               : (x is object[] e8 ? e8 : Bot.Value);
+            // rotl/rotr are CANON -- DEF("rotl"), DEF("rotr"). Deleted here.
             case "trans":
             {
                 if (x is not object[] rows || rows.Any(r => r is not object[]))
@@ -441,27 +392,8 @@ static class Reducer
                 return Enumerable.Range(0, w).Select(i =>
                     (object)rows.Select(r => ((object[])r)[i]).ToArray()).ToArray();
             }
-            case "cellkey":
-            {
-                // The cell-naming boundary op (spec D5): ⟨a, b⟩ to the atom "a:b".
-                // Strings pass through, integers stringify, anything else bottoms,
-                // mirroring the Python and Rust twins.
-                var o = Pair();
-                if (o is not { Length: 2 }) return Bot.Value;
-                var a = o[0] is string sa ? sa : o[0] is long ia ? ia.ToString() : null;
-                var b = o[1] is string sb ? sb : o[1] is long ib ? ib.ToString() : null;
-                return a is null || b is null ? Bot.Value : a + ":" + b;
-            }
-            case "escape_html":
-            {
-                // The html escape transducer (the render's ONE boundary
-                // piece): & < > " to entities, ints stringify, sequences
-                // bottom. Mirrors the Python/Rust/Java twins.
-                var ev = x is string es ? es : x is long ei ? ei.ToString() : null;
-                if (ev is null) return Bot.Value;
-                return ev.Replace("&", "&amp;").Replace("<", "&lt;")
-                         .Replace(">", "&gt;").Replace("\"", "&quot;");
-            }
+            // cellkey is CANON -- DEF("cellkey"). Deleted here.
+            // escape_html is CANON -- char fold over chars/implode. Deleted here.
             case "stage1_fields":
             {
                 // stage-1 at the lex boundary (spec D5); text and sid must
@@ -502,26 +434,36 @@ static class Reducer
                 }
                 return s1out;
             }
-            case "render:json":
+            // (render:json is CANON — DEF("render:json") with render:json_atom
+            // / render:json_seq, beside system:show. JsonValue above goes with
+            // it; see the note in engine/python/engine.py.)
+            // ---- the char/format base. These were absent from THIS host and
+            // from engine/java and engine/rust while python and all four
+            // stations registered them, so every canon def that spells a word
+            // — lex:lw, lex:adjup, lex:tokens, lex:camel, cn:pascalw,
+            // cn:otparts, ui:jname, ui:st, cn:hyph, cn:number,
+            // rmap:fkrows:derive — answered BOTTOM here. Canon held defs this
+            // host could not reduce, which is the "/" finding again.
+            // FIRST CHARACTER, not whole-string: python and the java/cs/rust
+            // stations all take charAt(0) and only head.part.js compares the
+            // whole string, so it is the outlier. ASCII by contract, so the
+            // ranges are literal and not culture aware. The empty atom passes
+            // through unchanged and answers "F" to the tests, matching python.
+            case "chars":
             {
-                // the JSON view emitter (react/Worker target): the
-                // element tree itself, compact JSON. Mirrors the twins.
-                var outp = new System.Text.StringBuilder();
-                if (!JsonValue(x, outp)) return Bot.Value;
-                return outp.ToString();
+                if (x is not string cx) return Bot.Value;
+                var carr = new object[cx.Length];
+                for (int i = 0; i < cx.Length; i++) carr[i] = cx[i].ToString();
+                return carr;
             }
-            case "strip_prefix":
-            {
-                // the prefix-strip base op (spec D5, generic string algebra
-                // beside implode/slug): <prefix, s> answers s with a leading
-                // prefix removed, or s unchanged. Mirrors the four kernels.
-                if (x is not object[] sp || sp.Length != 2) return Bot.Value;
-                var pp = sp[0] is string spa ? spa : sp[0] is long spi ? spi.ToString() : null;
-                var ss = sp[1] is string spb ? spb : sp[1] is long spj ? spj.ToString() : null;
-                if (pp is null || ss is null) return Bot.Value;
-                return ss.StartsWith(pp, System.StringComparison.Ordinal)
-                     ? ss.Substring(pp.Length) : ss;
-            }
+            // charup is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
+            // chardown is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
+            // charisup is CANON -- range test over 1 . chars. Deleted here.
+            // charislow is CANON -- range test over 1 . chars. Deleted here.
+            // charisdigit is CANON -- range test over 1 . chars. Deleted here.
+            // ntoa is CANON -- DEF("ntoa"). Deleted here.
+            // quote_str is CANON -- DEF("quote_str"). Deleted here.
+            // strip_prefix is CANON -- DEF("strip_prefix"). Deleted here.
             case "skolem":
             {
                 // The skolem boundary op (task-970, spec D5 beside cellkey):
@@ -568,11 +510,7 @@ static class Reducer
                 }
                 return string.Join(sep, parts);
             }
-            case "slug":
-            {
-                var t = x is string st2 ? st2 : x is long il2 ? il2.ToString() : null;
-                return t is null ? Bot.Value : Slug(t);
-            }
+            // slug is CANON -- DEF("slug"). Deleted here.
             case "+":
             {
                 var o = Pair();
@@ -591,7 +529,12 @@ static class Reducer
                 return o is { Length: 2 }
                     ? Arith(o[0], o[1], (a, b) => a * b, (a, b) => a * b) : Bot.Value;
             }
-            case "div":
+            // "/" not "div": one operation, one name. The fleet carried both —
+            // the stations registered "/" while this host, engine/rust and the
+            // python kernel registered "div" — and canon used "/" in ui:colw
+            // and "div" in system:compile_agg_rule, so each spelling was
+            // unevaluable on half the fleet and the two were never compared.
+            case "/":
             {
                 var o = Pair();
                 if (o is { Length: 2 })
@@ -599,7 +542,14 @@ static class Reducer
                     var na = ToNum(o[0]); var nb = ToNum(o[1]);
                     if (o[0] is not string && o[1] is not string &&
                         na is double da && nb is double db && db != 0)
-                        return da / db;
+                        // INTEGER division truncating toward zero. This
+                        // returned a FLOAT where Arest.java, Mu.cs, the rust
+                        // station and the python kernel all answer an integer:
+                        // 4/2 = 2.0 here, 2 everywhere else. The atom domain
+                        // has no float — canon, design-state and norma-answer
+                        // hold zero float literals — so the float was the
+                        // divergence, not the truncation.
+                        return (long)(da / db);
                 }
                 return Bot.Value;
             }
@@ -680,19 +630,5 @@ static class Reducer
         return tok;
     }
 
-    static string Slug(string t)
-    {
-        var sb = new System.Text.StringBuilder();
-        var run = false;
-        foreach (var c in t)
-        {
-            if (c is >= '0' and <= '9' or >= 'A' and <= 'Z' or >= 'a' and <= 'z')
-            {
-                sb.Append(c);
-                run = false;
-            }
-            else if (!run) { sb.Append('_'); run = true; }
-        }
-        return sb.ToString().Trim('_');
-    }
+    // Slug helper deleted: slug is CANON, this had no callers.
 }

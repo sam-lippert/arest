@@ -84,7 +84,7 @@ Domain has Access.
 
 User accesses Domain. +
 App navigates Domain. +
-App displays Noun. +
+App displays Object Type. +
 
 App extends App.
 
@@ -116,12 +116,12 @@ If some User authenticates and that User has some Email and that User does not o
 
 + App navigates Domain if App has navigable Domain.
 <!-- ilayer-join-order (2026-06-23): clauses ordered "App contains Domain" ->
-     "Noun is defined in Domain" -> "Noun is displayed by Element" so each join
-     shares a key (Domain, then Noun) with the prior clause. The original
-     Noun-displayed-first order joined C1(Noun,Element) x C2(App,Domain) -- which
+     "Object Type is defined in Domain" -> "Object Type is displayed by Element" so each join
+     shares a key (Domain, then Object Type) with the prior clause. The original
+     Object Type-displayed-first order joined C1(Object Type,Element) x C2(App,Domain) -- which
      share NO variable -- as a full cartesian before the C3 filter, materializing
      a multi-GB witness set that OOM-crashed every app compile. -->
-App uses Generator 'ilayer' if that App contains some Domain and some Noun is defined in that Domain and that Noun is displayed by some Element.
+App uses Generator 'ilayer' if that App contains some Domain and some Object Type is defined in that Domain and that Object Type is displayed by some Element.
 
 ## Instance Facts
 

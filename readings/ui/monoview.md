@@ -38,7 +38,12 @@ App Role(.Name) is an entity type.
   FileBrowser is a subtype of App Role.
   Settings is a subtype of App Role.
   UnifiedRepl is a subtype of App Role.
-  {HateoasBrowser, REPL, FileBrowser, Settings, UnifiedRepl} are mutually exclusive subtypes of App Role.
+  For each App Role, at most one of the following holds:
+      that App Role is a HateoasBrowser;
+      that App Role is a REPL;
+      that App Role is a FileBrowser;
+      that App Role is a Settings;
+      that App Role is an UnifiedRepl.
 
 UnifiedReplRegion(.Name) is an entity type.
 
@@ -261,7 +266,7 @@ MonoView 'hateoas' has default Pane Mode 'master-detail'.
 MonoView 'hateoas' has default Density Scale 'regular'.
 MonoView 'hateoas' has default Interaction Mode 'pointer'.
 MonoView 'hateoas' has default A11y Profile 'screen-reader-aware'.
-MonoView 'hateoas' has Description 'Resources column on the left, Instances in the center, Detail on the right. Master-detail under pointer, collapses to stack under touch.'.
+MonoView 'hateoas' has Description 'Object Type Instances column on the left, Instances in the center, Detail on the right. Master-detail under pointer, collapses to stack under touch.'.
 
 Region 'hateoas.resources' belongs to MonoView 'hateoas'.
 Region 'hateoas.resources' has Region Slot 'sidebar'.
@@ -269,7 +274,7 @@ Region 'hateoas.resources' has Region Role 'navigation'.
 Region 'hateoas.resources' has Transition Style 'slide'.
 Region 'hateoas.resources' has Surface Tier 'panel'.
 Region 'hateoas.resources' has Z Index 10.
-Region 'hateoas.resources' has display- Title 'Resources'.
+Region 'hateoas.resources' has display- Title 'Object Type Instances'.
 Region 'hateoas.resources' is visible in Pane Mode 'master-detail'.
 Region 'hateoas.resources' is visible in Pane Mode 'tabs'.
 
@@ -471,7 +476,7 @@ Region 'unified-repl.resources' has Region Role 'navigation'.
 Region 'unified-repl.resources' has Transition Style 'none'.
 Region 'unified-repl.resources' has Surface Tier 'panel'.
 Region 'unified-repl.resources' has Z Index 10.
-Region 'unified-repl.resources' has display- Title 'Resources'.
+Region 'unified-repl.resources' has display- Title 'Object Type Instances'.
 Region 'unified-repl.resources' is visible in Pane Mode 'master-detail'.
 
 Region 'unified-repl.detail' belongs to MonoView 'unified-repl'.

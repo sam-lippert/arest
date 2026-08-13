@@ -599,7 +599,10 @@ def _d_cmp(rel):
             # comparison coerces like arithmetic: the store's lexical numbers
             # ('305' beside a sum's 4997) order numerically wherever both
             # sides parse — the old kernel's atoms were typed, so its folds
-            # compared numbers as numbers (the claude analytics family)
+            # compared numbers as numbers (the claude analytics family).
+            # Restored 2026-08-08 after I removed it on a derivation that
+            # generalised from system:max2's single caller to every comparison;
+            # test_polyglot's (4997, "11000") is the counterexample.
             return _T if rel(na, nb) else _F
         ok = _num(a, b) or type(a) is type(b)
         return (_T if rel(a, b) else _F) if ok else BOT_D
@@ -614,12 +617,9 @@ def _d_comp(mu, o):
         acc = (APP_D, f, acc)
     return acc
 
-def _d_cons(mu, o):
-    whole, x = o[0], o[1]
-    return _mkseq(mu((APP_D, f, x)) for f in whole[1:])
+# _d_cons deleted: CONS/CONST are CANON (Backus 13.3.2); no dispatch reaches this.
 
-def _d_const(mu, o):
-    return o[0][1] if len(o[0]) >= 2 else BOT_D              # ⟨CONST⟩ with no payload is ⊥
+# _d_const deleted: CONS/CONST are CANON (Backus 13.3.2); no dispatch reaches this.
 
 def _d_cond(mu, o):
     whole, x = o[0], o[1]
@@ -766,19 +766,22 @@ _NATIVE = {
     "not": lambda mu, o: _F if o == _T else (_T if o == _F else BOT_D),
     "and": lambda mu, o: ((_T if (o[0] == _T and o[1] == _T) else _F)
         if (o[0] in (_T, _F) and o[1] in (_T, _F)) else BOT_D) if _pair(o) else BOT_D,
-    "or": lambda mu, o: ((_T if (o[0] == _T or o[1] == _T) else _F)
-        if (o[0] in (_T, _F) and o[1] in (_T, _F)) else BOT_D) if _pair(o) else BOT_D,
+    # or is CANON -- DEF("or"), strict per Backus 11.2.3. Deleted here.
     "1r": lambda mu, o: o[-1] if (_isseq(o) and len(o) >= 1) else BOT_D,
     "tlr": lambda mu, o: o[:-1] if (_isseq(o) and len(o) >= 1) else BOT_D,
     "trans": _d_trans,
-    "rotl": lambda mu, o: o[1:] + o[:1] if _isseq(o) else BOT_D,
-    "rotr": lambda mu, o: o[-1:] + o[:-1] if _isseq(o) else BOT_D,
+    # rotl/rotr are CANON -- DEF("rotl"), DEF("rotr"). Deleted here.
     "+": _binop(lambda a, b: a + b), "-": _binop(lambda a, b: a - b), "*": _binop(lambda a, b: a * b),
-    "div": lambda mu, o: o[0] / o[1] if (_pair(o) and _num(o[0], o[1]) and o[1] != 0) else BOT_D,
+    # int(a / b): integer division truncating toward zero, matching _div on the
+    # lambda side and the stations. The delta path is held OBSERVATIONALLY
+    # EQUAL to the kernel, so a float here would break that claim silently —
+    # it did, and the "div"/"/" name split kept the two spellings from ever
+    # being compared against each other or against a station.
+    "/": lambda mu, o: int(o[0] / o[1]) if (_pair(o) and _num(o[0], o[1]) and o[1] != 0) else BOT_D,
     "ge": _d_cmp(lambda a, b: a >= b), "gt": _d_cmp(lambda a, b: a > b),
     "le": _d_cmp(lambda a, b: a <= b), "lt": _d_cmp(lambda a, b: a < b),
     "apply": lambda mu, o: mu((APP_D, o[0], o[1])) if _pair(o) else BOT_D,
-    "COMP": _d_comp, "CONS": _d_cons, "CONST": _d_const, "COND": _d_cond,
+    "COMP": _d_comp, "COND": _d_cond,
     "ALPHA": _d_alpha, "INSERT": _d_insert, "WHILE": _d_while, "BU": _d_bu,
 }
 for _i in range(1, 33):
@@ -1047,9 +1050,7 @@ _isTF  = lambda v: L.OR(L.EQOBJ(v)(aT))(L.EQOBJ(v)(aF))                         
 _and   = _shaped(_pair_b, lambda mu: lambda o: L.IF(L.AND(_isTF(_1(o)))(_isTF(_2(o))))(
             lambda: L.IF(L.AND(L.EQOBJ(_1(o))(aT))(L.EQOBJ(_2(o))(aT)))(lambda: aT)(lambda: aF))(
             lambda: L.BOT))                                                       # and:⟨p,q⟩, T/F only
-_or    = _shaped(_pair_b, lambda mu: lambda o: L.IF(L.AND(_isTF(_1(o)))(_isTF(_2(o))))(
-            lambda: L.IF(L.OR(L.EQOBJ(_1(o))(aT))(L.EQOBJ(_2(o))(aT)))(lambda: aT)(lambda: aF))(
-            lambda: L.BOT))                                                       # or:⟨p,q⟩, T/F only
+# _or deleted: the op is CANON now; this impl had no callers.
 _revl  = lambda l: L.FOLDR(lambda h: lambda a: L.APPEND(a)(L.CONS(h)(L.NIL)))(L.NIL)(l)
 _1r    = lambda mu: lambda o: o(lambda v: L.BOT)(lambda l: L.HEAD(_revl(l)))(L.BOT)         # last element
 _tlr   = lambda mu: lambda o: o(lambda v: L.BOT)(lambda l:                                  # all but last;
@@ -1095,9 +1096,18 @@ def _p_cmp(rel):
             a, b = _pv(_1(o)), _pv(_2(o))
             if a is _NA or b is _NA:
                 return L.BOT
+            # COERCION IS INTENDED HERE. I removed this branch on 2026-08-08
+            # arguing that #31 normalises value-typed fillers at the reading
+            # boundary so the base could be strict. That generalised from ONE
+            # call site (system:max2's sole caller composes "+" after the fold,
+            # forcing numeric operands there) to every comparison, and it is
+            # false: the store genuinely holds int beside lexical number —
+            # test_polyglot pins (4997, "11000") as "mixed int/lexical
+            # (claude's totals)" and ("9","10") as "comparators COERCE".
+            # #31 covers readings, not every path into the store.
             na, nb = _p_tonum(a), _p_tonum(b)
             if na is not None and nb is not None:
-                return aT if rel(na, nb) else aF                       # coerced like arithmetic (delta._p_cmp mirror)
+                return aT if rel(na, nb) else aF
             ok = _numeric(a, b) or type(a) is type(b)
             return (aT if rel(a, b) else aF) if ok else L.BOT
         return g
@@ -1105,11 +1115,159 @@ def _p_cmp(rel):
 _add, _sub, _mul = _binnum(lambda a, b: a + b), _binnum(lambda a, b: a - b), _binnum(lambda a, b: a * b)
 _ge, _gt = _p_cmp(lambda a, b: a >= b), _p_cmp(lambda a, b: a > b)
 _le, _lt = _p_cmp(lambda a, b: a <= b), _p_cmp(lambda a, b: a < b)
-_div   = _shaped(_pair_b, lambda mu: lambda o: (lambda a, b: L.atom(a / b)
-            if (_numeric(a, b) and b != 0) else L.BOT)(_pv(_1(o)), _pv(_2(o))))  # ÷ (÷0 = ⊥)
+# INTEGER division truncating toward zero, matching Arest.java's
+# `Integer.valueOf((Integer) p[0] / (Integer) p[1])` and the rust station's
+# `V::I(int_of(a) / int_of(b))`. This host answered a FLOAT (6/3 = 2.0 where
+# every station answers 2); the two spellings hid it, since canon used "/" in
+# ui:colw and "div" here, so the two were never compared.
+#
+# The ATOM DOMAIN settles this, not majority rule: canon, design-state and
+# norma-answer hold ZERO float literals, and the station value model has no
+# float at all (Java String|Integer|Object[]). The metamodel's `The data type
+# of Minimum is decimal.` is a DECLARED ORM data type — a fact about the world
+# being modelled — not a member of the evaluator's atom domain. Conflating the
+# two argues for giving the stations floats they have never needed.
+#
+# int(a / b), not a // b: Python floors (-7 // 2 == -4) where Java and Rust
+# truncate toward zero (-7 / 2 == -3). ÷0 stays ⊥ here while the stations
+# throw — a separate divergence, recorded rather than silently changed.
+_div   = _shaped(_pair_b, lambda mu: lambda o: (lambda a, b: L.atom(int(a / b))
+            if (_numeric(a, b) and b != 0) else L.BOT)(_pv(_1(o)), _pv(_2(o))))
+# ---- the char/format base, mirroring Arest.java one for one. These were
+# absent here while every station registered them, so lex: (the whole word
+# lexer), parts of cn: naming and ui: layout answered BOTTOM under python:
+#   chars       <- lex:lw lex:adjup lex:tokens lex:camel cn:pascalw cn:otparts
+#   charisup    <- lex:allup lex:alnumtok lex:punctsplit lex:explicit
+#   charisdigit <- lex:alnumtok lex:punctsplit rmap:conalldig
+#   ntoa        <- ui:jname ui:st cn:hyph cn:number rmap:fkrows:derive
+# ASCII on every station by contract, so the ranges are literal, not locale
+# aware. A host missing base prims is INCOMPLETE, not lean.
+def _str_prim(f):
+    """A prim over ONE string atom: _pv gives the native value or _NA, and a
+    non-string operand answers ⊥ — the same guard _slug_impl/_lex_impl use."""
+    def outer(mu):
+        def g(o):
+            v = _pv(o)
+            if v is _NA or not isinstance(v, str):
+                return L.BOT
+            return f(v)
+        return g
+    return outer
+
+
+def _seq_of(xs):
+    l = L.NIL
+    for x in reversed(xs):
+        l = L.CONS(x)(l)
+    return L.SEQ(l)
+
+
+_chars = _str_prim(lambda s: _seq_of([L.atom(c) for c in s]))
+# _charup deleted: the op is CANON now; this impl had no callers.
+# _chardown deleted: the op is CANON now; this impl had no callers.
+# _charisup deleted: the op is CANON now; this impl had no callers.
+# _charislow deleted: the op is CANON now; this impl had no callers.
+# _charisdigit deleted: the op is CANON now; this impl had no callers.
+# _quote_str deleted: the op is CANON now; this impl had no callers.
+
+
+# strip_prefix belongs to the base but was registered only in engine.py, the
+# 14k-line spine thin.py exists to exclude — so the thin host answered ⊥ where
+# every station answered a value. It lives here now, and engine.py no longer
+# carries a second copy: a prim defined twice in one host is the defect this
+# whole exercise is about, and which copy wins would come down to import order.
+#
+# POLICY-FREE, per the ruling that introduced the op (parity-ledger 2026-07-08,
+# the entity_view slice): "strip_prefix is the only 4-host addition: <prefix,s>
+# -> tail-or-s, policy-free." So the prefix comes off whenever s starts with it
+# and strip_prefix<"abc","abc"> is the EMPTY atom, not "abc". The four stations
+# had all grown a `len(t) > len(pre)` guard that no source asks for; they were
+# transliterated from one another, so byte-identity across them could never see
+# it. str/int operands both admitted, stringified, matching this host's spine.
+# _strip_prefix deleted: the op is CANON now; this impl had no callers.
+
+
+# ---- the four remaining SALVAGE base prims. metamodel/resolution.md declares
+# lex / implode / slug / escape_html / strip_prefix all Definition Origin
+# 'registered' — they are the base, not the spine — yet all four lived only in
+# engine.py, the 14k-line module thin.py exists to exclude. So the thin host
+# answered ⊥ for a quarter of the shared case table while all seven other hosts
+# answered values, and implode is what main:report_text itself is built from: a
+# host that cannot implode cannot print a law report. Moved here verbatim (the
+# package aliases pyarest.defs to this module, so _aval/_items are the same
+# functions the spine was calling), ONE copy each, engine.py's deleted.
+# _escape_html deleted: the op is CANON now; this impl had no callers.
+
+
+def _implode(mu):
+    def g(o):
+        it = _items(L._list(o))
+        if len(it) != 2:
+            return L.BOT
+        sep = _aval(it[0])
+        if sep is None or isinstance(sep, tuple):
+            return L.BOT
+        parts = []
+        for w in _items(L._list(it[1])):
+            v = _aval(w)
+            if v is None or isinstance(v, tuple):
+                return L.BOT
+            parts.append(str(v))
+        return L.atom(str(sep).join(parts))
+    return g
+
+
+# slug is CANON -- DEF("slug"). Deleted here.
+
+
+def _lex(mu):
+    import re
+
+    def g(o):
+        t = _aval(o)
+        if t is None or isinstance(t, tuple):
+            return L.BOT
+        text = str(t)
+        spans = [m.span() for m in re.finditer(r"'[^']*'", text)]
+        rows = []
+        for m in re.finditer(r"\S+", text):
+            tok, s, e = m.group(0), m.start(), m.end()
+            k = next((i + 1 for i, (a, b) in enumerate(spans)
+                      if s < b and a < e), 0)
+            qtext = ""
+            if k:
+                a, b = spans[k - 1]
+                qtext = text[max(s, a + 1):min(e, b - 1)]
+            nopunct = tok.strip(".;:,")
+            base = nopunct.rstrip("0123456789")
+            # field 8 is the token's TEMPLATE form under NORMA hyphen binding
+            # (#24, retiring the touching bind): a one-sided touching hyphen is
+            # the bind marker and is consumed ('adj-'/'-adj' -> the word), the
+            # doubled hyphen escapes to one literal hyphen ('FORE--'->'FORE-',
+            # '--W'->'-W'), anything else (incl. 'from-Status') is as written.
+            # The compiler's _hyphen_tpl is the certified host twin.
+            tpl = tok
+            if len(tpl) > 2 and tpl.endswith("--"):
+                tpl = tpl[:-1]
+            elif len(tpl) > 2 and tpl.startswith("--"):
+                tpl = tpl[1:]
+            elif len(tpl) > 1 and tpl.endswith("-") and not tpl.endswith("--"):
+                tpl = tpl[:-1]
+            elif len(tpl) > 1 and tpl.startswith("-") and not tpl.startswith("--"):
+                tpl = tpl[1:]
+            rows.append((tok, nopunct, base, nopunct[len(base):], tok.lower(),
+                         qtext, "T" if base and base[0].isupper() else "F",
+                         tpl, "T" if k else "F", k))
+        return to_lam(tuple(rows))
+    return g
+
+
+# ntoa REFUSES a non-number (Arest.java throws "ntoa on non-number"); ⊥ is
+# this host's refusal, matching its ÷0 convention rather than the JVM's.
+# _ntoa deleted: the op is CANON now; this impl had no callers.
+
 _p_trans = lambda mu: lambda o: L.TRANS(o)
-_rotl  = lambda mu: lambda o: L.ROTL(o)
-_rotr  = lambda mu: lambda o: L.ROTR(o)
+# _rotl/_rotr deleted with their registrations -- rotl/rotr are CANON.
 # apply:⟨f, x⟩ = f:x = mu(f : x) — membership is application; the one operation eq. sys performs,
 # and what lets a VALUE (a transition relation, a handler) be fed into the one mu.
 _apply = _shaped(_pair_b, lambda mu: lambda o: mu(mkapp(_1(o))(_2(o))))
@@ -1119,9 +1277,9 @@ _apply = _shaped(_pair_b, lambda mu: lambda o: mu(mkapp(_1(o))(_2(o))))
 _p_comp = lambda mu: lambda a: L.FOLDR(lambda f: lambda acc: mkapp(f)(acc))(_2(a))(_params(_1(a)))
 # CONS  [f1..fn] : y = ⟨f1:y,..,fn:y⟩            each element reduced by mu (the result nests them);
 #                                                 ⊥-collapsing: any fi:y = ⊥ makes the whole ⊥ (§11.2.1)
-_p_cons = lambda mu: lambda a: L.SEQC(L.MAPL(lambda f: mu(mkapp(f)(_2(a))))(_params(_1(a))))
+# _p_cons deleted: CONS/CONST are CANON (Backus 13.3.2); no dispatch reaches this.
 # CONST  x̄ : y = x   (⊥-preserving: x̄ : ⊥ = ⊥)
-_p_const = lambda mu: lambda a: _2(a)(lambda v: _2(_1(a)))(lambda l: _2(_1(a)))(L.BOT)
+# _p_const deleted: CONS/CONST are CANON (Backus 13.3.2); no dispatch reaches this.
 # ALPHA  αf : ⟨y1..yn⟩ = ⟨f:y1,..,f:yn⟩          ⊥-collapsing like CONS
 _p_alpha = lambda mu: lambda a: _2(a)(lambda v: L.BOT)(lambda l:
             L.SEQC(L.MAPL(lambda yi: mu(mkapp(_2(_1(a)))(yi)))(l)))(L.BOT)
@@ -1165,12 +1323,20 @@ def register_base():
     prims = {"tl": _tl, "id": _id, "atom": _atom, "null": _null, "eq": _eq,
              "apndl": _apndl, "apndr": _apndr, "distl": _distl, "distr": _distr,
              "length": _len, "reverse": _rev, "cat": _cat,
-             "not": _not, "and": _and, "or": _or, "1r": _1r, "tlr": _tlr,
-             "trans": _p_trans, "rotl": _rotl, "rotr": _rotr,
-             "+": _add, "-": _sub, "*": _mul, "div": _div,
+             "not": _not, "and": _and, "1r": _1r, "tlr": _tlr,
+             "trans": _p_trans,   # rotl/rotr are CANON. Deleted here.
+             # "/" not "div": one operation, one name. The fleet had BOTH —
+             # java/cs/rust registered "/" and python registered "div", while
+             # canon used "/" in ui:colw and "div" in system:compile_agg_rule.
+             # So ui:colw was unevaluable here and compile_agg_rule was
+             # unevaluable on every station: canon contained a DEF no single
+             # host could reduce. Spelled as a symbol beside + - * , which is
+             # what the rest of the base already does.
+             "+": _add, "-": _sub, "*": _mul, "/": _div,
              "ge": _ge, "gt": _gt, "le": _le, "lt": _lt,
              "apply": _apply,
-             "COMP": _p_comp, "CONS": _p_cons, "CONST": _p_const, "ALPHA": _p_alpha,
+             "chars": _chars, "implode": _implode, "lex": _lex,
+             "COMP": _p_comp, "ALPHA": _p_alpha,
              "COND": _p_cond, "INSERT": _p_insert, "WHILE": _p_while, "BU": _p_bu}
     for name, fn in prims.items():
         register(name, fn)

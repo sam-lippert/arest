@@ -43,19 +43,19 @@ Chat Message occurred at Timestamp.
   Each Chat Message occurred at exactly one Timestamp.
 
 ### Tool Call
-Chat Message invokes Verb.
-  It is possible that some Chat Message invokes more than one Verb.
+Chat Message invokes Predicate.
+  It is possible that some Chat Message invokes more than one Predicate.
 
 Tool Call is for Chat Message.
   Each Tool Call is for exactly one Chat Message.
-Tool Call invokes Verb.
-  Each Tool Call invokes exactly one Verb.
+Tool Call invokes Predicate.
+  Each Tool Call invokes exactly one Predicate.
 Tool Call has Tool Call Id.
   Each Tool Call has exactly one Tool Call Id.
 Tool Call has Result.
   Each Tool Call has at most one Result.
 
-This association with Chat Message, Verb, Tool Call Id provides the preferred identification scheme for Tool Call.
+This association with Chat Message, Predicate, Tool Call Id provides the preferred identification scheme for Tool Call.
 
 ### User actions
 User closes Agent Chat.
@@ -69,7 +69,7 @@ It is obligatory that each Agent Chat has at least one Chat Message after it occ
 
 ## Instance Facts
 
-State Machine Definition 'Agent Chat' is for Noun 'Agent Chat'.
+State Machine Definition 'Agent Chat' is for Object Type 'Agent Chat'.
 Status 'Open' is initial in State Machine Definition 'Agent Chat'.
 Status 'Closed' is defined in State Machine Definition 'Agent Chat'.
 Status 'Closed' is terminal in State Machine Definition 'Agent Chat'.

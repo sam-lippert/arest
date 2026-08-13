@@ -16,7 +16,7 @@ The host contract, final: convert argv to atoms, evaluate canon `main`,
 print the one text atom (plus `"\n"` — never `println`, whose platform
 separator would break byte parity), exit by the flag. Six lines, no
 branches, forever. Certified byte-identical to `bun composed.g.js` on the
-same carriers: base 24 laws, app 10, solve, explain, and the unknown-mode
+same carriers: base 53 laws, app 10, solve, explain, and the unknown-mode
 refusal with exit 1.
 
 ## Gui — the GUI container (MonoCross made structural)
