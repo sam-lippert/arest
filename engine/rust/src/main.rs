@@ -4703,14 +4703,26 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
     // block after `reach` below. A PRESENT-but-empty cell is an
     // explicitly-materialized empty schedule and is honored as before.
     let has_passheads_cell = store.has_cell(&leaf("passHeads"));
-    for r in store.pop_rows(&leaf("passHeads")) {
-        let it = items(&list_of(&r));
-        if it.len() >= 2 {
-            let p = match aval(&it[0]).as_deref() {
-                Some(Leaf::S(s)) => s.clone(),
-                _ => continue,
-            };
-            let h = key_of(&it[1]);
+    // CANON -- DEF("theta:groupby1"): <pass, head> rows grouped by pass name,
+    // short rows skipped. What stays here is the DISPATCH -- which vector each
+    // pass name fills -- because that is this host's scheduling structure, not
+    // a fact about the rows. The pass name is read as a bare string, never
+    // through key_of: key_of quotes it and no arm would match, which silently
+    // skipped the store's whole schedule until the minted-cell differential
+    // caught it on 2026-07-08 (see the same note on passOrder below).
+    let grouped_passes = reduce_over_n(srv, atom(Leaf::S("theta:groupby1".to_string())),
+                                       seqv(store.pop_rows(&leaf("passHeads"))), -1);
+    for g in items(&list_of(&grouped_passes)) {
+        let gi = items(&list_of(&g));
+        if gi.len() < 2 {
+            continue;
+        }
+        let p = match aval(&gi[0]).as_deref() {
+            Some(Leaf::S(s)) => s.clone(),
+            _ => continue,
+        };
+        for hv in items(&list_of(&gi[1])) {
+            let h = key_of(&hv);
             match p.as_str() {
                 "sweep" => pass_sweep.push(h),
                 "dred" => pass_dred.push(h),
