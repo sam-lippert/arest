@@ -10929,8 +10929,7 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
         // the derived entity population: every id the entity's roles mention,
         // plus its own cell — set semantics over python == (set_key coalesces
         // 5 and 5.0, keeps "5" distinct), first-seen representative kept
-        let mut ids: Vec<(String, V)> = Vec::new();
-        let mut id_seen: HashSet<String> = HashSet::new();
+        let mut seen_ids: Vec<V> = Vec::new();
         // CANON -- DEF("rmap:playerpos") answers which fact types name this
         // table and at which role position; DEF("rmap:atpos") projects that
         // position out of the population, carrying both guards (position >= 1
@@ -10953,22 +10952,31 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
                                      seqv(vec![pi[1].clone(),
                                                seqv(pop(&ft).to_vec())]), -1);
             for v in items(&list_of(&vals)) {
-                let k = key_of(&v);
-                if id_seen.insert(k.clone()) {
-                    ids.push((k, v));
-                }
+                seen_ids.push(v);
             }
         }
-        for row in pop(table) {
-            let it = row_items(row);
-            if !it.is_empty() {
-                let v = it[0].clone();
-                let k = key_of(&v);
-                if id_seen.insert(k.clone()) {
-                    ids.push((k, v));
-                }
-            }
+        // the entity's own cell joins the sweep, first position of each row
+        let ownids = reduce_over_n(srv, atom(Leaf::S("rmap:atpos".to_string())),
+                                   seqv(vec![atom(Leaf::I(1)),
+                                             seqv(pop(table).to_vec())]), -1);
+        for v in items(&list_of(&ownids)) {
+            seen_ids.push(v);
         }
+        // CANON -- DEF("theta:firstseen"): the FIRST occurrence of each id
+        // wins, which is what the id_seen set did. theta:dedup would keep the
+        // LAST and is the wrong rule here. This could not move until the value
+        // boundary stopped coalescing 2 with 2.0 -- the set was keyed by
+        // key_of, and canon dedups by eq.
+        let deduped = reduce_over_n(srv, atom(Leaf::S("theta:firstseen".to_string())),
+                                    seqv(seen_ids), -1);
+        let mut ids: Vec<(String, V)> = items(&list_of(&deduped))
+            .into_iter()
+            .map(|v| (key_of(&v), v))
+            .collect();
+        // the SORT stays host: it orders by str_form -- the RENDERED text --
+        // with the key as tiebreak, which is a presentation order over two
+        // encodings, not the store's identity. Moving it means deciding how
+        // canon renders a value for ordering, which is its own question.
         ids.sort_by(|a, b| str_form(&a.1).cmp(&str_form(&b.1)).then_with(|| a.0.cmp(&b.0)));
         // the per-column views, straight from canon: <kind, entries>. The
         // ColVals enum that stood here kept a HashSet/HashMap KEYED BY key_of,
