@@ -181,11 +181,39 @@ impl Known {
 // ============================ small string helpers ===========================
 
 // _num (compiler.py): int(s) else float(s) else the stripped string
-fn num(s: &str) -> Val {
+fn num(srv: &Srv, s: &str) -> Val {
     let t = s.trim();
-    if let Ok(i) = t.parse::<i64>() {
+    // CANON -- DEF("theta:aton"). This is where the ORM TYPE is assigned:
+    // whether "120" is an Integer or stays a String is exactly what canon's eq
+    // compares on (NATEQ, "same ORM type + equal"). ntoa was already canon, so
+    // the two halves of one decision sat on opposite sides of the boundary.
+    // Memoized like ddl_sql_name and key_col -- a value spec repeats across
+    // statements, and a memo over a pure function is an extensional equal.
+    thread_local! {
+        static ATON: std::cell::RefCell<std::collections::HashMap<String, Option<i64>>> =
+            std::cell::RefCell::new(std::collections::HashMap::new());
+    }
+    let hit = ATON.with(|m| m.borrow().get(t).copied());
+    let asint = match hit {
+        Some(v) => v,
+        None => {
+            let out = reduce_over_n(srv, atom(Leaf::S("theta:aton".to_string())),
+                                    atom(Leaf::S(t.to_string())), -1);
+            let v = match aval(&out) {
+                Some(l) => match &*l { Leaf::I(i) => Some(*i), _ => None },
+                None => None,
+            };
+            ATON.with(|m| m.borrow_mut().insert(t.to_string(), v));
+            v
+        }
+    };
+    if let Some(i) = asint {
         return Val::I(i);
     }
+    // canon answers the text back for anything that is not an optionally
+    // signed run of digits, which includes every float. Reproducing a platform
+    // float parser in canon is the mistake that keeping set_key's float
+    // formatting out of canon avoids, so the float branch stays here.
     // python float() and rust f64 parse agree on the corpus forms; python
     // rejects internal whitespace and empty, as does rust
     if !t.is_empty() && !t.contains(char::is_whitespace) {
@@ -603,14 +631,14 @@ fn vc_range(lo: Option<Val>, hi: Option<Val>, lo_open: bool, hi_open: bool) -> (
     )
 }
 
-fn enum_member(v: &str) -> Val {
+fn enum_member(srv: &Srv, v: &str) -> Val {
     let v = v.trim();
     let cs: Vec<char> = v.chars().collect();
     if cs.len() >= 2 && cs[0] == '\'' && cs[cs.len() - 1] == '\'' {
         let inner: String = cs[1..cs.len() - 1].iter().collect();
-        return num(&inner);
+        return num(srv, &inner);
     }
-    num(v)
+    num(srv, v)
 }
 
 // find the FIRST occurrence of any of `seps` (leftmost; ties impossible for
@@ -630,15 +658,15 @@ fn first_sep<'a>(s: &'a str, seps: &[&str]) -> Option<(&'a str, &'a str)> {
     best.map(|(p, l)| (&s[..p], &s[p + l..]))
 }
 
-fn value_spec(spec: &str) -> (String, Val) {
+fn value_spec(srv: &Srv, spec: &str) -> (String, Val) {
     let spec = spec.trim();
     // [lo..hi] — lazy: split at the FIRST '..'
     if let Some(body) = spec.strip_prefix('[').and_then(|b| b.strip_suffix(']')) {
         if let Some(p) = body.find("..") {
             if p >= 1 && p + 2 < body.len() {
                 return vc_range(
-                    Some(num(&body[..p])),
-                    Some(num(&body[p + 2..])),
+                    Some(num(srv, &body[..p])),
+                    Some(num(srv, &body[p + 2..])),
                     false,
                     false,
                 );
@@ -649,13 +677,13 @@ fn value_spec(spec: &str) -> (String, Val) {
         // at least (.+?) to at most (.+)
         if let Some((lo, hi)) = first_sep(b, &[" to at most "]) {
             if !hi.is_empty() {
-                return vc_range(Some(num(lo)), Some(num(hi)), false, false);
+                return vc_range(Some(num(srv, lo)), Some(num(srv, hi)), false, false);
             }
         }
         // at least (.+?) (?:to|and) below (.+)
         if let Some((lo, hi)) = first_sep(b, &[" to below ", " and below "]) {
             if !hi.is_empty() {
-                return vc_range(Some(num(lo)), Some(num(hi)), false, true);
+                return vc_range(Some(num(srv, lo)), Some(num(srv, hi)), false, true);
             }
         }
     }
@@ -663,34 +691,34 @@ fn value_spec(spec: &str) -> (String, Val) {
         // above (.+?) to at most (.+)
         if let Some((lo, hi)) = first_sep(b, &[" to at most "]) {
             if !hi.is_empty() {
-                return vc_range(Some(num(lo)), Some(num(hi)), true, false);
+                return vc_range(Some(num(srv, lo)), Some(num(srv, hi)), true, false);
             }
         }
         // above (.+?) (?:to|and) below (.+)
         if let Some((lo, hi)) = first_sep(b, &[" to below ", " and below "]) {
             if !hi.is_empty() {
-                return vc_range(Some(num(lo)), Some(num(hi)), true, true);
+                return vc_range(Some(num(srv, lo)), Some(num(srv, hi)), true, true);
             }
         }
     }
     if let Some(b) = spec.strip_prefix("at least ") {
         if !b.is_empty() {
-            return vc_range(Some(num(b)), None, false, false);
+            return vc_range(Some(num(srv, b)), None, false, false);
         }
     }
     if let Some(b) = spec.strip_prefix("above ") {
         if !b.is_empty() {
-            return vc_range(Some(num(b)), None, true, false);
+            return vc_range(Some(num(srv, b)), None, true, false);
         }
     }
     if let Some(b) = spec.strip_prefix("at most ") {
         if !b.is_empty() {
-            return vc_range(None, Some(num(b)), false, false);
+            return vc_range(None, Some(num(srv, b)), false, false);
         }
     }
     if let Some(b) = spec.strip_prefix("below ") {
         if !b.is_empty() {
-            return vc_range(None, Some(num(b)), false, true);
+            return vc_range(None, Some(num(srv, b)), false, true);
         }
     }
     // the enumeration: re.split(r",| and ", spec), empties dropped
@@ -706,12 +734,12 @@ fn value_spec(spec: &str) -> (String, Val) {
             (None, None) => break,
         };
         if !rest[..p].trim().is_empty() {
-            members.push(enum_member(&rest[..p]));
+            members.push(enum_member(srv, &rest[..p]));
         }
         rest = &rest[p + l..];
     }
     if !rest.trim().is_empty() {
-        members.push(enum_member(rest));
+        members.push(enum_member(srv, rest));
     }
     (
         "constraints:value_enumeration".to_string(),
@@ -881,10 +909,10 @@ fn cook_frequency(g: &[Option<String>], k: &Known) -> (String, String, Vec<i64>,
 }
 
 // _compile_value_constraint
-fn cook_value_constraint(g: &[Option<String>]) -> (String, String, String, String, Val) {
+fn cook_value_constraint(srv: &Srv, g: &[Option<String>]) -> (String, String, String, String, Val) {
     let g0 = g[0].as_deref().unwrap_or("");
     let g1 = g[1].as_deref().unwrap_or("");
-    let (builder, bop) = value_spec(g1);
+    let (builder, bop) = value_spec(srv, g1);
     (
         g0.to_string(),
         g1.to_string(),
@@ -1192,7 +1220,7 @@ fn cook_subtype(sub: &str, sup: &str) -> Crows {
 }
 
 // _compile_fact: marker strip, quote detection, ids, ft resolution, subtype lift
-fn cook_fact(g0: &str, k: &Known) -> Crows {
+fn cook_fact(srv: &Srv, g0: &str, k: &Known) -> Crows {
     let (kind, rd) = strip_derivation(g0);
     if rd.contains('\'') {
         let dequoted = ws_norm(&quoted_sub(&rd));
@@ -1206,7 +1234,7 @@ fn cook_fact(g0: &str, k: &Known) -> Crows {
             .enumerate()
             .map(|(i, v)| {
                 if i < rtypes.len() && k.vals.contains(&rtypes[i]) {
-                    num(&v)
+                    num(srv, &v)
                 } else {
                     Val::S(v)
                 }
@@ -1310,12 +1338,12 @@ fn cook_derivation_rule(g: &[Option<String>], k: &Known) -> Crows {
 
 // _compile_neg_pair: NORMA's unary negation — the paired positive-shaped
 // negation fact type with the pair exclusion auto-asserted
-fn cook_neg_pair(g: &[Option<String>], k: &Known) -> Crows {
+fn cook_neg_pair(srv: &Srv, g: &[Option<String>], k: &Known) -> Crows {
     let subj = g[0].as_deref().unwrap_or("");
     let mode = g[1].as_deref().unwrap_or("");
     let rest = g[2].as_deref().unwrap_or("");
     if !k.names.contains(subj) {
-        return cook_fact(&format!("{} {} {}", subj, mode, rest), k);
+        return cook_fact(srv, &format!("{} {} {}", subj, mode, rest), k);
     }
     let pos_read = if mode == "is not" {
         format!("{} is {}", subj, rest)
@@ -1639,7 +1667,7 @@ fn at_most_zero(frag: &str) -> Option<String> {
 }
 
 #[allow(clippy::type_complexity)]
-fn cook_rule_if(head_txt: &str, body: &str, k: &Known, kind: &str) -> Crows {
+fn cook_rule_if(srv: &Srv, head_txt: &str, body: &str, k: &Known, kind: &str) -> Crows {
     // clause split: ' and ' at top level; 'no ' groups and the 'at most 0'
     // idiom become negation groups; ' where ' folds per its scope
     let mut clauses: Vec<String> = Vec::new();
@@ -1696,7 +1724,7 @@ fn cook_rule_if(head_txt: &str, body: &str, k: &Known, kind: &str) -> Crows {
                 if let Some(ocol) = cols.get(&objtxt) {
                     filters.push(fspec_col(opw, scol, ocol));
                 } else {
-                    let lit = num(&objtxt);
+                    let lit = num(srv, &objtxt);
                     if matches!(lit, Val::S(_)) {
                         ok = false;
                         diag = Some(format!(
@@ -1765,7 +1793,7 @@ fn cook_rule_if(head_txt: &str, body: &str, k: &Known, kind: &str) -> Crows {
         }
         for (vi, lit) in &alits {
             let col = cols.get(&avars[*vi]).unwrap_or(1);
-            filters.push(fspec_lit("eq", col, num(lit)));
+            filters.push(fspec_lit("eq", col, num(srv, lit)));
         }
         atoms.push((aft, avars));
     }
@@ -1814,7 +1842,7 @@ fn cook_rule_if(head_txt: &str, body: &str, k: &Known, kind: &str) -> Crows {
                 }
                 for (vi, lit) in &alits {
                     let col = gcols.get(&avars[*vi]).unwrap_or(1);
-                    gfilters.push(fspec_lit("eq", col, num(lit)));
+                    gfilters.push(fspec_lit("eq", col, num(srv, lit)));
                 }
                 gatoms.push((aft, avars));
             }
@@ -1912,7 +1940,7 @@ fn cook_rule_if(head_txt: &str, body: &str, k: &Known, kind: &str) -> Crows {
             .iter()
             .enumerate()
             .map(|(i, v)| match litmap.get(&i) {
-                Some(l) => vt(vec![vs("CONST"), num(l)]),
+                Some(l) => vt(vec![vs("CONST"), num(srv, l)]),
                 None => Val::I(cols.get(v).unwrap()),
             })
             .collect();
@@ -1985,7 +2013,7 @@ fn cook_rule_if(head_txt: &str, body: &str, k: &Known, kind: &str) -> Crows {
             .enumerate()
             .map(|(i, v)| {
                 if fixed_idx.contains(&i) {
-                    vt(vec![vs("CONST"), num(litmap.get(&i).unwrap())])
+                    vt(vec![vs("CONST"), num(srv, litmap.get(&i).unwrap())])
                 } else if let Some(c) = cols.get(v) {
                     Val::I(c)
                 } else {
@@ -2669,7 +2697,7 @@ fn deontic_fact(
     } else {
         rd.clone()
     };
-    let (mut facts, mut objs) = h_constraint(&cook_fact(&dequoted, k), m, srv)?;
+    let (mut facts, mut objs) = h_constraint(&cook_fact(srv, &dequoted, k), m, srv)?;
     let (ft, _decl) = fact_type(&dequoted, k);
     let (op, prefix) = if sign == "positive" {
         ("deontic_obligatory", "It is obligatory that ")
@@ -3546,7 +3574,7 @@ pub fn plan(
                 return Ok((rows, vec![(cid, obj)]));
             }
             "value_constraint" => {
-                let (name, spec, cid, builder, bop) = cook_value_constraint(g);
+                let (name, spec, cid, builder, bop) = cook_value_constraint(srv, g);
                 let rows: Asserts = vec![
                     (
                         "valueConstraint".to_string(),
@@ -3573,17 +3601,17 @@ pub fn plan(
                 g[0].as_deref().unwrap_or(""),
                 g[1].as_deref().unwrap_or(""),
             ),
-            "fact_type_reading" => cook_fact(g[0].as_deref().unwrap_or(""), k),
+            "fact_type_reading" => cook_fact(srv, g[0].as_deref().unwrap_or(""), k),
             "derivation_rule" => cook_derivation_rule(g, k),
             "class_rule" => cook_class_rule(g),
-            "neg_pair" => cook_neg_pair(g, k),
-            "rule_if" => cook_rule_if(
+            "neg_pair" => cook_neg_pair(srv, g, k),
+            "rule_if" => cook_rule_if(srv, 
                 g[0].as_deref().unwrap_or(""),
                 g[1].as_deref().unwrap_or(""),
                 k,
                 "fully-derived",
             ),
-            "rule_iff" => cook_rule_if(
+            "rule_iff" => cook_rule_if(srv, 
                 g[1].as_deref().unwrap_or(""),
                 g[2].as_deref().unwrap_or(""),
                 k,
