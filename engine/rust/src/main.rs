@@ -4326,10 +4326,20 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
     // rules through it, round one intersects it with the frontier, and the
     // later rounds' full fallback intersects it with the delta.
     let mut reads: HashMap<String, HashSet<String>> = HashMap::new();
-    for r in store.pop_rows(&leaf("ruleReads")) {
-        let it = items(&list_of(&r));
-        if it.len() >= 2 {
-            reads.entry(key_of(&it[0])).or_default().insert(key_of(&it[1]));
+    // CANON -- DEF("theta:groupby1"): <rule id, cell> rows to <rule id,
+    // <cell...>> groups, keys in first-seen order, rows too short to name both
+    // skipped rather than grouped under an empty value list. The same DEF
+    // rmap:rolegroups specialises for the role cell -- one grouping, not three.
+    let grouped_reads = reduce_over_n(srv, atom(Leaf::S("theta:groupby1".to_string())),
+                                      seqv(store.pop_rows(&leaf("ruleReads"))), -1);
+    for g in items(&list_of(&grouped_reads)) {
+        let gi = items(&list_of(&g));
+        if gi.len() < 2 {
+            continue;
+        }
+        let entry = reads.entry(key_of(&gi[0])).or_default();
+        for c in items(&list_of(&gi[1])) {
+            entry.insert(key_of(&c));
         }
     }
     // The mirror blocks run BEFORE the loop and ignore the frontier, exactly
