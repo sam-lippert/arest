@@ -4423,15 +4423,14 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
     const FTR: &str = "Fact_Type_has_Role";
     if any_reads(FTR) {
         let mut out: Vec<V> = Vec::new();
-        let mut seen: HashSet<String> = HashSet::new();
-        for r in store.pop_rows(&leaf("role")) {
-            let it = items(&list_of(&r));
-            if it.len() >= 2 {
-                let pair = seq(from_vec(vec![it[1].clone(), it[0].clone()]));
-                if seen.insert(key_of(&pair)) {
-                    out.push(pair);
-                }
-            }
+        // CANON -- DEF("derive:ftr_pairs"): each role row swapped to
+        // <ft, roleid>, distinct, FIRST occurrence kept (which is what the
+        // `seen` set did -- theta:dedup keeps the last and would reverse which
+        // duplicate survives). Short rows skipped.
+        let ftr = reduce_over_n(srv, atom(Leaf::S("derive:ftr_pairs".to_string())),
+                                seqv(store.pop_rows(&leaf("role"))), -1);
+        for pair in items(&list_of(&ftr)) {
+            out.push(pair);
         }
         if !out.is_empty() && store.pop_rows(&leaf(FTR)).is_empty() {
             sort_rows(&mut out);
@@ -10730,7 +10729,8 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
     }
     let empty: Vec<V> = Vec::new();
     let pop = |name: &str| pops.get(name).unwrap_or(&empty);
-    let row_items = |r: &V| items(&list_of(r));
+    // row_items went with the last of op_sql_project's hand-rolled row walks;
+    // the projections read their rows through canon now.
     // schema NAMES are strings in the store; a non-string where a name belongs
     // drops the row (python would carry it into re.sub and crash — a store
     // that malformed never reaches project)
