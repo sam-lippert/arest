@@ -10970,55 +10970,41 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
             }
         }
         ids.sort_by(|a, b| str_form(&a.1).cmp(&str_form(&b.1)).then_with(|| a.0.cmp(&b.0)));
-        // per-column value views: unary membership set / functional last-wins map
-        enum ColVals {
-            Unary(HashSet<String>),
-            Val(HashMap<String, V>),
-        }
-        let mut colvals: Vec<ColVals> = Vec::new();
+        // the per-column views, straight from canon: <kind, entries>. The
+        // ColVals enum that stood here kept a HashSet/HashMap KEYED BY key_of,
+        // which is why the pivot could not move -- canon compares ids by eq
+        // against the entries themselves, and a key string matches nothing.
+        // With the maps gone, identity is canon's from here to the row.
+        let mut colviews: Vec<V> = Vec::new();
         for (ft, _col, kind, _o) in &ecols {
             if *kind == 0 {
-                // CANON -- rmap:atpos at position 1. The unary column needs no
-                // DEF of its own; a general projection already covers it.
+                // rmap:atpos at position 1: the unary column's ids.
                 let ids1 = reduce_over_n(srv, atom(Leaf::S("rmap:atpos".to_string())),
                                          seqv(vec![atom(Leaf::I(1)),
                                                    seqv(pop(ft).to_vec())]), -1);
-                let mut m = HashSet::new();
-                for v in items(&list_of(&ids1)) {
-                    m.insert(key_of(&v));
-                }
-                colvals.push(ColVals::Unary(m));
+                colviews.push(seqv(vec![atom(Leaf::S("unary".to_string())), ids1]));
             } else {
-                // CANON -- DEF("rmap:valpairs"): <id,value> in ROW ORDER, the
-                // short rows dropped. The map insert below is what makes a
-                // later row win, keyed by THIS host's value identity (key_of
-                // coalesces 5 with 5.0, keeps "5" distinct) -- deliberately not
-                // moved, because expressing last-wins in canon would decide
-                // whether canon's eq is that identity, and that is its own
-                // question rather than a side effect of this projection.
+                // rmap:valpairs: <id,value> in ROW ORDER, short rows dropped.
+                // The LAST-WINS rule now lives in rmap:cell_val, not in a map.
                 let prs = reduce_over_n(srv, atom(Leaf::S("rmap:valpairs".to_string())),
                                         seqv(pop(ft).to_vec()), -1);
-                let mut m: HashMap<String, V> = HashMap::new();
-                for pr in items(&list_of(&prs)) {
-                    let pi = items(&list_of(&pr));
-                    if pi.len() >= 2 {
-                        m.insert(key_of(&pi[0]), pi[1].clone()); // last wins
-                    }
-                }
-                colvals.push(ColVals::Val(m));
+                colviews.push(seqv(vec![atom(Leaf::S("val".to_string())), prs]));
             }
         }
-        let mut rows: Vec<Vec<V>> = Vec::new();
-        for (ik, iv) in &ids {
-            let mut row = vec![iv.clone()];
-            for cv in &colvals {
-                row.push(match cv {
-                    ColVals::Unary(m) => atom(Leaf::I(if m.contains(ik) { 1 } else { 0 })),
-                    ColVals::Val(m) => m.get(ik).cloned().unwrap_or_else(bot), // ⊥ = NULL
-                });
-            }
-            rows.push(row);
-        }
+        // THE PIVOT IS CANON -- DEF("rmap:pivot_rows") over <ids, columns>,
+        // one reduction for the whole table. A column is <kind, entries>:
+        // unary entries are the ids that hold, functional entries are
+        // <id,value> pairs in ROW ORDER and the LAST match wins (the rule the
+        // HashMap used to keep implicitly). An absent value answers PHI, not
+        // bottom -- a sequence containing bottom IS bottom (13.2) -- and the
+        // renderer below prints phi as the SQL NULL it printed bottom as.
+        let idvals: Vec<V> = ids.iter().map(|(_k, v)| v.clone()).collect();
+        let pivoted = reduce_over_n(srv, atom(Leaf::S("rmap:pivot_rows".to_string())),
+                                    seqv(vec![seqv(idvals), seqv(colviews)]), -1);
+        let rows: Vec<Vec<V>> = items(&list_of(&pivoted))
+            .iter()
+            .map(|r| items(&list_of(r)))
+            .collect();
         let mut cols: Vec<String> = vec![kc];
         cols.extend(ecols.iter().map(|(_ft, c, _k, _o)| c.clone()));
         counts.push((table.clone(), ids.len().to_string()));
@@ -11158,7 +11144,15 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
                 if m > 0 {
                     r.push(',');
                 }
-                write_v(v, &mut r); // ⊥ prints null — exactly the NULL cell
+                // the ABSENT cell is phi now, not bottom: canon cannot put a
+                // bottom inside a row (13.2 makes the whole row bottom), so
+                // rmap:cell_val answers phi and it renders as the same SQL
+                // NULL bottom used to. bottom still prints null too, for any
+                // value that reaches here from elsewhere.
+                match shape(v) {
+                    Shape::Seq(l) if items(&l).is_empty() => r.push_str("null"),
+                    _ => write_v(v, &mut r),
+                }
             }
             r.push(']');
         }
