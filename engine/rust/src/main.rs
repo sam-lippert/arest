@@ -11052,16 +11052,20 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
         }
         let create = ddl_text(srv, &ddl_sql_name(srv, ft), specs, key.clone());
         let all = pop(ft);
-        let mut rows: Vec<Vec<V>> = Vec::new();
-        let mut narrow = 0usize;
-        for row in all {
-            let it = row_items(row);
-            if it.len() < rs.len() {
-                narrow += 1; // a row narrower than its role count cannot bind
-                continue;
-            }
-            rows.push(it[..rs.len()].to_vec());
-        }
+        // CANON -- DEF("rmap:takerows"): every row truncated to the role count,
+        // and a row NARROWER than that count skipped, since it cannot bind its
+        // roles. rmap:take is recursive through the DEFS lookup, so no loop is
+        // owed here and no range primitive had to be invented to build one.
+        let taken = reduce_over_n(srv, atom(Leaf::S("rmap:takerows".to_string())),
+                                  seqv(vec![atom(Leaf::I(rs.len() as i64)),
+                                            seqv(all.to_vec())]), -1);
+        let rows: Vec<Vec<V>> = items(&list_of(&taken))
+            .iter()
+            .map(|r| items(&list_of(r)))
+            .collect();
+        // the skipped count stays here: it is a DIAGNOSTIC about the store
+        // (how many rows could not bind), not a value in the projection
+        let narrow = all.len() - rows.len();
         let count = if all.is_empty() {
             "0".to_string()
         } else if narrow == 0 {
