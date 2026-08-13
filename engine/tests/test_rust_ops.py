@@ -96,6 +96,60 @@ def test_the_rule_closure_reaches_a_fixpoint():
         f"re-running the closure derived more: {second['changed'][:4]}")
 
 
+_MIXED_MODEL = "\n".join([
+    "Person is a noun.",
+    "Company is a noun.",
+    "Person has Name.",
+    "Person works for Company.",
+    "Each Person has at most one Name.",
+    "It is obligatory that each Person has some Name.",
+    "Employee is a kind of Person.",
+])
+
+
+@pytest.mark.skipif(not os.path.exists(_BIN),
+                    reason="engine/rust not built (cargo build)")
+def test_compile_model_is_deterministic_and_restores_the_store():
+    # THE ORACLE compile.rs never had. It is 3783 lines -- the Stage-1 cook
+    # boundary ported from python's _COOK table -- and holds work that is
+    # canon-owed (num() assigns the ORM type that canon's NATEQ then compares
+    # on, and canon has ntoa but no inverse). None of it can move safely
+    # without a host-level check, which is what made op_sql_project's 442 lines
+    # and op_run_rules' 1119 unsafe until each got one.
+    #
+    # The property pinned is the one a REFACTOR must preserve: compiling the
+    # same text twice in one session answers identically. compile_model uses
+    # the resident store as scratch and restores it whole, so a restore that
+    # leaked would show up as the second answer differing from the first --
+    # and nothing else in the repo would notice.
+    got = _serve([{"op": "base_seed"},
+                  {"op": "compile_model", "text": _MIXED_MODEL},
+                  {"op": "compile_model", "text": _MIXED_MODEL}], timeout=900)
+    runs = [a["result"] for a in got if a.get("op") == "compile_model"]
+    assert len(runs) == 2, f"expected two compile_model answers, got {len(runs)}"
+    first, second = runs
+
+    assert first["total"] == 7
+    assert first["classified"] >= 1, "the compile classified nothing at all"
+    assert first["prose"] == [] and first["blocked"] == []
+
+    # IDEMPOTENT: the scratch store was restored, so the second compile of the
+    # same text is the same answer. This is the regression the refactor risks.
+    for k in ("total", "classified", "unclassified", "prose", "missing", "blocked"):
+        assert first[k] == second[k], (
+            f"compile_model not idempotent on {k}: {first[k]!r} then {second[k]!r}")
+
+    # CURRENT BEHAVIOUR, pinned deliberately rather than endorsed: a noun
+    # declaration classifies only where that noun is used as a SUBJECT
+    # elsewhere in the same text. "Person is a noun." classifies (Person heads
+    # "Person has Name."); "Company is a noun." does not, Company appearing
+    # only as an object; and in a nouns-only model NOTHING classifies. Whether
+    # that is right is a question for the grammar, not for a refactor -- and a
+    # refactor must not change it silently, which is what this line is for.
+    assert first["unclassified"] == ["Company is a noun."], (
+        f"noun-classification behaviour moved: {first['unclassified']}")
+
+
 @pytest.mark.skipif(not os.path.exists(_BIN),
                     reason="engine/rust not built (cargo build)")
 def test_the_sql_projection_holds_its_shape():
