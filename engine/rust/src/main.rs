@@ -4450,55 +4450,50 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
     // rules the upper stratum runs after the closure settles (an aggregate
     // head supersedes instead of unioning, so the closure must never run
     // one)
-    // THE MEANING OF RECORD IS CANON -- DEF("derive:rulesplit") (with
-    // derive:aggids / rs_guard / rs_isagg / rs_step), certified on all four
-    // stations by case:aggids, case:rules-plain, case:rules-agg and
-    // case:rulesplit. This loop is its NATIVE FAST PATH, the certified-twin
-    // pattern theta:member and theta:dedup already carry.
+    // CANON -- DEF("derive:aggids") and DEF("derive:rulesplit") (with
+    // rs_guard / rs_isagg / rs_step). ruleDerives rows <rule id, head cell>
+    // partition on ruleAgg membership: an aggregate head SUPERSEDES rather
+    // than unions, so the closure must never run one. The headless row falls
+    // out of both lists. One reduction for the whole table.
     //
-    // MEASURED, not assumed. Wiring the canon call here took the op suite from
-    // 409s to 999s, and folding the two passes into one changed nothing
-    // (1042s) -- the cost is not the split's shape. op_run_rules is called
-    // from SEVEN sites, several inside the compile paths base_seed drives, and
-    // the table is 143 ruleDerives rows against a single ruleAgg id. A
-    // 143-element fold with a one-element membership test is C64-scale work;
-    // taking ten minutes of it indicts the CARRIER, exactly as the ruling
-    // says, and the answer there is to make the evaluator memo pure
-    // applications -- not to keep the meaning in Rust. Until it does, the
-    // canon DEF is the meaning and this is the override.
-    let mut aggids: HashSet<String> = HashSet::new();
-    for r in store.pop_rows(&leaf("ruleAgg")) {
-        let it = items(&list_of(&r));
-        if !it.is_empty() {
-            aggids.insert(key_of(&it[0]));
-        }
-    }
+    // This was reverted to a native loop in increment 20 on a measurement that
+    // was CONFOUNDED: base_seed's thaw key carries the executable fingerprint,
+    // so every rebuild forces a full base recompute, and the "409s -> 999s"
+    // read a recompute rather than the wiring. Re-measured under the control
+    // that increment 28 established -- build, run once to absorb the
+    // recompute, then measure -- and restored on the corrected number.
     struct RuleRow {
         rid: Leaf,
         head: Leaf,
         key: String,
         head_key: String,
     }
-    let mut rules: Vec<RuleRow> = Vec::new();
-    let mut agg_rules: Vec<RuleRow> = Vec::new();
-    for r in store.pop_rows(&leaf("ruleDerives")) {
-        let it = items(&list_of(&r));
-        if it.len() >= 2 {
-            if let (Some(rid), Some(head)) = (aval(&it[0]), aval(&it[1])) {
-                let row = RuleRow {
-                    rid: (*rid).clone(),
-                    head: (*head).clone(),
-                    key: key_of(&it[0]),
-                    head_key: key_of(&it[1]),
-                };
-                if aggids.contains(&row.key) {
-                    agg_rules.push(row);
-                } else {
-                    rules.push(row);
+    let aggids_v = reduce_over_n(srv, atom(Leaf::S("derive:aggids".to_string())),
+                                 seqv(store.pop_rows(&leaf("ruleAgg"))), -1);
+    let split = reduce_over_n(srv, atom(Leaf::S("derive:rulesplit".to_string())),
+                              seqv(vec![aggids_v,
+                                        seqv(store.pop_rows(&leaf("ruleDerives")))]), -1);
+    let si = items(&list_of(&split));
+    let rulerows = |rows: &V| -> Vec<RuleRow> {
+        let mut out = Vec::new();
+        for r in items(&list_of(rows)) {
+            let it = items(&list_of(&r));
+            if it.len() >= 2 {
+                if let (Some(rid), Some(head)) = (aval(&it[0]), aval(&it[1])) {
+                    out.push(RuleRow {
+                        rid: (*rid).clone(),
+                        head: (*head).clone(),
+                        key: key_of(&it[0]),
+                        head_key: key_of(&it[1]),
+                    });
                 }
             }
         }
-    }
+        out
+    };
+    let empty_v = seqv(vec![]);
+    let rules: Vec<RuleRow> = rulerows(si.first().unwrap_or(&empty_v));
+    let agg_rules: Vec<RuleRow> = rulerows(si.get(1).unwrap_or(&empty_v));
     // the semi-naive loop, Python's delta threading exactly: round one runs
     // full bodies (bounded by the frontier when given); each later round
     // sees the PREVIOUS round's per-head delta, and a rule whose atoms
