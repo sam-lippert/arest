@@ -14677,7 +14677,25 @@ fn run() {
             if line.trim().is_empty() {
                 continue;
             }
-            let j = P { b: line.as_bytes(), i: 0 }.parse();
+            // through parse_json, NOT P directly: P indexes its buffer without
+            // bounds checks and panics on a truncated line, and parse_json is
+            // where the catch_unwind lives. Its own comment says "the MCP
+            // transport reads the wild, so a failed parse unwinds here and
+            // answers None instead of killing the loop" -- but this site,
+            // the one actually reading the wild, bypassed it. An unterminated
+            // string ended the whole --serve session, taking every later line
+            // with it. A malformed line now answers an error and the loop
+            // continues, which is what the guard was written for.
+            let j = match parse_json(&line) {
+                Some(j) => j,
+                None => {
+                    let mut so = std::io::stdout();
+                    so.write_all(br#"{"error":"malformed JSON line"}"#).ok();
+                    so.write_all(b"\n").ok();
+                    so.flush().ok();
+                    continue;
+                }
+            };
             let out = handle(&j, &mut srv, true);
             let mut so = std::io::stdout();
             so.write_all(out.as_bytes()).ok();
@@ -14688,7 +14706,15 @@ fn run() {
     } else {
         let mut input = String::new();
         std::io::stdin().read_to_string(&mut input).unwrap();
-        let j = P { b: input.as_bytes(), i: 0 }.parse();
+        // same guard on the one-shot path: a malformed body answers an error
+        // rather than panicking out of main
+        let j = match parse_json(&input) {
+            Some(j) => j,
+            None => {
+                println!("{}", r#"{"error":"malformed JSON input"}"#);
+                return;
+            }
+        };
         let out = handle(&j, &mut srv, false);
         if !out.is_empty() {
             println!("{}", out);
