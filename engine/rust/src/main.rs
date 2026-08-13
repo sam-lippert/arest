@@ -4368,28 +4368,45 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
         // fact type, in first-appearance order like the Python dict; a
         // position outside the int leaves its row out (Python would have
         // faulted on it, and the resident must not)
-        let mut order: Vec<V> = Vec::new();
-        let mut groups: HashMap<String, Vec<(usize, V)>> = HashMap::new();
-        for r in store.pop_rows(&leaf("role")) {
-            let it = items(&list_of(&r));
-            if it.len() >= 4 {
-                if let Some(Leaf::I(p)) = aval(&it[2]).as_deref() {
-                    if *p >= 1 {
-                        let k = key_of(&it[1]);
-                        if !groups.contains_key(&k) {
-                            order.push(it[1].clone());
-                        }
-                        groups.entry(k).or_default().push((*p as usize, it[3].clone()));
-                    }
-                }
-            }
-        }
+        // CANON -- DEF("rmap:rolegroups"): role rows grouped by fact type, fact
+        // types in first-appearance order, and the guards this loop spelled out
+        // (four wide, position >= 1) now carried by rmap:role_keep.
+        //
+        // rolegroups ORDERS each group's pairs BY POSITION where this loop took
+        // them in ROW order, and those differ on the real store -- the base's
+        // role cell holds Constraint_Type_has_Violation_Template at position 2
+        // BEFORE position 1. It is safe anyway, and the reason is the two lines
+        // after the loop rather than anything about the rows: the pairs feed a
+        // dedup on exact equality and the result is sort_rows'd before it is
+        // stored, so what lands is the same SET in the same canonical order
+        // whichever way the group was walked. Checked in the store, not assumed
+        // -- the fixpoint oracle compares changed-cell NAMES and would not have
+        // caught a reordering.
+        let grouped_roles = reduce_over_n(srv, atom(Leaf::S("rmap:rolegroups".to_string())),
+                                          seqv(store.pop_rows(&leaf("role"))), -1);
         let mut out: Vec<V> = Vec::new();
         let mut seen: HashSet<String> = HashSet::new();
-        for ft in &order {
-            let grp = &groups[&key_of(ft)];
+        for g in items(&list_of(&grouped_roles)) {
+            let gi = items(&list_of(&g));
+            if gi.len() < 2 {
+                continue;
+            }
+            let ft = &gi[0];
+            let grp: Vec<(usize, V)> = items(&list_of(&gi[1]))
+                .iter()
+                .filter_map(|pr| {
+                    let pi = items(&list_of(pr));
+                    if pi.len() < 2 {
+                        return None;
+                    }
+                    match aval(&pi[0]).as_deref() {
+                        Some(Leaf::I(p)) if *p >= 1 => Some((*p as usize, pi[1].clone())),
+                        _ => None,
+                    }
+                })
+                .collect();
             let mut ft_rows: Option<Vec<V>> = None;
-            for (p, player) in grp {
+            for (p, player) in &grp {
                 if nouns.contains(&key_of(player)) {
                     if ft_rows.is_none() {
                         // the fact type name addresses its own cell
