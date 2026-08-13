@@ -7873,9 +7873,12 @@ DEF("rmap:rolesof",
 
 "rmap:rolegroups is the whole `role` cell grouped in ONE reduction: <ft, <<pos,player>...>> for every fact type mentioned, the fact types in FIRST-SEEN order (theta:dedup keeps the first occurrence, which is the order engine/rust's role_ft_order kept and the entity sweep walks). Done as one call rather than rmap:rolesof per fact type deliberately -- the work is the same either way, but per-ft means a round trip per fact type and this store carries hundreds.",
 "reverse . dedup . reverse, and the reverses are NOT ornament. theta:dedup keeps each value's LAST occurrence -- <F1,F2,F1> dedups to <F2,F1> -- while engine/rust's role_ft_order is FIRST-seen, which is the order the entity sweep walks. Deduping the reversed list turns last-occurrence into first-occurrence, and reversing back restores the original direction. The plain form was written first and the case caught it answering F2 before F1.",
+"theta:firstseen is FIRST-occurrence dedup, which theta:dedup is not: dedup keeps each value's LAST occurrence, so <a,b,a> dedups to <b,a>. Deduping the reversed list turns last into first and reversing back restores the direction. rmap:role_fts had this inline and was the increment that discovered the behaviour; engine/rust's id sweep needs the same rule (its id_seen set keeps the first id it meets), so it is named once here rather than written twice. Under theta: because nothing about it is RMAP's -- it is a sequence operation.",
+DEF("theta:firstseen",
+    S4(A("COMP"), A("reverse"), A("theta:dedup"), A("reverse"))),
+
 DEF("rmap:role_fts",
-    S5(A("COMP"), A("reverse"), A("theta:dedup"), A("reverse"),
-       S2(A("ALPHA"), N(2)))),
+    S3(A("COMP"), A("theta:firstseen"), S2(A("ALPHA"), N(2)))),
 
 DEF("rmap:rolegroups",
     S3(A("COMP"),
