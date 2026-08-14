@@ -96,6 +96,36 @@ def test_the_rule_closure_reaches_a_fixpoint():
         f"re-running the closure derived more: {second['changed'][:4]}")
 
 
+@pytest.mark.skipif(not os.path.exists(_BIN),
+                    reason="engine/rust not built (cargo build)")
+def test_the_frontier_bounds_the_first_round():
+    # THE FRONTIER PATH IS OTHERWISE DARK. run_rules without `changed` never
+    # reaches it, and every other test calls it bare -- so derive:reads_hit,
+    # which decides whether a rule runs in round one, would have had no
+    # host-level coverage at all. That is the shape of the passHeads gap found
+    # in increment 37: a green suite that never executes the line.
+    #
+    # Bounding to the `role` cell must derive STRICTLY LESS than the unbounded
+    # closure: only rules whose reads intersect it wake. A frontier that woke
+    # everything, or nothing, both break this -- and both are what a wrong
+    # intersection answers.
+    got = _serve([{"op": "base_seed"},
+                  {"op": "run_rules", "changed": ["role"]},
+                  {"op": "run_rules"}], timeout=1800)
+    runs = [a["result"] for a in got if a.get("op") == "run_rules"]
+    assert len(runs) == 2
+    bounded, unbounded = runs
+
+    assert bounded["changed"], "the frontier woke nothing at all"
+    assert len(bounded["changed"]) < len(unbounded["changed"]) + len(bounded["changed"]), (
+        "the frontier did not bound anything")
+    # the role cell's own mirror is what reading `role` derives
+    assert any("Role" in c for c in bounded["changed"]), (
+        f"bounding on `role` derived nothing role-shaped: {bounded['changed']}")
+    # and it settles in one round, having only that stratum to run
+    assert bounded["rounds"] == 1, f"bounded closure took {bounded['rounds']} rounds"
+
+
 _MIXED_MODEL = "\n".join([
     "Person is a noun.",
     "Company is a noun.",

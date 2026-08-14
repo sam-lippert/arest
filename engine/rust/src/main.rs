@@ -4542,6 +4542,9 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
     // when its reads changed. A head stored mid-round is visible to the next
     // rule, exactly as Python threads D through its round. Only genuinely
     // new rows fire, and the round's additions become the next delta.
+    // the frontier answer per rule: the frontier is fixed for the whole call,
+    // so derive:reads_hit is asked once per rule rather than once per round
+    let mut fr_hit_memo: HashMap<String, bool> = HashMap::new();
     let mut rounds: i64 = 0;
     let mut delta: Option<HashMap<String, Vec<V>>> = None;
     // closure_keys collects the closure's changed head keys, feeding the
@@ -4563,10 +4566,32 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
             let cand: Vec<V> = match &delta {
                 None => {
                     // round one: the full body, bounded by the frontier
+                    // CANON -- DEF("derive:reads_hit"): the rule runs only
+                    // where the cells it reads INTERSECT the changed set. An
+                    // empty frontier and a rule that reads nothing both answer
+                    // F, which is what any() over an empty iterator said.
+                    // Memoized per rule: the frontier is fixed for the whole
+                    // call, so each rule's answer is asked once.
                     if let Some(fr) = &frontier {
-                        let hit = reads
-                            .get(&rr.key)
-                            .map_or(false, |rs| rs.iter().any(|k| fr.contains(k)));
+                        let hit = match fr_hit_memo.get(&rr.key) {
+                            Some(h) => *h,
+                            None => {
+                                let empty_set: HashSet<String> = HashSet::new();
+                                let rs = reads.get(&rr.key).unwrap_or(&empty_set);
+                                let arg = seqv(vec![
+                                    seqv(fr.iter().map(|k| atom(Leaf::S(k.clone()))).collect()),
+                                    seqv(rs.iter().map(|k| atom(Leaf::S(k.clone()))).collect()),
+                                ]);
+                                let out = reduce_over_n(
+                                    srv,
+                                    atom(Leaf::S("derive:reads_hit".to_string())),
+                                    arg, -1);
+                                let h = matches!(aval(&out).as_deref(),
+                                                 Some(Leaf::S(s)) if s == "T");
+                                fr_hit_memo.insert(rr.key.clone(), h);
+                                h
+                            }
+                        };
                         if !hit {
                             continue;
                         }
