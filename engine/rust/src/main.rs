@@ -4990,9 +4990,27 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
         keyed_sorted.push((hk.clone(), hl, rls.clone(), key_pos));
     }
     keyed_sorted.sort_by(|a, b| leaf_text(&a.1).cmp(&leaf_text(&b.1)));
-    let mut dirty: Option<HashSet<String>> = frontier
-        .as_ref()
-        .map(|fr| fr.union(&closure_keys).cloned().collect());
+    // CANON -- DEF("theta:union"): the heads dirty when the joint loop starts
+    // are those the frontier woke OR those the closure already reached, each
+    // once. The set family could say A-B, A=B and A subset B but not A or B;
+    // it can now. Both sides are sorted going in so the call is reproducible
+    // -- a HashSet's iteration order is not -- and the answer returns to a
+    // set, where order is not observable anyway.
+    let mut dirty: Option<HashSet<String>> = frontier.as_ref().map(|fr| {
+        let mut a: Vec<String> = fr.iter().cloned().collect();
+        let mut b: Vec<String> = closure_keys.iter().cloned().collect();
+        a.sort();
+        b.sort();
+        let arg = seqv(vec![
+            seqv(a.into_iter().map(|k| atom(Leaf::S(k))).collect()),
+            seqv(b.into_iter().map(|k| atom(Leaf::S(k))).collect()),
+        ]);
+        let out = reduce_over_n(srv, atom(Leaf::S("theta:union".to_string())), arg, -1);
+        items(&list_of(&out))
+            .iter()
+            .filter_map(|x| aval(x).map(|l| leaf_text(&l)))
+            .collect()
+    });
     // THE ORDER AND THE ROUND BOUND ARE STORE KNOWLEDGE (the passOrder /
     // passBound cells, system:pass_order / system:pass_bound materialized
     // — the same posture as passHeads): the joint loop DISPATCHES its
