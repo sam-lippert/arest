@@ -8138,6 +8138,9 @@ DEF("theta:aton",
 DEF("theta:firstseen",
     S4(A("COMP"), A("reverse"), A("theta:dedup"), A("reverse"))),
 
+DEF("theta:union",
+    S3(A("COMP"), A("theta:firstseen"), A("cat"))),
+
 DEF("rmap:role_fts",
     S3(A("COMP"), A("theta:firstseen"), S2(A("ALPHA"), N(2)))),
 
