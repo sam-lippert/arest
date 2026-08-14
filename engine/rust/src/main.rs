@@ -6639,6 +6639,7 @@ fn prepass_context(
 // for via {"context_from": "resident"}.
 #[allow(clippy::type_complexity)]
 fn context_of(
+    srv: &Srv,
     cells: &[(Leaf, V)],
 ) -> (
     std::collections::HashSet<String>,
@@ -6665,18 +6666,29 @@ fn context_of(
             }
         }
     }
+    // CANON, both, and neither needed a new DEF. The declared fact types are
+    // rmap:atpos at position 1 -- a general projection with its length guard.
+    // The subtype EDGES are rmap:takerows<2>: each row truncated to two, and a
+    // row too short to name both skipped, which is exactly this loop's
+    // it.len() >= 2. The string tests stay here: that these names are strings
+    // is a fact about the cells, not about projecting or truncating.
     let mut fts: std::collections::HashSet<String> = std::collections::HashSet::new();
-    for r in pop_rows(cells, &leaf("factType")) {
-        let it = items(&list_of(&r));
-        if let Some(f) = it.first().and_then(|x| strv(x)) {
+    let ftnames = reduce_over_n(srv, atom(Leaf::S("rmap:atpos".to_string())),
+                                seqv(vec![atom(Leaf::I(1)),
+                                          seqv(pop_rows(cells, &leaf("factType")))]), -1);
+    for x in items(&list_of(&ftnames)) {
+        if let Some(f) = strv(&x) {
             fts.insert(f);
         }
     }
     let mut edges: Vec<(String, String)> = Vec::new();
-    for r in pop_rows(cells, &leaf("subtype")) {
-        let it = items(&list_of(&r));
-        if it.len() >= 2 {
-            if let (Some(a), Some(b)) = (strv(&it[0]), strv(&it[1])) {
+    let subrows = reduce_over_n(srv, atom(Leaf::S("rmap:takerows".to_string())),
+                                seqv(vec![atom(Leaf::I(2)),
+                                          seqv(pop_rows(cells, &leaf("subtype")))]), -1);
+    for e in items(&list_of(&subrows)) {
+        let ei = items(&list_of(&e));
+        if ei.len() >= 2 {
+            if let (Some(a), Some(b)) = (strv(&ei[0]), strv(&ei[1])) {
                 edges.push((a, b));
             }
         }
@@ -8305,7 +8317,7 @@ fn compile_lines_native(
     }
 
     // context_from = seed_cells (status_facts' own D, NOT the resident base)
-    let (b_names, b_edges, b_fts, b_vals) = context_of(seed_cells);
+    let (b_names, b_edges, b_fts, b_vals) = context_of(srv, seed_cells);
     let mut names = known_names(&stmts);
     for n in b_names {
         names.insert(n);
@@ -9935,7 +9947,7 @@ fn op_compile_model(j: &J, srv: &mut Srv) -> Result<String, String> {
     // the subtype closure, fact-type slugs, and the plain reading set
     let context_resident = matches!(jget(j, "context_from"), Some(J::S(s)) if s == "resident");
     let (b_names, b_edges, b_fts, b_vals) = if context_resident {
-        context_of(&srv.cells)
+        context_of(&*srv, &srv.cells.clone())
     } else {
         (HashSet::new(), Vec::new(), HashSet::new(), HashSet::new())
     };
