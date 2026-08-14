@@ -4602,12 +4602,42 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
                     }
                 }
                 Some(dl) => {
+                    // CANON -- DEF("derive:atom_hits"): which of this rule's
+                    // atoms <kind, fact type> name a fact type that gained rows
+                    // last round. reads_hit's counterpart -- that one answers
+                    // WHETHER a rule wakes in round one, this answers WHICH
+                    // atoms wake it afterwards. Order is preserved because the
+                    // join below applies one ~d variant per hit in the rule's
+                    // own atom order.
                     let hits: Vec<(String, String)> = match atomsof.get(&rr.key) {
-                        Some(av) => av
-                            .iter()
-                            .filter(|(_p, ftk)| dl.contains_key(ftk))
-                            .cloned()
-                            .collect(),
+                        Some(av) => {
+                            let arg = seqv(vec![
+                                seqv(dl.keys().map(|k| atom(Leaf::S(k.clone()))).collect()),
+                                seqv(av.iter()
+                                       .map(|(p, ftk)| seqv(vec![
+                                           atom(Leaf::S(p.clone())),
+                                           atom(Leaf::S(ftk.clone()))]))
+                                       .collect()),
+                            ]);
+                            let out = reduce_over_n(
+                                srv,
+                                atom(Leaf::S("derive:atom_hits".to_string())),
+                                arg, -1);
+                            items(&list_of(&out))
+                                .iter()
+                                .filter_map(|h| {
+                                    let hi = items(&list_of(h));
+                                    if hi.len() < 2 {
+                                        return None;
+                                    }
+                                    match (aval(&hi[0]), aval(&hi[1])) {
+                                        (Some(a), Some(b)) =>
+                                            Some((leaf_text(&a), leaf_text(&b))),
+                                        _ => None,
+                                    }
+                                })
+                                .collect()
+                        }
                         None => Vec::new(),
                     };
                     if !hits.is_empty() {
