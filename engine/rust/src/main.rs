@@ -12670,11 +12670,18 @@ fn val_ctx(srv: &Srv) -> ValCtx {
     };
     let (part, pairs_v) = mf_partition(&ev, &srv.nd);
     // ruleCopies: {(antecedent, consequent)} discharged inclusions (subtype/subset)
+    // CANON -- DEF("derive:copy_pairs"): the <_, antecedent, consequent> rows
+    // projected to the inclusion pair, short rows skipped. The SET stays here:
+    // canon emits every pair in row order and this call site collapses them,
+    // because set semantics is what it wants and deduping in canon would
+    // answer a question the caller has already answered.
     let mut copies: HashSet<(String, String)> = HashSet::new();
-    for r in pop_rows(cells, &leaf("ruleCopies")) {
-        let it = items(&list_of(&r));
-        if it.len() >= 3 {
-            copies.insert((key_of(&it[1]), key_of(&it[2])));
+    let cps = reduce_over_n(srv, atom(Leaf::S("derive:copy_pairs".to_string())),
+                            seqv(pop_rows(cells, &leaf("ruleCopies"))), -1);
+    for cp in items(&list_of(&cps)) {
+        let ci = items(&list_of(&cp));
+        if ci.len() >= 2 {
+            copies.insert((key_of(&ci[0]), key_of(&ci[1])));
         }
     }
     // spans: constraint id -> sorted role positions (uniqueness families)
