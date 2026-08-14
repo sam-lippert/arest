@@ -4783,11 +4783,21 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
     // ⟨constraint id, position⟩). A BTreeSet keeps positions sorted, so the
     // keyed key reads columns in Python's sorted(keyspans[head]) order.
     let mut spans_of: HashMap<String, BTreeSet<i64>> = HashMap::new();
-    for r in store.pop_rows(&leaf("spans")) {
-        let it = items(&list_of(&r));
-        if it.len() >= 2 {
-            if let Some(Leaf::I(p)) = aval(&it[1]).as_deref() {
-                spans_of.entry(key_of(&it[0])).or_default().insert(*p);
+    // CANON -- DEF("theta:groupby1"): <name, position> rows grouped by name,
+    // short rows skipped. Fifth site for that DEF. The INT test stays here:
+    // canon groups whatever the row carries, and that this particular value
+    // must be a position rather than any atom is a fact about the spans cell.
+    let grouped_spans = reduce_over_n(srv, atom(Leaf::S("theta:groupby1".to_string())),
+                                      seqv(store.pop_rows(&leaf("spans"))), -1);
+    for g in items(&list_of(&grouped_spans)) {
+        let gi = items(&list_of(&g));
+        if gi.len() < 2 {
+            continue;
+        }
+        let k = key_of(&gi[0]);
+        for pv in items(&list_of(&gi[1])) {
+            if let Some(Leaf::I(p)) = aval(&pv).as_deref() {
+                spans_of.entry(k.clone()).or_default().insert(*p);
             }
         }
     }
