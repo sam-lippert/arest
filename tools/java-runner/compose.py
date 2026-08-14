@@ -21,12 +21,33 @@
 # rest.
 import sys
 import io
+import re
 
 SLICE_LIMIT = 16000   # max source chars per generated method body
 
 def read(path):
     with io.open(path, "r", encoding="utf-8") as f:
-        return f.read()
+        return _java_escapes(f.read())
+
+# NO ESCAPE FOR A CONTROL CHARACTER IS LEGAL IN ALL FIVE LINEAGES, which is why
+# this exists. The canon file is parsed as a Python literal, include!d as RUST
+# source, and copied into JS, C# and Java source. \xHH is accepted by Python,
+# Rust, JS and C# and REJECTED by Java, which has no \x escape at all. \uHHHH is
+# accepted by Python, JS, Java and C# and REJECTED by Rust, which wants
+# \u{HHHH}. Both were compiled to find out rather than read off a spec.
+#
+# So canon writes \xHH -- four of five natively -- and the JAVA COMPOSER adapts,
+# which is the direction the doctrine runs: canon says what it means and hosts
+# follow it, rather than canon's alphabet being trimmed to the narrowest host.
+# Java's own spelling of the same character is \u00HH, and its lexer turns that
+# into a literal control character inside the string, which is legal because
+# these are not line terminators.
+#
+# Only \x escapes are touched, and a backslash-escaped backslash is left alone
+# so that a doc string MENTIONING \\xHH keeps saying so instead of being
+# silently rewritten.
+def _java_escapes(text):
+    return re.sub(r'(?<!\\)\\x([0-9a-fA-F]{2})', r'\\u00\1', text)
 
 def strip_outer(text):
     # the three files are one parenthesized tuple: ( items )
