@@ -7694,8 +7694,12 @@ DEF("rmap:colfts",
     S4(A("COMP"), A("theta:dedup"), A("rmap:atpos"),
        S3(A("CONS"), K(N(3)), A("id")))),
 
+"rmap:distinct_at is <pos, rows> -> the distinct values at that position. rmap:coltables WAS this composition with the position fixed to 1 and is now its instance, which is the point: the same project-and-dedup was being rewritten per position, and create_handlers wanted it at 2 (the smTrigger fact types). rmap:atpos already drops rows too short to have the position, so a ragged population narrows rather than bottoming.",
+DEF("rmap:distinct_at",
+    S3(A("COMP"), A("theta:dedup"), A("rmap:atpos"))),
+
 DEF("rmap:coltables",
-    S4(A("COMP"), A("theta:dedup"), A("rmap:atpos"),
+    S3(A("COMP"), A("rmap:distinct_at"),
        S3(A("CONS"), K(N(1)), A("id")))),
 
 "THE PIVOT over materialized column views: <id, columns> to a table row. NOT a second rmap:wide_row -- that pivots model-level fact-type RECORDS through rmap:slot/member_pairs, while this pivots the VIEWS a compile already wrote, the same model/cell distinction that separates rmap:ftplayers from rmap:rolesof and rmap:absorbed from rmap:colfts. A column is <kind, entries>: unary entries are ids and answer 1 or 0, functional entries are <id,value> pairs in ROW ORDER and answer the LAST match, which is engine/rust's dict-build rule now stated in canon rather than left to a HashMap. An absent value answers PHI where engine/rust wrote bottom -- its Vec<V> tolerates a bottom in a row, Backus 13.2 does not, and a row containing bottom IS bottom. The host renders phi as the SQL NULL it already rendered bottom as. Last-wins is expressible here at all only because the value boundary stopped coalescing 2 with 2.0: canon eq is the store's identity now, so the match test means what key_of meant.",
