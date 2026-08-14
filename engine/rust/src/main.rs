@@ -9737,17 +9737,24 @@ fn create_handlers_native(cells: &[(Leaf, V)], srv: &Srv) -> Result<Vec<(Leaf, V
         index: Default::default(),
     };
     let (part, pairs_v) = mf_partition(&ev, &nd);
-    let trig_fts: HashSet<String> = pop_rows(cells, &leaf("smTrigger"))
-        .iter()
-        .filter_map(|r| {
-            let it = items(&list_of(r));
-            if it.len() >= 2 {
-                aval(&it[1]).map(|l| leaf_text(&l))
-            } else {
-                None
-            }
-        })
-        .collect();
+    // CANON -- DEF("rmap:distinct_at") at position 2: the fact types some
+    // smTrigger names. A row with no position 2 DROPS rather than bottoming
+    // the answer, which is why this was never a bare selector; rmap:atpos
+    // carries that guard and this reuses it. Written out twice in this file
+    // -- create_handlers_native and replay_entries_native -- and both are
+    // this one call now. Still collected into a set: the only question asked
+    // of it is membership.
+    let trig_fts: HashSet<String> = {
+        let arg = seqv(vec![
+            atom(Leaf::I(2)),
+            seqv(pop_rows(cells, &leaf("smTrigger"))),
+        ]);
+        let out = reduce_over_n(srv, atom(Leaf::S("rmap:distinct_at".to_string())), arg, -1);
+        items(&list_of(&out))
+            .iter()
+            .filter_map(|v| aval(v).map(|l| leaf_text(&l)))
+            .collect()
+    };
 
     let mut fresh: Vec<(Leaf, V)> = Vec::new();
     for f in pop_rows(cells, &leaf("factType")) {
@@ -9888,17 +9895,24 @@ fn replay_entries_native(
         index: Default::default(),
     };
     let (part, pairs_v) = mf_partition(&ev0, &nd0);
-    let trig_fts: HashSet<String> = pop_rows(cells, &leaf("smTrigger"))
-        .iter()
-        .filter_map(|r| {
-            let it = items(&list_of(r));
-            if it.len() >= 2 {
-                aval(&it[1]).map(|l| leaf_text(&l))
-            } else {
-                None
-            }
-        })
-        .collect();
+    // CANON -- DEF("rmap:distinct_at") at position 2: the fact types some
+    // smTrigger names. A row with no position 2 DROPS rather than bottoming
+    // the answer, which is why this was never a bare selector; rmap:atpos
+    // carries that guard and this reuses it. Written out twice in this file
+    // -- create_handlers_native and replay_entries_native -- and both are
+    // this one call now. Still collected into a set: the only question asked
+    // of it is membership.
+    let trig_fts: HashSet<String> = {
+        let arg = seqv(vec![
+            atom(Leaf::I(2)),
+            seqv(pop_rows(cells, &leaf("smTrigger"))),
+        ]);
+        let out = reduce_over_n(srv, atom(Leaf::S("rmap:distinct_at".to_string())), arg, -1);
+        items(&list_of(&out))
+            .iter()
+            .filter_map(|v| aval(v).map(|l| leaf_text(&l)))
+            .collect()
+    };
 
     let mut spec_box: HashMap<String, RpSpec> = HashMap::new();
     // buf preserves FIRST-SEEN fact-type order (python dict insertion
