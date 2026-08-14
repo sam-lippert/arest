@@ -11,8 +11,31 @@ from pyarest.lam import atom as A, to_lam, from_lam
 from pyarest import ast, forml, system
 from pyarest.reduce import apply
 
-ACCESS = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                           "shared", "access.md"), encoding="utf-8").read()
+# The module was a file (engine/shared/access.md) until e1103b36 retired all 17
+# readings from engine/shared, leaving this test reading a path that no longer
+# existed -- which aborted COLLECTION of the whole suite, not just this file.
+# It is inlined here beside MODEL and GRANTS, which this test always inlined;
+# reading one of its three inputs from disk was the anomaly. Not repointed at
+# readings/access/access.md: that is a different, prose document about
+# server-side enforcement, not this ingestible module.
+ACCESS = """# Access — the standard authorization module
+
+User is not core metamodel: this module is ordinary readings an application ingests or
+does not (composition is the tree-shaking). Authorization is a DERIVED fact type with
+full rule power; enforcement is one membership check in create, and an engine without
+this module ingested proceeds ungoverned (graceful absence, one closed-default
+declaration away).
+
+User(.Id) is an entity type.
+Role(.Name) is an entity type.
+Operation(.Name) is an entity type.
+Resource(.Name) is an entity type.
+
+User has Role.
+Role grants Operation on Resource.
+
+User1 is authorized for Operation2 on Resource3 if User1 has Role4 and Role4 grants Operation2 on Resource3.
+"""
 
 MODEL = """Order(.OrderId) is an entity type.
 Customer(.Name) is an entity type.
