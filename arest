@@ -8141,6 +8141,26 @@ DEF("theta:firstseen",
 DEF("theta:union",
     S3(A("COMP"), A("theta:firstseen"), A("cat"))),
 
+DEF("store:dn_keep",
+    S4(A("COND"),
+       S3(A("COMP"), A("eq"),
+          S3(A("CONS"), S3(A("COMP"), N(1), N(1)),
+             S4(A("COMP"), N(1), N(2), N(1)))),
+       N(2),
+       S3(A("COMP"), A("apndl"),
+          S3(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2))))),
+
+DEF("store:drop_named",
+    S4(A("COMP"), S2(A("INSERT"), A("store:dn_keep")),
+       A("theta:append_phi"), A("distl"))),
+
+DEF("store:replace_cell",
+    S3(A("COMP"), A("apndr"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("store:drop_named"),
+             S3(A("CONS"), S3(A("COMP"), N(1), N(2)), N(1))),
+          N(2)))),
+
 DEF("rmap:role_fts",
     S3(A("COMP"), A("theta:firstseen"), S2(A("ALPHA"), N(2)))),
 

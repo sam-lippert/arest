@@ -9728,17 +9728,32 @@ fn create_handlers_native(cells: &[(Leaf, V)], srv: &Srv) -> Result<Vec<(Leaf, V
 // existing eventWatermark cell(s) out, append a FRESH one at the END --
 // layout_cells' own ordering discipline (python's `to_lam(cells + (new,))`,
 // never Store's re-top-to-front), contents a ONE-ROW population ((n,),).
-fn with_watermark_native(cells: &[(Leaf, V)], n: i64) -> Vec<(Leaf, V)> {
-    let mut out: Vec<(Leaf, V)> = cells
+fn with_watermark_native(cells: &[(Leaf, V)], n: i64, srv: &Srv) -> Vec<(Leaf, V)> {
+    // CANON -- DEF("store:replace_cell"): drop EVERY cell of that name, then
+    // append the new one last. Deliberately NOT define_in's Backus 13.3.4
+    // pop-then-push, which removes only the FIRST match and PREPENDS; the two
+    // upsert disciplines coexist in this store and the case table pins which
+    // one this is. The watermark's value <<n>> is built here because it is a
+    // host quantity (the replay entry count), not a canon one.
+    let val = seq(from_vec(vec![seqc(vec![atom(Leaf::I(n))])]));
+    let arg = seqv(vec![
+        seqv(cells
+            .iter()
+            .map(|(name, contents)| seqv(vec![atom(name.clone()), contents.clone()]))
+            .collect()),
+        seqv(vec![atom(Leaf::S("eventWatermark".to_string())), val]),
+    ]);
+    let out = reduce_over_n(srv, atom(Leaf::S("store:replace_cell".to_string())), arg, -1);
+    items(&list_of(&out))
         .iter()
-        .filter(|(k, _)| !matches!(k, Leaf::S(s) if s == "eventWatermark"))
-        .cloned()
-        .collect();
-    out.push((
-        Leaf::S("eventWatermark".to_string()),
-        seq(from_vec(vec![seqc(vec![atom(Leaf::I(n))])])),
-    ));
-    out
+        .filter_map(|c| {
+            let ci = items(&list_of(c));
+            if ci.len() < 2 {
+                return None;
+            }
+            aval(&ci[0]).map(|nm| ((*nm).clone(), ci[1].clone()))
+        })
+        .collect()
 }
 
 // rp_flush mirrors protocol.py:295-309 _flush: own-table union via Store
@@ -10558,7 +10573,7 @@ fn op_compile_model(j: &J, srv: &mut Srv) -> Result<String, String> {
     // eventWatermark((0,)) cell that the pre-lift dump never carried -- the
     // lifted gate's own proof, named in the task's acceptance list.
     let watermark_n: i64 = replay_entries_json.as_ref().map(|e| e.len()).unwrap_or(0) as i64;
-    model_cells = with_watermark_native(&model_cells, watermark_n);
+    model_cells = with_watermark_native(&model_cells, watermark_n, srv);
     model_cells = layout_cells_native(&model_cells, srv);
     // ======================= scheduler_cells -> generator_cells ->
     // create_handlers (#20, the final pipeline slice, completing the
