@@ -12685,12 +12685,29 @@ fn val_ctx(srv: &Srv) -> ValCtx {
         }
     }
     // spans: constraint id -> sorted role positions (uniqueness families)
+    // CANON -- DEF("theta:groupby1_rest"): <constraint id, position> rows
+    // grouped by id, in row order. groupby1_rest rather than groupby1 so the
+    // EXACT width test survives: this loop took rows of exactly two, and a
+    // rest of exactly one is that same condition however the cell is shaped.
+    // (All 412 rows in the base are two wide, so the two guards coincide there
+    // -- but coinciding on today's data is not the same as meaning the same.)
+    // The Int test stays host: that a span is a position is a fact about this
+    // cell, not about grouping.
     let mut spans: HashMap<String, Vec<i64>> = HashMap::new();
-    for r in pop_rows(cells, &leaf("spans")) {
-        let it = items(&list_of(&r));
-        if it.len() == 2 {
-            if let Some(Leaf::I(p)) = aval(&it[1]).as_deref() {
-                spans.entry(key_of(&it[0])).or_default().push(*p);
+    let grouped_spans2 = reduce_over_n(srv, atom(Leaf::S("theta:groupby1_rest".to_string())),
+                                       seqv(pop_rows(cells, &leaf("spans"))), -1);
+    for g in items(&list_of(&grouped_spans2)) {
+        let gi = items(&list_of(&g));
+        if gi.len() < 2 {
+            continue;
+        }
+        let k = key_of(&gi[0]);
+        for rest in items(&list_of(&gi[1])) {
+            let ri = items(&list_of(&rest));
+            if ri.len() == 1 {
+                if let Some(Leaf::I(p)) = aval(&ri[0]).as_deref() {
+                    spans.entry(k.clone()).or_default().push(*p);
+                }
             }
         }
     }
