@@ -59,11 +59,24 @@ public final class CanonLoader {
 
     static String read(String name) {
         try {
-            return new String(Files.readAllBytes(Paths.get(sharedPath(name))),
-                              StandardCharsets.UTF_8);
+            return javaEscapes(new String(Files.readAllBytes(Paths.get(sharedPath(name))),
+                                          StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new RuntimeException("cannot read " + sharedPath(name), e);
         }
+    }
+
+    /** NO ESCAPE FOR A CONTROL CHARACTER IS LEGAL IN ALL FIVE LINEAGES. The
+     *  canon file is parsed as a Python literal, include!d as RUST source, and
+     *  copied into JS, C# and Java source. \xHH is accepted by Python, Rust, JS
+     *  and C# and rejected by Java, which has no \x escape; \\uHHHH is accepted
+     *  by Python, JS, Java and C# and rejected by Rust, which wants \\u{HHHH}.
+     *  So canon writes \xHH -- four of five natively -- and JAVA adapts, here
+     *  and in tools/java-runner/compose.py, which are the two places canon
+     *  bytes become Java source. A backslash-escaped backslash is left alone so
+     *  a doc string MENTIONING \\xHH keeps saying so. */
+    static String javaEscapes(String text) {
+        return text.replaceAll("(?<!\\\\)\\\\x([0-9a-fA-F]{2})", "\\\\u00$1");
     }
 
     /** Top-level element substrings of ONE canon tuple literal, split only at

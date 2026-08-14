@@ -7088,7 +7088,6 @@ fn fold_fire(fire: &compile::Fire, cells: &mut Vec<(Leaf, V)>) -> Result<(), Str
 // Guard_prevents_Transition — so no reference dangles. A bare name mapping to
 // more than one SMD in one pass (genuinely ambiguous) is left as-is, never a
 // partial rekey.
-const TXN_SUR: &str = "txn:";
 
 fn rekey_transitions_native(srv: &Srv, cells: &mut Vec<(Leaf, V)>) {
     // HashSet went with the `ambiguous` set: derive:txn_unambiguous excludes
@@ -7108,23 +7107,30 @@ fn rekey_transitions_native(srv: &Srv, cells: &mut Vec<(Leaf, V)>) {
     let unamb = reduce_over_n(srv, atom(Leaf::S("derive:txn_unambiguous".to_string())),
                               seqv(pop_rows(cells,
                                   &leaf("Transition_is_defined_in_State_Machine_Definition"))), -1);
-    let mut name_smd: HashMap<String, (V, V)> = HashMap::new();
-    for p in items(&list_of(&unamb)) {
+    // CANON -- DEF("derive:txn_surrogates"): each unambiguous <name, smd>
+    // paired with its surrogate, txn:{smd}US{name}. The FORMAT is meaning and
+    // it is canon now -- the SMD leads because the key is scoped by its
+    // machine, and reading the pair in operand order instead would dangle
+    // every reference in the store. The separator is written ONCE, in the DEF,
+    // as the six-character \u escape: `arest` is concatenated into java source,
+    // java has no \x escape at all, and a raw control character has no business
+    // in a file four lineages parse. name_smd and TXN_SUR went with the format
+    // -- they existed only to build it.
+    let surro_v = reduce_over_n(
+        srv,
+        atom(Leaf::S("derive:txn_surrogates".to_string())),
+        unamb.clone(),
+        -1,
+    );
+    let mut surro: HashMap<String, V> = HashMap::new();
+    for p in items(&list_of(&surro_v)) {
         let pi = items(&list_of(&p));
         if pi.len() >= 2 {
-            name_smd.insert(key_of(&pi[0]), (pi[0].clone(), pi[1].clone()));
+            surro.insert(key_of(&pi[0]), pi[1].clone());
         }
     }
-    if name_smd.is_empty() {
+    if surro.is_empty() {
         return;
-    }
-    // surro: bare-name key -> the surrogate atom, ready to substitute in place
-    let mut surro: HashMap<String, V> = HashMap::new();
-    for (k, (nm, smd)) in &name_smd {
-        if let (Some(nl), Some(sl)) = (aval(nm), aval(smd)) {
-            let sur = format!("{}{}\x1f{}", TXN_SUR, leaf_text(&sl), leaf_text(&nl));
-            surro.insert(k.clone(), atom(Leaf::S(sur)));
-        }
     }
     // pos_of: fact-type-name key -> 0-based Transition column position, from
     // the role metamodel's Transition-typed declarations plus the hardcoded

@@ -7992,6 +7992,15 @@ DEF("derive:txn_unambiguous",
     S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("derive:txn_pick")),
        A("theta:groupby1"), A("derive:txn_bare"))),
 
+"THE TRANSITION SURROGATE is a FORMAT, not an algorithm, and formats are meaning: <name, smd> becomes txn:{smd}US{name}, the SMD first because the key is scoped BY its machine and a bare name is what needed disambiguating. Built with implode, which rmap:ddl_name already uses for its t_ prefix -- canon could always concatenate. The separator is written as the six characters backslash-u-0-0-1-f, NOT as a raw control character and NOT as an x-escape: `arest` is concatenated into java source, java has no \\x escape at all (which is what broke an earlier case), and \\u is processed by its lexer into a literal US inside the string, which is legal because US is not a line terminator. Verified by compiling it, not by reading the spec. derive:txn_surrogates pairs each name with its surrogate so the host substitutes rather than formats.",
+DEF("derive:txn_surrogate",
+    S3(A("COMP"), A("implode"),
+       S3(A("CONS"), K(A("")),
+          S5(A("CONS"), K(A("txn:")), N(2), K(A("\x1f")), N(1))))),
+
+DEF("derive:txn_surrogates",
+    S2(A("ALPHA"), S3(A("CONS"), N(1), A("derive:txn_surrogate")))),
+
 DEF("derive:cp_keep",
     S4(A("COND"),
        S3(A("COMP"), A("ge"),
