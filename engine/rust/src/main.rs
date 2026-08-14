@@ -4456,14 +4456,32 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
     // the DEFS cell named "<rule id>~d<position>", exactly the name Python
     // formats
     let mut atomsof: HashMap<String, Vec<(String, String)>> = HashMap::new();
-    for r in store.pop_rows(&leaf("ruleAtom")) {
-        let it = items(&list_of(&r));
-        if it.len() >= 3 {
-            if let Some(p) = aval(&it[1]) {
-                atomsof
-                    .entry(key_of(&it[0]))
-                    .or_default()
-                    .push((leaf_text(&p), key_of(&it[2])));
+    // CANON -- DEF("theta:groupby1_rest"): <rule id, kind, cell> rows grouped
+    // by rule id, each group holding the REST of its row. groupby1 collects a
+    // single value and could not carry the pair; the general form does, and
+    // groupby1 is defined in terms of it.
+    //
+    // The rest must still be two wide -- canon's guard is that the ROW has a
+    // key and something after it, which for a 2-element ruleAtom row would
+    // leave no cell to read. That is this loop's `it.len() >= 3`, kept here
+    // because it is a fact about ruleAtom's shape, not about grouping.
+    let grouped_atoms = reduce_over_n(srv, atom(Leaf::S("theta:groupby1_rest".to_string())),
+                                      seqv(store.pop_rows(&leaf("ruleAtom"))), -1);
+    for g in items(&list_of(&grouped_atoms)) {
+        let gi = items(&list_of(&g));
+        if gi.len() < 2 {
+            continue;
+        }
+        let k = key_of(&gi[0]);
+        for rest in items(&list_of(&gi[1])) {
+            let ri = items(&list_of(&rest));
+            if ri.len() >= 2 {
+                if let Some(p) = aval(&ri[0]) {
+                    atomsof
+                        .entry(k.clone())
+                        .or_default()
+                        .push((leaf_text(&p), key_of(&ri[1])));
+                }
             }
         }
     }
