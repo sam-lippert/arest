@@ -152,6 +152,47 @@ def test_compile_model_is_deterministic_and_restores_the_store():
 
 @pytest.mark.skipif(not os.path.exists(_BIN),
                     reason="engine/rust not built (cargo build)")
+def test_the_projection_survives_the_closure():
+    # THE GAP the other two tests leave between them. The projection test below
+    # runs sql_project on the SEEDED store and sees 781 rows; the closure test
+    # above checks changed-cell NAMES and never looks at what landed in them.
+    # So a change that corrupted DERIVED rows -- reordered, duplicated, dropped
+    # -- passed both. That gap was found when op_run_rules' role grouping moved
+    # to rmap:rolegroups: rolegroups orders by position, the loop it replaced
+    # took row order, and the base store really does hold those out of order.
+    # It happened to be safe (dedup + sort_rows downstream), but nothing in the
+    # suite could have said so.
+    #
+    # Projecting AFTER the closure is what makes derived rows visible: ~3100
+    # against the 781 the seeded store carries. Structural, not a golden hash --
+    # the derived rows SHOULD change when rules or canon change, and a frozen
+    # md5 would fail on every legitimate one.
+    got = _serve([{"op": "base_seed"}, {"op": "run_rules"}, {"op": "sql_project"}],
+                 timeout=1800)
+    proj = next(a for a in got if a.get("op") == "sql_project")["result"]
+    tables = proj["tables"]
+    seeded_rows = 781      # what the SEEDED store projects, pinned in the test below
+    derived_rows = sum(len(t["rows"]) for t in tables)
+    assert derived_rows > seeded_rows, (
+        f"the closure added nothing to the projection: {derived_rows} rows")
+
+    # every derived row is still one value per declared column: derivation must
+    # not produce a ragged table (Codd 1970 1.4)
+    for t in tables:
+        for row in t["rows"]:
+            assert len(row) == len(t["columns"]), (
+                f"{t['name']}: derived row of {len(row)} against "
+                f"{len(t['columns'])} columns")
+
+    # and the counts still agree with what was emitted, keyed by source
+    for t in tables:
+        assert proj["counts"].get(t["source"]) == len(t["rows"]), (
+            f"{t['source']}: counts {proj['counts'].get(t['source'])}, "
+            f"rows {len(t['rows'])} after derivation")
+
+
+@pytest.mark.skipif(not os.path.exists(_BIN),
+                    reason="engine/rust not built (cargo build)")
 def test_the_sql_projection_holds_its_shape():
     # THE ORACLE op_sql_project never had. Its 442 lines duplicate canon by
     # arest's own rmap:schema ruling -- "the flat table is the derived

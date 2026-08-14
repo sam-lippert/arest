@@ -4356,18 +4356,14 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
     const MIRROR: &str = "Resource_is_instance_of_Noun";
     if any_reads(MIRROR) {
         let mut nouns: HashSet<String> = HashSet::new();
-        for r in store.pop_rows(&leaf("instanceOf")) {
-            let it = items(&list_of(&r));
-            if it.len() >= 2
-                && matches!(aval(&it[1]).as_deref(), Some(Leaf::S(s)) if s == "ObjectType")
-            {
-                nouns.insert(key_of(&it[0]));
-            }
+        // CANON -- DEF("rmap:entities"): instanceOf restricted to its
+        // ObjectType rows, the name projected, length guard included. The same
+        // DEF op_sql_project's entity sweep uses -- one restrict, not two.
+        let nounnames = reduce_over_n(srv, atom(Leaf::S("rmap:entities".to_string())),
+                                      seqv(store.pop_rows(&leaf("instanceOf"))), -1);
+        for n in items(&list_of(&nounnames)) {
+            nouns.insert(key_of(&n));
         }
-        // group the role rows ⟨role id, fact type, position, player⟩ by
-        // fact type, in first-appearance order like the Python dict; a
-        // position outside the int leaves its row out (Python would have
-        // faulted on it, and the resident must not)
         // CANON -- DEF("rmap:rolegroups"): role rows grouped by fact type, fact
         // types in first-appearance order, and the guards this loop spelled out
         // (four wide, position >= 1) now carried by rmap:role_keep.
