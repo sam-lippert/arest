@@ -7192,20 +7192,26 @@ fn mf_table_columns(ev: &NEval, table: &str, pairs_v: &V) -> Vec<String> {
 // the unary check every RMAP-absorbed read/write threads (engine.py's
 // `max((r[2] for r in _pop_rows(D,"role") if len(r)>=3 and r[1]==ft),
 // default=2) == 1`) -- note len(r)>=3, NOT >=4: only r[1]/r[2] are read here.
-fn mf_role_max_pos(cells: &[(Leaf, V)], ft: &str) -> i64 {
+fn mf_role_max_pos(ev: &NEval, cells: &[(Leaf, V)], ft: &str) -> i64 {
+    // CANON -- DEF("rmap:role_maxpos"), which carries the >= 3 width and the
+    // DEFAULT OF 2 as well as the max. Not rolesof's last pair: rolesof guards
+    // >= 4 and would drop the three-wide rows this must count.
+    //
+    // Reduced through the CALLER'S NEval rather than reduce_over_n: every
+    // caller already holds one, and reduce_over_n clones the store view per
+    // call to build another. Reusing it is both closer to the call site's own
+    // idiom and cheaper.
     let leaf_role = Leaf::S("role".to_string());
-    let mut mx: Option<i64> = None;
-    for r in pop_rows(cells, &leaf_role) {
-        let it = items(&list_of(&r));
-        if it.len() >= 3 {
-            if aval(&it[1]).map(|l| leaf_text(&l)).as_deref() == Some(ft) {
-                if let Some(Leaf::I(p)) = aval(&it[2]).as_deref() {
-                    mx = Some(mx.map_or(*p, |m| m.max(*p)));
-                }
-            }
-        }
+    let arg = seqv(vec![atom(Leaf::S(ft.to_string())),
+                        seqv(pop_rows(cells, &leaf_role))]);
+    let out = n_to_v(&ev.mu(napp(
+        N::A(Rc::new(Leaf::S("rmap:role_maxpos".to_string()))),
+        v_to_n(&arg),
+    )));
+    match aval(&out).as_deref() {
+        Some(Leaf::I(p)) => *p,
+        _ => 2,
     }
-    mx.unwrap_or(2)
 }
 
 // ft_view (engine.py:2671): an own-table fact type short-circuits to its
@@ -7227,7 +7233,7 @@ fn mf_ft_view(
     }
     let cols = mf_table_columns(ev, &table, pairs_v);
     let col = 2 + cols.iter().position(|c| c == ft).unwrap_or(0);
-    let unary = mf_role_max_pos(cells, ft) == 1;
+    let unary = mf_role_max_pos(ev, cells, ft) == 1;
     let pairs = n_to_v(&ev.mu(napp(
         napp(
             mf_na("system:ftpop_absorbed"),
@@ -7350,7 +7356,7 @@ fn mf_bulk_absorbed_install(
     let cols = mf_table_columns(ev, table, pairs_v);
     let col = 2 + cols.iter().position(|c| c == ft).unwrap_or(0);
     let width = 1 + cols.len();
-    let unary = mf_role_max_pos(cells, ft) == 1;
+    let unary = mf_role_max_pos(ev, cells, ft) == 1;
 
     let mut out: Vec<(Leaf, V)> = cells.to_vec();
     let hole = || atom(Leaf::S("#".to_string()));
@@ -9286,7 +9292,7 @@ fn rp_create_spec(
             .ok_or_else(|| format!("create_spec: {} missing from {} columns", ft, table))?;
         col = Some((2 + pos) as i64);
         width = Some((1 + cols.len()) as i64);
-        unary = Some(mf_role_max_pos(cells0, ft) == 1);
+        unary = Some(mf_role_max_pos(ev0, cells0, ft) == 1);
         validate = rp_row_validate(cells0, ft, col.unwrap());
     }
 
