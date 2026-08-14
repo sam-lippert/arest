@@ -7136,15 +7136,25 @@ fn rekey_transitions_native(srv: &Srv, cells: &mut Vec<(Leaf, V)>) {
     // the role metamodel's Transition-typed declarations plus the hardcoded
     // machinery cells (python's pos_of.update literal, unconditional so it
     // overrides any role-derived entry for the same name)
+    // CANON -- DEF("derive:txn_positions"): which fact types carry a
+    // Transition-typed role, and at which column 0-BASED -- the store counts
+    // roles from 1 and this walk indexes from 0, so the subtraction is part of
+    // the meaning, not of the loop. Both guards live in the DEF: a short row is
+    // skipped rather than bottoming the whole sweep, and a non-numeric position
+    // never reaches the subtraction, which is what matching Leaf::I bought here.
     let mut pos_of: HashMap<String, i64> = HashMap::new();
-    for r in pop_rows(cells, &leaf("role")) {
-        let it = items(&list_of(&r));
-        if it.len() >= 4 {
-            let is_transition =
-                matches!(aval(&it[3]).as_deref(), Some(Leaf::S(s)) if s == "Transition");
-            if is_transition {
-                if let Some(Leaf::I(p)) = aval(&it[2]).as_deref() {
-                    pos_of.insert(key_of(&it[1]), *p - 1);
+    {
+        let tp = reduce_over_n(
+            srv,
+            atom(Leaf::S("derive:txn_positions".to_string())),
+            seqv(pop_rows(cells, &leaf("role"))),
+            -1,
+        );
+        for p in items(&list_of(&tp)) {
+            let pi = items(&list_of(&p));
+            if pi.len() >= 2 {
+                if let Some(Leaf::I(v)) = aval(&pi[1]).as_deref() {
+                    pos_of.insert(key_of(&pi[0]), *v);
                 }
             }
         }

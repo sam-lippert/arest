@@ -169,6 +169,18 @@ DEF("case:union-empty-right", S2(A("theta:union"), S2(S2(A("a"), A("b")), PHI())
 DEF("case:union-both-empty", S2(A("theta:union"), S2(PHI(), PHI()))),
 "derive:txn_surrogate against rekey_transitions_native's format!. The operand is <name, smd> and the answer puts the SMD FIRST -- txn:{smd}US{name} -- because the key is scoped by its machine; a version that read the pair in operand order would answer txn:t9US M9 and every reference in the store would dangle. These cases carry no escape of their own: the separator lives once, in the DEF. -surrogates is the sweep, pairing each name with its surrogate so the host substitutes instead of formatting.",
 DEF("case:txn-surrogate", S2(A("derive:txn_surrogate"), S2(A("t9"), A("M9")))),
+
+"derive:txn_positions against rekey_transitions_native's pos_of loop. The answer is 0-BASED where the store is 1-based, which is the whole reason the DEF exists rather than a bare restrict-and-project: F1 at role position 2 answers 1. The -short case is a three-element row, which must be SKIPPED -- element 4 of it is bottom, and without the length guard eq of bottom would take the entire sweep down rather than one row (Backus 13.2). The -other case has no Transition-typed role at all and answers phi, not every row.",
+DEF("case:txn-positions", S2(A("derive:txn_positions"),
+    S3(S4(A("r1"), A("F1"), N(2), A("Transition")),
+       S4(A("r2"), A("F2"), N(1), A("Status")),
+       S4(A("r3"), A("F3"), N(3), A("Transition"))))),
+DEF("case:txn-positions-short", S2(A("derive:txn_positions"),
+    S2(S3(A("r1"), A("F1"), N(2)),
+       S4(A("r2"), A("F2"), N(1), A("Transition"))))),
+DEF("case:txn-positions-other", S2(A("derive:txn_positions"),
+    S2(S4(A("r1"), A("F1"), N(2), A("Status")),
+       S4(A("r2"), A("F2"), N(1), A("Role"))))),
 DEF("case:txn-surrogates", S2(A("derive:txn_surrogates"),
     S2(S2(A("t9"), A("M9")), S2(A("t1"), A("M2"))))),
 
