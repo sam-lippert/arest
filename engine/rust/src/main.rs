@@ -7017,35 +7017,30 @@ fn fold_fire(fire: &compile::Fire, cells: &mut Vec<(Leaf, V)>) -> Result<(), Str
 // partial rekey.
 const TXN_SUR: &str = "txn:";
 
-fn rekey_transitions_native(cells: &mut Vec<(Leaf, V)>) {
-    use std::collections::HashSet;
+fn rekey_transitions_native(srv: &Srv, cells: &mut Vec<(Leaf, V)>) {
+    // HashSet went with the `ambiguous` set: derive:txn_unambiguous excludes
+    // the conflicting names rather than collecting them to remove afterwards.
     let leaf = |s: &str| Leaf::S(s.to_string());
     // name_smd: bare transition-name key -> (name V, smd V), built from
     // Transition_is_defined_in_State_Machine_Definition rows; a name seen
     // with two DIFFERENT smd values anywhere in the population is ambiguous
     // and excluded whole (python's unconditional overwrite-then-pop)
+    // CANON -- DEF("derive:txn_unambiguous"). All three rules ride together:
+    // a name already carrying the txn: surrogate is skipped (an earlier pass
+    // keyed it), a name defined twice in the SAME machine survives, and a name
+    // defined in TWO machines is excluded WHOLE rather than resolved to
+    // either. This loop reached the last by overwriting then popping -- the
+    // same answer arrived at backwards -- and the canon states it as the
+    // functional dependency it is.
+    let unamb = reduce_over_n(srv, atom(Leaf::S("derive:txn_unambiguous".to_string())),
+                              seqv(pop_rows(cells,
+                                  &leaf("Transition_is_defined_in_State_Machine_Definition"))), -1);
     let mut name_smd: HashMap<String, (V, V)> = HashMap::new();
-    let mut ambiguous: HashSet<String> = HashSet::new();
-    for r in pop_rows(cells, &leaf("Transition_is_defined_in_State_Machine_Definition")) {
-        let it = items(&list_of(&r));
-        if it.len() >= 2 {
-            let already_sur = match aval(&it[0]) {
-                Some(l) => leaf_text(&l).starts_with(TXN_SUR),
-                None => false,
-            };
-            if !already_sur {
-                let k = key_of(&it[0]);
-                if let Some((_, existing_smd)) = name_smd.get(&k) {
-                    if !eqobj(existing_smd, &it[1]) {
-                        ambiguous.insert(k.clone());
-                    }
-                }
-                name_smd.insert(k, (it[0].clone(), it[1].clone()));
-            }
+    for p in items(&list_of(&unamb)) {
+        let pi = items(&list_of(&p));
+        if pi.len() >= 2 {
+            name_smd.insert(key_of(&pi[0]), (pi[0].clone(), pi[1].clone()));
         }
-    }
-    for k in &ambiguous {
-        name_smd.remove(k);
     }
     if name_smd.is_empty() {
         return;
@@ -8526,7 +8521,7 @@ fn compile_lines_native(
             }
         }
     }
-    rekey_transitions_native(&mut model_cells);
+    rekey_transitions_native(&*srv, &mut model_cells);
     Ok((model_cells, folded_any))
 }
 
@@ -10308,7 +10303,7 @@ fn op_compile_model(j: &J, srv: &mut Srv) -> Result<String, String> {
     // slice 1 tail (native pipeline tail, #20): rekey_transitions
     // (machine-scope transition identity — compiler.py's compile_model
     // wrapper applies it right after the fold: D2 = system.rekey_transitions(D2))
-    rekey_transitions_native(&mut model_cells);
+    rekey_transitions_native(&*srv, &mut model_cells);
     // then the post-model rules fixpoint (protocol.py:1815's separate
     // system.run_rules(D, ...) call, made after compile_model returns) through
     // the EXISTING native op_run_rules machinery — the SAME save/swap/restore
