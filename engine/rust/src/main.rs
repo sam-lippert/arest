@@ -9958,10 +9958,19 @@ fn replay_entries_native(
                 _ => return Err("retract entry missing fact".to_string()),
             };
             let target = row_v(&fact);
-            let mut rows: Vec<V> = pop_rows(&out, &leaf(&ft));
-            rows.retain(|r| !eqobj(r, &target));
-            // NO _rowsort -- protocol.py:318 skips it for retract
-            store_move(&mut out, &ft, seq(from_vec(rows)));
+            // CANON -- DEF("theta:setminus"): a retract removes EVERY row equal
+            // to the fact, not the first one, and equality is NATEQ over whole
+            // rows -- which is what eqobj was doing here. NO _rowsort:
+            // protocol.py:318 skips it for retract, and setminus keeps the LEFT
+            // list's order, so the store does not reshuffle on a retraction.
+            // Retracting an absent fact stays a no-op. All three are cased.
+            let rows_v = reduce_over_n(
+                srv,
+                atom(Leaf::S("theta:setminus".to_string())),
+                seqv(vec![seqv(pop_rows(&out, &leaf(&ft))), seqv(vec![target])]),
+                -1,
+            );
+            store_move(&mut out, &ft, seq(from_vec(items(&list_of(&rows_v)))));
             continue;
         }
 
