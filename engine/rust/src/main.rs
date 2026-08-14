@@ -4805,19 +4805,22 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
     // spanning_uniqueness constraints (constraint rows are ⟨constraint id,
     // kind, fact type, ..⟩). A fact type with a key span is a keyed head.
     let mut keyspans: HashMap<String, BTreeSet<i64>> = HashMap::new();
-    for c in store.pop_rows(&leaf("constraint")) {
-        let it = items(&list_of(&c));
-        if it.len() >= 3 {
-            let is_uc = matches!(aval(&it[1]).as_deref(),
-                Some(Leaf::S(s)) if s == "uniqueness" || s == "spanning_uniqueness");
-            if is_uc {
-                if let Some(ps) = spans_of.get(&key_of(&it[0])) {
-                    if !ps.is_empty() {
-                        keyspans
-                            .entry(key_of(&it[2]))
-                            .or_default()
-                            .extend(ps.iter().copied());
-                    }
+    // CANON -- DEF("derive:uniq_constraints"): the constraint cell restricted
+    // to its uniqueness kinds (plain and spanning), projected to
+    // <constraint id, fact type>. The JOIN stays here: pairing those against
+    // the separately grouped spans is the caller's business, not the
+    // restrict's.
+    let ucs = reduce_over_n(srv, atom(Leaf::S("derive:uniq_constraints".to_string())),
+                            seqv(store.pop_rows(&leaf("constraint"))), -1);
+    for uc in items(&list_of(&ucs)) {
+        let ui = items(&list_of(&uc));
+        if ui.len() >= 2 {
+            if let Some(ps) = spans_of.get(&key_of(&ui[0])) {
+                if !ps.is_empty() {
+                    keyspans
+                        .entry(key_of(&ui[1]))
+                        .or_default()
+                        .extend(ps.iter().copied());
                 }
             }
         }
