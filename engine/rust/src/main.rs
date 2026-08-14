@@ -6809,6 +6809,7 @@ fn load_grammar_scratch(j: &J) -> Result<(GrammarScratch, String), String> {
 // (Classification_has_Translator) and the stage-1 vocabulary (classLit)
 #[allow(clippy::type_complexity)]
 fn grammar_tables(
+    srv: &Srv,
     cells: &[(Leaf, V)],
 ) -> (
     std::collections::HashMap<String, Vec<String>>,
@@ -6818,16 +6819,31 @@ fn grammar_tables(
     let strv = |x: &V| aval(x).and_then(|l| leaf_str(&l));
     let mut dispatch: std::collections::HashMap<String, Vec<String>> =
         std::collections::HashMap::new();
-    for r in pop_rows(cells, &leaf("Classification_has_Translator")) {
-        let it = items(&list_of(&r));
-        if it.len() >= 2 {
-            if let (Some(c), Some(t)) = (strv(&it[0]), strv(&it[1])) {
-                dispatch.entry(c).or_default().push(t);
+    // CANON, both, and neither needed a new DEF. The dispatch table is
+    // theta:groupby1 -- <classification, translator> grouped by
+    // classification, keys first-seen, translators in row order. The stage-1
+    // vocabulary is rmap:takerows<2>, the same truncate-and-skip that serves
+    // the subtype edges and the relation rows.
+    let grouped_disp = reduce_over_n(srv, atom(Leaf::S("theta:groupby1".to_string())),
+                                     seqv(pop_rows(cells, &leaf("Classification_has_Translator"))), -1);
+    for g in items(&list_of(&grouped_disp)) {
+        let gi = items(&list_of(&g));
+        if gi.len() < 2 {
+            continue;
+        }
+        if let Some(c) = strv(&gi[0]) {
+            for tv in items(&list_of(&gi[1])) {
+                if let Some(t) = strv(&tv) {
+                    dispatch.entry(c.clone()).or_default().push(t);
+                }
             }
         }
     }
     let mut vocab: Vec<(String, String)> = Vec::new();
-    for r in pop_rows(cells, &leaf("classLit")) {
+    let litrows = reduce_over_n(srv, atom(Leaf::S("rmap:takerows".to_string())),
+                                seqv(vec![atom(Leaf::I(2)),
+                                          seqv(pop_rows(cells, &leaf("classLit")))]), -1);
+    for r in items(&list_of(&litrows)) {
         let it = items(&list_of(&r));
         if it.len() >= 2 {
             if let (Some(a), Some(b)) = (strv(&it[0]), strv(&it[1])) {
@@ -8288,12 +8304,12 @@ fn compile_lines_native(
     let leaf = |s: &str| Leaf::S(s.to_string());
 
     // ---- grammar (mirrors op_compile_model's own load verbatim) ----
-    let (mut dispatch, mut vocab) = grammar_tables(&srv.cells);
+    let (mut dispatch, mut vocab) = grammar_tables(&*srv, &srv.cells.clone());
     let mut scratch: Option<GrammarScratch> = None;
     if vocab.is_empty() {
         match load_grammar_scratch(j) {
             Ok((g, _path)) => {
-                let (d2, v2) = grammar_tables(&g.1);
+                let (d2, v2) = grammar_tables(&*srv, &g.1);
                 dispatch = d2;
                 vocab = v2;
                 scratch = Some(g);
@@ -9901,14 +9917,14 @@ fn op_compile_model(j: &J, srv: &mut Srv) -> Result<String, String> {
     // THAW the compiled grammar sidecar into a classification SCRATCH — the
     // resident-kernel grammar_D(). The scratch swaps in only around the batch
     // derive below; the resident store is restored whole.
-    let (mut dispatch, mut vocab) = grammar_tables(&srv.cells);
+    let (mut dispatch, mut vocab) = grammar_tables(&*srv, &srv.cells.clone());
     let mut grammar_src = String::from("resident");
     let mut scratch: Option<GrammarScratch> = None;
     let mut missing: Vec<String> = Vec::new();
     if vocab.is_empty() {
         match load_grammar_scratch(j) {
             Ok((g, path)) => {
-                let (d2, v2) = grammar_tables(&g.1);
+                let (d2, v2) = grammar_tables(&*srv, &g.1);
                 dispatch = d2;
                 vocab = v2;
                 grammar_src = path;
