@@ -167,6 +167,11 @@ DEF("case:union-dup-left", S2(A("theta:union"), S2(S3(A("a"), A("a"), A("b")), S
 DEF("case:union-empty-left", S2(A("theta:union"), S2(PHI(), S2(A("a"), A("b"))))),
 DEF("case:union-empty-right", S2(A("theta:union"), S2(S2(A("a"), A("b")), PHI()))),
 DEF("case:union-both-empty", S2(A("theta:union"), S2(PHI(), PHI()))),
+"rmap:atpos does NOT dedup and does NOT reorder, which is the property status_facts_native depends on -- its nouns come from a plain list comprehension and a governed noun named twice must be listed twice, because each one emits its own pair of readings. Cased separately from rmap:distinct_at precisely because the two differ only by the dedup, and picking the wrong one is a silent change in what gets compiled.",
+DEF("case:atpos-dups", S2(A("rmap:atpos"),
+    S2(N(2), S3(S2(A("m1"), A("Order")), S2(A("m2"), A("Order")),
+                S2(A("m3"), A("Peer")))))),
+
 "rmap:distinct_at at position 2, which is what create_handlers_native built a HashSet for. The -short case is why this is not just ALPHA 2: a row with no position 2 must DROP, not bottom the whole answer -- Backus 13.2 makes a sequence containing bottom bottom, so a selector applied blind would lose the population. The -coltables case re-runs the pos-1 instance the family already had, so redefining rmap:coltables in terms of this is held to its old answer.",
 DEF("case:distinct-at2", S2(A("rmap:distinct_at"),
     S2(N(2), S3(S2(A("t1"), A("F1")), S2(A("t2"), A("F2")),

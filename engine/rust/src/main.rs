@@ -8669,17 +8669,19 @@ fn status_facts_native(
 
     // nouns: smDef rows' r[1] (governed noun), IN POP ORDER, duplicates
     // preserved (engine.py:3529's plain list comprehension -- no dedup)
-    let nouns: Vec<String> = pop_rows(cells, &leaf("smDef"))
-        .iter()
-        .filter_map(|r| {
-            let it = items(&list_of(r));
-            if it.len() >= 2 {
-                aval(&it[1]).map(|l| leaf_text(&l))
-            } else {
-                None
-            }
-        })
-        .collect();
+    // CANON -- DEF("rmap:atpos") at position 2, NOT rmap:distinct_at: the
+    // governed nouns keep pop order and keep duplicates, because each one
+    // emits its own pair of readings below and deduping here would silently
+    // drop a compile. atpos already carries the len >= 2 guard this hand-rolled
+    // -- a row too short drops rather than bottoming the projection.
+    let nouns: Vec<String> = {
+        let arg = seqv(vec![atom(Leaf::I(2)), seqv(pop_rows(cells, &leaf("smDef")))]);
+        let out = reduce_over_n(srv, atom(Leaf::S("rmap:atpos".to_string())), arg, -1);
+        items(&list_of(&out))
+            .iter()
+            .filter_map(|v| aval(v).map(|l| leaf_text(&l)))
+            .collect()
+    };
     if nouns.is_empty() {
         return Ok(cells.to_vec());
     }
