@@ -7939,7 +7939,6 @@ fn machine_fold_native(cells: &[(Leaf, V)], srv: &Srv) -> (Vec<(Leaf, V)>, bool)
 // python filters the old cell out then appends the fresh one at the END
 // (`cells + (new,)`), never Store's re-top-to-front.
 fn layout_cells_native(cells: &[(Leaf, V)], srv: &Srv) -> Vec<(Leaf, V)> {
-    use std::collections::HashSet;
     let d0 = cells_to_d(cells);
     let nd = v_to_n(&d0);
     let ncells = n_cells_of(&nd);
@@ -7952,14 +7951,24 @@ fn layout_cells_native(cells: &[(Leaf, V)], srv: &Srv) -> Vec<(Leaf, V)> {
     };
 
     let (part, pairs_v) = mf_partition(&ev, &nd);
-    let mut tables: Vec<String> = part
+    // CANON -- DEF("rmap:abs_targets"): the distinct tables something OTHER
+    // than itself maps into, sorted. The f == t pairs drop, because a fact
+    // type mapping to itself is its own table and absorbs nothing. The SORT
+    // is canon's now too -- this collected into a HashSet and sorted after,
+    // so the order was never the set's to give; sorted going in as well, so
+    // the call does not depend on HashMap iteration order.
+    let mut pv: Vec<(String, String)> = part.iter().map(|(f, t)| (f.clone(), t.clone())).collect();
+    pv.sort();
+    let parg = seqv(
+        pv.into_iter()
+            .map(|(f, t)| seqv(vec![atom(Leaf::S(f)), atom(Leaf::S(t))]))
+            .collect(),
+    );
+    let tv = reduce_over_n(srv, atom(Leaf::S("rmap:abs_targets".to_string())), parg, -1);
+    let tables: Vec<String> = items(&list_of(&tv))
         .iter()
-        .filter(|(f, t)| f != t)
-        .map(|(_, t)| t.clone())
-        .collect::<HashSet<_>>()
-        .into_iter()
+        .filter_map(|v| aval(v).map(|l| leaf_text(&l)))
         .collect();
-    tables.sort();
 
     let mut rows: Vec<V> = Vec::new();
     for table in &tables {
@@ -8013,15 +8022,32 @@ fn layout_cells_native(cells: &[(Leaf, V)], srv: &Srv) -> Vec<(Leaf, V)> {
         }
     }
 
-    let mut out: Vec<(Leaf, V)> = cells
-        .iter()
-        .filter(|(k, _)| {
-            !matches!(k, Leaf::S(s) if s == "rmapColumns" || s == "enumValues")
-        })
-        .cloned()
-        .collect();
-    out.push((Leaf::S("rmapColumns".to_string()), seq(from_vec(rows))));
-    out.push((Leaf::S("enumValues".to_string()), seq(from_vec(erows))));
+    // CANON -- DEF("store:replace_cell"), as scheduler_cells_native does:
+    // drop every cell of the name, append the new one last, in order.
+    let mut out = cells.to_vec();
+    for (name, val) in [
+        ("rmapColumns", seq(from_vec(rows))),
+        ("enumValues", seq(from_vec(erows))),
+    ] {
+        let arg = seqv(vec![
+            seqv(out
+                .iter()
+                .map(|(k, c)| seqv(vec![atom(k.clone()), c.clone()]))
+                .collect()),
+            seqv(vec![atom(Leaf::S(name.to_string())), val]),
+        ]);
+        let ans = reduce_over_n(srv, atom(Leaf::S("store:replace_cell".to_string())), arg, -1);
+        out = items(&list_of(&ans))
+            .iter()
+            .filter_map(|c| {
+                let ci = items(&list_of(c));
+                if ci.len() < 2 {
+                    return None;
+                }
+                aval(&ci[0]).map(|nm| ((*nm).clone(), ci[1].clone()))
+            })
+            .collect();
+    }
     out
 }
 
@@ -8064,16 +8090,45 @@ fn scheduler_cells_native(cells: &[(Leaf, V)], srv: &Srv) -> Vec<(Leaf, V)> {
     }
     let order_v = n_to_v(&ev.mu(napp(mf_na("system:pass_order"), nseq(vec![]))));
     let bound_v = n_to_v(&ev.mu(napp(mf_na("system:pass_bound"), nseq(vec![]))));
-    let mut out: Vec<(Leaf, V)> = cells
-        .iter()
-        .filter(|(k, _)| {
-            !matches!(k, Leaf::S(s) if s == "passHeads" || s == "passOrder" || s == "passBound")
-        })
-        .cloned()
-        .collect();
-    out.push((Leaf::S("passHeads".to_string()), seq(from_vec(rows))));
-    out.push((Leaf::S("passOrder".to_string()), order_v));
-    out.push((Leaf::S("passBound".to_string()), bound_v));
+    // CANON -- DEF("store:replace_cell"), three times. The filter-then-push
+    // this replaces is exactly that discipline: drop EVERY cell of the name,
+    // append the new one last. Applied in order, so passHeads/passOrder/
+    // passBound land in that order at the end, as before.
+    //
+    // The CLASSIFICATION above stays native on purpose: classify_heads_native
+    // is a REGISTERED certified twin (test_canon_coverage's OVERRIDES maps
+    // _classify_heads -> system:classify_heads, twinned per-run by
+    // test_classify_canon.py), and a sanctioned twin is not drift. Its row
+    // ORDER is presentation, which that test states outright -- it compares
+    // per-pass SETS because "populations are sets, order is presentation
+    // owned by the materializing host" -- so routing these rows through the
+    // canon DEF would answer the same classification in a different order
+    // and change a stored cell for nothing.
+    let mut out = cells.to_vec();
+    for (name, val) in [
+        ("passHeads", seq(from_vec(rows))),
+        ("passOrder", order_v),
+        ("passBound", bound_v),
+    ] {
+        let arg = seqv(vec![
+            seqv(out
+                .iter()
+                .map(|(k, c)| seqv(vec![atom(k.clone()), c.clone()]))
+                .collect()),
+            seqv(vec![atom(Leaf::S(name.to_string())), val]),
+        ]);
+        let ans = reduce_over_n(srv, atom(Leaf::S("store:replace_cell".to_string())), arg, -1);
+        out = items(&list_of(&ans))
+            .iter()
+            .filter_map(|c| {
+                let ci = items(&list_of(c));
+                if ci.len() < 2 {
+                    return None;
+                }
+                aval(&ci[0]).map(|nm| ((*nm).clone(), ci[1].clone()))
+            })
+            .collect();
+    }
     out
 }
 

@@ -70,6 +70,15 @@ OVERRIDES = {
     "theta:flatten": "theta:flatten",
     "theta:join_combine": "theta:join_combine",
     "theta:member": "theta:member",
+    # theta:NatJoin belongs here for the same reason the five above do, and was
+    # missing: engine/rust recognizes its BUILT TERM at application (fn
+    # natjoin_run, 558 lines) and reduces it as a native hash join, gated by
+    # the same kill switch. The registry never caught it because NatJoin is
+    # recognized INSIDE the evaluator rather than dispatched as an op, so the
+    # dispatch gate below never sees the name. An undeclared native twin is
+    # indistinguishable from drift by inspection, which is the whole point of
+    # this table.
+    "theta:NatJoin": "theta:NatJoin",
 }
 
 
