@@ -369,6 +369,31 @@ DEF("case:table-columns-other", S2(
           A("id"))),
     S2(S2(A("F1"), A("T1")), S2(A("F2"), A("T1"))))),
 
+"system:join_rule2 builds the two-hop join a derivation rule reduces to: compiler.py 1766 hands it <2, <1>> -- join A's column 2 to B's column 1, project column 1 -- and nothing reached it. These APPLY the built term to two populations rather than pin its shape. -two-hits is the one that earns its place: both a and b hop through the SAME x, so the answer carries both, and an implementation taking the first match per right-hand row would answer <a> alone and pass -match and -nomatch unchanged. A join that silently drops the second path is how a transitive closure comes back short.",
+DEF("case:join-rule2-match", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:join_rule2")), K(S2(N(2), S1(N(1)))))),
+          A("id"))),
+    S2(S2(S2(A("a"), A("x")), S2(A("b"), A("y"))),
+       S2(S2(A("x"), A("p")), S2(A("z"), A("q")))))),
+DEF("case:join-rule2-nomatch", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:join_rule2")), K(S2(N(2), S1(N(1)))))),
+          A("id"))),
+    S2(S1(S2(A("a"), A("x"))), S1(S2(A("z"), A("q")))))),
+DEF("case:join-rule2-two-hits", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:join_rule2")), K(S2(N(2), S1(N(1)))))),
+          A("id"))),
+    S2(S2(S2(A("a"), A("x")), S2(A("b"), A("x"))),
+       S1(S2(A("x"), A("p")))))),
+
 "system:ask_pos resolves a noun to its role position within a fact type, <ft, k, D>. Host-called (protocol.py 2757) and uncased. It is the OTHER HALF of ask_filter below and casing both closes the loop: a noun the fact type does not play answers '#', and that '#' is exactly the spec value ask_filter's -hash case must reject. Before these two, neither end of that contract was checked on any station -- the producer could have answered phi or bottom and the consumer could have treated it as no-constraint, and each would have looked correct alone. -order and -size together pin that the position is the ROLE's, not a fixed column: the same store answers 1 and 2 for its two players.",
 DEF("case:ask-pos-size", S2(A("system:ask_pos"),
     S3(A("Order_has_Size"), A("Size"),
