@@ -369,6 +369,18 @@ DEF("case:table-columns-other", S2(
           A("id"))),
     S2(S2(A("F1"), A("T1")), S2(A("F2"), A("T1"))))),
 
+"system:sm_join assembles the machine from M: smFrom <t,from> joined smTrigger <t,trigger> joined smTo <t,to>, projected to <from, trigger, to>. engine.py:1567 puts it plainly -- a machine IS a set of facts, and assembling it is a theta1 join over M's cells, not a second interpreter. Host-called (sm_triples) and reached by nothing. Operand is the three populations, so no store. -partial is the case that earns its place: 'ship' is declared in smFrom and smTrigger but has no smTo row, and it must DROP. The join is inner. An outer join would emit an edge with a hole in it, and a half-declared transition would become a real machine edge leading nowhere -- passing -two and -notrig unchanged while doing it.",
+DEF("case:sm-join-two", S2(A("system:sm_join"),
+    S3(S2(S2(A("pay"), A("In Cart")), S2(A("ship"), A("Paid"))),
+       S2(S2(A("pay"), A("E1")), S2(A("ship"), A("E2"))),
+       S2(S2(A("pay"), A("Paid")), S2(A("ship"), A("Shipped")))))),
+DEF("case:sm-join-partial", S2(A("system:sm_join"),
+    S3(S2(S2(A("pay"), A("In Cart")), S2(A("ship"), A("Paid"))),
+       S2(S2(A("pay"), A("E1")), S2(A("ship"), A("E2"))),
+       S1(S2(A("pay"), A("Paid")))))),
+DEF("case:sm-join-notrig", S2(A("system:sm_join"),
+    S3(S1(S2(A("pay"), A("In Cart"))), PHI(), S1(S2(A("pay"), A("Paid")))))),
+
 "constraints:scoped_inclusive_or_spec and scoped_exclusive_or_spec, the absorbed routes for the two disjunctive constraints. Host-called (engine.py 765, 790) and reached by nothing. Operand is <subject_cell, triples> -- the subject stays a NAMED CELL while the clauses become <target, clause_id, popspec> triples, which is the asymmetry to notice and is stated at engine.py:757. Both answer exactly what their plain forms answer: c alone for the inclusive form (in no clause), and c THEN b for the exclusive one (in none, and in both), none-arm before both-arm. These took no failed attempts, unlike scoped_exclusion_spec directly above, for one reason -- the caller was read before the operand was written.",
 DEF("case:inclusive-or-spec", S2(
     S3(A("COMP"), A("apply"),
