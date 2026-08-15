@@ -295,6 +295,12 @@ DEF("case:refmode-default", S2(A("rmap:refmode"),
     S3(A("Van"), PHI(), PHI()))),
 DEF("case:keycol", S2(A("rmap:keycol"), S2(A("Person Name"), A("nr")))),
 
+"system:machine_step and system:mealy_step build the UNREDUCED application a create record carries as data (main.rs 9225, 9233) -- reached by nothing. Operand <ft, rc> where rc is PHI or a one-element <col>, which is Rust's Option<i64> crossing into canon as an empty-or-singleton sequence rather than as a null. The DEFs' leading COND tests exactly that emptiness, so the two arms ARE the None and Some cases and casing one would leave the dispatch half-checked. These pin the built term, not its behaviour: the term is invoked later, against the addressed entity's row, when the assembled handler meets <fact, D> -- the comment at 9215 says so and the case cannot reach that far.",
+DEF("case:machine-step-nocol", S2(A("system:machine_step"), S2(A("F1"), PHI()))),
+DEF("case:machine-step-col", S2(A("system:machine_step"), S2(A("F1"), S1(N(2))))),
+DEF("case:mealy-step-nocol", S2(A("system:mealy_step"), S2(A("F1"), PHI()))),
+DEF("case:mealy-step-col", S2(A("system:mealy_step"), S2(A("F1"), S1(N(2))))),
+
 "system:sm_rows is the state-machine handlers' shared row object, host-called at compile.rs 2235, reached by nothing. Operand <verb, head, group1, group2> -- four bare strings, which is why this one is caseable where system:partition beside it is not. The verb is the grammar's own recognizer token and it DISPATCHES: the smdef case takes the 'is for Object Type' arm and builds its row from groups 3 and 4. -unknown is the arm that matters: a verb no handler recognises must not produce rows, because a compile that accepted rows for an unrecognised reading would write facts nobody declared. Casing the dispatch AND its fall-through is the pair; either alone leaves half the decision unchecked.",
 DEF("case:sm-rows-smdef", S2(A("system:sm_rows"),
     S4(A("is for Object Type"), A("h"), A("Order"), A("OrderSM")))),
