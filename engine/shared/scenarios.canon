@@ -295,6 +295,12 @@ DEF("case:refmode-default", S2(A("rmap:refmode"),
     S3(A("Van"), PHI(), PHI()))),
 DEF("case:keycol", S2(A("rmap:keycol"), S2(A("Person Name"), A("nr")))),
 
+"system:sm_rows is the state-machine handlers' shared row object, host-called at compile.rs 2235, reached by nothing. Operand <verb, head, group1, group2> -- four bare strings, which is why this one is caseable where system:partition beside it is not. The verb is the grammar's own recognizer token and it DISPATCHES: the smdef case takes the 'is for Object Type' arm and builds its row from groups 3 and 4. -unknown is the arm that matters: a verb no handler recognises must not produce rows, because a compile that accepted rows for an unrecognised reading would write facts nobody declared. Casing the dispatch AND its fall-through is the pair; either alone leaves half the decision unchecked.",
+DEF("case:sm-rows-smdef", S2(A("system:sm_rows"),
+    S4(A("is for Object Type"), A("h"), A("Order"), A("OrderSM")))),
+DEF("case:sm-rows-unknown", S2(A("system:sm_rows"),
+    S4(A("no such verb"), A("h"), A("g1"), A("g2")))),
+
 "system:table_columns is host-called all through op_sql_project (mf_table_columns, main.rs 7288) and was reached by nothing. It is applied to the TABLE NAME first and the resulting term to the partition pairs -- napp(napp(name, table), pairs) at 7290, two applications, not one call with two arguments. That is the shape to get right and it is only visible at the call site. The pairs are plain <ft, table> rows, so unlike system:partition next to it this needs NO compiled model: the operand is writable by hand, which is why this one could be cased and partition could not. -other answers phi for a table nothing absorbs into, and ORDER is the pairs' own -- F1 before F2 because the pairs list says so, not because anything sorted them, which is what makes the column positions line up with the DDL downstream.",
 DEF("case:table-columns", S2(
     S3(A("COMP"), A("apply"),
