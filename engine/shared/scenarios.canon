@@ -295,6 +295,32 @@ DEF("case:refmode-default", S2(A("rmap:refmode"),
     S3(A("Van"), PHI(), PHI()))),
 DEF("case:keycol", S2(A("rmap:keycol"), S2(A("Person Name"), A("nr")))),
 
+"constraints:scoped_mandatory_facts, host-called at compile.rs 828 and 856 and reached by nothing. Note the operand is a BARE ft name, not a sequence -- vs(ft), not vt(...) -- which is the first thing to get wrong here and the reason these were written from the call site rather than from the DEF. Applied to <rows, D> it is setminus over <proj1 of rows, proj1 of pop_of(ft)>: the entities that fail to participate. Both sides are projected to column 1, so an entity is matched by its ID and not by its whole row -- -wide gives the rows a second column the population does not have, and the answer must still be phi. Without that case an implementation comparing whole rows passes -violates and -holds and fails only on real data.",
+DEF("case:mandatory-facts-violates", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("constraints:scoped_mandatory_facts")), K(A("F")))),
+          A("id"))),
+    S2(S3(S1(A("a")), S1(A("b")), S1(A("c"))),
+       S1(S3(A("CELL"), A("F"), S2(S1(A("a")), S1(A("b")))))))),
+DEF("case:mandatory-facts-holds", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("constraints:scoped_mandatory_facts")), K(A("F")))),
+          A("id"))),
+    S2(S2(S1(A("a")), S1(A("b"))),
+       S1(S3(A("CELL"), A("F"), S2(S1(A("a")), S1(A("b")))))))),
+DEF("case:mandatory-facts-wide", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("constraints:scoped_mandatory_facts")), K(A("F")))),
+          A("id"))),
+    S2(S2(S2(A("a"), A("x")), S2(A("b"), A("y"))),
+       S1(S3(A("CELL"), A("F"), S2(S1(A("a")), S1(A("b")))))))),
+
 "constraints:scoped_exclusive_or, operand <base, clauses, ft> as compile.rs 2197 passes it -- the same shape as the inclusive form, and the difference is the whole point. EXCLUSIVE-OR FAILS IN TWO DIRECTIONS and one operand exposes both: -mixed puts a in P alone (fine), b in BOTH P and Q, and c in NEITHER, and the answer is <c> then <b>. That order is the answer's own and is pinned deliberately: the none-arm is concatenated before the both-arm, so a version that computed the right two sets and emitted them the other way round is a difference the wall would show. -clean has every member in exactly one clause and answers phi; without it, an implementation that reported every base member would still pass -mixed, since -mixed's answer happens to omit only a.",
 DEF("case:scoped-exclusive-or-clean", S2(
     S3(A("COMP"), A("apply"),
