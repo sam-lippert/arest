@@ -295,6 +295,10 @@ DEF("case:refmode-default", S2(A("rmap:refmode"),
     S3(A("Van"), PHI(), PHI()))),
 DEF("case:keycol", S2(A("rmap:keycol"), S2(A("Person Name"), A("nr")))),
 
+"system:pass_order and system:pass_bound are CONSTANTS -- K terms, ignoring their operand -- and scheduler_cells_native evaluates both to materialise passOrder and passBound. Constants are the easiest thing to leave uncased and the cheapest thing to get wrong: if one station's canon carried a different literal, that station would schedule the joint loop differently and nothing else in the repo would say so. THE ASYMMETRY IS THE REASON TO CASE THEM RATHER THAN ASSUME. pass_order names FOUR passes -- agg, keyed, sweep, dred -- while system:classify_heads has FIVE arms, the fifth being aggwhole, and scheduler_cells_native emits passHeads rows for all five. So aggwhole heads are classified and materialised but carry no order position. That is either deliberate (aggwhole is dispatched elsewhere, not by the ordered loop) or a gap; the case pins WHAT IS, so that whichever it is stops being invisible. pass_bound is the round cap, 12.",
+DEF("case:pass-order", S2(A("system:pass_order"), PHI())),
+DEF("case:pass-bound", S2(A("system:pass_bound"), PHI())),
+
 "constraints:scoped_mandatory_entities_implied closes the scoped_* cluster. Host-called at main.rs 13117, reached by nothing. The spec is <pos, rows> and each row is <kind, name, vcol, col> with kind one of P, view or cell -- read off main.rs 13096-13108, NOT inferred from the DEF, which only shows that impl_member selects position 4. That distinction is the working method of this whole cluster: the builder tells you what it composes, the call site tells you what it is handed, and only the second can be guessed wrong in a way four green stations would ratify. Applied to <rows, D> the answer is the implied entities MISSING from the population: c is in F and not in the rows, so <c>; -holds has every implied entity present and answers phi.",
 DEF("case:mandatory-implied-holds", S2(
     S3(A("COMP"), A("apply"),
