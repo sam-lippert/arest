@@ -328,7 +328,7 @@ Classification 'State Machine Reading' has Translator 'translate_state_machines'
 Classification 'Finality Declaration' has Translator 'translate_finality'.
 Classification 'Negation Reading' has Translator 'translate_negation'.
 
-Statement has Classification 'State Machine Reading' iff Statement has Predicate 'is for Object Type' and Statement has Literal Role.
+Statement has Classification 'State Machine Reading' iff Statement has Predicate 'is for Noun' and Statement has Literal Role.
 Statement has Classification 'State Machine Reading' iff Statement has Predicate 'is initial in State Machine Definition' and Statement has Literal Role.
 Statement has Classification 'State Machine Reading' iff Statement has Predicate 'is from Status' and Statement has Literal Role.
 Statement has Classification 'State Machine Reading' iff Statement has Predicate 'is to Status' and Statement has Literal Role.
