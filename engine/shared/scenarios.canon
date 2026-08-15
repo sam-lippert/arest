@@ -295,6 +295,32 @@ DEF("case:refmode-default", S2(A("rmap:refmode"),
     S3(A("Van"), PHI(), PHI()))),
 DEF("case:keycol", S2(A("rmap:keycol"), S2(A("Person Name"), A("nr")))),
 
+"constraints:scoped_equality_side, host-called at compile.rs 2216 with a BARE ft name, reached by nothing. It is a SYMMETRIC DIFFERENCE and that is the whole content: cat over <setminus<rows,pop>, setminus<pop,rows>>, so an equality constraint reports the strays on BOTH sides rather than one. -right-only is the case that cannot be faked: rows are a subset of the population, so the first setminus is empty and ONLY the second arm fires. A one-directional implementation -- the obvious way to write this, and the way scoped_subset above is legitimately written -- answers phi there and passes -both and -equal unchanged. -both also pins the ORDER: the rows-side strays precede the population-side ones, which a set-wise comparison would not notice.",
+DEF("case:equality-side-both", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("constraints:scoped_equality_side")), K(A("F")))),
+          A("id"))),
+    S2(S2(S1(A("a")), S1(A("b"))),
+       S1(S3(A("CELL"), A("F"), S2(S1(A("b")), S1(A("c")))))))),
+DEF("case:equality-side-right-only", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("constraints:scoped_equality_side")), K(A("F")))),
+          A("id"))),
+    S2(S1(S1(A("b"))),
+       S1(S3(A("CELL"), A("F"), S2(S1(A("b")), S1(A("c")))))))),
+DEF("case:equality-side-equal", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("constraints:scoped_equality_side")), K(A("F")))),
+          A("id"))),
+    S2(S2(S1(A("a")), S1(A("b"))),
+       S1(S3(A("CELL"), A("F"), S2(S1(A("a")), S1(A("b")))))))),
+
 "constraints:scoped_mandatory_facts, host-called at compile.rs 828 and 856 and reached by nothing. Note the operand is a BARE ft name, not a sequence -- vs(ft), not vt(...) -- which is the first thing to get wrong here and the reason these were written from the call site rather than from the DEF. Applied to <rows, D> it is setminus over <proj1 of rows, proj1 of pop_of(ft)>: the entities that fail to participate. Both sides are projected to column 1, so an entity is matched by its ID and not by its whole row -- -wide gives the rows a second column the population does not have, and the answer must still be phi. Without that case an implementation comparing whole rows passes -violates and -holds and fails only on real data.",
 DEF("case:mandatory-facts-violates", S2(
     S3(A("COMP"), A("apply"),
