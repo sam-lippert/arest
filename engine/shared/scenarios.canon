@@ -369,6 +369,33 @@ DEF("case:table-columns-other", S2(
           A("id"))),
     S2(S2(A("F1"), A("T1")), S2(A("F2"), A("T1"))))),
 
+"system:class_rule builds the classification rule a value-literal clause reduces to: compiler.py 1825 hands it <pred_clauses, headlit> where a clause is <ft, predicate-tree> -- the predicate arriving as DATA, an eq tree over the field row -- and nothing reached it. The term applies to the STORE, fetching its clause's population by name, and answers <value, headlit> pairs. -dedup is the arm worth having: the same row twice classifies ONCE, because a classification is a set membership and not a count. An implementation without the dedup answers two identical pairs, which every other case here would accept and which would then inflate every population derived from it.",
+DEF("case:class-rule-match", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:class_rule")),
+                K(S2(S1(S2(A("F1"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(2), S2(A("CONST"), A("big")))))), A("H"))))),
+          A("id"))),
+    S1(S3(A("CELL"), A("F1"),
+          S3(S2(A("t1"), A("big")), S2(A("t2"), A("small")), S2(A("t3"), A("big"))))))),
+DEF("case:class-rule-none", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:class_rule")),
+                K(S2(S1(S2(A("F1"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(2), S2(A("CONST"), A("big")))))), A("H"))))),
+          A("id"))),
+    S1(S3(A("CELL"), A("F1"), S1(S2(A("t2"), A("small"))))))),
+DEF("case:class-rule-dedup", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:class_rule")),
+                K(S2(S1(S2(A("F1"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(2), S2(A("CONST"), A("big")))))), A("H"))))),
+          A("id"))),
+    S1(S3(A("CELL"), A("F1"), S2(S2(A("t1"), A("big")), S2(A("t1"), A("big"))))))),
+
 "system:join_rule2 builds the two-hop join a derivation rule reduces to: compiler.py 1766 hands it <2, <1>> -- join A's column 2 to B's column 1, project column 1 -- and nothing reached it. These APPLY the built term to two populations rather than pin its shape. -two-hits is the one that earns its place: both a and b hop through the SAME x, so the answer carries both, and an implementation taking the first match per right-hand row would answer <a> alone and pass -match and -nomatch unchanged. A join that silently drops the second path is how a transitive closure comes back short.",
 DEF("case:join-rule2-match", S2(
     S3(A("COMP"), A("apply"),
