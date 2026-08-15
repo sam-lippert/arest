@@ -5630,11 +5630,11 @@ DEF("system:sm_rows",
     S4(
         A("COND"),
         S3(
-            A("COMP"), A("eq"), S3(A("CONS"), N(1), S2(A("CONST"), A("is for Object Type")))),
+            A("COMP"), A("eq"), S3(A("CONS"), N(1), S2(A("CONST"), A("is for Noun")))),
         S3(
             A("CONS"), S3(A("CONS"), K(A("smDef")), S3(A("CONS"), N(3), N(4))),
             S3(
-                A("CONS"), K(A("State_Machine_Definition_is_for_Object_Type")),
+                A("CONS"), K(A("State_Machine_Definition_is_for_Noun")),
                 S3(A("CONS"), N(3), N(4)))),
         S4(
             A("COND"),
@@ -6823,7 +6823,7 @@ DEF("system:h_objectification",
 
 "THE SM HANDLER TRANSLATORS AS DATA (2026-07-10, #18): six state-machine reading handlers, each a thin delegation to the canonical system:sm_rows row object over the four-tuple ⟨verb, head, group1, group2⟩ — the verb is the grammar's own recognizer token (constant per handler), the head splits the shared 'emits' verb between Transition (Mealy) and Status (Moore). A translator maps ⟨groups, known, mod⟩ -> ⟨rows, phi⟩ (no objs). Hosts _h_sm_def/initial/from/to/emit/moore stay the certified-equal native overrides (test_sm_handler_canon twins them). Trigger and guard canonize the same way (2026-07-10): the compiler's _COOK boundary resolves their clause group (reading -> fact-type id through known context — Stage-1's step, exactly as this doctrine assigns it) BEFORE dispatch, so system:h_sm_trigger / system:h_sm_guard are the same pure sm_rows shape and the hosts stay the certified-equal overrides (test_sm_handler_canon).",
 
-DEF("system:h_sm_def", S3(A("CONS"), S3(A("COMP"), A("system:sm_rows"), S5(A("CONS"), K(A("is for Object Type")), K(A("State Machine Definition")), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)))), K(PHI()))),
+DEF("system:h_sm_def", S3(A("CONS"), S3(A("COMP"), A("system:sm_rows"), S5(A("CONS"), K(A("is for Noun")), K(A("State Machine Definition")), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)))), K(PHI()))),
 
 DEF("system:h_sm_initial", S3(A("CONS"), S3(A("COMP"), A("system:sm_rows"), S5(A("CONS"), K(A("is initial in State Machine Definition")), K(A("Status")), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)))), K(PHI()))),
 
