@@ -369,6 +369,30 @@ DEF("case:table-columns-other", S2(
           A("id"))),
     S2(S2(A("F1"), A("T1")), S2(A("F2"), A("T1"))))),
 
+"constraints:scoped_exclusion_spec is the ABSORBED clause's exclusion, and its operand is NOT the plain form's. engine.py:730 marshals <target, clause_id, popspec> TRIPLES, popspec being <'cell', clause> or <'view', table, col>; the plain form takes <<ftA,ftB>, ft>. The two DEFs differ only by participation_spec versus participation -- one ALPHA over the triples, the other a distl of the ft across the clauses -- which is exactly the kind of difference that is invisible in the DEF text and decisive at the call. I guessed four operand shapes and got bottom four times before reading the marshaller. The answers then match the plain form's byte for byte, which is the property worth pinning: the same violation, reached through the absorbed route.",
+DEF("case:exclusion-spec-violates", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("constraints:scoped_exclusion_spec")),
+                K(S2(S3(A("P"), A("P"), S2(A("cell"), A("P"))),
+                     S3(A("P"), A("Q"), S2(A("cell"), A("Q"))))))),
+          A("id"))),
+    S2(S2(S1(A("a")), S1(A("b"))),
+       S2(S3(A("CELL"), A("P"), S2(S1(A("a")), S1(A("b")))),
+          S3(A("CELL"), A("Q"), S2(S1(A("b")), S1(A("c")))))))),
+DEF("case:exclusion-spec-clean", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("constraints:scoped_exclusion_spec")),
+                K(S2(S3(A("P"), A("P"), S2(A("cell"), A("P"))),
+                     S3(A("P"), A("Q"), S2(A("cell"), A("Q"))))))),
+          A("id"))),
+    S2(S1(S1(A("a"))),
+       S2(S3(A("CELL"), A("P"), S2(S1(A("a")), S1(A("b")))),
+          S3(A("CELL"), A("Q"), S2(S1(A("b")), S1(A("c")))))))),
+
 "system:class_rule builds the classification rule a value-literal clause reduces to: compiler.py 1825 hands it <pred_clauses, headlit> where a clause is <ft, predicate-tree> -- the predicate arriving as DATA, an eq tree over the field row -- and nothing reached it. The term applies to the STORE, fetching its clause's population by name, and answers <value, headlit> pairs. -dedup is the arm worth having: the same row twice classifies ONCE, because a classification is a set membership and not a count. An implementation without the dedup answers two identical pairs, which every other case here would accept and which would then inflate every population derived from it.",
 DEF("case:class-rule-match", S2(
     S3(A("COMP"), A("apply"),
