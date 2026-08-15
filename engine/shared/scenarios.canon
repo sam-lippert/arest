@@ -295,6 +295,26 @@ DEF("case:refmode-default", S2(A("rmap:refmode"),
     S3(A("Van"), PHI(), PHI()))),
 DEF("case:keycol", S2(A("rmap:keycol"), S2(A("Person Name"), A("nr")))),
 
+"constraints:scoped_mandatory_entities_implied closes the scoped_* cluster. Host-called at main.rs 13117, reached by nothing. The spec is <pos, rows> and each row is <kind, name, vcol, col> with kind one of P, view or cell -- read off main.rs 13096-13108, NOT inferred from the DEF, which only shows that impl_member selects position 4. That distinction is the working method of this whole cluster: the builder tells you what it composes, the call site tells you what it is handed, and only the second can be guessed wrong in a way four green stations would ratify. Applied to <rows, D> the answer is the implied entities MISSING from the population: c is in F and not in the rows, so <c>; -holds has every implied entity present and answers phi.",
+DEF("case:mandatory-implied-holds", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("constraints:scoped_mandatory_entities_implied")),
+                K(S2(N(1), S1(S4(A("cell"), A("F"), N(0), N(1))))))),
+          A("id"))),
+    S2(S2(S1(A("a")), S1(A("c"))),
+       S1(S3(A("CELL"), A("F"), S2(S1(A("a")), S1(A("c")))))))),
+DEF("case:mandatory-implied", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("constraints:scoped_mandatory_entities_implied")),
+                K(S2(N(1), S1(S4(A("cell"), A("F"), N(0), N(1))))))),
+          A("id"))),
+    S2(S2(S1(A("a")), S1(A("b"))),
+       S1(S3(A("CELL"), A("F"), S2(S1(A("a")), S1(A("c")))))))),
+
 "constraints:scoped_equality_side, host-called at compile.rs 2216 with a BARE ft name, reached by nothing. It is a SYMMETRIC DIFFERENCE and that is the whole content: cat over <setminus<rows,pop>, setminus<pop,rows>>, so an equality constraint reports the strays on BOTH sides rather than one. -right-only is the case that cannot be faked: rows are a subset of the population, so the first setminus is empty and ONLY the second arm fires. A one-directional implementation -- the obvious way to write this, and the way scoped_subset above is legitimately written -- answers phi there and passes -both and -equal unchanged. -both also pins the ORDER: the rows-side strays precede the population-side ones, which a set-wise comparison would not notice.",
 DEF("case:equality-side-both", S2(
     S3(A("COMP"), A("apply"),
