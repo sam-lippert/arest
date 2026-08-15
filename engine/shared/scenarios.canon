@@ -295,6 +295,22 @@ DEF("case:refmode-default", S2(A("rmap:refmode"),
     S3(A("Van"), PHI(), PHI()))),
 DEF("case:keycol", S2(A("rmap:keycol"), S2(A("Person Name"), A("nr")))),
 
+"system:table_columns is host-called all through op_sql_project (mf_table_columns, main.rs 7288) and was reached by nothing. It is applied to the TABLE NAME first and the resulting term to the partition pairs -- napp(napp(name, table), pairs) at 7290, two applications, not one call with two arguments. That is the shape to get right and it is only visible at the call site. The pairs are plain <ft, table> rows, so unlike system:partition next to it this needs NO compiled model: the operand is writable by hand, which is why this one could be cased and partition could not. -other answers phi for a table nothing absorbs into, and ORDER is the pairs' own -- F1 before F2 because the pairs list says so, not because anything sorted them, which is what makes the column positions line up with the DDL downstream.",
+DEF("case:table-columns", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:table_columns")), K(A("T1")))),
+          A("id"))),
+    S3(S2(A("F1"), A("T1")), S2(A("F2"), A("T1")), S2(A("F3"), A("T2"))))),
+DEF("case:table-columns-other", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:table_columns")), K(A("T9")))),
+          A("id"))),
+    S2(S2(A("F1"), A("T1")), S2(A("F2"), A("T1"))))),
+
 "system:pass_order and system:pass_bound are CONSTANTS -- K terms, ignoring their operand -- and scheduler_cells_native evaluates both to materialise passOrder and passBound. Constants are the easiest thing to leave uncased and the cheapest thing to get wrong: if one station's canon carried a different literal, that station would schedule the joint loop differently and nothing else in the repo would say so. THE ASYMMETRY IS THE REASON TO CASE THEM RATHER THAN ASSUME. pass_order names FOUR passes -- agg, keyed, sweep, dred -- while system:classify_heads has FIVE arms, the fifth being aggwhole, and scheduler_cells_native emits passHeads rows for all five. So aggwhole heads are classified and materialised but carry no order position. That is either deliberate (aggwhole is dispatched elsewhere, not by the ordered loop) or a gap; the case pins WHAT IS, so that whichever it is stops being invisible. pass_bound is the round cap, 12.",
 DEF("case:pass-order", S2(A("system:pass_order"), PHI())),
 DEF("case:pass-bound", S2(A("system:pass_bound"), PHI())),
