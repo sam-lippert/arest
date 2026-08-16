@@ -3332,6 +3332,19 @@ fn reduce_over(srv: &Srv, f: V, x: V, fuel: Option<i64>) -> V {
 // only the representation differs; DEFS resolve through the resident's N mirror (ncells/nprocess/
 // nd + NCANON), the same path the compile reductions use. fuel<0 = unbounded (native_verbalize's
 // idiom); a bound guards a pathological term.
+// reduce_ev is reduce_over_n with the NEval HOISTED. NEval's index (name ->
+// first cell of that name) is documented as built once because cells are
+// immutable for an NEval's whole life -- but reduce_over_n builds a fresh
+// NEval per call, so that life is ONE reduction and the index is rebuilt from
+// empty every time, scanning the whole store. op_sql_project made nineteen
+// such calls and reused none. Its srv is &Srv, IMMUTABLE, so one NEval is
+// provably safe for the whole op: the type system supplies the invariant the
+// comment assumes.
+fn reduce_ev(ev: &NEval, f: V, x: V, fuel: i64) -> V {
+    ev.fuel.set(fuel);
+    n_to_v(&ev.mu(napp(v_to_n(&f), v_to_n(&x))))
+}
+
 fn reduce_over_n(srv: &Srv, f: V, x: V, fuel: i64) -> V {
     let ev = NEval {
         cells: srv.ncells.clone(),
@@ -10984,6 +10997,15 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
             pops.entry(name.clone()).or_insert(rows);
         }
     }
+    // ONE NEval for the whole op (see reduce_ev): srv is &Srv, so cells cannot
+    // change here and the index is built once instead of nineteen times.
+    let ev0 = NEval {
+        cells: srv.ncells.clone(),
+        process: srv.nprocess.clone(),
+        defs_n: srv.nd.clone(),
+        fuel: std::cell::Cell::new(-1),
+        index: Default::default(),
+    };
     let empty: Vec<V> = Vec::new();
     let pop = |name: &str| pops.get(name).unwrap_or(&empty);
     // row_items went with the last of op_sql_project's hand-rolled row walks;
@@ -11028,9 +11050,9 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
     // the absorbed ones, sort. The absorbed KEYS go in as the exclusion set;
     // their iteration order does not reach the answer, because setminus keeps
     // the LIST's order and the result is sorted anyway.
-    let absk = reduce_over_n(srv, atom(Leaf::S("rmap:colfts".to_string())),
+    let absk = reduce_ev(&ev0, atom(Leaf::S("rmap:colfts".to_string())),
                              colrows.clone(), -1);
-    let ownv = reduce_over_n(srv, atom(Leaf::S("rmap:owntables".to_string())),
+    let ownv = reduce_ev(&ev0, atom(Leaf::S("rmap:owntables".to_string())),
                              seqv(vec![seqv(pop("factType").to_vec()), absk]), -1);
     let own: Vec<String> = items(&list_of(&ownv)).iter().filter_map(|v| sstr(v)).collect();
     // own_set went with the entity_tables loop: rmap:entitytables does that
@@ -11045,7 +11067,7 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
     // ONE reduction for the whole cell, not one per fact type.
     let mut roles: HashMap<String, Vec<(i64, String)>> = HashMap::new();
     let mut role_ft_order: Vec<String> = Vec::new();
-    let grouped = reduce_over_n(srv, atom(Leaf::S("rmap:rolegroups".to_string())),
+    let grouped = reduce_ev(&ev0, atom(Leaf::S("rmap:rolegroups".to_string())),
                                 seqv(pop("role").to_vec()), -1);
     for g in items(&list_of(&grouped)) {
         let gi = items(&list_of(&g));
@@ -11078,7 +11100,7 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
     // rows and project the name, length guard included. sstr still filters to
     // STRING names here, which is what this loop always did -- a non-string
     // where a name belongs drops the row rather than entering the set.
-    let entnames = reduce_over_n(srv, atom(Leaf::S("rmap:entities".to_string())),
+    let entnames = reduce_ev(&ev0, atom(Leaf::S("rmap:entities".to_string())),
                                  seqv(pop("instanceOf").to_vec()), -1);
     let mut entities: HashSet<String> = HashSet::new();
     for n in items(&list_of(&entnames)) {
@@ -11097,10 +11119,10 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
     // absorbing table that is not itself an own-table fact type. Order is
     // irrelevant -- it lands back in a set, which is what it always was.
     let entv: Vec<V> = entities.iter().map(|e| atom(Leaf::S(e.clone()))).collect();
-    let tkv = reduce_over_n(srv, atom(Leaf::S("rmap:coltables".to_string())),
+    let tkv = reduce_ev(&ev0, atom(Leaf::S("rmap:coltables".to_string())),
                             colrows.clone(), -1);
     let ownv2: Vec<V> = own.iter().map(|o| atom(Leaf::S(o.clone()))).collect();
-    let etv = reduce_over_n(srv, atom(Leaf::S("rmap:entitytables".to_string())),
+    let etv = reduce_ev(&ev0, atom(Leaf::S("rmap:entitytables".to_string())),
                             seqv(vec![seqv(entv), tkv, seqv(ownv2)]), -1);
     let entity_tables: HashSet<String> =
         items(&list_of(&etv)).iter().filter_map(|v| sstr(v)).collect();
@@ -11129,7 +11151,7 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
         // to this table, orders by the column NUMBER and projects the fact type.
         // That order is load-bearing: it is what makes the DDL's columns and
         // the rows' values line up, and it used to be a HashMap plus a sort.
-        let ordered = reduce_over_n(srv, atom(Leaf::S("rmap:colsof".to_string())),
+        let ordered = reduce_ev(&ev0, atom(Leaf::S("rmap:colsof".to_string())),
                                     seqv(vec![atom(Leaf::S(table.to_string())),
                                               colrows.clone()]), -1);
         for ftv in items(&list_of(&ordered)) {
@@ -11210,7 +11232,7 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
         // and row long enough) that this loop spelled out. playerpos walks the
         // groups in rolegroups order, which is the first-seen fact type order
         // this sweep has always depended on.
-        let pps = reduce_over_n(srv, atom(Leaf::S("rmap:playerpos".to_string())),
+        let pps = reduce_ev(&ev0, atom(Leaf::S("rmap:playerpos".to_string())),
                                 seqv(vec![atom(Leaf::S(table.to_string())),
                                           grouped.clone()]), -1);
         for pp in items(&list_of(&pps)) {
@@ -11222,7 +11244,7 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
                 Some(s) => s,
                 None => continue,
             };
-            let vals = reduce_over_n(srv, atom(Leaf::S("rmap:atpos".to_string())),
+            let vals = reduce_ev(&ev0, atom(Leaf::S("rmap:atpos".to_string())),
                                      seqv(vec![pi[1].clone(),
                                                seqv(pop(&ft).to_vec())]), -1);
             for v in items(&list_of(&vals)) {
@@ -11230,7 +11252,7 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
             }
         }
         // the entity's own cell joins the sweep, first position of each row
-        let ownids = reduce_over_n(srv, atom(Leaf::S("rmap:atpos".to_string())),
+        let ownids = reduce_ev(&ev0, atom(Leaf::S("rmap:atpos".to_string())),
                                    seqv(vec![atom(Leaf::I(1)),
                                              seqv(pop(table).to_vec())]), -1);
         for v in items(&list_of(&ownids)) {
@@ -11241,7 +11263,7 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
         // LAST and is the wrong rule here. This could not move until the value
         // boundary stopped coalescing 2 with 2.0 -- the set was keyed by
         // key_of, and canon dedups by eq.
-        let deduped = reduce_over_n(srv, atom(Leaf::S("theta:firstseen".to_string())),
+        let deduped = reduce_ev(&ev0, atom(Leaf::S("theta:firstseen".to_string())),
                                     seqv(seen_ids), -1);
         let mut ids: Vec<(String, V)> = items(&list_of(&deduped))
             .into_iter()
@@ -11261,14 +11283,14 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
         for (ft, _col, kind, _o) in &ecols {
             if *kind == 0 {
                 // rmap:atpos at position 1: the unary column's ids.
-                let ids1 = reduce_over_n(srv, atom(Leaf::S("rmap:atpos".to_string())),
+                let ids1 = reduce_ev(&ev0, atom(Leaf::S("rmap:atpos".to_string())),
                                          seqv(vec![atom(Leaf::I(1)),
                                                    seqv(pop(ft).to_vec())]), -1);
                 colviews.push(seqv(vec![atom(Leaf::S("unary".to_string())), ids1]));
             } else {
                 // rmap:valpairs: <id,value> in ROW ORDER, short rows dropped.
                 // The LAST-WINS rule now lives in rmap:cell_val, not in a map.
-                let prs = reduce_over_n(srv, atom(Leaf::S("rmap:valpairs".to_string())),
+                let prs = reduce_ev(&ev0, atom(Leaf::S("rmap:valpairs".to_string())),
                                         seqv(pop(ft).to_vec()), -1);
                 colviews.push(seqv(vec![atom(Leaf::S("val".to_string())), prs]));
             }
@@ -11281,7 +11303,7 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
         // bottom -- a sequence containing bottom IS bottom (13.2) -- and the
         // renderer below prints phi as the SQL NULL it printed bottom as.
         let idvals: Vec<V> = ids.iter().map(|(_k, v)| v.clone()).collect();
-        let pivoted = reduce_over_n(srv, atom(Leaf::S("rmap:pivot_rows".to_string())),
+        let pivoted = reduce_ev(&ev0, atom(Leaf::S("rmap:pivot_rows".to_string())),
                                     seqv(vec![seqv(idvals), seqv(colviews)]), -1);
         let rows: Vec<Vec<V>> = items(&list_of(&pivoted))
             .iter()
@@ -11338,7 +11360,7 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
         // and a row NARROWER than that count skipped, since it cannot bind its
         // roles. rmap:take is recursive through the DEFS lookup, so no loop is
         // owed here and no range primitive had to be invented to build one.
-        let taken = reduce_over_n(srv, atom(Leaf::S("rmap:takerows".to_string())),
+        let taken = reduce_ev(&ev0, atom(Leaf::S("rmap:takerows".to_string())),
                                   seqv(vec![atom(Leaf::I(rs.len() as i64)),
                                             seqv(all.to_vec())]), -1);
         let rows: Vec<Vec<V>> = items(&list_of(&taken))
@@ -11380,7 +11402,7 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
             seqv(vec![atom(Leaf::S(t.sql.clone())), seqv(ps)])
         })
         .collect();
-    let ordered = reduce_over_n(srv, atom(Leaf::S("rmap:ddl_order".to_string())),
+    let ordered = reduce_ev(&ev0, atom(Leaf::S("rmap:ddl_order".to_string())),
                                 seqv(tabs), -1);
     // name -> the indices carrying it, consumed in turn: two tables CAN share
     // an sql name, and canon answers the name once per table, so popping keeps
