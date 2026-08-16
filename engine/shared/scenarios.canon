@@ -369,6 +369,32 @@ DEF("case:table-columns-other", S2(
           A("id"))),
     S2(S2(A("F1"), A("T1")), S2(A("F2"), A("T1"))))),
 
+"system:validate_of builds validate_S: <P, D> to <P, V, alethicViolated>. Host-called (engine.py 870) and reached by nothing. Operand is <local, alethic?, scoped, scoped_alethic?>. AN ABSENT SUBSET AND A PROVIDED EMPTY ONE ARE DIFFERENT THINGS and that is the whole point of these cases: absent means every constraint is alethic, the default, so a violation BLOCKS the commit; provided-empty means none are, deliberately deontic, so the identical violation is recorded and the write PROCEEDS. -default and -empty differ in the operand only by <> versus <<>>, carry the same V, and answer T versus F. An implementation normalising absence to emptiness -- the obvious simplification, and one no shape check would notice -- allows every write that should have been blocked. engine.py:849 states the rule; these two make a station prove it.",
+DEF("case:validate-of-alethic-default", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:validate_of")),
+                K(S4(S1(S2(A("CONST"), S1(S1(A("x"))))), PHI(), PHI(), PHI())))),
+          A("id"))),
+    S2(S2(S1(A("a")), S1(A("b"))), PHI()))),
+DEF("case:validate-of-alethic-empty", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:validate_of")),
+                K(S4(S1(S2(A("CONST"), S1(S1(A("x"))))), S1(PHI()), PHI(), PHI())))),
+          A("id"))),
+    S2(S2(S1(A("a")), S1(A("b"))), PHI()))),
+DEF("case:validate-of-clean", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:validate_of")),
+                K(S4(PHI(), PHI(), PHI(), PHI())))),
+          A("id"))),
+    S2(S2(S1(A("a")), S1(A("b"))), PHI()))),
+
 "system:sm_join assembles the machine from M: smFrom <t,from> joined smTrigger <t,trigger> joined smTo <t,to>, projected to <from, trigger, to>. engine.py:1567 puts it plainly -- a machine IS a set of facts, and assembling it is a theta1 join over M's cells, not a second interpreter. Host-called (sm_triples) and reached by nothing. Operand is the three populations, so no store. -partial is the case that earns its place: 'ship' is declared in smFrom and smTrigger but has no smTo row, and it must DROP. The join is inner. An outer join would emit an edge with a hole in it, and a half-declared transition would become a real machine edge leading nowhere -- passing -two and -notrig unchanged while doing it.",
 DEF("case:sm-join-two", S2(A("system:sm_join"),
     S3(S2(S2(A("pay"), A("In Cart")), S2(A("ship"), A("Paid"))),
