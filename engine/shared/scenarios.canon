@@ -369,6 +369,35 @@ DEF("case:table-columns-other", S2(
           A("id"))),
     S2(S2(A("F1"), A("T1")), S2(A("F2"), A("T1"))))),
 
+"system:compile_agg_rule builds the aggregate rule, stratified above the closure and fully recomputed (compiler.py 2089, so no ~d variants). Host-called and reached by nothing. Operand <aspecs, group_cols, over_col, op, filters>; the term applies to the store and fetches its atom's population. THE THREE CASES SHARE ONE OPERAND EXCEPT FOR op AND ONE STORE, which is what makes them worth having together: sum answers <g1,5> and <g2,5>, count answers <g1,2> and <g2,1>, max answers <g1,3> and <g2,5>. An implementation ignoring op fails two of the three whichever one it picked. Note g1's sum and g2's max are both 5 by construction -- the answers are not separable by a single row, only by the whole shape. The grouping is real: two groups from three rows.",
+DEF("case:agg-rule-sum", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:compile_agg_rule")),
+                K(S5(S1(S3(A("F1"), N(1), PHI())), S1(N(1)), N(2), A("sum"), PHI())))),
+          A("id"))),
+    S1(S3(A("CELL"), A("F1"),
+          S3(S2(A("g1"), N(2)), S2(A("g1"), N(3)), S2(A("g2"), N(5))))))),
+DEF("case:agg-rule-count", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:compile_agg_rule")),
+                K(S5(S1(S3(A("F1"), N(1), PHI())), S1(N(1)), N(2), A("count"), PHI())))),
+          A("id"))),
+    S1(S3(A("CELL"), A("F1"),
+          S3(S2(A("g1"), N(2)), S2(A("g1"), N(3)), S2(A("g2"), N(5))))))),
+DEF("case:agg-rule-max", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:compile_agg_rule")),
+                K(S5(S1(S3(A("F1"), N(1), PHI())), S1(N(1)), N(2), A("max"), PHI())))),
+          A("id"))),
+    S1(S3(A("CELL"), A("F1"),
+          S3(S2(A("g1"), N(2)), S2(A("g1"), N(3)), S2(A("g2"), N(5))))))),
+
 "system:validate_of builds validate_S: <P, D> to <P, V, alethicViolated>. Host-called (engine.py 870) and reached by nothing. Operand is <local, alethic?, scoped, scoped_alethic?>. AN ABSENT SUBSET AND A PROVIDED EMPTY ONE ARE DIFFERENT THINGS and that is the whole point of these cases: absent means every constraint is alethic, the default, so a violation BLOCKS the commit; provided-empty means none are, deliberately deontic, so the identical violation is recorded and the write PROCEEDS. -default and -empty differ in the operand only by <> versus <<>>, carry the same V, and answer T versus F. An implementation normalising absence to emptiness -- the obvious simplification, and one no shape check would notice -- allows every write that should have been blocked. engine.py:849 states the rule; these two make a station prove it.",
 DEF("case:validate-of-alethic-default", S2(
     S3(A("COMP"), A("apply"),
