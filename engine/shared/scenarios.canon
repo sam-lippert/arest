@@ -369,6 +369,27 @@ DEF("case:table-columns-other", S2(
           A("id"))),
     S2(S2(A("F1"), A("T1")), S2(A("F2"), A("T1"))))),
 
+"POLARITY IS THE ONLY PARAMETER. AREST.tex section 2: every constraint compiles to a restriction whose predicate falls in one of two families -- a cardinality count against declared bounds, or a membership test against a target population -- 'with polarity the only parameter separating symmetric from asymmetric and subset from exclusion'. These two cases carry the SAME rows and the SAME store and differ only in which constraint is applied: subset, which says a member must BE in Q, flags a; exclusion, which says a member must NOT share, flags b. Together they PARTITION the population. Every other constraint case in this file pins one builder against one operand; this pair pins the claim the paper actually makes, and a polarity flip -- the defect that produces plausible-looking violations and passes every single-builder case -- shows up here as the two answers swapping.",
+DEF("case:polarity-subset", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("constraints:scoped_subset")), K(A("Q")))),
+          A("id"))),
+    S2(S2(S1(A("a")), S1(A("b"))),
+       S2(S3(A("CELL"), A("P"), S2(S1(A("a")), S1(A("b")))),
+          S3(A("CELL"), A("Q"), S2(S1(A("b")), S1(A("c")))))))),
+DEF("case:polarity-exclusion", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("constraints:scoped_exclusion")),
+                K(S2(S2(A("P"), A("Q")), A("P"))))),
+          A("id"))),
+    S2(S2(S1(A("a")), S1(A("b"))),
+       S2(S3(A("CELL"), A("P"), S2(S1(A("a")), S1(A("b")))),
+          S3(A("CELL"), A("Q"), S2(S1(A("b")), S1(A("c")))))))),
+
 "system:compile_agg_rule builds the aggregate rule, stratified above the closure and fully recomputed (compiler.py 2089, so no ~d variants). Host-called and reached by nothing. Operand <aspecs, group_cols, over_col, op, filters>; the term applies to the store and fetches its atom's population. THE THREE CASES SHARE ONE OPERAND EXCEPT FOR op AND ONE STORE, which is what makes them worth having together: sum answers <g1,5> and <g2,5>, count answers <g1,2> and <g2,1>, max answers <g1,3> and <g2,5>. An implementation ignoring op fails two of the three whichever one it picked. Note g1's sum and g2's max are both 5 by construction -- the answers are not separable by a single row, only by the whole shape. The grouping is real: two groups from three rows.",
 DEF("case:agg-rule-sum", S2(
     S3(A("COMP"), A("apply"),
