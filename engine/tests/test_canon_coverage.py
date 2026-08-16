@@ -87,6 +87,14 @@ OVERRIDES = {
     # which the canon def does not model; what is twinned is the cell-sequence
     # answer, pinned on four stations by case:ast-store-replace/absent/stack.
     "ast:Store": "ast:Store",
+    # _reading is the certified-equal host override of system:reading_parse --
+    # main.rs 6601 says so in those words -- and it too was undeclared. Unlike
+    # the two above, its SEMANTIC half was already covered: the case table
+    # carries reading_parse cases. Only the structural declaration was missing,
+    # which is the narrower failure but the same one: the registry is what
+    # distinguishes a sanctioned twin from drift, and a twin absent from it is
+    # indistinguishable from a host that simply grew the behaviour.
+    "system:reading_parse": "system:reading_parse",
 }
 
 
