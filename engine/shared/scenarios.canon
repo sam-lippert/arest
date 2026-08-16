@@ -369,6 +369,35 @@ DEF("case:table-columns-other", S2(
           A("id"))),
     S2(S2(A("F1"), A("T1")), S2(A("F2"), A("T1"))))),
 
+"system:verbalize answers every fact MENTIONING an entity, as <template, row> pairs -- the primary reading of a compiled object (AREST.tex cites halpin06 for the round trip, and Proposition spec rests on it: nf(nf) = nf because re-parsing a verbalization returns the same compiled object). Applied twice, (verbalize : id) : D, per main.rs 3361. Note the SPLIT: canon supplies the template and the binding, the host substitutes {N} -- Stage-1 text is the host's seed boundary, so verbalize stops exactly where formatting begins. -role2 is the discriminating case: c1 plays the SECOND role and must verbalize the same fact, because the relation is 'mentions', not 'is the subject of'. An implementation scanning role 1 alone passes -role1 and -absent and silently makes half the facts about an entity invisible to it.",
+DEF("case:verbalize-role1", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:verbalize")), K(A("o1")))),
+          A("id"))),
+    S2(S3(A("CELL"), A("factType"),
+          S1(S2(A("Order_is_paid_by_Customer"), A("{0} is paid by {1}")))),
+       S3(A("CELL"), A("Order_is_paid_by_Customer"), S1(S2(A("o1"), A("c1"))))))),
+DEF("case:verbalize-role2", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:verbalize")), K(A("c1")))),
+          A("id"))),
+    S2(S3(A("CELL"), A("factType"),
+          S1(S2(A("Order_is_paid_by_Customer"), A("{0} is paid by {1}")))),
+       S3(A("CELL"), A("Order_is_paid_by_Customer"), S1(S2(A("o1"), A("c1"))))))),
+DEF("case:verbalize-absent", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:verbalize")), K(A("zz")))),
+          A("id"))),
+    S2(S3(A("CELL"), A("factType"),
+          S1(S2(A("Order_is_paid_by_Customer"), A("{0} is paid by {1}")))),
+       S3(A("CELL"), A("Order_is_paid_by_Customer"), S1(S2(A("o1"), A("c1"))))))),
+
 "THEOREM hateoas, EQUATION eq:links, CASED. AREST.tex: links(e) = nav(e) union transitions(status(e)) = Adm(e) -- the emitted controls are sound and complete for the operational command relation. nav_of and transitions_of are cased separately elsewhere in this file; these two pin the UNION, which is what the theorem is about. -active carries an entity in 'In Cart': its nav rows AND the one transition leaving that status. -terminal carries an entity in 'Shipped': nav rows and NOTHING ELSE, because no transition leaves a terminal status. THAT IS THE SOUNDNESS HALF. An implementation appending the whole machine to every entity satisfies -active and offers, on -terminal, an affordance the model does not admit -- a control the command relation would refuse. Fielding fixed hypermedia as a constraint and left the controls to be hand-written; the paper's claim is that they are GENERATED, and a generated set that over-offers is not the same claim.",
 DEF("case:links-of-active", S2(
     S3(A("COMP"), A("apply"),
