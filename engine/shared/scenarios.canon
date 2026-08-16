@@ -54,6 +54,22 @@ DEF("case:rmap-unnest", S2(A("rmap:unnest"),
 DEF("case:rmap-unnest-curried", S2(A("rmap:unnest"),
     S1(S3(A("CELL"), A("Ada"), S1(S3(A("CELL"), A("age"), S1(A("42")))))))),
 "store:namerows against engine/rust's `cells` op: unsorted input, one multi-row cell and one single-row cell, so the case pins BOTH the counting and the sort. The third cell is an ATOM cell -- no population -- and must answer bottom, which is the `null` rows field engine/rust emits.",
+"A CELL MAY CONTAIN ANOTHER ENTIRE STORE -- Backus 14.7, and AREST.tex's tenancy and self-similarity claims already rest on it. ast:FetchPop now looks inside the FILE cell when the flat lookup answers the default. THE MEASUREMENT THAT MOTIVATES IT: the base carries 965 cells and 958 of them are POPULATIONS, siblings in D, while FILE sits there not holding them. Backus 14.4.1 says D is the set of DEFINITIONS; 14.4.2 says an update computes the whole new file and stores it with ONE down-FILE, the rest of the state unchanged; 14.6a says a state transition happens once per MAJOR COMPUTATION and that keeping transitions out of the tiniest details is how the von Neumann bottleneck goes away. Populations as siblings makes every up-n a scan of 958 entries, which is why NEval needs a name index at all and why a projection over a thousand cells takes ninety-five seconds. -nested is the new capability and -shadow is the constraint: a name present BOTH flat and in FILE resolves flat, because up-n takes the FIRST match and stage two must not change what stage one already answers. ast:Fetch itself is untouched -- it fetches DEFINITIONS too, and only the population accessor nests.",
+DEF("case:fetchpop-flat", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"), S3(A("COMP"), A("ast:FetchPop"), S2(A("CONST"), A("F1"))), A("id"))),
+    S1(S3(A("CELL"), A("F1"), S2(S1(A("a")), S1(A("b"))))))),
+DEF("case:fetchpop-nested", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"), S3(A("COMP"), A("ast:FetchPop"), S2(A("CONST"), A("F1"))), A("id"))),
+    S1(S3(A("CELL"), A("FILE"),
+          S1(S3(A("CELL"), A("F1"), S2(S1(A("a")), S1(A("b"))))))))),
+DEF("case:fetchpop-shadow", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"), S3(A("COMP"), A("ast:FetchPop"), S2(A("CONST"), A("F1"))), A("id"))),
+    S2(S3(A("CELL"), A("F1"), S1(S1(A("x")))),
+       S3(A("CELL"), A("FILE"), S1(S3(A("CELL"), A("F1"), S1(S1(A("a"))))))))),
+
 DEF("case:store-namerows", S2(A("store:namerows"),
     S3(S3(A("CELL"), A("Bob"), S2(A("x"), A("y"))),
        S3(A("CELL"), A("Ada"), S1(A("z"))),

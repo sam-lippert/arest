@@ -615,12 +615,31 @@ DEF("ast:Fetch",
        S5(A("CONS"), K(A("COMP")), K(N(3)), K(N(1)),
           S3(A("COMP"), A("theta:Filter"), A("ast:named"))))),
 
-DEF("ast:FetchPop",
+DEF("ast:fp_hashp",
+    S4(A("CONS"), K(A("COMP")), K(A("eq")),
+       S4(A("CONS"), K(A("CONS")), A("ast:Fetch"),
+          K(S2(A("CONST"), A("#")))))),
+
+DEF("ast:fp_infile",
+    S4(A("CONS"), K(A("COMP")), A("ast:Fetch"), S3(A("COMP"), A("ast:Fetch"), S2(A("CONST"), A("FILE"))))),
+
+DEF("ast:fp_infile_hashp",
+    S4(A("CONS"), K(A("COMP")), K(A("eq")),
+       S4(A("CONS"), K(A("CONS")), A("ast:fp_infile"),
+          K(S2(A("CONST"), A("#")))))),
+
+DEF("ast:fp_nested",
     S5(A("CONS"), K(A("COND")),
        S4(A("CONS"), K(A("COMP")), K(A("eq")),
-          S4(A("CONS"), K(A("CONS")), A("ast:Fetch"),
+          S4(A("CONS"), K(A("CONS")), S3(A("COMP"), A("ast:Fetch"), S2(A("CONST"), A("FILE"))),
              K(S2(A("CONST"), A("#"))))),
        K(S2(A("CONST"), PHI())),
+       S5(A("CONS"), K(A("COND")), A("ast:fp_infile_hashp"),
+          K(S2(A("CONST"), PHI())), A("ast:fp_infile")))),
+
+DEF("ast:FetchPop",
+    S5(A("CONS"), K(A("COND")), A("ast:fp_hashp"),
+       A("ast:fp_nested"),
        A("ast:Fetch"))),
 
 DEF("ast:Pop",
