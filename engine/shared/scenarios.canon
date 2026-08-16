@@ -369,6 +369,26 @@ DEF("case:table-columns-other", S2(
           A("id"))),
     S2(S2(A("F1"), A("T1")), S2(A("F2"), A("T1"))))),
 
+"THEOREM hateoas, EQUATION eq:links, CASED. AREST.tex: links(e) = nav(e) union transitions(status(e)) = Adm(e) -- the emitted controls are sound and complete for the operational command relation. nav_of and transitions_of are cased separately elsewhere in this file; these two pin the UNION, which is what the theorem is about. -active carries an entity in 'In Cart': its nav rows AND the one transition leaving that status. -terminal carries an entity in 'Shipped': nav rows and NOTHING ELSE, because no transition leaves a terminal status. THAT IS THE SOUNDNESS HALF. An implementation appending the whole machine to every entity satisfies -active and offers, on -terminal, an affordance the model does not admit -- a control the command relation would refuse. Fielding fixed hypermedia as a constraint and left the controls to be hand-written; the paper's claim is that they are GENERATED, and a generated set that over-offers is not the same claim.",
+DEF("case:links-of-active", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:links_of")),
+                K(S3(N(1), S2(S3(A("In Cart"), A("pay"), A("Paid")),
+                              S3(A("Paid"), A("ship"), A("Shipped"))), N(2))))),
+          A("id"))),
+    S3(S2(A("o1"), A("In Cart")), S2(A("o2"), A("Paid")), S2(A("o1"), A("In Cart"))))),
+DEF("case:links-of-terminal", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:links_of")),
+                K(S3(N(1), S2(S3(A("In Cart"), A("pay"), A("Paid")),
+                              S3(A("Paid"), A("ship"), A("Shipped"))), N(2))))),
+          A("id"))),
+    S2(S2(A("o1"), A("Shipped")), S2(A("o2"), A("Paid"))))),
+
 "POLARITY IS THE ONLY PARAMETER. AREST.tex section 2: every constraint compiles to a restriction whose predicate falls in one of two families -- a cardinality count against declared bounds, or a membership test against a target population -- 'with polarity the only parameter separating symmetric from asymmetric and subset from exclusion'. These two cases carry the SAME rows and the SAME store and differ only in which constraint is applied: subset, which says a member must BE in Q, flags a; exclusion, which says a member must NOT share, flags b. Together they PARTITION the population. Every other constraint case in this file pins one builder against one operand; this pair pins the claim the paper actually makes, and a polarity flip -- the defect that produces plausible-looking violations and passes every single-builder case -- shows up here as the two answers swapping.",
 DEF("case:polarity-subset", S2(
     S3(A("COMP"), A("apply"),
