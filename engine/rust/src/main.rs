@@ -3523,14 +3523,49 @@ fn group_key(row: &V) -> String {
 
 // pop_rows is FetchPop's view over the cached cell index: the named cell's
 // rows, with an absent cell or an atom-valued cell the empty population.
+// NESTED STORES (Backus 14.7, "a cell in one store may contain another entire
+// store"): on a flat miss it looks inside the FILE cell, whose contents is
+// itself a sequence of <CELL, name, contents> triples. Flat wins when both
+// carry the name, because up-n takes the FIRST match. This mirrors
+// ast:FetchPop, which nests the same way; ast:Fetch does not, since it fetches
+// DEFINITIONS and only the population accessor descends.
 fn pop_rows(cells: &[(Leaf, V)], name: &Leaf) -> Vec<V> {
     match cells.iter().find(|(k, _)| k.nateq(name)) {
         Some((_, contents)) => match shape(contents) {
             Shape::Seq(l) => items(&l),
             _ => Vec::new(),
         },
-        None => Vec::new(),
+        None => pop_rows_in_file(cells, name),
     }
+}
+
+fn pop_rows_in_file(cells: &[(Leaf, V)], name: &Leaf) -> Vec<V> {
+    let file = match cells
+        .iter()
+        .find(|(k, _)| matches!(k, Leaf::S(s) if s == "FILE"))
+    {
+        Some((_, f)) => f,
+        None => return Vec::new(),
+    };
+    let inner = match shape(file) {
+        Shape::Seq(l) => items(&l),
+        _ => return Vec::new(),
+    };
+    for c in inner {
+        let ci = items(&list_of(&c));
+        if ci.len() < 3 {
+            continue;
+        }
+        if let Some(nm) = aval(&ci[1]) {
+            if nm.nateq(name) {
+                return match shape(&ci[2]) {
+                    Shape::Seq(l) => items(&l),
+                    _ => Vec::new(),
+                };
+            }
+        }
+    }
+    Vec::new()
 }
 
 // store_into is ast:Store run natively (Backus 13.3.4, pop then push): drop
