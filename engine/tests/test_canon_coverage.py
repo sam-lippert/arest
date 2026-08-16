@@ -79,6 +79,14 @@ OVERRIDES = {
     # indistinguishable from drift by inspection, which is the whole point of
     # this table.
     "theta:NatJoin": "theta:NatJoin",
+    # store_into is ast:Store run natively -- Backus 13.3.4's pop-then-push, as
+    # its own comment says -- and it was undeclared for the same reason
+    # theta:NatJoin was: it is reached through the store-mutation path, not
+    # dispatched as an op, so the gate below never sees the name. The native
+    # form also keeps the cached index and the nd/ncells mirrors coherent,
+    # which the canon def does not model; what is twinned is the cell-sequence
+    # answer, pinned on four stations by case:ast-store-replace/absent/stack.
+    "ast:Store": "ast:Store",
 }
 
 
