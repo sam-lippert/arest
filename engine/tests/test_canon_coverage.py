@@ -469,3 +469,31 @@ def test_no_python_module_defines_what_nothing_calls():
     assert not orphans, (
         "pyarest defines what nothing calls: %s — the op moved to canon but its "
         "implementation stayed." % orphans)
+
+def test_a_host_comment_claiming_a_twin_is_declared_in_the_registry():
+    """THE SWEEP THAT FOUND THREE, made a gate so it cannot find a fourth.
+
+    theta:NatJoin, ast:Store and system:reading_parse were each described in
+    engine/rust's OWN COMMENTS as a native override or twin of a canon DEF, and
+    each was absent from OVERRIDES. They were found one at a time by reading,
+    which is not a method. The registry is what separates a sanctioned twin
+    from drift BY INSPECTION, so a host that announces a twin in prose and
+    omits it here has removed the property the table exists to give.
+
+    A comment carrying a claim phrase AND a canon DEF name must have that DEF
+    declared in OVERRIDES, as key or value."""
+    src = _src("rust", "src", "main.rs")
+    defs = _canon_defs()
+    declared = set(OVERRIDES) | set(OVERRIDES.values())
+    claims = ("run natively", "native override", "certified-equal", "native twin")
+    missing = {}
+    for line in src.splitlines():
+        t = line.strip()
+        if not t.startswith("//") or not any(c in t for c in claims):
+            continue
+        for name in re.findall(r"\b([a-z]+:[A-Za-z_][A-Za-z_0-9]*)\b", t):
+            if name in defs and name not in declared:
+                missing.setdefault(name, t[:110])
+    assert not missing, (
+        "host comments claim these as twins but OVERRIDES does not declare them: "
+        + "; ".join("%s -- %s" % (k, v) for k, v in sorted(missing.items())))
