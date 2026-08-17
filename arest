@@ -8216,6 +8216,17 @@ DEF("store:replace_cell",
              S3(A("CONS"), S3(A("COMP"), N(1), N(2)), N(1))),
           N(2)))),
 
+"store:replace_cells applies a SEQUENCE of name-value pairs to a store in ONE application, in order, so the last pair lands last. That is the same answer as folding store:replace_cell by hand, which is what three rust sites did in a HOST LOOP -- and a host loop that marshalled the whole store into canon and back out once per pair, so a three-pair update crossed the boundary three times to compute one new store. The ordering discipline was the host's; now it is here. INSERT is Backus's right fold, and replace_cell appends, so the pairs are REVERSED before folding and the store rides as the fold's rightmost element, its accumulator; an empty pair sequence leaves the store alone, since a one-element INSERT is that element. This is the shape AST 14.4.2 asks for on the write side: compute the updated file applicatively, THEN store it, once.",
+
+DEF("store:rc_step",
+    S3(A("COMP"), A("store:replace_cell"), S3(A("CONS"), N(2), N(1)))),
+
+DEF("store:replace_cells",
+    S3(A("COMP"), S2(A("INSERT"), A("store:rc_step")),
+       S3(A("COMP"), A("cat"),
+          S3(A("CONS"), S3(A("COMP"), A("reverse"), N(2)),
+             S2(A("CONS"), N(1)))))),
+
 DEF("rmap:role_fts",
     S3(A("COMP"), A("theta:firstseen"), S2(A("ALPHA"), N(2)))),
 
