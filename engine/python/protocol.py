@@ -716,8 +716,7 @@ def _analyze(D):
     for r in system._pop_rows(D, "refMode"):                  # Person(.nr): the ref mode
         if len(r) >= 2:
             ref.setdefault(r[0], r[1])
-    entities = {r[0] for r in system._pop_rows(D, "instanceOf")
-                if len(r) >= 2 and r[1] == "ObjectType"}
+    entities = _entities(system._pop_rows(D, "instanceOf"))
     cons = system._pop_rows(D, "constraint")
     mandatory = {}
     for c in cons:
@@ -783,8 +782,7 @@ def get_view(D, noun, entity_id):
     for r in system._pop_rows(D, "refMode"):
         if len(r) >= 2:
             ref.setdefault(r[0], r[1])
-    entities = {r[0] for r in system._pop_rows(D, "instanceOf")
-                if len(r) >= 2 and r[1] == "ObjectType"}
+    entities = _entities(system._pop_rows(D, "instanceOf"))
     fields, facts, seen = {}, [], False
     counts = {}
     for (_noun, _col, ft) in colrows:
@@ -839,6 +837,21 @@ def _coldisamb(names):
     from .lam import to_lam as _tl, from_lam as _fl, atom as _at
     from .reduce import apply as _apl
     return tuple(_fl(_apl(_at("rmap:coldisamb"), _tl(tuple(names)))))
+def _entities(instanceof_rows):
+    """CANON -- DEF("rmap:entities"): instanceOf restricted to its ObjectType
+    rows, the name projected, the length guard included.
+
+    engine/rust reads this DEF -- the same one op_sql_project's entity sweep
+    uses, so it is one restriction and not two. engine/python spelled the set
+    comprehension out twice in this file, in _analyze and again below.
+
+    Answers a SEQUENCE in row order where the comprehension answered a set;
+    both callers only ask membership, so they wrap it, and the order is not
+    load-bearing here. 8.4ms at eighty rows, called once per analysis."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    rows = tuple(tuple(r) for r in instanceof_rows)
+    return set(_fl(_apl(_at("rmap:entities"), _tl(rows))))
 def _ddl_ref(parent, keycol):
     """CANON -- DEF("rmap:ddl_ref"): the REFERENCES clause.
 
