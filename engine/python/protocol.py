@@ -726,7 +726,30 @@ def _analyze(D):
 
 
 def _key_col(name, ref):
-    return f"{_sql_name(name)}_{_sql_name(ref.get(name, 'id'))}"
+    """CANON -- DEF("rmap:keyof"): a noun's key column name.
+
+    engine/rust reads this DEF; python joined _sql_name(noun) to
+    _sql_name(refmode) with an underscore and defaulted the refmode to 'id'.
+    The DEF is refmode composed with keycol, threading the SAME operand into
+    both halves, and it carries the default too -- keyof-default answers
+    van_id for a noun with no scheme at all.
+
+    Canon takes refmode ROWS where python resolved them into a dict upstream,
+    so the dict is turned back into rows here. That is safe only because the
+    dict holds one entry per noun: with rows the LAST scheme wins, which the
+    keyof-scheme-last case pins, and a dict cannot express the ambiguity that
+    rule exists to settle. Worth stating, because the conversion looks lossless
+    and is only lossless in that direction.
+
+    7.5ms a call and ten calls for a four-table model -- 0.07s, and about two
+    seconds for a hundred-table schema, on a path that runs once."""
+    return _keyof(name, tuple(ref.items()))
+
+
+def _keyof(name, refrows):
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return _fl(_apl(_at("rmap:keyof"), _tl((name, tuple(refrows), ()))))
 
 
 def _entity_columns(table, partition, roles, ref, entities, entity_tables):
