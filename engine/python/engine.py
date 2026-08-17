@@ -1188,8 +1188,7 @@ def _reconcile_absorbed_heads(D, heads):
         cols = table_columns(part, table)
         col = 2 + cols.index(ft)
         width = 1 + len(cols)
-        unary = max((r[2] for r in _pop_rows(D, "role")
-                     if len(r) >= 3 and r[1] == ft), default=2) == 1
+        unary = _role_maxpos(ft, _pop_rows(D, "role")) == 1
         plan.append((ft, table, col, width, unary,
                      [tuple(r) for r in _pop_rows(D, ft)]))
     if not plan:
@@ -1845,6 +1844,19 @@ def _distinct_at(pos, rows):
     from .lam import to_lam as _tl, from_lam as _fl, atom as _at
     from .reduce import apply as _apl
     return list(_fl(_apl(_at("rmap:distinct_at"), _tl((pos, tuple(tuple(r) for r in rows))))))
+def _role_maxpos(ft, rolerows):
+    """CANON -- DEF("rmap:role_maxpos"): the highest role position a fact type
+    names, 2 when it names none.
+
+    The DEF carries BOTH things python spelled out at each of its FOUR copies:
+    the len(r) >= 3 width guard, and the default of 2 for a fact type with no
+    role rows. That default is not padding -- the callers compare the answer
+    to 1 to decide unary, so defaulting to 0 or bottoming would make an
+    unknown fact type read as binary, or take the plan down."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return _fl(_apl(_at("rmap:role_maxpos"),
+                    _tl((ft, tuple(tuple(r) for r in rolerows)))))
 def _atpos(pos, rows):
     """CANON -- DEF("rmap:atpos"): one column, selected dynamically.
 
@@ -2860,8 +2872,7 @@ def create_routed(D, ft, fact, partition, machine=None, mealy_obj=None, validate
     cols = table_columns(partition, table)
     col = 2 + cols.index(ft)
     key = from_lam(fact)[0]
-    unary = max((r[2] for r in _pop_rows(D, "role") if len(r) >= 3 and r[1] == ft),
-                default=2) == 1
+    unary = _role_maxpos(ft, _pop_rows(D, "role")) == 1
     return ast.run(fact, D, cell_name=f"{table}:{key}",
                    resolve_obj=row_resolve(col, 1 + len(cols), unary),
                    machine=machine, mealy_obj=mealy_obj, validate_obj=validate_obj,
@@ -2879,8 +2890,7 @@ def ft_view(D, ft, partition):
     table = partition.get(ft, ft)
     if table == ft:
         return set(from_lam(_ap(ast.FetchPop(ft), D)))
-    unary = max((r[2] for r in _pop_rows(D, "role") if len(r) >= 3 and r[1] == ft),
-                default=2) == 1
+    unary = _role_maxpos(ft, _pop_rows(D, "role")) == 1
     pairs = set(from_lam(_ap(ftpop_expr(ft, partition), D)))
     if unary:
         return {(k,) for (k, v) in pairs if v == "T"}         # the boolean column, back
@@ -2935,8 +2945,7 @@ def bulk_absorbed_install(D, part, table, ft, facts, replace_keys=False):
     cols = table_columns(part, table)
     col = 2 + cols.index(ft)
     width = 1 + len(cols)
-    unary = max((r[2] for r in _pop_rows(D, "role")
-                 if len(r) >= 3 and r[1] == ft), default=2) == 1
+    unary = _role_maxpos(ft, _pop_rows(D, "role")) == 1
     cells_l = list(_fl(D))
     idx = {c[1]: i for i, c in enumerate(cells_l)
            if isinstance(c, tuple) and len(c) >= 3 and c[0] == "CELL"}
