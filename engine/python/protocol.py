@@ -827,6 +827,18 @@ def get_view(D, noun, entity_id):
     return seen, fields, facts
 
 
+def _ddl_ref(parent, keycol):
+    """CANON -- DEF("rmap:ddl_ref"): the REFERENCES clause.
+
+    Both identifiers quoted, parens tight, and the LEADING SPACE belongs to
+    the clause because the caller concatenates it onto a column spec --
+    dropping it yields a valid string that produces invalid SQL. The DEF
+    quotes but deliberately does NOT slug: the caller slugs first, which is
+    what python already did with _sql_name before _q. That division is the
+    contract, and adding a slug here would fold an already-slugged name."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return _fl(_apl(_at("rmap:ddl_ref"), _tl((parent, keycol))))
 def _ddl_table(table, cols, keycols):
     """CANON -- DEF("rmap:ddl_table"): the CREATE TABLE statement.
 
@@ -868,7 +880,7 @@ def generate(D):
             # this table (a mandatory on the other role never forces this column)
             null = " NOT NULL" if table in mandatory.get(ft, ()) else ""
             refs = ("" if kind != "ref" else
-                    f" REFERENCES {_q(_sql_name(other))}({_q(_key_col(other, ref))})")
+                    _ddl_ref(_sql_name(other), _key_col(other, ref)))
             cols.append((col, "TEXT" + null, refs))
         tables[table] = _ddl_table(_sql_name(table), cols, ())
 
@@ -882,7 +894,7 @@ def generate(D):
                     if player in entities else _sql_name(player))
             seen[base] = seen.get(base, 0) + 1
             col = base if seen[base] == 1 else f"{base}_{seen[base]}"
-            refs = (f" REFERENCES {_q(_sql_name(player))}({_q(_key_col(player, ref))})"
+            refs = (_ddl_ref(_sql_name(player), _key_col(player, ref))
                     if player in entities and player in entity_tables else "")
             cols.append((col, "TEXT NOT NULL", refs))
             key.append(col)
