@@ -3521,6 +3521,37 @@ fn group_key(row: &V) -> String {
     }
 }
 
+// The store write path's marshalling, in one place. These carry NO meaning --
+// which cells change and in what order is store:replace_cells' business -- they
+// only move a cell list across the boundary and back. They exist because three
+// sites had spelled the same V-to-canon-sequence conversion out longhand, and a
+// convention retyped three times is a convention that drifts once.
+fn cells_operand(cells: &[(Leaf, V)]) -> V {
+    seqv(
+        cells
+            .iter()
+            .map(|(k, c)| seqv(vec![atom(k.clone()), c.clone()]))
+            .collect(),
+    )
+}
+
+fn pair_cell(name: &str, val: V) -> V {
+    seqv(vec![atom(Leaf::S(name.to_string())), val])
+}
+
+fn cells_from(ans: &V) -> Vec<(Leaf, V)> {
+    items(&list_of(ans))
+        .iter()
+        .filter_map(|c| {
+            let ci = items(&list_of(c));
+            if ci.len() < 2 {
+                return None;
+            }
+            aval(&ci[0]).map(|nm| ((*nm).clone(), ci[1].clone()))
+        })
+        .collect()
+}
+
 // pop_rows is FetchPop's view over the cached cell index: the named cell's
 // rows, with an absent cell or an atom-valued cell the empty population.
 // NESTED STORES (Backus 14.7, "a cell in one store may contain another entire
@@ -8086,33 +8117,20 @@ fn layout_cells_native(cells: &[(Leaf, V)], srv: &Srv) -> Vec<(Leaf, V)> {
         }
     }
 
-    // CANON -- DEF("store:replace_cell"), as scheduler_cells_native does:
-    // drop every cell of the name, append the new one last, in order.
-    let mut out = cells.to_vec();
-    for (name, val) in [
-        ("rmapColumns", seq(from_vec(rows))),
-        ("enumValues", seq(from_vec(erows))),
-    ] {
-        let arg = seqv(vec![
-            seqv(out
-                .iter()
-                .map(|(k, c)| seqv(vec![atom(k.clone()), c.clone()]))
-                .collect()),
-            seqv(vec![atom(Leaf::S(name.to_string())), val]),
-        ]);
-        let ans = reduce_over_n(srv, atom(Leaf::S("store:replace_cell".to_string())), arg, -1);
-        out = items(&list_of(&ans))
-            .iter()
-            .filter_map(|c| {
-                let ci = items(&list_of(c));
-                if ci.len() < 2 {
-                    return None;
-                }
-                aval(&ci[0]).map(|nm| ((*nm).clone(), ci[1].clone()))
-            })
-            .collect();
-    }
-    out
+    // CANON -- DEF("store:replace_cells"): the whole pair SEQUENCE goes in and
+    // canon owns applying them in order. The loop this replaces held that
+    // ordering natively AND marshalled the entire store across the boundary
+    // once per pair; it now crosses once. case:replace-cells-order against
+    // case:replace-cells-step2 is what pins batch == fold on all four stations.
+    let arg = seqv(vec![
+        cells_operand(cells),
+        seqv(vec![
+            pair_cell("rmapColumns", seq(from_vec(rows))),
+            pair_cell("enumValues", seq(from_vec(erows))),
+        ]),
+    ]);
+    let ans = reduce_over_n(srv, atom(Leaf::S("store:replace_cells".to_string())), arg, -1);
+    cells_from(&ans)
 }
 
 // scheduler_cells_native (engine.py:1797 scheduler_cells, #20 the final
@@ -8168,31 +8186,16 @@ fn scheduler_cells_native(cells: &[(Leaf, V)], srv: &Srv) -> Vec<(Leaf, V)> {
     // owned by the materializing host" -- so routing these rows through the
     // canon DEF would answer the same classification in a different order
     // and change a stored cell for nothing.
-    let mut out = cells.to_vec();
-    for (name, val) in [
-        ("passHeads", seq(from_vec(rows))),
-        ("passOrder", order_v),
-        ("passBound", bound_v),
-    ] {
-        let arg = seqv(vec![
-            seqv(out
-                .iter()
-                .map(|(k, c)| seqv(vec![atom(k.clone()), c.clone()]))
-                .collect()),
-            seqv(vec![atom(Leaf::S(name.to_string())), val]),
-        ]);
-        let ans = reduce_over_n(srv, atom(Leaf::S("store:replace_cell".to_string())), arg, -1);
-        out = items(&list_of(&ans))
-            .iter()
-            .filter_map(|c| {
-                let ci = items(&list_of(c));
-                if ci.len() < 2 {
-                    return None;
-                }
-                aval(&ci[0]).map(|nm| ((*nm).clone(), ci[1].clone()))
-            })
-            .collect();
-    }
+    let arg = seqv(vec![
+        cells_operand(cells),
+        seqv(vec![
+            pair_cell("passHeads", seq(from_vec(rows))),
+            pair_cell("passOrder", order_v),
+            pair_cell("passBound", bound_v),
+        ]),
+    ]);
+    let ans = reduce_over_n(srv, atom(Leaf::S("store:replace_cells".to_string())), arg, -1);
+    let out = cells_from(&ans);
     out
 }
 
@@ -9864,24 +9867,9 @@ fn with_watermark_native(cells: &[(Leaf, V)], n: i64, srv: &Srv) -> Vec<(Leaf, V
     // one this is. The watermark's value <<n>> is built here because it is a
     // host quantity (the replay entry count), not a canon one.
     let val = seq(from_vec(vec![seqc(vec![atom(Leaf::I(n))])]));
-    let arg = seqv(vec![
-        seqv(cells
-            .iter()
-            .map(|(name, contents)| seqv(vec![atom(name.clone()), contents.clone()]))
-            .collect()),
-        seqv(vec![atom(Leaf::S("eventWatermark".to_string())), val]),
-    ]);
+    let arg = seqv(vec![cells_operand(cells), pair_cell("eventWatermark", val)]);
     let out = reduce_over_n(srv, atom(Leaf::S("store:replace_cell".to_string())), arg, -1);
-    items(&list_of(&out))
-        .iter()
-        .filter_map(|c| {
-            let ci = items(&list_of(c));
-            if ci.len() < 2 {
-                return None;
-            }
-            aval(&ci[0]).map(|nm| ((*nm).clone(), ci[1].clone()))
-        })
-        .collect()
+    cells_from(&out)
 }
 
 // rp_flush mirrors protocol.py:295-309 _flush: own-table union via Store
