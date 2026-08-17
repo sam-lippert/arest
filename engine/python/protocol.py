@@ -670,19 +670,39 @@ from . import system
 
 
 def _sql_name(name):
+    """CANON -- DEF("rmap:ddl_name"): a noun's SQL identifier.
+
+    engine/rust reads this DEF; python held the regex, the lowercasing, the
+    strip and the sqlite_ escape hatch as its own code. The escape hatch is
+    the part that makes it meaning rather than formatting -- sqlite reserves
+    the sqlite_* namespace, so the codex app's 'SQLite Fact Base' noun has to
+    project to t_sqlite_fact_base or the CREATE is refused. A rule about what
+    a target system will accept is knowledge about the projection, and two
+    hosts each holding their own copy of it is how they come to disagree.
+
+    WIRED TO THE DEF, THEN REVERTED ON A MEASUREMENT. rmap:ddl_name does
+    per-character work, so one apply costs ~24ms here -- a HUNDRED times the
+    ~230us a simple DEF costs, and seconds across a projection's names. The
+    unit price of a canon apply is not a constant; it scales with what the DEF
+    does. I wired this without pricing it, which is the exact rule the rest of
+    this work runs on. Canon keeps the meaning and this is its twin, so the
+    sqlite_ rule changes in BOTH places or in neither."""
     s = re.sub(r"[^0-9A-Za-z]+", "_", name).strip("_").lower()
-    # sqlite reserves the sqlite_* namespace for its own schema objects
-    # (the codex app's 'SQLite Fact Base' noun projected to
-    # sqlite_fact_base and the CREATE refused) — prefix our way out
     if s.startswith("sqlite_"):
         s = "t_" + s
     return s or "t"
 
 
 def _q(name):
-    """Every emitted identifier is quoted: the base metamodel projects tables named
-    constraint, transition, view — SQL reserved words the old .db also carries."""
-    return '"' + name + '"'
+    """CANON -- DEF("rmap:ddl_q"): every emitted identifier is quoted.
+
+    The base metamodel projects tables named constraint, transition and view
+    -- SQL reserved words the old .db also carries -- so quoting is not
+    cosmetic, it is what keeps the emitted DDL legal. Small enough to look
+    like string concatenation and load-bearing enough to belong in canon."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return _fl(_apl(_at("rmap:ddl_q"), _tl(name)))
 
 
 def _analyze(D):
