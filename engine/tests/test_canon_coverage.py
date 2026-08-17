@@ -502,3 +502,29 @@ def test_a_host_comment_claiming_a_twin_is_declared_in_the_registry():
     assert not missing, (
         "host comments claim these as twins but OVERRIDES does not declare them: "
         + "; ".join("%s -- %s" % (k, v) for k, v in sorted(missing.items())))
+
+def test_a_python_comment_claiming_a_twin_is_declared_in_the_registry():
+    """THE RUST GATE HAS A BLIND SIDE: it reads main.rs and nothing else.
+
+    engine/python makes the same claim in the same words -- CERTIFIED-EQUAL
+    OVERRIDE of DEF("...") -- for system:verify_store and system:entity_view.
+    Both happen to be declared, which is luck rather than enforcement: the
+    rust gate cannot see either, and the three undeclared twins that gate was
+    written for were found by reading, not by anything that would have caught
+    a python one. Same rule, other lineage."""
+    import glob
+    defs = _canon_defs()
+    declared = set(OVERRIDES) | set(OVERRIDES.values())
+    missing = {}
+    for path in glob.glob(os.path.join(ROOT, "python", "*.py")):
+        for line in open(path, encoding="utf-8").read().splitlines():
+            t = line.strip()
+            if "CERTIFIED-EQUAL" not in t and "certified-equal" not in t:
+                continue
+            for name in re.findall(r"([a-z]+:[A-Za-z_][A-Za-z_0-9]*)", t):
+                if name in defs and name not in declared:
+                    missing.setdefault(name, "%s: %s" % (
+                        os.path.basename(path), t[:80]))
+    assert not missing, (
+        "python comments claim these as twins but OVERRIDES does not declare "
+        "them: " + "; ".join("%s -- %s" % (k, v) for k, v in sorted(missing.items())))
