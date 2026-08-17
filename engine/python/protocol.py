@@ -917,9 +917,35 @@ def generate(D):
     return tables
 
 
+def _ddl_order(pairs):
+    """CANON -- DEF("rmap:ddl_order"): tables in an order that can be executed.
+
+    A table can only be created after the tables it REFERENCES, and python did
+    not order at all -- script() joined generate()'s dict in insertion order,
+    which is entity tables sorted, then own tables sorted. That is valid only
+    while no entity table references another one. It does when a functional
+    role is absorbed: Alpha with at most one Zulu puts a REFERENCES "zulu" in
+    the alpha table, and alpha sorts first, so the emitted script created a
+    foreign key to a table that did not exist yet.
+
+    Operand is <table, <parents>> pairs. Ready tables leave sorted per wave,
+    so the answer is not a global sort -- a globally sorted answer would put
+    the child first, which is the bug. A cycle terminates with the remainder
+    emitted sorted rather than looping."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return tuple(_fl(_apl(_at("rmap:ddl_order"), _tl(tuple(pairs)))))
+
+
 def script(D):
-    """The whole schema as one executable document, entities before references."""
-    return "\n\n".join(generate(D).values())
+    """The whole schema as one executable document, parents before children."""
+    tables = generate(D)
+    parents = {k: tuple(o for o in tables
+                        if o != k
+                        and ' REFERENCES %s(' % _q(_sql_name(o)) in tables[k])
+               for k in tables}
+    order = _ddl_order((k, parents[k]) for k in tables)
+    return chr(10).join(tables[k] + chr(10) for k in order if k in tables).rstrip()
 
 
 def project(D, con):
