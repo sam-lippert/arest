@@ -1870,6 +1870,18 @@ def _takerows(n, rows):
     from .reduce import apply as _apl
     return [tuple(r) for r in _fl(_apl(_at("rmap:takerows"),
                                        _tl((n, tuple(tuple(r) for r in rows)))))]
+def _abs_targets(part_pairs):
+    """CANON -- DEF("rmap:abs_targets"): the distinct tables something OTHER
+    than itself is absorbed into.
+
+    The `t != f` exclusion is the point: a fact type that is its own table is
+    not an absorption target, and including it would give every own table a
+    spurious column layout. Answers distinct values already, so the set() the
+    caller wrapped this in is gone."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return list(_fl(_apl(_at("rmap:abs_targets"),
+                         _tl(tuple((f, t) for f, t in part_pairs)))))
 def _atpos(pos, rows):
     """CANON -- DEF("rmap:atpos"): one column, selected dynamically.
 
@@ -2008,7 +2020,7 @@ def layout_cells(D):
     from .lam import to_lam, from_lam
     part = rmap_partition(D)
     rows = []
-    for table in sorted({t for ft, t in part.items() if t != ft}):
+    for table in sorted(_abs_targets(part.items())):
         for j, ft in enumerate(table_columns(part, table)):
             rows.append((table, 2 + j, ft))
     # CANON -- DEF("store:replace_cells"): drop every cell of the name, append
