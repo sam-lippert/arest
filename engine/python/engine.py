@@ -1832,6 +1832,19 @@ def _uniq_constraints(consrows):
     return tuple(tuple(c) for c in _fl(_apl(_at("derive:uniq_constraints"), _tl(rows))))
 
 
+def _distinct_at(pos, rows):
+    """CANON -- DEF("rmap:distinct_at"): one column, DEDUPED.
+
+    rmap:atpos' deduping sibling. The two differ only by the dedup and the
+    canon cases keep them apart deliberately, so the choice is stated rather
+    than implied: here the only question asked of the answer is MEMBERSHIP, so
+    dedup is right, where status_facts needs every occurrence.
+
+    A row with no value at the position DROPS rather than bottoming the
+    answer -- the guard python spelled as len(r) >= 2."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return list(_fl(_apl(_at("rmap:distinct_at"), _tl((pos, tuple(tuple(r) for r in rows))))))
 def _atpos(pos, rows):
     """CANON -- DEF("rmap:atpos"): one column, selected dynamically.
 
@@ -2983,8 +2996,7 @@ def machine_fold(D):
     triples = sm_triples(D)
     if not triples:
         return D
-    trig_fts = sorted({r[1] for r in _pop_rows(D, "smTrigger")
-                       if len(r) >= 2})
+    trig_fts = sorted(_distinct_at(2, _pop_rows(D, "smTrigger")))
     initials = {r[1]: r[0] for r in _pop_rows(
         D, "Status_is_initial_in_State_Machine_Definition") if len(r) >= 2}
     status_fts = {r[0]: r[1] for r in _pop_rows(D, "smStatusFt")

@@ -288,8 +288,7 @@ def replay_entries(D, entries):
 
     def _triggers(D):
         if not trig_box:
-            trig_box.append({r[1] for r in system._pop_rows(D, "smTrigger")
-                             if len(r) >= 2})
+            trig_box.append(set(system._distinct_at(2, system._pop_rows(D, "smTrigger"))))
         return trig_box[0]
 
     def _flush(D):
