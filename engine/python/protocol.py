@@ -827,6 +827,27 @@ def get_view(D, noun, entity_id):
     return seen, fields, facts
 
 
+def _ddl_table(table, cols, keycols):
+    """CANON -- DEF("rmap:ddl_table"): the CREATE TABLE statement.
+
+    engine/rust reads this DEF; python assembled the statement itself with
+    f-strings -- indentation, comma joining, the PRIMARY KEY clause -- and
+    emitted `CREATE TABLE` where canon emits `CREATE TABLE IF NOT EXISTS`,
+    then patched the difference back in with a string replace at execution.
+    Two hosts producing DIFFERENT DDL text for one schema is the divergence
+    this is here to remove, and canon is the definition of record.
+
+    Columns go in as <name, type, extra> with the name UNQUOTED: canon quotes
+    identifiers itself, because quoting is what keeps `constraint` and
+    `transition` legal. Priced first at 0.7ms for two columns and 1.4ms for
+    eight -- linear, unlike rmap:ddl_name in the same family, which costs
+    24ms a name and stays native."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return _fl(_apl(_at("rmap:ddl_table"),
+                    _tl((table, tuple(cols), tuple(keycols)))))
+
+
 def generate(D):
     """{table-or-ft: CREATE TABLE statement}."""
     partition, roles, ref, entities, mandatory = _analyze(D)
@@ -837,20 +858,19 @@ def generate(D):
     entity_tables = entities | ({t for t in partition.values()} - set(own))
 
     for table in sorted(entity_tables):
-        cols = [f"    {_q(_key_col(table, ref))} TEXT PRIMARY KEY"]
+        cols = [(_key_col(table, ref), "TEXT PRIMARY KEY", "")]
         for (ft, col, kind, other) in _entity_columns(
                 table, partition, roles, ref, entities, entity_tables):
             if kind == "unary":                               # absorbed unary: boolean
-                cols.append(f"    {_q(col)} BOOLEAN")
+                cols.append((col, "BOOLEAN", ""))
                 continue
             # Halpin 11.12: the column hardens only when the MANDATED player is
             # this table (a mandatory on the other role never forces this column)
             null = " NOT NULL" if table in mandatory.get(ft, ()) else ""
             refs = ("" if kind != "ref" else
                     f" REFERENCES {_q(_sql_name(other))}({_q(_key_col(other, ref))})")
-            cols.append(f"    {_q(col)} TEXT{null}{refs}")
-        tables[table] = (f"CREATE TABLE {_q(_sql_name(table))} (\n"
-                         + ",\n".join(cols) + "\n);")
+            cols.append((col, "TEXT" + null, refs))
+        tables[table] = _ddl_table(_sql_name(table), cols, ())
 
     for ft in sorted(own):
         rs = roles.get(ft, [])
@@ -864,11 +884,9 @@ def generate(D):
             col = base if seen[base] == 1 else f"{base}_{seen[base]}"
             refs = (f" REFERENCES {_q(_sql_name(player))}({_q(_key_col(player, ref))})"
                     if player in entities and player in entity_tables else "")
-            cols.append(f"    {_q(col)} TEXT NOT NULL{refs}")
+            cols.append((col, "TEXT NOT NULL", refs))
             key.append(col)
-        stmt = (f"CREATE TABLE {_q(_sql_name(ft))} (\n" + ",\n".join(cols)
-                + f",\n    PRIMARY KEY ({', '.join(_q(c) for c in key)})\n);")
-        tables[ft] = stmt
+        tables[ft] = _ddl_table(_sql_name(ft), cols, key)
     return tables
 
 
@@ -893,7 +911,7 @@ def project(D, con):
         # a migrated population missing a mandatory value lands as a NULL row
         # instead of crashing the compile — visibility over cascade
         stmt = stmt.replace(" TEXT NOT NULL", " TEXT")
-        con.execute(stmt.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS"))
+        con.execute(stmt)  # canon emits IF NOT EXISTS: rmap:ddl_table
 
     def ensure_columns(table, colnames, coltypes):
         # schema evolution on a live db: IF NOT EXISTS never revisits an

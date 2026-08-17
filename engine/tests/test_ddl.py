@@ -32,7 +32,7 @@ def test_entity_tables_carry_absorbed_columns():
     person = out["Person"]
     # identifiers are quoted: the base metamodel projects reserved-word tables
     # (constraint, transition), so every emitted name wears double quotes
-    assert 'CREATE TABLE "person"' in person
+    assert 'CREATE TABLE IF NOT EXISTS "person"' in person
     assert '"person_nr"' in person and "PRIMARY KEY" in person
     assert '"name" TEXT NOT NULL' in person                   # mandatory + at-most-one
     assert '"is_smoker" BOOLEAN' in person                    # the unary boolean column
@@ -42,7 +42,7 @@ def test_mn_fact_types_get_their_own_keyed_tables():
     D, _ = forml.compile_model(MODEL)
     out = ddl.generate(D)
     works = out["Person_works_for_Company"]
-    assert 'CREATE TABLE "person_works_for_company"' in works
+    assert 'CREATE TABLE IF NOT EXISTS "person_works_for_company"' in works
     assert 'PRIMARY KEY ("person_nr", "company_code")' in works
     assert 'REFERENCES "person"' in works and 'REFERENCES "company"' in works
     ring = out["Person_likes_Person"]
