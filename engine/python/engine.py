@@ -1263,26 +1263,14 @@ def run_rules(D, changed=None, stats=None):
     # of that noun) before the closure runs — never migrated, never stale.
     _MIRROR = "Resource_is_instance_of_Noun"
     if any(_MIRROR in rs for rs in reads.values()):
-        _mroles = {}
-        for r in _pop_rows(D, "role"):
-            if len(r) >= 4:
-                _mroles.setdefault(r[1], []).append((r[2], r[3]))
-        _mnouns = {r[0] for r in _pop_rows(D, "instanceOf")
-                   if len(r) >= 2 and r[1] == "ObjectType"}
-        _mout = set()
-        for _mft, _mrs in _mroles.items():
-            _mrows = None
-            for (_mpos, _mplayer) in _mrs:
-                if _mplayer in _mnouns:
-                    if _mrows is None:
-                        _mrows = [tuple(x) for x in _pop_rows(D, _mft)]
-                    for _mrow in _mrows:
-                        if len(_mrow) >= _mpos:
-                            _mout.add((_mrow[_mpos - 1], _mplayer))
-        if _mout and not _pop_rows(D, _MIRROR):
-            # asserted wins: a model carrying its own membership rows keeps
-            # them untouched; the mirror serves only the empty cell (the
-            # post-migration world, where no reflection row ever lands).
+        _mout = _instance_mirror(D)
+        # CANON -- DEF("derive:mirror_fill") via _mirror_fill: asserted rows
+        # win, the mirror serves the empty cell only. It answers the existing
+        # rows untouched unless the cell is empty and something was derived,
+        # so the count growing IS the mirror having fired.
+        _mexist = _pop_rows(D, _MIRROR)
+        _mfill = _mirror_fill(_mout, _mexist)
+        if len(_mfill) > len(_mexist):
             # NOTE (2026-07-09): the mirror is deliberately OVER-BROAD (an id
             # is a direct instance of EVERY role-noun it plays, supertypes
             # included) because SM-seeding and the domain bridge JOIN on it
@@ -1293,18 +1281,28 @@ def run_rules(D, changed=None, stats=None):
             # a transitive is-a relation for consumers + remove the redundant
             # Constraint Type noun (NORMA-conformant). Left over-broad here
             # until that arc lands.
-            D = _ap(ast.Store(_MIRROR), _S(to_lam(_rowsort(_mout)), D))
+            D = _ap(ast.Store(_MIRROR), _S(to_lam(_rowsort(_mfill)), D))
     _FTR = "Fact_Type_has_Role"
     if any(_FTR in rs for rs in reads.values()):
         # the same principle for the role mirror (verdict fourteen's lesson:
         # the arity rule counts it): the role M-facts ARE the knowledge
-        _frows = {(r[1], r[0]) for r in _pop_rows(D, "role") if len(r) >= 2}
-        if _frows and not _pop_rows(D, _FTR):
-            D = _ap(ast.Store(_FTR), _S(to_lam(_rowsort(_frows)), D))
+        # CANON -- DEF("derive:ftr_pairs"): each role row swapped to
+        # <ft, roleid>, distinct, first occurrence kept, short rows skipped.
+        # engine/rust already reads this DEF here; python was computing the
+        # same thing in a set comprehension, so the two hosts agreed by
+        # coincidence of both being right rather than by sharing a definition.
+        _frows = _ftr_pairs(_pop_rows(D, "role"))
+        # CANON -- DEF("derive:mirror_fill"), the same precedence as the
+        # instance mirror above: this site and that one held one rule twice,
+        # and engine/rust held it twice more.
+        _fexist = _pop_rows(D, _FTR)
+        _ffill = _mirror_fill(_frows, _fexist)
+        if len(_ffill) > len(_fexist):
+            D = _ap(ast.Store(_FTR), _S(to_lam(_rowsort(_ffill)), D))
     for r in _pop_rows(D, "ruleAtom"):
         if len(r) >= 3:
             atomsof.setdefault(r[0], []).append((r[1], r[2]))
-    aggids = {r[0] for r in _pop_rows(D, "ruleAgg") if r}
+    aggids = _aggids(_pop_rows(D, "ruleAgg"))
     all_rules = [(r[0], r[1]) for r in _pop_rows(D, "ruleDerives")]
     rules = [(rid, h) for (rid, h) in all_rules if rid not in aggids]
     frontier = None if changed is None else set(changed)
@@ -1316,7 +1314,11 @@ def run_rules(D, changed=None, stats=None):
         for rule_cid, head in rules:
             _t0 = _time.perf_counter() if stats is not None else 0.0
             if delta is None:                                # round one: full bodies
-                if frontier is not None and not (reads.get(rule_cid, set()) & frontier):
+                # CANON -- DEF("derive:reads_hit"): whether this rule wakes in
+                # round one. Priced at ~33ms for the base's 143 rules before
+                # being wired, not assumed cheap and not assumed costly.
+                if frontier is not None and not _reads_hit(
+                        reads.get(rule_cid, set()), frontier):
                     continue
                 tw = rule_twins.get(rule_cid)
                 if tw is not None:                           # the FAST twin: same rows,
@@ -1331,7 +1333,9 @@ def run_rules(D, changed=None, stats=None):
                     stats.append({"round": rnd, "rule": rule_cid, "mode": "full",
                                   "t": _time.perf_counter() - _t0})
             else:
-                hits = [(p, ft) for (p, ft) in atomsof.get(rule_cid, ()) if ft in delta]
+                # CANON -- DEF("derive:atom_hits"). Order is load-bearing: one
+                # delta variant is applied per hit in the rule's atom order.
+                hits = _atom_hits(delta, atomsof.get(rule_cid, ()))
                 if hits:
                     new_rows = set()
                     for (p, ft) in hits:
@@ -1345,7 +1349,12 @@ def run_rules(D, changed=None, stats=None):
                                           "t": _time.perf_counter() - _t0,
                                           "pos": p, "in": len(drows),
                                           "base": len(_pop_rows(D, ft))})
-                elif rule_cid not in atomsof and (reads.get(rule_cid, set()) & set(delta)):
+                # CANON -- DEF("derive:reads_hit") again: a rule with no atom
+                # facts re-runs whole when its reads changed. Same DEF as the
+                # round-one wake test above, which is the point -- one rule,
+                # one definition, both places that ask it.
+                elif rule_cid not in atomsof and _reads_hit(
+                        reads.get(rule_cid, set()), delta):
                     tw = rule_twins.get(rule_cid)
                     if tw is not None:
                         new_rows = set(tw(D))
@@ -1401,11 +1410,13 @@ def run_rules(D, changed=None, stats=None):
         if len(r) >= 2:
             spans_of.setdefault(r[0], set()).add(r[1])
     keyspans = {}
-    for c in _pop_rows(D, "constraint"):
-        if len(c) >= 3 and c[1] in ("uniqueness", "spanning_uniqueness"):
-            ps = spans_of.get(c[0], set())
-            if ps:
-                keyspans.setdefault(c[2], set()).update(ps)
+    # CANON -- DEF("derive:uniq_constraints"): restrict to the uniqueness
+    # kinds AND project to <constraint id, fact type>, which is why the fact
+    # type is at position 2 here where the raw constraint row had it at 3.
+    for c in _uniq_constraints(_pop_rows(D, "constraint")):
+        ps = spans_of.get(c[0], set())
+        if ps:
+            keyspans.setdefault(c[1], set()).update(ps)
     agg_rules = [(rid, head) for (rid, head) in all_rules if rid in aggids]
     agg_heads = {head for (_rid, head) in agg_rules}
     keyed_of = {}
@@ -1656,22 +1667,23 @@ def rekey_transitions(D):
     in one pass (a genuinely non-deterministic / cross-machine-name-reused machine) is
     left as-is (never a partial rekey)."""
     from .lam import from_lam, to_lam
-    name_smd, ambiguous = {}, set()
-    for r in _pop_rows(D, "Transition_is_defined_in_State_Machine_Definition"):
-        if len(r) >= 2 and not str(r[0]).startswith(_TXN_SUR):
-            nm, smd = r[0], r[1]
-            if nm in name_smd and name_smd[nm] != smd:
-                ambiguous.add(nm)
-            name_smd[nm] = smd
-    for nm in ambiguous:
-        name_smd.pop(nm, None)
-    if not name_smd:
+    # CANON -- DEF("derive:txn_unambiguous") and DEF("derive:txn_surrogates").
+    # Excluding a name defined in TWO machines is in the DEF as the functional
+    # dependency it is; this loop reached the same answer backwards, by
+    # overwriting unconditionally and popping the conflicts afterwards. The
+    # surrogate FORMAT is canon too -- the SMD leads, because the key is
+    # scoped by its machine, and building the pair the other way round would
+    # dangle every reference in the store.
+    unamb = _txn_unambiguous(
+        _pop_rows(D, "Transition_is_defined_in_State_Machine_Definition"))
+    if not unamb:
         return D
-    surro = {nm: f"{_TXN_SUR}{smd}\x1f{nm}" for nm, smd in name_smd.items()}
-    pos_of = {}                                              # cell -> 0-based Transition position
-    for r in _pop_rows(D, "role"):
-        if len(r) >= 4 and r[3] == "Transition":
-            pos_of[r[1]] = int(r[2]) - 1
+    surro = dict(_txn_surrogates(unamb))
+    # CANON -- DEF("derive:txn_positions"): cell -> Transition position,
+    # ALREADY 0-BASED. The DEF does the decrement, so subtracting again here
+    # would push every rewritten position one column left -- which is the
+    # shape check earning its keep for the second time in two moves.
+    pos_of = dict(_txn_positions(_pop_rows(D, "role")))
     pos_of.update({"smFrom": 0, "smTo": 0, "smTrigger": 0, "smGuard": 0,
                    "smEmit": 0, "smMoore": 0, "Guard_prevents_Transition": 1})
     out = []
@@ -1727,6 +1739,213 @@ def rmap_partition(D):
     return part
 
 
+def _atom_hits(deltakeys, atoms):
+    """CANON -- DEF("derive:atom_hits"): which of this rule's atoms
+    <position, fact type> name a fact type that gained rows last round.
+
+    reads_hit's counterpart -- that one answers WHETHER a rule wakes in round
+    one, this answers WHICH atoms wake it afterwards. ORDER IS LOAD-BEARING:
+    the join downstream applies one delta variant per hit in the rule's own
+    atom order, so this must not be routed through anything that sorts or
+    dedups.
+
+    The innermost call site in the closure, and priced before wiring like the
+    rest: ~230us per apply, per rule per round, so a few hundred milliseconds
+    against a closure that runs for minutes."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    arg = (tuple(deltakeys), tuple(tuple(a) for a in atoms))
+    return [tuple(h) for h in _fl(_apl(_at("derive:atom_hits"), _tl(arg)))]
+
+
+def _reads_hit(rulereads, frontier):
+    """CANON -- DEF("derive:reads_hit"): does this rule read anything in the
+    frontier, i.e. does it wake in round one.
+
+    Priced before wiring rather than after: a canon apply costs ~230us here
+    against ~0.6us for the set intersection it replaces, which is 396x and
+    looks disqualifying. It is not, and the ratio is the wrong number. This is
+    asked once per rule and the base has 143 rules, so the whole substitution
+    costs about 33ms against a closure that runs for minutes. engine/rust
+    memoizes this DEF because RUST's baseline is microseconds; python's
+    baseline is already the evaluator, so the same call is proportionally
+    cheap here. Cost is unit price times CALL COUNT, and a ratio hides both."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    ans = _fl(_apl(_at("derive:reads_hit"),
+                   _tl((tuple(sorted(rulereads)), tuple(sorted(frontier))))))
+    return ans == "T"
+
+
+def _txn_unambiguous(defrows):
+    """CANON -- DEF("derive:txn_unambiguous"): bare transition name to its
+    machine, ambiguous names excluded WHOLE.
+
+    Three rules ride together in the DEF: a name already carrying the txn:
+    surrogate is skipped (an earlier pass keyed it), a name defined twice in
+    the SAME machine survives, and a name defined in TWO machines is dropped
+    rather than resolved to either. The loop this replaces reached the last by
+    overwriting then popping afterwards -- the same answer arrived at
+    backwards -- where the DEF states it as the functional dependency it is."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    rows = tuple(tuple(r) for r in defrows)
+    return tuple(tuple(p) for p in _fl(_apl(_at("derive:txn_unambiguous"), _tl(rows))))
+
+
+def _txn_surrogates(unamb):
+    """CANON -- DEF("derive:txn_surrogates"): each unambiguous <name, smd>
+    paired with its surrogate.
+
+    The FORMAT is meaning and it lives in the DEF -- the SMD leads because the
+    key is scoped by its machine, and building the pair in the other order
+    would dangle every reference in the store."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    rows = tuple(tuple(r) for r in unamb)
+    return tuple(tuple(p) for p in _fl(_apl(_at("derive:txn_surrogates"), _tl(rows))))
+
+
+def _txn_positions(rolerows):
+    """CANON -- DEF("derive:txn_positions"): the cells holding a Transition,
+    with the position it sits at.
+
+    engine/rust reads this DEF in rekey_transitions; python built the same map
+    with an inline loop over the role rows. Row-sized operand, so canon is
+    free here."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    rows = tuple(tuple(r) for r in rolerows)
+    return tuple(tuple(p) for p in _fl(_apl(_at("derive:txn_positions"), _tl(rows))))
+
+
+def _uniq_constraints(consrows):
+    """CANON -- DEF("derive:uniq_constraints"): the constraint rows restricted
+    to the uniqueness kinds.
+
+    engine/rust reads this DEF; python filtered the same rows inline. Same
+    class as _aggids and _ftr_pairs: a gap BETWEEN HOSTS, with canon already
+    holding the answer."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    rows = tuple(tuple(r) for r in consrows)
+    return tuple(tuple(c) for c in _fl(_apl(_at("derive:uniq_constraints"), _tl(rows))))
+
+
+def _aggids(aggrows):
+    """CANON -- DEF("derive:aggids"): the rule ids that aggregate.
+
+    engine/rust reads this DEF; python spelled the same restriction out as a
+    set comprehension in TWO places. Two native copies of one rule is how the
+    hosts drift apart while both look maintained, and neither copy is wrong
+    today, which is exactly what makes it easy to leave alone.
+
+    Row-sized operand, so canon costs nothing here -- the test that decides
+    whether a move like this is affordable is what the DEF TAKES."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    rows = tuple(tuple(r) for r in aggrows)
+    return {i for i in _fl(_apl(_at("derive:aggids"), _tl(rows)))}
+
+
+def _ftr_pairs(rolerows):
+    """CANON -- DEF("derive:ftr_pairs"): the role mirror's pairs.
+
+    Each role row swapped to <fact type, role id>, distinct with the FIRST
+    occurrence kept, rows under two wide skipped. engine/rust reads this DEF
+    at its role mirror; python held a set comprehension doing the same job,
+    which is agreement by coincidence rather than by shared definition -- the
+    two stay equal only as long as nobody edits one of them.
+
+    Cheap through canon for the same reason _mirror_fill is: the operand is
+    the role rows, not the store."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    rows = tuple(tuple(r) for r in rolerows)
+    return tuple(tuple(p) for p in _fl(_apl(_at("derive:ftr_pairs"), _tl(rows))))
+
+
+def _mirror_fill(derived, existing):
+    """CANON -- DEF("derive:mirror_fill"): what a mirrored cell SHOULD hold.
+
+    Asserted rows win; the mirror serves the empty cell only. Both mirrors
+    below had that written out as a native conjunction, as engine/rust's two
+    did before they were wired to this DEF -- one rule in four places. It is
+    the precedence of asserted fact over derived, which ORM states as a
+    modeling decision about the fact type rather than a property of any
+    evaluator, so it belongs where the model does.
+
+    Unlike derive:instance_mirror this is CHEAP to route through canon: the
+    operand is two small row lists, not the store, so there is no per-call
+    marshalling of a thousand cells to pay for."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    arg = (tuple(_rowsort(derived)), tuple(tuple(r) for r in existing))
+    return tuple(tuple(r) for r in _fl(_apl(_at("derive:mirror_fill"), _tl(arg))))
+
+
+def _replace_cells(D, pairs):
+    """CANON -- DEF("store:replace_cells"): drop every cell of each name and
+    append the new one last, in order, in ONE application.
+
+    engine/rust reads this DEF at its three write sites; python's layout_cells
+    and scheduler_cells each did it as a filter-then-append comprehension.
+    Same discipline, written twice.
+
+    PRICED FIRST, and the price is why this is wired where
+    derive:instance_mirror is not: it takes the whole store and is LINEAR --
+    5ms at 50 cells, 19ms at 200, 94ms at the base's real 965 -- because it
+    walks the cell list once. Operand SIZE was never the thing; what the DEF
+    does with the operand is.
+
+    The store:* family takes <name, contents> PAIRS where D holds Backus's
+    <CELL, name, contents> triples, so the shape is converted here rather than
+    assumed. Non-triples are passed through untouched: the comprehension this
+    replaces kept everything it was not explicitly dropping."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    cells = _fl(D)
+    keep = tuple(c for c in cells
+                 if isinstance(c, tuple) and len(c) >= 3)
+    other = tuple(c for c in cells if c not in keep)
+    out = _fl(_apl(_at("store:replace_cells"),
+                   _tl((tuple((c[1], c[2]) for c in keep), tuple(pairs)))))
+    return _tl(other + tuple(("CELL", n, v) for (n, v) in out))
+
+
+def _instance_mirror(D):
+    """The instance mirror's derivation: every id playing one of a noun's
+    roles is an instance of that noun.
+
+    Extracted from run_rules so it can be NAMED, because the registry cannot
+    name an inline block. It is the certified twin of canon's
+    derive:instance_mirror (test_canon_coverage's OVERRIDES), and
+    test_instance_mirror_canon runs both over a compiled model and compares —
+    which is what makes "certified" a checked claim rather than a comment.
+
+    The canon DEF is the definition of record; this stays because running it
+    through the evaluator costs the closure path about a third again (618s to
+    841s on the fixpoint test, measured 2026-08-16), and a sanctioned twin is
+    not drift."""
+    roles = {}
+    for r in _pop_rows(D, "role"):
+        if len(r) >= 4:
+            roles.setdefault(r[1], []).append((r[2], r[3]))
+    nouns = {r[0] for r in _pop_rows(D, "instanceOf")
+             if len(r) >= 2 and r[1] == "ObjectType"}
+    out = set()
+    for ft, rs in roles.items():
+        rows = None
+        for (pos, player) in rs:
+            if player in nouns:
+                if rows is None:
+                    rows = [tuple(x) for x in _pop_rows(D, ft)]
+                for row in rows:
+                    if len(row) >= pos:
+                        out.add((row[pos - 1], player))
+    return out
+
+
 def layout_cells(D):
     """Materialize the RMAP layout AS DATA: the rmapColumns cell, rows
     ⟨table, col, ft⟩ for every absorbed fact type, the knowledge
@@ -1740,10 +1959,10 @@ def layout_cells(D):
     for table in sorted({t for ft, t in part.items() if t != ft}):
         for j, ft in enumerate(table_columns(part, table)):
             rows.append((table, 2 + j, ft))
-    cells = tuple(c for c in from_lam(D)
-                  if not (isinstance(c, tuple) and len(c) >= 2
-                          and c[1] == "rmapColumns"))
-    return to_lam(cells + (("CELL", "rmapColumns", tuple(rows)),))
+    # CANON -- DEF("store:replace_cells"): drop every cell of the name, append
+    # the new one last. Linear over the store and 94ms at the base's real 965
+    # cells, measured before wiring.
+    return _replace_cells(D, (("rmapColumns", tuple(rows)),))
 
 
 def induce_domain(D, noun):
@@ -1827,7 +2046,7 @@ def _classify_heads(D):
     equal by tests/test_classify_canon.py on every run (the doctrine:
     functionality with a performant override must be defined in the shared
     lambda base)."""
-    aggids = {r[0] for r in _pop_rows(D, "ruleAgg") if r}
+    aggids = _aggids(_pop_rows(D, "ruleAgg"))
     all_rules = [(r[0], r[1]) for r in _pop_rows(D, "ruleDerives")
                  if len(r) >= 2]
     agg_heads = {h for (rid, h) in all_rules if rid in aggids}
@@ -1900,13 +2119,11 @@ def scheduler_cells(D):
     # schedule: which passes, whose heads, in what order, bounded how.
     order = from_lam(_ap(_A("system:pass_order"), to_lam(())))
     bound = from_lam(_ap(_A("system:pass_bound"), to_lam(())))
-    cells = tuple(c for c in from_lam(D)
-                  if not (isinstance(c, tuple) and len(c) >= 2
-                          and c[1] in ("passHeads", "passOrder",
-                                       "passBound")))
-    return to_lam(cells + (("CELL", "passHeads", tuple(rows)),
-                           ("CELL", "passOrder", tuple(order)),
-                           ("CELL", "passBound", tuple(bound))))
+    # CANON -- DEF("store:replace_cells"), the same write discipline as
+    # layout_cells above: three names in ONE application, landing in order.
+    return _replace_cells(D, (("passHeads", tuple(rows)),
+                              ("passOrder", tuple(order)),
+                              ("passBound", tuple(bound))))
 
 
 def generator_cells(D):

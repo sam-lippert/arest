@@ -59,6 +59,11 @@ OVERRIDES = {
     "system:ev_cols": "system:ev_cols",
     "get_view": "system:entity_view",
     "_classify_heads": "system:classify_heads",
+    # the mirror's derivation: canon is the definition of record, the host
+    # copy stays because running the DEF costs the closure path a third again
+    # (618s -> 841s on the fixpoint test). test_instance_mirror_canon runs
+    # both over one store and compares, so this row is a checked claim.
+    "_instance_mirror": "derive:instance_mirror",
     "verify": "system:verify_store",
     # theta join/dedup primitives: canon DEFs (arest.canon) with certified-equal
     # native overrides in Rust `fn prim`, each gated by the `theta_arms_off` kill

@@ -3539,6 +3539,22 @@ fn pair_cell(name: &str, val: V) -> V {
     seqv(vec![atom(Leaf::S(name.to_string())), val])
 }
 
+// CANON -- DEF("derive:mirror_fill") applied: what a mirrored cell SHOULD
+// hold, given what the mirror derived and what the cell already has. The
+// precedence -- asserted rows win, the mirror serves the empty cell only --
+// is canon's; only the marshalling is here. Both mirrors in op_run_rules had
+// spelled that rule out natively, and identically.
+fn mirror_fill(srv: &Srv, derived: &[V], existing: &[V]) -> Vec<V> {
+    let arg = seqv(vec![seqv(derived.to_vec()), seqv(existing.to_vec())]);
+    let ans = reduce_over_n(
+        srv,
+        atom(Leaf::S("derive:mirror_fill".to_string())),
+        arg,
+        -1,
+    );
+    items(&list_of(&ans))
+}
+
 fn cells_from(ans: &V) -> Vec<(Leaf, V)> {
     items(&list_of(ans))
         .iter()
@@ -4358,6 +4374,93 @@ fn classify_heads_native(cells: &[(Leaf, V)]) -> HeadClasses {
     HeadClasses { agg, keyed, sweep, dred, aggwhole }
 }
 
+// CANON -- DEF("derive:instance_mirror") is the definition of record;
+// this is its certified-equal native twin, declared in
+// test_canon_coverage OVERRIDES and compared against canon by
+// test_instance_mirror_canon. It is NAMED rather than inline for that
+// reason alone: the registry cannot name a block, which is how this
+// derivation sat undeclared through every twin sweep of this session.
+// It stays native because routing it through the DEF costs the closure
+// path about a third again (618s -> 841s on the fixpoint test), and a
+// sanctioned twin is not drift.
+fn instance_mirror_native(store: &FastStore, srv: &Srv) -> Vec<V> {
+    use std::collections::HashSet;
+    // op_run_rules held this as a local closure; it comes along rather than
+    // being reached for, which is the point of naming the block.
+    let leaf = |s: &str| Leaf::S(s.to_string());
+    let mut nouns: HashSet<String> = HashSet::new();
+    // CANON -- DEF("rmap:entities"): instanceOf restricted to its
+    // ObjectType rows, the name projected, length guard included. The same
+    // DEF op_sql_project's entity sweep uses -- one restrict, not two.
+    let nounnames = reduce_over_n(srv, atom(Leaf::S("rmap:entities".to_string())),
+                                  seqv(store.pop_rows(&leaf("instanceOf"))), -1);
+    for n in items(&list_of(&nounnames)) {
+        nouns.insert(key_of(&n));
+    }
+    // CANON -- DEF("rmap:rolegroups"): role rows grouped by fact type, fact
+    // types in first-appearance order, and the guards this loop spelled out
+    // (four wide, position >= 1) now carried by rmap:role_keep.
+    //
+    // rolegroups ORDERS each group's pairs BY POSITION where this loop took
+    // them in ROW order, and those differ on the real store -- the base's
+    // role cell holds Constraint_Type_has_Violation_Template at position 2
+    // BEFORE position 1. It is safe anyway, and the reason is the two lines
+    // after the loop rather than anything about the rows: the pairs feed a
+    // dedup on exact equality and the result is sort_rows'd before it is
+    // stored, so what lands is the same SET in the same canonical order
+    // whichever way the group was walked. Checked in the store, not assumed
+    // -- the fixpoint oracle compares changed-cell NAMES and would not have
+    // caught a reordering.
+    let grouped_roles = reduce_over_n(srv, atom(Leaf::S("rmap:rolegroups".to_string())),
+                                      seqv(store.pop_rows(&leaf("role"))), -1);
+    let mut out: Vec<V> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    for g in items(&list_of(&grouped_roles)) {
+        let gi = items(&list_of(&g));
+        if gi.len() < 2 {
+            continue;
+        }
+        let ft = &gi[0];
+        let grp: Vec<(usize, V)> = items(&list_of(&gi[1]))
+            .iter()
+            .filter_map(|pr| {
+                let pi = items(&list_of(pr));
+                if pi.len() < 2 {
+                    return None;
+                }
+                match aval(&pi[0]).as_deref() {
+                    Some(Leaf::I(p)) if *p >= 1 => Some((*p as usize, pi[1].clone())),
+                    _ => None,
+                }
+            })
+            .collect();
+        let mut ft_rows: Option<Vec<V>> = None;
+        for (p, player) in &grp {
+            if nouns.contains(&key_of(player)) {
+                if ft_rows.is_none() {
+                    // the fact type name addresses its own cell
+                    let name = match aval(ft) {
+                        Some(l) => (*l).clone(),
+                        None => continue,
+                    };
+                    ft_rows = Some(store.pop_rows(&name));
+                }
+                for row in ft_rows.as_ref().unwrap() {
+                    let rit = items(&list_of(row));
+                    if rit.len() >= *p {
+                        let pair =
+                            seq(from_vec(vec![rit[*p - 1].clone(), player.clone()]));
+                        if seen.insert(key_of(&pair)) {
+                            out.push(pair);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
 fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
     use std::collections::{BTreeSet, HashMap, HashSet};
     // the optional frontier: an array of cell names bounding ROUND ONE to
@@ -4434,79 +4537,17 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
     // mirror serves only the empty cell.
     const MIRROR: &str = "Resource_is_instance_of_Noun";
     if any_reads(MIRROR) {
-        let mut nouns: HashSet<String> = HashSet::new();
-        // CANON -- DEF("rmap:entities"): instanceOf restricted to its
-        // ObjectType rows, the name projected, length guard included. The same
-        // DEF op_sql_project's entity sweep uses -- one restrict, not two.
-        let nounnames = reduce_over_n(srv, atom(Leaf::S("rmap:entities".to_string())),
-                                      seqv(store.pop_rows(&leaf("instanceOf"))), -1);
-        for n in items(&list_of(&nounnames)) {
-            nouns.insert(key_of(&n));
-        }
-        // CANON -- DEF("rmap:rolegroups"): role rows grouped by fact type, fact
-        // types in first-appearance order, and the guards this loop spelled out
-        // (four wide, position >= 1) now carried by rmap:role_keep.
-        //
-        // rolegroups ORDERS each group's pairs BY POSITION where this loop took
-        // them in ROW order, and those differ on the real store -- the base's
-        // role cell holds Constraint_Type_has_Violation_Template at position 2
-        // BEFORE position 1. It is safe anyway, and the reason is the two lines
-        // after the loop rather than anything about the rows: the pairs feed a
-        // dedup on exact equality and the result is sort_rows'd before it is
-        // stored, so what lands is the same SET in the same canonical order
-        // whichever way the group was walked. Checked in the store, not assumed
-        // -- the fixpoint oracle compares changed-cell NAMES and would not have
-        // caught a reordering.
-        let grouped_roles = reduce_over_n(srv, atom(Leaf::S("rmap:rolegroups".to_string())),
-                                          seqv(store.pop_rows(&leaf("role"))), -1);
-        let mut out: Vec<V> = Vec::new();
-        let mut seen: HashSet<String> = HashSet::new();
-        for g in items(&list_of(&grouped_roles)) {
-            let gi = items(&list_of(&g));
-            if gi.len() < 2 {
-                continue;
-            }
-            let ft = &gi[0];
-            let grp: Vec<(usize, V)> = items(&list_of(&gi[1]))
-                .iter()
-                .filter_map(|pr| {
-                    let pi = items(&list_of(pr));
-                    if pi.len() < 2 {
-                        return None;
-                    }
-                    match aval(&pi[0]).as_deref() {
-                        Some(Leaf::I(p)) if *p >= 1 => Some((*p as usize, pi[1].clone())),
-                        _ => None,
-                    }
-                })
-                .collect();
-            let mut ft_rows: Option<Vec<V>> = None;
-            for (p, player) in &grp {
-                if nouns.contains(&key_of(player)) {
-                    if ft_rows.is_none() {
-                        // the fact type name addresses its own cell
-                        let name = match aval(ft) {
-                            Some(l) => (*l).clone(),
-                            None => continue,
-                        };
-                        ft_rows = Some(store.pop_rows(&name));
-                    }
-                    for row in ft_rows.as_ref().unwrap() {
-                        let rit = items(&list_of(row));
-                        if rit.len() >= *p {
-                            let pair =
-                                seq(from_vec(vec![rit[*p - 1].clone(), player.clone()]));
-                            if seen.insert(key_of(&pair)) {
-                                out.push(pair);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if !out.is_empty() && store.pop_rows(&leaf(MIRROR)).is_empty() {
-            sort_rows(&mut out);
-            store.store(&leaf(MIRROR), seq(from_vec(out)));
+        let out = instance_mirror_native(&store, srv);
+        // CANON -- DEF("derive:mirror_fill"): the asserted-wins precedence.
+        // It answers the existing rows untouched unless the cell is empty and
+        // the mirror derived something, so the length growing IS the mirror
+        // having fired -- that test is bookkeeping for `changed`, where the
+        // rule it used to encode has moved to canon.
+        let existing = store.pop_rows(&leaf(MIRROR));
+        let mut rows = mirror_fill(srv, &out, &existing);
+        if rows.len() > existing.len() {
+            sort_rows(&mut rows);
+            store.store(&leaf(MIRROR), seq(from_vec(rows)));
             changed.insert(MIRROR.to_string());
         }
     }
@@ -4524,9 +4565,13 @@ fn op_run_rules(j: &J, srv: &mut Srv) -> Result<String, String> {
         for pair in items(&list_of(&ftr)) {
             out.push(pair);
         }
-        if !out.is_empty() && store.pop_rows(&leaf(FTR)).is_empty() {
-            sort_rows(&mut out);
-            store.store(&leaf(FTR), seq(from_vec(out)));
+        // CANON -- DEF("derive:mirror_fill"), the same precedence as the
+        // instance mirror above: this site and that one held one rule twice.
+        let existing = store.pop_rows(&leaf(FTR));
+        let mut rows = mirror_fill(srv, &out, &existing);
+        if rows.len() > existing.len() {
+            sort_rows(&mut rows);
+            store.store(&leaf(FTR), seq(from_vec(rows)));
             changed.insert(FTR.to_string());
         }
     }
