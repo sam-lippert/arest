@@ -24,6 +24,19 @@ from . import canon as T
 from .reduce import apply
 
 
+def _takerows(n, rows):
+    """CANON -- DEF("rmap:takerows"): each row truncated to n, short rows
+    SKIPPED rather than padded or bottomed.
+
+    engine/rust reads this DEF for the subtype edges and the dispatch-table
+    vocabulary; python spelled truncate-and-skip as a comprehension with an
+    explicit width guard. The skip is the contract -- padding a short row
+    invents a value, and bottoming takes the whole answer down for one
+    malformed row."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return [tuple(r) for r in _fl(_apl(_at("rmap:takerows"),
+                                       _tl((n, tuple(tuple(r) for r in rows)))))]
 def _S(*xs):
     l = L.NIL
     for x in reversed(xs):
@@ -1315,7 +1328,7 @@ def stage1_vocabulary(D):
     """Stage-1's token vocabulary, read off the ingested grammar: exactly the literals
     the recognizer rules test (classLit). The tokenizer knows nothing else."""
     from . import system as _sys
-    return {(r[0], r[1]) for r in _sys._pop_rows(D, "classLit") if len(r) >= 2}
+    return set(_takerows(2, _sys._pop_rows(D, "classLit")))
 
 
 def tokenize_statement(D, stmt, nouns=(), sid="s1", vocab=None):

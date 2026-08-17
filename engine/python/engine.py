@@ -1857,6 +1857,19 @@ def _role_maxpos(ft, rolerows):
     from .reduce import apply as _apl
     return _fl(_apl(_at("rmap:role_maxpos"),
                     _tl((ft, tuple(tuple(r) for r in rolerows)))))
+def _takerows(n, rows):
+    """CANON -- DEF("rmap:takerows"): each row truncated to n, short rows
+    SKIPPED rather than padded or bottomed.
+
+    engine/rust reads this DEF for the subtype edges and the dispatch-table
+    vocabulary; python spelled truncate-and-skip as a comprehension with an
+    explicit width guard. The skip is the contract -- padding a short row
+    invents a value, and bottoming takes the whole answer down for one
+    malformed row."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return [tuple(r) for r in _fl(_apl(_at("rmap:takerows"),
+                                       _tl((n, tuple(tuple(r) for r in rows)))))]
 def _atpos(pos, rows):
     """CANON -- DEF("rmap:atpos"): one column, selected dynamically.
 
@@ -3450,7 +3463,7 @@ def _changed_closure(D, changed):
     reads it, and what those rules derive changes in turn (the frontier's derives hop,
     iterated). A sound over-approximation: waking a subscription whose cell did not in
     fact change merely re-evaluates the deferred ρ-application, which is its meaning."""
-    reads = [(r[0], r[1]) for r in _pop_rows(D, "ruleReads") if len(r) >= 2]
+    reads = _takerows(2, _pop_rows(D, "ruleReads"))
     derives = {}
     for r in _pop_rows(D, "ruleDerives"):
         if len(r) >= 2:
