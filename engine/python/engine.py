@@ -1832,6 +1832,20 @@ def _uniq_constraints(consrows):
     return tuple(tuple(c) for c in _fl(_apl(_at("derive:uniq_constraints"), _tl(rows))))
 
 
+def _atpos(pos, rows):
+    """CANON -- DEF("rmap:atpos"): one column, selected dynamically.
+
+    Does NOT dedup and does NOT reorder, which is what this caller depends on:
+    a governed noun named twice must be listed twice, because each one emits
+    its own pair of readings. rmap:distinct_at is the deduping sibling and
+    picking it here would be a silent change in what gets compiled -- the
+    canon cases keep the two apart for exactly that reason.
+
+    It also SKIPS a row shorter than the position rather than bottoming, which
+    is the guard python spelled as len(r) >= 2."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return list(_fl(_apl(_at("rmap:atpos"), _tl((pos, tuple(tuple(r) for r in rows))))))
 def _aggids(aggrows):
     """CANON -- DEF("derive:aggids"): the rule ids that aggregate.
 
@@ -3713,7 +3727,7 @@ def status_facts(D):
     from . import forml, ast
     from .reduce import apply as _apply
     from .lam import to_lam
-    nouns = [r[1] for r in _pop_rows(D, "smDef") if len(r) >= 2]
+    nouns = _atpos(2, _pop_rows(D, "smDef"))
     if not nouns:
         return D
     values = {r[0] for r in _pop_rows(D, "instanceOf") if len(r) >= 2 and r[1] == "ValueType"}
