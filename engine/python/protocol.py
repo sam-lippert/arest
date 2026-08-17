@@ -827,6 +827,19 @@ def get_view(D, noun, entity_id):
     return seen, fields, facts
 
 
+def _coldisamb(names):
+    """CANON -- DEF("rmap:coldisamb"): duplicate column names made distinct.
+
+    The FIRST occurrence keeps the base name and later ones become base_2,
+    base_3. Suffixing every duplicate including the first would also produce
+    distinct names and would be the wrong answer, which is what the canon case
+    pins. engine/rust reads this DEF; python counted occurrences in a dict and
+    formatted the suffix itself.
+
+    0.66ms at four names, 4.6ms at twelve -- a table has few columns."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return tuple(_fl(_apl(_at("rmap:coldisamb"), _tl(tuple(names)))))
 def _ddl_ref(parent, keycol):
     """CANON -- DEF("rmap:ddl_ref"): the REFERENCES clause.
 
@@ -888,12 +901,14 @@ def generate(D):
         rs = roles.get(ft, [])
         if not rs:                                            # no roles, no relational shape
             continue
-        cols, key, seen = [], [], {}
-        for (_pos, player) in rs:
-            base = (_key_col(player, ref)
-                    if player in entities else _sql_name(player))
-            seen[base] = seen.get(base, 0) + 1
-            col = base if seen[base] == 1 else f"{base}_{seen[base]}"
+        # CANON -- DEF("rmap:coldisamb"): first occurrence keeps the base,
+        # later ones become base_2, base_3. Needs ALL the bases up front,
+        # so they are collected before the column loop rather than
+        # disambiguated one at a time against a running dict.
+        bases = [(_key_col(player, ref) if player in entities
+                  else _sql_name(player)) for (_pos, player) in rs]
+        cols, key = [], []
+        for (_pos, player), col in zip(rs, _coldisamb(bases)):
             refs = (_ddl_ref(_sql_name(player), _key_col(player, ref))
                     if player in entities and player in entity_tables else "")
             cols.append((col, "TEXT NOT NULL", refs))
