@@ -860,6 +860,31 @@ def _coldisamb(names):
     from .lam import to_lam as _tl, from_lam as _fl, atom as _at
     from .reduce import apply as _apl
     return tuple(_fl(_apl(_at("rmap:coldisamb"), _tl(tuple(names)))))
+def _owntables(all_fts, absorbed):
+    """CANON -- DEF("rmap:owntables"): fact types that keep their own table.
+
+    Operand shapes read off engine/rust's call site (main.rs 11123) rather
+    than inferred from the case syntax: the first is the factType ROWS, whose
+    names the DEF projects and dedups itself, and the second is a BARE list of
+    the absorbed names. Guessing that pairing cost four attempts; the caller
+    states it in one line."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return list(_fl(_apl(_at("rmap:owntables"),
+                         _tl((tuple((f,) for f in all_fts), tuple(absorbed))))))
+
+
+def _entitytables(entities, absorbing, own):
+    """CANON -- DEF("rmap:entitytables"): every declared entity, plus every
+    absorbing table that is not an own fact type.
+
+    THREE BARE LISTS (main.rs 11193), not rows. The exclusion is the
+    load-bearing half: an absorbing table that IS an own fact type must not
+    appear, or it would be created twice."""
+    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
+    from .reduce import apply as _apl
+    return set(_fl(_apl(_at("rmap:entitytables"),
+                        _tl((tuple(entities), tuple(absorbing), tuple(own))))))
 def _entities(instanceof_rows):
     """CANON -- DEF("rmap:entities"): instanceOf restricted to its ObjectType
     rows, the name projected, the length guard included.
@@ -912,10 +937,11 @@ def generate(D):
     """{table-or-ft: CREATE TABLE statement}."""
     partition, roles, ref, entities, mandatory = _analyze(D)
     tables = {}
-    own = [ft for ft, key in partition.items() if key == ft]
+    own = _owntables(partition.keys(),
+                     [f for f, k in partition.items() if k != f])
     # every declared entity gets a table (Halpin: entity types with functional
     # roles group them; one without any still anchors its references)
-    entity_tables = entities | ({t for t in partition.values()} - set(own))
+    entity_tables = _entitytables(entities, partition.values(), own)
 
     for table in sorted(entity_tables):
         cols = [(_key_col(table, ref), "TEXT PRIMARY KEY", "")]
@@ -991,8 +1017,9 @@ def project(D, con):
     cascade is impossible by construction). Own-table fact types insert row per
     fact. Answers {table: rowcount}."""
     partition, roles, ref, entities, mandatory = _analyze(D)
-    own = [ft for ft, key in partition.items() if key == ft]
-    entity_tables = entities | ({t for t in partition.values()} - set(own))
+    own = _owntables(partition.keys(),
+                     [f for f, k in partition.items() if k != f])
+    entity_tables = _entitytables(entities, partition.values(), own)
     for stmt in generate(D).values():
         # the projection is SOFT where generate is hard (the old engine's
         # projected tables are a data mirror: no NOT NULL beyond the keys), so
