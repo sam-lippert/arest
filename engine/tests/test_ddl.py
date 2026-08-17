@@ -123,3 +123,33 @@ def test_the_script_is_one_executable_document():
         con.close()
     assert {"person", "company", "person_works_for_company",
             "person_likes_person"} <= tables
+
+
+ABSORBED = """Alpha(.code) is an entity type.
+Zulu(.nr) is an entity type.
+Alpha works for Zulu.
+Each Alpha works for at most one Zulu.
+"""
+
+
+def test_a_referencing_table_is_emitted_after_the_table_it_references():
+    """THE ORDER IS EXECUTABILITY, not presentation.
+
+    script() used to join generate()'s dict in insertion order -- entity
+    tables sorted, then own tables sorted -- which is valid only while no
+    entity table references another one. Every REFERENCES in this file's
+    MODEL runs from a relation table to an entity table, and entity tables
+    come first, so the bug was invisible here for as long as this model was
+    the only witness.
+
+    An ABSORBED functional role is the witness: at-most-one puts the
+    REFERENCES inside the alpha table, and alpha sorts before zulu, so the
+    script created a foreign key to a table that did not exist yet. The order
+    now comes from canon (rmap:ddl_order), which orders per wave rather than
+    globally -- a global sort puts the child first, which was exactly the bug.
+    """
+    D, _rep = forml.compile_model(ABSORBED)
+    text = ddl.script(D)
+    assert 'REFERENCES "zulu"' in text, "the absorbed role must emit a reference"
+    assert text.index('"zulu" (') < text.index('"alpha" ('), (
+        "alpha REFERENCES zulu, so zulu must be created first:\n" + text)
