@@ -96,10 +96,8 @@ if want js && command -v bun >/dev/null 2>&1; then
       "$E/tools/js-runner/mid2.part.js" "$D/norma-answer" \
       "$E/tools/js-runner/mid3.part.js" "$D/journal" \
       "$E/tools/js-runner/mid4.part.js" "$E/tools/js-runner/tail.part.js" > "$G"
-  bun "$G" > "$O/js.txt" 2>&1; JS=$?; [ $JS -eq 0 ] || RC=1
+  { bun "$G" > "$O/js.txt" 2>&1; echo $? > "$O/js.rc"; } &
   STATIONS="$STATIONS js"
-  echo "=== js  ($(grep -c 'law OK:' "$O/js.txt") laws, exit $JS) ==="
-  tail -1 "$O/js.txt"
 else
   want js && echo "=== js  SKIPPED (bun not installed) ===" \
           || echo "=== js  not requested ==="
@@ -111,14 +109,12 @@ if want java && command -v javac >/dev/null 2>&1; then
   # Windows binaries, and a POSIX -d path ("/c/Users/...") is parsed as an
   # option switch, which fails with "use -help for a list of possible
   # options". The .class files are already ignored (*.class).
-  ( cd "$E/tools/java-runner" \
+  { ( cd "$E/tools/java-runner" \
     && python compose.py "$E/arest" "$D/design-state" "$D/norma-answer" \
          "$D/journal" Composed.g.java "$E/engine/shared/scenarios.canon" >/dev/null \
     && javac -encoding UTF-8 Arest.java Program.java Composed.g.java \
-    && java -cp . Program ) > "$O/java.txt" 2>&1 || RC=1
+    && java -cp . Program ) > "$O/java.txt" 2>&1; echo $? > "$O/java.rc"; } &
   STATIONS="$STATIONS java"
-  echo "=== java ($(grep -c 'law OK:' "$O/java.txt") laws) ==="
-  tail -1 "$O/java.txt"
 else
   want java && echo "=== java SKIPPED (javac not installed) ===" \
             || echo "=== java not requested (dark: see header) ==="
@@ -126,10 +122,8 @@ fi
 
 # --- cs station: compose is copy /b inside the csproj, then compiled ---
 if want cs && command -v dotnet >/dev/null 2>&1; then
-  ( cd "$E/tools/cs-runner" && dotnet run ) > "$O/cs.txt" 2>&1 || RC=1
+  { ( cd "$E/tools/cs-runner" && dotnet run ) > "$O/cs.txt" 2>&1; echo $? > "$O/cs.rc"; } &
   STATIONS="$STATIONS cs"
-  echo "=== cs   ($(grep -c 'law OK:' "$O/cs.txt") laws) ==="
-  tail -1 "$O/cs.txt"
 else
   want cs && echo "=== cs   SKIPPED (dotnet not installed) ===" \
           || echo "=== cs   not requested (dark: see header) ==="
@@ -137,20 +131,25 @@ fi
 
 # --- rust station: compose.py is syntax-only (no variadics; LLVM chunking) ---
 if want rust && command -v cargo >/dev/null 2>&1; then
-  ( cd "$E/tools/rust-station" \
+  { ( cd "$E/tools/rust-station" \
     && python compose.py --split "$E/arest" src/canon.g.rs >/dev/null \
     && python compose.py --split "$E/engine/shared/scenarios.canon" src/scenarios.g.rs >/dev/null \
     && python compose.py --split "$D/design-state" src/design-state.g.rs >/dev/null \
     && python compose.py --split "$D/norma-answer" src/norma-answer.g.rs >/dev/null \
     && cargo build -q \
-    && ./target/debug/arest-station.exe ) > "$O/rust.txt" 2>&1 || RC=1
+    && ./target/debug/arest-station.exe ) > "$O/rust.txt" 2>&1; echo $? > "$O/rust.rc"; } &
   STATIONS="$STATIONS rust"
-  echo "=== rust ($(grep -c 'law OK:' "$O/rust.txt") laws) ==="
-  tail -1 "$O/rust.txt"
 else
   want rust && echo "=== rust SKIPPED (cargo not installed) ===" \
             || echo "=== rust not requested ==="
 fi
+
+wait
+for s in $STATIONS; do
+  if [ -f "$O/$s.rc" ]; then read rc < "$O/$s.rc"; [ "$rc" -eq 0 ] || RC=1; fi
+  echo "=== $s ($(grep -c 'law OK:' "$O/$s.txt") laws, exit ${rc:-?}) ==="
+  tail -1 "$O/$s.txt"
+done
 
 # --- the stations law: byte-identical printed atoms --------------------
 REF=""
