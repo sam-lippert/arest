@@ -900,23 +900,25 @@ def _mandatory_parts(ft, subject, m, pos=1):
 
 
 def _h_constraint(g, k, m):
-    # #18: the GENERIC constraint translator (canon system:h_constraint). g arrives COOKED as
-    # ⟨decl_rows, mid, obj_specs⟩: decl_rows pass through; mid entries are ⟨"c", tail⟩
-    # (a constraint-row tail the translator completes with the modality) or ⟨"w", row⟩
-    # (a whole row); obj_specs ⟨cid, builder, operand⟩ apply the canonical builder
-    # through DEFS (_scoped's own form). Optionality = the empty sequence — cat and the
-    # map are identity on it, so conditional families need no branches at all.
+    """CANON -- DEF("system:h_constraint"): the generic constraint translator.
+
+    g arrives COOKED as <decl_rows, mid, obj_specs>. The DEF answers the
+    completed rows and the obj TERMS; this host resolved the same terms itself
+    with two comprehensions and a two-mode builder branch.
+
+    The rows come back identical. The objs do NOT come back in the same FORM,
+    and that is the contract rather than a mismatch: canon answers the term --
+    a name atom for a nullary builder, a built term otherwise -- where this
+    host answered an already-resolved callable. Same thing at different stages,
+    which is what the canon note means by certified EXTENSIONALLY. The lam
+    value is kept unconverted here so the term stays applicable exactly where
+    the resolved lambda used to be."""
     from .reduce import apply as _apply
-    from .lam import atom as _A
-    decl, mid, ospecs = g
-    rows = [(c, tuple(r)) for c, r in decl] + \
-        [("constraint", tuple(p) + (m,)) if t == "c" else (p[0], tuple(p[1]))
-         for t, p in mid]
-    # TWO-MODE objs: an empty operand means the builder is NULLARY — the NAME is the
-    # object (the canon twin emits the name atom, DEFS-resolved at use: the universal
-    # interface; this host resolves it eagerly via the same table the canon reads).
-    return rows, [(cid, (C._canon_c(b) if op == () else _apply(_A(b), to_lam(op))))
-                  for cid, b, op in ospecs]
+    from .lam import atom as _A, from_lam as _fl
+    rows_v, objs_v = _fl(_apply(_A("system:h_constraint"), to_lam((g, k, m))))
+    return ([tuple(r) for r in rows_v],
+            [(cid, C._canon_c(b) if isinstance(b, str) else to_lam(b))
+             for cid, b in objs_v])
 
 
 _h_uniqueness = _h_constraint
