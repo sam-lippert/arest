@@ -189,7 +189,7 @@ if [ "${AREST_CASES:-1}" = "1" ] && [ -n "$STATIONS" ]; then
   NC=$(printf '%s\n' "$CASES" | grep -c .)
   echo "=== base: $NC cases x stations ==="
   for s in $STATIONS; do
-    : > "$O/cases.$s.txt"
+    { : > "$O/cases.$s.txt"
     for c in $CASES; do
       case "$s" in
         js)   v=$(cd "$E" && bun "$O/js.g.js" case "$c" 2>/dev/null) ;;
@@ -200,8 +200,12 @@ if [ "${AREST_CASES:-1}" = "1" ] && [ -n "$STATIONS" ]; then
       [ -n "$v" ] || v="<refused>"
       printf '%s=%s\n' "$c" "$v" >> "$O/cases.$s.txt"
     done
+    } &
+done
+wait
+for s in $STATIONS; do
     echo "  $s: $(grep -c '=<refused>' "$O/cases.$s.txt") refused, $(grep -vc '=<refused>' "$O/cases.$s.txt") answered"
-  done
+done
   CREF=""
   for s in $STATIONS; do
     if [ -z "$CREF" ]; then CREF="$s"; continue; fi
