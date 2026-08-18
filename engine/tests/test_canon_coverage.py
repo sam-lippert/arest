@@ -100,6 +100,18 @@ OVERRIDES = {
     # distinguishes a sanctioned twin from drift, and a twin absent from it is
     # indistinguishable from a host that simply grew the behaviour.
     "system:reading_parse": "system:reading_parse",
+    # pop_rows is the store read itself: given a name and the cell sequence, it
+    # answers that population's rows. Canon is the definition of record and the
+    # host copy is measured, not assumed -- reading one population out of a
+    # 966-cell store cost 559ms through the canon DEF and costs 5.9ms through
+    # the twin, because the DEF walks the cells as a canon sequence per lookup
+    # and every rmap that touches the store pays it once per call. All ten arms
+    # were recorded against the DEF before the twin existed and match it after:
+    # hit answers the contents verbatim including an atom, a miss answers the
+    # empty sequence rather than bottom, a duplicated name takes the first, an
+    # atom store and a short operand bottom, short cells are skipped, and the
+    # arm a flat scan would get wrong -- descending into the FILE cell -- holds.
+    "system:pop_rows": "system:pop_rows",
 }
 
 

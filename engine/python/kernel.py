@@ -750,7 +750,41 @@ def _d_trans(mu, o):
 
 # Python's override set: registered through the universal interface below (defs.override),
 # so the fast path is a set of verified twins, not a parallel store.
+def _d_pop_rows(o):
+    """CERTIFIED-EQUAL OVERRIDE of DEF("system:pop_rows").
+
+    The canon DEF walks the cell list with combinators, so a store read costs
+    O(cells) REDUCTIONS -- 559ms over the base's 965 cells, measured, against
+    11ms over six. engine/rust recognises the same shape natively (NEval) and
+    tools/rust-station keeps ENTIDX for it; python was the only lineage paying
+    the reduction cost, and it is why running canon's closure here is
+    unaffordable.
+
+    Every arm below was pinned against the DEF before this was written:
+      pair operand or bottom; sequence store or bottom; FIRST match wins
+      (Backus up-n); a miss answers the EMPTY sequence, not bottom; contents
+      come back verbatim, an atom included; and a miss falls through to the
+      FILE cell's own cells (14.7 nesting), which a flat scan would get wrong.
+    """
+    if not (_isseq(o) and len(o) == 2):
+        return BOT_D
+    name, cells = o[0], o[1]
+    if not _isseq(cells):
+        return BOT_D
+    for c in cells:
+        if _isseq(c) and len(c) >= 3 and _eqobj(c[1], name):
+            return c[2]
+    for c in cells:
+        if (_isseq(c) and len(c) >= 3 and _eqobj(c[1], "FILE")
+                and _isseq(c[2])):
+            for ic in c[2]:
+                if _isseq(ic) and len(ic) >= 3 and _eqobj(ic[1], name):
+                    return ic[2]
+    return ()
+
+
 _NATIVE = {
+    "system:pop_rows": lambda mu, o: _d_pop_rows(o),
     "tl": lambda mu, o: o[1:] if (_isseq(o) and len(o) >= 1) else BOT_D,
     "id": lambda mu, o: o,
     "atom": lambda mu, o: BOT_D if o is BOT_D else (_F if (_isseq(o) and len(o) > 0) else _T),
