@@ -90,9 +90,19 @@ def test_the_vendored_base_is_the_old_engines_backbone():
     from pyarest import canon as paths
     d = os.path.join(os.path.dirname(paths.root()), "metamodel")
     names = sorted(os.listdir(d))
-    assert names == ["core.md", "csdp.md", "evolution.md", "induction.md",
-                     "instances.md", "naming.md", "outcomes.md", "resolution.md",
-                     "security.md", "state.md", "validation.md"]
+    # plus the four this engine added after the port: imports.md and
+    # ingest.md (ported 2026-07-31 from readings/core, which metamodel/ had
+    # no counterpart for), layout.md (2026-08-03, the repository layout the
+    # four hosts each used to hardcode in their own idiom) and federation.md
+    # (sources/connectors/translators as a standard module). The list is
+    # exact rather than a subset check so that adding metamodel stays a
+    # conscious edit here -- e1103b36 added those four and left this at the
+    # original eleven, and the suite went red for five days unread.
+    assert names == ["core.md", "csdp.md", "evolution.md", "federation.md",
+                     "imports.md", "induction.md", "ingest.md",
+                     "instances.md", "layout.md", "naming.md", "outcomes.md",
+                     "resolution.md", "security.md", "state.md",
+                     "validation.md"]
     text = "\n\n".join(open(os.path.join(d, n), encoding="utf-8").read()
                        for n in names)
     assert len(forml.statements(text)) > 900
