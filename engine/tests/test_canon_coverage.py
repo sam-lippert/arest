@@ -112,6 +112,18 @@ OVERRIDES = {
     # atom store and a short operand bottom, short cells are skipped, and the
     # arm a flat scan would get wrong -- descending into the FILE cell -- holds.
     "system:pop_rows": "system:pop_rows",
+    # the constraint sentences. canon is the definition of record
+    # (DEF("system:con_text"), cased on four stations), and engine/rust still
+    # carries an inline copy inside generator_cells_native, which builds the
+    # same three sentences with format!. Declared here for the reason
+    # theta:NatJoin and ast:Store are: the copy is not dispatched as an op, so
+    # the gate below never sees the name, and an undeclared twin is
+    # indistinguishable by inspection from a host that simply grew the
+    # behaviour. Deleting the copy needs an evaluator inside the generator --
+    # a plain native over cells and Srv carries no mu -- so it is a refactor of
+    # the fat engine, not a line change, and until then this row is what says
+    # the duplication is known rather than drift.
+    "system:con_text": "system:con_text",
 }
 
 
