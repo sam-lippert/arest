@@ -862,13 +862,35 @@ def _name_refmode(text):
     return (m2.group(1), m2.group(2)) if m2 else (text.strip(), None)
 
 
+def _canon_h(name, g, k, m):
+    """CANON -- the shared caller for the statement handlers."""
+    from .reduce import apply as _apply
+    from .lam import atom as _A, from_lam as _fl
+    rows, objs = _fl(_apply(_A(name), to_lam((tuple(g), k, m))))
+    return [tuple(r) for r in rows], [(cid, b) for cid, b in objs]
+
+
+def _rm(g):
+    """The refmode slot, normalized for canon.
+
+    Stage-1 hands this handler <Name, None> for a noun declared WITHOUT a
+    reference mode -- present and None, not absent. The host tested rm for
+    TRUTHINESS; canon compares it against the EMPTY STRING. Passing None
+    through therefore emits a refMode row canon should not emit, which poisons
+    ref[noun] and stops _key_col defaulting to id. Falsy means empty here."""
+    return (g[0], g[1] if len(g) > 1 and g[1] else "")
+
+
 def _h_entity(g, k, m):
-    name, rm = g[0], (g[1] if len(g) > 1 else None)       # #18: Stage-1 splits Name(.RefMode); system:h_entity is the canon twin
-    return [("instanceOf", (name, "ObjectType"))] + ([("refMode", (name, rm))] if rm else []), []
+    """CANON -- DEF("system:h_entity"), which this function's own comment
+    already called the canon twin while reimplementing it."""
+    return _canon_h("system:h_entity", _rm(g), k, m)
+
 
 def _h_value(g, k, m):
-    name, rm = g[0], (g[1] if len(g) > 1 else None)       # #18: Stage-1 splits Name(.RefMode); system:h_value is the canon twin
-    return [("instanceOf", (name, "ValueType"))] + ([("refMode", (name, rm))] if rm else []), []
+    """CANON -- DEF("system:h_value"). Same shape, ValueType for ObjectType."""
+    return _canon_h("system:h_value", _rm(g), k, m)
+
 
 def _h_ref_scheme(g, k, m):
     return [("instanceOf", (g[0], "ObjectType")), ("instanceOf", (g[1], "ValueType")),
