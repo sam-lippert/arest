@@ -863,11 +863,22 @@ def _name_refmode(text):
 
 
 def _canon_h(name, g, k, m):
-    """CANON -- the shared caller for the statement handlers."""
+    """CANON -- the shared caller for the statement handlers.
+
+    Each system:h_<kind> DEF answers <rows, obj TERMS>. The terms are resolved
+    to callables here, at the boundary, exactly as _h_constraint does: canon
+    answers a name atom for a nullary builder and a built term otherwise,
+    where the callers want something applicable. The first four handlers wired
+    through this emitted no objs at all, so the resolution was absent and the
+    fifth -- value_constraint -- failed with 'tuple object is not callable'.
+    A shared helper that happens to work for its first callers is not yet a
+    shared helper."""
     from .reduce import apply as _apply
     from .lam import atom as _A, from_lam as _fl
     rows, objs = _fl(_apply(_A(name), to_lam((tuple(g), k, m))))
-    return [tuple(r) for r in rows], [(cid, b) for cid, b in objs]
+    return ([tuple(r) for r in rows],
+            [(cid, C._canon_c(b) if isinstance(b, str) else to_lam(b))
+             for cid, b in objs])
 
 
 def _rm(g):
@@ -910,14 +921,12 @@ def _h_meta(cell):
     return lambda g, k, m: ([(cell, (g[0],))], [])             # data_type / ref_mode metadata
 
 def _h_value_constraint(g, k, m):
-    # #18: g arrives COOKED — ⟨name, spec, cid, builder_name, operand⟩ (the spec parse is
-    # the boundary's). Enforced BOTH as a named object and on the value type's own cell
-    # (validate_for kind 'value'); pure assembly + the canonical builder through DEFS.
-    from .reduce import apply as _apply
-    from .lam import atom as _A
-    name, spec, cid, builder, bop = g
-    return [("valueConstraint", (name, spec, m)), ("constraint", (cid, "value", name, m))], \
-        [(cid, _apply(_A(builder), to_lam(bop)))]
+    """CANON -- DEF("system:h_value_constraint"). Verified on two real calls.
+
+    The handler runs zero times on a model without the statement that
+    classifies to it, and a comparison over zero calls reports perfect
+    agreement -- so the call COUNT is checked, not just the answers."""
+    return _canon_h("system:h_value_constraint", g, k, m)
 
 
 def _mandatory_parts(ft, subject, m, pos=1):
@@ -1010,14 +1019,12 @@ def _h_frequency(g, k, m):
 
 
 def _h_ring(g, k, m):
-    # #18: g arrives COOKED — ⟨decl_rows, cid, kind_tag, ft, builder_name⟩ (all the
-    # text->X resolution at the boundary); the handler is pure assembly + the canonical
-    # builder applied through DEFS, the same reduction system:h_ring performs.
-    from .reduce import apply as _apply
-    from .lam import atom as _A
-    decl, cid, kind, ft, builder = g
-    return list(decl) + [("constraint", (cid, kind, ft, m))], \
-        [(cid, _apply(_A(builder), to_lam((1, 2))))]
+    """CANON -- DEF("system:h_ring"). Verified on a real call from a model carrying an acyclic ring constraint.
+
+    The handler runs zero times on a model without the statement that
+    classifies to it, and a comparison over zero calls reports perfect
+    agreement -- so the call COUNT is checked, not just the answers."""
+    return _canon_h("system:h_ring", g, k, m)
 
 
 _h_subtype = _h_constraint
@@ -1462,7 +1469,12 @@ def _sm_rows(verb, head, l1, l2):
     return [(cell, tuple(row)) for (cell, row) in rows], []
 
 def _h_sm_def(g, k, m):
-    return _sm_rows("is for Noun", "State Machine Definition", g[0], g[1])
+    """CANON -- DEF("system:h_sm_def"). Verified on a real call from a State Machine Definition statement.
+
+    The handler runs zero times on a model without the statement that
+    classifies to it, and a comparison over zero calls reports perfect
+    agreement -- so the call COUNT is checked, not just the answers."""
+    return _canon_h("system:h_sm_def", g, k, m)
 
 def _h_sm_initial(g, k, m):
     return _sm_rows("is initial in State Machine Definition", "Status", g[0], g[1])
