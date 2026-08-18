@@ -1460,11 +1460,6 @@ _h_fact = _h_constraint
 # → ⟨⟨cell, row⟩…⟩, the verb the grammar's own recognizer token, the head splitting
 # the shared 'emits' verb); the handlers are thin callers. Trigger/guard literals
 # arrive RESOLVED — reading → fact-type id is the boundary's step, not the object's.
-def _sm_rows(verb, head, l1, l2):
-    from .reduce import apply as _apply
-    from .lam import atom as _A, from_lam as _fl
-    rows = _fl(_apply(_A("system:sm_rows"), to_lam((verb, head, l1, l2))))
-    return [(cell, tuple(row)) for (cell, row) in rows], []
 
 def _h_sm_def(g, k, m):
     """CANON -- DEF("system:h_sm_def"). Verified on a real call from a State Machine Definition statement.
@@ -1474,32 +1469,40 @@ def _h_sm_def(g, k, m):
     agreement -- so the call COUNT is checked, not just the answers."""
     return _canon_h("system:h_sm_def", g, k, m)
 
-def _h_sm_initial(g, k, m):
-    return _sm_rows("is initial in State Machine Definition", "Status", g[0], g[1])
-
-def _h_sm_from(g, k, m):
-    return _sm_rows("is from Status", "Transition", g[0], g[1])
-
-def _h_sm_to(g, k, m):
-    return _sm_rows("is to Status", "Transition", g[0], g[1])
-
-def _h_sm_trigger(g, k, m):
-    return _sm_rows("is triggered by Fact Type", "Transition", g[0], g[1])   # #18: g1 arrives RESOLVED (the _COOK boundary)
-
-def _h_sm_guard(g, k, m):
-    return _sm_rows("is guarded by Fact Type", "Transition", g[0], g[1])     # #18: g1 arrives RESOLVED (the _COOK boundary)
-
-def _h_sm_emit(g, k, m):
-    return _sm_rows("emits", "Transition", g[0], g[1])
-
-def _h_sm_moore(g, k, m):
-    return _sm_rows("emits", "Status", g[0], g[1])
-
 # the anaphoric qualifiers, the old engine's strip_role_qualifiers set. Stripping is a
-# FALLBACK, tried only when the verbatim reading resolves to no declared fact type —
+# FALLBACK, tried only when the verbatim reading resolves to no declared fact type --
 # 'a' is often predicate text ('Person is a Parent' keeps its article), while
 # 'that Resource' in the corpus's anaphoric rules normalizes to the bare reading.
 _QUALIFIERS = {"that", "some", "the", "other", "a", "an"}
+
+
+def _h_sm_initial(g, k, m):
+    """CANON -- DEF("system:h_sm_initial")."""
+    return _canon_h("system:h_sm_initial", g, k, m)
+
+def _h_sm_from(g, k, m):
+    """CANON -- DEF("system:h_sm_from")."""
+    return _canon_h("system:h_sm_from", g, k, m)
+
+def _h_sm_to(g, k, m):
+    """CANON -- DEF("system:h_sm_to")."""
+    return _canon_h("system:h_sm_to", g, k, m)
+
+def _h_sm_trigger(g, k, m):
+    """CANON -- DEF("system:h_sm_trigger")."""
+    return _canon_h("system:h_sm_trigger", g, k, m)
+
+def _h_sm_guard(g, k, m):
+    """CANON -- DEF("system:h_sm_guard")."""
+    return _canon_h("system:h_sm_guard", g, k, m)
+
+def _h_sm_emit(g, k, m):
+    """CANON -- DEF("system:h_sm_emit")."""
+    return _canon_h("system:h_sm_emit", g, k, m)
+
+def _h_sm_moore(g, k, m):
+    """CANON -- DEF("system:h_sm_moore")."""
+    return _canon_h("system:h_sm_moore", g, k, m)
 
 
 def _type_span(toks, i, kset):
