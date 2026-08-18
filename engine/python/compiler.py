@@ -897,7 +897,14 @@ def _h_ref_scheme(g, k, m):
             ("refScheme", (g[0], g[1]))], []
 
 def _h_objectification(g, k, m):
-    return [("instanceOf", (g[1], "ObjectType")), ("objectification", (g[1], g[0]))], []
+    """CANON -- DEF("system:h_objectification").
+
+    Verified on a REAL call before wiring, not a hand-built operand: the
+    objectification classifier only fires on 'This association with X provides
+    the preferred identification scheme for Y', and a model without that
+    sentence exercises this handler zero times. The first comparison I ran
+    reported zero divergences over zero calls."""
+    return _canon_h("system:h_objectification", g, k, m)
 
 def _h_meta(cell):
     return lambda g, k, m: ([(cell, (g[0],))], [])             # data_type / ref_mode metadata
