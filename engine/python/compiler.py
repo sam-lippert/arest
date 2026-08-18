@@ -1007,15 +1007,13 @@ _h_for_each_mandatory = _h_constraint
 
 
 def _h_frequency(g, k, m):
-    # #18: g arrives COOKED — ⟨cid, ft, roles, builder_operand⟩; the reading resolution,
-    # role-name lookup, and bound encoding (absent = the empty sequence, the canonical
-    # optionality) all happen at the boundary. The handler is pure assembly + the
-    # canonical builder applied through DEFS — the same reduction system:h_frequency runs.
-    from .reduce import apply as _apply
-    from .lam import atom as _A
-    cid, ftn, roles, bop = g
-    return [("constraint", (cid, "frequency", ftn, m))] + [("spans", (cid, p)) for p in roles], \
-        [(cid, _apply(_A("constraints:frequency"), to_lam(bop)))]
+    """CANON -- DEF("system:h_frequency").
+
+    Left native one commit ago because it ran ZERO times on the model I
+    had, which is not evidence of anything. It needs the sentence form
+    "In each population of F, each P combination occurs at most N times";
+    with that present it runs once and agrees."""
+    return _canon_h("system:h_frequency", g, k, m)
 
 
 def _h_ring(g, k, m):
