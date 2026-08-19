@@ -8712,6 +8712,11 @@ DEF("system:replay_barrier",
 
 "IS THIS FACT TYPE A MACHINE TRIGGER. Asked all over the hosts and answered by scanning smTrigger for the fact type in the SECOND column -- the row is <machine, fact type>, so a scan of the first column answers about machines and would call every fact type a trigger in an app with one machine, or none in an app with none. The question decides real branches: a trigger fact type takes the gated create rather than the bulk install (system:replay_barrier), and create_spec builds it a machine, mealy and links recipe that a plain fact type does not get. One statement of it here rather than eleven scans in engine.py and their transliteration in rust.",
 
+"EVERY TRIGGER FACT TYPE IN THE STORE, distinct and SORTED. system:is_trigger answers the question about one fact type; this answers the set, which is what a replay needs before it can decide which entries barrier (system:replay_barrier takes it) and what the compile-time fold walks. The sort is NOT decoration and not already done: rmap:distinct_at preserves dedup order, not alphabetical -- given b then a it answers b then a -- so the ordering has to be asked for. It matters because this list drives a greedy walk whose result depends on the order events are considered in, so an unsorted set makes the fold depend on the order fact types happened to be declared.",
+
+DEF("system:trigger_fts",
+    S4(A("COMP"), A("rmap:sortnames"), A("rmap:distinct_at"), S3(A("CONS"), K(N(2)), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("smTrigger")), A("id")))))),
+
 DEF("system:is_trigger",
     S4(A("COMP"), A("not"), A("null"), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(2)), N(1)), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("smTrigger")), N(2))))))),
 

@@ -1411,6 +1411,9 @@ DEF("case:ft-table-own", S2(A("system:ft_table"), S2(A("Standalone_ft"), S3(S2(A
 DEF("case:is-trigger", S2(A("system:is_trigger"), S2(A("TaskFinished"), S1(S3(A("CELL"), A("smTrigger"), S2(S2(A("TaskMachine"), A("TaskFinished")), S2(A("OrderMachine"), A("OrderShipped")))))))),
 DEF("case:is-trigger-machine", S2(A("system:is_trigger"), S2(A("TaskMachine"), S1(S3(A("CELL"), A("smTrigger"), S2(S2(A("TaskMachine"), A("TaskFinished")), S2(A("OrderMachine"), A("OrderShipped")))))))),
 DEF("case:is-trigger-plain", S2(A("system:is_trigger"), S2(A("Person_has_Name"), S1(S3(A("CELL"), A("smTrigger"), S2(S2(A("TaskMachine"), A("TaskFinished")), S2(A("OrderMachine"), A("OrderShipped")))))))),
+
+"system:trigger_fts answers the trigger fact types distinct and SORTED. The store lists TaskFinished before OrderShipped and repeats the first, so the case shows both the dedup and the ordering: rmap:distinct_at preserves dedup order rather than sorting -- given b then a it answers b then a -- so alphabetical here is asked for, not inherited. It matters because this list drives a greedy walk whose answer depends on the order events are considered in, and an unsorted set would make the fold depend on the order fact types happened to be declared.",
+DEF("case:trigger-fts", S2(A("system:trigger_fts"), S1(S3(A("CELL"), A("smTrigger"), S3(S2(A("M1"), A("TaskFinished")), S2(A("M2"), A("OrderShipped")), S2(A("M1"), A("TaskFinished"))))))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
