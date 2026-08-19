@@ -8704,6 +8704,11 @@ DEF("system:replay_barrier",
 
 "DOES THIS ENTITY ALREADY CARRY A STATUS. The write path births an initial status only for an entity that has none, so this is the guard that makes a birth happen ONCE. It matches on the KEY, position 1 of the status population, not on the whole row: a status row is <key, status> and an entity that has already moved on carries a DIFFERENT status, so comparing rows would find no match and birth a second, contradictory row for the same entity. The one-write idempotence of the write path rests on this reading the key alone.",
 
+"IS AN ABSORBED SLOT FILLED. An absorbed wide row carries one column per absorbed fact type, and the write path must know whether THIS entity already has a value there before it seeds one. The absent markers are the empty string, the HASH, and phi -- three of them, and that is not the same set the sparse populations use, where empty and phi mean absent and no hash appears. The hash is the wide row own marker for a column that exists in the layout but holds nothing for this entity, so a check written against the sparse markers reads a hash as a VALUE and refuses to seed a status the entity does not have. A row too SHORT to reach the position answers false rather than bottom: a wide row is ragged when the layout grew after it was written, and a missing tail is an unfilled slot, not a fault.",
+
+DEF("system:slot_filled",
+    S4(A("COND"), S3(A("COMP"), A("ge"), S3(A("CONS"), S3(A("COMP"), A("length"), N(1)), N(2))), S3(A("COMP"), A("not"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("COMP"), A("apply"), S3(A("CONS"), N(2), N(1))), S2(A("CONST"), S3(A(""), A("#"), PHI()))))), K(A("F")))),
+
 DEF("system:has_status",
     S4(A("COMP"), A("not"), A("null"), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(1)), S3(A("COMP"), N(2), N(1))), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))))))),
 

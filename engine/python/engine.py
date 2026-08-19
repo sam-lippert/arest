@@ -3202,7 +3202,11 @@ def sm_init_entity(D, ft, row):
         cell = list(_pop_rows(D, f"{table}:{key}"))
         if cell and isinstance(cell[0], tuple):
             cell = list(cell[0])              # a listed row form
-        if len(cell) > pos and cell[pos] not in ("", "#", None):
+        # CANON: DEF("system:slot_filled") -- the absorbed markers are empty,
+        # HASH and phi, which is not the sparse set: a check written against
+        # the sparse markers reads a hash as a value. Canon counts from 1.
+        if _fl1(_ap1(_A1("system:slot_filled"),
+                     _S(to_lam(tuple(cell)), to_lam(pos + 1)))) == "T":
             return D
         D = bulk_absorbed_install(D, part, table, sft, [(key, init)],
                                   replace_keys=True)
