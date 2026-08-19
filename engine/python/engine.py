@@ -3412,8 +3412,11 @@ def create_spec(D, fact_type, part=None):
         cols = table_columns(part, table)
         spec["col"] = 2 + cols.index(fact_type)
         spec["width"] = 1 + len(cols)
-        spec["unary"] = max((r[2] for r in _pop_rows(D, "role")
-                             if len(r) >= 3 and r[1] == fact_type), default=2) == 1
+        # CANON: DEF("system:ft_arity") -- the highest role position. A fact
+        # type with no role rows answers TWO, so an unread fact type does not
+        # compile as a unary one and take a different row shape.
+        spec["unary"] = _fl9(_ap9(_A9("system:ft_arity"),
+                                  _S(_A9(fact_type), D))) == 1
         spec["validate"] = row_validate(D, fact_type, part)
     return spec
 
