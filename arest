@@ -6997,6 +6997,11 @@ DEF("system:subset_proj",
 DEF("system:h_possibility",
     S3(A("CONS"), S2(A("CONS"), S3(A("CONS"), K(A("possibility")), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(3)))), K(PHI()))),
 
+"THE MARKED BRACE FAMILY (the last compile kind canon lacked). {A, B} are mutually exclusive subtypes of X asserts each subtype link like any other -- that half is the ordinary subtype handler and is already canon -- plus, WHEN MARKED, two things this answers: one exclusion constraint over the whole family, and one subtypePartition fact per subtype. The partition rows are the point and Halpin names them: a mutually exclusive family is the PARTITION mapping, so the subtypes keep their own RMAP tables. The LAYOUT splits; the semantic subtyping -- inclusion rules, clause lift -- is unchanged, which is why the partition is a separate fact rather than a flag on the subtype link. The exclusion row names subs[0] as its anchor and carries the whole family beside it, and the modality rides along because a family may be asserted deontically. Splitting the brace text on commas, the slug and its truncation stay with the host: lexical work at the registered boundary.",
+
+DEF("system:brace_excl",
+    S3(A("COMP"), A("cat"), S3(A("CONS"), S2(A("CONS"), S3(A("CONS"), K(A("constraint")), S6(A("CONS"), N(1), K(A("exclusion")), S3(A("COMP"), N(1), N(2)), N(2), N(4)))), S4(A("COMP"), S2(A("ALPHA"), S3(A("CONS"), K(A("subtypePartition")), S3(A("CONS"), N(2), N(1)))), A("distl"), S3(A("CONS"), N(3), N(2)))))),
+
 DEF("system:h_finality",
     S3(A("CONS"), S2(A("CONS"), S3(A("CONS"), K(A("finality")), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1))))), K(PHI()))),
 

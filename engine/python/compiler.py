@@ -862,6 +862,13 @@ def _name_refmode(text):
     return (m2.group(1), m2.group(2)) if m2 else (text.strip(), None)
 
 
+def _canon_rows(name, operand):
+    """CANON -- apply a def answering a SEQUENCE of rows; hand back tuples."""
+    from .reduce import apply as _apply
+    from .lam import atom as _A, from_lam as _fl
+    return [tuple(r) for r in _fl(_apply(_A(name), to_lam(operand)))]
+
+
 def _canon_pair(name, operand):
     """CANON -- apply a def answering a PAIR of sequences and hand back tuples."""
     from .reduce import apply as _apply
@@ -1049,11 +1056,13 @@ def _h_brace_subtypes(g, k, m):
         objs += o
     if g[1]:
         cid = "sxc_" + _slug("_".join(subs))[:40]
-        A_.append(("constraint", (cid, "exclusion", subs[0], subs, m)))
-        # a mutually exclusive family is Halpin's PARTITION mapping: the subtypes keep
-        # their own RMAP tables (the layout splits; the SEMANTIC subtyping — inclusion
-        # rules, clause lift — is unchanged)
-        A_ += [("subtypePartition", (s, g[2].strip())) for s in subs]
+        # CANON: DEF("system:brace_excl") -- the exclusion row over the whole
+        # family plus Halpin's PARTITION fact per subtype (the subtypes keep
+        # their own RMAP tables; the layout splits, the semantic subtyping is
+        # unchanged, which is why the partition is its own fact and not a flag
+        # on the link). The slug and its truncation above stay on this side.
+        A_ += list(_canon_rows("system:brace_excl",
+                               (cid, tuple(subs), g[2].strip(), m)))
         objs += [(cid, C.exclusion())] + \
                 [(cid + "@" + s, C.scoped_exclusion(subs, s)) for s in subs]
     return A_, objs

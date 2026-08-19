@@ -1327,6 +1327,10 @@ DEF("case:subset-proj-reorder", S2(A("system:subset_proj"), S2(S3(A("A"), A("B")
 "system:h_possibility carries the MODALITY, and the two cases are the same sentence under two of them. That is the whole point: possible and necessary are different claims about one reading, so the modality has to come from the handler operand rather than be re-derived from the text, and a handler that dropped it would answer identically for both rows here.",
 DEF("case:h-possibility", S2(A("system:h_possibility"), S3(S1(A("some Order is shipped")), PHI(), A("possible")))),
 DEF("case:h-possibility-nec", S2(A("system:h_possibility"), S3(S1(A("some Order is shipped")), PHI(), A("necessary")))),
+
+"system:brace_excl answers the marked half of a brace family: ONE exclusion row over the whole family, then ONE partition fact per subtype. brace-excl-three carries three subtypes and a deontic modality, which pins two things a two-member case cannot: the partition rows scale with the family while the exclusion row stays single, and the modality rides through rather than being dropped as ordinary. The exclusion row anchors on the FIRST subtype and carries the whole family beside it, so the anchor and the family are not the same field.",
+DEF("case:brace-excl", S2(A("system:brace_excl"), S4(A("sxc_ab"), S2(A("A"), A("B")), A("X"), A("")))),
+DEF("case:brace-excl-three", S2(A("system:brace_excl"), S4(A("sxc_pqr"), S3(A("P"), A("Q"), A("R")), A("Party"), A("obligatory")))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
