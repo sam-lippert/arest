@@ -1450,7 +1450,11 @@ def _A2():
 _h_neg_pair = _h_constraint
 
 def _h_possibility(g, k, m):
-    return [("possibility", (g[0][:80], m))], []
+    # CANON: DEF("system:h_possibility"). The truncation stays on this side:
+    # slicing a string is lexical work at the registered boundary, and canon
+    # has no primitive taking a prefix of an ATOM -- read:firstn takes a
+    # prefix of a SEQUENCE, which is a different thing.
+    return _canon_h("system:h_possibility", (g[0][:80],), k, m)
 
 _h_inverse_uc = _h_constraint
 
