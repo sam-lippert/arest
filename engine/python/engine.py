@@ -3589,7 +3589,11 @@ def step_and_wake(D, fact_type, fact):
     if from_lam(o) == "ERROR":
         return res, {}
     changed = {fact_type}
-    if any(r[1] == fact_type for r in _pop_rows(D2, "smTrigger")):
+    # CANON: DEF("system:is_trigger") -- smTrigger rows are <machine, fact
+    # type>, so the test reads the SECOND column.
+    from .lam import atom as _A9, from_lam as _fl9
+    from .reduce import apply as _ap9
+    if _fl9(_ap9(_A9("system:is_trigger"), _S(_A9(fact_type), D2))) == "T":
         noun = _governed_player(D2, fact_type)
         if noun is not None:
             # the machine advanced the governed object type's status column:
