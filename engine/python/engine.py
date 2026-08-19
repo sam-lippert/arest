@@ -3723,8 +3723,11 @@ def describe(D, noun):
              _fl2(_ap2(_A2("system:noun_roles"), _S(_A2(noun), D)))]
     return {
         "noun": noun,
-        "kind": sorted({r[1] for r in _pop_rows(D, "instanceOf")
-                        if len(r) >= 2 and r[0] == noun}),
+        # CANON: DEF("system:vals_of") -- EVERY value a key holds, not the
+        # first. csdp:lookup and rmap:lookup0 both answer first-match only,
+        # and a noun is an instance of more than one thing at once.
+        "kind": list(_fl2(_ap2(_A2("system:vals_of"),
+                            _S(_S(_A2("instanceOf"), _A2(noun)), D)))),
         # CANON: a subtype row is <subtype, supertype>, so the two directions
         # read OPPOSITE columns and neither is the other reversed.
         "supertypes": list(_fl2(_ap2(_A2("system:supertypes_of"),
@@ -3732,11 +3735,11 @@ def describe(D, noun):
         "subtypes": list(_fl2(_ap2(_A2("system:subtypes_of"),
                                    _S(_A2(noun), D)))),
         "roles": sorted(roles),
-        "ref_mode": sorted({r[1] for r in _pop_rows(D, "refMode")
-                            if len(r) >= 2 and r[0] == noun}),
+        "ref_mode": list(_fl2(_ap2(_A2("system:vals_of"),
+                            _S(_S(_A2("refMode"), _A2(noun)), D)))),
         "machine": machine_for(D, noun),
-        "federated_from": sorted({r[1] for r in _pop_rows(D, "federatedFrom")
-                                  if len(r) >= 2 and r[0] == noun}),
+        "federated_from": list(_fl2(_ap2(_A2("system:vals_of"),
+                            _S(_S(_A2("federatedFrom"), _A2(noun)), D)))),
     }
 
 
