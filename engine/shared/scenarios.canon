@@ -1549,5 +1549,16 @@ DEF("case:create-commits",
 DEF("case:create-refuses",
     S2(S3(A("COMP"), N(1), A("create")),
        S2(S1(S2(A("F1"), S1(S2(A("a"), A("y"))))),
-          S2(S1(S5(A("F1"), S2(A("Thing"), A("Widget")), S1(S1(N(1))), PHI(), S1(S2(A("a"), A("x"))))), PHI()))))
+          S2(S1(S5(A("F1"), S2(A("Thing"), A("Widget")), S1(S1(N(1))), PHI(), S1(S2(A("a"), A("x"))))), PHI())))),
+
+"THE TRANSLATOR ARBITRATION TABLE, cross-lineage. tr-kinds evaluates the whole 44-row population so the ORDER is pinned per station and not merely its membership -- the order decides which production claims a statement, and class_rule standing before rule_if in the derivation-rule row is the reason a quoted-head classification statement is not read as a rule and made to mint a fact type per value. kinds-of and kinds-of-cardinality select one translator out of it PRESERVING that order rather than sorting, which would silently re-rank the productions. kinds-of-unknown asks for translate_partitions, a name the grammar declares and neither host table ever carried: it answers the EMPTY sequence, the graceful absence a host already spells for a translator it has not registered, and it names the drift this population exists to end.",
+
+DEF("case:tr-kinds", S2(A("system:tr_kinds"), PHI())),
+
+DEF("case:kinds-of", S2(A("system:kinds_of"), S1(A("translate_derivation_rules")))),
+
+DEF("case:kinds-of-cardinality",
+    S2(A("system:kinds_of"), S1(A("translate_cardinality_constraints")))),
+
+DEF("case:kinds-of-unknown", S2(A("system:kinds_of"), S1(A("translate_partitions"))))
 )
