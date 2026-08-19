@@ -1363,6 +1363,11 @@ DEF("case:id-sentinel-empty", S2(A("system:id_sentinel"), S2(A(""), A("x")))),
 DEF("case:id-sentinel-phi", S2(A("system:id_sentinel"), S2(A("φ"), A("x")))),
 DEF("case:id-sentinel-norow", S2(A("system:id_sentinel"), PHI())),
 DEF("case:id-sentinel-late", S2(A("system:id_sentinel"), S2(A("a"), A("")))),
+
+"system:write_refused, and write-refused-unchanged is the row that carries the rule. The create answered ok and the store came back IDENTICAL, and that is a refusal: an install leaving D unchanged did not install, whatever it answered. Treating it as committed appends a step to the event log for a fact the store does not hold, and a replay then diverges from the store it claims to reconstruct. write-refused-error is the plain refusal and write-committed the only row that commits -- answered ok AND the store actually grew.",
+DEF("case:write-refused-error", S2(A("system:write_refused"), S3(A("ERROR"), S1(S3(A("CELL"), A("P"), S1(S1(A("a"))))), S1(S3(A("CELL"), A("P"), S1(S1(A("a")))))))),
+DEF("case:write-refused-unchanged", S2(A("system:write_refused"), S3(A("ok"), S1(S3(A("CELL"), A("P"), S1(S1(A("a"))))), S1(S3(A("CELL"), A("P"), S1(S1(A("a")))))))),
+DEF("case:write-committed", S2(A("system:write_refused"), S3(A("ok"), S1(S3(A("CELL"), A("P"), S1(S1(A("a"))))), S1(S3(A("CELL"), A("P"), S2(S1(A("a")), S1(A("b")))))))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
