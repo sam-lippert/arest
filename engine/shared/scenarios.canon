@@ -1323,6 +1323,10 @@ DEF("case:h-finality-zero", S2(A("system:h_finality"), S3(S2(A("X"), N(0)), PHI(
 DEF("case:subset-proj", S2(A("system:subset_proj"), S2(S2(A("Message"), A("Rep")), S2(A("Rep"), A("Message"))))),
 DEF("case:subset-proj-dup", S2(A("system:subset_proj"), S2(S2(A("M"), A("M")), S1(A("M"))))),
 DEF("case:subset-proj-reorder", S2(A("system:subset_proj"), S2(S3(A("A"), A("B"), A("C")), S2(A("C"), A("A"))))),
+
+"system:h_possibility carries the MODALITY, and the two cases are the same sentence under two of them. That is the whole point: possible and necessary are different claims about one reading, so the modality has to come from the handler operand rather than be re-derived from the text, and a handler that dropped it would answer identically for both rows here.",
+DEF("case:h-possibility", S2(A("system:h_possibility"), S3(S1(A("some Order is shipped")), PHI(), A("possible")))),
+DEF("case:h-possibility-nec", S2(A("system:h_possibility"), S3(S1(A("some Order is shipped")), PHI(), A("necessary")))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
