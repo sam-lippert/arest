@@ -8679,6 +8679,11 @@ DEF("system:mf_entity",
 
 "WHICH REPLAY ENTRIES CANNOT BE BATCHED. Replaying a log batches consecutive installs for speed, and that is evaluator business, but WHICH entries may not be batched is meaning and protocol.py:251 states it: an entry of a TRIGGER fact type is not a mere fact install. The gated create carries the transition onto the status column, the Mealy emissions and the links, and none of that rides the bulk path -- so a trigger entry is a BARRIER: the buffer flushes before it and it fires alone, which is what keeps log order, an entity initial status landing before its events. Replay answering the INITIAL status where sequential application answered the transitioned one is the bug this rule exists to prevent (found 2026-07-10). A retract or migrate is a barrier for the same reason from the other side: it is not an install, so ordering across the op boundary must be preserved.",
 
+"THE ID-SENTINEL GUARD. A key position carrying the phi atom or the empty string is never a modeling intent, so the write is refused BEFORE any evaluation -- protocol.py names the bug it prevents, the phi phantom of 2026-07-08: an empty id leaked as the empty-store atom through an old write, and its ragged wide row then bottomed every absorbed fetch of that table. One bad key poisons reads that have nothing to do with it, which is why this refuses rather than validating and recording a violation like an ordinary rule -- there is no candidate to validate against once the key is the empty store. The empty ROW answers false, not bottom: a row with no first element is not a row with a bad key, and the two refusals would otherwise be indistinguishable at the boundary.",
+
+DEF("system:id_sentinel",
+    S4(A("COND"), A("null"), K(A("F")), S3(A("COMP"), A("theta:member"), S3(A("CONS"), N(1), S2(A("CONST"), S2(A(""), A("φ"))))))),
+
 DEF("system:replay_barrier",
     S3(A("COMP"), A("or"), S3(A("CONS"), S3(A("COMP"), A("not"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), K(A("apply"))))), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2)))))),
 
