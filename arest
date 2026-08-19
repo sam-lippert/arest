@@ -6985,6 +6985,11 @@ DEF("system:h_value_constraint",
 
 "THE FREQUENCY-CONSTRAINT READING TRANSLATOR AS DATA (2026-07-10, #18): the second constraint-family handler. Compiled groups ⟨cid, ft, roles, builder_operand⟩ — the reading resolution, role-name lookup, and bound encoding (absent bound = the empty sequence, the canonical optionality from constraints:frequency's own contract) are Stage-1's. The translator prepends the constraint row (apndl) to the spans rows — ONE ROW PER ROLE, the mapped family α(⟨spans, id⟩) over distl:⟨cid, roles⟩ — and emits ⟨cid, (constraints:frequency : operand)⟩. Host _h_frequency is the certified-equal override (test_frequency_canon, extensional on the obj).",
 
+"THE FINALITY HANDLER (one of the five compile kinds canon lacked). X becomes final at depth N is where optimistic acceptance hardens deontic into alethic, and the handler is the whole of its compile meaning: one fact, no objects. It is listed here rather than left to the hosts because a kind with no canon handler is a kind the thin station cannot compile at all, which is the gap, not because the rule is complicated. The depth arrives already numeric: the host owns the LEXICAL half at the registered boundary -- regex capture and the int conversion -- and canon receives typed values, which is exactly what _compile_frequency does before it hands off to system:h_frequency. Canon has no digit-to-number primitive and does not need one for this.",
+
+DEF("system:h_finality",
+    S3(A("CONS"), S2(A("CONS"), S3(A("CONS"), K(A("finality")), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1))))), K(PHI()))),
+
 DEF("system:h_frequency",
     S3(A("CONS"),
        S3(A("COMP"), A("apndl"),

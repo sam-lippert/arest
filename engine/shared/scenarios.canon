@@ -1314,6 +1314,10 @@ DEF("case:mf-entity-roundtrip-init", S2(A("system:mf_entity"), S2(S3(PHI(), A("a
 DEF("case:mf-evkeys-pos1", S2(A("system:mf_evkeys"), S2(S2(A("TaskFinished"), N(1)), S1(S3(A("CELL"), A("TaskFinished"), S4(S2(A("t1"), A("x")), S2(A("t2"), A("")), S2(A("t3"), A("φ")), S2(A("t4"), A("y")))))))),
 DEF("case:mf-evkeys-pos2", S2(A("system:mf_evkeys"), S2(S2(A("TaskFinished"), N(2)), S1(S3(A("CELL"), A("TaskFinished"), S4(S2(A("t1"), A("x")), S2(A("t2"), A("")), S2(A("t3"), A("φ")), S2(A("t4"), A("y")))))))),
 DEF("case:mf-evkeys-absent", S2(A("system:mf_evkeys"), S2(S2(A("Nope"), N(1)), S1(S3(A("CELL"), A("TaskFinished"), S4(S2(A("t1"), A("x")), S2(A("t2"), A("")), S2(A("t3"), A("φ")), S2(A("t4"), A("y")))))))),
+
+"system:h_finality was one of five compile kinds present in the host dispatch table and absent from canon, which is precisely a kind the thin station cannot compile. The handler is the whole of its compile meaning -- one fact, no objects -- and the cases answer against python _PLAN finality directly, which is the reference implementation sitting beside it. h-finality-zero carries depth 0 because zero is the value a truthiness test would drop, and depth 0 is meaningful: it hardens immediately.",
+DEF("case:h-finality", S2(A("system:h_finality"), S3(S2(A("Task"), N(3)), PHI(), A("")))),
+DEF("case:h-finality-zero", S2(A("system:h_finality"), S3(S2(A("X"), N(0)), PHI(), A("")))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 

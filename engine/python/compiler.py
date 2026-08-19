@@ -1642,7 +1642,11 @@ _PLAN = {
     "rule_if": _h_rule_if,
     "rule_iff": _h_rule_iff,
     "negation": _h_negation, "neg_pair": _h_neg_pair, "class_rule": _h_class_rule,
-    "finality": lambda g, k, m: ([("finality", (g[0], int(g[1])))], []),
+    # CANON: DEF("system:h_finality"). The int() stays on this side on purpose:
+    # the lexical half is the host's at the registered boundary, exactly as
+    # _compile_frequency converts before handing off to system:h_frequency.
+    "finality": lambda g, k, m: _canon_h("system:h_finality",
+                                         (g[0], int(g[1])), k, m),
     "possibility": _h_possibility, "inverse_uc": _h_inverse_uc,
     "sm_def": _h_sm_def, "sm_initial": _h_sm_initial, "sm_from": _h_sm_from,
     "sm_to": _h_sm_to, "sm_trigger": _h_sm_trigger,
