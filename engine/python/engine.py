@@ -3040,6 +3040,15 @@ def machine_fold(D):
     initials = {r[1]: r[0] for r in _pop_rows(
         D, "Status_is_initial_in_State_Machine_Definition") if len(r) >= 2}
 
+    # CANON: DEF("system:status_ft"). This replaced a status_fts dict that a
+    # global text replace removed from BOTH this function and sm_init_entity
+    # in 2abd0bd1 -- the comprehension was byte-identical in the two, and the
+    # suites gated on there do not reach this path. test_machine_fold does.
+    from .lam import atom as _A7, from_lam as _fl7
+    from .reduce import apply as _ap7
+
+    def _sft(n):
+        return _fl7(_ap7(_A7("system:status_ft"), _S(_A7(n), D))) or None
     machines = {r[1]: r[0] for r in _pop_rows(D, "smDef") if len(r) >= 2}
     gov = {r[0]: r[1] for r in _pop_rows(D, "governedBy") if len(r) >= 2}
     events = {}
@@ -3057,7 +3066,7 @@ def machine_fold(D):
     part = rmap_partition(D)
     current = {}
     for noun in sorted({n for (n, _e) in events}):
-        sft = status_fts.get(gov.get(noun, noun))
+        sft = _sft(gov.get(noun, noun))
         if sft is None:
             continue
         for row in ft_view(D, sft, part):
@@ -3065,7 +3074,7 @@ def machine_fold(D):
                 current[(noun, row[0])] = row[1]
     changed = []
     for (noun, e), evs in sorted(events.items()):
-        sft = status_fts.get(gov.get(noun, noun))
+        sft = _sft(gov.get(noun, noun))
         if sft is None:
             continue
         m = machines.get(gov.get(noun, noun), machines.get(noun))
@@ -3095,16 +3104,21 @@ def machine_fold(D):
     # event still evidences its player).
     written = {(s, e) for s, e, _c in changed}
     for noun, m in sorted(machines.items()):
-        sft = status_fts.get(noun)
+        sft = _sft(noun)
         init = initials.get(m)
         if sft is None or init is None:
             continue
         have = {r[0] for r in ft_view(D, sft, part)
                 if isinstance(r, tuple) and r}
-        keys = {r[0] for r in _pop_rows(D, noun) if r}
-        for r in _pop_rows(D, "role"):
-            if len(r) >= 4 and r[2] == 1 and r[3] == noun and r[1] != sft:
-                keys |= {x[0] for x in _pop_rows(D, r[1]) if x}
+        # CANON: DEF("system:mf_keys") -- an entity is an entity by playing a
+        # fact, so the source is the noun's own rows UNIONED with the role-1
+        # keys of every fact type it heads, the status fact type excluded by
+        # setminus (a row already carrying a status is not evidence of a
+        # MISSING one). The caller still drops empty and phi keys below.
+        from .lam import atom as _A6, from_lam as _fl6
+        from .reduce import apply as _ap6
+        keys = set(_fl6(_ap6(_A6("system:mf_keys"),
+                             _S(_S(_A6(noun), _A6(sft)), D))))
         for k in sorted(keys, key=str):
             if (k and k not in ("", "φ") and k not in have
                     and (sft, k) not in written):
