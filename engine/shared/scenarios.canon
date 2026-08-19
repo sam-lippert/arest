@@ -1368,6 +1368,10 @@ DEF("case:id-sentinel-late", S2(A("system:id_sentinel"), S2(A("a"), A("")))),
 DEF("case:write-refused-error", S2(A("system:write_refused"), S3(A("ERROR"), S1(S3(A("CELL"), A("P"), S1(S1(A("a"))))), S1(S3(A("CELL"), A("P"), S1(S1(A("a")))))))),
 DEF("case:write-refused-unchanged", S2(A("system:write_refused"), S3(A("ok"), S1(S3(A("CELL"), A("P"), S1(S1(A("a"))))), S1(S3(A("CELL"), A("P"), S1(S1(A("a")))))))),
 DEF("case:write-committed", S2(A("system:write_refused"), S3(A("ok"), S1(S3(A("CELL"), A("P"), S1(S1(A("a"))))), S1(S3(A("CELL"), A("P"), S2(S1(A("a")), S1(A("b")))))))),
+
+"system:role1_player answers a fact type SUBJECT, the player at role position 1. role1-player-norole1 is a fact type whose only role sits at position 2, and it REFUSES rather than answering that player: a fact type with no role at position 1 has no subject to birth, and answering the position-2 player would seed a status against a key nobody wrote. The store also holds a second role of the SAME fact type at position 2, so the first case shows the position selecting rather than the fact type merely matching.",
+DEF("case:role1-player", S2(A("system:role1_player"), S2(A("TaskHasSubject"), S1(S3(A("CELL"), A("role"), S3(S4(A("r1"), A("TaskHasSubject"), N(1), A("Task")), S4(A("r2"), A("TaskHasSubject"), N(2), A("Text")), S4(A("r3"), A("Other"), N(2), A("Person")))))))),
+DEF("case:role1-player-norole1", S2(A("system:role1_player"), S2(A("Other"), S1(S3(A("CELL"), A("role"), S3(S4(A("r1"), A("TaskHasSubject"), N(1), A("Task")), S4(A("r2"), A("TaskHasSubject"), N(2), A("Text")), S4(A("r3"), A("Other"), N(2), A("Person")))))))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 

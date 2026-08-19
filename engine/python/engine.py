@@ -3145,9 +3145,15 @@ def sm_init_entity(D, ft, row):
     row = tuple(row)
     if not row or row[0] in ("", "φ"):
         return D
-    noun = next((r[3] for r in _pop_rows(D, "role")
-                 if len(r) >= 4 and r[1] == ft and r[2] == 1), None)
-    if noun is None:
+    # CANON: DEF("system:role1_player") -- the fact type's SUBJECT. The key of
+    # the row being written is the role-1 filler, so a birth is that key with
+    # no status row yet. Answers bottom when the fact type has no role at
+    # position 1: there is no subject to birth, and inventing one would seed a
+    # status against a key nobody wrote.
+    from .lam import atom as _A1, from_lam as _fl1
+    from .reduce import apply as _ap1
+    noun = _fl1(_ap1(_A1("system:role1_player"), _S(_A1(ft), D)))
+    if not isinstance(noun, str) or noun == "⊥":
         return D
     gov = {r[0]: r[1] for r in _pop_rows(D, "governedBy") if len(r) >= 2}
     status_fts = {r[0]: r[1] for r in _pop_rows(D, "smStatusFt")
