@@ -1198,9 +1198,24 @@ def _h_subset(g, k, m):
     ante, cons_txt = g
     fts = getattr(k, "fts", None) or ()
     plain = getattr(k, "plain", None) or ()
-    if "'" in ante or "'" in cons_txt:
-        raise ValueError("value-restricted if-then subset awaits its slice: "
-                         + ante[:60])
+    # THE VALUE-RESTRICTION SLICE, consequent side. A quoted literal in the
+    # CONSEQUENT ("... then that Source has Authority 'authoritative'")
+    # narrows the SUPERSET, so the filter rides the head of the subset rather
+    # than its condition -- constraints:scoped_subset_projected_cfiltered.
+    # The literal fills the LAST (value) role, the same convention the
+    # trailing form uses. An antecedent literal is a different slice and
+    # still refuses.
+    if "'" in ante:
+        raise ValueError("value-restricted if-then antecedent awaits its "
+                         "slice: " + ante[:60])
+    _f_lit = None
+    _lits = _QUOTED.findall(cons_txt)
+    if _lits:
+        if len(_lits) > 1:
+            raise ValueError("multi-literal consequent awaits its slice: "
+                             + cons_txt[:60])
+        _f_lit = _lits[0]
+        cons_txt = re.sub(r"\s+", " ", _QUOTED.sub("", cons_txt)).strip()
     if any(j in ante or j in cons_txt for j in (" and ", " or ")):
         raise ValueError("compound if-then subset awaits the join slice: "
                          + ante[:60])
@@ -1228,14 +1243,27 @@ def _h_subset(g, k, m):
     decl, mid, ospecs = _compile_cs("subset", "", [a_ft, b_ft],
                                  [ante.strip(), cons_txt.strip()])
     op = (b_ft, proj_a, proj_b)
+    _builder = "constraints:scoped_subset_projected"
+    if _f_lit is not None:
+        op = op + (len(b_roles), _f_lit)     # the value role is last
+        _builder = "constraints:scoped_subset_projected_cfiltered"
     # CANON: DEF("system:subset_specs") binds every scoped cell to the
     # projected builder with the SAME operand -- one projection per if-then
     # pair, not one recomputed per cell, so two cells of one constraint
     # cannot disagree about which roles project.
-    return _h_constraint((decl, mid,
-                     tuple(_canon_rows("system:subset_specs",
-                                       (tuple(c for (c, _b, _o) in ospecs), op)))),
-                    k, m)
+    if _f_lit is None:
+        # CANON: DEF("system:subset_specs") binds every scoped cell to the
+        # projected builder with the SAME operand -- one projection per
+        # if-then pair, so two cells cannot disagree about which roles
+        # project.
+        specs = tuple(_canon_rows("system:subset_specs",
+                                  (tuple(c for (c, _b, _o) in ospecs), op)))
+    else:
+        # the value-restricted form binds the CFILTERED builder, which
+        # system:subset_specs does not name; the operand carries the filter
+        # position and literal beside the two projections.
+        specs = tuple((c, _builder, op) for (c, _b, _o) in ospecs)
+    return _h_constraint((decl, mid, specs), k, m)
 
 def _h_equality(g, k, m):
     return _cs_call("equality", "",
