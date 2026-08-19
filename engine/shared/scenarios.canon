@@ -1309,6 +1309,11 @@ DEF("case:mf-entity-init", S2(A("system:mf_entity"), S2(S3(PHI(), A("a"), S2(S4(
 DEF("case:mf-entity-quiet", S2(A("system:mf_entity"), S2(S3(PHI(), A("a"), S2(S4(A("a"), A("t1"), A("b"), A("e1")), S4(A("b"), A("t2"), A("c"), A("e2")))), S1(S2(A("e9"), N(1)))))),
 DEF("case:mf-entity-roundtrip", S2(A("system:mf_entity"), S2(S3(A("a"), A("a"), S2(S4(A("a"), A("t1"), A("b"), A("e1")), S4(A("b"), A("t2"), A("a"), A("e1")))), S2(S2(A("e1"), N(1)), S2(A("e1"), N(2)))))),
 DEF("case:mf-entity-roundtrip-init", S2(A("system:mf_entity"), S2(S3(PHI(), A("a"), S2(S4(A("a"), A("t1"), A("b"), A("e1")), S4(A("b"), A("t2"), A("a"), A("e1")))), S2(S2(A("e1"), N(1)), S2(A("e1"), N(2)))))),
+
+"system:mf_evkeys reads the event key at the GOVERNED ROLE POSITION, so the position is the variable the cases vary. mf-evkeys-pos1 reads the same rows at position 1 and answers all four keys; mf-evkeys-pos2 reads them at position 2, where two rows carry the empty and phi markers, and answers only the two real ones -- a role left unfilled is not an event for anybody. Reading position 1 unconditionally, which is the tempting simplification, would answer four events for a fact type that has two. mf-evkeys-absent is a fact type no cell holds, answering the empty sequence rather than bottom.",
+DEF("case:mf-evkeys-pos1", S2(A("system:mf_evkeys"), S2(S2(A("TaskFinished"), N(1)), S1(S3(A("CELL"), A("TaskFinished"), S4(S2(A("t1"), A("x")), S2(A("t2"), A("")), S2(A("t3"), A("φ")), S2(A("t4"), A("y")))))))),
+DEF("case:mf-evkeys-pos2", S2(A("system:mf_evkeys"), S2(S2(A("TaskFinished"), N(2)), S1(S3(A("CELL"), A("TaskFinished"), S4(S2(A("t1"), A("x")), S2(A("t2"), A("")), S2(A("t3"), A("φ")), S2(A("t4"), A("y")))))))),
+DEF("case:mf-evkeys-absent", S2(A("system:mf_evkeys"), S2(S2(A("Nope"), N(1)), S1(S3(A("CELL"), A("TaskFinished"), S4(S2(A("t1"), A("x")), S2(A("t2"), A("")), S2(A("t3"), A("φ")), S2(A("t4"), A("y")))))))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
