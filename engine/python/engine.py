@@ -3841,20 +3841,23 @@ def governance_rules(D):
     # step, so the first round has something to close over.
     from .lam import atom as _Ag, from_lam as _flg
     from .reduce import apply as _apg
-    plans = tuple((n, list(fts), list(head)) for (n, fts, head) in
+    plans = tuple((n, list(fts), list(head), d) for (n, fts, head, d) in
                   _flg(_apg(_Ag("system:governance_plans"), to_lam(()))))
     atoms = []
-    for (name, fts, head) in plans:
+    for (name, fts, head, _derives) in plans:
         D = _ap(ast.DefineIn(name, compile_rule(fts, head)), D)
         for i, ft in enumerate(fts):                         # semi-naive ~d variants
             D = _ap(ast.DefineIn(f"{name}~d{i + 1}", compile_rule_delta(fts, head, i)), D)
             atoms.append((name, i + 1, ft))
+    # both tuples come from the PLANS now: the rule names, what each reads
+    # and what each derives were stated three times over -- here, in
+    # ruleReads below, and in system:governance_plans -- and three
+    # statements of one fact are free to disagree.
     derives = tuple(tuple(r) for r in _pop_rows(D, "ruleDerives")) + \
-        (("governedBy_rule_base", "governedBy"), ("governedBy_rule_step", "governedBy"))
+        tuple((n, d) for (n, _fts, _h, d) in plans)
     D = _ap(ast.Store("ruleDerives"), _S(to_lam(derives), D))
     reads = tuple(tuple(r) for r in _pop_rows(D, "ruleReads")) + \
-        (("governedBy_rule_base", "smDef"), ("governedBy_rule_step", "subtype"),
-         ("governedBy_rule_step", "governedBy"))
+        tuple((n, ft) for (n, fts, _h, _d) in plans for ft in fts)
     D = _ap(ast.Store("ruleReads"), _S(to_lam(reads), D))
     rows = tuple(tuple(r) for r in _pop_rows(D, "ruleAtom")) + tuple(atoms)
     return _ap(ast.Store("ruleAtom"), _S(to_lam(rows), D))
