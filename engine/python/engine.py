@@ -3369,7 +3369,13 @@ def create_spec(D, fact_type, part=None):
         part = rmap_partition(D)
     table = part.get(fact_type, fact_type)
     absorbed = table != fact_type
-    row_col = 2 + table_columns(part, table).index(fact_type) if absorbed else None
+    # CANON: DEF("system:col_pos") -- the 3NF row is <key, v1, v2, ...>, so the
+    # key holds position 1 and the first absorbed column position 2. The def
+    # answers the column index PLUS ONE for that reason.
+    from .lam import to_lam as _tl9
+    row_col = (_fl9(_ap9(_A9("system:col_pos"),
+                         _S(_S(_A9(table), _A9(fact_type)),
+                            _tl9(tuple(part.items()))))) if absorbed else None)
     machine = mealy = links = None
     # CANON: DEF("system:is_trigger") -- smTrigger rows are <machine, fact
     # type>, so the test reads the SECOND column. Reading the first would call

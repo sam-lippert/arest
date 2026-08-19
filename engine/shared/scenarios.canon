@@ -1423,6 +1423,10 @@ DEF("case:ft-roles-absent", S2(A("system:ft_roles"), S2(A("Nope"), S1(S3(A("CELL
 DEF("case:ft-arity-unary", S2(A("system:ft_arity"), S2(A("U"), S1(S3(A("CELL"), A("role"), S5(S4(A("r2"), A("F"), N(2), A("Q")), S4(A("r1"), A("F"), N(1), A("P")), S4(A("r3"), A("U"), N(1), A("P")), S4(A("r4"), A("T"), N(3), A("Z")), S4(A("r5"), A("T"), N(1), A("A")))))))),
 DEF("case:ft-arity-ternary", S2(A("system:ft_arity"), S2(A("T"), S1(S3(A("CELL"), A("role"), S5(S4(A("r2"), A("F"), N(2), A("Q")), S4(A("r1"), A("F"), N(1), A("P")), S4(A("r3"), A("U"), N(1), A("P")), S4(A("r4"), A("T"), N(3), A("Z")), S4(A("r5"), A("T"), N(1), A("A")))))))),
 DEF("case:ft-arity-none", S2(A("system:ft_arity"), S2(A("Nope"), S1(S3(A("CELL"), A("role"), S5(S4(A("r2"), A("F"), N(2), A("Q")), S4(A("r1"), A("F"), N(1), A("P")), S4(A("r3"), A("U"), N(1), A("P")), S4(A("r4"), A("T"), N(3), A("Z")), S4(A("r5"), A("T"), N(1), A("A")))))))),
+
+"system:col_pos answers where an absorbed fact type sits in its wide row. col-pos-first answers TWO, not one, and that is the whole content: the 3NF row is <key, v1, v2, ...>, so the key holds position 1 and the first absorbed column position 2. col-pos-second answers three, so the two together fix both the offset and the declaration order. A fact type absorbed into no column bottoms rather than answering a position -- writing its value at a guessed column would overwrite whichever fact type actually lives there.",
+DEF("case:col-pos-first", S2(A("system:col_pos"), S2(S2(A("Person"), A("Person_has_Name")), S3(S2(A("Person"), A("Person_has_Name")), S2(A("Person"), A("Person_has_Age")), S2(A("Order"), A("Order_has_Date")))))),
+DEF("case:col-pos-second", S2(A("system:col_pos"), S2(S2(A("Person"), A("Person_has_Age")), S3(S2(A("Person"), A("Person_has_Name")), S2(A("Person"), A("Person_has_Age")), S2(A("Order"), A("Order_has_Date")))))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
