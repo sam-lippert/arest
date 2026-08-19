@@ -3151,10 +3151,12 @@ def machine_fold(D):
                     and (sft, k) not in written):
                 written.add((sft, k))
                 changed.append((sft, k, init))
-    by_sft = {}
-    for sft, e, cur in changed:
-        by_sft.setdefault(sft, []).append((e, cur))
-    for sft, rows in sorted(by_sft.items()):
+    # CANON: DEF("system:mf_bysft") groups the written statuses by their status
+    # fact type, each group keeping its <entity, status> pairs in write order.
+    # The GROUP order is this caller's business and it sorts, so the def's
+    # first-occurrence order is not load-bearing here.
+    _groups = _fl7(_ap7(_A7("system:mf_bysft"), to_lam(tuple(changed))))
+    for sft, rows in sorted((s, tuple(r)) for s, r in _groups):
         table = part.get(sft, sft)
         if table == sft:
             # own-table status (a machine before status_facts absorbs it):

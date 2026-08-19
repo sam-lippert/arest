@@ -1341,7 +1341,7 @@ DEF("case:h-dispatch", S2(A("system:h_dispatch"), S4(A("finality"), S2(A("Task")
 DEF("case:h-dispatch-modal", S2(A("system:h_dispatch"), S4(A("possibility"), S1(A("some X")), PHI(), A("necessary")))),
 DEF("case:h-dispatch-unknown", S2(A("system:h_dispatch"), S4(A("nosuchkind"), S1(A("a")), PHI(), A("")))),
 
-"system:mf_bysft groups the written statuses by their status fact type. mf-bysft-interleaved is the row that fixes the ORDER: s2 appears first, then s1, then s2 again, so the answer must lead with s2 carrying both of its pairs. theta:dedup keeps the LAST occurrence, so a plain dedup would answer s1 first and every row would still be correct while the store failed to be byte-identical -- the kind of difference that survives every test that checks CONTENT and fails the one that compares stores.",
+"system:mf_bysft groups the written statuses by their status fact type. mf-bysft-interleaved is the row that fixes the ORDER: s2 appears first, then s1, then s2 again, so the answer must lead with s2 carrying both of its pairs. theta:dedup keeps the LAST occurrence, so a plain dedup would answer s1 first. That fixes what THIS def answers; it is not a claim about the emitted store, since machine_fold sorts the groups itself before writing. What the store depends on is the order WITHIN each group, which stays the order the statuses were written -- s2 carrying its pairs a then c, never c then a.",
 DEF("case:mf-bysft", S2(A("system:mf_bysft"), S3(S3(A("s1"), A("e1"), A("open")), S3(A("s1"), A("e2"), A("done")), S3(A("s2"), A("e3"), A("x"))))),
 DEF("case:mf-bysft-interleaved", S2(A("system:mf_bysft"), S3(S3(A("s2"), A("a"), A("p")), S3(A("s1"), A("b"), A("q")), S3(A("s2"), A("c"), A("r"))))),
 
