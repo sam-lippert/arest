@@ -2261,17 +2261,17 @@ def generator_cells(D):
     for noun, kind in sorted(kinds.items()):
         my_fts = [ft for ft, ps in roles.items()
                   if any(p == noun for (_i, p) in ps)]
-        my_readings = tuple(sorted(readings[ft] for ft in my_fts
-                                   if ft in readings))
-        # sorted like the readings and transitions components: the list
-        # projects a SET of constraints, so store emission order must not
-        # leak into the row bytes (it differed across hosts on rule-chain
-        # apps and embedded the constraint cell's row order into dsl rows)
-        my_cons = tuple(sorted(pair for (ft, players, pair) in cons
-                               if noun in players))
-        my_trans = tuple(sorted(set(sms.get(noun, ()))))
-        cells["dsl:" + noun] = ((noun, kind, my_readings, my_cons,
-                                 my_trans),)
+        # CANON: DEF("system:dsl_row") sorts all three components. That is the
+        # meaning, not tidiness: they project SETS, so store emission order
+        # must not leak into the row bytes -- it differed across hosts on
+        # rule-chain apps and embedded the constraint cell's row order into
+        # the dsl rows. Passed UNSORTED on purpose, so the def does the work.
+        my_readings = tuple(readings[ft] for ft in my_fts if ft in readings)
+        my_cons = tuple(pair for (ft, players, pair) in cons if noun in players)
+        my_trans = tuple(sms.get(noun, ()))
+        cells["dsl:" + noun] = (tuple(_fl8(_ap8(_A8("system:dsl_row"),
+                                _S(_S(_A8(noun), _A8(kind)),
+                                   to_lam((my_readings, my_cons, my_trans)))))),)
     # the OPT-IN family (docs/07-generators.md restored 2026-07-08; the
     # runtime-parity list owl xsd edm html dtd wsdl xforms plix nav,
     # NORMA's XML/OIALto* transforms the on-disk oracle at
