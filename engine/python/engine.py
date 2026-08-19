@@ -3078,13 +3078,16 @@ def machine_fold(D):
         noun = _governed_player(D, ft)
         if noun is None:
             continue
-        pos = next((r[2] for r in _pop_rows(D, "role")
-                    if len(r) >= 4 and r[1] == ft and r[3] == noun), None)
-        if pos is None:
+        # CANON: DEF("system:mf_evpos") then DEF("system:mf_evkeys"). The event
+        # key is read at the GOVERNED role position, not at position 1, and the
+        # empty and phi keys are dropped there -- a role left unfilled is not an
+        # event for anybody.
+        pos = _fl7(_ap7(_A7("system:mf_evpos"), _S(_S(_A7(ft), _A7(noun)), D)))
+        if not isinstance(pos, int):
             continue
-        for row in _pop_rows(D, ft):
-            if len(row) >= pos and row[pos - 1] not in ("", "φ"):
-                events.setdefault((noun, row[pos - 1]), []).append(ft)
+        for key in _fl7(_ap7(_A7("system:mf_evkeys"),
+                             _S(_S(_A7(ft), to_lam(pos)), D))):
+            events.setdefault((noun, key), []).append(ft)
     part = rmap_partition(D)
     current = {}
     for noun in sorted({n for (n, _e) in events}):
