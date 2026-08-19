@@ -3030,7 +3030,13 @@ def machine_fold(D):
     triples = sm_triples(D)
     if not triples:
         return D
-    trig_fts = sorted(_distinct_at(2, _pop_rows(D, "smTrigger")))
+    # CANON: DEF("system:trigger_fts") -- distinct AND sorted. The sort is not
+    # already done: rmap:distinct_at preserves dedup order, not alphabetical,
+    # and this list drives a greedy walk whose result depends on the order
+    # events are considered in.
+    from .lam import atom as _A5, from_lam as _fl5
+    from .reduce import apply as _ap5
+    trig_fts = list(_fl5(_ap5(_A5("system:trigger_fts"), D)))
     initials = {r[1]: r[0] for r in _pop_rows(
         D, "Status_is_initial_in_State_Machine_Definition") if len(r) >= 2}
 
