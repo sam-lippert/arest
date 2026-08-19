@@ -8729,6 +8729,14 @@ DEF("system:ft_table",
 
 "WHERE AN ABSORBED FACT TYPE SITS IN ITS WIDE ROW. The 3NF row is <key, v1, v2, ...>, so the key holds position 1 and the first absorbed column position 2 -- which is why this answers the column index PLUS ONE and not the index itself. system:table_columns already answers the absorbed fact types in declaration order, and it is CURRIED: applied to the table, then to the partition pairs, which is how the host binding calls it and not something a single pair operand reaches. A fact type absorbed into no column answers bottom rather than a position: writing its value at a guessed column would overwrite whichever fact type actually lives there.",
 
+"THE SUBTYPE LATTICE AROUND A NOUN, both directions. A subtype row is <subtype, supertype>, so the two questions read OPPOSITE columns and neither is the other reversed: the supertypes of X are the second column of rows whose FIRST is X, and the subtypes of X are the first column of rows whose SECOND is X. They are separate defs for that reason -- one def with a direction flag would let a caller pass the wrong flag and get a plausible answer, since both answer noun names. Both are deduped and sorted by name: a lattice is a set, and the order is asked for rather than inherited from the row order.",
+
+DEF("system:supertypes_of",
+    S5(A("COMP"), A("rmap:sortnames"), A("theta:dedup"), S2(A("ALPHA"), N(2)), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(1)), N(1)), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("subtype")), N(2))))))),
+
+DEF("system:subtypes_of",
+    S5(A("COMP"), A("rmap:sortnames"), A("theta:dedup"), S2(A("ALPHA"), N(1)), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(2)), N(1)), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("subtype")), N(2))))))),
+
 DEF("system:col_pos",
     S3(A("COMP"), A("+"), S3(A("CONS"), S4(A("COMP"), N(1), N(1), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(2)), S3(A("COMP"), N(2), N(1))), S3(A("COMP"), A("trans"), S3(A("CONS"), S4(A("COMP"), A("theta:iota"), A("length"), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("apply"), S3(A("CONS"), K(A("system:table_columns")), S3(A("COMP"), N(1), N(1)))), N(2)))), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("apply"), S3(A("CONS"), K(A("system:table_columns")), S3(A("COMP"), N(1), N(1)))), N(2)))))))), K(N(1))))),
 
