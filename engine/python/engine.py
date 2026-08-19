@@ -3807,7 +3807,12 @@ def status_facts(D):
     nouns = _atpos(2, _pop_rows(D, "smDef"))
     if not nouns:
         return D
-    values = {r[0] for r in _pop_rows(D, "instanceOf") if len(r) >= 2 and r[1] == "ValueType"}
+    # CANON: DEF("system:ctx_vals") already answers the value-type subset of
+    # the compile context, over the cells directly. No new def was needed here
+    # -- the set comprehension was a second statement of one canon already had.
+    from .lam import atom as _A4, from_lam as _fl4
+    from .reduce import apply as _ap4
+    values = set(_fl4(_ap4(_A4("system:ctx_vals"), D)))
     lines = [] if "Status" in values else ["Status is a value type."]
     for noun in nouns:
         lines.append(f"{noun} is currently in Status.")
