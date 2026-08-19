@@ -2110,7 +2110,11 @@ class Registry:
         # never a modeling intent — refuse before any evaluation. Replay
         # stays ungated: the log is history, and retract must still
         # reach such rows to clean them.
-        if row and isinstance(row[0], str) and row[0] in ("", "φ"):
+        # CANON: DEF("system:id_sentinel") -- a key position carrying phi or
+        # the empty string is never a modeling intent, so this refuses BEFORE
+        # evaluation rather than validating and recording a violation: once
+        # the key is the empty store there is no candidate to validate.
+        if from_lam(_ap(_A("system:id_sentinel"), to_lam(row))) == "T":
             receipt = {"app": name, "fact_type": fact_type,
                        "fact": list(row), "committed": False,
                        "violations": [["id-sentinel",
