@@ -1414,6 +1414,10 @@ DEF("case:is-trigger-plain", S2(A("system:is_trigger"), S2(A("Person_has_Name"),
 
 "system:trigger_fts answers the trigger fact types distinct and SORTED. The store lists TaskFinished before OrderShipped and repeats the first, so the case shows both the dedup and the ordering: rmap:distinct_at preserves dedup order rather than sorting -- given b then a it answers b then a -- so alphabetical here is asked for, not inherited. It matters because this list drives a greedy walk whose answer depends on the order events are considered in, and an unsorted set would make the fold depend on the order fact types happened to be declared.",
 DEF("case:trigger-fts", S2(A("system:trigger_fts"), S1(S3(A("CELL"), A("smTrigger"), S3(S2(A("M1"), A("TaskFinished")), S2(A("M2"), A("OrderShipped")), S2(A("M1"), A("TaskFinished"))))))),
+
+"system:ft_roles answers a fact type players in ROLE ORDER. The store lists role 2 BEFORE role 1 on purpose, so the case shows the def sorting rather than inheriting store order. Both roles are Person, which is why the sort is by POSITION and not by player: sorted by name the manager and the managed would come back in whichever order the rows happened to be stored, and the reading template fills its slots by position. A fact type with no roles answers the empty sequence.",
+DEF("case:ft-roles", S2(A("system:ft_roles"), S2(A("P_manages_P"), S1(S3(A("CELL"), A("role"), S3(S4(A("r2"), A("P_manages_P"), N(2), A("Person")), S4(A("r1"), A("P_manages_P"), N(1), A("Person")), S4(A("r3"), A("G"), N(1), A("Order")))))))),
+DEF("case:ft-roles-absent", S2(A("system:ft_roles"), S2(A("Nope"), S1(S3(A("CELL"), A("role"), S3(S4(A("r2"), A("P_manages_P"), N(2), A("Person")), S4(A("r1"), A("P_manages_P"), N(1), A("Person")), S4(A("r3"), A("G"), N(1), A("Order")))))))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
