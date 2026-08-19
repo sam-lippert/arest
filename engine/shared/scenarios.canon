@@ -1353,6 +1353,9 @@ DEF("case:mf-evpos-second", S2(A("system:mf_evpos"), S2(S2(A("TaskFinished"), A(
 DEF("case:replay-barrier-plain", S2(A("system:replay_barrier"), S2(S2(A("apply"), A("Person_has_Name")), S2(A("TaskFinished"), A("OrderShipped"))))),
 DEF("case:replay-barrier-trigger", S2(A("system:replay_barrier"), S2(S2(A("apply"), A("TaskFinished")), S2(A("TaskFinished"), A("OrderShipped"))))),
 DEF("case:replay-barrier-retract", S2(A("system:replay_barrier"), S2(S2(A("retract"), A("Person_has_Name")), S2(A("TaskFinished"), A("OrderShipped"))))),
+
+"system:classify_order evaluated whole. The case matters more than it looks: the order decides which pattern claims a statement when two could match, so pinning it per station makes the 43-slot sequence byte-identical across the fleet rather than merely present. The python side is compared against compiler.py _CLASSIFY by the coverage gate, which was shown to FAIL on a two-element swap before being trusted.",
+DEF("case:classify-order", S2(A("system:classify_order"), PHI())),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 

@@ -552,3 +552,29 @@ def test_a_python_comment_claiming_a_twin_is_declared_in_the_registry():
     assert not missing, (
         "python comments claim these as twins but OVERRIDES does not declare "
         "them: " + "; ".join("%s -- %s" % (k, v) for k, v in sorted(missing.items())))
+
+
+def test_the_classifier_arbitration_order_is_canon():
+    """DEF("system:classify_order") is the order of record.
+
+    Which pattern claims a statement when two could match decides what the
+    statement MEANS, and it was held twice by hand -- compiler.py _CLASSIFY and
+    engine/rust classify_inner, whose comment says it reproduces the table in
+    its exact arbitration order. Two hand-maintained copies of a semantic
+    ordering with nothing comparing them is the drift condition; this compares
+    them for the python side, and the rust side now has a canon def to be read
+    against rather than a comment to be trusted.
+
+    A SEQUENCE, not a set: three kinds appear twice (neg_uniqueness,
+    neg_mandatory, disjunctive_mandatory), each with two spellings competing at
+    different ranks, so comparing as sets would pass while a pattern moved."""
+    from pyarest.lam import to_lam, from_lam, atom as A
+    from pyarest.reduce import apply as _apply
+    from pyarest import compiler as C
+    canon = list(from_lam(_apply(A("system:classify_order"), to_lam(()))))
+    host = [k for k, _p in C._CLASSIFY]
+    assert canon == host, (
+        "classifier order drifted from DEF(system:classify_order): "
+        "first difference at %r" % (
+            next((i for i, (a, b) in enumerate(zip(canon, host)) if a != b),
+                 "length %d vs %d" % (len(canon), len(host))),))
