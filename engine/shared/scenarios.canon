@@ -1289,6 +1289,9 @@ DEF("case:con-text-mc", S2(A("system:con_text"), S3(A("mandatory"), A("c2"), S2(
 DEF("case:con-text-deontic", S2(A("system:con_text"), S3(A("deonticObligation"), A("c4"), S2(A("A"), A("B"))))),
 DEF("case:con-text-unary", S2(A("system:con_text"), S3(A("uniqueness"), A("c5"), S1(A("Person"))))),
 DEF("case:con-text-other", S2(A("system:con_text"), S3(A("other"), A("c6"), S2(A("A"), A("B"))))),
+
+"system:machine is the tau-ordered fold (INSERT system:mstep over the ordered events) and law:machine already certifies it, but only as a law: the case table compares per case, so this pins the SAME literal row by row across the stations. The events are deliberately out of order and e9 fires from nowhere -- it is the row proving an event invalid from the current status leaves the status alone rather than bottoming the fold.",
+DEF("case:machine-fold", S2(A("system:machine"), S2(S2(A("a"), S2(S4(A("a"), A("t1"), A("b"), A("e1")), S4(A("b"), A("t2"), A("c"), A("e2")))), S3(S2(A("e2"), N(10)), S2(A("e9"), N(2)), S2(A("e1"), N(9)))))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
