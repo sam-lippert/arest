@@ -1436,6 +1436,9 @@ DEF("case:supertypes-of-root", S2(A("system:supertypes_of"), S2(A("Person"), S1(
 "system:vals_of answers EVERY value a key holds, and vals-of-many is why it exists: Task is an instance of two things and one of them is written twice. csdp:lookup and rmap:lookup0 both answer the FIRST match only -- one a scalar, one a one-tuple -- so either would report Task as an ObjectType and silently drop that it is also a Thing. The duplicate is deduped and the answer sorted, because what a key IS is a set rather than a history of how its rows were written.",
 DEF("case:vals-of-many", S2(A("system:vals_of"), S2(S2(A("instanceOf"), A("Task")), S1(S3(A("CELL"), A("instanceOf"), S4(S2(A("Task"), A("Thing")), S2(A("Task"), A("ObjectType")), S2(A("Task"), A("ObjectType")), S2(A("Name"), A("ValueType")))))))),
 DEF("case:vals-of-absent", S2(A("system:vals_of"), S2(S2(A("instanceOf"), A("Nope")), S1(S3(A("CELL"), A("instanceOf"), S4(S2(A("Task"), A("Thing")), S2(A("Task"), A("ObjectType")), S2(A("Task"), A("ObjectType")), S2(A("Name"), A("ValueType")))))))),
+
+"system:governance_plans evaluated whole: the two rules that MAKE the governedBy closure, as data. The base rule reads smDef and projects <2,1>, turning <machine, noun> into <noun, machine>; the step rule reads subtype beside the closure being built and projects <1,3>, which is what makes it recursive. Cased whole rather than per field because the ORDER is part of the answer -- base before step, so the first round has something to close over -- and a case that checked membership would pass with the two reversed.",
+DEF("case:governance-plans", S2(A("system:governance_plans"), PHI())),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 

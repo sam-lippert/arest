@@ -3836,8 +3836,13 @@ def governance_rules(D):
     from . import ast
     from .reduce import apply as _ap
     from .lam import to_lam
-    plans = (("governedBy_rule_base", ["smDef"], [2, 1]),
-             ("governedBy_rule_step", ["subtype", "governedBy"], [1, 3]))
+    # CANON: DEF("system:governance_plans") -- WHICH rules make the closure is
+    # data, so extending it is a row rather than an edit here. Base before
+    # step, so the first round has something to close over.
+    from .lam import atom as _Ag, from_lam as _flg
+    from .reduce import apply as _apg
+    plans = tuple((n, list(fts), list(head)) for (n, fts, head) in
+                  _flg(_apg(_Ag("system:governance_plans"), to_lam(()))))
     atoms = []
     for (name, fts, head) in plans:
         D = _ap(ast.DefineIn(name, compile_rule(fts, head)), D)
