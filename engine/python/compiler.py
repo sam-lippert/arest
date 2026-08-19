@@ -862,6 +862,14 @@ def _name_refmode(text):
     return (m2.group(1), m2.group(2)) if m2 else (text.strip(), None)
 
 
+def _canon_pair(name, operand):
+    """CANON -- apply a def answering a PAIR of sequences and hand back tuples."""
+    from .reduce import apply as _apply
+    from .lam import atom as _A, from_lam as _fl
+    x, y = _fl(_apply(_A(name), to_lam(operand)))
+    return tuple(x), tuple(y)
+
+
 def _canon_h(name, g, k, m):
     """CANON -- the shared caller for the statement handlers.
 
@@ -1200,13 +1208,14 @@ def _h_subset(g, k, m):
                          "declared fact type: " + cons_txt[:60])
     # roles bound in BOTH clauses (by noun, once each) project — the consequent's
     # 'that <Noun>' re-uses the antecedent's 'some <Noun>'
-    shared = [n for n in a_roles
-              if n in b_roles and a_roles.count(n) == 1 and b_roles.count(n) == 1]
-    if not shared:
+    # CANON: DEF("system:subset_proj") owns which roles project -- bound
+    # exactly once on each side, dropped when bound twice because the re-use
+    # is then ambiguous. The refusal stays here: a diagnostic naming the
+    # offending clause is the host lexical half, not the projection meaning.
+    proj_a, proj_b = _canon_pair("system:subset_proj", (tuple(a_roles), tuple(b_roles)))
+    if not proj_a:
         raise ValueError("no shared role binding across the if-then clauses: "
                          + ante[:60])
-    proj_a = tuple(a_roles.index(n) + 1 for n in shared)
-    proj_b = tuple(b_roles.index(n) + 1 for n in shared)
     decl, mid, ospecs = _compile_cs("subset", "", [a_ft, b_ft],
                                  [ante.strip(), cons_txt.strip()])
     op = (b_ft, proj_a, proj_b)
