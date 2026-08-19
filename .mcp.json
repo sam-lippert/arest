@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/sdk/main/schemas/mcp.json",
   "mcpServers": {
     "arest": {
-      "description": "AREST engine 0.9.0, served by the RUST RESIDENT (arest --mcp). 40 verbs: reads, applies, orient/cells/query/derive compute natively over the retained sidecar store; the compiler-host verbs (compile/propose/induce/ask, sql, the read long tail) delegate to the same engine's python through cli.py — one first-class verb table, two bindings. Bound to the DEBUG build on purpose: release takes ~45min and debug ~2min, and this binary is meant to be changed constantly. Canon is not compiled in — engine/rust reads it from disk at startup — so editing arest costs a restart (~0.6s cold), never a rebuild; only host edits rebuild.",
+      "description": "AREST engine 0.9.0, served by the RUST RESIDENT (arest --mcp). 40 verbs: reads, applies, orient/cells/query/derive compute natively over the retained sidecar store; the compiler-host verbs (compile/propose/induce/ask, sql, the read long tail) delegate to the same engine's python through cli.py — one first-class verb table, two bindings. Bound to the DEBUG build on purpose: release takes ~45min and debug ~2min, and this binary is meant to be changed constantly. Canon IS compiled in: main.rs include!s the repo-root arest and shared/scenarios.canon as source, so rustc is the canon reader and a canon edit costs the same ~1m30 debug rebuild a host edit does. The claim that stood here -- read from disk at startup, a restart not a rebuild -- was wrong, and it is the reason a runtime canon reader is still open on BOTH rust lineages rather than only the thin station.",
       "command": "engine/rust/target/debug/arest.exe",
       "args": [
         "--mcp",

@@ -2513,40 +2513,23 @@ def register_translators():
     federation connectors: DEFS is the DI container, swapping is re-registering).
     Idempotent; call again to restore the real bindings after a test swapped one."""
     from .defs import register
-    for name, kinds in (
-        ("translate_nouns", ["entity_type", "value_type", "subtype_of",
-                             "brace_subtypes"]),
-        ("translate_subtypes", ["subtype_of", "brace_subtypes"]),
-        ("translate_enum_values", ["value_constraint"]),
-        ("translate_data_types", ["data_type"]),
-        ("translate_instance_facts", ["fact_type_reading"]),
-        ("translate_fact_types", ["fact_type_reading"]),
-        ("translate_derivation_mode_facts", ["fact_type_reading"]),
-        # class_rule FIRST, matching _CLASSIFY's arbitration: the quote-aware
-        # rule_iff pattern would otherwise claim quoted-head classification
-        # statements and mint per-value fact types (the merge fanout)
-        ("translate_derivation_rules", ["class_rule", "rule_if", "rule_iff", "derivation_rule"]),
-        ("translate_cardinality_constraints", ["uniqueness", "inverse_uc",
-                                               "spanning_uc", "spanning_uc2",
-                                               "frequency",
-                                               "neg_uniqueness",
-                                               "disjunctive_mandatory",
-                                               "mandatory",
-                                               "for_each_mandatory",
-                                               "neg_mandatory"]),
-        ("translate_ring_constraints", ["ring"]),
-        ("translate_set_constraints", ["set_comparison", "subset",
-                                       "subset_trailing", "equality",
-                                       "disjunctive_mandatory"]),
-        ("translate_value_constraints", ["value_constraint"]),
-        ("translate_state_machines", ["sm_def", "sm_initial", "sm_from", "sm_to",
-                                      "sm_trigger", "sm_guard", "sm_emit",
-                                      "sm_moore"]),
-        ("translate_finality", ["finality"]),
-        ("translate_objectifications", ["objectification"]),
-        ("translate_negation", ["neg_pair", "negation"]),
-    ):
-        register(name, _stmt_translator_impl(kinds))
+    from .lam import atom as _A, to_lam as _tl, from_lam as _fl
+    from .reduce import apply as _apply
+    # CANON: DEF("system:tr_kinds") -- the <translator, kind> population in
+    # ARBITRATION ORDER. The order is the meaning: class_rule sits before
+    # rule_if so a quoted-head classification statement is not claimed by the
+    # rule pattern and made to mint a fact type per value. It used to be the
+    # tuple that stood here plus engine/rust translator_kinds, held twice by
+    # hand with nothing comparing them. The dict below is an INDEX; every
+    # order it carries -- of the kinds, and of the names -- comes from canon.
+    kinds, order = {}, []
+    for t, k in (tuple(r) for r in _fl(_apply(_A("system:tr_kinds"), _tl(())))):
+        if t not in kinds:
+            kinds[t] = []
+            order.append(t)
+        kinds[t].append(k)
+    for name in order:
+        register(name, _stmt_translator_impl(tuple(kinds[name])))
 
 _GRAMMAR_CACHE = {}
 
