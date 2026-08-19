@@ -1393,6 +1393,11 @@ DEF("case:initial-status-none", S2(A("system:initial_status"), S2(A("NoMachine")
 "system:has_status is the guard that makes a birth happen ONCE, and has-status-moved is the row that fixes WHAT it matches. t2 has already moved on to done, and it still answers true, because the match is on the KEY at position 1 and not on the row. Comparing rows would find no match for an entity that has advanced, and the write path would then birth a second, contradictory status row for it -- an entity both done and freshly open. has-status-absent is the key no row holds, the only shape that births.",
 DEF("case:has-status-moved", S2(A("system:has_status"), S2(S2(A("Task_has_Status"), A("t2")), S1(S3(A("CELL"), A("Task_has_Status"), S2(S2(A("t1"), A("open")), S2(A("t2"), A("done")))))))),
 DEF("case:has-status-absent", S2(A("system:has_status"), S2(S2(A("Task_has_Status"), A("t9")), S1(S3(A("CELL"), A("Task_has_Status"), S2(S2(A("t1"), A("open")), S2(A("t2"), A("done")))))))),
+
+"system:slot_filled reads an absorbed wide row slot. slot-hash is the row that separates this from every other absent test in the system: the HASH is the wide row own marker for a column the layout carries but this entity does not fill, and it appears in NO sparse population. A check written against the sparse markers -- empty and phi -- reads that hash as a value and refuses to seed a status the entity does not have. slot-short is the ragged row, too short to reach the position because the layout grew after it was written, and it answers false rather than bottom: a missing tail is an unfilled slot, not a fault.",
+DEF("case:slot-filled", S2(A("system:slot_filled"), S2(S2(A("t1"), A("open")), N(2)))),
+DEF("case:slot-hash", S2(A("system:slot_filled"), S2(S2(A("t1"), A("#")), N(2)))),
+DEF("case:slot-short", S2(A("system:slot_filled"), S2(S1(A("t1")), N(2)))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
