@@ -124,6 +124,14 @@ OVERRIDES = {
     # the fat engine, not a line change, and until then this row is what says
     # the duplication is known rather than drift.
     "system:con_text": "system:con_text",
+    # the partition lookup. canon is the definition of record
+    # (DEF("system:ft_table"), cased), and rmap_partition keeps a MEMOISED
+    # DICT because eleven call sites do this lookup on hot paths -- the write
+    # path, ft_view, sm init and create_spec among them. Replacing an O(1)
+    # dict hit with an O(n) canon scan eleven times over is the exact cost
+    # system:pop_rows was twinned to remove this morning, so the dict stays
+    # and is declared here rather than left to look like drift.
+    "rmap_partition": "system:ft_table",
 }
 
 
