@@ -6309,6 +6309,11 @@ DEF("system:cs_fam",
 
 "THE dsl CELL ROW FOR A NOUN, and every component of it SORTED. The row is <noun, kind, readings, constraints, transitions> and the sorting is the meaning rather than tidiness: engine.py says so in its own comment, that the components project SETS and store emission order must not leak into the row bytes -- it differed across hosts on rule-chain apps and embedded the constraint cell row order into the dsl rows. Three components, three sorts, because the shapes differ: readings are flat names and sort by rmap:sortnames, constraints are <tag, sentence> pairs and transitions <trigger, from, to> triples, both of which system:sort_asc orders by first element. The transitions DEDUPE first: a governed noun sees the union of every machine triple, so the same triple arrives more than once, and the set is what the row means.",
 
+"EVERY DECLARED TYPE WITH ITS KIND, sorted. The generator labels an ObjectType entity and a ValueType value, and asks for them in name order both times it reads them. Composed from the two halves canon already had -- system:ev_entities answers the object types and system:ctx_vals the value types -- rather than scanning instanceOf again, so a third kind appearing in that population is excluded here by the same rule that excludes it there. The LABELS are the generator vocabulary, not the metamodel: instanceOf says ObjectType and ValueType, the dsl rows say entity and value, and this def is where that translation lives instead of in a conditional expression the hosts each spell for themselves.",
+
+DEF("system:ot_kinds",
+    S4(A("COMP"), A("system:sort_asc"), A("cat"), S3(A("CONS"), S3(A("COMP"), S2(A("ALPHA"), S3(A("CONS"), A("id"), K(A("entity")))), A("system:ev_entities")), S3(A("COMP"), S2(A("ALPHA"), S3(A("CONS"), A("id"), K(A("value")))), A("system:ctx_vals"))))),
+
 DEF("system:dsl_row",
     S6(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), A("rmap:sortnames"), S3(A("COMP"), N(1), N(2))), S3(A("COMP"), A("system:sort_asc"), S3(A("COMP"), N(2), N(2))), S4(A("COMP"), A("system:sort_asc"), A("theta:dedup"), S3(A("COMP"), N(3), N(2))))),
 

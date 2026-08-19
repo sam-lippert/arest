@@ -2201,10 +2201,15 @@ def generator_cells(D):
     transitions). Computed from M at compile time beside the layout cells;
     recompile replaces the family wholesale."""
     from .lam import to_lam, from_lam
-    kinds = {}
-    for r in _pop_rows(D, "instanceOf"):
-        if len(r) >= 2 and r[1] in ("ObjectType", "ValueType"):
-            kinds[r[0]] = "entity" if r[1] == "ObjectType" else "value"
+    from .lam import atom as _A8, from_lam as _fl8
+    from .reduce import apply as _ap8
+    # CANON: DEF("system:ot_kinds") -- every declared type with its kind, in
+    # name order. The labels are the GENERATOR's vocabulary: instanceOf says
+    # ObjectType and ValueType, the dsl rows say entity and value, and that
+    # translation lives in the def rather than in a conditional each host
+    # spells for itself. Already sorted, so the two read sites do not re-sort.
+    kinds = tuple(tuple(x) for x in
+                  _fl8(_ap8(_A8("system:ot_kinds"), D)))
     # The map below is an INDEX (membership, and iteration over fact types).
     # The ORDER is canon: DEF("system:ft_roles") answers <position, player>
     # sorted by POSITION, which is what every read site wanted and each one
@@ -2251,7 +2256,7 @@ def generator_cells(D):
         if len(r) >= 2:
             sms.setdefault(r[1], []).extend(triples)
     cells = {}
-    for noun, kind in sorted(kinds.items()):
+    for noun, kind in kinds:
         my_fts = [ft for ft, ps in roles.items()
                   if any(p == noun for (_i, p) in ps)]
         # CANON: DEF("system:dsl_row") sorts all three components. That is the
@@ -2312,7 +2317,7 @@ def generator_cells(D):
         def _plural(noun_name):
             return plurals.get(noun_name, _sqlname(noun_name) + "s")
 
-        for noun, kind in sorted(kinds.items()):
+        for noun, kind in kinds:
             if kind != "entity":
                 continue
             classified = from_lam(_xap(_XA("system:ev_cols"),
