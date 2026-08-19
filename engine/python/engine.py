@@ -3155,10 +3155,12 @@ def sm_init_entity(D, ft, row):
     noun = _fl1(_ap1(_A1("system:role1_player"), _S(_A1(ft), D)))
     if not isinstance(noun, str) or noun == "⊥":
         return D
-    gov = {r[0]: r[1] for r in _pop_rows(D, "governedBy") if len(r) >= 2}
     status_fts = {r[0]: r[1] for r in _pop_rows(D, "smStatusFt")
                   if len(r) >= 2}
-    g = gov.get(noun, noun)
+    # CANON: DEF("system:governing_noun") -- the governedBy image, or the noun
+    # ITSELF when no closure mentions it. That default is the ordinary case,
+    # not a missing value: a noun without subtyping governs itself.
+    g = _fl1(_ap1(_A1("system:governing_noun"), _S(_A1(noun), D)))
     sft = status_fts.get(g)
     m = machines.get(g, machines.get(noun))
     if sft is None or m is None or ft == sft:
