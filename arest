@@ -8696,6 +8696,11 @@ DEF("system:replay_barrier",
 
 "THE GOVERNING NOUN OF A NOUN. A machine may govern a noun directly or through the governedBy closure, so the write path resolves the noun before asking which status fact type holds its column. An UNGOVERNED noun answers ITSELF, and that default is the whole subtlety: it is not a missing value to be guarded against but the ordinary case -- a noun no closure mentions governs itself, so the same lookup serves both and the caller needs no branch. Answering phi instead would make every ungoverned noun look like a lookup failure, and the write path would stop birthing statuses for exactly the entities that have no subtyping.",
 
+"THE STATUS FACT TYPE OF A NOUN -- which column holds its machine status. A noun with NO machine answers PHI, and that is deliberately different from system:role1_player, which bottoms: a noun without a machine is the ordinary case, most nouns in most apps, while a fact type with no role at position 1 is a compile fault. The two misses are not the same kind of thing and answering them alike would either bottom every ordinary write or swallow a real fault. Distinct from system:repr_statusft, which reads the same population for the representation and does not take this pair.",
+
+DEF("system:status_ft",
+    S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(1)), N(1)), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("smStatusFt")), N(2)))))), K(PHI()), S4(A("COMP"), N(2), N(1), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(1)), N(1)), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("smStatusFt")), N(2)))))))),
+
 DEF("system:governing_noun",
     S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(1)), N(1)), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("governedBy")), N(2)))))), N(1), S4(A("COMP"), N(2), N(1), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(1)), N(1)), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("governedBy")), N(2)))))))),
 

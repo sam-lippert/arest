@@ -1376,6 +1376,10 @@ DEF("case:role1-player-norole1", S2(A("system:role1_player"), S2(A("Other"), S1(
 "system:governing_noun, and governing-noun-self is the row that carries the rule: a noun the closure never mentions answers ITSELF. That is the ordinary case rather than a lookup failure -- a noun without subtyping governs itself -- so the same lookup serves governed and ungoverned nouns and the caller needs no branch. A def answering phi there would make every ungoverned noun look like a miss, and the write path would stop birthing statuses for exactly the entities that have no subtyping at all.",
 DEF("case:governing-noun", S2(A("system:governing_noun"), S2(A("Manager"), S1(S3(A("CELL"), A("governedBy"), S2(S2(A("Manager"), A("Employee")), S2(A("Contractor"), A("Person")))))))),
 DEF("case:governing-noun-self", S2(A("system:governing_noun"), S2(A("Task"), S1(S3(A("CELL"), A("governedBy"), S2(S2(A("Manager"), A("Employee")), S2(A("Contractor"), A("Person")))))))),
+
+"system:status_ft answers which column holds a noun machine status. status-ft-none is a noun with no machine and answers PHI, deliberately unlike system:role1_player, which BOTTOMS on its miss. The two misses are different kinds of thing: most nouns in most apps have no machine, while a fact type with no role at position 1 is a compile fault. Answering them alike would either bottom every ordinary write or swallow a real fault.",
+DEF("case:status-ft", S2(A("system:status_ft"), S2(A("Task"), S1(S3(A("CELL"), A("smStatusFt"), S2(S2(A("Task"), A("Task_has_Status")), S2(A("Order"), A("Order_has_Status")))))))),
+DEF("case:status-ft-none", S2(A("system:status_ft"), S2(A("Person"), S1(S3(A("CELL"), A("smStatusFt"), S2(S2(A("Task"), A("Task_has_Status")), S2(A("Order"), A("Order_has_Status")))))))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
