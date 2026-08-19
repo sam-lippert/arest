@@ -3725,12 +3725,12 @@ def describe(D, noun):
         "noun": noun,
         "kind": sorted({r[1] for r in _pop_rows(D, "instanceOf")
                         if len(r) >= 2 and r[0] == noun}),
-        "supertypes": sorted({b for (a, b) in
-                              (r[:2] for r in _pop_rows(D, "subtype") if len(r) >= 2)
-                              if a == noun}),
-        "subtypes": sorted({a for (a, b) in
-                            (r[:2] for r in _pop_rows(D, "subtype") if len(r) >= 2)
-                            if b == noun}),
+        # CANON: a subtype row is <subtype, supertype>, so the two directions
+        # read OPPOSITE columns and neither is the other reversed.
+        "supertypes": list(_fl2(_ap2(_A2("system:supertypes_of"),
+                                     _S(_A2(noun), D)))),
+        "subtypes": list(_fl2(_ap2(_A2("system:subtypes_of"),
+                                   _S(_A2(noun), D)))),
         "roles": sorted(roles),
         "ref_mode": sorted({r[1] for r in _pop_rows(D, "refMode")
                             if len(r) >= 2 and r[0] == noun}),
