@@ -112,7 +112,17 @@ def test_sources_declare_in_m_and_resolve_through_defs():
     # and translator are DEFINITION NAMES resolved by rho, and swapping the fetch is
     # re-registering the name — DEFS as the DI container, per the whitepaper
     from pyarest import defs as d
-    DECL = federate._module_readings() + """
+    # federate._module_readings() was deleted in e1103b36 with the note "no
+    # caller in the package" -- the caller was HERE. Its content moved to
+    # metamodel/federation.md in that same commit, which is the one metamodel
+    # every host reads, so the test follows the content rather than resurrect
+    # a second copy of it.
+    import io as _io, os as _os
+    from pyarest import compiler as _c
+    with _io.open(_os.path.join(_c.metamodel_dir(), "federation.md"),
+                  encoding="utf-8") as _f:
+        _MODULE = _f.read()
+    DECL = _MODULE + """
 Source 'schemaorg' has Url 'https://example.test/schema'.
 Source 'schemaorg' uses Connector 'jsonld-http'.
 Connector 'jsonld-http' fetches with Fetcher 'httpFetch'.

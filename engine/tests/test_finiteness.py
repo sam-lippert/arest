@@ -39,19 +39,20 @@ def test_pure_recursion_is_admitted():
 
 
 def test_a_cycle_through_a_boundary_def_is_flagged():
-    system._register_cellkey()                                # a registered (boundary) op
+    # cellkey became CANON in e1103b36 -- DEF("cellkey") -- so it is no longer a
+    # REGISTERED op and no longer the boundary this test needs. skolem still is:
+    # id minting is a boundary act, and it is the value-invention leaf.
     D, _ = forml.compile_model(MODEL)
     D = apply(ast.DefineIn("pure_rule", system.compile_rule(["A"], [1])), D)
-    D = apply(ast.DefineIn("inventive_rule", S(A("COMP"), A("cellkey"), A(1))), D)
+    D = apply(ast.DefineIn("inventive_rule", S(A("COMP"), A("skolem"), A(1))), D)
     D = _add_rows(D, "ruleReads", (("pure_rule", "A"), ("inventive_rule", "B")))
     D = _add_rows(D, "ruleDerives", (("pure_rule", "B"), ("inventive_rule", "A")))
     assert system.finiteness_check(D) == ["inventive_rule"]   # invention on a cycle
 
 
 def test_acyclic_invention_is_admitted():
-    system._register_cellkey()
     D, _ = forml.compile_model(MODEL)
-    D = apply(ast.DefineIn("keyed_view", S(A("COMP"), A("cellkey"), A(1))), D)
+    D = apply(ast.DefineIn("keyed_view", S(A("COMP"), A("skolem"), A(1))), D)
     D = _add_rows(D, "ruleReads", (("keyed_view", "C"),))
     D = _add_rows(D, "ruleDerives", (("keyed_view", "E"),))   # E never reaches back to C
     assert system.finiteness_check(D) == []                   # finite composition: fine
