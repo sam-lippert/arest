@@ -8692,6 +8692,11 @@ DEF("system:id_sentinel",
 DEF("system:replay_barrier",
     S3(A("COMP"), A("or"), S3(A("CONS"), S3(A("COMP"), A("not"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), K(A("apply"))))), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2)))))),
 
+"THE ROLE-1 PLAYER OF A FACT TYPE -- its subject. The write path needs it to decide whether a committed create BIRTHS a governed entity: engine.py sm_init_entity reads the player at role position ONE, because the key of the row being written is that role filler and a birth is a key with no status row yet. Distinct from system:governed_player, which answers whichever player a machine governs wherever it sits: here the POSITION is what fixes the answer, since the row being written puts its key first. Distinct also from system:mf_evpos, which runs the other way, position from player. A fact type with no role at position 1 answers bottom rather than a name: there is no subject to birth, and inventing one would seed a status against a key nobody wrote.",
+
+DEF("system:role1_player",
+    S4(A("COMP"), N(4), N(1), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(3)), K(N(1))), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(2)), N(1)), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("role")), N(2))))))))),
+
 DEF("system:mf_evpos",
     S4(A("COMP"), N(3), N(1), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(4)), S3(A("COMP"), N(2), N(1))), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(2)), S3(A("COMP"), N(1), N(1))), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("role")), N(2))))))))),
 
