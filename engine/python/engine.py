@@ -3178,8 +3178,12 @@ def sm_init_entity(D, ft, row):
     key = row[0]
     table = part.get(sft, sft)
     if table == sft:
-        if any(isinstance(r, tuple) and r and r[0] == key
-               for r in _pop_rows(D, sft)):
+        # CANON: DEF("system:has_status") -- matches on the KEY, not the row.
+        # An entity that has already moved on carries a DIFFERENT status, so a
+        # row comparison would find no match and birth a second, contradictory
+        # row for the same entity.
+        if _fl1(_ap1(_A1("system:has_status"),
+                     _S(_S(_A1(sft), _A1(key)), D))) == "T":
             return D
         from . import ast as _ast
         from .reduce import apply as _apply
