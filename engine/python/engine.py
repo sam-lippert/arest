@@ -1991,10 +1991,21 @@ def _instance_mirror(D):
     through the evaluator costs the closure path about a third again (618s to
     841s on the fixpoint test, measured 2026-08-16), and a sanctioned twin is
     not drift."""
+    # The map below is an INDEX (membership, and iteration over fact types).
+    # The ORDER is canon: DEF("system:ft_roles") answers <position, player>
+    # sorted by POSITION, which is what every read site wanted and each one
+    # sorted for itself. Sorted by position and not player because both roles
+    # of P_manages_P are Person and the template fills its slots by position.
     roles = {}
     for r in _pop_rows(D, "role"):
         if len(r) >= 4:
             roles.setdefault(r[1], []).append((r[2], r[3]))
+    from .lam import atom as _A8, from_lam as _fl8
+    from .reduce import apply as _ap8
+
+    def _players(ft):
+        return [p for (_i, p) in
+                _fl8(_ap8(_A8("system:ft_roles"), _S(_A8(ft), D)))]
     nouns = {r[0] for r in _pop_rows(D, "instanceOf")
              if len(r) >= 2 and r[1] == "ObjectType"}
     out = set()
@@ -2201,14 +2212,25 @@ def generator_cells(D):
     for r in _pop_rows(D, "instanceOf"):
         if len(r) >= 2 and r[1] in ("ObjectType", "ValueType"):
             kinds[r[0]] = "entity" if r[1] == "ObjectType" else "value"
+    # The map below is an INDEX (membership, and iteration over fact types).
+    # The ORDER is canon: DEF("system:ft_roles") answers <position, player>
+    # sorted by POSITION, which is what every read site wanted and each one
+    # sorted for itself. Sorted by position and not player because both roles
+    # of P_manages_P are Person and the template fills its slots by position.
     roles = {}
     for r in _pop_rows(D, "role"):
         if len(r) >= 4:
             roles.setdefault(r[1], []).append((r[2], r[3]))
+    from .lam import atom as _A8, from_lam as _fl8
+    from .reduce import apply as _ap8
+
+    def _players(ft):
+        return [p for (_i, p) in
+                _fl8(_ap8(_A8("system:ft_roles"), _S(_A8(ft), D)))]
     readings = {}
     for f in _pop_rows(D, "factType"):
         if len(f) >= 2 and f[0] in roles:
-            players = [p for (_i, p) in sorted(roles[f[0]])]
+            players = _players(f[0])
             try:
                 readings[f[0]] = str(f[1]).format(*players)
             except (IndexError, KeyError):
@@ -2217,7 +2239,7 @@ def generator_cells(D):
     for c in _pop_rows(D, "constraint"):
         if len(c) < 3:
             continue
-        ft, players = c[2], [p for (_i, p) in sorted(roles.get(c[2], []))]
+        ft, players = c[2], _players(c[2])
         if c[1] == "uniqueness" and len(players) >= 2:
             cons.append((ft, players, ("UC", "Each %s has at most one %s."
                                        % (players[0], players[1]))))

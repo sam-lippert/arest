@@ -8723,6 +8723,11 @@ DEF("system:is_trigger",
 DEF("system:ft_table",
     S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(2)), N(1)), N(2)))), N(1), S4(A("COMP"), N(1), N(1), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(2)), N(1)), N(2)))))),
 
+"THE PLAYERS OF A FACT TYPE, IN ROLE ORDER. Answers <position, player> pairs sorted by position, which is the order every caller wanted and each one sorted for itself -- the hosts built a map from fact type to unsorted pairs and then wrote sorted(...) at each read site, so the ordering was restated at every use and could be forgotten at one. It is the def order here. The sort is by POSITION and not by player: role 1 of P_manages_P and role 2 are both Person, so sorting by name would leave the manager and the managed in whichever order the role rows happened to be stored, and the reading template fills its slots by position.",
+
+DEF("system:ft_roles",
+    S4(A("COMP"), A("system:sort_asc"), S2(A("ALPHA"), S3(A("CONS"), N(3), N(4))), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(2)), N(1)), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("role")), N(2))))))),
+
 DEF("system:noun_roles",
     S4(A("COMP"), S2(A("ALPHA"), S4(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(3), N(1)), S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(1)), S3(A("COMP"), N(2), N(1))), N(2)))), K(A("")), S4(A("COMP"), N(2), N(1), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(1)), S3(A("COMP"), N(2), N(1))), N(2))))))), A("distr"), S3(A("CONS"), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(4)), N(1)), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("role")), N(2))))), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("factType")), N(2)))))),
 
