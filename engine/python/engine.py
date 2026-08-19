@@ -3646,9 +3646,15 @@ def describe(D, noun):
     ft_view style): kind, supertypes and subtypes, the fact types it plays roles in
     (with their reading templates and this noun's position), reference mode, the
     machine governing it (if any), and federation provenance."""
-    readings = {f[0]: f[1] for f in _pop_rows(D, "factType") if len(f) >= 2}
-    roles = [(r[1], r[2], readings.get(r[1], ""))
-             for r in _pop_rows(D, "role") if len(r) >= 4 and r[3] == noun]
+    # CANON: DEF("system:noun_roles") -- the roles this noun FILLS, each with
+    # the fact type's reading and the noun's POSITION in it. The position is
+    # load-bearing: Person at 1 of Person_manages_Person is the manager and at
+    # 2 the managed, so a listing without it says the same thing twice about a
+    # ring fact type.
+    from .lam import atom as _A2, from_lam as _fl2
+    from .reduce import apply as _ap2
+    roles = [tuple(x) for x in
+             _fl2(_ap2(_A2("system:noun_roles"), _S(_A2(noun), D)))]
     return {
         "noun": noun,
         "kind": sorted({r[1] for r in _pop_rows(D, "instanceOf")

@@ -1398,6 +1398,10 @@ DEF("case:has-status-absent", S2(A("system:has_status"), S2(S2(A("Task_has_Statu
 DEF("case:slot-filled", S2(A("system:slot_filled"), S2(S2(A("t1"), A("open")), N(2)))),
 DEF("case:slot-hash", S2(A("system:slot_filled"), S2(S2(A("t1"), A("#")), N(2)))),
 DEF("case:slot-short", S2(A("system:slot_filled"), S2(S1(A("t1")), N(2)))),
+
+"system:noun_roles lists the roles a noun FILLS. The store holds a RING fact type -- Person at position 1 and again at position 2 of P_manages_P -- so the case shows both rows surviving with the same reading and different positions. Drop the position and a ring says the same thing twice with no way to tell manager from managed. P_has_Name has no reading and still appears, carrying the EMPTY template: the noun plays that role whether or not anyone wrote a reading for it, and skipping it would make participation depend on authoring. O_has_X belongs to another noun and is absent.",
+DEF("case:noun-roles", S2(A("system:noun_roles"), S2(A("Person"), S2(S3(A("CELL"), A("role"), S4(S4(A("r1"), A("P_manages_P"), N(1), A("Person")), S4(A("r2"), A("P_manages_P"), N(2), A("Person")), S4(A("r3"), A("P_has_Name"), N(1), A("Person")), S4(A("r4"), A("O_has_X"), N(1), A("Order")))), S3(A("CELL"), A("factType"), S1(S2(A("P_manages_P"), A("{0} manages {1}")))))))),
+DEF("case:noun-roles-none", S2(A("system:noun_roles"), S2(A("Nobody"), S2(S3(A("CELL"), A("role"), S4(S4(A("r1"), A("P_manages_P"), N(1), A("Person")), S4(A("r2"), A("P_manages_P"), N(2), A("Person")), S4(A("r3"), A("P_has_Name"), N(1), A("Person")), S4(A("r4"), A("O_has_X"), N(1), A("Order")))), S3(A("CELL"), A("factType"), S1(S2(A("P_manages_P"), A("{0} manages {1}")))))))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
