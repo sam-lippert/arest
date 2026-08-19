@@ -2240,14 +2240,14 @@ def generator_cells(D):
         if len(c) < 3:
             continue
         ft, players = c[2], _players(c[2])
-        if c[1] == "uniqueness" and len(players) >= 2:
-            cons.append((ft, players, ("UC", "Each %s has at most one %s."
-                                       % (players[0], players[1]))))
-        elif c[1] == "mandatory" and len(players) >= 2:
-            cons.append((ft, players, ("MC", "Each %s has some %s."
-                                       % (players[0], players[1]))))
-        elif str(c[1]).startswith("deontic"):
-            cons.append((ft, players, ("UC", str(c[0]) + ".")))
+        # CANON: DEF("system:con_pair") -- <tag, sentence>. The tag says how
+        # the generator GROUPS the sentence, not what the constraint is, which
+        # is why a deontic files as UC alongside uniqueness. Nothing for a kind
+        # that verbalizes to nothing, so the row is simply not appended.
+        pair = _fl8(_ap8(_A8("system:con_pair"),
+                         to_lam((c[1], c[0], tuple(players)))))
+        if pair:
+            cons.append((ft, players, tuple(pair)))
     # the machine triples per governed noun; a triple does not carry its
     # machine id, so with several machines every governed noun sees the
     # union (the single-machine case, every app in the fleet today, is

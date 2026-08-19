@@ -1290,6 +1290,11 @@ DEF("case:con-text-deontic", S2(A("system:con_text"), S3(A("deonticObligation"),
 DEF("case:con-text-unary", S2(A("system:con_text"), S3(A("uniqueness"), A("c5"), S1(A("Person"))))),
 DEF("case:con-text-other", S2(A("system:con_text"), S3(A("other"), A("c6"), S2(A("A"), A("B"))))),
 
+"system:con_pair answers <tag, sentence> -- what the generator files, not just what it reads. con-pair-deontic is the row that looks wrong and is not: a deontic constraint files under UC, the same tag as uniqueness, because the tag says how the generator GROUPS the sentence rather than what the constraint is. con-pair-uc and con-pair-mc carry the same two players and differ only in kind, so the pair of them shows the tag and the sentence moving together. The def composes system:con_text rather than restating the sentences, so the tagged and untagged forms cannot drift.",
+DEF("case:con-pair-uc", S2(A("system:con_pair"), S3(A("uniqueness"), A("c1"), S2(A("Person"), A("Name"))))),
+DEF("case:con-pair-mc", S2(A("system:con_pair"), S3(A("mandatory"), A("c2"), S2(A("Person"), A("Name"))))),
+DEF("case:con-pair-deontic", S2(A("system:con_pair"), S3(A("deonticObligation"), A("c4"), S2(A("A"), A("B"))))),
+
 "system:machine is the tau-ordered fold (INSERT system:mstep over the ordered events) and law:machine already certifies it, but only as a law: the case table compares per case, so this pins the SAME literal row by row across the stations. The events are deliberately out of order and e9 fires from nowhere -- it is the row proving an event invalid from the current status leaves the status alone rather than bottoming the fold.",
 DEF("case:machine-fold", S2(A("system:machine"), S2(S2(A("a"), S2(S4(A("a"), A("t1"), A("b"), A("e1")), S4(A("b"), A("t2"), A("c"), A("e2")))), S3(S2(A("e2"), N(10)), S2(A("e9"), N(2)), S2(A("e1"), N(9)))))),
 
