@@ -8710,6 +8710,11 @@ DEF("system:replay_barrier",
 
 "WHICH TABLE HOLDS A FACT TYPE ROWS. Reads the RMAP partition pairs <table, fact type> and answers the table, or the FACT TYPE ITSELF when no pair absorbs it. That default is the rule and not a fallback: rule 1 gives a fact type with a spanning uniqueness constraint or none at all its own table, so being absent from the partition IS having your own table, and the caller compares the answer against the fact type to learn whether it was absorbed. Answering phi for the unabsorbed case would make every rule-1 fact type look unrouted and the write path would have nowhere to put the commonest shape in any model.",
 
+"IS THIS FACT TYPE A MACHINE TRIGGER. Asked all over the hosts and answered by scanning smTrigger for the fact type in the SECOND column -- the row is <machine, fact type>, so a scan of the first column answers about machines and would call every fact type a trigger in an app with one machine, or none in an app with none. The question decides real branches: a trigger fact type takes the gated create rather than the bulk install (system:replay_barrier), and create_spec builds it a machine, mealy and links recipe that a plain fact type does not get. One statement of it here rather than eleven scans in engine.py and their transliteration in rust.",
+
+DEF("system:is_trigger",
+    S4(A("COMP"), A("not"), A("null"), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(2)), N(1)), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("smTrigger")), N(2))))))),
+
 DEF("system:ft_table",
     S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(2)), N(1)), N(2)))), N(1), S4(A("COMP"), N(1), N(1), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(2)), N(1)), N(2)))))),
 

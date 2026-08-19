@@ -3327,7 +3327,12 @@ def create_spec(D, fact_type, part=None):
     absorbed = table != fact_type
     row_col = 2 + table_columns(part, table).index(fact_type) if absorbed else None
     machine = mealy = links = None
-    if any(r[1] == fact_type for r in _pop_rows(D, "smTrigger")):
+    # CANON: DEF("system:is_trigger") -- smTrigger rows are <machine, fact
+    # type>, so the test reads the SECOND column. Reading the first would call
+    # every fact type a trigger in an app with one machine.
+    from .lam import atom as _A3, from_lam as _fl3
+    from .reduce import apply as _ap3
+    if _fl3(_ap3(_A3("system:is_trigger"), _S(_A3(fact_type), D))) == "T":
         noun = _governed_player(D, fact_type)
         if noun is not None:
             role_pos = next((r[2] for r in _pop_rows(D, "role")
