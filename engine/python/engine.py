@@ -1831,19 +1831,12 @@ def _uniq_constraints(consrows):
     return tuple(tuple(c) for c in _fl(_apl(_at("derive:uniq_constraints"), _tl(rows))))
 
 
-def _distinct_at(pos, rows):
-    """CANON -- DEF("rmap:distinct_at"): one column, DEDUPED.
+# _distinct_at deleted: DEF("rmap:distinct_at") is the meaning and
+# system:trigger_fts is the caller now. Verified dead in engine/python,
+# in engine/tests, and in the rest of the repo -- "no caller in the
+# package" is what left four suites red in e1103b36.
 
-    rmap:atpos' deduping sibling. The two differ only by the dedup and the
-    canon cases keep them apart deliberately, so the choice is stated rather
-    than implied: here the only question asked of the answer is MEMBERSHIP, so
-    dedup is right, where status_facts needs every occurrence.
 
-    A row with no value at the position DROPS rather than bottoming the
-    answer -- the guard python spelled as len(r) >= 2."""
-    from .lam import to_lam as _tl, from_lam as _fl, atom as _at
-    from .reduce import apply as _apl
-    return list(_fl(_apl(_at("rmap:distinct_at"), _tl((pos, tuple(tuple(r) for r in rows))))))
 def _role_maxpos(ft, rolerows):
     """CANON -- DEF("rmap:role_maxpos"): the highest role position a fact type
     names, 2 when it names none.
