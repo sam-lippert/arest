@@ -3104,21 +3104,23 @@ def machine_fold(D):
             continue
         m = machines.get(gov.get(noun, noun), machines.get(noun))
         start = current.get((noun, e), initials.get(m))
-        cur, evs = start, sorted(evs)
-        fired_any, fired = False, True
-        while fired and evs:
-            fired = False
-            for i, ev in enumerate(evs):
-                to = next((t for (f, g, t) in triples
-                           if g == ev and f == cur), None)
-                if to is not None:
-                    cur, fired, fired_any = to, True, True
-                    evs.pop(i)
-                    break
-        # write iff the machine RAN for this entity — a round-trip back
-        # to the initial still materializes (the write path would have);
-        # an entity whose every event is unfireable stays untouched
-        if fired_any and cur != current.get((noun, e)):
+        # CANON: DEF("system:mf_entity") -- the greedy walk and the write rule
+        # together. It answers <write, status>, writing iff the machine FIRED
+        # and the status differs from CURRENT (not from the start it chose):
+        # a round trip back to where it began still materializes when there was
+        # no current, which is SM init landing a status that was missing.
+        #
+        # The transitions are reshaped to the canonical <from, id, to, event>
+        # that system:mstep reads; this function carries them as 3-tuples
+        # <from, trigger, to>, which is its own compression, and the events as
+        # bare names rather than <type, timestamp> pairs.
+        _T4 = tuple((f, g, t, g) for (f, g, t) in triples)
+        _E2 = tuple((ev, 0) for ev in sorted(evs))
+        _wp, cur = _fl7(_ap7(_A7("system:mf_entity"),
+                             _S(_S(to_lam(current.get((noun, e)) or ()),
+                                   _A7(initials.get(m) or ""),
+                                   to_lam(_T4)), to_lam(_E2))))
+        if _wp == "T":
             changed.append((sft, e, cur))
     # SM init, the design's second half ("SM init covers the rest"):
     # every governed entity with no status row materializes the
