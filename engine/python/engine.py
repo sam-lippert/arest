@@ -3363,6 +3363,8 @@ def create_spec(D, fact_type, part=None):
     column, width, unary), the value validate object, and the machine, mealy, and
     links objects, each a canonical lambda tree or None. Stored as create:<ft> at
     compile so any host builds the handler and reduces it natively on apply."""
+    from .lam import atom as _A9, from_lam as _fl9
+    from .reduce import apply as _ap9
     if part is None:
         part = rmap_partition(D)
     table = part.get(fact_type, fact_type)
@@ -3377,16 +3379,20 @@ def create_spec(D, fact_type, part=None):
     if _fl3(_ap3(_A3("system:is_trigger"), _S(_A3(fact_type), D))) == "T":
         noun = _governed_player(D, fact_type)
         if noun is not None:
-            role_pos = next((r[2] for r in _pop_rows(D, "role")
-                             if len(r) >= 4 and r[1] == fact_type and r[3] == noun), None)
+            # CANON: DEF("system:mf_evpos") -- the role the governed player
+            # fills, matched on fact type AND player, first match winning.
+            role_pos = _fl9(_ap9(_A9("system:mf_evpos"),
+                                 _S(_S(_A9(fact_type), _A9(noun)), D)))
             # status(e) falls out of RMAP: the status fact type is absorbed as a
             # column on the machine's OBJECT TYPE (the smDef noun; a governed
             # subtype player reaches it through the governedBy closure), and the
             # machine reads and overwrites that column (⟨table, col, width⟩).
             # A machine without its status column is an incomplete model.
-            gov = {r[0]: r[1] for r in _pop_rows(D, "governedBy") if len(r) >= 2}
-            status_ft = next((r[1] for r in _pop_rows(D, "smStatusFt")
-                              if len(r) >= 2 and r[0] == gov.get(noun, noun)), None)
+            # CANON: DEF("system:governing_noun") then DEF("system:status_ft").
+            # An ungoverned noun governs itself, and a noun with no machine
+            # answers phi, which reads as None here.
+            _g = _fl9(_ap9(_A9("system:governing_noun"), _S(_A9(noun), D)))
+            status_ft = _fl9(_ap9(_A9("system:status_ft"), _S(_A9(_g), D))) or None
             if status_ft is None or status_ft not in part:
                 raise ValueError(
                     f"machine on {noun!r} without its status column: run "
