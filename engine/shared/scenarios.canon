@@ -1335,6 +1335,11 @@ DEF("case:brace-excl-three", S2(A("system:brace_excl"), S4(A("sxc_pqr"), S3(A("P
 "system:subset_specs binds each scoped cell of an if-then subset to the projected builder. subset-specs-two is the row that matters: TWO cells carrying the SAME operand. The projection is a property of the if-then pair, so recomputing it per cell would let two cells of one constraint disagree about which roles project, and a single-cell case cannot see that.",
 DEF("case:subset-specs", S2(A("system:subset_specs"), S2(S1(A("c1")), S3(A("B_ft"), S2(N(1), N(2)), S2(N(2), N(1)))))),
 DEF("case:subset-specs-two", S2(A("system:subset_specs"), S2(S2(A("c1"), A("c2")), S3(A("B_ft"), S2(N(1), N(2)), S2(N(2), N(1)))))),
+
+"system:h_dispatch is the compile driver reading system:h_table, the kind-to-handler POPULATION. h-dispatch reaches a handler that ignores modality and h-dispatch-modal one that carries it, so the driver is shown threading the whole operand rather than a convenient part of it. h-dispatch-unknown is the row that keeps the driver honest: a kind no row names answers the EMPTY PAIR, not bottom, which is what lets an unrecognised statement compile to nothing instead of killing the compile -- the host default this replaces did exactly that, and a driver that bottomed instead would fail only on the models nobody has written yet.",
+DEF("case:h-dispatch", S2(A("system:h_dispatch"), S4(A("finality"), S2(A("Task"), N(3)), PHI(), A("")))),
+DEF("case:h-dispatch-modal", S2(A("system:h_dispatch"), S4(A("possibility"), S1(A("some X")), PHI(), A("necessary")))),
+DEF("case:h-dispatch-unknown", S2(A("system:h_dispatch"), S4(A("nosuchkind"), S1(A("a")), PHI(), A("")))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
