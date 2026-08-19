@@ -3168,9 +3168,10 @@ def sm_init_entity(D, ft, row):
     m = _fl1(_ap1(_A1("system:machine_of"), _S(_S(_A1(g), _A1(noun)), D))) or None
     if sft is None or m is None or ft == sft:
         return D
-    initials = {r[1]: r[0] for r in _pop_rows(
-        D, "Status_is_initial_in_State_Machine_Definition") if len(r) >= 2}
-    init = initials.get(m)
+    # CANON: DEF("system:initial_status") -- the DECLARED initial, not the
+    # derived rooted one. A status rooted by having no inbound transition is a
+    # fact about the graph, not a statement about where an entity starts.
+    init = _fl1(_ap1(_A1("system:initial_status"), _S(_A1(m), D))) or None
     if init is None:
         return D
     part = rmap_partition(D)
