@@ -1406,6 +1406,11 @@ DEF("case:noun-roles-none", S2(A("system:noun_roles"), S2(A("Nobody"), S2(S3(A("
 "system:ft_table answers which table holds a fact type rows. ft-table-own is the rule rather than an edge: a fact type absent from the partition has its OWN table, because rule 1 gives a fact type with a spanning uniqueness constraint or none at all a table of its own, so being unabsorbed IS the routing. Answering phi there would make every rule-1 fact type look unrouted and the write path would have nowhere to put the commonest shape in any model.",
 DEF("case:ft-table", S2(A("system:ft_table"), S2(A("Person_has_Name"), S3(S2(A("Person"), A("Person_has_Name")), S2(A("Person"), A("Person_has_Age")), S2(A("Order"), A("Order_has_Date")))))),
 DEF("case:ft-table-own", S2(A("system:ft_table"), S2(A("Standalone_ft"), S3(S2(A("Person"), A("Person_has_Name")), S2(A("Person"), A("Person_has_Age")), S2(A("Order"), A("Order_has_Date")))))),
+
+"system:is_trigger reads the SECOND column of smTrigger, and is-trigger-machine is the row that proves it. TaskMachine is a MACHINE name, sitting in column one of every row, and it answers false: a test written against the first column would call it a trigger and would call every fact type a trigger in an app with a single machine. The question decides real branches -- a trigger takes the gated create rather than the bulk install, and create_spec builds it machine, mealy and links recipes a plain fact type never gets.",
+DEF("case:is-trigger", S2(A("system:is_trigger"), S2(A("TaskFinished"), S1(S3(A("CELL"), A("smTrigger"), S2(S2(A("TaskMachine"), A("TaskFinished")), S2(A("OrderMachine"), A("OrderShipped")))))))),
+DEF("case:is-trigger-machine", S2(A("system:is_trigger"), S2(A("TaskMachine"), S1(S3(A("CELL"), A("smTrigger"), S2(S2(A("TaskMachine"), A("TaskFinished")), S2(A("OrderMachine"), A("OrderShipped")))))))),
+DEF("case:is-trigger-plain", S2(A("system:is_trigger"), S2(A("Person_has_Name"), S1(S3(A("CELL"), A("smTrigger"), S2(S2(A("TaskMachine"), A("TaskFinished")), S2(A("OrderMachine"), A("OrderShipped")))))))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
