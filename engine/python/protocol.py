@@ -2126,7 +2126,12 @@ class Registry:
         res = system.create(D, fact_type, to_lam(row))
         o = from_lam(_ap(_A(1), res))
         D2 = _ap(_A(2), res)
-        refused = o == "ERROR" or from_lam(D2) == from_lam(D)
+        # CANON: DEF("system:write_refused") -- the ERROR answer OR a store
+        # that came back unchanged. An install leaving D identical did not
+        # install, whatever it answered, and calling it committed would log a
+        # step for a fact the store does not hold.
+        refused = from_lam(_ap(_A("system:write_refused"),
+                               to_lam((o, from_lam(D), from_lam(D2))))) == "T"
         violations = []
         if isinstance(o, tuple) and len(o) >= 2 and isinstance(o[1], tuple):
             violations = [list(v) for v in o[1]]
