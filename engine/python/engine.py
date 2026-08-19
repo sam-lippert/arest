@@ -3138,8 +3138,7 @@ def sm_init_entity(D, ft, row):
     else. Trigger facts stay create_routed's business (the machine
     advances within the routed step); this only seeds birth."""
     from .lam import to_lam
-    machines = {r[1]: r[0] for r in _pop_rows(D, "smDef") if len(r) >= 2}
-    if not machines:
+    if not _pop_rows(D, "smDef"):        # no machines at all: identity
         return D
     row = tuple(row)
     if not row or row[0] in ("", "φ"):
@@ -3162,7 +3161,11 @@ def sm_init_entity(D, ft, row):
     # status. Answers PHI when the noun has no machine, which is the ordinary
     # case rather than a fault, so it reads as None here.
     sft = _fl1(_ap1(_A1("system:status_ft"), _S(_A1(g), D))) or None
-    m = machines.get(g, machines.get(noun))
+    # CANON: DEF("system:machine_of") -- the GOVERNING noun's machine first,
+    # falling back to the noun. The order is the meaning: a subtype governed by
+    # a supertype takes the supertype's machine, and looking the plain noun up
+    # first would seed the wrong initial status.
+    m = _fl1(_ap1(_A1("system:machine_of"), _S(_S(_A1(g), _A1(noun)), D))) or None
     if sft is None or m is None or ft == sft:
         return D
     initials = {r[1]: r[0] for r in _pop_rows(
