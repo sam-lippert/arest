@@ -3033,8 +3033,7 @@ def machine_fold(D):
     trig_fts = sorted(_distinct_at(2, _pop_rows(D, "smTrigger")))
     initials = {r[1]: r[0] for r in _pop_rows(
         D, "Status_is_initial_in_State_Machine_Definition") if len(r) >= 2}
-    status_fts = {r[0]: r[1] for r in _pop_rows(D, "smStatusFt")
-                  if len(r) >= 2}
+
     machines = {r[1]: r[0] for r in _pop_rows(D, "smDef") if len(r) >= 2}
     gov = {r[0]: r[1] for r in _pop_rows(D, "governedBy") if len(r) >= 2}
     events = {}
@@ -3155,13 +3154,14 @@ def sm_init_entity(D, ft, row):
     noun = _fl1(_ap1(_A1("system:role1_player"), _S(_A1(ft), D)))
     if not isinstance(noun, str) or noun == "⊥":
         return D
-    status_fts = {r[0]: r[1] for r in _pop_rows(D, "smStatusFt")
-                  if len(r) >= 2}
     # CANON: DEF("system:governing_noun") -- the governedBy image, or the noun
     # ITSELF when no closure mentions it. That default is the ordinary case,
     # not a missing value: a noun without subtyping governs itself.
     g = _fl1(_ap1(_A1("system:governing_noun"), _S(_A1(noun), D)))
-    sft = status_fts.get(g)
+    # CANON: DEF("system:status_ft") -- which column holds this noun's machine
+    # status. Answers PHI when the noun has no machine, which is the ordinary
+    # case rather than a fault, so it reads as None here.
+    sft = _fl1(_ap1(_A1("system:status_ft"), _S(_A1(g), D))) or None
     m = machines.get(g, machines.get(noun))
     if sft is None or m is None or ft == sft:
         return D
