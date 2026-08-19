@@ -1292,6 +1292,12 @@ DEF("case:con-text-other", S2(A("system:con_text"), S3(A("other"), A("c6"), S2(A
 
 "system:machine is the tau-ordered fold (INSERT system:mstep over the ordered events) and law:machine already certifies it, but only as a law: the case table compares per case, so this pins the SAME literal row by row across the stations. The events are deliberately out of order and e9 fires from nowhere -- it is the row proving an event invalid from the current status leaves the status alone rather than bottoming the fold.",
 DEF("case:machine-fold", S2(A("system:machine"), S2(S2(A("a"), S2(S4(A("a"), A("t1"), A("b"), A("e1")), S4(A("b"), A("t2"), A("c"), A("e2")))), S3(S2(A("e2"), N(10)), S2(A("e9"), N(2)), S2(A("e1"), N(9)))))),
+
+"system:mgreedy is machine_fold walk, and these four pin what makes it NOT system:machine. mgreedy-fold is case:machine-fold operand exactly, where both agree on c, so it fixes the shared meaning. mgreedy-order is the pair that separates them: the timestamps contradict arrival order, so the tau-ordered fold answers b and the greedy walk answers c, and without this case the two defs would be indistinguishable from the table. mgreedy-repeat fires the same event type twice around a b to a loop and answers a, which is the POSITIONAL removal: consuming by value would drop both rows on the first firing and stop at b. mgreedy-none is the no-op, every event invalid from every reachable status, answering the initial status rather than bottom.",
+DEF("case:mgreedy-fold", S2(A("system:mgreedy"), S2(S2(A("a"), S2(S4(A("a"), A("t1"), A("b"), A("e1")), S4(A("b"), A("t2"), A("c"), A("e2")))), S3(S2(A("e2"), N(10)), S2(A("e9"), N(2)), S2(A("e1"), N(9)))))),
+DEF("case:mgreedy-order", S2(A("system:mgreedy"), S2(S2(A("a"), S2(S4(A("a"), A("t1"), A("b"), A("e1")), S4(A("b"), A("t2"), A("c"), A("e2")))), S2(S2(A("e1"), N(10)), S2(A("e2"), N(1)))))),
+DEF("case:mgreedy-repeat", S2(A("system:mgreedy"), S2(S2(A("a"), S2(S4(A("a"), A("t1"), A("b"), A("e1")), S4(A("b"), A("t2"), A("a"), A("e1")))), S2(S2(A("e1"), N(1)), S2(A("e1"), N(2)))))),
+DEF("case:mgreedy-none", S2(A("system:mgreedy"), S2(S2(A("a"), S2(S4(A("a"), A("t1"), A("b"), A("e1")), S4(A("b"), A("t2"), A("c"), A("e2")))), S2(S2(A("e9"), N(1)), S2(A("e9"), N(2)))))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
