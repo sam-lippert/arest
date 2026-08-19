@@ -288,7 +288,10 @@ def replay_entries(D, entries):
 
     def _triggers(D):
         if not trig_box:
-            trig_box.append(set(system._distinct_at(2, system._pop_rows(D, "smTrigger"))))
+            # CANON: DEF("system:trigger_fts") -- distinct AND sorted. The set
+            # stays as an INDEX: membership is asked once per replay entry, so
+            # a scan each would turn a batch into a quadratic walk.
+            trig_box.append(set(from_lam(_ap(_A("system:trigger_fts"), D))))
         return trig_box[0]
 
     def _flush(D):
