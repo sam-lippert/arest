@@ -1340,6 +1340,10 @@ DEF("case:subset-specs-two", S2(A("system:subset_specs"), S2(S2(A("c1"), A("c2")
 DEF("case:h-dispatch", S2(A("system:h_dispatch"), S4(A("finality"), S2(A("Task"), N(3)), PHI(), A("")))),
 DEF("case:h-dispatch-modal", S2(A("system:h_dispatch"), S4(A("possibility"), S1(A("some X")), PHI(), A("necessary")))),
 DEF("case:h-dispatch-unknown", S2(A("system:h_dispatch"), S4(A("nosuchkind"), S1(A("a")), PHI(), A("")))),
+
+"system:mf_bysft groups the written statuses by their status fact type. mf-bysft-interleaved is the row that fixes the ORDER: s2 appears first, then s1, then s2 again, so the answer must lead with s2 carrying both of its pairs. theta:dedup keeps the LAST occurrence, so a plain dedup would answer s1 first and every row would still be correct while the store failed to be byte-identical -- the kind of difference that survives every test that checks CONTENT and fails the one that compares stores.",
+DEF("case:mf-bysft", S2(A("system:mf_bysft"), S3(S3(A("s1"), A("e1"), A("open")), S3(A("s1"), A("e2"), A("done")), S3(A("s2"), A("e3"), A("x"))))),
+DEF("case:mf-bysft-interleaved", S2(A("system:mf_bysft"), S3(S3(A("s2"), A("a"), A("p")), S3(A("s1"), A("b"), A("q")), S3(A("s2"), A("c"), A("r"))))),
 DEF("case:reading-parse-hyphen", S2(A("system:reading_parse"), S3(A("Layer has valence- Coord -local and FORE-- WORD and from-Status"), S2(A("Layer"), A("Coord")), S2(A("The"), A("Each"))))),
 DEF("case:reading-ftid", S2(A("system:ftid"), S2(A("{0} was placed by {1}"), S2(A("Order"), A("Customer"))))),
 
