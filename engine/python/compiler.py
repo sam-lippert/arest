@@ -1228,9 +1228,13 @@ def _h_subset(g, k, m):
     decl, mid, ospecs = _compile_cs("subset", "", [a_ft, b_ft],
                                  [ante.strip(), cons_txt.strip()])
     op = (b_ft, proj_a, proj_b)
+    # CANON: DEF("system:subset_specs") binds every scoped cell to the
+    # projected builder with the SAME operand -- one projection per if-then
+    # pair, not one recomputed per cell, so two cells of one constraint
+    # cannot disagree about which roles project.
     return _h_constraint((decl, mid,
-                     tuple((cell, "constraints:scoped_subset_projected", op)
-                           for (cell, _b, _o) in ospecs)),
+                     tuple(_canon_rows("system:subset_specs",
+                                       (tuple(c for (c, _b, _o) in ospecs), op)))),
                     k, m)
 
 def _h_equality(g, k, m):
