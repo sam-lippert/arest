@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/sdk/main/schemas/mcp.json",
   "mcpServers": {
     "arest": {
-      "description": "AREST engine 0.9.0, served by the RUST RESIDENT (arest --mcp): reads, applies (own-table AND absorbed, the stored create:<ft> handlers), orient/cells/query/derive compute natively over the retained sidecar store; the compiler-host verbs (compile/propose/induce/ask, sql and the read long tail) delegate to the same engine's python through cli.py's generic call form \u2014 one first-class verb table, two bindings. 28 tools.",
-      "command": "engine/rust/target/release/arest.exe",
+      "description": "AREST engine 0.9.0, served by the RUST RESIDENT (arest --mcp). 40 verbs: reads, applies, orient/cells/query/derive compute natively over the retained sidecar store; the compiler-host verbs (compile/propose/induce/ask, sql, the read long tail) delegate to the same engine's python through cli.py — one first-class verb table, two bindings. Bound to the DEBUG build on purpose: release takes ~45min and debug ~2min, and this binary is meant to be changed constantly. Canon is not compiled in — engine/rust reads it from disk at startup — so editing arest costs a restart (~0.6s cold), never a rebuild; only host edits rebuild.",
+      "command": "engine/rust/target/debug/arest.exe",
       "args": [
         "--mcp",
         "--apps-dir",
