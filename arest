@@ -7098,6 +7098,11 @@ DEF("system:noun_quants",
 DEF("system:owned_modes",
     K(S2(A("fully-derived"), A("derived-and-stored")))),
 
+"THE DERIVATION MODES. NORMA s four markers, what each one MEANS, and whether it materializes -- one fact type where the hosts had three tables and a match. compiler.py held marker-to-mode twice over, once ordered for the scan and once as a bare dict, plus mode-to-materializes in engine.py; engine/rust held the ordered list and the match again. IN SCAN ORDER, longest marker first, because a scanner that tries * before ** reads a stored derivation as a computed one and silently stops storing its rows. MATERIALIZE AND OWNED ARE DIFFERENT CUTS: materialize is ** and ++, the modes whose rows are written down, while system:owned_modes is * and **, the modes whose rows the engine may replace. Two independent attributes of four modes, which is why neither can be derived from the other and both belong here.",
+
+DEF("system:derivation_modes",
+    K(S4(S3(A("**"), A("derived-and-stored"), A("T")), S3(A("++"), A("partially-derived-and-stored"), A("T")), S3(A("*"), A("fully-derived"), A("F")), S3(A("+"), A("semi-derived"), A("F"))))),
+
 "THE GENERIC CLASSIFICATIONS. Fact Type Reading and Instance Fact are what a statement is classified as when nothing more specific claims it, so they are the two a SPECIFIC classification is allowed to beat -- the subtraction that decides which translator runs, and the reason Prose does not lose to them. The pair stood three times: a python set and, in engine/rust, the SAME const declared twice inside two different functions, which is the shape a list takes on the way to disagreeing with itself.",
 
 DEF("system:generic_classifications",

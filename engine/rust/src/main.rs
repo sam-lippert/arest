@@ -4312,9 +4312,13 @@ fn classify_heads_native(cells: &[(Leaf, V)]) -> HeadClasses {
             }
         }
     }
+    // CANON: DEF("system:owned_modes"). The pair was moved to canon two
+    // increments ago and this second match arm was missed -- the same
+    // two names, in the same file, spelled a third time.
     let owned = |hk: &String| {
-        matches!(kindmap.get(hk).map(|s| s.as_str()),
-            Some("fully-derived") | Some("derived-and-stored"))
+        kindmap
+            .get(hk)
+            .is_some_and(|s| canon_words("system:owned_modes").contains(&s.as_str()))
     };
     let agg_head_keys: HashSet<String> = agg_rows.iter().map(|r| r.head_key.clone()).collect();
     let derived_heads: HashSet<String> = agg_head_keys
@@ -5775,39 +5779,11 @@ fn split_statements(text: &str) -> Vec<String> {
 //
 // The prefix test stays host: canon has no substring primitive. Which prefix
 // means what does not stay host.
+// modal_ops IS a three-column canon table, so it is canon_triples -- the walk
+// it used to spell for itself was the same one, written before the reader
+// existed. Two callers of canon_triples now, in the two files that need it.
 fn modal_ops() -> &'static [(&'static str, &'static str, &'static str)] {
-    thread_local! {
-        static OPS: std::cell::OnceCell<&'static [(&'static str, &'static str, &'static str)]> =
-            const { std::cell::OnceCell::new() };
-    }
-    OPS.with(|c| {
-        *c.get_or_init(|| {
-            let rows = make_mu().app(mkapp(
-                atom(Leaf::S("system:modal_ops".to_string())),
-                phi(),
-            ));
-            let mut out: Vec<(&'static str, &'static str, &'static str)> = Vec::new();
-            // list_of first: a reduced SEQ is not a Scott list (see translator_kinds)
-            for row in items(&list_of(&rows)) {
-                let cols = items(&list_of(&row));
-                if cols.len() < 3 {
-                    continue;
-                }
-                let mut f = [""; 3];
-                let mut ok = true;
-                for (n, col) in cols.iter().take(3).enumerate() {
-                    match aval(col).as_deref().and_then(leaf_str) {
-                        Some(s) => f[n] = Box::leak(s.into_boxed_str()),
-                        None => ok = false,
-                    }
-                }
-                if ok {
-                    out.push((f[0], f[1], f[2]));
-                }
-            }
-            Box::leak(out.into_boxed_slice())
-        })
-    })
+    canon_triples("system:modal_ops")
 }
 
 fn split_modality(stmt: &str) -> (&'static str, &'static str, String) {
@@ -6582,6 +6558,43 @@ fn modal_prefix(modality: &str, sign: &str) -> &'static str {
     };
     PFX.with(|c| c.borrow_mut().insert(key, out));
     out
+}
+
+// Three columns, for a table whose rows carry an attribute beside the key --
+// system:derivation_modes is <marker, mode, materializes>. canon_words and
+// canon_pairs are the one- and two-column siblings.
+fn canon_triples(name: &'static str)
+    -> &'static [(&'static str, &'static str, &'static str)] {
+    thread_local! {
+        static T3: std::cell::RefCell<HashMap<&'static str,
+            &'static [(&'static str, &'static str, &'static str)]>> =
+            std::cell::RefCell::new(HashMap::new());
+    }
+    if let Some(hit) = T3.with(|c| c.borrow().get(name).copied()) {
+        return hit;
+    }
+    let rows = make_mu().app(mkapp(atom(Leaf::S(name.to_string())), phi()));
+    let mut out: Vec<(&'static str, &'static str, &'static str)> = Vec::new();
+    for row in items(&list_of(&rows)) {
+        let cols = items(&list_of(&row));
+        if cols.len() < 3 {
+            continue;
+        }
+        let a = aval(&cols[0]).as_deref().and_then(leaf_str);
+        let b = aval(&cols[1]).as_deref().and_then(leaf_str);
+        let c = aval(&cols[2]).as_deref().and_then(leaf_str);
+        if let (Some(a), Some(b), Some(c)) = (a, b, c) {
+            out.push((
+                Box::leak(a.into_boxed_str()),
+                Box::leak(b.into_boxed_str()),
+                Box::leak(c.into_boxed_str()),
+            ));
+        }
+    }
+    let leaked: &'static [(&'static str, &'static str, &'static str)] =
+        Box::leak(out.into_boxed_slice());
+    T3.with(|c| c.borrow_mut().insert(name, leaked));
+    leaked
 }
 
 fn canon_pairs(name: &'static str) -> &'static [(&'static str, &'static str)] {

@@ -796,13 +796,34 @@ def _fact_type(reading, known):
 #   ** DerivedAndStored            — derive materializes into the cell (kept in sync)
 #   +  PartiallyDerived            — asserted facts augmented by derive on demand (semiderived)
 #   ++ PartiallyDerivedAndStored   — asserted + derived, materialized
-_DERIVATION = [(" **", "derived-and-stored"), (" ++", "partially-derived-and-stored"),
-               (" *", "fully-derived"), (" +", "semi-derived")]
+_DERIVATION_MODES = []
+
+
+def _derivation_modes():
+    """CANON: DEF("system:derivation_modes"), rows of
+    <marker, mode, materializes>. Three host tables read off one fact
+    type: the ordered scan here, the bare marker map below, and
+    engine._MATERIALIZE."""
+    if not _DERIVATION_MODES:
+        from .lam import atom as _A, to_lam as _tl, from_lam as _fl
+        from .reduce import apply as _apply
+        _DERIVATION_MODES.extend(
+            tuple(r) for r in
+            _fl(_apply(_A("system:derivation_modes"), _tl(()))))
+    return _DERIVATION_MODES
+
+
+# CANON: DEF("system:derivation_modes") -- NORMA's four markers, what each
+# MEANS, and whether it materializes, in SCAN ORDER (longest marker first,
+# so ** is not read as *). The leading space is this scan's own lexical
+# detail: the marker trails a name.
+def _derivation():
+    return [(" " + m, kind) for m, kind, _mat in _derivation_modes()]
 
 
 def _strip_derivation(text):
     """(derivation-storage kind, name-without-marker) — None if the name carries no marker."""
-    for mark, kind in _DERIVATION:
+    for mark, kind in _derivation():
         if text.endswith(mark):
             return kind, text[:-len(mark)].strip()
     return None, text
@@ -1726,8 +1747,9 @@ _h_rule_if = _h_constraint
 
 # NORMA's derivation-storage markers in LEADING position (the corpus's spelling;
 # _DERIVATION handles the same marks trailing a name)
-_MARKER_KIND = {"*": "fully-derived", "**": "derived-and-stored",
-                "+": "semi-derived", "++": "partially-derived-and-stored"}
+# the same canon rows, keyed by the bare marker
+def _marker_kind():
+    return {m: kind for m, kind, _mat in _derivation_modes()}
 
 
 _h_rule_iff = _h_constraint
@@ -2340,7 +2362,8 @@ def _compile_rule_iff(g, k):
     _h_rule_iff delegation, moved whole to the boundary)."""
     marker, head, body = g
     return _compile_rule_if((head, body), k,
-                         kind=_MARKER_KIND.get(marker or "*", "fully-derived"))
+                         kind=_marker_kind().get(marker or "*",
+                                                "fully-derived"))
 
 
 _COOK = {

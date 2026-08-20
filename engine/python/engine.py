@@ -926,13 +926,25 @@ def join_rule2(join_role, head_cols):
 # the storage half of a NORMA */**/+/++ marker: whether the derived facts are materialized (stored)
 # vs recomputed on demand. (* and + recompute; ** and ++ store.) The derivation half is the rule
 # above, fed to derive_of; the create pipeline runs it as the `derive` stage over the fact's cell.
-_MATERIALIZE = {"fully-derived": False, "derived-and-stored": True,
-                "semi-derived": False, "partially-derived-and-stored": True}
+# CANON: DEF("system:derivation_modes") column 3. MATERIALIZE AND OWNED ARE
+# DIFFERENT CUTS of the same four modes: materialize is ** and ++, whose
+# rows are written down, while system:owned_modes is * and **, whose rows
+# the engine may replace. Neither follows from the other.
+_MATERIALIZE_CACHE = {}
+
+
+def _materialize_map():
+    if not _MATERIALIZE_CACHE:
+        from .lam import atom as _A, to_lam as _tl, from_lam as _fl
+        from .reduce import apply as _apply
+        for row in _fl(_apply(_A("system:derivation_modes"), _tl(()))):
+            _MATERIALIZE_CACHE[row[1]] = row[2] == "T"
+    return _MATERIALIZE_CACHE
 
 
 def materialize(marker):
     """True if the marker means store the derived facts (** / ++), False if compute on demand (* / +)."""
-    return _MATERIALIZE.get(marker, False)
+    return _materialize_map().get(marker, False)
 
 
 # --- resolve with auto-counter minting (Def. Command: mint iff the ref scheme auto-generates) ---
