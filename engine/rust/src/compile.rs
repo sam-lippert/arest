@@ -314,8 +314,41 @@ fn strip_quant(t: &str, words: &[&str]) -> String {
     out
 }
 
-const QUANT_MIN: [&str; 4] = ["some", "that", "each", "no"];
-const QUANT_FULL: [&str; 6] = ["some", "that", "each", "no", "an", "a"];
+// A canon constant table that is a FLAT list of words, read once per name and
+// leaked. translator_kinds and modal_ops read tables of rows the same way; the
+// difference here is that each element is an atom, so there is no inner
+// list_of -- and an atom put through list_of answers NIL, which would quietly
+// come back as an empty vocabulary rather than an error.
+fn canon_words(name: &'static str) -> &'static [&'static str] {
+    thread_local! {
+        static WORDS: std::cell::RefCell<HashMap<&'static str, &'static [&'static str]>> =
+            std::cell::RefCell::new(HashMap::new());
+    }
+    if let Some(hit) = WORDS.with(|m| m.borrow().get(name).copied()) {
+        return hit;
+    }
+    // the borrow above is released before the reduction: mu resolves through
+    // CANON and has no reason to re-enter this map, but a reduction under a
+    // live RefCell borrow is a panic waiting for the first caller that does
+    let rows = make_mu().app(mkapp(atom(Leaf::S(name.to_string())), phi()));
+    let out: Vec<&'static str> = items(&list_of(&rows))
+        .iter()
+        .filter_map(|w| aval(w).as_deref().and_then(leaf_str))
+        .map(|s| &*Box::leak(s.into_boxed_str()))
+        .collect();
+    let leaked: &'static [&'static str] = Box::leak(out.into_boxed_slice());
+    WORDS.with(|m| m.borrow_mut().insert(name, leaked));
+    leaked
+}
+// It lives HERE and not in main.rs because every caller is in this file, and
+// test_no_host_defines_what_no_dispatch_reaches scans each host file on its
+// own: a definition whose only use is one file over reads to it as an orphan,
+// which is the same shape as an op that moved to canon and left its body.
+// CANON: DEF("system:quant_min") and DEF("system:quant_full"), which is
+// the minimum concatenated with the two indefinite articles -- a
+// containment both hosts had spelled out by hand instead. The words also
+// stood inside two python regex alternations. The strip above is lexical
+// and stays; which words it strips is FORML grammar and does not.
 
 // _subject (compiler.py): the leading object type + the remainder
 fn subject(text: &str, k: &Known) -> (String, String) {
@@ -406,11 +439,11 @@ fn fact_type(rd: &str, k: &Known) -> (String, Vec<(String, Val)>) {
 // _clause_ft (compiler.py): minimal quantifier strip preferred when declared
 fn clause_ft(text: &str, k: &Known) -> String {
     let t = ws_norm(text);
-    let (ft_min, _) = fact_type(strip_quant(&t, &QUANT_MIN).trim(), k);
+    let (ft_min, _) = fact_type(strip_quant(&t, canon_words("system:quant_min")).trim(), k);
     if k.fts.contains(&ft_min) {
         return ft_min;
     }
-    fact_type(strip_quant(&t, &QUANT_FULL).trim(), k).0
+    fact_type(strip_quant(&t, canon_words("system:quant_full")).trim(), k).0
 }
 
 // _clause_ft_roles (compiler.py): same strip discipline, answers roles too —
@@ -418,7 +451,8 @@ fn clause_ft(text: &str, k: &Known) -> String {
 fn clause_ft_roles(text: &str, k: &Known) -> (String, Vec<String>) {
     let t = ws_norm(text);
     let mut best: Option<(String, Vec<String>)> = None;
-    for words in [&QUANT_MIN[..], &QUANT_FULL[..]] {
+    for words in [canon_words("system:quant_min"),
+                  canon_words("system:quant_full")] {
         let stripped = strip_quant(&t, words);
         let (template, roles) = reading(stripped.trim(), k);
         let ft = ftid_from(&template, &roles);
@@ -434,7 +468,8 @@ fn clause_ft_roles(text: &str, k: &Known) -> (String, Vec<String>) {
 
 // ============================ the rule-clause scans ==========================
 
-const QUALIFIERS: [&str; 6] = ["that", "some", "the", "other", "a", "an"];
+// CANON: DEF("system:qualifiers") -- the words that may stand between a
+// quantifier and the type name that names the player.
 
 fn strip_pnc_local(t: &str) -> &str {
     t.trim_matches(|c| c == '.' || c == ';' || c == ':')
@@ -494,7 +529,7 @@ fn dequalify(text: &str, k: &Known) -> String {
     let mut out: Vec<&str> = Vec::new();
     let mut i = 0usize;
     while i < toks.len() {
-        if QUALIFIERS.contains(&toks[i]) && type_span(&toks, i + 1, k).is_some() {
+        if canon_words("system:qualifiers").contains(&toks[i]) && type_span(&toks, i + 1, k).is_some() {
             i += 1;
             continue;
         }
@@ -515,7 +550,7 @@ fn rule_atom(text: &str, k: &Known) -> (String, Vec<String>, Vec<(usize, String)
     let mut i = 0usize;
     while i < toks.len() {
         let tok = toks[i];
-        if QUALIFIERS.contains(&tok) && type_span(&toks, i + 1, k).is_some() {
+        if canon_words("system:qualifiers").contains(&tok) && type_span(&toks, i + 1, k).is_some() {
             verbatim.push(tok.to_string());
             i += 1;
             continue;

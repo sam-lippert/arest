@@ -1564,5 +1564,13 @@ DEF("case:kinds-of-unknown", S2(A("system:kinds_of"), S1(A("translate_partitions
 
 "THE MODAL OPERATORS, cross-lineage. The table is evaluated whole so the phrases are pinned per station and not merely counted: a station that recognised five of the six, or dropped the trailing space that separates the operator from the statement it opens, would answer a different table here rather than a different compile somewhere later. The LAST ROW carries the empty operator, which is the default: every statement has a modality and an unmarked one is alethic positive, so the table is total and no host needs a fallback of its own.",
 
-DEF("case:modal-ops", S2(A("system:modal_ops"), PHI()))
+DEF("case:modal-ops", S2(A("system:modal_ops"), PHI())),
+
+"THE QUANTIFIER VOCABULARY, cross-lineage. quant-min and quant-full are evaluated whole so the WORDS are pinned per station rather than counted: a station short one word would strip a reading differently and declare a different fact type, which shows up here and not four compile stages later. quant-full is not a literal -- it is quant-min concatenated with the two indefinite articles -- so the case also holds the containment each host had spelled out by hand. qualifiers is the separate list of words that may stand between a quantifier and the type name naming the player.",
+
+DEF("case:quant-min", S2(A("system:quant_min"), PHI())),
+
+DEF("case:quant-full", S2(A("system:quant_full"), PHI())),
+
+DEF("case:qualifiers", S2(A("system:qualifiers"), PHI()))
 )
