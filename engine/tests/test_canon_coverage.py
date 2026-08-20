@@ -586,3 +586,18 @@ def test_the_classifier_arbitration_order_is_canon():
         "first difference at %r" % (
             next((i for i, (a, b) in enumerate(zip(canon, host)) if a != b),
                  "length %d vs %d" % (len(canon), len(host))),))
+
+
+def test_cooked_kinds_are_canon():
+    """DEF("system:cooked_kinds") is the order of record for the cook
+    boundary. compiler.py keeps _COOK as the DISPATCH -- its values are the
+    cook functions, which are host bindings -- but which kinds are in it is
+    canon, and engine/rust reads the same list instead of holding twenty of
+    them beside an `|| kind == "rule_iff"`."""
+    from pyarest.lam import to_lam, from_lam, atom as A
+    from pyarest.reduce import apply as _apply
+    from pyarest import forml
+    canon = list(from_lam(_apply(A("system:cooked_kinds"), to_lam(()))))
+    assert canon == list(forml._COOK), (
+        "cook boundary drifted from DEF(system:cooked_kinds): "
+        "canon=%r _COOK=%r" % (canon, list(forml._COOK)))
