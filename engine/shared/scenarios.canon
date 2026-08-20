@@ -1662,5 +1662,11 @@ DEF("case:attach-modes", S2(A("system:attach_modes"), PHI())),
 
 "THE SET-COMPARISON BUILDERS, cross-lineage. Which canon object an attachment spec names, and so which of the constraints: family actually runs when an exclusion or a scoped subset reaches a cell. Eight rows, held as a python dict of lambdas and eight match arms in engine/rust, each pairing the spec with the builder and then shaping its operand -- the shapes stay host, since they read positions off the A-row. Every row here is constraints: followed by the spec name, and the pairs are written out ANYWAY, because a convention that is only ever computed cannot be checked, cannot take an exception, and cannot be read by anything that does not already know it. The coverage gate checks each name resolves to a def that exists.",
 
-DEF("case:cs-builders", S2(A("system:cs_builders"), PHI()))
+DEF("case:cs-builders", S2(A("system:cs_builders"), PHI())),
+
+"THE PANE MODEL, cross-lineage. panes is iFactr s pane-addressed view stack in ORDINAL order -- a pane later in the list sits above one earlier when both are shown, so the order is layout and not presentation of the list. pane-for is which pane a frame KIND opens in: a list is the master layer, an entity view the detail, an entry form the popover because it is modal, the noun set the tabs. This one closes no gap between the two rust lineages -- it lived in one python file and nowhere else -- but a UI decision expressed as data is the only form a second platform can honour, and every station agreeing on these eight atoms is what makes a target other than python possible at all.",
+
+DEF("case:panes", S2(A("system:panes"), PHI())),
+
+DEF("case:pane-for", S2(A("system:pane_for"), PHI()))
 )

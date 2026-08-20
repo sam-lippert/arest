@@ -7123,6 +7123,16 @@ DEF("system:cs_prefix",
 DEF("system:cs_builders",
     K(S8(S2(A("exclusion"), A("constraints:exclusion")), S2(A("exclusive_or"), A("constraints:exclusive_or")), S2(A("inclusive_or"), A("constraints:inclusive_or")), S2(A("scoped_exclusion"), A("constraints:scoped_exclusion")), S2(A("scoped_exclusive_or"), A("constraints:scoped_exclusive_or")), S2(A("scoped_inclusive_or"), A("constraints:scoped_inclusive_or")), S2(A("scoped_subset"), A("constraints:scoped_subset")), S2(A("scoped_equality_side"), A("constraints:scoped_equality_side"))))),
 
+"THE PANES, IN ORDINAL ORDER. iFactr s pane-addressed view stack: a frame is pushed onto a named pane and the ORDER is load-bearing, since a pane later in the list sits above one earlier when both are shown. Four names carrying a layout the whole UI surface is addressed through, and they were a python tuple in one host file.",
+
+DEF("system:panes",
+    K(S4(A("tabs"), A("master"), A("detail"), A("popover")))),
+
+"WHICH PANE A FRAME KIND OPENS IN. The survey s priority -- attribute, then layer type, then Detail as the default -- collapses to these four rows: a list is the master layer, an entity view the detail, an entry form the popover because it is modal, and the noun set the tabs. That is a UI decision expressed as data, which is the only form in which a second platform can honour it; a host that hardcodes the same map is a host that will disagree with the first one about where a form opens.",
+
+DEF("system:pane_for",
+    K(S4(S2(A("tabs"), A("tabs")), S2(A("list"), A("master")), S2(A("detail"), A("detail")), S2(A("entry"), A("popover"))))),
+
 "THE BOOTSTRAP KINDS. The five the SEED compiler dispatches -- the kernel that has to compile the grammar file before the grammar file can classify anything. Which five they are is the bootstrap s whole surface, and it lived as a python set with nothing else able to name it. Sorted, because a set has no order to preserve and a canon row list must pick one.",
 
 DEF("system:bootstrap_kinds",
