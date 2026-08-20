@@ -1572,5 +1572,13 @@ DEF("case:quant-min", S2(A("system:quant_min"), PHI())),
 
 DEF("case:quant-full", S2(A("system:quant_full"), PHI())),
 
-DEF("case:qualifiers", S2(A("system:qualifiers"), PHI()))
+DEF("case:qualifiers", S2(A("system:qualifiers"), PHI())),
+
+"THE NOUN-DECIDING VOCABULARIES, cross-lineage. implicit-stop is evaluated whole because its CONTENTS are the meaning: a maximal Title-case run is a noun candidate, so a station short one of these twenty-seven words would mint an entity type called If, and a station carrying one too many would silently drop a real one -- neither shows up as a refusal, only as a different model. noun-quants is the separate list that vouches for a candidate, and it is deliberately NOT quant-min: it carries every and any and drops that, because opening a phrase is a different job from being stripped out of a reading. owned-modes names the two derivation modes whose stored rows the engine may replace, which is what keeps a sweep away from asserted data.",
+
+DEF("case:implicit-stop", S2(A("system:implicit_stop"), PHI())),
+
+DEF("case:noun-quants", S2(A("system:noun_quants"), PHI())),
+
+DEF("case:owned-modes", S2(A("system:owned_modes"), PHI()))
 )

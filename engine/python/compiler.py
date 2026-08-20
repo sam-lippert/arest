@@ -542,10 +542,11 @@ def _prepass_context(stmts, names, extra_edges=(), extra_fts=()):
 # ---- two-pass name resolution: split a reading against the known type names ----
 # sentence vocabulary that never OPENS a type name: the grammar's Prose Stopword
 # enum plus the connective/negation sentence-leaders of the live corpus
-_IMPLICIT_STOP = {"If", "When", "Then", "That", "This", "An", "A", "The",
-                  "Each", "Some", "No", "Every", "Not", "It", "There", "Once",
-                  "For", "In", "Of", "To", "On", "At", "By", "With", "And",
-                  "Or", "Only"}
+# CANON: DEF("system:implicit_stop") -- the words that never OPEN a type
+# name. A maximal Title-case run is a noun CANDIDATE, so what this list
+# excludes decides which entity types a model has: a word missing from it
+# mints a noun called If, a word wrongly in it drops a real one. The same
+# twenty-seven words stood again as a const array in engine/rust.
 
 
 def _implicit_nouns(stmts):
@@ -565,7 +566,10 @@ def _implicit_nouns(stmts):
     # FREQUENCY phrase over a role reading, and its 'one' re-nouned predicate
     # text (the twelve-hypothesis operator-loaded hunt — a phantom third
     # variable projecting column 3 of two-wide join rows)
-    quantifiers = {"each", "some", "every", "no", "any"}
+    # CANON: DEF("system:noun_quants"). NOT system:quant_min -- this list
+    # carries every and any and drops that, because opening a phrase is a
+    # different job from being stripped out of a reading.
+    quantifiers = _vocab("system:noun_quants")
     for s in stmts:
         s = re.sub(r"\s*\([^()]*\)\.$", ".", s)               # trailing annotation
         bare = _QUOTED_SPAN.sub(" '' ", s)                    # keep a literal MARK
@@ -582,7 +586,8 @@ def _implicit_nouns(stmts):
                 prev = tok
                 continue
             base = tok.strip(".;:").rstrip("0123456789")
-            if base and base[0].isupper() and base not in _IMPLICIT_STOP:
+            if (base and base[0].isupper()
+                    and base not in _vocab("system:implicit_stop")):
                 if not run:
                     after_quant = prev.strip(".;:").lower() in quantifiers
                 run.append(base)
@@ -684,7 +689,7 @@ def _atomic_run_guard(toks, i, matched, known):
     if j >= len(toks):
         return True
     nxt = toks[j].strip(".;:").rstrip("0123456789")
-    if not (nxt and nxt[0].isupper() and nxt not in _IMPLICIT_STOP):
+    if not (nxt and nxt[0].isupper() and nxt not in _vocab("system:implicit_stop")):
         return True                                           # no Title-case continuation
     ext = matched + " " + nxt
     return any(k == ext or k.startswith(ext + " ") for k in known)
@@ -1138,7 +1143,7 @@ def _clause_ft(text, known):
     return _from_lam_(_apply_(_A_("system:clause_ft"), _to_lam_((
         re.sub(r"\s+", " ", text.strip()),
         tuple(sorted(known)),
-        tuple(sorted(_IMPLICIT_STOP)),
+        tuple(sorted(_vocab("system:implicit_stop"))),
         tuple(sorted(getattr(known, "fts", None) or ())),
     ))))
 

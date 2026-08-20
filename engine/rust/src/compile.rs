@@ -314,36 +314,6 @@ fn strip_quant(t: &str, words: &[&str]) -> String {
     out
 }
 
-// A canon constant table that is a FLAT list of words, read once per name and
-// leaked. translator_kinds and modal_ops read tables of rows the same way; the
-// difference here is that each element is an atom, so there is no inner
-// list_of -- and an atom put through list_of answers NIL, which would quietly
-// come back as an empty vocabulary rather than an error.
-fn canon_words(name: &'static str) -> &'static [&'static str] {
-    thread_local! {
-        static WORDS: std::cell::RefCell<HashMap<&'static str, &'static [&'static str]>> =
-            std::cell::RefCell::new(HashMap::new());
-    }
-    if let Some(hit) = WORDS.with(|m| m.borrow().get(name).copied()) {
-        return hit;
-    }
-    // the borrow above is released before the reduction: mu resolves through
-    // CANON and has no reason to re-enter this map, but a reduction under a
-    // live RefCell borrow is a panic waiting for the first caller that does
-    let rows = make_mu().app(mkapp(atom(Leaf::S(name.to_string())), phi()));
-    let out: Vec<&'static str> = items(&list_of(&rows))
-        .iter()
-        .filter_map(|w| aval(w).as_deref().and_then(leaf_str))
-        .map(|s| &*Box::leak(s.into_boxed_str()))
-        .collect();
-    let leaked: &'static [&'static str] = Box::leak(out.into_boxed_slice());
-    WORDS.with(|m| m.borrow_mut().insert(name, leaked));
-    leaked
-}
-// It lives HERE and not in main.rs because every caller is in this file, and
-// test_no_host_defines_what_no_dispatch_reaches scans each host file on its
-// own: a definition whose only use is one file over reads to it as an orphan,
-// which is the same shape as an op that moved to canon and left its body.
 // CANON: DEF("system:quant_min") and DEF("system:quant_full"), which is
 // the minimum concatenated with the two indefinite articles -- a
 // containment both hosts had spelled out by hand instead. The words also

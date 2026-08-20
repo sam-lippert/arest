@@ -1391,7 +1391,7 @@ def run_rules(D, changed=None, stats=None):
     #           settled store and supersede PER KEY; asserted rows whose key
     #           the rules did not produce survive;
     #   sweep — DELETE-AND-REDERIVE (Gupta-Mumick-Subrahmanian 1993, in the
-    #           library): for a derivation-OWNED plain head (_OWNED: NORMA's
+    #           library): for a derivation-OWNED plain head (system:owned_modes: NORMA's
     #           * and **; + / ++ and unmarked ruled heads keep asserted rows
     #           and stay out of every destructive pass) the stored cell is
     #           materialization of the expressible set (Codd 1970 §1.5), never
@@ -2092,14 +2092,26 @@ def enum_values_cells(D):
 # swap (the tasks board's recommendation columns, the claude app's deontic
 # trigger) — resolved engine-side: NORMA's ** is exactly "derive
 # materializes into the cell", the same license * carries.
-_OWNED = ("fully-derived", "derived-and-stored")
+# CANON: DEF("system:owned_modes"). Which side of this line a head falls on
+# decides whether a destructive pass may replace its stored rows, and it was
+# a two-element tuple here beside a two-element array in engine/rust with
+# nothing comparing them.
+_OWNED_CACHE = []
+
+
+def _owned():
+    if not _OWNED_CACHE:
+        from .lam import atom as _A, to_lam as _tl, from_lam as _fl
+        from .reduce import apply as _apply
+        _OWNED_CACHE.extend(_fl(_apply(_A("system:owned_modes"), _tl(()))))
+    return _OWNED_CACHE
 
 
 def _classify_heads(D):
     """The joint fixpoint's head classification, ONE computation: pass name →
     sorted heads. 'agg' aggregate-rule heads; 'keyed' key-spanned plain-ruled
     heads (the task-955 upsert; kind-blind, like the pass); among the
-    remaining derivation-owned plain heads (_OWNED), 'dred' for the
+    remaining derivation-owned plain heads (system:owned_modes), 'dred' for
     self-supporting (empty-first refill, GMS93's recursive form) and 'sweep'
     for the acyclic rest (delete-and-rederive); 'aggwhole' the derivation-
     owned agg heads (the whole-replace license). run_rules builds its strata
@@ -2153,7 +2165,7 @@ def _classify_heads(D):
         return False
 
     owned = [h for h in plain_of
-             if kindmap.get(h) in _OWNED
+             if kindmap.get(h) in _owned()
              and h not in agg_heads and h not in keyspanned]
     return {"agg": sorted(agg_heads),
             "keyed": sorted(h for h in plain_of if h in keyspanned),
@@ -2165,7 +2177,7 @@ def _classify_heads(D):
             # group dies); any other agg head supersedes per group. The
             # fifth label rides the cell so readers never need kindmap.
             "aggwhole": sorted(h for h in agg_heads
-                               if kindmap.get(h) in _OWNED)}
+                               if kindmap.get(h) in _owned())}
 
 
 def scheduler_cells(D):

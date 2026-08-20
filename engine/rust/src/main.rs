@@ -6556,12 +6556,42 @@ fn classify_kind(stmt: &str) -> (&'static str, Vec<String>) {
     classify_inner(&inner)
 }
 
-// the sentence vocabulary that never OPENS a type name (compiler.py:468)
-const IMPLICIT_STOP: [&str; 27] = [
-    "If", "When", "Then", "That", "This", "An", "A", "The", "Each", "Some", "No", "Every",
-    "Not", "It", "There", "Once", "For", "In", "Of", "To", "On", "At", "By", "With", "And",
-    "Or", "Only",
-];
+// A canon constant table that is a FLAT list of words, read once per name and
+// leaked. translator_kinds and modal_ops read tables of rows the same way; the
+// difference here is that each element is an atom, so there is no inner
+// list_of -- and an atom put through list_of answers NIL, which would quietly
+// come back as an empty vocabulary rather than an error.
+fn canon_words(name: &'static str) -> &'static [&'static str] {
+    thread_local! {
+        static WORDS: std::cell::RefCell<HashMap<&'static str, &'static [&'static str]>> =
+            std::cell::RefCell::new(HashMap::new());
+    }
+    if let Some(hit) = WORDS.with(|m| m.borrow().get(name).copied()) {
+        return hit;
+    }
+    // the borrow above is released before the reduction: mu resolves through
+    // CANON and has no reason to re-enter this map, but a reduction under a
+    // live RefCell borrow is a panic waiting for the first caller that does
+    let rows = make_mu().app(mkapp(atom(Leaf::S(name.to_string())), phi()));
+    let out: Vec<&'static str> = items(&list_of(&rows))
+        .iter()
+        .filter_map(|w| aval(w).as_deref().and_then(leaf_str))
+        .map(|s| &*Box::leak(s.into_boxed_str()))
+        .collect();
+    let leaked: &'static [&'static str] = Box::leak(out.into_boxed_slice());
+    WORDS.with(|m| m.borrow_mut().insert(name, leaked));
+    leaked
+}
+// It lives in main.rs and not beside the compile.rs callers because it now
+// has callers on both sides, and test_no_host_defines_what_no_dispatch
+// _reaches scans each host file on its own -- a definition used only one
+// file over reads to it as an op that moved to canon and left its body.
+
+// CANON: DEF("system:implicit_stop") -- the sentence vocabulary that never
+// OPENS a type name (compiler.py:468). A maximal Title-case run is a noun
+// CANDIDATE, so what this list excludes decides which entity types a model
+// has: a word missing mints a noun called If, a word wrongly present drops
+// a real one. Twenty-seven words, held here and in compiler.py, uncompared.
 
 fn strip_pnc(t: &str) -> &str {
     t.trim_matches(|c| c == '.' || c == ';' || c == ':')
@@ -6572,7 +6602,10 @@ fn strip_pnc(t: &str) -> &str {
 // a quoted literal (instance evidence) or opened by a quantifier
 fn implicit_nouns(stmts: &[String]) -> std::collections::HashSet<String> {
     use std::collections::HashSet;
-    let quantifiers = ["each", "some", "every", "no", "any"];
+    // CANON: DEF("system:noun_quants"). NOT system:quant_min -- this list
+    // carries every and any and drops that, because opening a phrase is a
+    // different job from being stripped out of a reading.
+    let quantifiers = canon_words("system:noun_quants");
     let mut candidates: HashSet<String> = HashSet::new();
     let mut corroborated: HashSet<String> = HashSet::new();
     for s in stmts {
@@ -6598,7 +6631,7 @@ fn implicit_nouns(stmts: &[String]) -> std::collections::HashSet<String> {
             }
             let base = strip_pnc(tok).trim_end_matches(|c: char| c.is_ascii_digit());
             let title = base.chars().next().map_or(false, |c| c.is_uppercase());
-            if title && !IMPLICIT_STOP.contains(&base) {
+            if title && !canon_words("system:implicit_stop").contains(&base) {
                 if run.is_empty() {
                     after_quant =
                         quantifiers.contains(&strip_pnc(&prev).to_lowercase().as_str());
@@ -6710,7 +6743,7 @@ fn atomic_run_guard(
     }
     let nxt = strip_pnc(toks[j]).trim_end_matches(|c: char| c.is_ascii_digit());
     let title = nxt.chars().next().map_or(false, |c| c.is_uppercase());
-    if !(title && !IMPLICIT_STOP.contains(&nxt)) {
+    if !(title && !canon_words("system:implicit_stop").contains(&nxt)) {
         return true; // no Title-case continuation
     }
     let ext = format!("{} {}", kw.join(" "), nxt);
@@ -12910,14 +12943,14 @@ fn native_verify(app: &str, srv: &Srv) -> Result<String, (i64, String)> {
     }
     // audit = sweep ∪ dred ∪ aggwhole ∪ {keyed whose kind is derivation-OWNED};
     // _OWNED mirrors engine.py:1721
-    const OWNED: [&str; 2] = ["fully-derived", "derived-and-stored"];
+    // CANON: DEF("system:owned_modes")
     let hc = classify_heads_native(cells);
     let mut audit: HashMap<String, Leaf> = HashMap::new(); // head key -> head leaf
     for (hk, hl) in hc.sweep.iter().chain(hc.dred.iter()).chain(hc.aggwhole.iter()) {
         audit.insert(hk.clone(), hl.clone());
     }
     for (hk, hl) in &hc.keyed {
-        if kinds.get(hk).is_some_and(|k| OWNED.contains(&k.as_str())) {
+        if kinds.get(hk).is_some_and(|k| canon_words("system:owned_modes").contains(&k.as_str())) {
             audit.insert(hk.clone(), hl.clone());
         }
     }
