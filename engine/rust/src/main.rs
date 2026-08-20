@@ -13160,7 +13160,16 @@ fn val_ctx(srv: &Srv) -> ValCtx {
         if gi.len() < 2 {
             continue;
         }
-        let k = key_of(&gi[0]);
+        // the BARE text, not key_of. The lookup asks with the attach name -- a
+        // plain constraint id like "Username_inv_uc" -- while key_of answers the
+        // typed, length-prefixed "s15:Username_inv_uc", so contains_key was false
+        // for every constraint in every app and the constraints:uniqueness-over-
+        // positions path below has never once run. Measured 2026-08-20 by dumping
+        // the map keys beside a lookup.
+        let k = match aval(&gi[0]).as_deref().and_then(leaf_str) {
+            Some(s) => s,
+            None => continue,
+        };
         for rest in items(&list_of(&gi[1])) {
             let ri = items(&list_of(&rest));
             if ri.len() == 1 {
