@@ -2114,13 +2114,15 @@ fn marker_kind(marker: &str) -> &'static str {
 // _compile_cs (compiler.py): system:cs_rows REDUCED FROM THE CANON (python's own
 // path — parity by construction), the cid mint and per-attach operands here.
 
+// CANON: DEF("system:cs_prefix"). compiler.py held the same three rows as a
+// dict; a kind with no row takes the empty prefix, which was the
+// fallthrough on both sides.
 fn cs_prefix(kind: &str) -> &'static str {
-    match kind {
-        "disjunctive_mandatory" => "ior_",
-        "subset" => "subset_",
-        "equality" => "eq_",
-        _ => "",
-    }
+    canon_pairs("system:cs_prefix")
+        .iter()
+        .find(|(k, _)| *k == kind)
+        .map(|(_, p)| *p)
+        .unwrap_or("")
 }
 
 fn cook_cs(

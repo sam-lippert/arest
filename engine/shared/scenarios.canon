@@ -1640,5 +1640,11 @@ DEF("case:derivation-modes", S2(A("system:derivation_modes"), PHI())),
 
 DEF("case:cmp-ops", S2(A("system:cmp_ops"), PHI())),
 
-DEF("case:agg-ops", S2(A("system:agg_ops"), PHI()))
+DEF("case:agg-ops", S2(A("system:agg_ops"), PHI())),
+
+"THE CONSTRAINT PREFIXES AND THE BOOTSTRAP KINDS, cross-lineage. cs-prefix is what a set-comparison constraint s minted id opens with, so a reader tells an inclusive-or from a subset from an equality at a glance and the ids sort together -- three rows, held as a python dict beside a rust match, with the empty prefix as the fallthrough on both sides. bootstrap-kinds is the five the SEED compiler dispatches, which is the entire surface of the kernel that has to compile the grammar file before the grammar file can classify anything; it was a python set and nothing else could name it.",
+
+DEF("case:cs-prefix", S2(A("system:cs_prefix"), PHI())),
+
+DEF("case:bootstrap-kinds", S2(A("system:bootstrap_kinds"), PHI()))
 )
