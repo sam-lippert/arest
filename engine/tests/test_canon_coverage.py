@@ -601,3 +601,23 @@ def test_cooked_kinds_are_canon():
     assert canon == list(forml._COOK), (
         "cook boundary drifted from DEF(system:cooked_kinds): "
         "canon=%r _COOK=%r" % (canon, list(forml._COOK)))
+
+
+def test_verb_surface_is_canon():
+    """DEF("system:session_verbs") + DEF("system:app_verbs") ARE
+    protocol.verbs(). The dicts stay the DISPATCH -- their values are the
+    bindings -- but which verbs the system has is one list, and engine/rust
+    reads it instead of holding arrays that had fallen eleven and three
+    behind. Sorted, because protocol.verbs() is sorted session + sorted
+    app and the resident answers that list verbatim."""
+    from pyarest.lam import to_lam, from_lam, atom as A
+    from pyarest.reduce import apply as _apply
+    from pyarest import protocol as P
+    session = list(from_lam(_apply(A("system:session_verbs"), to_lam(()))))
+    app = list(from_lam(_apply(A("system:app_verbs"), to_lam(()))))
+    assert session == sorted(P.SESSION_VERBS), (
+        "session verbs drifted from canon: %r" % (
+            set(session) ^ set(P.SESSION_VERBS),))
+    assert app == sorted(P.APP_VERBS), (
+        "app verbs drifted from canon: %r" % (set(app) ^ set(P.APP_VERBS),))
+    assert session + app == P.verbs()
