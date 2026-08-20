@@ -5765,19 +5765,58 @@ fn split_statements(text: &str) -> Vec<String> {
 
 // _MODAL / _split_modality (compiler.py:224): strip a leading modal operator,
 // yielding (modality, sign, inner). possibility = the ABSENCE of a constraint.
-const MODAL: [(&str, &str, &str); 6] = [
-    ("It is obligatory that ", "deontic", "positive"),
-    ("It is forbidden that ", "deontic", "negative"),
-    ("It is permitted that ", "deontic", "possibility"),
-    ("It is necessary that ", "alethic", "positive"),
-    ("It is impossible that ", "alethic", "negative"),
-    ("It is possible that ", "alethic", "possibility"),
-];
+//
+// CANON: DEF("system:modal_ops") -- the <operator, modality, sign> rows, whose
+// LAST row carries the empty operator and is the default. This stood as a const
+// array here and a list in compiler.py, with the default spelled a seventh time
+// as a return statement in each. Which English opening makes a statement deontic
+// rather than alethic is the metamodel's distinction -- a deontic constraint is
+// violable where an alethic one is not -- so it is not a host detail.
+//
+// The prefix test stays host: canon has no substring primitive. Which prefix
+// means what does not stay host.
+fn modal_ops() -> &'static [(&'static str, &'static str, &'static str)] {
+    thread_local! {
+        static OPS: std::cell::OnceCell<&'static [(&'static str, &'static str, &'static str)]> =
+            const { std::cell::OnceCell::new() };
+    }
+    OPS.with(|c| {
+        *c.get_or_init(|| {
+            let rows = make_mu().app(mkapp(
+                atom(Leaf::S("system:modal_ops".to_string())),
+                phi(),
+            ));
+            let mut out: Vec<(&'static str, &'static str, &'static str)> = Vec::new();
+            // list_of first: a reduced SEQ is not a Scott list (see translator_kinds)
+            for row in items(&list_of(&rows)) {
+                let cols = items(&list_of(&row));
+                if cols.len() < 3 {
+                    continue;
+                }
+                let mut f = [""; 3];
+                let mut ok = true;
+                for (n, col) in cols.iter().take(3).enumerate() {
+                    match aval(col).as_deref().and_then(leaf_str) {
+                        Some(s) => f[n] = Box::leak(s.into_boxed_str()),
+                        None => ok = false,
+                    }
+                }
+                if ok {
+                    out.push((f[0], f[1], f[2]));
+                }
+            }
+            Box::leak(out.into_boxed_slice())
+        })
+    })
+}
 
 fn split_modality(stmt: &str) -> (&'static str, &'static str, String) {
-    for (op, m, sg) in MODAL {
-        if let Some(rest) = stmt.strip_prefix(op) {
-            return (m, sg, rest.trim().to_string());
+    for (op, m, sg) in modal_ops() {
+        if let Some(rest) = stmt.strip_prefix(*op) {
+            // the trim belonged to REMOVING a marker, so the empty-operator row
+            // -- which removes nothing -- must not trim either, or an unmarked
+            // statement would come back trimmed where it did not before
+            return (m, sg, if op.is_empty() { rest.to_string() } else { rest.trim().to_string() });
         }
     }
     ("alethic", "positive", stmt.to_string())
