@@ -13545,16 +13545,31 @@ fn native_validate(app: &str, srv: &Srv) -> Result<String, (i64, String)> {
         let parts = items(&list_of(&result));
         if vtrace { eprintln!("[validate]   ft={} result_parts={}", ft, parts.len()); }
         if parts.len() < 3 {
-            // the validator did not reduce to <pass, violations, flag> within the fuel
-            // bound — a divergent or not-yet-supported constraint shape (the known case:
+            // the validator did not reduce to <pass, violations, flag>. NOT a fuel
+            // exhaustion in the default configuration: nfuel is -1, unbounded, so
+            // the message must not name fuel unless fuel was actually bounded.
+            // MEASURED 2026-08-20 on the identity app: User_has_Username answers 0
+            // parts in six seconds with fuel unbounded, and raising
+            // AREST_VALIDATE_FUEL changes nothing. Its discriminator against the
+            // eight fact types that DO reduce there is that it carries TWO local
+            // uniqueness constraints -- User_has_Username_uc at span 1 and the
+            // inverse Username_inv_uc at span 2 -- where every other fact type in
+            // that store carries one. python reduces the same canon fine, so this
+            // is engine/rust composing system:validate_of, not a canon gap.
+            // (the older note: an absorbed fact type's scoped mandatory,
             // an absorbed fact type's scoped mandatory, a native-reducer divergence Python
             // does not hit). Error HONESTLY, naming the fact type, rather than skip it
             // (a false-clean) or hang the resident.
+            let bound = if nfuel < 0 {
+                "fuel unbounded".to_string()
+            } else {
+                format!("fuel bounded at {}", nfuel)
+            };
             return Err((-32012, format!(
-                "native validate: the validator for fact type '{}' did not reduce to \
-                 <pass, violations, flag> (got {} parts, fuel-capped) — a divergent or \
-                 unsupported constraint shape; this fact type needs porting before native \
-                 validate is complete", ft, parts.len())));
+                "native validate: the validator for fact type '{}' reduced to {} \
+                 parts, not <pass, violations, flag> ({}) — a divergent or unsupported \
+                 constraint shape; this fact type needs porting before native validate \
+                 is complete", ft, parts.len(), bound)));
         }
         let v_rows = items(&list_of(&parts[1]));
         if v_rows.is_empty() {
