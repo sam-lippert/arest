@@ -5830,57 +5830,74 @@ fn native_cook(
     compile::translate(translator_kinds(t), inner, mfield, known, srv)
 }
 
-// register_translators' table (compiler.py:2151): the Stage-1 kinds each
-// translator name serves. The dispatch loop consults it to EXPLAIN a native
-// miss through the _COOK boundary — which host cooks gate that translator.
+// The Stage-1 kinds each translator name serves, and the ORDER it tries them
+// in. The dispatch loop consults it to EXPLAIN a native miss through the _COOK
+// boundary -- which host cooks gate that translator.
+//
+// CANON: DEF("system:tr_kinds"), with DEF("system:kinds_of") the lookup into
+// it. What stood here was a 44-arm match transliterating compiler.py's tuple,
+// so the order deciding which production claims a statement lived in two hosts
+// with nothing comparing them -- and both had drifted from the grammar, which
+// declares translate_partitions and translate_deontic_constraints that neither
+// table carried. Read once and leaked: the table was 'static before and is
+// read-only for the process's life, so the lifetime is the claim the match
+// already made. The map is an INDEX; the ORDER in each entry is canon's.
 fn translator_kinds(t: &str) -> &'static [&'static str] {
-    match t {
-        "translate_nouns" => &["entity_type", "value_type", "subtype_of", "brace_subtypes"],
-        "translate_subtypes" => &["subtype_of", "brace_subtypes"],
-        "translate_enum_values" => &["value_constraint"],
-        "translate_data_types" => &["data_type"],
-        "translate_instance_facts" => &["fact_type_reading"],
-        "translate_fact_types" => &["fact_type_reading"],
-        "translate_derivation_mode_facts" => &["fact_type_reading"],
-        "translate_derivation_rules" => {
-            &["class_rule", "rule_if", "rule_iff", "derivation_rule"]
-        }
-        "translate_cardinality_constraints" => &[
-            "uniqueness",
-            "inverse_uc",
-            "spanning_uc",
-            "spanning_uc2",
-            "frequency",
-            "neg_uniqueness",
-            "disjunctive_mandatory",
-            "mandatory",
-            "for_each_mandatory",
-            "neg_mandatory",
-        ],
-        "translate_ring_constraints" => &["ring"],
-        "translate_set_constraints" => &[
-            "set_comparison",
-            "subset",
-            "subset_trailing",
-            "equality",
-            "disjunctive_mandatory",
-        ],
-        "translate_value_constraints" => &["value_constraint"],
-        "translate_state_machines" => &[
-            "sm_def",
-            "sm_initial",
-            "sm_from",
-            "sm_to",
-            "sm_trigger",
-            "sm_guard",
-            "sm_emit",
-            "sm_moore",
-        ],
-        "translate_finality" => &["finality"],
-        "translate_objectifications" => &["objectification"],
-        "translate_negation" => &["neg_pair", "negation"],
-        _ => &[],
+    thread_local! {
+        static TABLE: std::cell::OnceCell<HashMap<String, &'static [&'static str]>> =
+            const { std::cell::OnceCell::new() };
     }
+    TABLE.with(|c| {
+        c.get_or_init(|| {
+            // byte for byte the --cases path: the NAME through a fresh mu with
+            // operand PHI, since DEF("case:tr-kinds") is S2(A(system:tr_kinds),
+            // PHI()) and every station reduces it. NOT reduce_over or
+            // reduce_over_n, which resolve through a resident store that this
+            // CONST def does not need and cannot be given at startup.
+            let rows = make_mu().app(mkapp(
+                atom(Leaf::S("system:tr_kinds".to_string())),
+                phi(),
+            ));
+            let mut kinds: HashMap<String, Vec<&'static str>> = HashMap::new();
+            let mut order: Vec<String> = Vec::new();
+            // list_of FIRST: a reduced SEQ is not a Scott list, and items() on
+            // one never reaches nil. That hung the resident at startup for over
+            // 200s while the reduction itself was already correct -- the 197
+            // other walks in this file all spell items(&list_of(..)) for that
+            // reason, and a staged probe is what told the two apart.
+            for row in items(&list_of(&rows)) {
+                let cols = items(&list_of(&row));
+                if cols.len() < 2 {
+                    continue;
+                }
+                let name = match aval(&cols[0]).as_deref().and_then(leaf_str) {
+                    Some(s) => s,
+                    None => continue,
+                };
+                let kind = match aval(&cols[1]).as_deref().and_then(leaf_str) {
+                    Some(s) => s,
+                    None => continue,
+                };
+                if !kinds.contains_key(&name) {
+                    order.push(name.clone());
+                }
+                kinds
+                    .entry(name)
+                    .or_default()
+                    .push(Box::leak(kind.into_boxed_str()));
+            }
+            order
+                .into_iter()
+                .map(|n| {
+                    let v = kinds.remove(&n).unwrap_or_default();
+                    (n, &*Box::leak(v.into_boxed_slice()))
+                })
+                .collect()
+        })
+        .get(t)
+        .copied()
+        .unwrap_or(&[])
+    })
 }
 
 // ======================= the prepass context (gap 2) ==========================
