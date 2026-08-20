@@ -70,14 +70,38 @@ def view_entry_tree(D, noun):
 
 
 # ---- the pane-addressed view stack (iFactr's, survey §7) ----
-PANES = ("tabs", "master", "detail", "popover")   # ordinal order load-bearing
+# CANON: DEF("system:panes") -- iFactr's pane-addressed view stack, in
+# ORDINAL order, since a pane later in the list sits above one earlier.
+def _panes():
+    from .lam import atom as _A, to_lam as _tl, from_lam as _fl
+    from .reduce import apply as _apply
+    if not _PANES_CACHE:
+        _PANES_CACHE.extend(_fl(_apply(_A("system:panes"), _tl(()))))
+    return tuple(_PANES_CACHE)
+
+
+_PANES_CACHE = []
+PANES = _panes()
 
 # pane choice: the frame KIND is the layer type; the survey's priority
 # (attribute > layer type > Detail default) collapses here to the kind
 # map — a "list" is the master layer, an entity view the detail, an
 # entry form the popover (modal), the noun set the tabs
-_PANE_FOR = {"tabs": "tabs", "list": "master",
-             "detail": "detail", "entry": "popover"}
+# CANON: DEF("system:pane_for") -- the survey's priority (attribute, then
+# layer type, then Detail as the default) collapses to four rows. A UI
+# decision expressed as data is the only form a second platform can honour;
+# a host that hardcodes the map will disagree about where a form opens.
+def _pane_for():
+    from .lam import atom as _A, to_lam as _tl, from_lam as _fl
+    from .reduce import apply as _apply
+    if not _PANE_FOR_CACHE:
+        _PANE_FOR_CACHE.update(
+            dict(tuple(r) for r in
+                 _fl(_apply(_A("system:pane_for"), _tl(())))))
+    return _PANE_FOR_CACHE
+
+
+_PANE_FOR_CACHE = {}
 
 
 class HistoryStack:
@@ -210,7 +234,7 @@ class Container:
         pane= request) wins, then the kind map, then Detail — and a
         Tabs target coerces to Master (iApp.Navigate's forcing: content
         never lands ON the tab strip)."""
-        chosen = pane or _PANE_FOR.get(frame[0] if frame else None,
+        chosen = pane or _pane_for().get(frame[0] if frame else None,
                                        "detail")
         if chosen == "tabs" and frame and frame[0] != "tabs":
             chosen = "master"
