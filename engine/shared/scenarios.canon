@@ -1611,5 +1611,11 @@ DEF("case:store-verbs", S2(A("system:store_verbs"), PHI())),
 
 DEF("case:read-family", S2(A("system:read_family"), PHI())),
 
-DEF("case:receipt-verbs", S2(A("system:receipt_verbs"), PHI()))
+DEF("case:receipt-verbs", S2(A("system:receipt_verbs"), PHI())),
+
+"THE READ SIGNATURES, cross-lineage. read-verbs is which verbs read a store without changing it, and read-args is what each one takes after the app, IN ORDER -- get wants a noun then an id, and the other way round is a different call that still type-checks, so the order is the contract and not a detail of presentation. The two are kept apart on purpose: a verb with no rows in read-args takes no arguments, which is a different answer from a verb nobody has heard of, and cli.py needs to tell those apart to know whether to run it at all. Arity is the count of a verb s rows plus one for the app, so nothing restates it.",
+
+DEF("case:read-verbs", S2(A("system:read_verbs"), PHI())),
+
+DEF("case:read-args", S2(A("system:read_args"), PHI()))
 )
