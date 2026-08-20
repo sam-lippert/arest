@@ -7071,6 +7071,23 @@ DEF("system:quant_full",
 DEF("system:qualifiers",
     K(S6(A("that"), A("some"), A("the"), A("other"), A("a"), A("an")))),
 
+"THE WORDS THAT NEVER OPEN A TYPE NAME. A maximal Title-case run is a noun CANDIDATE, so what this list excludes decides which entity types a model has -- a word missing from it mints a noun called If or When, and a word wrongly in it silently drops a real one. It stood as a python set and a rust const array of the same twenty-seven words, in the same order, with nothing comparing them. The Title-case test and the run scan stay host; the vocabulary they consult does not.",
+
+DEF("system:implicit_stop",
+    S3(A("COMP"), A("theta:flatten"), K(S3(S9(A("If"), A("When"), A("Then"), A("That"), A("This"), A("An"), A("A"), A("The"), A("Each")),
+           S9(A("Some"), A("No"), A("Every"), A("Not"), A("It"), A("There"), A("Once"), A("For"), A("In")),
+           S9(A("Of"), A("To"), A("On"), A("At"), A("By"), A("With"), A("And"), A("Or"), A("Only")))))),
+
+"THE CORROBORATING QUANTIFIERS. A Title-case candidate becomes a noun only when something vouches for it -- a quoted literal somewhere after it, or one of these words in front. They are NOT system:quant_min: this list carries every and any and drops that, because opening a phrase is a different job from being stripped out of a reading. Two vocabularies that overlap are still two, and holding them apart is why the difference is visible.",
+
+DEF("system:noun_quants",
+    K(S5(A("each"), A("some"), A("every"), A("no"), A("any")))),
+
+"THE DERIVATION MODES THE STORE OWNS. A fully-derived or derived-and-stored head is materialization of an expressible set, so its stored rows are the engine s to replace; a plainly asserted head, or one marked + or ++, keeps its asserted rows and stays out of every destructive pass. Which side of that line a head falls on decides whether a sweep may delete its rows, and it was a two-element tuple in engine.py beside a two-element array in rust.",
+
+DEF("system:owned_modes",
+    K(S2(A("fully-derived"), A("derived-and-stored")))),
+
 DEF("system:h_table",
     S3(A("COMP"), A("theta:flatten"), S2(A("CONST"), S4(S8(S2(A("class_rule"), A("system:h_class_rule")), S2(A("derivation_rule"), A("system:h_derivation_rule")), S2(A("equality"), A("system:h_equality")), S2(A("finality"), A("system:h_finality")), S2(A("for_each_mandatory"), A("system:h_for_each_mandatory")), S2(A("frequency"), A("system:h_frequency")), S2(A("inverse_uc"), A("system:h_inverse_uc")), S2(A("mandatory"), A("system:h_mandatory"))), S8(S2(A("neg_mandatory"), A("system:h_neg_mandatory")), S2(A("neg_pair"), A("system:h_neg_pair")), S2(A("neg_uniqueness"), A("system:h_neg_uniqueness")), S2(A("negation"), A("system:h_negation")), S2(A("objectification"), A("system:h_objectification")), S2(A("possibility"), A("system:h_possibility")), S2(A("ref_scheme"), A("system:h_ref_scheme")), S2(A("ring"), A("system:h_ring"))), S8(S2(A("rule_if"), A("system:h_rule_if")), S2(A("rule_iff"), A("system:h_rule_iff")), S2(A("set_comparison"), A("system:h_set_comparison")), S2(A("sm_def"), A("system:h_sm_def")), S2(A("sm_emit"), A("system:h_sm_emit")), S2(A("sm_from"), A("system:h_sm_from")), S2(A("sm_guard"), A("system:h_sm_guard")), S2(A("sm_initial"), A("system:h_sm_initial"))), S6(S2(A("sm_moore"), A("system:h_sm_moore")), S2(A("sm_to"), A("system:h_sm_to")), S2(A("sm_trigger"), A("system:h_sm_trigger")), S2(A("subset_trailing"), A("system:h_subset_trailing")), S2(A("uniqueness"), A("system:h_uniqueness")), S2(A("value_constraint"), A("system:h_value_constraint"))))))),
 
