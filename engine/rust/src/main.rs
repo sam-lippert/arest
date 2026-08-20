@@ -15231,8 +15231,12 @@ fn run() {
     // reduction thread must hold it). The canon boots by include! of the raw
     // .canon bytes (canon_defs below): rustc tokenizes the same bytes CPython
     // executes, so DEF/A/N/S2..S9 run as native Rust -- no JSON store, no reader.
+    // READ, then fall back to the compiled-in copy. --canon-check compares the
+    // two and answers "1400 defs, 0 differ"; the include! stays precisely so
+    // that check has an oracle, and so a binary with no canon file beside it
+    // still boots. A canon edit costs a restart now instead of a rebuild.
     CANON.with(|c| {
-        *c.borrow_mut() = canon_defs();
+        *c.borrow_mut() = read_canon_file().unwrap_or_else(canon_defs);
     });
     // the native mirror of the canon, converted once: the native carrier NEval
     // resolves a canon def through it when a partial process list does not carry
@@ -15246,11 +15250,36 @@ fn run() {
     });
     register_base();
     register_overrides();                                     // twins on by default
+    // the reader is checked against the thing it replaces: same names in the
+    // same order, same terms. include! stays as the oracle for exactly this.
+    if std::env::args().any(|a| a == "--canon-check") {
+        let baked = canon_defs();
+        match read_canon_file() {
+            None => println!("canon-check: NO FILE READ"),
+            Some(read) => {
+                if read.len() != baked.len() {
+                    println!("canon-check: COUNT {} read vs {} baked",
+                             read.len(), baked.len());
+                } else {
+                    let mut bad = 0usize;
+                    for (r, bk) in read.iter().zip(baked.iter()) {
+                        if r.0 != bk.0 || !eqobj(&r.1, &bk.1) {
+                            if bad < 5 { println!("  differs: {} vs {}", r.0, bk.0); }
+                            bad += 1;
+                        }
+                    }
+                    println!("canon-check: {} defs, {} differ", read.len(), bad);
+                }
+            }
+        }
+        return;
+    }
     if std::env::args().any(|a| a == "--cases") {
         // the cross-host case table: reduce each pair and print name=result
         // in the convention every host shares (include!-baked like the canon)
         let mu = make_mu();
-        for (name, pair) in scenario_defs() {
+        let cases = read_scenarios_file().unwrap_or_else(scenario_defs);
+        for (name, pair) in cases {
             let expr = nth(&pair, 0);
             let operand = nth(&pair, 1);
             let v = mu.app(mkapp(expr, operand));
@@ -15447,6 +15476,213 @@ fn j_to_v(j: &J) -> V {
 }
 
 #[allow(non_snake_case, unused, path_statements)]
+// ============================ the canon READER ================================
+// Canon read from DISK at startup, rather than include!d and compiled in.
+//
+// include! works because the DEF/A/N/K/PHI/S1..S9 vocabulary happens to be
+// valid Rust once those names are closures -- rustc becomes the canon parser.
+// That is an accident of the notation, not a requirement, and it costs a full
+// rebuild for every canon edit on both rust lineages while js, java and cs read
+// the same bytes at runtime. AREST.tex:59 makes D STATE, carried by transitions;
+// a station holding it as object code cannot be handed a different D.
+//
+// The grammar is the whole of it:
+//     file := '(' item* ')'
+//     item := note | def
+//     note := STRING ','?                       (prose between defs, skipped)
+//     def  := 'DEF' '(' STRING ',' expr ')' ','?
+//     expr := 'A' '(' STRING ')' | 'N' '(' INT ')' | 'K' '(' expr ')'
+//           | 'PHI' '(' ')'      | 'S' 1..9 '(' expr (',' expr)* ')'
+// K(x) is CONST applied to x, exactly as canon_defs' closure builds it, and SN
+// is the N-wide sequence. Strings carry \" and \\ -- 27 escaped quotes live in
+// the base today, inside notes and inside atoms like A("<nav class=\"menu\">").
+struct CanonP<'a> {
+    b: &'a [u8],
+    i: usize,
+}
+
+impl<'a> CanonP<'a> {
+    fn ws(&mut self) {
+        while self.i < self.b.len() && (self.b[self.i] as char).is_whitespace() {
+            self.i += 1;
+        }
+    }
+
+    fn eat(&mut self, s: &str) -> bool {
+        self.ws();
+        if self.b[self.i..].starts_with(s.as_bytes()) {
+            self.i += s.len();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn string(&mut self) -> Option<String> {
+        self.ws();
+        if self.i >= self.b.len() || self.b[self.i] != b'"' {
+            return None;
+        }
+        self.i += 1;
+        let mut out = String::new();
+        while self.i < self.b.len() {
+            match self.b[self.i] {
+                b'\\' if self.i + 1 < self.b.len() => {
+                    // the escapes the base actually uses: 27 quotes, 12
+                    // newlines, 10 backslashes, 2 CRs and one \\x1f (the unit
+                    // separator in derive:txn_surrogate). Pushing the next
+                    // char verbatim turned \\n into the LETTER n, which is what
+                    // --canon-check caught on nine defs.
+                    let c = self.b[self.i + 1];
+                    self.i += 2;
+                    match c {
+                        b'n' => out.push('\n'),
+                        b'r' => out.push('\r'),
+                        b't' => out.push('\t'),
+                        b'0' => out.push('\0'),
+                        b'x' if self.i + 1 < self.b.len() => {
+                            let h = std::str::from_utf8(&self.b[self.i..self.i + 2])
+                                .ok()
+                                .and_then(|t| u8::from_str_radix(t, 16).ok());
+                            if let Some(v) = h {
+                                out.push(v as char);
+                                self.i += 2;
+                            }
+                        }
+                        other => out.push(other as char),
+                    }
+                }
+                b'"' => {
+                    self.i += 1;
+                    return Some(out);
+                }
+                c => {
+                    // UTF-8 passes through byte for byte; the notes carry em
+                    // dashes and the atoms carry whatever a reading wrote
+                    let s = &self.b[self.i..];
+                    let ch = std::str::from_utf8(&s[..s.len().min(4)])
+                        .ok()
+                        .and_then(|t| t.chars().next());
+                    match ch {
+                        Some(ch) => {
+                            out.push(ch);
+                            self.i += ch.len_utf8();
+                        }
+                        None => {
+                            out.push(c as char);
+                            self.i += 1;
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn expr(&mut self) -> Option<V> {
+        self.ws();
+        if self.eat("PHI(") {
+            self.eat(")");
+            return Some(phi());
+        }
+        if self.eat("A(") {
+            let s = self.string()?;
+            self.eat(")");
+            return Some(atom(Leaf::S(s)));
+        }
+        if self.eat("N(") {
+            self.ws();
+            let st = self.i;
+            if self.i < self.b.len() && self.b[self.i] == b'-' {
+                self.i += 1;
+            }
+            while self.i < self.b.len() && self.b[self.i].is_ascii_digit() {
+                self.i += 1;
+            }
+            let n: i64 = std::str::from_utf8(&self.b[st..self.i]).ok()?.parse().ok()?;
+            self.eat(")");
+            return Some(atom(Leaf::I(n)));
+        }
+        if self.eat("K(") {
+            let inner = self.expr()?;
+            self.eat(")");
+            return Some(seqv(vec![atom(Leaf::S("CONST".to_string())), inner]));
+        }
+        self.ws();
+        if self.i + 2 < self.b.len() && self.b[self.i] == b'S' && self.b[self.i + 1].is_ascii_digit()
+        {
+            let n = (self.b[self.i + 1] - b'0') as usize;
+            if n >= 1 && n <= 9 && self.b[self.i + 2] == b'(' {
+                self.i += 3;
+                let mut parts = Vec::with_capacity(n);
+                for k in 0..n {
+                    if k > 0 && !self.eat(",") {
+                        return None;
+                    }
+                    parts.push(self.expr()?);
+                }
+                self.eat(")");
+                return Some(seqv(parts));
+            }
+        }
+        None
+    }
+
+    fn file(&mut self) -> Option<Vec<(String, V)>> {
+        let mut out = Vec::new();
+        self.eat("(");
+        loop {
+            self.ws();
+            if self.i >= self.b.len() {
+                break;
+            }
+            if self.b[self.i] == b')' {
+                self.i += 1;
+                self.ws();
+                continue;
+            }
+            if self.b[self.i] == b'"' {
+                self.string()?; // a note between defs
+                self.eat(",");
+                continue;
+            }
+            if self.eat("DEF(") {
+                let name = self.string()?;
+                if !self.eat(",") {
+                    return None;
+                }
+                let body = self.expr()?;
+                self.eat(")");
+                self.eat(",");
+                out.push((name, body));
+                continue;
+            }
+            return None; // anything else is not this grammar
+        }
+        Some(out)
+    }
+}
+
+// Read the canon file if one is there, else answer None and let the caller keep
+// the compiled-in copy. AREST_CANON names it; otherwise the repo-root `arest`
+// relative to the working directory, which is where the resident is launched.
+fn read_canon_file() -> Option<Vec<(String, V)>> {
+    let path = std::env::var("AREST_CANON").unwrap_or_else(|_| "arest".to_string());
+    let src = std::fs::read(&path).ok()?;
+    CanonP { b: &src, i: 0 }.file()
+}
+
+// The case table is the same grammar one file over -- DEF("case:x", S2(expr,
+// operand)) -- so it reads the same way. This is the one that pays off per
+// increment: adding a case cost a rebuild before, and --cases is the gate
+// run most.
+fn read_scenarios_file() -> Option<Vec<(String, V)>> {
+    let path = std::env::var("AREST_SCENARIOS")
+        .unwrap_or_else(|_| "engine/shared/scenarios.canon".to_string());
+    let src = std::fs::read(&path).ok()?;
+    CanonP { b: &src, i: 0 }.file()
+}
+
 fn canon_defs() -> Vec<(String, V)> {
     let out: RefCell<Vec<(String, V)>> = RefCell::new(Vec::new());
     {
