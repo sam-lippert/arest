@@ -1228,22 +1228,24 @@ def _cs_call(kind, subj, clause_fts, raws, m):
     return a, o
 
 
-_CS_SPEC = {
-    "exclusion": lambda arow, clauses, ft: ("constraints:exclusion", ()),
-    "exclusive_or": lambda arow, clauses, ft: ("constraints:exclusive_or", ()),
-    "inclusive_or": lambda arow, clauses, ft: ("constraints:inclusive_or", ()),
-    "scoped_exclusion":
-        lambda arow, clauses, ft: ("constraints:scoped_exclusion", (clauses, ft)),
-    "scoped_exclusive_or":
-        lambda arow, clauses, ft: ("constraints:scoped_exclusive_or",
-                                   (arow[3], clauses, ft)),
-    "scoped_inclusive_or":
-        lambda arow, clauses, ft: ("constraints:scoped_inclusive_or",
-                                   (arow[3], clauses, ft)),
-    "scoped_subset": lambda arow, clauses, ft: ("constraints:scoped_subset", arow[4]),
-    "scoped_equality_side":
-        lambda arow, clauses, ft: ("constraints:scoped_equality_side", ft),
+# CANON: DEF("system:cs_builders") names the BUILDER each spec runs; what
+# stays here is the OPERAND shaping, which reads positions off the A-row and
+# is host work. engine/rust paired the same eight specs with the same eight
+# builders in its own match.
+_CS_OPERAND = {
+    "exclusion": lambda arow, clauses, ft: (),
+    "exclusive_or": lambda arow, clauses, ft: (),
+    "inclusive_or": lambda arow, clauses, ft: (),
+    "scoped_exclusion": lambda arow, clauses, ft: (clauses, ft),
+    "scoped_exclusive_or": lambda arow, clauses, ft: (arow[3], clauses, ft),
+    "scoped_inclusive_or": lambda arow, clauses, ft: (arow[3], clauses, ft),
+    "scoped_subset": lambda arow, clauses, ft: arow[4],
+    "scoped_equality_side": lambda arow, clauses, ft: ft,
 }
+
+
+def _cs_builders():
+    return dict(_vocab_rows("system:cs_builders"))
 
 
 def _compile_cs(kind, subj, clause_fts, raws):
@@ -1263,7 +1265,8 @@ def _compile_cs(kind, subj, clause_fts, raws):
         if builder == "scoped_equality_side":
             # the _a side checks against B, the _b side against A
             ft = arow[4] if cell.endswith("_a") else arow[3]
-        b, op = _CS_SPEC[builder](arow, clauses, ft)
+        b = _cs_builders()[builder]
+        op = _CS_OPERAND[builder](arow, clauses, ft)
         ospecs.append((cell.replace(cid, minted, 1), b, op))
     return ((), mid, tuple(ospecs))
 

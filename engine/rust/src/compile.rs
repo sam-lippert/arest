@@ -2194,39 +2194,28 @@ fn cook_cs(
                 arow[3].clone()
             });
         }
-        let (b, op): (String, Val) = match builder.as_str() {
-            "exclusion" => ("constraints:exclusion".to_string(), vt(vec![])),
-            "exclusive_or" => ("constraints:exclusive_or".to_string(), vt(vec![])),
-            "inclusive_or" => ("constraints:inclusive_or".to_string(), vt(vec![])),
-            "scoped_exclusion" => (
-                "constraints:scoped_exclusion".to_string(),
-                vt(vec![clauses.clone(), ft.clone().unwrap_or(vs(""))]),
-            ),
-            "scoped_exclusive_or" => (
-                "constraints:scoped_exclusive_or".to_string(),
-                vt(vec![
-                    arow[3].clone(),
-                    clauses.clone(),
-                    ft.clone().unwrap_or(vs("")),
-                ]),
-            ),
-            "scoped_inclusive_or" => (
-                "constraints:scoped_inclusive_or".to_string(),
-                vt(vec![
-                    arow[3].clone(),
-                    clauses.clone(),
-                    ft.clone().unwrap_or(vs("")),
-                ]),
-            ),
-            "scoped_subset" => (
-                "constraints:scoped_subset".to_string(),
-                arow[4].clone(),
-            ),
-            "scoped_equality_side" => (
-                "constraints:scoped_equality_side".to_string(),
+        // CANON: DEF("system:cs_builders") names the BUILDER; the operand
+        // shaping below reads positions off the A-row and stays host.
+        // compiler.py paired the same eight specs with the same eight
+        // builders in a dict of lambdas. An unknown spec is still the same
+        // refusal -- it is now a missing ROW rather than a missing arm.
+        let b = canon_pairs("system:cs_builders")
+            .iter()
+            .find(|(s, _)| *s == builder)
+            .map(|(_, bn)| (*bn).to_string())
+            .ok_or_else(|| format!("cs_rows names unknown builder {}", builder))?;
+        let op: Val = match builder.as_str() {
+            "exclusion" | "exclusive_or" | "inclusive_or" => vt(vec![]),
+            "scoped_exclusion" => {
+                vt(vec![clauses.clone(), ft.clone().unwrap_or(vs(""))])
+            }
+            "scoped_exclusive_or" | "scoped_inclusive_or" => vt(vec![
+                arow[3].clone(),
+                clauses.clone(),
                 ft.clone().unwrap_or(vs("")),
-            ),
-            other => return Err(format!("cs_rows names unknown builder {}", other)),
+            ]),
+            "scoped_subset" => arow[4].clone(),
+            _ => ft.clone().unwrap_or(vs("")),
         };
         ospecs.push((cell.replacen(&cid, &minted, 1), b, op));
     }
