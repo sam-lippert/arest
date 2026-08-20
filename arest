@@ -7103,6 +7103,16 @@ DEF("system:owned_modes",
 DEF("system:derivation_modes",
     K(S4(S3(A("**"), A("derived-and-stored"), A("T")), S3(A("++"), A("partially-derived-and-stored"), A("T")), S3(A("*"), A("fully-derived"), A("F")), S3(A("+"), A("semi-derived"), A("F"))))),
 
+"THE COMPARISON VOCABULARY. Which English phrase means which comparison, so a frequency or value clause saying is at least compiles to ge and not to gt. It stood THREE times: a python dict, the alternation inside the python regex that recognises the clause, and a rust array -- and the two python copies are the worst pair, because a phrase present in the regex and missing from the dict raises KeyError on a statement the parser just accepted.",
+
+DEF("system:cmp_ops",
+    K(S6(S2(A("exceeds"), A("gt")), S2(A("is greater than"), A("gt")), S2(A("is less than"), A("lt")), S2(A("is at least"), A("ge")), S2(A("is at most"), A("le")), S2(A("equals"), A("eq"))))),
+
+"THE AGGREGATE OPERATIONS. The five an aggregate clause may name. python holds them inside a regex alternation and rust as an array it scans; the vocabulary is the same and neither could see the other.",
+
+DEF("system:agg_ops",
+    K(S5(A("min"), A("max"), A("count"), A("sum"), A("avg")))),
+
 "THE GENERIC CLASSIFICATIONS. Fact Type Reading and Instance Fact are what a statement is classified as when nothing more specific claims it, so they are the two a SPECIFIC classification is allowed to beat -- the subtraction that decides which translator runs, and the reason Prose does not lose to them. The pair stood three times: a python set and, in engine/rust, the SAME const declared twice inside two different functions, which is the shape a list takes on the way to disagreeing with itself.",
 
 DEF("system:generic_classifications",

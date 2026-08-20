@@ -1733,11 +1733,34 @@ def _coercion(clause, known):
 # the output and source are VARIABLES by the rule convention: numbered
 # (Count1 of Count2) or the corpus's unnumbered type-name spelling (Arity of
 # Role — the base's own Fact_Type_has_Arity rule)
-_AGG_CLAUSE = re.compile(r"^(.+?) is the (min|max|count|sum|avg) of (.+)$")
-_CMP_CLAUSE = re.compile(
-    r"^(\S*\d\S*) (exceeds|is greater than|is less than|is at least|is at most|equals) (\S+)$")
-_CMP_OPS = {"exceeds": "gt", "is greater than": "gt", "is less than": "lt",
-            "is at least": "ge", "is at most": "le", "equals": "eq"}
+# CANON: DEF("system:cmp_ops") and DEF("system:agg_ops") -- which English
+# phrase means which comparison, and the five an aggregate clause may name.
+# The comparison vocabulary stood THREE times: the dict below, the
+# alternation inside the regex that recognises the clause, and an array in
+# engine/rust. The two python copies were the dangerous pair -- a phrase in
+# the regex and missing from the dict raises KeyError on a statement the
+# parser just accepted. Both are built from the one table now.
+_VOCAB_RE = {}
+
+
+def _agg_clause():
+    if "agg" not in _VOCAB_RE:
+        ops = "|".join(_vocab("system:agg_ops"))
+        _VOCAB_RE["agg"] = re.compile(
+            r"^(.+?) is the (" + ops + r") of (.+)$")
+    return _VOCAB_RE["agg"]
+
+
+def _cmp_ops():
+    return dict(_vocab_rows("system:cmp_ops"))
+
+
+def _cmp_clause():
+    if "cmp" not in _VOCAB_RE:
+        ops = "|".join(w for w, _op in _vocab_rows("system:cmp_ops"))
+        _VOCAB_RE["cmp"] = re.compile(
+            r"^(\S*\d\S*) (" + ops + r") (\S+)$")
+    return _VOCAB_RE["cmp"]
 
 
 # #18: rule_if arrives COOKED (_compile_rule_if — the whole body parse is the
@@ -2144,15 +2167,15 @@ def _compile_rule_if(g, k, sign="", kind="fully-derived"):
     # after it, so its source binds only once the joins have run.
     cols, atoms, filters, joins = {}, [], [], []
     ok, diag, agg = True, None, None
-    agg_clause = next((c for c in clauses if _AGG_CLAUSE.match(c)), None)
+    agg_clause = next((c for c in clauses if _agg_clause().match(c)), None)
     if agg_clause is not None:
         clauses = [c for c in clauses if c != agg_clause]
     for c in clauses:
-        mm = _CMP_CLAUSE.match(c)
+        mm = _cmp_clause().match(c)
         if mm and mm.group(1) in cols:
             subj, opw, objtxt = mm.groups()
             if objtxt in cols:
-                filters.append(_fspec(_CMP_OPS[opw], cols[subj],
+                filters.append(_fspec(_cmp_ops()[opw], cols[subj],
                                       col2=cols[objtxt]))
             else:
                 lit = _num(objtxt)
@@ -2161,7 +2184,7 @@ def _compile_rule_if(g, k, sign="", kind="fully-derived"):
                     diag = (f"comparator operand {objtxt!r} is neither a bound "
                             f"variable nor a literal")
                     break
-                filters.append(_fspec(_CMP_OPS[opw], cols[subj], lit=lit))
+                filters.append(_fspec(_cmp_ops()[opw], cols[subj], lit=lit))
             continue
         coer = _coercion(c, k)
         if coer is not None:
@@ -2253,7 +2276,7 @@ def _compile_rule_if(g, k, sign="", kind="fully-derived"):
                          [gcols[v] for v in shared], gwidths, gfilters,
                          gjoins, [cols[v] for v in shared]))
     if ok and agg_clause is not None:
-        out_v, op, over_v = _AGG_CLAUSE.match(agg_clause).groups()
+        out_v, op, over_v = _agg_clause().match(agg_clause).groups()
         if neg_groups:
             ok = False
             diag = "an aggregate with a negation group is not supported"

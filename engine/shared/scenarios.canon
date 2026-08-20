@@ -1634,5 +1634,11 @@ DEF("case:deontic-ops", S2(A("system:deontic_ops"), PHI())),
 
 "THE DERIVATION MODES, cross-lineage. NORMA s four markers, what each MEANS, and whether it materializes -- one fact type where the hosts had three tables and a match between them. Evaluated whole because the ORDER is load-bearing: longest marker first, since a scanner that tries * before ** reads a stored derivation as a computed one and silently stops storing its rows, which is a wrong answer nobody is told about. The third column is the cut python kept in engine.py while the first two lived in compiler.py, and it is a DIFFERENT cut from system:owned_modes: materialize is ** and ++, whose rows get written down, owned is * and **, whose rows the engine may replace.",
 
-DEF("case:derivation-modes", S2(A("system:derivation_modes"), PHI()))
+DEF("case:derivation-modes", S2(A("system:derivation_modes"), PHI())),
+
+"THE CLAUSE VOCABULARIES, cross-lineage. cmp-ops is which English phrase means which comparison, so a clause saying is at least compiles to ge and not to gt. It stood three times: a python dict, the alternation inside the python regex that RECOGNISES the clause, and a rust array -- and the two python copies were the dangerous pair, because a phrase present in the regex and missing from the dict raises out of a statement the parser has just accepted. agg-ops is the five an aggregate clause may name, held in an alternation on one side and an array on the other. Both regexes are built from these rows now, so the recogniser and the map cannot disagree about what the language contains.",
+
+DEF("case:cmp-ops", S2(A("system:cmp_ops"), PHI())),
+
+DEF("case:agg-ops", S2(A("system:agg_ops"), PHI()))
 )
