@@ -6371,12 +6371,18 @@ fn classify_inner(s: &str) -> (&'static str, Vec<String>) {
     }
     for pfx in ["For each ", "for each "] {
         if let Some(body) = s.strip_prefix(pfx).and_then(|b| b.strip_suffix('.')) {
-            for sep in [", at most one ", ", exactly one "] {
+            // CANON: DEF("system:cardinality_openers") -- the same two the
+            // python inverse_uc pattern alternates over, comma-framed here.
+            for opener in canon_words("system:cardinality_openers") {
+                let sep = format!(", {} ", opener);
+                let sep = sep.as_str();
                 for (p, _) in body.match_indices(sep) {
                     if p >= 1 {
                         let t = &body[p + sep.len()..];
-                        if split_first(t, " that ").is_some()
-                            || split_first(t, " those ").is_some()
+                        // CANON: DEF("system:anaphor_connectives")
+                        if canon_words("system:anaphor_connectives")
+                            .iter()
+                            .any(|w| split_first(t, &format!(" {} ", w)).is_some())
                         {
                             return ("inverse_uc", Vec::new());
                         }
@@ -6408,6 +6414,8 @@ fn classify_inner(s: &str) -> (&'static str, Vec<String>) {
     }
     if let Some(body) = s.strip_prefix("*Each ").and_then(|b| b.strip_suffix('.')) {
         for (p, _) in body.match_indices(" is some ") {
+            // "who" here is the PRODUCTION SHAPE, not an alternation over
+            // DEF("system:hop_connectives") -- see the twin in compile.rs.
             if p >= 1 && split_first(&body[p + 9..], " who ").is_some() {
                 return ("derivation_rule", Vec::new());
             }

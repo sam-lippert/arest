@@ -1646,5 +1646,13 @@ DEF("case:agg-ops", S2(A("system:agg_ops"), PHI())),
 
 DEF("case:cs-prefix", S2(A("system:cs_prefix"), PHI())),
 
-DEF("case:bootstrap-kinds", S2(A("system:bootstrap_kinds"), PHI()))
+DEF("case:bootstrap-kinds", S2(A("system:bootstrap_kinds"), PHI())),
+
+"THE CONNECTIVES, cross-lineage, and there are TWO of them. hop-connectives is which words open a step in a role path, so drives some Car that is fast reads as two hops rather than one predicate with an odd name. anaphor-connectives is the pair introducing a back-reference to the subject already named, and it carries THOSE where the hop pair carries WHO -- a site that confuses them classifies an inverse uniqueness constraint as something else, which is why they are two defs and not one list of three words. cardinality-openers sits beside the anaphoric pair in the same statement and the same regex. The lengths a scanner needs come from the words now, not from a hand-counted 6 and 7 that a third connective would strand.",
+
+DEF("case:hop-connectives", S2(A("system:hop_connectives"), PHI())),
+
+DEF("case:anaphor-connectives", S2(A("system:anaphor_connectives"), PHI())),
+
+DEF("case:cardinality-openers", S2(A("system:cardinality_openers"), PHI()))
 )
