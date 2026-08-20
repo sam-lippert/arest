@@ -7055,6 +7055,16 @@ DEF("system:modal_ops",
          S3(A("It is possible that "), A("alethic"), A("possibility")),
          S3(A(""), A("alethic"), A("positive"))))),
 
+"THE MODAL PREFIX, which is system:modal_ops READ BACKWARDS. Verbalizing a constraint puts back the opening its statement was stripped of, so the prefix for a modality and a sign is the operator that means them -- the same rows, the other way round. python held it as a fourth copy of four of those strings. The LAST matching row wins, which is what makes an alethic positive verbalize as nothing rather than as It is necessary that: modal_ops carries the unmarked default after the marked form, and taking the last is taking the default.",
+
+DEF("system:modal_prefix",
+    S4(A("COMP"), N(1), A("theta:last"), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(3)), N(2)), S3(A("COMP"), A("derive:filter_sel"), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), N(2)), N(1)), A("system:modal_ops"))))))),
+
+"THE DEONTIC OPERATORS. A deontic constraint names its operator by sign -- obligatory for a positive one, forbidden for a negative -- and both hosts spelled that as a conditional beside a second conditional choosing the prefix, which system:modal_prefix already answers. Two rows and a lookup replace four branches and four string literals.",
+
+DEF("system:deontic_ops",
+    K(S2(S2(A("positive"), A("deontic_obligatory")), S2(A("negative"), A("deontic_forbidden"))))),
+
 "THE QUANTIFIER VOCABULARY. Which words open a quantified phrase is FORML grammar, not a host detail -- they are what a reading is stripped of before its fact type is read out, so a word missing from the list changes which fact type a statement declares. It was held four times: two python regexes with the words baked into their alternation, and two rust const arrays. QUALIFIERS is the separate list of words that may stand before a type name in a role player, held twice more. The matching stays host -- a word boundary and a literal space, which canon has no primitive for -- but the words do not.",
 
 DEF("system:quant_min",

@@ -6557,6 +6557,33 @@ fn canon_words(name: &'static str) -> &'static [&'static str] {
 
 // The same read for a table whose elements are ROWS rather than atoms. Two
 // columns is all any caller wants so far; canon_words is the flat sibling.
+// CANON: DEF("system:modal_prefix"), which is system:modal_ops read
+// backwards -- the opening a modality and a sign verbalize as. Cached per
+// pair; the table is seven rows, so the cost is the reduction, once.
+fn modal_prefix(modality: &str, sign: &str) -> &'static str {
+    thread_local! {
+        static PFX: std::cell::RefCell<HashMap<(String, String), &'static str>> =
+            std::cell::RefCell::new(HashMap::new());
+    }
+    let key = (modality.to_string(), sign.to_string());
+    if let Some(hit) = PFX.with(|c| c.borrow().get(&key).copied()) {
+        return hit;
+    }
+    let v = make_mu().app(mkapp(
+        atom(Leaf::S("system:modal_prefix".to_string())),
+        seqc(vec![
+            atom(Leaf::S(modality.to_string())),
+            atom(Leaf::S(sign.to_string())),
+        ]),
+    ));
+    let out: &'static str = match aval(&v).as_deref().and_then(leaf_str) {
+        Some(s) => Box::leak(s.into_boxed_str()),
+        None => "",
+    };
+    PFX.with(|c| c.borrow_mut().insert(key, out));
+    out
+}
+
 fn canon_pairs(name: &'static str) -> &'static [(&'static str, &'static str)] {
     thread_local! {
         static PAIRS: std::cell::RefCell<HashMap<&'static str,
