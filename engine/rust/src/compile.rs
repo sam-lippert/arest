@@ -1615,7 +1615,8 @@ fn agg_clause_match(c: &str) -> Option<(String, String, String)> {
             continue;
         }
         let rest = &c[p + 8..];
-        for op in ["min", "max", "count", "sum", "avg"] {
+        // CANON: DEF("system:agg_ops")
+        for op in canon_words("system:agg_ops") {
             if let Some(tail) = rest.strip_prefix(op) {
                 if let Some(over) = tail.strip_prefix(" of ") {
                     if !over.is_empty() {
@@ -1637,14 +1638,10 @@ fn cmp_clause_match(c: &str) -> Option<(String, &'static str, String)> {
         return None;
     }
     let rest = &c[sp + 1..];
-    for (opw, op) in [
-        ("exceeds", "gt"),
-        ("is greater than", "gt"),
-        ("is less than", "lt"),
-        ("is at least", "ge"),
-        ("is at most", "le"),
-        ("equals", "eq"),
-    ] {
+    // CANON: DEF("system:cmp_ops") -- which phrase means which comparison.
+    // compiler.py held it as a dict AND inside the regex that recognises
+    // the clause; both come off these rows now.
+    for (opw, op) in canon_pairs("system:cmp_ops") {
         if let Some(tail) = rest.strip_prefix(opw) {
             if let Some(objtxt) = tail.strip_prefix(' ') {
                 if !objtxt.is_empty() && !objtxt.contains(char::is_whitespace) {
