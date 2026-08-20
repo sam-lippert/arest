@@ -7055,6 +7055,22 @@ DEF("system:modal_ops",
          S3(A("It is possible that "), A("alethic"), A("possibility")),
          S3(A(""), A("alethic"), A("positive"))))),
 
+"THE QUANTIFIER VOCABULARY. Which words open a quantified phrase is FORML grammar, not a host detail -- they are what a reading is stripped of before its fact type is read out, so a word missing from the list changes which fact type a statement declares. It was held four times: two python regexes with the words baked into their alternation, and two rust const arrays. QUALIFIERS is the separate list of words that may stand before a type name in a role player, held twice more. The matching stays host -- a word boundary and a literal space, which canon has no primitive for -- but the words do not.",
+
+DEF("system:quant_min",
+    K(S4(A("some"), A("that"), A("each"), A("no")))),
+
+"quant_full is quant_min EXTENDED, and says so. Both hosts spelled the six words out twice over, so nothing recorded that the shorter list is a prefix of the longer one or that the two extra words are the indefinite articles. A reading is tried against the minimum first and the full list second, which only makes sense if one contains the other.",
+
+DEF("system:quant_full",
+    S3(A("COMP"), A("cat"), S3(A("CONS"), A("system:quant_min"),
+                               K(S2(A("an"), A("a")))))),
+
+"THE ROLE-PLAYER QUALIFIERS. The words that may stand between a quantifier and a type name, so that the type span behind them is what names the player. Held as a python set and a rust const array, and consulted at four sites between them.",
+
+DEF("system:qualifiers",
+    K(S6(A("that"), A("some"), A("the"), A("other"), A("a"), A("an")))),
+
 DEF("system:h_table",
     S3(A("COMP"), A("theta:flatten"), S2(A("CONST"), S4(S8(S2(A("class_rule"), A("system:h_class_rule")), S2(A("derivation_rule"), A("system:h_derivation_rule")), S2(A("equality"), A("system:h_equality")), S2(A("finality"), A("system:h_finality")), S2(A("for_each_mandatory"), A("system:h_for_each_mandatory")), S2(A("frequency"), A("system:h_frequency")), S2(A("inverse_uc"), A("system:h_inverse_uc")), S2(A("mandatory"), A("system:h_mandatory"))), S8(S2(A("neg_mandatory"), A("system:h_neg_mandatory")), S2(A("neg_pair"), A("system:h_neg_pair")), S2(A("neg_uniqueness"), A("system:h_neg_uniqueness")), S2(A("negation"), A("system:h_negation")), S2(A("objectification"), A("system:h_objectification")), S2(A("possibility"), A("system:h_possibility")), S2(A("ref_scheme"), A("system:h_ref_scheme")), S2(A("ring"), A("system:h_ring"))), S8(S2(A("rule_if"), A("system:h_rule_if")), S2(A("rule_iff"), A("system:h_rule_iff")), S2(A("set_comparison"), A("system:h_set_comparison")), S2(A("sm_def"), A("system:h_sm_def")), S2(A("sm_emit"), A("system:h_sm_emit")), S2(A("sm_from"), A("system:h_sm_from")), S2(A("sm_guard"), A("system:h_sm_guard")), S2(A("sm_initial"), A("system:h_sm_initial"))), S6(S2(A("sm_moore"), A("system:h_sm_moore")), S2(A("sm_to"), A("system:h_sm_to")), S2(A("sm_trigger"), A("system:h_sm_trigger")), S2(A("subset_trailing"), A("system:h_subset_trailing")), S2(A("uniqueness"), A("system:h_uniqueness")), S2(A("value_constraint"), A("system:h_value_constraint"))))))),
 

@@ -1021,7 +1021,7 @@ def _dequalify(text, known):
     kset = sorted(known, key=lambda x: -len(x.split()))
     toks, out, i = text.split(), [], 0
     while i < len(toks):
-        if toks[i] in _QUALIFIERS and _type_span(toks, i + 1, kset):
+        if toks[i] in _vocab("system:qualifiers") and _type_span(toks, i + 1, kset):
             i += 1
             continue
         out.append(toks[i])
@@ -1078,8 +1078,34 @@ def _h_brace_subtypes(g, k, m):
                 [(cid + "@" + s, C.scoped_exclusion(subs, s)) for s in subs]
     return A_, objs
 
-_QUANT = re.compile(r"\b(some|that|each|no|an|a) ")
-_QUANT_MIN = re.compile(r"\b(some|that|each|no) ")
+# CANON: DEF("system:quant_min") / DEF("system:quant_full") /
+# DEF("system:qualifiers") -- FORML's quantifier and qualifier vocabulary.
+# The words stood four times over: baked into the alternation of the two
+# regexes that were here, and again as two const arrays in engine/rust.
+# Which words open a quantified phrase decides what a reading is stripped
+# down to, and so which fact type a statement declares -- the matching is
+# lexical and stays here, the vocabulary is not and does not.
+_VOCAB = {}
+
+
+def _vocab(name):
+    if name not in _VOCAB:
+        from .lam import atom as _A, to_lam as _tl, from_lam as _fl
+        from .reduce import apply as _apply
+        _VOCAB[name] = tuple(_fl(_apply(_A(name), _tl(()))))
+    return _VOCAB[name]
+
+
+_QUANT_RE = {}
+
+
+def _quant_re(name):
+    """The strip pattern over a canon word list: a word boundary, one of the
+    words, a literal space. system:quant_full is system:quant_min extended,
+    so trying the minimum first is trying the shorter strip first."""
+    if name not in _QUANT_RE:
+        _QUANT_RE[name] = re.compile(r"\b(" + "|".join(_vocab(name)) + r") ")
+    return _QUANT_RE[name]
 
 
 def _clause_ft(text, known):
@@ -1292,7 +1318,8 @@ def _clause_ft_roles(text, known):
     projection's coordinates."""
     t = re.sub(r"\s+", " ", text.strip())
     best = None
-    for pat in (_QUANT_MIN, _QUANT):
+    for pat in (_quant_re("system:quant_min"),
+                _quant_re("system:quant_full")):
         stripped = pat.sub("", t).strip()
         template, roles = _reading(stripped, known)
         ft = _ftid_from(template, roles)
@@ -1538,7 +1565,7 @@ def _h_sm_def(g, k, m):
 # FALLBACK, tried only when the verbatim reading resolves to no declared fact type --
 # 'a' is often predicate text ('Person is a Parent' keeps its article), while
 # 'that Resource' in the corpus's anaphoric rules normalizes to the bare reading.
-_QUALIFIERS = {"that", "some", "the", "other", "a", "an"}
+# the words are canon now: _vocab("system:qualifiers")
 
 
 def _h_sm_initial(g, k, m):
@@ -1609,7 +1636,7 @@ def _rule_atom(text, known):
     i = 0
     while i < len(toks):
         tok = toks[i]
-        if tok in _QUALIFIERS and _type_span(toks, i + 1, kset):
+        if tok in _vocab("system:qualifiers") and _type_span(toks, i + 1, kset):
             verbatim.append(tok)                              # kept as reading text
             i += 1
             continue
