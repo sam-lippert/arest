@@ -7140,6 +7140,21 @@ DEF("system:app_verbs",
 DEF("system:resident_ops",
     K(S9(A("base_seed"), A("cells"), A("compile_model"), A("neval"), A("query"), A("run_rules"), A("sql_project"), A("synthesize_pairs"), A("verbs")))),
 
+"THE STORE-ONLY VERBS. One dispatch, two bindings: these are the verbs a STORE alone answers, so the wasm Worker and the host resident run the same code for them and nothing host-shaped is needed. Which verbs those are is the boundary between what ships to a browser and what needs a registry behind it, and it was a matches! arm.",
+
+DEF("system:store_verbs",
+    K(S8(A("get"), A("actions"), A("schema"), A("synthesize"), A("query"), A("cells"), A("derive"), A("nav")))),
+
+"THE READ FAMILY. The four whose fast override can be killed so they resolve through the delegate reference instead -- AREST_DELEGATE_READS names exactly these. The list stood TWICE in engine/rust, once in parse_no_override and once in the call path it gates, which is how a kill switch comes to disagree with the thing it switches.",
+
+DEF("system:read_family",
+    K(S4(A("get"), A("actions"), A("schema"), A("synthesize")))),
+
+"THE RECEIPT VERBS. Which verbs MUTATE, and so leave a receipt for the context verb to replay. python expresses this by where it assigns last_receipt and rust by a matches! arm; naming them makes the claim checkable, and the claim is that these two are the whole of what changes a store through this surface.",
+
+DEF("system:receipt_verbs",
+    K(S2(A("apply"), A("retract")))),
+
 DEF("system:h_table",
     S3(A("COMP"), A("theta:flatten"), S2(A("CONST"), S4(S8(S2(A("class_rule"), A("system:h_class_rule")), S2(A("derivation_rule"), A("system:h_derivation_rule")), S2(A("equality"), A("system:h_equality")), S2(A("finality"), A("system:h_finality")), S2(A("for_each_mandatory"), A("system:h_for_each_mandatory")), S2(A("frequency"), A("system:h_frequency")), S2(A("inverse_uc"), A("system:h_inverse_uc")), S2(A("mandatory"), A("system:h_mandatory"))), S8(S2(A("neg_mandatory"), A("system:h_neg_mandatory")), S2(A("neg_pair"), A("system:h_neg_pair")), S2(A("neg_uniqueness"), A("system:h_neg_uniqueness")), S2(A("negation"), A("system:h_negation")), S2(A("objectification"), A("system:h_objectification")), S2(A("possibility"), A("system:h_possibility")), S2(A("ref_scheme"), A("system:h_ref_scheme")), S2(A("ring"), A("system:h_ring"))), S8(S2(A("rule_if"), A("system:h_rule_if")), S2(A("rule_iff"), A("system:h_rule_iff")), S2(A("set_comparison"), A("system:h_set_comparison")), S2(A("sm_def"), A("system:h_sm_def")), S2(A("sm_emit"), A("system:h_sm_emit")), S2(A("sm_from"), A("system:h_sm_from")), S2(A("sm_guard"), A("system:h_sm_guard")), S2(A("sm_initial"), A("system:h_sm_initial"))), S6(S2(A("sm_moore"), A("system:h_sm_moore")), S2(A("sm_to"), A("system:h_sm_to")), S2(A("sm_trigger"), A("system:h_sm_trigger")), S2(A("subset_trailing"), A("system:h_subset_trailing")), S2(A("uniqueness"), A("system:h_uniqueness")), S2(A("value_constraint"), A("system:h_value_constraint"))))))),
 

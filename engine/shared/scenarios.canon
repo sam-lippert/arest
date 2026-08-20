@@ -1603,5 +1603,13 @@ DEF("case:session-verbs", S2(A("system:session_verbs"), PHI())),
 
 DEF("case:app-verbs", S2(A("system:app_verbs"), PHI())),
 
-DEF("case:resident-ops", S2(A("system:resident_ops"), PHI()))
+DEF("case:resident-ops", S2(A("system:resident_ops"), PHI())),
+
+"THE STORE BOUNDARY, cross-lineage. store-verbs is what a STORE alone answers, so it is the line between what can ship to a browser as wasm and what needs a registry behind it -- one dispatch, two bindings, and this names which verbs the two bindings share. read-family is the four whose fast route can be killed so they resolve through the delegate reference instead; it stood twice in engine/rust, in the kill switch and in the path the switch gates. receipt-verbs is which verbs mutate, and so leave a receipt for context to replay -- two, and now sayable rather than only inferable from where a field gets assigned.",
+
+DEF("case:store-verbs", S2(A("system:store_verbs"), PHI())),
+
+DEF("case:read-family", S2(A("system:read_family"), PHI())),
+
+DEF("case:receipt-verbs", S2(A("system:receipt_verbs"), PHI()))
 )

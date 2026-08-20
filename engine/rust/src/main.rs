@@ -1345,8 +1345,11 @@ fn parse_no_override() -> (bool, std::collections::HashSet<String>) {
         set.insert("synthesize".to_string());
     }
     if std::env::var_os("AREST_DELEGATE_READS").is_some() {
-        for n in ["get", "actions", "schema", "synthesize"] {
-            set.insert(n.to_string());
+        // CANON: DEF("system:read_family"). This list stood here AND in the
+        // call path this switch gates, which is how a kill switch comes to
+        // disagree with the thing it switches.
+        for n in canon_words("system:read_family") {
+            set.insert((*n).to_string());
         }
     }
     if std::env::var_os("AREST_PYTHON_COMPILE").is_some() {
@@ -13555,7 +13558,9 @@ fn native_apply(args: &J, apps: &Apps, srv: &mut Srv) -> Option<Result<String, (
 #[cfg(feature = "host")]
 fn mcp_call(tool: &str, args: &J, apps: &mut Apps, srv: &mut Srv) -> Result<String, (i64, String)> {
     let out = mcp_call_inner(tool, args, apps, srv);
-    if matches!(tool, "apply" | "retract") {
+    // CANON: DEF("system:receipt_verbs") -- which verbs MUTATE, and so leave
+    // a receipt for the context verb to replay.
+    if canon_words("system:receipt_verbs").contains(&tool) {
         if let Ok(r) = &out {
             LAST_RECEIPT.with(|c| *c.borrow_mut() = Some(r.clone()));
         }
@@ -14782,8 +14787,15 @@ fn mcp_call_inner(tool: &str, args: &J, apps: &mut Apps, srv: &mut Srv) -> Resul
     // ONE dispatch, two bindings (the doctrine): the STORE-ONLY verbs
     // route through the hostless store_call the wasm Worker shares.
     // The host keeps the app-loaded guard and the delegate escape.
-    if matches!(tool, "get" | "actions" | "schema" | "synthesize"
-                    | "query" | "cells" | "derive" | "nav") {
+    // CANON: DEF("system:store_verbs") -- what a STORE alone answers, which
+    // is the line between what ships to a browser as wasm and what needs a
+    // registry behind it. NOTE: these eight and store_call's own eight arms
+    // (actions, derive, get, list, nav, nouns, schema, synthesize) differ by
+    // four each way -- query and cells route here and answer None, while list
+    // and nouns reach store_call only on the Worker path. Left as it stands:
+    // changing which tools route here changes behaviour on a path this
+    // increment cannot exercise, so it is recorded rather than guessed at.
+    if canon_words("system:store_verbs").contains(&tool) {
         if apps.current.is_none() {
             return Err((-32602,
                 format!("no app loaded; call apps_use before {}", tool)));
@@ -14791,7 +14803,7 @@ fn mcp_call_inner(tool: &str, args: &J, apps: &mut Apps, srv: &mut Srv) -> Resul
         // registry kill: a killed read-family override resolves through the
         // delegate reference (AREST_DELEGATE_READS and AREST_SYNTH_SCOTT are
         // the aliases; see parse_no_override).
-        if matches!(tool, "get" | "actions" | "schema" | "synthesize")
+        if canon_words("system:read_family").contains(&tool)
             && overrides_killed(tool)
         {
             return delegate_read(tool, args, apps);
