@@ -13285,12 +13285,22 @@ fn assemble_validator_for(
                     attach.push((format!("{}@{}", f0, ft), false));
                 }
             }
-            // df and do are canon modes this host has no arm for: python
-            // attaches {cid}_df and {cid}_do, so a deontic check that FLAGS
-            // there is silent here. Left as it stands -- implementing it is a
-            // behaviour change to validate, not a table move -- but named now
-            // instead of falling into an anonymous wildcard.
-            "df" | "do" => {}
+            // the deontic pair, transliterating compiler.py's two lambdas.
+            // Both attach LOCALLY (the check consumes the target population)
+            // and both are flags, never blocks -- Def. Violation. The value
+            // form of obligatory carries its obligated values at index 3, so
+            // it only attaches when the row is long enough to have them; the
+            // bare form is the arc's named remainder and attaches nothing.
+            "df" => {
+                if f2 == ft {
+                    attach.push((format!("{}_df", f0), true));
+                }
+            }
+            "do" => {
+                if f2 == ft && it.len() >= 5 {
+                    attach.push((format!("{}_do", f0), true));
+                }
+            }
             _ => {}
         }
         for (name, is_local) in attach {
