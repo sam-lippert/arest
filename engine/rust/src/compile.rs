@@ -2704,11 +2704,16 @@ fn deontic_fact(
     };
     let (mut facts, mut objs) = h_constraint(&cook_fact(srv, &dequoted, k), m, srv)?;
     let (ft, _decl) = fact_type(&dequoted, k);
-    let (op, prefix) = if sign == "positive" {
-        ("deontic_obligatory", "It is obligatory that ")
-    } else {
-        ("deontic_forbidden", "It is forbidden that ")
-    };
+    // CANON: DEF("system:deontic_ops") names the operator by sign, and
+    // DEF("system:modal_prefix") answers the opening -- which is
+    // system:modal_ops read backwards, not a fifth copy of the strings.
+    // compiler.py had the same two conditionals.
+    let op = canon_pairs("system:deontic_ops")
+        .iter()
+        .find(|(s, _)| *s == sign)
+        .map(|(_, o)| *o)
+        .unwrap_or("deontic_forbidden");
+    let prefix = modal_prefix("deontic", sign);
     let row_name = format!("{}{}", prefix, g0);
     let mut row = vec![vs(&row_name), vs(op), vs(&ft)];
     if !ids.is_empty() {

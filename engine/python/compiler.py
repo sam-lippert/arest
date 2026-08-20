@@ -2412,10 +2412,11 @@ def _plan(kind, g, known, modality="alethic", sign=""):
                     if ids else reading)
         facts, objs = _h_constraint(_compile_fact((dequoted,), known), known, modality)
         ft, _decl = _fact_type(dequoted, known)
-        op = ("deontic_obligatory" if sign == "positive"
-              else "deontic_forbidden")
-        prefix = ("It is obligatory that " if sign == "positive"
-                  else "It is forbidden that ")
+        # CANON: DEF("system:deontic_ops") names the operator by sign and
+        # DEF("system:modal_prefix") answers the opening. Both were
+        # conditionals here and another pair of them in engine/rust.
+        op = dict(_vocab_rows("system:deontic_ops"))[sign]
+        prefix = _fl_prefix("deontic", sign)
         row = (prefix + g[0], op, ft) + ((ids,) if ids else ()) + ("deontic",)
         if sign != "positive":
             # the forbidden check object rides DEFS like every other
@@ -3035,9 +3036,18 @@ _RENDER = {
     "sm_moore": lambda g: f"Status '{g[0]}' emits '{g[1]}'",
 }
 
-_PREFIX = {("alethic", "positive"): "", ("deontic", "positive"): "It is obligatory that ",
-           ("deontic", "negative"): "It is forbidden that ",
-           ("alethic", "negative"): "It is impossible that "}
+# CANON: DEF("system:modal_prefix") -- system:modal_ops READ BACKWARDS.
+# Verbalizing puts back the opening the statement was stripped of, so the
+# prefix for a modality and a sign IS the operator that means them. The dict
+# that stood here was a fourth copy of four of those strings, and it covered
+# only four of the six pairs -- a possibility-signed constraint raised
+# KeyError out of nf(). The def answers all six.
+
+
+def _fl_prefix(mod, sign):
+    from .lam import atom as _A, to_lam as _tl, from_lam as _fl
+    from .reduce import apply as _apply
+    return _fl(_apply(_A("system:modal_prefix"), _tl((mod, sign))))
 
 
 def nf(reading):
@@ -3053,7 +3063,8 @@ def nf(reading):
     if kind == "possibility":
         prefix = "It is permitted that " if mod == "deontic" else "It is possible that "
         return prefix + g[0] + "."
-    return _PREFIX[(mod, sign)] + _RENDER[kind](g) + "."
+    prefix = _fl_prefix(mod, sign)
+    return prefix + _RENDER[kind](g) + "."
 
 
 # the statement translators register at import, like the federation bindings: the
