@@ -1595,5 +1595,13 @@ DEF("case:sm-phrases", S2(A("system:sm_phrases"), PHI())),
 
 DEF("case:cooked-kinds", S2(A("system:cooked_kinds"), PHI())),
 
-DEF("case:cook-exceptions", S2(A("system:cook_exceptions"), PHI()))
+DEF("case:cook-exceptions", S2(A("system:cook_exceptions"), PHI())),
+
+"THE VERB SURFACE, cross-lineage. The three lists are evaluated whole because the CONTENTS are the interface: what the system says it can do. engine/rust advertised eleven session verbs where python has twenty-two and thirteen app verbs where python has sixteen, and used the short lists to decide whether a verb existed at all, so the resident answered unknown op for validate and for every tutor verb. resident-ops is the subset a store answers alone, and it had three different answers in one file -- an array of eight, an error string naming five, and nine arms implemented. Pinned here, one list each, and the stations agree on them the way they agree on everything else.",
+
+DEF("case:session-verbs", S2(A("system:session_verbs"), PHI())),
+
+DEF("case:app-verbs", S2(A("system:app_verbs"), PHI())),
+
+DEF("case:resident-ops", S2(A("system:resident_ops"), PHI()))
 )

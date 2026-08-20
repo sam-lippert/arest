@@ -7118,6 +7118,28 @@ DEF("system:cooked_kinds",
 DEF("system:cook_exceptions",
     K(S1(S2(A("deontic"), A("fact_type_reading"))))),
 
+"THE VERB SURFACE. Every binding lists the SAME verbs -- that is what makes the surface agnostic, and engine/rust s own comment says exactly that while its arrays held eleven session verbs against python s twenty-two and thirteen app verbs against sixteen. The resident used the shorter lists to tell a real verb from an unknown one, so asking it for validate or tutor_query answered unknown op rather than the truth, which is that the verb exists and needs the apps registry. The dispatch stays host on both sides, since the values are bindings, but WHICH verbs the system has is one list and it is this one.",
+
+DEF("system:session_verbs",
+    S3(A("COMP"), A("theta:flatten"), K(S3(
+        S9(A("apps_check"), A("apps_compile"), A("apps_create"), A("apps_current"), A("apps_list"), A("apps_register"), A("apps_status"), A("apps_use"), A("context")),
+        S9(A("engine_version"), A("orient"), A("select_component"), A("tutor_actions"), A("tutor_apply"), A("tutor_authoring"), A("tutor_check"), A("tutor_compile"), A("tutor_get")),
+        S4(A("tutor_list"), A("tutor_propose"), A("tutor_query"), A("tutor_reset"))
+    )))),
+
+"THE APP VERBS. What a verb does to one app s store, as against the session verbs above, which act on the registry of apps itself.",
+
+DEF("system:app_verbs",
+    S3(A("COMP"), A("theta:flatten"), K(S2(
+        S9(A("actions"), A("apply"), A("ask"), A("cells"), A("compile"), A("explain"), A("get"), A("induce"), A("propose")),
+        S7(A("query"), A("retract"), A("schema"), A("sql"), A("synthesize"), A("validate"), A("verify"))
+    )))),
+
+"THE RESIDENT OPS. The subset a store alone answers, with no apps registry behind it. This had THREE answers inside one file: an array of eight, a hardcoded error string naming five, and nine arms actually implemented -- the array missing neval and the message missing four. The nine are the truth, and both the advertised list and the message read them from here now, so the resident cannot again describe a surface it does not have.",
+
+DEF("system:resident_ops",
+    K(S9(A("base_seed"), A("cells"), A("compile_model"), A("neval"), A("query"), A("run_rules"), A("sql_project"), A("synthesize_pairs"), A("verbs")))),
+
 DEF("system:h_table",
     S3(A("COMP"), A("theta:flatten"), S2(A("CONST"), S4(S8(S2(A("class_rule"), A("system:h_class_rule")), S2(A("derivation_rule"), A("system:h_derivation_rule")), S2(A("equality"), A("system:h_equality")), S2(A("finality"), A("system:h_finality")), S2(A("for_each_mandatory"), A("system:h_for_each_mandatory")), S2(A("frequency"), A("system:h_frequency")), S2(A("inverse_uc"), A("system:h_inverse_uc")), S2(A("mandatory"), A("system:h_mandatory"))), S8(S2(A("neg_mandatory"), A("system:h_neg_mandatory")), S2(A("neg_pair"), A("system:h_neg_pair")), S2(A("neg_uniqueness"), A("system:h_neg_uniqueness")), S2(A("negation"), A("system:h_negation")), S2(A("objectification"), A("system:h_objectification")), S2(A("possibility"), A("system:h_possibility")), S2(A("ref_scheme"), A("system:h_ref_scheme")), S2(A("ring"), A("system:h_ring"))), S8(S2(A("rule_if"), A("system:h_rule_if")), S2(A("rule_iff"), A("system:h_rule_iff")), S2(A("set_comparison"), A("system:h_set_comparison")), S2(A("sm_def"), A("system:h_sm_def")), S2(A("sm_emit"), A("system:h_sm_emit")), S2(A("sm_from"), A("system:h_sm_from")), S2(A("sm_guard"), A("system:h_sm_guard")), S2(A("sm_initial"), A("system:h_sm_initial"))), S6(S2(A("sm_moore"), A("system:h_sm_moore")), S2(A("sm_to"), A("system:h_sm_to")), S2(A("sm_trigger"), A("system:h_sm_trigger")), S2(A("subset_trailing"), A("system:h_subset_trailing")), S2(A("uniqueness"), A("system:h_uniqueness")), S2(A("value_constraint"), A("system:h_value_constraint"))))))),
 

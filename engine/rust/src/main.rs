@@ -3292,15 +3292,12 @@ fn handle(j: &J, srv: &mut Srv, serve: bool) -> String {
 // loads (canon_defs) — no engine semantics re-live here. Verbs needing the
 // apps registry (readings compile, sqlite) stay host-side: the table names
 // them; the resident subset serves what the store alone can answer.
-const SESSION_VERBS: [&str; 11] =
-    ["apps_check", "apps_compile", "apps_create", "apps_current", "apps_list",
-     "apps_register", "apps_status", "apps_use", "context", "engine_version", "orient"];
-const APP_VERBS: [&str; 13] =
-    ["apply", "ask", "cells", "compile", "explain", "get", "induce", "propose",
-     "query", "retract", "schema", "sql", "synthesize"];
-const RESIDENT_OPS: [&str; 8] =
-    ["base_seed", "cells", "compile_model", "query", "run_rules", "sql_project",
-     "synthesize_pairs", "verbs"];
+// CANON: DEF("system:session_verbs"), DEF("system:app_verbs"),
+// DEF("system:resident_ops"). The three arrays that stood here said eleven,
+// thirteen and eight, against python's twenty-two and sixteen and this
+// file's own nine implemented arms -- while the comment above claimed every
+// binding lists the SAME verbs. The claim is true now because there is one
+// list. Sorted, so session + app is protocol.verbs() exactly.
 
 fn reduce_in(mu: &V, cells: &[(Leaf, V)], d: &V, f: V, x: V, fuel: Option<i64>) -> V {
     // one reduction under a given store binding, the case path's frame
@@ -11691,16 +11688,16 @@ fn op_answer(op: &str, j: &J, srv: &mut Srv) -> Result<String, String> {
             };
             // the flat list mirrors protocol.verbs(): sorted session + sorted app
             let mut all: Vec<&str> = Vec::new();
-            all.extend_from_slice(&SESSION_VERBS);
-            all.extend_from_slice(&APP_VERBS);
+            all.extend_from_slice(canon_words("system:session_verbs"));
+            all.extend_from_slice(canon_words("system:app_verbs"));
             let mut r = String::from("{\"verbs\":");
             list(&all, &mut r);
             r.push_str(",\"session\":");
-            list(&SESSION_VERBS, &mut r);
+            list(canon_words("system:session_verbs"), &mut r);
             r.push_str(",\"app\":");
-            list(&APP_VERBS, &mut r);
+            list(canon_words("system:app_verbs"), &mut r);
             r.push_str(",\"resident\":");
-            list(&RESIDENT_OPS, &mut r);
+            list(canon_words("system:resident_ops"), &mut r);
             r.push('}');
             Ok(r)
         }
@@ -11895,12 +11892,19 @@ fn op_answer(op: &str, j: &J, srv: &mut Srv) -> Result<String, String> {
             Ok(r)
         }
         _ => {
-            if SESSION_VERBS.contains(&op) || APP_VERBS.contains(&op) {
-                Err("verb needs the apps registry (host-side); resident ops: \
-                     cells, query, run_rules, synthesize_pairs, verbs".to_string())
+            // the resident ops named in BOTH messages come from canon, so the
+            // surface a refusal describes is the surface that exists. The two
+            // strings that stood here named five of the nine.
+            let ops = canon_words("system:resident_ops").join(", ");
+            if canon_words("system:session_verbs").contains(&op)
+                || canon_words("system:app_verbs").contains(&op)
+            {
+                Err(format!(
+                    "verb needs the apps registry (host-side); resident ops: {}",
+                    ops
+                ))
             } else {
-                Err("unknown op; resident ops: cells, query, run_rules, \
-                     synthesize_pairs, verbs".to_string())
+                Err(format!("unknown op; resident ops: {}", ops))
             }
         }
     }
