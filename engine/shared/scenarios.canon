@@ -1668,5 +1668,18 @@ DEF("case:cs-builders", S2(A("system:cs_builders"), PHI())),
 
 DEF("case:panes", S2(A("system:panes"), PHI())),
 
-DEF("case:pane-for", S2(A("system:pane_for"), PHI()))
+DEF("case:pane-for", S2(A("system:pane_for"), PHI())),
+
+"TWO LOCAL VALIDATORS ON ONE FACT TYPE, which is the shape engine/rust cannot reduce. Every other validate-of case above passes a local list of ONE. The identity app carries a fact type with two -- User_has_Username_uc at span 1 and the inverse Username_inv_uc at span 2 -- and engine/rust s native validate answers 0 parts on it in six seconds with fuel unbounded, where python answers three. This case asks the same question of the stations: if they agree and answer both violations, canon composes two locals correctly and the fault is in how engine/rust BUILDS the operand; if a station refuses or they disagree, the fault is in the reduction and every host has it. The case is the discriminator, not a guess about which.",
+
+DEF("case:validate-of-two-local", S2(
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("system:validate_of")),
+                K(S4(S2(S2(A("CONST"), S1(S1(A("x")))),
+                        S2(A("CONST"), S1(S1(A("y"))))),
+                     PHI(), PHI(), PHI())))),
+          A("id"))),
+    S2(S2(S1(A("a")), S1(A("b"))), PHI())))
 )
