@@ -1589,5 +1589,11 @@ DEF("case:generic-classifications",
 
 DEF("case:generated-prefixes", S2(A("system:generated_prefixes"), PHI())),
 
-DEF("case:sm-phrases", S2(A("system:sm_phrases"), PHI()))
+DEF("case:sm-phrases", S2(A("system:sm_phrases"), PHI())),
+
+"THE COOK BOUNDARY, cross-lineage. cooked-kinds is evaluated whole because the MEMBERSHIP is the meaning: a kind in this list reaches its handler already resolved, and a kind missing from it arrives raw and compiles to something else entirely. Twenty-one rows -- engine/rust held twenty and carried the twenty-first, rule_iff, as a disjunct beside the membership test, which is what a list looks like after it has drifted once and been patched rather than corrected. cook-exceptions is the one pair that opts back out: a fact type reading stated deontically takes the deontic transform instead, because the obligation is about the reading and not about the fact it would assert.",
+
+DEF("case:cooked-kinds", S2(A("system:cooked_kinds"), PHI())),
+
+DEF("case:cook-exceptions", S2(A("system:cook_exceptions"), PHI()))
 )

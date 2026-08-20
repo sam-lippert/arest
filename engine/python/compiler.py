@@ -1093,6 +1093,17 @@ def _h_brace_subtypes(g, k, m):
 _VOCAB = {}
 
 
+def _vocab_rows(name):
+    """A canon table whose elements are ROWS, as tuples -- _vocab answers
+    flat word lists and would hand back sequences here."""
+    if name not in _VOCAB:
+        from .lam import atom as _A, to_lam as _tl, from_lam as _fl
+        from .reduce import apply as _apply
+        _VOCAB[name] = tuple(tuple(r) for r in
+                             _fl(_apply(_A(name), _tl(()))))
+    return _VOCAB[name]
+
+
 def _vocab(name):
     if name not in _VOCAB:
         from .lam import atom as _A, to_lam as _tl, from_lam as _fl
@@ -2367,7 +2378,15 @@ def _plan(kind, g, known, modality="alethic", sign=""):
     instance rows mint) and one constraint row rides with the operator, the
     fact type span, the quoted values if any, and the deontic modality tail.
     Deontic flags, never blocks (Def. Violation)."""
-    if kind in _COOK and not (modality == "deontic" and kind == "fact_type_reading"):
+    # CANON: DEF("system:cook_exceptions") -- the pairs that opt back OUT of
+    # the cook. A fact type reading stated deontically takes the deontic
+    # transform instead, because the obligation is about the reading and not
+    # about the fact it would assert. That was a hardcoded conjunction here
+    # and another in engine/rust. DEF("system:cooked_kinds") holds the
+    # membership itself, pinned to _COOK's keys by test_canon_coverage --
+    # the dict stays the DISPATCH because its values are the cooks.
+    if (kind in _COOK
+            and (modality, kind) not in _vocab_rows("system:cook_exceptions")):
         g = _COOK[kind](g, known)                              # the deontic transform below
     if modality == "deontic" and kind == "fact_type_reading":  # cooks its own inner reading
         reading = _strip_derivation(g[0])[1]

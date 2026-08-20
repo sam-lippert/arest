@@ -3494,28 +3494,12 @@ pub fn production_groups(kind: &str, s: &str) -> Option<Vec<Option<String>>> {
 // _plan (compiler.py): cook when the kind is in _COOK (except the deontic
 // fact_type_reading transform), then dispatch the handler.
 
-const COOKED: [&str; 20] = [
-    "sm_trigger",
-    "sm_guard",
-    "ring",
-    "frequency",
-    "value_constraint",
-    "uniqueness",
-    "mandatory",
-    "neg_uniqueness",
-    "neg_mandatory",
-    "for_each_mandatory",
-    "inverse_uc",
-    "spanning_uc",
-    "spanning_uc2",
-    "negation",
-    "subtype_of",
-    "fact_type_reading",
-    "derivation_rule",
-    "class_rule",
-    "neg_pair",
-    "rule_if",
-];
+// CANON: DEF("system:cooked_kinds") -- TWENTY-ONE kinds. The const that
+// stood here held twenty and the membership test carried the twenty-first,
+// rule_iff, as an `|| kind == "rule_iff"` beside it. A list that needs an
+// or is a list that already drifted once and was patched instead of
+// corrected; compiler.py had all twenty-one as _COOK's keys, which
+// test_canon_coverage now pins to the same def.
 
 pub fn plan(
     kind: &str,
@@ -3525,12 +3509,19 @@ pub fn plan(
     sign: &str,
     srv: &Srv,
 ) -> Result<(Asserts, Objs), String> {
-    let deontic_fact_reading = m == "deontic" && kind == "fact_type_reading";
+    // CANON: DEF("system:cook_exceptions") -- the pairs that opt back OUT
+    // of the cook. A fact type reading stated deontically takes the
+    // deontic transform, because the obligation is about the reading and
+    // not about the fact it would assert. It was a hardcoded conjunction
+    // here and another in compiler.py.
+    let deontic_fact_reading = canon_pairs("system:cook_exceptions")
+        .iter()
+        .any(|(mm, kk)| *mm == m && *kk == kind);
     if deontic_fact_reading {
         return deontic_fact(g, k, m, sign, srv);
     }
     // the _COOK boundary + the crows handlers
-    if COOKED.contains(&kind) || kind == "rule_iff" {
+    if canon_words("system:cooked_kinds").contains(&kind) {
         let crows: Crows = match kind {
             "sm_trigger" => {
                 let ft = clause_ft(g[1].as_deref().unwrap_or(""), k);

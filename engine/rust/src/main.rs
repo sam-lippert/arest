@@ -5886,42 +5886,16 @@ fn translator_kinds(t: &str) -> &'static [&'static str] {
     }
     TABLE.with(|c| {
         c.get_or_init(|| {
-            // byte for byte the --cases path: the NAME through a fresh mu with
-            // operand PHI, since DEF("case:tr-kinds") is S2(A(system:tr_kinds),
-            // PHI()) and every station reduces it. NOT reduce_over or
-            // reduce_over_n, which resolve through a resident store that this
-            // CONST def does not need and cannot be given at startup.
-            let rows = make_mu().app(mkapp(
-                atom(Leaf::S("system:tr_kinds".to_string())),
-                phi(),
-            ));
+            // the rows come through canon_pairs, which is the same read this
+            // function used to spell for itself. Grouping them is what is left:
+            // the ORDER inside each entry is canon's, the map is an INDEX.
             let mut kinds: HashMap<String, Vec<&'static str>> = HashMap::new();
             let mut order: Vec<String> = Vec::new();
-            // list_of FIRST: a reduced SEQ is not a Scott list, and items() on
-            // one never reaches nil. That hung the resident at startup for over
-            // 200s while the reduction itself was already correct -- the 197
-            // other walks in this file all spell items(&list_of(..)) for that
-            // reason, and a staged probe is what told the two apart.
-            for row in items(&list_of(&rows)) {
-                let cols = items(&list_of(&row));
-                if cols.len() < 2 {
-                    continue;
+            for (name, kind) in canon_pairs("system:tr_kinds") {
+                if !kinds.contains_key(*name) {
+                    order.push((*name).to_string());
                 }
-                let name = match aval(&cols[0]).as_deref().and_then(leaf_str) {
-                    Some(s) => s,
-                    None => continue,
-                };
-                let kind = match aval(&cols[1]).as_deref().and_then(leaf_str) {
-                    Some(s) => s,
-                    None => continue,
-                };
-                if !kinds.contains_key(&name) {
-                    order.push(name.clone());
-                }
-                kinds
-                    .entry(name)
-                    .or_default()
-                    .push(Box::leak(kind.into_boxed_str()));
+                kinds.entry((*name).to_string()).or_default().push(kind);
             }
             order
                 .into_iter()
@@ -6578,6 +6552,35 @@ fn canon_words(name: &'static str) -> &'static [&'static str] {
         .collect();
     let leaked: &'static [&'static str] = Box::leak(out.into_boxed_slice());
     WORDS.with(|m| m.borrow_mut().insert(name, leaked));
+    leaked
+}
+
+// The same read for a table whose elements are ROWS rather than atoms. Two
+// columns is all any caller wants so far; canon_words is the flat sibling.
+fn canon_pairs(name: &'static str) -> &'static [(&'static str, &'static str)] {
+    thread_local! {
+        static PAIRS: std::cell::RefCell<HashMap<&'static str,
+            &'static [(&'static str, &'static str)]>> =
+            std::cell::RefCell::new(HashMap::new());
+    }
+    if let Some(hit) = PAIRS.with(|m| m.borrow().get(name).copied()) {
+        return hit;
+    }
+    let rows = make_mu().app(mkapp(atom(Leaf::S(name.to_string())), phi()));
+    let mut out: Vec<(&'static str, &'static str)> = Vec::new();
+    for row in items(&list_of(&rows)) {
+        let cols = items(&list_of(&row));
+        if cols.len() < 2 {
+            continue;
+        }
+        let a = aval(&cols[0]).as_deref().and_then(leaf_str);
+        let b = aval(&cols[1]).as_deref().and_then(leaf_str);
+        if let (Some(a), Some(b)) = (a, b) {
+            out.push((Box::leak(a.into_boxed_str()), Box::leak(b.into_boxed_str())));
+        }
+    }
+    let leaked: &'static [(&'static str, &'static str)] = Box::leak(out.into_boxed_slice());
+    PAIRS.with(|m| m.borrow_mut().insert(name, leaked));
     leaked
 }
 // It lives in main.rs and not beside the compile.rs callers because it now

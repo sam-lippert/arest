@@ -7106,6 +7106,18 @@ DEF("system:sm_phrases",
          A("is triggered by Fact Type"),
          A("is defined in State Machine")))),
 
+"THE COOKED KINDS. Which statement kinds go through the host cook boundary -- the text-to-X resolution a handler needs done BEFORE it sees its groups -- and so which kinds reach their handler already resolved. It was python s _COOK keys and a rust const array of TWENTY, with the twenty-first, rule_iff, carried as a disjunct beside the membership test rather than in the list. A list that needs an or is a list that has already drifted; here there are twenty-one rows and no or.",
+
+DEF("system:cooked_kinds",
+    S3(A("COMP"), A("theta:flatten"), K(S3(S9(A("sm_trigger"), A("sm_guard"), A("ring"), A("frequency"), A("value_constraint"), A("uniqueness"), A("mandatory"), A("neg_uniqueness"), A("neg_mandatory")),
+           S9(A("for_each_mandatory"), A("inverse_uc"), A("spanning_uc"), A("spanning_uc2"), A("negation"), A("subtype_of"), A("fact_type_reading"), A("derivation_rule"), A("class_rule")),
+           S3(A("neg_pair"), A("rule_if"), A("rule_iff")))))),
+
+"THE COOK EXCEPTIONS. A fact type reading stated DEONTICALLY is not cooked -- it takes the deontic transform instead, because the obligation is about the reading rather than about the fact it would assert. The pair was a hardcoded conjunction in both hosts, one of those conditions that reads as plumbing until you ask why a fact type reading is special and find that the modality is what makes it so. A row says it; a conjunction only implies it.",
+
+DEF("system:cook_exceptions",
+    K(S1(S2(A("deontic"), A("fact_type_reading"))))),
+
 DEF("system:h_table",
     S3(A("COMP"), A("theta:flatten"), S2(A("CONST"), S4(S8(S2(A("class_rule"), A("system:h_class_rule")), S2(A("derivation_rule"), A("system:h_derivation_rule")), S2(A("equality"), A("system:h_equality")), S2(A("finality"), A("system:h_finality")), S2(A("for_each_mandatory"), A("system:h_for_each_mandatory")), S2(A("frequency"), A("system:h_frequency")), S2(A("inverse_uc"), A("system:h_inverse_uc")), S2(A("mandatory"), A("system:h_mandatory"))), S8(S2(A("neg_mandatory"), A("system:h_neg_mandatory")), S2(A("neg_pair"), A("system:h_neg_pair")), S2(A("neg_uniqueness"), A("system:h_neg_uniqueness")), S2(A("negation"), A("system:h_negation")), S2(A("objectification"), A("system:h_objectification")), S2(A("possibility"), A("system:h_possibility")), S2(A("ref_scheme"), A("system:h_ref_scheme")), S2(A("ring"), A("system:h_ring"))), S8(S2(A("rule_if"), A("system:h_rule_if")), S2(A("rule_iff"), A("system:h_rule_iff")), S2(A("set_comparison"), A("system:h_set_comparison")), S2(A("sm_def"), A("system:h_sm_def")), S2(A("sm_emit"), A("system:h_sm_emit")), S2(A("sm_from"), A("system:h_sm_from")), S2(A("sm_guard"), A("system:h_sm_guard")), S2(A("sm_initial"), A("system:h_sm_initial"))), S6(S2(A("sm_moore"), A("system:h_sm_moore")), S2(A("sm_to"), A("system:h_sm_to")), S2(A("sm_trigger"), A("system:h_sm_trigger")), S2(A("subset_trailing"), A("system:h_subset_trailing")), S2(A("uniqueness"), A("system:h_uniqueness")), S2(A("value_constraint"), A("system:h_value_constraint"))))))),
 
