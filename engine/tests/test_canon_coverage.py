@@ -621,3 +621,20 @@ def test_verb_surface_is_canon():
     assert app == sorted(P.APP_VERBS), (
         "app verbs drifted from canon: %r" % (set(app) ^ set(P.APP_VERBS),))
     assert session + app == P.verbs()
+
+
+def test_attach_modes_are_canon():
+    """DEF("system:attach_modes") is which WAY each constraint kind reaches a
+    cell's validate. _ATTACH stays the dispatch -- its values are the
+    attachment closures -- but the membership is canon, and engine/rust reads
+    the mode instead of holding five or-lists of kind names."""
+    from pyarest.lam import to_lam, from_lam, atom as A
+    from pyarest.reduce import apply as _apply
+    from pyarest import forml
+    rows = [tuple(r) for r in
+            from_lam(_apply(A("system:attach_modes"), to_lam(())))]
+    assert [k for k, _m in rows] == list(forml._ATTACH), (
+        "attach kinds drifted from canon: %r"
+        % (set(k for k, _m in rows) ^ set(forml._ATTACH),))
+    assert {m for _k, m in rows} == {"local", "foreign", "arc", "ab",
+                                     "clause", "df", "do"}

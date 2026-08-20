@@ -7138,6 +7138,11 @@ DEF("system:anaphor_connectives",
 DEF("system:cardinality_openers",
     K(S2(A("at most one"), A("exactly one")))),
 
+"HOW EACH CONSTRAINT KIND ATTACHES. A constraint reaches a cell s validate one of a few ways, and which way is a property of the KIND: local consumes the target population alone, foreign consumes the population with the store so it can fetch siblings, arc adds the mandatory family s second named remainder, ab splits an equality into its two sides, and clause attaches once per clause the target appears in. The BODIES are host closures and stay so -- what was held twice is the MEMBERSHIP, as compiler.py s dict keys and as five or-lists of kind names in engine/rust. The df and do rows are the deontic pair, which python attaches and engine/rust does not: its match ends in a wildcard, so a deontic check that flags on one host is silent on the other. Naming the modes here is what makes that visible rather than absent.",
+
+DEF("system:attach_modes",
+    S3(A("COMP"), A("theta:flatten"), K(S3(S9(S2(A("uniqueness"), A("local")), S2(A("spanning_uniqueness"), A("local")), S2(A("frequency"), A("local")), S2(A("ring_irreflexive"), A("local")), S2(A("ring_symmetric"), A("local")), S2(A("ring_asymmetric"), A("local")), S2(A("ring_antisymmetric"), A("local")), S2(A("ring_intransitive"), A("local")), S2(A("ring_acyclic"), A("local"))), S9(S2(A("subtype"), A("foreign")), S2(A("external_uniqueness"), A("foreign")), S2(A("value"), A("local")), S2(A("mandatory"), A("arc")), S2(A("subset"), A("foreign")), S2(A("equality"), A("ab")), S2(A("exclusion"), A("clause")), S2(A("exclusive_or"), A("clause")), S2(A("disjunctive_mandatory"), A("clause"))), S2(S2(A("deontic_forbidden"), A("df")), S2(A("deontic_obligatory"), A("do"))))))),
+
 "THE GENERIC CLASSIFICATIONS. Fact Type Reading and Instance Fact are what a statement is classified as when nothing more specific claims it, so they are the two a SPECIFIC classification is allowed to beat -- the subtraction that decides which translator runs, and the reason Prose does not lose to them. The pair stood three times: a python set and, in engine/rust, the SAME const declared twice inside two different functions, which is the shape a list takes on the way to disagreeing with itself.",
 
 DEF("system:generic_classifications",
