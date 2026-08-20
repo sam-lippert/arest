@@ -7088,6 +7088,24 @@ DEF("system:noun_quants",
 DEF("system:owned_modes",
     K(S2(A("fully-derived"), A("derived-and-stored")))),
 
+"THE GENERIC CLASSIFICATIONS. Fact Type Reading and Instance Fact are what a statement is classified as when nothing more specific claims it, so they are the two a SPECIFIC classification is allowed to beat -- the subtraction that decides which translator runs, and the reason Prose does not lose to them. The pair stood three times: a python set and, in engine/rust, the SAME const declared twice inside two different functions, which is the shape a list takes on the way to disagreeing with itself.",
+
+DEF("system:generic_classifications",
+    K(S2(A("Fact Type Reading"), A("Instance Fact")))),
+
+"THE GENERATED CELL FAMILIES. A cell whose name opens with one of these is OUTPUT -- the generator wrote it and a recompile replaces the family whole -- while every other cell is authored and survives. Getting this list wrong either strands a stale generated cell or deletes something nobody generated, and the prefixes were a python tuple beside a rust const array. The startswith test is lexical and stays host; which prefixes mark output does not.",
+
+DEF("system:generated_prefixes",
+    S3(A("COMP"), A("theta:flatten"), K(S2(S9(A("dsl:"), A("xsd:"), A("owl:"), A("edm:"), A("html:"), A("dtd:"), A("wsdl:"), A("xforms:"), A("plix:")),
+           S2(A("nav:"), A("solidity:")))))),
+
+"THE MACHINE PHRASINGS. A statement carrying a quoted literal AND one of these phrases that parses as NOTHING is malformed rather than absent, and is reported loudly instead of dropped -- the difference between telling an author their transition did not compile and silently ignoring it. Python holds them inside a regex alternation and rust as a const array, which is the same list written in two notations so that neither can check the other.",
+
+DEF("system:sm_phrases",
+    K(S5(A("is initial"), A("is from Status"), A("is to Status"),
+         A("is triggered by Fact Type"),
+         A("is defined in State Machine")))),
+
 DEF("system:h_table",
     S3(A("COMP"), A("theta:flatten"), S2(A("CONST"), S4(S8(S2(A("class_rule"), A("system:h_class_rule")), S2(A("derivation_rule"), A("system:h_derivation_rule")), S2(A("equality"), A("system:h_equality")), S2(A("finality"), A("system:h_finality")), S2(A("for_each_mandatory"), A("system:h_for_each_mandatory")), S2(A("frequency"), A("system:h_frequency")), S2(A("inverse_uc"), A("system:h_inverse_uc")), S2(A("mandatory"), A("system:h_mandatory"))), S8(S2(A("neg_mandatory"), A("system:h_neg_mandatory")), S2(A("neg_pair"), A("system:h_neg_pair")), S2(A("neg_uniqueness"), A("system:h_neg_uniqueness")), S2(A("negation"), A("system:h_negation")), S2(A("objectification"), A("system:h_objectification")), S2(A("possibility"), A("system:h_possibility")), S2(A("ref_scheme"), A("system:h_ref_scheme")), S2(A("ring"), A("system:h_ring"))), S8(S2(A("rule_if"), A("system:h_rule_if")), S2(A("rule_iff"), A("system:h_rule_iff")), S2(A("set_comparison"), A("system:h_set_comparison")), S2(A("sm_def"), A("system:h_sm_def")), S2(A("sm_emit"), A("system:h_sm_emit")), S2(A("sm_from"), A("system:h_sm_from")), S2(A("sm_guard"), A("system:h_sm_guard")), S2(A("sm_initial"), A("system:h_sm_initial"))), S6(S2(A("sm_moore"), A("system:h_sm_moore")), S2(A("sm_to"), A("system:h_sm_to")), S2(A("sm_trigger"), A("system:h_sm_trigger")), S2(A("subset_trailing"), A("system:h_subset_trailing")), S2(A("uniqueness"), A("system:h_uniqueness")), S2(A("value_constraint"), A("system:h_value_constraint"))))))),
 

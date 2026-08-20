@@ -5827,13 +5827,11 @@ fn split_modality(stmt: &str) -> (&'static str, &'static str, String) {
 // arrow-glue-loud class). The regex '[^']+'.*(phrase) hand-rolls as: any
 // adjacent quote pair with content, one of the phrases after its close.
 fn sm_suspect(stmt: &str) -> bool {
-    const PHRASES: [&str; 5] = [
-        "is initial",
-        "is from Status",
-        "is to Status",
-        "is triggered by Fact Type",
-        "is defined in State Machine",
-    ];
+    // CANON: DEF("system:sm_phrases"). compiler.py holds the same five
+    // inside a regex alternation -- where, until this increment, a stray
+    // backspace byte sat in place of a word boundary and kept the search
+    // from ever matching. This host was the only one detecting.
+    let phrases = canon_words("system:sm_phrases");
     let qs: Vec<usize> = stmt
         .char_indices()
         .filter(|(_, c)| *c == '\'')
@@ -5842,7 +5840,7 @@ fn sm_suspect(stmt: &str) -> bool {
     for w in qs.windows(2) {
         if w[1] - w[0] > 1 {
             let rest = &stmt[w[1] + 1..];
-            if PHRASES.iter().any(|p| rest.contains(p)) {
+            if phrases.iter().any(|p| rest.contains(p)) {
                 return true;
             }
         }
@@ -8584,14 +8582,15 @@ fn generator_cells_native(cells: &[(Leaf, V)], srv: &Srv) -> Vec<(Leaf, V)> {
         fresh.push((Leaf::S(format!("dsl:{}", noun)), seq(from_vec(vec![row]))));
     }
 
-    const GEN_PREFIXES: [&str; 11] = [
-        "dsl:", "xsd:", "owl:", "edm:", "html:", "dtd:", "wsdl:", "xforms:", "plix:", "nav:",
-        "solidity:",
-    ];
+    // CANON: DEF("system:generated_prefixes") -- a cell whose name opens
+    // with one of these is OUTPUT and a recompile replaces the family
+    // whole; every other cell is authored and survives. Eleven prefixes,
+    // held here and in engine.py, with nothing comparing them.
+    let gen_prefixes = canon_words("system:generated_prefixes");
     let mut out: Vec<(Leaf, V)> = cells
         .iter()
         .filter(|(k, _)| match k {
-            Leaf::S(s) => !GEN_PREFIXES.iter().any(|p| s.starts_with(p)),
+            Leaf::S(s) => !gen_prefixes.iter().any(|p| s.starts_with(p)),
             _ => true,
         })
         .cloned()
@@ -8744,7 +8743,10 @@ fn compile_lines_native(
     }
 
     // ---- the dispatch loop (op_compile_model's own, diagnostics dropped) ----
-    const GENERIC: [&str; 2] = ["Fact Type Reading", "Instance Fact"];
+    // CANON: DEF("system:generic_classifications") -- the two a SPECIFIC
+    // classification is allowed to beat. This const stood in TWO
+    // functions in this file and once more in compiler.py.
+    let generic = canon_words("system:generic_classifications");
     let mut model_cells: Vec<(Leaf, V)> = seed_cells.to_vec();
     let atom_s = |s: &str| atom(Leaf::S(s.to_string()));
     let mut names_sorted: Vec<String> = names.iter().cloned().collect();
@@ -8777,15 +8779,15 @@ fn compile_lines_native(
         let mut residual = cls.clone();
         residual.remove("Prose");
         residual.remove("Derivation Rule");
-        for g in GENERIC {
-            residual.remove(g);
+        for g in generic {
+            residual.remove(*g);
         }
         if cls.contains("Prose") && residual.is_empty() {
             continue;
         }
         let specific: Vec<String> = cls
             .iter()
-            .filter(|c| !GENERIC.contains(&c.as_str()))
+            .filter(|c| !generic.contains(&c.as_str()))
             .cloned()
             .collect();
         if specific.is_empty() && *sg == "negative" && *m == "alethic" {
@@ -10416,7 +10418,10 @@ fn op_compile_model(j: &J, srv: &mut Srv) -> Result<String, String> {
     // Prose beats the GENERIC fallbacks only; a negative alethic statement no
     // specific rule claimed is a constraint by definition and goes loud; the
     // classification set's translators dispatch in sorted order through rho.
-    const GENERIC: [&str; 2] = ["Fact Type Reading", "Instance Fact"];
+    // CANON: DEF("system:generic_classifications") -- the two a SPECIFIC
+    // classification is allowed to beat. This const stood in TWO
+    // functions in this file and once more in compiler.py.
+    let generic = canon_words("system:generic_classifications");
     // meta.initial_D() (compiler.py:71): one FILE cell — OR, under
     // context_from:"resident", the resident store's OWN raw cell sequence
     // (shadowed duplicates included; see raw_cells_of), so the fold
@@ -10482,8 +10487,8 @@ fn op_compile_model(j: &J, srv: &mut Srv) -> Result<String, String> {
         let mut residual = cls.clone();
         residual.remove("Prose");
         residual.remove("Derivation Rule");
-        for g in GENERIC {
-            residual.remove(g);
+        for g in generic {
+            residual.remove(*g);
         }
         // every WORK statement earns a trace entry, the guard exits included
         // (the differential aligns per statement; a skipped entry misaligns)
@@ -10506,7 +10511,7 @@ fn op_compile_model(j: &J, srv: &mut Srv) -> Result<String, String> {
         }
         let specific: Vec<String> = cls
             .iter()
-            .filter(|c| !GENERIC.contains(&c.as_str()))
+            .filter(|c| !generic.contains(&c.as_str()))
             .cloned()
             .collect();
         if specific.is_empty() && *sg == "negative" && *m == "alethic" {
