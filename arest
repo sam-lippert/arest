@@ -7118,6 +7118,11 @@ DEF("system:agg_ops",
 DEF("system:cs_prefix",
     K(S3(S2(A("disjunctive_mandatory"), A("ior_")), S2(A("subset"), A("subset_")), S2(A("equality"), A("eq_"))))),
 
+"THE SET-COMPARISON BUILDERS. Which canon object each attachment spec names, and so which of the constraints: family actually runs when an exclusion or a scoped subset reaches a cell. Eight rows, held as a python dict of lambdas and as eight match arms in engine/rust, both of them pairing the spec with the builder and then shaping its operand. The OPERAND SHAPES stay host -- they read positions off the A-row -- but which builder a spec names does not. Every row is constraints: followed by the spec name, and writing the pairs out anyway is the point: a convention that is only ever computed cannot be checked, cannot take an exception, and cannot be read by anything that does not already know it.",
+
+DEF("system:cs_builders",
+    K(S8(S2(A("exclusion"), A("constraints:exclusion")), S2(A("exclusive_or"), A("constraints:exclusive_or")), S2(A("inclusive_or"), A("constraints:inclusive_or")), S2(A("scoped_exclusion"), A("constraints:scoped_exclusion")), S2(A("scoped_exclusive_or"), A("constraints:scoped_exclusive_or")), S2(A("scoped_inclusive_or"), A("constraints:scoped_inclusive_or")), S2(A("scoped_subset"), A("constraints:scoped_subset")), S2(A("scoped_equality_side"), A("constraints:scoped_equality_side"))))),
+
 "THE BOOTSTRAP KINDS. The five the SEED compiler dispatches -- the kernel that has to compile the grammar file before the grammar file can classify anything. Which five they are is the bootstrap s whole surface, and it lived as a python set with nothing else able to name it. Sorted, because a set has no order to preserve and a canon row list must pick one.",
 
 DEF("system:bootstrap_kinds",

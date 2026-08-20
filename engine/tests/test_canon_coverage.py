@@ -638,3 +638,20 @@ def test_attach_modes_are_canon():
         % (set(k for k, _m in rows) ^ set(forml._ATTACH),))
     assert {m for _k, m in rows} == {"local", "foreign", "arc", "ab",
                                      "clause", "df", "do"}
+
+
+def test_cs_builders_are_canon_and_resolve():
+    """DEF("system:cs_builders") names the builder each set-comparison spec
+    runs. Two things are checked: the specs are compiler.py's _CS_OPERAND
+    keys in order, and every builder named RESOLVES to a canon DEF -- a spec
+    pointing at an object nobody defines is the failure this catches, and it
+    is the reason the eight rows are written out rather than computed as
+    "constraints:" + spec."""
+    from pyarest.lam import to_lam, from_lam, atom as A
+    from pyarest.reduce import apply as _apply
+    from pyarest import forml, defs
+    rows = [tuple(r) for r in
+            from_lam(_apply(A("system:cs_builders"), to_lam(())))]
+    assert [s for s, _b in rows] == list(forml._CS_OPERAND)
+    missing = [b for _s, b in rows if b not in defs.latest]
+    assert not missing, "cs builders with no canon DEF: %r" % (missing,)

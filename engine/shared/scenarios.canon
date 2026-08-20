@@ -1658,5 +1658,9 @@ DEF("case:cardinality-openers", S2(A("system:cardinality_openers"), PHI())),
 
 "THE ATTACHMENT MODES, cross-lineage. Which WAY a constraint kind reaches a cell s validate -- local over the target population alone, foreign over the population with the store so siblings can be fetched, arc for the mandatory family s second named remainder, ab for an equality s two sides, clause for one attachment per clause the target appears in. The BODIES are host closures and stay so; what was held twice is the MEMBERSHIP, as a python dict s keys and as five or-lists of kind names in engine/rust. The last two rows are the deontic pair: python attaches them and engine/rust has no arm, so a deontic check that flags on one host is silent on the other. Naming the modes is what turns that from an anonymous wildcard into something a reader can see.",
 
-DEF("case:attach-modes", S2(A("system:attach_modes"), PHI()))
+DEF("case:attach-modes", S2(A("system:attach_modes"), PHI())),
+
+"THE SET-COMPARISON BUILDERS, cross-lineage. Which canon object an attachment spec names, and so which of the constraints: family actually runs when an exclusion or a scoped subset reaches a cell. Eight rows, held as a python dict of lambdas and eight match arms in engine/rust, each pairing the spec with the builder and then shaping its operand -- the shapes stay host, since they read positions off the A-row. Every row here is constraints: followed by the spec name, and the pairs are written out ANYWAY, because a convention that is only ever computed cannot be checked, cannot take an exception, and cannot be read by anything that does not already know it. The coverage gate checks each name resolves to a def that exists.",
+
+DEF("case:cs-builders", S2(A("system:cs_builders"), PHI()))
 )
