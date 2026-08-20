@@ -13236,20 +13236,29 @@ fn assemble_validator_for(
         }
         // _ATTACH dispatch -> the (name, is_local) attachments for THIS fact type
         let mut attach: Vec<(String, bool)> = Vec::new();
-        match kind.as_str() {
-            "uniqueness" | "spanning_uniqueness" | "frequency" | "ring_irreflexive"
-            | "ring_symmetric" | "ring_asymmetric" | "ring_antisymmetric"
-            | "ring_intransitive" | "ring_acyclic" | "value" => {
+        // CANON: DEF("system:attach_modes") -- WHICH WAY a kind attaches is a
+        // property of the kind, and it was five or-lists of kind names here
+        // beside compiler.py's dict keys. The bodies are host closures on both
+        // sides and stay so; only the membership moved. The df and do modes
+        // are the deontic pair, which python attaches and this host does not --
+        // that gap used to live inside the wildcard below.
+        let mode = canon_pairs("system:attach_modes")
+            .iter()
+            .find(|(k, _)| *k == kind)
+            .map(|(_, md)| *md)
+            .unwrap_or("");
+        match mode {
+            "local" => {
                 if f2 == ft {
                     attach.push((f0.clone(), true));
                 }
             }
-            "subtype" | "external_uniqueness" | "subset" => {
+            "foreign" => {
                 if f2 == ft {
                     attach.push((f0.clone(), false));
                 }
             }
-            "mandatory" => {
+            "arc" => {
                 if f2 == ft {
                     attach.push((f0.clone(), false));
                 }
@@ -13257,7 +13266,7 @@ fn assemble_validator_for(
                     attach.push((format!("{}_e", f0), false));
                 }
             }
-            "equality" => {
+            "ab" => {
                 if f2 == ft {
                     attach.push((format!("{}_a", f0), false));
                 }
@@ -13265,7 +13274,7 @@ fn assemble_validator_for(
                     attach.push((format!("{}_b", f0), false));
                 }
             }
-            "exclusion" | "exclusive_or" | "disjunctive_mandatory" => {
+            "clause" => {
                 // f[3] is the clause LIST; attach when ft is one of the clauses
                 let clause_in = it.len() >= 4
                     && matches!(shape(&it[3]), Shape::Seq(_))
@@ -13276,6 +13285,12 @@ fn assemble_validator_for(
                     attach.push((format!("{}@{}", f0, ft), false));
                 }
             }
+            // df and do are canon modes this host has no arm for: python
+            // attaches {cid}_df and {cid}_do, so a deontic check that FLAGS
+            // there is silent here. Left as it stands -- implementing it is a
+            // behaviour change to validate, not a table move -- but named now
+            // instead of falling into an anonymous wildcard.
+            "df" | "do" => {}
             _ => {}
         }
         for (name, is_local) in attach {
