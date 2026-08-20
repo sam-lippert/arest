@@ -17,6 +17,15 @@ AGREE=0; DIFFER=0; SLOW=0; ERR=0
 for store in "$DIR"/*/*.store.json; do
   [ -e "$store" ] || continue
   app="$(basename "$(dirname "$store")")"
+  # the resident resolves <apps-dir>/<name>/<name>.store.json. A store whose
+  # basename does not match its directory -- components/_components.store.json
+  # -- is a PARKED app, renamed to take it out of service, not a failure. It was
+  # being reported as an apps_use error, which read like a harness bug.
+  case "$(basename "$store")" in
+    "$app.store.json") ;;
+    *) echo "PARKED  $app ($(basename "$store") does not match the directory)"
+       continue ;;
+  esac
   out="$(timeout "$BUDGET" sh "$E/tools/wall/validate-differential.sh" "$app" "$DIR" 2>&1)"
   rc=$?
   if [ "$rc" = "124" ]; then

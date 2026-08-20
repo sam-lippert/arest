@@ -655,3 +655,20 @@ def test_cs_builders_are_canon_and_resolve():
     assert [s for s, _b in rows] == list(forml._CS_OPERAND)
     missing = [b for _s, b in rows if b not in defs.latest]
     assert not missing, "cs builders with no canon DEF: %r" % (missing,)
+
+
+def test_every_canon_handler_kind_is_plannable():
+    """DEF("system:h_table") names a handler per statement kind. Every kind it
+    carries must also be one compiler.py can PLAN -- a canon handler for a kind
+    the host cannot reach is a handler nothing runs, which is the orphan shape
+    one file up. Containment, not equality: _PLAN legitimately carries kinds
+    whose plan builders are host closures with no canon handler (11 of its 41
+    today), and that direction is the boundary, not drift."""
+    from pyarest.lam import to_lam, from_lam, atom as A
+    from pyarest.reduce import apply as _apply
+    from pyarest import forml
+    handled = [tuple(r)[0] for r in
+               from_lam(_apply(A("system:h_table"), to_lam(())))]
+    unplannable = sorted(set(handled) - set(forml._PLAN))
+    assert not unplannable, (
+        "canon handlers for kinds no host can plan: %r" % (unplannable,))
