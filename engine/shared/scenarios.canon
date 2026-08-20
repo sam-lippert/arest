@@ -1560,5 +1560,9 @@ DEF("case:kinds-of", S2(A("system:kinds_of"), S1(A("translate_derivation_rules")
 DEF("case:kinds-of-cardinality",
     S2(A("system:kinds_of"), S1(A("translate_cardinality_constraints")))),
 
-DEF("case:kinds-of-unknown", S2(A("system:kinds_of"), S1(A("translate_partitions"))))
+DEF("case:kinds-of-unknown", S2(A("system:kinds_of"), S1(A("translate_partitions")))),
+
+"THE MODAL OPERATORS, cross-lineage. The table is evaluated whole so the phrases are pinned per station and not merely counted: a station that recognised five of the six, or dropped the trailing space that separates the operator from the statement it opens, would answer a different table here rather than a different compile somewhere later. The LAST ROW carries the empty operator, which is the default: every statement has a modality and an unmarked one is alethic positive, so the table is total and no host needs a fallback of its own.",
+
+DEF("case:modal-ops", S2(A("system:modal_ops"), PHI()))
 )

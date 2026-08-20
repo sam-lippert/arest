@@ -264,20 +264,31 @@ def _split_sentences(s):
 # ---- modality: strip a leading modal operator, yielding (modality, sign, inner) ----
 # alethic = necessity (blocks commit); deontic = obligation (flags only). possibility = the
 # ABSENCE of a constraint (informational), not something to enforce (the paper's dual form).
-_MODAL = [
-    ("It is obligatory that ", "deontic", "positive"),
-    ("It is forbidden that ", "deontic", "negative"),
-    ("It is permitted that ", "deontic", "possibility"),
-    ("It is necessary that ", "alethic", "positive"),
-    ("It is impossible that ", "alethic", "negative"),
-    ("It is possible that ", "alethic", "possibility"),
-]
+# CANON: DEF("system:modal_ops") -- the <operator, modality, sign> rows, with
+# the DEFAULT as the last row, whose operator is the empty string. It stood
+# here as a list and in engine/rust as a const array, and the default was
+# spelled a seventh time as the return below in each. The prefix test stays
+# host (canon has no substring primitive); which prefix means what does not.
+_MODAL_OPS = []
+
+
+def _modal_ops():
+    if not _MODAL_OPS:
+        from .lam import atom as _A, to_lam as _tl, from_lam as _fl
+        from .reduce import apply as _apply
+        _MODAL_OPS.extend(tuple(r) for r in
+                          _fl(_apply(_A("system:modal_ops"), _tl(()))))
+    return _MODAL_OPS
 
 
 def _split_modality(stmt):
-    for op, mod, sign in _MODAL:
+    for op, mod, sign in _modal_ops():
         if stmt.startswith(op):
-            return mod, sign, stmt[len(op):].strip()
+            rest = stmt[len(op):]
+            # the strip belonged to REMOVING a marker, so the empty-operator
+            # row -- which removes nothing -- must not strip either, or an
+            # unmarked statement would come back trimmed where it did not before
+            return mod, sign, rest.strip() if op else rest
     return "alethic", "positive", stmt
 
 
