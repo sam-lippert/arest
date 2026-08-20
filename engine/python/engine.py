@@ -2096,15 +2096,18 @@ def enum_values_cells(D):
 # decides whether a destructive pass may replace its stored rows, and it was
 # a two-element tuple here beside a two-element array in engine/rust with
 # nothing comparing them.
-_OWNED_CACHE = []
+_VOCAB = {}
 
 
-def _owned():
-    if not _OWNED_CACHE:
+def _vocab(name):
+    """A canon word list, read once. A TUPLE because str.startswith takes
+    one and a list raises -- the generated-prefix test below is the caller
+    that cares."""
+    if name not in _VOCAB:
         from .lam import atom as _A, to_lam as _tl, from_lam as _fl
         from .reduce import apply as _apply
-        _OWNED_CACHE.extend(_fl(_apply(_A("system:owned_modes"), _tl(()))))
-    return _OWNED_CACHE
+        _VOCAB[name] = tuple(_fl(_apply(_A(name), _tl(()))))
+    return _VOCAB[name]
 
 
 def _classify_heads(D):
@@ -2165,7 +2168,7 @@ def _classify_heads(D):
         return False
 
     owned = [h for h in plain_of
-             if kindmap.get(h) in _owned()
+             if kindmap.get(h) in _vocab("system:owned_modes")
              and h not in agg_heads and h not in keyspanned]
     return {"agg": sorted(agg_heads),
             "keyed": sorted(h for h in plain_of if h in keyspanned),
@@ -2177,7 +2180,7 @@ def _classify_heads(D):
             # group dies); any other agg head supersedes per group. The
             # fifth label rides the cell so readers never need kindmap.
             "aggwhole": sorted(h for h in agg_heads
-                               if kindmap.get(h) in _owned())}
+                               if kindmap.get(h) in _vocab("system:owned_modes"))}
 
 
 def scheduler_cells(D):
@@ -2602,8 +2605,11 @@ def generator_cells(D):
                     lines.append("    }")
                 lines.append("}")
                 cells["solidity:" + noun] = (("\n".join(lines),),)
-    _GEN = ("dsl:", "xsd:", "owl:", "edm:", "html:", "dtd:", "wsdl:",
-            "xforms:", "plix:", "nav:", "solidity:")
+    # CANON: DEF("system:generated_prefixes") -- a cell whose name opens
+    # with one of these is OUTPUT and a recompile replaces the family
+    # whole; every other cell is authored and survives. The same eleven
+    # prefixes were a const array in engine/rust.
+    _GEN = _vocab("system:generated_prefixes")
     keep = tuple(c for c in from_lam(D)
                  if not (isinstance(c, tuple) and len(c) >= 2
                          and str(c[1]).startswith(_GEN)))

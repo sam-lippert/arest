@@ -2478,7 +2478,9 @@ def compile(stmt, D, known=()):
 # ingested Classification-has-Translator table; Stage-1 (the regex productions) only
 # extracts fields. Generic classifications yield to specific ones, mirroring the
 # grammar file's own arbitration-rule values. ----
-_GENERIC_CLASSIFICATIONS = {"Fact Type Reading", "Instance Fact"}
+# CANON: DEF("system:generic_classifications") -- the two a SPECIFIC
+# classification is allowed to beat. The same pair stood twice more in
+# engine/rust, as one const declared inside two different functions.
 
 # AREST_TRACE: per-statement translate timings (the monkey-wrench
 # detector — a poorly-authored reading shows up as an outlier here).
@@ -2629,9 +2631,19 @@ def compile_model_selfhost(text, D=None, context_from=None):
                   tuple(sorted(vals))))
     if D is None:
         D = meta.initial_D()
+    # CANON: DEF("system:sm_phrases") -- the machine phrasings that make a
+    # statement parsing as NOTHING malformed rather than absent, so it is
+    # reported loudly instead of dropped. The alternation is lexical and
+    # stays here; the phrases were also a const array in engine/rust.
+    #
+    # The pattern that stood here CARRIED A LITERAL BACKSPACE where a word
+    # boundary was meant -- one 0x08 byte before the group and one after,
+    # in a RAW string, so re matched them as backspace characters and the
+    # search could never succeed. Rust's sm_suspect has no boundary at all
+    # (rest.contains(phrase)), which is what the docstring describes, so
+    # the alternation is rebuilt without one and the two hosts agree.
     _SM_SUSPECT = re.compile(
-        r"'[^']+'.*(is initial|is from Status|is to Status"
-        r"|is triggered by Fact Type|is defined in State Machine)")
+        r"'[^']+'.*(" + "|".join(_vocab("system:sm_phrases")) + ")")
     unclassified = []
     # BATCH classification (stratum 4): every statement's fields land first,
     # ONE derive answers all classifications — not one lfp per statement
@@ -2643,7 +2655,7 @@ def compile_model_selfhost(text, D=None, context_from=None):
     prose = []
     all_cls = classify_all_via_M(gD, [w[2] for w in work], nouns=known)
     for (stmt, mod, inner, sign), cls in zip(work, all_cls):
-        if "Prose" in cls and not (cls - {"Prose"} - _GENERIC_CLASSIFICATIONS
+        if "Prose" in cls and not (cls - {"Prose"} - set(_vocab("system:generic_classifications"))
                                    - {"Derivation Rule"}):
             # Prose beats the generics AND the rule claim (the seed's
             # prose-suspect guard on rule heads: a real rule head is a reading
@@ -2662,7 +2674,7 @@ def compile_model_selfhost(text, D=None, context_from=None):
                 continue
             prose.append(stmt)
             continue
-        specific = cls - _GENERIC_CLASSIFICATIONS
+        specific = cls - set(_vocab("system:generic_classifications"))
         if not specific and sign == "negative" and mod == "alethic":
             # a NEGATIVE alethic statement is a constraint by definition
             # (ORM: modality qualifies constraints); the generic fallbacks

@@ -1580,5 +1580,14 @@ DEF("case:implicit-stop", S2(A("system:implicit_stop"), PHI())),
 
 DEF("case:noun-quants", S2(A("system:noun_quants"), PHI())),
 
-DEF("case:owned-modes", S2(A("system:owned_modes"), PHI()))
+DEF("case:owned-modes", S2(A("system:owned_modes"), PHI())),
+
+"THE FALLBACK AND OUTPUT VOCABULARIES, cross-lineage. generic-classifications is the pair a specific classification is allowed to beat, so it decides which translator claims a statement; it stood three times, once in python and TWICE in engine/rust as the same const inside two different functions. generated-prefixes names the cell families a recompile replaces whole, which is what keeps a regeneration away from authored cells -- eleven prefixes, pinned here rather than counted, because a station one short would strand a stale family and one too long would delete something nobody generated. sm-phrases is what makes a malformed transition LOUD instead of absent.",
+
+DEF("case:generic-classifications",
+    S2(A("system:generic_classifications"), PHI())),
+
+DEF("case:generated-prefixes", S2(A("system:generated_prefixes"), PHI())),
+
+DEF("case:sm-phrases", S2(A("system:sm_phrases"), PHI()))
 )
