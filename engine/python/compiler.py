@@ -296,13 +296,16 @@ def _split_modality(stmt):
 # _CLASSIFY is TWO things after the flip: the PRODUCTION REGISTRY every
 # registered translator extracts fields through (all kinds, shared with the
 # grammar-classified path), and the BOOTSTRAP CLASSIFIER (the seed). The seed
-# half is restricted to _BOOTSTRAP_KINDS: the five kinds
+# half is restricted to DEF(system:bootstrap_kinds): the five kinds
 # shared/forml2-grammar.md exercises, measured 2026-07-04. Every other
 # statement form classifies through the grammar rules; analyze() refuses what
 # the bootstrap does not need, so the seed cannot silently claim corpus
 # statements again.
-_BOOTSTRAP_KINDS = {"fact_type_reading", "class_rule", "value_type",
-                    "value_constraint", "entity_type"}
+# CANON: DEF("system:bootstrap_kinds") -- the five the SEED compiler
+# dispatches, which is the whole surface of the kernel that has to compile
+# the grammar file before the grammar file can classify anything.
+def _bootstrap_kinds():
+    return set(_vocab("system:bootstrap_kinds"))
 
 _CLASSIFY = [
     ("entity_type", re.compile(r"^(.+?)(?:\(\.(.+)\))? is an entity type\.$")),
@@ -1189,8 +1192,12 @@ def _clause_ft(text, known):
 # rows fold through the named builders — already canon themselves
 # (constraints:scoped_*), so each object needs only its arguments read back
 # off the A-row.
-_CS_PREFIX = {"disjunctive_mandatory": "ior_", "subset": "subset_",
-              "equality": "eq_"}
+# CANON: DEF("system:cs_prefix") -- what a set-comparison constraint's minted
+# id opens with, which is how a reader tells an inclusive-or from a subset
+# from an equality and how the ids sort together. engine/rust held the same
+# three rows as a match. A kind with no row takes the empty prefix.
+def _cs_prefix():
+    return dict(_vocab_rows("system:cs_prefix"))
 
 
 def _cs_call(kind, subj, clause_fts, raws, m):
@@ -1227,7 +1234,7 @@ def _compile_cs(kind, subj, clause_fts, raws):
                       to_lam((kind, subj, tuple(clause_fts), tuple(raws), ""))))
     arow, attaches = rows[0], rows[1:]
     cid = arow[1]
-    pre = _CS_PREFIX.get(kind, "")
+    pre = _cs_prefix().get(kind, "")
     minted = pre + cid[len(pre):][:40] if pre else cid
     clauses = tuple(arow[4]) if isinstance(arow[4], tuple) else arow[4]
     mid = (("c", (minted, arow[2], arow[3], clauses)),)
@@ -2495,7 +2502,7 @@ def compile(stmt, D, known=()):
     from .reduce import apply as _apply
     from .lam import atom as _A
     kind, g, modality = analyze(stmt)
-    if kind not in _BOOTSTRAP_KINDS:
+    if kind not in _bootstrap_kinds():
         # the seed DISPATCHES only its five bootstrap kinds (the grammar file's
         # measured footprint); analyze stays the full classifier because the
         # PREPASS and the translators share its table as the production

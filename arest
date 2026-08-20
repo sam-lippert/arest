@@ -7113,6 +7113,16 @@ DEF("system:cmp_ops",
 DEF("system:agg_ops",
     K(S5(A("min"), A("max"), A("count"), A("sum"), A("avg")))),
 
+"THE CONSTRAINT ID PREFIXES. What a set-comparison constraint s minted id opens with, which is how a reader tells an inclusive-or from a subset from an equality at a glance and how the ids sort together. Three rows, and they were a python dict beside a rust match. A kind with no row takes the empty prefix, which both hosts already spelled as their fallthrough.",
+
+DEF("system:cs_prefix",
+    K(S3(S2(A("disjunctive_mandatory"), A("ior_")), S2(A("subset"), A("subset_")), S2(A("equality"), A("eq_"))))),
+
+"THE BOOTSTRAP KINDS. The five the SEED compiler dispatches -- the kernel that has to compile the grammar file before the grammar file can classify anything. Which five they are is the bootstrap s whole surface, and it lived as a python set with nothing else able to name it. Sorted, because a set has no order to preserve and a canon row list must pick one.",
+
+DEF("system:bootstrap_kinds",
+    K(S5(A("class_rule"), A("entity_type"), A("fact_type_reading"), A("value_constraint"), A("value_type")))),
+
 "THE GENERIC CLASSIFICATIONS. Fact Type Reading and Instance Fact are what a statement is classified as when nothing more specific claims it, so they are the two a SPECIFIC classification is allowed to beat -- the subtraction that decides which translator runs, and the reason Prose does not lose to them. The pair stood three times: a python set and, in engine/rust, the SAME const declared twice inside two different functions, which is the shape a list takes on the way to disagreeing with itself.",
 
 DEF("system:generic_classifications",
