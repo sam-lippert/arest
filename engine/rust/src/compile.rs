@@ -272,13 +272,12 @@ fn quoted_sub(s: &str) -> String {
 
 // _strip_derivation (compiler.py): (storage kind, name without the marker)
 fn strip_derivation(text: &str) -> (Option<&'static str>, String) {
-    for (mark, kind) in [
-        (" **", "derived-and-stored"),
-        (" ++", "partially-derived-and-stored"),
-        (" *", "fully-derived"),
-        (" +", "semi-derived"),
-    ] {
-        if let Some(pre) = text.strip_suffix(mark) {
+    // CANON: DEF("system:derivation_modes") IN SCAN ORDER, longest marker
+    // first -- a scanner that tries * before ** reads a stored derivation as
+    // a computed one and silently stops storing its rows. The leading space
+    // is this scan's own lexical detail: the marker trails a name.
+    for (mark, kind, _mat) in canon_triples("system:derivation_modes") {
+        if let Some(pre) = text.strip_suffix(&format!(" {}", mark)) {
             return (Some(kind), pre.trim().to_string());
         }
     }
@@ -2105,12 +2104,13 @@ fn cook_rule_if(srv: &Srv, head_txt: &str, body: &str, k: &Known, kind: &str) ->
 
 // _MARKER_KIND (compiler.py)
 fn marker_kind(marker: &str) -> &'static str {
-    match marker {
-        "**" => "derived-and-stored",
-        "+" => "semi-derived",
-        "++" => "partially-derived-and-stored",
-        _ => "fully-derived", // "*" and the unmarked default
-    }
+    // the same canon rows, keyed by the bare marker. "*" and the unmarked
+    // case share the default, which is why the miss is fully-derived.
+    canon_triples("system:derivation_modes")
+        .iter()
+        .find(|(m, _, _)| *m == marker)
+        .map(|(_, kind, _)| *kind)
+        .unwrap_or("fully-derived")
 }
 
 // ============================ the set-comparison family ======================
