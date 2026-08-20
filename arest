@@ -7155,6 +7155,16 @@ DEF("system:read_family",
 DEF("system:receipt_verbs",
     K(S2(A("apply"), A("retract")))),
 
+"THE READ VERBS. Which verbs read a store without changing it, so a failure is the CALLER s error and not a refusal. cli.py held them as a dict from verb to ARITY and engine/rust as a match answering the trailing argument NAMES -- the same contract written twice at different resolutions, one that cannot say what an argument means and one that cannot say which verbs there are.",
+
+DEF("system:read_verbs",
+    S3(A("COMP"), A("theta:flatten"), K(S2(S9(A("get"), A("schema"), A("sql"), A("explain"), A("validate"), A("verify"), A("actions"), A("synthesize"), A("entities")), S1(A("items")))))),
+
+"THE READ ARGUMENTS, in order. A verb s trailing arguments after the app, which is the whole of its signature: get takes a noun then an id, and taking them the other way round is a different call that still type-checks. The arity a host needs is the count of a verb s rows here, so the two representations become one and neither can drift into the other s blind spot. A verb with no rows takes no arguments, which is why the verbs are a list of their own -- an empty selection and an unknown verb are not the same answer.",
+
+DEF("system:read_args",
+    K(S9(S2(A("get"), A("noun")), S2(A("get"), A("id")), S2(A("sql"), A("statement")), S2(A("explain"), A("id")), S2(A("actions"), A("noun")), S2(A("actions"), A("id")), S2(A("synthesize"), A("id")), S2(A("entities"), A("noun")), S2(A("items"), A("noun"))))),
+
 DEF("system:h_table",
     S3(A("COMP"), A("theta:flatten"), S2(A("CONST"), S4(S8(S2(A("class_rule"), A("system:h_class_rule")), S2(A("derivation_rule"), A("system:h_derivation_rule")), S2(A("equality"), A("system:h_equality")), S2(A("finality"), A("system:h_finality")), S2(A("for_each_mandatory"), A("system:h_for_each_mandatory")), S2(A("frequency"), A("system:h_frequency")), S2(A("inverse_uc"), A("system:h_inverse_uc")), S2(A("mandatory"), A("system:h_mandatory"))), S8(S2(A("neg_mandatory"), A("system:h_neg_mandatory")), S2(A("neg_pair"), A("system:h_neg_pair")), S2(A("neg_uniqueness"), A("system:h_neg_uniqueness")), S2(A("negation"), A("system:h_negation")), S2(A("objectification"), A("system:h_objectification")), S2(A("possibility"), A("system:h_possibility")), S2(A("ref_scheme"), A("system:h_ref_scheme")), S2(A("ring"), A("system:h_ring"))), S8(S2(A("rule_if"), A("system:h_rule_if")), S2(A("rule_iff"), A("system:h_rule_iff")), S2(A("set_comparison"), A("system:h_set_comparison")), S2(A("sm_def"), A("system:h_sm_def")), S2(A("sm_emit"), A("system:h_sm_emit")), S2(A("sm_from"), A("system:h_sm_from")), S2(A("sm_guard"), A("system:h_sm_guard")), S2(A("sm_initial"), A("system:h_sm_initial"))), S6(S2(A("sm_moore"), A("system:h_sm_moore")), S2(A("sm_to"), A("system:h_sm_to")), S2(A("sm_trigger"), A("system:h_sm_trigger")), S2(A("subset_trailing"), A("system:h_subset_trailing")), S2(A("uniqueness"), A("system:h_uniqueness")), S2(A("value_constraint"), A("system:h_value_constraint"))))))),
 

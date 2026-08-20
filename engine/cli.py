@@ -44,11 +44,26 @@ _USAGE = ("usage: cli.py <verb> --apps-dir <dir> <app> [args...]\n"
           "desktop: show <app> [noun] — the store as a native window;"
           " controls resolve through DEFS, events apply facts\n")
 
-# Each read verb names its Registry method and the arity of its trailing
-# arguments; the CLI is a thin delegate, so outputs pass through as the
-# method answers them.
-_READS = {"get": 3, "schema": 1, "sql": 2, "explain": 2, "validate": 1,
-          "verify": 1, "actions": 3, "synthesize": 2, "entities": 2, "items": 2}
+# Each read verb names its Registry method; the CLI is a thin delegate, so
+# outputs pass through as the method answers them.
+#
+# CANON: DEF("system:read_verbs") and DEF("system:read_args"). The dict that
+# stood here mapped verb to ARITY, and engine/rust held the same contract as
+# the trailing argument NAMES -- one that cannot say what an argument means,
+# one that cannot say which verbs there are. The arity is the count of a
+# verb's rows plus the app, so it is derived here rather than restated.
+_READS_CACHE = {}
+
+
+def _reads():
+    if not _READS_CACHE:
+        from pyarest.lam import atom as _A, to_lam as _tl, from_lam as _fl
+        from pyarest.reduce import apply as _apply
+        verbs = _fl(_apply(_A("system:read_verbs"), _tl(())))
+        _READS_CACHE.update({v: 1 for v in verbs})
+        for row in _fl(_apply(_A("system:read_args"), _tl(()))):
+            _READS_CACHE[row[0]] += 1
+    return _READS_CACHE
 
 
 def main(argv):
@@ -70,7 +85,7 @@ def main(argv):
         out = getattr(reg, verb)(app, ft, row)
         print(json.dumps(out, default=str))
         return 0 if out.get("committed") else 1
-    if verb in _READS and len(rest) == _READS[verb]:
+    if verb in _reads() and len(rest) == _reads()[verb]:
         try:
             out = getattr(reg, verb)(*rest)
         except Exception as e:

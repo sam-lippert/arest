@@ -12545,14 +12545,18 @@ fn delegate_read(tool: &str, args: &J, apps: &Apps) -> Result<String, (i64, Stri
             return Err((-32602, format!("no app loaded; call apps_use before {}", tool)))
         }
     };
-    let keys: &[&str] = match tool {
-        "get" | "actions" => &["noun", "id"],
-        "sql" => &["statement"],
-        "explain" | "synthesize" => &["id"],
-        _ => &[],
-    };
+    // CANON: DEF("system:read_args") -- a verb's trailing arguments after
+    // the app, IN ORDER, which is the whole of its signature: get takes a
+    // noun then an id, and the other way round is a different call that
+    // still type-checks. cli.py held the same contract as an arity dict and
+    // derives its arity from these rows now.
+    let keys: Vec<&str> = canon_pairs("system:read_args")
+        .iter()
+        .filter(|(v, _)| *v == tool)
+        .map(|(_, a)| *a)
+        .collect();
     let mut tail: Vec<String> = Vec::new();
-    for key in keys {
+    for key in &keys {
         match jget(args, key) {
             Some(J::S(v)) => tail.push(v.clone()),
             _ => return Err((-32602, format!("{} needs a string {}", tool, key))),
