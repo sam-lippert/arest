@@ -3838,11 +3838,45 @@ def finiteness_check(D):
         elif isinstance(v, str):
             yield v
 
+    def _projective_head(v):
+        """AREST.tex:212, inside the finiteness proof: PROJECTIVE HEADS INTRODUCE
+        NO ENTITY. The criterion is the head, not the ops appearing anywhere in
+        the body.
+
+        compile_rule emits COMP(COMP(theta:dedup, ALPHA(CONS, p..)), body): the
+        head is a CONS of integer SELECTORS, so it can only re-project columns
+        the body already bound, and mints nothing. An inventive rule such as
+        COMP(skolem, 1) has a boundary op AS its head.
+
+        Without this, a compiled body carrying `length` inside the
+        theta:join_combine machinery flagged every compiled recursive rule --
+        governedBy_rule_step among them -- so the law rejected schemas the paper
+        admits, and finiteness decides which schemas are admitted at all. The fix
+        is the ANALYSIS: `length` stays in the boundary set, which deliberately
+        lists value-constructing base ops and would otherwise miss real invention
+        where a length DOES reach the head."""
+        if not (isinstance(v, tuple) and len(v) == 3 and v[0] == "COMP"):
+            return False
+        head = v[1]
+        if (isinstance(head, tuple) and len(head) == 3 and head[0] == "COMP"
+                and head[1] == "theta:dedup"):
+            head = head[2]                            # the dedup is not the head
+        if not (isinstance(head, tuple) and len(head) == 2 and head[0] == "ALPHA"):
+            return False
+        cons = head[1]
+        return (isinstance(cons, tuple) and len(cons) >= 2 and cons[0] == "CONS"
+                and all(isinstance(x, int) for x in cons[1:]))
+
     cells = defs._cells_of(D)
     inventive = set()
     for r in set(reads) | set(derives):
         body = cells.get(r)
-        if body is not None and any(a in boundary for a in _atoms(from_lam(body))):
+        if body is None:
+            continue
+        term = from_lam(body)
+        if _projective_head(term):
+            continue
+        if any(a in boundary for a in _atoms(term)):
             inventive.add(r)
     succ = {}
     for r in reads:                                          # ft-level dependency edges
