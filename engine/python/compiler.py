@@ -306,6 +306,41 @@ def _split_modality(stmt):
 # the grammar file before the grammar file can classify anything.
 def _bootstrap_kinds():
     return set(_vocab("system:bootstrap_kinds"))
+# CANON: DEF("system:quant_min") / DEF("system:quant_full") /
+# DEF("system:qualifiers") -- FORML's quantifier and qualifier vocabulary.
+# The words stood four times over: baked into the alternation of the two
+# regexes that were here, and again as two const arrays in engine/rust.
+# Which words open a quantified phrase decides what a reading is stripped
+# down to, and so which fact type a statement declares -- the matching is
+# lexical and stays here, the vocabulary is not and does not.
+_VOCAB = {}
+
+
+def _vocab_rows(name):
+    """A canon table whose elements are ROWS, as tuples -- _vocab answers
+    flat word lists and would hand back sequences here."""
+    if name not in _VOCAB:
+        from .lam import atom as _A, to_lam as _tl, from_lam as _fl
+        from .reduce import apply as _apply
+        _VOCAB[name] = tuple(tuple(r) for r in
+                             _fl(_apply(_A(name), _tl(()))))
+    return _VOCAB[name]
+
+
+def _vocab(name):
+    if name not in _VOCAB:
+        from .lam import atom as _A, to_lam as _tl, from_lam as _fl
+        from .reduce import apply as _apply
+        _VOCAB[name] = tuple(_fl(_apply(_A(name), _tl(()))))
+    return _VOCAB[name]
+
+
+
+def _alt(name):
+    """A canon word list as a regex alternation -- the recogniser and the
+    vocabulary off the same rows."""
+    return "|".join(_vocab(name))
+
 
 _CLASSIFY = [
     ("entity_type", re.compile(r"^(.+?)(?:\(\.(.+)\))? is an entity type\.$")),
@@ -354,7 +389,14 @@ _CLASSIFY = [
     # prepass then declared a PHANTOM 'of_the_following_holds_...' fact type + a bogus
     # inverse-uc from _compile_inverse_uc's f"{g2} {g0}" reading (task 17 name-hygiene; NORMA
     # verbalizes exclusion as 'no X the same Y', never 'at most one of the following holds')
-    ("inverse_uc", re.compile(r"^[Ff]or each (.+?), (at most one|exactly one) (?!of the following holds)(.+) (?:that|those) .+\.$")),
+    # CANON: DEF("system:cardinality_openers") and
+    # DEF("system:anaphor_connectives"). The anaphoric pair is that/THOSE,
+    # not the hop pair that/who -- a site confusing them classifies an
+    # inverse uniqueness constraint as something else.
+    ("inverse_uc", re.compile(
+        r"^[Ff]or each (.+?), (" + _alt("system:cardinality_openers") +
+        r") (?!of the following holds)(.+) (?:" +
+        _alt("system:anaphor_connectives") + r") .+\.$")),
     ("subset", re.compile(r"^[Ii]f (.+) then (.+)\.$")),                      # 'if A then B' = subset (modus ponens)
     # grammar-as-readings recognizers (forml2-grammar.md: 'the parser is this file'):
     # a quoted-head iff rule classifies Statements from their field facts
@@ -837,7 +879,11 @@ def _role_path(body):
     -> [('drives','Car'), ('is fast', None)]. Split on the ' that '/' who ' navigation connectives;
     a hop 'V some T' is a step to object type T via predicate V, else a unary/property hop."""
     hops = []
-    for part in re.split(r" that | who ", body):
+    # CANON: DEF("system:hop_connectives") -- which words open a STEP in a
+    # role path. engine/rust scans for whichever comes first over the same
+    # two words; the surrounding spaces are this split's lexical framing.
+    seps = "|".join(" %s " % w for w in _vocab("system:hop_connectives"))
+    for part in re.split(seps, body):
         m = re.match(r"^(.+?) some (.+)$", part.strip())
         hops.append((m.group(1), m.group(2)) if m else (part.strip(), None))
     return hops
@@ -1107,33 +1153,6 @@ def _h_brace_subtypes(g, k, m):
                 [(cid + "@" + s, C.scoped_exclusion(subs, s)) for s in subs]
     return A_, objs
 
-# CANON: DEF("system:quant_min") / DEF("system:quant_full") /
-# DEF("system:qualifiers") -- FORML's quantifier and qualifier vocabulary.
-# The words stood four times over: baked into the alternation of the two
-# regexes that were here, and again as two const arrays in engine/rust.
-# Which words open a quantified phrase decides what a reading is stripped
-# down to, and so which fact type a statement declares -- the matching is
-# lexical and stays here, the vocabulary is not and does not.
-_VOCAB = {}
-
-
-def _vocab_rows(name):
-    """A canon table whose elements are ROWS, as tuples -- _vocab answers
-    flat word lists and would hand back sequences here."""
-    if name not in _VOCAB:
-        from .lam import atom as _A, to_lam as _tl, from_lam as _fl
-        from .reduce import apply as _apply
-        _VOCAB[name] = tuple(tuple(r) for r in
-                             _fl(_apply(_A(name), _tl(()))))
-    return _VOCAB[name]
-
-
-def _vocab(name):
-    if name not in _VOCAB:
-        from .lam import atom as _A, to_lam as _tl, from_lam as _fl
-        from .reduce import apply as _apply
-        _VOCAB[name] = tuple(_fl(_apply(_A(name), _tl(()))))
-    return _VOCAB[name]
 
 
 _QUANT_RE = {}

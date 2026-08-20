@@ -7123,6 +7123,21 @@ DEF("system:cs_prefix",
 DEF("system:bootstrap_kinds",
     K(S5(A("class_rule"), A("entity_type"), A("fact_type_reading"), A("value_constraint"), A("value_type")))),
 
+"THE HOP CONNECTIVES. Which English words open a STEP in a role path, so drives some Car that is fast reads as two hops and not as one predicate with an odd name. compiler.py splits on them and engine/rust scans for whichever comes first; both are list scans over the same two words, written twice.",
+
+DEF("system:hop_connectives",
+    K(S2(A("that"), A("who")))),
+
+"THE ANAPHORIC CONNECTIVES. The pair that introduces a back-reference to the subject already named -- distinct from the hop connectives, which is the point: this vocabulary carries those and not who, and a site that confuses them classifies an inverse uniqueness constraint as something else. It was inside a python regex alternation and scanned twice in rust.",
+
+DEF("system:anaphor_connectives",
+    K(S2(A("that"), A("those")))),
+
+"THE CARDINALITY OPENERS. The two phrases an inverse-uniqueness reading may use to say how many, sitting beside the anaphoric connectives in the same statement and in the same regex. Held there and as an array in engine/rust.",
+
+DEF("system:cardinality_openers",
+    K(S2(A("at most one"), A("exactly one")))),
+
 "THE GENERIC CLASSIFICATIONS. Fact Type Reading and Instance Fact are what a statement is classified as when nothing more specific claims it, so they are the two a SPECIFIC classification is allowed to beat -- the subtraction that decides which translator runs, and the reason Prose does not lose to them. The pair stood three times: a python set and, in engine/rust, the SAME const declared twice inside two different functions, which is the shape a list takes on the way to disagreeing with itself.",
 
 DEF("system:generic_classifications",

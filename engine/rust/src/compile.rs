@@ -588,13 +588,19 @@ fn role_path(body: &str) -> Vec<(String, Option<String>)> {
     let mut parts: Vec<&str> = Vec::new();
     let mut rest = body;
     loop {
-        let pt = rest.find(" that ");
-        let pw = rest.find(" who ");
-        let (p, l) = match (pt, pw) {
-            (Some(a), Some(b)) if a <= b => (a, 6),
-            (Some(a), None) => (a, 6),
-            (_, Some(b)) => (b, 5),
-            (None, None) => break,
+        // CANON: DEF("system:hop_connectives") -- the EARLIEST hop word
+        // wins, whichever it is, and its length comes from the word
+        // rather than from a hand-counted 6 and 5.
+        let hit = canon_words("system:hop_connectives")
+            .iter()
+            .filter_map(|w| {
+                let sep = format!(" {} ", w);
+                rest.find(&sep).map(|p| (p, sep.len()))
+            })
+            .min();
+        let (p, l) = match hit {
+            Some(pl) => pl,
+            None => break,
         };
         parts.push(&rest[..p]);
         rest = &rest[p + l..];
@@ -3075,12 +3081,16 @@ fn p_inverse_uc(s: &str) -> Option<Vec<Option<String>>> {
                     continue;
                 }
                 // greedy (.+) (?:that|those) .+$ — the LAST separator
+                // CANON: DEF("system:anaphor_connectives") -- that/THOSE,
+                // the back-reference pair, not the hop pair that/who. The
+                // separator lengths came from the words, not from a
+                // hand-counted 6 and 7 that a third connective would strand.
                 let mut sp: Vec<(usize, usize)> = Vec::new();
-                for (q, _) in rest.match_indices(" that ") {
-                    sp.push((q, 6));
-                }
-                for (q, _) in rest.match_indices(" those ") {
-                    sp.push((q, 7));
+                for w in canon_words("system:anaphor_connectives") {
+                    let sep = format!(" {} ", w);
+                    for (q, _) in rest.match_indices(&sep) {
+                        sp.push((q, sep.len()));
+                    }
                 }
                 sp.sort();
                 for (q, l) in sp.into_iter().rev() {
@@ -3251,6 +3261,9 @@ fn p_derivation_rule(s: &str) -> Option<Vec<Option<String>>> {
             continue;
         }
         let rest = &body[p + 9..];
+        // "who" here is the PRODUCTION SHAPE (Each X is some Y who Z), not an
+        // alternation over DEF("system:hop_connectives") -- substituting the
+        // list would change which sentences this pattern recognises.
         for (q, _) in rest.match_indices(" who ") {
             if q >= 1 && !rest[q + 5..].is_empty() {
                 return Some(vec![
