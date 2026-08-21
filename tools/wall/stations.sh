@@ -109,11 +109,18 @@ if want java && command -v javac >/dev/null 2>&1; then
   # Windows binaries, and a POSIX -d path ("/c/Users/...") is parsed as an
   # option switch, which fails with "use -help for a list of possible
   # options". The .class files are already ignored (*.class).
+  # NO compose.py. Composed.g.java was 2.16 MB of generated source, split into
+  # slice methods because the JVM caps a method at 64 KB and the canon is one
+  # 1.1 MB tuple. A PARSER has no such cap: Reader.java reads the same four
+  # files at runtime, javac went from chewing that file to one second, and the
+  # base journal is empty so there was never a third carrier to load.
   { ( cd "$E/tools/java-runner" \
-    && python compose.py "$E/arest" "$D/design-state" "$D/norma-answer" \
-         "$D/journal" Composed.g.java "$E/engine/shared/scenarios.canon" >/dev/null \
-    && javac -encoding UTF-8 Arest.java Program.java Composed.g.java \
-    && java -cp . Program ) > "$O/java.txt" 2>&1; echo $? > "$O/java.rc"; } &
+    && javac -encoding UTF-8 Arest.java Program.java Reader.java \
+    && AREST_CANON="$E/arest" \
+       AREST_SCENARIOS="$E/engine/shared/scenarios.canon" \
+       AREST_DESIGN_STATE="$D/design-state" \
+       AREST_NORMA_ANSWER="$D/norma-answer" \
+       java -cp . Program ) > "$O/java.txt" 2>&1; echo $? > "$O/java.rc"; } &
   STATIONS="$STATIONS java"
 else
   want java && echo "=== java SKIPPED (javac not installed) ===" \
