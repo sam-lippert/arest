@@ -35,6 +35,15 @@ import sys
 # is expensive to ask questions of; it is just not a wall.
 sys.setrecursionlimit(100000)
 
+# A row can carry phi, and printing it to a cp1252 console raises
+# UnicodeEncodeError mid-report -- which is how support.auto.dev came back
+# as an ERROR from the corpus sweep when the comparison itself had run
+# fine. The encoding of the terminal is not a property of the store.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+except Exception:                       # a stream with no reconfigure
+    pass
+
 
 def main(argv):
     argv = [a for a in argv]
