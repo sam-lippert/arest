@@ -26,6 +26,15 @@ import os
 import sqlite3
 import sys
 
+# _analyze REDUCES to work out the partition, and the Scott path recurses
+# deep on a large store: eleven of the corpus's forty-six raise
+# RecursionError at python's default limit of 1000, which I first reported
+# as "these stores cannot be analysed". They can. It was this tool's limit,
+# not the engine's -- kernel.db analyses to 87 tables and 6 entities with the
+# ceiling raised. The reduction depth is still the reason a store this size
+# is expensive to ask questions of; it is just not a wall.
+sys.setrecursionlimit(100000)
+
 
 def main(argv):
     argv = [a for a in argv]
@@ -106,6 +115,35 @@ def main(argv):
                     break
 
     # ---- the absorbed half: a fact type that lives as a COLUMN ------------
+    #
+    # UNVERIFIED ON CHAINED ABSORPTION, and its flags on the larger apps
+    # should not be read as defects until this is settled. agent-action-
+    # governance absorbs Fact_Type_has_Role into 'Event Type' while its role-1
+    # player is 'Fact Type' -- the target is not the role-1 player, so the
+    # population is keyed by something this comparison does not pair with.
+    # It reports store 512 against column 259 there, and 259 is exactly the
+    # count of DISTINCT Fact Types. DETERMINED, after first getting it
+    # wrong: I said the uniqueness sat on Role at position 2 and that
+    # project() keyed on role 1 regardless. The keying half was right and
+    # the reason was not. Asked of all 45 apps, absorbed fact types split
+    # role1 1885 / neither 510 / both 11 / role2 1 -- and this one is in
+    # NEITHER, not role2: its table is event_type, which plays no role in
+    # it at all. Absorption was resolved transitively through some other
+    # absorbed entity, so the value map is keyed by the INTERMEDIATE
+    # entity and collapses to the 259 distinct Fact Types on the way.
+    # The role2 defect is real and is fixed (system:ev_keypos,
+    # rmap:valpairs_at, case:entity-view-role2-key). The CHAIN is not, and
+    # measures worse -- cancel-service projects
+    # State_Machine_Definition_is_for_Noun as 4 store rows and 0 non-null.
+    # Its cause is settled though: the chain is SUBTYPE absorption (Halpin
+    # rule 2, Resource -> Noun -> Function), the key is right because a
+    # subtype instance is a supertype instance, and what is wrong is the
+    # ROW SET -- project() populates a table from ids playing its name (7
+    # for function) instead of the union over its subtype cone (528).
+    # Until that lands, these flags on chained apps are questions.
+    #
+    # The six apps whose absorptions are direct (arest-dev, identity, codex,
+    # spd-nav, paper, flip-feasibility) are the ones its results stand on.
     # A single-role uniqueness constraint absorbs a fact type into its role-1
     # player's table (Halpin 10.3), so its population is a projection of that
     # table rather than a table of its own: the key column paired with the
