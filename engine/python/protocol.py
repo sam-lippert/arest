@@ -793,8 +793,17 @@ def get_view(D, noun, entity_id):
     alone (entities ⊆ entity_tables by construction, so the old
     conjunction reduces). Answers ⟨seen, fields, facts⟩ raw;
     Registry.get wraps the app envelope."""
+    # A SUBTYPE HAS NO TABLE. Its fact types absorb into the top
+    # supertype's, so the rmapColumns rows name that table and not this
+    # noun; filtering on the noun's own name answered NO FIELDS AT ALL for
+    # every subtype -- cancel-service gave Status 0 fields where Function
+    # gave 18 for the same identifier. The rule is DEF("rmap:cone"): the
+    # noun's columns are the ones whose table has the noun in its cone.
+    # Twin of system:ev_colrows, pinned by case:entity-view-subtype-noun.
+    _subs = [tuple(r)[:2] for r in system._pop_rows(D, "subtype")
+             if len(r) >= 2]
     colrows = [tuple(r) for r in system._pop_rows(D, "rmapColumns")
-               if len(r) >= 3 and r[0] == noun]
+               if len(r) >= 3 and noun in _cone(r[0], _subs)]
     absorbed = {r[2] for r in system._pop_rows(D, "rmapColumns")
                 if len(r) >= 3}
     roles = {}

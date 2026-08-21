@@ -2693,37 +2693,53 @@ fn ev_cols_native(
     let sv2 = |n: &N| -> Option<String> {
         match n { N::A(l) => leaf_str(l), _ => None }
     };
-    // THE SUBTYPE TABLE RESOLUTION (2026-07-08): a subtype's fact
-    // types absorb into its TOP SUPERTYPE's table (RMAP rule 2 — the
-    // Support Request row lives in "Agent Chat"), so matching the
-    // requested noun's NAME against the table column classifies ZERO
-    // columns for every subtype. Resolve the noun's table through its
-    // role-1 fact types first; a noun with no absorbed fts keeps its
-    // own name (the own-table case).
-    let noun_fts: Vec<String> = rows_of("role")
+    // THE SUBTYPE TABLE RESOLUTION (2026-07-08, restated on canon's own
+    // rule 2026-08-21): a subtype's fact types absorb into its TOP
+    // SUPERTYPE's table (RMAP rule 2 — the Support Request row lives in
+    // "Agent Chat"), so matching the requested noun's NAME against the
+    // table column classifies ZERO columns for every subtype.
+    //
+    // What stood here resolved the table through the noun's ROLE-1 fact
+    // types, which is a proxy and not the rule: a subtype that plays only
+    // role 2 anywhere has no role-1 ft, so the proxy fell back to the
+    // noun's own name and classified nothing — the very case it was
+    // written for. DEF("system:ev_colrows") states it directly and this
+    // is its twin: the noun's columns are the ones whose TABLE HAS THE
+    // NOUN IN ITS CONE, DEF("rmap:cone") closed over the subtype pairs.
+    let subs: Vec<(String, String)> = rows_of("subtype")
         .iter()
         .filter_map(|r| {
             if let N::S(cc) = r {
-                if cc.len() >= 4
-                    && sv2(&cc[3]).as_deref() == Some(noun)
-                {
-                    if let N::A(pl) = &cc[2] {
-                        if matches!(&**pl, Leaf::I(1)) {
-                            return sv2(&cc[1]);
-                        }
+                if cc.len() >= 2 {
+                    if let (Some(s), Some(p)) = (sv2(&cc[0]), sv2(&cc[1])) {
+                        return Some((s, p));
                     }
                 }
             }
             None
         })
         .collect();
+    let cone_of = |top: &str| -> Vec<String> {
+        let mut cone: Vec<String> = vec![top.to_string()];
+        loop {
+            let before = cone.len();
+            for (s, p) in subs.iter() {
+                if cone.iter().any(|c| c == p) && !cone.iter().any(|c| c == s) {
+                    cone.push(s.clone());
+                }
+            }
+            if cone.len() == before {
+                return cone;
+            }
+        }
+    };
     let table: String = rows_of("rmapColumns")
         .iter()
         .find_map(|r| {
             if let N::S(cc) = r {
                 if cc.len() >= 3 {
-                    if let (Some(t), Some(ft)) = (sv2(&cc[0]), sv2(&cc[2])) {
-                        if noun_fts.iter().any(|f| *f == ft) {
+                    if let Some(t) = sv2(&cc[0]) {
+                        if cone_of(&t).iter().any(|c| c == noun) {
                             return Some(t);
                         }
                     }
