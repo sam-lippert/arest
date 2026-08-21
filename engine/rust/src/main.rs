@@ -1652,13 +1652,37 @@ fn ov_system_entity_view(x: &N) -> Option<N> {
                     });
                     if hit { any_seen = true; t_at.clone() } else { f_at.clone() }
                 } else {
+                    // THE KEY IS THE POSITION THE NOUN PLAYS, not 1.
+                    // Absorption follows rmap:keypos -- the position the
+                    // single-role uniqueness sits on -- so it is role 2
+                    // whenever the UC is. Twin of system:ev_keypos and
+                    // pinned by case:entity-view-role2-key; keyed on 1 this
+                    // answers # for every row of such a fact type. A noun
+                    // that plays NO role here is the chain case (its table
+                    // was resolved through a supertype) and keeps 1.
+                    let mut kp: usize = 1;
+                    for r in rows_of("role").iter() {
+                        if let N::S(cc) = r {
+                            if cc.len() >= 4
+                                && sv2(&cc[1]).as_deref() == Some(ft.as_str())
+                                && sv2(&cc[3]).as_deref() == Some(noun.as_str())
+                            {
+                                if let N::A(pl) = &cc[2] {
+                                    if let Leaf::I(pp) = &**pl {
+                                        kp = *pp as usize;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    let vp: usize = if kp == 1 { 2 } else { 1 };
                     let mut last: Option<N> = None;
                     for r in pop.iter() {
                         if let N::S(cc) = r {
                             if cc.len() >= 2
-                                && sv2(&cc[0]).as_deref() == Some(id.as_str())
+                                && sv2(&cc[kp - 1]).as_deref() == Some(id.as_str())
                             {
-                                last = Some(cc[1].clone());
+                                last = Some(cc[vp - 1].clone());
                             }
                         }
                     }
@@ -11521,10 +11545,19 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
                                                    seqv(pop(ft).to_vec())]), -1);
                 colviews.push(seqv(vec![atom(Leaf::S("unary".to_string())), ids1]));
             } else {
-                // rmap:valpairs: <id,value> in ROW ORDER, short rows dropped.
-                // The LAST-WINS rule now lives in rmap:cell_val, not in a map.
-                let prs = reduce_ev(&ev0, atom(Leaf::S("rmap:valpairs".to_string())),
-                                        seqv(pop(ft).to_vec()), -1);
+                // rmap:valpairs_at: <id,value> in ROW ORDER, short rows
+                // dropped, KEYED AT THE POSITION THIS TABLE PLAYS. The
+                // LAST-WINS rule lives in rmap:cell_val, not in a map.
+                // Position 1 was assumed; absorption follows rmap:keypos,
+                // so a role-2 uniqueness keyed every pair on the wrong
+                // half and the column came out all NULL.
+                let kp = roles.get(ft)
+                    .and_then(|rs| rs.iter().find(|(_p, pl)| pl == table))
+                    .map(|(p, _pl)| *p)
+                    .unwrap_or(1);
+                let prs = reduce_ev(&ev0, atom(Leaf::S("rmap:valpairs_at".to_string())),
+                                        seqv(vec![atom(Leaf::I(kp)),
+                                                  seqv(pop(ft).to_vec())]), -1);
                 colviews.push(seqv(vec![atom(Leaf::S("val".to_string())), prs]));
             }
         }

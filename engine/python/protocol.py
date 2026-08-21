@@ -831,7 +831,13 @@ def get_view(D, noun, entity_id):
             fields[col] = any(r and r[0] == entity_id for r in rows)
             seen = seen or fields[col]
         else:
-            val = {r[0]: r[1] for r in rows if len(r) >= 2}
+            # THE KEY IS THE POSITION THIS NOUN PLAYS, not 1: absorption
+            # follows rmap:keypos, the position the single-role uniqueness
+            # sits on, which is role 2 whenever the UC is (twin of
+            # system:ev_keypos, pinned by case:entity-view-role2-key).
+            kp = next((p for (p, player) in rs if player == noun), 1)
+            vp = 2 if kp == 1 else 1
+            val = {r[kp - 1]: r[vp - 1] for r in rows if len(r) >= 2}
             fields[other or col] = val.get(entity_id)     # the played type names the field
             seen = seen or entity_id in val
     for r in system._pop_rows(D, "factType"):
@@ -1092,7 +1098,14 @@ def project(D, con, materialise=False):
                 for i in ids:
                     per_id[i][col] = 1 if i in members else 0
                 continue
-            val = {r[0]: r[1] for r in pop(ft) if len(r) >= 2}
+            # same key as get_view and system:ev_keypos: the position
+            # TABLE plays. Keyed on 1 unconditionally, a role-2 absorption
+            # writes a column of NULLs -- every row present, every value
+            # gone -- because no fact row starts with an id of this table.
+            rs = roles.get(ft, [])
+            kp = next((p for (p, player) in rs if player == table), 1)
+            vp = 2 if kp == 1 else 1
+            val = {r[kp - 1]: r[vp - 1] for r in pop(ft) if len(r) >= 2}
             for i in ids:
                 per_id[i][col] = val.get(i)
         ensure_columns(table, colnames, coltypes)
