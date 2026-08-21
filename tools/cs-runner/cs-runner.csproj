@@ -12,19 +12,12 @@
     <ComposedFile>$(MSBuildProjectDirectory)\Composed.g.cs</ComposedFile>
   </PropertyGroup>
 
-  <!-- the compose step is copy /b — byte concatenation, the linker's job
-       and nothing more: part files ; arest ; design-state ; norma-answer.
-       The canon and the carriers appear AS SOURCE and are COMPILED, then
-       the exe is just exec'd — nothing is read or interpreted at runtime. -->
-  <ItemGroup>
-    <Compile Remove="Composed.g.cs" />
-  </ItemGroup>
-
-  <Target Name="ComposeCanon" BeforeTargets="CoreCompile">
-    <Exec Command="cmd /c copy /b /y &quot;$(MSBuildProjectDirectory)\head.part&quot; + &quot;$(MSBuildProjectDirectory)\..\..\arest&quot; + &quot;$(MSBuildProjectDirectory)\mid1.part&quot; + &quot;$(CarrierDir)\design-state&quot; + &quot;$(MSBuildProjectDirectory)\mid2.part&quot; + &quot;$(CarrierDir)\norma-answer&quot; + &quot;$(MSBuildProjectDirectory)\mid3.part&quot; + &quot;$(CarrierDir)\journal&quot; + &quot;$(MSBuildProjectDirectory)\mid4.part&quot; + &quot;$(MSBuildProjectDirectory)\midcases.part&quot; + &quot;$(MSBuildProjectDirectory)\..\..\engine\shared\scenarios.canon&quot; + &quot;$(MSBuildProjectDirectory)\tail.part&quot; &quot;$(ComposedFile)&quot; &gt;nul" />
-    <ItemGroup>
-      <Compile Include="$(ComposedFile)" />
-    </ItemGroup>
-  </Target>
+  <!-- NO compose step. The canon, the case table and the carriers are READ
+       at runtime by Reader.cs, the way js, java and rust-station read them.
+       copy /b was the cheapest of the four compose steps, byte concatenation
+       and nothing more, but it still put the whole canon through the C#
+       compiler on every edit and left this station holding the program as
+       object code. The base journal is empty and an empty carrier registered
+       nothing, so there is no third file to read. -->
 
 </Project>
