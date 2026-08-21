@@ -5944,6 +5944,26 @@ fn strip_annotation(stmt: &str) -> String {
 
 // quote parity: '[^']*' pairs quotes sequentially, so a position is OUTSIDE
 // literals exactly when an even number of quotes precede it
+// The CLOSING quote of a literal that has already opened, honouring the
+// declared Quote Escape: a doubled apostrophe is one apostrophe INSIDE the
+// literal, not a close followed by an open. Byte offset into the tail, so
+// the callers keep their slicing arithmetic.
+fn close_quote(tail: &str) -> Option<usize> {
+    let b = tail.as_bytes();
+    let mut k = 0usize;
+    while k < b.len() {
+        if b[k] == b'\'' {
+            if k + 1 < b.len() && b[k + 1] == b'\'' {
+                k += 2;
+                continue;
+            }
+            return Some(k);
+        }
+        k += 1;
+    }
+    None
+}
+
 fn quote_positions(s: &str) -> Vec<usize> {
     s.match_indices('\'').map(|(p, _)| p).collect()
 }
@@ -5963,7 +5983,7 @@ fn blank_spans(s: &str, repl: &str) -> String {
                 out.push_str(rest);
                 break;
             }
-            Some(a) => match rest[a + 1..].find('\'') {
+            Some(a) => match close_quote(&rest[a + 1..]) {
                 None => {
                     out.push_str(rest);
                     break;
