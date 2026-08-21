@@ -476,7 +476,8 @@ def classify(stmt):
     return kind, groups
 
 
-_QUOTED_SPAN = re.compile(r"'[^']*'")
+# the same escape, for blanking a literal out whole (see _QUOTED)
+_QUOTED_SPAN = re.compile(r"'(?:[^']|'')*'")
 
 
 def _prose_suspect(text, known):
@@ -1312,7 +1313,7 @@ def _h_subset(g, k, m):
         raise ValueError("value-restricted if-then antecedent awaits its "
                          "slice: " + ante[:60])
     _f_lit = None
-    _lits = _QUOTED.findall(cons_txt)
+    _lits = _quoted_values(cons_txt)
     if _lits:
         if len(_lits) > 1:
             raise ValueError("multi-literal consequent awaits its slice: "
@@ -1436,7 +1437,7 @@ def _h_subset_trailing(g, k, m, sign="positive"):
     # literal fills the LAST (value) role; the anaphor binds the entity.
     filter_pos = filter_lit = None
     cond_ft_txt = cond_txt
-    lits = _QUOTED.findall(cond_txt)
+    lits = _quoted_values(cond_txt)
     if lits:
         if len(lits) > 1:
             raise ValueError("multi-literal condition awaits its slice: "
@@ -1603,7 +1604,25 @@ def _h_possibility(g, k, m):
 
 _h_inverse_uc = _h_constraint
 
-_QUOTED = re.compile(r"'([^']*)'")
+# THE DECLARED QUOTE ESCAPE. forml2-grammar.md:69 says the language has one:
+#     Quote Escape is a value type.
+#       The possible values of Quote Escape are 'doubled-quote'.
+# The pattern here did not implement it, so a literal carrying an apostrophe
+# closed early and its tail became a second value -- silently, with nothing
+# reported unparsed. A binary fact type would take a THREE-field row, which is
+# how the arest-dev store came to disagree with its own projected table:
+#     Tool 'arest' has Warning 'before today''s fix'.
+#       -> ('arest', 'before today', 's fix')
+# The doubled quote is matched as one unit inside a literal now, and
+# _quoted_values folds it back. 26 readings across 10 apps use it.
+_QUOTED = re.compile(r"'((?:[^']|'')*)'")
+
+
+def _quoted_values(text):
+    """The quoted values of a reading, with the escape undone. Every caller
+    wants the VALUE, so the unescaping belongs here rather than at four
+    call sites that would each have to remember."""
+    return [m.replace("''", "'") for m in _QUOTED.findall(text)]
 
 
 _h_fact = _h_constraint
@@ -1965,7 +1984,7 @@ def _compile_fact(g, k):
     (the first cell-as-value row among the canonized handlers)."""
     kind, reading = _strip_derivation(g[0])
     if "'" in reading:
-        ids = tuple(_QUOTED.findall(reading))
+        ids = tuple(_quoted_values(reading))
         dequoted = re.sub(r"\s+", " ", _QUOTED.sub("", reading)).strip()
         ft, _decl = _fact_type(dequoted, k)
         _t, rtypes = _reading(dequoted, k)
@@ -2482,7 +2501,7 @@ def _plan(kind, g, known, modality="alethic", sign=""):
             raise ValueError(
                 "compound deontic (X and that Y ...) awaits the join-exclusion "
                 "translator (#34): " + reading[:70])
-        ids = tuple(_QUOTED.findall(reading))
+        ids = tuple(_quoted_values(reading))
         dequoted = (re.sub(r"\s+", " ", _QUOTED.sub("", reading)).strip()
                     if ids else reading)
         facts, objs = _h_constraint(_compile_fact((dequoted,), known), known, modality)

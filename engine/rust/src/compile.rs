@@ -247,20 +247,45 @@ fn crc32(data: &[u8]) -> u32 {
 }
 
 // _QUOTED.findall: the contents of sequentially paired 'spans'
+// THE DECLARED QUOTE ESCAPE. forml2-grammar.md:69 gives the language one:
+//     Quote Escape is a value type.
+//       The possible values of Quote Escape are 'doubled-quote'.
+// Taking the NEXT quote as the close does not implement it, so a literal
+// carrying an apostrophe closed early and its tail became a second value --
+// silently, and a binary fact type took a three-field row. compiler.py had
+// the identical gap and the same fix; the store that disagreed with its own
+// projected table is how it surfaced.
 fn quoted_findall(s: &str) -> Vec<String> {
+    let c: Vec<char> = s.chars().collect();
     let mut out = Vec::new();
-    let mut rest = s;
-    loop {
-        match rest.find('\'') {
-            None => break,
-            Some(a) => match rest[a + 1..].find('\'') {
-                None => break,
-                Some(b) => {
-                    out.push(rest[a + 1..a + 1 + b].to_string());
-                    rest = &rest[a + 1 + b + 1..];
-                }
-            },
+    let mut i = 0usize;
+    while i < c.len() {
+        if c[i] != '\'' {
+            i += 1;
+            continue;
         }
+        let mut v = String::new();
+        let mut j = i + 1;
+        let mut closed = false;
+        while j < c.len() {
+            if c[j] == '\'' {
+                if j + 1 < c.len() && c[j + 1] == '\'' {
+                    v.push('\'');   // the escape: one apostrophe
+                    j += 2;
+                    continue;
+                }
+                closed = true;
+                j += 1;
+                break;
+            }
+            v.push(c[j]);
+            j += 1;
+        }
+        if !closed {
+            break;                      // an unpaired quote ends the scan
+        }
+        out.push(v);
+        i = j;
     }
     out
 }
