@@ -131,13 +131,22 @@ fi
 
 # --- rust station: compose.py is syntax-only (no variadics; LLVM chunking) ---
 if want rust && command -v cargo >/dev/null 2>&1; then
+  # NO compose.py. The station READS the four files at runtime now, the way
+  # js, java and cs read theirs, so there is no generated source to make and
+  # no 1.13 MB expression for LLVM to chew. The build went from ~11 min to 4s,
+  # which was the wall's dominant cost. Paths are passed rather than defaulted
+  # so an app run points the carriers at $D.
   { ( cd "$E/tools/rust-station" \
-    && python compose.py --split "$E/arest" src/canon.g.rs >/dev/null \
-    && python compose.py --split "$E/engine/shared/scenarios.canon" src/scenarios.g.rs >/dev/null \
-    && python compose.py --split "$D/design-state" src/design-state.g.rs >/dev/null \
-    && python compose.py --split "$D/norma-answer" src/norma-answer.g.rs >/dev/null \
-    && cargo build -q \
-    && ./target/debug/arest-station.exe ) > "$O/rust.txt" 2>&1; echo $? > "$O/rust.rc"; } &
+    && AREST_CANON="$E/arest" \
+       AREST_SCENARIOS="$E/engine/shared/scenarios.canon" \
+       AREST_DESIGN_STATE="$D/design-state" \
+       AREST_NORMA_ANSWER="$D/norma-answer" \
+       cargo build -q \
+    && AREST_CANON="$E/arest" \
+       AREST_SCENARIOS="$E/engine/shared/scenarios.canon" \
+       AREST_DESIGN_STATE="$D/design-state" \
+       AREST_NORMA_ANSWER="$D/norma-answer" \
+       ./target/debug/arest-station.exe ) > "$O/rust.txt" 2>&1; echo $? > "$O/rust.rc"; } &
   STATIONS="$STATIONS rust"
 else
   want rust && echo "=== rust SKIPPED (cargo not installed) ===" \
