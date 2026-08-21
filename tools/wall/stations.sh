@@ -204,18 +204,24 @@ if [ "${AREST_CASES:-1}" = "1" ] && [ -n "$STATIONS" ]; then
           | sed 's/DEF("//; s/"$//')
   NC=$(printf '%s\n' "$CASES" | grep -c .)
   echo "=== base: $NC cases x stations ==="
+  # ONE INVOCATION PER CASE still, and now concurrent WITHIN a station as
+  # well as across them. The isolation the note above insists on is the
+  # PROCESS boundary, not the sequence: a deliberate bottom row still dies
+  # alone and a refusal is still visible per case. The station builds that
+  # used to dominate the wall are seconds now, so the case phase is what is
+  # left of it. onecase.sh is this loop body, lifted out so xargs can call it.
+  #
+  # SORTED before the diff: xargs interleaves completions, so file order is
+  # nondeterministic. Sorting every station identically keeps the comparison
+  # exact while letting the runs race, and the refused counts are greps that
+  # never cared about order.
+  export E O
+  CASEJOBS=${AREST_CASE_JOBS:-6}
   for s in $STATIONS; do
-    { : > "$O/cases.$s.txt"
-    for c in $CASES; do
-      case "$s" in
-        js)   v=$(cd "$E" && bun "$O/js.g.js" case "$c" 2>/dev/null) ;;
-        java) v=$(cd "$E/tools/java-runner" && java -cp . Program case "$c" 2>/dev/null) ;;
-        cs)   v=$(cd "$E/tools/cs-runner" && ./bin/Debug/net8.0/cs-runner.exe case "$c" 2>/dev/null) ;;
-        rust) v=$(cd "$E/tools/rust-station" && ./target/debug/arest-station.exe case "$c" 2>/dev/null) ;;
-      esac
-      [ -n "$v" ] || v="<refused>"
-      printf '%s=%s\n' "$c" "$v" >> "$O/cases.$s.txt"
-    done
+    { printf '%s\n' "$CASES" \
+        | xargs -P "$CASEJOBS" -I@ sh "$W/onecase.sh" "$s" @ \
+        > "$O/cases.$s.txt" 2>/dev/null
+      sort -o "$O/cases.$s.txt" "$O/cases.$s.txt"
     } &
 done
 wait
