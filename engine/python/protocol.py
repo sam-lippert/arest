@@ -1012,13 +1012,29 @@ def script(D):
     return chr(10).join(tables[k] + chr(10) for k in order if k in tables).rstrip()
 
 
-def project(D, con):
+def project(D, con, materialise=False):
     """Create the schema and POPULATE it from the store. Entity rows are the ids
     playing the entity's roles anywhere (the reference scheme's population,
     derived); absorbed functional fact types fill columns and absorbed unaries fill
     booleans, with an absent value projecting NULL — the row stays (the dangling-FK
     cascade is impossible by construction). Own-table fact types insert row per
-    fact. Answers {table: rowcount}."""
+    fact. Answers {table: rowcount}.
+
+    MATERIALISE, off by default. The inserts are INSERT OR REPLACE and there
+    is no delete, so this is an UPSERT: a row the population no longer
+    contains survives every later projection, and a row whose key came out
+    NULL can never be replaced at all -- NULL does not equal NULL in SQL --
+    so each projection producing one added another. identity.db carries two
+    such rows in user beside the correct one, from some older store.
+
+    Soft is DELIBERATE here (the mirror is soft both ways, see
+    ensure_columns), so the default does not change. But a table keeping rows
+    the model has stopped asserting cannot be READ as the population -- a
+    reader cannot tell an asserted row from a stale one -- and reading is the
+    direction this has to go. materialise=True deletes the keys the
+    population no longer contains, per projected table, making the table the
+    fact type rather than a record of every fact type it has been.
+    """
     partition, roles, ref, entities, mandatory = _analyze(D)
     own = _owntables(partition.keys(),
                      [f for f, k in partition.items() if k != f])
@@ -1086,6 +1102,20 @@ def project(D, con):
                 f"INSERT OR REPLACE INTO {_q(_sql_name(table))} "
                 f"({', '.join(_q(c) for c in colnames)}) VALUES ({marks})",
                 [i] + [per_id[i].get(c) for c in colnames[1:]])
+        if materialise:
+            # the keys the population no longer has, this table only. A NULL key
+            # needs IS NULL: it is exactly the row = never matches.
+            keyc = colnames[0]
+            live = {str(i) for i in ids}
+            rows = list(con.execute(
+                f"SELECT {_q(keyc)} FROM {_q(_sql_name(table))}"))
+            if any(r[0] is None for r in rows):
+                con.execute(f"DELETE FROM {_q(_sql_name(table))} "
+                            f"WHERE {_q(keyc)} IS NULL")
+            for (g,) in rows:
+                if g is not None and str(g) not in live:
+                    con.execute(f"DELETE FROM {_q(_sql_name(table))} "
+                                f"WHERE {_q(keyc)} = ?", (g,))
         counts[table] = len(ids)
 
     for ft in sorted(own):
