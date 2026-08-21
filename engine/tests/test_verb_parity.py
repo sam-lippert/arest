@@ -83,8 +83,27 @@ def test_verify_catches_a_tampered_materialization(tmp_path):
     con = sqlite3.connect(reg._db("v4"))
     (contents,) = con.execute("SELECT contents FROM cells WHERE name=?",
                               (json.dumps(head),)).fetchone()
+    # the store INTERNS its leaves: contents holds symbol IDS, not text, and
+    # every leaf is an index into the symbols table (save_sqlite _sym_encode,
+    # "another ~2.8x on the fleet's boards, at the cost of an opaque
+    # contents"). Tampering has to speak that encoding or the store will not
+    # load at all -- this test wrote plain JSON and died in _sym_decode with
+    # "list indices must be integers", which is the format change catching a
+    # test that predates it rather than the tamper being rejected.
     rows = json.loads(contents)
-    rows.append(["r9", "zombie"])
+    syms = {json.loads(t): i for (i, t) in
+            con.execute("SELECT id, text FROM symbols")}
+
+    def sym(v):
+        if v in syms:
+            return syms[v]
+        i = 1 + max(syms.values(), default=-1)
+        con.execute("INSERT INTO symbols (id, text) VALUES (?, ?)",
+                    (i, json.dumps(v, ensure_ascii=False)))
+        syms[v] = i
+        return i
+
+    rows.append([sym("r9"), sym("zombie")])
     con.execute("UPDATE cells SET contents=? WHERE name=?",
                 (json.dumps(rows), json.dumps(head)))
     con.commit()
