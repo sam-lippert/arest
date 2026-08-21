@@ -196,42 +196,12 @@ fn DEF(name: &str, body: V) -> V {
 // The canon's vocabulary, bound as this platform's lambda. The canon file uses
 // exactly these names and no others — that is what makes one file readable by
 // four hosts.
-#[allow(non_snake_case)]
-mod vocab {
-    use super::*;
-    pub fn A(s: &str) -> V { a(s) }
-    pub fn N(i: i64) -> V { V::I(i) }
-    pub fn K(x: V) -> V { q(vec![a("CONST"), x]) }
-    pub fn PHI() -> V { q(vec![]) }
-    pub fn S1(a1: V) -> V { q(vec![a1]) }
-    pub fn S2(a1: V, a2: V) -> V { q(vec![a1, a2]) }
-    pub fn S3(a1: V, a2: V, a3: V) -> V { q(vec![a1, a2, a3]) }
-    pub fn S4(a1: V, a2: V, a3: V, a4: V) -> V { q(vec![a1, a2, a3, a4]) }
-    pub fn S5(a1: V, a2: V, a3: V, a4: V, a5: V) -> V { q(vec![a1, a2, a3, a4, a5]) }
-    pub fn S6(a1: V, a2: V, a3: V, a4: V, a5: V, a6: V) -> V {
-        q(vec![a1, a2, a3, a4, a5, a6])
-    }
-    pub fn S7(a1: V, a2: V, a3: V, a4: V, a5: V, a6: V, a7: V) -> V {
-        q(vec![a1, a2, a3, a4, a5, a6, a7])
-    }
-    pub fn S8(a1: V, a2: V, a3: V, a4: V, a5: V, a6: V, a7: V, a8: V) -> V {
-        q(vec![a1, a2, a3, a4, a5, a6, a7, a8])
-    }
-    pub fn S9(a1: V, a2: V, a3: V, a4: V, a5: V, a6: V, a7: V, a8: V, a9: V) -> V {
-        q(vec![a1, a2, a3, a4, a5, a6, a7, a8, a9])
-    }
-    // The carriers' varargs `S(..)` — arities up to 63 — reaches this as
-    // `Sv(vec![..])` after compose.py's syntax-only rewrite. This is PERMANENT,
-    // not a stopgap. Backus 13.2 rule 4: a sequence has arbitrary length n, and
-    // S1..S9 is notation rather than mathematics. norma-oracle emits the
-    // arity-free spelling exactly where a sequence "must stay FLAT regardless
-    // of length, so that length is never encoded as depth — depth already means
-    // tenancy" (Verifier.cs IFlatSeq, citing backus78 14.7 / prop:tenant), so
-    // chunking those sites would collide length with sub-store structure. Rust
-    // is simply unable to spell arbitrary arity; this supplies the missing
-    // notation and changes no value. See compose.py.
-    pub fn Sv(xs: Vec<V>) -> V { q(xs) }
-}
+// The canon vocabulary -- A, N, K, PHI, S1..S9, Sv -- used to be bound here as
+// this platform lambda so that compose.py output could call it. The READER is
+// that binding now: it turns the same names into the same values, from the file
+// rather than from generated source, so the functions had no callers left. A
+// host that defines what no dispatch reaches is the shape the coverage scan
+// catches, and it scans this file.
 
 // ============================ the base =======================================
 // Backus 11.2.3's primitives, transliterated from Arest.java one for one. Each
@@ -562,10 +532,222 @@ fn ev(f: &V, x: &V) -> V {
 // compose.py's chunked projection of the canon: the same bytes, split at the
 // tuple's top-level commas into fn bodies so LLVM sees many small functions
 // instead of one 1.7 MB expression it cannot finish optimising.
-include!("canon.g.rs");
-include!("scenarios.g.rs");
-include!("design-state.g.rs");
-include!("norma-answer.g.rs");
+// ============================ the canon READER ================================
+// The canon, the case table and the carriers are READ AT RUNTIME, the way the
+// js station reads its concatenation and java and cs read theirs. They used to
+// be compose.py output include!d as source, which made rustc the canon parser
+// and cost this station a generation pass plus an LLVM pass over a 1.13 MB
+// expression on EVERY canon edit -- the wall's dominant cost, and the reason a
+// one-line canon change took fifty minutes to check.
+//
+// Same grammar, same four names, same order. engine/rust carries the twin of
+// this parser and checks it against its own include!d copy: 1400 defs, 0
+// differ. Here the oracle is the wall itself -- js, java and cs read the same
+// bytes, so a reader that got this wrong would drift the case table on the
+// first run rather than quietly.
+struct CanonP<'a> {
+    b: &'a [u8],
+    i: usize,
+}
+
+impl<'a> CanonP<'a> {
+    fn ws(&mut self) {
+        while self.i < self.b.len() && (self.b[self.i] as char).is_whitespace() {
+            self.i += 1;
+        }
+    }
+
+    fn eat(&mut self, s: &str) -> bool {
+        self.ws();
+        if self.b[self.i..].starts_with(s.as_bytes()) {
+            self.i += s.len();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn string(&mut self) -> Option<String> {
+        self.ws();
+        if self.i >= self.b.len() || self.b[self.i] != b'"' {
+            return None;
+        }
+        self.i += 1;
+        let mut out = String::new();
+        while self.i < self.b.len() {
+            match self.b[self.i] {
+                b'\\' if self.i + 1 < self.b.len() => {
+                    // the escapes the base uses: quotes, newlines, backslashes,
+                    // CRs and one \x1f (derive:txn_surrogate's unit separator)
+                    let c = self.b[self.i + 1];
+                    self.i += 2;
+                    match c {
+                        b'n' => out.push('\n'),
+                        b'r' => out.push('\r'),
+                        b't' => out.push('\t'),
+                        b'0' => out.push('\0'),
+                        b'x' if self.i + 1 < self.b.len() => {
+                            let h = std::str::from_utf8(&self.b[self.i..self.i + 2])
+                                .ok()
+                                .and_then(|t| u8::from_str_radix(t, 16).ok());
+                            if let Some(v) = h {
+                                out.push(v as char);
+                                self.i += 2;
+                            }
+                        }
+                        other => out.push(other as char),
+                    }
+                }
+                b'"' => {
+                    self.i += 1;
+                    return Some(out);
+                }
+                c => {
+                    let s = &self.b[self.i..];
+                    let ch = std::str::from_utf8(&s[..s.len().min(4)])
+                        .ok()
+                        .and_then(|t| t.chars().next());
+                    match ch {
+                        Some(ch) => {
+                            out.push(ch);
+                            self.i += ch.len_utf8();
+                        }
+                        None => {
+                            out.push(c as char);
+                            self.i += 1;
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn expr(&mut self) -> Option<V> {
+        self.ws();
+        if self.eat("PHI(") {
+            self.eat(")");
+            return Some(q(vec![]));
+        }
+        if self.eat("A(") {
+            let s = self.string()?;
+            self.eat(")");
+            return Some(a(&s));
+        }
+        if self.eat("N(") {
+            self.ws();
+            let st = self.i;
+            if self.i < self.b.len() && self.b[self.i] == b'-' {
+                self.i += 1;
+            }
+            while self.i < self.b.len() && self.b[self.i].is_ascii_digit() {
+                self.i += 1;
+            }
+            let n: i64 = std::str::from_utf8(&self.b[st..self.i]).ok()?.parse().ok()?;
+            self.eat(")");
+            return Some(V::I(n));
+        }
+        if self.eat("K(") {
+            let inner = self.expr()?;
+            self.eat(")");
+            return Some(q(vec![a("CONST"), inner]));
+        }
+        // the VARIADIC S(..), which the carriers use and compose.py rewrites
+        // per host (this station spells it Sv). arest and the case table use
+        // only S1..S9, so engine/rust never needed it; the carriers do.
+        if self.i + 1 < self.b.len() && self.b[self.i] == b'S' && self.b[self.i + 1] == b'(' {
+            self.i += 2;
+            let mut parts = Vec::new();
+            loop {
+                self.ws();
+                if self.i < self.b.len() && self.b[self.i] == b')' {
+                    self.i += 1;
+                    break;
+                }
+                if !parts.is_empty() && !self.eat(",") {
+                    return None;
+                }
+                parts.push(self.expr()?);
+            }
+            return Some(q(parts));
+        }
+        self.ws();
+        if self.i + 2 < self.b.len() && self.b[self.i] == b'S' && self.b[self.i + 1].is_ascii_digit()
+        {
+            let n = (self.b[self.i + 1] - b'0') as usize;
+            if n >= 1 && n <= 9 && self.b[self.i + 2] == b'(' {
+                self.i += 3;
+                let mut parts = Vec::with_capacity(n);
+                for k in 0..n {
+                    if k > 0 && !self.eat(",") {
+                        return None;
+                    }
+                    parts.push(self.expr()?);
+                }
+                self.eat(")");
+                return Some(q(parts));
+            }
+        }
+        None
+    }
+
+    fn file(&mut self) -> Option<Vec<(String, V)>> {
+        let mut out = Vec::new();
+        self.eat("(");
+        loop {
+            self.ws();
+            if self.i >= self.b.len() {
+                break;
+            }
+            if self.b[self.i] == b')' {
+                self.i += 1;
+                self.ws();
+                continue;
+            }
+            if self.b[self.i] == b'"' {
+                self.string()?;
+                self.eat(",");
+                continue;
+            }
+            if self.eat("DEF(") {
+                let name = self.string()?;
+                if !self.eat(",") {
+                    return None;
+                }
+                let body = self.expr()?;
+                self.eat(")");
+                self.eat(",");
+                out.push((name, body));
+                continue;
+            }
+            return None;
+        }
+        Some(out)
+    }
+}
+
+// Read one file and register it, in file order. A file that is missing or does
+// not parse is FATAL, not skipped: a station that quietly registers nothing
+// answers <refused> to every case, which reads as silence rather than as an
+// error -- the exact failure this station shipped with once before.
+fn load_file(path: &str) {
+    let src = match std::fs::read(path) {
+        Ok(s) => s,
+        Err(e) => panic!("canon reader: cannot read {}: {}", path, e),
+    };
+    match (CanonP { b: &src, i: 0 }).file() {
+        Some(defs) => {
+            for (name, body) in defs {
+                DEF(&name, body);
+            }
+        }
+        None => panic!("canon reader: {} is not the DEF grammar", path),
+    }
+}
+
+fn canon_path(var: &str, default: &str) -> String {
+    std::env::var(var).unwrap_or_else(|_| default.to_string())
+}
 
 // The cross-host case table rides in the same composed binary here for the
 // same reason it does on the other three stations (js midcases.part.js, java
@@ -581,15 +763,21 @@ include!("norma-answer.g.rs");
 // cannot see the questions rather than one that answers them differently.
 // Loading it AFTER canon and BEFORE the carriers matches the js concatenation
 // order exactly, so the composed store stays byte-equal.
-fn load_canon() { load_canon_all(); load_scenarios_all(); }
+fn load_canon() {
+    load_file(&canon_path("AREST_CANON", "../../arest"));
+    load_file(&canon_path("AREST_SCENARIOS",
+                          "../../engine/shared/scenarios.canon"));
+}
 
 // The carriers are chunked the same way and for the same reason (the base
 // design-state alone is 560 KB). The base journal is empty, and an empty
 // CANON("journal") registers nothing, so there is no third carrier here — the
 // composed store is byte-equal to the js station's on these carriers.
 fn load_carriers() {
-    load_design_state_all();
-    load_norma_answer_all();
+    load_file(&canon_path("AREST_DESIGN_STATE",
+                          "../norma-oracle/design-state"));
+    load_file(&canon_path("AREST_NORMA_ANSWER",
+                          "../norma-oracle/norma-answer"));
 }
 
 // THE HOST CONTRACT, FINAL — six lines, no modes, no rendering, forever.
