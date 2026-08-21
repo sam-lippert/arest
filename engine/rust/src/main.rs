@@ -11489,9 +11489,21 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
         // and row long enough) that this loop spelled out. playerpos walks the
         // groups in rolegroups order, which is the first-seen fact type order
         // this sweep has always depended on.
-        let pps = reduce_ev(&ev0, atom(Leaf::S("rmap:playerpos".to_string())),
-                                seqv(vec![atom(Leaf::S(table.to_string())),
-                                          grouped.clone()]), -1);
+        // ...AND OF EVERY TYPE THAT ABSORBS INTO IT. A subtype's fact types
+        // map to its top supertype's table (Halpin rule 2) and a subtype
+        // instance IS a supertype instance under the same identifier, so
+        // the table's population is the union over its SUBTYPE CONE.
+        // rmap:playerpos matched the table BY NAME, which gave
+        // cancel-service's function table 7 ids -- the HTTP methods -- while
+        // 521 more belonged in it, and every absorbed value computed for
+        // those had no row to land on. DEF("rmap:cone") closes the subtype
+        // pairs transitively; DEF("rmap:conepos") is playerpos with the eq
+        // against one name replaced by membership of the cone.
+        let cone = reduce_ev(&ev0, atom(Leaf::S("rmap:cone".to_string())),
+                                 seqv(vec![atom(Leaf::S(table.to_string())),
+                                           seqv(pop("subtype").to_vec())]), -1);
+        let pps = reduce_ev(&ev0, atom(Leaf::S("rmap:conepos".to_string())),
+                                seqv(vec![cone.clone(), grouped.clone()]), -1);
         for pp in items(&list_of(&pps)) {
             let pi = items(&list_of(&pp));
             if pi.len() < 2 {
@@ -11508,12 +11520,20 @@ fn op_sql_project(_j: &J, srv: &Srv) -> Result<String, String> {
                 seen_ids.push(v);
             }
         }
-        // the entity's own cell joins the sweep, first position of each row
-        let ownids = reduce_ev(&ev0, atom(Leaf::S("rmap:atpos".to_string())),
-                                   seqv(vec![atom(Leaf::I(1)),
-                                             seqv(pop(table).to_vec())]), -1);
-        for v in items(&list_of(&ownids)) {
-            seen_ids.push(v);
+        // the own cell of every type in the cone joins the sweep, first
+        // position of each row -- a subtype with its own cell holds ids that
+        // are supertype ids too, so this is the same union one level up.
+        for cm in items(&list_of(&cone)) {
+            let nm = match sstr(&cm) {
+                Some(s) => s,
+                None => continue,
+            };
+            let ownids = reduce_ev(&ev0, atom(Leaf::S("rmap:atpos".to_string())),
+                                       seqv(vec![atom(Leaf::I(1)),
+                                                 seqv(pop(&nm).to_vec())]), -1);
+            for v in items(&list_of(&ownids)) {
+                seen_ids.push(v);
+            }
         }
         // CANON -- DEF("theta:firstseen"): the FIRST occurrence of each id
         // wins, which is what the id_seen set did. theta:dedup would keep the
