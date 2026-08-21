@@ -58,6 +58,11 @@ OVERRIDES = {
     "system:entity_view": "system:entity_view",
     "system:ev_cols": "system:ev_cols",
     "get_view": "system:entity_view",
+    # the subtype cone: project() asks it once per entity table and the
+    # answer is a set membership test in an inner loop over every role of
+    # every fact type, so the DEF is the meaning and the host walks the
+    # same closure natively. case:rmap-cone-transitive pins the twin.
+    "_cone": "rmap:cone",
     "_classify_heads": "system:classify_heads",
     # the mirror's derivation: canon is the definition of record, the host
     # copy stays because running the DEF costs the closure path a third again

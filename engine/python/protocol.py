@@ -1018,6 +1018,25 @@ def script(D):
     return chr(10).join(tables[k] + chr(10) for k in order if k in tables).rstrip()
 
 
+def _cone(table, subs):
+    """CERTIFIED-EQUAL OVERRIDE of DEF("rmap:cone") -- every type whose
+    chain of supertypes reaches `table`, plus table itself, sorted.
+
+    A subtype's fact types map to its TOP SUPERTYPE's table (Halpin rule
+    2) and a subtype instance IS a supertype instance under the same
+    identifier, so the table's population is the union over this cone.
+    Transitive: cancel-service declares Resource -> Noun -> Function and
+    Status -> Resource, and asking for Function has to reach Status.
+    `subs` is the (sub, super) rows; case:rmap-cone-transitive pins the
+    twin, including that an unrelated pair contributes nothing."""
+    cone = {table}
+    while True:
+        grown = cone | {s for (s, sup) in subs if sup in cone}
+        if len(grown) == len(cone):
+            return sorted(cone)
+        cone = grown
+
+
 def project(D, con, materialise=False):
     """Create the schema and POPULATE it from the store. Entity rows are the ids
     playing the entity's roles anywhere (the reference scheme's population,
@@ -1074,18 +1093,25 @@ def project(D, con, materialise=False):
             pops[ft] = [tuple(r) for r in system._pop_rows(D, ft)]
         return pops[ft]
 
+    subs = [tuple(r)[:2] for r in system._pop_rows(D, "subtype") if len(r) >= 2]
     for table in sorted(entity_tables):
-        # the derived entity population: every id the entity's roles mention
+        # the derived entity population: every id the roles of this table OR OF
+        # ANY TYPE THAT ABSORBS INTO IT mention. Matching the table by name gave
+        # cancel-service's function 7 ids -- the HTTP methods -- while the cone
+        # beneath it holds 528, so every absorbed value computed for the other
+        # 521 was correct and had no row to land on.
+        cone = set(_cone(table, subs))
         ids = set()
         for ft, rs in roles.items():
             for (p, player) in rs:
-                if player == table:
+                if player in cone:
                     for row in pop(ft):
                         if len(row) >= p:
                             ids.add(row[p - 1])
-        for row in pop(table):                                # plus its own cell
-            if row:
-                ids.add(row[0])
+        for member in sorted(cone):                           # plus their own cells
+            for row in pop(member):
+                if row:
+                    ids.add(row[0])
         colnames = [_key_col(table, ref)]
         coltypes = {}
         per_id = {i: {} for i in ids}
