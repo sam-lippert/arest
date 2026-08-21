@@ -491,7 +491,22 @@ def test_no_python_module_defines_what_nothing_calls():
     for f in _os.listdir(pdir):
         if f.endswith(".py"):
             src[f] = open(_os.path.join(pdir, f), encoding="utf-8").read()
-    whole = "".join(src.values())
+    # THE TESTS COUNT AS CALLERS. This scan is why _value_constraint was
+    # deleted in ce37ec2e with the note "no caller in the package" -- true of
+    # the package and false of the repo: three test_modality tests called it,
+    # and they were red for six weeks, which made that suite unusable as a
+    # gate on anything else. The same commit family took test_federation and
+    # three test_finiteness tests the same way.
+    #
+    # A helper reached only from engine/tests/ is not dead code, it is a
+    # TESTED SEAM. What this gate is for is the other thing: an op that moved
+    # to canon and left its implementation behind, which nothing calls at all.
+    tdir = _os.path.dirname(_os.path.abspath(__file__))
+    callers = list(src.values())
+    for f in _os.listdir(tdir):
+        if f.endswith(".py"):
+            callers.append(open(_os.path.join(tdir, f), encoding="utf-8").read())
+    whole = "".join(callers)
     orphans = {}
     for fname, text in sorted(src.items()):
         dead = []
@@ -504,8 +519,8 @@ def test_no_python_module_defines_what_nothing_calls():
         if dead:
             orphans[fname] = sorted(dead)
     assert not orphans, (
-        "pyarest defines what nothing calls: %s — the op moved to canon but its "
-        "implementation stayed." % orphans)
+        "pyarest defines what nothing calls, tests included: %s — the op "
+        "moved to canon but its implementation stayed." % orphans)
 
 def test_a_host_comment_claiming_a_twin_is_declared_in_the_registry():
     """THE SWEEP THAT FOUND THREE, made a gate so it cannot find a fourth.

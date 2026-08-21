@@ -1883,7 +1883,25 @@ def _compile_frequency(g, k):
     return (ftn + "_freq", ftn, roles, (roles, lo, hi))
 
 
-# _value_constraint deleted: no caller in the package.
+def _value_constraint(spec):
+    """The value constraint as an APPLICABLE object: the builder _value_spec
+    picks, resolved through DEFS and applied to its operand, so the answer
+    awaits a population and reports the values outside the constraint.
+
+    RESTORED. It was deleted in ce37ec2e with the note "no caller in the
+    package" -- true of the package and false of the repo: three
+    test_modality tests call it, and they have been red ever since, which
+    makes that suite unusable as a gate on anything else. "No caller in the
+    package" is not "no caller"; the same commit family took test_federation
+    and three test_finiteness tests the same way.
+
+    Thin over what survived: _value_spec already answers the pair, and both
+    consumers -- this and _compile_value_constraint -- take it from there, so
+    the parse still happens once."""
+    from .reduce import apply as _apply
+    from .lam import atom as _A, to_lam as _tl
+    builder, operand = _value_spec(spec)
+    return _apply(_A(builder), _tl(operand))
 
 
 def _compile_value_constraint(g, k):
