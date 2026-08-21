@@ -51,6 +51,10 @@ def main(argv):
     partition, roles, ref, entities, mandatory = ddl._analyze(D)
     absorbed = {f for f, k in partition.items() if k != f}
     own = sorted(f for f in partition if f not in absorbed)
+    # the same two derivations generate() and project() make, so the column
+    # naming here is theirs and not a second opinion about it
+    own_tables = ddl._owntables(partition.keys(), list(absorbed))
+    entity_tables = ddl._entitytables(entities, partition.values(), own_tables)
 
     con = sqlite3.connect(os.path.join(apps, app, app + ".db"))
     have = {r[0] for r in con.execute(
@@ -80,11 +84,57 @@ def main(argv):
                     print("            table %r" % (r,))
                     break
 
+    # ---- the absorbed half: a fact type that lives as a COLUMN ------------
+    # A single-role uniqueness constraint absorbs a fact type into its role-1
+    # player's table (Halpin 10.3), so its population is a projection of that
+    # table rather than a table of its own: the key column paired with the
+    # absorbed column, over the rows where the column is present. A unary
+    # absorbs as a BOOLEAN and its population is the keys where it is true.
+    asame = adiff = askip = 0
+    for table in sorted({k for f, k in partition.items() if k != f}):
+        t = ddl._sql_name(table)
+        if t not in have:
+            askip += 1
+            print('NO TABLE  absorbing table %s -> %s' % (table, t))
+            continue
+        cols = ddl._entity_columns(table, partition, roles, ref, entities,
+                                   entity_tables)
+        key = ddl._key_col(table, ref)
+        present = {r[1] for r in con.execute('PRAGMA table_info("%s")' % t)}
+        if key not in present:
+            askip += len(cols)
+            print('NO KEY    %s.%s (%d columns unchecked)' % (t, key, len(cols)))
+            continue
+        for (ft, col, kind, _other) in cols:
+            if partition.get(ft) == ft:
+                continue                      # own table, checked above
+            if col not in present:
+                askip += 1
+                print('NO COLUMN %s in %s.%s' % (ft, t, col))
+                continue
+            store = sorted(tuple(str(v) for v in r)
+                           for r in system._pop_rows(D, ft))
+            if kind == 'unary':
+                rows = sorted((str(r[0]),) for r in con.execute(
+                    'SELECT "%s" FROM "%s" WHERE "%s" IN (1, %s)'
+                    % (key, t, col, "'T'")))
+            else:
+                rows = sorted((str(r[0]), str(r[1])) for r in con.execute(
+                    'SELECT "%s", "%s" FROM "%s" WHERE "%s" IS NOT NULL'
+                    % (key, col, t, col)))
+            if store == rows:
+                asame += 1
+            else:
+                adiff += 1
+                print('ABSORBED  %s in %s.%s: store %d, column %d'
+                      % (ft, t, col, len(store), len(rows)))
+
     print("---")
     print("own-table fact types: %d same, %d differ, %d with no table"
           % (same, diff, missing))
-    print("absorbed (columns, not compared here): %d" % len(absorbed))
-    return 1 if (diff or missing) else 0
+    print("absorbed columns: %d same, %d differ, %d not in the table"
+          % (asame, adiff, askip))
+    return 1 if (diff or missing or adiff) else 0
 
 
 if __name__ == "__main__":
