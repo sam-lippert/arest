@@ -28,8 +28,10 @@ import sys
 
 
 def main(argv):
-    app = argv[1] if len(argv) > 1 else "arest-dev"
-    apps = argv[2] if len(argv) > 2 else "C:/Users/lippe/Repos/apps"
+    argv = [a for a in argv]
+    pos = [a for a in argv[1:] if not a.startswith("--")]
+    app = pos[0] if pos else "arest-dev"
+    apps = pos[1] if len(pos) > 1 else "C:/Users/lippe/Repos/apps"
     root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
     import importlib.util
@@ -56,7 +58,26 @@ def main(argv):
     own_tables = ddl._owntables(partition.keys(), list(absorbed))
     entity_tables = ddl._entitytables(entities, partition.values(), own_tables)
 
-    con = sqlite3.connect(os.path.join(apps, app, app + ".db"))
+    # --fresh projects into an EMPTY db and compares that instead. It is what
+    # separates "the projection is wrong" from "this db has accumulated": the
+    # projection INSERT OR REPLACEs and never deletes, so a row the population
+    # no longer contains survives forever -- and a row whose key came out NULL
+    # can never be replaced at all, because NULL does not equal NULL in SQL, so
+    # every later compile adds another. identity.db carries two such rows in
+    # user; a fresh projection of the same store carries one correct row.
+    #
+    # That is the gap between an upsert and a MATERIALISATION, and it is the
+    # one that has to close before a population can be read from a table: a
+    # reader cannot tell an asserted row from a stale one.
+    fresh = "--fresh" in argv
+    if fresh:
+        import tempfile
+        dbpath = os.path.join(tempfile.mkdtemp(), app + ".db")
+        con = sqlite3.connect(dbpath)
+        ddl.project(D, con)
+        con.commit()
+    else:
+        con = sqlite3.connect(os.path.join(apps, app, app + ".db"))
     have = {r[0] for r in con.execute(
         "select name from sqlite_master where type='table'")}
 
@@ -129,7 +150,7 @@ def main(argv):
                 print('ABSORBED  %s in %s.%s: store %d, column %d'
                       % (ft, t, col, len(store), len(rows)))
 
-    print("---")
+    print("--- %s" % ("fresh projection" if fresh else "the app db as it stands"))
     print("own-table fact types: %d same, %d differ, %d with no table"
           % (same, diff, missing))
     print("absorbed columns: %d same, %d differ, %d not in the table"
