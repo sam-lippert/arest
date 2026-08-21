@@ -1,0 +1,91 @@
+"""Does the 3NF projection answer what the STORE answers?
+
+The return leg of fact types -> compiled schema -> tables. project() already
+builds the schema from the fact types, populates it, and ALTERs new fact types
+in on a later compile (ensure_columns) -- so the way OUT is finished. Nothing
+reads back: _pop_rows walks the D term, and the tables are a mirror nobody
+consults. Every case invocation therefore rebuilds a store that already exists
+as rows, which is ~435ms of boot on the fastest station, the same for a bare
+selector as for a 44-row reduction.
+
+Before any read path can be built on the tables, the tables have to be shown to
+carry the same rows. This is that differential, per own-table fact type:
+
+    _pop_rows(D, ft)   vs   SELECT <cols> FROM <table>
+
+ABSORBED fact types are NOT compared here and are reported as such: a
+single-role uniqueness constraint absorbs a fact type into its role-1 player's
+table as a COLUMN (Halpin book 10.3), so its population is a projection of that
+table rather than a table of its own. Comparing those needs the column mapping,
+which is the next step and not this one -- and a differential that quietly
+skipped them would be claiming more than it checked.
+
+    python tools/wall/store-vs-tables.py <app> [apps-dir]
+"""
+import os
+import sqlite3
+import sys
+
+
+def main(argv):
+    app = argv[1] if len(argv) > 1 else "arest-dev"
+    apps = argv[2] if len(argv) > 2 else "C:/Users/lippe/Repos/apps"
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "pyarest", os.path.join(root, "engine", "python", "__init__.py"),
+        submodule_search_locations=[os.path.join(root, "engine", "python")])
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["pyarest"] = mod
+    spec.loader.exec_module(mod)
+
+    from pyarest import protocol, system, ddl
+
+    reg = protocol.Registry(apps)
+    D = reg._store(app).load() if hasattr(reg, "_store") else None
+    if D is None:
+        from pyarest import persist
+        D = persist.load_sqlite(os.path.join(apps, app, app + ".db"))
+
+    partition, roles, ref, entities, mandatory = ddl._analyze(D)
+    absorbed = {f for f, k in partition.items() if k != f}
+    own = sorted(f for f in partition if f not in absorbed)
+
+    con = sqlite3.connect(os.path.join(apps, app, app + ".db"))
+    have = {r[0] for r in con.execute(
+        "select name from sqlite_master where type='table'")}
+
+    same = diff = missing = 0
+    for ft in own:
+        t = ddl._sql_name(ft)
+        if t not in have:
+            missing += 1
+            print("NO TABLE  %s -> %s" % (ft, t))
+            continue
+        store = sorted(tuple(str(v) for v in r) for r in system._pop_rows(D, ft))
+        cols = [r[1] for r in con.execute('PRAGMA table_info("%s")' % t)]
+        rows = sorted(tuple("" if v is None else str(v) for v in r)
+                      for r in con.execute('SELECT %s FROM "%s"'
+                                           % (", ".join('"%s"' % c for c in cols), t)))
+        if store == rows:
+            same += 1
+        else:
+            diff += 1
+            print("DIFFERS   %s (%s): store %d rows, table %d rows"
+                  % (ft, t, len(store), len(rows)))
+            for s, r in list(zip(store, rows))[:2]:
+                if s != r:
+                    print("            store %r" % (s,))
+                    print("            table %r" % (r,))
+                    break
+
+    print("---")
+    print("own-table fact types: %d same, %d differ, %d with no table"
+          % (same, diff, missing))
+    print("absorbed (columns, not compared here): %d" % len(absorbed))
+    return 1 if (diff or missing) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
