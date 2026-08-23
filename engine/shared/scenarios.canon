@@ -1665,6 +1665,13 @@ DEF("case:deontic-unhandled",
              S1(S3(A("It is forbidden that Agent causes Harm"),
                    A("Agent_causes_Harm"), S2(A("a1"), A("h1")))))))),
 
+"THE DISAMBIGUATOR COULD EMIT ONE NAME TWICE, which is its only job. The suffix came from how many times the BASE had been seen and nothing checked whether the result was free, so a,a,a_2 answered a,a_2,a_2 and a_2,a,a answered a_2,a,a_2 -- two columns of one name, which is not a table. It SEARCHES now: the first candidate not already emitted. case:coldisamb is unchanged, because with no collision the first free candidate is the one counting produced; these two are the inputs it never asked about. -after pins that an existing a_2 is stepped over (a_3, not a_2 again) and -before that a later a_2 goes to a_2_2 rather than colliding backwards. Not reachable from the corpus today -- 6 of 44 apps carry a _N name and all are constraint or rule names, not column-producing types -- so this was latent, found by asking a DEF with ONE verifying case a question that case did not ask.",
+DEF("case:coldisamb-before",
+    S2(A("rmap:coldisamb"), S3(A("a"), A("a"), A("a_2")))),
+
+DEF("case:coldisamb-after",
+    S2(A("rmap:coldisamb"), S3(A("a_2"), A("a"), A("a")))),
+
 DEF("case:render-json-tree",
     S2(A("render:json"),
        S2(A("menu"), S1(S3(A("button"), A("finish"), A("completed")))))),
