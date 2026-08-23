@@ -61,7 +61,7 @@ LABEL = {"COMP": "after", "CONS": "pair", "COND": "if", "ALPHA": "map",
          "K": "const", "N": "sel", "WHILE": "while", "INSERT": "fold"}
 
 
-def render(n, ind=0, width=92, depth=99, out=None):
+def render(n, ind=0, width=92, depth=99, out=None, tags=True):
     out = out if out is not None else []
     pad = "  " * ind
     s = flat(n)
@@ -71,14 +71,19 @@ def render(n, ind=0, width=92, depth=99, out=None):
     head = n[0]
     # S-constructors carry their arity in the name; show the form they build
     tag = ""
-    if head.startswith("S") and head[1:].isdigit() and len(n) > 1:
+    if tags and head.startswith("S") and head[1:].isdigit() and len(n) > 1:
         inner = n[1]
         if isinstance(inner, list) and inner[0] == "A":
             nm = inner[1].strip('"')
             tag = "   <- %s%s" % (nm, "  (%s)" % LABEL[nm] if nm in LABEL else "")
     out.append("%s%s(%s" % (pad, head, tag))
-    for k in n[1:]:
-        render(k, ind + 1, width, depth, out)
+    for i, k in enumerate(n[1:]):
+        before = len(out)
+        render(k, ind + 1, width, depth, out, tags)
+        # commas are part of the grammar, so a serializing render must emit
+        # them; the reading render keeps them too, harmlessly
+        if i < len(n) - 2:
+            out[-1] += ","
     out.append(pad + ")")
     return out
 
