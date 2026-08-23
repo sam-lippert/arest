@@ -9340,6 +9340,17 @@ DEF("cmd:deontic_viols",
        S3(A("COMP"), A("distr"),
           S3(A("CONS"), A("cmd:forbidden_rows"), A("id"))))),
 
+DEF("cmd:handled_rows",
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"),
+          S3(A("COMP"), A("apply"),
+             S3(A("CONS"), K(A("ast:FetchPop")), K(A("handled")))),
+          A("id")))),
+
+DEF("cmd:unhandled_viols",
+    S3(A("COMP"), A("theta:setminus"),
+       S3(A("CONS"), A("cmd:deontic_viols"), A("cmd:handled_rows")))),
+
 DEF("cmd:answer",
     S3(A("COMP"), S5(A("CONS"), S4(A("COND"), S3(A("COMP"), A("null"), N(2)), K(A("committed")), K(A("refused"))), N(2), S4(A("COND"), S3(A("COMP"), A("null"), N(2)), N(4), N(3)), S4(A("COMP"), A("nav:map"), A("rmap:schema"), S3(A("CONS"), N(1), K(PHI())))), S5(A("CONS"), N(1), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("cmd:validate"), N(1)), S3(A("COMP"), A("cmd:excl_viols"), S3(A("CONS"), N(4), S3(A("COMP"), A("cmd:cellify_pairs"), N(3)))))), N(2), N(3)))),
 
