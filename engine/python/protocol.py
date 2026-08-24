@@ -152,6 +152,97 @@ def load_sqlite(path, seal_key=None):
     return to_lam(cells)
 
 
+SQL_MARKER = "__sqlstore__"
+_SQL_PLANS = {}
+
+
+def sql_plan(path, D=None):
+    """Every fact type's population as ONE SELECT, resolved once per store.
+
+    Three corrections live here and nowhere else, because each of them read
+    wrong rows while looking like it worked:
+
+      unary   a flag's population is only where it HOLDS. project writes 1 for
+              holds and 0 for does not, so IS NOT NULL reads the negatives back
+              as positives -- a clean worktree came back dirty.
+      swap    the table is not always role 1. Fact_Type_has_Role absorbs into
+              Role because its uniqueness spans role 2, so key-then-column
+              returns every row reversed with the counts still matching.
+      absent  sqlite treats a double-quoted name matching no column as a STRING
+              LITERAL, so a stale projection returns the column's own name once
+              per row and the read looks successful. Checked, never selected.
+    """
+    if path in _SQL_PLANS:
+        return _SQL_PLANS[path]
+    if D is None:
+        D = load_sqlite(path)
+    partition, roles, ref, entities, mandatory = _analyze(D)
+    own = _owntables(partition.keys(),
+                     [f for f, k in partition.items() if k != f])
+    etabs = _entitytables(entities, partition.values(), own)
+    con = sqlite3.connect(path)
+    try:
+        have = {r[0] for r in con.execute(
+            "select name from sqlite_master where type='table'")}
+        colsof = {t: [r[1] for r in con.execute('PRAGMA table_info("%s")' % t)]
+                  for t in have}
+    finally:
+        con.close()
+
+    def q(n):
+        return '"%s"' % str(n).replace('"', '""')
+
+    plan = {}
+    for ft, tbl_noun in partition.items():
+        tbl = _sql_name(tbl_noun)
+        if tbl not in have:
+            continue
+        if tbl_noun == ft:
+            cols = colsof[tbl]
+            plan[ft] = ("SELECT %s FROM %s"
+                        % (", ".join(q(c) for c in cols), q(tbl)), None)
+            continue
+        hit = next(((c, k) for (f, c, k, _o) in _entity_columns(
+            tbl_noun, partition, roles, ref, entities, etabs) if f == ft), None)
+        if hit is None:
+            continue
+        col, kind = hit
+        key = _key_col(tbl_noun, ref)
+        if col not in colsof[tbl] or key not in colsof[tbl]:
+            continue
+        if kind == "unary":
+            plan[ft] = ("SELECT %s FROM %s WHERE %s = 1"
+                        % (q(key), q(tbl), q(col)), "unary")
+        else:
+            rs = roles.get(ft, [])
+            kp = next((p for (p, player) in rs if player == tbl_noun), 1)
+            plan[ft] = ("SELECT %s, %s FROM %s WHERE %s IS NOT NULL"
+                        % (q(key), q(col), q(tbl), q(col)),
+                        "swap" if kp == 2 else None)
+    _SQL_PLANS[path] = plan
+    return plan
+
+
+def sql_rows(path, name, D=None):
+    """One population, out of the tables. None when the store cannot answer it
+    there -- the caller falls back to the term rather than inventing rows."""
+    plan = sql_plan(path, D)
+    got = plan.get(name)
+    if got is None:
+        return None
+    stmt, kind = got
+    con = sqlite3.connect(path)
+    try:
+        rows = con.execute(stmt).fetchall()
+    finally:
+        con.close()
+    if kind == "unary":
+        return tuple((r[0],) for r in rows)
+    if kind == "swap":
+        return tuple((r[1], r[0]) for r in rows)
+    return tuple(tuple(r) for r in rows)
+
+
 # ==================== frozen ingestion: thaw instead of re-ingest =============
 def _cache_dir():
     base = os.environ.get("PYAREST_CACHE") or os.environ.get("LOCALAPPDATA")
