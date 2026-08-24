@@ -108,16 +108,26 @@ def main(argv):
             rows = [tuple(r) for r in con.execute(
                 "SELECT %s FROM %s" % (", ".join(q(c) for c in cols), q(tbl)))]
         else:                                          # absorbed column
-            col = next((c for (f, c, _k, _o) in protocol._entity_columns(
+            hit = next(((c, k) for (f, c, k, _o) in protocol._entity_columns(
                 partition[ft], partition, roles, ref, entities, etabs)
                 if f == ft), None)
-            if col is None:
+            if hit is None:
                 missing += 1
                 continue
+            col, kind = hit
             key = protocol._key_col(partition[ft], ref)
-            rows = [tuple(r) for r in con.execute(
-                "SELECT %s, %s FROM %s WHERE %s IS NOT NULL"
-                % (q(key), q(col), q(tbl), q(col)))]
+            if kind == "unary":
+                # A UNARY IS A FLAG, AND ITS POPULATION IS ONLY WHERE IT HOLDS.
+                # project writes 1 where the fact holds and 0 where it does
+                # NOT, so "IS NOT NULL" reads the negatives back as positives
+                # -- Worktree_is_dirty came back with a clean worktree in it.
+                # The row is the key alone: a unary asserts of one thing.
+                rows = [(r[0],) for r in con.execute(
+                    "SELECT %s FROM %s WHERE %s = 1" % (q(key), q(tbl), q(col)))]
+            else:
+                rows = [tuple(r) for r in con.execute(
+                    "SELECT %s, %s FROM %s WHERE %s IS NOT NULL"
+                    % (q(key), q(col), q(tbl), q(col)))]
         if len(rows) == len(term):
             same += 1
         else:
