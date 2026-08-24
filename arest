@@ -4368,8 +4368,24 @@ DEF("system:rmap_side",
             A("COND"),
             S3(
               A("COMP"),
-              A("theta:member"),
-              S3(A("CONS"), S3(A("COMP"), N(1), N(2)), S3(A("COMP"), N(4), N(1)))
+              A("and"),
+              S3(
+                A("CONS"),
+                S3(
+                  A("COMP"),
+                  A("theta:member"),
+                  S3(A("CONS"), S3(A("COMP"), N(1), N(2)), S3(A("COMP"), N(4), N(1)))
+                ),
+                S3(
+                  A("COMP"),
+                  A("theta:member"),
+                  S3(
+                    A("CONS"),
+                    S3(A("COMP"), N(1), N(2)),
+                    S4(A("COMP"), S2(A("ALPHA"), N(1)), N(1), N(1))
+                  )
+                )
+              )
             ),
             S3(
               A("COMP"),
