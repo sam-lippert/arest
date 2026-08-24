@@ -773,6 +773,14 @@ def _entity_columns(table, partition, roles, ref, entities, entity_tables):
                 base, kind = _key_col(other, ref), "ref"
             else:
                 base, kind = (_sql_name(other) if other else _sql_name(ft)), "value"
+                # THE PREFERRED IDENTIFIER IS THE KEY, NOT A COLUMN (Halpin
+                # RMAP): Task(.id) now compiles to a real identifying fact type
+                # Task_has_Task_id, and its value side sql-names to exactly the
+                # key column this table already carries. The two coincide
+                # because they are the same fact -- so the identity is stated
+                # once, as the key, and never again as an ordinary column.
+                if base == _key_col(table, ref):
+                    continue
         seen[base] = seen.get(base, 0) + 1
         col = base if seen[base] == 1 else f"{base}_{seen[base]}"
         out.append((ft, col, kind, other))
