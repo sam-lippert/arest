@@ -56,9 +56,15 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       # java (compose.py needs python) and dotnet are preinstalled on
       # windows-latest; a station that is missing prints SKIPPED, never a pass.
-      - name: law:report on every station, held byte-identical
+      # A MERGE RUNS THE FULL MATRIX. The delta cache is for the edit loop;
+      # AREST_STATIONS_FULL ignores it, because the fingerprint covers static
+      # references only and a DEF resolved by a name read out of data would
+      # otherwise not re-run.
+      - name: every station answers the same, cases and law:report
         shell: bash
-        run: sh tools/wall/stations.sh
+        env:
+          AREST_STATIONS_FULL: "1"
+        run: python -m pytest engine/tests/test_stations.py -q -n auto
 
   python:
     runs-on: windows-latest
