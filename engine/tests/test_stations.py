@@ -185,6 +185,26 @@ def _cases():
 
 
 FULL = bool(os.environ.get("AREST_STATIONS_FULL"))
+_WROTE = [0]
+
+
+def _flush(cache, every=20):
+    """Persist as we go. The cache used to be written only at teardown, so a run
+    killed at 99% -- which a timeout does routinely, this matrix takes ~580s --
+    threw away every answer it had just paid four processes to compute."""
+    if len(cache) - _WROTE[0] < every:
+        return
+    _WROTE[0] = len(cache)
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+    path = os.path.join(OUT, "delta-cache.%s.json" % worker)
+    try:
+        os.makedirs(OUT, exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(cache, f)
+        os.replace(tmp, path)
+    except OSError:
+        pass
 
 
 def _agree(label, argv_extra, fp, stations, cache, timeout=180):
@@ -201,6 +221,7 @@ def _agree(label, argv_extra, fp, stations, cache, timeout=180):
         out = got or "<refused>"
         answers[name] = out
         cache[key] = {"fp": want, "out": out}
+        _flush(cache)
     ref = answers[REFERENCE]
     for name, out in sorted(answers.items()):
         assert out == ref, (
