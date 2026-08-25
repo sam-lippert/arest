@@ -12,6 +12,8 @@ a function whose scope defines the same names, and the C# and Java hosts wrap th
 bytes in a varargs method. Definitions land in DEFS as compiled objects and reference
 each other by name through rho, so per-host OPTIMIZATIONS (delta, FAST, native) remain
 DEFS registrations over the same names."""
+import hashlib
+import marshal
 import os
 
 from . import defs
@@ -95,20 +97,87 @@ def vocabulary_native(out):
     return v
 
 
+_CODE = {}
+
+
+def _code(p):
+    """The canon file's CODE OBJECT, compiled once per process and cached on disk.
+
+    A canon file is executed as Python -- DEF, S3, A, N, K are callables -- so
+    loading it means compile() over ~1.5MB, and CPython caches bytecode for
+    imported modules but never for compile() of a string. It was paying that
+    four times per process: load() reads the file under the Scott vocabulary
+    and AGAIN under the native one, and the code object is identical both times
+    because only the globals differ.
+
+    Measured: 1.565s of builtins.compile in a 3.82s package init, which every
+    pytest process pays before collecting a single test. The disk half is
+    keyed on the file's own bytes, so a canon edit invalidates it and a stale
+    hit is impossible; marshal is the same mechanism .pyc uses.
+    """
+    src = open(p, "rb").read()
+    key = hashlib.sha256(src).hexdigest()
+    got = _CODE.get(p)
+    if got is not None and got[0] == key:
+        return got[1]
+    cache = os.path.join(os.path.dirname(os.path.abspath(p)), "__pycache__",
+                         os.path.basename(p) + "." + key[:16] + ".marshal")
+    code = None
+    try:
+        with open(cache, "rb") as f:
+            code = marshal.loads(f.read())
+    except Exception:
+        code = None
+    if code is None:
+        code = compile(src.decode("utf-8"), p, "exec")
+        try:
+            os.makedirs(os.path.dirname(cache), exist_ok=True)
+            tmp = cache + ".%d" % os.getpid()
+            with open(tmp, "wb") as f:
+                marshal.dump(code, f)
+            os.replace(tmp, cache)
+        except Exception:
+            pass
+    _CODE[p] = (key, code)
+    return code
+
+
+_READ = {}
+
+
+def _exec_once(p, vocab, tag):
+    """Execute the canon file under one vocabulary, ONCE per process.
+
+    Caching the code object stopped the recompiles; this stops the re-EXECUTION.
+    The file was running four times per process -- load() reads it under both
+    vocabularies and this module reads it again at import for the theta
+    bindings -- and each Scott pass folds 120,018 CONS cells, which profiled as
+    the largest remaining cost in the package init.
+
+    The definitions are VALUES: immutable structure built out of atoms and
+    sequences, with no per-caller state, so handing the same objects to a
+    second caller is the same thing as building them again. Callers get their
+    own list so appending to the result cannot corrupt the cache, and the key
+    is the file's content hash, so an edit rebuilds.
+    """
+    src_key = hashlib.sha256(open(p, "rb").read()).hexdigest()
+    hit = _READ.get((p, tag))
+    if hit is not None and hit[0] == src_key:
+        return list(hit[1])
+    out = []
+    exec(_code(p), vocab(out))
+    _READ[(p, tag)] = (src_key, out)
+    return list(out)
+
+
 def read(name):
     """Collect a shared intersection file's definitions without registering them."""
-    p = shared(name)
-    out = []
-    exec(compile(open(p, encoding="utf-8").read(), p, "exec"), vocabulary(out))
-    return out
+    return _exec_once(shared(name), vocabulary, "scott")
 
 
 def read_native(name):
     """Collect a shared file's definitions as delta-native objects (no Scott)."""
-    p = shared(name)
-    out = []
-    exec(compile(open(p, encoding="utf-8").read(), p, "exec"), vocabulary_native(out))
-    return out
+    return _exec_once(shared(name), vocabulary_native, "native")
 
 
 def load(name="arest.canon"):
