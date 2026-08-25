@@ -1651,14 +1651,89 @@ def _pop_rows(D, name):
         per = None
     if per is not None and name in per:
         return list(per[name])
-    from . import ast
-    from .reduce import apply as _ap
-    from .lam import from_lam
-    rows = from_lam(_ap(ast.FetchPop(name), D))
+    import os as _os
+    if _os.environ.get("PYAREST_POP_REDUCE"):
+        rows = _fetch_reduced(D, name)
+    else:
+        rows = _fetch_indexed(D, name)
     out = list(rows) if isinstance(rows, tuple) else []
     if per is not None:
         per[name] = out
     return list(out)
+
+
+def _fetch_reduced(D, name):
+    """The reduction path: build FetchPop's term and reduce it over the store."""
+    from . import ast
+    from .reduce import apply as _ap
+    from .lam import from_lam
+    return from_lam(_ap(ast.FetchPop(name), D))
+
+
+_CELL_IDX = None
+
+
+def _cell_index(D):
+    """The store's cells as a LOOKUP, built once per store object.
+
+    A read should not iterate a population. ast:Fetch's term filters the cell
+    list in its guard and filters it AGAIN in its branch, so every read was
+    2*O(cells) reductions over a store that scott_to_native had just decoded
+    whole -- 400k reductions and 13.5k sequence conversions to answer one
+    39-row question, paid once per fact type, which is what made reading 262 of
+    them cost 118 seconds.
+
+    One pass builds it and every read after is a dict hit. The arms are
+    _d_pop_rows's, which were pinned against the DEF: FIRST match wins (Backus
+    up-n), a miss falls through to the FILE cell's own cells, and a miss after
+    that is the EMPTY sequence rather than bottom. Keyed on the D OBJECT, so a
+    mutation -- which mints a new D -- cannot see a stale index, the same
+    argument the row memo above already rests on.
+
+    Iterating still happens where it is the question rather than the lookup:
+    rmap over the schema, and any op that genuinely needs every row.
+    """
+    global _CELL_IDX
+    if _CELL_IDX is None:
+        import weakref
+        _CELL_IDX = weakref.WeakKeyDictionary()
+    try:
+        got = _CELL_IDX.get(D)
+    except TypeError:
+        return None
+    if got is not None:
+        return got
+    from .kernel import scott_to_native
+    cells = scott_to_native(D)
+    if not isinstance(cells, tuple):
+        return None
+    top, nested = {}, {}
+    for c in cells:
+        if isinstance(c, tuple) and len(c) >= 3:
+            if c[1] not in top:
+                top[c[1]] = c[2]
+            if c[1] == "FILE" and isinstance(c[2], tuple):
+                for ic in c[2]:
+                    if isinstance(ic, tuple) and len(ic) >= 3 and ic[1] not in nested:
+                        nested[ic[1]] = ic[2]
+    got = (top, nested)
+    try:
+        _CELL_IDX[D] = got
+    except TypeError:
+        pass
+    return got
+
+
+def _fetch_indexed(D, name):
+    idx = _cell_index(D)
+    if idx is None:
+        return _fetch_reduced(D, name)
+    top, nested = idx
+    if name in top:
+        return top[name]
+    if name in nested:
+        return nested[name]
+    return ()
 
 
 _TXN_SUR = "txn:"
