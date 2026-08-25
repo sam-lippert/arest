@@ -1,21 +1,26 @@
-# the wall
+# tools/wall
 
-The certification harness — scripts that DRIVE, canon that JUDGES.
-Nothing here holds law semantics; every verdict printed is a canon
-evaluation's own atom.
+Scripts that DRIVE, canon that JUDGES. Nothing here holds law semantics;
+every verdict printed is a canon evaluation's own atom.
 
-    sh stations.sh [app]                          # THE GATE: laws + station parity
+"the wall" was a name for `stations.sh` that grew here and nowhere else --
+it does not appear in AREST.tex. The script is gone; the gate is a test.
+
+    python -m pytest engine/tests/test_stations.py    # THE GATE: cases + laws,
+                                                      # four stations, delta-selected
+    AREST_STATIONS_FULL=1 python -m pytest engine/tests/test_stations.py   # merges
     npm run build && bun composed.g.js            # base laws (js-runner)
     dotnet run                                    # the same, cs station
     sh continuity.sh [app]                        # the two-boot law
 
 ## The standing pieces
 
-- **The stations gate** (`stations.sh`) — one command: compose the same
-  canon and carriers per station, evaluate `law:report` on each, and hold
-  the printed atoms byte-identical. This is the CI gate (`.github/
-  workflows/ci.yml`), and it is the replacement for host test code —
-  a law is a canon DEF, so the gate is a canon evaluation, not a suite.
+- **The stations gate** (`engine/tests/test_stations.py`) — compose the
+  same canon and carriers per station, evaluate every case and `law:report`
+  on each, and hold the printed atoms byte-identical. Still a canon
+  evaluation rather than host test code: a law is a canon DEF and pytest
+  only drives and compares. Selected by `stationdelta.py` so an edit runs
+  only the cases whose reachable DEFs changed -- 3.5s when nothing did.
   All three stations are green and agree to the byte (2026-08-06): 53
   laws each, md5 `1219ce08…`, 1664 bytes, exit 0 — js 49.7s, java 29.7s,
   cs 80.1s. They were not: java and cs each ran past 20 minutes without
