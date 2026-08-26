@@ -150,3 +150,8 @@ tools/wall/derive-refresh.g.js
 
 __pycache__/
 *.pyc
+
+# The JUnit console launcher: a test-only binary, fetched not vendored.
+# tools/java-runner/fetch-junit.sh gets it; every other build output
+# here (bin/, obj/, target/) is ignored for the same reason.
+tools/lib/*.jar

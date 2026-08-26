@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- net8.0 to match cs-runner: the host under test is the runner's own mu,
+         compiled here from the runner's own sources rather than a copy. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>cs_runner_tests</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!-- The runner's sources, linked verbatim. Program.cs is EXCLUDED because it
+       holds the six-line host contract and its Main would collide with the
+       test host's entry point. Everything the tests exercise (Mu, Reader, the
+       vocabulary) is the same code the shipped runner runs. -->
+  <ItemGroup>
+    <Compile Include="..\cs-runner\Mu.cs" Link="Mu.cs" />
+    <Compile Include="..\cs-runner\Reader.cs" Link="Reader.cs" />
+    <Compile Include="..\cs-runner\Vocabulary.cs" Link="Vocabulary.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>
