@@ -2120,6 +2120,63 @@ def layout_cells(D):
     return _replace_cells(D, (("rmapColumns", tuple(rows)),))
 
 
+# The metamodel's own fact types, and the host cell each one's population is
+# currently kept in instead. Every target is DECLARED in the base model and
+# empty; nothing here is invented.
+CATALOG_SOURCES = ("role", "constraint", "spans", "factType", "subtype",
+                   "refMode", "ruleDerives")
+
+
+def catalog_rows(cells):
+    """host cell rows -> {metamodel fact type: rows}, pure, so a tool can check
+    it against a store that holds both encodings."""
+    role = [tuple(r) for r in cells.get("role", ()) if len(r) >= 4]
+    cons = [tuple(r) for r in cells.get("constraint", ()) if len(r) >= 3]
+    ft_of = {c[0]: c[2] for c in cons}
+    out = {
+        "Fact_Type_has_Role": {(r[1], r[0]) for r in role},
+        "Object_Type_plays_Role": {(r[3], r[0]) for r in role},
+        "Fact_Type_has_Reading": {(r[0], r[1]) for r in cells.get("factType", ())
+                                  if len(r) >= 2},
+        "Object_Type_is_subtype_of_Object_Type":
+            {(r[0], r[1]) for r in cells.get("subtype", ()) if len(r) >= 2},
+        "Object_Type_has_Reference_Mode":
+            {(r[0], r[1]) for r in cells.get("refMode", ()) if len(r) >= 2},
+        "Constraint_is_of_Constraint_Type": {(c[0], c[1]) for c in cons},
+        # sherlock's own phrase: "Derivation Rule 'induce explains' produces
+        # Fact Type 'HypothesisExplainsObservation'". ruleDerives IS that
+        # population, rule id to the fact type it derives.
+        "Derivation_Rule_produces_Fact_Type":
+            {(r[0], r[1]) for r in cells.get("ruleDerives", ()) if len(r) >= 2},
+        # a span names a POSITION; the role it spans is that position of the
+        # constraint's own fact type, which is how role ids are formed
+        "Constraint_spans_Role":
+            {(r[0], "%s.%s" % (ft_of[r[0]], r[1]))
+             for r in cells.get("spans", ()) if len(r) >= 2 and r[0] in ft_of},
+    }
+    return {k: tuple(sorted(v)) for k, v in out.items() if v}
+
+
+def catalog_cells(D):
+    """Materialize the metamodel's facts AS FACTS, in the fact types the model
+    declares for them, so an app can reference a type and land on rows.
+
+    The same move as layout_cells one level up: the partition is knowledge
+    about the store and rides in the store; the schema is knowledge about the
+    model and rides in the model's own fact types. A store whose declared
+    fact types are empty cannot be referenced by an app that names them, which
+    is the whole of "the meta tables are like a system db".
+
+    Only populations DERIVED FROM the host cells are replaced, so a store that
+    already carries a declared form keeps whatever else it holds.
+    """
+    cells = {n: [tuple(r) for r in _pop_rows(D, n)] for n in CATALOG_SOURCES}
+    rows = catalog_rows(cells)
+    if not rows:
+        return D
+    return _replace_cells(D, tuple(sorted(rows.items())))
+
+
 def induce_domain(D, noun):
     """A role noun's enumeration domain, the induce oracle's order: the
     declared enum literals first (the enumValues cell when present, else

@@ -18,9 +18,13 @@ are a parallel encoding of populations the model already has names for.
 Emits each population from the host cells and, where the store ALSO holds the
 declared form, checks them against each other. That check is the point:
 agent-action-governance carries both, and Fact_Type_has_Role there is exactly
-pi(ft, roleId) of the role cell -- declared minus projected 0, with the only
-extras being roles of DERIVED fact types, which an asserted population
-correctly omits.
+pi(ft, roleId) of the role cell -- declared minus projected 0. The 6 extras are
+roles of COMPILER-GENERATED fact types: `<Noun> is currently in Status`, which
+engine.py:3568 calls out as the status fact type and which appears nowhere in
+the app's readings. Not derived -- I said derived first and it is not in the
+derivation cell. A catalogue lists what EXISTS, the way sqlite_master lists
+tables nobody typed, so the union is the right population and the authored
+subset is the narrower thing.
 """
 import importlib.util
 import os
@@ -56,6 +60,10 @@ def catalog(cells):
     out["Object_Type_has_Reference_Mode"] = {
         (r[0], r[1]) for r in cells.get("refMode", ()) if len(r) >= 2}
     out["Constraint_is_of_Constraint_Type"] = {(c[0], c[1]) for c in cons}
+    # sherlock's own phrase: "Derivation Rule 'induce explains' produces Fact
+    # Type 'HypothesisExplainsObservation'". ruleDerives IS that population.
+    out["Derivation_Rule_produces_Fact_Type"] = {
+        (r[0], r[1]) for r in cells.get("ruleDerives", ()) if len(r) >= 2}
     # a span names a POSITION; the role it spans is that position of the
     # constraint's own fact type, which is how role ids are formed
     out["Constraint_spans_Role"] = {
@@ -88,7 +96,7 @@ def main(argv):
         D = persist.load_sqlite(db)
         cells = {n: [tuple(r) for r in system._pop_rows(D, n)]
                  for n in ("role", "constraint", "spans", "factType",
-                           "subtype", "refMode")}
+                           "subtype", "refMode", "ruleDerives")}
         label = which
 
     emitted = catalog(cells)
@@ -102,7 +110,7 @@ def main(argv):
             verdict = "not populated in this store"
         elif have <= mine:
             extra = len(mine - have)
-            verdict = "declared subset of emitted (+%d, derived omitted)" % extra
+            verdict = "declared subset of emitted (+%d generated)" % extra
         else:
             verdict = "MISMATCH: %d declared rows not emitted" % len(have - mine)
             rc = 1
