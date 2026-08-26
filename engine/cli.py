@@ -13,6 +13,17 @@ import json
 import os
 import sys
 
+# THE MU EVALUATOR RECURSES DEEPLY, and this entry point never raised the
+# limit, so it ran at CPython's default of 1000. pyarest.tromp sets 200_000,
+# but the compile path does not import it, so `cli.py compile` died with
+# RecursionError on any app whose evaluation goes deep -- agent-policy and
+# kernel among 6 tested -- while the IDENTICAL compile succeeded from a script
+# that had raised the limit itself. The resident spawns this script for its
+# write delegation, so the failure surfaced as a broken verb, not as a stack
+# trace anyone read. (A worker thread with a larger stack was NOT needed:
+# measured, the limit alone is sufficient.)
+sys.setrecursionlimit(200_000)
+
 # UTF-8 on both streams REGARDLESS of the console codepage: the usage
 # text carries an em-dash, and receipts carry app values — on a cp1252
 # Windows console those bytes crash the SPAWNING side's utf-8 reader
