@@ -2118,6 +2118,7 @@ def _compile_derivation_rule(g, k):
             ("ruleDerives", (rule_cid, _slug(derived)))]
     prev = root
     atom_fts, widths, filters = [], [], []
+    filters_base = []          # running joined-row width after each atom
     for verb, target in hops:
         reading = f"{prev} {verb} {target}" if target else f"{prev} {verb}"
         # A QUOTED LITERAL IN A HOP IS A FILTER, NOT PART OF THE NAME. Folding
@@ -2131,24 +2132,26 @@ def _compile_derivation_rule(g, k):
         ft, roles = _clause_ft_roles(bare, k)
         rows.append(("ruleReads", (rule_cid, ft)))
         atom_fts.append(ft)
-        widths.append(len(roles) or 2)
+        _w = len(roles) or 2
+        widths.append(_w)
+        filters_base.append(_w if not filters_base
+                            else filters_base[-1] + _w - 1)
         if lits:
             if len(lits) > 1:
                 raise ValueError("multi-literal role-path hop awaits its "
                                  "slice: " + reading[:60])
-            # the literal fills the LAST (value) role, the same convention the
-            # subset forms use
-            filters.append(_fspec("eq", len(roles) or 2, lit=_num(lits[0])))
+            # THE FILTER COLUMN IS IN THE JOINED ROW, NOT IN THE ATOM. A linear
+            # chain joins each atom's role 1 to the previous atom's last role,
+            # so atom 0 contributes w0 columns and every later atom contributes
+            # w-1 fresh ones. The literal fills the atom's LAST role, which is
+            # local role w -- column `base + w - 1` for a later atom, `w` for
+            # the first. Filtering on the LOCAL index silently matched nothing.
+            # filters_base[-1] IS this atom's last-role column in the joined
+            # row (base_0 = w0; base_i = base_{i-1} + w_i - 1, because a linear
+            # chain re-uses the join column). Adding w-1 again double-counts.
+            filters.append(_fspec("eq", filters_base[-1], lit=_num(lits[0])))
         prev = target or prev
-    if len(hops) == 2:
-        if filters:
-            # join_rule2 carries no filter slot. Dropping one here would be a
-            # silent narrowing, which is the failure class this file keeps
-            # paying for -- refuse instead.
-            raise ValueError("value-restricted two-hop role path awaits the "
-                             "filtered join: " + body[:60])
-        ospecs = ((rule_cid, "system:join_rule2", (2, (1,))),)
-    elif len(hops) == 1:
+    if len(hops) >= 1:
         # ONE ATOM, project the root. The same builder _compile_subtype calls
         # with an empty filter slot; here the slot carries the hop literal.
         ospecs = ((rule_cid, "system:compile_rule",
