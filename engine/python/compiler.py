@@ -2117,11 +2117,45 @@ def _compile_derivation_rule(g, k):
             ("derivationRule", (_slug(derived), root, len(hops))),
             ("ruleDerives", (rule_cid, _slug(derived)))]
     prev = root
+    atom_fts, widths, filters = [], [], []
     for verb, target in hops:
         reading = f"{prev} {verb} {target}" if target else f"{prev} {verb}"
-        rows.append(("ruleReads", (rule_cid, _clause_ft(reading, k))))
+        # A QUOTED LITERAL IN A HOP IS A FILTER, NOT PART OF THE NAME. Folding
+        # it into the reading gave _clause_ft a phantom fact type
+        # (Source_has_Authority_authoritative) that no population ever fills,
+        # so the rule read an empty cell and derived nothing while looking
+        # perfectly compiled.
+        lits = _quoted_values(reading)
+        bare = (re.sub(r"\s+", " ", _QUOTED.sub("", reading)).strip()
+                if lits else reading)
+        ft, roles = _clause_ft_roles(bare, k)
+        rows.append(("ruleReads", (rule_cid, ft)))
+        atom_fts.append(ft)
+        widths.append(len(roles) or 2)
+        if lits:
+            if len(lits) > 1:
+                raise ValueError("multi-literal role-path hop awaits its "
+                                 "slice: " + reading[:60])
+            # the literal fills the LAST (value) role, the same convention the
+            # subset forms use
+            filters.append(_fspec("eq", len(roles) or 2, lit=_num(lits[0])))
         prev = target or prev
-    ospecs = ((rule_cid, "system:join_rule2", (2, (1,))),) if len(hops) == 2 else ()
+    if len(hops) == 2:
+        if filters:
+            # join_rule2 carries no filter slot. Dropping one here would be a
+            # silent narrowing, which is the failure class this file keeps
+            # paying for -- refuse instead.
+            raise ValueError("value-restricted two-hop role path awaits the "
+                             "filtered join: " + body[:60])
+        ospecs = ((rule_cid, "system:join_rule2", (2, (1,))),)
+    elif len(hops) == 1:
+        # ONE ATOM, project the root. The same builder _compile_subtype calls
+        # with an empty filter slot; here the slot carries the hop literal.
+        ospecs = ((rule_cid, "system:compile_rule",
+                   (_atom_specs(tuple(atom_fts), tuple(widths), ()),
+                    (1,), tuple(filters))),)
+    else:
+        ospecs = ()
     return (tuple(rows), (), ospecs)
 
 
