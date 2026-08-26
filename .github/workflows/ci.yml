@@ -56,15 +56,25 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       # java (compose.py needs python) and dotnet are preinstalled on
       # windows-latest; a station that is missing prints SKIPPED, never a pass.
-      # A MERGE RUNS THE FULL MATRIX. The delta cache is for the edit loop;
-      # AREST_STATIONS_FULL ignores it, because the fingerprint covers static
-      # references only and a DEF resolved by a name read out of data would
-      # otherwise not re-run.
-      - name: every station answers the same, cases and law:report
+      # EACH HOST VERIFIES ITSELF, with its own toolchain and nothing else.
+      # They assert against engine/shared/expected-cases.tsv rather than
+      # against each other, so agreement is transitive through the golden and
+      # no host needs a second one installed. Python is not in this job.
+      - name: js host
         shell: bash
-        env:
-          AREST_STATIONS_FULL: "1"
-        run: python -m pytest engine/tests/test_stations.py -q -n auto
+        working-directory: tools/js-runner
+        run: bun run build:test && bun test
+      - name: java host
+        shell: bash
+        run: sh tools/java-runner/test.sh
+      - name: cs host
+        shell: bash
+        working-directory: tools/cs-runner-tests
+        run: dotnet test --nologo -v q
+      - name: rust host
+        shell: bash
+        working-directory: tools/rust-station
+        run: cargo test -- --test-threads=1
 
   python:
     runs-on: windows-latest
