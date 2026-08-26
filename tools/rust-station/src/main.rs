@@ -808,3 +808,151 @@ fn main() {
         .join()
         .expect("join");
 }
+
+// ---------------------------------------------------------------------------
+// The rust host's own unit tests. `cargo test` -- no python, no second host.
+//
+// Every host runs the same canon over the same carriers, so "the hosts agree"
+// does not need one host to drive the others: each asserts its own answers
+// against engine/shared/expected-cases.tsv and agreement follows because they
+// all match the same file. Verifying this host needs cargo and nothing else.
+//
+// No crate is added for it. The station's Cargo.toml says a station carries no
+// dependencies on purpose, and a JSON string is twelve lines of unescaping.
+// ---------------------------------------------------------------------------
+#[cfg(test)]
+mod host_tests {
+    use super::*;
+
+    // The canon is one deeply nested expression: building it recurses past a
+    // test thread's 2 MB default, which is STATUS_STACK_OVERFLOW rather than a
+    // failure. main() spawns at 512 MB for exactly this, so the tests do too --
+    // and doing it here rather than through RUST_MIN_STACK keeps the budget
+    // with the code that needs it.
+    fn with_stack<F: FnOnce() + Send + 'static>(f: F) {
+        std::thread::Builder::new()
+            .stack_size(512 * 1024 * 1024)
+            .spawn(f)
+            .expect("spawn")
+            .join()
+            .expect("join");
+    }
+
+    fn shared(name: &str) -> String {
+        let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        p.pop();
+        p.pop();
+        p.push("engine");
+        p.push("shared");
+        p.push(name);
+        std::fs::read_to_string(&p)
+            .unwrap_or_else(|e| panic!("cannot read {}: {}", p.display(), e))
+    }
+
+    // A JSON string literal back to its text. The golden encodes answers this
+    // way because two of them are SQL DDL carrying real newlines, and a
+    // hand-rolled escaper silently wrote a file that did not round-trip.
+    fn unescape(lit: &str) -> String {
+        let b: Vec<char> = lit.trim().chars().collect();
+        let mut out = String::new();
+        let mut i = if b.first() == Some(&'"') { 1 } else { 0 };
+        let end = if b.last() == Some(&'"') { b.len() - 1 } else { b.len() };
+        while i < end {
+            if b[i] != '\\' {
+                out.push(b[i]);
+                i += 1;
+                continue;
+            }
+            i += 1;
+            match b[i] {
+                'n' => out.push('\n'),
+                't' => out.push('\t'),
+                'r' => out.push('\r'),
+                'b' => out.push('\u{8}'),
+                'f' => out.push('\u{c}'),
+                'u' => {
+                    let hex: String = b[i + 1..i + 5].iter().collect();
+                    let n = u32::from_str_radix(&hex, 16).expect("\\u escape");
+                    out.push(char::from_u32(n).unwrap_or('\u{fffd}'));
+                    i += 4;
+                }
+                c => out.push(c),
+            }
+            i += 1;
+        }
+        out
+    }
+
+    fn golden_cases() -> Vec<(String, String)> {
+        shared("expected-cases.tsv")
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(|l| {
+                let t = l.find('\t').expect("golden row has no tab");
+                (l[..t].to_string(), unescape(&l[t + 1..]))
+            })
+            .collect()
+    }
+
+    // THE BOTTOM ROWS ARE THE POINT. canon's note above main:case_text says one
+    // case per invocation is deliberate: the table holds rows that BOTTOM, no
+    // canon def can branch on bottom, and a fold would die at the first one.
+    // The CLI makes a bottom visible by dying and the driver recorded
+    // <refused>. In-process the boundary is catch_unwind, and it has to be
+    // here or the deliberate refusals read as broken tests.
+    fn answer(name: &str) -> String {
+        let got = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let cells = CELLS.with(|c| q(c.borrow().clone()));
+            let argv = q(vec![a("case"), astr(name.to_string())]);
+            let out = ev(&a("main"), &q(vec![cells, argv]));
+            join_text(&seq(&out)[0])
+        }));
+        match got {
+            Ok(s) if !s.trim().is_empty() => s.trim().to_string(),
+            _ => "<refused>".to_string(),
+        }
+    }
+
+    #[test]
+    fn every_case_answers_what_the_canon_says() {
+        with_stack(|| {
+            load_canon();
+            load_carriers();
+            // expected panics are the deliberate bottoms; do not print 17 of them
+            let prior = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+            let mut bad: Vec<String> = Vec::new();
+            let cases = golden_cases();
+            for (name, want) in &cases {
+                let got = answer(name);
+                if &got != want {
+                    bad.push(format!("{}: want {:?}, got {:?}", name, want, got));
+                }
+            }
+            std::panic::set_hook(prior);
+            assert!(cases.len() > 500, "golden looks truncated: {}", cases.len());
+            assert!(bad.is_empty(), "{} case(s) differ:\n{}", bad.len(), bad.join("\n"));
+        });
+    }
+
+    // A def NO host can evaluate answers <refused> everywhere and agrees
+    // perfectly, so the refusal COUNT is the signal, not the pass line.
+    #[test]
+    fn the_golden_still_expects_exactly_17_refusals() {
+        let n = golden_cases().iter().filter(|(_, v)| v == "<refused>").count();
+        assert_eq!(n, 17, "the golden's refusal count moved");
+    }
+
+    #[test]
+    fn law_report_holds_byte_for_byte() {
+        with_stack(|| {
+            load_canon();
+            load_carriers();
+            let want = shared("expected-laws.txt");
+            let cells = CELLS.with(|c| q(c.borrow().clone()));
+            let out = ev(&a("main"), &q(vec![cells, q(vec![])]));
+            let got = join_text(&seq(&out)[0]);
+            assert_eq!(got.trim(), want.trim());
+        });
+    }
+}
