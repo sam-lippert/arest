@@ -2843,6 +2843,9 @@ def compile_model_selfhost(text, D=None, context_from=None):
     _SM_SUSPECT = re.compile(
         r"'[^']+'.*(" + "|".join(_vocab("system:sm_phrases")) + ")")
     unclassified = []
+    # (stmt, translator, message) for every handler refusal. Reported
+    # only for statements no translator accepted -- see the return.
+    refusals = []
     # BATCH classification (stratum 4): every statement's fields land first,
     # ONE derive answers all classifications — not one lfp per statement
     work = []
@@ -2918,7 +2921,8 @@ def compile_model_selfhost(text, D=None, context_from=None):
                     if _tr0 is not None:
                         TRACE_STMTS.append(
                             (_time.perf_counter() - _tr0, stmt[:140]))
-                except ValueError:
+                except ValueError as _refusal:
+                    refusals.append((stmt, t, str(_refusal)))
                     # a handler REFUSING its statement is that handler's
                     # verdict, never the statement's fate: dispatch
                     # continues to the next classification's translator
@@ -2933,7 +2937,9 @@ def compile_model_selfhost(text, D=None, context_from=None):
             # NO translator accepted: reported loudly — never a silent
             # vanish or a silently narrowed constraint
             unclassified.append(stmt)
-    return D, {"unclassified": unclassified, "prose": prose}
+    _lost = set(unclassified)
+    return D, {"unclassified": unclassified, "prose": prose,
+               "refusals": [r for r in refusals if r[0] in _lost]}
 
 
 def compile_model(text, D=None, context_from=None):
