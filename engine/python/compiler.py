@@ -1406,14 +1406,10 @@ def _clause_ft_roles(text, known):
     return best
 
 
-_CMP_OPS = (
-    ("is no less than", "ge"), ("is no more than", "le"),
-    ("is greater than or equal to", "ge"), ("is less than or equal to", "le"),
-    ("is at least", "ge"), ("is at most", "le"),
-    ("is greater than", "gt"), ("is less than", "lt"),
-    ("is later than", "gt"), ("is earlier than", "lt"),
-    ("is after", "gt"), ("is before", "lt"),
-)
+# The comparison vocabulary is CANON's -- DEF("system:cmp_ops"), read through
+# the existing _cmp_ops(). An earlier version of this handler carried its own
+# copy, which is meaning living in host code: four hosts could then disagree
+# about what "is less than" denotes.
 
 
 def _split_comparison(text):
@@ -1429,8 +1425,15 @@ def _split_comparison(text):
     'Hearing is before Review Board' is a reading, not a comparison.
     """
     low = text.lower()
-    for phrase, op in _CMP_OPS:
-        for form in (" " + phrase + " ", " " + phrase[3:] + " "):
+    ops = sorted(_cmp_ops().items(), key=lambda kv: -len(kv[0]))
+    for phrase, op in ops:
+        # the reading already carries the verb, so a bare `less than 65` must
+        # match too -- but strip the leading "is " ONLY when it is really
+        # there, or canon's "exceeds" would be tried as "eeds".
+        forms = [" " + phrase + " "]
+        if phrase.startswith("is "):
+            forms.append(" " + phrase[3:] + " ")
+        for form in forms:
             i = low.find(form)
             if i < 0:
                 continue
