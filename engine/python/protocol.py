@@ -2228,6 +2228,10 @@ class Registry:
         D = persist._with_watermark(D, len(entries))
         if not store_only:
             D = system.layout_cells(D)
+            # the metamodel's own facts, in the fact types the model declares
+            # for them: an app that references Fact Type or Object Type lands
+            # on rows instead of on an empty table
+            D = system.catalog_cells(D)
         D = system.enum_values_cells(D)                       # induce's domain reads it — kept
         if not store_only:
             D = system.scheduler_cells(D)
