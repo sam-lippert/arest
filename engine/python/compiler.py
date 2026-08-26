@@ -1397,6 +1397,52 @@ def _clause_ft_roles(text, known):
     return best
 
 
+_CMP_OPS = (
+    ("is no less than", "ge"), ("is no more than", "le"),
+    ("is greater than or equal to", "ge"), ("is less than or equal to", "le"),
+    ("is at least", "ge"), ("is at most", "le"),
+    ("is greater than", "gt"), ("is less than", "lt"),
+    ("is later than", "gt"), ("is earlier than", "lt"),
+    ("is after", "gt"), ("is before", "lt"),
+)
+
+
+def _split_comparison(text):
+    """NORMA's ValueComparisonConstraint surface -> (head, canon op, value).
+
+    'Person has Age less than 65' -> ('Person has Age', 'lt', '65'). None when
+    no comparison tail is present. lt/gt/le/ge already exist as canon atoms,
+    are registered at main.rs:663-665 and have a native fast path for numeric
+    AND string operands, so nothing new is needed underneath -- only a way to
+    SAY it. Longest phrase first: 'no less than' must beat 'less than'.
+
+    The caller MUST still check that the head resolves to a declared fact type:
+    'Hearing is before Review Board' is a reading, not a comparison.
+    """
+    low = text.lower()
+    for phrase, op in _CMP_OPS:
+        for form in (" " + phrase + " ", " " + phrase[3:] + " "):
+            i = low.find(form)
+            if i < 0:
+                continue
+            head = text[:i].strip()
+            val = text[i + len(form):].strip().rstrip(".")
+            if head and val:
+                return head, op, val
+    return None
+
+
+def _cmp_value(v):
+    """A bare number compares numerically; anything else stays a string."""
+    t = v.strip().strip("'")
+    for cast in (int, float):
+        try:
+            return cast(t)
+        except ValueError:
+            pass
+    return t
+
+
 def _h_subset_trailing(g, k, m, sign="positive"):
     """FORML 2's implication clause on an ASSERTED head (Halpin, Mapping ORM
     to Datalog: 'if' reads the converse implication; CWA closes same-head
@@ -1444,6 +1490,21 @@ def _h_subset_trailing(g, k, m, sign="positive"):
                              + cond_txt[:60])
         filter_lit = lits[0]
         cond_ft_txt = re.sub(r"\s+", " ", _QUOTED.sub("", cond_txt)).strip()
+    filter_op = filter_val = None
+    if filter_lit is None:
+        _cmp = _split_comparison(cond_txt)
+        if _cmp is not None:
+            _head, _op, _val = _cmp
+            # ACCEPT ONLY IF THE REMAINDER RESOLVES. That check is the
+            # only thing separating a comparison from a reading that
+            # happens to contain "is before".
+            try:
+                _hft, _ = _clause_ft_roles(_head, k)
+            except Exception:
+                _hft = None
+            if _hft is not None and _hft in (getattr(k, "fts", None) or ()):
+                cond_ft_txt = _head
+                filter_op, filter_val = _op, _cmp_value(_val)
     x_ft, x_roles = _clause_ft_roles(head_txt, k)
     if x_ft not in fts:
         raise ValueError("subset head does not resolve to a declared "
@@ -1455,7 +1516,7 @@ def _h_subset_trailing(g, k, m, sign="positive"):
     if y_ft not in fts or y_ft == x_ft:
         raise ValueError("subset condition does not resolve to a "
                          "distinct declared fact type: " + cond_ft_txt[:60])
-    if filter_lit is not None:
+    if filter_lit is not None or filter_op is not None:
         filter_pos = len(y_roles)                # the value role is last
     bound = []
     for mm in _ANAPHOR.finditer(cond_txt):
@@ -1494,6 +1555,11 @@ def _h_subset_trailing(g, k, m, sign="positive"):
     if filter_lit is not None:
         builder += "_filtered"
         op = op + (filter_pos, filter_lit)
+    elif filter_op is not None:
+        # operand position 6 IS the operator, so one builder serves lt gt
+        # le ge: the predicate name is data applied through rho.
+        builder += "_cmpfiltered"
+        op = op + (filter_pos, filter_val, filter_op)
     return _h_constraint((decl, mid,
                      tuple((cell, builder, op) for (cell, _b, _o) in ospecs)),
                     k, m)
