@@ -15394,6 +15394,15 @@ fn run() {
         }
     }
     if std::env::args().any(|a| a == "--canon-check") {
+        // A CHECK WITH NO BASELINE IS NOT A PASS. Without the canon-oracle
+        // feature the compiled-in copy is empty, so a comparison would either
+        // report a spurious count difference or -- if the file were also
+        // missing -- agree with nothing. Refuse instead.
+        if !cfg!(feature = "canon-oracle") {
+            println!("canon-check: NO ORACLE (built without the canon-oracle \
+feature; rebuild with it to compare)");
+            return;
+        }
         let baked = canon_defs();
         match read_canon_file() {
             None => println!("canon-check: NO FILE READ"),
@@ -15824,6 +15833,15 @@ fn read_scenarios_file() -> Option<Vec<(String, V)>> {
     CanonP { b: &src, i: 0 }.file()
 }
 
+// THE COMPILED-IN CANON IS 87% OF THE BUILD (measured: debug 4m07 -> 32s with
+// CARGO_INCREMENTAL=0 and the include! as the only variable; far worse at
+// opt-level 2, where 1507 DEFs of nested Rc<dyn Fn> closures in ONE function
+// are what makes a release build take hours). It is NOT the runtime path --
+// run() reads canon from disk and only falls back here -- so it is a feature.
+// Default on: --canon-check needs it as an oracle and a binary with no canon
+// file beside it still boots. A release build that ships beside the canon file
+// can drop it with --no-default-features --features host.
+#[cfg(feature = "canon-oracle")]
 fn canon_defs() -> Vec<(String, V)> {
     let out: RefCell<Vec<(String, V)>> = RefCell::new(Vec::new());
     {
@@ -15852,9 +15870,23 @@ fn canon_defs() -> Vec<(String, V)> {
     out.into_inner()
 }
 
+// Without the oracle feature the compiled-in copy is absent. This must NEVER be
+// mistaken for an empty canon: run() falls back here only when the canon file is
+// missing, and --canon-check refuses rather than comparing against nothing.
+#[cfg(not(feature = "canon-oracle"))]
+fn canon_defs() -> Vec<(String, V)> {
+    Vec::new()
+}
+
+#[cfg(not(feature = "canon-oracle"))]
+fn scenario_defs() -> Vec<(String, V)> {
+    Vec::new()
+}
+
 // The cross-host case table (shared/scenarios.canon), the same bytes the Python,
 // C#, and Java hosts consume: each DEF is ⟨expr, operand⟩, reduced by --cases.
 #[allow(non_snake_case, unused, path_statements)]
+#[cfg(feature = "canon-oracle")]
 fn scenario_defs() -> Vec<(String, V)> {
     let out: RefCell<Vec<(String, V)>> = RefCell::new(Vec::new());
     {
