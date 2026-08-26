@@ -798,8 +798,41 @@ def _q(name):
     return _fl(_apl(_at("rmap:ddl_q"), _tl(name)))
 
 
+def _stored_partition(D):
+    """The partition READ from rmapColumns, or None to derive it.
+
+    RMAP over the store is derived knowledge that is expensive to compute and
+    changes only when the schema does, which is Halpin's ** exactly: derived
+    AND stored. layout_cells already materialises it -- rows <table, col, ft>
+    for every absorbed fact type -- and get_view already reads it rather than
+    re-deriving. _analyze did not, so it re-derived on every call: 1785 seconds
+    on the base store, against 2.068s to then read all 335 populations.
+
+    The reconstruction is total: an absorbed fact type names its table, and
+    everything else is its own table. Verified equal to rmap_partition on
+    tasks, arest-dev and spd-1 before this was wired.
+
+    THE GUARD IS THE POINT. A memo that answers for a schema it no longer
+    matches is worse than a slow derivation -- that is the stale projection
+    that had sqlite returning a column's own name as data. So a cell naming a
+    fact type the store does not declare is treated as stale and ignored.
+    """
+    rows = [tuple(r) for r in system._pop_rows(D, "rmapColumns") if len(r) >= 3]
+    if not rows:
+        return None
+    fts = {r[0] for r in system._pop_rows(D, "factType") if r}
+    if not fts:
+        return None
+    absorbed = {r[2]: r[0] for r in rows}
+    if not set(absorbed) <= fts:
+        return None
+    return {ft: absorbed.get(ft, ft) for ft in fts}
+
+
 def _analyze(D):
-    partition = system.rmap_partition(D)
+    partition = _stored_partition(D)
+    if partition is None:
+        partition = system.rmap_partition(D)
     roles = {}
     for r in system._pop_rows(D, "role"):
         if len(r) >= 4:
