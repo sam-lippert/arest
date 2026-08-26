@@ -2887,16 +2887,32 @@ def compile_model_selfhost(text, D=None, context_from=None):
             # transform does exactly that and never mints instance rows.
             unclassified.append(stmt)
             continue
+        # SPECIFIC FIRST, GENERIC AS FALLBACK. `cls = specific or cls`
+        # discarded the generic classifications outright, so a specific
+        # recognizer that MIS-FIRES took the statement down with it: `emits`
+        # is reserved for state machines and is the only bare common verb in
+        # that set, so `Component 'b' emits Signal 'clicked'.` was classified
+        # State Machine Reading, refused, and vanished -- while the identical
+        # sentence with `sends` stored fine. The generic list is kept and
+        # tried ONLY after every specific translator mis-fired (see the
+        # fallback below), so preference is unchanged.
+        generic_cls = (cls - specific) if specific else set()
         cls = specific or cls
         translators = []
         for c in sorted(cls):
             for t in dispatch.get(c, []):
                 if t not in translators:
                     translators.append(t)
+        fallback = []
+        for c in sorted(generic_cls):
+            for t in dispatch.get(c, []):
+                if t not in translators and t not in fallback:
+                    fallback.append(t)
         if not translators:
             unclassified.append(stmt)
             continue
         accepted = False
+        _misfired = True          # every specific refusal said "no production"
         for t in translators:
             if _dm.latest.get(t, ("",))[0] != "registered":
                 # a name M declares that this host has not registered is
@@ -2923,6 +2939,11 @@ def compile_model_selfhost(text, D=None, context_from=None):
                             (_time.perf_counter() - _tr0, stmt[:140]))
                 except ValueError as _refusal:
                     refusals.append((stmt, t, str(_refusal)))
+                    # only a "no production" refusal means the classification
+                    # MIS-FIRED; any other refusal is a real verdict about a
+                    # statement this translator legitimately owns.
+                    if "no production matched" not in str(_refusal):
+                        _misfired = False
                     # a handler REFUSING its statement is that handler's
                     # verdict, never the statement's fate: dispatch
                     # continues to the next classification's translator
@@ -2933,6 +2954,27 @@ def compile_model_selfhost(text, D=None, context_from=None):
                     # multi-classified statements unclassified even after
                     # an earlier translator had ACCEPTED them).
                     continue
+        if not accepted and fallback and _misfired:
+            # every SPECIFIC translator mis-fired (no production could parse
+            # it), so the specific classification was wrong about this
+            # statement. Try the generic ones rather than lose the fact.
+            for t in fallback:
+                if _dm.latest.get(t, ("",))[0] != "registered":
+                    accepted = True
+                    continue
+                mfield = (mod + ":" + sign) if mod == "deontic" else (mod or "")
+                operand = _L.SEQ(
+                    _L.CONS(_A(inner))(
+                        _L.CONS(_A(mfield))(
+                            _L.CONS(ctx)(_L.CONS(D)(_L.NIL)))))
+                with _dm.step(D):
+                    try:
+                        D = _apply(_A(t), operand)
+                        accepted = True
+                        break
+                    except ValueError as _refusal:
+                        refusals.append((stmt, t, str(_refusal)))
+                        continue
         if not accepted:
             # NO translator accepted: reported loudly — never a silent
             # vanish or a silently narrowed constraint
