@@ -34,7 +34,14 @@ opt-level = 2
 # spawning (the python delegate), the apps-dir filesystem, and the
 # stdio serve/mcp loops. Default on; wasm builds --no-default-features
 # and gets the pure core (reducer, native carrier, canon).
-default = ["host"]
+default = ["host", "canon-oracle"]
+# THE COMPILED-IN CANON. include!("../../arest") inside canon_defs() is 87% of
+# the build (debug 4m07 -> 32s, measured with the include! as the only
+# variable), and worse at opt-level 2. It is not the runtime path -- run()
+# reads the canon file and only falls back to the baked copy -- so it is
+# optional. Keep it for dev and the tests, where --canon-check needs it as an
+# oracle; drop it for a release build that ships beside the canon file.
+canon-oracle = []
 host = ["dep:rusqlite"]
 worker = ["dep:wasm-bindgen"]
 rusqlite = ["dep:rusqlite"]
