@@ -15341,6 +15341,34 @@ fn run() {
     register_overrides();                                     // twins on by default
     // the reader is checked against the thing it replaces: same names in the
     // same order, same terms. include! stays as the oracle for exactly this.
+    // --store-db <path>: read a store out of a DATABASE and report what came
+    // back, so the reader that replaces the JSON interchange can be checked
+    // against python's without either host trusting the other's word.
+    #[cfg(feature = "host")]
+    {
+        let argv: Vec<String> = std::env::args().collect();
+        if let Some(i) = argv.iter().position(|a| a == "--store-db") {
+            match argv.get(i + 1) {
+                None => println!("store-db: no path given"),
+                Some(p) => match store_j_from_db(std::path::Path::new(p)) {
+                    Err(e) => println!("store-db: {}", e),
+                    Ok(J::A(cells)) => {
+                        let mut rows = 0usize;
+                        for c in &cells {
+                            if let J::A(v) = c {
+                                if let Some(J::A(rs)) = v.get(2) {
+                                    rows += rs.len();
+                                }
+                            }
+                        }
+                        println!("store-db: {} cells, {} rows", cells.len(), rows);
+                    }
+                    Ok(_) => println!("store-db: unexpected shape"),
+                },
+            }
+            return;
+        }
+    }
     if std::env::args().any(|a| a == "--canon-check") {
         let baked = canon_defs();
         match read_canon_file() {
@@ -16851,4 +16879,136 @@ mod faststore_tests {
             );
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// READ A STORE FROM A DATABASE, so the JSON interchange can go.
+//
+// base.store.json is written by this host and read by python; the grammar
+// sidecar is written by python and read by this host. Sam: having an
+// interchange is a bug -- the format was picked so the OTHER host could read
+// it, which is the wrong reason to pick a format.
+//
+// The store is facts. base.store.json is 3,374,166 bytes of which 92.6% is
+// compiled program (906 term cells, every head COMP) against 59 cells of
+// facts, and dropping every term leaves a byte-identical projection. The facts
+// are 495,616 bytes as tables, 6.2x smaller, and queryable.
+//
+// The shape produced here is EXACTLY the J the "d" preamble already accepts,
+// so nothing downstream changes: to_v, j_to_n and cells_of are untouched.
+//
+// Layout, matching tools/storedb.py which round-trips 58 of 58 cells:
+//   meta_<cell>        positional columns c1..cN, NULL where a row is short
+//   meta_<cell>_cK     a repeating group: <parent, pos, value>, because nine
+//                      of 509 constraint rows carry a LIST, and a repeating
+//                      group in a store is an unmodelled fact type rather
+//                      than a reason to keep JSON in a column
+// ---------------------------------------------------------------------------
+#[cfg(feature = "host")]
+fn store_j_from_db(path: &std::path::Path) -> Result<J, String> {
+    use rusqlite::Connection;
+
+    let con = Connection::open_with_flags(
+        path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .map_err(|e| format!("cannot open {}: {}", path.display(), e))?;
+
+    let mut names: Vec<String> = Vec::new();
+    {
+        let mut st = con
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' \
+                      AND name LIKE 'meta\\_%' ESCAPE '\\' ORDER BY name")
+            .map_err(|e| e.to_string())?;
+        let rows = st
+            .query_map([], |r| r.get::<_, String>(0))
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            names.push(r.map_err(|e| e.to_string())?);
+        }
+    }
+
+    // a child table is <base>_c<N>; group them by the cell they belong to
+    let mut child: std::collections::BTreeMap<String, Vec<(usize, String)>> =
+        std::collections::BTreeMap::new();
+    let mut plain: Vec<String> = Vec::new();
+    for t in &names {
+        let tail = t.rsplit("_c").next().unwrap_or("");
+        let is_child = !tail.is_empty() && tail.chars().all(|c| c.is_ascii_digit())
+            && t.len() > tail.len() + 2;
+        if is_child {
+            let col: usize = tail.parse().unwrap_or(0);
+            let base = t[..t.len() - tail.len() - 2].to_string();
+            child.entry(base).or_default().push((col, t.clone()));
+        } else {
+            plain.push(t.clone());
+        }
+    }
+
+    let mut cells: Vec<J> = Vec::new();
+    for t in &plain {
+        let name = t.trim_start_matches("meta_").to_string();
+
+        // the repeating groups for this cell, keyed by parent
+        let mut groups: std::collections::BTreeMap<
+            usize,
+            std::collections::HashMap<String, Vec<String>>,
+        > = std::collections::BTreeMap::new();
+        if let Some(kids) = child.get(t) {
+            for (col, ct) in kids {
+                let mut st = con
+                    .prepare(&format!(
+                        "SELECT parent, value FROM \"{}\" ORDER BY parent, pos",
+                        ct.replace('"', "\"\"")
+                    ))
+                    .map_err(|e| e.to_string())?;
+                let mut m: std::collections::HashMap<String, Vec<String>> =
+                    std::collections::HashMap::new();
+                let rows = st
+                    .query_map([], |r| {
+                        Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
+                    })
+                    .map_err(|e| e.to_string())?;
+                for r in rows {
+                    let (p, v) = r.map_err(|e| e.to_string())?;
+                    m.entry(p).or_default().push(v.unwrap_or_default());
+                }
+                groups.insert(*col, m);
+            }
+        }
+
+        let mut st = con
+            .prepare(&format!("SELECT * FROM \"{}\"", t.replace('"', "\"\"")))
+            .map_err(|e| e.to_string())?;
+        let width = st.column_count();
+        let mut rows_out: Vec<J> = Vec::new();
+        let mut q = st.query([]).map_err(|e| e.to_string())?;
+        while let Some(r) = q.next().map_err(|e| e.to_string())? {
+            let key: Option<String> = r.get(0).map_err(|e| e.to_string())?;
+            let mut row: Vec<J> = Vec::new();
+            for i in 0..width {
+                // a group replaces this column ONLY for the rows that had one;
+                // rewriting every row gave the 500 flat constraint rows an
+                // empty list where their real value was
+                if let (Some(g), Some(k)) = (groups.get(&(i + 1)), key.as_ref()) {
+                    if let Some(vs) = g.get(k) {
+                        row.push(J::A(vs.iter().map(|v| J::S(v.clone())).collect()));
+                        continue;
+                    }
+                }
+                let v: Option<String> = r.get(i).map_err(|e| e.to_string())?;
+                match v {
+                    Some(s) => row.push(J::S(s)),
+                    None => {}  // a short row: absent, not empty
+                }
+            }
+            rows_out.push(J::A(row));
+        }
+        cells.push(J::A(vec![
+            J::S("CELL".to_string()),
+            J::S(name),
+            J::A(rows_out),
+        ]));
+    }
+    Ok(J::A(cells))
 }

@@ -15,6 +15,7 @@ path = "src/main.rs"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
+rusqlite = { version = "0.40.2", features = ["bundled"], optional = true }
 # THE CRATE'S FIRST DEPENDENCY, deliberate and OPTIONAL (Samuel,
 # 2026-07-09: "I think we'd need bindgen for workers") — only the
 # worker feature pulls it; the host build stays zero-dep.
@@ -34,5 +35,6 @@ opt-level = 2
 # stdio serve/mcp loops. Default on; wasm builds --no-default-features
 # and gets the pure core (reducer, native carrier, canon).
 default = ["host"]
-host = []
+host = ["dep:rusqlite"]
 worker = ["dep:wasm-bindgen"]
+rusqlite = ["dep:rusqlite"]
