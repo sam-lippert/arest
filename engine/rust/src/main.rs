@@ -12144,7 +12144,7 @@ const MCP_TOOLS: &str = concat!(
     r#""description":"A new app skeleton: <name>/readings/core.md. Refuses on an existing app. Native in the resident.","#,
     r#""inputSchema":{"type":"object","properties":{"name":{"type":"string"},"text":{"type":"string"}},"required":["name"]}},"#,
     r#"{"name":"engine_version","#,
-    r#""description":"The engine and its version.","#,
+    r#""description":"The engine, its version, and its BUILD IDENTITY (profile, built_epoch, canon_fnv, exe) -- use it to tell whether this server is in sync with the working tree.","#,
     r#""inputSchema":{"type":"object","properties":{}}},"#,
     r#"{"name":"compile","#,
     r#""description":"The live ADDITIVE compile: the text joins the app's readings/ (the source of truth, so a rebuild keeps it) and the app recompiles. Rides the compiler host; the retained sidecar reloads.","#,
@@ -15081,7 +15081,31 @@ fn mcp_call_inner(tool: &str, args: &J, apps: &mut Apps, srv: &mut Srv) -> Resul
             delegate_read(tool, args, apps)
         }
 
-        "engine_version" => Ok("{\"engine\":\"arest\",\"version\":\"0.9.0\"}".to_string()),
+        "engine_version" => {
+            // BUILD IDENTITY, not just a version string. The MCP server is a
+            // long-lived process started from target/release/arest.exe, which
+            // is rebuilt rarely (release ~45 min, dev builds debug ~2 min), so
+            // it drifts silently -- six weeks on 2026-08-26. profile/built/canon
+            // are what actually answer "is this in sync"; version alone cannot.
+            // canon_fnv is over the EMBEDDED canon, so two engines agree iff
+            // they carry the same program.
+            let mut r = String::from("{\"engine\":\"arest\",\"version\":\"0.9.0\"");
+            r.push_str(",\"profile\":\"");
+            r.push_str(if cfg!(debug_assertions) { "debug" } else { "release" });
+            r.push_str("\",\"built_epoch\":");
+            r.push_str(env!("AREST_BUILD_EPOCH"));
+            r.push_str(",\"canon_bytes\":");
+            r.push_str(env!("AREST_CANON_BYTES"));
+            r.push_str(",\"canon_fnv\":\"");
+            r.push_str(env!("AREST_CANON_FNV"));
+            r.push_str("\",\"exe\":");
+            match std::env::current_exe() {
+                Ok(p) => esc(&p.display().to_string(), &mut r),
+                Err(_) => r.push_str("null"),
+            }
+            r.push('}');
+            Ok(r)
+        }
         "apps_status" => {
             let name = match jget(args, "name") {
                 Some(J::S(n)) => n.clone(),
