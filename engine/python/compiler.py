@@ -418,7 +418,16 @@ _CLASSIFY = [
     # Keyword iff' — arest readings/forml2-grammar.md): variables are type-name
     # occurrences, that/some qualifiers bind anaphorically, and an optional leading
     # NORMA derivation-storage marker (* ** + ++) names the storage kind
-    ("rule_iff", re.compile(r"^(?:([*+]{1,2}) )?((?:[^']|'[^']*')*?) iff (.+)\.$")),
+    # A MARKED head takes `if` as well as `iff`. _h_subset_trailing's own
+    # docstring says "a derived or marked head belongs to the rule path", but
+    # no production routed it there: rule_if excludes leading markers and
+    # rule_iff demanded `iff`, so `+ X is preferred for Y if A and B.` fell
+    # between them and 17 corpus rules refused. The (?(1)...) conditional
+    # allows `if` ONLY when the marker group matched, so an UNMARKED `if`
+    # still means a subset CHECK over an asserted head, which is correct.
+    # Same-head `if` rules are the ordinary Datalog union and the compiler
+    # already closes them into the iff under CWA.
+    ("rule_iff", re.compile(r"^(?:([*+]{1,2}) )?((?:[^']|'[^']*')*?) (?(1)iff?|iff) (.+)\.$")),
     # a derivation RULE reading (leading * = derived): a linear role path from a root object type
     # (infosci Mapping_ORM_to_Datalog: *Each FastCarDriver is some Person who drives some Car ...)
     ("derivation_rule", re.compile(r"^\*Each (.+?) is some (.+?) who (.+)\.$")),
