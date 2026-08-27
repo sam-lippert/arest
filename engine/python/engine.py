@@ -2955,6 +2955,7 @@ _register_render_html()
 
 _S1_QUOTED_SPAN = None
 _S1_QUOTED = None
+_S1_NUMERIC_COMMA = None
 
 
 def stage1_fields(text, vocab, nouns=(), sid="s1"):
@@ -2968,10 +2969,11 @@ def stage1_fields(text, vocab, nouns=(), sid="s1"):
     INSIDE a quoted literal; structural punctuation outside literals is the
     prose tell. Returns [(field_ft, (sid, value)), …]."""
     import re
-    global _S1_QUOTED_SPAN, _S1_QUOTED
+    global _S1_QUOTED_SPAN, _S1_QUOTED, _S1_NUMERIC_COMMA
     if _S1_QUOTED_SPAN is None:
         _S1_QUOTED_SPAN = re.compile(r"'[^']*'")
         _S1_QUOTED = re.compile(r"'([^']*)'")
+        _S1_NUMERIC_COMMA = re.compile(r"(?<=\d),(?=\d)|(?<=\d), (?=\d{4}\b)")
     text = text.strip().rstrip(".")
     bare = _S1_QUOTED_SPAN.sub(lambda m: " " * len(m.group(0)), text)
     out = []
@@ -2989,8 +2991,18 @@ def stage1_fields(text, vocab, nouns=(), sid="s1"):
     quoted = _S1_QUOTED.findall(text)
     if quoted:
         out.append(("Statement_has_Literal_Role", (sid, quoted[0])))
+    # a comma INSIDE a number is not the tell. Digit grouping ($50,000,000) and
+    # a date's year comma (December 31, 2026) are lexical: they join no clauses
+    # and enumerate nothing, which is what this scan is looking for. Leaving
+    # them in demoted well-formed deontic rules in tax-service purely for
+    # writing a threshold the way money is written.
+    #
+    # NOTE: compiler.py:_prose_suspect applies the SAME rule to a different
+    # call path. Two host implementations of one rule; this is the one the
+    # metamodel classification reads, via Statement has Prose Punctuation.
+    scan = _S1_NUMERIC_COMMA.sub("", bare)
     for mark in (",", "(", ")", ": "):
-        if mark in bare:
+        if mark in scan:
             out.append(("Statement_has_Prose_Punctuation", (sid, mark)))
             break
     return out
