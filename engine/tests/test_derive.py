@@ -58,7 +58,16 @@ def test_derivation_rule_reading_compiles_and_computes():
     from pyarest.lam import atom as A
     D, rep = forml.compile_model("*Each FastCarDriver is some Person who drives some Car that is fast.")
     assert rep["unparsed"] == []
-    drives, is_fast = (("alice", "car1"), ("bob", "car2")), (("car1",),)
+    # A compiled rule is applied to the STORE, not to a tuple of populations:
+    # engine.py:1339 and :1374 both do `_ap(_A(rule_cid), D)`. The rule carries
+    # its atom NAMES in its operand and fetches them itself. This test used to
+    # pass the pair directly, which was system:join_rule2's convention and one
+    # the engine never used -- so it stayed green while the two-hop join derived
+    # nothing in production. It is written against the real convention now.
+    D = to_lam(tuple(from_lam(D)) + (
+        ("CELL", "Person_drives_Car", (("alice", "car1"), ("bob", "car2"))),
+        ("CELL", "Car_is_fast", (("car1",),)),
+    ))
     with defs.step(D):                                        # the rule lives in D's DEFS
-        v = from_lam(apply(A("FastCarDriver_rule"), to_lam((drives, is_fast))))
-    assert set(v) == {("alice",)}                             # alice drives a fast car; bob doesn't
+        v = from_lam(apply(A("FastCarDriver_rule"), D))
+    assert set(map(tuple, v)) == {("alice",)}                 # alice drives a fast car; bob doesn't
