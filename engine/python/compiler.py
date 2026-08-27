@@ -489,6 +489,9 @@ def classify(stmt):
 _QUOTED_SPAN = re.compile(r"'(?:[^']|'')*'")
 
 
+_NUMERIC_COMMA = re.compile(r"(?<=\d),(?=\d)|(?<=\d), (?=\d{4}\b)")
+
+
 def _prose_suspect(text, known):
     """A readings PARAGRAPH pretending to be a reading. The tell is STRUCTURAL: a
     comma or parenthesis outside quoted spans — no legitimate fact-type reading
@@ -499,6 +502,14 @@ def _prose_suspect(text, known):
     every live db), so the old #789 word-level test applies to rule clauses and
     instance facts, not to plain readings."""
     bare = _QUOTED_SPAN.sub(" ", text)
+    # a comma INSIDE a number is not the tell. Digit grouping ($50,000,000) and
+    # a date's year comma (December 31, 2026) are lexical, not syntactic: they
+    # do not join clauses and they do not enumerate, which is what the comma
+    # test is actually looking for. Leaving them in demoted well-formed deontic
+    # rules in tax-service purely for writing a threshold the way money is
+    # written, so they are neutralised before the structural test rather than
+    # repaired one sentence at a time in the corpus.
+    bare = _NUMERIC_COMMA.sub("", bare)
     # the colon tell is SENTENCE punctuation (': ' with a following space); a
     # colon inside a token is a CURIE (schema:Product — the federation lineage)
     return ("," in bare) or ("(" in bare) or (")" in bare) or (": " in bare)
