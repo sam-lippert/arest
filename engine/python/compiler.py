@@ -2091,23 +2091,6 @@ def _compile_fact(g, k):
     (the first cell-as-value row among the canonized handlers)."""
     kind, reading = _strip_derivation(g[0])
     if "'" in reading:
-        # AN UNQUOTED NUMBER IN THE VALUE POSITION IS A VALUE (Sam, 2026-08-27:
-        # "I think we can allow unquoted numbers"). Bare, it used to survive
-        # _QUOTED.sub and land in the fact type NAME, so
-        #     Person 'ada' has Age 70.
-        # populated Person_has_Age_70 while Person_has_Age stayed EMPTY and its
-        # mandatory and uniqueness constraints checked that empty population.
-        # 587 instance facts corpus-wide are written this way; cancel-service's
-        # Notice_Requirement_has_Notice_Period_In_Days was absent entirely with
-        # its rows in _15 and _30 phantoms.
-        #
-        # NARROW ON PURPOSE: only a bare number as the LAST token, and only in
-        # this branch, which a statement reaches only by already carrying a
-        # quoted id -- i.e. an instance fact. 572 corpus statements carry a bare
-        # number that is NOT a value ("responds to dispute within 30 days", "at
-        # least 24 months", frequency constraints); none of them both ends in the
-        # number and carries a quoted id.
-        reading = re.sub(r"(?<=\s)(-?\d+(?:\.\d+)?)\s*$", r"'\1'", reading)
         ids = tuple(_quoted_values(reading))
         dequoted = re.sub(r"\s+", " ", _QUOTED.sub("", reading)).strip()
         ft, _decl = _fact_type(dequoted, k)
