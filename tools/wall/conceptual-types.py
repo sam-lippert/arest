@@ -172,11 +172,17 @@ def write_facts(apps_dir, app, typed):
     if not os.path.isdir(rd):
         return
     path = os.path.join(rd, "conceptual-types.md")
+    # THE HEADER IS A COMMENT. Written bare it is PROSE: a readings file admits
+    # well-formed facts and comments, nothing else, and an explanatory paragraph
+    # parses as neither. Every file this tool created without the '# ' prefix
+    # arrived with 4 prose statements -- memory went from 0 prose to 2 on the
+    # first --apply, and the five apps that already had the file had this same
+    # block commented out by hand earlier the same day.
     lines = ["# Conceptual Data Types", "",
-             "The data type of each value type whose population says what kind of",
-             "atom it is. Derived from the values themselves, not from the names --",
-             "see tools/wall/conceptual-types.py. A value type absent from this list",
-             "is VariableLength, which is NORMA's default and what the corpus was.",
+             "# The data type of each value type whose population says what kind of",
+             "# atom it is. Derived from the values themselves, not from the names --",
+             "# see tools/wall/conceptual-types.py. A value type absent from this list",
+             "# is VariableLength, which is NORMA's default and what the corpus was.",
              "", "## Fact Types", "",
              "Value Type has Conceptual Data Type.", "",
              "## Constraints", "",
