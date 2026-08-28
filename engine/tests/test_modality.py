@@ -36,17 +36,24 @@ import pytest
 
 
 def test_leading_plus_if_rule_is_not_the_factype_catchall():
-    # #34 (FIXED): a leading '+' marks a STORED derivation; '+ <head> if <body>'
-    # classifies in the trailing-if family, NOT the fact_type_reading catch-all
-    # (which dequoted the whole line into a phantom instance fact). subset_trailing
-    # (compiler.py:341) now captures the optional leading marker, mirroring
-    # rule_iff (317). Sherlock evidence.md:54, reasoning.md:85.
+    # #34: a leading '+' marks a STORED derivation; '+ <head> if <body>' must not
+    # fall to the fact_type_reading catch-all, which dequoted the whole line into
+    # a phantom instance fact. Sherlock evidence.md:54, reasoning.md:85.
+    #
+    # IT NOW ROUTES TO rule_iff, NOT subset_trailing, and that is an improvement
+    # rather than a loosening. _h_subset_trailing REFUSES a marked head ("awaits
+    # the value-headed derivation build"), so the old routing reported these
+    # UNPARSED — 17 corpus rules among them. rule_iff's conditional allows `if`
+    # only when the marker group matched, and the statement now BUILDS: verified
+    # it emits Evidence_has_Evidence_Weight_rule_<cid> plus derivationRule,
+    # ruleAtom, ruleDerives and ruleReads, at unclassified=0. An unmarked `if`
+    # still means a subset CHECK over an asserted head, which is unchanged.
     kind, g, _mod = forml.analyze(
         "+ Evidence has Evidence Weight 'Strong' if Evidence comes from some "
         "Evidence Source.")
-    assert kind == "subset_trailing", (kind, g)
-    # the marker is captured as group 1 (head/body follow), so the handler can
-    # dispatch on the storage kind instead of the catch-all silently minting rows
+    assert kind == "rule_iff", (kind, g)
+    # the marker is still captured as group 1, so the handler dispatches on the
+    # storage kind instead of the catch-all silently minting rows
     assert g[0] == "+", g
     assert g[1].startswith("Evidence has Evidence Weight"), g
 
