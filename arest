@@ -12381,6 +12381,16 @@ DEF("auth:ft_of",
                    S3(A("CONS"), A("auth:designation"), K(N(1))))),
              A("id"))))),
 
+"FORML TEXT TO THE ROWS read:parse READS -- the step that had no implementation left. read:row's note calls its input `tokenized sentence rows <indent, token-pairs>, each token a <original, Capitalized> pair -- tokenization and case are the lex boundary externalized`, and externalized meant the fat hosts did it. They are gone, so the fleet could compile a parse and not produce one. Nothing new is needed: lex:parts ALREADY tokenizes exactly as the witnesses do, splitting `(.Nr)` into ( . Nr ) where the registered lex leaves it whole, and cn:pascalw is already the capitaliser. What was missing was only their composition. The trailing period goes because a FORML statement ends in one and the witness rows do not carry it; a sentence that does not end in punctuation would lose a token, which is a grammar the fragment does not admit. MEASURED: 57 of the reader's 59 witness rows are reproduced from reconstructed text BYTE-IDENTICALLY. The two that are not are instance facts carrying QUOTED LITERALS -- 'OSI-1' must stay one token and lex:parts splits it into ' OSI 1 ' -- so populations do not yet round-trip. That is a gap in lex:parts, not in this composition, and it is the third time this session that a quoted span not treated atomically has broken something.",
+DEF("read:tokens_of",
+    S3(A("COMP"), A("theta:butlast"),
+       S3(A("COMP"),
+          S2(A("ALPHA"), S3(A("CONS"), N(1), S3(A("COMP"), A("cn:pascalw"), N(1)))),
+          A("lex:parts")))),
+
+DEF("read:row_of",
+    S3(A("CONS"), K(N(0)), A("read:tokens_of"))),
+
 "THE OUTCOMES THE CREATE EQUATION DISTINGUISHES, which is the part HTTP status is actually derived FROM. AREST.tex:222: create answers <o, D'> where D' is D_r[FILE -> P''] if V has no alethic violation and D otherwise. So the state either advances or it does not, and V can be NON-EMPTY either way, because a deontic violation is reported and still commits (system:validate_modal). Three outcomes, and they come from the theorem rather than from a protocol.",
 DEF("http:outcomes",
     K(S3(A("committed"), A("committed_with_violations"), A("refused")))),
