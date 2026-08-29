@@ -12236,4 +12236,16 @@ DEF("compile:polarity",
        S3(A("COMP"), A("theta:member"), S3(A("CONS"), A("id"), A("compile:positive_kinds"))),
        K(A("in")),
        K(A("out")))),
+
+"WHICH OBJECT EACH CONSTRAINT KIND COMPILES TO. compile:family says which of the paper's two predicate families a kind falls in; this says which canon object actually builds its restriction. system:cs_builders set the precedent for eight set-comparison specs, with a note conceding that the OPERAND SHAPES stayed host -- and the hosts are gone, so the mapping lives here or nowhere. Six of Definition 4's ten kinds map one to one.",
+DEF("compile:builders_direct",
+    K(S6(S2(A("uniqueness"), A("constraints:uniqueness")), S2(A("frequency"), A("constraints:frequency")), S2(A("mandatory"), A("constraints:mandatory")), S2(A("subset"), A("constraints:subset")), S2(A("equality"), A("constraints:equality")), S2(A("exclusion"), A("constraints:exclusion"))))),
+
+"THE TWO KINDS THAT FAN OUT. A ring constraint is not one restriction but eleven -- irreflexive, asymmetric, symmetric, antisymmetric, intransitive, acyclic and the rest -- and a value constraint is an enumeration or a range. The kind alone does not name the object; the kind plus its sub-kind does. Recording the fan-out keeps it from being rediscovered as a missing row.",
+DEF("compile:builders_fanned",
+    K(S2(S2(A("ring"), N(11)), S2(A("value"), N(2))))),
+
+"THE TWO KINDS DEFINITION 4 LISTS AND CANON CANNOT YET BUILD. cardinality has no constraints: object at all, and value_comparison has none either -- its lt/gt/le/ge are filter operators rather than a constraint builder. Written as data because a gap discovered only when a reading fails is a gap nothing can check for. compile: is not complete against Definition 4 until these two have objects, and this is the list of what is owed.",
+DEF("compile:builders_absent",
+    K(S2(A("cardinality"), A("value_comparison")))),
 )
