@@ -80,3 +80,85 @@ test("law:report holds, byte for byte", () => {
   const got = String(Ev("main", [CELLS, []])[0]).trim();
   expect(got).toBe(want);
 }, 900_000);
+
+// ---- IS EACH CANON FILE STILL INTERSECTION SOURCE? -------------------------
+//
+// The discipline: one tuple literal per file, every element either a
+// DEF(name, tree) call or a double-quoted description string, no comments (the
+// comment syntaxes do not intersect), double-quoted strings only, and no
+// trailing comma before the file's closing paren.
+//
+// NOTHING ENFORCED IT after engine/tests went. The check that did --
+// test_intersection_shape.py -- approached the property directly, of the bytes,
+// and its docstring records why that matters: "a file that four of the five
+// hosts accept passes everything, because the fifth host is never pointed at
+// it. That is exactly what happened: the ROOT canon accumulated eight `//`
+// comment lines -- legal Rust, C#, Java and JS, invalid Python -- while only
+// the curated engine/shared/arest.canon was fed to CPython."
+//
+// It used Python's parser as the strictest reader. With python gone no host
+// rejects a `//`, so the rule needs asserting rather than inheriting -- and it
+// was already broken: this session's canon carried the forbidden trailing comma
+// until the byte check went looking for it.
+//
+// These are BYTE rules, not a parser. Whether the file PARSES is already proven
+// by bun exec'ing the composition; what a parse cannot tell you is whether it
+// would still parse somewhere else.
+const CANON_FILES = [
+  join(import.meta.dir, "..", "..", "arest"),
+  join(SHARED, "scenarios.canon"),
+];
+
+function outsideStrings(text) {
+  // blank every double-quoted span so the scans below cannot see a `//` or a
+  // `'` that is part of a description string -- the mistake that made an
+  // earlier corpus sweep destroy three rules it was meant to leave alone
+  let out = "", inStr = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) {
+      if (c === "\\") { out += "  "; i++; continue; }
+      if (c === '"') { inStr = false; out += '"'; continue; }
+      out += c === "\n" ? "\n" : " ";
+      continue;
+    }
+    if (c === '"') { inStr = true; out += '"'; continue; }
+    out += c;
+  }
+  return out;
+}
+
+describe("intersection source", () => {
+  for (const file of CANON_FILES) {
+    const name = file.split(/[\/]/).pop();
+    const text = readFileSync(file, "utf8");
+    const bare = outsideStrings(text);
+
+    test(name + " is one tuple literal", () => {
+      expect(text.trimStart()[0]).toBe("(");
+      expect(text.trimEnd().endsWith(")")).toBe(true);
+    });
+
+    test(name + " has no trailing comma before its closing paren", () => {
+      expect(text.trimEnd().endsWith(",\n)")).toBe(false);
+      expect(/,\s*\)\s*$/.test(text)).toBe(false);
+    });
+
+    test(name + " carries no comment syntax", () => {
+      // `//` is legal in four hosts and not in the fifth; `#` the other way
+      expect(bare.includes("//")).toBe(false);
+      expect(/(^|\n)\s*#/.test(bare)).toBe(false);
+    });
+
+    test(name + " uses double-quoted strings only", () => {
+      expect(bare.includes("'")).toBe(false);
+    });
+
+    test(name + " opens no string it does not close on the same line", () => {
+      // a note is a SINGLE-LINE literal; a multi-line one is a parse error in
+      // every host, and cost this session a whole composed build
+      const bad = text.split("\n").filter((l) => (l.match(/(?<!\\)"/g) || []).length % 2);
+      expect(bad).toEqual([]);
+    });
+  }
+});
