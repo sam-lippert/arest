@@ -12338,6 +12338,13 @@ DEF("compile:statement",
              S3(A("COMP"), A("compile:kind_of_tag"), S3(A("COMP"), N(1), N(3))),
              K(PHI()))))),
 
+"COMPILE, ON A WHOLE PARSE. read:parse answers three slots -- every sentence as <ftid, players>, then the READINGS as <ftid, players, uniqueness-spans, mandatory-spans, compact>, then the TAGGED records -- and compile:model answers the two halves that carry meaning: the readings, which declare fact types and their attached spans, and the compiled statements, one row each. AREST.tex:72 is the pipeline (R -> parse -> compile -> S subset of DEFS) and :329 makes the store step ordinary: the addressed entity is DEFS and the operation is compile . parse. Slot [0] is not carried: it is every sentence undifferentiated, which slots [1] and [2] already partition, so folding it in would double-count every statement.",
+DEF("compile:statements",
+    S3(A("COMP"), S2(A("ALPHA"), A("compile:statement")), N(3))),
+
+DEF("compile:model",
+    S3(A("CONS"), N(2), A("compile:statements"))),
+
 "THE ENTRY THAT TAKES A SUB-KIND. compile:builder answers from the kind alone and is the degenerate case -- eight of the ten need nothing more. This is the whole map: try the direct row, then ring by computed name, then value by table, then refuse. The refusal stays the empty sequence at every arm, so an unadmitted ring kind and an unknown value shape are as visibly not-here as an unadmitted constraint kind, which is Definition 5 holding one level down.",
 DEF("compile:builder_of",
     S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("compile:builder"), N(1))),
