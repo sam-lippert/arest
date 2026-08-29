@@ -25,7 +25,10 @@ const parts = [
   join(here, "mid3.part.js"),
   join(oracle, "journal"),
   join(here, "mid4.part.js"),
-  join(here, "test-tail.part.js"),
+  // the tail is the ONLY thing that varies between what this composes: the
+  // test module exposes the evaluator, the serving module binds a socket, and
+  // both run the same canon over the same carriers. `bun build-test.js serve`
+  join(here, (process.argv[2] === "serve" ? "serve-tail" : "test-tail") + ".part.js"),
 ];
 
 const chunks = [];
@@ -48,5 +51,5 @@ if (out.length < 1_000_000) {
   console.error("composition is " + out.length + " bytes; canon alone is over 1MB");
   process.exit(1);
 }
-writeFileSync(join(here, "cases.g.js"), out);
-console.log("cases.g.js: " + out.length + " bytes from " + parts.length + " parts");
+writeFileSync(join(here, (process.argv[2] === "serve" ? "serve" : "cases") + ".g.js"), out);
+console.log((process.argv[2] === "serve" ? "serve" : "cases") + ".g.js: " + out.length + " bytes from " + parts.length + " parts");
