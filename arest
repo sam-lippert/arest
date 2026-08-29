@@ -12381,6 +12381,24 @@ DEF("auth:ft_of",
                    S3(A("CONS"), A("auth:designation"), K(N(1))))),
              A("id"))))),
 
+"THE OUTCOMES THE CREATE EQUATION DISTINGUISHES, which is the part HTTP status is actually derived FROM. AREST.tex:222: create answers <o, D'> where D' is D_r[FILE -> P''] if V has no alethic violation and D otherwise. So the state either advances or it does not, and V can be NON-EMPTY either way, because a deontic violation is reported and still commits (system:validate_modal). Three outcomes, and they come from the theorem rather than from a protocol.",
+DEF("http:outcomes",
+    K(S3(A("committed"), A("committed_with_violations"), A("refused")))),
+
+"THE NUMERIC CODES ARE A CONVENTION AND ARE SAID TO BE ONE. The paper fixes almost nothing about HTTP -- one sentence, :110, `A POST /orders request creates an Order and returns its status with the actions available from it` -- and nothing at all about status codes. So this table is a DECLARATION in the sense auth:default_policy is: a decision written down where it can be read and changed, not a derivation dressed up as one. 201 for a commit that added a fact, 200 for a commit carrying reported deontic violations in the representation, 409 for an alethic refusal because the state conflicts with a declared constraint rather than the request being malformed.",
+DEF("http:status",
+    K(S3(S2(A("committed"), N(201)),
+         S2(A("committed_with_violations"), N(200)),
+         S2(A("refused"), N(409))))),
+
+"WHICH ROUTE KIND A METHOD ADDRESSES. Theorem 2 partitions links(e) into transitions (kind i) and nav (kind ii), `disjoint by their operation kind`, and this is the HTTP spelling of that partition -- the only part of the mapping the sources determine. GET reaches a nav route because following one retrieves a peer and changes nothing; POST reaches a transition because :110 has POST creating and a fired trigger fact is what advances a machine. PUT, PATCH and DELETE have no row: the fragment admits no route they name, and an absent row refuses rather than guessing, which is Definition 5 one level up.",
+DEF("http:method_kinds",
+    K(S2(S2(A("GET"), A("nav")), S2(A("POST"), A("transition"))))),
+
+"MEDIA TYPE TO RENDERER. ui:render dispatches by rho-application to render:<control>, and canon already defines render:json, render:json_atom and render:json_seq -- the JSON representation was never a host concern. One row, because one renderer exists; a second media type is a second render: DEF and a row beside this one, not a branch anywhere.",
+DEF("http:media_renderers",
+    K(S1(S2(A("application/json"), A("render:json"))))),
+
 "WHAT OPERATION A LINK OFFERS. Theorem 2 splits links(e) into two route kinds that are `disjoint by their operation kind`, and the two are told apart by ARITY in the answer itself: a nav link is <entity, peer> and a transition link is <from-status, event, to-status>. A transition's operation is its EVENT -- the label the client would follow -- and a nav link's is a read, because following one retrieves a peer and changes nothing. So the same restriction covers both without a second path.",
 DEF("auth:op_of_link",
     S4(A("COND"),
