@@ -12242,9 +12242,20 @@ DEF("compile:builders_direct",
     K(S8(S2(A("uniqueness"), A("constraints:uniqueness")), S2(A("frequency"), A("constraints:frequency")), S2(A("mandatory"), A("constraints:mandatory")), S2(A("subset"), A("constraints:subset")), S2(A("equality"), A("constraints:equality")), S2(A("exclusion"), A("constraints:exclusion")), S2(A("value_comparison"), A("constraints:value_comparison")), S2(A("cardinality"), A("constraints:cardinality"))))),
 
 DEF("compile:builders_variant",
-    K(S3(S2(A("spanning_uniqueness"), A("constraints:uniqueness")),
+    K(S4(S2(A("spanning_uniqueness"), A("constraints:uniqueness")),
          S2(A("disjunctive_mandatory"), A("constraints:inclusive_or")),
-         S2(A("exclusive_or"), A("constraints:exclusive_or"))))),
+         S2(A("exclusive_or"), A("constraints:exclusive_or")),
+         S2(A("deontic_forbidden"), A("constraints:deontic_forbidden"))))),
+
+"MODALITY IS AN ATTRIBUTE, NOT A KIND, AND ALSO A DIFFERENT OBJECT. Definition 4 says each constraint is alethic OR deontic -- one constraint carrying a modality -- while metamodel/core.md:382 lists 'deontic' among the ten families and the store records deontic_obligatory and deontic_forbidden as kinds, 439 of them. Both readings are defensible and this keeps them apart rather than picking one: the MODALITY is read off the tag here, and the tag still names a builder in the variant table, because a deontic restriction really is a different object -- system:validate_modal reports a deontic violation and COMMITS where an alethic one blocks, so they cannot share one. What the store calls a kind is a kind-plus-modality, and only the second half of that was ever missing.",
+DEF("compile:deontic_tags",
+    K(S2(A("deontic_obligatory"), A("deontic_forbidden")))),
+
+DEF("compile:modality_of_tag",
+    S4(A("COND"),
+       S3(A("COMP"), A("theta:member"), S3(A("CONS"), A("id"), A("compile:deontic_tags"))),
+       K(A("deontic")),
+       K(A("alethic")))),
 
 "THE TWO KINDS THAT FAN OUT, and they fan out differently. Ring's sub-kinds are NAMED -- read:ring_kinds is the vocabulary, six of them, and every one has a constraints:ring_<kind> object -- so the builder is a name COMPUTED by prefixing, not a table row, which is what read:ring_tag already does one prefix short. Value's two are told apart by the SHAPE of the spec instead: a list of admitted values against a low/high pair, which is why they need a table where ring needs none. This row said `ring x11` when it held arities as a placeholder; eleven counted the constraints:ring_* DEFs, five of which are machinery (swapin, neq, wrap, chains, closure) rather than kinds.",
 DEF("compile:builders_fanned",
