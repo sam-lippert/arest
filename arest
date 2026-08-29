@@ -12248,4 +12248,10 @@ DEF("compile:builders_fanned",
 "THE TWO KINDS DEFINITION 4 LISTS AND CANON CANNOT YET BUILD. cardinality has no constraints: object at all, and value_comparison has none either -- its lt/gt/le/ge are filter operators rather than a constraint builder. Written as data because a gap discovered only when a reading fails is a gap nothing can check for. compile: is not complete against Definition 4 until these two have objects, and this is the list of what is owed.",
 DEF("compile:builders_absent",
     K(S2(A("cardinality"), A("value_comparison")))),
+
+"THE LOOKUP THAT MAKES THE TABLE THE DISPATCH. Without this the rows only DESCRIBE a dispatch that something else performs, which is how the map came to be host control flow in the first place. theta:find_desc already is the lookup -- distl the key over the rows, fold with theta:keep_named, take the first match -- so the whole of compile:builder is the miss case: a kind with no direct row answers the empty sequence, not a default. That is Definition 5 again, and it is the same refusal compile:family gives, so a fanned kind (ring, value) and an absent one (cardinality, value_comparison) are both simply not here yet rather than silently mapped to something plausible.",
+DEF("compile:builder",
+    S3(A("COMP"),
+       S4(A("COND"), A("null"), S2(A("CONST"), PHI()), N(2)),
+       S3(A("COMP"), A("theta:find_desc"), S3(A("CONS"), A("id"), A("compile:builders_direct"))))),
 )
