@@ -197,8 +197,18 @@ public class Gui {
     }
 
     public static void main(String[] args) {
-        Composed.load();
-        Composed.loadCarriers();
+        // READ, not compiled in — the move Program.java already made and this
+        // container did not. Composed.g.java was 2.16 MB of generated source
+        // that python compose.py produced and javac chewed on every canon edit;
+        // a parser has no such cap, and canon stays STATE (AREST.tex:59) rather
+        // than object code a station cannot be handed a different D of.
+        // Order matches the js concatenation: canon, then the carriers.
+        // Composed.loadCarriers() loaded DS/NA/J, so scenarios is not among them
+        // and the journal is legitimately empty until a transition fires.
+        Reader.load(Reader.path("AREST_CANON", "../../arest"));
+        Reader.load(Reader.path("AREST_DESIGN_STATE", "../norma-oracle/design-state"));
+        Reader.load(Reader.path("AREST_NORMA_ANSWER", "../norma-oracle/norma-answer"));
+        Reader.load(Reader.path("AREST_JOURNAL", "../norma-oracle/journal"));
         store = Arest.CELLS.toArray();
         Object[] style = (Object[]) Arest.Ev(
             new Object[] { "COMP", "theta:flatten", "ui:style" }, new Object[0]);

@@ -5,10 +5,16 @@ js-runner's head point for point). No law semantics, no mode names, no
 rendering decisions live here; if a guard or a name list ever appears in
 this directory, delete it — accretion is how the first fleet died.
 
-    python compose.py ../../arest <design-state> <norma-answer> <journal> Composed.g.java
-    javac -encoding UTF-8 Arest.java Program.java Gui.java Composed.g.java
+    javac -encoding UTF-8 Arest.java Reader.java Program.java Gui.java
     java -cp . Program [mode…]     # console container: THE HOST CONTRACT
     java -cp . Gui                 # GUI container: registered components
+
+There is no compose step. Both containers READ the canon and the carriers at
+runtime through `Reader`, so a canon edit needs no rebuild — and canon stays
+STATE, which AREST.tex:59 requires of D: a station holding it as object code
+cannot be handed a different one. `compose.py` produced a 2.16 MB
+`Composed.g.java` that javac chewed on every edit, because the JVM caps a method
+at 64 KB and the canon is one 1.1 MB tuple. A parser has no such cap.
 
 ## Program — the console container
 
