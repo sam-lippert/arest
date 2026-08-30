@@ -14,6 +14,7 @@
 import { expect, test, describe } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { Database } from "bun:sqlite";
 
 import "./cases.g.js";
 const { Ev, CELLS } = globalThis.AREST;
@@ -69,7 +70,7 @@ describe("every case answers what the canon says it answers", () => {
 // that is a change to the expectation, and this is where it gets noticed.
 // 18 since case:unknown-form-refuses joined them: a recipe form that names no
 // entry in derive:forms must REFUSE, because the thing it replaced -- a COND
-// chain whose final else was the join -- silently treated an unrecognised form
+// chain whose final else was the join -- silently treated an unrecognized form
 // AS a join, and a transitive closure stopped closing.
 test("the golden still expects exactly 18 refusals", () => {
   const refused = [...cases.values()].filter((v) => v === "<refused>");
@@ -84,6 +85,35 @@ test("law:report holds, byte for byte", () => {
   const got = String(Ev("main", [CELLS, []])[0]).trim();
   expect(got).toBe(want);
 }, 900_000);
+
+// ---- DOES CANON'S RELATIONAL MAPPING PROJECT TO A REAL DATABASE? -----------
+//
+// rmap:ddl renders the mapping as CREATE TABLE. Asserting the text against a
+// golden would only pin the text; what matters is whether SQLite ACCEPTS it,
+// which is a question no string comparison answers. So the test runs it.
+//
+// This is the leg that went out with the fat hosts (engine/python's
+// ddl.project(D, con) and the rust resident's `sql` verb) and it was never
+// fat-host work -- canon derives the schema, the host only opens a file. The
+// pieces were always here: rmap:ddl_table and rmap:ddl_order existed with NO
+// caller, so nothing walked the schema and nothing noticed.
+test("canon's DDL is a database SQLite will accept", () => {
+  const sql = String(Ev("rmap:ddl", CELLS));
+  expect(sql).toContain("CREATE TABLE IF NOT EXISTS");
+
+  const db = new Database(":memory:");
+  db.run(sql);                                    // throws on invalid SQL
+  const tables = db
+    .query("select name from sqlite_master where type = ?")
+    .all("table")
+    .map((r) => r.name);
+
+  // every table canon names must exist in the database it just described
+  for (const name of Ev("rmap:tables", CELLS)) {
+    expect(tables).toContain(String(name));
+  }
+  expect(tables.length).toBeGreaterThan(0);
+});
 
 // ---- IS EACH CANON FILE STILL INTERSECTION SOURCE? -------------------------
 //

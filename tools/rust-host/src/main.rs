@@ -1,15 +1,15 @@
-// rust-station — the fourth thin mu, mirroring tools/js-runner/head.part.js
+// rust-host — the fourth thin mu, mirroring tools/js-runner/head.part.js
 // point for point (as tools/java-runner/Arest.java and tools/cs-runner/Mu.cs
 // already do). No law semantics live here: the laws are canon DEFs, and if a
 // guard or a mode name ever appears in this file, delete it — accretion is how
 // the first two js runners died.
 //
 // WHY THIS EXISTS. engine/rust is 19,664 lines and had drifted from its own
-// documented behaviour: README.md's known-good table records "1,000 fetches on
+// documented behavior: README.md's known-good table records "1,000 fetches on
 // D: 337 us (0.34 us per fetch, since Map is O(1))", while its NEval resolved
 // every named application with `self.cells.iter().find(..)` — a linear scan.
 // That pipeline is measured under 700 ms on 414 KB of readings; the same host
-// could not finish a 230 KB metamodel compile in 900 s. A station is ~500
+// could not finish a 230 KB metamodel compile in 900 s. A host is ~500
 // lines, not ~19,000, and byte-identity against the other three certifies it.
 //
 // TRANSLITERATED FROM Arest.java, NOT from engine/rust. The two mus are
@@ -19,7 +19,7 @@
 // throws on anything else. They agree on canon, which only uses the seven, but
 // only the js shape is certified byte-identical, so that is the shape copied.
 // engine/rust's prims also ride a richer Leaf (F, AppTag) and a resolve_def
-// override table a station must not have.
+// override table a host must not have.
 //
 // The canon and carriers are include!d AS SOURCE and compiled: each file is
 // ONE tuple literal (include! takes a single expression) whose DEF side effects
@@ -103,7 +103,7 @@ fn join_text(x: &V) -> String {
 // THE MEMO KEY — by REFERENCE for sequences, by value for atoms, mirroring
 // what a JS Map does natively (`EVMEMO` keys arrays by object identity). This
 // is deliberately NOT the structural key below: an operand is routinely the
-// whole store, so serialising it per call costs more than the reduction it was
+// whole store, so serializing it per call costs more than the reduction it was
 // meant to save. That mistake cost 9m54s for 25 laws before it was measured.
 // js reaches the same place via `chain = len<=4 ? [len, ...x] : [-1, x]`, whose
 // array entries are identity-keyed.
@@ -207,7 +207,7 @@ fn DEF(name: &str, body: V) -> V {
 // Backus 11.2.3's primitives, transliterated from Arest.java one for one. Each
 // edge is the certified one: `tl` on empty panics, `strip_prefix` needs a
 // STRICTLY longer subject, `ntoa` refuses a non-number, the char ops are ASCII
-// on every station.
+// on every host.
 fn prim(name: &str, x: &V) -> Option<V> {
     let r = match name {
         "id" => x.clone(),
@@ -233,7 +233,7 @@ fn prim(name: &str, x: &V) -> Option<V> {
         // 11.2.3 base functions. All three were referenced by canon and
         // registered only by the python host, so the DEFs using them
         // (constraints:vr_lo, system:keep_first, system:ftid, ...) answered
-        // bottom on every station.
+        // bottom on every host.
         "lt" => { let p = seq(x); boolv(cmp_atoms(&p[0], &p[1]) == std::cmp::Ordering::Less) }
         "reverse" => { let l = seq(x); q(l.iter().rev().cloned().collect()) }
         "trans" => { let rows = seq(x);
@@ -251,7 +251,7 @@ fn prim(name: &str, x: &V) -> Option<V> {
         "/" => { let p = seq(x); V::I(int_of(&p[0]) / int_of(&p[1])) }
         "apply" => { let p = seq(x); ev(&p[0], &p[1]) }
         // lex yields TOKEN-RECORDS, ten fields per token, as
-        // metamodel/resolution.md types it. This station answered a flat word
+        // metamodel/resolution.md types it. This host answered a flat word
         // list, so canon's system: family (sqlname field 5 of token 1,
         // rp_step field 8, cf_dropw field 1) read CHARACTERS here and FIELDS
         // in the engine kernels. Fields: tok, nopunct, base, ordinal-suffix,
@@ -338,8 +338,8 @@ fn text_of(x: &V) -> String {
 
 // ============================ FASTPRIMS ======================================
 // Compiled forms of hot canon list cells. The DEF stays the meaning; the head
-// evaluates its EXTENSIONAL EQUAL and the wall certifies identity. Measured
-// necessity on the js station with the same canon bytes: memo off -> ZERO laws
+// evaluates its EXTENSIONAL EQUAL and the unit tests certify identity. Measured
+// necessity on the js host with the same canon bytes: memo off -> ZERO laws
 // in 120s; FASTPRIMS off -> ZERO laws in 300s; both on -> 53 laws in 49.7s.
 // Neither alone suffices, which is exactly why java and cs would not finish.
 fn fastprim(name: &str, x: &V) -> Option<V> {
@@ -527,18 +527,18 @@ fn ev(f: &V, x: &V) -> V {
 
 // ============================ the canon and carriers =========================
 // THE canon, at the repo root — not a curated copy. Each carrier is likewise
-// one tuple literal, appearing AS SOURCE exactly as the js station concatenates
+// one tuple literal, appearing AS SOURCE exactly as the js host concatenates
 // it and the cs csproj copy /b's it.
 // compose.py's chunked projection of the canon: the same bytes, split at the
 // tuple's top-level commas into fn bodies so LLVM sees many small functions
-// instead of one 1.7 MB expression it cannot finish optimising.
+// instead of one 1.7 MB expression it cannot finish optimizing.
 // ============================ the canon VOCABULARY ============================
 // Canon is intersection source: ONE file that is simultaneously valid in every
 // host language, so that each host's OWN COMPILER reads it. These constructors
 // are what make that true here, and they mirror js head.part.js exactly -- A is
 // the atom itself, N the selector, K a CONST pair, PHI the empty sequence,
 // S1..S9 the sequence family (Backus 13.2 rule 4, chunked at nine because a
-// station carries no variadics).
+// host carries no variadics).
 //
 // THIS REPLACES A RUNTIME PARSER, and that is the point. Reading canon at run
 // time with a hand-written reader throws away the entire reason canon is shaped
@@ -572,16 +572,16 @@ fn ev(f: &V, x: &V) -> V {
 include!(concat!(env!("OUT_DIR"), "/canon.rs"));
 
 // The cross-host case table rides in the same composed binary here for the
-// same reason it does on the other three stations (js midcases.part.js, java
+// same reason it does on the other three hosts (js midcases.part.js, java
 // compose.py's 6th arg -> SC inside loadCarriers, cs midcases.part): canon
 // `main`'s `case <name>` mode resolves the row by solve:cell over CELLS, so a
-// station whose CELLS carry no case: cells refuses every row.
+// host whose CELLS carry no case: cells refuses every row.
 //
-// THIS WAS MISSING, and it was invisible: rust-station is not in stations.sh's
+// THIS WAS MISSING, and it was invisible: rust-host is not in hosts.sh's
 // default AREST_STATIONS ("js java cs"), so when the case table was wired into
 // the other three the fourth was simply never run, and conjunct 2 looked
 // finished at 3/4. Turning rust on printed "rust: 102 refused, 0 answered" --
-// not disagreement, total silence, which is the signature of a station that
+// not disagreement, total silence, which is the signature of a host that
 // cannot see the questions rather than one that answers them differently.
 // Loading it AFTER canon and BEFORE the carriers matches the js concatenation
 // order exactly, so the composed store stays byte-equal.
@@ -592,7 +592,7 @@ fn load_canon() {
 // The carriers are chunked the same way and for the same reason (the base
 // design-state alone is 560 KB). The base journal is empty, and an empty
 // CANON("journal") registers nothing, so there is no third carrier here — the
-// composed store is byte-equal to the js station's on these carriers.
+// composed store is byte-equal to the js host's on these carriers.
 fn load_carriers() {
     // the carriers are compiled in with canon, in the js concatenation order
 }
@@ -635,7 +635,7 @@ fn main() {
 // against engine/shared/expected-cases.tsv and agreement follows because they
 // all match the same file. Verifying this host needs cargo and nothing else.
 //
-// No crate is added for it. The station's Cargo.toml says a station carries no
+// No crate is added for it. The host's Cargo.toml says a host carries no
 // dependencies on purpose, and a JSON string is twelve lines of unescaping.
 // ---------------------------------------------------------------------------
 #[cfg(test)]
