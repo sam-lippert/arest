@@ -815,7 +815,31 @@ function run_sql() {
 
 // The mode is the only thing the build chooses; everything else is identical,
 // which is the point of there being one file.
+// D CONTAINS FILE. Definition 1 of the paper: an AREST system is a Backus AST
+// system whose FILE cell contains a population P of a schema S -- Backus carries
+// a FILE cell and declines to structure it, Codd supplies the structure, Halpin
+// the design, and that hole is what AREST fills. ast:File builds it, one
+// relational cell per entity (RMAP: the 3NF row of facts depending on its key).
+//
+// Nothing called it. Its only caller was law:filecells -- a law that builds FILE
+// to check it, while the runtime never built one -- so every composed store had
+// FILE = "#", every population lookup fell through ast:FetchPop's fallback and
+// found nothing, status(e) was unknown, and links(e) was empty for every entity
+// that ever had a state machine.
+//
+// This is the load step, and it belongs beside loading the carriers: the host
+// composes the store, and a store without FILE is not one. Canon decides what
+// FILE IS; this only puts it there, before the first evaluation, and clears the
+// memo at the mutation point as the note above requires.
+function loadFile() {
+  if (Ev("ast:fetch", ["FILE", CELLS]) !== "#") return;   // already carried
+  const built = Ev("ast:File", Ev("store:state", CELLS));
+  for (const cell of built) CELLS.unshift(cell);
+  memoClear();
+}
+
 function boot(mode) {
+  loadFile();
   if (mode === "test") return run_test();
   if (mode === "serve") return run_serve();
   if (mode === "mcp") return run_mcp();
