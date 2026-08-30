@@ -13,6 +13,12 @@ const here = import.meta.dir;
 const root = join(here, "..", "..");
 const oracle = join(here, "..", "norma-oracle");
 
+// which last step, and what it is called on disk. A tail is transport only:
+// none of them may branch on a verb, a method or a status.
+const TAIL = { serve: "serve-tail", mcp: "mcp-tail" };
+const OUT = { serve: "serve", mcp: "mcp" };
+const mode = process.argv[2];
+
 const parts = [
   join(here, "head.part.js"),
   join(root, "arest"),
@@ -26,9 +32,10 @@ const parts = [
   join(oracle, "journal"),
   join(here, "mid4.part.js"),
   // the tail is the ONLY thing that varies between what this composes: the
-  // test module exposes the evaluator, the serving module binds a socket, and
-  // both run the same canon over the same carriers. `bun build-test.js serve`
-  join(here, (process.argv[2] === "serve" ? "serve-tail" : "test-tail") + ".part.js"),
+  // test module exposes the evaluator, the serving module binds a socket, the
+  // mcp module speaks JSON-RPC over stdio, and all three run the same canon
+  // over the same carriers. `bun build-test.js serve` / `... mcp`
+  join(here, TAIL[mode] || "test-tail") + ".part.js",
 ];
 
 const chunks = [];
@@ -51,5 +58,5 @@ if (out.length < 1_000_000) {
   console.error("composition is " + out.length + " bytes; canon alone is over 1MB");
   process.exit(1);
 }
-writeFileSync(join(here, (process.argv[2] === "serve" ? "serve" : "cases") + ".g.js"), out);
-console.log((process.argv[2] === "serve" ? "serve" : "cases") + ".g.js: " + out.length + " bytes from " + parts.length + " parts");
+writeFileSync(join(here, (OUT[mode] || "cases") + ".g.js"), out);
+console.log((OUT[mode] || "cases") + ".g.js: " + out.length + " bytes from " + parts.length + " parts");
