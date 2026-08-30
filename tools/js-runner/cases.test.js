@@ -67,9 +67,13 @@ describe("every case answers what the canon says it answers", () => {
 // them by re-evaluating all 566 doubles the suite to prove nothing new. The
 // risk that remains is a golden REGENERATED with more refusals than it had --
 // that is a change to the expectation, and this is where it gets noticed.
-test("the golden still expects exactly 17 refusals", () => {
+// 18 since case:unknown-form-refuses joined them: a recipe form that names no
+// entry in derive:forms must REFUSE, because the thing it replaced -- a COND
+// chain whose final else was the join -- silently treated an unrecognised form
+// AS a join, and a transitive closure stopped closing.
+test("the golden still expects exactly 18 refusals", () => {
   const refused = [...cases.values()].filter((v) => v === "<refused>");
-  expect(refused.length).toBe(17);
+  expect(refused.length).toBe(18);
 });
 
 // 53 laws over the composed store is minutes, not milliseconds -- it is the

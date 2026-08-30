@@ -12,6 +12,8 @@
     "build:autodev": "cmd /c copy /b /y head.part.js + ..\\..\\arest + mid1.part.js + ..\\..\\..\\apps\\auto.dev\\design-state + mid2.part.js + ..\\..\\..\\apps\\auto.dev\\norma-answer + mid3.part.js + ..\\..\\..\\apps\\auto.dev\\journal + mid4.part.js + tail.part.js composed.g.js >nul",
     "start": "bun composed.g.js",
     "build:test": "bun build-test.js",
+    "build:mcp": "bun build-test.js mcp",
+    "build:serve": "bun build-test.js serve",
     "test": "bun run build:test && bun test"
   }
 }

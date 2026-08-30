@@ -2,16 +2,10 @@
   "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/sdk/main/schemas/mcp.json",
   "mcpServers": {
     "arest": {
-      "description": "AREST engine 0.9.0, served by the RUST RESIDENT (arest --mcp). 40 verbs: reads, applies, orient/cells/query/derive compute natively over the retained sidecar store; the compiler-host verbs (compile/propose/induce/ask, sql, the read long tail) delegate to the same engine's python through cli.py — one first-class verb table, two bindings. Bound to the DEBUG build on purpose: release takes ~45min and debug ~2min, and this binary is meant to be changed constantly. Canon IS compiled in: main.rs include!s the repo-root arest and shared/scenarios.canon as source, so rustc is the canon reader and a canon edit costs the same ~1m30 debug rebuild a host edit does. The claim that stood here -- read from disk at startup, a restart not a rebuild -- was wrong, and it is the reason a runtime canon reader is still open on BOTH rust lineages rather than only the thin station.",
-      "command": "engine/rust/target/debug/arest.exe",
+      "description": "AREST engine, served by the thin js host. 18 verbs, ALL OF THEM CANON: mcp:verbs answers the table and mcp:call applies one by name, which is metacomposition (Backus 11.3) rather than a dispatch table, so tools/list and tools/call carry no branch per verb and a verb added to canon is served without touching any host. This replaces the rust resident that carried 40 hand-written verbs and delegated the rest to python through cli.py: engine/rust and engine/python are deleted, that binary no longer exists, and there is no python anywhere in this path. Build it with `bun build-test.js mcp` in tools/js-runner -- the module is composed by byte concatenation from the same canon and carriers the test and serving modules use, so it is the same engine, not a port of it.",
+      "command": "bun",
       "args": [
-        "--mcp",
-        "--apps-dir",
-        "C:/Users/lippe/Repos/apps",
-        "--python",
-        "python",
-        "--py-cli",
-        "engine/cli.py"
+        "tools/js-runner/mcp.g.js"
       ]
     }
   }

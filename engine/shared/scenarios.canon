@@ -2099,5 +2099,23 @@ DEF("case:cannot-produce-join-fires", S2(A("derive:cannot_produce"),
 "AND IT IS SKIPPABLE ONLY WHEN BOTH SIDES ARE STILL. Neither source has a delta, so neither term of the arm can contribute a row.",
 DEF("case:cannot-produce-join-both-still", S2(A("derive:cannot_produce"),
     S2(S2(A("H"), S4(A("join"), A("F1"), A("F2"), S1(N(1)))),
-       S2(PHI(), PHI()))))
+       S2(PHI(), PHI())))),
+"TWO CASES PIN derive:any_reads, the test that decides whether a create needs a fixpoint at all. A wrong F here does not fail loudly -- it silently leaves facts underived -- and this session watched the case gate pass two wrong versions of the sibling test, so the decision is pinned directly. The rule set is one join reading F1 and F2.",
+DEF("case:any-reads-hit", S2(A("derive:any_reads"),
+    S2(S1(A("F2")),
+       S1(S2(A("H"), S4(A("join"), A("F1"), A("F2"), S1(N(1)))))))),
+"AND A CELL NO RULE READS CANNOT MAKE ONE FIRE, which is the whole saving: the store is already at its fixpoint by law derive-fixpoint, so if no source changed, no rule can produce.",
+DEF("case:any-reads-miss", S2(A("derive:any_reads"),
+    S2(S1(A("F9")),
+       S1(S2(A("H"), S4(A("join"), A("F1"), A("F2"), S1(N(1)))))))),
+"mcp:tools IS NOT PINNED BY A CASE, and that is a real gap rather than an oversight. The two cases that stood here pinned a hand-written verb table -- a count and a first row -- and the table is gone: the tool surface is now derived from the store, so pinning it needs a store, and a case operand is a literal. What checks it today is only the server answering 24 tools. Everything this session learned about structural coverage says that is not enough."
+,
+"THE FORM TABLE CLOSES THE TAG SET, and these pin it. delta_eval used to be a COND chain whose final else was the join, so a recipe form nobody recognised did not refuse -- it QUIETLY BECAME A JOIN. That is how a transitive closure stopped closing this session, caught by law rules-reproduce and by none of the cases. Now the tag resolves through derive:forms or it resolves to nothing.",
+DEF("case:form-lookup", S2(
+    S3(A("COMP"), A("theta:find_desc"),
+       S3(A("CONS"), S2(A("CONST"), A("joinon")), A("derive:forms"))),
+    PHI())),
+"AND A FORM THAT NAMES NOTHING REFUSES RATHER THAN JOINING. This case is one of the deliberate refusals: it is here to fail loudly if the fallback ever comes back.",
+DEF("case:unknown-form-refuses", S2(A("derive:delta_eval"),
+    S2(S2(A("bogus"), A("F1")), S2(PHI(), PHI()))))
 )
