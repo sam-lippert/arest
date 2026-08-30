@@ -2,7 +2,7 @@
 // valid in every host language, so that each host's OWN COMPILER reads it.
 // This is what makes that true for rustc, and it is BUILD TIME ONLY -- canon on
 // disk is one unsplit file and is never touched. What is emitted here is a
-// build artifact in OUT_DIR, exactly as the js station's .g.js is.
+// build artifact in OUT_DIR, exactly as the js host's .g.js is.
 //
 // WHY IT HAS TO CHUNK AT ALL, measured rather than assumed. rustc's cost is
 // quadratic in the SOURCE LENGTH of one function body, so canon compiled as a
@@ -36,7 +36,7 @@
 // name and never evaluates anything. Every canon byte is emitted verbatim; only
 // the tuple's top-level commas become statement boundaries. REGISTRATION ORDER
 // IS THE CONTRACT -- CELLS is built in DEF order and the composed store must
-// stay byte-equal to the other three stations, so the chunk fns are called in
+// stay byte-equal to the other three hosts, so the chunk fns are called in
 // source order and the files in the js concatenation order.
 use std::fmt::Write as _;
 use std::path::Path;
@@ -95,7 +95,7 @@ fn top_level(body: &str) -> Vec<&str> {
 /// THE ONE REWRITE, and it is not a canon concern: NORMA's serializer emits an
 /// arity-free `S(a, b, c, ...)` for the carriers, because "a sequence must stay
 /// FLAT regardless of length, so that length is never encoded as depth" -- depth
-/// already means tenancy (backus78 14.7). Canon itself never uses it: it honours
+/// already means tenancy (backus78 14.7). Canon itself never uses it: it honors
 /// the S1..S9 ceiling, and greps 0 here against 20 in design-state and 4 in
 /// norma-answer. Rust has no variadics, so `S(` becomes `Sv(vec![`. Still syntax
 /// only -- every byte between the parens is untouched.
@@ -157,7 +157,7 @@ fn rewrite_variadic_s(text: &str) -> (String, usize) {
 /// design-state has TWENTY-SEVEN elements with a median of 10 KB and a maximum
 /// of 153 KB, and norma-answer has FOUR -- grouping those into sixteens leaves
 /// one function body of a quarter megabyte, which is the very thing chunking
-/// exists to avoid. Measured: element-count chunks built the station in 18m57s.
+/// exists to avoid. Measured: element-count chunks built the host in 18m57s.
 ///
 /// So an oversized ARGUMENT is lifted into its own fn and called in place. This
 /// runs on the RAW form, where every item is a uniform Name(args): the variadic

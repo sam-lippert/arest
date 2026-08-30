@@ -1,5 +1,5 @@
 // ============================================================================
-// js-runner — the composed checker, JavaScript PARITY station.
+// js-runner — the composed checker, JavaScript PARITY host.
 //
 // A STRICT mu that mirrors tools/cs-runner/{Vocabulary,Mu}.cs point for
 // point: a selector on an atom throws, a duplicate DEF throws, a comparison
@@ -8,7 +8,7 @@
 // it lacked, the leniency that once let a selector index a string to the
 // character "F" and let ins_asc "sort" stringified arrays. Green under one mu
 // is not green; this is the second, independent mu, and agreement between it
-// and the C# station is the parity dividend made standing.
+// and the C# host is the parity dividend made standing.
 //
 // This is a PARITY ORACLE, not a runner to iterate on. Both predecessors died
 // of accretion (fallback name lists, guards, app-mode logic, comparison logic
@@ -112,9 +112,9 @@ const PRIMS = new Map(Object.entries({
   "and": x => bool(at(x,0) === "T" && at(x,1) === "T"),
   "length": x => seq(x).length,
   // lt / reverse / trans are Backus 11.2.3 base. They were added to the java,
-  // cs and rust stations and MISSED here, so this head alone could not reduce
+  // cs and rust hosts and MISSED here, so this head alone could not reduce
   // them — invisible to the law report, which never routes through them, and
-  // invisible to the station diff until the case table crossed the lineages.
+  // invisible to the host diff until the case table crossed the lineages.
   "lt": x => bool(cmp(at(x,0), at(x,1)) < 0),
   "reverse": x => seq(x).slice().reverse(),
   "trans": x => { const rows = seq(x);
@@ -122,7 +122,7 @@ const PRIMS = new Map(Object.entries({
     const w = seq(rows[0]).length;
     const out = [];
     // at() bounds-checks, so a RAGGED input refuses here exactly as it does
-    // on the other stations and in python; indexing raw would answer a row
+    // on the other hosts and in python; indexing raw would answer a row
     // holding undefined, which is not a value in the atom domain at all.
     for (let c = 0; c < w; c++) out.push(rows.map(r => at(r, c)));
     return out; },
@@ -145,7 +145,7 @@ const PRIMS = new Map(Object.entries({
   "apply": x => Ev(at(x,0), at(x,1)),
   // lex yields TOKEN-RECORDS, ten fields per token, exactly as
   // metamodel/resolution.md types it. This head answered a flat word list, as
-  // did the java, cs and rust stations, so canon's system: family — sqlname
+  // did the java, cs and rust hosts, so canon's system: family — sqlname
   // (5 . 1 . lex . slug, the 5th FIELD of token 1), rp_step (field 8, the
   // hyphen template), cf_dropw (filters on field 1) — was reading characters
   // here and fields in the engine kernels. One name, two functions, split by
@@ -186,7 +186,7 @@ const PRIMS = new Map(Object.entries({
     return rows; },
   // ATOMS stringify, numbers included — which is what Arest.java's implode
   // already documents as "js Array.join semantics", what Mu.cs and the rust
-  // station do, and what all three engine kernels do. This head was the one
+  // host do, and what all three engine kernels do. This head was the one
   // that threw, contradicting the sibling it was transliterated into. It has
   // to stringify for canon to own a renderer at all: system:isnum is
   // not eq<x, implode<empty,<x>>>, and a base with NO operation total over
@@ -200,14 +200,14 @@ const PRIMS = new Map(Object.entries({
   // function as sl:slug; this registration stays only until both carriers are
   // regenerated and slug can leave the boundary manifest.
   // slug is CANON -- DEF("slug") with slug:alnum/step/trimlead. Deleted here.
-  // char-level lex boundary (invariant ASCII on every station, so the
+  // char-level lex boundary (invariant ASCII on every host, so the
   // naming lex is byte-identical regardless of host culture)
   "chars": x => { if (typeof x !== "string") throw new Error("chars on non-string");
     return [...x]; },
   // FIRST CHARACTER. This head used to compare the WHOLE string — x >= "a" &&
   // x <= "z" — which agrees for the single chars `chars` yields but not
   // otherwise: charup("zebra") answered "zebra" here and "Z" on the other
-  // seven hosts, since python and the java/cs/rust stations all take the
+  // seven hosts, since python and the java/cs/rust hosts all take the
   // leading char. One operation, one meaning; this head was the outlier.
   // charup is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
   // chardown is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
@@ -260,7 +260,7 @@ function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENT
 // recomputing it. Correctness needs nothing beyond purity, which is what
 // Backus 14.6 already guarantees while D is frozen.
 // induce:sig_of is the same case one level up, and it is the single biggest one
-// in the wall. It is COMP(COND(null, PHI, N(2)), law:find_desc) — a PURE lookup
+// in the unit tests. It is COMP(COND(null, PHI, N(2)), law:find_desc) — a PURE lookup
 // of a named descriptor's signature — applied at 80 sites across 8 candidate
 // generators, and it fired 28,200,366 times inside law:induce alone, with
 // law:find_desc firing 28,203,649 (i.e. once each). Its argument is the pair
@@ -279,7 +279,7 @@ const MEMOCN = new Set(["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot canon list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
-// the wall certifies identity). Only consulted when the DEF exists.
+// the unit tests certify identity). Only consulted when the DEF exists.
 const FASTPRIMS = new Map(Object.entries({
   "theta:member": x => bool(seq(at(x, 1)).some(e => deepEq(at(x, 0), e))),
   "theta:filter_eq": x => seq(x).filter(p => deepEq(at(p, 0), at(p, 1))),
@@ -500,8 +500,8 @@ function Ev(f, x) {
   // the system in a major way" (13.1), and an FFP system, where
   // metacomposition "permits the definition of new functional forms, in
   // effect, merely by defining new functions" (13.3.2). engine/rust had this
-  // rule; the js head did not, and java/cs/rust-station were transliterated
-  // from the js head, so all four CERTIFIED stations lacked the only
+  // rule; the js head did not, and java/cs/rust-host were transliterated
+  // from the js head, so all four CERTIFIED hosts lacked the only
   // mechanism the whole construction rests on.
   //
   // Fetching the head restores it, and it is the SAME rule already obeyed for
@@ -590,6 +590,235 @@ function Ev(f, x) {
   throw new Error("unknown form: " + head);
 }
 
-// the canon's one tuple literal follows, reading as a single CANON(...) call
-// whose DEF side effects populate CELLS in registration order:
-CANON
+// ---- THE FOUR WAYS IN ---------------------------------------------------
+// One host file. Each of these is transport only: it reads a request, applies
+// canon, writes the answer. None of them may branch on a verb, a method or a
+// status -- what those MEAN is canon's business (ui:route routes, render:json
+// renders, http:status_of decides the code, auth:links decides which controls
+// a caller is shown). If you are about to add such a branch here, that is how
+// a thin host stops being thin.
+function run_cli() {
+
+  // THE HOST CONTRACT, FINAL — six lines, no modes, no rendering, forever.
+  // All dispatch and all text live in canon `main`; a new operation is a
+  // canon edit, never a host edit. Adding a branch here is how runners die.
+  const out = Ev("main", [CELLS, process.argv.slice(2)]);
+  console.log(out[0]);
+  process.exit(out[1] === "T" ? 0 : 1);
+
+}
+function run_test() {
+
+  // THE TEST TAIL. tail.part.js holds the host contract -- six lines, argv atoms
+  // in, one text atom out, process.exit -- and that contract is exactly what
+  // makes it unusable from a test file: it runs on import and then exits.
+  //
+  // This variant is the same composition with the last step removed. It exposes
+  // the evaluator and the cells and runs nothing, so a test can drive canon's
+  // own `main` the way the CLI does -- Ev("main", [CELLS, ["case", name]]) -- and
+  // assert the answer, without a process per case.
+  //
+  // Nothing is added: no dispatch, no rendering, no branch. A test that needed
+  // either would be testing the runner instead of the canon.
+  globalThis.AREST = { Ev: Ev, CELLS: CELLS };
+
+}
+function run_serve() {
+
+  // THE SERVING TAIL. Same composition, same evaluator, one different last step:
+  // tail.part.js prints a text atom and exits, and this binds a socket instead.
+  //
+  // Sam: nothing custom should wrangle it into a HATEOAS server besides the
+  // native registrations required for serving. That holds here because
+  // AREST.tex:260 leaves nothing to compose -- every component of repr(e), the
+  // selectors on its facts, the derived facts, the violations and links(e), is
+  // (rho f):P for some object f. So this reads a request, applies main:api, and
+  // writes the two answers it gets back. There is no dispatch here, no rendering,
+  // no status decision, no authorization check: ui:route routes, render:json
+  // renders, http:status_of decides the code, and auth:links decides which
+  // controls this caller is even shown.
+  //
+  // If you are about to add a branch to this file, stop -- that is how the last
+  // seven hosts died, and it is how the compiler came to be 7,196 lines.
+  //
+  // THE ONE APPARENT BRANCH IS NOT ONE. The body is read unconditionally and a
+  // failure answers the empty sequence, so a GET (no body) and a POST (a fact)
+  // take the same path. Testing the method here would be the host deciding what a
+  // method MEANS, which is http:method_kinds' job.
+  const PORT = Number(process.env.AREST_PORT || 8787);
+
+  Bun.serve({
+    port: PORT,
+    async fetch(req) {
+      const url = new URL(req.url);
+      // the caller is transport-level identity; who that caller MAY be is the
+      // designated authorization fact type's business, not this file's
+      const caller = req.headers.get("x-arest-caller") || "";
+      const resource = decodeURIComponent(url.pathname.replace(/^\//, ""));
+      const fact = await req.json().catch(() => []);
+      const out = Ev("main:api", [CELLS, req.method, resource, caller, fact]);
+      return new Response(String(out[0]), {
+        status: Number(out[1]) || 500,
+        headers: { "content-type": "application/json" },
+      });
+    },
+  });
+
+  console.error("arest serving on :" + PORT);
+
+}
+function run_mcp() {
+
+  // THE MCP TAIL. Same composition, same evaluator, one different last step:
+  // tail.part.js prints a text atom and exits, serve-tail.part.js binds a socket,
+  // and this speaks JSON-RPC over stdio. It is the SAME six lines as the serving
+  // tail over a different transport, because a tool call and a POST are the same
+  // operation: <cells, method, resource, caller, fact> through main:api.
+  //
+  // THERE IS NO VERB TABLE HERE, and two earlier versions of this file had one.
+  // A verb is a PREDICATE VERBALIZATION -- doing one is creating a fact that uses
+  // that verb in its predicate -- so a tool is a FACT TYPE and its parameters are
+  // that predicate's roles. Both come from the store: canon's mcp:tools derives
+  // the list the same way links(e) is derived, so a fact type added to a model is
+  // served without touching canon or this file.
+  //
+  // The first version listed eighteen canon FUNCTION names and dispatched them by
+  // apply. They resolve, and eight of eight answered operand errors, because a
+  // function wants an operand of its own shape and a predicate wants role
+  // players. The second cut to five verbs main dispatches by argv: that works and
+  // says nothing about the model. Both were host verb tables; one of them was
+  // just living in canon.
+  //
+  // RBAC IS NOT A FEATURE HERE. The caller is transport-level identity; which
+  // controls that caller may use is auth:links' business, decided by the
+  // designated authorization fact type, and it is already decided inside main:api.
+  const TOOLS = Ev("mcp:tools", CELLS);
+  // the admitted methods are canon's too -- http:method_kinds, not a constant
+  const METHODS = Ev("http:method_kinds", []).map((m) => String(m[0]));
+
+  function tools() {
+    return TOOLS.map((t) => {
+      // state:declared carries each fact type's PLAYER TYPES in role order, so
+      // the reading and its signature are the same row
+      const players = Array.isArray(t[1]) ? t[1].map(String) : [];
+      return {
+        name: String(t[0]),
+        description:
+          "fact type " + t[0] +
+          (players.length ? "; roles played by " + players.join(", ") : ""),
+        inputSchema: {
+          type: "object",
+          properties: {
+            method: { type: "string", enum: METHODS,
+                      description: "GET reads and returns links; POST asserts a fact" },
+            caller: { type: "string", description: "who is calling; gates which controls are shown" },
+            fact: { type: "array", description: "the role players, in role order" },
+          },
+          required: ["method"],
+        },
+      };
+    });
+  }
+
+  function call(name, args) {
+    const a = args || {};
+    // no dispatch: the resource IS the fact type and the method IS the operation
+    return Ev("mcp:call", [
+      String(a.method || METHODS[0]),
+      String(name),
+      String(a.caller || ""),
+      Array.isArray(a.fact) ? a.fact : [],
+      CELLS,
+    ]);
+  }
+
+  function reply(id, result) { return { jsonrpc: "2.0", id, result }; }
+  function fail(id, message) {
+    return { jsonrpc: "2.0", id, error: { code: -32603, message } };
+  }
+
+  function handle(msg) {
+    if (msg.method === "initialize") {
+      return reply(msg.id, {
+        protocolVersion: "2024-11-05",
+        capabilities: { tools: {} },
+        serverInfo: { name: "arest", version: "1.0.0" },
+      });
+    }
+    if (msg.method === "tools/list") return reply(msg.id, { tools: tools() });
+    if (msg.method === "tools/call") {
+      const p = msg.params || {};
+      try {
+        // main:api answers <text, status>; the status is canon's decision, and a
+        // 4xx is an answer about the model rather than a transport fault
+        const out = call(p.name, p.arguments);
+        const status = Number(out && out[1]) || 500;
+        return reply(msg.id, {
+          content: [{ type: "text", text: out && out[0] !== undefined ? String(out[0]) : "" }],
+          isError: status >= 400,
+        });
+      } catch (e) {
+        return reply(msg.id, { content: [{ type: "text", text: String(e.message) }], isError: true });
+      }
+    }
+    if (msg.id === undefined) return null;          // a notification wants no reply
+    return fail(msg.id, "unknown method: " + msg.method);
+  }
+
+  let buf = "";
+  process.stdin.on("data", (chunk) => {
+    buf += chunk;
+    for (;;) {
+      const nl = buf.indexOf("\n");
+      if (nl < 0) break;
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      let out;
+      try {
+        out = handle(JSON.parse(line));
+      } catch (e) {
+        out = fail(null, String(e.message));
+      }
+      if (out) process.stdout.write(JSON.stringify(out) + "\n");
+    }
+  });
+
+  console.error("arest mcp: " + TOOLS.length + " fact types, " + METHODS.join("/") + ", all of it derived");
+
+}
+
+// ---- SQL ---------------------------------------------------------------
+// A host that supports sql needs no schema knowledge of its own. Canon derives
+// the relational mapping -- 297 rmap defs, checked against NORMA's own answer
+// by 13 laws -- and rmap:ddl renders it as the CREATE TABLE script. All this
+// does is open a database, run that script, and execute the caller's query.
+// Deciding what the tables ARE would be this file taking canon's job.
+//
+// This used to live in engine/python (ddl.project(D, con)) and the rust
+// resident's `sql` verb, which is why it went out with the fat hosts. It was
+// never fat-host work: it is I/O, exactly like a socket or stdin.
+function run_sql() {
+  const { Database } = require("bun:sqlite");
+  const argv = process.argv.slice(2);
+  const path = process.env.AREST_DB || ":memory:";
+  const db = new Database(path);
+  db.run(String(Ev("rmap:ddl", CELLS)));
+  const query = argv[0];
+  if (!query) {
+    const t = db.query("select name from sqlite_master where type = ?").all("table");
+    console.log(t.map((r) => r.name).join("\n"));
+    return;
+  }
+  for (const row of db.query(query).all()) console.log(JSON.stringify(row));
+}
+
+// The mode is the only thing the build chooses; everything else is identical,
+// which is the point of there being one file.
+function boot(mode) {
+  if (mode === "test") return run_test();
+  if (mode === "serve") return run_serve();
+  if (mode === "mcp") return run_mcp();
+  if (mode === "sql") return run_sql();
+  return run_cli();
+}
