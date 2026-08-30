@@ -50,5 +50,5 @@ law OK: rmap-idempotence
   law OK: exclusion-spellings-agree
   law OK: set-algebra
   law OK: derivation-is-a-set
-  law OK: station-rules-evaluable
+  law OK: model-rules-evaluable
 ALL LAWS HOLD (canon-evaluated: law:report over the composed store)
