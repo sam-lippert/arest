@@ -162,6 +162,58 @@ function outsideStrings(text) {
   return out;
 }
 
+// ---- DOES EVERY CONSTRUCTOR HOLD WHAT IT WAS GIVEN? ------------------------
+//
+// Sn is fixed-arity JS -- S2(a, b) { return [a, b]; } -- so S2(a, b, c) returns
+// [a, b] and the c is GONE, with no error. This is not a property canon can
+// check about itself: by the time a cell exists the constructor has already
+// been applied, and the evidence that a fourth argument was written is
+// destroyed at load. Only the SOURCE knows, which is why this sits beside the
+// byte rules and not in the law report.
+//
+// It cost a debugging pass in #22. law:reach_out was written S4 with four
+// functions after COMP; the fifth -- the CONS that built the operand -- was
+// dropped, the closure expanded nothing, and law:reachable came back exactly
+// equal to the entry set. That looks like an answer.
+//
+// Proven to fail before it was shipped: re-injecting that exact S5-to-S4 edit
+// reports (4, 5), and turning an S2 into an S3 reports (3, 2). It catches too
+// many and too few.
+function arityMismatches(text) {
+  const out = [];
+  const re = /\bS([1-9])\(/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const want = Number(m[1]);
+    let i = m.index + m[0].length, depth = 1, inStr = false, args = 1;
+    while (i < text.length && depth > 0) {
+      const c = text[i];
+      if (inStr) {
+        if (c === "\\") { i += 2; continue; }
+        if (c === '"') inStr = false;
+      } else if (c === '"') inStr = true;
+      else if (c === "(") depth++;
+      else if (c === ")") depth--;
+      else if (c === "," && depth === 1) args++;
+      i++;
+    }
+    if (args !== want) {
+      const line = text.slice(0, m.index).split("\n").length;
+      out.push(`line ${line}: S${want} given ${args}`);
+    }
+  }
+  return out;
+}
+
+describe("every constructor holds what it was given", () => {
+  for (const file of CANON_FILES) {
+    const name = file.split(/[\/]/).pop();
+    test(name + " has no truncated constructor", () => {
+      expect(arityMismatches(readFileSync(file, "utf8"))).toEqual([]);
+    });
+  }
+});
+
 describe("intersection source", () => {
   for (const file of CANON_FILES) {
     const name = file.split(/[\/]/).pop();
