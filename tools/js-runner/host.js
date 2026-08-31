@@ -684,6 +684,21 @@ function run_serve() {
   console.error("arest serving on :" + PORT);
 
 }
+function run_ui() {
+  // THE SECOND RENDERING. The store answers two ways: main:api renders JSON
+  // for a client, and ui:route builds LAYERS for a screen. Both are canon --
+  // this reads a path and prints what canon made of it, and decides nothing.
+  //
+  // The path arrives as words. ui:route wants them twice over: N(2) is the
+  // path as it READS, which the layer titles itself with, and N(4) is the
+  // path as segments, which the router matches against ui:groups word-wise --
+  // so segments are character sequences and an atom segment raises.
+  const words = process.argv.slice(2);
+  const segs = words.map((w) => Ev("chars", w));
+  const layer = Ev("ui:route", [CELLS, words, [], segs]);
+  console.log(String(Ev("render:json", layer)));
+}
+
 function run_mcp() {
 
   // THE MCP TAIL. Same composition, same evaluator, one different last step:
@@ -898,6 +913,7 @@ function boot(mode) {
   if (mode === "test") return run_test();
   if (mode === "serve") return run_serve();
   if (mode === "mcp") return run_mcp();
+  if (mode === "ui") return run_ui();
   if (mode === "sql") return run_sql();
   return run_cli();
 }
