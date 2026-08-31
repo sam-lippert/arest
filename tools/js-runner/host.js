@@ -893,13 +893,17 @@ function loadFile() {
 // cannot derive StatusIsDefinedInStateMachineDefinition, which its own minus
 // rules read.
 function loadDerived() {
-  const rules = Ev("theta:unfold_pairs", Ev("rules:metamodel", CELLS));
+  const rules = Ev("law:all_rules", CELLS);
   const before = Ev("induce:pairs_of", Ev("store:fts", CELLS));
   const seen = new Set(before.map((p) => String(p[0])));
   let added = 0;
   for (const entry of Ev("derive", [rules, before])) {
     const name = String(entry[0]);
     if (seen.has(name)) continue;                  // already carried, not derived
+    // an EMPTY derived population is not worth a cell: closing under the whole
+    // program derives the model's rule heads, whose inputs are empty, and
+    // carrying those adds names nothing references and nothing can read
+    if (!Array.isArray(entry[1]) || entry[1].length === 0) continue;
     CELLS.unshift(["CELL", name, entry[1]]);
     added++;
   }
