@@ -2117,5 +2117,8 @@ DEF("case:form-lookup", S2(
     PHI())),
 "AND A FORM THAT NAMES NOTHING REFUSES RATHER THAN JOINING. This case is one of the deliberate refusals: it is here to fail loudly if the fallback ever comes back.",
 DEF("case:unknown-form-refuses", S2(A("derive:delta_eval"),
-    S2(S2(A("bogus"), A("F1")), S2(PHI(), PHI()))))
+    S2(S2(A("bogus"), A("F1")), S2(PHI(), PHI())))),
+"A TRIGGER FACT MOVES THE ENTITY, AND ONLY FROM THE RIGHT STATUS. main:st_fired is the step the fold applies once per transition: given a transition and a store it answers the entities the event moved. The second case is the guard -- both sales carry SaleIsSubmitted, but o2 is already placed and a submit leaves draft, so o2 must NOT move. Without it the case would pass on an implementation that moved every entity holding the event fact.",
+DEF("case:trigger-advances", S2(A("main:st_fired"), S2(S3(A("draft"), A("Sale is submitted"), A("placed")), S2(S1(S3(A("CELL"), A("SaleIsSubmitted"), S1(A("o1")))), S1(S2(A("o1"), A("draft"))))))),
+DEF("case:trigger-guarded", S2(A("main:st_fired"), S2(S3(A("draft"), A("Sale is submitted"), A("placed")), S2(S1(S3(A("CELL"), A("SaleIsSubmitted"), S2(A("o1"), A("o2")))), S2(S2(A("o1"), A("draft")), S2(A("o2"), A("placed")))))))
 )
