@@ -838,8 +838,42 @@ function loadFile() {
   memoClear();
 }
 
+// THE STORE IS CLOSED UNDER ITS OWN RULES. Figure 1's command is
+// resolve -> lfp -> validate -> emit, and a store that has never had its
+// fixpoint taken is not at one: derive over the composed order store gains 26
+// populations that are derivable and absent, the whole state-machine family
+// among them (StatusIsDefinedInStateMachineDefinition, StatusIsTerminal...,
+// StatusHasEffectiveTransitionToStatusOnEventType).
+//
+// A create does NOT fix this and should not: derive:any_reads correctly skips
+// when no rule reads the changed cell, and creating a Sale changes nothing the
+// metamodel rules read -- the machine facts depend on the transition
+// declarations, which did not change. The closure belongs at load, for the same
+// reason FILE does: a store that is not closed under its rules is not the store.
+//
+// Shapes are the ones law:apply's fixture uses, not inferred: store:fts applies
+// store:fix_desc so column 5 is the rows themselves, induce:pairs_of then takes
+// columns 1 and 5, and rules:metamodel (39) is the set -- rules:model (21)
+// cannot derive StatusIsDefinedInStateMachineDefinition, which its own minus
+// rules read.
+function loadDerived() {
+  const rules = Ev("theta:unfold_pairs", Ev("rules:metamodel", CELLS));
+  const before = Ev("induce:pairs_of", Ev("store:fts", CELLS));
+  const seen = new Set(before.map((p) => String(p[0])));
+  let added = 0;
+  for (const entry of Ev("derive", [rules, before])) {
+    const name = String(entry[0]);
+    if (seen.has(name)) continue;                  // already carried, not derived
+    CELLS.unshift(["CELL", name, entry[1]]);
+    added++;
+  }
+  if (added) memoClear();
+  return added;
+}
+
 function boot(mode) {
   loadFile();
+  loadDerived();
   if (mode === "test") return run_test();
   if (mode === "serve") return run_serve();
   if (mode === "mcp") return run_mcp();
