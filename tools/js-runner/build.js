@@ -44,9 +44,9 @@ const SPLICED = [
 const JOURNAL = join(oracle, "journal");
 
 const mode = process.argv[2] || "cli";
-const OUT = { cli: "composed", test: "cases", serve: "serve", mcp: "mcp", sql: "sql" };
+const OUT = { cli: "composed", test: "cases", serve: "serve", mcp: "mcp", sql: "sql", ui: "ui" };
 if (!(mode in OUT)) {
-  console.error("unknown mode: " + mode + " (cli, test, serve, mcp, sql)");
+  console.error("unknown mode: " + mode + " (cli, test, serve, mcp, sql, ui)");
   process.exit(1);
 }
 
