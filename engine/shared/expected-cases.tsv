@@ -580,3 +580,5 @@ case:compile-fts	"('ClaimIsWitnessedByStage', ('Function', 'Function'), ((1, 2))
 case:declare-lands	"(('AHasB', ('A', 'B')), ('LawHolds', ('Law')))"
 case:create-swaps-population	"('AHasB', ('Function', 'Function'), ((1, 2)), (), ((('x', '1'), ('y', '2'))))"
 case:create-leaves-others	"('AHasB', ('Function', 'Function'), ((1, 2)), (), ((('x', '1'))))"
+case:defs-step-admits	"201"
+case:defs-step-refuses	"409"
