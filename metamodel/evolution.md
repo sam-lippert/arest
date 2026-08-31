@@ -113,6 +113,46 @@ UserRequestsRevisionOfDomainChange is a subtype of Function.
 
 Domain Change is applied.
 
+### Function supersession
+
+<!-- THE MEMORY DOMAIN (2026-08-31). Function is the one id space over
+     every definition - Object Type, Fact Type, Reading, Constraint and a
+     host registration all identify through Function(.id) - so retirement
+     needs no new object type and no new namespace: it is one ring over
+     the space that already names everything.
+
+     Written because the failure it prevents is in this repo's own
+     history twice over: a claim about `finiteness_check` was reasoned
+     from long after the fat hosts that carried it were deleted, and the
+     count of unreachable definitions was quoted as 36 when the store
+     said 95. Both are one defect - a sentence ABOUT an artifact
+     outliving the artifact. A count and a description rot. A fact whose
+     truth is a function of the store cannot: when it stops holding it is
+     retracted, which is an operation this system now has.
+
+     The reading is passive on purpose. What gets looked up is the name
+     that has already gone stale - "does this still mean anything?" - so
+     the retired role reads first. It is also what makes the asymmetry
+     statable: the negated-predicate ring form drops a leading "is", so
+     `is superseded by` has a spelling in the parsed fragment and
+     `supersedes` does not.
+
+     NO DATE ROLE AND NO RATIONALE ROLE. When a retirement is a modelling
+     act its account already has a home - `Domain Change proposes
+     Function` above, with Rationale mandatory on the change - and
+     duplicating it here would put one claim in two places with no rule
+     keeping them equal. What is elementary here is only which definition
+     took which one's place. -->
+
+Function is superseded by Function.
+  Each Function, Function combination occurs at most once in the population of Function is superseded by Function.
+  <!-- SPANNING, and no narrower uniqueness on either role. A retirement
+       may have more than one successor - `Signal Source` below was split
+       into two elementary facts, which is the witness in the population -
+       and one successor may retire several predecessors when definitions
+       merge. An `at most one` on either role would refuse the split this
+       model actually performed. -->
+
 ## Constraints
 
 <!-- arest-audit I+J: the former `## Subtypes` block (Model Element as a
@@ -154,6 +194,28 @@ It is obligatory that each applied Domain Change targeting Domain 'evolution' is
      forward declaration; reinstate as a reading the moment an ethics
      domain exists:
        It is obligatory that each applied Domain Change targeting Domain 'ethics' is approved by exactly one Human. -->
+
+## Ring Constraints
+
+No Function is superseded by itself.
+If Function1 is superseded by Function2, then Function2 is not superseded by Function1.
+<!-- ACYCLIC is the true property and neither sentence states it: the
+     parsed ring fragment carries irreflexive, asymmetric and transitive,
+     and acyclicity has no spelling. These two are its consequences at
+     path lengths one and two.
+
+     The rest is carried by a law rather than left implied, because what
+     actually matters here is stronger than acyclicity and is a question
+     about the store rather than about the schema: the two roles are
+     DISJOINT - no Function is both retired and current. That makes every
+     chain exactly one hop, which is the point of the domain. A memory
+     that answers "superseded by X" and then makes you ask again about X
+     has spent the lookup it was meant to save. When a successor is
+     itself replaced the fix is to retract the old row and assert the new
+     one, never to grow a chain: obsolescence is a retraction. Both
+     halves are witnessed by execution over the population, in canon,
+     under the law registered as supersession-resolves - no retired name
+     resolves to a definition, and the two role sets do not meet. -->
 
 ## Derivation Rules
 
@@ -218,3 +280,17 @@ Guard 'valid-domain-change' references Fact Type 'Domain Change is valid'.
 
 <!-- organizations-domain (ruling 2): Domain 'evolution' has Access 'public'. -->
 Domain 'evolution' has Description 'Self-modification as a Domain Change state machine. Proposing a new fact type is proposing a theorem (Curry-Howard). CSDP validation is the proof check, successful ingestion is the proof.'.
+
+<!-- SUPERSESSION, populated from what the repo can be asked rather than
+     from what it says in prose. Every retired name below was checked to
+     resolve to nothing: none is a canon definition and none carries a
+     Definition Origin row, which is the standing law's first half. The
+     three canon rows are this rebuild's own retirements; the two `Signal
+     Source` rows are this file's, and are the split witness the spanning
+     uniqueness above is stated for. -->
+
+Function 'finiteness_check' is superseded by Function 'derive:stratified'.
+Function 'ast:pop_row' is superseded by Function 'ast:pop_exp'.
+Function 'journal:overflow' is superseded by Function 'ui:st_long'.
+Function 'Signal Source' is superseded by Function 'Signal Kind'.
+Function 'Signal Source' is superseded by Function 'Signal is raised by Object Type Instance'.
