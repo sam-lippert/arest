@@ -623,6 +623,22 @@ function run_test() {
   globalThis.AREST = { Ev: Ev, CELLS: CELLS };
 
 }
+// A create ANSWERS a store. main:api returns <body, status, D-prime> for a
+// transition and <body, status> for a read, because following a nav link makes
+// no new store. Adopting it is transport's business -- D is what this file
+// holds -- but WHAT the new store contains is canon's: main:create_closed put
+// the fact where the derive path reads and closed the store under its rules.
+// Mutated in place so the array identity survives, then the memo is dropped:
+// Ev keys on the store REFERENCE, so a store whose contents changed under the
+// same reference would keep answering from the old one.
+function adoptStore(next) {
+  if (!Array.isArray(next) || next.length === 0) return false;
+  CELLS.length = 0;
+  for (const c of next) CELLS.push(c);
+  memoClear();
+  return true;
+}
+
 function run_serve() {
 
   // THE SERVING TAIL. Same composition, same evaluator, one different last step:
@@ -657,6 +673,7 @@ function run_serve() {
       const resource = decodeURIComponent(url.pathname.replace(/^\//, ""));
       const fact = await req.json().catch(() => []);
       const out = Ev("main:api", [CELLS, req.method, resource, caller, fact]);
+      if (out.length > 2) adoptStore(out[2]);
       return new Response(String(out[0]), {
         status: Number(out[1]) || 500,
         headers: { "content-type": "application/json" },
@@ -723,13 +740,17 @@ function run_mcp() {
   function call(name, args) {
     const a = args || {};
     // no dispatch: the resource IS the fact type and the method IS the operation
-    return Ev("mcp:call", [
+    const out = Ev("mcp:call", [
       String(a.method || METHODS[0]),
       String(name),
       String(a.caller || ""),
       Array.isArray(a.fact) ? a.fact : [],
       CELLS,
     ]);
+    // a POST answers a third part, the store it made; adopting it is what
+    // makes a tool call persist. It is not part of the reply.
+    if (out.length > 2) { adoptStore(out[2]); return [out[0], out[1]]; }
+    return out;
   }
 
   function reply(id, result) { return { jsonrpc: "2.0", id, result }; }
