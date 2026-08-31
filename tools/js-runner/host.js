@@ -943,7 +943,11 @@ function loadFile() {
 function loadDerived() {
   const rules = Ev("law:all_rules", CELLS);
   const before = Ev("induce:pairs_of", Ev("store:fts", CELLS));
+  // names already carried, whether as a fact type in store:fts or as a cell this
+  // function added on an earlier pass -- loadDerived runs again after the journal
+  // fold, and without the second check it prepends every derived population twice
   const seen = new Set(before.map((p) => String(p[0])));
+  for (const c of CELLS) if (Array.isArray(c) && String(c[0]) === "CELL") seen.add(String(c[1]));
   let added = 0;
   for (const entry of Ev("derive", [rules, before])) {
     const name = String(entry[0]);
