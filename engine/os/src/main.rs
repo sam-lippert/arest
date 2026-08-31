@@ -27,28 +27,39 @@
 // answer that has not been through the gate. Canon and its carriers
 // arrive as source, the way they do for every other host.
 //
-// This crate cannot build yet regardless: its `arest` dependency is a
-// path to engine/rust, which went with the fat hosts. That is the
-// hacked-up part, and the canon design is what replaces it.
+// AND THE ENGINE IS THE SAME ONE, which is the other half. This crate
+// depended on engine/rust — a second evaluator, 19,664 lines, with a
+// verb table of its own — and when that went with the fat hosts the
+// path dangled and nothing here had built since. It now depends on
+// tools/rust-host, the thin mu the CLI runs: same chunker, same
+// evaluator, same canon, so a question answered on the desktop is the
+// same question answered on firmware. The four calls that used to go
+// through `arest::worker::arest_call(verb, json)` are gone; what is
+// left asks canon `main` an address, or canon `main:api` a step.
+//
+// THE STACK IS THE ONE THING THIS TARGET CANNOT COPY. Canon is one
+// deeply nested expression, so BUILDING it recurses far past a default
+// stack; every other host spawns a thread with 512 MB for exactly
+// that. UEFI has no threads, so the budget has to come from the image
+// instead (the loaded-image stack the firmware hands main), and that
+// is a link-time property, not something this file can ask for.
 fn main() {
-    // versions DERIVE (the crate's from Cargo, the engine's from its
-    // own verb) — never hard-coded in banners or asserts
+    // versions DERIVE (the crate's from Cargo, the engine's from the
+    // load) — never hard-coded in banners or asserts
     println!("AREST OS {}", env!("CARGO_PKG_VERSION"));
-    println!("engine: {}", arest::worker::arest_version());
     println!("target: {}", TARGET);
-    let verbs = arest::worker::arest_call("verbs", "{}");
-    println!("verbs: {}", &verbs[..verbs.len().min(120)]);
-    // the NATIVE carrier path (system:entity_view resolves to its
-    // canon-named prim — one spine pass); the interpretive verbs
-    // (query's ast:FetchPop) cost minutes at store scale and never
-    // belong on the boot path
-    let got = arest::worker::arest_call(
-        "get",
-        "{\"noun\":\"Contact Submission\",\"id\":\"ef998c6716463931\"}");
-    println!("get: {}", &got[..got.len().min(160)]);
-    let listed = arest::worker::arest_call(
-        "list", "{\"noun\":\"GitHub Project\"}");
-    println!("list: {}", &listed[..listed.len().min(160)]);
+    // THE BOOT RECEIPT IS DERIVED, never announced: how many cells canon and
+    // its carriers registered. A file-based OS reports the volume it mounted
+    // and then trusts it; this one reports the facts it holds, and every
+    // question asked of them afterwards goes through the gate.
+    //
+    // Nothing heavier belongs here. The old banner called `get` and `list`
+    // against a store image baked into the binary, and the comment beside it
+    // already knew the shape of the mistake -- interpretive reads "cost
+    // minutes at store scale and never belong on the boot path". The reads
+    // moved to the surfaces actually asked for them: wire::dispatch and the
+    // console, both of which address canon rather than dispatch a verb.
+    println!("store: {} cells", arest_host::cell_count());
     net_probe();
     #[cfg(feature = "full")]
     gop_probe();
@@ -166,66 +177,27 @@ mod fb {
 
     slint::include_modules!();
 
-    // the nouns inventory off the native nouns verb
+    // THE POPULATION READ DOES NOT EXIST YET, and inventing one here is how
+    // a verb table grows back. GET answers Theorem 2's nav leg -- the links
+    // an entity affords -- for every resource in the store; no method returns
+    // ROWS. So the three functions below ask canon and render canon's answer
+    // rather than scraping fields out of a JSON reply that no longer exists.
+    // The old ones hand-indexed `"nouns":[` and `"fields":{` out of the
+    // worker's bytes, which is reading storage by offset -- the same mistake
+    // as the store image, one layer up. When a read step lands, these are the
+    // call sites that take it and nothing else in the UI changes.
     fn nouns() -> Vec<String> {
-        let out = arest::worker::arest_call("nouns", "{}");
-        let mut ns = Vec::new();
-        if let Some(a) = out.find("\"nouns\":[") {
-            let body = &out[a + 9..];
-            let end = body.find(']').unwrap_or(body.len());
-            for part in body[..end].split(',') {
-                let n = part.trim().trim_matches('"');
-                if !n.is_empty() {
-                    ns.push(n.to_string());
-                }
-            }
-        }
-        ns
+        vec!["Object Type".to_string()]
     }
 
-    // the list answer's ids leg: ["a","b",...] out of the native list
-    // verb (the same dependency-free scanning discipline)
     fn list_ids(noun: &str) -> Vec<String> {
-        let out = arest::worker::arest_call(
-            "list", &format!("{{\"noun\":\"{}\"}}", noun));
-        let mut ids = Vec::new();
-        if let Some(a) = out.find("\"ids\":[") {
-            let body = &out[a + 7..];
-            let end = body.find(']').unwrap_or(body.len());
-            for part in body[..end].split(',') {
-                let id = part.trim().trim_matches('"');
-                if !id.is_empty() {
-                    ids.push(id.to_string());
-                }
-            }
-        }
-        ids
+        let shown = arest_host::api("GET", noun, "anonymous", &[]);
+        if shown.is_empty() { Vec::new() } else { vec![shown] }
     }
 
-    // the get answer's fields leg -> ⟨key, value⟩ rows: a minimal
-    // scanner over the flat {"fields":{"K":"V"|null,...}} shape (no
-    // JSON dep; the shape is the worker's own get contract)
     fn detail_rows(noun: &str, id: &str) -> (String, Vec<(String, String)>) {
-        let got = arest::worker::arest_call(
-            "get",
-            &format!("{{\"noun\":\"{}\",\"id\":\"{}\"}}", noun, id));
-        let mut rows = Vec::new();
-        if let Some(fs) = got.find("\"fields\":{") {
-            let body = &got[fs + 10..];
-            let end = body.find('}').unwrap_or(body.len());
-            let body = &body[..end];
-            for pair in body.split("\",\"") {
-                let p = pair.trim_matches(|c| c == '"' || c == ',');
-                if let Some((k, v)) = p.split_once("\":") {
-                    let v = v.trim_matches('"');
-                    if v != "null" && !v.is_empty() && v != "#" {
-                        rows.push((k.trim_matches('"').to_string(),
-                                   v.to_string()));
-                    }
-                }
-            }
-        }
-        (format!("{} · {}", noun, id), rows)
+        let shown = arest_host::api("GET", noun, "anonymous", &[id]);
+        (format!("{} · {}", noun, id), vec![("answer".to_string(), shown)])
     }
 
     struct FirmwarePlatform {
@@ -275,7 +247,7 @@ mod fb {
         ui.set_os_version(
             format!("v{}", env!("CARGO_PKG_VERSION")).into());
         ui.set_engine_version(
-            arest::worker::arest_version().into());
+            format!("{} cells", arest_host::cell_count()).into());
         // THE PANE PAIR, realized a fourth time: the master lists the
         // noun's population (the native list verb), the detail shows
         // the first entity — the same split showui renders
@@ -653,21 +625,50 @@ mod wire {
 
     // GET /{verb}?args=<urlencoded-json>: the request line IS the verb
     // dispatch; no router, no framework — the engine is the app
+    // AN HTTP REQUEST IS AN ADDRESSED STEP, not a verb call, and that
+    // difference is the whole security argument. Before, the path WAS the
+    // verb: /get?args={...} named a function and handed it a blob, so the
+    // wire could reach whatever the process could reach and nothing in the
+    // request said who was asking. Now the method says which KIND of step is
+    // being asked for -- canon's http:method_kinds reads GET as nav, POST as
+    // a transition, DELETE as a retraction, PUT as a replacement -- the path
+    // names the ENTITY, and the caller arrives WITH the request instead of
+    // being ambient in the process. main:api decides whether that caller may
+    // take that step; this function parses bytes and decides nothing.
+    //
+    // The caller defaults to anonymous, not to an admin. A default that
+    // grants is how a parser bug becomes a breach.
     fn dispatch(req: &str) -> String {
         let line = req.lines().next().unwrap_or("");
-        let path = line.split_whitespace().nth(1).unwrap_or("/");
-        let (verb, args) = match path.split_once('?') {
-            Some((p, q)) => {
-                let a = q.strip_prefix("args=").unwrap_or("{}");
-                (p.trim_start_matches('/'), urldecode(a))
+        let mut head = line.split_whitespace();
+        let method = head.next().unwrap_or("GET");
+        let path = head.next().unwrap_or("/");
+        let mut caller = "anonymous";
+        for h in req.lines().skip(1) {
+            if let Some((k, v)) = h.split_once(':') {
+                if k.eq_ignore_ascii_case("x-caller") {
+                    caller = v.trim();
+                }
             }
-            None => (path.trim_start_matches('/'), "{}".to_string()),
-        };
-        if verb.is_empty() || verb == "version" {
-            return format!("{{\"version\":\"{}\"}}",
-                           crate::arest_version_line());
         }
-        arest::worker::arest_call(verb, &args)
+        let (res, query) = match path.split_once('?') {
+            Some((p, q)) => (p, q),
+            None => (path, ""),
+        };
+        let resource = urldecode(res.trim_start_matches('/'));
+        if resource.is_empty() {
+            return crate::arest_version_line();
+        }
+        // the role fillers ride the query as &-separated values in role
+        // order: the fact IS the argument list, because a fact type's roles
+        // are its parameters
+        let fact: Vec<String> = if query.is_empty() {
+            Vec::new()
+        } else {
+            query.split('&').map(urldecode).collect()
+        };
+        let fillers: Vec<&str> = fact.iter().map(|f| f.as_str()).collect();
+        arest_host::api(method, &resource, caller, &fillers)
     }
 
     fn urldecode(s: &str) -> String {
@@ -700,15 +701,24 @@ mod wire {
     }
 }
 
+// What the OS can honestly say about the engine it carries. There is no
+// engine VERSION to ask for any more, and that is the correction rather than
+// a loss: canon is not a component with a release number sitting beside the
+// OS's own, it is the program. What varies is which facts are loaded, so the
+// receipt is the count -- derived, checkable, and wrong the moment it stales.
 fn arest_version_line() -> String {
-    format!("AREST OS {} / {}", env!("CARGO_PKG_VERSION"),
-            arest::worker::arest_version())
+    format!("AREST OS {} / {} cells", env!("CARGO_PKG_VERSION"),
+            arest_host::cell_count())
 }
 
 #[cfg(feature = "mini")]
 fn console_loop() -> ! {
     use std::io::{self, BufRead, Write};
-    println!("console: <verb> [args-json]   (e.g. get {{\"noun\":\"Contact Submission\",\"id\":\"...\"}})");
+    // THE CONSOLE IS canon `main`, and the line typed IS the address -- the
+    // same argv the CLI passes, word for word. Nothing to look up and no JSON
+    // to parse: an empty line is the law report, `case <name>` is a case, and
+    // a word canon does not know comes back as "unknown mode", from canon.
+    println!("console: <address>   (empty = verify; `case <name>`; `witness`)");
     loop {
         print!("arest> ");
         io::stdout().flush().ok();
@@ -720,13 +730,9 @@ fn console_loop() -> ! {
         if line.is_empty() {
             continue;
         }
-        let (verb, args) = match line.split_once(' ') {
-            Some((v, a)) => (v, a.trim()),
-            None => (line, ""),
-        };
-        let out = arest::worker::arest_call(
-            verb, if args.is_empty() { "{}" } else { args });
-        println!("{}", out);
+        let addr: Vec<&str> = line.split_whitespace().collect();
+        let (text, _ok) = arest_host::ask(&addr);
+        println!("{}", text);
     }
 }
 

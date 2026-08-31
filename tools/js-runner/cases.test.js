@@ -179,27 +179,52 @@ function outsideStrings(text) {
 // Proven to fail before it was shipped: re-injecting that exact S5-to-S4 edit
 // reports (4, 5), and turning an S2 into an S3 reports (3, 2). It catches too
 // many and too few.
+//
+// IT SCANNED ONLY Sn, AND THE ONE THAT COST MOST WAS A DEF. 696b6904 rewrote
+// six lines of main:links_of into one and dropped a closing paren; the file
+// stayed BALANCED because the tuple's own last line had grown a second `)` to
+// match, so both the paren count and "ends with )" agreed. What actually
+// happened is that DEF swallowed the next 46 elements as extra arguments --
+// `DEF(name, body)` ignores them in js, so all 46 still registered, just in
+// the wrong ORDER, and 33 commits of green suite went by. rustc found it in
+// one line ("this function takes 2 arguments but 48 arguments were supplied")
+// because rust has no variadic tolerance, which is the whole argument for
+// keeping a strict host in the fleet. So the scan now covers every
+// constructor the host declares, DEF included, and the file's element count
+// is the tell: 1859 before, 1905 after.
+const ARITY = {
+  DEF: 2, A: 1, N: 1, K: 1, PHI: 0,
+  S1: 1, S2: 2, S3: 3, S4: 4, S5: 5, S6: 6, S7: 7, S8: 8, S9: 9,
+};
+
 function arityMismatches(text) {
+  // a constructor NAME inside a note is prose, so call sites are found in the
+  // blanked text; outsideStrings is length-preserving, so the indices still
+  // point into the real bytes, where the argument scan handles strings itself
+  const bare = outsideStrings(text);
   const out = [];
-  const re = /\bS([1-9])\(/g;
+  const re = /\b(DEF|A|N|K|PHI|S[1-9])\(/g;
   let m;
-  while ((m = re.exec(text)) !== null) {
-    const want = Number(m[1]);
+  while ((m = re.exec(bare)) !== null) {
+    const want = ARITY[m[1]];
     let i = m.index + m[0].length, depth = 1, inStr = false, args = 1;
+    let seen = false;
     while (i < text.length && depth > 0) {
       const c = text[i];
       if (inStr) {
         if (c === "\\") { i += 2; continue; }
         if (c === '"') inStr = false;
-      } else if (c === '"') inStr = true;
-      else if (c === "(") depth++;
+      } else if (c === '"') { inStr = true; seen = true; }
+      else if (c === "(") { depth++; seen = true; }
       else if (c === ")") depth--;
       else if (c === "," && depth === 1) args++;
+      else if (!/\s/.test(c)) seen = true;
       i++;
     }
+    if (!seen) args = 0;                       // PHI() takes nothing
     if (args !== want) {
-      const line = text.slice(0, m.index).split("\n").length;
-      out.push(`line ${line}: S${want} given ${args}`);
+      const line = bare.slice(0, m.index).split("\n").length;
+      out.push(`line ${line}: ${m[1]} takes ${want}, given ${args}`);
     }
   }
   return out;

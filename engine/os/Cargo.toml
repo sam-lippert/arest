@@ -31,14 +31,18 @@ mini = ["server"]
 full = ["mini", "dep:slint"]
 
 [dependencies]
-# the 0.9.0 engine core + the worker verb surface (arest_load /
-# arest_call / arest_view / ...): wasm-bindgen compiles to plain
-# attributes off-wasm, and the engine builds clean for
-# x86_64-unknown-uefi (a STD target — stdout is the firmware ConOut) —
-# the OS hosts the SAME verb table the Worker serves.
-# default-features = false drops the host half (fs, process spawning,
-# stdio loops — everything bare firmware doesn't have).
-arest = { path = "../rust", package = "arest", default-features = false, features = ["worker"] }
+# CANON, THROUGH THE SAME MU EVERY OTHER HOST USES. This was
+# `arest = { path = "../rust", features = ["worker"] }` - a second
+# engine, 19,664 lines, serving a verb table over a JSON store image.
+# It went with the fat hosts on 2026-08-29 and the path dangled, so
+# this crate had not built since. Pointing it at tools/rust-host is
+# not one dependency swapped for another: that crate IS the thin mu,
+# canon and the carriers arrive as SOURCE through its chunker, and
+# rustc compiles the same bytes bun executes. There is no store
+# artifact to load and no verb table to serve - the OS asks canon
+# `main` an address, which is the whole of a fact-based system: an
+# operation reaches an entity, and the model decides whether it may.
+arest-host = { path = "../../tools/rust-host" }
 # firmware protocol access (SNP for the wire) ALONGSIDE std: no
 # panic_handler / global_allocator / logger features — std provides
 # those lang items on this target (their overlap was the E0152)
@@ -60,6 +64,22 @@ slint = { version = "1.8", optional = true, default-features = false, features =
 # (rasterized on the build host) — text on bare firmware needs no
 # font machinery at runtime
 slint-build = "1.8"
+
+# Canon is one enormous include!d expression and rustc's per-body cost is
+# quadratic in source length, so a full release build does not finish - the
+# measurement tools/rust-host records, and this crate carries the whole of it
+# through arest-host.
+#
+# opt-level 0 and no debuginfo, which is a DIFFERENT choice from
+# tools/rust-host's dev profile (opt-level 1) and made for a different reason.
+# That host is benchmarked against three JIT'd runtimes, so an unoptimized
+# build there is not a fair comparison. Nothing here is being timed against
+# anything: what matters is that the image links at all, and codegen over
+# ~1900 canon elements plus debuginfo is where the wall-clock goes. DEF calls
+# execute once, at load, so optimizing their bodies buys nothing either way.
+[profile.dev]
+opt-level = 0
+debug = false
 
 [profile.release]
 lto = true

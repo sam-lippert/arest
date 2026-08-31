@@ -12368,7 +12368,7 @@ DEF("main:links_of",
                 S3(A("CONS"), K(A("system:links_of")),
                    S4(A("CONS"), K(N(1)),
                       S3(A("COMP"), A("main:transitions_of"), N(1)), K(N(2))))),
-             S3(A("COMP"), A("main:status_pop"), S3(A("CONS"), N(1), N(2))))))),
+             S3(A("COMP"), A("main:status_pop"), S3(A("CONS"), N(1), N(2)))))))),
 
 "THE CREATE, WHICH WAS ALREADY CANON AND SIMPLY NOT CALLED. AREST.tex:222: <P',D_r> = resolve(I,D), P'' = lfp(F_S,P'), V = union of (rho c):P'', and D' = D_r[FILE -> P''] iff V has no alethic violation. ast:build_system IS that transition -- applied to <cell, validate, resolve, derive, links, machine, mealy, index, append> it answers a handler, and the handler applied to <fact, D> answers <<P'', V>, D'>. Operand here is <store, cell, fact>. The record is built by apndl rather than a nine-wide constructor because S9 is the ceiling and the record has nine fields; prepending the cell to a constant eight of PHI is the same object and stays inside the notation.",
 "A CREATE WAS NOT VALIDATED, AND THE REFUSAL BRANCH WAS WIRED TO F. ast:build_system already asks -- COND on the third of the validate result, answering the refusal when it is T -- and main:create filled the record as <cell, PHI x8>, so ast:bs_valDI substituted ast:stub_validate, which answers <population, PHI, F>. Empty violations and never refuse, whatever was asserted. main:create_outcome read that empty V and said committed every time, so committed_with_violations was a branch nothing took. Measured before the fix: POST a second Description for a Domain that admits one and the answer is 201, while ui:violations on the very store it hands back reports <DomainHasDescription, uniqueness, 1>. Figure 1 puts validate between the fixpoint and the emit, and cor:closure only REUSES it for extension -- so an extension was gated while an ordinary create was not.",
@@ -12620,5 +12620,5 @@ DEF("auth:authorized",
                          S3(A("CONS"), S3(A("COMP"), A("auth:ft_of"), N(1)), K(N(3))))),
                    N(1))))))),
 
-"THE TWO KINDS DEFINITION 4 LISTS AND CANON CANNOT YET BUILD. cardinality has no constraints: object at all, and value_comparison has none either -- its lt/gt/le/ge are filter operators rather than a constraint builder. Written as data because a gap discovered only when a reading fails is a gap nothing can check for. compile: is not complete against Definition 4 until these two have objects, and this is the list of what is owed.",
-))
+"THE TWO KINDS DEFINITION 4 LISTS AND CANON CANNOT YET BUILD. cardinality has no constraints: object at all, and value_comparison has none either -- its lt/gt/le/ge are filter operators rather than a constraint builder. Written as data because a gap discovered only when a reading fails is a gap nothing can check for. compile: is not complete against Definition 4 until these two have objects, and this is the list of what is owed."
+)
