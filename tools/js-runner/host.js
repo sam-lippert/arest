@@ -104,6 +104,11 @@ function cmp(a, b) {
 // The build knows which carrier set is composed and the host does not, so
 // build.js writes this in beside the boot call.
 let JOURNAL_PATH = null;
+// how many entries the journal already holds. It has to be a counter rather
+// than a count of cells: an appended entry is not a CELL until the next boot,
+// so two writes in one session would both compute the same index and collide
+// on the duplicate DEF that law:one_name forbids.
+let JOURNAL_N = 0;
 
 const PRIMS = new Map(Object.entries({
   // the one durable write, registered rather than defined: it appends outside
@@ -648,6 +653,21 @@ function run_test() {
 // Mutated in place so the array identity survives, then the memo is dropped:
 // Ev keys on the store REFERENCE, so a store whose contents changed under the
 // same reference would keep answering from the old one.
+// A WRITE IS RECORDED AS A FACT, not as a request. main:jverb says which verb a
+// method journals -- POST asserts, DELETE retracts, PUT replaces, and a GET
+// journals nothing, which is why nav has no row in that table. The entry text
+// is built by canon (main:jentry_for over ui:jentry); the host supplies only
+// the sequence number and the bytes, because what an entry SAYS is not its.
+//
+// Recorded post-resolve, which is what makes replay safe to repeat: resolve_S
+// is where external functions run, so replaying a COMMAND would re-fetch,
+// while replaying the fact it produced cannot.
+function journalStep(method, resource, fact) {
+  if (!JOURNAL_PATH) return;
+  const entry = Ev("main:jentry_for", [++JOURNAL_N, String(method), String(resource), fact]);
+  Ev("store:append", ["journal", entry]);
+}
+
 function adoptStore(next) {
   if (!Array.isArray(next) || next.length === 0) return false;
   // next may BE CELLS -- canon answers the same array when a step changes nothing,
@@ -694,7 +714,10 @@ function run_serve() {
       const resource = decodeURIComponent(url.pathname.replace(/^\//, ""));
       const fact = await req.json().catch(() => []);
       const out = Ev("main:api", [CELLS, req.method, resource, caller, fact]);
-      if (out.length > 2) adoptStore(out[2]);
+      if (out.length > 2) {
+        adoptStore(out[2]);
+        journalStep(req.method, resource, fact);
+      }
       return new Response(String(out[0]), {
         status: Number(out[1]) || 500,
         headers: { "content-type": "application/json" },
@@ -785,7 +808,11 @@ function run_mcp() {
     ]);
     // a POST answers a third part, the store it made; adopting it is what
     // makes a tool call persist. It is not part of the reply.
-    if (out.length > 2) { adoptStore(out[2]); return [out[0], out[1]]; }
+    if (out.length > 2) {
+      adoptStore(out[2]);
+      journalStep(String(a.method || METHODS[0]), String(name), Array.isArray(a.fact) ? a.fact : []);
+      return [out[0], out[1]];
+    }
     return out;
   }
 
@@ -948,6 +975,7 @@ function loadJournal() {
   // the fold usually changes CONTENTS, not the cell count, so counting cells is
   // not the signal -- what matters is whether there were entries to fold at all
   const n = CELLS.filter((c) => Array.isArray(c) && String(c[1]).startsWith("journal:")).length;
+  JOURNAL_N = n;
   CELLS.length = 0;
   for (const c of out) CELLS.push(c);
   memoClear();
