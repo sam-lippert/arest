@@ -121,6 +121,27 @@ Function 'strip_prefix' has Definition Origin 'compiled'.
 Function 'strip_prefix' accepts Type Expression 'prefix-and-text'.
 Function 'strip_prefix' yields Type Expression 'text'.
 
+<!-- The boundary is only a query over P if every registered function has an
+     origin fact. Enumerating the runners' registration tables against canon's
+     own DEF names found six that had none: three js-host primitives (chars,
+     reverse, trans), two controls the web and wpf hosts register beyond the
+     eight ui:renderers names (render:button, render:textbox), and the durable
+     write itself. Origin-only, since at-most-one is the constraint and the
+     signature facts follow when the manifest lands.
+
+     The rule that decides which side a name falls on: a host name canon does
+     NOT define is registered; a host name canon DOES define is a native twin
+     (an acceleration, like the js host's FASTPRIMS for theta:member and
+     friends) and stays compiled. Getting that backwards would make Eq 5's
+     restriction meaningless by marking half of canon as boundary. -->
+
+Function 'chars' has Definition Origin 'registered'.
+Function 'reverse' has Definition Origin 'registered'.
+Function 'trans' has Definition Origin 'registered'.
+Function 'store:append' has Definition Origin 'registered'.
+Function 'render:button' has Definition Origin 'registered'.
+Function 'render:textbox' has Definition Origin 'registered'.
+
 <!-- exec ruling (2026-07-16): the canon prefix families declared as
      Domains — TENANTS of the base store (namespacing is tenancy:
      Backus 14.7, a cell whose contents is another entire store). Each
