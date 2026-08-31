@@ -650,8 +650,12 @@ function run_test() {
 // same reference would keep answering from the old one.
 function adoptStore(next) {
   if (!Array.isArray(next) || next.length === 0) return false;
+  // next may BE CELLS -- canon answers the same array when a step changes nothing,
+  // and clearing in place would empty the thing we are about to copy from
+  if (next === CELLS) return true;
+  const copy = next.slice();
   CELLS.length = 0;
-  for (const c of next) CELLS.push(c);
+  for (const c of copy) CELLS.push(c);
   memoClear();
   return true;
 }
@@ -928,9 +932,35 @@ function loadDerived() {
   return added;
 }
 
+// THE JOURNAL IS FOLDED AT LOAD. ui:replay picks out the cells named journal:<n>,
+// dispatches each on its verb -- fire an event on an entity, submit a new one,
+// retract an earlier entry -- and answers the store those events produce.
+//
+// Order matters and cost me a boot: the fold READS through the accessor, which
+// wants FILE, so it cannot run before loadFile. But the events change state:fts,
+// and FILE is a projection of that, so a fold that changed anything leaves the
+// projection stale and it is rebuilt. A store with no journal cells comes back
+// unchanged and neither step costs anything.
+function loadJournal() {
+  const out = Ev("ui:replay", CELLS);
+  if (out === CELLS) return 0;   // nothing folded; same array back
+  if (!Array.isArray(out) || out.length === 0) return 0;
+  // the fold usually changes CONTENTS, not the cell count, so counting cells is
+  // not the signal -- what matters is whether there were entries to fold at all
+  const n = CELLS.filter((c) => Array.isArray(c) && String(c[1]).startsWith("journal:")).length;
+  CELLS.length = 0;
+  for (const c of out) CELLS.push(c);
+  memoClear();
+  return n;
+}
+
 function boot(mode) {
   loadFile();
   loadDerived();
+  if (loadJournal()) {
+    adoptStore(Ev("main:refile", CELLS));
+    loadDerived();
+  }
   if (mode === "test") return run_test();
   if (mode === "serve") return run_serve();
   if (mode === "mcp") return run_mcp();
