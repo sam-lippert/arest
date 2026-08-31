@@ -1,0 +1,13 @@
+,
+
+DEF("journal:1", S4(A("assert"), A("FunctionHasDefinitionOrigin"), A("chars"), A("registered"))),
+
+DEF("journal:2", S4(A("assert"), A("FunctionHasDefinitionOrigin"), A("reverse"), A("registered"))),
+
+DEF("journal:3", S4(A("assert"), A("FunctionHasDefinitionOrigin"), A("trans"), A("registered"))),
+
+DEF("journal:4", S4(A("assert"), A("FunctionHasDefinitionOrigin"), A("store:append"), A("registered"))),
+
+DEF("journal:5", S4(A("assert"), A("FunctionHasDefinitionOrigin"), A("render:button"), A("registered"))),
+
+DEF("journal:6", S4(A("assert"), A("FunctionHasDefinitionOrigin"), A("render:textbox"), A("registered")))
