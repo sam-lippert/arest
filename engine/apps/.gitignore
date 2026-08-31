@@ -1,7 +1,10 @@
 # app databases, JSON stores, and event logs are build artifacts of their
 # readings; the readings are the source of truth (an events log with real
-# history would be data, not artifact — none exists here yet). Only the SHARED
-# base materializations (shared/*.store.json) are tracked, never an app's.
+# history would be data, not artifact — none exists here yet). NO store.json
+# is tracked, the shared ones included, and nothing reads one back. A dump is
+# a materialization: reading it is reasoning about storage rather than about
+# relations, which is the argument Codd 1970 opens with and the tree-shaped
+# file it opens against. The store is the tables the readings project to.
 */*.db
 */*.store.json
 */*.events.jsonl

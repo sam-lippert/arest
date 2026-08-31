@@ -11,19 +11,31 @@
 // the engine surface, headless. mini adds a text console; full
 // realizes the canon view trees through Slint on the framebuffer.
 
-// Canon at boot: the store the build staged (the real support store on
-// the dev layout; an empty-store fallback elsewhere) rides the image.
-const STORE: &str = include_str!(concat!(env!("OUT_DIR"), "/store.json"));
-
+// NO STORE RIDES THE IMAGE. This include_str!'d a JSON dump the build
+// staged, and loading it was the first thing main() did — so the OS
+// was file-based at its root, whatever it did afterwards: one blob,
+// found by path, read back whole, trusted entire. That is the shape a
+// fact-based OS exists to remove, and it is the shape the automated
+// attacks on linux and the common web stacks are written against. A
+// path is ambient authority: anything that can name it can read it,
+// and nothing in the read says what the bytes are allowed to mean.
+//
+// The replacement is not a different file. It is the addressed step
+// this system already has — an operation reaches an entity through
+// rho(entity(x):D) and is admitted or refused by the model's own
+// constraints — so there is no read that is not a question, and no
+// answer that has not been through the gate. Canon and its carriers
+// arrive as source, the way they do for every other host.
+//
+// This crate cannot build yet regardless: its `arest` dependency is a
+// path to engine/rust, which went with the fat hosts. That is the
+// hacked-up part, and the canon design is what replaces it.
 fn main() {
     // versions DERIVE (the crate's from Cargo, the engine's from its
     // own verb) — never hard-coded in banners or asserts
     println!("AREST OS {}", env!("CARGO_PKG_VERSION"));
     println!("engine: {}", arest::worker::arest_version());
     println!("target: {}", TARGET);
-    let receipt = arest::worker::arest_load(STORE);
-    println!("store: {} bytes; load: {}", STORE.len(),
-             &receipt[..receipt.len().min(120)]);
     let verbs = arest::worker::arest_call("verbs", "{}");
     println!("verbs: {}", &verbs[..verbs.len().min(120)]);
     // the NATIVE carrier path (system:entity_view resolves to its
