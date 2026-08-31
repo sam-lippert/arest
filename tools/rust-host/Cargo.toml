@@ -10,6 +10,14 @@ edition = "2021"
 # DIFFERENT artifact (the procedural projection, which uses rayon), not a mu.
 [dependencies]
 
+# THE MU IS A LIBRARY as well as a binary. engine/os asks the same canon
+# through the same evaluator, and a second copy of a mu is how the first two
+# js runners died -- so there is one, with two callers. src/main.rs is the
+# CLI over it and nothing more; the six-line contract lives in the lib.
+[lib]
+name = "arest_host"
+path = "src/lib.rs"
+
 [[bin]]
 name = "arest-host"
 path = "src/main.rs"

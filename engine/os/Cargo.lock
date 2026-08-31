@@ -105,17 +105,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
 
 [[package]]
-name = "arest"
+name = "arest-host"
 version = "0.1.0"
-dependencies = [
- "wasm-bindgen",
-]
 
 [[package]]
 name = "arest-os"
 version = "0.1.0"
 dependencies = [
- "arest",
+ "arest-host",
  "slint",
  "slint-build",
  "smoltcp",
