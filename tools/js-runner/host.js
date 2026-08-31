@@ -97,7 +97,24 @@ function cmp(a, b) {
 // ---- the base primitives: Backus 11.2.3 plus the registered boundary rows
 // of resolution.md (lex, implode, slug, escape_html, strip_prefix, 1r, tlr).
 // Each mirrors its Mu.cs form; unary prims take x, pair prims take at(x,0/1). -
+// WHERE THE DURABLE WRITE GOES. The journal is append-only CANON SOURCE:
+// ui:jentry emits a comma, two newlines, and a DEF form naming the cell and
+// its value, and the build splices the whole file as CANON of journal and
+// those entries. So persisting is appending text and rebooting is reading it.
+// The build knows which carrier set is composed and the host does not, so
+// build.js writes this in beside the boot call.
+let JOURNAL_PATH = null;
+
 const PRIMS = new Map(Object.entries({
+  // the one durable write, registered rather than defined: it appends outside
+  // D, so it cannot be canon (AREST.tex eq:boundary). Same name and same shape
+  // as the web host's POST-to-journal and the wpf and java hosts' file writes.
+  // Empty bytes never leave -- the identity effect.
+  "store:append": x => {
+    const bytes = String(at(x, 1));
+    if (bytes !== "" && JOURNAL_PATH) require("node:fs").appendFileSync(JOURNAL_PATH, bytes);
+    return "T";
+  },
   "id": x => x,
   "tl": x => { const a = seq(x); if (a.length === 0) throw new Error("tl on empty"); return a.slice(1); },
   "atom": x => bool(!Array.isArray(x)),

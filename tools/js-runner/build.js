@@ -67,6 +67,7 @@ for (const p of SPLICED) {
   parts.push(Buffer.from("\n;\nCANON"), must(p));
 }
 parts.push(Buffer.from('\n;\nCANON("journal"'), must(JOURNAL), Buffer.from(")"));
+parts.push(Buffer.from("\n;\nJOURNAL_PATH = " + JSON.stringify(JOURNAL) + ";\n"));
 parts.push(Buffer.from("\n;\nboot(" + JSON.stringify(mode) + ");\n"));
 
 const out = Buffer.concat(parts);
