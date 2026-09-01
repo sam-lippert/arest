@@ -5120,6 +5120,58 @@ namespace Arest.NormaOracle
 					}
 				}
 			}
+			// AND EVERY INSTANCE'S REFERENCE, from the same walk. Sam, on what
+			// this fact type means: "Object Type Instance has Reference is the
+			// instance of an object type having a reference scheme. It may be a
+			// flat id, or a complex external uniqueness constraint."
+			//
+			// So the mandatory is RIGHT -- every instance is identified somehow,
+			// that is what a reference scheme is -- and the 21 violations were
+			// missing DATA, not an over-strong constraint. I had it backwards
+			// twice: first repeating this file's own "runtime address" (a phrase
+			// that occurs exactly once in the repo, in the comment that coined
+			// it, with no definition and no reader), then proposing to relax
+			// `exactly one` to `at most one`. Both wrong.
+			//
+			// The oracle builds no NORMA sample-population objects at all --
+			// EntityTypeInstance appears nowhere in this file -- so there is no
+			// reference scheme to ask NORMA for. What it does have is the
+			// identifying TEXT: every value in a parsed instance-fact row is
+			// exactly the reference the instance is written by. For a flat id
+			// that text IS the reference, which is every instance in this model.
+			//
+			// THE ROWS LOOK DEGENERATE and that is a representation artifact,
+			// not a modelling one: the carrier already keys instances by their
+			// reference, so <'Proposed', 'Proposed'> reads as a tautology when
+			// it is the natural key stated once. A compound scheme would emit a
+			// composite here; none exists in this model, because a parsed row
+			// value is a single text by construction.
+			{
+				FactIndexEntry refEntry = null;
+				foreach (FactIndexEntry e in myFactIndex)
+					if (!e.Fact.IsDeleted && e.Fact.Name == "ObjectTypeInstanceHasReference") { refEntry = e; break; }
+				if (refEntry != null)
+				{
+					var have = new HashSet<string>(StringComparer.Ordinal);
+					foreach (var row in refEntry.Rows) if (row.Count == 2) have.Add(row[0]);
+					foreach (FactIndexEntry e in myFactIndex)
+					{
+						if (e.Fact.IsDeleted) continue;
+						for (int r = 0; r < e.Rows.Count && r < e.RowKinds.Count; r++)
+						{
+							for (int i = 0; i < e.Rows[r].Count && i < e.RowKinds[r].Count; i++)
+							{
+								if (string.IsNullOrEmpty(e.RowKinds[r][i])) continue;
+								string val = e.Rows[r][i];
+								if (have.Contains(val)) continue;
+								refEntry.Rows.Add(new List<string> { val, val });
+								refEntry.RowKinds.Add(new List<string> { "", "" });
+								have.Add(val);
+							}
+						}
+					}
+				}
+			}
 			var fts = new List<string>();
 			var declared = new List<string>();
 			var nestings = new List<string>();
