@@ -9,7 +9,33 @@
 ## Entity Types
 
 Status is an entity type.
-Status is a subtype of Object Type.
+Status is a subtype of Object Type Instance.
+<!-- WAS `subtype of Object Type`, and that made every Status an OBJECT TYPE.
+     evolution.md states the established pattern while citing this very type as
+     precedent for itself - "the schema-entity-as-Object Type Instance pattern
+     (core.md: Event Type, Status, Constraint, Derivation Rule are Object Type
+     Instance subtypes)" - so Domain Change followed the pattern and the type it
+     was following did not.
+
+     It was invisible until a mandatory could be checked. state:otpops
+     materializes inclusion up the subtype chain, so every Status, and every
+     State Machine Definition through the subtype link below, landed in the
+     Object Type population: 24 of them, including `step5-mandatory` and
+     `step7-final-checks`, which are CSDP steps. `Each Object Type is of exactly
+     one Object Kind` (core.md) and `Each Object Type has exactly one World
+     Assumption` then reported 24 violations each - 48 of the 59 the first
+     mandatory run surfaced - all of them phantoms asking a workflow step which
+     kind of object type it is.
+
+     A Status is a value a machine can be in, not an object type of the modelled
+     domain. Sam: the metamodel should already have clear differentiation
+     between value and entity types - and it does; this line was reading the
+     instance level as the type level. -->
+<!-- STILL OPEN, deliberately not changed here: `State Machine Definition is a
+     subtype of Status` below says every state machine definition IS a status,
+     which is what carried CSDP, Rmap and Schema Design up the same chain. It is
+     a separate ruling and it does not need to be made to fix the 48. -->
+
 State Machine Definition is an entity type.
 State Machine Definition is a subtype of Status.
 Transition is an entity type.
