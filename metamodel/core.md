@@ -453,8 +453,40 @@ Object Type is described to AI by prompt Text.
   Each Object Type, Text combination occurs at most once in the population of Object Type is described to AI by prompt Text.
 ObjectTypeIsDescribedToAIByPromptText objectifies "Object Type is described to AI by prompt Text".
 ObjectTypeIsDescribedToAIByPromptText is a subtype of Function.
-Object Type has World Assumption.
+Object Type has World Assumption. +
   Each Object Type has exactly one World Assumption.
+  <!-- SEMI-DERIVED (ruling 2026-08-31, Samuel: "the default assumption is
+       closed for world assumption unless it comes from an external
+       system"). The mandatory says every Object Type has exactly one,
+       nothing declared a default, and nothing asserted a single row — so
+       the constraint was unsatisfiable by construction, and invisible with
+       it, because until f47c0d81 no mandatory was checkable at all.
+
+       `+` AND NOT `*`, which is the whole point of the marker: a default
+       that can be overridden is derived OR asserted. Fully derived would
+       say no author may ever state a world assumption, and an author must
+       be able to — the default is a default, not a law. The same marker
+       and the same reason as `Derivation Rule introduces values` below,
+       `State Machine is currently in Status` (instances.md) and `Predicate
+       is performed during Transition` (state.md).
+
+       A DEFAULT IS NOT DATA either: one row per Object Type would put a
+       ruling in 147 places and let them drift. The derivation is closed
+       unless the type is backed by an External System, which is the
+       paper's own line — §355, "A noun backed by an external system sits
+       on this line: its population is fetched by a registered function,
+       and its facts enter under the open-world assumption", with §309
+       pairing an alethic constraint over a closed-world noun against a
+       deontic one over an open-world noun. The predicate it turns on is
+       declared above: `Object Type is backed by External System`.
+
+       No rule text here on purpose. Written out, the derivation needs the
+       value bound in the body (`iff World Assumption is 'open' and that
+       Object Type is backed by ...`), because a literal in the HEAD names
+       no declared fact type — the oracle says so outright. That
+       verbalization reads badly and no arm accepts the body anyway, so it
+       would buy a sentence nobody can execute. The three `+` readings
+       above carry their obligation in prose for the same reason. -->
 Object Type is independent.
 Object Type is of schema:Thing.
   Each Object Type is of at most one schema:Thing.
@@ -1001,6 +1033,7 @@ Derivation Rule depends on Derivation Rule. *
 * Derivation Rule1 reaches Derivation Rule3 iff Derivation Rule1 depends on Derivation Rule2 and Derivation Rule2 reaches Derivation Rule3.
 
 * Object Type is instantiable iff Object Type is of Object Kind 'entity' and Object Type has some Reference Mode.
+
 
 Constraint is semantic iff Constraint has modality of Modality Type 'Deontic' and Constraint spans some Role and that Role is played by some Object Type and no Object Type Instance is instance of that Object Type.
 
