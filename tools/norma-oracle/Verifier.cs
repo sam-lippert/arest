@@ -5414,6 +5414,58 @@ namespace Arest.NormaOracle
 			}
 			exclusions.Sort(StringComparer.Ordinal);
 			sb.Append("DEF(\"state:exclusions\", ").Append(exclusions.Count == 0 ? "PHI()" : IChunked(exclusions)).Append("),\n\n");
+			// SUBSET AND EQUALITY CONSTRAINTS, BUILT AND NEVER EMITTED. The oracle
+			// builds nine subsets -- 6 join-path, 2 direct, 1 negated-unary
+			// impossibility -- and every one stopped here. There was no
+			// state:subsets, no state:equalities, and no other cell carrying a
+			// SetComparisonConstraint except the exclusions above.
+			//
+			// Sam: "AREST should execute the derivation by filling in empty legs
+			// of equality and subset constraints." That is what these rows are
+			// for. CHECKED, a subset refuses when its sub leg is not contained in
+			// its super leg. EXECUTED, an empty super leg is DERIVED from the sub
+			// leg -- the constraint produces instead of only refusing, which is
+			// how a declarative statement about populations becomes a derivation
+			// without any new recipe form.
+			//
+			// THE ORDER OF THE SEQUENCES IS THE CONTENT, which is why this cannot
+			// reuse the exclusion shape above. An exclusion's scopes are
+			// unordered: any two of them exclude each other. A subset is
+			// DIRECTIONAL -- sequence 0 is contained in sequence 1 -- and getting
+			// that backwards would fill the wrong leg. Equality is symmetric and
+			// still carries both sides, so one shape serves both and the kind
+			// says how to read it.
+			var setcmp = new List<string>();
+			foreach (SetComparisonConstraint scc in myStore.ElementDirectory.FindElements<SetComparisonConstraint>(true))
+			{
+				if (scc.IsDeleted) continue;
+				string kind = scc is SubsetConstraint ? "subset"
+					: scc is EqualityConstraint ? "equality" : null;
+				if (kind == null) continue;
+				var legs = new List<string>();
+				bool ok = true;
+				foreach (SetComparisonConstraintRoleSequence seq in scc.RoleSequenceCollection)
+				{
+					var members = new List<string>();
+					foreach (Role r in seq.RoleCollection)
+					{
+						FactType mft = r.BinarizedOrSameFactType;
+						if (mft == null) { ok = false; break; }
+						int pos = 0;
+						for (int i = 0; i < mft.RoleCollection.Count; i++)
+							if (mft.RoleCollection[i].Role == r) { pos = i + 1; break; }
+						if (pos == 0) { ok = false; break; }
+						members.Add("S2(" + IAtom(mft.Name) + ", N(" + pos + "))");
+					}
+					if (!ok || members.Count == 0) { ok = false; break; }
+					legs.Add(IMemberSeq(members));
+				}
+				if (!ok || legs.Count != 2) continue;
+				setcmp.Add("S4(" + IAtom(kind) + ", " + IAtom(scc.Modality == ConstraintModality.Deontic ? "deontic" : "alethic")
+					+ ", " + legs[0] + ", " + legs[1] + ")");
+			}
+			setcmp.Sort(StringComparer.Ordinal);
+			sb.Append("DEF(\"state:setcmp\", ").Append(setcmp.Count == 0 ? "S1(PHI())" : IChunked(setcmp)).Append("),\n\n");
 			// hyphen-bound role qualifiers, one mechanism both sides: NORMA
 			// holds them in the reading text; the carrier mirrors them so
 			// canon consumers (rendered labels) read the SAME data
