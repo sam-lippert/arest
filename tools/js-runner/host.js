@@ -1004,8 +1004,36 @@ function loadJournal() {
   return n;
 }
 
+// THE META-TYPES ARE REFLECTED AT LOAD, and canon says which. reflect:cells
+// answers <name, population> pairs computed from the schema itself, so adding a
+// reflected meta-type later is a canon edit and never a host edit -- this
+// function names nothing and decides nothing, exactly as loadDerived does not.
+//
+// Role was the case that forced it: a declared entity type of this metamodel
+// with NO instances anywhere, so `Each Fact Type has some Role` could not be
+// satisfied while every role sat in state:declared as a player list. Shipping
+// them as carrier data would mean ~467 static facts ABOUT a schema, beside the
+// schema, free to drift from it. Computed, the metamodel cannot disagree with
+// itself.
+//
+// BEFORE loadDerived, because a reflected population is an INPUT a rule may
+// read -- the same reason loadFile comes before both.
+function loadReflected() {
+  let added = 0;
+  for (const entry of Ev("reflect:cells", CELLS)) {
+    const name = String(entry[0]);
+    if (!Array.isArray(entry[1]) || entry[1].length === 0) continue;
+    if (CELLS.some((c) => Array.isArray(c) && String(c[0]) === "CELL" && String(c[1]) === name)) continue;
+    CELLS.unshift(["CELL", name, entry[1]]);
+    added++;
+  }
+  if (added) memoClear();
+  return added;
+}
+
 function boot(mode) {
   loadFile();
+  loadReflected();
   loadDerived();
   if (loadJournal()) {
     adoptStore(Ev("main:refile", CELLS));
