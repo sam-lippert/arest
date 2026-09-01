@@ -5864,6 +5864,63 @@ namespace Arest.NormaOracle
 			foreach (var kv in DisambiguateKeys(djKeyed))
 				djRows.Add("S3(" + IAtom(kv.Key) + kv.Value);
 			djRows.Sort(StringComparer.Ordinal);
+			// THE DEONTIC CONSTRAINT SURFACE. Every emitter above filters
+			// `Modality != ConstraintModality.Alethic` and drops what it finds,
+			// and BuildRing assigns rc.Modality one line before writing a row
+			// that has no room for it. So the readings state 38 deontic
+			// sentences, NORMA builds the ones whose shape a builder matches,
+			// stamps each with Deontic -- BuildTextual's own comment says "every
+			// builder stamps it" -- and every one is discarded at this boundary.
+			//
+			// AREST.tex:137 puts modality in the DEFINITION of C_S: each
+			// constraint "alethic or deontic". :189 gives the difference in one
+			// sentence -- an alethic c rejects the commit, a deontic c warns and
+			// commits -- and Thm 1 is written on it, since D' carries P'' iff V
+			// has no ALETHIC violation, a condition that says nothing unless
+			// deontic violations are in V. A deontic constraint dropped here
+			// cannot warn, so every obligation the readings state was
+			// unenforceable by construction.
+			//
+			// A SEPARATE CELL, NOT A COLUMN ON state:ucs / state:djmands. Those
+			// feed consumers that treat their rows as hard constraints; merging
+			// deontics in would enforce a violable rule as an alethic one, which
+			// is exactly backwards. Membership in THIS cell is the modality, so
+			// nothing downstream carries a flag it might forget to read.
+			//
+			// The kind recorded is the SHAPE to check, not the modality:
+			// ConstraintTypeHasConstraintTypeFamily maps all six deontic
+			// constraint types (DF_pop, DF_cwa, DF_owa, DO_pop, DO_obl,
+			// DO_sender) to family 'deontic', which is the tag a violation
+			// carries and the tag main:create_outcome branches on.
+			var deoRows = new List<string>();
+			var deoKeyed = new List<KeyValuePair<string, string>>();
+			foreach (SetConstraint sc in myStore.ElementDirectory.FindElements<SetConstraint>(true))
+			{
+				if (sc.IsDeleted || sc.Modality != ConstraintModality.Deontic) continue;
+				string kind = sc is MandatoryConstraint ? "mandatory"
+					: sc is UniquenessConstraint ? "uniqueness" : null;
+				if (kind == null) continue;
+				var members = new List<string>();
+				bool ok = true;
+				foreach (Role mr in sc.RoleCollection)
+				{
+					FactType mft = mr.BinarizedOrSameFactType;
+					if (mft == null) { ok = false; break; }
+					int pos = 0;
+					for (int i = 0; i < mft.RoleCollection.Count; i++)
+						if (mft.RoleCollection[i].Role == mr) { pos = i + 1; break; }
+					if (pos == 0) { ok = false; break; }
+					members.Add("S2(" + IAtom(mft.Name) + ", N(" + pos + "))");
+				}
+				if (!ok || members.Count == 0) continue;
+				deoKeyed.Add(new KeyValuePair<string, string>(
+					CanonicalConstraintKey("DEO", kind.Substring(0, 1),
+						MemberKeyParts(sc.RoleCollection)),
+					", " + IAtom(kind) + ", " + IMemberSeq(members) + ")"));
+			}
+			foreach (var kv in DisambiguateKeys(deoKeyed))
+				deoRows.Add("S3(" + IAtom(kv.Key) + kv.Value);
+			deoRows.Sort(StringComparer.Ordinal);
 			// NO DECLARATION ORDINAL HERE. A position from model.ObjectTypeCollection
 			// rode in this row briefly (af5bf95b). NORMA does walk that collection to
 			// build oialModel.ConceptTypeCollection (OMIFORM:1083-1102), and the DCIL
@@ -5993,6 +6050,7 @@ namespace Arest.NormaOracle
 			sb.Append("DEF(\"state:otmeta\", ").Append(IChunked(ots)).Append("),\n\n");
 			sb.Append("DEF(\"state:ucs\", ").Append(ucRows.Count == 0 ? "S1(PHI())" : IChunked(ucRows)).Append("),\n\n");
 			sb.Append("DEF(\"state:djmands\", ").Append(djRows.Count == 0 ? "S1(PHI())" : IChunked(djRows)).Append("),\n\n");
+			sb.Append("DEF(\"state:deontics\", ").Append(deoRows.Count == 0 ? "S1(PHI())" : IChunked(deoRows)).Append("),\n\n");
 			sb.Append("DEF(\"state:factorder\", ").Append(foRows.Count == 0 ? "S1(PHI())" : IChunked(foRows)).Append("),\n\n");
 			// THE REFERENCE-MODE SURFACE (ReferenceModeNaming.cs 3026-3031:
 			// Popular refmodes name as {Entity}{RefMode} both uses; General/
