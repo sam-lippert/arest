@@ -480,13 +480,34 @@ Object Type has World Assumption. +
        deontic one over an open-world noun. The predicate it turns on is
        declared above: `Object Type is backed by External System`.
 
-       No rule text here on purpose. Written out, the derivation needs the
-       value bound in the body (`iff World Assumption is 'open' and that
-       Object Type is backed by ...`), because a literal in the HEAD names
-       no declared fact type — the oracle says so outright. That
-       verbalization reads badly and no arm accepts the body anyway, so it
-       would buy a sentence nobody can execute. The three `+` readings
-       above carry their obligation in prose for the same reason. -->
+       NOT AN iff RULE, and the first two attempts are why. A literal in
+       the HEAD (`has World Assumption 'open' iff ...`) names no declared
+       fact type and the oracle refuses it outright; moving the value into
+       the body (`iff World Assumption is 'open' and ...`) resolves the
+       head, reads badly, and lands among the 22 rules no arm accepts. The
+       shape this wants is a SUBSET CONSTRAINT (Samuel, 2026-09-01: "should
+       be with the World Assumption definition as a set of subset
+       constraint derivations, default is open if function source is
+       external sort of thing"), which is a declarative statement about
+       populations rather than a recipe, is written beside the definition
+       it constrains, and carries its own modality. -->
+If some Object Type is backed by some External System then that Object Type has World Assumption 'open'.
+  <!-- THE EXCEPTION IS THE CONSTRAINT; CLOSED IS THE DEFAULT, so only one
+       sentence is needed. The subset form has no negation to say "not
+       backed by an External System" with, and it does not need one: a type
+       gets closed by being an Object Type, and this names the one
+       condition that overrides it. §355 is the source — a noun backed by
+       an external system has its population fetched by a registered
+       function and "its facts enter under the open-world assumption" —
+       and §309 pairs an alethic constraint over a closed-world noun
+       against a deontic one over an open-world noun.
+
+       KNOWN LIMITATION, stated rather than discovered later: the oracle's
+       subset builder projects the shared variables of the two sides and
+       drops the 'open' VALUE RESTRICTION, so what NORMA holds is the
+       weaker claim that an externally-backed Object Type has SOME World
+       Assumption. The restriction is real in the reading and unchecked in
+       the model. -->
 Object Type is independent.
 Object Type is of schema:Thing.
   Each Object Type is of at most one schema:Thing.
@@ -779,8 +800,18 @@ Constraint is of Constraint Type.
      typing is MANDATORY, which gives exactly one. The shape is the metamodel's
      own precedent for a kind-attribute, core.md:268-269
      `Object Type is of Object Kind. / Each Object Type is of exactly one Object Kind.` -->
-Constraint Type has Name.
-  Each Constraint Type has at most one Name.
+<!-- `Constraint Type has Name. / Each Constraint Type has at most one Name.`
+     is RETIRED for the same reason as Data Type Group has Name below: the
+     rows are already in FunctionHasName — ["UC","Uniqueness"],
+     ["MC","Mandatory"], ["IR","Irreflexive"] and the rest of the 24 — because
+     Constraint Type is Function-rooted and `has Name` resolves to the root.
+     ConstraintTypeHasName sat at 0 rows while ConstraintTypeHasConstraintTypeLabel
+     carried all 24, which is the tell: the label fact type has a distinct
+     predicate and gets reached, the naming one does not.
+
+     `at most one` meant this never showed up as a mandatory violation, so
+     unlike its sibling it was costing nothing — it was simply a declaration
+     nothing could ever satisfy or contradict. -->
 Constraint Type has Constraint Type Label.
   Each Constraint Type has exactly one Constraint Type Label.
 Constraint Type has Constraint Type Family.
@@ -1576,9 +1607,20 @@ Fact Type has Alias.
 FactTypeHasAlias objectifies "Fact Type has Alias".
 FactTypeHasAlias is a subtype of Function.
 
-Data Type Group has Name.
-  Each Data Type Group has exactly one Name.
+<!-- `Data Type Group has Name. / Each Data Type Group has exactly one Name.`
+     is RETIRED (2026-09-01, Samuel: "do the retire"). It could never be
+     populated. Data Type Group is Function-rooted, so a `has Name` sentence
+     routes to the ROOT's fact type, and the eight group names are already in
+     FunctionHasName — ["logical","Logical"], ["numeric","Numeric"],
+     ["raw","Raw"] and the rest. Two fact types for one predicate, and the
+     parser only ever reaches one of them.
 
+     IT WAS INVISIBLE UNTIL A MANDATORY COULD BE CHECKED (f47c0d81). `exactly
+     one Name` over 8 Data Type Groups against 0 rows reported 8 violations,
+     which read as missing data and were nothing of the kind: the data was
+     one fact type over. Retiring the reading removes the constraint that
+     could not be satisfied and loses no information, because Function has
+     Name already holds all of it. -->
 Conceptual Data Type is in Data Type Group.
   Each Conceptual Data Type is in exactly one Data Type Group.
 
