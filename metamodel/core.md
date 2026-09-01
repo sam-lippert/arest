@@ -492,22 +492,38 @@ Object Type has World Assumption. +
        populations rather than a recipe, is written beside the definition
        it constrains, and carries its own modality. -->
 If some Object Type is backed by some External System then that Object Type has World Assumption 'open'.
-  <!-- THE EXCEPTION IS THE CONSTRAINT; CLOSED IS THE DEFAULT, so only one
-       sentence is needed. The subset form has no negation to say "not
-       backed by an External System" with, and it does not need one: a type
-       gets closed by being an Object Type, and this names the one
-       condition that overrides it. §355 is the source — a noun backed by
-       an external system has its population fetched by a registered
-       function and "its facts enter under the open-world assumption" —
-       and §309 pairs an alethic constraint over a closed-world noun
-       against a deontic one over an open-world noun.
+If some Object Type is not backed by some External System then that Object Type has World Assumption 'closed'.
+  <!-- TWO RULES, NOT ONE (Samuel, 2026-09-01: "you can't draw conclusions
+       from open populations. The default needs a twin rule for
+       non-external populations."). The first version of this stated only
+       the exception and argued closed was implied by being an Object
+       Type. That is a conclusion drawn from ABSENCE, and it is wrong
+       twice over.
 
-       KNOWN LIMITATION, stated rather than discovered later: the oracle's
-       subset builder projects the shared variables of the two sides and
-       drops the 'open' VALUE RESTRICTION, so what NORMA holds is the
-       weaker claim that an externally-backed Object Type has SOME World
-       Assumption. The restriction is real in the reading and unchecked in
-       the model. -->
+       As modelling: §355 says a noun backed by an external system has its
+       population fetched by a registered function and "its facts enter
+       under the open-world assumption", and that under the open world
+       "the absence of a violation guarantees nothing". Not finding a type
+       in a population is not a fact about that type.
+
+       As mechanism: a constraint executed by filling its empty leg only
+       ever produces rows for a leg some rule NAMES. With the exception
+       stated alone, nothing derives 'closed' -- the default would be a
+       default in prose and an empty population in fact, which is exactly
+       the state this reading was in before any of this.
+
+       So the default is a rule, and the pair is exhaustive and disjoint
+       over one predicate, which is what makes `exactly one` hold by
+       derivation rather than by assertion.
+
+       KNOWN LIMITATION, stated rather than discovered later: NORMA files
+       both of these as `textual constraint (model note: conditional)`
+       because its two-clause chain builder does not accept a consequent
+       carrying a VALUE literal, and the second also needs a negated
+       binary antecedent, which the subset form has no spelling for beyond
+       the negated-unary case. NORMA is a modelling tool and rendering a
+       derivation as a note is reasonable there; AREST is what has to
+       execute it. -->
 Object Type is independent.
 Object Type is of schema:Thing.
   Each Object Type is of at most one schema:Thing.
