@@ -943,10 +943,28 @@ function loadFile() {
 function loadDerived() {
   const rules = Ev("law:all_rules", CELLS);
   const before = Ev("induce:pairs_of", Ev("store:fts", CELLS));
-  // names already carried, whether as a fact type in store:fts or as a cell this
-  // function added on an earlier pass -- loadDerived runs again after the journal
-  // fold, and without the second check it prepends every derived population twice
-  const seen = new Set(before.map((p) => String(p[0])));
+  // CARRIED MEANS HOLDING ROWS, NOT MERELY DECLARED, and the difference is the
+  // whole of what this function was doing. Every derived head IS a declared fact
+  // type, so a `seen` built from every name in store:fts contained all of them --
+  // carried as EMPTY populations -- and the loop below skipped each one as
+  // "already carried". derive was running, computing, and having its answers
+  // discarded on the way out.
+  //
+  // It was computing plenty. Over this store the fixpoint fills nine heads,
+  // including a transitive closure (StatusReachesStatusInStateMachineDefinition,
+  // 45 rows), the effective-transition and terminal/rooted status derivations,
+  // ObjectTypeInstanceIsOfFunction at 730, and the Entity Type / Value Type
+  // subtypes at 124 and 88 -- which are exactly the entity/value split emitted
+  // into ObjectTypeIsOfObjectKind by 111f1df2. Before that emit those two rules
+  // derived nothing, because their input was empty; after it they derive, and
+  // this line threw the result away.
+  //
+  // The second check stays as it was and is why the first has to be narrowed
+  // rather than deleted: loadDerived runs AGAIN after the journal fold, and
+  // without a guard on the cells it already added it prepends every derived
+  // population twice.
+  const seen = new Set(
+    before.filter((p) => Array.isArray(p[1]) && p[1].length > 0).map((p) => String(p[0])));
   for (const c of CELLS) if (Array.isArray(c) && String(c[0]) === "CELL") seen.add(String(c[1]));
   let added = 0;
   for (const entry of Ev("derive", [rules, before])) {
