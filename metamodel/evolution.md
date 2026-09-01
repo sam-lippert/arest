@@ -276,7 +276,21 @@ Transition 'apply' is triggered by Event Type 'Domain Change is applied'.
      staged gate run judged valid. Evolution is core AREST: the
      self-modification SM uses the framework's own guard machinery. -->
 Guard 'valid-domain-change' guards Transition 'approve-change'.
-Guard 'valid-domain-change' references Fact Type 'Domain Change is valid'.
+Guard 'valid-domain-change' references Fact Type 'DomainChangeIsValid'.
+<!-- THE ID, NOT THE READING (ruling 2026-09-01, Samuel: "A reference type in
+     a fact is always filled by the reference id. The id refers to the entity,
+     the reading refers to the predicate text."). This said `Fact Type 'Domain
+     Change is valid'`, which fills the role with the PREDICATE TEXT — the
+     reading — where the role player is the fact type itself and is carried by
+     its id.
+
+     It was the only instance fact in the metamodel naming a Fact Type, and it
+     put the one member of the Fact Type population under a name nothing else
+     uses: state:readings, state:derived and state:fts all key on the ftid
+     `DomainChangeIsValid`. So `Each Fact Type has some Reading` and `has some
+     Role` reported violations that looked like missing data and were a naming
+     mismatch — the reading and the role are both there, filed under the id. -->
+
 
 <!-- organizations-domain (ruling 2): Domain 'evolution' has Access 'public'. -->
 Domain 'evolution' has Description 'Self-modification as a Domain Change state machine. Proposing a new fact type is proposing a theorem (Curry-Howard). CSDP validation is the proof check, successful ingestion is the proof.'.
