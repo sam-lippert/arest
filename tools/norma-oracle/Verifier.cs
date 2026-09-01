@@ -676,8 +676,21 @@ namespace Arest.NormaOracle
 				}
 				catch (Exception ex)
 				{
+					// WHERE it threw, not just what it said. This is counted as a
+					// harness-error, which asserts the fault is OURS -- but the
+					// message alone cannot tell our parse leg apart from a throw
+					// inside NORMA's own object model, and an unattributed
+					// "Object reference not set to an instance of an object" is
+					// exactly the kind of finding that stays unfixed. The top
+					// frame is enough to settle it and costs one line.
+					string at = "";
+					if (ex.StackTrace != null)
+					{
+						string[] frames = ex.StackTrace.Split('\n');
+						if (frames.Length > 0) at = "  [at " + frames[0].Trim() + "]";
+					}
 					Count("harness-error");
-					myMapLog.Add("ERROR mapping '" + Shorten(s) + "': " + ex.Message);
+					myMapLog.Add("ERROR mapping '" + Shorten(s) + "': " + ex.Message + at);
 				}
 			}
 		}
