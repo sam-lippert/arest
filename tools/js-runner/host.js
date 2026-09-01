@@ -942,7 +942,12 @@ function loadFile() {
 // rules read.
 function loadDerived() {
   const rules = Ev("law:all_rules", CELLS);
-  const before = Ev("induce:pairs_of", Ev("store:fts", CELLS));
+  // READ THROUGH THE ACCESSOR THE RULES READ. induce:pairs_of takes slot 5 of
+  // each descriptor, which is a FILE projection, so every REFLECTED population
+  // -- roles, readings, cells -- arrived here empty and the rules over them
+  // derived nothing. derive:store_pairs pairs each declared name with
+  // system:pop_rows, which consults top-level cells before FILE.
+  const before = Ev("derive:store_pairs", CELLS);
   // CARRIED MEANS HOLDING ROWS, NOT MERELY DECLARED, and the difference is the
   // whole of what this function was doing. Every derived head IS a declared fact
   // type, so a `seen` built from every name in store:fts contained all of them --
