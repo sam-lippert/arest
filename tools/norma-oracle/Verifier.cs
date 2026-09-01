@@ -5014,6 +5014,112 @@ namespace Arest.NormaOracle
 					}
 				}
 			}
+			// OBJECT KIND IS STRUCTURAL, so it is synthesized here rather than
+			// asserted in the readings. Sam: "the object type matters on schema
+			// generation, but once the columns are known, whether a column is a
+			// value or reference type is determined by whether it's an id
+			// column." The distinction is already complete and already consumed:
+			// state:otmeta carries <object type, 'entity'|'value', independent>
+			// for every one, and rmap:vtnames reads it by filtering N(2) ==
+			// "value". The string ObjectKind appears NOWHERE in canon, so
+			// ObjectTypeIsOfObjectKind was a second home for information nothing
+			// was reading -- declared, mandatory, and empty, which is how
+			// `Each Object Type is of exactly one Object Kind` came to be
+			// unsatisfiable by construction.
+			//
+			// WRITING 147 ROWS INTO THE READINGS WOULD BE THE WRONG FIX: it puts
+			// one ruling in 147 places and lets them drift. This is the
+			// FactTypeHasDeclarationOrder pattern above, for the same reason and
+			// with the same discipline -- source order fills it, an explicit
+			// instance row SETS it and wins.
+			//
+			// UNATTRIBUTED (RowKinds ""), exactly as fthdo is. Attributing these
+			// would grow the Object Type population from 4 to 147 and hand
+			// `Each Object Type has exactly one World Assumption` 147 violations
+			// instead of 4, for one unresolved reason -- and that ruling's
+			// derivation does not run yet. The under-count in state:otpops is
+			// real and separate; it is a question about what an otpop MEANS
+			// (instances appearing in facts, or every declared type), not about
+			// this fact type.
+			{
+				FactIndexEntry kindEntry = null;
+				foreach (FactIndexEntry e in myFactIndex)
+					if (!e.Fact.IsDeleted && e.Fact.Name == "ObjectTypeIsOfObjectKind") { kindEntry = e; break; }
+				if (kindEntry != null)
+				{
+					var have = new HashSet<string>(StringComparer.Ordinal);
+					foreach (var row in kindEntry.Rows) if (row.Count == 2) have.Add(row[0]);
+					foreach (ObjectType ot in myModel.ObjectTypeCollection)
+					{
+						if (ot.IsDeleted || string.IsNullOrEmpty(ot.Name)) continue;
+						if (have.Contains(ot.Name)) continue;
+						kindEntry.Rows.Add(new List<string> { ot.Name, ot.IsValueType ? "value" : "entity" });
+						kindEntry.RowKinds.Add(new List<string> { "", "" });
+						have.Add(ot.Name);
+					}
+				}
+			}
+			// AND THE INSTANCE-OF PAIRING IS ALREADY COMPUTED TOO. The walk below
+			// that materializes state:otpops reads exactly this: for every row of
+			// every fact type, RowKinds[r][i] names the object type of
+			// Rows[r][i], and the loop climbs SupertypeCollection adding the
+			// value to each supertype's population. That climb IS
+			// `Object Type Instance is instance of Object Type`, and the fact
+			// type sat at 0 rows beside it.
+			//
+			// UP THE CHAIN, NOT JUST THE DIRECT TYPE, and the model says so
+			// outright. instances.md declares "Each Object Type Instance,
+			// Object Type combination occurs at most once" plus "is instance of
+			// SOME Object Type" -- not exactly one -- and the note records the
+			// 2026-07-09 ruling: "'exactly one Noun' was NON-CANONICAL
+			// (challenged, verified against Halpin, Subtyping Revisited, NORMA):
+			// in ORM subtyping is population inclusion." An instance of a
+			// subtype IS an instance of its supertypes, so the emitted pairing
+			// has to agree with the inclusion otpops already materializes.
+			//
+			// Unattributed, and explicit rows win, as above.
+			{
+				FactIndexEntry instEntry = null;
+				foreach (FactIndexEntry e in myFactIndex)
+					if (!e.Fact.IsDeleted && e.Fact.Name == "ObjectTypeInstanceIsInstanceOfObjectType") { instEntry = e; break; }
+				if (instEntry != null)
+				{
+					var have = new HashSet<string>(StringComparer.Ordinal);
+					foreach (var row in instEntry.Rows)
+						if (row.Count == 2) have.Add(row[0] + "" + row[1]);
+					foreach (FactIndexEntry e in myFactIndex)
+					{
+						if (e.Fact.IsDeleted) continue;
+						for (int r = 0; r < e.Rows.Count && r < e.RowKinds.Count; r++)
+						{
+							for (int i = 0; i < e.Rows[r].Count && i < e.RowKinds[r].Count; i++)
+							{
+								string kind = e.RowKinds[r][i];
+								if (string.IsNullOrEmpty(kind)) continue;
+								string val = e.Rows[r][i];
+								ObjectType t;
+								myTypes.TryGetValue(kind, out t);
+								while (true)
+								{
+									string key = val + "" + kind;
+									if (!have.Contains(key))
+									{
+										instEntry.Rows.Add(new List<string> { val, kind });
+										instEntry.RowKinds.Add(new List<string> { "", "" });
+										have.Add(key);
+									}
+									if (t == null) break;
+									ObjectType super = null;
+									foreach (ObjectType sup in t.SupertypeCollection) { super = sup; break; }
+									if (super == null) break;
+									kind = super.Name;
+									t = super;
+								}
+							}
+						}
+					}
+				}
+			}
 			var fts = new List<string>();
 			var declared = new List<string>();
 			var nestings = new List<string>();
