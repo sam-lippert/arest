@@ -1728,6 +1728,17 @@ Data Type Group 'other' has Name 'Other'.
 Data Type Group 'unspecified' has Name 'Unspecified'.
 Data Type Group 'userDefined' has Name 'User Defined'.
 
+<!-- THE ONE FORMAT THIS MODEL USES, and it had no base. `Each Format is
+     built on exactly one Conceptual Data Type` was the last genuinely
+     missing instance fact in the metamodel: Format 'text' exists, from the
+     single `Object Type has Format` row, and nothing said which base it
+     refines. Samuel, 2026-09-01: "Formats should map directly to json
+     schema, so text is varchar-like" -- and varchar-like is the CDT named
+     `text` in the catalog below, distinct from fixedText (CHARACTER) and
+     largeText (CHARACTER LARGE OBJECT). A Format is a refinement layered on
+     exactly one base; this names the base. -->
+Format 'text' is built on Conceptual Data Type 'text'.
+
 Conceptual Data Type 'text' is in Data Type Group 'text'.
 Conceptual Data Type 'fixedText' is in Data Type Group 'text'.
 Conceptual Data Type 'largeText' is in Data Type Group 'text'.
