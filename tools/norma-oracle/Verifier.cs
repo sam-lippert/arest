@@ -2365,6 +2365,100 @@ namespace Arest.NormaOracle
 				log.Add(hE6.Fact.Name + " := minus (" + pE.Fact.Name + " less " + nE.Fact.Name
 					+ "), " + DescribeDerivation(hE6.Fact));
 			}
+			// NEGATION, shape two: `<positive> and no <X> <clause> where <clause>`.
+			//     * Status is terminal in SMD iff that Status is defined in that SMD and
+			//       no Transition is defined in that SMD where that Transition is from
+			//       that Status.
+			//     * Status is rooted in SMD iff some Transition is defined in that SMD and
+			//       that Transition is from that Status and no Transition is defined in
+			//       that SMD where that Transition is to that Status.
+			// Either side may be a two-leg join; the rooted one is
+			// minus(join(...from...), join(...to...)). Both sides go through BuildChain,
+			// and the negated one carries PathedRole.IsNegated so NORMA renders it with
+			// NegatedChainedList ("it is not true that (") rather than NegatedAndList
+			// ("at least one of the following is false"), which would be De Morgan.
+			foreach (string sRaw7 in myDeferredRules)
+			{
+				string s7 = sRaw7;
+				while (s7.StartsWith("* * ")) s7 = s7.Substring(2);
+				Match m7 = Regex.Match(s7, @"^\* (.+?) iff (.+)\.$");
+				if (!m7.Success) continue;
+				string[] halves = m7.Groups[2].Value.Split(new[] { " and no " }, StringSplitOptions.None);
+				if (halves.Length != 2) continue;
+				string[] negParts = halves[1].Split(new[] { " where " }, StringSplitOptions.None);
+				if (negParts.Length != 2) continue;
+				string head7 = m7.Groups[1].Value.Trim();
+				FactIndexEntry hE7 = FindEntryByNormalizedSentence(head7);
+				if (hE7 == null || hE7.Fact.DerivationRule != null) continue;
+				List<string> ht7 = SubscriptedTokens(head7, hE7.Players);
+				if (ht7 == null) continue;
+				var posL = new List<FactIndexEntry>(); var posT = new List<List<string>>();
+				var negL = new List<FactIndexEntry>(); var negT = new List<List<string>>();
+				bool ok7 = true;
+				foreach (string raw in halves[0].Split(new[] { " and " }, StringSplitOptions.None))
+				{
+					string c = raw.Trim();
+					FactIndexEntry e = FindEntryByNormalizedSentence(Dequantify(" " + c + " ").Trim());
+					List<string> t = e == null ? null : SubscriptedTokens(c, e.Players);
+					if (t == null) { ok7 = false; break; }
+					posL.Add(e); posT.Add(t);
+				}
+				foreach (string raw in negParts)
+				{
+					string c = raw.Trim();
+					FactIndexEntry e = FindEntryByNormalizedSentence(Dequantify(" " + c + " ").Trim());
+					List<string> t = e == null ? null : SubscriptedTokens(c, e.Players);
+					if (t == null) { ok7 = false; break; }
+					negL.Add(e); negT.Add(t);
+				}
+				if (!ok7 || posL.Count == 0 || negL.Count != 2) continue;
+				string lhs = SideFromLegs(posL, posT, ht7);
+				string rhs = SideFromLegs(negL, negT, ht7);
+				if (lhs == null || rhs == null) continue;
+				var rule7 = new FactTypeDerivationRule(myStore);
+				new FactTypeHasDerivationRule(hE7.Fact, rule7);
+				ApplyDerivationMarkers(hE7.Fact, rule7);
+				var lead7 = new LeadRolePath(myStore);
+				rule7.OwnedLeadRolePathCollection.Add(lead7);
+				new RolePathObjectTypeRoot(lead7, myTypes[hE7.Players[0]]);
+				PathedRole[][] posSlots = BuildChain(lead7, posL, posT, ht7[0], false);
+				PathedRole[][] negSlots = BuildChain(lead7, negL, negT, ht7[0], true);
+				if (posSlots == null || negSlots == null) continue;
+				var headPR7 = new PathedRole[ht7.Count];
+				for (int li = 0; li < posL.Count; li++)
+					for (int c = 0; c < posT[li].Count; c++)
+					{
+						int hi = ht7.IndexOf(posT[li][c]);
+						if (hi >= 0 && headPR7[hi] == null) headPR7[hi] = posSlots[li][c];
+					}
+				for (int i = 0; i < ht7.Count && ok7; i++) if (headPR7[i] == null) ok7 = false;
+				if (!ok7) continue;
+				// "no Transition is defined in THAT State Machine Definition" -- the negated
+				// branch's SMD is the head's, not a fresh one. Without the unifier NORMA
+				// reads it as "some State Machine Definition" and the rule is wrong: it
+				// would exclude a status that has an outgoing transition in ANY machine.
+				for (int li = 0; li < negL.Count; li++)
+					for (int c = 0; c < negT[li].Count; c++)
+					{
+						int hi = ht7.IndexOf(negT[li][c]);
+						if (hi <= 0) continue;               // head token 0 is the shared root
+						var u7 = new PathObjectUnifier(myStore.DefaultPartition);
+						new LeadRolePathHasObjectUnifier(lead7, u7);
+						new PathObjectUnifierUnifiesPathedRole(u7, headPR7[hi]);
+						new PathObjectUnifierUnifiesPathedRole(u7, negSlots[li][c]);
+					}
+				var pj7 = new RoleSetDerivationProjection(rule7, lead7);
+				for (int i = 0; i < hE7.Roles.Count; i++)
+				{
+					var drp7 = new DerivedRoleProjection(pj7, hE7.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drp7, headPR7[i]);
+				}
+				var hp7 = new List<string>();
+				foreach (string p in hE7.Players) hp7.Add(IAtom(p));
+				myRuleRecipes.Add("S3(" + IAtom(hE7.Fact.Name) + ", S" + hp7.Count + "("
+					+ string.Join(", ", hp7) + "), S3(A(\"minus\"), " + lhs + ", " + rhs + "))");
+				log.Add(hE7.Fact.Name + " := minus with negated chain, " + DescribeDerivation(hE7.Fact));
+			}
 			// the value-condition class: a UNARY head whose legs all anchor
 			// at the head's own player — existence legs enter a fact and
 			// stop; a quoted-constant leg adds a boolean path condition
@@ -4113,6 +4207,83 @@ namespace Arest.NormaOracle
 				expr = expr.Substring(0, lastJoin) + ", S" + outs.Count + "(" + string.Join(", ", outs) + "))";
 			}
 			return expr;
+		}
+
+		// One side of a minus from ONE or TWO legs, projected onto the head's columns.
+		// Two legs join on their single shared variable and the LEFT leg is the one
+		// contributing head token 0 -- the head-order rule the star fold uses, and why
+		// canon writes proj(TransitionIsFromStatus,<2,1>) first.
+		private string SideFromLegs(List<FactIndexEntry> legs, List<List<string>> toks, List<string> ht)
+		{
+			if (legs.Count == 1)
+			{
+				var pos = new List<int>();
+				foreach (string h in ht) { int p = toks[0].IndexOf(h); if (p < 0) return null; pos.Add(p); }
+				return SideExpr(legs[0], toks[0].Count, pos, false);
+			}
+			if (legs.Count != 2) return null;
+			int ja = -1, jb = -1, shared = 0;
+			for (int x = 0; x < toks[0].Count; x++)
+				for (int y = 0; y < toks[1].Count; y++)
+					if (toks[0][x] == toks[1][y]) { shared++; if (!ht.Contains(toks[0][x])) { ja = x; jb = y; } }
+			if (shared != 1 || ja < 0) return null;
+			int li = -1;
+			for (int c = 0; c < toks[0].Count; c++) if (c != ja && toks[0][c] == ht[0]) li = 0;
+			if (li < 0) for (int c = 0; c < toks[1].Count; c++) if (c != jb && toks[1][c] == ht[0]) li = 1;
+			if (li < 0) return null;
+			return li == 0
+				? TwoLegJoinRecipe(null, legs[0], legs[1], toks[0], toks[1], ja, jb, ht)
+				: TwoLegJoinRecipe(null, legs[1], legs[0], toks[1], toks[0], jb, ja, ht);
+		}
+
+		// Build ONE CHAIN in a SINGLE sub-path: start at the leg carrying `rootTok`, then
+		// append the next leg entered at the variable the two share. Sub-paths are for
+		// BRANCHING, not chaining -- nesting each leg in its own child path rendered them
+		// as sibling conjuncts with the second subject missing.
+		//
+		// NEGATION GOES ON THE PATHED ROLE, NOT THE SPLIT, and the snippet table says why:
+		//   NegatedChainedListOpen  = "it is not true that ("
+		//   NegatedAndLeadListOpen  = "at least one of the following is false:"
+		// SplitIsNegated negates a path's SPLIT and therefore selects the And rendering,
+		// which is De Morgan and NOT what `no X ... where ...` means. PathedRole.IsNegated
+		// selects the chained rendering -- the same mechanism that made the unary
+		// `it is not true that` case round-trip in f9827271.
+		private PathedRole[][] BuildChain(RolePath parent, List<FactIndexEntry> legs,
+			List<List<string>> toks, string rootTok, bool negated)
+		{
+			if (legs.Count < 1 || legs.Count > 2) return null;
+			int first = -1;
+			for (int i = 0; i < legs.Count; i++) if (toks[i].Contains(rootTok)) { first = i; break; }
+			if (first < 0) return null;
+			var order = new List<int>(); order.Add(first);
+			for (int i = 0; i < legs.Count; i++) if (i != first) order.Add(i);
+			var sp = new RoleSubPath(myStore);
+			parent.SubPathCollection.Add(sp);
+			var slots = new PathedRole[legs.Count][];
+			string entryTok = rootTok;
+			for (int k = 0; k < order.Count; k++)
+			{
+				int li = order[k];
+				int ep = toks[li].IndexOf(entryTok);
+				if (ep < 0) return null;
+				var row = new PathedRole[legs[li].Roles.Count];
+				EnterLeg(sp, legs[li], ep, row);
+				slots[li] = row;
+				if (k + 1 < order.Count)
+				{
+					int nx = order[k + 1];
+					entryTok = null;
+					foreach (string t in toks[li]) if (toks[nx].Contains(t)) { entryTok = t; break; }
+					if (entryTok == null) return null;
+				}
+			}
+			// ONE negation over the whole chain, on its ENTRY role. Negating every pathed
+			// role stacks them -- NORMA rendered "no Transition is that from Status where
+			// it is not true that (...)", a negation per leg. Negating only the entry
+			// gives "no Transition is from Status where that Transition is defined in
+			// that SMD", which is the single NOT EXISTS the reading means.
+			if (negated && sp.PathedRoleCollection.Count > 0) sp.PathedRoleCollection[0].IsNegated = true;
+			return slots;
 		}
 
 		// Lay one leg into a sub-path with the ENTRY ROLE CREATED FIRST. PathedRoles are
