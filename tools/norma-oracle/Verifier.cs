@@ -2674,20 +2674,29 @@ namespace Arest.NormaOracle
 				var lead9 = new LeadRolePath(myStore);
 				rule9.OwnedLeadRolePathCollection.Add(lead9);
 				new RolePathObjectTypeRoot(lead9, myTypes[hE9.Players[0]]);
-				var sp9a = new RoleSubPath(myStore);
-				lead9.SubPathCollection.Add(sp9a);
-				var r9a = new PathedRole[e1.Roles.Count];
-				EnterLeg(sp9a, e1, narrow9 != null ? np9 : 0, r9a);
-				var sp9b = new RoleSubPath(myStore);
-				lead9.SubPathCollection.Add(sp9b);
-				var r9b = new PathedRole[e2.Roles.Count];
-				EnterLeg(sp9b, e2, p2, r9b);
+				// CHAIN, DO NOT SIBLING. Two sub-paths both hanging off the lead root are
+				// two independent ENTRIES, and NORMA rejects the second when its entry role
+				// is not played by the root type: "joins to a path role with an incompatible
+				// role player". Measured on auto.dev, which the metamodel never exposed --
+				//   * API response indicates success iff API response has HTTP Status that
+				//     has HTTP Status Class 'success'.
+				// roots at API Response, and leg two enters at HTTP Status, which the root
+				// does not play. The path has to walk API Response -> HTTP Status -> Class.
+				var toks9 = new List<List<string>>();
+				toks9.Add(cols1);
+				toks9.Add(new List<string>(e2.Players));
+				var legs9 = new List<FactIndexEntry>(); legs9.Add(e1); legs9.Add(e2);
+				PathedRole[][] rows9 = BuildChain(lead9, legs9, toks9, ht9[0], false);
+				if (rows9 == null) continue;
 				var pj9 = new RoleSetDerivationProjection(rule9, lead9);
 				for (int i = 0; i < hE9.Roles.Count; i++)
 				{
+					int lp9 = cols1.IndexOf(ht9[i]);
+					if (lp9 < 0) { ok9 = false; break; }
 					var drp9 = new DerivedRoleProjection(pj9, hE9.Roles[i]);
-					new DerivedRoleProjectedFromPathedRole(drp9, r9a[narrow9 != null ? np9 : 0]);
+					new DerivedRoleProjectedFromPathedRole(drp9, rows9[0][lp9]);
 				}
+				if (!ok9) continue;
 				var hp9 = new List<string>();
 				foreach (string p in hE9.Players) hp9.Add(IAtom(p));
 				string joined = "S5(A(\"joinon\"), " + expr1 + ", " + IAtom(e2.Fact.Name)
