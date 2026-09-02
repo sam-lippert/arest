@@ -18,6 +18,7 @@
 // every large input missing, which would have run an empty canon and passed. So
 // each input is checked for existence and the result is checked for size.
 import { readFileSync, writeFileSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 const here = import.meta.dir;
@@ -43,8 +44,22 @@ const SPLICED = [
 // derivation the way every store did before tools/compile-rmap.js existed.
 // Splicing it when present is what makes rmap run for uncompiled schemas only.
 try {
-  statSync(join(oracle, "compiled"));
-  SPLICED.push(join(oracle, "compiled"));
+  const carrier = readFileSync(join(oracle, "compiled"), "utf8");
+  const stamped = (carrier.match(/AREST_COMPILED_FROM=([0-9a-f]+)/) || [])[1];
+  const now = createHash("sha256")
+    .update(readFileSync(join(oracle, "design-state")))
+    .digest("hex").slice(0, 16);
+  if (stamped === now) {
+    SPLICED.push(join(oracle, "compiled"));
+  } else {
+    // STALE, SO DECLINE IT. The carrier is derived FROM design-state, and a
+    // schema regenerated since leaves it describing tables that no longer
+    // exist. Not splicing is the safe direction: canon derives instead, which
+    // is slower and correct. Splicing it is neither.
+    console.error("compiled carrier is stale (built from " + (stamped || "?") +
+      ", design-state is now " + now + "); deriving instead. Regenerate with:");
+    console.error("  AREST_CARRIERS=" + oracle + " bun tools/compile-rmap.js");
+  }
 } catch {
   /* uncompiled schema: canon derives instead */
 }
