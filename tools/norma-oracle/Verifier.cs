@@ -7564,7 +7564,24 @@ namespace Arest.NormaOracle
 		// marked both full and semi is full.
 		private void ApplyDerivationMarkers(FactType fact, FactTypeDerivationRule rule)
 		{
-			if (myStoredDerived.Contains(fact))
+			// ++ IS NOT **. Def 5: "completeness and storage are orthogonal, giving the
+			// four markings *, **, +, and ++". The parser already gets this right (`++`
+			// adds to BOTH mySemiDerived and myStoredDerived), but this branch tested
+			// storage first and unconditionally said FullyDerived, so ++ collapsed into
+			// ** and only three of the four markings existed.
+			//
+			// The difference is load-bearing, not cosmetic. ++ is SEMI-derived and
+			// STORED: a rule seeds it, assertions add to it, and it is materialised --
+			// which is exactly what a current-status column is. Collapsing it to ** makes
+			// the derived rows the ONLY rows, so an asserted status would be erased by the
+			// next derivation. ** is also EXTERNAL (no in-store body by design, hence zero
+			// paths); ++ HAS a body, so it must not carry that flag.
+			if (myStoredDerived.Contains(fact) && mySemiDerived.Contains(fact))
+			{
+				rule.DerivationCompleteness = DerivationCompleteness.PartiallyDerived;
+				rule.DerivationStorage = DerivationStorage.Stored;
+			}
+			else if (myStoredDerived.Contains(fact))
 			{
 				rule.DerivationCompleteness = DerivationCompleteness.FullyDerived;
 				rule.DerivationStorage = DerivationStorage.Stored;
@@ -7584,6 +7601,7 @@ namespace Arest.NormaOracle
 
 		private string DescribeDerivation(FactType fact)
 		{
+			if (myStoredDerived.Contains(fact) && mySemiDerived.Contains(fact)) return "semiderived, STORED";
 			if (myStoredDerived.Contains(fact)) return "fully derived, STORED (external)";
 			if (mySemiDerived.Contains(fact) && !myFullyDerived.Contains(fact)) return "semiderived";
 			return "fully derived, not stored";
