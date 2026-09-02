@@ -323,6 +323,33 @@ namespace Arest.NormaOracle
 			}
 			if (shown == 0) Console.WriteLine("  (none)");
 			Console.WriteLine();
+			// PROSE THAT BECAME A FACT TYPE. The census counts sentences SKIPPED as
+			// prose; nothing counted the opposite, a sentence read AS a reading. One
+			// such -- "Who calls which API, and what they are trying to do with it."
+			// in auto.dev -- reached state:fts, then rmap, then the generated schema
+			// as a column, and surfaced only as canon and NORMA disagreeing about that
+			// column's name. Nothing between the sentence and the schema said a word.
+			//
+			// Sentence punctuation in a NAME is the cheap signal. It carries false
+			// positives -- AgencyMayNotWithdraw,Suspend,Revoke,OrAnnul... is a genuine
+			// enumeration in us-law -- and it is worth them, because the alternative is
+			// a phantom fact type reaching a schema unremarked. It also catches the
+			// unquoted-value class: an instance fact like "... on October 30, 2023."
+			// mints a fact type named for the whole sentence.
+			Console.WriteLine("== FINDING: fact type names carrying sentence punctuation ==");
+			int prosey = 0;
+			foreach (FactType pft in store.ElementDirectory.FindElements<FactType>(true))
+			{
+				if (pft.IsDeleted) continue;
+				string pnm = pft.Name;
+				if (string.IsNullOrEmpty(pnm)) continue;
+				if (pnm.IndexOf(',') < 0 && pnm.IndexOf(';') < 0 && pnm.IndexOf('?') < 0) continue;
+				Console.WriteLine("  " + pnm);
+				prosey++;
+			}
+			if (prosey == 0) Console.WriteLine("  (none)");
+			else Console.WriteLine("  TOTAL: " + prosey + " -- check each against its source sentence");
+			Console.WriteLine();
 			Console.WriteLine("== harness map log ==");
 			foreach (string line in verifier.MapLog) Console.WriteLine("  " + line);
 			Console.WriteLine();
