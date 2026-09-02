@@ -169,7 +169,7 @@ Guard guards Transition.
      closed-world closure over all rules of a fully-derived head; a `+`
      head has asserted rows no closure can claim. -->
 
-* Predicate is performed during Transition if that Transition is to some Status and that Predicate is performed in that Status.
++ Predicate is performed during Transition if that Transition is to some Status and that Predicate is performed in that Status.
 
 * Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from that Status.
 

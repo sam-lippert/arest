@@ -739,9 +739,10 @@ namespace Arest.NormaOracle
 			// fully derived rules verbalize with "iff" (the CWA closure over
 			// all rules of the head); semi-derived rules state sufficient
 			// conditions with a bare "if" — both are derivations to defer
-			if (s.Contains(" iff ") || (s.StartsWith("* ") && Regex.IsMatch(s, @"\bif\b")))
+			if (s.Contains(" iff ") || (s.StartsWith("* ") && Regex.IsMatch(s, @"\bif\b"))
+				|| Regex.IsMatch(s, @"^\+{1,2} .+ if "))
 			{
-				myDeferredRules.Add(s);
+				myDeferredRules.Add(NormalizeRuleSentence(s));
 				Count("derivation rule (deferred: no textual rule input in NORMA)");
 				return;
 			}
@@ -5108,6 +5109,27 @@ namespace Arest.NormaOracle
 				from = at + players[i].Length;
 			}
 			return bound;
+		}
+
+		// A SEMI-DERIVED rule is spelled `+ <head> if <body>.` and was NEVER COLLECTED:
+		// the deferral test asked for " iff " or a `* ` start, so `+` sentences fell
+		// through before any arm could see them -- 132 of them across apps/, dropped
+		// without a word. NORMA's own snippets fix the spelling: *,** verbalize
+		// "if and only if" (EQUALITY) and +,++ verbalize "if" (SUBSET).
+		//
+		// Every arm matches the `* ... iff ...` spelling, so the sentence is normalized
+		// to it HERE, once, instead of in eleven regexes.
+		//
+		// SAFE FOR MODE, which is the whole question: ApplyDerivationMarkers reads
+		// myFullyDerived / mySemiDerived / myStoredDerived, and those are populated from
+		// the DECLARATION line (`Predicate is performed during Transition. +`), never
+		// from the rule sentence. That is why that rule came out `semiderived` while its
+		// sentence still read `*`. Normalizing changes what the arms MATCH, not what the
+		// rule MEANS -- a `+` head stays PartiallyDerived and keeps subset semantics.
+		private static string NormalizeRuleSentence(string s)
+		{
+			Match m = Regex.Match(s, @"^\+{1,2} (.+?) if (.+)$");
+			return m.Success ? "* " + m.Groups[1].Value + " iff " + m.Groups[2].Value : s;
 		}
 
 		private static string Dequantify(string leg)
