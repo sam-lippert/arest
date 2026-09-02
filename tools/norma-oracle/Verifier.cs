@@ -2022,7 +2022,16 @@ namespace Arest.NormaOracle
 				if (!ok3) continue;
 				log.Add(hE3.Fact.Name + " := subscripted join over " + at3[ja] + " ("
 					+ aE.Fact.Name + " x " + bE.Fact.Name + "), " + DescribeDerivation(hE3.Fact));
-				RecordRuleRecipe(hE3, aE, bE, ja, jb, located3);
+				// explicit leg indices, NOT RecordRuleRecipe: a self-join gives both legs
+				// the same FactIndexEntry and its identity-keyed attribution breaks
+				string rec3 = TwoLegJoinRecipe(hE3, aE, bE, at3, bt3, ja, jb, ht);
+				if (rec3 != null)
+				{
+					var hp3 = new List<string>();
+					foreach (string p in hE3.Players) hp3.Add(IAtom(p));
+					myRuleRecipes.Add("S3(" + IAtom(hE3.Fact.Name) + ", S" + hp3.Count + "("
+						+ string.Join(", ", hp3) + "), " + rec3 + ")");
+				}
 			}
 			// THE MULTI-KEY TWO-LEG JOIN — two legs correlated on MORE THAN ONE variable:
 			//     * Status1 reaches Status3 in State Machine Definition iff
@@ -2147,6 +2156,119 @@ namespace Arest.NormaOracle
 				log.Add(hE4.Fact.Name + " := " + keys.Count + "-key join (" + aE4.Fact.Name
 					+ " x " + bE4.Fact.Name + "), " + DescribeDerivation(hE4.Fact));
 				RecordJoinOnRecipe(hE4, aE4, bE4, keys, srcLeg, srcPos);
+			}
+			// THE STAR JOIN -- three or more legs all anchored on ONE shared variable:
+			//     * Status1 has effective Transition1 to Status2 on Event Type iff
+			//       Transition1 is from Status1 and Transition1 is to Status2 and
+			//       Transition1 is triggered by Event Type.
+			// Transition1 is the centre and is ALSO a head player, which is allowed: it is
+			// the variable every leg enters on and a column the head projects.
+			//
+			// This head has FOUR players, and JoinRecipe refuses anything but a binary head
+			// (`if (headE.Players.Count != 2) return null;`) because its whole shape is
+			// "project the left leg down to <contributed, join>". That is why this rule
+			// built in NORMA and emitted no recipe: canon learned nothing and the hand-
+			// written twin stayed the only copy. The fold in StarJoinRecipe is the general
+			// form; see its note for the index conventions.
+			foreach (string sRaw5 in myDeferredRules)
+			{
+				string s5 = sRaw5;
+				while (s5.StartsWith("* * ")) s5 = s5.Substring(2);
+				Match m5 = Regex.Match(s5, @"^\* (.+?) iff (.+)\.$");
+				if (!m5.Success) continue;
+				if (s5.Contains("'") || s5.Contains(" no ") || s5.Contains("not true")) continue;
+				string head5 = m5.Groups[1].Value.Trim();
+				string[] rawLegs = m5.Groups[2].Value.Split(new[] { " and " }, StringSplitOptions.None);
+				if (rawLegs.Length < 3) continue;            // two legs are the arms above
+				FactIndexEntry hE5 = FindEntryByNormalizedSentence(head5);
+				if (hE5 == null) continue;
+				var legs = new List<FactIndexEntry>();
+				var toks = new List<List<string>>();
+				bool ok5 = true;
+				foreach (string rl in rawLegs)
+				{
+					string lt = rl.Trim();
+					FactIndexEntry le = FindEntryByNormalizedSentence(Dequantify(" " + lt + " ").Trim());
+					if (le == null) { ok5 = false; break; }
+					List<string> tk = SubscriptedTokens(lt, le.Players);
+					if (tk == null) { ok5 = false; break; }
+					legs.Add(le); toks.Add(tk);
+				}
+				if (!ok5) continue;
+				List<string> ht5 = SubscriptedTokens(head5, hE5.Players);
+				if (ht5 == null) continue;
+				// the centre is the one token every leg carries
+				string centreTok = null;
+				foreach (string t in toks[0])
+				{
+					bool all = true;
+					for (int i = 1; i < toks.Count && all; i++) if (!toks[i].Contains(t)) all = false;
+					if (!all) continue;
+					if (centreTok != null) { centreTok = null; break; }   // ambiguous centre
+					centreTok = t;
+				}
+				if (centreTok == null) continue;
+				var centre = new List<int>();
+				foreach (var tk in toks) centre.Add(tk.IndexOf(centreTok));
+				// the fold starts at the leg carrying head player 1
+				int startLeg = -1;
+				for (int i = 0; i < toks.Count && startLeg < 0; i++)
+					for (int c = 0; c < toks[i].Count; c++)
+						if (c != centre[i] && toks[i][c] == ht5[0]) { startLeg = i; break; }
+				if (startLeg < 0) continue;
+				// every head player at exactly one non-centre position, or IS the centre
+				var loc5 = new List<KeyValuePair<int, int>>();
+				for (int i = 0; i < ht5.Count && ok5; i++)
+				{
+					if (ht5[i] == centreTok) { loc5.Add(new KeyValuePair<int, int>(startLeg, centre[startLeg])); continue; }
+					var hits5 = new List<KeyValuePair<int, int>>();
+					for (int li = 0; li < toks.Count; li++)
+						for (int c = 0; c < toks[li].Count; c++)
+							if (c != centre[li] && toks[li][c] == ht5[i]) hits5.Add(new KeyValuePair<int, int>(li, c));
+					if (hits5.Count != 1) { ok5 = false; break; }
+					loc5.Add(hits5[0]);
+				}
+				if (!ok5) continue;
+				string recipe5 = StarJoinRecipe(hE5, legs, toks, centre, ht5, startLeg);
+				if (recipe5 == null) continue;               // no recipe, no build
+				ObjectType root5;
+				if (!myTypes.TryGetValue(legs[startLeg].Players[centre[startLeg]], out root5)) continue;
+				var rule5 = hE5.Fact.DerivationRule as FactTypeDerivationRule;
+				if (rule5 == null)
+				{
+					rule5 = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hE5.Fact, rule5);
+					ApplyDerivationMarkers(hE5.Fact, rule5);
+				}
+				var lead5 = new LeadRolePath(myStore);
+				rule5.OwnedLeadRolePathCollection.Add(lead5);
+				new RolePathObjectTypeRoot(lead5, root5);
+				var prs = new List<PathedRole[]>();
+				for (int li = 0; li < legs.Count; li++)
+				{
+					var sub5 = new RoleSubPath(myStore);
+					lead5.SubPathCollection.Add(sub5);
+					var row = new PathedRole[legs[li].Roles.Count];
+					for (int c = 0; c < legs[li].Roles.Count; c++)
+					{
+						var pr = new PathedRole(sub5, legs[li].Roles[c]);
+						pr.PathedRolePurpose = c == centre[li] ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
+						row[c] = pr;
+					}
+					prs.Add(row);
+				}
+				var pj5 = new RoleSetDerivationProjection(rule5, lead5);
+				for (int i = 0; i < hE5.Roles.Count; i++)
+				{
+					var drp5 = new DerivedRoleProjection(pj5, hE5.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drp5, prs[loc5[i].Key][loc5[i].Value]);
+				}
+				var hp5 = new List<string>();
+				foreach (string p in hE5.Players) hp5.Add(IAtom(p));
+				myRuleRecipes.Add("S3(" + IAtom(hE5.Fact.Name) + ", S" + hp5.Count + "("
+					+ string.Join(", ", hp5) + "), " + recipe5 + ")");
+				log.Add(hE5.Fact.Name + " := star join on " + centreTok + " over " + legs.Count
+					+ " legs, " + DescribeDerivation(hE5.Fact));
 			}
 			// the value-condition class: a UNARY head whose legs all anchor
 			// at the head's own player — existence legs enter a fact and
@@ -3734,6 +3856,147 @@ namespace Arest.NormaOracle
 				+ string.Join(", ", headPlayers) + "), S5(A(\"joinon\"), " + IAtom(aE.Fact.Name)
 				+ ", " + IAtom(bE.Fact.Name) + ", S" + ks.Count + "(" + string.Join(", ", ks)
 				+ "), S" + outs.Count + "(" + string.Join(", ", outs) + ")))");
+		}
+
+		// THE STAR-JOIN FOLD. n legs all sharing one variable v, folded left the way canon
+		// hand-writes it. theta:NatJoin(2) joins LEFT COLUMN 2 with RIGHT COLUMN 1 (the
+		// note on JoinRecipe reads it as "join column last", which is the same thing for a
+		// binary left leg and misleading for a wider one), so the accumulator always
+		// carries v at position 2 and each new leg presents v at position 1.
+		//
+		// Canon's twin, which fixes every index here:
+		//   S4(A("join"), S4(A("join"),
+		//        S3(A("proj"), A("TransitionIsFromStatus"), S2(N(2), N(1))),
+		//        A("TransitionIsToStatus"), S3(N(1), N(2), N(3))),
+		//      A("TransitionIsTriggeredByEventType"), S4(N(1), N(2), N(3), N(4)))
+		// The leading proj turns [Transition, Status1] into [Status1, Transition] -- the
+		// contributed player first, v second. Legs already presenting v first are written
+		// BARE, and an identity projection stays bare rather than emitting proj(x,<1,2>):
+		// semantically equal, but it would not match what canon holds.
+		//
+		// Result columns of a join are LEFT ++ (RIGHT minus its join column), so the
+		// accumulated order is fixed by the fold, and the final `out` permutes that onto
+		// the head's own player order. Intermediate `out`s are the identity.
+		// Two-leg join recipe by EXPLICIT LEG INDEX, not by FactIndexEntry identity.
+		// A SELF-JOIN resolves both legs to the SAME entry object -- `Domain1 reaches
+		// Domain3 iff Domain1 reaches Domain2 and Domain2 reaches Domain3` is
+		// DomainReachesDomain on both sides -- so JoinRecipe's identity-keyed `located`
+		// cannot tell which leg a head player came from and emitted S2(N(2), N(2)) where
+		// canon holds S2(N(1), N(3)). Leg index is carried explicitly here.
+		//
+		// theta:NatJoin(2) joins LEFT column 2 with RIGHT column 1, so the left leg must
+		// present the join column second and the right leg first; a leg already in that
+		// shape is written BARE, as canon writes it. Result columns are
+		// left ++ (right minus its join column), and `out` permutes that onto head order.
+		// A left leg wider than binary would have to be projected down to two columns and
+		// would silently discard a contributed player, so it declines instead.
+		private string TwoLegJoinRecipe(FactIndexEntry headE, FactIndexEntry aE, FactIndexEntry bE,
+			List<string> at, List<string> bt, int ja, int jb, List<string> ht)
+		{
+			if (at.Count != 2) return null;                  // wider left leg would lose a column
+			string left = ja == 1 ? IAtom(aE.Fact.Name)
+				: "S3(A(\"proj\"), " + IAtom(aE.Fact.Name) + ", S2(N(2), N(1)))";
+			string right;
+			if (jb == 0) right = IAtom(bE.Fact.Name);
+			else
+			{
+				var ord = new List<string>(); ord.Add("N(" + (jb + 1) + ")");
+				for (int i = 0; i < bt.Count; i++) if (i != jb) ord.Add("N(" + (i + 1) + ")");
+				right = "S3(A(\"proj\"), " + IAtom(bE.Fact.Name) + ", S" + ord.Count
+					+ "(" + string.Join(", ", ord) + "))";
+			}
+			var acc = new List<string>();
+			acc.Add(at[ja == 1 ? 0 : 1]); acc.Add(at[ja]);
+			for (int i = 0; i < bt.Count; i++) if (i != jb) acc.Add(bt[i]);
+			var outs = new List<string>();
+			foreach (string h in ht)
+			{
+				int p = acc.IndexOf(h);
+				if (p < 0) return null;
+				outs.Add("N(" + (p + 1) + ")");
+			}
+			return "S4(A(\"join\"), " + left + ", " + right + ", S" + outs.Count
+				+ "(" + string.Join(", ", outs) + "))";
+		}
+
+		// Earliest head position among the players a leg contributes (its centre aside).
+		// int.MaxValue for a leg contributing nothing, which sorts it last.
+		private static int HeadRank(List<string> tok, int centre, List<string> ht)
+		{
+			int best = int.MaxValue;
+			for (int i = 0; i < tok.Count; i++)
+			{
+				if (i == centre) continue;
+				int p = ht.IndexOf(tok[i]);
+				if (p >= 0 && p < best) best = p;
+			}
+			return best;
+		}
+
+		private string StarJoinRecipe(FactIndexEntry headE, List<FactIndexEntry> legs,
+			List<List<string>> toks, List<int> centre, List<string> ht, int startLeg)
+		{
+			var acc = new List<string>();                     // accumulated column tokens
+			string expr;
+			{
+				List<string> t = toks[startLeg]; int c = centre[startLeg];
+				int h0 = -1;
+				for (int i = 0; i < t.Count; i++) if (i != c && ht.Contains(t[i])) { h0 = i; break; }
+				if (h0 < 0) return null;
+				if (t.Count == 2 && h0 == 0 && c == 1) expr = IAtom(legs[startLeg].Fact.Name);
+				else expr = "S3(A(\"proj\"), " + IAtom(legs[startLeg].Fact.Name)
+					+ ", S2(N(" + (h0 + 1) + "), N(" + (c + 1) + ")))";
+				acc.Add(t[h0]); acc.Add(t[c]);
+			}
+			// FOLD IN HEAD ORDER, NOT SENTENCE ORDER. Both are semantically correct, but
+			// canon folds by the position the leg's contributed player occupies in the
+			// HEAD, which is why its intermediate `out`s come out as identities -- the
+			// accumulator grows in the head's own column order. Reading
+			//   * Status1 reaches Status2 in SMD iff some Transition is defined in that
+			//     SMD and that Transition is from Status1 and that Transition is to Status2.
+			// sentence order folds SMD before Status2 and lands a correct but differently
+			// shaped rule; head order folds Status2 first and reproduces the twin.
+			var order5 = new List<int>();
+			for (int li = 0; li < legs.Count; li++) if (li != startLeg) order5.Add(li);
+			order5.Sort(delegate(int x, int y)
+			{
+				return HeadRank(toks[x], centre[x], ht).CompareTo(HeadRank(toks[y], centre[y], ht));
+			});
+			foreach (int li in order5)
+			{
+				List<string> t = toks[li]; int c = centre[li];
+				string right;
+				if (c == 0) right = IAtom(legs[li].Fact.Name);
+				else
+				{
+					var order = new List<string>(); order.Add("N(" + (c + 1) + ")");
+					for (int i = 0; i < t.Count; i++) if (i != c) order.Add("N(" + (i + 1) + ")");
+					right = "S3(A(\"proj\"), " + IAtom(legs[li].Fact.Name)
+						+ ", S" + order.Count + "(" + string.Join(", ", order) + "))";
+				}
+				for (int i = 0; i < t.Count; i++) if (i != c) acc.Add(t[i]);
+				var ident = new List<string>();
+				for (int i = 0; i < acc.Count; i++) ident.Add("N(" + (i + 1) + ")");
+				expr = "S4(A(\"join\"), " + expr + ", " + right
+					+ ", S" + ident.Count + "(" + string.Join(", ", ident) + "))";
+			}
+			// permute the accumulation onto the head's order; identity if they agree
+			var outs = new List<string>();
+			foreach (string h in ht)
+			{
+				int p = acc.IndexOf(h);
+				if (p < 0) return null;
+				outs.Add("N(" + (p + 1) + ")");
+			}
+			bool identityOut = outs.Count == acc.Count;
+			for (int i = 0; i < outs.Count && identityOut; i++) if (outs[i] != "N(" + (i + 1) + ")") identityOut = false;
+			if (!identityOut)
+			{
+				int lastJoin = expr.LastIndexOf(", S");
+				if (lastJoin < 0) return null;
+				expr = expr.Substring(0, lastJoin) + ", S" + outs.Count + "(" + string.Join(", ", outs) + "))";
+			}
+			return expr;
 		}
 
 		private static string Dequantify(string leg)
