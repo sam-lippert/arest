@@ -51,7 +51,14 @@ function src(v) {
 const parts = [];
 let derived = 0, skipped = 0;
 for (const full of names) {
-  const step = full.replace(/^stored:/, "");        // stored:rmap:tables -> rmap:tables
+  // COMPILE FROM THE DERIVE SIDE, NOT THE READ SIDE. rmap:tables is the COND
+  // that returns the stored cell when one is present, so evaluating it while
+  // an older `compiled` carrier is spliced in re-emits the stale artifact and
+  // the tool silently becomes a no-op -- which is exactly what happened on the
+  // first schema change after this file landed: 32 artifacts "rewritten" in
+  // 10ms each, byte-identical, still describing the previous schema.
+  // rmap:tables:derive is the computation itself and cannot short-circuit.
+  const step = full.replace(/^stored:/, "") + ":derive";
   const t = Date.now();
   let v;
   try {
