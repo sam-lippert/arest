@@ -2459,6 +2459,97 @@ namespace Arest.NormaOracle
 					+ string.Join(", ", hp7) + "), S3(A(\"minus\"), " + lhs + ", " + rhs + "))");
 				log.Add(hE7.Fact.Name + " := minus with negated chain, " + DescribeDerivation(hE7.Fact));
 			}
+			// THE SUBTYPE-NARROWED SINGLE LEG. The clause names a SUBTYPE where the fact
+			// type declares its SUPERTYPE, so the clause does not resolve at all:
+			//     * Domain Change has blocking outcome iff some Failure is triggered by
+			//       that Domain Change.
+			// `Failure is triggered by Object Type Instance` is what is declared, and
+			// `Domain Change is a subtype of Object Type Instance`. The projection arm
+			// declined this correctly -- a bare projection of the supertype role would
+			// answer with every Object Type Instance, not only the Domain Changes.
+			//
+			// Canon narrows by joining against the SUBTYPE'S OWN POPULATION:
+			//   S5(A("joinon"), A("FailureIsTriggeredByObjectTypeInstance"),
+			//      A("Domain Change"), S1(S2(N(2), N(1))), S1(N(3)))
+			// so the concatenation is <fact type columns> ++ <the subtype column>, and the
+			// head reads the narrowed column at n+1 rather than the supertype role at n.
+			foreach (string sRaw8 in myDeferredRules)
+			{
+				string s8 = sRaw8;
+				while (s8.StartsWith("* * ")) s8 = s8.Substring(2);
+				Match m8 = Regex.Match(s8, @"^\* (.+?) iff (.+)\.$");
+				if (!m8.Success) continue;
+				string body8 = m8.Groups[2].Value.Trim();
+				if (body8.Contains(" and ") || body8.Contains("'")) continue;
+				string head8 = m8.Groups[1].Value.Trim();
+				FactIndexEntry hE8 = FindEntryByNormalizedSentence(head8);
+				if (hE8 == null || hE8.Fact.DerivationRule != null) continue;
+				string clause8 = Dequantify(" " + body8 + " ").Trim();
+				if (FindEntryByNormalizedSentence(clause8) != null) continue;  // proj arm's
+				FactIndexEntry sE8 = null; string narrowType = null;
+				foreach (KeyValuePair<string, ObjectType> kv in myTypes)
+				{
+					if (kv.Value.IsDeleted) continue;
+					if (clause8.IndexOf(kv.Key, StringComparison.Ordinal) < 0) continue;
+					foreach (ObjectType sup in kv.Value.SupertypeCollection)
+					{
+						FactIndexEntry cand = FindEntryByNormalizedSentence(clause8.Replace(kv.Key, sup.Name));
+						if (cand == null) continue;
+						sE8 = cand; narrowType = kv.Key; break;
+					}
+					if (sE8 != null) break;
+				}
+				if (sE8 == null) continue;
+				// the narrowed role is the one played by the SUPERTYPE, and it must be unique
+				int npos = -1; bool amb8 = false;
+				ObjectType subOT8 = myTypes[narrowType];
+				for (int c = 0; c < sE8.Players.Count; c++)
+				{
+					bool isSup = false;
+					foreach (ObjectType sup in subOT8.SupertypeCollection) if (sE8.Players[c] == sup.Name) isSup = true;
+					if (!isSup) continue;
+					if (npos >= 0) { amb8 = true; break; }
+					npos = c;
+				}
+				if (amb8 || npos < 0) continue;
+				List<string> ht8 = SubscriptedTokens(head8, hE8.Players);
+				if (ht8 == null) continue;
+				int n8 = sE8.Players.Count;
+				var outs8 = new List<string>();
+				bool ok8 = true;
+				foreach (string h in ht8)
+				{
+					if (h == narrowType) { outs8.Add("N(" + (n8 + 1) + ")"); continue; }
+					int p = sE8.Players.IndexOf(h);
+					if (p < 0) { ok8 = false; break; }
+					outs8.Add("N(" + (p + 1) + ")");
+				}
+				if (!ok8) continue;
+				var rule8 = new FactTypeDerivationRule(myStore);
+				new FactTypeHasDerivationRule(hE8.Fact, rule8);
+				ApplyDerivationMarkers(hE8.Fact, rule8);
+				var lead8 = new LeadRolePath(myStore);
+				rule8.OwnedLeadRolePathCollection.Add(lead8);
+				new RolePathObjectTypeRoot(lead8, myTypes[hE8.Players[0]]);
+				var sub8 = new RoleSubPath(myStore);
+				lead8.SubPathCollection.Add(sub8);
+				var row8 = new PathedRole[sE8.Roles.Count];
+				EnterLeg(sub8, sE8, npos, row8);
+				var pj8 = new RoleSetDerivationProjection(rule8, lead8);
+				for (int i = 0; i < hE8.Roles.Count; i++)
+				{
+					var drp8 = new DerivedRoleProjection(pj8, hE8.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drp8, row8[npos]);
+				}
+				var hp8 = new List<string>();
+				foreach (string p in hE8.Players) hp8.Add(IAtom(p));
+				myRuleRecipes.Add("S3(" + IAtom(hE8.Fact.Name) + ", S" + hp8.Count + "("
+					+ string.Join(", ", hp8) + "), S5(A(\"joinon\"), " + IAtom(sE8.Fact.Name)
+					+ ", " + IAtom(narrowType) + ", S1(S2(N(" + (npos + 1) + "), N(1))), S"
+					+ outs8.Count + "(" + string.Join(", ", outs8) + ")))");
+				log.Add(hE8.Fact.Name + " := narrowed to " + narrowType + " over " + sE8.Fact.Name
+					+ ", " + DescribeDerivation(hE8.Fact));
+			}
 			// the value-condition class: a UNARY head whose legs all anchor
 			// at the head's own player — existence legs enter a fact and
 			// stop; a quoted-constant leg adds a boolean path condition
