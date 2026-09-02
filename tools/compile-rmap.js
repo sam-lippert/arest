@@ -26,7 +26,11 @@ const carriers = process.env.AREST_CARRIERS || join(here, "norma-oracle");
 
 // the artifact names are canon's own, not a list kept in step by hand
 const names = [...new Set(
-  readFileSync(join(root, "arest"), "utf8").match(/stored:rmap:[a-z_0-9]+/g) || [])].sort();
+  readFileSync(join(root, "arest"), "utf8").match(/stored:rmap:[A-Za-z_0-9]+/g) || [])].sort();
+// [A-Za-z], not [a-z]: rmap:childrenN reads stored:rmap:childrenN, and a
+// lower-case-only class truncates it at the capital N. The tool then looked
+// for rmap:children:derive, found nothing, and skipped a real artifact --
+// which I reported as a dangling reference in canon. Canon was consistent.
 if (names.length === 0) {
   console.error("no stored:rmap:* names found in canon");
   process.exit(1);
