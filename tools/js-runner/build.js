@@ -79,6 +79,11 @@ for (const p of SPLICED) {
 }
 parts.push(Buffer.from('\n;\nCANON("journal"'), must(JOURNAL), Buffer.from(")"));
 parts.push(Buffer.from("\n;\nJOURNAL_PATH = " + JSON.stringify(JOURNAL) + ";\n"));
+// STAMP THE CARRIERS THIS COMPOSITION WAS MADE FROM. tools/compile-rmap.js
+// writes beside AREST_CARRIERS but reads whatever composition is on disk, so
+// the two can disagree and it will emit one store's relational map into
+// another's directory. That happened twice today. This is what lets it refuse.
+parts.push(Buffer.from([""," // AREST_CARRIERS_DIR=" + oracle, ""].join(String.fromCharCode(10))));
 parts.push(Buffer.from("\n;\nboot(" + JSON.stringify(mode) + ");\n"));
 
 const out = Buffer.concat(parts);
