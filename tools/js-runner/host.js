@@ -968,13 +968,23 @@ function loadDerived() {
   // rather than deleted: loadDerived runs AGAIN after the journal fold, and
   // without a guard on the cells it already added it prepends every derived
   // population twice.
-  const seen = new Set(
-    before.filter((p) => Array.isArray(p[1]) && p[1].length > 0).map((p) => String(p[0])));
+  // AND CARRIED IS NOT THE SAME AS COMPLETE. The first narrowing here was from
+  // "declared" to "holding rows"; this is the second, and the World Assumption
+  // is what forced it. `Object Type has World Assumption` is SEMI-derived, so a
+  // model may assert some rows and let the rules supply the rest -- and holding
+  // two asserted rows made this loop skip the head entirely, discarding the 279
+  // the rules computed and leaving 277 object types with no assumption at all.
+  // The closure now merges semi heads itself (derive:closed, which keeps an
+  // asserted row over a derived one on the same uniqueness key), so what is
+  // carried can be a PREFIX of what is true. Compare lengths, not presence.
+  const carried = new Map(before.map((p) => [String(p[0]), Array.isArray(p[1]) ? p[1].length : 0]));
+  const seen = new Set();
   for (const c of CELLS) if (Array.isArray(c) && String(c[0]) === "CELL") seen.add(String(c[1]));
   let added = 0;
-  for (const entry of Ev("derive", [rules, before])) {
+  for (const entry of Ev("derive:closed", CELLS)) {
     const name = String(entry[0]);
-    if (seen.has(name)) continue;                  // already carried, not derived
+    if (seen.has(name)) continue;                  // already its own cell
+    if ((carried.get(name) || 0) >= (Array.isArray(entry[1]) ? entry[1].length : 0)) continue;
     // an EMPTY derived population is not worth a cell: closing under the whole
     // program derives the model's rule heads, whose inputs are empty, and
     // carrying those adds names nothing references and nothing can read
