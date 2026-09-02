@@ -3564,6 +3564,24 @@ namespace Arest.NormaOracle
 			return null;
 		}
 
+		// THE JOIN PATH, KEPT. state:setcmp emitted two flat lists of <fact type,
+		// role position> and dropped the path saying how they join, so canon got a
+		// constraint it could not evaluate: cmd:sc_leg skips any leg with more than
+		// one role, which is 8 of the 9 constraints and 12 of the 18 legs. The
+		// oracle HAS the path -- it builds ConstraintRoleSequenceJoinPath with
+		// roots, sub-paths and projections -- and both builders below already know,
+		// per clause, which role is the join and which is projected. Recorded at
+		// construction rather than navigated back out of NORMA's graph afterwards.
+		private readonly Dictionary<ConstraintRoleSequence, List<string>> myLegPath =
+			new Dictionary<ConstraintRoleSequence, List<string>>();
+
+		private void RecordPathStep(ConstraintRoleSequence seq, string ft, int joinPos, int projPos)
+		{
+			List<string> steps;
+			if (!myLegPath.TryGetValue(seq, out steps)) { steps = new List<string>(); myLegPath[seq] = steps; }
+			steps.Add("S3(" + IAtom(ft) + ", N(" + joinPos + "), N(" + projPos + "))");
+		}
+
 		private sealed class SideClause
 		{
 			public FactIndexEntry Entry;
@@ -3681,6 +3699,7 @@ namespace Arest.NormaOracle
 				step.PathedRolePurpose = PathedRolePurpose.SameFactType;
 				if (!boundAt.ContainsKey(newVar)) boundAt[newVar] = sub;
 				stepPathed[newVar] = step;
+				RecordPathStep(seq, cl.Entry.Fact.Name, eAt + 1, nAt + 1);
 				if (projVars.Contains(newVar) && !projLoc.ContainsKey(newVar))
 					projLoc[newVar] = new KeyValuePair<int, int>(c, nAt);
 			}
@@ -3757,6 +3776,7 @@ namespace Arest.NormaOracle
 					var step = new PathedRole(sub, side[c].Entry.Roles[loc.Value]);
 					step.PathedRolePurpose = PathedRolePurpose.SameFactType;
 					stepPathed[v] = step;
+					RecordPathStep(seq, side[c].Entry.Fact.Name, joinAt + 1, loc.Value + 1);
 				}
 			}
 			var jpp = new ConstraintRoleSequenceJoinPathProjection(jp, lead);
@@ -5484,6 +5504,7 @@ namespace Arest.NormaOracle
 					: scc is EqualityConstraint ? "equality" : null;
 				if (kind == null) continue;
 				var legs = new List<string>();
+				var paths = new List<string>();
 				bool ok = true;
 				foreach (SetComparisonConstraintRoleSequence seq in scc.RoleSequenceCollection)
 				{
@@ -5500,10 +5521,13 @@ namespace Arest.NormaOracle
 					}
 					if (!ok || members.Count == 0) { ok = false; break; }
 					legs.Add(IMemberSeq(members));
+					List<string> pathSteps;
+					paths.Add(myLegPath.TryGetValue(seq, out pathSteps) && pathSteps.Count > 0
+						? IMemberSeq(pathSteps) : "PHI()");
 				}
 				if (!ok || legs.Count != 2) continue;
-				setcmp.Add("S4(" + IAtom(kind) + ", " + IAtom(scc.Modality == ConstraintModality.Deontic ? "deontic" : "alethic")
-					+ ", " + legs[0] + ", " + legs[1] + ")");
+				setcmp.Add("S5(" + IAtom(kind) + ", " + IAtom(scc.Modality == ConstraintModality.Deontic ? "deontic" : "alethic")
+					+ ", " + legs[0] + ", " + legs[1] + ", " + IMemberSeq(paths) + ")");
 			}
 			setcmp.Sort(StringComparer.Ordinal);
 			sb.Append("DEF(\"state:setcmp\", ").Append(setcmp.Count == 0 ? "S1(PHI())" : IChunked(setcmp)).Append("),\n\n");
