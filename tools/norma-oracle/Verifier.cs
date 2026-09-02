@@ -2922,6 +2922,134 @@ namespace Arest.NormaOracle
 				log.Add(hEB.Fact.Name + " := value comparison over " + L1.Fact.Name + " x "
 					+ L2.Fact.Name + ", " + DescribeDerivation(hEB.Fact));
 			}
+			// THE GENERAL n-LEG JOIN. Legs whose shared variables do not all meet at one
+			// centre, which the star arm declines by design. See GeneralJoinRecipe for the
+			// plan; this half resolves the legs and builds the NORMA path.
+			//
+			// SUBTYPE FILLERS ARE RESOLVED HERE, which the multi-leg arms previously could
+			// not do. `Transition1 is from State Machine Definition1` names no declared
+			// fact type -- `Transition is from- Status` is what exists -- but state.md:285
+			// records that State Machine Definition IS A SUBTYPE OF Status, so this is a
+			// subtype filler in a supertype-typed role: Harel's inherited edge, where a
+			// transition whose `from` status is the machine super-state induces an
+			// effective transition out of every child status. It reads exactly like an
+			// undeclared-head defect and is not one.
+			foreach (string sRawC in myDeferredRules)
+			{
+				string sC = sRawC;
+				while (sC.StartsWith("* * ")) sC = sC.Substring(2);
+				Match cm2 = Regex.Match(sC, @"^\* (.+?) iff (.+)\.$");
+				if (!cm2.Success) continue;
+				string bodyC = cm2.Groups[2].Value;
+				if (bodyC.Contains("'") || bodyC.Contains(" no ") || bodyC.Contains("not true")
+					|| bodyC.Contains(" where ")) continue;
+				string[] rawC = bodyC.Split(new[] { " and " }, StringSplitOptions.None);
+				if (rawC.Length < 3) continue;
+				string headC = cm2.Groups[1].Value.Trim();
+				FactIndexEntry hEC = FindEntryByNormalizedSentence(headC);
+				if (hEC == null) continue;
+				List<string> htC = SubscriptedTokens(headC, hEC.Players);
+				if (htC == null) continue;
+				var legsC = new List<FactIndexEntry>(); var toksC = new List<List<string>>();
+				bool okC = true;
+				foreach (string raw in rawC)
+				{
+					string cl = raw.Trim();
+					string q = Dequantify(" " + cl + " ").Trim();
+					FactIndexEntry e = FindEntryByNormalizedSentence(q);
+					List<string> tk = null;
+					if (e != null) tk = SubscriptedTokens(cl, e.Players);
+					else
+					{
+						// subtype filler: substitute the supertype to resolve, but keep the
+						// SUBTYPE name in the tokens so it stays a distinct variable
+						foreach (KeyValuePair<string, ObjectType> kv in myTypes)
+						{
+							if (kv.Value.IsDeleted) continue;
+							if (q.IndexOf(kv.Key, StringComparison.Ordinal) < 0) continue;
+							foreach (ObjectType sup in kv.Value.SupertypeCollection)
+							{
+								FactIndexEntry cand = FindEntryByNormalizedSentence(q.Replace(kv.Key, sup.Name));
+								if (cand == null) continue;
+								var pl = new List<string>(cand.Players);
+								for (int c = 0; c < pl.Count; c++) if (pl[c] == sup.Name) { pl[c] = kv.Key; break; }
+								e = cand; tk = SubscriptedTokens(cl, pl); break;
+							}
+							if (e != null) break;
+						}
+					}
+					if (e == null || tk == null) { okC = false; break; }
+					legsC.Add(e); toksC.Add(tk);
+				}
+				if (!okC) continue;
+				// A VARIABLE IN EVERY LEG IS THE STAR ARM'S SHAPE -- decline, or both arms
+				// build the same sentence and the head ends with more paths than rules.
+				// Measured when this guard was missing: three heads carried a duplicate
+				// recipe and two others gained a second, differently shaped and non-canon
+				// plan for a rule that already matched. "Paths fewer than rules" catches
+				// the under-built case; nothing was catching the over-built one.
+				bool everyLeg = false;
+				foreach (string tok in toksC[0])
+				{
+					bool all = true;
+					for (int li = 1; li < toksC.Count && all; li++) if (!toksC[li].Contains(tok)) all = false;
+					if (all) { everyLeg = true; break; }
+				}
+				if (everyLeg) continue;
+				string whyC;
+				string recC = GeneralJoinRecipe(legsC, toksC, htC, out whyC);
+				if (recC == null) continue;
+				var ruleC = hEC.Fact.DerivationRule as FactTypeDerivationRule;
+				if (ruleC == null)
+				{
+					ruleC = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hEC.Fact, ruleC);
+					ApplyDerivationMarkers(hEC.Fact, ruleC);
+				}
+				var leadC = new LeadRolePath(myStore);
+				ruleC.OwnedLeadRolePathCollection.Add(leadC);
+				new RolePathObjectTypeRoot(leadC, myTypes[hEC.Players[0]]);
+				var rowsC = new List<PathedRole[]>();
+				for (int li = 0; li < legsC.Count; li++)
+				{
+					// enter each leg at a role whose variable another leg also carries, so
+					// the sub-paths join rather than standing as independent entries
+					int ent = 0;
+					for (int c = 0; c < toksC[li].Count; c++)
+					{
+						bool sharedC = false;
+						for (int lj = 0; lj < legsC.Count && !sharedC; lj++)
+							if (lj != li && toksC[lj].Contains(toksC[li][c])) sharedC = true;
+						if (sharedC) { ent = c; break; }
+					}
+					var spC = new RoleSubPath(myStore);
+					leadC.SubPathCollection.Add(spC);
+					var rowC = new PathedRole[legsC[li].Roles.Count];
+					EnterLeg(spC, legsC[li], ent, rowC);
+					rowsC.Add(rowC);
+				}
+				var headPRC = new PathedRole[htC.Count];
+				for (int li = 0; li < legsC.Count; li++)
+					for (int c = 0; c < toksC[li].Count; c++)
+					{
+						int hi = htC.IndexOf(toksC[li][c]);
+						if (hi >= 0 && headPRC[hi] == null) headPRC[hi] = rowsC[li][c];
+					}
+				for (int i = 0; i < htC.Count && okC; i++) if (headPRC[i] == null) okC = false;
+				if (!okC) continue;
+				var pjC = new RoleSetDerivationProjection(ruleC, leadC);
+				for (int i = 0; i < hEC.Roles.Count; i++)
+				{
+					var drpC = new DerivedRoleProjection(pjC, hEC.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drpC, headPRC[i]);
+				}
+				var hpC = new List<string>();
+				foreach (string p in hEC.Players) hpC.Add(IAtom(p));
+				myRuleRecipes.Add("S3(" + IAtom(hEC.Fact.Name) + ", S" + hpC.Count + "("
+					+ string.Join(", ", hpC) + "), " + recC + ")");
+				log.Add(hEC.Fact.Name + " := general join over " + legsC.Count + " legs, "
+					+ DescribeDerivation(hEC.Fact));
+			}
 			// the value-condition class: a UNARY head whose legs all anchor
 			// at the head's own player — existence legs enter a fact and
 			// stop; a quoted-constant leg adds a boolean path condition
@@ -4590,6 +4718,136 @@ namespace Arest.NormaOracle
 			foreach (int p in pos) ns.Add("N(" + (p + 1) + ")");
 			return "S3(A(\"proj\"), " + IAtom(e.Fact.Name) + ", S" + ns.Count
 				+ "(" + string.Join(", ", ns) + "))";
+		}
+
+		// THE GENERAL JOIN PLAN: n legs whose shared variables do NOT all meet at one
+		// centre, so the star fold cannot express them.
+		//     * Status1 has effective Transition1 to Status2 on Event Type iff Transition1
+		//       is from State Machine Definition1 and Transition1 is to Status2 and
+		//       Transition1 is triggered by Event Type and Status1 is defined in State
+		//       Machine Definition1.
+		// Transition1 ties three legs; the fourth joins on State Machine Definition1
+		// instead. Canon's twin IS the plan -- star-fold the commonest variable, reorder
+		// the accumulator so the next join variable sits at column 2, then join the
+		// remaining leg:
+		//   join(proj(<star-fold over Transition>, <2,1,3,4>),
+		//        proj(StatusIsDefinedInStateMachineDefinition, <2,1>), <5,1,3,4>)
+		// theta:NatJoin(2) is why the reorder is needed at all: it always joins LEFT
+		// column 2 with RIGHT column 1, so each stage must present its join variable there.
+		//
+		// The start leg is the first one carrying the centre in SENTENCE order, and its
+		// other role becomes accumulator column 1 whether or not it is a head player --
+		// here it is State Machine Definition1, which the head never mentions. The star
+		// arm requires a head player there and so declines this correctly.
+		private string GeneralJoinRecipe(List<FactIndexEntry> legs, List<List<string>> toks,
+			List<string> ht, out string why)
+		{
+			why = null;
+			if (legs.Count < 3) { why = "fewer than three legs"; return null; }
+			// Centre = the variable carried by the most legs, and it must be carried by at
+			// least THREE. A shape whose maximum sharing is two legs is a LINEAR CHAIN
+			// (A-B-C), which the existing chain arm already builds and builds to canon --
+			// StateMachineIsInstanceOfStateMachineDefinition is one, and claiming it here
+			// replaced a matching recipe with a valid but differently shaped plan. This arm
+			// is for star-plus-extra: a centre tying three or more legs, with the remainder
+			// joining on some other variable.
+			string centre = null; int best = 2;
+			var seen = new List<string>();
+			foreach (List<string> t in toks)
+				foreach (string tok in t)
+				{
+					if (seen.Contains(tok)) continue;
+					seen.Add(tok);
+					int n = 0;
+					foreach (List<string> u in toks) if (u.Contains(tok)) n++;
+					if (n > best) { best = n; centre = tok; }
+				}
+			if (centre == null) { why = "no variable shared by two legs"; return null; }
+			var star = new List<int>(); var rest = new List<int>();
+			for (int i = 0; i < legs.Count; i++) (toks[i].Contains(centre) ? star : rest).Add(i);
+			if (star.Count < 2) { why = "centre in fewer than two legs"; return null; }
+			// fold the star: start leg first in sentence order, others in head order
+			int s0 = star[0];
+			int c0 = toks[s0].IndexOf(centre);
+			int o0 = -1;
+			for (int i = 0; i < toks[s0].Count; i++) if (i != c0) { o0 = i; break; }
+			if (o0 < 0) { why = "start leg is unary"; return null; }
+			string expr = (toks[s0].Count == 2 && o0 == 0 && c0 == 1)
+				? IAtom(legs[s0].Fact.Name)
+				: "S3(A(\"proj\"), " + IAtom(legs[s0].Fact.Name) + ", S2(N(" + (o0 + 1) + "), N(" + (c0 + 1) + ")))";
+			var acc = new List<string>(); acc.Add(toks[s0][o0]); acc.Add(centre);
+			var others = new List<int>();
+			for (int k = 1; k < star.Count; k++) others.Add(star[k]);
+			others.Sort(delegate(int x, int y)
+			{
+				return HeadRank(toks[x], toks[x].IndexOf(centre), ht).CompareTo(
+				       HeadRank(toks[y], toks[y].IndexOf(centre), ht));
+			});
+			foreach (int li in others)
+			{
+				int c = toks[li].IndexOf(centre);
+				string right = c == 0 ? IAtom(legs[li].Fact.Name) : ProjTo(legs[li], toks[li].Count, c);
+				for (int i = 0; i < toks[li].Count; i++) if (i != c) acc.Add(toks[li][i]);
+				expr = "S4(A(\"join\"), " + expr + ", " + right + ", " + Ident(acc.Count) + ")";
+			}
+			// fold the remaining legs, each on a variable it shares with the accumulator
+			foreach (int li in rest)
+			{
+				string link = null; int lp = -1, rp = -1;
+				for (int i = 0; i < acc.Count && link == null; i++)
+				{
+					int j = toks[li].IndexOf(acc[i]);
+					if (j >= 0) { link = acc[i]; lp = i; rp = j; }
+				}
+				if (link == null) { why = "leg shares no variable with the accumulation"; return null; }
+				// NatJoin(2) wants the link at accumulator column 2
+				if (lp != 1)
+				{
+					var order = new List<string>(); var na = new List<string>();
+					order.Add("N(" + (acc.IndexOf(acc[0] == link ? acc[1] : acc[0]) + 1) + ")");
+					na.Add(acc[0] == link ? acc[1] : acc[0]);
+					order.Add("N(" + (lp + 1) + ")"); na.Add(link);
+					for (int i = 0; i < acc.Count; i++)
+					{
+						if (i == lp || acc[i] == na[0]) continue;
+						order.Add("N(" + (i + 1) + ")"); na.Add(acc[i]);
+					}
+					expr = "S3(A(\"proj\"), " + expr + ", S" + order.Count + "("
+						+ string.Join(", ", order) + "))";
+					acc = na;
+				}
+				string right2 = rp == 0 ? IAtom(legs[li].Fact.Name) : ProjTo(legs[li], toks[li].Count, rp);
+				for (int i = 0; i < toks[li].Count; i++) if (i != rp) acc.Add(toks[li][i]);
+				expr = "S4(A(\"join\"), " + expr + ", " + right2 + ", " + Ident(acc.Count) + ")";
+			}
+			// final projection onto the head's own order
+			var outs = new List<string>();
+			foreach (string h in ht)
+			{
+				int p = acc.IndexOf(h);
+				if (p < 0) { why = "head player " + h + " is in no leg"; return null; }
+				outs.Add("N(" + (p + 1) + ")");
+			}
+			int last = expr.LastIndexOf(", S");
+			if (last < 0) { why = "no join to project"; return null; }
+			return expr.Substring(0, last) + ", S" + outs.Count + "("
+				+ string.Join(", ", outs) + "))";
+		}
+
+		// a leg projected so its join column comes FIRST, the shape NatJoin(2) wants on the right
+		private string ProjTo(FactIndexEntry leg, int arity, int joinPos)
+		{
+			var o = new List<string>(); o.Add("N(" + (joinPos + 1) + ")");
+			for (int i = 0; i < arity; i++) if (i != joinPos) o.Add("N(" + (i + 1) + ")");
+			return "S3(A(\"proj\"), " + IAtom(leg.Fact.Name) + ", S" + o.Count + "("
+				+ string.Join(", ", o) + "))";
+		}
+
+		private static string Ident(int n)
+		{
+			var o = new List<string>();
+			for (int i = 1; i <= n; i++) o.Add("N(" + i + ")");
+			return "S" + n + "(" + string.Join(", ", o) + ")";
 		}
 
 		// Earliest head position among the players a leg contributes (its centre aside).
