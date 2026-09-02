@@ -2952,9 +2952,41 @@ namespace Arest.NormaOracle
 				if (htC == null) continue;
 				var legsC = new List<FactIndexEntry>(); var toksC = new List<List<string>>();
 				bool okC = true;
-				foreach (string raw in rawC)
+				// AN IDENTITY LEG IS NOT A FACT TYPE. `that Function is that Fact Type2` has
+				// no verb: it asserts that two already-bound variables are the SAME one
+				// (Fact Type being a subtype of Function). It resolves to nothing and used
+				// to defeat the whole plan. Canon does not give it a leg either -- it
+				// becomes the join key (2,2). So collect these first, drop them, and rename
+				// one variable to the other everywhere else; the ordinary planner then joins
+				// on the merged variable by itself.
+				var renames = new Dictionary<string, string>(StringComparer.Ordinal);
+				var realLegs = new List<string>();
+				foreach (string raw0 in rawC)
+				{
+					string c0 = raw0.Trim();
+					Match idm = Regex.Match(c0, @"^that ([\w :]+?) is that ([\w :]+?)$");
+					if (idm.Success
+						&& FindEntryByNormalizedSentence(Dequantify(" " + c0 + " ").Trim()) == null)
+					{
+						renames[idm.Groups[1].Value.Trim()] = idm.Groups[2].Value.Trim();
+						continue;
+					}
+					realLegs.Add(c0);
+				}
+				if (realLegs.Count < 3) continue;
+				foreach (string raw in realLegs)
 				{
 					string cl = raw.Trim();
+					// A NESTED IDENTITY leg: `<clause> that is that <Token>` identifies the
+					// clause's last role with an already-bound variable.
+					//     that Fact is of some Function that is that Fact Type2
+					// is `Fact is of Function` whose Function IS that Fact Type2 (Fact Type
+					// being a subtype of Function). Canon expresses it as a join key on that
+					// role, not as a separate leg, so the role is simply RENAMED to the
+					// identified variable and the ordinary planner does the rest.
+					string identWith = null;
+					Match nid = Regex.Match(cl, @"^(.+?) that is that (.+)$");
+					if (nid.Success) { cl = nid.Groups[1].Value.Trim(); identWith = nid.Groups[2].Value.Trim(); }
 					string q = Dequantify(" " + cl + " ").Trim();
 					FactIndexEntry e = FindEntryByNormalizedSentence(q);
 					List<string> tk = null;
@@ -2978,10 +3010,27 @@ namespace Arest.NormaOracle
 							if (e != null) break;
 						}
 					}
-					if (e == null || tk == null) { okC = false; break; }
+					if (e == null || tk == null)
+					{
+						log.Add("  general-join: unresolved leg <" + cl + "> in " + Shorten(sC));
+						okC = false; break;
+					}
+					// rename the identified role so the planner joins on it
+					if (identWith != null && tk.Count > 0) tk[tk.Count - 1] = identWith;
+					for (int c = 0; c < tk.Count; c++)
+					{
+						string to;
+						if (renames.TryGetValue(tk[c], out to)) tk[c] = to;
+					}
 					legsC.Add(e); toksC.Add(tk);
 				}
-				if (!okC) continue;
+				if (!okC)
+				{
+					// say WHICH leg defeated the plan; a silent continue here is
+					// indistinguishable from a non-matching regex, which cost an iteration
+					log.Add("  general-join: leg unresolved in: " + Shorten(sC));
+					continue;
+				}
 				// A VARIABLE IN EVERY LEG IS THE STAR ARM'S SHAPE -- decline, or both arms
 				// build the same sentence and the head ends with more paths than rules.
 				// Measured when this guard was missing: three heads carried a duplicate
@@ -2998,7 +3047,11 @@ namespace Arest.NormaOracle
 				if (everyLeg) continue;
 				string whyC;
 				string recC = GeneralJoinRecipe(legsC, toksC, htC, out whyC);
-				if (recC == null) continue;
+				if (recC == null)
+				{
+					log.Add("  general-join: no plan (" + whyC + ") for: " + Shorten(sC));
+					continue;
+				}
 				var ruleC = hEC.Fact.DerivationRule as FactTypeDerivationRule;
 				if (ruleC == null)
 				{
