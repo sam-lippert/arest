@@ -38,6 +38,17 @@ const SPLICED = [
   join(oracle, "norma-answer"),
 ];
 
+// THE COMPILED RELATIONAL MAP IS OPTIONAL, and optional is the whole point: a
+// store that has not been compiled still runs, it just pays the Rmap
+// derivation the way every store did before tools/compile-rmap.js existed.
+// Splicing it when present is what makes rmap run for uncompiled schemas only.
+try {
+  statSync(join(oracle, "compiled"));
+  SPLICED.push(join(oracle, "compiled"));
+} catch {
+  /* uncompiled schema: canon derives instead */
+}
+
 // The journal is APPEND-ONLY and carries a leading doc atom, so it is spliced
 // as CANON("journal", ...entries) rather than as a bare tuple: every entry is
 // appended bytes, never a rewrite. An empty journal registers nothing.
