@@ -2550,6 +2550,144 @@ namespace Arest.NormaOracle
 				log.Add(hE8.Fact.Name + " := narrowed to " + narrowType + " over " + sE8.Fact.Name
 					+ ", " + DescribeDerivation(hE8.Fact));
 			}
+			// TWO LEGS WITH A CONSTANT CONDITION on the second:
+			//     * Domain Change has blocking outcome iff some Violation is triggered by
+			//       that Domain Change and that Violation has Severity 'error'.
+			// Canon builds a four-stage pipeline, and every stage is a piece already here:
+			//   proj( sel( joinon( joinon(VITOTI, "Domain Change", <(2,1)>, <1,3>),
+			//                      ViolationHasSeverity, <(1,1)>, <2,4>),
+			//              2, "error"),
+			//         <1> )
+			// The inner joinon is the SUBTYPE NARROWING from ed20c820 -- leg one names
+			// Domain Change where the fact type declares Object Type Instance -- except
+			// that here it must KEEP the join variable as well, so out is <1,3>: the
+			// original columns with the supertype role replaced by the narrowed one.
+			// Then leg two joins on the shared Violation, the constant filters the role it
+			// fills, and the head is projected out.
+			foreach (string sRaw9 in myDeferredRules)
+			{
+				string s9 = sRaw9;
+				while (s9.StartsWith("* * ")) s9 = s9.Substring(2);
+				Match m9 = Regex.Match(s9, @"^\* (.+?) iff (.+?) and (.+?) '([^']*)'\.$");
+				if (!m9.Success) continue;
+				string head9 = m9.Groups[1].Value.Trim();
+				string c1 = m9.Groups[2].Value.Trim(), c2 = m9.Groups[3].Value.Trim();
+				string konst = m9.Groups[4].Value;
+				if (c1.Contains(" and ") || c2.Contains(" and ")) continue;
+				FactIndexEntry hE9 = FindEntryByNormalizedSentence(head9);
+				if (hE9 == null) continue;
+				List<string> ht9 = SubscriptedTokens(head9, hE9.Players);
+				if (ht9 == null) continue;
+				// leg one, narrowing to a subtype if the clause names one
+				string q1 = Dequantify(" " + c1 + " ").Trim();
+				FactIndexEntry e1 = FindEntryByNormalizedSentence(q1);
+				string narrow9 = null; int np9 = -1;
+				if (e1 == null)
+				{
+					foreach (KeyValuePair<string, ObjectType> kv in myTypes)
+					{
+						if (kv.Value.IsDeleted) continue;
+						if (q1.IndexOf(kv.Key, StringComparison.Ordinal) < 0) continue;
+						foreach (ObjectType sup in kv.Value.SupertypeCollection)
+						{
+							FactIndexEntry cand = FindEntryByNormalizedSentence(q1.Replace(kv.Key, sup.Name));
+							if (cand == null) continue;
+							e1 = cand; narrow9 = kv.Key; break;
+						}
+						if (e1 != null) break;
+					}
+					if (e1 == null) continue;
+					bool amb9 = false;
+					for (int c = 0; c < e1.Players.Count; c++)
+					{
+						bool isSup = false;
+						foreach (ObjectType sup in myTypes[narrow9].SupertypeCollection) if (e1.Players[c] == sup.Name) isSup = true;
+						if (!isSup) continue;
+						if (np9 >= 0) { amb9 = true; break; }
+						np9 = c;
+					}
+					if (amb9 || np9 < 0) continue;
+				}
+				FactIndexEntry e2 = FindEntryByNormalizedSentence(Dequantify(" " + c2 + " ").Trim());
+				if (e2 == null) continue;
+				// leg one's columns, with the supertype role replaced by the narrowed one
+				var cols1 = new List<string>(e1.Players);
+				string expr1 = IAtom(e1.Fact.Name);
+				if (narrow9 != null)
+				{
+					var o1 = new List<string>();
+					for (int c = 0; c < e1.Players.Count; c++)
+						o1.Add("N(" + (c == np9 ? e1.Players.Count + 1 : c + 1) + ")");
+					expr1 = "S5(A(\"joinon\"), " + IAtom(e1.Fact.Name) + ", " + IAtom(narrow9)
+						+ ", S1(S2(N(" + (np9 + 1) + "), N(1))), S" + o1.Count + "("
+						+ string.Join(", ", o1) + "))";
+					cols1[np9] = narrow9;
+				}
+				// the shared variable, and the role the constant fills
+				int p1 = -1, p2 = -1;
+				for (int x = 0; x < cols1.Count && p1 < 0; x++)
+				{
+					int y = e2.Players.IndexOf(cols1[x]);
+					if (y >= 0) { p1 = x; p2 = y; }
+				}
+				if (p1 < 0) continue;
+				int kpos = -1;
+				for (int y = 0; y < e2.Players.Count; y++) if (y != p2) { kpos = y; break; }
+				if (kpos < 0) continue;
+				// concatenation is cols1 ++ e2 players; keep the head columns then the
+				// constant's, which is the order canon's <2,4> records
+				var outs9 = new List<string>(); var keep = new List<string>();
+				bool ok9 = true;
+				foreach (string h in ht9)
+				{
+					int p = cols1.IndexOf(h);
+					if (p < 0) { ok9 = false; break; }
+					outs9.Add("N(" + (p + 1) + ")"); keep.Add(h);
+				}
+				if (!ok9) continue;
+				outs9.Add("N(" + (cols1.Count + kpos + 1) + ")");
+				// GET-OR-CREATE: DomainChangeHasBlockingOutcome has TWO rules and the
+				// narrowing arm claims the head first, so a `DerivationRule != null` guard
+				// silently skipped this one -- the arm never fired and looked like a
+				// non-matching regex.
+				var rule9 = hE9.Fact.DerivationRule as FactTypeDerivationRule;
+				if (rule9 == null)
+				{
+					rule9 = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hE9.Fact, rule9);
+					ApplyDerivationMarkers(hE9.Fact, rule9);
+				}
+				var lead9 = new LeadRolePath(myStore);
+				rule9.OwnedLeadRolePathCollection.Add(lead9);
+				new RolePathObjectTypeRoot(lead9, myTypes[hE9.Players[0]]);
+				var sp9a = new RoleSubPath(myStore);
+				lead9.SubPathCollection.Add(sp9a);
+				var r9a = new PathedRole[e1.Roles.Count];
+				EnterLeg(sp9a, e1, narrow9 != null ? np9 : 0, r9a);
+				var sp9b = new RoleSubPath(myStore);
+				lead9.SubPathCollection.Add(sp9b);
+				var r9b = new PathedRole[e2.Roles.Count];
+				EnterLeg(sp9b, e2, p2, r9b);
+				var pj9 = new RoleSetDerivationProjection(rule9, lead9);
+				for (int i = 0; i < hE9.Roles.Count; i++)
+				{
+					var drp9 = new DerivedRoleProjection(pj9, hE9.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drp9, r9a[narrow9 != null ? np9 : 0]);
+				}
+				var hp9 = new List<string>();
+				foreach (string p in hE9.Players) hp9.Add(IAtom(p));
+				string joined = "S5(A(\"joinon\"), " + expr1 + ", " + IAtom(e2.Fact.Name)
+					+ ", S1(S2(N(" + (p1 + 1) + "), N(" + (p2 + 1) + "))), S" + outs9.Count
+					+ "(" + string.Join(", ", outs9) + "))";
+				var proj9 = new List<string>();
+				for (int i = 0; i < keep.Count; i++) proj9.Add("N(" + (i + 1) + ")");
+				myRuleRecipes.Add("S3(" + IAtom(hE9.Fact.Name) + ", S" + hp9.Count + "("
+					+ string.Join(", ", hp9) + "), S3(A(\"proj\"), S4(A(\"sel\"), " + joined
+					+ ", N(" + outs9.Count + "), " + IAtom(konst) + "), S" + proj9.Count
+					+ "(" + string.Join(", ", proj9) + ")))");
+				log.Add(hE9.Fact.Name + " := constant condition '" + konst + "' over "
+					+ e1.Fact.Name + " x " + e2.Fact.Name + ", " + DescribeDerivation(hE9.Fact));
+			}
 			// the value-condition class: a UNARY head whose legs all anchor
 			// at the head's own player — existence legs enter a fact and
 			// stop; a quoted-constant leg adds a boolean path condition
