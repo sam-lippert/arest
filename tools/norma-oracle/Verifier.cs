@@ -1919,6 +1919,111 @@ namespace Arest.NormaOracle
 				log.Add(hE.Fact.Name + " := proj " + sE.Fact.Name + ", " + DescribeDerivation(hE.Fact));
 				RecordProjRecipe(hE, sE, at);
 			}
+			// THE SUBSCRIPTED TWO-LEG JOIN — the recursive step of a transitive closure:
+			//     * Domain1 reaches Domain3 iff Domain1 reaches Domain2 and Domain2 reaches Domain3.
+			// Same construction as the quantified two-leg arm above, but the join
+			// variable is named by its SUBSCRIPT rather than introduced by
+			// `some X ... and that X ...`, so that arm's regex never sees it. Its
+			// legs resolved 2/2 the whole time: the clauses were found, no arm read them.
+			//
+			// Pairs with the projection arm: that one builds a closure's BASE case
+			// (`* Domain1 reaches Domain2 iff Domain1 is contained in Domain2.`), this one
+			// the inductive step, and a head needs both before its path count equals its
+			// rule count. Canon's twin to reproduce:
+			//     S2(A("DomainReachesDomain"), S4(A("join"), A("DomainReachesDomain"),
+			//        A("DomainReachesDomain"), S2(N(1), N(3))))
+			//
+			// EXACTLY ONE TOKEN MAY BE SHARED BETWEEN THE LEGS. Status1 reaches Status3 in
+			// State Machine Definition shares TWO (Status2 and the State Machine
+			// Definition, the latter also a head player), and canon joins it on both:
+			//     S5(A("joinon"), ..., S2(S2(N(2), N(1)), S2(N(3), N(3))), S3(N(1), N(5), N(3)))
+			// A single-key join would silently drop the second equality and admit paths
+			// across two different machines. So a second shared token DECLINES here and
+			// waits for a multi-key arm rather than building a weaker rule that looks right.
+			foreach (string sRaw3 in myDeferredRules)
+			{
+				string s3 = sRaw3;
+				while (s3.StartsWith("* * ")) s3 = s3.Substring(2);
+				Match m3 = Regex.Match(s3, @"^\* (.+?) iff (.+?) and (.+)\.$");
+				if (!m3.Success) continue;
+				// the quantified spelling belongs to the arm above
+				if (Regex.IsMatch(s3, @"^\* (.+?) iff some ([A-Z][\w ]*?) (.+) and that \2 (.+)\.$")) continue;
+				string head3 = m3.Groups[1].Value.Trim();
+				string l1 = m3.Groups[2].Value.Trim(), l2 = m3.Groups[3].Value.Trim();
+				// two legs only; conditions and negation are other arms' shapes
+				if (l1.Contains(" and ") || l2.Contains(" and ")) continue;
+				if (s3.Contains("'") || s3.Contains(" no ") || s3.Contains("not true")) continue;
+				FactIndexEntry hE3 = FindEntryByNormalizedSentence(head3);
+				FactIndexEntry aE = FindEntryByNormalizedSentence(Dequantify(" " + l1 + " ").Trim());
+				FactIndexEntry bE = FindEntryByNormalizedSentence(Dequantify(" " + l2 + " ").Trim());
+				if (hE3 == null || aE == null || bE == null) continue;
+				List<string> ht = SubscriptedTokens(head3, hE3.Players);
+				List<string> at3 = SubscriptedTokens(l1, aE.Players);
+				List<string> bt3 = SubscriptedTokens(l2, bE.Players);
+				if (ht == null || at3 == null || bt3 == null) continue;
+				int ja = -1, jb = -1, shared = 0;
+				for (int x = 0; x < at3.Count; x++)
+				{
+					for (int y = 0; y < bt3.Count; y++)
+					{
+						if (at3[x] != bt3[y]) continue;
+						shared++;
+						if (!ht.Contains(at3[x])) { ja = x; jb = y; }
+					}
+				}
+				if (shared != 1 || ja < 0) continue;
+				var located3 = new List<KeyValuePair<FactIndexEntry, int>>();
+				bool ok3 = true;
+				for (int i = 0; i < ht.Count && ok3; i++)
+				{
+					var hits3 = new List<KeyValuePair<FactIndexEntry, int>>();
+					for (int c = 0; c < at3.Count; c++)
+						if (c != ja && at3[c] == ht[i]) hits3.Add(new KeyValuePair<FactIndexEntry, int>(aE, c));
+					for (int c = 0; c < bt3.Count; c++)
+						if (c != jb && bt3[c] == ht[i]) hits3.Add(new KeyValuePair<FactIndexEntry, int>(bE, c));
+					if (hits3.Count != 1) { ok3 = false; break; }
+					located3.Add(hits3[0]);
+				}
+				if (!ok3) continue;
+				ObjectType root3;
+				if (!myTypes.TryGetValue(aE.Players[ja], out root3)) continue;
+				var rule3 = hE3.Fact.DerivationRule as FactTypeDerivationRule;
+				if (rule3 == null)
+				{
+					rule3 = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hE3.Fact, rule3);
+					ApplyDerivationMarkers(hE3.Fact, rule3);
+				}
+				var lead3 = new LeadRolePath(myStore);
+				rule3.OwnedLeadRolePathCollection.Add(lead3);
+				new RolePathObjectTypeRoot(lead3, root3);
+				var steps3 = new PathedRole[hE3.Roles.Count];
+				foreach (var legPair in new[] { new KeyValuePair<FactIndexEntry, int>(aE, ja), new KeyValuePair<FactIndexEntry, int>(bE, jb) })
+				{
+					var sub3 = new RoleSubPath(myStore);
+					lead3.SubPathCollection.Add(sub3);
+					var entry3 = new PathedRole(sub3, legPair.Key.Roles[legPair.Value]);
+					entry3.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+					for (int i = 0; i < located3.Count; i++)
+					{
+						if (located3[i].Key != legPair.Key) continue;
+						var st3 = new PathedRole(sub3, legPair.Key.Roles[located3[i].Value]);
+						st3.PathedRolePurpose = PathedRolePurpose.SameFactType;
+						steps3[i] = st3;
+					}
+				}
+				var pr3 = new RoleSetDerivationProjection(rule3, lead3);
+				for (int i = 0; i < hE3.Roles.Count && ok3; i++)
+				{
+					if (steps3[i] == null) { ok3 = false; break; }
+					var drp3 = new DerivedRoleProjection(pr3, hE3.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drp3, steps3[i]);
+				}
+				if (!ok3) continue;
+				log.Add(hE3.Fact.Name + " := subscripted join over " + at3[ja] + " ("
+					+ aE.Fact.Name + " x " + bE.Fact.Name + "), " + DescribeDerivation(hE3.Fact));
+				RecordRuleRecipe(hE3, aE, bE, ja, jb, located3);
+			}
 			// the value-condition class: a UNARY head whose legs all anchor
 			// at the head's own player — existence legs enter a fact and
 			// stop; a quoted-constant leg adds a boolean path condition
