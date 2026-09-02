@@ -2702,6 +2702,99 @@ namespace Arest.NormaOracle
 				log.Add(hE9.Fact.Name + " := constant condition '" + konst + "' over "
 					+ e1.Fact.Name + " x " + e2.Fact.Name + ", " + DescribeDerivation(hE9.Fact));
 			}
+			// NEGATION, shape three: `<positive> and no <clause>` with NO `where`.
+			//     * Status is effective initial in State Machine Definition iff that Status
+			//       is rooted in that State Machine Definition and no Status is initial in
+			//       that State Machine Definition.
+			// The negated clause shares only SOME of the head's variables: `that State
+			// Machine Definition` is the head's, while `Status` carries no `that` and is a
+			// fresh existential -- the reading is "that machine has no initial status at
+			// all", not "this status is not initial". Canon subtracts the positive rows
+			// whose bound variables satisfy the negated clause:
+			//   S3(A("minus"), A("StatusIsRootedInStateMachineDefinition"),
+			//      S5(A("joinon"), A("StatusIsRootedInStateMachineDefinition"),
+			//         A("StatusIsInitialInStateMachineDefinition"),
+			//         S1(S2(N(2), N(2))), S2(N(1), N(2))))
+			// Joining on BOTH positions instead would subtract only statuses that are
+			// themselves initial -- a rule that builds and quietly means something else.
+			foreach (string sRawA in myDeferredRules)
+			{
+				string sA = sRawA;
+				while (sA.StartsWith("* * ")) sA = sA.Substring(2);
+				Match arM = Regex.Match(sA, @"^\* (.+?) iff (.+?) and no (.+)\.$");
+				if (!arM.Success) continue;
+				string negCl = arM.Groups[3].Value.Trim();
+				if (negCl.Contains(" where ") || negCl.Contains(" and ")) continue;   // other arms
+				string posCl = arM.Groups[2].Value.Trim();
+				if (posCl.Contains(" and ") || sA.Contains("'")) continue;
+				string headA = arM.Groups[1].Value.Trim();
+				FactIndexEntry hEA = FindEntryByNormalizedSentence(headA);
+				FactIndexEntry pEA = FindEntryByNormalizedSentence(Dequantify(" " + posCl + " ").Trim());
+				FactIndexEntry nEA = FindEntryByNormalizedSentence(Dequantify(" " + negCl + " ").Trim());
+				if (hEA == null || pEA == null || nEA == null) continue;
+				List<string> htA = SubscriptedTokens(headA, hEA.Players);
+				List<string> ptA = SubscriptedTokens(posCl, pEA.Players);
+				if (htA == null || ptA == null) continue;
+				// the positive side must present exactly the head's columns
+				var pposA = new List<int>();
+				bool okA = true;
+				foreach (string h in htA)
+				{
+					int p = ptA.IndexOf(h);
+					if (p < 0) { okA = false; break; }
+					pposA.Add(p);
+				}
+				if (!okA) continue;
+				string leftA = SideExpr(pEA, ptA.Count, pposA, false);
+				// keys: one per BOUND role of the negated clause
+				bool[] bnd = BoundPositions(negCl, nEA.Players);
+				var keysA = new List<string>();
+				for (int c = 0; c < nEA.Players.Count; c++)
+				{
+					if (!bnd[c]) continue;
+					int hp = htA.IndexOf(nEA.Players[c]);
+					if (hp < 0) { okA = false; break; }
+					keysA.Add("S2(N(" + (hp + 1) + "), N(" + (c + 1) + "))");
+				}
+				if (!okA || keysA.Count == 0) continue;
+				var outA = new List<string>();
+				for (int i = 0; i < htA.Count; i++) outA.Add("N(" + (i + 1) + ")");
+				string rightA = "S5(A(\"joinon\"), " + leftA + ", " + IAtom(nEA.Fact.Name)
+					+ ", S" + keysA.Count + "(" + string.Join(", ", keysA) + "), S" + outA.Count
+					+ "(" + string.Join(", ", outA) + "))";
+				var ruleA = hEA.Fact.DerivationRule as FactTypeDerivationRule;
+				if (ruleA == null)
+				{
+					ruleA = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hEA.Fact, ruleA);
+					ApplyDerivationMarkers(hEA.Fact, ruleA);
+				}
+				var leadA = new LeadRolePath(myStore);
+				ruleA.OwnedLeadRolePathCollection.Add(leadA);
+				new RolePathObjectTypeRoot(leadA, myTypes[hEA.Players[0]]);
+				var spA = new RoleSubPath(myStore);
+				leadA.SubPathCollection.Add(spA);
+				var rowA = new PathedRole[pEA.Roles.Count];
+				EnterLeg(spA, pEA, pposA[0], rowA);
+				var spN = new RoleSubPath(myStore);
+				leadA.SubPathCollection.Add(spN);
+				var rowN = new PathedRole[nEA.Roles.Count];
+				int nEntry = 0;
+				for (int c = 0; c < nEA.Players.Count; c++) if (bnd[c]) { nEntry = c; break; }
+				EnterLeg(spN, nEA, nEntry, rowN);
+				if (spN.PathedRoleCollection.Count > 0) spN.PathedRoleCollection[0].IsNegated = true;
+				var pjA = new RoleSetDerivationProjection(ruleA, leadA);
+				for (int i = 0; i < hEA.Roles.Count; i++)
+				{
+					var drpA = new DerivedRoleProjection(pjA, hEA.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drpA, rowA[pposA[i]]);
+				}
+				var hpA = new List<string>();
+				foreach (string p in hEA.Players) hpA.Add(IAtom(p));
+				myRuleRecipes.Add("S3(" + IAtom(hEA.Fact.Name) + ", S" + hpA.Count + "("
+					+ string.Join(", ", hpA) + "), S3(A(\"minus\"), " + leftA + ", " + rightA + "))");
+				log.Add(hEA.Fact.Name + " := minus on bound-only negation, " + DescribeDerivation(hEA.Fact));
+			}
 			// the value-condition class: a UNARY head whose legs all anchor
 			// at the head's own player — existence legs enter a fact and
 			// stop; a quoted-constant leg adds a boolean path condition
@@ -4545,6 +4638,29 @@ namespace Arest.NormaOracle
 				row[c] = new PathedRole(sp, leg.Roles[c]);
 				row[c].PathedRolePurpose = PathedRolePurpose.SameFactType;
 			}
+		}
+
+		// Which role positions of a clause are BOUND to the surrounding rule, read off the
+		// `that` marker that FORML uses for exactly this. In
+		//     no Status is initial in that State Machine Definition
+		// `Status` carries no `that` and is a FRESH existential -- "no status at all" --
+		// while `that State Machine Definition` is the head's. Getting this wrong collapses
+		// the two: joining on both positions would subtract only statuses that are
+		// themselves initial, instead of every rooted status in a machine that HAS one.
+		private static bool[] BoundPositions(string clause, List<string> players)
+		{
+			var bound = new bool[players.Count];
+			int from = 0;
+			for (int i = 0; i < players.Count; i++)
+			{
+				int at = clause.IndexOf(players[i], from, StringComparison.Ordinal);
+				if (at < 0) { from = 0; at = clause.IndexOf(players[i], StringComparison.Ordinal); }
+				if (at < 0) continue;
+				string before = clause.Substring(0, at);
+				bound[i] = before.EndsWith("that ", StringComparison.Ordinal);
+				from = at + players[i].Length;
+			}
+			return bound;
 		}
 
 		private static string Dequantify(string leg)
