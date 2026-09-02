@@ -557,6 +557,23 @@ namespace Arest.NormaOracle
 		};
 		private readonly HashSet<string> myExplicitlyTyped = new HashSet<string>(StringComparer.Ordinal);
 
+		// THE DECLARED TYPE, KEPT. ApplyDataType set vt.DataType on the NORMA
+		// model and nothing carried the fact into the store, so
+		// ObjectTypeHasConceptualDataType stood at 0 rows against a catalogue of
+		// 31 populated Conceptual Data Types -- and rmap, having no type to read,
+		// emitted all 313 columns as TEXT, including the ones declared integer
+		// and decimal. The token IS the catalogue name for six of the eight; the
+		// two that differ are spelled out here rather than reverse-mapped from
+		// NORMA's intrinsic type objects, because the declaration is what the
+		// model said and the intrinsic is only how NORMA stores it.
+		private readonly Dictionary<string, string> myDeclaredDataType = new Dictionary<string, string>(StringComparer.Ordinal);
+		private static readonly Dictionary<string, string> CatalogueNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+		{
+			{ "text", "text" }, { "integer", "integer" }, { "decimal", "decimal" },
+			{ "float", "doubleFloat" }, { "boolean", "boolean" },
+			{ "datetime", "dateTime" }, { "date", "date" }, { "time", "time" },
+		};
+
 		private void ApplyDataType(string typeName, string token)
 		{
 			Type dtType;
@@ -573,6 +590,8 @@ namespace Arest.NormaOracle
 				{
 					vt.DataType = dt;
 					myExplicitlyTyped.Add(typeName);
+					string catName;
+					if (CatalogueNames.TryGetValue(token, out catName)) myDeclaredDataType[typeName] = catName;
 					Count("data type applied (" + token.ToLowerInvariant() + ")");
 					return;
 				}
@@ -5056,6 +5075,28 @@ namespace Arest.NormaOracle
 						kindEntry.Rows.Add(new List<string> { ot.Name, ot.IsValueType ? "value" : "entity" });
 						kindEntry.RowKinds.Add(new List<string> { "", "" });
 						have.Add(ot.Name);
+					}
+				}
+			}
+			// AND THE DECLARED DATA TYPE LANDS IN ITS OWN FACT TYPE. Same shape as
+			// the Object Kind synthesis above and for the same reason: parsed
+			// already, applied to the NORMA model already, and dropped on the way
+			// out. An explicit row in the readings SETS it and wins; this fills
+			// only what the declarations said.
+			{
+				FactIndexEntry cdtEntry = null;
+				foreach (FactIndexEntry e in myFactIndex)
+					if (!e.Fact.IsDeleted && e.Fact.Name == "ObjectTypeHasConceptualDataType") { cdtEntry = e; break; }
+				if (cdtEntry != null)
+				{
+					var haveCdt = new HashSet<string>(StringComparer.Ordinal);
+					foreach (var row in cdtEntry.Rows) if (row.Count == 2) haveCdt.Add(row[0]);
+					foreach (var kv in myDeclaredDataType)
+					{
+						if (haveCdt.Contains(kv.Key)) continue;
+						cdtEntry.Rows.Add(new List<string> { kv.Key, kv.Value });
+						cdtEntry.RowKinds.Add(new List<string> { "", "" });
+						haveCdt.Add(kv.Key);
 					}
 				}
 			}

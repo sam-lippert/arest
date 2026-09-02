@@ -129,6 +129,10 @@ tools/wpf-runner/Composed.g.cs
 tools/ifactr-oracle/Composed.g.cs
 tools/norma-oracle/design-state
 tools/norma-oracle/norma-answer
+# and the compiled relational map with them: it is derived FROM design-state,
+# so tracking it while design-state floats untracked would pin a compiled
+# schema against a source that can differ. rmap runs for uncompiled schemas.
+tools/norma-oracle/compiled
 # the provenance sidecars WriteCarrier stamps beside each carrier
 # (Verifier.cs:4303) -- same class as the carrier they annotate.
 tools/norma-oracle/*.source
