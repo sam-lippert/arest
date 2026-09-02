@@ -1972,15 +1972,21 @@ namespace Arest.NormaOracle
 					}
 				}
 				if (shared != 1 || ja < 0) continue;
-				var located3 = new List<KeyValuePair<FactIndexEntry, int>>();
+				// LEG INDEX, NOT ENTRY IDENTITY. A self-join resolves both legs to the SAME
+				// FactIndexEntry, so an identity test matches BOTH and each sub-path
+				// received BOTH legs' steps -- duplicate roles in one path, which NORMA
+				// rejects with "a same fact type role without a preceding fact type entry".
+				// The recipe had the same bug and was fixed in 89ca02be; the PATH kept it,
+				// and the recipe-only acceptance test could not see it.
+				var located3 = new List<KeyValuePair<int, int>>();
 				bool ok3 = true;
 				for (int i = 0; i < ht.Count && ok3; i++)
 				{
-					var hits3 = new List<KeyValuePair<FactIndexEntry, int>>();
+					var hits3 = new List<KeyValuePair<int, int>>();
 					for (int c = 0; c < at3.Count; c++)
-						if (c != ja && at3[c] == ht[i]) hits3.Add(new KeyValuePair<FactIndexEntry, int>(aE, c));
+						if (c != ja && at3[c] == ht[i]) hits3.Add(new KeyValuePair<int, int>(0, c));
 					for (int c = 0; c < bt3.Count; c++)
-						if (c != jb && bt3[c] == ht[i]) hits3.Add(new KeyValuePair<FactIndexEntry, int>(bE, c));
+						if (c != jb && bt3[c] == ht[i]) hits3.Add(new KeyValuePair<int, int>(1, c));
 					if (hits3.Count != 1) { ok3 = false; break; }
 					located3.Add(hits3[0]);
 				}
@@ -1998,16 +2004,18 @@ namespace Arest.NormaOracle
 				rule3.OwnedLeadRolePathCollection.Add(lead3);
 				new RolePathObjectTypeRoot(lead3, root3);
 				var steps3 = new PathedRole[hE3.Roles.Count];
-				foreach (var legPair in new[] { new KeyValuePair<FactIndexEntry, int>(aE, ja), new KeyValuePair<FactIndexEntry, int>(bE, jb) })
+				for (int leg = 0; leg < 2; leg++)
 				{
+					FactIndexEntry le = leg == 0 ? aE : bE;
+					int jx = leg == 0 ? ja : jb;
 					var sub3 = new RoleSubPath(myStore);
 					lead3.SubPathCollection.Add(sub3);
-					var entry3 = new PathedRole(sub3, legPair.Key.Roles[legPair.Value]);
+					var entry3 = new PathedRole(sub3, le.Roles[jx]);
 					entry3.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
 					for (int i = 0; i < located3.Count; i++)
 					{
-						if (located3[i].Key != legPair.Key) continue;
-						var st3 = new PathedRole(sub3, legPair.Key.Roles[located3[i].Value]);
+						if (located3[i].Key != leg) continue;
+						var st3 = new PathedRole(sub3, le.Roles[located3[i].Value]);
 						st3.PathedRolePurpose = PathedRolePurpose.SameFactType;
 						steps3[i] = st3;
 					}
@@ -2123,22 +2131,17 @@ namespace Arest.NormaOracle
 				// projections can name any of them
 				var pa = new PathedRole[at4.Count];
 				var pb = new PathedRole[bt4.Count];
+				// ENTRY FIRST. PathedRoles are ORDERED within a sub-path, so creating them in
+				// role order puts a SameFactType ahead of the entry whenever the entry is
+				// not role 0 -- NORMA: "a same fact type role without a preceding fact type
+				// entry". SRSISMD joins on key (2,1), so the left leg entered at role 2 and
+				// tripped it every time. The recipe was correct throughout.
 				var subA = new RoleSubPath(myStore);
 				lead4.SubPathCollection.Add(subA);
-				for (int c = 0; c < aE4.Roles.Count; c++)
-				{
-					var pr = new PathedRole(subA, aE4.Roles[c]);
-					pr.PathedRolePurpose = c == keys[entry4].Key ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
-					pa[c] = pr;
-				}
+				EnterLeg(subA, aE4, keys[entry4].Key, pa);
 				var subB = new RoleSubPath(myStore);
 				lead4.SubPathCollection.Add(subB);
-				for (int c = 0; c < bE4.Roles.Count; c++)
-				{
-					var pr = new PathedRole(subB, bE4.Roles[c]);
-					pr.PathedRolePurpose = c == keys[entry4].Value ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
-					pb[c] = pr;
-				}
+				EnterLeg(subB, bE4, keys[entry4].Value, pb);
 				for (int k = 0; k < keys.Count; k++)
 				{
 					if (k == entry4) continue;             // the entry IS the join; the rest correlate
@@ -2249,12 +2252,7 @@ namespace Arest.NormaOracle
 					var sub5 = new RoleSubPath(myStore);
 					lead5.SubPathCollection.Add(sub5);
 					var row = new PathedRole[legs[li].Roles.Count];
-					for (int c = 0; c < legs[li].Roles.Count; c++)
-					{
-						var pr = new PathedRole(sub5, legs[li].Roles[c]);
-						pr.PathedRolePurpose = c == centre[li] ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
-						row[c] = pr;
-					}
+					EnterLeg(sub5, legs[li], centre[li], row);   // entry first; see EnterLeg
 					prs.Add(row);
 				}
 				var pj5 = new RoleSetDerivationProjection(rule5, lead5);
@@ -4115,6 +4113,24 @@ namespace Arest.NormaOracle
 				expr = expr.Substring(0, lastJoin) + ", S" + outs.Count + "(" + string.Join(", ", outs) + "))";
 			}
 			return expr;
+		}
+
+		// Lay one leg into a sub-path with the ENTRY ROLE CREATED FIRST. PathedRoles are
+		// ordered within a path, and NORMA rejects a SameFactType role that is not
+		// preceded by an entry into that fact type -- so building them in role order is
+		// invalid whenever the entry is not role 0. Silent in the recipe, which is why a
+		// recipe-only acceptance test missed it across three commits; the model errors in
+		// NORMA's own report are what surfaced it.
+		private void EnterLeg(RoleSubPath sp, FactIndexEntry leg, int entryPos, PathedRole[] row)
+		{
+			row[entryPos] = new PathedRole(sp, leg.Roles[entryPos]);
+			row[entryPos].PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+			for (int c = 0; c < leg.Roles.Count; c++)
+			{
+				if (c == entryPos) continue;
+				row[c] = new PathedRole(sp, leg.Roles[c]);
+				row[c].PathedRolePurpose = PathedRolePurpose.SameFactType;
+			}
 		}
 
 		private static string Dequantify(string leg)
