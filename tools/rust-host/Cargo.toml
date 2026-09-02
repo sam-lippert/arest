@@ -33,3 +33,10 @@ opt-level = 3
 # load, so nothing is lost by not optimizing them.
 [profile.dev]
 opt-level = 1
+# CANON IS EXECUTED ONCE AT LOAD AND NEVER STEPPED THROUGH, so full debug info
+# over ~450 generated fns holding 1.7 MB of nested constructor calls buys
+# nothing and costs codegen time. Incremental is off for the same reason: build.rs
+# regenerates canon.rs whenever a carrier changes, so the cache rarely hits and
+# writing it is pure overhead. Set debug = 1 if line-table backtraces are wanted.
+debug = false
+incremental = false
