@@ -2795,6 +2795,133 @@ namespace Arest.NormaOracle
 					+ string.Join(", ", hpA) + "), S3(A(\"minus\"), " + leftA + ", " + rightA + "))");
 				log.Add(hEA.Fact.Name + " := minus on bound-only negation, " + DescribeDerivation(hEA.Fact));
 			}
+			// boolean LessThan, created on first use by the comparison arm below
+			Function ltFn = null;
+			// THE VALUE COMPARISON AS A DERIVATION (not a constraint):
+			//     * Failure succeeds Violation iff that Violation occurred at some Timestamp
+			//       and that Failure occurred at some Timestamp where that Violation
+			//       Timestamp is before that Failure Timestamp.
+			// The two legs share NO variable -- each `some Timestamp` is its own -- so canon
+			// takes the CARTESIAN product and then theta-restricts, which is Codd 1972's
+			// identity R[A theta B]S = (R x S)[A theta B] written out:
+			//   S3(A("proj"), S4(A("cmp"),
+			//        S5(A("joinon"), A("ViolationOccurredAtTimestamp"),
+			//           A("FailureOccurredAtTimestamp"), PHI(), S4(N(1),N(2),N(3),N(4))),
+			//        N(2), N(4)), S2(N(3), N(1)))
+			// PHI() in the key slot IS the Cartesian product; `cmp` is the restriction.
+			//
+			// `cmp` is hard-wired to strict less-than (derive:keep_cmp is not-ge), so
+			// `after` is expressed by swapping the operands rather than by another operator.
+			foreach (string sRawB in myDeferredRules)
+			{
+				string sB = sRawB;
+				while (sB.StartsWith("* * ")) sB = sB.Substring(2);
+				Match bm = Regex.Match(sB, @"^\* (.+?) iff (.+?) and (.+?) where (.+?) is (before|after) (.+)\.$");
+				if (!bm.Success) continue;
+				string headB = bm.Groups[1].Value.Trim();
+				FactIndexEntry hEB = FindEntryByNormalizedSentence(headB);
+				if (hEB == null) continue;
+				FactIndexEntry L1 = FindEntryByNormalizedSentence(Dequantify(" " + bm.Groups[2].Value.Trim() + " ").Trim());
+				FactIndexEntry L2 = FindEntryByNormalizedSentence(Dequantify(" " + bm.Groups[3].Value.Trim() + " ").Trim());
+				if (L1 == null || L2 == null) continue;
+				List<string> htB = SubscriptedTokens(headB, hEB.Players);
+				if (htB == null) continue;
+				// an operand is `that <Player> <ValueType>`, naming a role of one leg
+				var legs2 = new List<FactIndexEntry>(); legs2.Add(L1); legs2.Add(L2);
+				int[] oLeg = new int[2], oPos = new int[2];
+				bool okB = true;
+				for (int k = 0; k < 2; k++)
+				{
+					string op = (k == 0 ? bm.Groups[4].Value : bm.Groups[6].Value).Trim();
+					if (op.StartsWith("that ")) op = op.Substring(5).Trim();
+					int fl = -1, fp = -1;
+					for (int li = 0; li < 2 && fl < 0; li++)
+						for (int i = 0; i < legs2[li].Players.Count && fl < 0; i++)
+							for (int j = 0; j < legs2[li].Players.Count; j++)
+							{
+								if (i == j) continue;
+								if (op != legs2[li].Players[i] + " " + legs2[li].Players[j]) continue;
+								fl = li; fp = j; break;
+							}
+					if (fl < 0) { okB = false; break; }
+					oLeg[k] = fl; oPos[k] = fp;
+				}
+				if (!okB) continue;
+				int n1 = L1.Players.Count, n2 = L2.Players.Count;
+				// `after` is `<` with the operands the other way round
+				int aIdx = bm.Groups[5].Value == "before" ? 0 : 1, bIdx = 1 - aIdx;
+				int cA = (oLeg[aIdx] == 0 ? 0 : n1) + oPos[aIdx] + 1;
+				int cB = (oLeg[bIdx] == 0 ? 0 : n1) + oPos[bIdx] + 1;
+				var idB = new List<string>();
+				for (int i = 1; i <= n1 + n2; i++) idB.Add("N(" + i + ")");
+				var outB = new List<string>();
+				foreach (string h in htB)
+				{
+					int p = L1.Players.IndexOf(h);
+					if (p >= 0) { outB.Add("N(" + (p + 1) + ")"); continue; }
+					p = L2.Players.IndexOf(h);
+					if (p < 0) { okB = false; break; }
+					outB.Add("N(" + (n1 + p + 1) + ")");
+				}
+				if (!okB) continue;
+				var ruleB = hEB.Fact.DerivationRule as FactTypeDerivationRule;
+				if (ruleB == null)
+				{
+					ruleB = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hEB.Fact, ruleB);
+					ApplyDerivationMarkers(hEB.Fact, ruleB);
+				}
+				var leadB = new LeadRolePath(myStore);
+				ruleB.OwnedLeadRolePathCollection.Add(leadB);
+				new RolePathObjectTypeRoot(leadB, myTypes[hEB.Players[0]]);
+				var spB1 = new RoleSubPath(myStore); leadB.SubPathCollection.Add(spB1);
+				var rB1 = new PathedRole[L1.Roles.Count]; EnterLeg(spB1, L1, 0, rB1);
+				var spB2 = new RoleSubPath(myStore); leadB.SubPathCollection.Add(spB2);
+				var rB2 = new PathedRole[L2.Roles.Count]; EnterLeg(spB2, L2, 0, rB2);
+				// the condition itself, as a boolean Function over the two pathed roles --
+				// the same CalculatedPathValue machinery the value-condition arm uses for
+				// Equals, so the MODEL carries the comparison and not just the recipe
+				if (ltFn == null)
+				{
+					ltFn = new Function(myStore);
+					ltFn.Name = "LessThan";
+					ltFn.IsBoolean = true;
+					ltFn.Model = myModel;
+					var lp = new FunctionParameter(myStore); lp.Function = ltFn; lp.Name = "left";
+					var rp = new FunctionParameter(myStore); rp.Function = ltFn; rp.Name = "right";
+				}
+				var cpvB = new CalculatedPathValue(myStore);
+				cpvB.Function = ltFn;
+				var inL = new CalculatedPathValueInput(myStore); cpvB.InputCollection.Add(inL);
+				var inR = new CalculatedPathValueInput(myStore); cpvB.InputCollection.Add(inR);
+				int bpi = 0;
+				foreach (FunctionParameter fp2 in ltFn.ParameterCollection)
+				{
+					if (bpi == 0) new CalculatedPathValueInputCorrespondsToFunctionParameter(inL, fp2);
+					else if (bpi == 1) { new CalculatedPathValueInputCorrespondsToFunctionParameter(inR, fp2); break; }
+					bpi++;
+				}
+				new CalculatedPathValueInputBindsToPathedRole(inL, (oLeg[aIdx] == 0 ? rB1 : rB2)[oPos[aIdx]]);
+				new CalculatedPathValueInputBindsToPathedRole(inR, (oLeg[bIdx] == 0 ? rB1 : rB2)[oPos[bIdx]]);
+				leadB.CalculatedConditionCollection.Add(cpvB);
+				var pjB = new RoleSetDerivationProjection(ruleB, leadB);
+				for (int i = 0; i < hEB.Roles.Count; i++)
+				{
+					int p = L1.Players.IndexOf(htB[i]);
+					PathedRole src = p >= 0 ? rB1[p] : rB2[L2.Players.IndexOf(htB[i])];
+					var drpB = new DerivedRoleProjection(pjB, hEB.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drpB, src);
+				}
+				var hpB = new List<string>();
+				foreach (string p in hEB.Players) hpB.Add(IAtom(p));
+				myRuleRecipes.Add("S3(" + IAtom(hEB.Fact.Name) + ", S" + hpB.Count + "("
+					+ string.Join(", ", hpB) + "), S3(A(\"proj\"), S4(A(\"cmp\"), S5(A(\"joinon\"), "
+					+ IAtom(L1.Fact.Name) + ", " + IAtom(L2.Fact.Name) + ", PHI(), S" + idB.Count
+					+ "(" + string.Join(", ", idB) + ")), N(" + cA + "), N(" + cB + ")), S"
+					+ outB.Count + "(" + string.Join(", ", outB) + ")))");
+				log.Add(hEB.Fact.Name + " := value comparison over " + L1.Fact.Name + " x "
+					+ L2.Fact.Name + ", " + DescribeDerivation(hEB.Fact));
+			}
 			// the value-condition class: a UNARY head whose legs all anchor
 			// at the head's own player — existence legs enter a fact and
 			// stop; a quoted-constant leg adds a boolean path condition
