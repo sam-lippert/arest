@@ -2270,6 +2270,103 @@ namespace Arest.NormaOracle
 				log.Add(hE5.Fact.Name + " := star join on " + centreTok + " over " + legs.Count
 					+ " legs, " + DescribeDerivation(hE5.Fact));
 			}
+			// NEGATION, shape one: `<positive> and it is not true that <negative>`.
+			//     * Domain Change is valid iff that Domain Change is evaluated and
+			//       it is not true that that Domain Change has blocking outcome.
+			// Canon's twin is a set difference:
+			//   S2(A("DomainChangeIsValid"), S3(A("minus"),
+			//      S3(A("proj"), A("DomainChangeIsEvaluated"), S1(N(1))),
+			//      A("DomainChangeHasBlockingOutcome")))
+			//
+			// NEGATION IS THE SHAPE WHERE A WRONG BUILD IS UNSOUND RATHER THAN MERELY
+			// INCOMPLETE -- drop the negation and the rule asserts the opposite of what
+			// the reading says, and it would still build, verbalize and populate. So the
+			// negated branch carries RolePath.SplitIsNegated and the result is checked
+			// against NORMA's OWN verbalization, not just against the recipe: if the
+			// negation did not land in the model, NORMA re-verbalizes the rule without
+			// it and the round trip says so.
+			//
+			// The paper reads this as an anti-join against a completed lower stratum
+			// (sec. on negation: "A negated role path is an inference from absence"),
+			// which is exactly `minus`. Stratification itself is Cor. 3's query and is
+			// NOT checked here; this arm only refuses to build what it cannot express.
+			foreach (string sRaw6 in myDeferredRules)
+			{
+				string s6 = sRaw6;
+				while (s6.StartsWith("* * ")) s6 = s6.Substring(2);
+				Match m6 = Regex.Match(s6, @"^\* (.+?) iff (.+?) and it is not true that (.+)\.$");
+				if (!m6.Success) continue;
+				string head6 = m6.Groups[1].Value.Trim();
+				string posC = m6.Groups[2].Value.Trim(), negC = m6.Groups[3].Value.Trim();
+				if (posC.Contains(" and ") || negC.Contains(" and ")) continue;
+				FactIndexEntry hE6 = FindEntryByNormalizedSentence(head6);
+				FactIndexEntry pE = FindEntryByNormalizedSentence(Dequantify(" " + posC + " ").Trim());
+				FactIndexEntry nE = FindEntryByNormalizedSentence(Dequantify(" " + negC + " ").Trim());
+				if (hE6 == null || pE == null || nE == null) continue;
+				List<string> ht6 = SubscriptedTokens(head6, hE6.Players);
+				List<string> pt = SubscriptedTokens(posC, pE.Players);
+				List<string> nt = SubscriptedTokens(negC, nE.Players);
+				if (ht6 == null || pt == null || nt == null) continue;
+				// both sides must present exactly the head's columns for a set difference
+				var pPos = new List<int>(); var nPos = new List<int>();
+				bool ok6 = true;
+				foreach (string h in ht6)
+				{
+					int a = pt.IndexOf(h), b = nt.IndexOf(h);
+					if (a < 0 || b < 0) { ok6 = false; break; }
+					pPos.Add(a); nPos.Add(b);
+				}
+				if (!ok6) continue;
+				string leftSide = SideExpr(pE, pt.Count, pPos, true);
+				string rightSide = SideExpr(nE, nt.Count, nPos, false);
+				var rule6 = hE6.Fact.DerivationRule as FactTypeDerivationRule;
+				if (rule6 == null)
+				{
+					rule6 = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hE6.Fact, rule6);
+					ApplyDerivationMarkers(hE6.Fact, rule6);
+				}
+				var lead6 = new LeadRolePath(myStore);
+				rule6.OwnedLeadRolePathCollection.Add(lead6);
+				new RolePathObjectTypeRoot(lead6, myTypes[hE6.Players[0]]);
+				var subPos = new RoleSubPath(myStore);
+				lead6.SubPathCollection.Add(subPos);
+				var pRoles = new PathedRole[pE.Roles.Count];
+				for (int c = 0; c < pE.Roles.Count; c++)
+				{
+					var pr = new PathedRole(subPos, pE.Roles[c]);
+					pr.PathedRolePurpose = c == pPos[0] ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
+					pRoles[c] = pr;
+				}
+				// PathedRole.IsNegated, NOT RolePath.SplitIsNegated. The split flag negates
+				// the COMBINATION of a path's children; setting it on the branch produced a
+				// rule NORMA re-verbalized as "and  has blocking outcome" -- negation
+				// silently dropped and the subject lost, i.e. the exact opposite of the
+				// reading, built and populated without complaint. RolePath.cs:8264 names
+				// the right mechanism: PathedRoleNegationState, "a negatable unary fact
+				// type", which is what this clause is.
+				var subNeg = new RoleSubPath(myStore);
+				lead6.SubPathCollection.Add(subNeg);
+				for (int c = 0; c < nE.Roles.Count; c++)
+				{
+					var nr = new PathedRole(subNeg, nE.Roles[c]);
+					nr.PathedRolePurpose = c == nPos[0] ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
+					if (c != nPos[0]) nr.IsNegated = true;
+				}
+				if (nE.Roles.Count == 1) { foreach (PathedRole pr0 in subNeg.PathedRoleCollection) pr0.IsNegated = true; }
+				var pj6 = new RoleSetDerivationProjection(rule6, lead6);
+				for (int i = 0; i < hE6.Roles.Count; i++)
+				{
+					var drp6 = new DerivedRoleProjection(pj6, hE6.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drp6, pRoles[pPos[i]]);
+				}
+				var hp6 = new List<string>();
+				foreach (string p in hE6.Players) hp6.Add(IAtom(p));
+				myRuleRecipes.Add("S3(" + IAtom(hE6.Fact.Name) + ", S" + hp6.Count + "("
+					+ string.Join(", ", hp6) + "), S3(A(\"minus\"), " + leftSide + ", " + rightSide + "))");
+				log.Add(hE6.Fact.Name + " := minus (" + pE.Fact.Name + " less " + nE.Fact.Name
+					+ "), " + DescribeDerivation(hE6.Fact));
+			}
 			// the value-condition class: a UNARY head whose legs all anchor
 			// at the head's own player — existence legs enter a fact and
 			// stop; a quoted-constant leg adds a boolean path condition
@@ -3917,6 +4014,27 @@ namespace Arest.NormaOracle
 			}
 			return "S4(A(\"join\"), " + left + ", " + right + ", S" + outs.Count
 				+ "(" + string.Join(", ", outs) + "))";
+		}
+
+		// One side of a `minus`: the fact type bare when it already presents exactly the
+		// head's columns in order, projected otherwise. Canon writes the identity case
+		// bare -- StatusIsDefinedInStateMachineDefinition, not proj(...,<1,2>) -- so an
+		// identity projection here would be semantically equal and still not match.
+		// `unaryProj` matches a convention of canon's rather than a semantic need: on the
+		// LEFT of a minus it wraps a unary source in proj(...,<1>), which on arity-1 rows
+		// is the identity, while writing the right side bare. Redundant, and matched
+		// anyway so the hand-written twin can be retired byte-for-byte -- a semantically
+		// equal rule that does not match leaves the twin un-deletable, which is the whole
+		// point of the exercise.
+		private string SideExpr(FactIndexEntry e, int arity, List<int> pos, bool unaryProj)
+		{
+			bool identity = pos.Count == arity && !(unaryProj && arity == 1);
+			for (int i = 0; i < pos.Count && identity; i++) if (pos[i] != i) identity = false;
+			if (identity) return IAtom(e.Fact.Name);
+			var ns = new List<string>();
+			foreach (int p in pos) ns.Add("N(" + (p + 1) + ")");
+			return "S3(A(\"proj\"), " + IAtom(e.Fact.Name) + ", S" + ns.Count
+				+ "(" + string.Join(", ", ns) + "))";
 		}
 
 		// Earliest head position among the players a leg contributes (its centre aside).
