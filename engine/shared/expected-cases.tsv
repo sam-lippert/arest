@@ -627,3 +627,5 @@ case:harel-inherited-edge	"(('M', 't9', 'done', 'e9'), ('a', 't9', 'done', 'e9')
 case:sqltype-declared-decimal	"'DECIMAL'"
 case:sqltype-declared-integer	"'INTEGER'"
 case:sqltype-undeclared-defaults-text	"'TEXT'"
+case:subset-joinpath-holds	"()"
+case:subset-joinpath-violated	"(('A', 'subset', ('a1', 'b1')))"
