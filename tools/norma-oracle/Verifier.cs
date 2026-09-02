@@ -1729,7 +1729,21 @@ namespace Arest.NormaOracle
 				rulesPerHead.TryGetValue(RuleHeadKey(head), out headRules);
 				int linearRules;
 				linearPerHead.TryGetValue(RuleHeadKey(head), out linearRules);
-				if (headRules != 1 && linearRules != headRules) continue;
+				// THE SPLIT-HEAD GUARD, RELAXED. It read
+				//     if (headRules != 1 && linearRules != headRules) continue;
+				// i.e. a multi-rule head builds only when EVERY one of its rules is
+				// linear-class, on the reasoning that a head split across classes "would
+				// build partially, which is wrong rather than partial". That was right
+				// when this was the only arm. It is now one of eight, so a split head can
+				// be built FULLY by different arms -- and the guard was instead keeping
+				// `Status is defined in State Machine Definition` at 1 path for 3 rules,
+				// because the projection arm had built its third rule and thereby made the
+				// head "split".
+				// Partial builds stay VISIBLE either way: the UNBUILT report already counts
+				// "head has N path(s) for M rule(s)" separately, and a partially built head
+				// is the gate on retiring its hand-written canon twin -- a head deriving 1
+				// of 3 rules under-populates silently, which is why the twins come out only
+				// when paths == rules.
 				string j = m.Groups[2].Value.Trim();
 				if (!myTypes.ContainsKey(j)) continue;
 				string leg1 = Dequantify(j + " " + m.Groups[3].Value.Trim());
