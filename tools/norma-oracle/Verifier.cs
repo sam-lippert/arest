@@ -2024,6 +2024,130 @@ namespace Arest.NormaOracle
 					+ aE.Fact.Name + " x " + bE.Fact.Name + "), " + DescribeDerivation(hE3.Fact));
 				RecordRuleRecipe(hE3, aE, bE, ja, jb, located3);
 			}
+			// THE MULTI-KEY TWO-LEG JOIN — two legs correlated on MORE THAN ONE variable:
+			//     * Status1 reaches Status3 in State Machine Definition iff
+			//       Status1 reaches Status2 in that State Machine Definition and
+			//       Status2 reaches Status3 in that State Machine Definition.
+			// Status2 is the join variable; the State Machine Definition is a SECOND
+			// equality that also happens to be a head player. The single-key arm above
+			// declines this on purpose -- joining on Status2 alone would admit a path
+			// that walks from a status in one machine to a status in another, which
+			// builds cleanly and is wrong.
+			//
+			// A second equality is not path structure, it is CORRELATION, and NORMA's
+			// live mechanism for it is PathObjectUnifier (RolePath.cs:2551 --
+			// PathedRoleIsRemotelyCorrelatedWithPathedRole is marked _Deprecated and
+			// carries an UpgradeRemoteCorrelationToObjectUnifier path, so the unifier is
+			// the one to build against). One unifier per extra shared variable, holding
+			// the pathed role from each leg.
+			//
+			// Canon's twin, which is the acceptance test:
+			//   S5(A("joinon"), A("StatusReachesStatusInStateMachineDefinition"),
+			//      A("StatusReachesStatusInStateMachineDefinition"),
+			//      S2(S2(N(2), N(1)), S2(N(3), N(3))), S3(N(1), N(5), N(3)))
+			// keys are 1-based WITHIN each leg; out positions are 1-based over the
+			// CONCATENATION, so leg2 position p is n1+p -- Status3 at leg2 role 2 with
+			// n1=3 is N(5). Separate arm rather than a widening of the single-key one so
+			// the eight rules that arm already reproduces cannot regress.
+			foreach (string sRaw4 in myDeferredRules)
+			{
+				string s4 = sRaw4;
+				while (s4.StartsWith("* * ")) s4 = s4.Substring(2);
+				Match m4 = Regex.Match(s4, @"^\* (.+?) iff (.+?) and (.+)\.$");
+				if (!m4.Success) continue;
+				if (Regex.IsMatch(s4, @"^\* (.+?) iff some ([A-Z][\w ]*?) (.+) and that \2 (.+)\.$")) continue;
+				string head4 = m4.Groups[1].Value.Trim();
+				string g1 = m4.Groups[2].Value.Trim(), g2 = m4.Groups[3].Value.Trim();
+				if (g1.Contains(" and ") || g2.Contains(" and ")) continue;
+				if (s4.Contains("'") || s4.Contains(" no ") || s4.Contains("not true")) continue;
+				FactIndexEntry hE4 = FindEntryByNormalizedSentence(head4);
+				FactIndexEntry aE4 = FindEntryByNormalizedSentence(Dequantify(" " + g1 + " ").Trim());
+				FactIndexEntry bE4 = FindEntryByNormalizedSentence(Dequantify(" " + g2 + " ").Trim());
+				if (hE4 == null || aE4 == null || bE4 == null) continue;
+				List<string> ht4 = SubscriptedTokens(head4, hE4.Players);
+				List<string> at4 = SubscriptedTokens(g1, aE4.Players);
+				List<string> bt4 = SubscriptedTokens(g2, bE4.Players);
+				if (ht4 == null || at4 == null || bt4 == null) continue;
+				// one key per DISTINCT token shared by the legs, at its first position in each
+				var keys = new List<KeyValuePair<int, int>>();
+				var seen4 = new List<string>();
+				for (int x = 0; x < at4.Count; x++)
+				{
+					if (seen4.Contains(at4[x])) continue;
+					int y = bt4.IndexOf(at4[x]);
+					if (y < 0) continue;
+					seen4.Add(at4[x]);
+					keys.Add(new KeyValuePair<int, int>(x, y));
+				}
+				if (keys.Count < 2) continue;               // single-key is the arm above
+				// the entry is the true join variable: shared and NOT a head player
+				int entry4 = -1;
+				for (int k = 0; k < keys.Count; k++)
+					if (!ht4.Contains(at4[keys[k].Key])) { entry4 = k; break; }
+				if (entry4 < 0) continue;
+				// every head token must sit in one of the legs; leg1 wins, as canon reads it
+				var srcLeg = new int[ht4.Count];
+				var srcPos = new int[ht4.Count];
+				bool ok4 = true;
+				for (int i = 0; i < ht4.Count; i++)
+				{
+					int p = at4.IndexOf(ht4[i]);
+					if (p >= 0 && p != keys[entry4].Key) { srcLeg[i] = 0; srcPos[i] = p; continue; }
+					int q = bt4.IndexOf(ht4[i]);
+					if (q >= 0 && q != keys[entry4].Value) { srcLeg[i] = 1; srcPos[i] = q; continue; }
+					ok4 = false; break;
+				}
+				if (!ok4) continue;
+				ObjectType root4;
+				if (!myTypes.TryGetValue(aE4.Players[keys[entry4].Key], out root4)) continue;
+				var rule4 = hE4.Fact.DerivationRule as FactTypeDerivationRule;
+				if (rule4 == null)
+				{
+					rule4 = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hE4.Fact, rule4);
+					ApplyDerivationMarkers(hE4.Fact, rule4);
+				}
+				var lead4 = new LeadRolePath(myStore);
+				rule4.OwnedLeadRolePathCollection.Add(lead4);
+				new RolePathObjectTypeRoot(lead4, root4);
+				// every position of both legs gets a pathed role, so correlations and
+				// projections can name any of them
+				var pa = new PathedRole[at4.Count];
+				var pb = new PathedRole[bt4.Count];
+				var subA = new RoleSubPath(myStore);
+				lead4.SubPathCollection.Add(subA);
+				for (int c = 0; c < aE4.Roles.Count; c++)
+				{
+					var pr = new PathedRole(subA, aE4.Roles[c]);
+					pr.PathedRolePurpose = c == keys[entry4].Key ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
+					pa[c] = pr;
+				}
+				var subB = new RoleSubPath(myStore);
+				lead4.SubPathCollection.Add(subB);
+				for (int c = 0; c < bE4.Roles.Count; c++)
+				{
+					var pr = new PathedRole(subB, bE4.Roles[c]);
+					pr.PathedRolePurpose = c == keys[entry4].Value ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
+					pb[c] = pr;
+				}
+				for (int k = 0; k < keys.Count; k++)
+				{
+					if (k == entry4) continue;             // the entry IS the join; the rest correlate
+					var unifier = new PathObjectUnifier(myStore.DefaultPartition);
+					new LeadRolePathHasObjectUnifier(lead4, unifier);
+					new PathObjectUnifierUnifiesPathedRole(unifier, pa[keys[k].Key]);
+					new PathObjectUnifierUnifiesPathedRole(unifier, pb[keys[k].Value]);
+				}
+				var pr4 = new RoleSetDerivationProjection(rule4, lead4);
+				for (int i = 0; i < hE4.Roles.Count; i++)
+				{
+					var drp4 = new DerivedRoleProjection(pr4, hE4.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drp4, srcLeg[i] == 0 ? pa[srcPos[i]] : pb[srcPos[i]]);
+				}
+				log.Add(hE4.Fact.Name + " := " + keys.Count + "-key join (" + aE4.Fact.Name
+					+ " x " + bE4.Fact.Name + "), " + DescribeDerivation(hE4.Fact));
+				RecordJoinOnRecipe(hE4, aE4, bE4, keys, srcLeg, srcPos);
+			}
 			// the value-condition class: a UNARY head whose legs all anchor
 			// at the head's own player — existence legs enter a fact and
 			// stop; a quoted-constant leg adds a boolean path condition
@@ -3589,6 +3713,27 @@ namespace Arest.NormaOracle
 			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S" + headPlayers.Count + "("
 				+ string.Join(", ", headPlayers) + "), S3(A(\"proj\"), " + IAtom(srcE.Fact.Name)
 				+ ", S" + pos.Count + "(" + string.Join(", ", pos) + ")))");
+		}
+
+		// The multi-key join recipe. Keys are 1-based WITHIN each leg; out positions are
+		// 1-based over the CONCATENATION of the two legs, so a leg2 position p is n1+p.
+		// Canon's shape, which this must reproduce:
+		//   S5(A("joinon"), <src1>, <src2>, S2(S2(N(2), N(1)), S2(N(3), N(3))), S3(N(1), N(5), N(3)))
+		private void RecordJoinOnRecipe(FactIndexEntry headE, FactIndexEntry aE, FactIndexEntry bE,
+			List<KeyValuePair<int, int>> keys, int[] srcLeg, int[] srcPos)
+		{
+			var headPlayers = new List<string>();
+			foreach (string p in headE.Players) headPlayers.Add(IAtom(p));
+			var ks = new List<string>();
+			foreach (var k in keys) ks.Add("S2(N(" + (k.Key + 1) + "), N(" + (k.Value + 1) + "))");
+			int n1 = aE.Players.Count;
+			var outs = new List<string>();
+			for (int i = 0; i < srcLeg.Length; i++)
+				outs.Add("N(" + (srcLeg[i] == 0 ? srcPos[i] + 1 : n1 + srcPos[i] + 1) + ")");
+			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S" + headPlayers.Count + "("
+				+ string.Join(", ", headPlayers) + "), S5(A(\"joinon\"), " + IAtom(aE.Fact.Name)
+				+ ", " + IAtom(bE.Fact.Name) + ", S" + ks.Count + "(" + string.Join(", ", ks)
+				+ "), S" + outs.Count + "(" + string.Join(", ", outs) + ")))");
 		}
 
 		private static string Dequantify(string leg)
