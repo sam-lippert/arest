@@ -1816,6 +1816,109 @@ namespace Arest.NormaOracle
 				log.Add(headE.Fact.Name + " := join over " + j + " (" + e1.Fact.Name + " x " + e2.Fact.Name + "), " + DescribeDerivation(headE.Fact));
 				RecordRuleRecipe(headE, e1, e2, j1, j2, located);
 			}
+			// THE PROJECTION-RENAME CLASS: a head whose whole body is ONE clause.
+			//     * Domain1 reaches Domain2 iff Domain1 is contained in Domain2.
+			// No join variable, no condition — the head IS the source fact type read
+			// under another name, with its roles possibly permuted. Codd's projection
+			// (1970 Sec 2.1.2) over a single relation; canon's `proj` form.
+			//
+			// WHY THIS ARM EXISTS. Measured 2026-09-02: of 43 live derivation sentences
+			// in arest/metamodel, 23 were UNBUILT, and EVERY ONE of them had been
+			// hand-transcribed into canon's derive:rules table instead — 1:1 on
+			// multiplicity, 3 UNBUILT `Status is defined in State Machine Definition`
+			// against 3 hand-written cells, and so on for all thirteen names. The
+			// compile step was bypassed by hand, so for those rules the readings were
+			// decorative and nothing checked that the English and the point-free form
+			// still agreed. This is the simplest of the shapes it could not read, and
+			// its legs already resolved 1/1 — the clause was found; no arm accepted it.
+			//
+			// THE TEST IS EXACT, WHICH IS WHY THIS SHAPE IS FIRST. Canon already holds
+			// the hand-written answer, so the arm is not judged by "it built" but by
+			// reproducing that cell byte-for-byte; only then may the twin be deleted
+			// (see docs, the canon-first deletion procedure). Compare against
+			//     S2(A("DomainReachesDomain"), S3(A("proj"), A("DomainIsContainedInDomain"), S2(N(1), N(2))))
+			//
+			// Conservative on purpose: single clause only, head and source must both
+			// resolve and differ, and every head player must locate at exactly one
+			// source position (subscripts breaking ties exactly as the join arm does,
+			// since a ring head like `Domain1 reaches Domain2` is ambiguous by name).
+			// Anything else declines and stays UNBUILT rather than building a guess.
+			foreach (string sRaw in myDeferredRules)
+			{
+				string s1 = sRaw;
+				while (s1.StartsWith("* * ")) s1 = s1.Substring(2);
+				Match m1 = Regex.Match(s1, @"^\* (.+?) iff (.+)\.$");
+				if (!m1.Success) continue;
+				string body1 = m1.Groups[2].Value.Trim();
+				// one clause only: a conjunction is the join arm's business
+				if (body1.Contains(" and ")) continue;
+				// a quoted literal is a condition, not a rename — the value-condition
+				// arm owns that shape and baking it here would lose the constant
+				if (body1.Contains("'")) continue;
+				string head1 = m1.Groups[1].Value.Trim();
+				FactIndexEntry hE = FindEntryByNormalizedSentence(head1);
+				FactIndexEntry sE = FindEntryByNormalizedSentence(Dequantify(" " + body1 + " ").Trim());
+				if (hE == null || sE == null || hE == sE) continue;
+				// every head player must sit at exactly one source position
+				var at = new int[hE.Players.Count];
+				bool ok1 = true;
+				List<string> hTok1 = null, sTok1 = null;
+				for (int i = 0; i < hE.Players.Count && ok1; i++)
+				{
+					var hits = new List<int>();
+					for (int c = 0; c < sE.Players.Count; c++)
+						if (sE.Players[c] == hE.Players[i]) hits.Add(c);
+					if (hits.Count == 1) { at[i] = hits[0]; continue; }
+					if (hits.Count == 0) { ok1 = false; break; }
+					// ambiguous by name: read the subscript back, as the join arm does
+					if (hTok1 == null) { hTok1 = SubscriptedTokens(head1, hE.Players); sTok1 = SubscriptedTokens(body1, sE.Players); }
+					if (hTok1 == null || sTok1 == null) { ok1 = false; break; }
+					var narrowed = new List<int>();
+					foreach (int c in hits) if (sTok1[c] == hTok1[i]) narrowed.Add(c);
+					if (narrowed.Count != 1) { ok1 = false; break; }
+					at[i] = narrowed[0];
+				}
+				if (!ok1) continue;
+				// GET-OR-CREATE, exactly as the join arm does: a multi-rule head holds ONE
+				// derivation rule whose closure is the UNION of one lead role path per
+				// rule sentence. Creating a fresh rule here instead cost 11 heads — they
+				// built with a single path and the join arm's contributions were lost,
+				// moving them from "no arm accepts" to "paths fewer than rules" without
+				// changing the UNBUILT total. Each sentence contributes one path; the
+				// head is claimed once.
+				var rule1 = hE.Fact.DerivationRule as FactTypeDerivationRule;
+				if (rule1 == null)
+				{
+					rule1 = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hE.Fact, rule1);
+					ApplyDerivationMarkers(hE.Fact, rule1);
+				}
+				var lead1 = new LeadRolePath(myStore);
+				rule1.OwnedLeadRolePathCollection.Add(lead1);
+				// root at the type entering the source, i.e. the player of head role 0
+				new RolePathObjectTypeRoot(lead1, myTypes[hE.Players[0]]);
+				var sub1 = new RoleSubPath(myStore);
+				lead1.SubPathCollection.Add(sub1);
+				var stepAt = new PathedRole[sE.Roles.Count];
+				var entry1 = new PathedRole(sub1, sE.Roles[at[0]]);
+				entry1.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+				stepAt[at[0]] = entry1;
+				for (int c = 0; c < sE.Roles.Count; c++)
+				{
+					if (stepAt[c] != null) continue;
+					var st = new PathedRole(sub1, sE.Roles[c]);
+					st.PathedRolePurpose = PathedRolePurpose.SameFactType;
+					stepAt[c] = st;
+				}
+				var proj1 = new RoleSetDerivationProjection(rule1, lead1);
+				for (int i = 0; i < hE.Roles.Count; i++)
+				{
+					var drp = new DerivedRoleProjection(proj1, hE.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drp, stepAt[at[i]]);
+				}
+				log.Add(hE.Fact.Name + " := proj " + sE.Fact.Name + ", " + DescribeDerivation(hE.Fact));
+				RecordProjRecipe(hE, sE, at);
+			}
 			// the value-condition class: a UNARY head whose legs all anchor
 			// at the head's own player — existence legs enter a fact and
 			// stop; a quoted-constant leg adds a boolean path condition
@@ -3366,6 +3469,21 @@ namespace Arest.NormaOracle
 			foreach (string p in headE.Players) headPlayers.Add(IAtom(p));
 			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S" + headPlayers.Count + "("
 				+ string.Join(", ", headPlayers) + "), " + recipe + ")");
+		}
+
+		// The projection-rename recipe. `at` gives, FOR EACH HEAD POSITION, the source
+		// position it reads — the same direction canon already uses, where
+		// S3(A("proj"), A("TransitionIsDefinedInStateMachineDefinition"), S2(N(2), N(1)))
+		// means head role 1 takes source role 2. Canon is 1-based; `at` is 0-based.
+		private void RecordProjRecipe(FactIndexEntry headE, FactIndexEntry srcE, int[] at)
+		{
+			var headPlayers = new List<string>();
+			foreach (string p in headE.Players) headPlayers.Add(IAtom(p));
+			var pos = new List<string>();
+			foreach (int a in at) pos.Add("N(" + (a + 1) + ")");
+			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S" + headPlayers.Count + "("
+				+ string.Join(", ", headPlayers) + "), S3(A(\"proj\"), " + IAtom(srcE.Fact.Name)
+				+ ", S" + pos.Count + "(" + string.Join(", ", pos) + ")))");
 		}
 
 		private static string Dequantify(string leg)
