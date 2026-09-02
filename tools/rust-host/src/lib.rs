@@ -788,16 +788,16 @@ mod host_tests {
 
     // A def NO host can evaluate answers <refused> everywhere and agrees
     // perfectly, so the refusal COUNT is the signal, not the pass line.
-    // 18 since case:unknown-form-refuses joined them: a recipe form naming
+    // 19 since case:eval-unknown-form-refuses joined them: the full-path
     // no entry in derive:forms must REFUSE, because the COND chain it
     // replaced treated an unrecognized form AS a join and a transitive
     // closure stopped closing. This host asserted 17 while the SHARED
     // golden said 18 -- it is not in hosts.sh's default stations, so
     // nothing ran it to notice.
     #[test]
-    fn the_golden_still_expects_exactly_18_refusals() {
+    fn the_golden_still_expects_exactly_19_refusals() {
         let n = golden_cases().iter().filter(|(_, v)| v == "<refused>").count();
-        assert_eq!(n, 18, "the golden's refusal count moved");
+        assert_eq!(n, 19, "the golden's refusal count moved");
     }
 
     #[test]

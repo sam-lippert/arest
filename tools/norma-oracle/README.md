@@ -105,3 +105,39 @@ time, never a model check.
 
 Requires: NORMA VSIX installed in VS (assembly paths in Program.cs), .NET
 Framework 4.8, dotnet SDK to build.
+
+## Checking an app or a library
+
+The oracle is the corpus's verifier now. Every app package.json still points
+`check` at ..\..rest\cratesrest	argetelease\check-cli.exe, and crates/
+went with the fat hosts, so no app in apps/ can currently check itself.
+
+It takes the SAME directory list its carriers record. Each app keeps that list
+in design-state.source, and a mismatch is refused:
+
+    refusing to overwrite ...\design-state: it was generated from
+    <metamodel>;<app> but this run read <app>. The carrier paths are
+    relative, so a run started in the wrong directory lands one station's
+    model on another's certified inputs.
+
+That guard is the reason the invocation matters. To REGENERATE an app's
+carriers, run from the app directory with the list its .source names:
+
+    cd apps/sherlock
+    .../norma-oracle.exe C:/Users/lippe/Repos/arest/metamodel C:/Users/lippe/Repos/apps/sherlock
+
+Forward slashes: a Windows path in a shell string loses its backslashes.
+
+THERE IS NO READ-ONLY MODE -- WriteDesignState takes a relative path and always
+writes -- so a `check` that must not touch the source tree runs from a scratch
+directory instead, which is how the law libraries are checked (they carry no
+carriers to regenerate):
+
+    mkdir -p .check && cd .check
+    .../norma-oracle.exe <law-core/readings> <the library's reading dirs...>
+
+What to read in the output: the sentence census, the `unrecognized sentences`
+list, and the UNBUILT lines -- one per derivation the compiler could not build,
+each carrying the head, the body no arm accepted, and how many legs resolved,
+closed by an UNBUILT SUMMARY. Those are printed unprompted on every run and are
+the fastest true statement about a reading's health that exists.
