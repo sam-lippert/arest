@@ -36,6 +36,23 @@ if (names.length === 0) {
   process.exit(1);
 }
 
+// THE COMPOSITION MUST BE THE ONE BUILT FOR THESE CARRIERS. This imports
+// whatever cases.g.js is on disk while writing beside AREST_CARRIERS, so
+// pointing the env var at one app while the composition holds another emits
+// the WRONG store's artifacts into that app -- auto.dev twice received a
+// carrier byte-identical to the oracle's, 1,009,655 bytes of another schema.
+const composed = readFileSync(join(here, "js-runner", "cases.g.js"), "utf8");
+const stamped = (composed.match(/AREST_CARRIERS_DIR=(.*)/) || [])[1];
+// Compared with separators normalised: build.js stamps a native Windows path
+// while AREST_CARRIERS is usually given with forward slashes.
+const norm = (s) => s.trim().split(String.fromCharCode(92)).join("/").replace(/\/+$/, "").toLowerCase();
+if (stamped === undefined || norm(stamped) !== norm(carriers)) {
+  console.error("refusing: composition built from " + (stamped || "(no stamp)").trim());
+  console.error("           this run writes to " + carriers);
+  console.error("build it for these carriers first:");
+  console.error("  AREST_CARRIERS=" + carriers + " bun tools/js-runner/build.js test");
+  process.exit(1);
+}
 await import("file://" + join(here, "js-runner", "cases.g.js").replace(/\\/g, "/"));
 const { Ev, CELLS } = globalThis.AREST;
 
