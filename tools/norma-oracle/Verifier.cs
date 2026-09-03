@@ -4297,7 +4297,7 @@ namespace Arest.NormaOracle
 				uRuleCount.TryGetValue(pe.Fact, out pc);
 				uRuleCount[pe.Fact] = pc + 1;
 			}
-			int unbuiltHeadless = 0, unbuiltUnmatched = 0, unbuiltPartial = 0;
+			int unbuiltHeadless = 0, unbuiltUnmatched = 0, unbuiltPartial = 0, unbuiltValueRestricted = 0;
 			foreach (string sRaw2 in myDeferredRules)
 			{
 				string s2 = sRaw2;
@@ -4307,6 +4307,23 @@ namespace Arest.NormaOracle
 				FactIndexEntry uE = FindEntryByNormalizedSentence(um.Groups[1].Value.Trim());
 				if (uE == null)
 				{
+					// A VALUE-RESTRICTED HEAD IS NOT AN UNDECLARED ONE. "External System
+					// has Service Health Status 'degraded' iff ..." names the declared
+					// fact type "External System has Service Health Status" with the
+					// second role restricted to a value; looking the whole sentence up
+					// finds nothing and reported it as undeclared, which sends the reader
+					// to the declarations to fix something that is not wrong there. 26 of
+					// auto.dev's 28 are this shape. Report it as its own category: the
+					// restriction is NOT yet built, and dropping it silently would change
+					// what the rule means, so it stays unbuilt until an arm carries it.
+					string uhead = um.Groups[1].Value.Trim();
+					Match uvr = Regex.Match(uhead, @"^(.+?) '[^']*'$");
+					if (uvr.Success && FindEntryByNormalizedSentence(uvr.Groups[1].Value.Trim()) != null)
+					{
+						unbuiltValueRestricted++;
+						log.Add("UNBUILT (head is value-restricted; the fact type is declared, the restriction is not built): " + s2);
+						continue;
+					}
 					unbuiltHeadless++;
 					log.Add("UNBUILT (head names no declared fact type): " + s2);
 					continue;
@@ -4380,9 +4397,10 @@ namespace Arest.NormaOracle
 						+ " rule(s) - this one may be the unbuilt member): " + s2);
 				}
 			}
-			if (unbuiltHeadless != 0 || unbuiltUnmatched != 0 || unbuiltPartial != 0)
+			if (unbuiltHeadless != 0 || unbuiltUnmatched != 0 || unbuiltPartial != 0 || unbuiltValueRestricted != 0)
 			{
 				log.Add("UNBUILT SUMMARY: " + unbuiltHeadless + " with an undeclared head, "
+					+ unbuiltValueRestricted + " with a value-restricted head, "
 					+ unbuiltUnmatched + " with a body no arm accepts, "
 					+ unbuiltPartial + " on a head whose paths are fewer than its rules");
 			}
@@ -5138,7 +5156,19 @@ namespace Arest.NormaOracle
 		// rule MEANS -- a `+` head stays PartiallyDerived and keeps subset semantics.
 		private static string NormalizeRuleSentence(string s)
 		{
-			Match m = Regex.Match(s, @"^\+{1,2} (.+?) if (.+)$");
+			// STRIP THE MARKER FIRST, then supply `iff` only if the sentence does
+			// not already spell it. Matching `(.+?) if (.+)` against the whole
+			// sentence never fires on `+ Head iff Body` -- " iff " does not contain
+			// " if " (the character after `if` is `f`, not a space) -- so the marker
+			// stayed in the text, the head was looked up as "+ Head", no fact type
+			// answered to that, and the rule was dropped without a word. 29 rules in
+			// 4 files, including auto.dev's `+ Customer has granted Trial iff ...`,
+			// which reported as an undeclared head three files from the cause.
+			Match mk = Regex.Match(s, @"^\+{1,2} (.+)$");
+			if (!mk.Success) return s;
+			string body = mk.Groups[1].Value;
+			if (body.Contains(" iff ")) return "* " + body;
+			Match m = Regex.Match(body, @"^(.+?) if (.+)$");
 			return m.Success ? "* " + m.Groups[1].Value + " iff " + m.Groups[2].Value : s;
 		}
 
