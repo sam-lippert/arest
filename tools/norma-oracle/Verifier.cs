@@ -1815,6 +1815,13 @@ namespace Arest.NormaOracle
 			foreach (string[] rm in myRuleMarkers)
 			{
 				FactIndexEntry he = FindEntryByNormalizedSentence(rm[1]);
+				// The same resolution RuleHeadKey uses. A head that names a value or
+				// specialises a role to a subtype is still THAT fact type, and its marking
+				// lands there too; resolving only by sentence dropped the `+` on
+				// `Admin is authorized for Operation 'create' ...`, which NORMA then built
+				// FULLY derived -- forbidding the asserted instances the marking permits
+				// (probe restricted-head-subtype).
+				if (he == null) { List<string> ignoredLits; he = ResolveRestrictedHead(rm[1], out ignoredLits); }
 				if (he == null) continue;
 				mySemiDerived.Add(he.Fact);
 				if (rm[0] == "++") myStoredDerived.Add(he.Fact);
