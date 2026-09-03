@@ -1112,6 +1112,34 @@ namespace Arest.NormaOracle
 		// RootsAtFunction was this walk with "Function" baked in; it is now one
 		// walk with a parameter, so the subtype-cast check in RecordRenameRecipe
 		// and the one-table Function rule cannot drift apart.
+		// Resolve a head that NAMES VALUES, and may play a role with a subtype:
+		//   Admin is authorized for Operation 'create' on Protected Resource 'Support Request'
+		// resolves to the declared `User is authorized for Operation on Protected Resource`.
+		// The arm and the UNBUILT census must agree on this or the census reports a rule
+		// that built as undeclared -- lying in the flattering direction is the usual way a
+		// census stops being worth reading, and this is the same shape from the other side.
+		private FactIndexEntry ResolveRestrictedHead(string headRaw, out List<string> lits)
+		{
+			lits = new List<string>();
+			foreach (Match lm in Regex.Matches(headRaw, @"'([^']*)'")) lits.Add(lm.Groups[1].Value);
+			if (lits.Count == 0) return null;
+			string bare = Regex.Replace(headRaw, @"\s*'[^']*'", "").Trim();
+			FactIndexEntry e = FindEntryByNormalizedSentence(bare);
+			if (e != null) return e;
+			foreach (string subName in myTypes.Keys)
+			{
+				if (!bare.StartsWith(subName + " ", StringComparison.Ordinal)) continue;
+				string rest = bare.Substring(subName.Length);
+				foreach (string supName in myTypes.Keys)
+				{
+					if (supName == subName || !RootsAt(myTypes[subName], supName)) continue;
+					FactIndexEntry cand = FindEntryByNormalizedSentence(supName + rest);
+					if (cand != null) return cand;
+				}
+			}
+			return null;
+		}
+
 		private bool RootsAt(ObjectType t, string ancestor)
 		{
 			if (t == null) return false;
@@ -1971,13 +1999,23 @@ namespace Arest.NormaOracle
 			}
 			foreach (string sV in myDeferredRules)
 			{
-				Match mv = Regex.Match(sV, @"^\* (.+?) '([^']*)' iff (.+)\.$");
+				// A HEAD MAY NAME MORE THAN ONE VALUE, AND MAY NAME A SUBTYPE:
+				//   + Admin is authorized for Operation 'create'
+				//         on Protected Resource 'Support Request' iff Admin has Role.
+				// The declared fact type is `User is authorized for Operation on Protected
+				// Resource`; the head restricts BOTH value roles and plays the User role with
+				// Admin, which is a subtype of it (Admin < Customer < User). 15 of
+				// support.auto.dev's rules are this shape and every one reported as naming no
+				// declared fact type. Take the literals in sentence order and pair them with
+				// the unmatched roles in role order, which is the same order the reading lays
+				// them out; require the counts to agree rather than guessing an alignment.
+				Match mv = Regex.Match(sV, @"^\* (.+?) iff (.+)\.$");
 				if (!mv.Success) continue;
-				string headV = mv.Groups[1].Value.Trim();
-				string litV = mv.Groups[2].Value;
-				string bodyV = mv.Groups[3].Value.Trim();
+				string headRawV = mv.Groups[1].Value.Trim();
+				string bodyV = mv.Groups[2].Value.Trim();
 				if (bodyV.Contains(" and ")) continue;
-				FactIndexEntry hV = FindEntryByNormalizedSentence(headV);
+				List<string> litsV;
+				FactIndexEntry hV = ResolveRestrictedHead(headRawV, out litsV);
 				if (hV == null) continue;
 				FactIndexEntry bV = FindEntryByNormalizedSentence(Dequantify(" " + bodyV + " ").Trim());
 				// THE BODY MAY BE RESTRICTED TOO:
@@ -2015,22 +2053,31 @@ namespace Arest.NormaOracle
 					var epb = new FunctionParameter(myStore); epb.Function = eqFnV; epb.Name = "right";
 				}
 				var atV = new int[hV.Roles.Count];
-				int konstRole = -1;
+				var konstAt = new int[hV.Roles.Count];   // which literal fills this role, or -1
+				int konstSeen = 0;
 				bool okV = true;
 				for (int i = 0; i < hV.Roles.Count; i++)
 				{
+					konstAt[i] = -1;
 					var hitsV = new List<int>();
 					for (int c = 0; c < bV.Players.Count; c++)
-						if (bV.Players[c] == hV.Players[i]) hitsV.Add(c);
+						{
+							// a body player may be a SUBTYPE of the head role's player -- Admin plays
+							// the User role -- so ancestry, not name equality, is the test
+							if (bV.Players[c] == hV.Players[i]
+								|| RootsAt(myTypes.ContainsKey(bV.Players[c]) ? myTypes[bV.Players[c]] : null, hV.Players[i]))
+								hitsV.Add(c);
+						}
 					if (hitsV.Count == 1) { atV[i] = hitsV[0]; continue; }
 					if (hitsV.Count == 0)
 					{
-						if (konstRole >= 0) { okV = false; break; }
-						konstRole = i; atV[i] = -1; continue;
+						if (konstSeen >= litsV.Count) { okV = false; break; }
+						konstAt[i] = konstSeen++; atV[i] = -1; continue;
 					}
 					okV = false; break;
 				}
-				if (!okV || konstRole < 0) continue;
+				// every literal must land somewhere, or the head says something this does not
+				if (!okV || konstSeen != litsV.Count) continue;
 				// the restricted body role is the one no head role projects from; require
 				// exactly one, and settle it BEFORE constructing anything so a decline cannot
 				// leave a half-built rule in the store
@@ -2040,7 +2087,7 @@ namespace Arest.NormaOracle
 					for (int c = 0; c < bV.Roles.Count; c++)
 					{
 						bool used = false;
-						for (int i = 0; i < hV.Roles.Count; i++) if (i != konstRole && atV[i] == c) used = true;
+						for (int i = 0; i < hV.Roles.Count; i++) if (konstAt[i] < 0 && atV[i] == c) used = true;
 						if (used) continue;
 						if (condRole >= 0) { condRole = -2; break; }
 						condRole = c;
@@ -2073,10 +2120,10 @@ namespace Arest.NormaOracle
 				for (int i = 0; i < hV.Roles.Count; i++)
 				{
 					var drpV = new DerivedRoleProjection(projV, hV.Roles[i]);
-					if (i == konstRole)
+					if (konstAt[i] >= 0)
 					{
 						var pcV = new PathConstant(myStore);
-						pcV.LexicalValue = litV;
+						pcV.LexicalValue = litsV[konstAt[i]];
 						new DerivedRoleProjectedFromPathConstant(drpV, pcV);
 					}
 					else
@@ -2103,8 +2150,11 @@ namespace Arest.NormaOracle
 					new CalculatedPathValueInputBindsToPathConstant(cR, bpc);
 					leadV.CalculatedConditionCollection.Add(cpv);
 				}
+				var shownV = new List<string>();
+				for (int i = 0; i < hV.Roles.Count; i++)
+					if (konstAt[i] >= 0) shownV.Add(hV.Players[i] + " = '" + litsV[konstAt[i]] + "'");
 				log.Add(hV.Fact.Name + " := proj " + bV.Fact.Name + " with "
-					+ hV.Players[konstRole] + " = '" + litV + "', " + DescribeDerivation(hV.Fact));
+					+ string.Join(", ", shownV) + ", " + DescribeDerivation(hV.Fact));
 			}
 			// THE SUBSCRIPTED TWO-LEG JOIN — the recursive step of a transitive closure:
 			//     * Domain1 reaches Domain3 iff Domain1 reaches Domain2 and Domain2 reaches Domain3.
@@ -4496,9 +4546,8 @@ namespace Arest.NormaOracle
 					// finds nothing, and reporting that as undeclared sends the reader to
 					// the declarations to fix something that is not wrong there.
 					string uhead = um.Groups[1].Value.Trim();
-					Match uvr = Regex.Match(uhead, @"^(.+?) '[^']*'$");
-					FactIndexEntry baseE = uvr.Success
-						? FindEntryByNormalizedSentence(uvr.Groups[1].Value.Trim()) : null;
+					List<string> uLits;
+					FactIndexEntry baseE = ResolveRestrictedHead(uhead, out uLits);
 					if (baseE != null)
 					{
 						// the value-restricted arm may have built it. Resolve to the base and
