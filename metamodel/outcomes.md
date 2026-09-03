@@ -124,7 +124,7 @@ If some Violation occurs before some Transition then that Violation occurred at 
 
 * Failure succeeds Violation iff that Failure is caused by that Violation.
 
-* Failure succeeds Violation iff that Violation occurred at some Timestamp and that Failure occurred at some Timestamp where that Violation Timestamp is before that Failure Timestamp.
+* Failure succeeds Violation iff that Violation occurred at some Timestamp1 and that Failure occurred at some Timestamp2 where Timestamp1 is before Timestamp2.
 
 * Violation belongs to Domain iff Violation is against Function and that Function belongs to Domain.
 
