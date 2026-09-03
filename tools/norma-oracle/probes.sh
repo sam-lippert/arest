@@ -38,6 +38,7 @@ for n in $names; do
   {
     echo "errors ${errs:-0}"
     tr -d '\r' < "$d/out.txt" | grep '^  UNBUILT (' | sed 's/^ *//'
+    tr -d '\r' < "$d/out.txt" | grep -E '^  READ-BACK (MISMATCH|NO PATH)' | sed 's/^ *//'
     tr -d '\r' < "$d/verbalization-report.txt" | awk '/^[*+]+[A-Z]/{p=1} p{print} p&&/^$/{p=0}'
   } > "$d/actual.txt"
   if [ $record = 1 ]; then
