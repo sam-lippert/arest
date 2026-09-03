@@ -3530,9 +3530,16 @@ namespace Arest.NormaOracle
 				string head = m.Groups[1].Value.Trim();
 				int headRules;
 				rulesPerHead.TryGetValue(RuleHeadKey(head), out headRules);
-				if (headRules != 1) continue;
 				FactIndexEntry headE = FindEntryByNormalizedSentence(head);
-				if (headE == null || headE.Fact.DerivationRule != null || headE.Players.Count != 1) continue;
+				if (headE == null || headE.Players.Count != 1) continue;
+				// A MULTI-RULE HEAD IS A UNION, one lead path per rule -- the same relaxation
+				// the linear arm already carries. `Customer is admin` has three rules and this
+				// arm skipped all three, so a head whose every rule is exactly this shape built
+				// nothing. The STORED (**) branch below writes a parse-side recipe rather than a
+				// path, and folding several rules into one of those is a different question, so
+				// it keeps the single-rule restriction.
+				if (headRules != 1 && myStoredDerived.Contains(headE.Fact)) continue;
+				if (headRules == 1 && headE.Fact.DerivationRule != null) continue;
 				string rootVar = headE.Players[0];
 				ObjectType rootT;
 				if (!myTypes.TryGetValue(rootVar, out rootT)) continue;
@@ -3564,9 +3571,15 @@ namespace Arest.NormaOracle
 					var pa2 = new FunctionParameter(myStore); pa2.Function = eqFn; pa2.Name = "left";
 					var pb2 = new FunctionParameter(myStore); pb2.Function = eqFn; pb2.Name = "right";
 				}
-				var vrule = new FactTypeDerivationRule(myStore);
-				new FactTypeHasDerivationRule(headE.Fact, vrule);
-				ApplyDerivationMarkers(headE.Fact, vrule);
+				// GET-OR-CREATE: a multi-rule head holds ONE derivation rule whose closure is
+				// the union of one lead path per rule sentence.
+				var vrule = headE.Fact.DerivationRule as FactTypeDerivationRule;
+				if (vrule == null)
+				{
+					vrule = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(headE.Fact, vrule);
+					ApplyDerivationMarkers(headE.Fact, vrule);
+				}
 				if (myStoredDerived.Contains(headE.Fact))
 				{
 					// LeadRolePathAddedRule (RolePath.cs:6143-6152) clears
