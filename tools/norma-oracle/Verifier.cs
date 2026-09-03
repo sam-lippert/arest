@@ -269,19 +269,29 @@ namespace Arest.NormaOracle
 		#endregion
 
 		#region pass 1: type declarations
-		private static readonly Regex EntityDecl = new Regex(@"^([\w :]+?)\s*\(\s*\.\s*([\w ]+)\s*\)\s+is an entity type\.$");
+		// a type name may carry an internal hyphen: Trade-In Amount,
+		// Cooling-Off Rule, Sub-Processor, Non-Merchant. The hyphen is part
+		// of the name only when a word character FOLLOWS it — a trailing
+		// hyphen before a space is FORML's hyphen binding ("payoff- Balance"),
+		// which names a role, not a type. Without this the declaration falls
+		// through pass 1 entirely and the declaration line itself is minted as
+		// a fact type, while every reading using the name binds the shorter
+		// rival ("Q has Trade-In Amount" binds Amount, arity 3).
+		private const string NameChars = @"(?:[\w :]|-(?=\w))";
+		private const string RefChars = @"(?:[\w ]|-(?=\w))";
+		private static readonly Regex EntityDecl = new Regex(@"^(" + NameChars + @"+?)\s*\(\s*\.\s*(" + RefChars + @"+)\s*\)\s+is an entity type\.$");
 		// composite reference scheme (Halpin §7.3): X(.A, .B, ...) - the
 		// components bind existing types (or mint value types, the single-
 		// refmode precedent) through per-component fact types, and an
 		// EXTERNAL uniqueness constraint spanning the far roles is the
 		// preferred identifier
-		private static readonly Regex EntityDeclComposite = new Regex(@"^([\w :]+?)\s*\(\s*\.\s*([\w ]+(?:\s*,\s*\.\s*[\w ]+)+)\s*\)\s+is an entity type\.$");
+		private static readonly Regex EntityDeclComposite = new Regex(@"^(" + NameChars + @"+?)\s*\(\s*\.\s*(" + RefChars + @"+(?:\s*,\s*\.\s*" + RefChars + @"+)+)\s*\)\s+is an entity type\.$");
 		// NORMA's own composite-identification verbalization, as written in
 		// the wild: "This association with A, B provides the preferred
 		// identification scheme for X."
-		private static readonly Regex AssocScheme = new Regex(@"^This association with ([\w ,]+?) provides the preferred identification scheme for ([\w :]+?)\.$");
-		private static readonly Regex EntityDeclBare = new Regex(@"^([\w :]+?)\s+is an entity type\.$");
-		private static readonly Regex ValueDecl = new Regex(@"^([\w :]+?)\s+is a value type\.$");
+		private static readonly Regex AssocScheme = new Regex(@"^This association with ((?:[\w ,]|-(?=\w))+?) provides the preferred identification scheme for (" + NameChars + @"+?)\.$");
+		private static readonly Regex EntityDeclBare = new Regex(@"^(" + NameChars + @"+?)\s+is an entity type\.$");
+		private static readonly Regex ValueDecl = new Regex(@"^(" + NameChars + @"+?)\s+is a value type\.$");
 
 		public void DeclarePass(IEnumerable<string> sentences)
 		{
