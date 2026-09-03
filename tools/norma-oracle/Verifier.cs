@@ -4562,7 +4562,7 @@ namespace Arest.NormaOracle
 				string headC = mc.Groups[1].Value.Trim();
 				string bodyC = mc.Groups[2].Value.Trim();
 				if (bodyC.Contains("'")) continue;
-				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |the (minimum|maximum) of |(or more|at least|more than|implies|no|not|neither|if|else)")) continue;
+				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |the (minimum|maximum) of |\b(or more|at least|more than|implies|no|not|neither|if|else)\b")) continue;
 				// FORML gives a computed value a ROLE NAME, in lower case:
 				//     ... and state Sales Tax Amount equals taxable Base Amount times ...
 				// so splitting only before `that`, `some` or a capital leaves the arithmetic
@@ -4614,16 +4614,16 @@ namespace Arest.NormaOracle
 					}
 					List<string> plC;
 					FactIndexEntry leC = ResolveClauseSub(Dequantify(" " + tC + " ").Trim(), out plC);
-					// A SUBSCRIPT NAMES A VARIABLE, NOT A TYPE. `Transition1 is from Status1` is the
-					// declared `Transition is from Status` with its two players distinguished for
-					// the rule's benefit; resolving the literal text finds nothing. Strip a digit
-					// that follows a LETTER directly -- `Status1` yes, `Position 1` no, where the 1
-					// is a value and not a subscript.
-					if (leC == null)
-					{
-						string bareC = Regex.Replace(tC, @"([A-Za-z])[0-9]", "$1");
-						if (bareC != tC) leC = ResolveClause(Dequantify(" " + bareC + " ").Trim(), out plC);
-					}
+					// NO SUBSCRIPT RETRY HERE, deliberately. `Transition1 is from Status1` does
+					// resolve to the declared `Transition is from Status` with the subscripts
+					// stripped -- but the resolved player list comes back UNSUBSCRIPTED, and this
+					// arm chains legs by token NAME. `Transition is from Status1` and `Transition
+					// is to Status2` would then both present as [Transition, Status] and appear to
+					// join on a Status that is two different variables. It built, and NORMA caught
+					// it: JoinedPathRoleRequiresCompatibleRolePlayerError x2 on the METAMODEL,
+					// while the carriers stayed byte-identical -- the model-error count is the gate
+					// that saw it, not the diff. Doing this properly means carrying the subscripted
+					// tokens through, which SubscriptedTokens exists for; until then, decline.
 					if (leC == null || leC == hC) { okC = false; break; }
 					legsC.Add(leC); toksC.Add(plC);
 				}
@@ -4907,12 +4907,12 @@ namespace Arest.NormaOracle
 					// try the same normalisations the arms do before calling a clause missing:
 					// a subscript names a variable, and a trailing literal is a value restriction
 					// on a fact type that may well be declared.
-					string bareN = Regex.Replace(tN, @"([A-Za-z])[0-9]", "$1");
+					string bareN = Regex.Replace(tN, @"([A-Za-z])[0-9]\b", "$1");
 					if (bareN != tN && ResolveClause(Dequantify(" " + bareN + " ").Trim(), out pN) != null) continue;
 					string litN = Regex.Replace(tN, @"\s*'[^']*'", "").Trim();
 					if (litN != tN && ResolveClause(Dequantify(" " + litN + " ").Trim(), out pN) != null) continue;
 					// a comparison or arithmetic clause names no fact type BY DESIGN
-					if (Regex.IsMatch(tN, @"(exceeds|is less than|is greater than|is below|is above|equals|or more|or fewer|at least|at most|more than|within|in range|in the past)")) continue;
+					if (Regex.IsMatch(tN, @"\b(exceeds|is less than|is greater than|is below|is above|equals|or more|or fewer|at least|at most|more than|within|in range|in the past)\b")) continue;
 					miss++;
 					int had;
 					needClause.TryGetValue(tN, out had);
