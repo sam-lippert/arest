@@ -4613,7 +4613,7 @@ namespace Arest.NormaOracle
 						continue;
 					}
 					List<string> plC;
-					FactIndexEntry leC = ResolveClause(Dequantify(" " + tC + " ").Trim(), out plC);
+					FactIndexEntry leC = ResolveClauseSub(Dequantify(" " + tC + " ").Trim(), out plC);
 					// A SUBSCRIPT NAMES A VARIABLE, NOT A TYPE. `Transition1 is from Status1` is the
 					// declared `Transition is from Status` with its two players distinguished for
 					// the rule's benefit; resolving the literal text finds nothing. Strip a digit
@@ -4877,6 +4877,52 @@ namespace Arest.NormaOracle
 					+ unbuiltValueRestricted + " with a value-restricted head, "
 					+ unbuiltUnmatched + " with a body no arm accepts, "
 					+ unbuiltPartial + " on a head whose paths are fewer than its rules");
+			}
+			// CLAUSES NAMING NO DECLARED FACT TYPE. The arms are no longer the binding
+			// constraint on this corpus -- the vocabulary is -- and this is the worklist
+			// that says so. A rule builds only when EVERY clause of its body resolves, so
+			// declaring one clause of a body missing several moves nothing; the count per
+			// rule is what tells you which rules are one declaration away.
+			//
+			// Independent of the arms on purpose: it asks whether the corpus DECLARES what
+			// its own rules read, which is a question about the readings and not about how
+			// clever the builder is.
+			var needClause = new SortedDictionary<string, int>(StringComparer.Ordinal);
+			int rulesOneAway = 0;
+			foreach (string sN in myDeferredRules)
+			{
+				Match mn = Regex.Match(sN, @"^\* (.+?) iff (.+)\.$");
+				if (!mn.Success) continue;
+				if (FindEntryByNormalizedSentence(mn.Groups[1].Value.Trim()) == null) continue;
+				int miss = 0;
+				foreach (string clN in Regex.Split(mn.Groups[2].Value, @" and (?=that |some |[A-Z])"))
+				{
+					string tN = clN.Trim();
+					if (tN.Length == 0) continue;
+					List<string> pN;
+					if (ResolveClauseSub(Dequantify(" " + tN + " ").Trim(), out pN) != null) continue;
+					// try the same normalisations the arms do before calling a clause missing:
+					// a subscript names a variable, and a trailing literal is a value restriction
+					// on a fact type that may well be declared.
+					string bareN = Regex.Replace(tN, @"([A-Za-z])[0-9]", "$1");
+					if (bareN != tN && ResolveClause(Dequantify(" " + bareN + " ").Trim(), out pN) != null) continue;
+					string litN = Regex.Replace(tN, @"\s*'[^']*'", "").Trim();
+					if (litN != tN && ResolveClause(Dequantify(" " + litN + " ").Trim(), out pN) != null) continue;
+					// a comparison or arithmetic clause names no fact type BY DESIGN
+					if (Regex.IsMatch(tN, @"(exceeds|is less than|is greater than|is below|is above|equals|or more|or fewer|at least|at most|more than|within|in range|in the past)")) continue;
+					miss++;
+					int had;
+					needClause.TryGetValue(tN, out had);
+					needClause[tN] = had + 1;
+				}
+				if (miss == 1) rulesOneAway++;
+			}
+			if (needClause.Count != 0)
+			{
+				log.Add("CLAUSES NAMING NO DECLARED FACT TYPE: " + needClause.Count
+					+ " distinct, " + rulesOneAway + " rule(s) one declaration away");
+				foreach (var kv in needClause)
+					log.Add("  needs (" + kv.Value + "x): " + kv.Key);
 			}
 			// THE PARTIAL-HEAD INVARIANT. A head's population is the union of ALL its rules
 			// (derive:merge_news folds every rule's news into the target), so emitting a STRICT
@@ -5617,6 +5663,34 @@ namespace Arest.NormaOracle
 		// makes a SECOND one -- and NORMA throws from Function.set_Model rather than
 		// merging them. Look in the store first; the minimal tests never caught this
 		// because nothing else had created one there.
+		// Resolve a clause, allowing a SUBTYPE where the declared reading names an
+		// ancestor: `some Sales Tax Rate applies in that County Sales Tax Jurisdiction`
+		// is the declared `Sales Tax Rate applies in Sales Tax Jurisdiction`. Head
+		// resolution already did this; clause resolution did not, so a corpus that
+		// declares a supertype and reads its subtypes -- which is why one declares a
+		// supertype at all -- resolved on one side only.
+		private FactIndexEntry ResolveClauseSub(string clause, out List<string> players)
+		{
+			FactIndexEntry e = ResolveClause(clause, out players);
+			if (e != null) return e;
+			foreach (string subName in myTypes.Keys.OrderByDescending(n => n.Length))
+			{
+				int at = clause.IndexOf(subName, StringComparison.Ordinal);
+				if (at < 0) continue;
+				int end = at + subName.Length;
+				bool leftOk = at == 0 || !char.IsLetterOrDigit(clause[at - 1]);
+				bool rightOk = end >= clause.Length || !char.IsLetterOrDigit(clause[end]);
+				if (!leftOk || !rightOk) continue;
+				foreach (string supName in myTypes.Keys)
+				{
+					if (supName == subName || !RootsAt(myTypes[subName], supName)) continue;
+					e = ResolveClause(clause.Substring(0, at) + supName + clause.Substring(end), out players);
+					if (e != null) return e;
+				}
+			}
+			return null;
+		}
+
 		private Function GetOrMakeFunction(string name, bool boolean)
 		{
 			foreach (Function fn in myStore.ElementDirectory.FindElements<Function>(true))
