@@ -4721,17 +4721,7 @@ namespace Arest.NormaOracle
 					if (lL < 0 || lR < 0) { okC = false; break; }
 					bool equalC = cp[1] == "is";
 					bool greater = cp[1] == "exceeds" || cp[1] == "is greater than" || cp[1] == "is above";
-					Function fnC = equalC ? eqFnC : (greater ? gtFnC : ltFnC);
-					if (fnC == null)
-					{
-						fnC = new Function(myStore);
-						fnC.Name = equalC ? "Equals" : (greater ? "GreaterThan" : "LessThan");
-						fnC.IsBoolean = true;
-						fnC.Model = myModel;
-						var cpl = new FunctionParameter(myStore); cpl.Function = fnC; cpl.Name = "left";
-						var cpr = new FunctionParameter(myStore); cpr.Function = fnC; cpr.Name = "right";
-						if (equalC) eqFnC = fnC; else if (greater) gtFnC = fnC; else ltFnC = fnC;
-					}
+					Function fnC = GetOrMakeFunction(equalC ? "Equals" : (greater ? "GreaterThan" : "LessThan"), true);
 					var cpvC = new CalculatedPathValue(myStore);
 					cpvC.Function = fnC;
 					var ciL = new CalculatedPathValueInput(myStore); cpvC.InputCollection.Add(ciL);
@@ -5578,17 +5568,7 @@ namespace Arest.NormaOracle
 				if (rhs == null) return null;
 				string fname = bits[i] == "plus" ? "Add" : bits[i] == "minus" ? "Subtract"
 					: bits[i] == "times" ? "Multiply" : "Divide";
-				Function fn;
-				if (!fns.TryGetValue(fname, out fn))
-				{
-					fn = new Function(myStore);
-					fn.Name = fname;
-					fn.IsBoolean = false;
-					fn.Model = myModel;
-					var pl = new FunctionParameter(myStore); pl.Function = fn; pl.Name = "left";
-					var pr = new FunctionParameter(myStore); pr.Function = fn; pr.Name = "right";
-					fns[fname] = fn;
-				}
+				Function fn = GetOrMakeFunction(fname, false);
 				var cpv = new CalculatedPathValue(myStore);
 				cpv.Function = fn;
 				var inL = new CalculatedPathValueInput(myStore); cpv.InputCollection.Add(inL);
@@ -5632,6 +5612,26 @@ namespace Arest.NormaOracle
 			new CalculatedPathValueInputBindsToCalculatedPathValue(input, (CalculatedPathValue)operand);
 		}
 
+		// One function per NAME per model. Every arm that needs Equals or LessThan
+		// creates it on demand, so a later arm that only checks its OWN cached variable
+		// makes a SECOND one -- and NORMA throws from Function.set_Model rather than
+		// merging them. Look in the store first; the minimal tests never caught this
+		// because nothing else had created one there.
+		private Function GetOrMakeFunction(string name, bool boolean)
+		{
+			foreach (Function fn in myStore.ElementDirectory.FindElements<Function>(true))
+			{
+				if (!fn.IsDeleted && fn.Name == name) return fn;
+			}
+			var made = new Function(myStore);
+			made.Name = name;
+			made.IsBoolean = boolean;
+			made.Model = myModel;
+			var pl = new FunctionParameter(myStore); pl.Function = made; pl.Name = "left";
+			var pr = new FunctionParameter(myStore); pr.Function = made; pr.Name = "right";
+			return made;
+		}
+
 		private static List<int> ChainOrder(List<List<string>> toks, string rootTok)
 		{
 			if (toks.Count < 1) return null;
@@ -5650,7 +5650,13 @@ namespace Arest.NormaOracle
 					foreach (string t in toks[i]) if (bound.Contains(t)) { pick = i; break; }
 					if (pick >= 0) break;
 				}
-				if (pick < 0) return null;
+				// A LEG THAT SHARES NOTHING RESTARTS. Two legs joined only by a value
+				// comparison -- Codd's theta join -- have no token in common, and refusing
+				// them refused every customer-resolution rule in the corpus. Take one anyway;
+				// BuildChain gives it a sub-path with its OWN root, which a RoleSubPath may
+				// carry because it is itself a RolePath (ORMCore.dsl: RootObjectType is
+				// ZeroOne PER PATH, not per lead).
+				if (pick < 0) pick = left[0];
 				order.Add(pick); left.Remove(pick);
 				foreach (string t in toks[pick]) bound.Add(t);
 			}
@@ -5680,10 +5686,24 @@ namespace Arest.NormaOracle
 				int li = order[k];
 				string entryTok = null;
 				foreach (string t in toks[li]) if (boundAt.ContainsKey(t)) { entryTok = t; break; }
-				if (entryTok == null) return null;
-				int ep = toks[li].IndexOf(entryTok);
 				var sp = new RoleSubPath(myStore);
-				boundAt[entryTok].SubPathCollection.Add(sp);
+				int ep;
+				if (entryTok == null)
+				{
+					// disconnected: a sub-path of its own, rooted at its own entry player. The
+					// condition that ties it to the rest is added by the caller.
+					ObjectType freshRoot;
+					if (!myTypes.TryGetValue(toks[li][0], out freshRoot)) return null;
+					parent.SubPathCollection.Add(sp);
+					new RolePathObjectTypeRoot(sp, freshRoot);
+					entryTok = toks[li][0];
+					ep = 0;
+				}
+				else
+				{
+					ep = toks[li].IndexOf(entryTok);
+					boundAt[entryTok].SubPathCollection.Add(sp);
+				}
 				if (firstSp == null) firstSp = sp;
 				var row = new PathedRole[legs[li].Roles.Count];
 				EnterLeg(sp, legs[li], ep, row);
