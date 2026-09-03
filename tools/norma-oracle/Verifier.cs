@@ -772,6 +772,17 @@ namespace Arest.NormaOracle
 			if (s.Contains(" iff ") || (s.StartsWith("* ") && Regex.IsMatch(s, @"\bif\b"))
 				|| Regex.IsMatch(s, @"^\+{1,2} .+ if "))
 			{
+				// A RULE'S OWN MARKER IS A DEF 5 MARKING, and NormalizeRuleSentence is about
+				// to strip it. Where the declaration carries the marking too there is nothing
+				// to do, but most of the corpus marks only the rule: support.auto.dev writes
+				// 57 `+` rules whose heads are declared bare, and every one of them was built
+				// FULLY derived. That is the reading's own warning ignored -- contact-
+				// derivation.md says in as many words that "a fully-derived * would claim the
+				// rule owns the whole population; it does not" -- and it is the same harm
+				// ApplyDerivationMarkers already guards for ++ vs **: derived rows become the
+				// only rows, so an asserted one is erased by the next derivation.
+				Match mk = Regex.Match(s, @"^(\+{1,2}) (.+?) (?:iff|if) ");
+				if (mk.Success) myRuleMarkers.Add(new string[] { mk.Groups[1].Value, mk.Groups[2].Value.Trim() });
 				myDeferredRules.Add(NormalizeRuleSentence(s));
 				Count("derivation rule (deferred: no textual rule input in NORMA)");
 				return;
@@ -1629,6 +1640,7 @@ namespace Arest.NormaOracle
 		private readonly List<string> myRuleRecipes = new List<string>();
 		private readonly List<string> myRingRows = new List<string>();
 		private readonly List<string> myDeferredRules = new List<string>();
+		private readonly List<string[]> myRuleMarkers = new List<string[]>();
 
 		// FORML names two variables of ONE type by subscripting, so
 		// `Domain1 reaches Domain2` is a rule over the declared ring fact type
@@ -1739,6 +1751,17 @@ namespace Arest.NormaOracle
 			// Conservative by construction: skipped when the clause already says `and that`,
 			// when no declared type sits at the nesting point, and for the leading-`that`
 			// continuation surface the chain arm already takes.
+			// A rule's marking is its HEAD's marking. Resolved here rather than at parse
+			// time because the fact index is what turns a head sentence into a fact type,
+			// and a head declared `*` still wins -- ApplyDerivationMarkers reads
+			// myFullyDerived first, so an explicit declaration is never overridden.
+			foreach (string[] rm in myRuleMarkers)
+			{
+				FactIndexEntry he = FindEntryByNormalizedSentence(rm[1]);
+				if (he == null) continue;
+				mySemiDerived.Add(he.Fact);
+				if (rm[0] == "++") myStoredDerived.Add(he.Fact);
+			}
 			for (int di = 0; di < myDeferredRules.Count; di++)
 			{
 				string dr = myDeferredRules[di], prev;
