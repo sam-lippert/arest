@@ -4607,6 +4607,7 @@ namespace Arest.NormaOracle
 				// would silently drop, and dropping a condition WIDENS the head.
 				var cmpC = new List<string[]>();
 				var arithC = new List<string[]>();
+				var thrC = new List<string[]>();
 				foreach (string clC in partsC)
 				{
 					string tC = clC.Trim();
@@ -4639,7 +4640,31 @@ namespace Arest.NormaOracle
 							continue;
 						}
 					}
+					// A LEG CARRYING ITS OWN THRESHOLD: `Query Route has Max Retry Count greater
+					// than 0` is the declared leg `Query Route has Max Retry Count` plus a
+					// condition on the value it binds. Split the comparison off the end and keep
+					// both halves -- dropping the threshold would WIDEN the rule, which is the
+					// one outcome worse than not building it.
+					string thrOp = null, thrVal = null;
+					if (leC == null)
+					{
+						Match tm = Regex.Match(tC, @"^(.+?) (greater than|less than|at least|at most|of) ([0-9]+)( or more| or fewer)?$");
+						if (tm.Success)
+						{
+							FactIndexEntry baseLeg = ResolveClauseSub(Dequantify(" " + tm.Groups[1].Value.Trim() + " ").Trim(), out plC);
+							if (baseLeg != null)
+							{
+								leC = baseLeg;
+								string suf = tm.Groups[4].Value;
+								thrOp = tm.Groups[2].Value == "of"
+									? (suf.Contains("fewer") ? "is less than" : "exceeds")
+									: (tm.Groups[2].Value == "greater than" || tm.Groups[2].Value == "at least" ? "exceeds" : "is less than");
+								thrVal = tm.Groups[3].Value;
+							}
+						}
+					}
 					if (leC == null || leC == hC) { okC = false; break; }
+					if (thrOp != null) thrC.Add(new string[] { plC[plC.Count - 1], thrOp, thrVal, legsC.Count.ToString() });
 					legsC.Add(leC); toksC.Add(plC);
 				}
 				if (!okC || legsC.Count < 2) continue;
@@ -4747,6 +4772,34 @@ namespace Arest.NormaOracle
 					{
 						new DerivedRoleProjectedFromPathedRole(drpC, rowsC[atLegC[i]][atPosC[i]]);
 					}
+				}
+				if (!okC) continue;
+				// Each threshold becomes a condition on the value its own leg bound. If this
+				// is skipped the rule still BUILDS -- with the threshold dropped, which
+				// widens it. Measured: the split landed without this and QueryShouldRetry
+				// built as though `greater than 0` were not written.
+				foreach (string[] th in thrC)
+				{
+					int tl = int.Parse(th[3]);
+					int tp = legsC[tl].Players.IndexOf(th[0]);
+					if (tp < 0) { okC = false; break; }
+					Function tf = GetOrMakeFunction(th[1] == "exceeds" ? "GreaterThan" : "LessThan", true);
+					var tcpv = new CalculatedPathValue(myStore);
+					tcpv.Function = tf;
+					var tL = new CalculatedPathValueInput(myStore); tcpv.InputCollection.Add(tL);
+					var tR = new CalculatedPathValueInput(myStore); tcpv.InputCollection.Add(tR);
+					int tpi = 0;
+					foreach (FunctionParameter fp in tf.ParameterCollection)
+					{
+						if (tpi == 0) new CalculatedPathValueInputCorrespondsToFunctionParameter(tL, fp);
+						else if (tpi == 1) { new CalculatedPathValueInputCorrespondsToFunctionParameter(tR, fp); break; }
+						tpi++;
+					}
+					new CalculatedPathValueInputBindsToPathedRole(tL, rowsC[tl][tp]);
+					var tpc = new PathConstant(myStore);
+					tpc.LexicalValue = th[2];
+					new CalculatedPathValueInputBindsToPathConstant(tR, tpc);
+					leadC.CalculatedConditionCollection.Add(tcpv);
 				}
 				if (!okC) continue;
 				for (int qi = 0; qi < cmpC.Count; qi++)
