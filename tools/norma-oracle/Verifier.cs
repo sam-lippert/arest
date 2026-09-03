@@ -35,6 +35,7 @@ namespace Arest.NormaOracle
 		private readonly HashSet<FactType> myFullyDerived = new HashSet<FactType>();
 		private readonly HashSet<FactType> mySemiDerived = new HashSet<FactType>();
 		private readonly Dictionary<string, string> myMarkerBySentence = new Dictionary<string, string>(StringComparer.Ordinal);
+		private readonly SortedSet<string> myMarkerConflicts = new SortedSet<string>(StringComparer.Ordinal);
 
 		// derivation markers register per RAW line (declaration text -> mark),
 		// decoupled from the sentence stream: a trailing ". *" before a
@@ -56,7 +57,18 @@ namespace Arest.NormaOracle
 				Match m = Regex.Match(line, @"^(.+?\.)\s*(\*\*|\*|\+\+|\+)\s*$");
 				if (!m.Success) continue;
 				string sent = m.Groups[1].Value.TrimEnd('.').Trim();
-				myMarkerBySentence[NormalizeWords(sent)] = m.Groups[2].Value;
+				// ONE FACT TYPE, TWO MARKINGS. A head declared in two files -- law-core says
+				// `Authority is currently in force. *`, support.auto.dev's vendored copy says
+				// `+` -- silently took whichever was read last, so the SAME head builds fully
+				// derived in one corpus and semi-derived in the other. That is two different
+				// answers about what the rule means, and a marking is not a detail: it says
+				// whether the rule owns the whole population. Recorded rather than resolved,
+				// because which file should own the vocabulary is not the oracle's call.
+				string mkey = NormalizeWords(sent);
+				string priorMark;
+				if (myMarkerBySentence.TryGetValue(mkey, out priorMark) && priorMark != m.Groups[2].Value)
+					myMarkerConflicts.Add(sent + "  declared '" + priorMark + "' and '" + m.Groups[2].Value + "'");
+				myMarkerBySentence[mkey] = m.Groups[2].Value;
 			}
 		}
 		private readonly HashSet<FactType> myStoredDerived = new HashSet<FactType>();
@@ -5205,6 +5217,12 @@ namespace Arest.NormaOracle
 			}
 			if (unbuiltHeadless != 0 || unbuiltUnmatched != 0 || unbuiltPartial != 0 || unbuiltValueRestricted != 0)
 			{
+				if (myMarkerConflicts.Count > 0)
+				{
+					log.Add("DECLARED TWICE WITH DIFFERENT MARKINGS: " + myMarkerConflicts.Count
+						+ " (the last one read wins, which makes the same head mean different things in different corpora)");
+					foreach (string mc in myMarkerConflicts) log.Add("    " + mc);
+				}
 				log.Add("UNBUILT SUMMARY: " + unbuiltHeadless + " with an undeclared head, "
 					+ unbuiltValueRestricted + " with a value-restricted head, "
 					+ unbuiltUnmatched + " with a body no arm accepts, "
