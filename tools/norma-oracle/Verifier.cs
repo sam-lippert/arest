@@ -1411,6 +1411,11 @@ namespace Arest.NormaOracle
 		private string RuleHeadKey(string headText)
 		{
 			FactIndexEntry he = FindEntryByNormalizedSentence(headText.Trim());
+			// A RESTRICTED HEAD IS STILL THAT FACT TYPE. Five rules reading `Citation is
+			// backed by External System '<one of five>'` are five rules of ONE head, and
+			// keying them by their literal-bearing text gave each a quota of one path --
+			// so the first built and capped out the other four.
+			if (he == null) { List<string> ignoredLits; he = ResolveRestrictedHead(headText.Trim(), out ignoredLits); }
 			return he != null ? ("\u0001ft:" + he.Fact.Id.ToString()) : NormalizeWords(headText);
 		}
 		public static string NormalizeWords(string words)
@@ -5037,7 +5042,7 @@ namespace Arest.NormaOracle
 					else leC = ResolveClauseSub(Dequantify(" " + tPosC + " ").Trim(), out plC, out swapC);
 					if (leC == null)
 					{
-						Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|is) (?:that |some )?([A-Z][\w ]*?)$");
+						Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|starts with|is) (?:that |some )?('[^']*'|[A-Z][\w ]*?)$");
 						if (cm.Success)
 						{
 							cmpC.Add(new string[] { cm.Groups[1].Value.Trim(), cm.Groups[2].Value, cm.Groups[3].Value.Trim() });
@@ -5091,7 +5096,12 @@ namespace Arest.NormaOracle
 					negC.Add(thisNegC);
 					toksC.Add(RoleQualified(Dequantify(" " + tPosC + " ").Trim(), plC, true));
 				}
-				if (!okC || legsC.Count < 2) continue;
+				// ONE LEG IS ENOUGH WHEN SOMETHING ELSE CONSTRAINS IT. `Citation has URI and
+				// that URI starts with 'https://...'` is a single reading plus a condition on
+				// the value it bound; the arms above want a body of readings, so a rule that
+				// is one reading and one test belonged to none of them. Running last, behind
+				// the registry and the paths cap, taking it steals nothing.
+				if (!okC || legsC.Count < 1) continue;
 				// every head player must sit at exactly one leg position, or the projection
 				// would be guessing which occurrence the head means
 				var atLegC = new int[hC.Players.Count];
@@ -5312,6 +5322,12 @@ namespace Arest.NormaOracle
 					for (int z = 0; z < aliasC.Length; z++) if (aliasC[z] == qi) aliased = true;
 					if (aliased) continue;
 					string[] cp = cmpC[qi];
+					// THE RIGHT SIDE MAY BE A LITERAL. `that URI starts with 'https://...'`
+					// tests a value the body already bound against a constant -- there is no
+					// second leg to find, and refusing it drops the only thing the rule says.
+					string cpLit = null;
+					if (cp[2].Length > 1 && cp[2][0] == (char)39 && cp[2][cp[2].Length - 1] == (char)39)
+						cpLit = cp[2].Substring(1, cp[2].Length - 2);
 					int lL = -1, pL = -1, lR = -1, pR = -1;
 					for (int l = 0; l < legsC.Count; l++)
 					{
@@ -5326,10 +5342,14 @@ namespace Arest.NormaOracle
 							if ((toksC[l][c] == cp[2] || legsC[l].Players[c] == cp[2]) && lR < 0) { lR = l; pR = c; }
 						}
 					}
-					if (lL < 0 || lR < 0) { okC = false; break; }
+					if (lL < 0 || (lR < 0 && cpLit == null)) { okC = false; break; }
 					bool equalC = cp[1] == "is";
 					bool greater = cp[1] == "exceeds" || cp[1] == "is greater than" || cp[1] == "is above";
-					Function fnC = GetOrMakeFunction(equalC ? "Equals" : (greater ? "GreaterThan" : "LessThan"), true);
+					bool startsC = cp[1] == "starts with";
+					// minted on first use like Equals and GreaterThan, which NORMA does not
+					// ship either -- the function library is tool-loaded data in the UI
+					Function fnC = GetOrMakeFunction(startsC ? "StartsWith"
+						: (equalC ? "Equals" : (greater ? "GreaterThan" : "LessThan")), true);
 					var cpvC = new CalculatedPathValue(myStore);
 					cpvC.Function = fnC;
 					var ciL = new CalculatedPathValueInput(myStore); cpvC.InputCollection.Add(ciL);
@@ -5342,7 +5362,13 @@ namespace Arest.NormaOracle
 						fpi++;
 					}
 					new CalculatedPathValueInputBindsToPathedRole(ciL, rowsC[lL][pL]);
-					new CalculatedPathValueInputBindsToPathedRole(ciR, rowsC[lR][pR]);
+					if (cpLit != null)
+					{
+						var cpcC = new PathConstant(myStore);
+						cpcC.LexicalValue = cpLit;
+						new CalculatedPathValueInputBindsToPathConstant(ciR, cpcC);
+					}
+					else new CalculatedPathValueInputBindsToPathedRole(ciR, rowsC[lR][pR]);
 					leadC.CalculatedConditionCollection.Add(cpvC);
 				}
 				if (!okC) continue;
@@ -5541,7 +5567,7 @@ namespace Arest.NormaOracle
 					// The role name goes with the variable here too, or the census keeps
 					// reporting `company- Name is Company Name` as missing vocabulary for a
 					// rule the arm now builds.
-					Match cmN = Regex.Match(tN, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|is) (?:that |some )?([A-Z][\w ]*?)$");
+					Match cmN = Regex.Match(tN, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|starts with|is) (?:that |some )?('[^']*'|[A-Z][\w ]*?)$");
 					if (cmN.Success && myTypes.ContainsKey(Regex.Replace(cmN.Groups[1].Value.Trim(), @"^[a-z][\w-]*- ", ""))
 						&& myTypes.ContainsKey(cmN.Groups[3].Value.Trim())) continue;
 					// A clause naming no fact type BY DESIGN is not missing vocabulary: an
