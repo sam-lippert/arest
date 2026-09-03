@@ -1,4 +1,4 @@
-// The readings verifier: parse the FORML 2 declaration fragment out of the
+﻿// The readings verifier: parse the FORML 2 declaration fragment out of the
 // Arest metamodel readings, build one ORM model through NORMA's public
 // object model, and report (a) the sentence census, (b) NORMA's own model
 // errors, (c) the live RMAP result (ConceptualDatabase tables).
@@ -4594,6 +4594,19 @@ namespace Arest.NormaOracle
 				if (hC == null) continue;
 				int headRulesC;
 				rulesPerHead.TryGetValue(RuleHeadKey(headC), out headRulesC);
+				// ONE RULE SENTENCE, ONE PATH. No arm knows what an earlier arm already
+				// built -- each reads myDeferredRules from the top -- so a head an earlier
+				// arm has finished can be built AGAIN here, and the head ends with more
+				// paths than the readings give it rules. That is how `Fact is in consequent
+				// Fact Type` came to carry a second, differently-shaped path over the same
+				// sentence, which NORMA answered with "joins to a path role with an
+				// incompatible role player" twice while the FIRST path stayed valid. The
+				// star arm guards its own overlap by shape (`everyLeg`); this is the same
+				// guard stated in general, and it needs no registry because NORMA's own
+				// model already knows how many paths the head has.
+				var haveRuleC = hC.Fact.DerivationRule as FactTypeDerivationRule;
+				if (headRulesC > 0 && haveRuleC != null
+					&& haveRuleC.OwnedLeadRolePathCollection.Count >= headRulesC) continue;
 				// A MULTI-RULE HEAD IS A UNION HERE TOO, one lead path per rule. Requiring a
 				// single rule was the largest thing this arm refused for itself -- Source Request
 				// is routed via Fetcher, Vehicle Purchase Quote has registration Fee Amount and
@@ -5822,6 +5835,7 @@ namespace Arest.NormaOracle
 				int at = clause.IndexOf(subName, StringComparison.Ordinal);
 				if (at < 0) continue;
 				int end = at + subName.Length;
+				while (end < clause.Length && char.IsDigit(clause[end])) end++;
 				bool leftOk = at == 0 || !char.IsLetterOrDigit(clause[at - 1]);
 				bool rightOk = end >= clause.Length || !char.IsLetterOrDigit(clause[end]);
 				if (!leftOk || !rightOk) continue;
@@ -6184,12 +6198,18 @@ namespace Arest.NormaOracle
 				{
 					bool leftOk = !char.IsLetterOrDigit(working[at - 1]);
 					int end = at + probe.Length;
-					bool rightOk = end >= working.Length || !char.IsLetterOrDigit(working[end]);
+					// A SUBSCRIPT NAMES THE VARIABLE, NOT THE TYPE. `Status1` is a Status, and
+					// refusing the match because a digit follows left every subscripted clause
+					// naming no fact type at all. Consume the digits with the name -- they must
+					// be blanked too, or they survive into the reading words and match nothing.
+					int digitEnd = end;
+					while (digitEnd < working.Length && char.IsDigit(working[digitEnd])) digitEnd++;
+					bool rightOk = digitEnd >= working.Length || !char.IsLetterOrDigit(working[digitEnd]);
 					if (leftOk && rightOk)
 					{
 						hits.Add(new KeyValuePair<int, string>(at, name));
-						working = working.Substring(0, at) + new string((char)1, probe.Length) + working.Substring(end);
-						at = end;
+						working = working.Substring(0, at) + new string((char)1, digitEnd - at) + working.Substring(digitEnd);
+						at = digitEnd;
 					}
 					else at++;
 				}
