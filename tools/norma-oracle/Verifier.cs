@@ -4188,6 +4188,116 @@ namespace Arest.NormaOracle
 				RecordCountRecipe(headE, src, vAt, gAt);
 				log.Add(headE.Fact.Name + " := Count(" + x + ") per " + groupPlayer + " over " + src.Fact.Name + ", fully derived, not stored");
 			}
+			// THE AGGREGATE OVER A CHAIN. The arm above is Definition 7's flagship shape --
+			// a COUNT over ONE binary source, grouped by the head's other role. The corpus
+			// has thirteen more that are the same idea with more of everything: sum, mean,
+			// min and max as well as count; a head of any arity; and a `where` that is a
+			// conjunction of readings rather than a single one. That is most of what
+			// business-metrics.md exists to say, and none of it built.
+			//
+			// The bag IS the chain, so this is the chain arm with an aggregate on the end:
+			// the where-clauses build one rooted path, the aggregated value is a role that
+			// path already binds, and every head role but the aggregated one projects from
+			// where the chain bound it. Grouping is NORMA's aggregation context, which is
+			// why the head's first player has to root the path and the aggregated role may
+			// not BE that player.
+			foreach (string sAg in myDeferredRules)
+			{
+				Match am = Regex.Match(sAg, @"^\* (.+?) iff (.+?) is the (count|sum|mean|min|max) of ([\w\- ]+?) where (.+)\.$");
+				if (!am.Success) continue;
+				string headA = am.Groups[1].Value.Trim();
+				FactIndexEntry hA = FindEntryByNormalizedSentence(headA);
+				// the single-source arm above runs FIRST and keeps what it can build
+				if (hA == null || hA.Fact.DerivationRule != null) continue;
+				int rulesA;
+				rulesPerHead.TryGetValue(RuleHeadKey(headA), out rulesA);
+				if (rulesA != 1) continue;
+				List<string> hqA = RoleQualified(headA, hA.Players);
+				string vA = am.Groups[2].Value.Trim();
+				int vAtA = hqA.IndexOf(vA);
+				if (vAtA < 0) vAtA = hA.Players.IndexOf(vA);
+				if (vAtA <= 0) continue;
+				var legsA = new List<FactIndexEntry>();
+				var toksA = new List<List<string>>();
+				bool okA = true;
+				foreach (string clA in Regex.Split(am.Groups[5].Value, @" and (?=that |some |[A-Z])"))
+				{
+					string tA = clA.Trim();
+					if (tA.Length == 0) continue;
+					List<string> plA;
+					FactIndexEntry eA = ResolveClauseSub(Dequantify(" " + tA + " ").Trim(), out plA);
+					if (eA == null) { okA = false; break; }
+					legsA.Add(eA); toksA.Add(plA);
+				}
+				if (!okA || legsA.Count < 1) continue;
+				// the aggregated thing is a variable the chain binds -- an entity for a
+				// count, a value for a sum -- not a second source to go and find
+				string xA = am.Groups[4].Value.Trim();
+				int xL = -1, xC = -1;
+				for (int l = 0; l < toksA.Count && xL < 0; l++)
+					for (int c = 0; c < toksA[l].Count; c++)
+						if (toksA[l][c] == xA) { xL = l; xC = c; break; }
+				if (xL < 0) continue;
+				string rootTokA = hA.Players[0];
+				if (ChainOrder(toksA, rootTokA) == null) continue;
+				// every group role must sit somewhere in the chain, or the head would carry
+				// a role the body never binds
+				var gL = new int[hA.Players.Count];
+				var gC = new int[hA.Players.Count];
+				for (int i = 0; i < hA.Players.Count && okA; i++)
+				{
+					gL[i] = -1;
+					if (i == vAtA) continue;
+					for (int l = 0; l < toksA.Count && gL[i] < 0; l++)
+						for (int c = 0; c < toksA[l].Count; c++)
+							if (toksA[l][c] == hA.Players[i]) { gL[i] = l; gC[i] = c; break; }
+					if (gL[i] < 0) okA = false;
+				}
+				if (!okA) continue;
+				ObjectType rootTypeA;
+				if (!myTypes.TryGetValue(rootTokA, out rootTypeA)) continue;
+				Function aggFn = GetOrMakeAggregate(char.ToUpper(am.Groups[3].Value[0]) + am.Groups[3].Value.Substring(1));
+				if (aggFn == null) continue;
+				var ruleA = new FactTypeDerivationRule(myStore);
+				new FactTypeHasDerivationRule(hA.Fact, ruleA);
+				ApplyDerivationMarkers(hA.Fact, ruleA);
+				var leadA = new LeadRolePath(myStore);
+				ruleA.OwnedLeadRolePathCollection.Add(leadA);
+				var rootA = new RolePathObjectTypeRoot(leadA, rootTypeA);
+				PathedRole[][] rowsA = BuildChain(leadA, legsA, toksA, rootTokA, false);
+				if (rowsA == null) { ruleA.Delete(); continue; }
+				var cpvA = new CalculatedPathValue(myStore);
+				leadA.CalculatedValueCollection.Add(cpvA);
+				cpvA.Function = aggFn;
+				new CalculatedPathValueAggregationContextIncludesRolePathRoot(cpvA, rootA);
+				// THE GROUPING IS EVERY GROUP ROLE, NOT JUST THE ROOT. With a binary head the
+				// root IS the group and the context needs nothing else, which is why the arm
+				// above gets away with it. Here the head carries Frequency too, and a context
+				// of Organization alone sums across ALL frequencies and then pairs that one
+				// total with each of them -- NORMA said it plainly:
+				//   where Amount1 = Sum(each Amount2 for that Organization)
+				// which is a wrong number rather than a missing one.
+				for (int i = 1; i < hA.Players.Count; i++)
+					if (i != vAtA) new CalculatedPathValueAggregationContextIncludesPathedRole(cpvA, rowsA[gL[i]][gC[i]]);
+				var inputA = new CalculatedPathValueInput(myStore);
+				cpvA.InputCollection.Add(inputA);
+				foreach (FunctionParameter fp in aggFn.ParameterCollection)
+				{
+					new CalculatedPathValueInputCorrespondsToFunctionParameter(inputA, fp);
+					break;
+				}
+				new CalculatedPathValueInputBindsToPathedRole(inputA, rowsA[xL][xC]);
+				var projA = new RoleSetDerivationProjection(ruleA, leadA);
+				for (int i = 0; i < hA.Players.Count; i++)
+				{
+					var drpA = new DerivedRoleProjection(projA, hA.Roles[i]);
+					if (i == vAtA) new DerivedRoleProjectedFromCalculatedPathValue(drpA, cpvA);
+					else if (i == 0) new DerivedRoleProjectedFromRolePathRoot(drpA, rootA);
+					else new DerivedRoleProjectedFromPathedRole(drpA, rowsA[gL[i]][gC[i]]);
+				}
+				log.Add(hA.Fact.Name + " := " + aggFn.Name + "(" + xA + ") over "
+					+ legsA.Count + " clauses per " + rootTokA + ", " + DescribeDerivation(hA.Fact));
+			}
 			// THE OFFSET CLASS: "* <head> iff <leg> and <headValue> is [that]
 			// <legValue> plus <Duration>" — one leg, one binary operator, the
 			// result projected onto the head's value role. The corpus writes it
@@ -5874,6 +5984,26 @@ namespace Arest.NormaOracle
 				}
 			}
 			return null;
+		}
+
+		// An aggregate is minted the way Count is -- one BAG parameter, and IsAggregate
+		// set explicitly because it is DERIVED from whether a parameter has BagInput.
+		// Reused if the library already holds it: a second Function of the same name is
+		// what made Function.set_Model throw.
+		private Function GetOrMakeAggregate(string name)
+		{
+			foreach (Function fn in myStore.ElementDirectory.FindElements<Function>(true))
+			{
+				if (!fn.IsDeleted && fn.IsAggregate && fn.Name == name) return fn;
+			}
+			var made = new Function(myStore);
+			made.Name = name;
+			made.IsAggregate = true;
+			var bag = new FunctionParameter(myStore);
+			bag.Function = made;
+			bag.Name = "bag";
+			bag.BagInput = true;
+			return made;
 		}
 
 		private Function GetOrMakeFunction(string name, bool boolean)
