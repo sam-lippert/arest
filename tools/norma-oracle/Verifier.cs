@@ -4832,7 +4832,8 @@ namespace Arest.NormaOracle
 					}
 					if (leC == null || leC == hC) { okC = false; break; }
 					if (thrOp != null) thrC.Add(new string[] { plC[plC.Count - 1], thrOp, thrVal, legsC.Count.ToString() });
-					legsC.Add(leC); toksC.Add(plC);
+					legsC.Add(leC);
+					toksC.Add(RoleQualified(Dequantify(" " + tC + " ").Trim(), plC));
 				}
 				if (!okC || legsC.Count < 2) continue;
 				// every head player must sit at exactly one leg position, or the projection
@@ -4850,18 +4851,33 @@ namespace Arest.NormaOracle
 				// that still declines.
 				for (int i = 0; i < hC.Players.Count && okC; i++)
 				{
+					// A QUALIFIED MATCH BEATS AN UNQUALIFIED ONE, and both beat a stripped one.
+					// The head of the rule above is `Noun is resolved from alternate- External
+					// System`, and its body binds TWO External Systems; matching on the player
+					// alone takes whichever leg comes first, which is the degraded primary --
+					// the exact opposite of what the rule says. Where the head carries no role
+					// name and a leg does (`Source Request is routed via Fetcher` projecting
+					// from `Resource Declaration has override- Fetcher`) the stripped pass is
+					// what carries it, and it only runs when nothing qualified answered.
 					int found = 0;
-					for (int l = 0; l < legsC.Count; l++)
+					for (int pass = 0; pass < 3 && found == 0; pass++)
 					{
-						int inLeg = 0;
-						for (int c = 0; c < legsC[l].Players.Count; c++)
+						for (int l = 0; l < legsC.Count; l++)
 						{
-							if (legsC[l].Players[c] != hC.Players[i]) continue;
-							inLeg++;
-							if (found == 0) { atLegC[i] = l; atPosC[i] = c; }
-							found++;
+							int inLeg = 0;
+							for (int c = 0; c < toksC[l].Count; c++)
+							{
+								string tk = toksC[l][c];
+								bool hit = pass == 0 ? tk == hqC[i]
+									: (pass == 1 ? tk == hC.Players[i]
+										: StripRolePrefix(tk) == hC.Players[i]);
+								if (!hit) continue;
+								inLeg++;
+								if (found == 0) { atLegC[i] = l; atPosC[i] = c; }
+								found++;
+							}
+							if (inLeg > 1) okC = false;
 						}
-						if (inLeg > 1) okC = false;
 					}
 					if (found == 0)
 					{
@@ -4904,7 +4920,9 @@ namespace Arest.NormaOracle
 				if (!okC) continue;
 				ObjectType rootC;
 				if (!myTypes.TryGetValue(hC.Players[0], out rootC)) continue;
-				if (ChainOrder(toksC, hC.Players[0]) == null) continue;
+				string rootTokC = hC.Players[0];
+				foreach (List<string> tl in toksC) if (tl.Contains(hqC[0])) { rootTokC = hqC[0]; break; }
+				if (ChainOrder(toksC, rootTokC) == null) continue;
 				var ruleC = hC.Fact.DerivationRule as FactTypeDerivationRule;
 				if (ruleC == null)
 				{
@@ -4915,7 +4933,7 @@ namespace Arest.NormaOracle
 				var leadC = new LeadRolePath(myStore);
 				ruleC.OwnedLeadRolePathCollection.Add(leadC);
 				new RolePathObjectTypeRoot(leadC, rootC);
-				PathedRole[][] rowsC = BuildChain(leadC, legsC, toksC, hC.Players[0], false);
+				PathedRole[][] rowsC = BuildChain(leadC, legsC, toksC, rootTokC, false);
 				if (rowsC == null) continue;
 				var computedC = new Dictionary<string, CalculatedPathValue>(StringComparer.Ordinal);
 				foreach (string[] aq in arithC)
@@ -5983,7 +6001,25 @@ namespace Arest.NormaOracle
 					if (e != null) return e;
 				}
 			}
+			// A ROLE NAME CAN QUALIFY A VARIABLE WHERE THE DECLARATION CARRIES NONE.
+			//     Noun is backed by External System.                      <- declared
+			//     ... Noun is backed by primary- External System and ...  <- the rule
+			// `primary-` is not part of the reading; it names WHICH External System, so
+			// that the same rule can name a second one (`alternate-`) and mean a different
+			// variable. Tried LAST, so a role name that IS part of a declared reading --
+			// `Resource Declaration has override- Fetcher` -- still resolves as itself.
+			string unqualified = Regex.Replace(clause, @"(?<![\w-])[a-z][\w-]*- (?=[A-Z])", "");
+			if (unqualified != clause)
+			{
+				e = ResolveClause(unqualified, out players);
+				if (e != null) return e;
+			}
 			return null;
+		}
+
+		private static string StripRolePrefix(string tok)
+		{
+			return Regex.Replace(tok, @"^[a-z][\w-]*- ", "");
 		}
 
 		// An aggregate is minted the way Count is -- one BAG parameter, and IsAggregate
