@@ -6526,7 +6526,13 @@ namespace Arest.NormaOracle
 				if (!same) continue;
 				// ReadingWords keeps interior placeholder gaps as doubled
 				// spaces ("uses  for" from a ternary); compare normalized
-				if (string.Equals(NormalizeWords(entry.ReadingWords), wordsKey, StringComparison.Ordinal))
+				// THE SAME WORDS HAVE TO BE REMOVED FROM BOTH SIDES. The clause has its
+				// articles stripped just above; the entry's reading words did not, so a
+				// declared reading CONTAINING an article could never be matched by any
+				// clause. `Effective Date is in the past` is one -- rename it to
+				// `Effective Date has passed` and the identical rule builds -- and so is
+				// every reading that says "the", "a" or "an" anywhere in it.
+				if (string.Equals(NormalizeWords(Regex.Replace(entry.ReadingWords, @"\b(some|that|a|an|the)\b", " ")), wordsKey, StringComparison.Ordinal))
 				{
 					playersOut = players;
 					return entry;
