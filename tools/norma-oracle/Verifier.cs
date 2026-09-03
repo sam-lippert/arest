@@ -4610,38 +4610,35 @@ namespace Arest.NormaOracle
 				foreach (string clC in partsC)
 				{
 					string tC = clC.Trim();
-					// `that Email Address is that Email` is an EQUALITY between two bound values --
-					// the same shape as exceeds or is-less-than, and the corpus writes it with a bare
-					// `is`. Both sides must still be bound; a bare `is` naming an unbound token falls
-					// through to leg resolution and declines there.
-					Match cm = Regex.Match(tC, @"^(?:that |some )?([A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|is) (?:that |some )?([A-Z][\w ]*?)$");
-					if (cm.Success)
-					{
-						cmpC.Add(new string[] { cm.Groups[1].Value.Trim(), cm.Groups[2].Value, cm.Groups[3].Value.Trim() });
-						continue;
-					}
 					// AN ARITHMETIC CLAUSE COMPUTES a head value rather than binding one:
 					//     ... and Net Amount equals Gross Amount minus Discount Amount
 					// Its target appears in no leg -- it is the answer, not an input -- so it is
-					// projected from a CalculatedPathValue instead of a pathed role.
+					// projected from a CalculatedPathValue instead of a pathed role. Checked
+					// first: `equals` is unambiguous, and no fact type answers to such a clause.
 					Match am = Regex.Match(tC, @"^(?:that )?([A-Za-z][\w- ]*?) equals (.+)$");
 					if (am.Success)
 					{
 						arithC.Add(new string[] { am.Groups[1].Value.Trim(), am.Groups[2].Value.Trim() });
 						continue;
 					}
+					// A DECLARED READING WINS OVER A COMPARISON READING. `Request is Submission`
+					// matches `A is B` exactly as `that Email Address is that Email` does, and
+					// taking the comparison first STOLE a genuine leg -- the body then had one leg
+					// and two "comparisons", and the arm declined a rule it should have built. So
+					// resolve as a leg FIRST, and read `A is B` as an equality only when no fact
+					// type answers to it. The other comparison verbs cannot resolve as legs anyway,
+					// so the order does not affect them.
 					List<string> plC;
 					FactIndexEntry leC = ResolveClauseSub(Dequantify(" " + tC + " ").Trim(), out plC);
-					// NO SUBSCRIPT RETRY HERE, deliberately. `Transition1 is from Status1` does
-					// resolve to the declared `Transition is from Status` with the subscripts
-					// stripped -- but the resolved player list comes back UNSUBSCRIPTED, and this
-					// arm chains legs by token NAME. `Transition is from Status1` and `Transition
-					// is to Status2` would then both present as [Transition, Status] and appear to
-					// join on a Status that is two different variables. It built, and NORMA caught
-					// it: JoinedPathRoleRequiresCompatibleRolePlayerError x2 on the METAMODEL,
-					// while the carriers stayed byte-identical -- the model-error count is the gate
-					// that saw it, not the diff. Doing this properly means carrying the subscripted
-					// tokens through, which SubscriptedTokens exists for; until then, decline.
+					if (leC == null)
+					{
+						Match cm = Regex.Match(tC, @"^(?:that |some )?([A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|is) (?:that |some )?([A-Z][\w ]*?)$");
+						if (cm.Success)
+						{
+							cmpC.Add(new string[] { cm.Groups[1].Value.Trim(), cm.Groups[2].Value, cm.Groups[3].Value.Trim() });
+							continue;
+						}
+					}
 					if (leC == null || leC == hC) { okC = false; break; }
 					legsC.Add(leC); toksC.Add(plC);
 				}
@@ -4651,6 +4648,8 @@ namespace Arest.NormaOracle
 				var atLegC = new int[hC.Players.Count];
 				var atPosC = new int[hC.Players.Count];
 				var arithKeyC = new string[hC.Players.Count];
+				var aliasC = new int[hC.Players.Count];
+				for (int z = 0; z < aliasC.Length; z++) aliasC[z] = -1;
 				// A HEAD PLAYER MAY APPEAR IN SEVERAL LEGS -- that is what a JOIN VARIABLE is,
 				// and requiring exactly one occurrence rejected the very shape a chain is
 				// built on. Occurrences across legs denote the same value once joined, so
@@ -4674,6 +4673,31 @@ namespace Arest.NormaOracle
 					}
 					if (found == 0)
 					{
+						// AN EQUALITY CAN BE AN ALIAS. In
+						//   Support Request has Category iff ... has Issue Type ... and Category is Issue Type
+						// `Category` is in no leg -- it is DEFINED by the equality, as another name
+						// for a value the body did bind. Project the head role from the other side.
+						for (int q = 0; q < cmpC.Count && found == 0; q++)
+						{
+							if (cmpC[q][1] != "is") continue;
+							string other = cmpC[q][0] == hC.Players[i] ? cmpC[q][2]
+								: (cmpC[q][2] == hC.Players[i] ? cmpC[q][0] : null);
+							if (other == null) continue;
+							// ONLY WHEN THE TWO SIDES ARE TYPE-COMPATIBLE. `Timestamp is Date` reads as
+							// a value copy, but projecting a Timestamp role from a Date pathed role is a
+							// coercion the model does not sanction, and NORMA says so:
+							// "Role 2 ... has a derivation projection with an incompatible type".
+							// Declining here leaves the rule visibly unbuilt, which is the honest answer
+							// -- the reading equates two differently-typed values and only the author can
+							// say which one the head should carry.
+							ObjectType tHead, tOther;
+							if (myTypes.TryGetValue(hC.Players[i], out tHead) && myTypes.TryGetValue(other, out tOther)
+								&& tHead.DataType != null && tOther.DataType != null && tHead.DataType != tOther.DataType) continue;
+							for (int l = 0; l < legsC.Count && found == 0; l++)
+								for (int c = 0; c < legsC[l].Players.Count; c++)
+									if (legsC[l].Players[c] == other) { atLegC[i] = l; atPosC[i] = c; found = 1; aliasC[i] = q; break; }
+						}
+						if (found == 1) continue;
 						bool computedRole = false;
 						// the target carries the role name, the head carries the player: `state Sales
 						// Tax Amount` is the `Sales Tax Amount` role read under its role name
@@ -4725,8 +4749,12 @@ namespace Arest.NormaOracle
 					}
 				}
 				if (!okC) continue;
-				foreach (string[] cp in cmpC)
+				for (int qi = 0; qi < cmpC.Count; qi++)
 				{
+					bool aliased = false;
+					for (int z = 0; z < aliasC.Length; z++) if (aliasC[z] == qi) aliased = true;
+					if (aliased) continue;
+					string[] cp = cmpC[qi];
 					int lL = -1, pL = -1, lR = -1, pR = -1;
 					for (int l = 0; l < legsC.Count; l++)
 					{
