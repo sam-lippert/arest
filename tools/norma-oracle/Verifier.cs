@@ -1122,7 +1122,13 @@ namespace Arest.NormaOracle
 		{
 			lits = new List<string>();
 			foreach (Match lm in Regex.Matches(headRaw, @"'([^']*)'")) lits.Add(lm.Groups[1].Value);
-			if (lits.Count == 0) return null;
+			// A head may be SPECIALISED WITHOUT NAMING A VALUE:
+			//   + Person is subject to Minnesota Authority if Person works in State 'Minnesota'.
+			// names the declared `Person is subject to Authority` with the Authority role
+			// restricted to a SUBTYPE rather than to a value. No arm builds that -- it wants
+			// a cross join against the subtype's population, and nothing in the body supplies
+			// an Authority at all -- but the census must still say "declared, not built"
+			// rather than "no such fact type", which sends a reader to the wrong file.
 			string bare = Regex.Replace(headRaw, @"\s*'[^']*'", "").Trim();
 			FactIndexEntry e = FindEntryByNormalizedSentence(bare);
 			if (e != null) return e;
@@ -2092,8 +2098,12 @@ namespace Arest.NormaOracle
 					}
 					okV = false; break;
 				}
-				// every literal must land somewhere, or the head says something this does not
+				// every literal must land somewhere, or the head says something this does not.
+				// And there must BE a constant, on one side or the other: with none this is a
+				// plain projection, which the projection-rename arm above already claims, and
+				// adding a second path for the same rule would double-count it.
 				if (!okV || konstSeen != litsV.Count) continue;
+				if (litsV.Count == 0 && bodyLit == null) continue;
 				// the restricted body role is the one no head role projects from; require
 				// exactly one, and settle it BEFORE constructing anything so a decline cannot
 				// leave a half-built rule in the store
