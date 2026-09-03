@@ -4858,7 +4858,12 @@ namespace Arest.NormaOracle
 				// slot, so lowering this arm's clause floor let it hand `Object Type is
 				// instantiable` a body the declaration says it does not have.
 				if (myStoredDerived.Contains(hC.Fact) && !mySemiDerived.Contains(hC.Fact)) continue;
-				List<string> hqC = RoleQualified(headC, hC.Players);
+				// WITH SUBSCRIPTS. `Feature sources Feature in training at Observation` has two
+				// roles of one type, and FORML tells them apart the only way it can -- Feature1
+				// and Feature2. Without reading that, both head roles are one token, the two
+				// occurrences inside one leg read as a ring, and the arm declines a rule whose
+				// legs all resolve.
+				List<string> hqC = RoleQualified(headC, hC.Players, true);
 				int headRulesC;
 				rulesPerHead.TryGetValue(RuleHeadKey(headC), out headRulesC);
 				// ONE RULE SENTENCE, ONE PATH. No arm knows what an earlier arm already
@@ -5010,7 +5015,7 @@ namespace Arest.NormaOracle
 					legsC.Add(leC);
 					if (swapC != null) swapPlayersC.Add(swapC);
 					negC.Add(thisNegC);
-					toksC.Add(RoleQualified(Dequantify(" " + tPosC + " ").Trim(), plC));
+					toksC.Add(RoleQualified(Dequantify(" " + tPosC + " ").Trim(), plC, true));
 				}
 				if (!okC || legsC.Count < 2) continue;
 				// every head player must sit at exactly one leg position, or the projection
@@ -6277,7 +6282,7 @@ namespace Arest.NormaOracle
 
 		private static string StripRolePrefix(string tok)
 		{
-			return Regex.Replace(tok, @"^[a-z][\w-]*- ", "");
+			return Regex.Replace(Regex.Replace(tok, @"^[a-z][\w-]*- ", ""), "[0-9]+$", "");
 		}
 
 		// An aggregate is minted the way Count is -- one BAG parameter, and IsAggregate
@@ -6428,6 +6433,15 @@ namespace Arest.NormaOracle
 			// which is the same rule the constraint-side builder follows.
 			var slots = new PathedRole[legs.Count][];
 			var boundAt = new Dictionary<string, RolePath>(StringComparer.Ordinal);
+			// A SUB-PATH CONTINUES FROM WHERE ITS PARENT ENDED, not from the role whose
+			// variable it entered on. Off the LEAD that is a branch and NORMA reads it as
+			// one; off another sub-path it is not, and the second child silently continues
+			// from the first child's last role instead. kernel's `State1 steps to State2 by
+			// Operator1 and Operator1 costs Count1 and State2 is goal` has both the cost leg
+			// and the goal leg hanging off the steps leg, and NORMA rendered the second as
+			// "that OPERATOR is some State2 that is goal" -- then said so, with an
+			// incompatible-role-player error. Refuse the shape rather than emit it.
+			var childCount = new Dictionary<RolePath, int>();
 			boundAt[rootTok] = parent;
 			RoleSubPath firstSp = null;
 			for (int k = 0; k < order.Count; k++)
@@ -6451,7 +6465,12 @@ namespace Arest.NormaOracle
 				else
 				{
 					ep = toks[li].IndexOf(entryTok);
-					boundAt[entryTok].SubPathCollection.Add(sp);
+					RolePath into = boundAt[entryTok];
+					int kids;
+					childCount.TryGetValue(into, out kids);
+					if (into != parent && kids > 0) return null;
+					childCount[into] = kids + 1;
+					into.SubPathCollection.Add(sp);
 				}
 				if (firstSp == null) firstSp = sp;
 				var row = new PathedRole[legs[li].Roles.Count];
