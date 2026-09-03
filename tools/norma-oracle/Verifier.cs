@@ -262,7 +262,9 @@ namespace Arest.NormaOracle
 			// instantiable. **" is the corpus's only derived-AND-stored marker, so
 			// it was the one declaration that reported itself unrecognized. Match
 			// on what the marker IS, not on how long it happens to be.
-			if (tail.Length > 1 && !Regex.IsMatch(tail, @"^(\*\*|\*|\+)$")) sentences.Add(tail);
+			// `++` was missing from this set -- the same omission the paragraph above
+			// records for `**`, made again for the semi-derived-and-stored marker.
+			if (tail.Length > 1 && !Regex.IsMatch(tail, @"^(\*\*|\*|\+\+|\+)$")) sentences.Add(tail);
 			}
 			return sentences;
 		}
@@ -5164,7 +5166,17 @@ namespace Arest.NormaOracle
 			// answered to that, and the rule was dropped without a word. 29 rules in
 			// 4 files, including auto.dev's `+ Customer has granted Trial iff ...`,
 			// which reported as an undeclared head three files from the cause.
-			Match mk = Regex.Match(s, @"^\+{1,2} (.+)$");
+			// STRIP THE WHOLE LEADING RUN OF MARKERS, not one. The filter that drops a
+			// bare marker applies to the TAIL of a chunk only, so a declaration's
+			// trailing marker is joined onto the rule that follows it:
+			//     Customer has granted Trial. +
+			//     + Customer has granted Trial if some Plan Change grants ...
+			// arrives as `+ + Customer has granted Trial if ...`. Stripping one marker
+			// left the other in the head, the head was looked up as "+ Customer has
+			// granted Trial", nothing answered to that, and a rule whose head IS
+			// declared two lines above reported as naming no declared fact type.
+			// The corpus contains no doubled marker, so a run of two can only be this.
+			Match mk = Regex.Match(s, @"^(?:[*+]{1,2}\s+)+(.+)$");
 			if (!mk.Success) return s;
 			string body = mk.Groups[1].Value;
 			if (body.Contains(" iff ")) return "* " + body;
