@@ -4889,12 +4889,14 @@ namespace Arest.NormaOracle
 			// clever the builder is.
 			var needClause = new SortedDictionary<string, int>(StringComparer.Ordinal);
 			int rulesOneAway = 0;
+			var oneAway = new SortedSet<string>(StringComparer.Ordinal);
 			foreach (string sN in myDeferredRules)
 			{
 				Match mn = Regex.Match(sN, @"^\* (.+?) iff (.+)\.$");
 				if (!mn.Success) continue;
 				if (FindEntryByNormalizedSentence(mn.Groups[1].Value.Trim()) == null) continue;
 				int miss = 0;
+				string lastMissing = null;
 				// the SAME split the arm uses, including the lower-case role-named target of
 				// an arithmetic clause -- otherwise two clauses arrive glued together and the
 				// report names a "missing fact type" that is really a split failure.
@@ -4912,13 +4914,23 @@ namespace Arest.NormaOracle
 					string litN = Regex.Replace(tN, @"\s*'[^']*'", "").Trim();
 					if (litN != tN && ResolveClause(Dequantify(" " + litN + " ").Trim(), out pN) != null) continue;
 					// a comparison or arithmetic clause names no fact type BY DESIGN
-					if (Regex.IsMatch(tN, @"\b(exceeds|is less than|is greater than|is below|is above|equals|or more|or fewer|at least|at most|more than|within|in range|in the past)\b")) continue;
+					// A clause naming no fact type BY DESIGN is not missing vocabulary: an
+					// aggregate, an arithmetic expression, a negation or a comparison names a
+					// computation, and reporting it as a missing DECLARATION sends the reader
+					// to write a fact type that should not exist. The arm already filtered
+					// these; the census did not, and so disagreed with it about what is wrong.
+					if (Regex.IsMatch(tN, @" is the (count|sum|mean|min|max) of |the (minimum|maximum) of | (plus|minus|times|divided by|multiplied by) |\b(exceeds|is less than|is greater than|is below|is above|equals|or more|or fewer|at least|at most|more than|within|in range|in the past|no|not|neither)\b")) continue;
 					miss++;
 					int had;
 					needClause.TryGetValue(tN, out had);
 					needClause[tN] = had + 1;
+					lastMissing = tN;
 				}
-				if (miss == 1) rulesOneAway++;
+				if (miss == 1)
+				{
+					rulesOneAway++;
+					oneAway.Add(lastMissing + "   <- " + mn.Groups[1].Value.Trim());
+				}
 			}
 			if (needClause.Count != 0)
 			{
@@ -4926,6 +4938,9 @@ namespace Arest.NormaOracle
 					+ " distinct, " + rulesOneAway + " rule(s) one declaration away");
 				foreach (var kv in needClause)
 					log.Add("  needs (" + kv.Value + "x): " + kv.Key);
+				// the actionable half: declare THIS clause and THAT rule builds. Everything
+				// above is the vocabulary debt; this is the part that pays out immediately.
+				foreach (string oa in oneAway) log.Add("  ONE AWAY: " + oa);
 			}
 			// THE PARTIAL-HEAD INVARIANT. A head's population is the union of ALL its rules
 			// (derive:merge_news folds every rule's news into the target), so emitting a STRICT
