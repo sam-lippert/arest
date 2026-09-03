@@ -4592,6 +4592,7 @@ namespace Arest.NormaOracle
 				if (partsC.Length < 3) continue;
 				FactIndexEntry hC = FindEntryByNormalizedSentence(headC);
 				if (hC == null) continue;
+				List<string> hqC = RoleQualified(headC, hC.Players);
 				int headRulesC;
 				rulesPerHead.TryGetValue(RuleHeadKey(headC), out headRulesC);
 				// ONE RULE SENTENCE, ONE PATH. No arm knows what an earlier arm already
@@ -4649,7 +4650,7 @@ namespace Arest.NormaOracle
 					FactIndexEntry leC = ResolveClauseSub(Dequantify(" " + tC + " ").Trim(), out plC);
 					if (leC == null)
 					{
-						Match cm = Regex.Match(tC, @"^(?:that |some )?([A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|is) (?:that |some )?([A-Z][\w ]*?)$");
+						Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|is) (?:that |some )?([A-Z][\w ]*?)$");
 						if (cm.Success)
 						{
 							cmpC.Add(new string[] { cm.Groups[1].Value.Trim(), cm.Groups[2].Value, cm.Groups[3].Value.Trim() });
@@ -4738,8 +4739,8 @@ namespace Arest.NormaOracle
 						for (int q = 0; q < cmpC.Count && found == 0; q++)
 						{
 							if (cmpC[q][1] != "is") continue;
-							string other = cmpC[q][0] == hC.Players[i] ? cmpC[q][2]
-								: (cmpC[q][2] == hC.Players[i] ? cmpC[q][0] : null);
+							string other = (cmpC[q][0] == hC.Players[i] || cmpC[q][0] == hqC[i]) ? cmpC[q][2]
+								: ((cmpC[q][2] == hC.Players[i] || cmpC[q][2] == hqC[i]) ? cmpC[q][0] : null);
 							if (other == null) continue;
 							// ONLY WHEN THE TWO SIDES ARE TYPE-COMPATIBLE. `Timestamp is Date` reads as
 							// a value copy, but projecting a Timestamp role from a Date pathed role is a
@@ -5862,6 +5863,33 @@ namespace Arest.NormaOracle
 			var pl = new FunctionParameter(myStore); pl.Function = made; pl.Name = "left";
 			var pr = new FunctionParameter(myStore); pr.Function = made; pr.Name = "right";
 			return made;
+		}
+
+		// A ROLE NAME QUALIFIES THE VARIABLE, and the head spells it out.
+		// `Support Request has contact- Name` names that Name role `contact`, and the
+		// rule refers back to it as `contact- Name`, so the head player (Name) and the
+		// clause (contact- Name) are one variable under two spellings. Six sibling rules
+		// in this family -- Description, Subject, Category, Timestamp -- build on the
+		// plain spelling; these are the same rule with a role name on the head role.
+		private static List<string> RoleQualified(string text, List<string> players)
+		{
+			var toks = new List<string>();
+			int from = 0;
+			foreach (string p in players)
+			{
+				int at = text.IndexOf(p, from, StringComparison.Ordinal);
+				if (at < 0) { toks.Add(p); continue; }
+				int start = at;
+				if (at >= 2 && text[at - 1] == ' ' && text[at - 2] == '-')
+				{
+					int w = at - 2;
+					while (w > 0 && (char.IsLetterOrDigit(text[w - 1]) || text[w - 1] == '-')) w--;
+					if (w < at - 2) start = w;
+				}
+				toks.Add(text.Substring(start, at + p.Length - start));
+				from = at + p.Length;
+			}
+			return toks;
 		}
 
 		private static List<int> ChainOrder(List<List<string>> toks, string rootTok)
