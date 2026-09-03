@@ -313,6 +313,24 @@ namespace Arest.NormaOracle
 
 		private void DeclareSentence(string s)
 		{
+			// A DECLARATION FOLLOWING A MARKED ONE ARRIVES WITH THAT MARKER GLUED ON.
+			// The bare-marker filter runs on the TAIL of a chunk only, so
+			//     Customer is admin. +
+			//     User Role is a value type.
+			// reaches here as `+ User Role is a value type.`, matches no declaration
+			// form, and the type is silently never declared -- then every reading using
+			// it splits into whatever shorter names it contains (`User` and `Role`, both
+			// metamodel entity types), turning a binary fact type ternary. Same leak I
+			// fixed for RULES in NormalizeRuleSentence; declarations needed it too.
+			//
+			// Safe here because a real rule is dispatched before this point: anything
+			// still carrying a marker and reaching DeclareSentence is a declaration that
+			// inherited one.
+			Match mk0 = Regex.Match(s, @"^(?:[*+]{1,2}\s+)+(.+)$");
+			if (mk0.Success && Regex.IsMatch(mk0.Groups[1].Value, @" is (a value type|an entity type|a supertype of|a subtype of)\.$"))
+			{
+				s = mk0.Groups[1].Value;
+			}
 			{
 				Match m;
 				if ((m = EntityDeclComposite.Match(s)).Success
