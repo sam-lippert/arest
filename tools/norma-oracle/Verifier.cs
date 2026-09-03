@@ -6554,6 +6554,12 @@ namespace Arest.NormaOracle
 			var slots = new PathedRole[legs.Count][];
 			var boundAt = new Dictionary<string, RolePath>(StringComparer.Ordinal);
 			var boundRole = new Dictionary<string, PathedRole>(StringComparer.Ordinal);
+			// ONE UNIFIER PER VARIABLE. A pathed role may belong to at most one -- adding it
+			// to a second throws inside ElementLink's constructor, which surfaces as the
+			// whole run dying with built: 0. A variable with THREE legs hanging off it (the
+			// AI Act's risk-management rule has that shape) needs one unifier carrying the
+			// bound role and every branch root, not one unifier per branch.
+			var uniByTok = new Dictionary<string, PathObjectUnifier>(StringComparer.Ordinal);
 			LeadRolePath leadForUni = parent as LeadRolePath;
 			// A SUB-PATH CONTINUES FROM WHERE ITS PARENT ENDED, not from the role whose
 			// variable it entered on. Off the LEAD that is a branch and NORMA reads it as
@@ -6604,9 +6610,14 @@ namespace Arest.NormaOracle
 						var uniRoot = new RolePathObjectTypeRoot(sp, uniRootT);
 						var uniRow = new PathedRole[legs[li].Roles.Count];
 						EnterLeg(sp, legs[li], ep, uniRow);
-						var uni = new PathObjectUnifier(myStore.DefaultPartition);
-						new LeadRolePathHasObjectUnifier(leadForUni, uni);
-						new PathObjectUnifierUnifiesPathedRole(uni, boundRole[entryTok]);
+						PathObjectUnifier uni;
+						if (!uniByTok.TryGetValue(entryTok, out uni))
+						{
+							uni = new PathObjectUnifier(myStore.DefaultPartition);
+							new LeadRolePathHasObjectUnifier(leadForUni, uni);
+							new PathObjectUnifierUnifiesPathedRole(uni, boundRole[entryTok]);
+							uniByTok[entryTok] = uni;
+						}
 						new PathObjectUnifierUnifiesRolePathRoot(uni, uniRoot);
 						slots[li] = uniRow;
 						if (firstSp == null) firstSp = sp;
