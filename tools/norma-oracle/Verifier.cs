@@ -4535,6 +4535,97 @@ namespace Arest.NormaOracle
 			// several lead paths (that is how a union of bullets is expressed), so
 			// paths-vs-rules is the honest comparison and null-vs-not is not.
 			// This is the fourth silent drop of the session and the second I wrote.
+			// PLACED LAST, DELIBERATELY. This is the fallback: run it before the specialised
+			// arms and it claims heads they build better. It did exactly that on first
+			// try -- `State Machine is instance of State Machine Definition` is a
+			// three-clause body that an earlier arm already owned, and the metamodel's
+			// design-state moved. The get-or-create guard cannot help, because whoever
+			// runs first wins; order is the only thing that decides it.
+			// THE GENERAL CHAIN: a body of THREE OR MORE plain clauses, walked as one path.
+			//     * Customer has Payload Document iff Customer has Stripe Subscription and
+			//       that Stripe Subscription has Stripe Price and that Stripe Price ...
+			// Two-clause bodies are already owned above, so this takes three and up and
+			// leaves those alone. Clauses carrying a quoted value, a comparison, an
+			// aggregate or a negation belong to the arms that know what to do with them;
+			// this one declines rather than dropping the part it cannot read, because a
+			// body built from a SUBSET of its clauses over-populates the head.
+			//
+			// The walk is pre-checked with ChainOrder before anything is constructed: this
+			// arm claims heads other arms may also want, and abandoning a half-built rule
+			// in the store leaves NORMA validating a path nobody meant.
+			foreach (string sC in myDeferredRules)
+			{
+				Match mc = Regex.Match(sC, @"^\* (.+?) iff (.+)\.$");
+				if (!mc.Success) continue;
+				string headC = mc.Groups[1].Value.Trim();
+				string bodyC = mc.Groups[2].Value.Trim();
+				if (bodyC.Contains("'")) continue;
+				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |(exceeds|greater than|less than|or more|is below|within|at least|more than|implies|no|not|neither)| equals | plus | minus ")) continue;
+				string[] partsC = Regex.Split(bodyC, @" and (?=that |some |[A-Z])");
+				if (partsC.Length < 3) continue;
+				FactIndexEntry hC = FindEntryByNormalizedSentence(headC);
+				if (hC == null) continue;
+				int headRulesC;
+				rulesPerHead.TryGetValue(RuleHeadKey(headC), out headRulesC);
+				// A MULTI-RULE HEAD IS A UNION HERE TOO, one lead path per rule. Requiring a
+				// single rule was the largest thing this arm refused for itself -- Source Request
+				// is routed via Fetcher, Vehicle Purchase Quote has registration Fee Amount and
+				// Billable Request is GDPR-compliant all have several. Where only some of a head's
+				// rules build, the paths-vs-rules census says so; that is what it is for.
+				var legsC = new List<FactIndexEntry>();
+				var toksC = new List<List<string>>();
+				bool okC = true;
+				foreach (string clC in partsC)
+				{
+					List<string> plC;
+					FactIndexEntry leC = ResolveClause(Dequantify(" " + clC.Trim() + " ").Trim(), out plC);
+					if (leC == null || leC == hC) { okC = false; break; }
+					legsC.Add(leC); toksC.Add(plC);
+				}
+				if (!okC) continue;
+				// every head player must sit at exactly one leg position, or the projection
+				// would be guessing which occurrence the head means
+				var atLegC = new int[hC.Players.Count];
+				var atPosC = new int[hC.Players.Count];
+				for (int i = 0; i < hC.Players.Count && okC; i++)
+				{
+					int found = 0;
+					for (int l = 0; l < legsC.Count; l++)
+					{
+						for (int c = 0; c < legsC[l].Players.Count; c++)
+						{
+							if (legsC[l].Players[c] != hC.Players[i]) continue;
+							if (found == 0) { atLegC[i] = l; atPosC[i] = c; }
+							found++;
+						}
+					}
+					if (found != 1) okC = false;
+				}
+				if (!okC) continue;
+				ObjectType rootC;
+				if (!myTypes.TryGetValue(hC.Players[0], out rootC)) continue;
+				if (ChainOrder(toksC, hC.Players[0]) == null) continue;
+				var ruleC = hC.Fact.DerivationRule as FactTypeDerivationRule;
+				if (ruleC == null)
+				{
+					ruleC = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hC.Fact, ruleC);
+					ApplyDerivationMarkers(hC.Fact, ruleC);
+				}
+				var leadC = new LeadRolePath(myStore);
+				ruleC.OwnedLeadRolePathCollection.Add(leadC);
+				new RolePathObjectTypeRoot(leadC, rootC);
+				PathedRole[][] rowsC = BuildChain(leadC, legsC, toksC, hC.Players[0], false);
+				if (rowsC == null) continue;
+				var pjC = new RoleSetDerivationProjection(ruleC, leadC);
+				for (int i = 0; i < hC.Roles.Count; i++)
+				{
+					var drpC = new DerivedRoleProjection(pjC, hC.Roles[i]);
+					new DerivedRoleProjectedFromPathedRole(drpC, rowsC[atLegC[i]][atPosC[i]]);
+				}
+				log.Add(hC.Fact.Name + " := chain over " + legsC.Count + " clauses, "
+					+ DescribeDerivation(hC.Fact));
+			}
 			var uRuleCount = new Dictionary<FactType, int>();
 			foreach (string sPre in myDeferredRules)
 			{
@@ -5327,15 +5418,43 @@ namespace Arest.NormaOracle
 		// which is De Morgan and NOT what `no X ... where ...` means. PathedRole.IsNegated
 		// selects the chained rendering -- the same mechanism that made the unary
 		// `it is not true that` case round-trip in f9827271.
+		// The order a chain of legs can be walked in, or null if it cannot: start at the
+		// leg holding the root token, then take each next leg BECAUSE it shares a token
+		// with something already bound. Pure, so an arm can ask whether a body is
+		// walkable BEFORE it constructs a rule and a path it would then have to abandon.
+		// The old order was "the root's leg, then the rest as they came", which for three
+		// or more legs hands the walk a leg sharing nothing with what precedes it. For two
+		// legs this returns exactly what that did, so nothing already building moves.
+		private static List<int> ChainOrder(List<List<string>> toks, string rootTok)
+		{
+			if (toks.Count < 1) return null;
+			int first = -1;
+			for (int i = 0; i < toks.Count; i++) if (toks[i].Contains(rootTok)) { first = i; break; }
+			if (first < 0) return null;
+			var order = new List<int>(); order.Add(first);
+			var bound = new HashSet<string>(toks[first], StringComparer.Ordinal);
+			var left = new List<int>();
+			for (int i = 0; i < toks.Count; i++) if (i != first) left.Add(i);
+			while (left.Count > 0)
+			{
+				int pick = -1;
+				foreach (int i in left)
+				{
+					foreach (string t in toks[i]) if (bound.Contains(t)) { pick = i; break; }
+					if (pick >= 0) break;
+				}
+				if (pick < 0) return null;
+				order.Add(pick); left.Remove(pick);
+				foreach (string t in toks[pick]) bound.Add(t);
+			}
+			return order;
+		}
+
 		private PathedRole[][] BuildChain(RolePath parent, List<FactIndexEntry> legs,
 			List<List<string>> toks, string rootTok, bool negated)
 		{
-			if (legs.Count < 1 || legs.Count > 2) return null;
-			int first = -1;
-			for (int i = 0; i < legs.Count; i++) if (toks[i].Contains(rootTok)) { first = i; break; }
-			if (first < 0) return null;
-			var order = new List<int>(); order.Add(first);
-			for (int i = 0; i < legs.Count; i++) if (i != first) order.Add(i);
+			List<int> order = ChainOrder(toks, rootTok);
+			if (order == null) return null;
 			var sp = new RoleSubPath(myStore);
 			parent.SubPathCollection.Add(sp);
 			var slots = new PathedRole[legs.Count][];
@@ -5352,7 +5471,11 @@ namespace Arest.NormaOracle
 				{
 					int nx = order[k + 1];
 					entryTok = null;
-					foreach (string t in toks[li]) if (toks[nx].Contains(t)) { entryTok = t; break; }
+					// the next leg may attach to ANY leg already laid, not just this one
+					for (int b = k; b >= 0 && entryTok == null; b--)
+					{
+						foreach (string t in toks[order[b]]) if (toks[nx].Contains(t)) { entryTok = t; break; }
+					}
 					if (entryTok == null) return null;
 				}
 			}
