@@ -1,0 +1,2 @@
+errors 0
+UNBUILT (head resolves, no arm matched the body) [legs resolving 1/2]: * Estate is defeasible iff Estate is a Fee Simple and Estate is subject to some Condition.

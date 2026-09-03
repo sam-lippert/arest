@@ -143,6 +143,32 @@ each carrying the head, the body no arm accepted, and how many legs resolved,
 closed by an UNBUILT SUMMARY. Those are printed unprompted on every run and are
 the fastest true statement about a reading's health that exists.
 
+## What a rule's body may say
+
+Four rules of the body, each found by a corpus rule that stayed unbuilt:
+
+- A leg may contain ` and ` (`Vertical Privity exists between Successor and
+  Original Party`): the splitter re-joins a leg that resolves to no declared
+  reading with its neighbour when the joined text is one. Nothing else is
+  ever joined, so a comparison, an arithmetic clause or a negation keeps its
+  own leg.
+- `H iff A or B` is two rules on one head, "and" binding tighter; the split
+  happens where the rule is deferred, outside quotes and outside any leg that
+  resolves to a declared reading (`Party fails to perform or repudiates.` is
+  one unary reading), never before more/fewer/less/later/earlier/equal.
+- A possessive is not a quote: `Defendant's Conduct ... Plaintiff's use` is
+  a reading, not an instance fact with a literal.
+- A sentence a rule uses as a leg is a reading by construction: the prose
+  guard (more than sixty characters of connective text is documentation)
+  still skips such a sentence at first, and the replay after the map declares
+  it once a deferred rule names it.
+
+The census then says per rule what it lacks: `ONE AWAY: <clause> <- <head>`
+for a body one declaration short, `MISSING (n): <clause> | ... <- <head>` for
+the rest. `Estate is a Fee Simple` as a body leg (subtype membership) is the
+next arm; `* Each Fee Simple Absolute is a Fee Simple that ...` is the
+qualified subtype definition NORMA already builds.
+
 ## Where a run's time goes
 
 Every section boundary prints `timing: <phase> N ms` and every commit

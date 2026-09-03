@@ -336,6 +336,10 @@ namespace Arest.NormaOracle
 		private static readonly Regex IdentifiedByDecl = new Regex(@"^Each (" + NameChars + @"+?)\s+is identified by\s+(" + NameChars + @"+?)\.$");
 		private static readonly Regex EntityDeclBare = new Regex(@"^(" + NameChars + @"+?)\s+is an entity type\.$");
 		private static readonly Regex ObjectifiesDecl = new Regex("^([\\w :]+) objectifies [\"“](.+)[\"”]\\.$");
+		// a quoted literal opens and closes at a word boundary; an apostrophe with a
+		// letter on its outer side is a possessive (the tokenizer's rule, shared)
+		private static readonly Regex LiteralRx = new Regex(@"(?<![\p{L}\p{Nd}])'[^']*'(?![\p{L}\p{Nd}])");
+		private static readonly Regex LiteralWithSpaceRx = new Regex(@"\s*(?<![\p{L}\p{Nd}])'[^']*'(?![\p{L}\p{Nd}])");
 		private static readonly Regex ValueDecl = new Regex(@"^(" + NameChars + @"+?)\s+is a value type\.$");
 
 		public void DeclarePass(IEnumerable<string> sentences)
@@ -1117,7 +1121,7 @@ namespace Arest.NormaOracle
 				// only rows, so an asserted one is erased by the next derivation.
 				Match mk = Regex.Match(s, @"^(\+{1,2}) (.+?) (?:iff|if) ");
 				if (mk.Success) myRuleMarkers.Add(new string[] { mk.Groups[1].Value, mk.Groups[2].Value.Trim() });
-				myDeferredRules.Add(NormalizeRuleSentence(s));
+				foreach (string alt in SplitDisjunction(NormalizeRuleSentence(s))) myDeferredRules.Add(alt);
 				Count("derivation rule (deferred: no textual rule input in NORMA)");
 				return;
 			}
@@ -1253,7 +1257,7 @@ namespace Arest.NormaOracle
 			}
 			if (s.StartsWith("* "))
 			{
-				myDeferredRules.Add(s);
+				foreach (string alt in SplitDisjunction(s)) myDeferredRules.Add(alt);
 				Count("derivation rule (deferred: no textual rule input in NORMA)");
 				return;
 			}
@@ -1330,7 +1334,11 @@ namespace Arest.NormaOracle
 				myMapLog.Add("RETIRED FORM (use: X objectifies \"reading\"): " + Shorten(s));
 				return;
 			}
-			if (Regex.IsMatch(s, @"'[^']*'"))
+			// A POSSESSIVE IS NOT A QUOTE: `Defendant's Conduct causes ... Plaintiff's use
+			// and enjoyment of Land.` matched `'[^']*'` and was filed as an instance fact,
+			// so the reading was never declared and every torts rule over it stayed
+			// unbuilt (us-law 2026-09-03). A literal opens and closes at a word boundary.
+			if (LiteralRx.IsMatch(s))
 			{
 				// instance facts attribute AFTER every file's readings exist —
 				// csdp.md's SM rows precede state.md's SM readings in file order
@@ -1394,6 +1402,35 @@ namespace Arest.NormaOracle
 		// an objectification that preceded its fact in file order is replayed
 		// once every file has mapped; it used to be counted deferred and never
 		// retried, so Plan Product never nested "Plan includes API"
+		// A SENTENCE A RULE USES AS A LEG IS A READING BY CONSTRUCTION. The prose
+		// guard skipped `Defendant's Conduct causes substantial and unreasonable
+		// interference with Plaintiff's use and enjoyment of Land.` as documentation
+		// (78 characters of connective text) and every rule over it stayed unbuilt
+		// (us-law 2026-09-03). After the map, a skipped sentence that is a leg of a
+		// deferred rule is declared with the guard lifted; documentation stays skipped.
+		public void ReplayProseReadings()
+		{
+			if (myProseSkipped.Count == 0) return;
+			foreach (string rule in myDeferredRules)
+			{
+				Match m = Regex.Match(rule, @"^(?:\*+ |\+ )(.+?) iff (.+)\.$");
+				if (!m.Success) continue;
+				// runs of consecutive legs too: the splitter cannot re-join a sentence cut
+				// at two ` and `s until it is declared, and it is declared from its use here
+				string[] legs = SplitBody(m.Groups[2].Value);
+				for (int i = 0; i < legs.Length; i++)
+				{
+					for (int j = i; j < legs.Length && j <= i + 3; j++)
+					{
+						string run = string.Join(" and ", legs, i, j - i + 1);
+						string sentence = Dequantify(" " + run.Trim() + " ").Trim() + ".";
+						if (!myProseSkipped.Contains(sentence)) continue;
+						myProseSkipped.Remove(sentence);
+						if (MapFactReading(sentence, true)) Count("reading declared by its use in a rule (prose guard lifted)");
+					}
+				}
+			}
+		}
 		public void ReplayObjectifications()
 		{
 			foreach (string s in myDeferredObjectifications)
@@ -1550,7 +1587,7 @@ namespace Arest.NormaOracle
 			// a cross join against the subtype's population, and nothing in the body supplies
 			// an Authority at all -- but the census must still say "declared, not built"
 			// rather than "no such fact type", which sends a reader to the wrong file.
-			string bare = Regex.Replace(headRaw, @"\s*'[^']*'", "").Trim();
+			string bare = LiteralWithSpaceRx.Replace(headRaw, "").Trim();
 			FactIndexEntry e = FindEntryByNormalizedSentence(bare);
 			if (e != null) return e;
 			// SUBSTITUTE ONE OCCURRENCE, IN ANY POSITION. The subtype is not always the
@@ -1900,6 +1937,12 @@ namespace Arest.NormaOracle
 
 		private bool MapFactReading(string s)
 		{
+			return MapFactReading(s, false);
+		}
+		// the sentences the prose guard skipped, whole: a rule may name one as a leg
+		private readonly HashSet<string> myProseSkipped = new HashSet<string>(StringComparer.Ordinal);
+		private bool MapFactReading(string s, bool liftProseGuard)
+		{
 			string body = s.TrimEnd('.');
 			// find object-type occurrences by longest-name-first matching
 			List<KeyValuePair<int, string>> hits = new List<KeyValuePair<int, string>>();
@@ -2011,9 +2054,10 @@ namespace Arest.NormaOracle
 			// slashes-of-prose, or > 60 chars of connective text mean a stray
 			// documentation sentence, not a fact reading
 			string connective = Regex.Replace(text, @"\{\d\}", "");
-			if (text.IndexOf('`') >= 0 || text.IndexOf('(') >= 0 || connective.Length > 60)
+			if (text.IndexOf('`') >= 0 || text.IndexOf('(') >= 0 || (connective.Length > 60 && !liftProseGuard))
 			{
 				Count("prose skipped (not a reading)");
+				if (connective.Length > 60) myProseSkipped.Add(s);
 				return false;
 			}
 
@@ -2075,6 +2119,62 @@ namespace Arest.NormaOracle
 		private readonly List<string> myRuleRecipes = new List<string>();
 		private readonly List<string> myRingRows = new List<string>();
 		private readonly List<string> myDeferredRules = new List<string>();
+		// "H iff A or B" IS TWO RULES ON ONE HEAD. FORML's "or" between clauses, with
+		// "and" binding tighter, and a head with several rules carries several lead
+		// paths, which the read-back gate reads one by one. Split at a top-level
+		// " or " outside quotes, never before more/fewer/less/later/earlier/equal,
+		// and pieces that together are one declared reading are re-joined (a
+		// reading may contain " or "). No built rule in any corpus contained " or "
+		// when this landed (2026-09-03); 20 of us-law's 44 one-away rules did.
+		private IEnumerable<string> SplitDisjunction(string rule)
+		{
+			Match m = Regex.Match(rule, @"^(\*+ |\+ )(.+?) iff (.+)\.$");
+			if (!m.Success) { yield return rule; yield break; }
+			string body = m.Groups[3].Value;
+			// an " or " inside a leg that resolves to a declared reading is predicate
+			// text (`Party fails to perform or repudiates.` is one unary reading), never
+			// a split point: the legs are found first and the resolving ones protected
+			var protectedTo = new int[body.Length];
+			int scan = 0;
+			foreach (string leg in SplitBody(body))
+			{
+				int at = body.IndexOf(leg, scan, StringComparison.Ordinal);
+				if (at < 0) continue;
+				if (LegResolves(leg)) for (int k = at; k < at + leg.Length && k < body.Length; k++) protectedTo[k] = 1;
+				scan = at + leg.Length;
+			}
+			var pieces = new List<string>();
+			int start = 0;
+			bool quoted = false;
+			for (int i = 0; i < body.Length; i++)
+			{
+				if (body[i] == '\'') { quoted = !quoted; continue; }
+				if (quoted || protectedTo[i] == 1 || !string.CompareOrdinal(body, i, " or ", 0, 4).Equals(0)) continue;
+				if (Regex.IsMatch(body.Substring(i + 4), @"^(more|fewer|less|later|earlier|equal|otherwise)\b")) continue;
+				pieces.Add(body.Substring(start, i - start).Trim());
+				start = i + 4;
+				i += 3;
+			}
+			pieces.Add(body.Substring(start).Trim());
+			bool joined = true;
+			while (joined && pieces.Count > 1)
+			{
+				joined = false;
+				for (int i = 0; i < pieces.Count - 1; i++)
+				{
+					if (LegResolves(pieces[i]) && LegResolves(pieces[i + 1])) continue;
+					string together = pieces[i] + " or " + pieces[i + 1];
+					if (!LegResolves(together)) continue;
+					pieces[i] = together;
+					pieces.RemoveAt(i + 1);
+					joined = true;
+					break;
+				}
+			}
+			if (pieces.Count == 1) { yield return rule; yield break; }
+			Count("derivation rule split at or (" + pieces.Count + " alternatives)");
+			foreach (string piece in pieces) yield return m.Groups[1].Value + m.Groups[2].Value + " iff " + piece + ".";
+		}
 		// WHICH RULE SENTENCES HAVE BEEN BUILT. The paths-vs-rules cap counts how many
 		// paths a head has, which stops an arm adding a third to a two-rule head -- but
 		// it cannot tell WHICH rule each path came from. So when one rule of a head is
@@ -2985,7 +3085,7 @@ namespace Arest.NormaOracle
 				if (!m5.Success) continue;
 				if (s5.Contains("'") || s5.Contains(" no ") || s5.Contains("not true")) continue;
 				string head5 = m5.Groups[1].Value.Trim();
-				string[] rawLegs = m5.Groups[2].Value.Split(new[] { " and " }, StringSplitOptions.None);
+				string[] rawLegs = SplitBody(m5.Groups[2].Value);
 				if (rawLegs.Length < 3) continue;            // two legs are the arms above
 				FactIndexEntry hE5 = FindEntryByNormalizedSentence(head5);
 				if (hE5 == null) continue;
@@ -3258,7 +3358,7 @@ namespace Arest.NormaOracle
 				var posL = new List<FactIndexEntry>(); var posT = new List<List<string>>();
 				var negL = new List<FactIndexEntry>(); var negT = new List<List<string>>();
 				bool ok7 = true;
-				foreach (string raw in halves[0].Split(new[] { " and " }, StringSplitOptions.None))
+				foreach (string raw in SplitBody(halves[0]))
 				{
 					string c = raw.Trim();
 					FactIndexEntry e = FindEntryByNormalizedSentence(Dequantify(" " + c + " ").Trim());
@@ -3829,7 +3929,7 @@ namespace Arest.NormaOracle
 				string bodyC = cm2.Groups[2].Value;
 				if (bodyC.Contains("'") || bodyC.Contains(" no ") || bodyC.Contains("not true")
 					|| bodyC.Contains(" where ")) continue;
-				string[] rawC = bodyC.Split(new[] { " and " }, StringSplitOptions.None);
+				string[] rawC = SplitBody(bodyC);
 				if (rawC.Length < 3) continue;
 				string headC = cm2.Groups[1].Value.Trim();
 				FactIndexEntry hEC = FindEntryByNormalizedSentence(headC);
@@ -4276,7 +4376,7 @@ namespace Arest.NormaOracle
 				if (!myTypes.TryGetValue(rootVar, out rootT)) continue;
 				var condLegs = new List<KeyValuePair<FactIndexEntry, KeyValuePair<int, string>>>();
 				bool ok = true;
-				foreach (string lt in m.Groups[2].Value.Split(new[] { " and " }, StringSplitOptions.None))
+				foreach (string lt in SplitBody(m.Groups[2].Value))
 				{
 					string t = lt.Trim();
 					if (!t.StartsWith(rootVar + " ", StringComparison.Ordinal)) { ok = false; break; }
@@ -4438,7 +4538,7 @@ namespace Arest.NormaOracle
 				FactIndexEntry headE = FindEntryByNormalizedSentence(head);
 				if (headE == null || headE.Fact.DerivationRule != null || headE.Players.Count != 2) continue;
 				if (headE.Players[0] == headE.Players[1]) continue;
-				string[] legTexts = m.Groups[2].Value.Split(new[] { " and " }, StringSplitOptions.None);
+				string[] legTexts = SplitBody(m.Groups[2].Value);
 				if (legTexts.Length < 1) continue;
 				// each leg is a RELATIVE CHAIN — "that A <p1> some B that <p2>
 				// some C ..." — optionally ending in the CAST terminal
@@ -5928,7 +6028,7 @@ namespace Arest.NormaOracle
 						string ubody = um.Groups[2].Value;
 						Match uagg = Regex.Match(ubody, @"^.+? is the (?:count|sum) of .+? where (.+)$");
 						if (uagg.Success) ubody = uagg.Groups[1].Value;
-						string[] ulegs = ubody.Split(new[] { " and " }, StringSplitOptions.None);
+						string[] ulegs = SplitBody(ubody);
 						int ures = 0;
 						foreach (string ul in ulegs)
 						{
@@ -5986,6 +6086,7 @@ namespace Arest.NormaOracle
 			var needClause = new SortedDictionary<string, int>(StringComparer.Ordinal);
 			int rulesOneAway = 0;
 			var oneAway = new SortedSet<string>(StringComparer.Ordinal);
+			var missingRules = new SortedSet<string>(StringComparer.Ordinal);
 			foreach (string sN in myDeferredRules)
 			{
 				Match mn = Regex.Match(sN, @"^\* (.+?) iff (.+)\.$");
@@ -5993,6 +6094,7 @@ namespace Arest.NormaOracle
 				if (FindEntryByNormalizedSentence(mn.Groups[1].Value.Trim()) == null) continue;
 				int miss = 0;
 				string lastMissing = null;
+				var missingN = new List<string>();
 				// the SAME split the arm uses, including the lower-case role-named target of
 				// an arithmetic clause -- otherwise two clauses arrive glued together and the
 				// report names a "missing fact type" that is really a split failure.
@@ -6012,7 +6114,7 @@ namespace Arest.NormaOracle
 					// stayed on the one-away list for a rule that had started building.
 					string bareN = Regex.Replace(tN, @"([A-Za-z])[0-9]\b", "$1");
 					if (bareN != tN && ResolveClauseSub(Dequantify(" " + bareN + " ").Trim(), out pN) != null) continue;
-					string litN = Regex.Replace(tN, @"\s*'[^']*'", "").Trim();
+					string litN = LiteralWithSpaceRx.Replace(tN, "").Trim();
 					if (litN != tN && ResolveClauseSub(Dequantify(" " + litN + " ").Trim(), out pN) != null) continue;
 					// a comparison or arithmetic clause names no fact type BY DESIGN
 					// The arm reads `A is B` between two DECLARED types as a comparison or an
@@ -6032,6 +6134,7 @@ namespace Arest.NormaOracle
 					// these; the census did not, and so disagreed with it about what is wrong.
 					if (Regex.IsMatch(tN, @" is the (count|sum|mean|min|max) of |the (minimum|maximum) of | (plus|minus|times|divided by|multiplied by) |\b(exceeds|is less than|is greater than|is below|is above|equals|or more|or fewer|at least|at most|more than|within|in range|in the past|no|not|neither)\b")) continue;
 					miss++;
+					missingN.Add(tN);
 					int had;
 					needClause.TryGetValue(tN, out had);
 					needClause[tN] = had + 1;
@@ -6041,6 +6144,12 @@ namespace Arest.NormaOracle
 				{
 					rulesOneAway++;
 					oneAway.Add(lastMissing + "   <- " + mn.Groups[1].Value.Trim());
+				}
+				else if (miss > 1)
+				{
+					// the conversion list per rule: every clause of this body that names no
+					// declared reading, so the reader converts the rule, not a clause at a time
+					missingRules.Add("  MISSING (" + miss + "): " + string.Join(" | ", missingN) + "   <- " + mn.Groups[1].Value.Trim());
 				}
 			}
 			if (needClause.Count != 0)
@@ -6052,6 +6161,7 @@ namespace Arest.NormaOracle
 				// the actionable half: declare THIS clause and THAT rule builds. Everything
 				// above is the vocabulary debt; this is the part that pays out immediately.
 				foreach (string oa in oneAway) log.Add("  ONE AWAY: " + oa);
+				foreach (string mr in missingRules) log.Add(mr);
 			}
 			// THE PARTIAL-HEAD INVARIANT. A head's population is the union of ALL its rules
 			// (derive:merge_news folds every rule's news into the target), so emitting a STRICT
@@ -6485,7 +6595,7 @@ namespace Arest.NormaOracle
 				// Supersession Date`, NORMA's own negative quantifier on the object.
 				Match hn = Regex.Match(c, @"^(.+?) (has|have) no (.+)$");
 				if (hn.Success) { neg = true; c = hn.Groups[1].Value + " " + hn.Groups[2].Value + " " + hn.Groups[3].Value; }
-				string bare = Regex.Replace(c, @"\s*'[^']*'", "");
+				string bare = LiteralWithSpaceRx.Replace(c, "");
 				List<string> players; string cSwapped;
 				FactIndexEntry e = ResolveClauseSub(bare, out players, out cSwapped);
 				if (e == null)
@@ -8049,9 +8159,45 @@ namespace Arest.NormaOracle
 				mySplitRe = new Regex(@" and (?=that |some |[A-Z]|" + alt
 					+ @"[A-Za-z][\w-]*(?: [\w-]+){0,3} equals |[a-z][\w-]*(?: [\w-]+){0,3} is )");
 			}
-			return mySplitRe.Split(body);
+			string[] parts = mySplitRe.Split(body);
+			// A READING MAY CONTAIN ` and `. The split fires before a capital, so
+			// `Vertical Privity exists between Successor and Original Party` arrived
+			// as two legs and the census reported both halves as missing vocabulary.
+			// A leg that resolves to no declared reading is re-joined with its
+			// neighbour when the joined text IS one; nothing else is ever joined, so
+			// a comparison, an arithmetic clause or a negation keeps its own leg.
+			if (parts.Length < 2) return parts;
+			var legs = new List<string>(parts);
+			bool joined = true;
+			while (joined)
+			{
+				joined = false;
+				// runs of up to four legs, not only pairs: a reading cut at two ` and `s is
+				// three pieces, none of which pairs into a declared reading
+				for (int i = 0; i < legs.Count - 1 && !joined; i++)
+				{
+					for (int j = i + 1; j < legs.Count && j <= i + 3; j++)
+					{
+						bool allResolve = true;
+						for (int k = i; k <= j && allResolve; k++) allResolve = LegResolves(legs[k]);
+						if (allResolve) break;
+						string together = string.Join(" and ", legs.GetRange(i, j - i + 1));
+						if (!LegResolves(together)) continue;
+						legs[i] = together;
+						legs.RemoveRange(i + 1, j - i);
+						joined = true;
+						break;
+					}
+				}
+			}
+			return legs.ToArray();
 		}
 		private Regex mySplitRe;
+		private bool LegResolves(string leg)
+		{
+			List<string> players;
+			return ResolveClauseSub(Dequantify(" " + leg.Trim() + " ").Trim(), out players) != null;
+		}
 
 		private FactIndexEntry ResolveClause(string clause, out List<string> playersOut)
 		{
@@ -8872,7 +9018,7 @@ namespace Arest.NormaOracle
 				// so a capitalized phrase that resolves to NO declared type is
 				// a reference nothing anchors ('Tesla Vehicle Offer') - the
 				// class the minted-by-usage report structurally cannot see
-				string bare = Regex.Replace(s, @"'[^']*'", " ");
+				string bare = LiteralRx.Replace(s, " ");
 				foreach (Match pm in Regex.Matches(bare, @"\b([A-Z][a-z\w]*(?: [A-Z][a-z\w]*)+)\b"))
 				{
 					string phrase = pm.Groups[1].Value;
