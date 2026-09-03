@@ -1957,6 +1957,7 @@ namespace Arest.NormaOracle
 					new DerivedRoleProjectedFromPathedRole(drp, steps[i]);
 				}
 				if (!ok) continue;
+				myBuiltRuleSentences.Add(s);
 				log.Add(headE.Fact.Name + " := join over " + j + " (" + e1.Fact.Name + " x " + e2.Fact.Name + "), " + DescribeDerivation(headE.Fact));
 				RecordRuleRecipe(headE, e1, e2, j1, j2, located);
 			}
@@ -4192,6 +4193,7 @@ namespace Arest.NormaOracle
 				}
 				var names = new List<string>();
 				foreach (var leg in legs) names.Add(leg.Key.Fact.Name);
+				myBuiltRuleSentences.Add(s);
 				log.Add(headE.Fact.Name + " := chain over " + string.Join(" -> ", names) + ", fully derived, not stored");
 			}
 			// THE NEGATION CLASS: `iff <positive> and no <Type> <clause> where <clause>`.
@@ -4764,6 +4766,7 @@ namespace Arest.NormaOracle
 					new DerivedRoleProjectedFromPathedRole(drp, steps[i]);
 				}
 				if (!ok) continue;
+				myBuiltRuleSentences.Add(sRaw);
 				log.Add(headE.Fact.Name + " := join over " + j + " (" + e1.Fact.Name + " x " + e2.Fact.Name + "), " + DescribeDerivation(headE.Fact));
 				RecordRuleRecipe(headE, e1, e2, j1, j2, located);
 			}
@@ -4838,9 +4841,23 @@ namespace Arest.NormaOracle
 				// so splitting only before `that`, `some` or a capital leaves the arithmetic
 				// glued to the clause before it, and it is never seen as its own clause.
 				string[] partsC = SplitBody(bodyC);
-				if (partsC.Length < 3) continue;
+				// TWO CLAUSES TOO. This arm used to leave those to the arms above, and they
+				// do take most of them -- but each of those wants a particular shape (a
+				// binary head, the join variable opening the second leg), and a two-clause
+				// body that fits none of them had nowhere else to go. kernel writes eight:
+				// a leg plus a unary filter (`... and Observation1 is training`), or two
+				// legs meeting at a variable the earlier arms cannot enter on. Running last,
+				// behind the built-sentence registry and the paths-vs-rules cap, this arm
+				// can take them without stealing anything.
+				if (partsC.Length < 2) continue;
 				FactIndexEntry hC = FindEntryByNormalizedSentence(headC);
 				if (hC == null) continue;
+				// `**` DECLARES THE BODY EXTERNAL -- fully derived and stored, with no in-store
+				// body BY DESIGN, which is why the arm that owns it records a recipe and zero
+				// paths. Zero paths is exactly what the paths-vs-rules cap reads as a free
+				// slot, so lowering this arm's clause floor let it hand `Object Type is
+				// instantiable` a body the declaration says it does not have.
+				if (myStoredDerived.Contains(hC.Fact) && !mySemiDerived.Contains(hC.Fact)) continue;
 				List<string> hqC = RoleQualified(headC, hC.Players);
 				int headRulesC;
 				rulesPerHead.TryGetValue(RuleHeadKey(headC), out headRulesC);
@@ -5230,6 +5247,7 @@ namespace Arest.NormaOracle
 					leadC.CalculatedConditionCollection.Add(cpvC);
 				}
 				if (!okC) continue;
+				myBuiltRuleSentences.Add(sC);
 				log.Add(hC.Fact.Name + " := chain over " + legsC.Count + " clauses"
 					+ (cmpC.Count > 0 ? " with " + cmpC.Count + " comparison" : "") + ", "
 					+ DescribeDerivation(hC.Fact));
