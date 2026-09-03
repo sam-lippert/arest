@@ -1652,6 +1652,13 @@ namespace Arest.NormaOracle
 		private readonly List<string> myRuleRecipes = new List<string>();
 		private readonly List<string> myRingRows = new List<string>();
 		private readonly List<string> myDeferredRules = new List<string>();
+		// WHICH RULE SENTENCES HAVE BEEN BUILT. The paths-vs-rules cap counts how many
+		// paths a head has, which stops an arm adding a third to a two-rule head -- but
+		// it cannot tell WHICH rule each path came from. So when one rule of a head is
+		// unbuildable, a later arm fills the free slot with a SECOND path over a rule
+		// that already built, and the head still looks right by the count. That is what
+		// state.md RULE 2 turned into once the general-join arm stopped mis-building it.
+		private readonly HashSet<string> myBuiltRuleSentences = new HashSet<string>(StringComparer.Ordinal);
 		private readonly List<string[]> myRuleMarkers = new List<string[]>();
 
 		// FORML names two variables of ONE type by subscripting, so
@@ -2581,6 +2588,7 @@ namespace Arest.NormaOracle
 				foreach (string p in hE5.Players) hp5.Add(IAtom(p));
 				myRuleRecipes.Add("S3(" + IAtom(hE5.Fact.Name) + ", S" + hp5.Count + "("
 					+ string.Join(", ", hp5) + "), " + recipe5 + ")");
+				myBuiltRuleSentences.Add(sRaw5);
 				log.Add(hE5.Fact.Name + " := star join on " + centreTok + " over " + legs.Count
 					+ " legs, " + DescribeDerivation(hE5.Fact));
 			}
@@ -3327,6 +3335,9 @@ namespace Arest.NormaOracle
 				// becomes the join key (2,2). So collect these first, drop them, and rename
 				// one variable to the other everywhere else; the ordinary planner then joins
 				// on the merged variable by itself.
+				// Tokens that only resolved by substituting a supertype for the subtype the
+				// clause actually named.
+				var subTokC = new HashSet<string>(StringComparer.Ordinal);
 				var renames = new Dictionary<string, string>(StringComparer.Ordinal);
 				var realLegs = new List<string>();
 				foreach (string raw0 in rawC)
@@ -3373,7 +3384,9 @@ namespace Arest.NormaOracle
 								if (cand == null) continue;
 								var pl = new List<string>(cand.Players);
 								for (int c = 0; c < pl.Count; c++) if (pl[c] == sup.Name) { pl[c] = kv.Key; break; }
-								e = cand; tk = SubscriptedTokens(cl, pl); break;
+								e = cand; tk = SubscriptedTokens(cl, pl);
+								if (tk != null) foreach (string st in tk) if (st.StartsWith(kv.Key, StringComparison.Ordinal)) subTokC.Add(st);
+								break;
 							}
 							if (e != null) break;
 						}
@@ -3397,6 +3410,31 @@ namespace Arest.NormaOracle
 					// say WHICH leg defeated the plan; a silent continue here is
 					// indistinguishable from a non-matching regex, which cost an iteration
 					log.Add("  general-join: leg unresolved in: " + Shorten(sC));
+					continue;
+				}
+				// A SUBTYPE FILLER CANNOT ALSO BE THE JOIN VARIABLE. `Transition1 is from
+				// State Machine Definition1` resolves against the declared `Transition is
+				// from- Status`, so the role NORMA builds is typed STATUS. Where the same
+				// token is named again -- `Status1 is defined in State Machine Definition1`
+				// -- that role is typed State Machine Definition, and joining the two needs
+				// an explicit subtype step that this arm does not lay down. It built anyway,
+				// and NORMA rendered it as `is some from Status ... and that Status1 is
+				// defined in some State Machine Definition THAT IS THAT TRANSITION`: the
+				// machine binding dropped from the from-role and the definition aliased to a
+				// Transition. Wrong, not incomplete, and the only gate that could see it was
+				// reading the verbalization back. Used ONCE the substitution is just a
+				// filter and stays fine -- that is the case this guard leaves alone.
+				bool subJoinC = false;
+				foreach (string st in subTokC)
+				{
+					int seen = 0;
+					for (int li = 0; li < toksC.Count; li++) if (toksC[li].Contains(st)) seen++;
+					if (htC.Contains(st)) seen++;
+					if (seen > 1) { subJoinC = true; break; }
+				}
+				if (subJoinC)
+				{
+					log.Add("  general-join: subtype filler is also the join variable (needs a subtype step) in: " + Shorten(sC));
 					continue;
 				}
 				// A VARIABLE IN EVERY LEG IS THE STAR ARM'S SHAPE -- decline, or both arms
@@ -4777,6 +4815,7 @@ namespace Arest.NormaOracle
 			// in the store leaves NORMA validating a path nobody meant.
 			foreach (string sC in myDeferredRules)
 			{
+				if (myBuiltRuleSentences.Contains(sC)) continue;
 				Match mc = Regex.Match(sC, @"^\* (.+?) iff (.+)\.$");
 				if (!mc.Success) continue;
 				string headC = mc.Groups[1].Value.Trim();
@@ -4830,6 +4869,8 @@ namespace Arest.NormaOracle
 				// inverts it.
 				if (Regex.IsMatch(Regex.Replace(bodyC, " has no | is not | does not ", " "), @"\b(no|not)\b")) continue;
 				var negC = new List<bool>();
+				// declared players that only matched because a subtype was substituted for them
+				var swapPlayersC = new HashSet<string>(StringComparer.Ordinal);
 				var cmpC = new List<string[]>();
 				var arithC = new List<string[]>();
 				var thrC = new List<string[]>();
@@ -4880,15 +4921,16 @@ namespace Arest.NormaOracle
 					}
 					List<string> plC = null;
 					FactIndexEntry leC = null;
+					string swapC = null;
 					if (thisNegC)
 					{
 						foreach (string candC in negTriesC)
 						{
-							leC = ResolveClauseSub(Dequantify(" " + candC + " ").Trim(), out plC);
+							leC = ResolveClauseSub(Dequantify(" " + candC + " ").Trim(), out plC, out swapC);
 							if (leC != null) { tPosC = candC; break; }
 						}
 					}
-					else leC = ResolveClauseSub(Dequantify(" " + tPosC + " ").Trim(), out plC);
+					else leC = ResolveClauseSub(Dequantify(" " + tPosC + " ").Trim(), out plC, out swapC);
 					if (leC == null)
 					{
 						Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|is) (?:that |some )?([A-Z][\w ]*?)$");
@@ -4941,6 +4983,7 @@ namespace Arest.NormaOracle
 					if (leC == null || leC == hC) { okC = false; break; }
 					if (thrOp != null) thrC.Add(new string[] { plC[plC.Count - 1], thrOp, thrVal, legsC.Count.ToString() });
 					legsC.Add(leC);
+					if (swapC != null) swapPlayersC.Add(swapC);
 					negC.Add(thisNegC);
 					toksC.Add(RoleQualified(Dequantify(" " + tPosC + " ").Trim(), plC));
 				}
@@ -5045,6 +5088,22 @@ namespace Arest.NormaOracle
 				if (!okC) continue;
 				ObjectType rootC;
 				if (!myTypes.TryGetValue(hC.Players[0], out rootC)) continue;
+				// A SUBTYPE FILLER CANNOT ALSO BE THE JOIN VARIABLE. `Transition1 is from
+				// State Machine Definition1` resolves against `Transition is from- Status`,
+				// so the role is typed STATUS while the clause named a State Machine
+				// Definition. Any other leg joining on that Status is joining across a
+				// subtype step this arm does not lay down, and NORMA does not refuse it --
+				// it renders something else and populates it. state.md RULE 2 came out as
+				// `is that from Status1 where that Transition is some to Status`, which is
+				// not what the reading says. Used once, the substitution is only a filter.
+				foreach (string swp in swapPlayersC)
+				{
+					int seenSwp = 0;
+					for (int l = 0; l < toksC.Count; l++) if (toksC[l].Contains(swp)) seenSwp++;
+					if (hC.Players.Contains(swp)) seenSwp++;
+					if (seenSwp > 1) { okC = false; break; }
+				}
+				if (!okC) continue;
 				// A HEAD ROLE MAY NOT PROJECT FROM INSIDE A NEGATION. The variables under a
 				// negation do not exist outside it, so a head that took its value from one
 				// would be reading a row the rule says is absent.
@@ -6145,6 +6204,17 @@ namespace Arest.NormaOracle
 		// supertype at all -- resolved on one side only.
 		private FactIndexEntry ResolveClauseSub(string clause, out List<string> players)
 		{
+			string swapped;
+			return ResolveClauseSub(clause, out players, out swapped);
+		}
+
+		// `swappedPlayer` names the DECLARED player that only matched because a subtype
+		// was substituted for it. The caller needs to know: the role NORMA builds is
+		// typed by the supertype, so joining another leg onto it is a subtype step, and
+		// an arm that cannot lay one down must decline rather than join anyway.
+		private FactIndexEntry ResolveClauseSub(string clause, out List<string> players, out string swappedPlayer)
+		{
+			swappedPlayer = null;
 			FactIndexEntry e = ResolveClause(clause, out players);
 			if (e != null) return e;
 			foreach (string subName in myTypes.Keys.OrderByDescending(n => n.Length))
@@ -6160,7 +6230,7 @@ namespace Arest.NormaOracle
 				{
 					if (supName == subName || !RootsAt(myTypes[subName], supName)) continue;
 					e = ResolveClause(clause.Substring(0, at) + supName + clause.Substring(end), out players);
-					if (e != null) return e;
+					if (e != null) { swappedPlayer = supName; return e; }
 				}
 			}
 			// A ROLE NAME CAN QUALIFY A VARIABLE WHERE THE DECLARATION CARRIES NONE.
