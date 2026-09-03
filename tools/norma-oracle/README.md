@@ -141,3 +141,25 @@ list, and the UNBUILT lines -- one per derivation the compiler could not build,
 each carrying the head, the body no arm accepted, and how many legs resolved,
 closed by an UNBUILT SUMMARY. Those are printed unprompted on every run and are
 the fastest true statement about a reading's health that exists.
+
+## Regression and probes
+
+Two gates ride beside the oracle, both plain sh:
+
+    tools/norma-oracle/regress.sh <out-dir> [baseline-dir]
+    tools/norma-oracle/probes.sh [--record] [probe-name ...]
+
+`regress.sh` runs the metamodel and the four app corpora in parallel (about
+three minutes) and, against a baseline, reports built derivation-rule heads
+by NAME with multiplicity (a count hides a dropped rule; a name does not),
+NORMA's blocking errors, and whether the carriers are byte-identical, listing
+lost heads, new heads, and changed errors under each line. A run without a
+baseline is the baseline for the next one; keep them under `_reports/`.
+
+`probes.sh` runs each minimal model under `probes/` through the oracle ALONE
+and diffs its rule verbalizations, UNBUILT lines, and error count against
+`expected.txt`. Probes use distinct types so NORMA's naming is unambiguous.
+`--record` writes what the oracle produced as the expectation: read it back
+first, because a probe records the meaning that was verified, not whatever
+came out. A one-line `errors 0` expectation keeps a known wrong build red
+until it is fixed.
