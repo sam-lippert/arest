@@ -233,16 +233,26 @@ namespace Arest.NormaOracle
 				verifier.FlushSchemes();
 				t.Commit();
 			}
-			foreach (string f in files)
+			// ONE TRANSACTION FOR THE WHOLE MAP. NORMA validates at commit and that
+			// validation grows with the model, so a commit per file made the closure
+			// corpora quadratic: past seventy files each commit took minutes. One commit
+			// validates once; the per-file map timing stays on the mapped line.
+			var swCommit = new System.Diagnostics.Stopwatch();
+			using (Transaction t = store.TransactionManager.BeginTransaction("map"))
 			{
-				verifier.ResetContext();
-				using (Transaction t = store.TransactionManager.BeginTransaction("map " + System.IO.Path.GetFileName(f)))
+				foreach (string f in files)
 				{
+					verifier.ResetContext();
+					var swMap = System.Diagnostics.Stopwatch.StartNew();
 					verifier.MapPass(fileSentences[f]);
-					t.Commit();
+					swMap.Stop();
+					Console.WriteLine("mapped: " + System.IO.Path.GetFileName(f) + " (" + fileSentences[f].Count + " sentences, map " + swMap.ElapsedMilliseconds + " ms)");
 				}
-				Console.WriteLine("mapped: " + System.IO.Path.GetFileName(f) + " (" + fileSentences[f].Count + " sentences)");
+				swCommit.Start();
+				t.Commit();
+				swCommit.Stop();
 			}
+			Console.WriteLine("committed the map in " + swCommit.ElapsedMilliseconds + " ms");
 
 			using (Transaction t = store.TransactionManager.BeginTransaction("deferred constraints"))
 			{
@@ -301,6 +311,13 @@ namespace Arest.NormaOracle
 				t.Commit();
 			}
 			List<string> assumed;
+			List<string> arityLog;
+			using (Transaction t = store.TransactionManager.BeginTransaction("reading arity"))
+			{
+				arityLog = verifier.RepairReadingArity();
+				t.Commit();
+			}
+			foreach (string l in arityLog) Console.WriteLine("  " + l);
 			using (Transaction t = store.TransactionManager.BeginTransaction("set semantics"))
 			{
 				assumed = verifier.AssumeSetSemantics();

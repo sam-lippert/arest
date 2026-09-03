@@ -109,7 +109,8 @@ Framework 4.8, dotnet SDK to build.
 ## Checking an app or a library
 
 The oracle is the corpus's verifier now. Every app package.json still points
-`check` at ..\..rest\cratesrest	argetelease\check-cli.exe, and crates/
+`check` at ..\..rest\cratesrest	arget
+elease\check-cli.exe, and crates/
 went with the fat hosts, so no app in apps/ can currently check itself.
 
 It takes the SAME directory list its carriers record. Each app keeps that list
@@ -149,8 +150,11 @@ Two gates ride beside the oracle, both plain sh:
     tools/norma-oracle/regress.sh <out-dir> [baseline-dir]
     tools/norma-oracle/probes.sh [--record] [probe-name ...]
 
-`regress.sh` runs the metamodel and the four app corpora in parallel (about
-three minutes) and, against a baseline, reports built derivation-rule heads
+`regress.sh` runs the metamodel and five app corpora in parallel -- kernel,
+auto.dev, support, eu-law and us-law, each the readings closure its
+package.json declares, with a library's domain subdirectories passed
+explicitly because the oracle reads one directory level -- and, against a
+baseline, reports built derivation-rule heads
 by NAME with multiplicity (a count hides a dropped rule; a name does not),
 NORMA's blocking errors, and whether the carriers are byte-identical, listing
 lost heads, new heads, and changed errors under each line. A run without a

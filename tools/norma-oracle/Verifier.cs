@@ -3241,6 +3241,7 @@ namespace Arest.NormaOracle
 					+ ", S" + keysA.Count + "(" + string.Join(", ", keysA) + "), S" + outA.Count
 					+ "(" + string.Join(", ", outA) + "))";
 				var ruleA = hEA.Fact.DerivationRule as FactTypeDerivationRule;
+				bool madeRuleAA = ruleA == null;
 				if (ruleA == null)
 				{
 					ruleA = new FactTypeDerivationRule(myStore);
@@ -3250,17 +3251,22 @@ namespace Arest.NormaOracle
 				var leadA = new LeadRolePath(myStore);
 				ruleA.OwnedLeadRolePathCollection.Add(leadA);
 				new RolePathObjectTypeRoot(leadA, myTypes[hEA.Players[0]]);
-				var spA = new RoleSubPath(myStore);
-				leadA.SubPathCollection.Add(spA);
-				var rowA = new PathedRole[pEA.Roles.Count];
-				EnterLeg(spA, pEA, pposA[0], rowA);
-				var spN = new RoleSubPath(myStore);
-				leadA.SubPathCollection.Add(spN);
-				var rowN = new PathedRole[nEA.Roles.Count];
-				int nEntry = 0;
-				for (int c = 0; c < nEA.Players.Count; c++) if (bnd[c]) { nEntry = c; break; }
-				EnterLeg(spN, nEA, nEntry, rowN);
-				if (spN.PathedRoleCollection.Count > 0) spN.PathedRoleCollection[0].IsNegated = true;
+				// LAID BY BuildChain (as the general-join arm now is): the negated leg must
+				// enter on its BOUND variable where that variable was bound -- the positive
+				// leg's State Machine Definition role -- not from the lead's end, which is
+				// the root Status. Entering there put a Status into the Definition role,
+				// which NORMA allowed (a Definition is a Status) and the gate read back as
+				// `no Status2 is initial in that Status`. The quantified token is fresh:
+				// `no Status` is not the head's Status.
+				var ntA = SubscriptedTokens(negCl, nEA.Players);
+				if (ntA == null) ntA = new List<string>(nEA.Players);
+				for (int c = 0; c < ntA.Count && c < bnd.Length; c++) if (!bnd[c]) ntA[c] = ntA[c] + "~no";
+				var legsAA = new List<FactIndexEntry>(); legsAA.Add(pEA); legsAA.Add(nEA);
+				var toksAA = new List<List<string>>(); toksAA.Add(ptA); toksAA.Add(ntA);
+				PathedRole[][] rowsAA = BuildChain(leadA, legsAA, toksAA, htA[0], false, new bool[] { false, true });
+				if (rowsAA == null) { leadA.Delete(); if (madeRuleAA) ruleA.Delete(); continue; }
+				UnifyRepeatedTokens(leadA, toksAA, rowsAA);
+				PathedRole[] rowA = rowsAA[0];
 				var pjA = new RoleSetDerivationProjection(ruleA, leadA);
 				for (int i = 0; i < hEA.Roles.Count; i++)
 				{
@@ -3582,6 +3588,7 @@ namespace Arest.NormaOracle
 					continue;
 				}
 				var ruleC = hEC.Fact.DerivationRule as FactTypeDerivationRule;
+				bool madeRuleCC = ruleC == null;
 				if (ruleC == null)
 				{
 					ruleC = new FactTypeDerivationRule(myStore);
@@ -3591,25 +3598,21 @@ namespace Arest.NormaOracle
 				var leadC = new LeadRolePath(myStore);
 				ruleC.OwnedLeadRolePathCollection.Add(leadC);
 				new RolePathObjectTypeRoot(leadC, myTypes[hEC.Players[0]]);
-				var rowsC = new List<PathedRole[]>();
-				for (int li = 0; li < legsC.Count; li++)
-				{
-					// enter each leg at a role whose variable another leg also carries, so
-					// the sub-paths join rather than standing as independent entries
-					int ent = 0;
-					for (int c = 0; c < toksC[li].Count; c++)
-					{
-						bool sharedC = false;
-						for (int lj = 0; lj < legsC.Count && !sharedC; lj++)
-							if (lj != li && toksC[lj].Contains(toksC[li][c])) sharedC = true;
-						if (sharedC) { ent = c; break; }
-					}
-					var spC = new RoleSubPath(myStore);
-					leadC.SubPathCollection.Add(spC);
-					var rowC = new PathedRole[legsC[li].Roles.Count];
-					EnterLeg(spC, legsC[li], ent, rowC);
-					rowsC.Add(rowC);
-				}
+				// LAID BY BuildChain, not by hand. This arm used to lay every leg as a
+				// sibling off the lead, entering at the first role whose variable another
+				// leg carried -- and a sibling continues from the lead's END, so a leg
+				// entering on a variable the root does not carry joined the root into the
+				// wrong role: kernel's `Observation1 has the same input as Observation2`
+				// read back as "that Observation3 IS SOME PROBLEM that includes ..." with
+				// three incompatible-player errors, the one wrong build left after the gate.
+				// BuildChain enters each leg on a variable already bound, where it was
+				// bound, roots a leg that carries none, and unifies branch roots; the
+				// repeated-token fix-up covers the rest. One combining form, not one
+				// layout per arm.
+				PathedRole[][] rowsCC = BuildChain(leadC, legsC, toksC, htC[0], false);
+				if (rowsCC == null) { leadC.Delete(); if (madeRuleCC) ruleC.Delete(); continue; }
+				UnifyRepeatedTokens(leadC, toksC, rowsCC);
+				var rowsC = new List<PathedRole[]>(rowsCC);
 				var headPRC = new PathedRole[htC.Count];
 				for (int li = 0; li < legsC.Count; li++)
 					for (int c = 0; c < toksC[li].Count; c++)
@@ -3618,7 +3621,7 @@ namespace Arest.NormaOracle
 						if (hi >= 0 && headPRC[hi] == null) headPRC[hi] = rowsC[li][c];
 					}
 				for (int i = 0; i < htC.Count && okC; i++) if (headPRC[i] == null) okC = false;
-				if (!okC) continue;
+				if (!okC) { leadC.Delete(); if (madeRuleCC) ruleC.Delete(); continue; }
 				var pjC = new RoleSetDerivationProjection(ruleC, leadC);
 				for (int i = 0; i < hEC.Roles.Count; i++)
 				{
@@ -5056,7 +5059,11 @@ namespace Arest.NormaOracle
 					bool thisNegC = false;
 					string tPosC = tC;
 					var negTriesC = new List<string>();
-					if (tC.Contains(" has no ")) { thisNegC = true; negTriesC.Add(tC.Replace(" has no ", " has ")); }
+					// THE CANONICAL FORM FIRST: `it is not true that <clause>` contains " is not "
+					// and the idiom below turned it into "it is true that ...", which resolves
+					// to nothing -- the rewritten GDPR rule lost its build that way.
+					if (tC.StartsWith("it is not true that ", StringComparison.OrdinalIgnoreCase)) { thisNegC = true; negTriesC.Add(tC.Substring(20).Trim()); }
+					else if (tC.Contains(" has no ")) { thisNegC = true; negTriesC.Add(tC.Replace(" has no ", " has ")); }
 					else if (tC.Contains(" is not ")) { thisNegC = true; negTriesC.Add(tC.Replace(" is not ", " is ")); }
 					else if (tC.Contains(" does not "))
 					{
@@ -5844,6 +5851,11 @@ namespace Arest.NormaOracle
 				FactType fact = role == null ? null : role.FactType;
 				if (fact == null) continue;
 				int idx = fact.RoleCollection.IndexOf(role);
+				// A NEGATED STEP NEGATES THE REST OF ITS PATH: NORMA verbalizes "it is not
+				// true that" before the step and every later step of the path and its
+				// sub-paths sits inside it, as `no Transition is defined in ... where that
+				// Transition is from that Status` does in the text.
+				negated = negated || pr.IsNegated;
 				bool sameFact = pr.PathedRolePurpose == PathedRolePurpose.SameFactType
 					&& curInst != null && curInst.Fact == fact && idx >= 0 && curInst.Vars[idx] < 0;
 				if (sameFact)
@@ -6006,6 +6018,20 @@ namespace Arest.NormaOracle
 			return result;
 		}
 
+		// The type token a clause starts with (`Transition` in `Transition is to that
+		// Status`, subscript included), or null.
+		private string RbLeadingToken(string c)
+		{
+			foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
+			{
+				if (!c.StartsWith(name, StringComparison.Ordinal)) continue;
+				int end = name.Length;
+				while (end < c.Length && char.IsDigit(c[end])) end++;
+				if (end == c.Length || c[end] == ' ') return c.Substring(0, end);
+			}
+			return null;
+		}
+
 		private RbText RbParse(string sentence)
 		{
 			var t = new RbText { Sentence = sentence };
@@ -6025,6 +6051,7 @@ namespace Arest.NormaOracle
 			t.HeadLits = headLits.ToArray();
 			var alias = new Dictionary<string, string>(StringComparer.Ordinal);
 			var queue = new List<string>(SplitBody(body));
+			int noGroups = 0;
 			for (int qi = 0; qi < queue.Count; qi++)
 			{
 				string c = Regex.Replace(queue[qi].Trim(), @"\s+", " ");
@@ -6037,25 +6064,66 @@ namespace Arest.NormaOracle
 				// A TRAILING CONDITION rides on the last clause: `that Failure occurred at
 				// some Timestamp2 where Timestamp1 is before Timestamp2`. The clause is the
 				// fact; the condition is a calculation and is queued on its own.
+				// `no A where B` is one negation over both clauses; the where-part is
+				// queued already negated so the two instances read as NORMA lays them, a
+				// negated step and the rest of its path.
+				// `no Transition ... where that Transition ...` quantifies a FRESH variable:
+				// the Transition of that group is not an outer Transition. The quantified
+				// token is renamed within the group, and the where-part carries the name
+				// along in a marker so its clause renames the same way.
+				bool noNeg = false;
+				string quantTok = null, quantNew = null;
+				if (c.StartsWith("\u0002"))
+				{
+					int m3 = c.IndexOf('\u0003');
+					string[] mk = c.Substring(1, m3 - 1).Split('|');
+					quantTok = mk[0]; quantNew = mk[1];
+					c = c.Substring(m3 + 1);
+				}
+				if (c.StartsWith("no ", StringComparison.OrdinalIgnoreCase))
+				{
+					noNeg = true; c = c.Substring(3).Trim();
+					quantTok = RbLeadingToken(c);
+					if (quantTok != null) { noGroups++; quantNew = quantTok + "~no" + noGroups; }
+				}
 				int whereAt = c.IndexOf(" where ", StringComparison.Ordinal);
-				if (whereAt > 0) { queue.Add(c.Substring(whereAt + 7)); c = c.Substring(0, whereAt).Trim(); }
+				if (whereAt > 0)
+				{
+					string rest = c.Substring(whereAt + 7);
+					if (noNeg) rest = "\u0002" + quantTok + "|" + quantNew + "\u0003it is not true that " + rest;
+					queue.Add(rest);
+					c = c.Substring(0, whereAt).Trim();
+				}
 				// AN INLINE THRESHOLD rides on a fact clause: `that Query Route has Max Retry
 				// Count greater than 0`. The fact is compared; the threshold is a calculation.
 				Match tm = Regex.Match(c, @"^(.+?) (?:is )?(?:greater than|less than|more than|fewer than|at least|at most|exceeds|equals) (?:-?[0-9]+(?:\.[0-9]+)?|'[^']*')$", RegexOptions.IgnoreCase);
 				if (tm.Success) { t.CalcIgnored++; c = tm.Groups[1].Value.Trim(); }
-				bool neg = false;
+				bool neg = noNeg;
 				if (c.StartsWith("it is not true that ", StringComparison.OrdinalIgnoreCase)) { neg = true; c = c.Substring(20).Trim(); }
+				// `Authority has no Supersession Date` is the negation of `Authority has
+				// Supersession Date`, NORMA's own negative quantifier on the object.
+				Match hn = Regex.Match(c, @"^(.+?) (has|have) no (.+)$");
+				if (hn.Success) { neg = true; c = hn.Groups[1].Value + " " + hn.Groups[2].Value + " " + hn.Groups[3].Value; }
 				string bare = Regex.Replace(c, @"\s*'[^']*'", "");
 				List<string> players; string cSwapped;
 				FactIndexEntry e = ResolveClauseSub(bare, out players, out cSwapped);
 				if (e == null)
 				{
-					Match am = Regex.Match(bare, @"^([A-Z][\w-]*(?: [A-Z][\w-]*)*\d*) (?:is|equals) ([A-Z][\w-]*(?: [A-Z][\w-]*)*\d*)$");
-					if (am.Success && myTypes.ContainsKey(StripRolePrefix(am.Groups[1].Value)) && myTypes.ContainsKey(StripRolePrefix(am.Groups[2].Value))
-						&& myTypes[StripRolePrefix(am.Groups[1].Value)].IsValueType && myTypes[StripRolePrefix(am.Groups[2].Value)].IsValueType)
+					// AN IDENTITY CLAUSE names one variable twice: `Category is Issue Type`
+					// between value types, or `that Fact Type is that Function` where one
+					// entity type roots at the other (the reflection bridge). Both alias.
+					string plain = Regex.Replace(bare, @"\b(that|some|a|an|the) ", "");
+					Match am = Regex.Match(plain, @"^([A-Z][\w-]*(?: [A-Z][\w-]*)*\d*) (?:is|equals) ([A-Z][\w-]*(?: [A-Z][\w-]*)*\d*)$");
+					if (am.Success)
 					{
-						alias[am.Groups[2].Value] = am.Groups[1].Value;
-						continue;
+						string ta = StripRolePrefix(am.Groups[1].Value), tb = StripRolePrefix(am.Groups[2].Value);
+						ObjectType oa, ob;
+						if (myTypes.TryGetValue(ta, out oa) && myTypes.TryGetValue(tb, out ob)
+							&& ((oa.IsValueType && ob.IsValueType) || ta == tb || RootsAt(oa, tb) || RootsAt(ob, ta)))
+						{
+							alias[am.Groups[2].Value] = am.Groups[1].Value;
+							continue;
+						}
 					}
 					if (RbCalc.IsMatch(bare)) { t.CalcIgnored++; continue; }
 					t.Unchecked = "clause names no fact type: " + c;
@@ -6064,6 +6132,7 @@ namespace Arest.NormaOracle
 				if (cSwapped != null) { t.Unchecked = "clause substitutes a subtype: " + c; return t; }
 				List<string> clits;
 				string[] toks = RbTokens(c, players, out clits);
+				if (quantTok != null) for (int i = 0; i < toks.Length; i++) if (toks[i] == quantTok) toks[i] = quantNew;
 				t.Clauses.Add(new RbClause { Entry = e, Tokens = toks, Negated = neg });
 			}
 			if (alias.Count > 0)
@@ -6072,6 +6141,30 @@ namespace Arest.NormaOracle
 				canon = delegate(string tok) { string a; return tok != null && alias.TryGetValue(tok, out a) ? canon(a) : tok; };
 				foreach (RbClause cl in t.Clauses) for (int i = 0; i < cl.Tokens.Length; i++) cl.Tokens[i] = canon(cl.Tokens[i]);
 				for (int i = 0; i < t.HeadTokens.Length; i++) t.HeadTokens[i] = canon(t.HeadTokens[i]);
+			}
+			// A HEAD TOKEN WITHOUT A ROLE PREFIX names the body's one qualified variable
+			// of that type: `Source Request is routed via Fetcher iff ... has override-
+			// Fetcher` binds the head's Fetcher to `override- Fetcher`, which is how the
+			// arms read it (qualified over plain over stripped). Positive clauses first;
+			// only when exactly one candidate remains.
+			for (int i = 0; i < t.HeadTokens.Length; i++)
+			{
+				string h = t.HeadTokens[i];
+				if (h == null) continue;
+				bool present = false;
+				foreach (RbClause cl in t.Clauses) if (Array.IndexOf(cl.Tokens, h) >= 0) { present = true; break; }
+				if (present) continue;
+				var pos = new SortedSet<string>(StringComparer.Ordinal);
+				var any = new SortedSet<string>(StringComparer.Ordinal);
+				foreach (RbClause cl in t.Clauses)
+					foreach (string tok in cl.Tokens)
+					{
+						if (tok == null || StripRolePrefix(tok) != StripRolePrefix(h)) continue;
+						any.Add(tok);
+						if (!cl.Negated) pos.Add(tok);
+					}
+				SortedSet<string> pick = pos.Count > 0 ? pos : any;
+				if (pick.Count == 1) foreach (string only in pick) t.HeadTokens[i] = only;
 			}
 			return t;
 		}
@@ -6165,6 +6258,40 @@ namespace Arest.NormaOracle
 			return head.Name + "(" + string.Join(", ", hs) + ") <- " + string.Join(" and ", parts);
 		}
 
+		// A READING WITH MORE PLACEHOLDERS THAN ITS FACT TYPE HAS ROLES kills the run:
+		// NORMA formats the reading with one name per role at commit and throws a
+		// FormatException from inside Transaction.Commit, after the derivation rules
+		// and before the error report, so the corpus reads as "errors 0". It happens
+		// when two corpora declare a fact type of the same name with different
+		// arities and the later reading lands on the earlier fact type. Name it and
+		// remove the reading so the run completes and the finding is on the record.
+		public List<string> RepairReadingArity()
+		{
+			var log = new List<string>();
+			var doomed = new List<Reading>();
+			foreach (FactType ft in myModel.FactTypeCollection)
+			{
+				if (ft.IsDeleted) continue;
+				foreach (ReadingOrder ro in ft.ReadingOrderCollection)
+				{
+					int roles = ro.RoleCollection.Count;
+					foreach (Reading r in ro.ReadingCollection)
+					{
+						if (r.IsDeleted || r.Text == null) continue;
+						int max = -1;
+						foreach (Match m in Regex.Matches(r.Text, @"\{(\d+)\}")) max = Math.Max(max, int.Parse(m.Groups[1].Value));
+						if (max >= roles)
+						{
+							log.Add("READING/ARITY MISMATCH: " + ft.Name + " has " + roles + " role(s) but reading '" + r.Text + "' names placeholder " + max + " -- reading removed");
+							doomed.Add(r);
+						}
+					}
+				}
+			}
+			foreach (Reading r in doomed) r.Delete();
+			return log;
+		}
+
 		public List<string> ReadBackDerivationRules()
 		{
 			var log = new List<string>();
@@ -6208,6 +6335,16 @@ namespace Arest.NormaOracle
 					var types = new List<string>();
 					var uf = new List<int>();
 					RbVarsOf(lead, insts, varOf, types, uf);
+					// A SUBTYPE STEP IS AN IDENTITY. NORMA models `Failure is a subtype of
+					// Violation` as a fact type, and a leg over it says one object plays both
+					// roles; the text says the same with `that Failure is that Violation`, or
+					// by naming the subtype in a supertype's role. Fold it into the variable.
+					for (int k = insts.Count - 1; k >= 0; k--)
+					{
+						if (!(insts[k].Fact is SubtypeFact)) continue;
+						if (insts[k].Vars.Length == 2 && insts[k].Vars[0] >= 0 && insts[k].Vars[1] >= 0) RbUnion(uf, insts[k].Vars[0], insts[k].Vars[1]);
+						insts.RemoveAt(k);
+					}
 					foreach (RbInst inst in insts)
 						for (int k = 0; k < inst.Vars.Length; k++)
 							inst.Vars[k] = inst.Vars[k] < 0 ? RbNewVar(types, uf, inst.Fact.RoleCollection[k].Role.RolePlayer) : RbFind(uf, inst.Vars[k]);
@@ -7175,7 +7312,9 @@ namespace Arest.NormaOracle
 					// disconnected: a sub-path of its own, rooted at its own entry player. The
 					// condition that ties it to the rest is added by the caller.
 					ObjectType freshRoot;
-					if (!myTypes.TryGetValue(toks[li][0], out freshRoot)) return null;
+					// the token names a variable; the type is the token without its role
+					// prefix, its subscript, or a `~no` group suffix
+					if (!myTypes.TryGetValue(StripRolePrefix(Regex.Replace(toks[li][0], @"~\w*$", "")), out freshRoot)) return null;
 					parent.SubPathCollection.Add(sp);
 					new RolePathObjectTypeRoot(sp, freshRoot);
 					entryTok = toks[li][0];
@@ -7187,7 +7326,18 @@ namespace Arest.NormaOracle
 					RolePath into = boundAt[entryTok];
 					int kids;
 					childCount.TryGetValue(into, out kids);
-					if (into != parent && kids > 0)
+					// A CHILD CONTINUES FROM ITS PARENT'S END, which is the bound variable
+					// only when the parent's LAST pathed role bound it. A token bound in the
+					// middle of a four-role leg (`Post Grant Review` in `Petitioner files
+					// petition for Post Grant Review challenging Patent within 9 months of
+					// Grant Date`) needs the rooted branch below, or the child joins Grant
+					// Date into its Post Grant Review role: the gate read "some Grant Date
+					// that is that Post Grant Review" and NORMA called the players
+					// incompatible. Same lesson as the second child, one role earlier.
+					bool atEnd = into == parent
+						|| (into.PathedRoleCollection.Count > 0 && boundRole.ContainsKey(entryTok)
+							&& into.PathedRoleCollection[into.PathedRoleCollection.Count - 1] == boundRole[entryTok]);
+					if (into != parent && (kids > 0 || !atEnd))
 					{
 						if (leadForUni == null || !boundRole.ContainsKey(entryTok)) return null;
 						parent.SubPathCollection.Add(sp);

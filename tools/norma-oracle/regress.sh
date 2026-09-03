@@ -29,15 +29,29 @@ EXE="$A/tools/norma-oracle/bin/Debug/norma-oracle.exe"
 OUT=${1:?usage: regress.sh <out-dir> [baseline-dir]}
 BASE=${2:-}
 
-corpora="metamodel autodev kernel support eulaw"
+# CORPORA narrows the run: the three small corpora take about two minutes,
+# the three closures that carry us-law take the oracle over an hour each.
+corpora=${CORPORA:-"metamodel autodev kernel support eulaw uslaw"}
 
+# A corpus is an app's readings closure as its package.json declares it
+# (auto.dev depends on law-core and us-law; support on auto.dev, law-core,
+# us-law and arest's templates; eu-law and us-law on law-core), always with
+# the metamodel first. The oracle reads ONE directory level, and a library
+# keeps its domains in subdirectories (us-law: 65 of 67 files), so every
+# directory under a library's readings is passed. Until 2026-09-03 the
+# support and auto.dev corpora here carried none of us-law's statutory
+# readings and support carried files it does not import.
+tree_of() {
+  find "$1" -type d | sed 's|^/c/|C:/|'
+}
 dirs_for() {
   case $1 in
     metamodel) echo "$A/metamodel" ;;
-    autodev)   echo "$A/metamodel $R/auto.dev $R/law-core/readings" ;;
     kernel)    echo "$A/metamodel $R/kernel/readings" ;;
-    support)   echo "$A/metamodel $R/support.auto.dev/readings $R/law-core/readings $R/us-law/readings" ;;
+    autodev)   echo "$A/metamodel $R/auto.dev $R/law-core/readings $(tree_of "$R/us-law/readings")" ;;
+    support)   echo "$A/metamodel $R/support.auto.dev/readings $R/auto.dev $R/law-core/readings $(tree_of "$R/us-law/readings") $A/readings/templates" ;;
     eulaw)     echo "$A/metamodel $R/eu-law/readings $R/law-core/readings" ;;
+    uslaw)     echo "$A/metamodel $(tree_of "$R/us-law/readings") $R/law-core/readings" ;;
   esac
 }
 
@@ -58,6 +72,8 @@ run_one() {
   rbn=$(grep -o 'READ-BACK SUMMARY: .*' "$d/out.lf" | grep -oE '[0-9]+ built rule' | grep -oE '^[0-9]+')
   echo "$(( ${rb:-0} + ${rbn:-0} ))" > "$d/readback.count"
   grep -E '^  READ-BACK (MISMATCH|NO PATH)' "$d/out.lf" | sed 's/^ *//' | sort > "$d/readback.txt"
+  # a run that died is not a run with zero errors
+  grep -m1 -E 'Unhandled Exception|^   at Arest\.NormaOracle\.Program' "$d/out.lf" > "$d/crash" || true
   rm -f "$d/out.lf"
 }
 
@@ -70,6 +86,10 @@ for c in $corpora; do
   nb=$(wc -l < "$d/built.names" | tr -d ' ')
   ne=$(cat "$d/errors.count")
   nr=$(cat "$d/readback.count")
+  if [ -s "$d/crash" ]; then
+    printf '%-9s CRASHED after %s mapped files: %s\n' "$c" "$(grep -c '^mapped:' "$d/out.txt")" "$(cut -c1-140 "$d/crash")"
+    continue
+  fi
   if [ -z "$BASE" ]; then
     printf '%-9s built %3s  errors %s  read-back %s\n' "$c" "$nb" "$ne" "$nr"
     grep -h 'UNBUILT SUMMARY' "$d/out.txt" | tr -d '\r' | sed 's/^ */    /'
