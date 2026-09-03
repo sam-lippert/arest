@@ -77,9 +77,18 @@ for c in $corpora; do
   oe=$(cat "$b/errors.count")
   new=$(comm -13 "$b/built.names" "$d/built.names" | wc -l | tr -d ' ')
   lost=$(comm -23 "$b/built.names" "$d/built.names" | wc -l | tr -d ' ')
+  # A carrier can differ by ORDER alone: the oracle's emission of app corpora
+  # is not reproducible run to run (NORMA-minted implied fact types and the
+  # oracle's own minted twins land in enumeration order), while the metamodel
+  # has stayed byte-identical. So a difference is classified: the same
+  # multiset of elements in another order is "order only"; anything else is
+  # "content", which is the finding.
   carriers=IDENTICAL
   for f in design-state norma-answer; do
-    cmp -s "$b/$f" "$d/$f" || carriers=DIFFER
+    if ! cmp -s "$b/$f" "$d/$f"; then
+      kind=$(python "$A/tools/norma-oracle/carrier-kind.py" "$b/$f" "$d/$f")
+      if [ "$kind" = "content" ]; then carriers="DIFFER (content)"; elif [ "$carriers" = IDENTICAL ]; then carriers="DIFFER (order only)"; fi
+    fi
   done
   printf '%-9s built %3s -> %3s (+%s/-%s)  errors %s -> %s  carriers %s\n' \
     "$c" "$ob" "$nb" "$new" "$lost" "$oe" "$ne" "$carriers"
