@@ -1126,15 +1126,31 @@ namespace Arest.NormaOracle
 			string bare = Regex.Replace(headRaw, @"\s*'[^']*'", "").Trim();
 			FactIndexEntry e = FindEntryByNormalizedSentence(bare);
 			if (e != null) return e;
-			foreach (string subName in myTypes.Keys)
+			// SUBSTITUTE ONE OCCURRENCE, IN ANY POSITION. The subtype is not always the
+			// subject: `Customer is subject to Regulation 'GDPR (EU 2016/679)'` names the
+			// declared `Customer is subject to Authority` with Regulation, a subtype of
+			// Authority, in OBJECT position -- as do support.auto.dev's
+			// `Person is subject to Minnesota Authority` family. Longest name first, so
+			// `Minnesota Authority` is tried before the `Authority` inside it.
+			foreach (string subName in myTypes.Keys.OrderByDescending(n => n.Length))
 			{
-				if (!bare.StartsWith(subName + " ", StringComparison.Ordinal)) continue;
-				string rest = bare.Substring(subName.Length);
-				foreach (string supName in myTypes.Keys)
+				int at = 0;
+				while ((at = bare.IndexOf(subName, at, StringComparison.Ordinal)) >= 0)
 				{
-					if (supName == subName || !RootsAt(myTypes[subName], supName)) continue;
-					FactIndexEntry cand = FindEntryByNormalizedSentence(supName + rest);
-					if (cand != null) return cand;
+					int end = at + subName.Length;
+					bool leftOk = at == 0 || !char.IsLetterOrDigit(bare[at - 1]);
+					bool rightOk = end >= bare.Length || !char.IsLetterOrDigit(bare[end]);
+					if (leftOk && rightOk)
+					{
+						foreach (string supName in myTypes.Keys)
+						{
+							if (supName == subName || !RootsAt(myTypes[subName], supName)) continue;
+							FactIndexEntry cand = FindEntryByNormalizedSentence(
+								bare.Substring(0, at) + supName + bare.Substring(end));
+							if (cand != null) return cand;
+						}
+					}
+					at = end;
 				}
 			}
 			return null;
