@@ -454,6 +454,13 @@ namespace Arest.NormaOracle
 							if (rft == null || rft.RoleCollection.Count != 2) continue;
 							Role other = rft.RoleCollection[0].Role == pr ? rft.RoleCollection[1].Role : rft.RoleCollection[0].Role;
 							if (other.RolePlayer == null || !string.Equals(other.RolePlayer.Name, mode, StringComparison.OrdinalIgnoreCase)) continue;
+							// THE MINTED MODE TYPE NEEDS A DATA TYPE. NORMA's refmode machinery
+							// creates the value type behind `Authority(.citation)` but leaves it
+							// unspecified, and an unspecified value type is a BLOCKING error --
+							// eighteen of them in eu-law, four in auto.dev, all named after modes
+							// (citation, year, article, basis). The composite branch below has
+							// always called EnsureDataType; this one never did.
+							EnsureDataType(other.RolePlayer, "text");
 							mySchemeFacts[NormalizeWords(t.Name + " has " + other.RolePlayer.Name)] = new FactIndexEntry
 							{
 								Fact = rft,
