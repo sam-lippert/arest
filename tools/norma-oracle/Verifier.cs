@@ -4585,7 +4585,7 @@ namespace Arest.NormaOracle
 				//     ... and state Sales Tax Amount equals taxable Base Amount times ...
 				// so splitting only before `that`, `some` or a capital leaves the arithmetic
 				// glued to the clause before it, and it is never seen as its own clause.
-				string[] partsC = Regex.Split(bodyC, @" and (?=that |some |[A-Z]|[A-Za-z][\w-]*(?: [\w-]+){0,3} equals )");
+				string[] partsC = Regex.Split(bodyC, @" and (?=that |some |[A-Z]|[A-Za-z][\w-]*(?: [\w-]+){0,3} equals |[a-z][\w-]*(?: [\w-]+){0,3} is )");
 				if (partsC.Length < 3) continue;
 				FactIndexEntry hC = FindEntryByNormalizedSentence(headC);
 				if (hC == null) continue;
@@ -4946,7 +4946,7 @@ namespace Arest.NormaOracle
 				// the SAME split the arm uses, including the lower-case role-named target of
 				// an arithmetic clause -- otherwise two clauses arrive glued together and the
 				// report names a "missing fact type" that is really a split failure.
-				foreach (string clN in Regex.Split(mn.Groups[2].Value, @" and (?=that |some |[A-Z]|[A-Za-z][\w-]*(?: [\w-]+){0,3} equals )"))
+				foreach (string clN in Regex.Split(mn.Groups[2].Value, @" and (?=that |some |[A-Z]|[A-Za-z][\w-]*(?: [\w-]+){0,3} equals |[a-z][\w-]*(?: [\w-]+){0,3} is )"))
 				{
 					string tN = clN.Trim();
 					if (tN.Length == 0) continue;
@@ -4960,6 +4960,13 @@ namespace Arest.NormaOracle
 					string litN = Regex.Replace(tN, @"\s*'[^']*'", "").Trim();
 					if (litN != tN && ResolveClause(Dequantify(" " + litN + " ").Trim(), out pN) != null) continue;
 					// a comparison or arithmetic clause names no fact type BY DESIGN
+					// The arm reads `A is B` between two DECLARED types as a comparison or an
+					// alias, so it is not missing vocabulary either. Without this the census
+					// reports rules that BUILD as one declaration away, which is the report
+					// disagreeing with the builder about the same rule.
+					Match cmN = Regex.Match(tN, @"^(?:that |some )?([A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|is) (?:that |some )?([A-Z][\w ]*?)$");
+					if (cmN.Success && myTypes.ContainsKey(cmN.Groups[1].Value.Trim())
+						&& myTypes.ContainsKey(cmN.Groups[3].Value.Trim())) continue;
 					// A clause naming no fact type BY DESIGN is not missing vocabulary: an
 					// aggregate, an arithmetic expression, a negation or a comparison names a
 					// computation, and reporting it as a missing DECLARATION sends the reader
