@@ -1620,6 +1620,117 @@ namespace Arest.NormaOracle
 			return null;
 		}
 
+		// THE SUBTYPE STEP. A variable typed Real Covenant entering a Covenant role, or
+		// a leg `Estate in Land is a Fee Simple`, is a walk through the subtype fact:
+		// NORMA models a subtype as a fact type with two roles, so the step is an
+		// ordinary pathed-role pair, the subtype role entered and the supertype role
+		// continued (the reverse for membership). The general join used to decline
+		// the first shape ("subtype filler is also the join variable") and no arm
+		// read the second; both are inside the admitted fragment (2026-09-03).
+		private SubtypeFact SubtypeFactBetween(ObjectType sub, ObjectType super)
+		{
+			foreach (SubtypeFact sf in myStore.ElementDirectory.FindElements<SubtypeFact>(true))
+			{
+				if (!sf.IsDeleted && sf.Subtype == sub && sf.Supertype == super) return sf;
+			}
+			return null;
+		}
+
+		private static void SubtypeFactRoles(SubtypeFact sf, out Role subRole, out Role supRole)
+		{
+			subRole = null;
+			supRole = null;
+			foreach (RoleBase rb in sf.RoleCollection)
+			{
+				Role r = rb.Role;
+				if (r.RolePlayer == sf.Subtype) subRole = r;
+				else if (r.RolePlayer == sf.Supertype) supRole = r;
+			}
+		}
+
+		// the supertype chain from `from` up to `to`, one subtype fact per hop, or null
+		private List<SubtypeFact> SubtypeChain(ObjectType from, ObjectType to)
+		{
+			var chain = new List<SubtypeFact>();
+			ObjectType t = from;
+			var seen = new HashSet<ObjectType>();
+			while (t != to && seen.Add(t))
+			{
+				ObjectType next = null;
+				SubtypeFact hop = null;
+				foreach (ObjectType sup in t.SupertypeCollection)
+				{
+					if (RootsAt(sup, to.Name)) { next = sup; hop = SubtypeFactBetween(t, sup); break; }
+				}
+				if (next == null || hop == null) return null;
+				chain.Add(hop);
+				t = next;
+			}
+			return t == to ? chain : null;
+		}
+
+		// lay the steps from a variable of type `from` to a role played by `to`
+		private bool LaySubtypeSteps(RoleSubPath sp, ObjectType from, ObjectType to)
+		{
+			if (from == null || to == null || from == to) return true;
+			List<SubtypeFact> chain = SubtypeChain(from, to);
+			if (chain == null) return false;
+			foreach (SubtypeFact sf in chain)
+			{
+				Role subRole, supRole;
+				SubtypeFactRoles(sf, out subRole, out supRole);
+				if (subRole == null || supRole == null) return false;
+				var stepIn = new PathedRole(sp, subRole);
+				stepIn.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+				var stepUp = new PathedRole(sp, supRole);
+				stepUp.PathedRolePurpose = PathedRolePurpose.SameFactType;
+			}
+			Count("subtype step laid (" + chain.Count + " hop(s))");
+			return true;
+		}
+
+		// the object type a chain token names: role prefix, subscript and ~no suffix off
+		private ObjectType TypeOfToken(string tok)
+		{
+			string name = StripRolePrefix(Regex.Replace(tok, @"~\w*$", ""));
+			name = Regex.Replace(name, @"\d+$", "");
+			ObjectType t;
+			return myTypes.TryGetValue(name, out t) ? t : null;
+		}
+
+		// `T is a S` with S a declared subtype of T: a leg over the subtype fact itself,
+		// entered at the supertype role and continued to the subtype role
+		private readonly Dictionary<string, FactIndexEntry> myMembershipEntries = new Dictionary<string, FactIndexEntry>(StringComparer.Ordinal);
+		private FactIndexEntry MembershipEntry(string clause, out List<string> playersOut)
+		{
+			playersOut = null;
+			Match m = Regex.Match(clause.Trim(), @"^(?:that |some )?(.+?)\d* is an? (.+?)\d*$");
+			if (!m.Success) return null;
+			ObjectType super, sub;
+			if (!myTypes.TryGetValue(m.Groups[1].Value.Trim(), out super)) return null;
+			if (!myTypes.TryGetValue(m.Groups[2].Value.Trim(), out sub)) return null;
+			SubtypeFact sf = SubtypeFactBetween(sub, super);
+			if (sf == null) return null;
+			string key = super.Name + "|" + sub.Name;
+			FactIndexEntry e;
+			if (!myMembershipEntries.TryGetValue(key, out e))
+			{
+				Role subRole, supRole;
+				SubtypeFactRoles(sf, out subRole, out supRole);
+				if (subRole == null || supRole == null) return null;
+				e = new FactIndexEntry();
+				e.Fact = sf;
+				e.Roles = new List<Role> { supRole, subRole };
+				e.Players = new List<string> { super.Name, sub.Name };
+				e.ReadingWords = "is a";
+				e.ReadingText = "{0} is a {1}";
+				e.FullKey = NormalizeWords(super.Name + " is a " + sub.Name);
+				myMembershipEntries[key] = e;
+			}
+			playersOut = new List<string>(e.Players);
+			return e;
+		}
+
 		private bool RootsAt(ObjectType t, string ancestor)
 		{
 			if (t == null) return false;
@@ -4034,19 +4145,8 @@ namespace Arest.NormaOracle
 				// Transition. Wrong, not incomplete, and the only gate that could see it was
 				// reading the verbalization back. Used ONCE the substitution is just a
 				// filter and stays fine -- that is the case this guard leaves alone.
-				bool subJoinC = false;
-				foreach (string st in subTokC)
-				{
-					int seen = 0;
-					for (int li = 0; li < toksC.Count; li++) if (toksC[li].Contains(st)) seen++;
-					if (htC.Contains(st)) seen++;
-					if (seen > 1) { subJoinC = true; break; }
-				}
-				if (subJoinC)
-				{
-					log.Add("  general-join: subtype filler is also the join variable (needs a subtype step) in: " + Shorten(sC));
-					continue;
-				}
+				// a subtype filler that is also the join variable is fine now: BuildChain lays
+				// the subtype step where a variable enters a role of its supertype
 				// A VARIABLE IN EVERY LEG IS THE STAR ARM'S SHAPE -- decline, or both arms
 				// build the same sentence and the head ends with more paths than rules.
 				// Measured when this guard was missing: three heads carried a duplicate
@@ -6547,6 +6647,12 @@ namespace Arest.NormaOracle
 			{
 				string c = Regex.Replace(queue[qi].Trim(), @"\s+", " ");
 				if (c.Length == 0) continue;
+				// `T is a S` with S a subtype of T types the variable and is no clause: the
+				// path's subtype-fact instance folds into that variable already
+				{
+					List<string> membership;
+					if (MembershipEntry(c, out membership) != null) continue;
+				}
 				// AN AGGREGATE CARRIES ITS OWN FACT CLAUSES after `where`. The aggregate is
 				// a calculation and is not compared; what it ranges over is the join, and
 				// that is.
@@ -7877,6 +7983,16 @@ namespace Arest.NormaOracle
 					into.SubPathCollection.Add(sp);
 				}
 				if (firstSp == null) firstSp = sp;
+				// a variable typed a SUBTYPE of the leg's entry player walks up through the
+				// subtype fact first, or NORMA joins incompatible players
+				{
+					ObjectType varT = TypeOfToken(entryTok);
+					ObjectType playerT;
+					if (varT != null && myTypes.TryGetValue(legs[li].Players[ep], out playerT) && varT != playerT && RootsAt(varT, playerT.Name))
+					{
+						if (!LaySubtypeSteps(sp, varT, playerT)) return null;
+					}
+				}
 				var row = new PathedRole[legs[li].Roles.Count];
 				EnterLeg(sp, legs[li], ep, row);
 				slots[li] = row;
@@ -8234,7 +8350,7 @@ namespace Arest.NormaOracle
 					return entry;
 				}
 			}
-			return null;
+			return MembershipEntry(clause, out playersOut);
 		}
 
 		// THE JOIN PATH, KEPT. state:setcmp emitted two flat lists of <fact type,
