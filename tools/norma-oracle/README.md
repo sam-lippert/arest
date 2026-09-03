@@ -165,9 +165,12 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
 
 The census then says per rule what it lacks: `ONE AWAY: <clause> <- <head>`
 for a body one declaration short, `MISSING (n): <clause> | ... <- <head>` for
-the rest. `Estate is a Fee Simple` as a body leg (subtype membership) is the
-next arm; `* Each Fee Simple Absolute is a Fee Simple that ...` is the
-qualified subtype definition NORMA already builds.
+the rest. `Estate is a Fee Simple` as a body leg is a leg over the subtype
+fact itself, entered at the supertype role; and a variable typed a subtype
+of a leg's player walks up through the subtype fact before the leg (NORMA
+models a subtype as a fact type with two roles, so the step is an ordinary
+pathed-role pair). `* Each Fee Simple Absolute is a Fee Simple that ...` is
+the qualified subtype definition NORMA already builds.
 
 ## Where a run's time goes
 
