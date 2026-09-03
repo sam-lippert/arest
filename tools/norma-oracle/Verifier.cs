@@ -4326,7 +4326,7 @@ namespace Arest.NormaOracle
 				int rulesA;
 				rulesPerHead.TryGetValue(RuleHeadKey(headA), out rulesA);
 				if (rulesA != 1) continue;
-				List<string> hqA = RoleQualified(headA, hA.Players);
+				List<string> hqA = RoleQualified(headA, hA.Players, true);
 				string vA = am.Groups[2].Value.Trim();
 				int vAtA = hqA.IndexOf(vA);
 				if (vAtA < 0) vAtA = hA.Players.IndexOf(vA);
@@ -4341,7 +4341,8 @@ namespace Arest.NormaOracle
 					List<string> plA;
 					FactIndexEntry eA = ResolveClauseSub(Dequantify(" " + tA + " ").Trim(), out plA);
 					if (eA == null) { okA = false; break; }
-					legsA.Add(eA); toksA.Add(plA);
+					legsA.Add(eA);
+					toksA.Add(RoleQualified(Dequantify(" " + tA + " ").Trim(), plA, true) ?? plA);
 				}
 				if (!okA || legsA.Count < 1) continue;
 				// the aggregated thing is a variable the chain binds -- an entity for a
@@ -4352,7 +4353,7 @@ namespace Arest.NormaOracle
 					for (int c = 0; c < toksA[l].Count; c++)
 						if (toksA[l][c] == xA) { xL = l; xC = c; break; }
 				if (xL < 0) continue;
-				string rootTokA = hA.Players[0];
+				string rootTokA = hqA[0];
 				if (ChainOrder(toksA, rootTokA) == null) continue;
 				// every group role must sit somewhere in the chain, or the head would carry
 				// a role the body never binds
@@ -4364,12 +4365,12 @@ namespace Arest.NormaOracle
 					if (i == vAtA) continue;
 					for (int l = 0; l < toksA.Count && gL[i] < 0; l++)
 						for (int c = 0; c < toksA[l].Count; c++)
-							if (toksA[l][c] == hA.Players[i]) { gL[i] = l; gC[i] = c; break; }
+							if (toksA[l][c] == hqA[i] || toksA[l][c] == hA.Players[i]) { gL[i] = l; gC[i] = c; break; }
 					if (gL[i] < 0) okA = false;
 				}
 				if (!okA) continue;
 				ObjectType rootTypeA;
-				if (!myTypes.TryGetValue(rootTokA, out rootTypeA)) continue;
+				if (!myTypes.TryGetValue(hA.Players[0], out rootTypeA)) continue;
 				Function aggFn = GetOrMakeAggregate(char.ToUpper(am.Groups[3].Value[0]) + am.Groups[3].Value.Substring(1));
 				if (aggFn == null) continue;
 				var ruleA = new FactTypeDerivationRule(myStore);
@@ -6304,6 +6305,14 @@ namespace Arest.NormaOracle
 		// plain spelling; these are the same rule with a role name on the head role.
 		private static List<string> RoleQualified(string text, List<string> players)
 		{
+			return RoleQualified(text, players, false);
+		}
+
+		// `withSubscript` also takes the digits FORML uses to tell two variables of one
+		// type apart. Kept opt-in: it changes what joins, and the arms that already work
+		// without it have their own tokenisers.
+		private static List<string> RoleQualified(string text, List<string> players, bool withSubscript)
+		{
 			var toks = new List<string>();
 			int from = 0;
 			foreach (string p in players)
@@ -6317,8 +6326,10 @@ namespace Arest.NormaOracle
 					while (w > 0 && (char.IsLetterOrDigit(text[w - 1]) || text[w - 1] == '-')) w--;
 					if (w < at - 2) start = w;
 				}
-				toks.Add(text.Substring(start, at + p.Length - start));
-				from = at + p.Length;
+				int stop = at + p.Length;
+				if (withSubscript) while (stop < text.Length && char.IsDigit(text[stop])) stop++;
+				toks.Add(text.Substring(start, stop - start));
+				from = stop;
 			}
 			return toks;
 		}
