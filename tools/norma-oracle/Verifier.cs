@@ -4733,7 +4733,7 @@ namespace Arest.NormaOracle
 				//     ... and state Sales Tax Amount equals taxable Base Amount times ...
 				// so splitting only before `that`, `some` or a capital leaves the arithmetic
 				// glued to the clause before it, and it is never seen as its own clause.
-				string[] partsC = Regex.Split(bodyC, @" and (?=that |some |[A-Z]|[A-Za-z][\w-]*(?: [\w-]+){0,3} equals |[a-z][\w-]*(?: [\w-]+){0,3} is )");
+				string[] partsC = SplitBody(bodyC);
 				if (partsC.Length < 3) continue;
 				FactIndexEntry hC = FindEntryByNormalizedSentence(headC);
 				if (hC == null) continue;
@@ -4771,7 +4771,7 @@ namespace Arest.NormaOracle
 				// `no`/`not` in the body still declines the rule, rather than being built as
 				// though it were not there -- dropping a negation does not narrow a rule, it
 				// inverts it.
-				if (Regex.IsMatch(Regex.Replace(bodyC, " has no | is not ", " "), @"\b(no|not)\b")) continue;
+				if (Regex.IsMatch(Regex.Replace(bodyC, " has no | is not | does not ", " "), @"\b(no|not)\b")) continue;
 				var negC = new List<bool>();
 				var cmpC = new List<string[]>();
 				var arithC = new List<string[]>();
@@ -4803,11 +4803,35 @@ namespace Arest.NormaOracle
 					// form and carry the negation as a flag; NORMA has one place to put it.
 					bool thisNegC = false;
 					string tPosC = tC;
-					Match ngC = Regex.Match(tC, " has no ");
-					if (ngC.Success) { tPosC = tC.Replace(" has no ", " has "); thisNegC = true; }
-					else if (tC.Contains(" is not ")) { tPosC = tC.Replace(" is not ", " is "); thisNegC = true; }
-					List<string> plC;
-					FactIndexEntry leC = ResolveClauseSub(Dequantify(" " + tPosC + " ").Trim(), out plC);
+					var negTriesC = new List<string>();
+					if (tC.Contains(" has no ")) { thisNegC = true; negTriesC.Add(tC.Replace(" has no ", " has ")); }
+					else if (tC.Contains(" is not ")) { thisNegC = true; negTriesC.Add(tC.Replace(" is not ", " is ")); }
+					else if (tC.Contains(" does not "))
+					{
+						// `Billable Request does not trigger cross-border Personal Data Transfer`
+						// negates the declared `Billable Request triggers ...`, and the declared
+						// reading CONJUGATES the verb that `does not` leaves bare. Try it both
+						// ways and let resolution decide -- neither is a guess, because a form
+						// naming no fact type is refused exactly as an unresolved clause always
+						// was. Conjugating silently is the thing to avoid, not conjugating.
+						thisNegC = true;
+						int dnC = tC.IndexOf(" does not ", StringComparison.Ordinal);
+						string subjC = tC.Substring(0, dnC), restC = tC.Substring(dnC + 10);
+						negTriesC.Add(subjC + " " + restC);
+						int spC = restC.IndexOf(' ');
+						if (spC > 0) negTriesC.Add(subjC + " " + restC.Substring(0, spC) + "s" + restC.Substring(spC));
+					}
+					List<string> plC = null;
+					FactIndexEntry leC = null;
+					if (thisNegC)
+					{
+						foreach (string candC in negTriesC)
+						{
+							leC = ResolveClauseSub(Dequantify(" " + candC + " ").Trim(), out plC);
+							if (leC != null) { tPosC = candC; break; }
+						}
+					}
+					else leC = ResolveClauseSub(Dequantify(" " + tPosC + " ").Trim(), out plC);
 					if (leC == null)
 					{
 						Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|is) (?:that |some )?([A-Z][\w ]*?)$");
@@ -5250,7 +5274,7 @@ namespace Arest.NormaOracle
 				// the SAME split the arm uses, including the lower-case role-named target of
 				// an arithmetic clause -- otherwise two clauses arrive glued together and the
 				// report names a "missing fact type" that is really a split failure.
-				foreach (string clN in Regex.Split(mn.Groups[2].Value, @" and (?=that |some |[A-Z]|[A-Za-z][\w-]*(?: [\w-]+){0,3} equals |[a-z][\w-]*(?: [\w-]+){0,3} is )"))
+				foreach (string clN in SplitBody(mn.Groups[2].Value))
 				{
 					string tN = clN.Trim();
 					if (tN.Length == 0) continue;
@@ -6522,6 +6546,36 @@ namespace Arest.NormaOracle
 
 		// resolve a clause ("some Status is initial in some State Machine
 		// Definition") to a fact entry plus the ordered players it binds
+		// ONE SPLIT, USED BY THE ARM AND THE CENSUS. They had a copy each and drifted
+		// twice already; a census that splits differently from the builder reports a
+		// missing fact type for a clause the builder never saw.
+		//
+		// A CLAUSE MAY ALSO BEGIN WITH THE LITERAL OPENING WORD OF A DECLARED READING.
+		// `auto.dev relies on GDPR Lawful Basis for Meter Endpoint` opens with a word
+		// that is neither `that`, `some`, nor capitalised, so the body never split before
+		// it and two clauses arrived glued together -- reported as one enormous missing
+		// fact type, which is exactly the shape of a reading nobody can name.
+		private string[] SplitBody(string body)
+		{
+			if (mySplitRe == null)
+			{
+				var leads = new SortedSet<string>(StringComparer.Ordinal);
+				foreach (FactIndexEntry e in myFactIndex)
+				{
+					if (e.ReadingText == null || e.ReadingText.Length == 0) continue;
+					string first = e.ReadingText.Split(' ')[0];
+					if (first.Length == 0 || first[0] == '{' || char.IsUpper(first[0])) continue;
+					if (first == "that" || first == "some" || first == "a" || first == "an" || first == "the") continue;
+					leads.Add(Regex.Escape(first) + " ");
+				}
+				string alt = leads.Count == 0 ? "" : string.Join("|", leads) + "|";
+				mySplitRe = new Regex(@" and (?=that |some |[A-Z]|" + alt
+					+ @"[A-Za-z][\w-]*(?: [\w-]+){0,3} equals |[a-z][\w-]*(?: [\w-]+){0,3} is )");
+			}
+			return mySplitRe.Split(body);
+		}
+		private Regex mySplitRe;
+
 		private FactIndexEntry ResolveClause(string clause, out List<string> playersOut)
 		{
 			playersOut = null;
