@@ -88,11 +88,24 @@ function must(p) {
   return readFileSync(p);
 }
 
+// A journal that has never been written is ABSENT, not empty, and absent is
+// the ordinary state of an app store that has only ever been checked. It is
+// the same case as an uncompiled schema having no `compiled` carrier: the
+// composition is well-formed without it, so read it as the empty journal
+// rather than refusing to build. Only the two derived carriers are required.
+function mayBe(p) {
+  try {
+    return readFileSync(p);
+  } catch {
+    return Buffer.alloc(0);
+  }
+}
+
 const parts = [must(join(here, "host.js"))];
 for (const p of SPLICED) {
   parts.push(Buffer.from("\n;\nCANON"), must(p));
 }
-parts.push(Buffer.from('\n;\nCANON("journal"'), must(JOURNAL), Buffer.from(")"));
+parts.push(Buffer.from('\n;\nCANON("journal"'), mayBe(JOURNAL), Buffer.from(")"));
 parts.push(Buffer.from("\n;\nJOURNAL_PATH = " + JSON.stringify(JOURNAL) + ";\n"));
 // STAMP THE CARRIERS THIS COMPOSITION WAS MADE FROM. tools/compile-rmap.js
 // writes beside AREST_CARRIERS but reads whatever composition is on disk, so
