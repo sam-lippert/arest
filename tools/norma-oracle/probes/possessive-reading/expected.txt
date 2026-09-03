@@ -1,0 +1,5 @@
+errors 0
+*Defendant is liable for Private Nuisance if and only if
+that Defendant's some Conduct causes substantial and unreasonable interference with some Plaintiff's use and enjoyment of some Land
+and that Plaintiff has possessory interest in that Land.
+

@@ -316,6 +316,7 @@ namespace Arest.NormaOracle
 
 			Mark("deferred constraints");
 			{
+				verifier.ReplayProseReadings();
 				verifier.ReplayObjectifications();
 				verifier.ReplayDeferred();
 			}
