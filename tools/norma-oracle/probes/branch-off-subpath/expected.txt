@@ -1,0 +1,5 @@
+errors 0
+*Node reaches goal at Count if and only if
+that Node steps to some Leaf by some Operator that costs that Count
+and that Leaf is goal.
+

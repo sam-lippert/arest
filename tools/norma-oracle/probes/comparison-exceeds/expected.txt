@@ -1,0 +1,5 @@
+errors 0
+*System is over budget for Window if and only if
+that System has some Rate for that Window that has some Ceiling
+where GreaterThan(Rate, Ceiling).
+

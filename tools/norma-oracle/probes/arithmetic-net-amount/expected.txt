@@ -1,0 +1,6 @@
+errors 0
+*Quote has Net Amount if and only if
+that Quote has some Gross Amount
+and  has some Discount Amount
+where Net Amount = Subtract(Gross Amount, Discount Amount).
+
