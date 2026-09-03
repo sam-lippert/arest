@@ -4535,6 +4535,7 @@ namespace Arest.NormaOracle
 			// several lead paths (that is how a union of bullets is expressed), so
 			// paths-vs-rules is the honest comparison and null-vs-not is not.
 			// This is the fourth silent drop of the session and the second I wrote.
+			Function gtFnC = null, ltFnC = null;
 			// PLACED LAST, DELIBERATELY. This is the fallback: run it before the specialised
 			// arms and it claims heads they build better. It did exactly that on first
 			// try -- `State Machine is instance of State Machine Definition` is a
@@ -4560,7 +4561,7 @@ namespace Arest.NormaOracle
 				string headC = mc.Groups[1].Value.Trim();
 				string bodyC = mc.Groups[2].Value.Trim();
 				if (bodyC.Contains("'")) continue;
-				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |(exceeds|greater than|less than|or more|is below|within|at least|more than|implies|no|not|neither)| equals | plus | minus ")) continue;
+				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |(or more|within|at least|more than|implies|no|not|neither)| equals | plus | minus ")) continue;
 				string[] partsC = Regex.Split(bodyC, @" and (?=that |some |[A-Z])");
 				if (partsC.Length < 3) continue;
 				FactIndexEntry hC = FindEntryByNormalizedSentence(headC);
@@ -4575,31 +4576,54 @@ namespace Arest.NormaOracle
 				var legsC = new List<FactIndexEntry>();
 				var toksC = new List<List<string>>();
 				bool okC = true;
+				// A CLAUSE IS EITHER A LEG OR A COMPARISON BETWEEN TWO BOUND VALUES.
+				//     ... and that Error Rate exceeds Error Threshold
+				// names no fact type; it constrains two values other clauses already bound,
+				// so it becomes a path CONDITION rather than a step. Both sides must be
+				// bound by legs -- a comparison against something the body never introduced
+				// would silently drop, and dropping a condition WIDENS the head.
+				var cmpC = new List<string[]>();
 				foreach (string clC in partsC)
 				{
+					string tC = clC.Trim();
+					Match cm = Regex.Match(tC, @"^(?:that |some )?([A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above) (?:that |some )?([A-Z][\w ]*?)$");
+					if (cm.Success)
+					{
+						cmpC.Add(new string[] { cm.Groups[1].Value.Trim(), cm.Groups[2].Value, cm.Groups[3].Value.Trim() });
+						continue;
+					}
 					List<string> plC;
-					FactIndexEntry leC = ResolveClause(Dequantify(" " + clC.Trim() + " ").Trim(), out plC);
+					FactIndexEntry leC = ResolveClause(Dequantify(" " + tC + " ").Trim(), out plC);
 					if (leC == null || leC == hC) { okC = false; break; }
 					legsC.Add(leC); toksC.Add(plC);
 				}
-				if (!okC) continue;
+				if (!okC || legsC.Count < 2) continue;
 				// every head player must sit at exactly one leg position, or the projection
 				// would be guessing which occurrence the head means
 				var atLegC = new int[hC.Players.Count];
 				var atPosC = new int[hC.Players.Count];
+				// A HEAD PLAYER MAY APPEAR IN SEVERAL LEGS -- that is what a JOIN VARIABLE is,
+				// and requiring exactly one occurrence rejected the very shape a chain is
+				// built on. Occurrences across legs denote the same value once joined, so
+				// the first will do. Two occurrences INSIDE one leg is a ring, where they
+				// denote different values and only a subscript could tell them apart, so
+				// that still declines.
 				for (int i = 0; i < hC.Players.Count && okC; i++)
 				{
 					int found = 0;
 					for (int l = 0; l < legsC.Count; l++)
 					{
+						int inLeg = 0;
 						for (int c = 0; c < legsC[l].Players.Count; c++)
 						{
 							if (legsC[l].Players[c] != hC.Players[i]) continue;
+							inLeg++;
 							if (found == 0) { atLegC[i] = l; atPosC[i] = c; }
 							found++;
 						}
+						if (inLeg > 1) okC = false;
 					}
-					if (found != 1) okC = false;
+					if (found == 0) okC = false;
 				}
 				if (!okC) continue;
 				ObjectType rootC;
@@ -4623,7 +4647,48 @@ namespace Arest.NormaOracle
 					var drpC = new DerivedRoleProjection(pjC, hC.Roles[i]);
 					new DerivedRoleProjectedFromPathedRole(drpC, rowsC[atLegC[i]][atPosC[i]]);
 				}
-				log.Add(hC.Fact.Name + " := chain over " + legsC.Count + " clauses, "
+				foreach (string[] cp in cmpC)
+				{
+					int lL = -1, pL = -1, lR = -1, pR = -1;
+					for (int l = 0; l < legsC.Count; l++)
+					{
+						for (int c = 0; c < legsC[l].Players.Count; c++)
+						{
+							if (legsC[l].Players[c] == cp[0] && lL < 0) { lL = l; pL = c; }
+							if (legsC[l].Players[c] == cp[2] && lR < 0) { lR = l; pR = c; }
+						}
+					}
+					if (lL < 0 || lR < 0) { okC = false; break; }
+					bool greater = cp[1] == "exceeds" || cp[1] == "is greater than" || cp[1] == "is above";
+					Function fnC = greater ? gtFnC : ltFnC;
+					if (fnC == null)
+					{
+						fnC = new Function(myStore);
+						fnC.Name = greater ? "GreaterThan" : "LessThan";
+						fnC.IsBoolean = true;
+						fnC.Model = myModel;
+						var cpl = new FunctionParameter(myStore); cpl.Function = fnC; cpl.Name = "left";
+						var cpr = new FunctionParameter(myStore); cpr.Function = fnC; cpr.Name = "right";
+						if (greater) gtFnC = fnC; else ltFnC = fnC;
+					}
+					var cpvC = new CalculatedPathValue(myStore);
+					cpvC.Function = fnC;
+					var ciL = new CalculatedPathValueInput(myStore); cpvC.InputCollection.Add(ciL);
+					var ciR = new CalculatedPathValueInput(myStore); cpvC.InputCollection.Add(ciR);
+					int fpi = 0;
+					foreach (FunctionParameter fp in fnC.ParameterCollection)
+					{
+						if (fpi == 0) new CalculatedPathValueInputCorrespondsToFunctionParameter(ciL, fp);
+						else if (fpi == 1) { new CalculatedPathValueInputCorrespondsToFunctionParameter(ciR, fp); break; }
+						fpi++;
+					}
+					new CalculatedPathValueInputBindsToPathedRole(ciL, rowsC[lL][pL]);
+					new CalculatedPathValueInputBindsToPathedRole(ciR, rowsC[lR][pR]);
+					leadC.CalculatedConditionCollection.Add(cpvC);
+				}
+				if (!okC) continue;
+				log.Add(hC.Fact.Name + " := chain over " + legsC.Count + " clauses"
+					+ (cmpC.Count > 0 ? " with " + cmpC.Count + " comparison" : "") + ", "
 					+ DescribeDerivation(hC.Fact));
 			}
 			var uRuleCount = new Dictionary<FactType, int>();
