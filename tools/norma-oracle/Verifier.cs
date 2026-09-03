@@ -1168,6 +1168,18 @@ namespace Arest.NormaOracle
 		// census stops being worth reading, and this is the same shape from the other side.
 		private FactIndexEntry ResolveRestrictedHead(string headRaw, out List<string> lits)
 		{
+			string swapped; ObjectType swappedTo;
+			return ResolveRestrictedHead(headRaw, out lits, out swapped, out swappedTo);
+		}
+
+		// `swappedPlayer` / `swappedTo`: the declared player whose role the head named a
+		// SUBTYPE of. A head may specialise a role without naming a value -- `Person is
+		// subject to Minnesota Authority` -- and the caller needs to know which role,
+		// because the subtype's own population is what fills it.
+		private FactIndexEntry ResolveRestrictedHead(string headRaw, out List<string> lits,
+			out string swappedPlayer, out ObjectType swappedTo)
+		{
+			swappedPlayer = null; swappedTo = null;
 			lits = new List<string>();
 			foreach (Match lm in Regex.Matches(headRaw, @"'([^']*)'")) lits.Add(lm.Groups[1].Value);
 			// A head may be SPECIALISED WITHOUT NAMING A VALUE:
@@ -1201,7 +1213,7 @@ namespace Arest.NormaOracle
 							if (supName == subName || !RootsAt(myTypes[subName], supName)) continue;
 							FactIndexEntry cand = FindEntryByNormalizedSentence(
 								bare.Substring(0, at) + supName + bare.Substring(end));
-							if (cand != null) return cand;
+							if (cand != null) { swappedPlayer = supName; swappedTo = myTypes[subName]; return cand; }
 						}
 					}
 					at = end;
@@ -2105,7 +2117,8 @@ namespace Arest.NormaOracle
 				string bodyV = mv.Groups[2].Value.Trim();
 				if (bodyV.Contains(" and ")) continue;
 				List<string> litsV;
-				FactIndexEntry hV = ResolveRestrictedHead(headRawV, out litsV);
+				string subPlayerV; ObjectType subTypeV;
+				FactIndexEntry hV = ResolveRestrictedHead(headRawV, out litsV, out subPlayerV, out subTypeV);
 				if (hV == null) continue;
 				FactIndexEntry bV = FindEntryByNormalizedSentence(Dequantify(" " + bodyV + " ").Trim());
 				// THE BODY MAY BE RESTRICTED TOO:
@@ -2144,6 +2157,8 @@ namespace Arest.NormaOracle
 				}
 				var atV = new int[hV.Roles.Count];
 				var konstAt = new int[hV.Roles.Count];   // which literal fills this role, or -1
+				var crossAt = new bool[hV.Roles.Count];  // filled from the subtype's own population
+				bool anyCrossV = false;
 				int konstSeen = 0;
 				bool okV = true;
 				for (int i = 0; i < hV.Roles.Count; i++)
@@ -2161,7 +2176,21 @@ namespace Arest.NormaOracle
 					if (hitsV.Count == 1) { atV[i] = hitsV[0]; continue; }
 					if (hitsV.Count == 0)
 					{
-						if (konstSeen >= litsV.Count) { okV = false; break; }
+						if (konstSeen >= litsV.Count)
+						{
+							// A HEAD MAY SPECIALISE A ROLE WITHOUT NAMING A VALUE.
+							//   * Person is subject to Minnesota Authority iff Person works in
+							//     State 'Minnesota'.
+							// The declared fact type is `Person is subject to Authority`; the head
+							// names a SUBTYPE of that role and the body supplies no Authority at
+							// all. What the rule says is that such a person is subject to the
+							// Minnesota authorities -- the members of that subtype.
+							if (subPlayerV != null && subTypeV != null && hV.Players[i] == subPlayerV)
+							{
+								crossAt[i] = true; anyCrossV = true; atV[i] = -1; continue;
+							}
+							okV = false; break;
+						}
 						konstAt[i] = konstSeen++; atV[i] = -1; continue;
 					}
 					okV = false; break;
@@ -2171,7 +2200,7 @@ namespace Arest.NormaOracle
 				// plain projection, which the projection-rename arm above already claims, and
 				// adding a second path for the same rule would double-count it.
 				if (!okV || konstSeen != litsV.Count) continue;
-				if (litsV.Count == 0 && bodyLit == null) continue;
+				if (litsV.Count == 0 && bodyLit == null && !anyCrossV) continue;
 				// the restricted body role is the one no head role projects from; require
 				// exactly one, and settle it BEFORE constructing anything so a decline cannot
 				// leave a half-built rule in the store
@@ -2219,6 +2248,43 @@ namespace Arest.NormaOracle
 						var pcV = new PathConstant(myStore);
 						pcV.LexicalValue = litsV[konstAt[i]];
 						new DerivedRoleProjectedFromPathConstant(drpV, pcV);
+					}
+					else if (crossAt[i])
+					{
+						// A LEG OVER THE SUBTYPE FACT, not a bare root. NORMA models a subtype as
+						// a FactType with two roles, so this is an ordinary step: enter at the
+						// subtype role, project the head from the supertype role. A root-only
+						// sub-path builds too, and raises no error, but survives on the FIRST
+						// lead path of a head only -- every later rule came out with the role
+						// unconstrained, i.e. subject to EVERY Authority. Pathed roles do not
+						// vanish that way.
+						SubtypeFact sfV = null;
+						foreach (SubtypeFact sf in myStore.ElementDirectory.FindElements<SubtypeFact>(true))
+						{
+							if (!sf.IsDeleted && sf.Subtype == subTypeV && sf.Supertype != null
+								&& sf.Supertype.Name == hV.Players[i]) { sfV = sf; break; }
+						}
+						Role subRoleV = null, supRoleV = null;
+						if (sfV != null)
+							foreach (RoleBase rb in sfV.RoleCollection)
+							{
+								Role r = rb.Role;
+								if (r.RolePlayer == subTypeV) subRoleV = r;
+								else if (r.RolePlayer == sfV.Supertype) supRoleV = r;
+							}
+						if (subRoleV == null || supRoleV == null) { okV = false; break; }
+						var stSp = new RoleSubPath(myStore);
+						leadV.SubPathCollection.Add(stSp);
+						// ROOTED AT THE SUBTYPE. Without its own root the sub-path continues from
+						// where the lead left off -- the body's subject -- and NORMA read it as
+						// "that PERSON is some Alpha Authority", an incompatible join. A
+						// RoleSubPath may carry a root because it is itself a RolePath.
+						new RolePathObjectTypeRoot(stSp, subTypeV);
+						var stEntry = new PathedRole(stSp, subRoleV);
+						stEntry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+						var stUp = new PathedRole(stSp, supRoleV);
+						stUp.PathedRolePurpose = PathedRolePurpose.SameFactType;
+						new DerivedRoleProjectedFromPathedRole(drpV, stUp);
 					}
 					else
 					{
