@@ -4917,6 +4917,14 @@ namespace Arest.NormaOracle
 				// can take them without stealing anything.
 				if (partsC.Length < 2) continue;
 				FactIndexEntry hC = FindEntryByNormalizedSentence(headC);
+				// A HEAD MAY NAME A VALUE AND STILL HAVE A BODY THIS ARM CAN READ.
+				//   * External System has Service Health Status 'degraded' iff External System
+				//     has Error Rate for Interval and that Error Rate exceeds Error Threshold.
+				// The single-clause arm above owns the restricted heads whose body is one
+				// reading; these have a leg plus a threshold, which is this arm's shape. The
+				// restricted role is filled by a constant, exactly as that arm fills it.
+				var hLitsC = new List<string>();
+				if (hC == null) hC = ResolveRestrictedHead(headC, out hLitsC);
 				if (hC == null) continue;
 				// `**` DECLARES THE BODY EXTERNAL -- fully derived and stored, with no in-store
 				// body BY DESIGN, which is why the arm that owns it records a recipe and zero
@@ -5088,6 +5096,9 @@ namespace Arest.NormaOracle
 				// would be guessing which occurrence the head means
 				var atLegC = new int[hC.Players.Count];
 				var atPosC = new int[hC.Players.Count];
+				var konstAtC = new int[hC.Players.Count];
+				for (int z = 0; z < konstAtC.Length; z++) konstAtC[z] = -1;
+				int konstSeenC = 0;
 				var arithKeyC = new string[hC.Players.Count];
 				var aliasC = new int[hC.Players.Count];
 				for (int z = 0; z < aliasC.Length; z++) aliasC[z] = -1;
@@ -5178,7 +5189,12 @@ namespace Arest.NormaOracle
 							if (aq[0] == hC.Players[i] || aq[0].EndsWith(" " + hC.Players[i], StringComparison.Ordinal))
 								{ computedRole = true; arithKeyC[i] = aq[0]; }
 						}
-						if (computedRole) { atLegC[i] = -1; atPosC[i] = -1; } else okC = false;
+						if (computedRole) { atLegC[i] = -1; atPosC[i] = -1; }
+						else if (konstSeenC < hLitsC.Count)
+						{
+							konstAtC[i] = konstSeenC++; atLegC[i] = -1; atPosC[i] = -1;
+						}
+						else okC = false;
 					}
 				}
 				if (!okC) continue;
@@ -5208,6 +5224,7 @@ namespace Arest.NormaOracle
 				if (!okC) continue;
 				string rootTokC = hC.Players[0];
 				foreach (List<string> tl in toksC) if (tl.Contains(hqC[0])) { rootTokC = hqC[0]; break; }
+				if (konstSeenC != hLitsC.Count) continue;
 				bool[] negArrC = negC.ToArray();
 				if (ChainOrder(toksC, rootTokC, negArrC) == null) continue;
 				var ruleC = hC.Fact.DerivationRule as FactTypeDerivationRule;
@@ -5244,7 +5261,13 @@ namespace Arest.NormaOracle
 				for (int i = 0; i < hC.Roles.Count; i++)
 				{
 					var drpC = new DerivedRoleProjection(pjC, hC.Roles[i]);
-					if (atLegC[i] < 0)
+					if (konstAtC[i] >= 0)
+					{
+						var pcC = new PathConstant(myStore);
+						pcC.LexicalValue = hLitsC[konstAtC[i]];
+						new DerivedRoleProjectedFromPathConstant(drpC, pcC);
+					}
+					else if (atLegC[i] < 0)
 					{
 						if (arithKeyC[i] == null || !computedC.ContainsKey(arithKeyC[i])) { okC = false; break; }
 						new DerivedRoleProjectedFromCalculatedPathValue(drpC, computedC[arithKeyC[i]]);
