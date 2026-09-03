@@ -25,6 +25,33 @@ namespace Arest.NormaOracle
 			@"C:\Program Files\Microsoft Visual Studio\18\Professional\Common7\IDE",
 		};
 
+		// PHASE TIMINGS. A closure run takes minutes and printed one timing line,
+		// the map's; every section boundary now prints how long the previous
+		// section took, so a slow run names its slow phase.
+		private static System.Diagnostics.Stopwatch myPhase;
+		private static System.Diagnostics.Stopwatch myTotal;
+		private static string myPhaseName;
+		private static void TimedCommit(Transaction t)
+		{
+			var sw = System.Diagnostics.Stopwatch.StartNew();
+			t.Commit();
+			Console.WriteLine("timing: commit " + sw.ElapsedMilliseconds + " ms");
+		}
+		private static void Mark(string next)
+		{
+			if (myPhase == null)
+			{
+				myPhase = System.Diagnostics.Stopwatch.StartNew();
+				myTotal = System.Diagnostics.Stopwatch.StartNew();
+			}
+			else
+			{
+				Console.WriteLine("timing: " + myPhaseName + " " + myPhase.ElapsedMilliseconds + " ms");
+				myPhase.Restart();
+			}
+			myPhaseName = next;
+			if (next == "end") Console.WriteLine("timing: total " + myTotal.ElapsedMilliseconds + " ms");
+		}
 		private static int Main(string[] args)
 		{
 			AppDomain.CurrentDomain.AssemblyResolve += delegate(object sender, ResolveEventArgs e)
@@ -102,6 +129,7 @@ namespace Arest.NormaOracle
 			// 2. Boot the store the way ORM2CommandLineTest does.
 			OracleStore store = new OracleStore();
 			store.LoadDomainModels(domainModels.Distinct().ToArray());
+			store.UndoManager.UndoState = UndoState.Disabled;
 			ModelingEventManager eventManager = ModelingEventManager.GetModelingEventManager(store);
 			// Enter through NORMA's front door: deserialize a minimal seed
 			// model so the load-time fixups run (intrinsic data types, bridge
@@ -110,6 +138,7 @@ namespace Arest.NormaOracle
 				"<ormRoot:ORM2 xmlns:ormRoot=\"http://schemas.neumont.edu/ORM/2006-04/ORMRoot\" xmlns:orm=\"http://schemas.neumont.edu/ORM/2006-04/ORMCore\">" +
 				"<orm:ORMModel id=\"_" + Guid.NewGuid() + "\" Name=\"Arest\"/>" +
 				"</ormRoot:ORM2>";
+			Mark("load");
 			using (Transaction t = store.TransactionManager.BeginTransaction("load"))
 			{
 				foreach (IModelingEventSubscriber subscriber in Utility.EnumerateDomainModels<IModelingEventSubscriber>(store.DomainModels))
@@ -120,7 +149,7 @@ namespace Arest.NormaOracle
 				{
 					(new ORMSerializationEngine(store)).Load(seedStream);
 				}
-				t.Commit();
+				TimedCommit(t);
 			}
 			foreach (IModelingEventSubscriber subscriber in Utility.EnumerateDomainModels<IModelingEventSubscriber>(store.DomainModels))
 			{
@@ -142,6 +171,7 @@ namespace Arest.NormaOracle
 			// disease and the main report must show zero errors, unclassified.
 			if (Environment.GetEnvironmentVariable("ORACLE_RING_PROBE") == "1")
 			{
+				Mark("ring probe");
 				using (Transaction t = store.TransactionManager.BeginTransaction("ring probe"))
 				{
 					ObjectType thing = new ObjectType(store);
@@ -177,9 +207,10 @@ namespace Arest.NormaOracle
 					Reading unaryReading = new Reading(store);
 					uo.ReadingCollection.Add(unaryReading);
 					unaryReading.Text = "{0} is probed";
-					t.Commit();
+					TimedCommit(t);
 				}
 				Console.WriteLine();
+				Mark("RING PROBE");
 				Console.WriteLine("== RING PROBE: NORMA errors for {ring m:n fact, unary fact} alone ==");
 				Verifier.DumpErrors(store, Console.Out);
 				return 0;
@@ -206,11 +237,22 @@ namespace Arest.NormaOracle
 			foreach (string d in sourceDirs) srcIds.Add(System.IO.Path.GetFullPath(d));
 			Verifier.CarrierSourceId = string.Join(";", srcIds);
 			var fileList = new List<string>();
-			foreach (string d in sourceDirs) fileList.AddRange(System.IO.Directory.GetFiles(d, "*.md"));
+			// CANON FIRST. Files sort by name within a source directory (core.md
+			// first) and the directories keep the order they were given, so the
+			// metamodel's declarations land before any app's. One sort across
+			// every directory put law-core's core-types.md before the metamodel's
+			// instances.md, and the app's 'Citation is a value type' was the
+			// declaration kept while the canon's entity was the one reported
+			// (measured 2026-09-03 in every corpus that carries law-core).
+			foreach (string d in sourceDirs)
+			{
+				string[] dirFiles = System.IO.Directory.GetFiles(d, "*.md");
+				Array.Sort(dirFiles, (x, y) => string.CompareOrdinal(
+					System.IO.Path.GetFileName(x) == "core.md" ? "0" : System.IO.Path.GetFileName(x),
+					System.IO.Path.GetFileName(y) == "core.md" ? "0" : System.IO.Path.GetFileName(y)));
+				fileList.AddRange(dirFiles);
+			}
 			string[] files = fileList.ToArray();
-			Array.Sort(files, (x, y) => string.CompareOrdinal(
-				System.IO.Path.GetFileName(x) == "core.md" ? "0" : System.IO.Path.GetFileName(x),
-				System.IO.Path.GetFileName(y) == "core.md" ? "0" : System.IO.Path.GetFileName(y)));
 			var fileSentences = new Dictionary<string, List<string>>();
 			foreach (string f in files)
 			{
@@ -222,7 +264,15 @@ namespace Arest.NormaOracle
 			{
 				verifier.RegisterMarkers(System.IO.File.ReadAllText(f));
 			}
-			using (Transaction t = store.TransactionManager.BeginTransaction("declarations"))
+			Mark("declarations");
+			// ONE TRANSACTION FOR THE WHOLE BUILD. NORMA validates the model at every
+			// commit and that validation grows with the model: nine phase commits paid
+			// nine model-wide validations (us-law closure, 2026-09-03: declarations 15 s,
+			// the map's commit 39 s, textual constraints 37 s, derivation rules 69 s).
+			// Every phase from the declarations to the set-semantics assumption now
+			// shares one transaction and one commit; the errors dump, which reads that
+			// validation, follows the commit as before.
+			Transaction build = store.TransactionManager.BeginTransaction("build");
 			{
 				foreach (string f in files)
 				{
@@ -231,14 +281,18 @@ namespace Arest.NormaOracle
 				// schemes AFTER every file's declarations: cross-file order
 				// must not decide a component's kind
 				verifier.FlushSchemes();
-				t.Commit();
 			}
+			// THE DECLARATIONS COMMIT ON THEIR OWN TOO: with the schemes and the readings in
+			// one commit the same bridge threw during the map (us-law, 2026-09-03).
+			TimedCommit(build);
+			build.Dispose();
+			build = store.TransactionManager.BeginTransaction("map");
 			// ONE TRANSACTION FOR THE WHOLE MAP. NORMA validates at commit and that
 			// validation grows with the model, so a commit per file made the closure
 			// corpora quadratic: past seventy files each commit took minutes. One commit
 			// validates once; the per-file map timing stays on the mapped line.
 			var swCommit = new System.Diagnostics.Stopwatch();
-			using (Transaction t = store.TransactionManager.BeginTransaction("map"))
+			Mark("map");
 			{
 				foreach (string f in files)
 				{
@@ -249,44 +303,50 @@ namespace Arest.NormaOracle
 					Console.WriteLine("mapped: " + System.IO.Path.GetFileName(f) + " (" + fileSentences[f].Count + " sentences, map " + swMap.ElapsedMilliseconds + " ms)");
 				}
 				swCommit.Start();
-				t.Commit();
 				swCommit.Stop();
 			}
-			Console.WriteLine("committed the map in " + swCommit.ElapsedMilliseconds + " ms");
+			// THE MAP COMMITS ON ITS OWN. NORMA's ORM-to-OIAL bridge validates incrementally
+			// at commit and threw KeyNotFoundException (us-law, 2026-09-03) when the fact
+			// types, their constraints and their derivations arrived in one commit; with
+			// the fact types committed first, everything after them shares one transaction.
+			TimedCommit(build);
+			build.Dispose();
+			Console.WriteLine("mapped every file");
+			build = store.TransactionManager.BeginTransaction("constrain");
 
-			using (Transaction t = store.TransactionManager.BeginTransaction("deferred constraints"))
+			Mark("deferred constraints");
 			{
+				verifier.ReplayObjectifications();
 				verifier.ReplayDeferred();
-				t.Commit();
 			}
-			using (Transaction t = store.TransactionManager.BeginTransaction("textual constraints"))
+			Mark("textual constraints");
 			{
 				verifier.BuildTextualConstraints();
-				t.Commit();
 			}
 			List<string> builtDerivations;
-			using (Transaction t = store.TransactionManager.BeginTransaction("derivation rules"))
+			Mark("derivation rules");
 			{
 				builtDerivations = verifier.BuildDerivationRules();
-				t.Commit();
 			}
 			Console.WriteLine();
+			Mark("derivation rules built through NORMA's inbuilt mechanism (linear two-leg class)");
 			Console.WriteLine("== derivation rules built through NORMA's inbuilt mechanism (linear two-leg class) ==");
 			foreach (string l in builtDerivations) Console.WriteLine("  " + l);
 			if (builtDerivations.Count == 0) Console.WriteLine("  (none matched the class)");
 
 			List<string> readBack = verifier.ReadBackDerivationRules();
 			Console.WriteLine();
+			Mark("read-back");
 			Console.WriteLine("== read-back: every built lead path against the rule text it claims ==");
 			foreach (string l in readBack) Console.WriteLine("  " + l);
 
 			List<string> ringLinks;
-			using (Transaction t = store.TransactionManager.BeginTransaction("ring link disambiguation"))
+			Mark("ring link disambiguation");
 			{
 				ringLinks = Verifier.DisambiguateRingLinkReadings(store);
-				t.Commit();
 			}
 			Console.WriteLine();
+			Mark("ring link readings (ordinal-qualified where a player repeats)");
 			Console.WriteLine("== ring link readings (ordinal-qualified where a player repeats) ==");
 			foreach (string l in ringLinks) Console.WriteLine("  " + l);
 			if (ringLinks.Count == 0) Console.WriteLine("  (none needed)");
@@ -296,46 +356,50 @@ namespace Arest.NormaOracle
 			// constraint classification: deontic with a no-instance player,
 			// enforced at fetch time, never a model check)
 			Console.WriteLine();
+			Mark("reader");
 			Console.WriteLine("== reader: ring completeness (same-player m:n without a ring constraint; deontic findings) ==");
 			var ringFindings = verifier.CheckRingCompleteness();
 			foreach (string f in ringFindings) Console.WriteLine("  ~ " + f);
 			if (ringFindings.Count == 0) Console.WriteLine("  (none)");
 			Console.WriteLine();
+			Mark("reader");
 			Console.WriteLine("== reader: singular naming (a name that is another's plural per the model's own rules) ==");
 			var nameFindings = verifier.CheckSingularNaming();
 			foreach (string f in nameFindings) Console.WriteLine("  ~ " + f);
 			if (nameFindings.Count == 0) Console.WriteLine("  (none)");
-			using (Transaction t = store.TransactionManager.BeginTransaction("instance facts"))
+			Mark("instance facts");
 			{
 				verifier.AttributeInstanceFacts();
-				t.Commit();
 			}
 			List<string> assumed;
 			List<string> arityLog;
-			using (Transaction t = store.TransactionManager.BeginTransaction("reading arity"))
+			Mark("reading arity");
 			{
 				arityLog = verifier.RepairReadingArity();
-				t.Commit();
 			}
 			foreach (string l in arityLog) Console.WriteLine("  " + l);
-			using (Transaction t = store.TransactionManager.BeginTransaction("set semantics"))
+			Mark("set semantics");
 			{
 				assumed = verifier.AssumeSetSemantics();
-				t.Commit();
 			}
+			TimedCommit(build);
+			build.Dispose();
 
 			Console.WriteLine();
+			Mark("FINDING");
 			Console.WriteLine("== FINDING: fact types with no declared uniqueness (spanning UC assumed per Def 3 set semantics) ==");
 			foreach (string a in assumed) Console.WriteLine("  " + a);
 			Console.WriteLine("  TOTAL ASSUMED: " + assumed.Count);
 
 			Console.WriteLine();
+			Mark("sentence census");
 			Console.WriteLine("== sentence census ==");
 			foreach (var kv in verifier.Census)
 			{
 				Console.WriteLine("  {0,4}  {1}", kv.Value, kv.Key);
 			}
 			Console.WriteLine();
+			Mark("unrecognized sentences");
 			Console.WriteLine("== unrecognized sentences ==");
 			int shown = 0;
 			foreach (string u in verifier.Unrecognized)
@@ -358,6 +422,7 @@ namespace Arest.NormaOracle
 			// a phantom fact type reaching a schema unremarked. It also catches the
 			// unquoted-value class: an instance fact like "... on October 30, 2023."
 			// mints a fact type named for the whole sentence.
+			Mark("FINDING");
 			Console.WriteLine("== FINDING: fact type names carrying sentence punctuation ==");
 			int prosey = 0;
 			foreach (FactType pft in store.ElementDirectory.FindElements<FactType>(true))
@@ -372,6 +437,7 @@ namespace Arest.NormaOracle
 			if (prosey == 0) Console.WriteLine("  (none)");
 			else Console.WriteLine("  TOTAL: " + prosey + " -- check each against its source sentence");
 			Console.WriteLine();
+			Mark("harness map log");
 			Console.WriteLine("== harness map log ==");
 			foreach (string line in verifier.MapLog) Console.WriteLine("  " + line);
 			Console.WriteLine();
@@ -379,18 +445,22 @@ namespace Arest.NormaOracle
 			// facts AFTER the first pass, and their rings' link readings would
 			// otherwise reach the report unqualified (the rewriter is
 			// idempotent, so already-qualified readings are untouched)
+			Mark("ring link disambiguation (late facts)");
 			using (Transaction t2 = store.TransactionManager.BeginTransaction("ring link disambiguation (late facts)"))
 			{
 				Verifier.DisambiguateRingLinkReadings(store);
-				t2.Commit();
+				TimedCommit(t2);
 			}
+			Mark("NORMA model errors");
 			Console.WriteLine("== NORMA model errors ==");
 			Verifier.DumpErrors(store, Console.Out);
 			Console.WriteLine();
+			Mark("value-type data types");
 			Console.WriteLine("== value-type data types ==");
 			verifier.DumpDataTypes(Console.Out);
 
 			Console.WriteLine();
+			Mark("RMAP");
 			Console.WriteLine("== RMAP: relational result ==");
 			Verifier.DumpRelational(store, assemblies[4], Console.Out);
 
@@ -406,6 +476,7 @@ namespace Arest.NormaOracle
 				+ Verifier.MappingStateCells(store, assemblies[1], assemblies[2], assemblies[4]));
 			Verifier.WriteNormaAnswer(store, assemblies[4], assemblies[1], assemblies[3], "norma-answer", verifier.FullyDerivedNames());
 			Console.WriteLine();
+			Mark("carriers");
 			Console.WriteLine("== carriers ==");
 			Console.WriteLine("  written: design-state, norma-answer (intersection source)");
 
@@ -417,6 +488,7 @@ namespace Arest.NormaOracle
 			// implementation. HTML is NORMA's native output; a tag-stripped
 			// text distillation is written alongside for reading and diffs.
 			Console.WriteLine();
+			Mark("VERBALIZATION");
 			Console.WriteLine("== VERBALIZATION: NORMA generate leg (nf out-direction) ==");
 			// FACT TYPES FIRST: the verbalization engine dedups — once an
 			// object-type block lists a fact's reading, the fact-type element
@@ -472,6 +544,7 @@ namespace Arest.NormaOracle
 			// phrasings the parse leg misread (parse gap). Both are
 			// findings; the source moves toward the canonical form.
 			Console.WriteLine();
+			Mark("nf round-trip (verbalize, then re-parse into a second model)");
 			Console.WriteLine("== nf round-trip (verbalize, then re-parse into a second model) ==");
 			var feed = new List<string>();
 			var bSubtypes = new List<string>();
@@ -561,8 +634,15 @@ namespace Arest.NormaOracle
 			}
 			OracleStore storeB = new OracleStore();
 			storeB.LoadDomainModels(domainModels.Distinct().ToArray());
+			storeB.UndoManager.UndoState = UndoState.Disabled;
 			ModelingEventManager eventManagerB = ModelingEventManager.GetModelingEventManager(storeB);
-			using (Transaction t = storeB.TransactionManager.BeginTransaction("load"))
+			Mark("nf load");
+			// THE SECOND MODEL IS NEVER COMMITTED. The round-trip reads its reading keys,
+			// subtype edges and uniqueness spans, structure that exists inside the open
+			// transaction; four commits paid NORMA's whole-model validation for errors
+			// nobody reads (eu-law 2026-09-03: 12 s of 72; us-law: a minute). The
+			// comparison runs before the transaction is disposed, and disposal rolls back.
+			Transaction nf = storeB.TransactionManager.BeginTransaction("nf");
 			{
 				foreach (IModelingEventSubscriber subscriber in Utility.EnumerateDomainModels<IModelingEventSubscriber>(storeB.DomainModels))
 				{
@@ -576,7 +656,6 @@ namespace Arest.NormaOracle
 				{
 					(new ORMSerializationEngine(storeB)).Load(seedStream);
 				}
-				t.Commit();
 			}
 			ORMModel modelB = storeB.ElementDirectory.FindElements<ORMModel>(false).First();
 			Verifier verifierB = new Verifier(storeB, modelB);
@@ -585,17 +664,15 @@ namespace Arest.NormaOracle
 			{
 				feedSentences.AddRange(Verifier.ExtractSentences(line));
 			}
-			using (Transaction t = storeB.TransactionManager.BeginTransaction("nf declarations"))
+			Mark("nf declarations");
 			{
 				verifierB.DeclarePass(feedSentences);
-				t.Commit();
 			}
-			using (Transaction t = storeB.TransactionManager.BeginTransaction("nf map"))
+			Mark("nf map");
 			{
 				verifierB.MapPass(feedSentences);
-				t.Commit();
 			}
-			using (Transaction t = storeB.TransactionManager.BeginTransaction("nf deferred"))
+			Mark("nf deferred");
 			{
 				verifierB.ReplayDeferred();
 				verifierB.BuildTextualConstraints();
@@ -604,7 +681,6 @@ namespace Arest.NormaOracle
 				// possible-family (no restrictive sentence), so set semantics
 				// is assumed on re-parse exactly as on first parse
 				verifierB.AssumeSetSemantics();
-				t.Commit();
 			}
 			var aKeys = new HashSet<string>(verifier.ReadingKeys(), StringComparer.Ordinal);
 			var bKeys = new HashSet<string>(verifierB.ReadingKeys(), StringComparer.Ordinal);
@@ -638,6 +714,8 @@ namespace Arest.NormaOracle
 			}
 			Console.WriteLine("  UC spans on matched readings: agree " + ucAgree + ", differ " + ucDiffer);
 			foreach (string u in ucSamples) Console.WriteLine("      - " + u);
+			nf.Dispose();
+			Mark("end");
 			return 0;
 		}
 	}

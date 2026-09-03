@@ -140,7 +140,9 @@ public class CasesTest
     [Fact]
     public void TheGoldenStillExpectsExactlySeventeenRefusals()
     {
-        Assert.Equal(17, Canon.Golden().Count(kv => kv.Value == "<refused>"));
+        // 19 since 4cc9f726 (2026-09-02, a nested population is one row per fact);
+        // the js host has no count test, so this one lagged the golden by a day
+        Assert.Equal(19, Canon.Golden().Count(kv => kv.Value == "<refused>"));
     }
 
     [Fact]
