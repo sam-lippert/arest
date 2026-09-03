@@ -4716,7 +4716,7 @@ namespace Arest.NormaOracle
 				// carry a value restriction, which is kept as an Equals condition. A quoted
 				// value in the HEAD still belongs to the value-restricted arm, which runs
 				// earlier and will have claimed it.
-				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |the (minimum|maximum) of |\b(or more|at least|more than|implies|no|not|neither|if|else)\b")) continue;
+				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |the (minimum|maximum) of |\b(or more|at least|more than|implies|neither|if|else)\b")) continue;
 				// FORML gives a computed value a ROLE NAME, in lower case:
 				//     ... and state Sales Tax Amount equals taxable Base Amount times ...
 				// so splitting only before `that`, `some` or a capital leaves the arithmetic
@@ -4755,6 +4755,12 @@ namespace Arest.NormaOracle
 				// so it becomes a path CONDITION rather than a step. Both sides must be
 				// bound by legs -- a comparison against something the body never introduced
 				// would silently drop, and dropping a condition WIDENS the head.
+				// NEGATION, BUT ONLY THE TWO FORMS BELOW. Blanking them first means any OTHER
+				// `no`/`not` in the body still declines the rule, rather than being built as
+				// though it were not there -- dropping a negation does not narrow a rule, it
+				// inverts it.
+				if (Regex.IsMatch(Regex.Replace(bodyC, " has no | is not ", " "), @"\b(no|not)\b")) continue;
+				var negC = new List<bool>();
 				var cmpC = new List<string[]>();
 				var arithC = new List<string[]>();
 				var thrC = new List<string[]>();
@@ -4779,8 +4785,17 @@ namespace Arest.NormaOracle
 					// resolve as a leg FIRST, and read `A is B` as an equality only when no fact
 					// type answers to it. The other comparison verbs cannot resolve as legs anyway,
 					// so the order does not affect them.
+					// `Resource Declaration has no override- Fetcher` is the declared reading
+					// `Resource Declaration has override- Fetcher` under a negation, and
+					// `Country Code is not an EEA Country Code` likewise. Resolve the POSITIVE
+					// form and carry the negation as a flag; NORMA has one place to put it.
+					bool thisNegC = false;
+					string tPosC = tC;
+					Match ngC = Regex.Match(tC, " has no ");
+					if (ngC.Success) { tPosC = tC.Replace(" has no ", " has "); thisNegC = true; }
+					else if (tC.Contains(" is not ")) { tPosC = tC.Replace(" is not ", " is "); thisNegC = true; }
 					List<string> plC;
-					FactIndexEntry leC = ResolveClauseSub(Dequantify(" " + tC + " ").Trim(), out plC);
+					FactIndexEntry leC = ResolveClauseSub(Dequantify(" " + tPosC + " ").Trim(), out plC);
 					if (leC == null)
 					{
 						Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|is) (?:that |some )?([A-Z][\w ]*?)$");
@@ -4833,7 +4848,8 @@ namespace Arest.NormaOracle
 					if (leC == null || leC == hC) { okC = false; break; }
 					if (thrOp != null) thrC.Add(new string[] { plC[plC.Count - 1], thrOp, thrVal, legsC.Count.ToString() });
 					legsC.Add(leC);
-					toksC.Add(RoleQualified(Dequantify(" " + tC + " ").Trim(), plC));
+					negC.Add(thisNegC);
+					toksC.Add(RoleQualified(Dequantify(" " + tPosC + " ").Trim(), plC));
 				}
 				if (!okC || legsC.Count < 2) continue;
 				// every head player must sit at exactly one leg position, or the projection
@@ -4864,6 +4880,10 @@ namespace Arest.NormaOracle
 					{
 						for (int l = 0; l < legsC.Count; l++)
 						{
+							// never from inside a negation: those variables do not exist outside
+							// it, so a head role taking its value there would be reading a row the
+							// rule says is absent
+							if (negC[l]) continue;
 							int inLeg = 0;
 							for (int c = 0; c < toksC[l].Count; c++)
 							{
@@ -4920,12 +4940,21 @@ namespace Arest.NormaOracle
 				if (!okC) continue;
 				ObjectType rootC;
 				if (!myTypes.TryGetValue(hC.Players[0], out rootC)) continue;
+				// A HEAD ROLE MAY NOT PROJECT FROM INSIDE A NEGATION. The variables under a
+				// negation do not exist outside it, so a head that took its value from one
+				// would be reading a row the rule says is absent.
+				for (int i = 0; i < hC.Players.Count && okC; i++)
+					if (atLegC[i] >= 0 && atLegC[i] < negC.Count && negC[atLegC[i]]) okC = false;
+				if (!okC) continue;
 				string rootTokC = hC.Players[0];
 				foreach (List<string> tl in toksC) if (tl.Contains(hqC[0])) { rootTokC = hqC[0]; break; }
-				if (ChainOrder(toksC, rootTokC) == null) continue;
+				bool[] negArrC = negC.ToArray();
+				if (ChainOrder(toksC, rootTokC, negArrC) == null) continue;
 				var ruleC = hC.Fact.DerivationRule as FactTypeDerivationRule;
+				bool madeRuleC = false;
 				if (ruleC == null)
 				{
+					madeRuleC = true;
 					ruleC = new FactTypeDerivationRule(myStore);
 					new FactTypeHasDerivationRule(hC.Fact, ruleC);
 					ApplyDerivationMarkers(hC.Fact, ruleC);
@@ -4933,8 +4962,15 @@ namespace Arest.NormaOracle
 				var leadC = new LeadRolePath(myStore);
 				ruleC.OwnedLeadRolePathCollection.Add(leadC);
 				new RolePathObjectTypeRoot(leadC, rootC);
-				PathedRole[][] rowsC = BuildChain(leadC, legsC, toksC, rootTokC, false);
-				if (rowsC == null) continue;
+				PathedRole[][] rowsC = BuildChain(leadC, legsC, toksC, rootTokC, false, negArrC);
+				// AN ARM THAT BAILS MUST TAKE ITS LEAD PATH WITH IT. The path is attached to
+				// the head's derivation rule BEFORE the parts that can fail, so every
+				// `continue` below here used to leave a rooted path with nothing projected
+				// from it. NORMA reports that against the HEAD -- "must project all derived
+				// roles from each projected source path" -- which reads as an accusation
+				// against whichever rule of that head DID build. Latent until now: these
+				// bodies never reached this arm while it refused every `no`.
+				if (rowsC == null) { leadC.Delete(); if (madeRuleC) ruleC.Delete(); continue; }
 				var computedC = new Dictionary<string, CalculatedPathValue>(StringComparer.Ordinal);
 				foreach (string[] aq in arithC)
 				{
@@ -4943,7 +4979,7 @@ namespace Arest.NormaOracle
 					leadC.CalculatedValueCollection.Add(topC);
 					computedC[aq[0]] = topC;
 				}
-				if (!okC) continue;
+				if (!okC) { leadC.Delete(); if (madeRuleC) ruleC.Delete(); continue; }
 				var pjC = new RoleSetDerivationProjection(ruleC, leadC);
 				for (int i = 0; i < hC.Roles.Count; i++)
 				{
@@ -4958,7 +4994,7 @@ namespace Arest.NormaOracle
 						new DerivedRoleProjectedFromPathedRole(drpC, rowsC[atLegC[i]][atPosC[i]]);
 					}
 				}
-				if (!okC) continue;
+				if (!okC) { pjC.Delete(); leadC.Delete(); if (madeRuleC) ruleC.Delete(); continue; }
 				// Each threshold becomes a condition on the value its own leg bound. If this
 				// is skipped the rule still BUILDS -- with the threshold dropped, which
 				// widens it. Measured: the split landed without this and QueryShouldRetry
@@ -6091,9 +6127,22 @@ namespace Arest.NormaOracle
 
 		private static List<int> ChainOrder(List<List<string>> toks, string rootTok)
 		{
+			return ChainOrder(toks, rootTok, null);
+		}
+
+		// A NEGATED LEG BINDS NOTHING OUTSIDE ITSELF. Its variables exist only under the
+		// negation, so it can neither root the path nor be entered by a later leg -- it
+		// can only be hung off something the positive legs already bound. Ordering the
+		// positives first and the negated ones last is the whole of that rule.
+		private static List<int> ChainOrder(List<List<string>> toks, string rootTok, bool[] negLeg)
+		{
 			if (toks.Count < 1) return null;
 			int first = -1;
-			for (int i = 0; i < toks.Count; i++) if (toks[i].Contains(rootTok)) { first = i; break; }
+			for (int i = 0; i < toks.Count; i++)
+			{
+				if (negLeg != null && negLeg[i]) continue;
+				if (toks[i].Contains(rootTok)) { first = i; break; }
+			}
 			if (first < 0) return null;
 			var order = new List<int>(); order.Add(first);
 			var bound = new HashSet<string>(toks[first], StringComparer.Ordinal);
@@ -6104,6 +6153,7 @@ namespace Arest.NormaOracle
 				int pick = -1;
 				foreach (int i in left)
 				{
+					if (negLeg != null && negLeg[i]) continue;
 					foreach (string t in toks[i]) if (bound.Contains(t)) { pick = i; break; }
 					if (pick >= 0) break;
 				}
@@ -6113,9 +6163,18 @@ namespace Arest.NormaOracle
 				// BuildChain gives it a sub-path with its OWN root, which a RoleSubPath may
 				// carry because it is itself a RolePath (ORMCore.dsl: RootObjectType is
 				// ZeroOne PER PATH, not per lead).
-				if (pick < 0) pick = left[0];
+				if (pick < 0)
+					foreach (int i in left) if (negLeg == null || !negLeg[i]) { pick = i; break; }
+				if (pick < 0) break;
 				order.Add(pick); left.Remove(pick);
 				foreach (string t in toks[pick]) bound.Add(t);
+			}
+			foreach (int i in new List<int>(left))
+			{
+				bool entered = false;
+				foreach (string t in toks[i]) if (bound.Contains(t)) { entered = true; break; }
+				if (!entered) return null;
+				order.Add(i); left.Remove(i);
 			}
 			return order;
 		}
@@ -6123,7 +6182,13 @@ namespace Arest.NormaOracle
 		private PathedRole[][] BuildChain(RolePath parent, List<FactIndexEntry> legs,
 			List<List<string>> toks, string rootTok, bool negated)
 		{
-			List<int> order = ChainOrder(toks, rootTok);
+			return BuildChain(parent, legs, toks, rootTok, negated, null);
+		}
+
+		private PathedRole[][] BuildChain(RolePath parent, List<FactIndexEntry> legs,
+			List<List<string>> toks, string rootTok, bool negated, bool[] negLeg)
+		{
+			List<int> order = ChainOrder(toks, rootTok, negLeg);
 			if (order == null) return null;
 			// EACH LEG ATTACHES WHERE ITS ENTRY VARIABLE WAS BOUND, which is sometimes the
 			// lead and sometimes another leg's sub-path. Laying every leg into ONE sub-path
@@ -6165,6 +6230,13 @@ namespace Arest.NormaOracle
 				var row = new PathedRole[legs[li].Roles.Count];
 				EnterLeg(sp, legs[li], ep, row);
 				slots[li] = row;
+				if (negLeg != null && negLeg[li])
+				{
+					// negated ON ITS ENTRY ROLE, the same place the whole-chain form puts it,
+					// and its variables stay unbound so nothing downstream can join to them
+					row[ep].IsNegated = true;
+					continue;
+				}
 				for (int c = 0; c < toks[li].Count; c++)
 					if (!boundAt.ContainsKey(toks[li][c])) boundAt[toks[li][c]] = sp;
 			}
