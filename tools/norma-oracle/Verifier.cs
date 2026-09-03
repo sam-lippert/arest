@@ -5317,8 +5317,13 @@ namespace Arest.NormaOracle
 					{
 						for (int c = 0; c < legsC[l].Players.Count; c++)
 						{
-							if (legsC[l].Players[c] == cp[0] && lL < 0) { lL = l; pL = c; }
-							if (legsC[l].Players[c] == cp[2] && lR < 0) { lR = l; pR = c; }
+							// AN OPERAND IS NAMED THE WAY THE CLAUSE NAMED IT -- the same
+							// precedence OperandFor uses for arithmetic. Matching the declared
+							// player alone cannot see `Error Rate1` against `Error Rate2`, which
+							// is how a corpus comparing an observed rate to a threshold's rate
+							// names its two operands.
+							if ((toksC[l][c] == cp[0] || legsC[l].Players[c] == cp[0]) && lL < 0) { lL = l; pL = c; }
+							if ((toksC[l][c] == cp[2] || legsC[l].Players[c] == cp[2]) && lR < 0) { lR = l; pR = c; }
 						}
 					}
 					if (lL < 0 || lR < 0) { okC = false; break; }
