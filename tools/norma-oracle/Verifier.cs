@@ -304,6 +304,12 @@ namespace Arest.NormaOracle
 		// the wild: "This association with A, B provides the preferred
 		// identification scheme for X."
 		private static readonly Regex AssocScheme = new Regex(@"^This association with ((?:[\w ,]|-(?=\w))+?) provides the preferred identification scheme for (" + NameChars + @"+?)\.$");
+		// HALPIN'S VERBALIZED REFERENCE SCHEME. `Each Personal Data is identified by
+		// Personal Data Id.` says exactly what `Personal Data(.Personal Data Id)` says,
+		// and eu-law writes all 55 of its schemes this way -- so every one of those
+		// entity types read as having no preferred identifier at all, which NORMA
+		// reports as a BLOCKING error per type.
+		private static readonly Regex IdentifiedByDecl = new Regex(@"^Each (" + NameChars + @"+?)\s+is identified by\s+(" + NameChars + @"+?)\.$");
 		private static readonly Regex EntityDeclBare = new Regex(@"^(" + NameChars + @"+?)\s+is an entity type\.$");
 		private static readonly Regex ValueDecl = new Regex(@"^(" + NameChars + @"+?)\s+is a value type\.$");
 
@@ -372,6 +378,14 @@ namespace Arest.NormaOracle
 					// DEFERRED like the composites: whether this mode names an
 					// existing type is only knowable after every declaration
 					myDeferredSchemes.Add(new DeferredScheme { Name = t.Name, Comps = new List<string> { mode }, IndexPos = myFactIndex.Count });
+					Count("entity-type declaration");
+				}
+				else if ((m = IdentifiedByDecl.Match(s)).Success)
+				{
+					ObjectType t = EnsureType(m.Groups[1].Value.Trim(), false);
+					myDeclaredNames.Add(t.Name);
+					myDeferredSchemes.Add(new DeferredScheme { Name = t.Name,
+						Comps = new List<string> { m.Groups[2].Value.Trim() }, IndexPos = myFactIndex.Count });
 					Count("entity-type declaration");
 				}
 				else if ((m = EntityDeclBare.Match(s)).Success)
