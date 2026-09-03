@@ -1946,6 +1946,93 @@ namespace Arest.NormaOracle
 				log.Add(hE.Fact.Name + " := proj " + sE.Fact.Name + ", " + DescribeDerivation(hE.Fact));
 				RecordProjRecipe(hE, sE, at);
 			}
+
+			// THE VALUE-RESTRICTED PROJECTION CLASS. A head that names a value:
+			//     * Customer has Data Subject Right Type 'access' iff Customer is in EEA.
+			// The fact type IS declared (`Customer has Data Subject Right Type. *`); what
+			// the head adds is a RESTRICTION on one role. NORMA carries that natively --
+			// DerivedRoleProjectedFromPathConstant projects a head role from a constant
+			// instead of from a pathed role -- so the restriction is REPRESENTED, not
+			// dropped. Dropping it would build `every EEA Customer has every right type`,
+			// which is a different and wronger claim than not building at all.
+			//
+			// Guard: exactly ONE head role may be unmatched in the body, and that is the
+			// one the constant fills. Position in the sentence is NOT the test -- a head
+			// player that also appears in the body would make the literal ambiguous, and
+			// this declines rather than guessing.
+			//
+			// No recipe is recorded. RecordProjRecipe emits canon's `proj` form over
+			// pathed columns and has no column for a constant; emitting one anyway would
+			// put a recipe in the census that canon never wrote.
+			foreach (string sV in myDeferredRules)
+			{
+				Match mv = Regex.Match(sV, @"^\* (.+?) '([^']*)' iff (.+)\.$");
+				if (!mv.Success) continue;
+				string headV = mv.Groups[1].Value.Trim();
+				string litV = mv.Groups[2].Value;
+				string bodyV = mv.Groups[3].Value.Trim();
+				if (bodyV.Contains(" and ")) continue;
+				FactIndexEntry hV = FindEntryByNormalizedSentence(headV);
+				if (hV == null) continue;
+				FactIndexEntry bV = FindEntryByNormalizedSentence(Dequantify(" " + bodyV + " ").Trim());
+				if (bV == null) continue;
+				var atV = new int[hV.Roles.Count];
+				int konstRole = -1;
+				bool okV = true;
+				for (int i = 0; i < hV.Roles.Count; i++)
+				{
+					var hitsV = new List<int>();
+					for (int c = 0; c < bV.Players.Count; c++)
+						if (bV.Players[c] == hV.Players[i]) hitsV.Add(c);
+					if (hitsV.Count == 1) { atV[i] = hitsV[0]; continue; }
+					if (hitsV.Count == 0)
+					{
+						if (konstRole >= 0) { okV = false; break; }
+						konstRole = i; atV[i] = -1; continue;
+					}
+					okV = false; break;
+				}
+				if (!okV || konstRole < 0) continue;
+				var ruleV = hV.Fact.DerivationRule as FactTypeDerivationRule;
+				if (ruleV == null)
+				{
+					ruleV = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hV.Fact, ruleV);
+					ApplyDerivationMarkers(hV.Fact, ruleV);
+				}
+				var leadV = new LeadRolePath(myStore);
+				ruleV.OwnedLeadRolePathCollection.Add(leadV);
+				new RolePathObjectTypeRoot(leadV, myTypes[bV.Players[0]]);
+				var subV = new RoleSubPath(myStore);
+				leadV.SubPathCollection.Add(subV);
+				var stepV = new PathedRole[bV.Roles.Count];
+				var entryV = new PathedRole(subV, bV.Roles[0]);
+				entryV.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+				stepV[0] = entryV;
+				for (int c = 1; c < bV.Roles.Count; c++)
+				{
+					var stV = new PathedRole(subV, bV.Roles[c]);
+					stV.PathedRolePurpose = PathedRolePurpose.SameFactType;
+					stepV[c] = stV;
+				}
+				var projV = new RoleSetDerivationProjection(ruleV, leadV);
+				for (int i = 0; i < hV.Roles.Count; i++)
+				{
+					var drpV = new DerivedRoleProjection(projV, hV.Roles[i]);
+					if (i == konstRole)
+					{
+						var pcV = new PathConstant(myStore);
+						pcV.LexicalValue = litV;
+						new DerivedRoleProjectedFromPathConstant(drpV, pcV);
+					}
+					else
+					{
+						new DerivedRoleProjectedFromPathedRole(drpV, stepV[atV[i]]);
+					}
+				}
+				log.Add(hV.Fact.Name + " := proj " + bV.Fact.Name + " with "
+					+ hV.Players[konstRole] + " = '" + litV + "', " + DescribeDerivation(hV.Fact));
+			}
 			// THE SUBSCRIPTED TWO-LEG JOIN — the recursive step of a transitive closure:
 			//     * Domain1 reaches Domain3 iff Domain1 reaches Domain2 and Domain2 reaches Domain3.
 			// Same construction as the quantified two-leg arm above, but the join
@@ -4294,6 +4381,13 @@ namespace Arest.NormaOracle
 				Match pm = Regex.Match(sp, @"^\* (.+?) iff (.+)\.$");
 				if (!pm.Success) continue;
 				FactIndexEntry pe = FindEntryByNormalizedSentence(pm.Groups[1].Value.Trim());
+				// a value-restricted rule counts against the fact type it restricts, or its
+				// paths would exceed a rule count that never included it
+				if (pe == null)
+				{
+					Match pvr = Regex.Match(pm.Groups[1].Value.Trim(), @"^(.+?) '[^']*'$");
+					if (pvr.Success) pe = FindEntryByNormalizedSentence(pvr.Groups[1].Value.Trim());
+				}
 				if (pe == null) continue;
 				int pc;
 				uRuleCount.TryGetValue(pe.Fact, out pc);
@@ -4313,22 +4407,32 @@ namespace Arest.NormaOracle
 					// has Service Health Status 'degraded' iff ..." names the declared
 					// fact type "External System has Service Health Status" with the
 					// second role restricted to a value; looking the whole sentence up
-					// finds nothing and reported it as undeclared, which sends the reader
-					// to the declarations to fix something that is not wrong there. 26 of
-					// auto.dev's 28 are this shape. Report it as its own category: the
-					// restriction is NOT yet built, and dropping it silently would change
-					// what the rule means, so it stays unbuilt until an arm carries it.
+					// finds nothing, and reporting that as undeclared sends the reader to
+					// the declarations to fix something that is not wrong there.
 					string uhead = um.Groups[1].Value.Trim();
 					Match uvr = Regex.Match(uhead, @"^(.+?) '[^']*'$");
-					if (uvr.Success && FindEntryByNormalizedSentence(uvr.Groups[1].Value.Trim()) != null)
+					FactIndexEntry baseE = uvr.Success
+						? FindEntryByNormalizedSentence(uvr.Groups[1].Value.Trim()) : null;
+					if (baseE != null)
 					{
-						unbuiltValueRestricted++;
-						log.Add("UNBUILT (head is value-restricted; the fact type is declared, the restriction is not built): " + s2);
+						// the value-restricted arm may have built it. Resolve to the base and
+						// fall through to the ordinary paths-vs-rules comparison, so a rule
+						// that BUILT stops being reported as unbuilt and a head that built
+						// only SOME of its restrictions still shows as partial.
+						if (baseE.Fact.DerivationRule == null)
+						{
+							unbuiltValueRestricted++;
+							log.Add("UNBUILT (head is value-restricted; the fact type is declared, the restriction is not built): " + s2);
+							continue;
+						}
+						uE = baseE;
+					}
+					else
+					{
+						unbuiltHeadless++;
+						log.Add("UNBUILT (head names no declared fact type): " + s2);
 						continue;
 					}
-					unbuiltHeadless++;
-					log.Add("UNBUILT (head names no declared fact type): " + s2);
-					continue;
 				}
 				RoleProjectedDerivationRule udr = uE.Fact.DerivationRule;
 				if (udr == null)
