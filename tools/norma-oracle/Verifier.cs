@@ -4867,6 +4867,18 @@ namespace Arest.NormaOracle
 				// that still declines.
 				for (int i = 0; i < hC.Players.Count && okC; i++)
 				{
+					// AN ARITHMETIC CLAUSE THAT NAMES THIS ROLE IS ITS DEFINITION, and it beats
+					// any leg that merely binds a value of the same type. The tax total adds up
+					// eight amounts and the head's own role is a ninth; without this the
+					// stripped pass below takes the first `<something>- Amount` it sees, and the
+					// total is projected from whichever component happens to come first -- a
+					// number that is wrong rather than absent.
+					bool computedFirst = false;
+					foreach (string[] aq in arithC)
+						if (aq[0] == hqC[i] || aq[0] == hC.Players[i]
+							|| aq[0].EndsWith(" " + hC.Players[i], StringComparison.Ordinal))
+							{ computedFirst = true; arithKeyC[i] = aq[0]; }
+					if (computedFirst) { atLegC[i] = -1; atPosC[i] = -1; continue; }
 					// A QUALIFIED MATCH BEATS AN UNQUALIFIED ONE, and both beat a stripped one.
 					// The head of the rule above is `Noun is resolved from alternate- External
 					// System`, and its body binds TWO External Systems; matching on the player
@@ -4974,7 +4986,7 @@ namespace Arest.NormaOracle
 				var computedC = new Dictionary<string, CalculatedPathValue>(StringComparer.Ordinal);
 				foreach (string[] aq in arithC)
 				{
-					CalculatedPathValue topC = EmitExpression(aq[1], legsC, rowsC, ref arithFnsC);
+					CalculatedPathValue topC = EmitExpression(aq[1], legsC, toksC, rowsC, ref arithFnsC);
 					if (topC == null) { okC = false; break; }
 					leadC.CalculatedValueCollection.Add(topC);
 					computedC[aq[0]] = topC;
@@ -5954,16 +5966,16 @@ namespace Arest.NormaOracle
 		// introduced would otherwise bind to nothing and the head would compute from a
 		// value that is not there.
 		private CalculatedPathValue EmitExpression(string expr, List<FactIndexEntry> legs,
-			PathedRole[][] rows, ref Dictionary<string, Function> fns)
+			List<List<string>> toks, PathedRole[][] rows, ref Dictionary<string, Function> fns)
 		{
 			if (expr.IndexOf('(') >= 0 || expr.IndexOf(')') >= 0) return null;
 			string[] bits = Regex.Split(expr.Trim(), @" (plus|minus|times|divided by) ");
 			if (bits.Length < 3 || bits.Length % 2 == 0) return null;
-			object acc = OperandFor(bits[0].Trim(), legs, rows);
+			object acc = OperandFor(bits[0].Trim(), legs, toks, rows);
 			if (acc == null) return null;
 			for (int i = 1; i + 1 < bits.Length; i += 2)
 			{
-				object rhs = OperandFor(bits[i + 1].Trim(), legs, rows);
+				object rhs = OperandFor(bits[i + 1].Trim(), legs, toks, rows);
 				if (rhs == null) return null;
 				string fname = bits[i] == "plus" ? "Add" : bits[i] == "minus" ? "Subtract"
 					: bits[i] == "times" ? "Multiply" : "Divide";
@@ -5988,7 +6000,8 @@ namespace Arest.NormaOracle
 
 		// A value already walked to by the chain, or a literal number. Anything else is
 		// not an operand this can honour.
-		private object OperandFor(string tok, List<FactIndexEntry> legs, PathedRole[][] rows)
+		private object OperandFor(string tok, List<FactIndexEntry> legs,
+			List<List<string>> toks, PathedRole[][] rows)
 		{
 			if (Regex.IsMatch(tok, @"^[0-9]+(\.[0-9]+)?$"))
 			{
@@ -5996,6 +6009,15 @@ namespace Arest.NormaOracle
 				pc.LexicalValue = tok;
 				return pc;
 			}
+			// AN OPERAND IS NAMED THE WAY THE CLAUSE NAMED IT. The tax total adds eight
+			// amounts that all declare the player `Amount` or `Fee Amount`; only the role
+			// name tells them apart, so matching on the player alone finds the first one
+			// eight times over. Qualified match first, declared player second -- the same
+			// precedence the head roles use.
+			if (toks != null)
+				for (int l = 0; l < legs.Count; l++)
+					for (int c = 0; c < toks[l].Count; c++)
+						if (toks[l][c] == tok) return rows[l][c];
 			for (int l = 0; l < legs.Count; l++)
 				for (int c = 0; c < legs[l].Players.Count; c++)
 					if (legs[l].Players[c] == tok) return rows[l][c];
