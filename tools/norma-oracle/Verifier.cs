@@ -5193,10 +5193,15 @@ namespace Arest.NormaOracle
 					// try the same normalisations the arms do before calling a clause missing:
 					// a subscript names a variable, and a trailing literal is a value restriction
 					// on a fact type that may well be declared.
+					// through ResolveClauseSub, not ResolveClause: these variants have to see the
+					// subtype and role-name fallbacks too, or a clause the arm resolves by
+					// stripping a literal AND a role name is still reported missing -- which is
+					// how `that primary- External System has Service Health Status 'degraded'`
+					// stayed on the one-away list for a rule that had started building.
 					string bareN = Regex.Replace(tN, @"([A-Za-z])[0-9]\b", "$1");
-					if (bareN != tN && ResolveClause(Dequantify(" " + bareN + " ").Trim(), out pN) != null) continue;
+					if (bareN != tN && ResolveClauseSub(Dequantify(" " + bareN + " ").Trim(), out pN) != null) continue;
 					string litN = Regex.Replace(tN, @"\s*'[^']*'", "").Trim();
-					if (litN != tN && ResolveClause(Dequantify(" " + litN + " ").Trim(), out pN) != null) continue;
+					if (litN != tN && ResolveClauseSub(Dequantify(" " + litN + " ").Trim(), out pN) != null) continue;
 					// a comparison or arithmetic clause names no fact type BY DESIGN
 					// The arm reads `A is B` between two DECLARED types as a comparison or an
 					// alias, so it is not missing vocabulary either. Without this the census
