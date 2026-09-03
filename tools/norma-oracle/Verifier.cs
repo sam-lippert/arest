@@ -4579,7 +4579,10 @@ namespace Arest.NormaOracle
 				if (!mc.Success) continue;
 				string headC = mc.Groups[1].Value.Trim();
 				string bodyC = mc.Groups[2].Value.Trim();
-				if (bodyC.Contains("'")) continue;
+				// A quoted value in the BODY is no longer a reason to decline: a clause may
+				// carry a value restriction, which is kept as an Equals condition. A quoted
+				// value in the HEAD still belongs to the value-restricted arm, which runs
+				// earlier and will have claimed it.
 				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |the (minimum|maximum) of |\b(or more|at least|more than|implies|no|not|neither|if|else)\b")) continue;
 				// FORML gives a computed value a ROLE NAME, in lower case:
 				//     ... and state Sales Tax Amount equals taxable Base Amount times ...
@@ -4648,7 +4651,24 @@ namespace Arest.NormaOracle
 					string thrOp = null, thrVal = null;
 					if (leC == null)
 					{
-						Match tm = Regex.Match(tC, @"^(.+?) (greater than|less than|at least|at most|of) ([0-9]+)( or more| or fewer)?$");
+						// A LEG MAY CARRY A VALUE RESTRICTION as well as a threshold:
+						//     that Sales Tax Rate has Tax Rate Type 'county'
+						// is the declared leg plus an equality on the value it binds. Same treatment,
+						// Equals instead of GreaterThan -- and dropping it would widen the rule the
+						// same way dropping a threshold does.
+						Match vm = Regex.Match(tC, @"^(.+?) '([^']*)'$");
+						if (vm.Success)
+						{
+							FactIndexEntry vLeg = ResolveClauseSub(Dequantify(" " + vm.Groups[1].Value.Trim() + " ").Trim(), out plC);
+							if (vLeg != null)
+							{
+								leC = vLeg;
+								thrOp = "is";
+								thrVal = vm.Groups[2].Value;
+							}
+						}
+						Match tm = leC != null ? Match.Empty
+							: Regex.Match(tC, @"^(.+?) (greater than|less than|at least|at most|of) ([0-9]+)( or more| or fewer)?$");
 						if (tm.Success)
 						{
 							FactIndexEntry baseLeg = ResolveClauseSub(Dequantify(" " + tm.Groups[1].Value.Trim() + " ").Trim(), out plC);
@@ -4783,7 +4803,7 @@ namespace Arest.NormaOracle
 					int tl = int.Parse(th[3]);
 					int tp = legsC[tl].Players.IndexOf(th[0]);
 					if (tp < 0) { okC = false; break; }
-					Function tf = GetOrMakeFunction(th[1] == "exceeds" ? "GreaterThan" : "LessThan", true);
+					Function tf = GetOrMakeFunction(th[1] == "is" ? "Equals" : (th[1] == "exceeds" ? "GreaterThan" : "LessThan"), true);
 					var tcpv = new CalculatedPathValue(myStore);
 					tcpv.Function = tf;
 					var tL = new CalculatedPathValueInput(myStore); tcpv.InputCollection.Add(tL);
