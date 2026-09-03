@@ -1964,6 +1964,11 @@ namespace Arest.NormaOracle
 			// No recipe is recorded. RecordProjRecipe emits canon's `proj` form over
 			// pathed columns and has no column for a constant; emitting one anyway would
 			// put a recipe in the census that canon never wrote.
+			Function eqFnV = null;
+			foreach (Function fn in myStore.ElementDirectory.FindElements<Function>(true))
+			{
+				if (!fn.IsDeleted && fn.IsBoolean && fn.Name == "Equals") { eqFnV = fn; break; }
+			}
 			foreach (string sV in myDeferredRules)
 			{
 				Match mv = Regex.Match(sV, @"^\* (.+?) '([^']*)' iff (.+)\.$");
@@ -1975,7 +1980,40 @@ namespace Arest.NormaOracle
 				FactIndexEntry hV = FindEntryByNormalizedSentence(headV);
 				if (hV == null) continue;
 				FactIndexEntry bV = FindEntryByNormalizedSentence(Dequantify(" " + bodyV + " ").Trim());
+				// THE BODY MAY BE RESTRICTED TOO:
+				//   * Feature Request has GitHub Issue State 'open'
+				//         iff Feature Request has Lifecycle Status 'Proposed'.
+				// Same treatment on the other side: resolve the base fact type and carry the
+				// literal as an Equals condition over a PathConstant, which is what the
+				// value-condition class already does for a quoted leg. 11 of
+				// support.auto.dev's 22 restricted rules are this shape.
+				string bodyLit = null;
+				if (bV == null)
+				{
+					Match bvr = Regex.Match(bodyV, @"^(.+?) '([^']*)'$");
+					if (bvr.Success)
+					{
+						bV = FindEntryByNormalizedSentence(Dequantify(" " + bvr.Groups[1].Value.Trim() + " ").Trim());
+						if (bV != null) bodyLit = bvr.Groups[2].Value;
+					}
+				}
 				if (bV == null) continue;
+				// THE Equals FUNCTION IS CREATED ON DEMAND, NOT PRELOADED. The later
+				// value-condition arms each build one if none exists, so at this point in the
+				// pass there is usually none and looking it up alone finds nothing -- which is
+				// why the first version of this arm declined every rule it was written for and
+				// still compiled and still passed the regression. Build it here on the same
+				// terms; their `if (eqFn == null)` lookup then finds this one, so there is
+				// never a second.
+				if (bodyLit != null && eqFnV == null)
+				{
+					eqFnV = new Function(myStore);
+					eqFnV.Name = "Equals";
+					eqFnV.IsBoolean = true;
+					eqFnV.Model = myModel;
+					var epa = new FunctionParameter(myStore); epa.Function = eqFnV; epa.Name = "left";
+					var epb = new FunctionParameter(myStore); epb.Function = eqFnV; epb.Name = "right";
+				}
 				var atV = new int[hV.Roles.Count];
 				int konstRole = -1;
 				bool okV = true;
@@ -1993,6 +2031,22 @@ namespace Arest.NormaOracle
 					okV = false; break;
 				}
 				if (!okV || konstRole < 0) continue;
+				// the restricted body role is the one no head role projects from; require
+				// exactly one, and settle it BEFORE constructing anything so a decline cannot
+				// leave a half-built rule in the store
+				int condRole = -1;
+				if (bodyLit != null)
+				{
+					for (int c = 0; c < bV.Roles.Count; c++)
+					{
+						bool used = false;
+						for (int i = 0; i < hV.Roles.Count; i++) if (i != konstRole && atV[i] == c) used = true;
+						if (used) continue;
+						if (condRole >= 0) { condRole = -2; break; }
+						condRole = c;
+					}
+					if (condRole < 0) continue;
+				}
 				var ruleV = hV.Fact.DerivationRule as FactTypeDerivationRule;
 				if (ruleV == null)
 				{
@@ -2029,6 +2083,25 @@ namespace Arest.NormaOracle
 					{
 						new DerivedRoleProjectedFromPathedRole(drpV, stepV[atV[i]]);
 					}
+				}
+				if (bodyLit != null)
+				{
+					var cpv = new CalculatedPathValue(myStore);
+					cpv.Function = eqFnV;
+					var cL = new CalculatedPathValueInput(myStore); cpv.InputCollection.Add(cL);
+					var cR = new CalculatedPathValueInput(myStore); cpv.InputCollection.Add(cR);
+					int pi = 0;
+					foreach (FunctionParameter fp in eqFnV.ParameterCollection)
+					{
+						if (pi == 0) new CalculatedPathValueInputCorrespondsToFunctionParameter(cL, fp);
+						else if (pi == 1) { new CalculatedPathValueInputCorrespondsToFunctionParameter(cR, fp); break; }
+						pi++;
+					}
+					new CalculatedPathValueInputBindsToPathedRole(cL, stepV[condRole]);
+					var bpc = new PathConstant(myStore);
+					bpc.LexicalValue = bodyLit;
+					new CalculatedPathValueInputBindsToPathConstant(cR, bpc);
+					leadV.CalculatedConditionCollection.Add(cpv);
 				}
 				log.Add(hV.Fact.Name + " := proj " + bV.Fact.Name + " with "
 					+ hV.Players[konstRole] + " = '" + litV + "', " + DescribeDerivation(hV.Fact));
