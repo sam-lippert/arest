@@ -2681,6 +2681,63 @@ namespace Arest.NormaOracle
 				log.Add(hE6.Fact.Name + " := minus (" + pE.Fact.Name + " less " + nE.Fact.Name
 					+ "), " + DescribeDerivation(hE6.Fact));
 			}
+			// NEGATION, shape one and a half: THE POSITIVE SIDE IS THE TYPE ITSELF.
+			//     * Billable Request is GDPR-compliant iff it is not true that that
+			//       Billable Request involves Personal Data.
+			// There is no positive clause to hang the negation on, and there does not
+			// need to be: the rule says every Billable Request that is not one of THOSE.
+			// The lead path roots at the head's own player, whose population is the left
+			// side of the difference -- canon names a type's population with a bare atom,
+			// exactly as `A("Domain Change")` already appears as an operand elsewhere in
+			// state:rules. Unary head only: with two roles the "all" side would be a
+			// cross product nobody wrote down.
+			foreach (string sRaw6b in myDeferredRules)
+			{
+				string s6b = sRaw6b;
+				while (s6b.StartsWith("* * ")) s6b = s6b.Substring(2);
+				Match m6b = Regex.Match(s6b, @"^\* (.+?) iff it is not true that (.+)\.$");
+				if (!m6b.Success) continue;
+				string head6b = m6b.Groups[1].Value.Trim(), neg6b = m6b.Groups[2].Value.Trim();
+				if (neg6b.Contains(" and ")) continue;
+				FactIndexEntry hE6b = FindEntryByNormalizedSentence(head6b);
+				FactIndexEntry nE6b = FindEntryByNormalizedSentence(Dequantify(" " + neg6b + " ").Trim());
+				if (hE6b == null || nE6b == null || hE6b.Players.Count != 1) continue;
+				int nAt6b = nE6b.Players.IndexOf(hE6b.Players[0]);
+				if (nAt6b < 0) continue;
+				int rules6b;
+				rulesPerHead.TryGetValue(RuleHeadKey(head6b), out rules6b);
+				var have6b = hE6b.Fact.DerivationRule as FactTypeDerivationRule;
+				if (rules6b > 0 && have6b != null
+					&& have6b.OwnedLeadRolePathCollection.Count >= rules6b) continue;
+				ObjectType root6bT;
+				if (!myTypes.TryGetValue(hE6b.Players[0], out root6bT)) continue;
+				var rule6b = have6b;
+				if (rule6b == null)
+				{
+					rule6b = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hE6b.Fact, rule6b);
+					ApplyDerivationMarkers(hE6b.Fact, rule6b);
+				}
+				var lead6b = new LeadRolePath(myStore);
+				rule6b.OwnedLeadRolePathCollection.Add(lead6b);
+				var root6b = new RolePathObjectTypeRoot(lead6b, root6bT);
+				var subN6b = new RoleSubPath(myStore);
+				lead6b.SubPathCollection.Add(subN6b);
+				for (int c = 0; c < nE6b.Roles.Count; c++)
+				{
+					var nr6b = new PathedRole(subN6b, nE6b.Roles[c]);
+					nr6b.PathedRolePurpose = c == nAt6b ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
+					if (c != nAt6b) nr6b.IsNegated = true;
+				}
+				if (nE6b.Roles.Count == 1) { foreach (PathedRole pr6b in subN6b.PathedRoleCollection) pr6b.IsNegated = true; }
+				var pj6b = new RoleSetDerivationProjection(rule6b, lead6b);
+				var drp6b = new DerivedRoleProjection(pj6b, hE6b.Roles[0]);
+				new DerivedRoleProjectedFromRolePathRoot(drp6b, root6b);
+				myRuleRecipes.Add("S3(" + IAtom(hE6b.Fact.Name) + ", S1(" + IAtom(hE6b.Players[0])
+					+ "), S3(A(\"minus\"), " + IAtom(hE6b.Players[0]) + ", " + IAtom(nE6b.Fact.Name) + "))");
+				log.Add(hE6b.Fact.Name + " := minus (" + hE6b.Players[0] + " less " + nE6b.Fact.Name
+					+ "), " + DescribeDerivation(hE6b.Fact));
+			}
 			// NEGATION, shape two: `<positive> and no <X> <clause> where <clause>`.
 			//     * Status is terminal in SMD iff that Status is defined in that SMD and
 			//       no Transition is defined in that SMD where that Transition is from
