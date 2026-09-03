@@ -5120,6 +5120,8 @@ namespace Arest.NormaOracle
 				// would be guessing which occurrence the head means
 				var atLegC = new int[hC.Players.Count];
 				var atPosC = new int[hC.Players.Count];
+				// a head role may take its value from a bare value type's own population
+				var typeRootC = new ObjectType[hC.Players.Count];
 				var konstAtC = new int[hC.Players.Count];
 				for (int z = 0; z < konstAtC.Length; z++) konstAtC[z] = -1;
 				int konstSeenC = 0;
@@ -5203,6 +5205,18 @@ namespace Arest.NormaOracle
 							for (int l = 0; l < legsC.Count && found == 0; l++)
 								for (int c = 0; c < legsC[l].Players.Count; c++)
 									if (legsC[l].Players[c] == other) { atLegC[i] = l; atPosC[i] = c; found = 1; aliasC[i] = q; break; }
+							// THE OTHER SIDE MAY BE A BARE VALUE TYPE. `Trust Score is Authenticated
+							// Trust Score` names a value type carrying its value as a population
+							// (`Authenticated Trust Score is 99.`), so no leg steps to it and the
+							// alias found nothing. A root over the TYPE is a variable ranging over
+							// that population -- the binding the offset arm already uses for a
+							// declared window -- and it keeps the REFERENCE: change the 99 and the
+							// rule still says what it says.
+							ObjectType otherVT;
+							if (found == 0 && myTypes.TryGetValue(other, out otherVT) && otherVT.IsValueType)
+							{
+								typeRootC[i] = otherVT; atLegC[i] = -1; atPosC[i] = -1; found = 1; aliasC[i] = q;
+							}
 						}
 						if (found == 1) continue;
 						bool computedRole = false;
@@ -5285,7 +5299,14 @@ namespace Arest.NormaOracle
 				for (int i = 0; i < hC.Roles.Count; i++)
 				{
 					var drpC = new DerivedRoleProjection(pjC, hC.Roles[i]);
-					if (konstAtC[i] >= 0)
+					if (typeRootC[i] != null)
+					{
+						var tSp = new RoleSubPath(myStore);
+						leadC.SubPathCollection.Add(tSp);
+						var tRoot = new RolePathObjectTypeRoot(tSp, typeRootC[i]);
+						new DerivedRoleProjectedFromRolePathRoot(drpC, tRoot);
+					}
+					else if (konstAtC[i] >= 0)
 					{
 						var pcC = new PathConstant(myStore);
 						pcC.LexicalValue = hLitsC[konstAtC[i]];
