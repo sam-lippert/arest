@@ -1,0 +1,4 @@
+errors 0
+*Customer is entitled to Product if and only if
+that Customer has some Subscription that has some Price that is for that Product.
+
