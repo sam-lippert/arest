@@ -1,1 +1,7 @@
 errors 0
+*Observation1 has the same input as Observation2 if and only if
+some Problem includes that Observation1
+and  includes that Observation2
+and that Observation1 has input match some Count with that Observation2
+and that Problem spans that Count.
+
