@@ -112,6 +112,7 @@ for c in $corpora; do
   # "content", which is the finding.
   carriers=IDENTICAL
   for f in design-state norma-answer; do
+    if [ ! -f "$b/$f" ] || [ ! -f "$d/$f" ]; then carriers="NO CARRIERS TO COMPARE"; break; fi
     if ! cmp -s "$b/$f" "$d/$f"; then
       kind=$(python "$A/tools/norma-oracle/carrier-kind.py" "$b/$f" "$d/$f")
       if [ "$kind" = "content" ]; then carriers="DIFFER (content)"; elif [ "$carriers" = IDENTICAL ]; then carriers="DIFFER (order only)"; fi

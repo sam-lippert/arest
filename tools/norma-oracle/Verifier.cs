@@ -1218,8 +1218,8 @@ namespace Arest.NormaOracle
 				while ((at = bare.IndexOf(subName, at, StringComparison.Ordinal)) >= 0)
 				{
 					int end = at + subName.Length;
-					bool leftOk = at == 0 || !char.IsLetterOrDigit(bare[at - 1]);
-					bool rightOk = end >= bare.Length || !char.IsLetterOrDigit(bare[end]);
+					bool leftOk = at == 0 || !char.IsLetterOrDigit(bare[at - 1]) && bare[at - 1] != '-';
+					bool rightOk = end >= bare.Length || (!char.IsLetterOrDigit(bare[end]) && bare[end] != '-');
 					if (leftOk && rightOk)
 					{
 						foreach (string supName in myTypes.Keys)
@@ -1506,15 +1506,20 @@ namespace Arest.NormaOracle
 			string body = s.TrimEnd('.');
 			// find object-type occurrences by longest-name-first matching
 			List<KeyValuePair<int, string>> hits = new List<KeyValuePair<int, string>>();
+			// A NAME GLUED TO A HYPHEN IS PART OF A WORD, not a placeholder (Halpin: a hyphen
+			// followed by a non-space character is predicate text). The five us-law files
+			// with a `.state` reference-mode component made `state` a type, and auto.dev's
+			// `state-sales-tax- Amount` then read as a three-role fact whose hyphen binding
+			// kept a placeholder and killed every closure run in NORMA's commit.
 			string working = body;
 			foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
 			{
 				int at = 0;
 				while ((at = working.IndexOf(name, at, StringComparison.Ordinal)) >= 0)
 				{
-					bool leftOk = at == 0 || !char.IsLetterOrDigit(working[at - 1]);
+					bool leftOk = at == 0 || !char.IsLetterOrDigit(working[at - 1]) && working[at - 1] != '-';
 					int end = at + name.Length;
-					bool rightOk = end >= working.Length || !char.IsLetterOrDigit(working[end]);
+					bool rightOk = end >= working.Length || (!char.IsLetterOrDigit(working[end]) && working[end] != '-');
 					if (leftOk && rightOk)
 					{
 						hits.Add(new KeyValuePair<int, string>(at, name));
@@ -6284,6 +6289,20 @@ namespace Arest.NormaOracle
 						{
 							log.Add("READING/ARITY MISMATCH: " + ft.Name + " has " + roles + " role(s) but reading '" + r.Text + "' names placeholder " + max + " -- reading removed");
 							doomed.Add(r);
+							continue;
+						}
+						// THE HYPHEN BINDER'S OWN VERDICT. NORMA's abstraction bridge names an
+						// absorbed role by formatting the hyphen-bound text of its reading with
+						// ONE argument; a binding that keeps a second placeholder throws a
+						// FormatException from inside the set-semantics commit. Ask the binder
+						// now, report the reading, and unbind it by closing the hyphen.
+						for (int ri = 0; ri < roles; ri++)
+						{
+							string fmt = VerbalizationHyphenBinder.GetFormatStringForHyphenBoundRole(r.Text, ri);
+							if (fmt == null || !Regex.IsMatch(fmt, @"\{[1-9]\d*\}")) continue;
+							log.Add("HYPHEN BINDING KEEPS A PLACEHOLDER: " + ft.Name + " reading '" + r.Text + "' role " + ri + " binds as '" + fmt + "' -- hyphen closed");
+							r.Text = Regex.Replace(r.Text, @"- ", "-");
+							break;
 						}
 					}
 				}
@@ -7102,8 +7121,8 @@ namespace Arest.NormaOracle
 				if (at < 0) continue;
 				int end = at + subName.Length;
 				while (end < clause.Length && char.IsDigit(clause[end])) end++;
-				bool leftOk = at == 0 || !char.IsLetterOrDigit(clause[at - 1]);
-				bool rightOk = end >= clause.Length || !char.IsLetterOrDigit(clause[end]);
+				bool leftOk = at == 0 || !char.IsLetterOrDigit(clause[at - 1]) && clause[at - 1] != '-';
+				bool rightOk = end >= clause.Length || (!char.IsLetterOrDigit(clause[end]) && clause[end] != '-');
 				if (!leftOk || !rightOk) continue;
 				foreach (string supName in myTypes.Keys)
 				{
@@ -7669,7 +7688,7 @@ namespace Arest.NormaOracle
 				string probe = name;
 				while ((at = working.IndexOf(probe, at, StringComparison.Ordinal)) >= 0)
 				{
-					bool leftOk = !char.IsLetterOrDigit(working[at - 1]);
+					bool leftOk = !char.IsLetterOrDigit(working[at - 1]) && working[at - 1] != '-';
 					int end = at + probe.Length;
 					// A SUBSCRIPT NAMES THE VARIABLE, NOT THE TYPE. `Status1` is a Status, and
 					// refusing the match because a digit follows left every subscripted clause
@@ -7677,7 +7696,7 @@ namespace Arest.NormaOracle
 					// be blanked too, or they survive into the reading words and match nothing.
 					int digitEnd = end;
 					while (digitEnd < working.Length && char.IsDigit(working[digitEnd])) digitEnd++;
-					bool rightOk = digitEnd >= working.Length || !char.IsLetterOrDigit(working[digitEnd]);
+					bool rightOk = digitEnd >= working.Length || (!char.IsLetterOrDigit(working[digitEnd]) && working[digitEnd] != '-');
 					if (leftOk && rightOk)
 					{
 						hits.Add(new KeyValuePair<int, string>(at, name));
@@ -8685,9 +8704,9 @@ namespace Arest.NormaOracle
 						int at = 0;
 						while ((at = working.IndexOf(name, at, StringComparison.Ordinal)) >= 0)
 						{
-							bool leftOk = !char.IsLetterOrDigit(working[at - 1]);
+							bool leftOk = !char.IsLetterOrDigit(working[at - 1]) && working[at - 1] != '-';
 							int end = at + name.Length;
-							bool rightOk = end >= working.Length || !char.IsLetterOrDigit(working[end]);
+							bool rightOk = end >= working.Length || (!char.IsLetterOrDigit(working[end]) && working[end] != '-');
 							if (leftOk && rightOk)
 							{
 								refPlayers.Add(name);
@@ -8752,9 +8771,9 @@ namespace Arest.NormaOracle
 						int at2 = 0;
 						while ((at2 = working2.IndexOf(name, at2, StringComparison.Ordinal)) >= 0)
 						{
-							bool leftOk = !char.IsLetterOrDigit(working2[at2 - 1]);
+							bool leftOk = !char.IsLetterOrDigit(working2[at2 - 1]) && working2[at2 - 1] != '-';
 							int end2 = at2 + name.Length;
-							bool rightOk = end2 >= working2.Length || !char.IsLetterOrDigit(working2[end2]);
+							bool rightOk = end2 >= working2.Length || (!char.IsLetterOrDigit(working2[end2]) && working2[end2] != '-');
 							if (leftOk && rightOk)
 							{
 								bodyPlayers.Add(name);
