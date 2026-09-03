@@ -265,6 +265,11 @@ namespace Arest.NormaOracle
 			foreach (string l in builtDerivations) Console.WriteLine("  " + l);
 			if (builtDerivations.Count == 0) Console.WriteLine("  (none matched the class)");
 
+			List<string> readBack = verifier.ReadBackDerivationRules();
+			Console.WriteLine();
+			Console.WriteLine("== read-back: every built lead path against the rule text it claims ==");
+			foreach (string l in readBack) Console.WriteLine("  " + l);
+
 			List<string> ringLinks;
 			using (Transaction t = store.TransactionManager.BeginTransaction("ring link disambiguation"))
 			{

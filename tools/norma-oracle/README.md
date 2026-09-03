@@ -163,3 +163,27 @@ and diffs its rule verbalizations, UNBUILT lines, and error count against
 first, because a probe records the meaning that was verified, not whatever
 came out. A one-line `errors 0` expectation keeps a known wrong build red
 until it is fixed.
+
+## The read-back gate
+
+After the arms have built, every lead role path NORMA holds for a derived
+head is read back into the variable graph it denotes and compared with the
+graph the head's rule text states. The path side follows NORMA's own
+semantics: a path starts at its root object, the first pathed role is
+played by that object, a same-fact-type step is another role of the same
+fact instance played by a fresh object, any other step starts a new
+instance entered by the object of the previous pathed role, a sub-path
+continues from where its parent ended unless it carries its own root, and
+a unifier or an Equals condition makes its members one object. The text
+side has one instance per clause and one variable per written token.
+
+A path that reads as none of its head's rules is `READ-BACK MISMATCH`, and a
+built rule no path reads is `READ-BACK NO PATH READS`, whatever NORMA's
+error count says. Every "built clean, read back wrong" case found by eye
+before the gate existed was a variable mismatch of exactly this kind, and
+its first run named twenty kernel rules whose second shared token had been
+left as a free existential, plus a metamodel rule whose Failure succeeded
+itself. Coverage is stated in the summary line: a head whose text needs a
+subtype substitution, or has a clause naming no fact type, is UNCHECKED and
+counted, and calculation clauses are not compared. `regress.sh` carries the
+count as `read-back`; `probes.sh` records the lines.

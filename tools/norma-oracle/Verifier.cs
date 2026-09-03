@@ -2678,6 +2678,7 @@ namespace Arest.NormaOracle
 					EnterLeg(sub5, legs[li], centre[li], row);   // entry first; see EnterLeg
 					prs.Add(row);
 				}
+				UnifyRepeatedTokens(lead5, toks, prs.ToArray());
 				var pj5 = new RoleSetDerivationProjection(rule5, lead5);
 				for (int i = 0; i < hE5.Roles.Count; i++)
 				{
@@ -3155,6 +3156,7 @@ namespace Arest.NormaOracle
 				var legs9 = new List<FactIndexEntry>(); legs9.Add(e1); legs9.Add(e2);
 				PathedRole[][] rows9 = BuildChain(lead9, legs9, toks9, ht9[0], false);
 				if (rows9 == null) continue;
+				UnifyRepeatedTokens(lead9, toks9, rows9);
 				var pj9 = new RoleSetDerivationProjection(rule9, lead9);
 				for (int i = 0; i < hE9.Roles.Count; i++)
 				{
@@ -3319,6 +3321,19 @@ namespace Arest.NormaOracle
 								if (op != legs2[li].Players[i] + " " + legs2[li].Players[j]) continue;
 								fl = li; fp = j; break;
 							}
+					// A SUBSCRIPTED OPERAND names the variable directly: `Timestamp1 is before
+					// Timestamp2`. The pronoun-qualified form above says the same rule as
+					// `that Violation Timestamp`, which reuses one token for two variables and
+					// cannot be read back; the subscript form is the canonical one.
+					if (fl < 0)
+					{
+						for (int li = 0; li < 2 && fl < 0; li++)
+						{
+							List<string> lt = RoleQualified(li == 0 ? bm.Groups[2].Value : bm.Groups[3].Value, legs2[li].Players, true);
+							int j = lt.IndexOf(op);
+							if (j >= 0) { fl = li; fp = j; }
+						}
+					}
 					if (fl < 0) { okB = false; break; }
 					oLeg[k] = fl; oPos[k] = fp;
 				}
@@ -3350,9 +3365,17 @@ namespace Arest.NormaOracle
 				var leadB = new LeadRolePath(myStore);
 				ruleB.OwnedLeadRolePathCollection.Add(leadB);
 				new RolePathObjectTypeRoot(leadB, myTypes[hEB.Players[0]]);
+				// A LEG WHOSE ENTRY PLAYER IS NOT THE ROOT'S NEEDS ITS OWN ROOT. Off the lead
+				// a sub-path continues from the root object, so entering the Violation leg
+				// from a lead rooted at Failure made the Failure the Violation: the gate read
+				// `Failure succeeds Violation` back as "that Failure is some Violation2 that
+				// occurred ... and Failure = Violation1", a Failure succeeding itself. The
+				// comparison ties the two legs; nothing else should.
 				var spB1 = new RoleSubPath(myStore); leadB.SubPathCollection.Add(spB1);
+				if (L1.Players[0] != hEB.Players[0] && myTypes.ContainsKey(L1.Players[0])) new RolePathObjectTypeRoot(spB1, myTypes[L1.Players[0]]);
 				var rB1 = new PathedRole[L1.Roles.Count]; EnterLeg(spB1, L1, 0, rB1);
 				var spB2 = new RoleSubPath(myStore); leadB.SubPathCollection.Add(spB2);
+				if (L2.Players[0] != hEB.Players[0] && myTypes.ContainsKey(L2.Players[0])) new RolePathObjectTypeRoot(spB2, myTypes[L2.Players[0]]);
 				var rB2 = new PathedRole[L2.Roles.Count]; EnterLeg(spB2, L2, 0, rB2);
 				// the condition itself, as a boolean Function over the two pathed roles --
 				// the same CalculatedPathValue machinery the value-condition arm uses for
@@ -4475,6 +4498,7 @@ namespace Arest.NormaOracle
 				var rootA = new RolePathObjectTypeRoot(leadA, rootTypeA);
 				PathedRole[][] rowsA = BuildChain(leadA, legsA, toksA, rootTokA, false);
 				if (rowsA == null) { ruleA.Delete(); continue; }
+				UnifyRepeatedTokens(leadA, toksA, rowsA);
 				var cpvA = new CalculatedPathValue(myStore);
 				leadA.CalculatedValueCollection.Add(cpvA);
 				cpvA.Function = aggFn;
@@ -5293,6 +5317,7 @@ namespace Arest.NormaOracle
 				// against whichever rule of that head DID build. Latent until now: these
 				// bodies never reached this arm while it refused every `no`.
 				if (rowsC == null) { leadC.Delete(); if (madeRuleC) ruleC.Delete(); continue; }
+				UnifyRepeatedTokens(leadC, toksC, rowsC);
 				var computedC = new Dictionary<string, CalculatedPathValue>(StringComparer.Ordinal);
 				foreach (string[] aq in arithC)
 				{
@@ -5705,6 +5730,530 @@ namespace Arest.NormaOracle
 		// expressible, since a source slot may be a sub-recipe -- but no such rule
 		// exists today and emitting the UNFLIPPED recipe for it would be right for
 		// the one case that exists and wrong by construction. Declined instead.
+		// ============================ THE READ-BACK GATE ============================
+		// The fourth gate, made mechanical. Every lead role path NORMA holds for a
+		// derived head is read back into the VARIABLE GRAPH it denotes -- one fact
+		// instance per join step, one variable per object, unified where a unifier says
+		// so -- and compared with the graph the head's rule TEXT states: one instance
+		// per clause, one variable per written token. A path that reads as none of its
+		// head's rules is a MISMATCH, whatever NORMA's error count says; every "built
+		// clean, read back wrong" case of 2026-09-03 (a root-only branch widening every
+		// later rule, a unifier on the wrong role, an uncorrelated existential, a
+		// dropped comparison) was a variable mismatch of exactly this kind.
+		//
+		// Path semantics, per NORMA: a path starts at its root object; the first pathed
+		// role is played by that object; a SameFactType step is another role of the
+		// SAME fact instance played by a fresh object; any other step starts a new
+		// instance entered by the object of the previous pathed role; a sub-path
+		// continues from where its parent ended, or from its own root when it carries
+		// one; a unifier makes its pathed roles and roots one object.
+		//
+		// Coverage is stated, never assumed: a head whose rule text needs a subtype
+		// substitution, or has a clause that names no fact type (the negation idioms
+		// the corpus has not converted yet), is reported UNCHECKED and counted, so a
+		// silent line here means "read and equal", not "not looked at".
+		private sealed class RbInst
+		{
+			public FactType Fact;
+			public int[] Vars;
+			public bool Negated;
+		}
+		private sealed class RbClause
+		{
+			public FactIndexEntry Entry;
+			public string[] Tokens;   // per reading position; null = a literal fills it
+			public bool Negated;
+		}
+		private sealed class RbText
+		{
+			public string Sentence;
+			public FactIndexEntry Head;
+			public string[] HeadTokens;
+			public string[] HeadLits;
+			public List<RbClause> Clauses = new List<RbClause>();
+			public int CalcIgnored;
+			public string Unchecked;   // reason, or null
+		}
+
+		private static int RbFind(List<int> uf, int i)
+		{
+			while (uf[i] != i) i = uf[i];
+			return i;
+		}
+		private static void RbUnion(List<int> uf, int a, int b)
+		{
+			if (a < 0 || b < 0) return;
+			int ra = RbFind(uf, a), rb = RbFind(uf, b);
+			if (ra != rb) uf[ra] = rb;
+		}
+		private static int RbNewVar(List<string> types, List<int> uf, ObjectType t)
+		{
+			types.Add(t != null ? t.Name : "?");
+			uf.Add(uf.Count);
+			return uf.Count - 1;
+		}
+
+		// THE OBJECT A PATHED ROLE STANDS FOR, for a unifier. NORMA does not honour a
+		// unifier member that is the ENTRY role of a path (its first pathed role, joined
+		// from the path's start): probe root-token-repeated kept verbalizing "throughout
+		// some System2 lifecycle" with one on the entry role of an unrooted sub-path and
+		// with one on the root's own entry role alike. What it honours is the entering
+		// object itself: the path's root when it has one, else the object its parent
+		// ended at. RbObjectOf resolves a pathed role to that.
+		private static object RbPathEntry(RolePath p)
+		{
+			if (p == null) return null;
+			if (p.PathRoot != null) return p.PathRoot;
+			RoleSubPath sp = p as RoleSubPath;
+			return sp == null ? null : RbPathEnd(sp.ParentRolePath);
+		}
+		private static object RbPathEnd(RolePath p)
+		{
+			if (p == null) return null;
+			int n = p.PathedRoleCollection.Count;
+			return n == 0 ? RbPathEntry(p) : RbObjectOf(p.PathedRoleCollection[n - 1]);
+		}
+		private static bool RbIsEntryRole(PathedRole pr)
+		{
+			RolePath p = pr.RolePath;
+			return p != null && p.PathedRoleCollection.Count > 0 && p.PathedRoleCollection[0] == pr
+				&& pr.PathedRolePurpose != PathedRolePurpose.SameFactType;
+		}
+		private static object RbObjectOf(PathedRole pr)
+		{
+			if (!RbIsEntryRole(pr)) return pr;
+			object o = RbPathEntry(pr.RolePath);
+			return o ?? pr;
+		}
+
+		private void RbWalk(RolePath path, int enterVar, RbInst enterInst, bool negated,
+			List<RbInst> insts, Dictionary<object, int> varOf, List<string> types, List<int> uf)
+		{
+			int cur = enterVar;
+			RbInst curInst = enterInst;
+			RolePathObjectTypeRoot root = path.PathRoot;
+			if (root != null)
+			{
+				cur = RbNewVar(types, uf, root.RootObjectType);
+				varOf[root] = cur;
+				curInst = null;
+			}
+			foreach (PathedRole pr in path.PathedRoleCollection)
+			{
+				Role role = pr.Role;
+				FactType fact = role == null ? null : role.FactType;
+				if (fact == null) continue;
+				int idx = fact.RoleCollection.IndexOf(role);
+				bool sameFact = pr.PathedRolePurpose == PathedRolePurpose.SameFactType
+					&& curInst != null && curInst.Fact == fact && idx >= 0 && curInst.Vars[idx] < 0;
+				if (sameFact)
+				{
+					int v = RbNewVar(types, uf, role.RolePlayer);
+					curInst.Vars[idx] = v;
+					if (pr.IsNegated) curInst.Negated = true;
+					varOf[pr] = v;
+					cur = v;
+				}
+				else
+				{
+					if (cur < 0) cur = RbNewVar(types, uf, role.RolePlayer);
+					var inst = new RbInst { Fact = fact, Vars = new int[fact.RoleCollection.Count], Negated = negated || pr.IsNegated };
+					for (int k = 0; k < inst.Vars.Length; k++) inst.Vars[k] = -1;
+					if (idx >= 0) inst.Vars[idx] = cur;
+					varOf[pr] = cur;
+					curInst = inst;
+					insts.Add(inst);
+				}
+			}
+			foreach (RoleSubPath sp in path.SubPathCollection)
+				RbWalk(sp, cur, curInst, negated || sp.SplitIsNegated, insts, varOf, types, uf);
+		}
+
+		// The variable each pathed role and root denotes, as NORMA will read it: the walk
+		// above with the lead's unifiers and its Equals conditions folded in. Shared by the
+		// gate and by the fix-up that follows it.
+		private void RbVarsOf(LeadRolePath lead, List<RbInst> insts, Dictionary<object, int> varOf, List<string> types, List<int> uf)
+		{
+			RbWalk(lead, -1, null, false, insts, varOf, types, uf);
+			foreach (PathObjectUnifier u in lead.ObjectUnifierCollection)
+			{
+				int first = -1;
+				foreach (PathedRole pr in u.PathedRoleCollection)
+				{
+					// NOT HONOURED BY NORMA: a unifier member that is the first pathed role of a
+					// ROOTED path (probe root-token-repeated). The root is the object; only a
+					// unifier naming the root correlates it.
+					if (RbIsEntryRole(pr)) continue;
+					int v; if (varOf.TryGetValue(pr, out v)) { if (first < 0) first = v; else RbUnion(uf, first, v); }
+				}
+				foreach (RolePathObjectTypeRoot r in u.PathRootCollection) { int v; if (varOf.TryGetValue(r, out v)) { if (first < 0) first = v; else RbUnion(uf, first, v); } }
+			}
+			// AN EQUALS CONDITION BETWEEN TWO PATH VARIABLES IS A CORRELATION TOO: some
+			// arms say "the same Count" that way rather than with a unifier, and the
+			// text says it with one token. Read it as the same variable.
+			foreach (CalculatedPathValue cv in lead.CalculatedConditionCollection)
+			{
+				Function fn = cv.Function;
+				if (fn == null || fn.Name != "Equals") continue;
+				var eqVars = new List<int>();
+				bool allVars = true;
+				foreach (CalculatedPathValueInput ci in cv.InputCollection)
+				{
+					int v = -1;
+					if (ci.SourcePathedRole != null) varOf.TryGetValue(ci.SourcePathedRole, out v);
+					else if (ci.SourcePathRoot != null) varOf.TryGetValue(ci.SourcePathRoot, out v);
+					else allVars = false;
+					if (v < 0) allVars = false;
+					eqVars.Add(v);
+				}
+				if (allVars && eqVars.Count >= 2) for (int k = 1; k < eqVars.Count; k++) RbUnion(uf, eqVars[0], eqVars[k]);
+			}
+		}
+
+		// REPEATED TOKENS ARE ONE VARIABLE. An arm that lays legs correlates them along
+		// the entry it chose; a token the text repeats elsewhere -- `Value1` in both the
+		// predicts clause and the writes clause -- was left as two existentials, and NORMA
+		// read "writes some Value at some Feature": twenty kernel rules widened that way,
+		// found by the gate on its first run. Read the path the way NORMA will, and where
+		// one token denotes two objects, unify one pathed role from each. A pathed role
+		// may sit in at most one unifier, so an existing one is extended, never doubled.
+		private void UnifyRepeatedTokens(LeadRolePath lead, List<List<string>> toks, PathedRole[][] rows)
+		{
+			if (lead == null || toks == null || rows == null) return;
+			var insts = new List<RbInst>();
+			var varOf = new Dictionary<object, int>();
+			var types = new List<string>();
+			var uf = new List<int>();
+			RbVarsOf(lead, insts, varOf, types, uf);
+			var byTok = new Dictionary<string, List<PathedRole>>(StringComparer.Ordinal);
+			for (int li = 0; li < toks.Count && li < rows.Length; li++)
+			{
+				if (rows[li] == null) continue;
+				for (int pi = 0; pi < toks[li].Count && pi < rows[li].Length; pi++)
+				{
+					PathedRole pr = rows[li][pi];
+					string t = toks[li][pi];
+					if (pr == null || t == null) continue;
+					List<PathedRole> l;
+					if (!byTok.TryGetValue(t, out l)) byTok[t] = l = new List<PathedRole>();
+					l.Add(pr);
+				}
+			}
+			foreach (var kv in byTok)
+			{
+				var reps = new Dictionary<int, PathedRole>();
+				foreach (PathedRole pr in kv.Value)
+				{
+					int v;
+					if (!varOf.TryGetValue(pr, out v)) continue;
+					v = RbFind(uf, v);
+					if (!reps.ContainsKey(v)) reps[v] = pr;
+				}
+				if (reps.Count < 2) continue;
+				var owned = new Dictionary<object, PathObjectUnifier>();
+				foreach (PathObjectUnifier u in lead.ObjectUnifierCollection)
+				{
+					foreach (PathedRole pr in u.PathedRoleCollection) owned[pr] = u;
+					foreach (RolePathObjectTypeRoot r in u.PathRootCollection) owned[r] = u;
+				}
+				// THE OBJECT A REPRESENTATIVE STANDS FOR is its path's ROOT when the pathed
+				// role is that path's first: NORMA does not honour a unifier on the entry
+				// role itself -- probe root-token-repeated still verbalized "throughout some
+				// System2 lifecycle" with one -- and does honour the root.
+				var members = new List<object>();
+				foreach (PathedRole pr in reps.Values) members.Add(RbObjectOf(pr));
+				PathObjectUnifier uni = null;
+				foreach (object m in members) { PathObjectUnifier u; if (owned.TryGetValue(m, out u)) { uni = u; break; } }
+				if (uni == null) { uni = new PathObjectUnifier(myStore); new LeadRolePathHasObjectUnifier(lead, uni); }
+				foreach (object m in members)
+				{
+					if (owned.ContainsKey(m)) continue;   // a member sits in at most one unifier
+					if (m is RolePathObjectTypeRoot) new PathObjectUnifierUnifiesRolePathRoot(uni, (RolePathObjectTypeRoot)m);
+					else new PathObjectUnifierUnifiesPathedRole(uni, (PathedRole)m);
+				}
+			}
+		}
+
+		private static readonly Regex RbCalc = new Regex(
+			@"\b(exceeds|equals|minus|plus|times|count|sum|total|average|is (at least|at most|greater than|less than|more than|equal to|before|after|within))\b|[=<>]",
+			RegexOptions.IgnoreCase);
+
+		// Tokens in reading order, with a literal-filled position returned as null.
+		private string[] RbTokens(string text, List<string> players, out List<string> lits)
+		{
+			List<string> toks = RoleQualified(text, players, true);
+			var result = new string[toks.Count];
+			lits = new List<string>();
+			int from = 0;
+			for (int i = 0; i < toks.Count; i++)
+			{
+				int at = text.IndexOf(toks[i], from, StringComparison.Ordinal);
+				string lit = null;
+				if (at >= 0)
+				{
+					int end = at + toks[i].Length;
+					while (end < text.Length && text[end] == ' ') end++;
+					if (end < text.Length && text[end] == (char)39)
+					{
+						int close = text.IndexOf((char)39, end + 1);
+						if (close > end) lit = text.Substring(end + 1, close - end - 1);
+					}
+					from = at + toks[i].Length;
+				}
+				lits.Add(lit);
+				result[i] = lit != null ? null : Regex.Replace(toks[i], @"\s+", " ").Trim();
+			}
+			return result;
+		}
+
+		private RbText RbParse(string sentence)
+		{
+			var t = new RbText { Sentence = sentence };
+			Match m = Regex.Match(sentence, @"^\*+ (.+?) iff (.+)$");
+			if (!m.Success) { t.Unchecked = "not a normalized rule"; return t; }
+			string head = m.Groups[1].Value.Trim();
+			string body = m.Groups[2].Value.Trim().TrimEnd('.').Trim();
+			List<string> hlits; string swapped; ObjectType swappedTo;
+			FactIndexEntry he = FindEntryByNormalizedSentence(head);
+			if (he == null) he = ResolveRestrictedHead(head, out hlits, out swapped, out swappedTo);
+			else { swapped = null; }
+			if (he == null) { t.Unchecked = "head names no fact type"; return t; }
+			if (swapped != null) { t.Unchecked = "head specialises a role to a subtype"; return t; }
+			t.Head = he;
+			List<string> headLits;
+			t.HeadTokens = RbTokens(head, he.Players, out headLits);
+			t.HeadLits = headLits.ToArray();
+			var alias = new Dictionary<string, string>(StringComparer.Ordinal);
+			var queue = new List<string>(SplitBody(body));
+			for (int qi = 0; qi < queue.Count; qi++)
+			{
+				string c = Regex.Replace(queue[qi].Trim(), @"\s+", " ");
+				if (c.Length == 0) continue;
+				// AN AGGREGATE CARRIES ITS OWN FACT CLAUSES after `where`. The aggregate is
+				// a calculation and is not compared; what it ranges over is the join, and
+				// that is.
+				Match wm = Regex.Match(c, @"^(.+?) is the (?:count|sum|total|average|maximum|minimum|max|min) of (.+?) where (.+)$", RegexOptions.IgnoreCase);
+				if (wm.Success) { t.CalcIgnored++; queue.AddRange(SplitBody(wm.Groups[3].Value)); continue; }
+				// A TRAILING CONDITION rides on the last clause: `that Failure occurred at
+				// some Timestamp2 where Timestamp1 is before Timestamp2`. The clause is the
+				// fact; the condition is a calculation and is queued on its own.
+				int whereAt = c.IndexOf(" where ", StringComparison.Ordinal);
+				if (whereAt > 0) { queue.Add(c.Substring(whereAt + 7)); c = c.Substring(0, whereAt).Trim(); }
+				// AN INLINE THRESHOLD rides on a fact clause: `that Query Route has Max Retry
+				// Count greater than 0`. The fact is compared; the threshold is a calculation.
+				Match tm = Regex.Match(c, @"^(.+?) (?:is )?(?:greater than|less than|more than|fewer than|at least|at most|exceeds|equals) (?:-?[0-9]+(?:\.[0-9]+)?|'[^']*')$", RegexOptions.IgnoreCase);
+				if (tm.Success) { t.CalcIgnored++; c = tm.Groups[1].Value.Trim(); }
+				bool neg = false;
+				if (c.StartsWith("it is not true that ", StringComparison.OrdinalIgnoreCase)) { neg = true; c = c.Substring(20).Trim(); }
+				string bare = Regex.Replace(c, @"\s*'[^']*'", "");
+				List<string> players; string cSwapped;
+				FactIndexEntry e = ResolveClauseSub(bare, out players, out cSwapped);
+				if (e == null)
+				{
+					Match am = Regex.Match(bare, @"^([A-Z][\w-]*(?: [A-Z][\w-]*)*\d*) (?:is|equals) ([A-Z][\w-]*(?: [A-Z][\w-]*)*\d*)$");
+					if (am.Success && myTypes.ContainsKey(StripRolePrefix(am.Groups[1].Value)) && myTypes.ContainsKey(StripRolePrefix(am.Groups[2].Value))
+						&& myTypes[StripRolePrefix(am.Groups[1].Value)].IsValueType && myTypes[StripRolePrefix(am.Groups[2].Value)].IsValueType)
+					{
+						alias[am.Groups[2].Value] = am.Groups[1].Value;
+						continue;
+					}
+					if (RbCalc.IsMatch(bare)) { t.CalcIgnored++; continue; }
+					t.Unchecked = "clause names no fact type: " + c;
+					return t;
+				}
+				if (cSwapped != null) { t.Unchecked = "clause substitutes a subtype: " + c; return t; }
+				List<string> clits;
+				string[] toks = RbTokens(c, players, out clits);
+				t.Clauses.Add(new RbClause { Entry = e, Tokens = toks, Negated = neg });
+			}
+			if (alias.Count > 0)
+			{
+				Func<string, string> canon = null;
+				canon = delegate(string tok) { string a; return tok != null && alias.TryGetValue(tok, out a) ? canon(a) : tok; };
+				foreach (RbClause cl in t.Clauses) for (int i = 0; i < cl.Tokens.Length; i++) cl.Tokens[i] = canon(cl.Tokens[i]);
+				for (int i = 0; i < t.HeadTokens.Length; i++) t.HeadTokens[i] = canon(t.HeadTokens[i]);
+			}
+			return t;
+		}
+
+		private static bool RbBind(Dictionary<string, int> tokVar, Dictionary<int, string> varTok, string tok, int v)
+		{
+			if (tok == null) return true;
+			int have; string haveTok;
+			bool tokKnown = tokVar.TryGetValue(tok, out have);
+			bool varKnown = varTok.TryGetValue(v, out haveTok);
+			if (tokKnown && have != v) return false;
+			if (varKnown && haveTok != tok) return false;
+			if (!tokKnown) tokVar[tok] = v;
+			if (!varKnown) varTok[v] = tok;
+			return true;
+		}
+
+		private static bool RbAssign(RbText t, int ci, List<RbInst> insts, bool[] used,
+			Dictionary<string, int> tokVar, Dictionary<int, string> varTok)
+		{
+			if (ci == t.Clauses.Count) return true;
+			RbClause cl = t.Clauses[ci];
+			for (int j = 0; j < insts.Count; j++)
+			{
+				if (used[j] || insts[j].Fact != cl.Entry.Fact || insts[j].Negated != cl.Negated) continue;
+				var tv = new Dictionary<string, int>(tokVar, StringComparer.Ordinal);
+				var vt = new Dictionary<int, string>(varTok);
+				bool ok = true;
+				for (int i = 0; i < cl.Tokens.Length && ok; i++)
+				{
+					int ri = cl.Entry.Fact.RoleCollection.IndexOf(cl.Entry.Roles[i]);
+					if (ri < 0 || ri >= insts[j].Vars.Length) { ok = false; break; }
+					ok = RbBind(tv, vt, cl.Tokens[i], insts[j].Vars[ri]);
+				}
+				if (!ok) continue;
+				used[j] = true;
+				if (RbAssign(t, ci + 1, insts, used, tv, vt))
+				{
+					foreach (var kv in tv) tokVar[kv.Key] = kv.Value;
+					foreach (var kv in vt) varTok[kv.Key] = kv.Value;
+					return true;
+				}
+				used[j] = false;
+			}
+			return false;
+		}
+
+		private static bool RbMatch(RbText t, List<RbInst> insts, object[] headSrc, FactType head)
+		{
+			if (insts.Count != t.Clauses.Count) return false;
+			var tokVar = new Dictionary<string, int>(StringComparer.Ordinal);
+			var varTok = new Dictionary<int, string>();
+			var used = new bool[insts.Count];
+			if (!RbAssign(t, 0, insts, used, tokVar, varTok)) return false;
+			for (int i = 0; i < t.HeadTokens.Length; i++)
+			{
+				int ri = head.RoleCollection.IndexOf(t.Head.Roles[i]);
+				if (ri < 0 || ri >= headSrc.Length) return false;
+				object src = headSrc[ri];
+				if (t.HeadLits[i] != null)
+				{
+					string c = src as string;
+					if (c == null) return false;
+					if (!string.Equals(c.Trim().Trim((char)39), t.HeadLits[i].Trim(), StringComparison.OrdinalIgnoreCase)) return false;
+					continue;
+				}
+				if (!(src is int))
+				{
+					// a calculated slot is not compared (the calculation is not modelled here);
+					// a constant where the text names a variable, or no projection at all, is
+					if (src != null && (string)src == "calc") continue;
+					return false;
+				}
+				if (!RbBind(tokVar, varTok, t.HeadTokens[i], (int)src)) return false;
+			}
+			return true;
+		}
+
+		private static string RbRender(List<RbInst> insts, List<string> types, List<int> uf, object[] headSrc, FactType head)
+		{
+			Func<int, string> vn = delegate(int v) { v = RbFind(uf, v); return types[v] + "#" + v; };
+			var parts = new List<string>();
+			foreach (RbInst inst in insts)
+			{
+				var vs = new List<string>();
+				foreach (int v in inst.Vars) vs.Add(v < 0 ? "?" : vn(v));
+				parts.Add((inst.Negated ? "not " : "") + inst.Fact.Name + "(" + string.Join(", ", vs) + ")");
+			}
+			var hs = new List<string>();
+			foreach (object s in headSrc) hs.Add(s == null ? "UNPROJECTED" : (s is int) ? vn((int)s) : "'" + s + "'");
+			return head.Name + "(" + string.Join(", ", hs) + ") <- " + string.Join(" and ", parts);
+		}
+
+		public List<string> ReadBackDerivationRules()
+		{
+			var log = new List<string>();
+			var seen = new HashSet<FactType>();
+			var textsByKey = new Dictionary<string, List<RbText>>(StringComparer.Ordinal);
+			foreach (string s in myDeferredRules)
+			{
+				RbText t = RbParse(s);
+				string key = t.Head != null ? "ft:" + t.Head.Fact.Id.ToString() : "none";
+				List<RbText> list;
+				if (!textsByKey.TryGetValue(key, out list)) textsByKey[key] = list = new List<RbText>();
+				list.Add(t);
+			}
+			int heads = 0, pathsOk = 0, mismatches = 0, unmatchedTexts = 0, uncheckedHeads = 0, calcIgnored = 0;
+			var uncheckedReasons = new SortedDictionary<string, int>(StringComparer.Ordinal);
+			foreach (FactIndexEntry e in myFactIndex)
+			{
+				FactType ft = e.Fact;
+				if (ft.IsDeleted || !seen.Add(ft)) continue;
+				FactTypeDerivationRule rule = ft.DerivationRule as FactTypeDerivationRule;
+				if (rule == null || rule.LeadRolePathCollection.Count == 0) continue;
+				List<RbText> texts;
+				if (!textsByKey.TryGetValue("ft:" + ft.Id.ToString(), out texts)) continue;
+				heads++;
+				string why = null;
+				foreach (RbText t in texts) if (t.Unchecked != null) { why = t.Unchecked; break; }
+				if (why != null)
+				{
+					uncheckedHeads++;
+					string reasonKey = why.Split(':')[0];
+					int n; uncheckedReasons.TryGetValue(reasonKey, out n); uncheckedReasons[reasonKey] = n + 1;
+					log.Add("READ-BACK UNCHECKED: " + ft.Name + " -- " + why);
+					continue;
+				}
+				foreach (RbText t in texts) calcIgnored += t.CalcIgnored;
+				var textMatched = new bool[texts.Count];
+				foreach (LeadRolePath lead in rule.LeadRolePathCollection)
+				{
+					var insts = new List<RbInst>();
+					var varOf = new Dictionary<object, int>();
+					var types = new List<string>();
+					var uf = new List<int>();
+					RbVarsOf(lead, insts, varOf, types, uf);
+					foreach (RbInst inst in insts)
+						for (int k = 0; k < inst.Vars.Length; k++)
+							inst.Vars[k] = inst.Vars[k] < 0 ? RbNewVar(types, uf, inst.Fact.RoleCollection[k].Role.RolePlayer) : RbFind(uf, inst.Vars[k]);
+					var headSrc = new object[ft.RoleCollection.Count];
+					RoleSetDerivationProjection ps = RoleSetDerivationProjection.GetLink(rule, lead);
+					if (ps != null)
+					{
+						foreach (DerivedRoleProjection dp in DerivedRoleProjection.GetLinksToProjectedRoleCollection(ps))
+						{
+							int ri = ft.RoleCollection.IndexOf(dp.ProjectedRole);
+							if (ri < 0) continue;
+							int v;
+							if (dp.ProjectedFromPathedRole != null && varOf.TryGetValue(dp.ProjectedFromPathedRole, out v)) headSrc[ri] = RbFind(uf, v);
+							else if (dp.ProjectedFromPathRoot != null && varOf.TryGetValue(dp.ProjectedFromPathRoot, out v)) headSrc[ri] = RbFind(uf, v);
+							else if (dp.ProjectedFromConstant != null) headSrc[ri] = dp.ProjectedFromConstant.LexicalValue ?? "";
+							else if (dp.ProjectedFromCalculatedValue != null) headSrc[ri] = "calc";
+						}
+					}
+					bool any = false;
+					for (int ti = 0; ti < texts.Count; ti++)
+					{
+						if (RbMatch(texts[ti], insts, headSrc, ft)) { textMatched[ti] = true; any = true; }
+					}
+					if (any) pathsOk++;
+					else
+					{
+						mismatches++;
+						log.Add("READ-BACK MISMATCH: " + RbRender(insts, types, uf, headSrc, ft));
+						foreach (RbText t in texts) log.Add("    rule: " + t.Sentence);
+					}
+				}
+				for (int ti = 0; ti < texts.Count; ti++)
+				{
+					if (textMatched[ti] || !myBuiltRuleSentences.Contains(texts[ti].Sentence)) continue;
+					unmatchedTexts++;
+					log.Add("READ-BACK NO PATH READS: " + texts[ti].Sentence);
+				}
+			}
+			var reasons = new List<string>();
+			foreach (var kv in uncheckedReasons) reasons.Add(kv.Value + " " + kv.Key);
+			log.Add("READ-BACK SUMMARY: " + heads + " derived heads with paths, " + pathsOk + " paths read as their rule, "
+				+ mismatches + " MISMATCH, " + unmatchedTexts + " built rule(s) no path reads, "
+				+ uncheckedHeads + " heads unchecked (" + string.Join("; ", reasons) + "), " + calcIgnored + " calculation clause(s) not compared");
+			return log;
+		}
+
 		private void RecordCountRecipe(FactIndexEntry headE, FactIndexEntry src, int vAt, int gAt)
 		{
 			if (headE.Players.Count != 2) return;

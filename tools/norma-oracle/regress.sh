@@ -52,6 +52,12 @@ run_one() {
   sed -n '/^== NORMA model errors ==/,/^== /p' "$d/out.lf" | grep '^      - ' | sed 's/^ *- //' | sort > "$d/errors.txt"
   n=$(grep -o 'TOTAL BLOCKING ERRORS: [0-9]*' "$d/out.lf" | grep -o '[0-9]*$')
   echo "${n:-0}" > "$d/errors.count"
+  # the read-back gate: paths that read as none of their head's rules, plus
+  # built rules no path reads; both are wrong builds NORMA did not object to
+  rb=$(grep -o 'READ-BACK SUMMARY: .*' "$d/out.lf" | grep -oE '[0-9]+ MISMATCH' | grep -oE '^[0-9]+')
+  rbn=$(grep -o 'READ-BACK SUMMARY: .*' "$d/out.lf" | grep -oE '[0-9]+ built rule' | grep -oE '^[0-9]+')
+  echo "$(( ${rb:-0} + ${rbn:-0} ))" > "$d/readback.count"
+  grep -E '^  READ-BACK (MISMATCH|NO PATH)' "$d/out.lf" | sed 's/^ *//' | sort > "$d/readback.txt"
   rm -f "$d/out.lf"
 }
 
@@ -63,8 +69,9 @@ for c in $corpora; do
   d="$OUT/$c"
   nb=$(wc -l < "$d/built.names" | tr -d ' ')
   ne=$(cat "$d/errors.count")
+  nr=$(cat "$d/readback.count")
   if [ -z "$BASE" ]; then
-    printf '%-9s built %3s  errors %s\n' "$c" "$nb" "$ne"
+    printf '%-9s built %3s  errors %s  read-back %s\n' "$c" "$nb" "$ne" "$nr"
     grep -h 'UNBUILT SUMMARY' "$d/out.txt" | tr -d '\r' | sed 's/^ */    /'
     continue
   fi
@@ -90,8 +97,9 @@ for c in $corpora; do
       if [ "$kind" = "content" ]; then carriers="DIFFER (content)"; elif [ "$carriers" = IDENTICAL ]; then carriers="DIFFER (order only)"; fi
     fi
   done
-  printf '%-9s built %3s -> %3s (+%s/-%s)  errors %s -> %s  carriers %s\n' \
-    "$c" "$ob" "$nb" "$new" "$lost" "$oe" "$ne" "$carriers"
+  or=$(cat "$b/readback.count" 2>/dev/null || echo '?')
+  printf '%-9s built %3s -> %3s (+%s/-%s)  errors %s -> %s  read-back %s -> %s  carriers %s\n' \
+    "$c" "$ob" "$nb" "$new" "$lost" "$oe" "$ne" "$or" "$nr" "$carriers"
   comm -23 "$b/built.names" "$d/built.names" | sed 's/^/    lost: /'
   comm -13 "$b/built.names" "$d/built.names" | sed 's/^/    new:  /'
   comm -3 "$b/errors.txt" "$d/errors.txt" | sed 's/^\t/    error now:  /; t; s/^/    error gone: /'
