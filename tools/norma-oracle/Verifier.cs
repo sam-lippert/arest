@@ -8542,7 +8542,13 @@ namespace Arest.NormaOracle
 				{
 					var have = new HashSet<string>(StringComparer.Ordinal);
 					foreach (var row in kindEntry.Rows) if (row.Count == 2) have.Add(row[0]);
-					foreach (ObjectType ot in myModel.ObjectTypeCollection)
+					// BY NAME, NOT BY CREATION. ObjectTypeCollection enumerates in
+					// creation order, and the object types NORMA mints for implied
+					// objectifications are created by its deferred rules in an order
+					// it does not fix -- two identical runs on kernel swapped two of
+					// these rows inside state:fts. A population is a set; name order
+					// is the canonical one, as state:otmeta already sorts.
+					foreach (ObjectType ot in myModel.ObjectTypeCollection.OrderBy(o => o.Name, StringComparer.Ordinal))
 					{
 						if (ot.IsDeleted || string.IsNullOrEmpty(ot.Name)) continue;
 						if (have.Contains(ot.Name)) continue;
@@ -9776,15 +9782,19 @@ namespace Arest.NormaOracle
 			// never adjacency. Non-consecutive members of one group therefore change
 			// no name canon derives: laying groups in sorted order keeps min(A) <
 			// min(B) whenever A sorts before B, which is all cn:minint reads.
-			var foSlots = new List<int>();
-			for (int i = 0; i < foFacts.Count; i++)
-			{
-				if (groupKey(foFacts[i]) != null) foSlots.Add(i);
-			}
-			var foOccupants = foSlots.Select(s => foFacts[s])
+			// THE SLOTS ARE NOT STABLE EITHER. kernel, 2026-09-03: in three of four
+			// same-binary runs the RoleSequenceHasPosition link pair sat on the other
+			// side of ProblemHasFeature, so pinning occupancy into enumeration slots
+			// still drifted every ordinal after it. Canonical layout instead: every
+			// declared fact type in enumeration order, which is parse order, then
+			// every implied fact type sorted by (group, member). Order within the
+			// declared run, within a group, and between groups is what canon reads
+			// through cn:posin and cn:minint, and all three are unchanged.
+			var foDeclared = foFacts.Where(f => groupKey(f) == null).ToList();
+			var foImplied = foFacts.Where(f => groupKey(f) != null)
 				.OrderBy(groupKey, StringComparer.Ordinal)
 				.ThenBy(memberIndex).ToList();
-			for (int k = 0; k < foSlots.Count; k++) foFacts[foSlots[k]] = foOccupants[k];
+			foFacts = foDeclared.Concat(foImplied).ToList();
 			var foRows = new List<string>();
 			int foIndex = 0;
 			foreach (FactType ft in foFacts)
