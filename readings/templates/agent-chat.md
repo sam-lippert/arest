@@ -4,7 +4,7 @@
 
 Agent Chat(.id) is an entity type.
 Chat Message(.id) is an entity type.
-Tool Call(.id) is an entity type.
+Tool Call(.Tool Call Id) is an entity type.
 
 ## Value Types
 

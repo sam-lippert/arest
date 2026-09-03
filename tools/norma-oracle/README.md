@@ -143,30 +143,104 @@ each carrying the head, the body no arm accepted, and how many legs resolved,
 closed by an UNBUILT SUMMARY. Those are printed unprompted on every run and are
 the fastest true statement about a reading's health that exists.
 
-## Regression and probes
+## Where a run's time goes
 
-Two gates ride beside the oracle, both plain sh:
+Every section boundary prints `timing: <phase> N ms` and every commit
+`timing: commit N ms`, closed by `timing: total`. Two things used to make a
+closure take minutes (us-law, 2026-09-03, 513 s under load): NORMA validates
+the whole model at every commit, and nine phases each committed; and ten
+sites scanned every type name against every sentence, longest name first,
+which is O(types x sentence) per sentence and ran again on the round-trip's
+re-parse. Now there are three commits (the declarations, the map, and
+everything after them -- one commit crashes NORMA's ORM-to-OIAL bridge on
+the us-law closure, and so does declarations-plus-map, so measure any
+transaction change on us-law); the round-trip's second model is read inside
+its open transaction and never committed; undo recording is off on both
+headless stores; and the type names are indexed by their first run of
+letters and digits, so a sentence offers candidates only where its own runs
+match, with the old scan's acceptance order exactly (longer names first,
+ties in dictionary order, left to right, a name's run a prefix of the
+sentence's so `Node1` is Node with a subscript, a neighbour inside an
+accepted span a boundary). The carriers are byte-identical before and
+after: eu-law 108 s to 36 s. If a run is slow again, read the timing lines
+before anything else.
 
-    tools/norma-oracle/regress.sh <out-dir> [baseline-dir]
-    tools/norma-oracle/probes.sh [--record] [probe-name ...]
+## What a declaration decides
 
-`regress.sh` runs the metamodel and five app corpora in parallel -- kernel,
-auto.dev, support, eu-law and us-law, each the readings closure its
-package.json declares, with a library's domain subdirectories passed
-explicitly because the oracle reads one directory level -- and, against a
-baseline, reports built derivation-rule heads
-by NAME with multiplicity (a count hides a dropped rule; a name does not),
-NORMA's blocking errors, and whether the carriers are byte-identical, listing
-lost heads, new heads, and changed errors under each line. A run without a
-baseline is the baseline for the next one; keep them under `_reports/`.
+Canon maps first. Files sort by name within a source directory (core.md
+first) and the directories keep the order they were given, so the
+metamodel's declarations land before any app's. One sort across every
+directory used to put law-core's core-types.md before the metamodel's
+instances.md, and the app's `Citation is a value type` was the declaration
+kept while the canon's entity was the one reported.
 
-`probes.sh` runs each minimal model under `probes/` through the oracle ALONE
-and diffs its rule verbalizations, UNBUILT lines, and error count against
-`expected.txt`. Probes use distinct types so NORMA's naming is unambiguous.
-`--record` writes what the oracle produced as the expectation: read it back
-first, because a probe records the meaning that was verified, not whatever
-came out. A one-line `errors 0` expectation keeps a known wrong build red
-until it is fixed.
+Declarations map before any reading (a declaration pass over every file, then
+the schemes, then the readings), so a type is never minted by usage before its
+own declaration and file order cannot decide a declared kind. Two explicit
+declarations of different kinds are a `KIND CONFLICT`, the first kept -- the
+same rule as two reference schemes for one entity (`DECLARED TWICE WITH
+DIFFERENT REFERENCE SCHEMES`). What file order still decides is a name minted
+by usage alone: a reading that uses `Customer` before any file declares it
+binds nothing, which is a missing declaration in the corpus, not an order to
+fix.
+
+Reference schemes and value enumerations are built after every file has
+mapped, because whether a mode names an existing type, and whether `The
+possible values of Filing Status are ...` constrains a value type or the
+identifying value type of an entity, is knowable only then. An enumeration on
+an entity with no single value identifier is an `ERROR mapping` line.
+
+A restated subtype is the same fact: two readings may both say `Partnership
+is a subtype of Business Entity`, and a second SubtypeFact is what NORMA
+reports as transitive implication.
+
+Two constraint shapes the mapper no longer guesses at: `each` inside a
+sentence (`discloses each Category`, `for each quarter end`) is not a
+uniqueness quantifier, and a `For each` list may carry commas (`For each
+Filing Status, Qualifying Condition and Tax Year, that Filing Status has at
+most one ...`), which is the n-1 uniqueness NORMA writes for a quaternary.
+
+## Regression and probes: the test project
+
+The gates beside the oracle are xunit theories in `tools/norma-oracle-tests`,
+run with the dotnet SDK and nothing else (no sh, no python, no interpreter
+the target may not have):
+
+    cd tools/norma-oracle-tests
+    dotnet test --filter Category!=Corpus     # probes + the carrier classifier, ~1 min
+    dotnet test --filter Category=Corpus      # the six corpora, ~15 min
+    NORMA_ORACLE_RECORD=1 dotnet test ...     # record what the oracle produced
+
+The tests drive the shipped `norma-oracle.exe` as a process from a scratch
+directory under `_reports/` (the oracle writes its carriers into its working
+directory, and it is one verifier run per process), and read back what the
+old shell gates extracted: the blocking-error total, the UNBUILT lines, the
+read-back verdicts, the verbalized rule blocks, the built heads.
+
+`ProbeTests`: every directory under `probes/` is one theory, a minimal model
+with distinct types run through the oracle ALONE, whose `expected.txt` holds
+the error count, the UNBUILT lines with their reasons, the read-back
+verdicts and each derived head's verbalization. A one-line `errors 0`
+expectation keeps a known wrong build red until it is fixed.
+
+`CorpusTests`: every corpus in `corpora.md` is one theory. The corpora are
+facts -- `Corpus 'uslaw' reads Directory '../apps/us-law/readings/**'` -- an
+app's readings closure as its package.json declares it, the metamodel first,
+a library's domain tree expanded because the oracle reads one directory
+level. `expected/<corpus>.txt` holds the error total, the read-back count
+and every built head by NAME with multiplicity (a count hides a dropped
+rule; a name does not); a lost head, a new head or a changed count fails the
+theory with the difference spelled out. The expectation IS the baseline:
+a change you verified is recorded deliberately, never by a run that happened
+to pass. `MetamodelCarriersAreReproducible` runs the metamodel twice and
+requires byte-identical carriers.
+
+`CarrierKind` classifies two carriers as identical, order only or content
+(a chunked collection is a multiset, a direct one keeps its order) and is
+unit-tested on its own.
+
+Record only what you have read: an expectation is the meaning that was
+verified, not whatever came out.
 
 ## The read-back gate
 
@@ -189,5 +263,5 @@ its first run named twenty kernel rules whose second shared token had been
 left as a free existential, plus a metamodel rule whose Failure succeeded
 itself. Coverage is stated in the summary line: a head whose text needs a
 subtype substitution, or has a clause naming no fact type, is UNCHECKED and
-counted, and calculation clauses are not compared. `regress.sh` carries the
-count as `read-back`; `probes.sh` records the lines.
+counted, and calculation clauses are not compared. `CorpusTests` carries the
+count as `read-back`; `ProbeTests` records the lines.

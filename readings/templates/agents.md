@@ -5,7 +5,6 @@
 Model(.code) is an entity type.
 Agent Definition(.id) is an entity type.
 Agent(.id) is an entity type.
-  Agent is a subtype of User.
 Completion(.id) is an entity type.
 
 ## Readings

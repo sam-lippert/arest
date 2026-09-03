@@ -98,6 +98,22 @@ namespace Arest.NormaOracle
 			public string ReadingWords;
 			public string ReadingText;
 			public string FullKey; // normalized players-interleaved sentence
+			// the normalized reading words, once: two constraint loops normalized every
+			// entry per sentence (1.7 million calls on the us-law closure)
+			private string myNormalized;
+			private string myNormalizedSource;
+			public string NormalizedWords
+			{
+				get
+				{
+					if (!ReferenceEquals(myNormalizedSource, ReadingWords))
+					{
+						myNormalized = NormalizeWords(ReadingWords);
+						myNormalizedSource = ReadingWords;
+					}
+					return myNormalized;
+				}
+			}
 			public readonly List<List<string>> Rows = new List<List<string>>();
 			public readonly List<List<string>> RowKinds = new List<List<string>>();
 		}
@@ -155,6 +171,14 @@ namespace Arest.NormaOracle
 					Role r = role.Role;
 					foreach (ConstraintRoleSequence seq in r.ConstraintRoleSequenceCollection)
 					{
+						// A DEONTIC UNIQUENESS ALSO SUPPRESSES THE ASSUMPTION, deliberately. NORMA
+						// wants an alethic uniqueness on every fact type, but it reads a narrower
+						// deontic one as implying the spanning alethic one and rejects the
+						// assumed constraint as implied (measured 2026-09-03: two fact types, six
+						// errors instead of two). The only state NORMA accepts is an explicit
+						// alethic uniqueness at least as narrow as the deontic one, and whether
+						// a violable rule is also a necessity is the corpus's decision, not a
+						// default: deontics are violable.
 						if (seq.Constraint is UniquenessConstraint)
 						{
 							hasUC = true;
@@ -311,6 +335,7 @@ namespace Arest.NormaOracle
 		// reports as a BLOCKING error per type.
 		private static readonly Regex IdentifiedByDecl = new Regex(@"^Each (" + NameChars + @"+?)\s+is identified by\s+(" + NameChars + @"+?)\.$");
 		private static readonly Regex EntityDeclBare = new Regex(@"^(" + NameChars + @"+?)\s+is an entity type\.$");
+		private static readonly Regex ObjectifiesDecl = new Regex("^([\\w :]+) objectifies [\"“](.+)[\"”]\\.$");
 		private static readonly Regex ValueDecl = new Regex(@"^(" + NameChars + @"+?)\s+is a value type\.$");
 
 		public void DeclarePass(IEnumerable<string> sentences)
@@ -349,6 +374,17 @@ namespace Arest.NormaOracle
 			{
 				s = mk0.Groups[1].Value;
 			}
+			// an objectification names its nesting type: the NAME is declared here
+			// so readings map it as one player ("Plan Product has Price Per Call"
+			// read as Plan, Product, Price Per Call while the nesting was unknown);
+			// the objectification itself follows its fact in the map pass
+			Match od = ObjectifiesDecl.Match(s);
+			if (od.Success)
+			{
+				DeclareEntity(EnsureType(od.Groups[1].Value.Trim(), false));
+				Count("objectification name declared");
+				return;
+			}
 			{
 				Match m;
 				if ((m = EntityDeclComposite.Match(s)).Success
@@ -373,7 +409,7 @@ namespace Arest.NormaOracle
 				else if ((m = EntityDecl.Match(s)).Success)
 				{
 					ObjectType t = EnsureType(m.Groups[1].Value.Trim(), false);
-					myDeclaredNames.Add(t.Name);
+					DeclareEntity(t);
 					string mode = m.Groups[2].Value.Trim();
 					// DEFERRED like the composites: whether this mode names an
 					// existing type is only knowable after every declaration
@@ -383,15 +419,14 @@ namespace Arest.NormaOracle
 				else if ((m = IdentifiedByDecl.Match(s)).Success)
 				{
 					ObjectType t = EnsureType(m.Groups[1].Value.Trim(), false);
-					myDeclaredNames.Add(t.Name);
+					DeclareEntity(t);
 					myDeferredSchemes.Add(new DeferredScheme { Name = t.Name,
 						Comps = new List<string> { m.Groups[2].Value.Trim() }, IndexPos = myFactIndex.Count });
 					Count("entity-type declaration");
 				}
 				else if ((m = EntityDeclBare.Match(s)).Success)
 				{
-					myDeclaredNames.Add(m.Groups[1].Value.Trim());
-					EnsureType(m.Groups[1].Value.Trim(), false);
+					DeclareEntity(EnsureType(m.Groups[1].Value.Trim(), false));
 					Count("entity-type declaration");
 				}
 				else if ((m = ValueDecl.Match(s)).Success)
@@ -399,9 +434,11 @@ namespace Arest.NormaOracle
 					string vName = m.Groups[1].Value.Trim();
 					myDeclaredNames.Add(vName);
 					ObjectType vt = EnsureType(vName, true);
+					myDeclaredValueNames.Add(vName);
 					if (!vt.IsValueType)
 					{
-						if (vt.ReferenceModeString.Length != 0 || vt.PreferredIdentifier != null)
+						// the scheme is deferred, so a declared entity has no identifier yet: ask the declaration set
+						if (vt.ReferenceModeString.Length != 0 || vt.PreferredIdentifier != null || myDeclaredEntityNames.Contains(vName))
 						{
 							Count("KIND CONFLICT: declared value type collides with entity type");
 							myMapLog.Add("KIND CONFLICT: '" + vName + "' declared as a value type but already an identified entity type");
@@ -426,6 +463,27 @@ namespace Arest.NormaOracle
 		// undeclared-type class the report names below (static: one
 		// verifier run per process, and the static DumpErrors reads them)
 		private static readonly HashSet<string> myDeclaredNames = new HashSet<string>(StringComparer.Ordinal);
+		// TWO EXPLICIT DECLARATIONS OF DIFFERENT KINDS ARE A CONFLICT, THE FIRST
+		// KEPT - the rule the value branch below already applied once an
+		// identifier had been built. Schemes are deferred, so at declaration
+		// time a declared entity has no identifier yet and the kind must be
+		// asked of these sets. Measured 2026-09-03: the UCC's Title against the
+		// metamodel's Title value type, law-core's Citation value type against
+		// the metamodel's Citation entity. (The declaration pass runs before any
+		// reading, so a type is never minted by usage before its declaration;
+		// there is no inferred kind to flip here.)
+		private static readonly HashSet<string> myDeclaredEntityNames = new HashSet<string>(StringComparer.Ordinal);
+		private static readonly HashSet<string> myDeclaredValueNames = new HashSet<string>(StringComparer.Ordinal);
+		private void DeclareEntity(ObjectType t)
+		{
+			myDeclaredNames.Add(t.Name);
+			myDeclaredEntityNames.Add(t.Name);
+			if (t.IsValueType && myDeclaredValueNames.Contains(t.Name))
+			{
+				Count("KIND CONFLICT: declared entity type collides with declared value type");
+				myMapLog.Add("KIND CONFLICT: '" + t.Name + "' declared as an entity type but already declared a value type - the first kept");
+			}
+		}
 		private static readonly HashSet<string> myMintedNames = new HashSet<string>(StringComparer.Ordinal);
 		private static bool myMintedPrinted;
 
@@ -455,7 +513,17 @@ namespace Arest.NormaOracle
 				try
 				{
 					ObjectType t = myTypes[scheme.Name];
-					if (t.ReferenceModeString.Length != 0 || t.PreferredIdentifier != null) continue;
+					if (t.ReferenceModeString.Length != 0 || t.PreferredIdentifier != null)
+					{
+						// THE FIRST SCHEME WINS, AND THE SECOND IS SAID, not swallowed:
+						// `Filing Status(.status)` in one file and `Filing Status(.name)` in
+						// another make the same entity mean two things in two corpora.
+						string have = t.ReferenceModeString.Length != 0 ? t.ReferenceModeString : "<composite>";
+						string want = string.Join(", ", scheme.Comps);
+						if (!string.Equals(have, want, StringComparison.OrdinalIgnoreCase))
+							myMapLog.Add("DECLARED TWICE WITH DIFFERENT REFERENCE SCHEMES: '" + scheme.Name + "' (." + have + ") then (." + want + ") -- the first kept");
+						continue;
+					}
 					if (scheme.Comps.Count == 1 && !myTypes.ContainsKey(scheme.Comps[0]))
 					{
 						// a fresh single mode: NORMA's own refmode machinery,
@@ -467,7 +535,12 @@ namespace Arest.NormaOracle
 							FactType rft = pr.FactType;
 							if (rft == null || rft.RoleCollection.Count != 2) continue;
 							Role other = rft.RoleCollection[0].Role == pr ? rft.RoleCollection[1].Role : rft.RoleCollection[0].Role;
-							if (other.RolePlayer == null || !string.Equals(other.RolePlayer.Name, mode, StringComparison.OrdinalIgnoreCase)) continue;
+							// NORMA names the minted type after the entity (`Compensation_name`) as
+							// often as after the mode alone; both are this scheme's value type.
+							if (other.RolePlayer == null) continue;
+							string on = other.RolePlayer.Name;
+							if (!string.Equals(on, mode, StringComparison.OrdinalIgnoreCase)
+								&& !string.Equals(on, t.Name + "_" + mode, StringComparison.OrdinalIgnoreCase)) continue;
 							// THE MINTED MODE TYPE NEEDS A DATA TYPE. NORMA's refmode machinery
 							// creates the value type behind `Authority(.citation)` but leaves it
 							// unspecified, and an unspecified value type is a BLOCKING error --
@@ -499,6 +572,7 @@ namespace Arest.NormaOracle
 				}
 			}
 			myDeferredSchemes.Clear();
+			FlushValueEnums();
 		}
 
 		// one scheme builder for every identification form: composite
@@ -516,8 +590,19 @@ namespace Arest.NormaOracle
 				myTypes.TryGetValue(comp, out compT);
 				if (compT == null)
 				{
-					// unbound component: mint a value type, the .slug precedent
-					compT = EnsureType(comp, true);
+					// A COMPONENT NAMES A DECLARED TYPE REGARDLESS OF CASE: `(.state, .tax
+					// year)` on State Income Tax means the State and the Tax Year, as
+					// `(empNr)` means the EmpNr in Halpin's own text. Only an unbound one is
+					// minted, and then under the entity's name the way NORMA names a mode.
+					// A bare lowercase `state` minted here captured the word in every
+					// reading: `HOA is organized under state law of State` became a ternary,
+					// and its implied link readings collided.
+					foreach (var kv in myTypes)
+						if (string.Equals(kv.Key, comp, StringComparison.OrdinalIgnoreCase)) { compT = kv.Value; break; }
+				}
+				if (compT == null)
+				{
+					compT = EnsureType(t.Name + "_" + comp, true);
 					compT.IsValueType = true;
 					EnsureDataType(compT, "text");
 				}
@@ -571,6 +656,220 @@ namespace Arest.NormaOracle
 			return added;
 		}
 
+		// TYPE-NAME OCCURRENCES, INDEXED. Ten sites scanned every type name against
+		// every sentence, longest name first, blanking each accepted span: O(types x
+		// sentence) per sentence and a sort of every name per call. On the us-law
+		// closure (2026-09-03) that was most of the map, the textual constraints, the
+		// derivation rules, the instance facts, and the round-trip's map again. The
+		// index keys every name by its first run of letters and digits, a sentence
+		// offers candidates only where its own runs match, and acceptance keeps the
+		// loops' exact priority: longer names first, ties in the dictionary's order,
+		// occurrences left to right, a span refused when a neighbour is a letter, a
+		// digit or a hyphen that no accepted span already covers.
+		private sealed class TypeHit { public int Rank; public int At; public int End; public string Name; }
+		private int myTypesVersion;
+		private int myTypeIndexVersion = -1;
+		private List<string> myNamesByRank;
+		private Dictionary<string, List<int>> myRanksByFirstRun;
+		private Dictionary<string, List<int>> myRanksByLastRun;
+		private List<int> myRanksWithoutFirstRun;
+		private List<int> myRanksWithoutLastRun;
+		private Regex myTagRegex;
+		private Regex myStripRegex;
+
+		private static string Run(string s, int from)
+		{
+			int i = from;
+			while (i < s.Length && char.IsLetterOrDigit(s[i])) i++;
+			return s.Substring(from, i - from);
+		}
+
+		private static string LastRun(string s)
+		{
+			int i = s.Length;
+			while (i > 0 && char.IsLetterOrDigit(s[i - 1])) i--;
+			return s.Substring(i);
+		}
+
+		private void EnsureTypeIndex()
+		{
+			if (myTypeIndexVersion == myTypesVersion) return;
+			myNamesByRank = myTypes.Keys.OrderByDescending(n => n.Length).ToList();
+			myRanksByFirstRun = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+			myRanksByLastRun = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+			myRanksWithoutFirstRun = new List<int>();
+			myRanksWithoutLastRun = new List<int>();
+			for (int r = 0; r < myNamesByRank.Count; r++)
+			{
+				string first = Run(myNamesByRank[r], 0);
+				if (first.Length == 0) myRanksWithoutFirstRun.Add(r);
+				else
+				{
+					List<int> l;
+					if (!myRanksByFirstRun.TryGetValue(first, out l)) myRanksByFirstRun[first] = l = new List<int>();
+					l.Add(r);
+				}
+				string last = LastRun(myNamesByRank[r]);
+				if (last.Length == 0) myRanksWithoutLastRun.Add(r);
+				else
+				{
+					List<int> l;
+					if (!myRanksByLastRun.TryGetValue(last, out l)) myRanksByLastRun[last] = l = new List<int>();
+					l.Add(r);
+				}
+			}
+			myStripRegex = myNamesByRank.Count == 0 ? null
+				: new Regex("(" + string.Join("|", myNamesByRank.Where(n => n.Length > 0).Select(n => Regex.Escape(n))) + @")\d+");
+			myTagRegex = myNamesByRank.Count == 0 ? null
+				: new Regex("(" + string.Join("|", myNamesByRank.Select(n => Regex.Escape(n))) + @")(\d)\b");
+			myTypeIndexVersion = myTypesVersion;
+		}
+
+		private static bool Boundary(char c)
+		{
+			return !char.IsLetterOrDigit(c) && c != '-';
+		}
+
+		// every occurrence of a type name in `text` that the old loops accepted, in
+		// their order: rank (longest first) then position. `consumeDigits` folds a
+		// trailing subscript into the span; `exclusive` blanks accepted spans so
+		// later, shorter names cannot match inside them and a neighbour inside an
+		// accepted span counts as a boundary.
+		private List<TypeHit> TypeHits(string text, bool consumeDigits, bool exclusive)
+		{
+			EnsureTypeIndex();
+			var cands = new List<TypeHit>();
+			for (int p = 0; p < text.Length; p++)
+			{
+				if (!char.IsLetterOrDigit(text[p])) continue;
+				if (p > 0 && char.IsLetterOrDigit(text[p - 1])) continue;
+				// a name's first run is a PREFIX of the sentence's run here, not equal to
+				// it: `Node1` is Node with a subscript, which the old substring scan found
+				string run = Run(text, p);
+				for (int k = 1; k <= run.Length; k++)
+				{
+					List<int> ranks;
+					if (myRanksByFirstRun.TryGetValue(run.Substring(0, k), out ranks))
+					{
+						foreach (int r in ranks) AddOccurrence(cands, text, p, r, consumeDigits);
+					}
+				}
+			}
+			foreach (int r in myRanksWithoutFirstRun)
+			{
+				string name = myNamesByRank[r];
+				int at = 0;
+				while ((at = text.IndexOf(name, at, StringComparison.Ordinal)) >= 0)
+				{
+					AddOccurrence(cands, text, at, r, consumeDigits);
+					at++;
+				}
+			}
+			cands.Sort((a, b) => a.Rank != b.Rank ? a.Rank.CompareTo(b.Rank) : a.At.CompareTo(b.At));
+			var accepted = new List<TypeHit>();
+			bool[] covered = exclusive ? new bool[text.Length] : null;
+			foreach (TypeHit h in cands)
+			{
+				bool leftOk = h.At == 0 || (exclusive && covered[h.At - 1]) || Boundary(text[h.At - 1]);
+				bool rightOk = h.End >= text.Length || (exclusive && covered[h.End]) || Boundary(text[h.End]);
+				if (!leftOk || !rightOk) continue;
+				if (exclusive)
+				{
+					bool free = true;
+					for (int i = h.At; i < h.End && free; i++) free = !covered[i];
+					if (!free) continue;
+					for (int i = h.At; i < h.End; i++) covered[i] = true;
+				}
+				accepted.Add(h);
+			}
+			return accepted;
+		}
+
+		private void AddOccurrence(List<TypeHit> into, string text, int at, int rank, bool consumeDigits)
+		{
+			string name = myNamesByRank[rank];
+			if (string.CompareOrdinal(text, at, name, 0, name.Length) != 0) return;
+			int end = at + name.Length;
+			if (consumeDigits) while (end < text.Length && char.IsDigit(text[end])) end++;
+			into.Add(new TypeHit { Rank = rank, At = at, End = end, Name = name });
+		}
+
+		private static string Blank(string text, List<TypeHit> hits)
+		{
+			var chars = text.ToCharArray();
+			foreach (TypeHit h in hits) for (int i = h.At; i < h.End; i++) chars[i] = (char)1;
+			return new string(chars);
+		}
+
+		// the names that can start at `at` in `text`, longest first: the old
+		// StartsWith scans over every name, on the names sharing the first run
+		private List<string> CandidateNamesAt(string text, int at)
+		{
+			EnsureTypeIndex();
+			var ranks = new List<int>();
+			string run = at < text.Length ? Run(text, at) : "";
+			for (int k = 1; k <= run.Length; k++)
+			{
+				List<int> keyed;
+				if (myRanksByFirstRun.TryGetValue(run.Substring(0, k), out keyed)) ranks.AddRange(keyed);
+			}
+			ranks.AddRange(myRanksWithoutFirstRun);
+			ranks.Sort();
+			return ranks.Select(r => myNamesByRank[r]).ToList();
+		}
+
+		// the names that can end `text`, longest first (the entity-reference
+		// prefix of an instance sentence: "Plan Product" before its literal)
+		private List<string> CandidateSuffixNames(string text)
+		{
+			EnsureTypeIndex();
+			var ranks = new List<int>();
+			string last = LastRun(text);
+			for (int k = 1; k <= last.Length; k++)
+			{
+				List<int> keyed;
+				if (myRanksByLastRun.TryGetValue(last.Substring(last.Length - k), out keyed)) ranks.AddRange(keyed);
+			}
+			ranks.AddRange(myRanksWithoutLastRun);
+			ranks.Sort();
+			return ranks.Select(r => myNamesByRank[r]).ToList();
+		}
+
+		// the names occurring anywhere in `text` at a run start, longest first:
+		// the subtype-substitution loops keep their bodies and lose the names
+		// that cannot occur
+		private List<string> CandidateNames(string text)
+		{
+			EnsureTypeIndex();
+			var ranks = new SortedSet<int>();
+			for (int p = 0; p < text.Length; p++)
+			{
+				if (!char.IsLetterOrDigit(text[p])) continue;
+				if (p > 0 && char.IsLetterOrDigit(text[p - 1])) continue;
+				string run = Run(text, p);
+				for (int k = 1; k <= run.Length; k++)
+				{
+					List<int> keyed;
+					if (!myRanksByFirstRun.TryGetValue(run.Substring(0, k), out keyed)) continue;
+					foreach (int r in keyed)
+					{
+						string name = myNamesByRank[r];
+						if (string.CompareOrdinal(text, p, name, 0, name.Length) == 0) ranks.Add(r);
+					}
+				}
+			}
+			foreach (int r in myRanksWithoutFirstRun) if (text.IndexOf(myNamesByRank[r], StringComparison.Ordinal) >= 0) ranks.Add(r);
+			return ranks.Select(r => myNamesByRank[r]).ToList();
+		}
+
+		// "Object Type1" -> "Object Type#1", every name at once, longest first: the
+		// old loop built and ran one regex per type name per constraint sentence
+		private string TagSubscripts(string tagged)
+		{
+			EnsureTypeIndex();
+			return myTagRegex == null ? tagged : myTagRegex.Replace(tagged, "$1#$2");
+		}
+
 		private ObjectType EnsureType(string name, bool isValueType)
 		{
 			ObjectType t;
@@ -600,6 +899,8 @@ namespace Arest.NormaOracle
 					myMintedNames.Add(name);
 				}
 				myTypes[name] = t;
+				myTypesVersion++;
+				myKindCache.Clear();
 			}
 			return t;
 		}
@@ -1009,24 +1310,14 @@ namespace Arest.NormaOracle
 				// The quoted reading resolves the fact by FullKey so the
 				// sentence parses in entity context too (the nf B side sees
 				// it beside the entity type, not under the fact).
-				Match om = Regex.Match(s, "^([\\w :]+) objectifies [\"“](.+)[\"”]\\.$");
+				Match om = ObjectifiesDecl.Match(s);
 				if (om.Success)
 				{
-					string wanted = NormalizeWords(om.Groups[2].Value);
-					FactType target = null;
-					foreach (FactIndexEntry entry in myFactIndex)
+					if (!TryObjectify(om.Groups[1].Value.Trim(), om.Groups[2].Value, s))
 					{
-						if (entry.FullKey == wanted) { target = entry.Fact; break; }
+						myDeferredObjectifications.Add(s);
+						Count("objectification (unresolved reading, deferred)");
 					}
-					if (target != null)
-					{
-						FactType saveLast = myLastFact;
-						myLastFact = target;
-						bool ok = ObjectifySpanning(om.Groups[1].Value.Trim(), s);
-						myLastFact = saveLast;
-						if (ok) return;
-					}
-					Count("objectification (unresolved reading, deferred)");
 					return;
 				}
 			}
@@ -1084,6 +1375,41 @@ namespace Arest.NormaOracle
 			myUnrecognized.Add(Shorten(s));
 		}
 
+		private readonly List<string> myDeferredObjectifications = new List<string>();
+		private bool TryObjectify(string nestingName, string reading, string sentence)
+		{
+			string wanted = NormalizeWords(reading);
+			FactType target = null;
+			foreach (FactIndexEntry entry in myFactIndex)
+			{
+				if (entry.FullKey == wanted) { target = entry.Fact; break; }
+			}
+			if (target == null) return false;
+			FactType saveLast = myLastFact;
+			myLastFact = target;
+			bool ok = ObjectifySpanning(nestingName, sentence);
+			myLastFact = saveLast;
+			return ok;
+		}
+		// an objectification that preceded its fact in file order is replayed
+		// once every file has mapped; it used to be counted deferred and never
+		// retried, so Plan Product never nested "Plan includes API"
+		public void ReplayObjectifications()
+		{
+			foreach (string s in myDeferredObjectifications)
+			{
+				Match om = ObjectifiesDecl.Match(s);
+				if (om.Success && TryObjectify(om.Groups[1].Value.Trim(), om.Groups[2].Value, s))
+				{
+					Count("objectification (replayed after the map)");
+				}
+				else
+				{
+					myMapLog.Add("OBJECTIFICATION UNRESOLVED (no such reading in the corpus): " + Shorten(s));
+				}
+			}
+			myDeferredObjectifications.Clear();
+		}
 		private bool ObjectifySpanning(string nestingName, string sentence)
 		{
 			// Halpin, "Objectification and Atomicity" (2020-04-28):
@@ -1101,6 +1427,15 @@ namespace Arest.NormaOracle
 					spanning = true;
 					break;
 				}
+			}
+			// a fact type with no uniqueness at all is a set (Def 3): the spanning
+			// uniqueness AssumeSetSemantics adds at the end of the map is the one
+			// Halpin's rule asks for, so the objectification stands on it now
+			// (Plan Product over "Plan includes API", 2026-09-03)
+			if (!spanning && !InternalUCs(myLastFact).Any())
+			{
+				spanning = true;
+				Count("objectification over the assumed spanning uniqueness (Def 3)");
 			}
 			if (!spanning)
 			{
@@ -1139,7 +1474,19 @@ namespace Arest.NormaOracle
 					+ ") - both sides must be the same kind; declare the missing "
 					+ "entity/value type explicitly");
 			}
+			// a restated subtype is the same fact (two tax readings both say
+			// Partnership is a subtype of Business Entity); a second SubtypeFact
+			// is what NORMA reports as transitive implication
+			foreach (ObjectType existingSuper in sub.SupertypeCollection)
+			{
+				if (existingSuper == super)
+				{
+					Count("subtype restated");
+					return;
+				}
+			}
 			SubtypeFact subtypeFact = SubtypeFact.Create(sub, super);
+			myKindCache.Clear();
 			// Halpin §6.7: "By default, a subtype inherits the primary
 			// reference scheme of the root supertype." SubtypeFact.Create
 			// wires ProvidesPreferredIdentifier only for value types; an
@@ -1212,7 +1559,7 @@ namespace Arest.NormaOracle
 			// Authority, in OBJECT position -- as do support.auto.dev's
 			// `Person is subject to Minnesota Authority` family. Longest name first, so
 			// `Minnesota Authority` is tried before the `Authority` inside it.
-			foreach (string subName in myTypes.Keys.OrderByDescending(n => n.Length))
+			foreach (string subName in CandidateNames(bare))
 			{
 				int at = 0;
 				while ((at = bare.IndexOf(subName, at, StringComparison.Ordinal)) >= 0)
@@ -1252,9 +1599,46 @@ namespace Arest.NormaOracle
 			return RootsAt(t, "Function");
 		}
 
+		// VALUE ENUMERATIONS ARE DEFERRED WITH THE SCHEMES. "The possible values
+		// of Filing Status are 'single', ..." names an entity identified by a
+		// name, and the values constrain the identifying value type, which
+		// exists only once the scheme is built. Mapping at once minted or took
+		// the named type as a value type and gave it a data type, flipping the
+		// entity (measured 2026-09-03 in us-law: Filing Status, a NORMA
+		// exception and five unidentified subtypes).
+		private readonly List<KeyValuePair<string, string>> myDeferredEnums = new List<KeyValuePair<string, string>>();
 		private void MapValueEnum(string typeName, string valueList)
 		{
-			ObjectType vt = EnsureType(typeName, true);
+			myDeferredEnums.Add(new KeyValuePair<string, string>(typeName, valueList));
+		}
+		private void FlushValueEnums()
+		{
+			foreach (var kv in myDeferredEnums)
+			{
+				ObjectType t = EnsureType(kv.Key, true);
+				if (!t.IsValueType)
+				{
+					ObjectType idType = null;
+					UniquenessConstraint pid = t.PreferredIdentifier;
+					if (pid != null && pid.RoleCollection.Count == 1)
+					{
+						ObjectType p = pid.RoleCollection[0].RolePlayer;
+						if (p != null && p.IsValueType) idType = p;
+					}
+					if (idType == null)
+					{
+						Count("value enumeration on an entity without a value identifier");
+						myMapLog.Add("ERROR mapping 'The possible values of " + kv.Key + " are ...': '" + kv.Key + "' is an entity type with no single value identifier to constrain");
+						continue;
+					}
+					t = idType;
+				}
+				ApplyValueEnum(t, kv.Value);
+			}
+			myDeferredEnums.Clear();
+		}
+		private void ApplyValueEnum(ObjectType vt, string valueList)
+		{
 			EnsureDataType(vt, "text");
 			ValueTypeValueConstraint constraint = vt.ValueConstraint;
 			if (constraint == null)
@@ -1313,7 +1697,20 @@ namespace Arest.NormaOracle
 		// a kind satisfies a role player if it IS the player or is a subtype
 		// of it (population inclusion — HTTP Method rows populate Predicate
 		// fact types)
+		// memoized per (kind, player): the walk ran for every candidate entry of
+		// every instance sentence (us-law 2026-09-03: 19 s of instance facts);
+		// cleared whenever a type or a subtype is declared
+		private readonly Dictionary<string, bool> myKindCache = new Dictionary<string, bool>(StringComparer.Ordinal);
 		private bool KindSatisfies(string kind, string player)
+		{
+			string key = kind + "\u0001" + player;
+			bool known;
+			if (myKindCache.TryGetValue(key, out known)) return known;
+			known = KindSatisfiesUncached(kind, player);
+			myKindCache[key] = known;
+			return known;
+		}
+		private bool KindSatisfiesUncached(string kind, string player)
 		{
 			if (string.Equals(kind, player, StringComparison.Ordinal)) return true;
 			ObjectType t;
@@ -1351,7 +1748,7 @@ namespace Arest.NormaOracle
 			{
 				string t = texts[i].Trim();
 				string kind = null;
-				foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
+				foreach (string name in CandidateSuffixNames(t))
 				{
 					if (t == name || t.EndsWith(" " + name, StringComparison.Ordinal))
 					{
@@ -1512,26 +1909,9 @@ namespace Arest.NormaOracle
 			// `state-sales-tax- Amount` then read as a three-role fact whose hyphen binding
 			// kept a placeholder and killed every closure run in NORMA's commit.
 			string working = body;
-			foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
-			{
-				int at = 0;
-				while ((at = working.IndexOf(name, at, StringComparison.Ordinal)) >= 0)
-				{
-					bool leftOk = at == 0 || !char.IsLetterOrDigit(working[at - 1]) && working[at - 1] != '-';
-					int end = at + name.Length;
-					bool rightOk = end >= working.Length || (!char.IsLetterOrDigit(working[end]) && working[end] != '-');
-					if (leftOk && rightOk)
-					{
-						hits.Add(new KeyValuePair<int, string>(at, name));
-						working = working.Substring(0, at) + new string((char)1, name.Length) + working.Substring(end);
-						at = end;
-					}
-					else
-					{
-						at = at + 1;
-					}
-				}
-			}
+			var readingHits = TypeHits(body, false, true);
+			foreach (TypeHit th in readingHits) hits.Add(new KeyValuePair<int, string>(th.At, th.Name));
+			working = Blank(body, readingHits);
 			if (hits.Count == 0 || hits.Count > 5)
 			{
 				return false;
@@ -1722,15 +2102,11 @@ namespace Arest.NormaOracle
 		// numbers untouched and stops a short type name eating a longer one.
 		private string StripSubscripts(string sentence)
 		{
-			var names = new List<string>(myTypes.Keys);
-			names.Sort(delegate(string a, string b) { return b.Length.CompareTo(a.Length); });
-			string s = sentence;
-			foreach (string tn in names)
-			{
-				if (tn.Length == 0) continue;
-				s = Regex.Replace(s, Regex.Escape(tn) + @"\d+", tn);
-			}
-			return s;
+			// one cached alternation, longest name first (equal lengths cannot nest,
+			// so their order is immaterial): the old loop built and ran one regex per
+			// type name per call, 51 s of the us-law closure's derivation rules
+			EnsureTypeIndex();
+			return myStripRegex == null ? sentence : myStripRegex.Replace(sentence, "$1");
 		}
 
 		// The variable each role is bound to, as the sentence WRITES it: the player's
@@ -6027,7 +6403,7 @@ namespace Arest.NormaOracle
 		// Status`, subscript included), or null.
 		private string RbLeadingToken(string c)
 		{
-			foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
+			foreach (string name in CandidateNamesAt(c, 0))
 			{
 				if (!c.StartsWith(name, StringComparison.Ordinal)) continue;
 				int end = name.Length;
@@ -7115,7 +7491,7 @@ namespace Arest.NormaOracle
 			swappedPlayer = null;
 			FactIndexEntry e = ResolveClause(clause, out players);
 			if (e != null) return e;
-			foreach (string subName in myTypes.Keys.OrderByDescending(n => n.Length))
+			foreach (string subName in CandidateNames(clause))
 			{
 				int at = clause.IndexOf(subName, StringComparison.Ordinal);
 				if (at < 0) continue;
@@ -7682,30 +8058,9 @@ namespace Arest.NormaOracle
 			playersOut = null;
 			string working = " " + Regex.Replace(clause.Trim(), @"\s+", " ") + " ";
 			var hits = new List<KeyValuePair<int, string>>();
-			foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
-			{
-				int at = 0;
-				string probe = name;
-				while ((at = working.IndexOf(probe, at, StringComparison.Ordinal)) >= 0)
-				{
-					bool leftOk = !char.IsLetterOrDigit(working[at - 1]) && working[at - 1] != '-';
-					int end = at + probe.Length;
-					// A SUBSCRIPT NAMES THE VARIABLE, NOT THE TYPE. `Status1` is a Status, and
-					// refusing the match because a digit follows left every subscripted clause
-					// naming no fact type at all. Consume the digits with the name -- they must
-					// be blanked too, or they survive into the reading words and match nothing.
-					int digitEnd = end;
-					while (digitEnd < working.Length && char.IsDigit(working[digitEnd])) digitEnd++;
-					bool rightOk = digitEnd >= working.Length || (!char.IsLetterOrDigit(working[digitEnd]) && working[digitEnd] != '-');
-					if (leftOk && rightOk)
-					{
-						hits.Add(new KeyValuePair<int, string>(at, name));
-						working = working.Substring(0, at) + new string((char)1, digitEnd - at) + working.Substring(digitEnd);
-						at = digitEnd;
-					}
-					else at++;
-				}
-			}
+			var clauseHits = TypeHits(working, true, true);
+			foreach (TypeHit th in clauseHits) hits.Add(new KeyValuePair<int, string>(th.At, th.Name));
+			working = Blank(working, clauseHits);
 			if (hits.Count == 0) return null;
 			hits.Sort((a, b) => a.Key.CompareTo(b.Key));
 			var players = hits.Select(h => h.Value).ToList();
@@ -7995,7 +8350,7 @@ namespace Arest.NormaOracle
 			if (body.StartsWith("No ") && body.EndsWith(" itself"))
 			{
 				string middle = body.Substring(3, body.Length - 3 - 7).Trim();
-				foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
+				foreach (string name in CandidateNamesAt(middle, 0))
 				{
 					if (middle.StartsWith(name + " ", StringComparison.Ordinal))
 					{
@@ -8014,10 +8369,7 @@ namespace Arest.NormaOracle
 
 			// tag subscripted variables: "Object Type1" -> "Object Type#1"
 			string tagged = body;
-			foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
-			{
-				tagged = Regex.Replace(tagged, Regex.Escape(name) + @"(\d)\b", name.Replace("$", "$$") + "#$1");
-			}
+			tagged = TagSubscripts(tagged);
 			// ring asymmetric: If X#1 w X#2, then X#2 is not w' X#1 — the
 			// negated predicate drops the leading "is" ("is subtype of" ->
 			// "is not subtype of")
@@ -8699,28 +9051,14 @@ namespace Arest.NormaOracle
 					string readingRef = popm.Groups[1].Value.Trim();
 					string working = " " + readingRef + " ";
 					var refPlayers = new List<string>();
-					foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
-					{
-						int at = 0;
-						while ((at = working.IndexOf(name, at, StringComparison.Ordinal)) >= 0)
-						{
-							bool leftOk = !char.IsLetterOrDigit(working[at - 1]) && working[at - 1] != '-';
-							int end = at + name.Length;
-							bool rightOk = end >= working.Length || (!char.IsLetterOrDigit(working[end]) && working[end] != '-');
-							if (leftOk && rightOk)
-							{
-								refPlayers.Add(name);
-								working = working.Substring(0, at) + new string((char)1, name.Length) + working.Substring(end);
-								at = end;
-							}
-							else at++;
-						}
-					}
+					var refHits = TypeHits(working, false, true);
+					foreach (TypeHit th in refHits) refPlayers.Add(th.Name);
+					working = Blank(working, refHits);
 					string refWords = NormalizeWords(Regex.Replace(working, "+", " "));
 					foreach (FactIndexEntry entry in myFactIndex)
 					{
 						if (entry.Players.Count != refPlayers.Count) continue;
-						if (!string.Equals(NormalizeWords(entry.ReadingWords), refWords, StringComparison.Ordinal)) continue;
+						if (!string.Equals(entry.NormalizedWords, refWords, StringComparison.Ordinal)) continue;
 						var sortedA = entry.Players.OrderBy(x => x, StringComparer.Ordinal);
 						var sortedB = refPlayers.OrderBy(x => x, StringComparer.Ordinal);
 						if (!sortedA.SequenceEqual(sortedB, StringComparer.Ordinal)) continue;
@@ -8738,7 +9076,12 @@ namespace Arest.NormaOracle
 				bool resolved = popm.Success && target != null;
 				if (!resolved)
 				{
-					string exactKey = Regex.Replace(body, @"^(Each|For each)\s+", "");
+					// "For each A, B and C, that A ..." names its players twice: the list
+					// prefix goes so the tail can match a reading exactly (a three-player
+					// list on a quaternary used to keep the running context and left a
+					// one-role uniqueness on the previous fact; auto.dev 2026-09-03)
+					string exactKey = Regex.Replace(body, @"^For each .+?,\s*(?=(?:that|some|exactly|at most|each|no|it)\b)", "");
+					exactKey = Regex.Replace(exactKey, @"^(Each|For each)\s+", "");
 					exactKey = Regex.Replace(exactKey, @"\b(exactly one|at most one|at most once|some|each|that)\b", " ");
 					exactKey = NormalizeWords(exactKey);
 					foreach (FactIndexEntry entry in myFactIndex)
@@ -8766,23 +9109,9 @@ namespace Arest.NormaOracle
 					string working2 = " " + body + " ";
 					working2 = Regex.Replace(working2, @"\b(For each|Each|exactly one|at most one|at most once|some|that|each)\b", " ");
 					var bodyPlayers = new List<string>();
-					foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
-					{
-						int at2 = 0;
-						while ((at2 = working2.IndexOf(name, at2, StringComparison.Ordinal)) >= 0)
-						{
-							bool leftOk = !char.IsLetterOrDigit(working2[at2 - 1]) && working2[at2 - 1] != '-';
-							int end2 = at2 + name.Length;
-							bool rightOk = end2 >= working2.Length || (!char.IsLetterOrDigit(working2[end2]) && working2[end2] != '-');
-							if (leftOk && rightOk)
-							{
-								bodyPlayers.Add(name);
-								working2 = working2.Substring(0, at2) + new string((char)1, name.Length) + working2.Substring(end2);
-								at2 = end2;
-							}
-							else at2++;
-						}
-					}
+					var typeHits2 = TypeHits(working2, false, true);
+					foreach (TypeHit th in typeHits2) bodyPlayers.Add(th.Name);
+					working2 = Blank(working2, typeHits2);
 					string residual = NormalizeWords(Regex.Replace(working2, "+", " ").Replace(",", " "));
 					var sortedBody = bodyPlayers.OrderBy(x => x, StringComparer.Ordinal).ToList();
 					FactIndexEntry only = null;
@@ -8804,7 +9133,7 @@ namespace Arest.NormaOracle
 								.SequenceEqual(sortedE, StringComparer.Ordinal);
 						}
 						if (!playersMatch) continue;
-						if (!string.Equals(NormalizeWords(entry.ReadingWords), residual, StringComparison.Ordinal)) continue;
+						if (!string.Equals(entry.NormalizedWords, residual, StringComparison.Ordinal)) continue;
 						only = entry;
 						hits++;
 					}
@@ -8858,7 +9187,15 @@ namespace Arest.NormaOracle
 
 			// "For each X [and Y], (exactly one|at most one|some) Z ..." : the
 			// listed players are the key; exactly-one adds mandatory on them.
-			m = Regex.Match(body, @"^For each (.+?)(,| that| some| exactly| at)");
+			// the list may itself carry commas ("For each A, B and C, that A ...
+			// at most one ..."): a comma ends the list only when the quantified
+			// clause follows it; the bare-comma form is kept as the second try
+			m = Regex.Match(body, @"^For each (.+?)(,\s*(?=that\b|some\b|exactly\b|at\b|each\b|there\b|no\b|it\b)| that| some| exactly| at)");
+			if (!m.Success || m.Groups[1].Value.Contains(",") && RolesFor(Regex.Split(m.Groups[1].Value, @"\s+and\s+|,").Select(x => x.Trim()).Where(x => x.Length > 0).ToList(), players, roles) == null)
+			{
+				Match m0 = Regex.Match(body, @"^For each (.+?)(,| that| some| exactly| at)");
+				if (!m.Success || m0.Success && RolesFor(Regex.Split(m0.Groups[1].Value, @"\s+and\s+|,").Select(x => x.Trim()).Where(x => x.Length > 0).ToList(), players, roles) != null) m = m0;
+			}
 			if (m.Success)
 			{
 				var listNames = Regex.Split(m.Groups[1].Value, @"\s+and\s+|,").Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
@@ -8881,6 +9218,14 @@ namespace Arest.NormaOracle
 						return true;
 					}
 					return false;
+				}
+				// no guessing: with the quantifier and the that-references removed the
+				// tail must restate the target's reading, or this is a fact the running
+				// context does not carry and the constraint stays unmapped
+				{
+					string restate = Regex.Replace(tail, @"^[\s,]+", "");
+					restate = Regex.Replace(restate, @"\b(exactly one|at most one|at most once|some|each|that)\b", " ");
+					if (!RestatesReading(target, restate)) return false;
 				}
 				if (span.Count == roles.Count)
 				{
@@ -8911,8 +9256,11 @@ namespace Arest.NormaOracle
 						remainder.Contains("exactly one") ? "exactly one" :
 						remainder.Contains("at most one") ? "at most one" :
 						remainder.Contains("at most once") ? "at most once" :
-						System.Text.RegularExpressions.Regex.IsMatch(remainder, @"\bsome\b") ? "some" :
-						remainder.Contains(" each ") ? "each" : null;
+						System.Text.RegularExpressions.Regex.IsMatch(remainder, @"\bsome\b") ? "some" : null;
+					// "each" inside the sentence ("discloses each Category", "for each
+					// quarter end") is not a uniqueness quantifier: it used to build a
+					// spanning uniqueness with no restatement check, so an obligation that
+					// never restated the fact left it a deontic-only uniqueness (us-law, 2026-09-03)
 					if (quant == null) return false;
 					// no-guessing: with the quantifier removed, the sentence must
 					// RESTATE one of the target fact's readings (players
@@ -8950,9 +9298,8 @@ namespace Arest.NormaOracle
 								span.Add(roles[i]);
 							}
 						}
-						if (quant == "each") quant = "at most one";
 					}
-					if (quant == "at most once" || quant == "each")
+					if (quant == "at most once")
 					{
 						AddInternalUC(target, roles, modality, "spanning uniqueness (set restriction)");
 						return true;
