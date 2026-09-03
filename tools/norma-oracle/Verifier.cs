@@ -4536,6 +4536,7 @@ namespace Arest.NormaOracle
 			// paths-vs-rules is the honest comparison and null-vs-not is not.
 			// This is the fourth silent drop of the session and the second I wrote.
 			Function gtFnC = null, ltFnC = null;
+			var arithFnsC = new Dictionary<string, Function>(StringComparer.Ordinal);
 			// PLACED LAST, DELIBERATELY. This is the fallback: run it before the specialised
 			// arms and it claims heads they build better. It did exactly that on first
 			// try -- `State Machine is instance of State Machine Definition` is a
@@ -4561,8 +4562,12 @@ namespace Arest.NormaOracle
 				string headC = mc.Groups[1].Value.Trim();
 				string bodyC = mc.Groups[2].Value.Trim();
 				if (bodyC.Contains("'")) continue;
-				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |(or more|within|at least|more than|implies|no|not|neither)| equals | plus | minus ")) continue;
-				string[] partsC = Regex.Split(bodyC, @" and (?=that |some |[A-Z])");
+				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |the (minimum|maximum) of |(or more|at least|more than|implies|no|not|neither|if|else)")) continue;
+				// FORML gives a computed value a ROLE NAME, in lower case:
+				//     ... and state Sales Tax Amount equals taxable Base Amount times ...
+				// so splitting only before `that`, `some` or a capital leaves the arithmetic
+				// glued to the clause before it, and it is never seen as its own clause.
+				string[] partsC = Regex.Split(bodyC, @" and (?=that |some |[A-Z]|[A-Za-z][\w-]*(?: [\w-]+){0,3} equals )");
 				if (partsC.Length < 3) continue;
 				FactIndexEntry hC = FindEntryByNormalizedSentence(headC);
 				if (hC == null) continue;
@@ -4583,6 +4588,7 @@ namespace Arest.NormaOracle
 				// bound by legs -- a comparison against something the body never introduced
 				// would silently drop, and dropping a condition WIDENS the head.
 				var cmpC = new List<string[]>();
+				var arithC = new List<string[]>();
 				foreach (string clC in partsC)
 				{
 					string tC = clC.Trim();
@@ -4592,8 +4598,28 @@ namespace Arest.NormaOracle
 						cmpC.Add(new string[] { cm.Groups[1].Value.Trim(), cm.Groups[2].Value, cm.Groups[3].Value.Trim() });
 						continue;
 					}
+					// AN ARITHMETIC CLAUSE COMPUTES a head value rather than binding one:
+					//     ... and Net Amount equals Gross Amount minus Discount Amount
+					// Its target appears in no leg -- it is the answer, not an input -- so it is
+					// projected from a CalculatedPathValue instead of a pathed role.
+					Match am = Regex.Match(tC, @"^(?:that )?([A-Za-z][\w- ]*?) equals (.+)$");
+					if (am.Success)
+					{
+						arithC.Add(new string[] { am.Groups[1].Value.Trim(), am.Groups[2].Value.Trim() });
+						continue;
+					}
 					List<string> plC;
 					FactIndexEntry leC = ResolveClause(Dequantify(" " + tC + " ").Trim(), out plC);
+					// A SUBSCRIPT NAMES A VARIABLE, NOT A TYPE. `Transition1 is from Status1` is the
+					// declared `Transition is from Status` with its two players distinguished for
+					// the rule's benefit; resolving the literal text finds nothing. Strip a digit
+					// that follows a LETTER directly -- `Status1` yes, `Position 1` no, where the 1
+					// is a value and not a subscript.
+					if (leC == null)
+					{
+						string bareC = Regex.Replace(tC, @"([A-Za-z])[0-9]", "$1");
+						if (bareC != tC) leC = ResolveClause(Dequantify(" " + bareC + " ").Trim(), out plC);
+					}
 					if (leC == null || leC == hC) { okC = false; break; }
 					legsC.Add(leC); toksC.Add(plC);
 				}
@@ -4602,6 +4628,7 @@ namespace Arest.NormaOracle
 				// would be guessing which occurrence the head means
 				var atLegC = new int[hC.Players.Count];
 				var atPosC = new int[hC.Players.Count];
+				var arithKeyC = new string[hC.Players.Count];
 				// A HEAD PLAYER MAY APPEAR IN SEVERAL LEGS -- that is what a JOIN VARIABLE is,
 				// and requiring exactly one occurrence rejected the very shape a chain is
 				// built on. Occurrences across legs denote the same value once joined, so
@@ -4623,7 +4650,18 @@ namespace Arest.NormaOracle
 						}
 						if (inLeg > 1) okC = false;
 					}
-					if (found == 0) okC = false;
+					if (found == 0)
+					{
+						bool computedRole = false;
+						// the target carries the role name, the head carries the player: `state Sales
+						// Tax Amount` is the `Sales Tax Amount` role read under its role name
+						foreach (string[] aq in arithC)
+						{
+							if (aq[0] == hC.Players[i] || aq[0].EndsWith(" " + hC.Players[i], StringComparison.Ordinal))
+								{ computedRole = true; arithKeyC[i] = aq[0]; }
+						}
+						if (computedRole) { atLegC[i] = -1; atPosC[i] = -1; } else okC = false;
+					}
 				}
 				if (!okC) continue;
 				ObjectType rootC;
@@ -4641,12 +4679,30 @@ namespace Arest.NormaOracle
 				new RolePathObjectTypeRoot(leadC, rootC);
 				PathedRole[][] rowsC = BuildChain(leadC, legsC, toksC, hC.Players[0], false);
 				if (rowsC == null) continue;
+				var computedC = new Dictionary<string, CalculatedPathValue>(StringComparer.Ordinal);
+				foreach (string[] aq in arithC)
+				{
+					CalculatedPathValue topC = EmitExpression(aq[1], legsC, rowsC, ref arithFnsC);
+					if (topC == null) { okC = false; break; }
+					leadC.CalculatedValueCollection.Add(topC);
+					computedC[aq[0]] = topC;
+				}
+				if (!okC) continue;
 				var pjC = new RoleSetDerivationProjection(ruleC, leadC);
 				for (int i = 0; i < hC.Roles.Count; i++)
 				{
 					var drpC = new DerivedRoleProjection(pjC, hC.Roles[i]);
-					new DerivedRoleProjectedFromPathedRole(drpC, rowsC[atLegC[i]][atPosC[i]]);
+					if (atLegC[i] < 0)
+					{
+						if (arithKeyC[i] == null || !computedC.ContainsKey(arithKeyC[i])) { okC = false; break; }
+						new DerivedRoleProjectedFromCalculatedPathValue(drpC, computedC[arithKeyC[i]]);
+					}
+					else
+					{
+						new DerivedRoleProjectedFromPathedRole(drpC, rowsC[atLegC[i]][atPosC[i]]);
+					}
 				}
+				if (!okC) continue;
 				foreach (string[] cp in cmpC)
 				{
 					int lL = -1, pL = -1, lR = -1, pR = -1;
@@ -5490,6 +5546,87 @@ namespace Arest.NormaOracle
 		// The old order was "the root's leg, then the rest as they came", which for three
 		// or more legs hands the walk a leg sharing nothing with what precedes it. For two
 		// legs this returns exactly what that did, so nothing already building moves.
+		// Compile `Gross Amount minus Discount Amount times 2` into nested
+		// CalculatedPathValues. NORMA carries this natively --
+		// CalculatedPathValueInputBindsToCalculatedPathValue nests one inside another --
+		// so an expression TREE maps directly and nothing has to be flattened or baked.
+		//
+		// LEFT-ASSOCIATIVE, NO PRECEDENCE, on purpose. FORML writes these as prose and the
+		// corpus parenthesises whenever it means grouping ("10 plus (base MSRP times ...)"),
+		// so inventing precedence here would silently disagree with a reading that spelled
+		// its intent out. An expression with brackets is declined rather than guessed at.
+		//
+		// Every operand must be BOUND BY A LEG or be a number. An operand the body never
+		// introduced would otherwise bind to nothing and the head would compute from a
+		// value that is not there.
+		private CalculatedPathValue EmitExpression(string expr, List<FactIndexEntry> legs,
+			PathedRole[][] rows, ref Dictionary<string, Function> fns)
+		{
+			if (expr.IndexOf('(') >= 0 || expr.IndexOf(')') >= 0) return null;
+			string[] bits = Regex.Split(expr.Trim(), @" (plus|minus|times|divided by) ");
+			if (bits.Length < 3 || bits.Length % 2 == 0) return null;
+			object acc = OperandFor(bits[0].Trim(), legs, rows);
+			if (acc == null) return null;
+			for (int i = 1; i + 1 < bits.Length; i += 2)
+			{
+				object rhs = OperandFor(bits[i + 1].Trim(), legs, rows);
+				if (rhs == null) return null;
+				string fname = bits[i] == "plus" ? "Add" : bits[i] == "minus" ? "Subtract"
+					: bits[i] == "times" ? "Multiply" : "Divide";
+				Function fn;
+				if (!fns.TryGetValue(fname, out fn))
+				{
+					fn = new Function(myStore);
+					fn.Name = fname;
+					fn.IsBoolean = false;
+					fn.Model = myModel;
+					var pl = new FunctionParameter(myStore); pl.Function = fn; pl.Name = "left";
+					var pr = new FunctionParameter(myStore); pr.Function = fn; pr.Name = "right";
+					fns[fname] = fn;
+				}
+				var cpv = new CalculatedPathValue(myStore);
+				cpv.Function = fn;
+				var inL = new CalculatedPathValueInput(myStore); cpv.InputCollection.Add(inL);
+				var inR = new CalculatedPathValueInput(myStore); cpv.InputCollection.Add(inR);
+				int pi = 0;
+				foreach (FunctionParameter fp in fn.ParameterCollection)
+				{
+					if (pi == 0) new CalculatedPathValueInputCorrespondsToFunctionParameter(inL, fp);
+					else if (pi == 1) { new CalculatedPathValueInputCorrespondsToFunctionParameter(inR, fp); break; }
+					pi++;
+				}
+				BindOperand(inL, acc);
+				BindOperand(inR, rhs);
+				acc = cpv;
+			}
+			return acc as CalculatedPathValue;
+		}
+
+		// A value already walked to by the chain, or a literal number. Anything else is
+		// not an operand this can honour.
+		private object OperandFor(string tok, List<FactIndexEntry> legs, PathedRole[][] rows)
+		{
+			if (Regex.IsMatch(tok, @"^[0-9]+(\.[0-9]+)?$"))
+			{
+				var pc = new PathConstant(myStore);
+				pc.LexicalValue = tok;
+				return pc;
+			}
+			for (int l = 0; l < legs.Count; l++)
+				for (int c = 0; c < legs[l].Players.Count; c++)
+					if (legs[l].Players[c] == tok) return rows[l][c];
+			return null;
+		}
+
+		private void BindOperand(CalculatedPathValueInput input, object operand)
+		{
+			PathedRole pr = operand as PathedRole;
+			if (pr != null) { new CalculatedPathValueInputBindsToPathedRole(input, pr); return; }
+			PathConstant pc = operand as PathConstant;
+			if (pc != null) { new CalculatedPathValueInputBindsToPathConstant(input, pc); return; }
+			new CalculatedPathValueInputBindsToCalculatedPathValue(input, (CalculatedPathValue)operand);
+		}
+
 		private static List<int> ChainOrder(List<List<string>> toks, string rootTok)
 		{
 			if (toks.Count < 1) return null;
@@ -5520,36 +5657,41 @@ namespace Arest.NormaOracle
 		{
 			List<int> order = ChainOrder(toks, rootTok);
 			if (order == null) return null;
-			var sp = new RoleSubPath(myStore);
-			parent.SubPathCollection.Add(sp);
+			// EACH LEG ATTACHES WHERE ITS ENTRY VARIABLE WAS BOUND, which is sometimes the
+			// lead and sometimes another leg's sub-path. Laying every leg into ONE sub-path
+			// chains them unconditionally, and NORMA rejects that the moment two legs both
+			// enter at the ROOT -- a STAR, not a chain:
+			//     Quote has Gross Amount and Quote has Discount Amount
+			// reads as joining from Gross Amount to Quote, and answers
+			// "joins to a path role with an incompatible role player". Tracking where each
+			// token was bound gives siblings off the lead for a star and nesting for a walk,
+			// which is the same rule the constraint-side builder follows.
 			var slots = new PathedRole[legs.Count][];
-			string entryTok = rootTok;
+			var boundAt = new Dictionary<string, RolePath>(StringComparer.Ordinal);
+			boundAt[rootTok] = parent;
+			RoleSubPath firstSp = null;
 			for (int k = 0; k < order.Count; k++)
 			{
 				int li = order[k];
+				string entryTok = null;
+				foreach (string t in toks[li]) if (boundAt.ContainsKey(t)) { entryTok = t; break; }
+				if (entryTok == null) return null;
 				int ep = toks[li].IndexOf(entryTok);
-				if (ep < 0) return null;
+				var sp = new RoleSubPath(myStore);
+				boundAt[entryTok].SubPathCollection.Add(sp);
+				if (firstSp == null) firstSp = sp;
 				var row = new PathedRole[legs[li].Roles.Count];
 				EnterLeg(sp, legs[li], ep, row);
 				slots[li] = row;
-				if (k + 1 < order.Count)
-				{
-					int nx = order[k + 1];
-					entryTok = null;
-					// the next leg may attach to ANY leg already laid, not just this one
-					for (int b = k; b >= 0 && entryTok == null; b--)
-					{
-						foreach (string t in toks[order[b]]) if (toks[nx].Contains(t)) { entryTok = t; break; }
-					}
-					if (entryTok == null) return null;
-				}
+				for (int c = 0; c < toks[li].Count; c++)
+					if (!boundAt.ContainsKey(toks[li][c])) boundAt[toks[li][c]] = sp;
 			}
 			// ONE negation over the whole chain, on its ENTRY role. Negating every pathed
 			// role stacks them -- NORMA rendered "no Transition is that from Status where
 			// it is not true that (...)", a negation per leg. Negating only the entry
 			// gives "no Transition is from Status where that Transition is defined in
 			// that SMD", which is the single NOT EXISTS the reading means.
-			if (negated && sp.PathedRoleCollection.Count > 0) sp.PathedRoleCollection[0].IsNegated = true;
+			if (negated && firstSp != null && firstSp.PathedRoleCollection.Count > 0) firstSp.PathedRoleCollection[0].IsNegated = true;
 			return slots;
 		}
 
