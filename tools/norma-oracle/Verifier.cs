@@ -4535,7 +4535,7 @@ namespace Arest.NormaOracle
 			// several lead paths (that is how a union of bullets is expressed), so
 			// paths-vs-rules is the honest comparison and null-vs-not is not.
 			// This is the fourth silent drop of the session and the second I wrote.
-			Function gtFnC = null, ltFnC = null;
+			Function gtFnC = null, ltFnC = null, eqFnC = null;
 			var arithFnsC = new Dictionary<string, Function>(StringComparer.Ordinal);
 			// PLACED LAST, DELIBERATELY. This is the fallback: run it before the specialised
 			// arms and it claims heads they build better. It did exactly that on first
@@ -4592,7 +4592,11 @@ namespace Arest.NormaOracle
 				foreach (string clC in partsC)
 				{
 					string tC = clC.Trim();
-					Match cm = Regex.Match(tC, @"^(?:that |some )?([A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above) (?:that |some )?([A-Z][\w ]*?)$");
+					// `that Email Address is that Email` is an EQUALITY between two bound values --
+					// the same shape as exceeds or is-less-than, and the corpus writes it with a bare
+					// `is`. Both sides must still be bound; a bare `is` naming an unbound token falls
+					// through to leg resolution and declines there.
+					Match cm = Regex.Match(tC, @"^(?:that |some )?([A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|is) (?:that |some )?([A-Z][\w ]*?)$");
 					if (cm.Success)
 					{
 						cmpC.Add(new string[] { cm.Groups[1].Value.Trim(), cm.Groups[2].Value, cm.Groups[3].Value.Trim() });
@@ -4715,17 +4719,18 @@ namespace Arest.NormaOracle
 						}
 					}
 					if (lL < 0 || lR < 0) { okC = false; break; }
+					bool equalC = cp[1] == "is";
 					bool greater = cp[1] == "exceeds" || cp[1] == "is greater than" || cp[1] == "is above";
-					Function fnC = greater ? gtFnC : ltFnC;
+					Function fnC = equalC ? eqFnC : (greater ? gtFnC : ltFnC);
 					if (fnC == null)
 					{
 						fnC = new Function(myStore);
-						fnC.Name = greater ? "GreaterThan" : "LessThan";
+						fnC.Name = equalC ? "Equals" : (greater ? "GreaterThan" : "LessThan");
 						fnC.IsBoolean = true;
 						fnC.Model = myModel;
 						var cpl = new FunctionParameter(myStore); cpl.Function = fnC; cpl.Name = "left";
 						var cpr = new FunctionParameter(myStore); cpr.Function = fnC; cpr.Name = "right";
-						if (greater) gtFnC = fnC; else ltFnC = fnC;
+						if (equalC) eqFnC = fnC; else if (greater) gtFnC = fnC; else ltFnC = fnC;
 					}
 					var cpvC = new CalculatedPathValue(myStore);
 					cpvC.Function = fnC;
