@@ -5074,8 +5074,11 @@ namespace Arest.NormaOracle
 					// alias, so it is not missing vocabulary either. Without this the census
 					// reports rules that BUILD as one declaration away, which is the report
 					// disagreeing with the builder about the same rule.
-					Match cmN = Regex.Match(tN, @"^(?:that |some )?([A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|is) (?:that |some )?([A-Z][\w ]*?)$");
-					if (cmN.Success && myTypes.ContainsKey(cmN.Groups[1].Value.Trim())
+					// The role name goes with the variable here too, or the census keeps
+					// reporting `company- Name is Company Name` as missing vocabulary for a
+					// rule the arm now builds.
+					Match cmN = Regex.Match(tN, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|is) (?:that |some )?([A-Z][\w ]*?)$");
+					if (cmN.Success && myTypes.ContainsKey(Regex.Replace(cmN.Groups[1].Value.Trim(), @"^[a-z][\w-]*- ", ""))
 						&& myTypes.ContainsKey(cmN.Groups[3].Value.Trim())) continue;
 					// A clause naming no fact type BY DESIGN is not missing vocabulary: an
 					// aggregate, an arithmetic expression, a negation or a comparison names a
