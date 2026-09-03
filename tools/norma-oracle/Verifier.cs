@@ -6553,6 +6553,8 @@ namespace Arest.NormaOracle
 			// which is the same rule the constraint-side builder follows.
 			var slots = new PathedRole[legs.Count][];
 			var boundAt = new Dictionary<string, RolePath>(StringComparer.Ordinal);
+			var boundRole = new Dictionary<string, PathedRole>(StringComparer.Ordinal);
+			LeadRolePath leadForUni = parent as LeadRolePath;
 			// A SUB-PATH CONTINUES FROM WHERE ITS PARENT ENDED, not from the role whose
 			// variable it entered on. Off the LEAD that is a branch and NORMA reads it as
 			// one; off another sub-path it is not, and the second child silently continues
@@ -6588,7 +6590,32 @@ namespace Arest.NormaOracle
 					RolePath into = boundAt[entryTok];
 					int kids;
 					childCount.TryGetValue(into, out kids);
-					if (into != parent && kids > 0) return null;
+					if (into != parent && kids > 0)
+					{
+						if (leadForUni == null || !boundRole.ContainsKey(entryTok)) return null;
+						parent.SubPathCollection.Add(sp);
+						// ROOTED AT ITS OWN ENTRY PLAYER. Off the lead a sub-path continues from
+						// the LEAD'S ROOT, so without this the branch joins to the head's subject
+						// -- NORMA read `Leaf1 is goal` as "that NODE is some Leaf2 that is goal".
+						// With its own root it stands alone and the unifier says which variable it
+						// is; same lesson as the subtype cross join.
+						ObjectType uniRootT;
+						if (!myTypes.TryGetValue(legs[li].Players[ep], out uniRootT)) return null;
+						var uniRoot = new RolePathObjectTypeRoot(sp, uniRootT);
+						var uniRow = new PathedRole[legs[li].Roles.Count];
+						EnterLeg(sp, legs[li], ep, uniRow);
+						var uni = new PathObjectUnifier(myStore.DefaultPartition);
+						new LeadRolePathHasObjectUnifier(leadForUni, uni);
+						new PathObjectUnifierUnifiesPathedRole(uni, boundRole[entryTok]);
+						new PathObjectUnifierUnifiesRolePathRoot(uni, uniRoot);
+						slots[li] = uniRow;
+						if (firstSp == null) firstSp = sp;
+						if (negLeg != null && negLeg[li]) { uniRow[ep].IsNegated = true; continue; }
+						for (int c = 0; c < toks[li].Count; c++)
+							if (!boundAt.ContainsKey(toks[li][c]))
+								{ boundAt[toks[li][c]] = sp; boundRole[toks[li][c]] = uniRow[c]; }
+						continue;
+					}
 					childCount[into] = kids + 1;
 					into.SubPathCollection.Add(sp);
 				}
@@ -6604,7 +6631,8 @@ namespace Arest.NormaOracle
 					continue;
 				}
 				for (int c = 0; c < toks[li].Count; c++)
-					if (!boundAt.ContainsKey(toks[li][c])) boundAt[toks[li][c]] = sp;
+					if (!boundAt.ContainsKey(toks[li][c]))
+						{ boundAt[toks[li][c]] = sp; boundRole[toks[li][c]] = row[c]; }
 			}
 			// ONE negation over the whole chain, on its ENTRY role. Negating every pathed
 			// role stacks them -- NORMA rendered "no Transition is that from Status where
