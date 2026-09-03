@@ -4895,7 +4895,10 @@ namespace Arest.NormaOracle
 				if (!mn.Success) continue;
 				if (FindEntryByNormalizedSentence(mn.Groups[1].Value.Trim()) == null) continue;
 				int miss = 0;
-				foreach (string clN in Regex.Split(mn.Groups[2].Value, @" and (?=that |some |[A-Z])"))
+				// the SAME split the arm uses, including the lower-case role-named target of
+				// an arithmetic clause -- otherwise two clauses arrive glued together and the
+				// report names a "missing fact type" that is really a split failure.
+				foreach (string clN in Regex.Split(mn.Groups[2].Value, @" and (?=that |some |[A-Z]|[A-Za-z][\w-]*(?: [\w-]+){0,3} equals )"))
 				{
 					string tN = clN.Trim();
 					if (tN.Length == 0) continue;
