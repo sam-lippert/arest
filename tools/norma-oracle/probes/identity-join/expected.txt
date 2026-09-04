@@ -1,0 +1,7 @@
+errors 0
++Support Request has Description if
+that Support Request is some Contact Submission that has some Message Body that is that Description.
+
++Support Request occurred at Timestamp if
+that Support Request is some Contact Submission that has some Date that is that Timestamp.
+

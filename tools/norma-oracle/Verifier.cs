@@ -6379,6 +6379,7 @@ namespace Arest.NormaOracle
 				int konstSeenC = 0;
 				// why this arm declined, for the census; recorded on the sentence, not logged
 				string whyChainC = null;
+				string aliasWhyC = null;
 				var arithKeyC = new string[hC.Players.Count];
 				var aliasC = new int[hC.Players.Count];
 				for (int z = 0; z < aliasC.Length; z++) aliasC[z] = -1;
@@ -6460,9 +6461,24 @@ namespace Arest.NormaOracle
 							ObjectType tHead, tOther;
 							if (myTypes.TryGetValue(hC.Players[i], out tHead) && myTypes.TryGetValue(other, out tOther))
 							{
-								if (tHead.DataType != null && tOther.DataType != null && tHead.DataType != tOther.DataType) continue;
-								if (tHead.IsValueType != tOther.IsValueType) continue;
-								if (!tHead.IsValueType && tHead != tOther && !RootsAt(tHead, tOther.Name) && !RootsAt(tOther, tHead.Name)) continue;
+								// each refusal is said in the census, so `Timestamp is Date` reads as the
+								// corpus question it is (a datetime is not a date) and not as a gap here
+								if (tHead.DataType != null && tOther.DataType != null && tHead.DataType != tOther.DataType)
+								{
+									aliasWhyC = "`" + hC.Players[i] + " is " + other + "` equates a " + tHead.DataType.GetType().Name.Replace("DataType", "")
+										+ " with a " + tOther.DataType.GetType().Name.Replace("DataType", "") + ", which NORMA does not project";
+									continue;
+								}
+								if (tHead.IsValueType != tOther.IsValueType)
+								{
+									aliasWhyC = "`" + hC.Players[i] + " is " + other + "` equates a " + (tHead.IsValueType ? "value" : "entity") + " type with an " + (tOther.IsValueType ? "value" : "entity") + " type";
+									continue;
+								}
+								if (!tHead.IsValueType && tHead != tOther && !RootsAt(tHead, tOther.Name) && !RootsAt(tOther, tHead.Name))
+								{
+									aliasWhyC = "`" + hC.Players[i] + " is " + other + "` equates entity types neither of which is a subtype of the other";
+									continue;
+								}
 							}
 							for (int l = 0; l < legsC.Count && found == 0; l++)
 								for (int c = 0; c < legsC[l].Players.Count; c++)
@@ -6508,7 +6524,7 @@ namespace Arest.NormaOracle
 								if (litHereC < 0)
 									for (int k = 0; k < hLitsC.Count && litHereC < 0; k++)
 										if (!litTakenC[k] && (hOwnersC == null || hOwnersC[k] == null)) litHereC = k;
-								if (litHereC < 0) { okC = false; whyChainC = "chain arm: head role " + hC.Players[i] + " is bound by no leg, literal or subtype"; }
+								if (litHereC < 0) { okC = false; whyChainC = "chain arm: head role " + hC.Players[i] + " is bound by no leg, literal or subtype" + (aliasWhyC != null ? "; " + aliasWhyC : ""); }
 								else { konstAtC[i] = litHereC; litTakenC[litHereC] = true; konstSeenC++; }
 							}
 						}
