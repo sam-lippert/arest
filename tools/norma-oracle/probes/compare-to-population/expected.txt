@@ -1,0 +1,11 @@
+errors 0
++External System has Service Health Status if
+that External System has some Error Rate for some Interval
+and for some Down Threshold, GreaterThan(Error Rate, Down Threshold)
+where Service Health Status = down.
+
+*Log Entry is retried if and only if
+that Log Entry has some HTTP Status where GreaterThanOrEqual(HTTP Status, 500)
+and  has some Retry Count
+and for some Retry Limit, LessThan(Retry Count, Retry Limit).
+

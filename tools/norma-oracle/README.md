@@ -208,6 +208,12 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   (`Provider Resource has monthly- Cost for Billing Period`, not `has
   monthly cost for`, which declares no Cost role), and a phrase naming a
   value (`the sum of Invoice Line Item Amount`) is not a variable.
+- A compared value may be a bare value type's own population (`that Retry
+  Count is less than Retry Limit`, with `Retry Limit is 3.` as its
+  population): a root over the type is the variable, bound to the
+  comparison as a pathed role would be. A threshold reads as written:
+  `of 500 or more` and `at least` are inclusive (GreaterThanOrEqual),
+  `of 500` alone is Equals, `greater than` / `more than` strict.
 - A leg may name the rule's own head: the inductive step of a cost-to-goal
   (`State1 reaches goal at Count3 iff State1 steps to State2 by Operator1
   and Operator1 costs Count2 and State2 reaches goal at Count1 and Count2

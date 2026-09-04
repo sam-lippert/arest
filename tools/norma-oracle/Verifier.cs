@@ -5407,17 +5407,14 @@ namespace Arest.NormaOracle
 					else if (eA != null && vmA.Success) { thrOpA = "is"; thrValA = vmA.Groups[2].Value; }
 					if (eA == null)
 					{
-						Match tmA = Regex.Match(tA, @"^(.+?) (greater than|less than|at least|at most|of) ([0-9]+)( or more| or fewer)?$");
+						Match tmA = Regex.Match(tA, @"^(.+?) (greater than|less than|more than|fewer than|at least|at most|of) ([0-9]+)( or more| or fewer)?$");
 						if (tmA.Success)
 						{
 							qA = Dequantify(" " + tmA.Groups[1].Value.Trim() + " ").Trim();
 							eA = ResolveClauseSub(qA, out plA);
 							if (eA != null)
 							{
-								string sufA = tmA.Groups[4].Value;
-								thrOpA = tmA.Groups[2].Value == "of"
-									? (sufA.Contains("fewer") ? "is less than" : "exceeds")
-									: (tmA.Groups[2].Value == "greater than" || tmA.Groups[2].Value == "at least" ? "exceeds" : "is less than");
+								thrOpA = ThresholdOp(tmA.Groups[2].Value, tmA.Groups[4].Value);
 								thrValA = tmA.Groups[3].Value;
 							}
 						}
@@ -5493,7 +5490,7 @@ namespace Arest.NormaOracle
 					int tl = int.Parse(th[3]);
 					int tp = legsA[tl].Players.IndexOf(th[0]);
 					if (tp < 0) { okA = false; break; }
-					Function tf = GetOrMakeFunction(th[1] == "is" ? "Equals" : (th[1] == "exceeds" ? "GreaterThan" : "LessThan"), true);
+					Function tf = ThresholdFunction(th[1]);
 					var tcpv = new CalculatedPathValue(myStore);
 					tcpv.Function = tf;
 					var tiL = new CalculatedPathValueInput(myStore); tcpv.InputCollection.Add(tiL);
@@ -5943,7 +5940,13 @@ namespace Arest.NormaOracle
 				// carry a value restriction, which is kept as an Equals condition. A quoted
 				// value in the HEAD still belongs to the value-restricted arm, which runs
 				// earlier and will have claimed it.
-				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |the (minimum|maximum) of |\b(or more|at least|more than|implies|neither|if|else)\b")) continue;
+				// (`or more`, `at least` and `more than` used to be refused here too; the
+				// threshold reader below keeps them as conditions now)
+				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |the (minimum|maximum) of |\b(implies|neither|if|else)\b"))
+				{
+					myPlanDeclines[sC] = "chain arm: an aggregate, a minimum/maximum or a conditional this arm does not read";
+					continue;
+				}
 				// FORML gives a computed value a ROLE NAME, in lower case:
 				//     ... and state Sales Tax Amount equals taxable Base Amount times ...
 				// so splitting only before `that`, `some` or a capital leaves the arithmetic
@@ -6166,17 +6169,14 @@ namespace Arest.NormaOracle
 							}
 						}
 						Match tm = leC != null ? Match.Empty
-							: Regex.Match(tC, @"^(.+?) (greater than|less than|at least|at most|of) ([0-9]+)( or more| or fewer)?$");
+							: Regex.Match(tC, @"^(.+?) (greater than|less than|more than|fewer than|at least|at most|of) ([0-9]+)( or more| or fewer)?$");
 						if (tm.Success)
 						{
 							FactIndexEntry baseLeg = ResolveClauseSub(Dequantify(" " + tm.Groups[1].Value.Trim() + " ").Trim(), out plC);
 							if (baseLeg != null)
 							{
 								leC = baseLeg;
-								string suf = tm.Groups[4].Value;
-								thrOp = tm.Groups[2].Value == "of"
-									? (suf.Contains("fewer") ? "is less than" : "exceeds")
-									: (tm.Groups[2].Value == "greater than" || tm.Groups[2].Value == "at least" ? "exceeds" : "is less than");
+								thrOp = ThresholdOp(tm.Groups[2].Value, tm.Groups[4].Value);
 								thrVal = tm.Groups[3].Value;
 							}
 						}
@@ -6538,7 +6538,7 @@ namespace Arest.NormaOracle
 					int tl = int.Parse(th[3]);
 					int tp = legsC[tl].Players.IndexOf(th[0]);
 					if (tp < 0) { okC = false; break; }
-					Function tf = GetOrMakeFunction(th[1] == "is" ? "Equals" : (th[1] == "exceeds" ? "GreaterThan" : "LessThan"), true);
+					Function tf = ThresholdFunction(th[1]);
 					var tcpv = new CalculatedPathValue(myStore);
 					tcpv.Function = tf;
 					var tL = new CalculatedPathValueInput(myStore); tcpv.InputCollection.Add(tL);
@@ -6589,7 +6589,25 @@ namespace Arest.NormaOracle
 						if (lL < 0 && OperandNamesReadingRole(legsC[l], Regex.Replace(cp[0], @"^(?:that|some) ", ""))) { lL = l; pL = legsC[l].Players.Count - 1; }
 						if (lR < 0 && cpLit == null && OperandNamesReadingRole(legsC[l], Regex.Replace(cp[2], @"^(?:that|some) ", ""))) { lR = l; pR = legsC[l].Players.Count - 1; }
 					}
-					if (lL < 0 || (lR < 0 && cpLit == null))
+					// A COMPARED VALUE MAY BE A BARE VALUE TYPE'S OWN POPULATION. `that Retry
+					// Count is less than Retry Limit`, `that Error Rate exceeds Down Threshold`:
+					// no leg binds Retry Limit because none can -- it is a value type carrying
+					// its value as its population (`Max Mileage is 125000.`). A root over the
+					// type is a variable ranging over that population, the binding the offset
+					// arm and the alias case already use, and NORMA lets a calculation input
+					// bind to a path root as it binds to a pathed role.
+					ObjectType popL = null, popR = null;
+					if (lL < 0)
+					{
+						ObjectType vtL;
+						if (myTypes.TryGetValue(Regex.Replace(cp[0], @"^(?:that|some) ", ""), out vtL) && vtL.IsValueType) popL = vtL;
+					}
+					if (lR < 0 && cpLit == null)
+					{
+						ObjectType vtR;
+						if (myTypes.TryGetValue(Regex.Replace(cp[2], @"^(?:that|some) ", ""), out vtR) && vtR.IsValueType) popR = vtR;
+					}
+					if ((lL < 0 && popL == null) || (lR < 0 && cpLit == null && popR == null))
 					{
 						okC = false;
 						myPlanDeclines[sC] = "chain arm: a compared value is bound by no leg: " + (lL < 0 ? cp[0] : cp[2]);
@@ -6613,13 +6631,15 @@ namespace Arest.NormaOracle
 						else if (fpi == 1) { new CalculatedPathValueInputCorrespondsToFunctionParameter(ciR, fp); break; }
 						fpi++;
 					}
-					new CalculatedPathValueInputBindsToPathedRole(ciL, rowsC[lL][pL]);
+					if (popL != null) BindOperand(ciL, PopulationRoot(leadC, popL));
+					else new CalculatedPathValueInputBindsToPathedRole(ciL, rowsC[lL][pL]);
 					if (cpLit != null)
 					{
 						var cpcC = new PathConstant(myStore);
 						cpcC.LexicalValue = cpLit;
 						new CalculatedPathValueInputBindsToPathConstant(ciR, cpcC);
 					}
+					else if (popR != null) BindOperand(ciR, PopulationRoot(leadC, popR));
 					else new CalculatedPathValueInputBindsToPathedRole(ciR, rowsC[lR][pR]);
 					leadC.CalculatedConditionCollection.Add(cpvC);
 				}
@@ -8303,6 +8323,37 @@ namespace Arest.NormaOracle
 		// not an operand this can honour.
 		private static readonly Regex ArithOpRx = new Regex(@" (plus|minus|times|divided by) ");
 
+		// THE THRESHOLD WORDS, READ AS WRITTEN. `of 500 or more` is at least 500 --
+		// 500 itself included -- and `of 500` alone is exactly 500; both used to read as
+		// `exceeds`, which is one row off in the first case and every row off in the
+		// second. `at least` / `or more` and `at most` / `or fewer` are the inclusive
+		// bounds, `greater than` / `more than` and `less than` / `fewer than` the strict.
+		private static string ThresholdOp(string word, string suffix)
+		{
+			if (word == "of")
+			{
+				if (suffix.Contains("more")) return "is at least";
+				if (suffix.Contains("fewer")) return "is at most";
+				return "is";
+			}
+			if (word == "at least") return "is at least";
+			if (word == "at most") return "is at most";
+			if (word == "greater than" || word == "more than") return "exceeds";
+			return "is less than";
+		}
+
+		private Function ThresholdFunction(string op)
+		{
+			switch (op)
+			{
+				case "is": return GetOrMakeFunction("Equals", true);
+				case "exceeds": return GetOrMakeFunction("GreaterThan", true);
+				case "is at least": return GetOrMakeFunction("GreaterThanOrEqual", true);
+				case "is at most": return GetOrMakeFunction("LessThanOrEqual", true);
+				default: return GetOrMakeFunction("LessThan", true);
+			}
+		}
+
 		// THE CLAUSES AN EXPRESSION IMPLIES. For each operand no variable binds, the
 		// declared reading `<Variable> has <operand>` over a variable the rule bound --
 		// the head's subject first, then any bound token -- or nothing. Shared by the
@@ -8394,7 +8445,18 @@ namespace Arest.NormaOracle
 			if (pr != null) { new CalculatedPathValueInputBindsToPathedRole(input, pr); return; }
 			PathConstant pc = operand as PathConstant;
 			if (pc != null) { new CalculatedPathValueInputBindsToPathConstant(input, pc); return; }
+			RolePathObjectTypeRoot rt = operand as RolePathObjectTypeRoot;
+			if (rt != null) { new CalculatedPathValueInputBindsToRolePathRoot(input, rt); return; }
 			new CalculatedPathValueInputBindsToCalculatedPathValue(input, (CalculatedPathValue)operand);
+		}
+
+		// a variable ranging over a value type's own population: a sub-path rooted at
+		// the type, with nothing entered -- the binding a bare `Retry Limit` names
+		private RolePathObjectTypeRoot PopulationRoot(LeadRolePath lead, ObjectType valueType)
+		{
+			var sp = new RoleSubPath(myStore);
+			lead.SubPathCollection.Add(sp);
+			return new RolePathObjectTypeRoot(sp, valueType);
 		}
 
 		// One function per NAME per model. Every arm that needs Equals or LessThan
