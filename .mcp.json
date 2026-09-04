@@ -2,10 +2,12 @@
   "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/sdk/main/schemas/mcp.json",
   "mcpServers": {
     "arest": {
-      "description": "AREST engine, served by the thin js host. 18 verbs, ALL OF THEM CANON: mcp:verbs answers the table and mcp:call applies one by name, which is metacomposition (Backus 11.3) rather than a dispatch table, so tools/list and tools/call carry no branch per verb and a verb added to canon is served without touching any host. This replaces the rust resident that carried 40 hand-written verbs and delegated the rest to python through cli.py: engine/rust and engine/python are deleted, that binary no longer exists, and there is no python anywhere in this path. Build it with `bun build-test.js mcp` in tools/js-runner -- the module is composed by byte concatenation from the same canon and carriers the test and serving modules use, so it is the same engine, not a port of it.",
+      "description": "AREST engine, served by the thin js host. 18 verbs, ALL OF THEM CANON: mcp:verbs answers the table and mcp:call applies one by name, which is metacomposition (Backus 11.3) rather than a dispatch table, so tools/list and tools/call carry no branch per verb and a verb added to canon is served without touching any host. This replaces the rust resident that carried 40 hand-written verbs and delegated the rest to python through cli.py: engine/rust and engine/python are deleted, that binary no longer exists, and there is no python anywhere in this path. The launcher composes it from the current canon and carriers every time it starts (build.js mcp --run), so the client never meets a stale module: the one the harness started on 2026-09-03 was two days old and took two minutes to boot, past the thirty-second connect limit, where a current one boots in eight seconds. The module is composed by byte concatenation from the same canon and carriers the test and serving modules use, so it is the same engine, not a port of it.",
       "command": "bun",
       "args": [
-        "tools/js-runner/mcp.g.js"
+        "tools/js-runner/build.js",
+        "mcp",
+        "--run"
       ]
     }
   }

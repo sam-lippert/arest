@@ -121,4 +121,15 @@ if (out.length < 1_000_000) {
 }
 const name = OUT[mode] + ".g.js";
 writeFileSync(join(here, name), out);
-console.log(name + ": " + out.length + " bytes from " + (SPLICED.length + 2) + " inputs");
+// --run COMPOSES AND THEN STARTS THE MODULE, so a launcher (the MCP entry in
+// .mcp.json) never runs a stale composition: the module the harness started on
+// 2026-09-03 had been built two days earlier and took two minutes to boot, past
+// the client's thirty-second limit, while a current one boots in eight. In this
+// mode stdout belongs to the module (it is the MCP channel), so the size line
+// goes to stderr with the rest of the build's chatter.
+const run = process.argv.includes("--run");
+(run ? console.error : console.log)(name + ": " + out.length + " bytes from " + (SPLICED.length + 2) + " inputs");
+if (run) {
+  const proc = Bun.spawn(["bun", join(here, name)], { stdio: ["inherit", "inherit", "inherit"] });
+  process.exit(await proc.exited);
+}
