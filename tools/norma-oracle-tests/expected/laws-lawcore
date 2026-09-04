@@ -19,7 +19,7 @@ law OK: rmap-idempotence
   law OK: one-name-one-cell
   law OK: verbs-known-answers
   law OK: exclusion-refuses
-  LAW FAILED: marker-closure -> F
+  law OK: marker-closure
   law OK: rewrite-soundness
   law OK: reader-match
   law OK: reify-mandates
@@ -57,4 +57,4 @@ law OK: rmap-idempotence
   law OK: nothing-owed
   law OK: supersession-resolves
   law OK: write-gate
-LAW FAILURE
+ALL LAWS HOLD (canon-evaluated: law:report over the composed store)
