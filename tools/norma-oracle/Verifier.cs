@@ -10943,6 +10943,30 @@ namespace Arest.NormaOracle
 						remainder.Contains("at most one") ? "at most one" :
 						remainder.Contains("at most once") ? "at most once" :
 						System.Text.RegularExpressions.Regex.IsMatch(remainder, @"\bsome\b") ? "some" : null;
+					// A UNARY OBLIGATION CARRIES NO QUANTIFIER and is a mandatory
+					// all the same: "It is obligatory that each Post is approved"
+					// says every Post plays the single role of `Post is
+					// approved`, which is ORM 2's simple mandatory on that role
+					// under the deontic operator (tech report 2, sec. 1.7 — the
+					// same constraint, a different modality). The guard below
+					// was written for BINARY sentences, where a missing
+					// quantifier means the sentence never said how many; a unary
+					// reading has no second player to count, so there is nothing
+					// for a quantifier to say. The runtime already checks it:
+					// the deontic arm takes <fact type, position> and reports
+					// the instances absent from that column, which for a unary
+					// is exactly the Posts that are not approved. Asked for by
+					// engineering.auto.dev on 2026-09-04, whose obligations over
+					// Post and Deploy were being recorded as prose. The
+					// restatement gate still applies — the sentence must restate
+					// the unary reading or it names some other fact.
+					if (quant == null && roles.Count == 1)
+					{
+						string bare = Regex.Replace(rest, @"\b(each|that)\b", " ");
+						if (!RestatesReading(target, bare)) return false;
+						AddSimpleMandatory(roles[0], modality, "mandatory (unary form)");
+						return true;
+					}
 					// "each" inside the sentence ("discloses each Category", "for each
 					// quarter end") is not a uniqueness quantifier: it used to build a
 					// spanning uniqueness with no restatement check, so an obligation that

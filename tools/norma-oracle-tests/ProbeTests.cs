@@ -56,5 +56,29 @@ namespace Arest.NormaOracle.Tests
             }
             Assert.Equal(expected, actual);
         }
+
+        // A CONSTRAINT IS NOT A RULE, and nothing else here would notice one.
+        // ProbeActual carries the error count, the UNBUILT lines, the read-back
+        // verdicts and the rule verbalizations — every one of them about DERIVED
+        // HEADS. A deontic mandatory is none of those, and the corpus theories
+        // compare the `expectation` carrier (state:built, state:errors,
+        // state:readback), which does not carry deontic constraints either. So
+        // the six corpora passed unchanged when the unary obligation began to
+        // build, and would have passed unchanged had it stopped. This is the
+        // one check that reads the constraint itself, out of the design-state
+        // where the canon closure will look for it.
+        [Fact]
+        public void AUnaryObligationBuildsADeonticMandatory()
+        {
+            string dir = Path.Combine(ProbesDir, "unary-obligation");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "unary-obligation-deontic"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            // "It is obligatory that each Post is approved." over the unary
+            // reading `Post is approved` — a simple mandatory at role 1, under
+            // the deontic operator, which is where the commit gate reads it
+            Assert.Contains("DEO:m:PostIsApproved#1", state);
+            Assert.Contains("A(\"PostIsApproved\"), N(1)", state);
+        }
     }
 }
