@@ -50,6 +50,16 @@ public static class Canon
             Reader.Load(Path.Combine(r, "tools", "norma-oracle", "design-state"));
             Reader.Load(Path.Combine(r, "tools", "norma-oracle", "norma-answer"));
             Reader.Load(Path.Combine(r, "engine", "shared", "scenarios.canon"));
+            // the three carriers js-runner/build.js also splices, on the same
+            // terms: the compiled map only while its stamp matches the
+            // design-state, the outcome only when the oracle wrote one, the
+            // journal as the fragment it is
+            Reader.LoadCompiled(Path.Combine(r, "tools", "norma-oracle", "compiled"),
+                                Path.Combine(r, "tools", "norma-oracle", "design-state"));
+            Reader.LoadOptional(Path.Combine(r, "tools", "norma-oracle", "outcome"));
+            Reader.LoadJournal(Path.Combine(r, "tools", "norma-oracle", "journal"));
+            // and the store is BOOTED, which is what the two hosts differed on
+            Arest.Boot();
             loaded = true;
         }
     }

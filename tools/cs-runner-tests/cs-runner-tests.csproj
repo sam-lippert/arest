@@ -18,6 +18,7 @@
     <Compile Include="..\cs-runner\Mu.cs" Link="Mu.cs" />
     <Compile Include="..\cs-runner\Reader.cs" Link="Reader.cs" />
     <Compile Include="..\cs-runner\Vocabulary.cs" Link="Vocabulary.cs" />
+    <Compile Include="..\cs-runner\Boot.cs" Link="Boot.cs" />
   </ItemGroup>
 
   <ItemGroup>

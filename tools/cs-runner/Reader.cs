@@ -156,6 +156,53 @@ public static class Reader
     // does not parse is FATAL, never skipped: a station that quietly registers
     // nothing answers <refused> to every case, which reads as silence rather
     // than as an error.
+    // A CARRIER THE ORACLE HAS NOT WRITTEN IS ABSENT, NOT EMPTY, and absent is
+    // legitimate: a store that was never compiled pays the rmap derivation, a
+    // run that recorded no outcome has none, a fresh journal has no entries.
+    // js-runner/build.js splices each of these only when it is there, and the
+    // compiled map only when its stamp still matches the design-state it was
+    // compiled from -- a stale map is a different store, not a faster one.
+    public static void LoadOptional(string path)
+    {
+        if (!File.Exists(path) || new FileInfo(path).Length == 0) return;
+        Load(path);
+    }
+
+    public static void LoadCompiled(string path, string designState)
+    {
+        if (!File.Exists(path) || !File.Exists(designState)) return;
+        var head = File.ReadAllText(path);
+        var at = head.IndexOf("AREST_COMPILED_FROM=", StringComparison.Ordinal);
+        if (at < 0) return;
+        var stamped = head.Substring(at + 20, 16);
+        string now;
+        using (var sha = System.Security.Cryptography.SHA256.Create())
+        {
+            var hash = sha.ComputeHash(File.ReadAllBytes(designState));
+            var sb = new System.Text.StringBuilder();
+            foreach (var b in hash) sb.Append(b.ToString("x2"));
+            now = sb.ToString().Substring(0, 16);
+        }
+        if (stamped == now) Load(path);
+    }
+
+    // The journal is APPEND-ONLY and is a FRAGMENT: it opens with a comma and
+    // carries no parenthesis of its own, because every entry is appended bytes
+    // and never a rewrite. The js host splices it as CANON("journal", ...entries);
+    // wrapping it here is the same act in this reader's grammar.
+    public static void LoadJournal(string path)
+    {
+        if (!File.Exists(path) || new FileInfo(path).Length == 0) return;
+        var body = File.ReadAllBytes(path);
+        var open = System.Text.Encoding.UTF8.GetBytes("(\"journal\"");
+        var close = System.Text.Encoding.UTF8.GetBytes(")");
+        var src = new byte[open.Length + body.Length + close.Length];
+        Buffer.BlockCopy(open, 0, src, 0, open.Length);
+        Buffer.BlockCopy(body, 0, src, open.Length, body.Length);
+        Buffer.BlockCopy(close, 0, src, open.Length + body.Length, close.Length);
+        Parse(src, path);
+    }
+
     public static void Load(string path)
     {
         byte[] src;
@@ -164,6 +211,11 @@ public static class Reader
         {
             throw new Exception("canon reader: cannot read " + path + ": " + e.Message);
         }
+        Parse(src, path);
+    }
+
+    static void Parse(byte[] src, string path)
+    {
         var p = new P { B = src, I = 0 };
         p.Eat("(");
         while (true)

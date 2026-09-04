@@ -202,7 +202,12 @@ public static partial class Arest
     {
         "ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor", "cn:sfx", "cn:pred",
         "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts", "cn:chrank", "lex:lw",
-        "induce:sig_of"
+        // system:pop_in builds a fetch form and runs it, so the whole walk over
+        // FILE is one frame's work; store:fts rebuilds and revalidates every
+        // descriptor. Both are pure functions of the store, both were asked
+        // hundreds of times per closure, and both cost the js host more than
+        // anything else until they were memoised (b1075649, c7fbc16b).
+        "induce:sig_of", "system:pop_in", "store:fts"
     };
     static bool Memoable(string f) =>
         MEMOCN.Contains(f) || f.StartsWith("rmap:", StringComparison.Ordinal)
@@ -214,6 +219,10 @@ public static partial class Arest
         EVMEMO.Clear(); EVMEMON = 0;
         DESCIDX = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, object>>();
         ENTIDX = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, List<object>>>();
+        FETCHIDX = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, object>>();
+        MATCHIDX = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, List<object>>>();
+        PAIRIDX = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, object>>();
+        PAIRID = new System.Runtime.CompilerServices.ConditionalWeakTable<object, object>();
     }
 
     // ---- FASTPRIMS: compiled forms of hot canon list cells, mirroring
@@ -264,6 +273,48 @@ public static partial class Arest
         new System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, object>>();
     static System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, List<object>>> ENTIDX =
         new System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, List<object>>>();
+    static System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, object>> FETCHIDX =
+        new System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, object>>();
+    static System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, List<object>>> MATCHIDX =
+        new System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, List<object>>>();
+    static System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, object>> PAIRIDX =
+        new System.Runtime.CompilerServices.ConditionalWeakTable<object, Dictionary<string, object>>();
+    static System.Runtime.CompilerServices.ConditionalWeakTable<object, object> PAIRID =
+        new System.Runtime.CompilerServices.ConditionalWeakTable<object, object>();
+
+    static object[] Concat(object[] a, object[] b)
+    {
+        var r = new object[a.Length + b.Length];
+        Array.Copy(a, 0, r, 0, a.Length);
+        Array.Copy(b, 0, r, a.Length, b.Length);
+        return r;
+    }
+
+    // rows indexed by their first column, the selector errors thrown where the
+    // DEF throws them: an atom row is selector 1 on an atom, an empty row is
+    // selector 1 out of range 0.
+    static List<object> MatchRows(object key, object[] rows)
+    {
+        Dictionary<string, List<object>> idx;
+        if (!MATCHIDX.TryGetValue(rows, out idx))
+        {
+            idx = new Dictionary<string, List<object>>(StringComparer.Ordinal);
+            foreach (var r in rows)
+            {
+                var a = r as object[];
+                if (a == null) throw new Exception("selector 1 on atom: " + r);
+                if (a.Length < 1) throw new Exception("selector 1 out of range 0");
+                var k = Key(a[0]);
+                List<object> bucket;
+                if (!idx.TryGetValue(k, out bucket)) { bucket = new List<object>(); idx[k] = bucket; }
+                bucket.Add(r);
+            }
+            MATCHIDX.Add(rows, idx);
+        }
+        List<object> hit;
+        return idx.TryGetValue(Key(key), out hit) ? hit : EmptyRows;
+    }
+    static readonly List<object> EmptyRows = new List<object>();
 
     static int DrainCount(object[] l, object nO)
     {
@@ -280,6 +331,146 @@ public static partial class Arest
     static readonly Dictionary<string, Func<object, object>> FASTPRIMS =
         new Dictionary<string, Func<object, object>>(StringComparer.Ordinal)
     {
+        // CONS and CONST are canon (Backus 13.3.2, reached through tau clause
+        // (c)) and stay so; these are their fast paths, the same value in one
+        // pass. Metacomposition hands CONS <<CONS f1..fn>, y> and the answer is
+        // <f1:y .. fn:y>; the canon form allocates distr, tl and an ALPHA over
+        // apply per application, and the js host measured 18.6 million CONS
+        // applications over us-law, 30 of its 35 seconds.
+        { "CONS", x => {
+            var form = Seq(At(x, 0));
+            var y = At(x, 1);
+            var outp = new object[form.Length - 1];
+            for (int i = 1; i < form.Length; i++) outp[i - 1] = Ev(form[i], y);
+            return outp; } },
+        { "CONST", x => Ev(2, Ev(1, x)) },
+        // ast:fetch is the FIRST cell named n (Backus's rule for cells): a scan
+        // of the store per ask, and the store is thousands of cells. Indexed
+        // once per store array, keyed by name, dropped with the memo at every
+        // mutation as the other indexes are; a cell is any sequence of length 3
+        // whose second element is the name, the answer its third, "#" for none.
+        { "ast:fetch", x => {
+            var name = At(x, 0);
+            var cells = Seq(At(x, 1));
+            Dictionary<string, object> idx;
+            if (!FETCHIDX.TryGetValue(cells, out idx))
+            {
+                idx = new Dictionary<string, object>(StringComparer.Ordinal);
+                foreach (var c in cells)
+                {
+                    var a = c as object[];
+                    if (a == null || a.Length != 3) continue;
+                    var k = Key(a[1]);
+                    if (!idx.ContainsKey(k)) idx[k] = a[2];
+                }
+                FETCHIDX.Add(cells, idx);
+            }
+            object hit;
+            return idx.TryGetValue(Key(name), out hit) ? hit : "#"; } },
+        { "theta:append_phi", x => {
+            var l = Seq(x);
+            var outp = new object[l.Length + 1];
+            Array.Copy(l, outp, l.Length);
+            outp[l.Length] = new object[0];
+            return outp; } },
+        { "main:flat", x => {
+            var outp = new List<object>();
+            foreach (var s in Seq(x)) outp.AddRange(Seq(s));
+            return outp.ToArray(); } },
+        // The relational map's inner loop. rmap:slot is rmap:lookup0 . [2,
+        // rmap:member_pairs . 1] -- the row of a relation keyed by a value --
+        // and a wide row asks it once per relation, per row, which the js host
+        // measured at two million calls per report. Indexed on the ROWS object,
+        // so the index is built once and every later ask is a lookup.
+        { "csdp:matches", x => (object[])MatchRows(At(x, 0), Seq(At(x, 1))).ToArray() },
+        { "rmap:lookup0", x => {
+            var hits = MatchRows(At(x, 0), Seq(At(x, 1)));
+            return hits.Count == 0 ? new object[0] : new object[] { At(hits[0], 1) }; } },
+        { "rmap:slot", x => {
+            var pairs = Seq(Ev("rmap:member_pairs", At(x, 0)));
+            var hits = MatchRows(At(x, 1), pairs);
+            return hits.Count == 0 ? new object[0] : new object[] { At(hits[0], 1) }; } },
+        { "rmap:wide_row", x => {
+            var key = At(x, 0);
+            var rels = Seq(At(x, 1));
+            var outp = new object[rels.Length + 1];
+            outp[0] = key;
+            for (int i = 0; i < rels.Length; i++) outp[i + 1] = Ev("rmap:slot", new object[] { rels[i], key });
+            return outp; } },
+        // rmap:member_pairs turns a relation's rows into <key, nonkeys> pairs.
+        // The same descriptor object asks again and again -- each relation of a
+        // wide row, per row -- so it is answered by identity first; the
+        // positions are functions of the descriptor's other four fields, so
+        // those key the cache and are computed once per distinct descriptor.
+        { "rmap:member_pairs", x => {
+            object byId;
+            var xa = x as object[];
+            if (xa != null && PAIRID.TryGetValue(xa, out byId)) return byId;
+            var rows = Seq(At(x, 4));
+            var ck = Key(new object[] { At(x, 0), At(x, 1), At(x, 2), At(x, 3) });
+            Dictionary<string, object> per;
+            if (!PAIRIDX.TryGetValue(rows, out per))
+            {
+                per = new Dictionary<string, object>(StringComparer.Ordinal);
+                PAIRIDX.Add(rows, per);
+            }
+            object outp;
+            if (!per.TryGetValue(ck, out outp))
+            {
+                var keypos = Ev("rmap:keypos", x);
+                var nonkeys = Seq(Ev("rmap:nonkey_positions", x));
+                var built = new object[rows.Length];
+                for (int i = 0; i < rows.Length; i++)
+                {
+                    var r = rows[i];
+                    var nk = new object[nonkeys.Length];
+                    for (int j = 0; j < nonkeys.Length; j++) nk[j] = Ev(nonkeys[j], r);
+                    built[i] = new object[] { Ev(keypos, r), nk };
+                }
+                outp = built;
+                per[ck] = outp;
+            }
+            if (xa != null && !ReferenceEquals(xa, rows)) PAIRID.Add(xa, outp);
+            return outp; } },
+        // derive:jo_rows builds the CROSS PRODUCT of two row lists and tests
+        // every pair on the key columns. The hash join answers the same
+        // SEQUENCE: the cross runs left-major and right-minor and the fold
+        // keeps that order, so indexing the right list in its own order and
+        // walking the left gives pair for pair what the fold gives. An empty
+        // key list is and-of-nothing, true, so it is the full cross product.
+        { "derive:jo_rows", x => {
+            var keys = Seq(At(x, 0));
+            var pair = At(x, 1);
+            object[] A = Seq(At(pair, 0)), B = Seq(At(pair, 1));
+            var outp = new List<object>();
+            if (A.Length == 0 || B.Length == 0) return outp.ToArray();
+            if (keys.Length == 0)
+            {
+                foreach (var a in A) foreach (var b in B) outp.Add(Concat(Seq(a), Seq(b)));
+                return outp.ToArray();
+            }
+            var selA = new object[keys.Length];
+            var selB = new object[keys.Length];
+            for (int i = 0; i < keys.Length; i++) { selA[i] = At(keys[i], 0); selB[i] = At(keys[i], 1); }
+            var idx = new Dictionary<string, List<object>>(StringComparer.Ordinal);
+            foreach (var b in B)
+            {
+                var k = new System.Text.StringBuilder();
+                for (int i = 0; i < selB.Length; i++) k.Append(Key(Ev(selB[i], b)));
+                List<object> bucket;
+                if (!idx.TryGetValue(k.ToString(), out bucket)) { bucket = new List<object>(); idx[k.ToString()] = bucket; }
+                bucket.Add(b);
+            }
+            foreach (var a in A)
+            {
+                var k = new System.Text.StringBuilder();
+                for (int i = 0; i < selA.Length; i++) k.Append(Key(Ev(selA[i], a)));
+                List<object> bucket;
+                if (!idx.TryGetValue(k.ToString(), out bucket)) continue;
+                var asq = Seq(a);
+                foreach (var b in bucket) outp.Add(Concat(asq, Seq(b)));
+            }
+            return outp.ToArray(); } },
         { "theta:member", x => {
             var needle = At(x, 0);
             foreach (var e in Seq(At(x, 1))) if (DeepEq(needle, e)) return "T";
