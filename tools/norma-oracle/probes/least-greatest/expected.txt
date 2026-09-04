@@ -1,0 +1,11 @@
+errors 0
+*Quote has document Fee Amount1 if and only if
+that Quote has some charged Fee Amount2
+and  has some Cap that has some Fee Amount3
+where Fee Amount1 = Least(Fee Amount2, Fee Amount3).
+
+*Quote has tax Amount if and only if
+that Quote has some Price
+and  has some Percentage
+where Amount = Least(5000, Divide(Multiply(Price, Percentage), 100)).
+
