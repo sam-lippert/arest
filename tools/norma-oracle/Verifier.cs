@@ -6090,6 +6090,8 @@ namespace Arest.NormaOracle
 				var swapPlayersC = new HashSet<string>(StringComparer.Ordinal);
 				bool recursiveC = false;
 				var cmpC = new List<string[]>();
+				// what the comparison loop below resolved, for the recipe emitter to reuse
+				var cmpBindC = new List<int[]>();
 				var arithC = new List<string[]>();
 				var thrC = new List<string[]>();
 				// `some other Fact2 ...` binds a fresh variable DISTINCT from the nearest
@@ -6843,6 +6845,15 @@ namespace Arest.NormaOracle
 						myPlanDeclines[sC] = "chain arm: a compared value is bound by no leg: " + (lL < 0 ? cp[0] : cp[2]);
 						break;
 					}
+					// ONE RESOLUTION, TWO CONSUMERS. The recipe emitter needs the same
+					// leg and column this loop just found, and resolving the operands a
+					// second time down there would be a second answer free to differ
+					// from NORMA's -- the recipe would then mean something the rule does
+					// not. Recorded here instead: <operator, left leg, left column,
+					// right leg, right column>, with -1 for a side this binding cannot
+					// name (a literal or a value type's own population), which the
+					// emitter reads as its cue to decline.
+					cmpBindC.Add(new int[] { qi, lL, pL, lR, pR });
 					bool equalC = cp[1] == "is" || cp[1] == "equals" || cp[1] == "matches";
 					bool notEqC = cp[1] == "is not";
 					bool greater = cp[1] == "exceeds" || cp[1] == "is greater than" || cp[1] == "is above";
@@ -6884,8 +6895,8 @@ namespace Arest.NormaOracle
 				}
 				if (!okC) continue;
 				RecordGeneralChainRecipe(sC, hC, legsC, toksC, negC, nestC, atLegC, atPosC,
-					typeRootC, crossAtC, konstAtC, arithKeyC,
-					cmpC.Count > 0 ? "a comparison (" + cmpC[0][1] + ")" : arithC.Count > 0 ? "arithmetic"
+					typeRootC, crossAtC, konstAtC, arithKeyC, cmpC, cmpBindC,
+					arithC.Count > 0 ? "arithmetic"
 						: thrC.Count > 0 ? "a threshold" : otherC.Count > 0 ? "`some other`"
 						: anaphoraC.Count > 0 ? "an objectification" : recursiveC ? "recursion"
 						: swapPlayersC.Count > 0 ? "a substituted subtype" : null);
@@ -8184,7 +8195,8 @@ namespace Arest.NormaOracle
 		private void RecordGeneralChainRecipe(string sC, FactIndexEntry hC, List<FactIndexEntry> legsC,
 			List<List<string>> toksC, List<bool> negC, List<int> nestC,
 			int[] atLegC, int[] atPosC, ObjectType[] typeRootC, ObjectType[] crossAtC,
-			int[] konstAtC, string[] arithKeyC, string shapeThisCannotSay)
+			int[] konstAtC, string[] arithKeyC, List<string[]> cmpC, List<int[]> cmpBindC,
+			string shapeThisCannotSay)
 		{
 			if (shapeThisCannotSay != null) { myRecipeDeclines[sC] = shapeThisCannotSay; return; }
 			if (legsC.Count == 0) { myRecipeDeclines[sC] = "no legs"; return; }
@@ -8262,6 +8274,30 @@ namespace Arest.NormaOracle
 				accToks.AddRange(toksC[pick]);
 				order.Add(pick);
 				todo.Remove(pick);
+			}
+			// A COMPARISON IS A FILTER ON THE JOINED ROWS, and it must be applied
+			// BEFORE the projection, while both operands still have columns. The
+			// grammar's `cmp` is strictly one thing -- keep the rows where column i
+			// is less than column j -- so the family it can say is small: `is less
+			// than` and `is below` directly, `exceeds`, `is greater than` and `is
+			// above` by swapping the pair. Everything else the corpora ask for --
+			// `starts with`, `contains`, `matches`, equality between two columns,
+			// `is not` -- has no form here, and the honest answer is to write
+			// nothing rather than a filter that means something else. The counts say
+			// which form to add next: `starts with` is the largest single bucket in
+			// auto.dev at fourteen.
+			foreach (int[] b in cmpBindC)
+			{
+				string op = cmpC[b[0]][1];
+				bool less = op == "is less than" || op == "is below";
+				bool more = op == "exceeds" || op == "is greater than" || op == "is above";
+				if (!less && !more) { myRecipeDeclines[sC] = "a comparison (" + op + ")"; return; }
+				if (b[1] < 0 || b[3] < 0) { myRecipeDeclines[sC] = "a comparison against a literal or a bare population"; return; }
+				if (!colOf.ContainsKey(b[1]) || !colOf.ContainsKey(b[3]))
+					{ myRecipeDeclines[sC] = "a comparison over a leg the join left out"; return; }
+				int lo = colOf[b[1]] + b[2], hi = colOf[b[3]] + b[4];
+				if (more) { int t = lo; lo = hi; hi = t; }
+				acc = "S4(" + IAtom("cmp") + ", " + acc + ", N(" + lo + "), N(" + hi + "))";
 			}
 			var headCols = new List<string>();
 			for (int i = 0; i < hC.Players.Count; i++)
