@@ -1,0 +1,19 @@
+errors 0
+*Monroney Label has Label Subtotal if and only if
+that Monroney Label discloses standard equipment some Suggested Retail Price
+and  has some Optional Equipment Total
+where Label Subtotal = Add(Suggested Retail Price, Optional Equipment Total).
+
+*Quote has combined Amount1 if and only if
+that Quote has some state Amount2
+and  has some county Amount3
+where Amount1 = Add(Amount2, Amount3).
+
+*Quote has tax Amount1 if and only if
+that Quote uses some Rate that has some Percentage
+and that Quote has some base Amount2
+where Amount1 = Divide(Multiply(Amount2, Percentage), 100).
+
+*Quote is exempt if and only if
+that Quote is in some State that has In-Lieu-Of Tax some Flag where Equals(Flag, no).
+
