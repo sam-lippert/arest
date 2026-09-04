@@ -37,7 +37,10 @@ round-trip exhibited in both directions by the reference implementation
 Constraint depth: rings, subsets (direct and JOIN-PATH — NORMA's
 ConstraintRoleSequenceJoinPath with root, sub-paths, and projections),
 exclusions (including exclusive subtypes over the supertype meta roles),
-disjunctive mandatories, and the negated-unary impossibility form all
+disjunctive mandatories, the obligation over a unary reading ("It is
+obligatory that each Post is approved" — a simple mandatory on the unary
+role under the deontic operator, the same constraint a different
+modality), and the negated-unary impossibility form all
 build as real NORMA elements. The principled residue rides as
 ModelNotes, each named in the map log: the identity-cast reflection
 bridge (one-id-space semantics, derivational), the API subtype-closure
