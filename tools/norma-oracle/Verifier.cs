@@ -1610,9 +1610,40 @@ namespace Arest.NormaOracle
 		private FactIndexEntry ResolveRestrictedHead(string headRaw, out List<string> lits,
 			out string swappedPlayer, out ObjectType swappedTo)
 		{
+			List<string> owners;
+			return ResolveRestrictedHead(headRaw, out lits, out owners, out swappedPlayer, out swappedTo);
+		}
+
+		// THE LITERAL LANDS ON THE ROLE IT FOLLOWS. `litOwners[k]` is the declared player
+		// the k-th literal is written after, or null when no player precedes it.
+		// `Corporation has Minnesota Nexus of Nexus Type 'physical presence'` restricts
+		// Nexus Type -- not the first role no leg bound, which is how the value was
+		// handed to Nexus and the rule declined. And `Customer is subject to Regulation
+		// 'GDPR (EU 2016/679)'` restricts the SAME role the subtype specialises: the
+		// literal follows the subtype's name, so its owner is the DECLARED player, and
+		// the arms lay both -- the subtype leg and the value on it.
+		private static string OwnerBefore(string prefix, IEnumerable<string> names)
+		{
+			string p = prefix.TrimEnd();
+			string best = null;
+			foreach (string n in names)
+			{
+				if (string.IsNullOrEmpty(n) || !p.EndsWith(n, StringComparison.Ordinal)) continue;
+				int at = p.Length - n.Length;
+				if (at > 0 && (char.IsLetterOrDigit(p[at - 1]) || p[at - 1] == '-')) continue;
+				if (best == null || n.Length > best.Length) best = n;
+			}
+			return best;
+		}
+
+		private FactIndexEntry ResolveRestrictedHead(string headRaw, out List<string> lits,
+			out List<string> litOwners, out string swappedPlayer, out ObjectType swappedTo)
+		{
 			swappedPlayer = null; swappedTo = null;
 			lits = new List<string>();
-			foreach (Match lm in Regex.Matches(headRaw, @"'([^']*)'")) lits.Add(lm.Groups[1].Value);
+			litOwners = new List<string>();
+			var litAt = new List<int>();
+			foreach (Match lm in Regex.Matches(headRaw, @"'([^']*)'")) { lits.Add(lm.Groups[1].Value); litAt.Add(lm.Index); }
 			// A head may be SPECIALISED WITHOUT NAMING A VALUE:
 			//   + Person is subject to Minnesota Authority if Person works in State 'Minnesota'.
 			// names the declared `Person is subject to Authority` with the Authority role
@@ -1622,7 +1653,11 @@ namespace Arest.NormaOracle
 			// rather than "no such fact type", which sends a reader to the wrong file.
 			string bare = LiteralWithSpaceRx.Replace(headRaw, "").Trim();
 			FactIndexEntry e = FindEntryByNormalizedSentence(bare);
-			if (e != null) return e;
+			if (e != null)
+			{
+				foreach (int la in litAt) litOwners.Add(OwnerBefore(headRaw.Substring(0, la), e.Players));
+				return e;
+			}
 			// SUBSTITUTE ONE OCCURRENCE, IN ANY POSITION. The subtype is not always the
 			// subject: `Customer is subject to Regulation 'GDPR (EU 2016/679)'` names the
 			// declared `Customer is subject to Authority` with Regulation, a subtype of
@@ -1644,7 +1679,18 @@ namespace Arest.NormaOracle
 							if (supName == subName || !RootsAt(myTypes[subName], supName)) continue;
 							FactIndexEntry cand = FindEntryByNormalizedSentence(
 								bare.Substring(0, at) + supName + bare.Substring(end));
-							if (cand != null) { swappedPlayer = supName; swappedTo = myTypes[subName]; return cand; }
+							if (cand != null)
+							{
+								swappedPlayer = supName; swappedTo = myTypes[subName];
+								foreach (int la in litAt)
+								{
+									string pre = headRaw.Substring(0, la);
+									string o = OwnerBefore(pre, cand.Players);
+									string oSub = OwnerBefore(pre, new[] { subName });
+									litOwners.Add(oSub != null && (o == null || oSub.Length >= o.Length) ? supName : o);
+								}
+								return cand;
+							}
 						}
 					}
 					at = end;
@@ -2099,6 +2145,13 @@ namespace Arest.NormaOracle
 		private readonly HashSet<string> myProseSkipped = new HashSet<string>(StringComparer.Ordinal);
 		// the general join's reason for declining a rule, printed only if no arm built it
 		private readonly Dictionary<string, string> myPlanDeclines = new Dictionary<string, string>(StringComparer.Ordinal);
+
+		// the census names the arm that declined: the general join unless the reason says otherwise
+		private static string DeclineLabel(string why)
+		{
+			return why.StartsWith("chain arm: ", StringComparison.Ordinal)
+				|| why.StartsWith("single-clause arm: ", StringComparison.Ordinal) ? why : "general join: " + why;
+		}
 		private bool MapFactReading(string s, bool liftProseGuard)
 		{
 			string body = s.TrimEnd('.');
@@ -2801,9 +2854,9 @@ namespace Arest.NormaOracle
 				string headRawV = mv.Groups[1].Value.Trim();
 				string bodyV = mv.Groups[2].Value.Trim();
 				if (bodyV.Contains(" and ")) continue;
-				List<string> litsV;
+				List<string> litsV, litOwnersV;
 				string subPlayerV; ObjectType subTypeV;
-				FactIndexEntry hV = ResolveRestrictedHead(headRawV, out litsV, out subPlayerV, out subTypeV);
+				FactIndexEntry hV = ResolveRestrictedHead(headRawV, out litsV, out litOwnersV, out subPlayerV, out subTypeV);
 				if (hV == null) continue;
 				FactIndexEntry bV = FindEntryByNormalizedSentence(Dequantify(" " + bodyV + " ").Trim());
 				// THE BODY MAY BE RESTRICTED TOO:
@@ -2823,7 +2876,9 @@ namespace Arest.NormaOracle
 						if (bV != null) bodyLit = bvr.Groups[2].Value;
 					}
 				}
-				if (bV == null) continue;
+				// declines are recorded for the census, as the general join records its own:
+				// a rule that stays unbuilt then says which arm refused it and why
+				if (bV == null) { myPlanDeclines[sV] = "single-clause arm: clause names no fact type as written: " + bodyV; continue; }
 				// THE Equals FUNCTION IS CREATED ON DEMAND, NOT PRELOADED. The later
 				// value-condition arms each build one if none exists, so at this point in the
 				// pass there is usually none and looking it up alone finds nothing -- which is
@@ -2843,6 +2898,7 @@ namespace Arest.NormaOracle
 				var atV = new int[hV.Roles.Count];
 				var konstAt = new int[hV.Roles.Count];   // which literal fills this role, or -1
 				var crossAt = new bool[hV.Roles.Count];  // filled from the subtype's own population
+				var litTaken = new bool[litsV.Count];
 				bool anyCrossV = false;
 				int konstSeen = 0;
 				bool okV = true;
@@ -2861,22 +2917,32 @@ namespace Arest.NormaOracle
 					if (hitsV.Count == 1) { atV[i] = hitsV[0]; continue; }
 					if (hitsV.Count == 0)
 					{
-						if (konstSeen >= litsV.Count)
+						// A HEAD MAY SPECIALISE A ROLE WITHOUT NAMING A VALUE.
+						//   * Person is subject to Minnesota Authority iff Person works in
+						//     State 'Minnesota'.
+						// The declared fact type is `Person is subject to Authority`; the head
+						// names a SUBTYPE of that role and the body supplies no Authority at
+						// all. What the rule says is that such a person is subject to the
+						// Minnesota authorities -- the members of that subtype. The specialised
+						// role may ALSO carry a value: `Customer is subject to Regulation 'GDPR
+						// (EU 2016/679)'` specialises Authority to Regulation and names which.
+						// Each literal lands on the role it follows (see OwnerBefore); a literal
+						// that follows no player takes the first unbound role, as before.
+						atV[i] = -1;
+						int litHere = -1;
+						for (int k = 0; k < litsV.Count && litHere < 0; k++)
+							if (!litTaken[k] && litOwnersV[k] == hV.Players[i]) litHere = k;
+						if (subPlayerV != null && subTypeV != null && hV.Players[i] == subPlayerV && !crossAt[i])
 						{
-							// A HEAD MAY SPECIALISE A ROLE WITHOUT NAMING A VALUE.
-							//   * Person is subject to Minnesota Authority iff Person works in
-							//     State 'Minnesota'.
-							// The declared fact type is `Person is subject to Authority`; the head
-							// names a SUBTYPE of that role and the body supplies no Authority at
-							// all. What the rule says is that such a person is subject to the
-							// Minnesota authorities -- the members of that subtype.
-							if (subPlayerV != null && subTypeV != null && hV.Players[i] == subPlayerV)
-							{
-								crossAt[i] = true; anyCrossV = true; atV[i] = -1; continue;
-							}
-							okV = false; break;
+							crossAt[i] = true; anyCrossV = true;
+							if (litHere >= 0) { konstAt[i] = litHere; litTaken[litHere] = true; konstSeen++; }
+							continue;
 						}
-						konstAt[i] = konstSeen++; atV[i] = -1; continue;
+						if (litHere < 0)
+							for (int k = 0; k < litsV.Count && litHere < 0; k++)
+								if (!litTaken[k] && litOwnersV[k] == null) litHere = k;
+						if (litHere < 0) { okV = false; break; }
+						konstAt[i] = litHere; litTaken[litHere] = true; konstSeen++; continue;
 					}
 					okV = false; break;
 				}
@@ -2884,8 +2950,9 @@ namespace Arest.NormaOracle
 				// And there must BE a constant, on one side or the other: with none this is a
 				// plain projection, which the projection-rename arm above already claims, and
 				// adding a second path for the same rule would double-count it.
-				if (!okV || konstSeen != litsV.Count) continue;
-				if (litsV.Count == 0 && bodyLit == null && !anyCrossV) continue;
+				if (!okV) { myPlanDeclines[sV] = "single-clause arm: a head role is bound by no body role, literal or subtype"; continue; }
+				if (konstSeen != litsV.Count) { myPlanDeclines[sV] = "single-clause arm: a head literal lands on no role"; continue; }
+				if (litsV.Count == 0 && bodyLit == null && !anyCrossV) { myPlanDeclines[sV] = "single-clause arm: no restriction on either side"; continue; }
 				// the restricted body role is the one no head role projects from; require
 				// exactly one, and settle it BEFORE constructing anything so a decline cannot
 				// leave a half-built rule in the store
@@ -2900,7 +2967,7 @@ namespace Arest.NormaOracle
 						if (condRole >= 0) { condRole = -2; break; }
 						condRole = c;
 					}
-					if (condRole < 0) continue;
+					if (condRole < 0) { myPlanDeclines[sV] = "single-clause arm: the body literal fits no single free role"; continue; }
 				}
 				var ruleV = hV.Fact.DerivationRule as FactTypeDerivationRule;
 				if (ruleV == null)
@@ -2928,7 +2995,7 @@ namespace Arest.NormaOracle
 				for (int i = 0; i < hV.Roles.Count; i++)
 				{
 					var drpV = new DerivedRoleProjection(projV, hV.Roles[i]);
-					if (konstAt[i] >= 0)
+					if (konstAt[i] >= 0 && !crossAt[i])
 					{
 						var pcV = new PathConstant(myStore);
 						pcV.LexicalValue = litsV[konstAt[i]];
@@ -2970,6 +3037,9 @@ namespace Arest.NormaOracle
 						var stUp = new PathedRole(stSp, supRoleV);
 						stUp.PathedRolePurpose = PathedRolePurpose.SameFactType;
 						new DerivedRoleProjectedFromPathedRole(drpV, stUp);
+						// the value named on the specialised role is a condition on the subtype
+						// leg's entry: `some Regulation is that Authority where Regulation = ...`
+						if (konstAt[i] >= 0) AddEqualsCondition(leadV, stEntry, litsV[konstAt[i]]);
 					}
 					else
 					{
@@ -2997,7 +3067,11 @@ namespace Arest.NormaOracle
 				}
 				var shownV = new List<string>();
 				for (int i = 0; i < hV.Roles.Count; i++)
-					if (konstAt[i] >= 0) shownV.Add(hV.Players[i] + " = '" + litsV[konstAt[i]] + "'");
+					if (konstAt[i] >= 0) shownV.Add((crossAt[i] ? subTypeV.Name : hV.Players[i]) + " = '" + litsV[konstAt[i]] + "'");
+					else if (crossAt[i]) shownV.Add(hV.Players[i] + " in " + subTypeV.Name);
+				// registered, so the chain arm -- which reads a one-leg body too, now that it
+				// substitutes subtypes -- does not lay a second path for the same sentence
+				myBuiltRuleSentences.Add(sV);
 				log.Add(hV.Fact.Name + " := proj " + bV.Fact.Name + " with "
 					+ string.Join(", ", shownV) + ", " + DescribeDerivation(hV.Fact));
 			}
@@ -5812,7 +5886,13 @@ namespace Arest.NormaOracle
 				// legs meeting at a variable the earlier arms cannot enter on. Running last,
 				// behind the built-sentence registry and the paths-vs-rules cap, this arm
 				// can take them without stealing anything.
-				if (partsC.Length < 2) continue;
+				// ONE CLAUSE TOO, on the same terms. The single-clause arm resolves its body
+				// as written, so `Corporation has principal place of business in State
+				// 'Minnesota'` over the declared `Organization has principal place of business
+				// in State` never built: this arm substitutes the subtype and BuildChain lays
+				// the step up to Organization. That arm registers what it builds, so nothing
+				// is built twice.
+				if (partsC.Length < 1) continue;
 				FactIndexEntry hC = FindEntryByNormalizedSentence(headC);
 				// A HEAD MAY NAME A VALUE AND STILL HAVE A BODY THIS ARM CAN READ.
 				//   * External System has Service Health Status 'degraded' iff External System
@@ -5820,8 +5900,14 @@ namespace Arest.NormaOracle
 				// The single-clause arm above owns the restricted heads whose body is one
 				// reading; these have a leg plus a threshold, which is this arm's shape. The
 				// restricted role is filled by a constant, exactly as that arm fills it.
+				// ... and may name a SUBTYPE of a role's player without naming a value
+				// (`Person is subject to Delaware Authority if Person is Customer and ...`):
+				// the specialised role is filled from the subtype's own population, as the
+				// single-clause arm fills it, once the body has bound everything else
 				var hLitsC = new List<string>();
-				if (hC == null) hC = ResolveRestrictedHead(headC, out hLitsC);
+				List<string> hOwnersC = null;
+				string subPlayerC = null; ObjectType subTypeC = null;
+				if (hC == null) hC = ResolveRestrictedHead(headC, out hLitsC, out hOwnersC, out subPlayerC, out subTypeC);
 				if (hC == null) continue;
 				// `**` DECLARES THE BODY EXTERNAL -- fully derived and stored, with no in-store
 				// body BY DESIGN, which is why the arm that owns it records a recipe and zero
@@ -5849,7 +5935,11 @@ namespace Arest.NormaOracle
 				// model already knows how many paths the head has.
 				var haveRuleC = hC.Fact.DerivationRule as FactTypeDerivationRule;
 				if (headRulesC > 0 && haveRuleC != null
-					&& haveRuleC.OwnedLeadRolePathCollection.Count >= headRulesC) continue;
+					&& haveRuleC.OwnedLeadRolePathCollection.Count >= headRulesC)
+				{
+					myPlanDeclines[sC] = "chain arm: the head already has " + haveRuleC.OwnedLeadRolePathCollection.Count + " path(s) for " + headRulesC + " rule(s)";
+					continue;
+				}
 				// A MULTI-RULE HEAD IS A UNION HERE TOO, one lead path per rule. Requiring a
 				// single rule was the largest thing this arm refused for itself -- Source Request
 				// is routed via Fetcher, Vehicle Purchase Quote has registration Fee Amount and
@@ -5868,7 +5958,11 @@ namespace Arest.NormaOracle
 				// `no`/`not` in the body still declines the rule, rather than being built as
 				// though it were not there -- dropping a negation does not narrow a rule, it
 				// inverts it.
-				if (Regex.IsMatch(Regex.Replace(bodyC, " has no | is not | does not ", " "), @"\b(no|not)\b")) continue;
+				if (Regex.IsMatch(Regex.Replace(bodyC, " has no | is not | does not ", " "), @"\b(no|not)\b"))
+				{
+					myPlanDeclines[sC] = "chain arm: a negation in a form this arm does not read";
+					continue;
+				}
 				var negC = new List<bool>();
 				// declared players that only matched because a subtype was substituted for them
 				var swapPlayersC = new HashSet<string>(StringComparer.Ordinal);
@@ -5985,7 +6079,12 @@ namespace Arest.NormaOracle
 							}
 						}
 					}
-					if (leC == null || leC == hC) { okC = false; break; }
+					if (leC == null || leC == hC)
+					{
+						okC = false;
+						myPlanDeclines[sC] = leC == null ? "chain arm: clause names no fact type: " + tC : "chain arm: a clause names the head";
+						break;
+					}
 					if (thrOp != null) thrC.Add(new string[] { plC[plC.Count - 1], thrOp, thrVal, legsC.Count.ToString() });
 					legsC.Add(leC);
 					if (swapC != null) swapPlayersC.Add(swapC);
@@ -6004,9 +6103,13 @@ namespace Arest.NormaOracle
 				var atPosC = new int[hC.Players.Count];
 				// a head role may take its value from a bare value type's own population
 				var typeRootC = new ObjectType[hC.Players.Count];
+				var crossAtC = new ObjectType[hC.Players.Count];   // the subtype whose population fills this role
 				var konstAtC = new int[hC.Players.Count];
 				for (int z = 0; z < konstAtC.Length; z++) konstAtC[z] = -1;
+				var litTakenC = new bool[hLitsC.Count];
 				int konstSeenC = 0;
+				// why this arm declined, for the census; recorded on the sentence, not logged
+				string whyChainC = null;
 				var arithKeyC = new string[hC.Players.Count];
 				var aliasC = new int[hC.Players.Count];
 				for (int z = 0; z < aliasC.Length; z++) aliasC[z] = -1;
@@ -6118,14 +6221,31 @@ namespace Arest.NormaOracle
 								{ computedRole = true; arithKeyC[i] = aq[0]; }
 						}
 						if (computedRole) { atLegC[i] = -1; atPosC[i] = -1; }
-						else if (konstSeenC < hLitsC.Count)
+						else
 						{
-							konstAtC[i] = konstSeenC++; atLegC[i] = -1; atPosC[i] = -1;
+							// each literal lands on the role it follows, and the specialised role
+							// may carry one too, as the single-clause arm lays them
+							atLegC[i] = -1; atPosC[i] = -1;
+							int litHereC = -1;
+							for (int k = 0; k < hLitsC.Count && litHereC < 0; k++)
+								if (!litTakenC[k] && hOwnersC != null && hOwnersC[k] == hC.Players[i]) litHereC = k;
+							if (subTypeC != null && subPlayerC != null && hC.Players[i] == subPlayerC && crossAtC[i] == null)
+							{
+								crossAtC[i] = subTypeC;
+								if (litHereC >= 0) { konstAtC[i] = litHereC; litTakenC[litHereC] = true; konstSeenC++; }
+							}
+							else
+							{
+								if (litHereC < 0)
+									for (int k = 0; k < hLitsC.Count && litHereC < 0; k++)
+										if (!litTakenC[k] && (hOwnersC == null || hOwnersC[k] == null)) litHereC = k;
+								if (litHereC < 0) { okC = false; whyChainC = "chain arm: head role " + hC.Players[i] + " is bound by no leg, literal or subtype"; }
+								else { konstAtC[i] = litHereC; litTakenC[litHereC] = true; konstSeenC++; }
+							}
 						}
-						else okC = false;
 					}
 				}
-				if (!okC) continue;
+				if (!okC) { if (whyChainC != null) myPlanDeclines[sC] = whyChainC; continue; }
 				ObjectType rootC;
 				if (!myTypes.TryGetValue(hC.Players[0], out rootC)) continue;
 				// A SUBTYPE FILLER CANNOT ALSO BE THE JOIN VARIABLE. `Transition1 is from
@@ -6152,9 +6272,9 @@ namespace Arest.NormaOracle
 				if (!okC) continue;
 				string rootTokC = hC.Players[0];
 				foreach (List<string> tl in toksC) if (tl.Contains(hqC[0])) { rootTokC = hqC[0]; break; }
-				if (konstSeenC != hLitsC.Count) continue;
+				if (konstSeenC != hLitsC.Count) { myPlanDeclines[sC] = "chain arm: a head literal lands on no role"; continue; }
 				bool[] negArrC = negC.ToArray();
-				if (ChainOrder(toksC, rootTokC, negArrC) == null) continue;
+				if (ChainOrder(toksC, rootTokC, negArrC) == null) { myPlanDeclines[sC] = "chain arm: no chain order from " + rootTokC; continue; }
 				var ruleC = hC.Fact.DerivationRule as FactTypeDerivationRule;
 				bool madeRuleC = false;
 				if (ruleC == null)
@@ -6196,6 +6316,35 @@ namespace Arest.NormaOracle
 						leadC.SubPathCollection.Add(tSp);
 						var tRoot = new RolePathObjectTypeRoot(tSp, typeRootC[i]);
 						new DerivedRoleProjectedFromRolePathRoot(drpC, tRoot);
+					}
+					else if (crossAtC[i] != null)
+					{
+						// the head names a subtype of this role's player and no leg binds it: a
+						// leg over the subtype fact, rooted at the subtype, projected from the
+						// supertype role, as the single-clause arm lays it
+						SubtypeFact sfC = null;
+						foreach (SubtypeFact sf in myStore.ElementDirectory.FindElements<SubtypeFact>(true))
+						{
+							if (!sf.IsDeleted && sf.Subtype == crossAtC[i] && sf.Supertype != null && sf.Supertype.Name == hC.Players[i]) { sfC = sf; break; }
+						}
+						Role subRoleX = null, supRoleX = null;
+						if (sfC != null)
+							foreach (RoleBase rb in sfC.RoleCollection)
+							{
+								Role r = rb.Role;
+								if (r.RolePlayer == crossAtC[i]) subRoleX = r;
+								else if (r.RolePlayer == sfC.Supertype) supRoleX = r;
+							}
+						if (subRoleX == null || supRoleX == null) { okC = false; break; }
+						var xSp = new RoleSubPath(myStore);
+						leadC.SubPathCollection.Add(xSp);
+						new RolePathObjectTypeRoot(xSp, crossAtC[i]);
+						var xEntry = new PathedRole(xSp, subRoleX);
+						xEntry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+						var xUp = new PathedRole(xSp, supRoleX);
+						xUp.PathedRolePurpose = PathedRolePurpose.SameFactType;
+						new DerivedRoleProjectedFromPathedRole(drpC, xUp);
+						if (konstAtC[i] >= 0) AddEqualsCondition(leadC, xEntry, hLitsC[konstAtC[i]]);
 					}
 					else if (konstAtC[i] >= 0)
 					{
@@ -6351,7 +6500,9 @@ namespace Arest.NormaOracle
 						if (baseE.Fact.DerivationRule == null)
 						{
 							unbuiltValueRestricted++;
-							log.Add("UNBUILT (head is value-restricted; the fact type is declared, the restriction is not built): " + s2);
+							string declinedV;
+							log.Add("UNBUILT (head is value-restricted; the fact type is declared, the restriction is not built"
+								+ (myPlanDeclines.TryGetValue(s2, out declinedV) ? "; " + DeclineLabel(declinedV) : "") + "): " + s2);
 							continue;
 						}
 						uE = baseE;
@@ -6411,7 +6562,7 @@ namespace Arest.NormaOracle
 						}
 						string declined;
 						log.Add("UNBUILT (head resolves, no arm matched the body) [legs resolving "
-							+ ures + "/" + ulegs.Length + (myPlanDeclines.TryGetValue(s2, out declined) ? "; general join: " + declined : "") + "]: " + s2);
+							+ ures + "/" + ulegs.Length + (myPlanDeclines.TryGetValue(s2, out declined) ? "; " + DeclineLabel(declined) : "") + "]: " + s2);
 					}
 					continue;
 				}
@@ -8082,6 +8233,29 @@ namespace Arest.NormaOracle
 			bag.Name = "bag";
 			bag.BagInput = true;
 			return made;
+		}
+
+		// `where <role> = '<value>'`: an Equals condition on the lead path binding a pathed
+		// role to a constant, the construction the single-clause arm uses for a quoted leg
+		private void AddEqualsCondition(LeadRolePath lead, PathedRole on, string value)
+		{
+			Function eq = GetOrMakeFunction("Equals", true);
+			var cpv = new CalculatedPathValue(myStore);
+			cpv.Function = eq;
+			var cL = new CalculatedPathValueInput(myStore); cpv.InputCollection.Add(cL);
+			var cR = new CalculatedPathValueInput(myStore); cpv.InputCollection.Add(cR);
+			int pi = 0;
+			foreach (FunctionParameter fp in eq.ParameterCollection)
+			{
+				if (pi == 0) new CalculatedPathValueInputCorrespondsToFunctionParameter(cL, fp);
+				else if (pi == 1) { new CalculatedPathValueInputCorrespondsToFunctionParameter(cR, fp); break; }
+				pi++;
+			}
+			new CalculatedPathValueInputBindsToPathedRole(cL, on);
+			var pc = new PathConstant(myStore);
+			pc.LexicalValue = value;
+			new CalculatedPathValueInputBindsToPathConstant(cR, pc);
+			lead.CalculatedConditionCollection.Add(cpv);
 		}
 
 		private Function GetOrMakeFunction(string name, bool boolean)

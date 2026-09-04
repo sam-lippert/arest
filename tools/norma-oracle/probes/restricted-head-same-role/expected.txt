@@ -1,0 +1,7 @@
+errors 0
++Customer is subject to Authority if
+that Customer is in EEA
+and some Regulation1 is that Authority where Equals(Regulation1, GDPR (EU 2016/679))
+or that Customer is some Member that holds Membership
+and some Regulation2 is that Authority where Equals(Regulation2, GDPR (EU 2016/679)).
+

@@ -164,6 +164,22 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   one subpath per leg, projected from the root; one leg may be `Head is a
   Subtype` (any number of hops), and then the path roots at the subtype and
   walks up, so the population is the subtype's and never wider.
+- A head may name a value (`Customer has Data Subject Right Type 'access'`)
+  or a subtype of a role's player (`Person is subject to Delaware
+  Authority`, `Corporation has Minnesota Nexus of Nexus Type 'physical
+  presence'`): the declared fact type is the base, the value role is
+  projected from a constant and the specialised role from a leg over the
+  subtype fact rooted at the subtype, over a one-clause body or the chain
+  arm's bodies alike. Each value lands on the role it follows in the head,
+  so `Nexus Type 'physical presence'` restricts Nexus Type and not the
+  first unbound role, and a role may be specialised and valued at once
+  (`Customer is subject to Regulation 'GDPR (EU 2016/679)'`: the subtype
+  leg, with `Regulation = 'GDPR ...'` as a condition on it). A one-clause
+  body whose reading is declared over the subject's supertype
+  (`Corporation has principal place of business in State 'Minnesota'` over
+  `Organization has ...`) is the chain arm's: it substitutes the subtype and
+  lays the step up. A membership leg is `Person is a Customer`, with its
+  article; `Person is Customer` names no fact.
 - A later leg may re-enter a variable an earlier leg bound and join back to
   the variable bound most recently (`that Person has knowledge of that
   Patent`); a join back to an OLDER variable in the same leg is not laid and
@@ -179,9 +195,10 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
 
 The census then says per rule what it lacks: `ONE AWAY: <clause> <- <head>`
 for a body one declaration short, `MISSING (n): <clause> | ... <- <head>` for
-the rest, and `UNBUILT ... [legs resolving k/n; general join: <reason>]` for
-a body every arm declined; the general join's reason is printed only there,
-since a later arm builds most of what it declines. `Estate is a Fee Simple` as a body leg is a leg over the subtype
+the rest, and `UNBUILT ... [legs resolving k/n; <arm>: <reason>]` for a body
+every arm declined, naming the last arm that read it (the single-clause arm,
+the general join or the chain arm) and why; a decline is printed only there,
+since a later arm builds most of what an earlier one declines. `Estate is a Fee Simple` as a body leg is a leg over the subtype
 fact itself, entered at the supertype role; and a variable typed a subtype
 of a leg's player walks up through the subtype fact before the leg (NORMA
 models a subtype as a fact type with two roles, so the step is an ordinary
