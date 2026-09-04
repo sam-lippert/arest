@@ -158,6 +158,18 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   one unary reading), never before more/fewer/less/later/earlier/equal.
 - A possessive is not a quote: `Defendant's Conduct ... Plaintiff's use` is
   a reading, not an instance fact with a literal.
+- A unary head whose legs are all readings entered at its own player is a
+  star on that player (`Offer is outstanding iff Offer has been made and
+  that Offer has not been revoked and ...`, five legs), rooted at the type,
+  one subpath per leg, projected from the root; one leg may be `Head is a
+  Subtype` (any number of hops), and then the path roots at the subtype and
+  walks up, so the population is the subtype's and never wider.
+- A later leg may re-enter a variable an earlier leg bound and join back to
+  the variable bound most recently (`that Person has knowledge of that
+  Patent`); a join back to an OLDER variable in the same leg is not laid and
+  the gate reports the fresh variable as a mismatch (contracts' duress,
+  torts' special relationship: restate so the older variable is not
+  needed, or make the leg a unary on the current one).
 - A sentence a rule uses, as a leg or as its head, is a reading by
   construction: the prose guard (more than sixty characters of connective
   text is documentation) still skips such a sentence at first, and the replay

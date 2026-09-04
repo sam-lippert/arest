@@ -1,0 +1,6 @@
+errors 0
+*Purchaser takes priority if and only if
+that Purchaser takes for value
+and  has no actual notice
+and  has no constructive notice.
+

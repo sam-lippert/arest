@@ -3560,6 +3560,126 @@ namespace Arest.NormaOracle
 				log.Add(hE6b.Fact.Name + " := minus (" + hE6b.Players[0] + " less " + string.Join(", ", negNames6b)
 					+ "), " + DescribeDerivation(hE6b.Fact));
 			}
+			// THE UNARY STAR: a unary head whose every leg is a unary on the head's own
+			// player -- `Bona Fide Purchaser takes priority iff Bona Fide Purchaser takes
+			// for value and that Bona Fide Purchaser has no Actual Notice of prior
+			// conveyance and ...` (five legs), `Offer is outstanding iff ...` (five). The
+			// star arm folds from the leg carrying head player 1 at a NON-CENTRE
+			// position, and here the centre is the only player, so it declined every one
+			// of them while all legs resolved (us-law, 2026-09-04). Root at the player's
+			// type, one subpath per leg, projection from the root, as the lone negation
+			// does without the negation; the recipe folds joinon on column 1.
+			foreach (string sRawU in myDeferredRules)
+			{
+				string sU = sRawU;
+				while (sU.StartsWith("* * ")) sU = sU.Substring(2);
+				Match mU = Regex.Match(sU, @"^\* (.+?) iff (.+)\.$");
+				if (!mU.Success) continue;
+				// ` and no ` is shape two's connective; a leg reading `has no Actual Notice`
+				// is an ordinary unary and stays
+				if (sU.Contains("'") || sU.Contains(" and no ") || sU.Contains("not true")) continue;
+				if (myBuiltRuleSentences.Contains(sRawU) || myBuiltRuleSentences.Contains(sU)) continue;
+				string headU = mU.Groups[1].Value.Trim();
+				string[] legsU = SplitBody(mU.Groups[2].Value);
+				if (legsU.Length < 2) continue;
+				FactIndexEntry hEU = FindEntryByNormalizedSentence(headU);
+				if (hEU == null || hEU.Players.Count != 1) continue;
+				// every leg is entered at the head's player as its SUBJECT; a wider leg keeps
+				// its other roles existential, and `Future Interest is a Contingent Remainder`
+				// is the subtype fact entered at the supertype role (the resolver's membership
+				// entry), a filter on the same object
+				var lEs = new List<FactIndexEntry>();
+				var memberU = new List<ObjectType>();   // per leg: the subtype of a membership leg, else null
+				ObjectType rootUT0;
+				myTypes.TryGetValue(hEU.Players[0], out rootUT0);
+				foreach (string lg in legsU)
+				{
+					string lgD = Dequantify(" " + lg.Trim() + " ").Trim();
+					// `Future Interest is a Contingent Remainder`: a walk down the subtype chain
+					// from the head's player, however many hops (Contingent Remainder is a
+					// Remainder is a Future Interest), a filter on the same object
+					Match mmU = Regex.Match(lgD, @"^(.+?) is an? (.+)$");
+					ObjectType subT;
+					if (mmU.Success && rootUT0 != null && mmU.Groups[1].Value.Trim() == hEU.Players[0]
+						&& myTypes.TryGetValue(mmU.Groups[2].Value.Trim(), out subT) && subT != rootUT0 && RootsAt(subT, hEU.Players[0]))
+					{
+						lEs.Add(null);
+						memberU.Add(subT);
+						continue;
+					}
+					List<string> plU; string swU;
+					FactIndexEntry le = ResolveClauseSub(lgD, out plU, out swU);
+					if (le == null || le == hEU || plU == null || plU.Count == 0 || plU[0] != hEU.Players[0] || le.Players[0] != hEU.Players[0]) { lEs = null; break; }
+					lEs.Add(le);
+					memberU.Add(null);
+				}
+				if (lEs == null) continue;
+				int rulesU;
+				rulesPerHead.TryGetValue(RuleHeadKey(headU), out rulesU);
+				var haveU = hEU.Fact.DerivationRule as FactTypeDerivationRule;
+				if (rulesU > 0 && haveU != null && haveU.OwnedLeadRolePathCollection.Count >= rulesU) continue;
+				ObjectType rootUT;
+				if (!myTypes.TryGetValue(hEU.Players[0], out rootUT)) continue;
+				// ONE MEMBERSHIP LEG ROOTS THE PATH AT THE SUBTYPE and walks UP to the head's
+				// type, however many hops; the unary legs hang off the top of that walk and
+				// the head projects from it. Walking DOWN from the head's type built a path
+				// NORMA could not verbalize past one hop and the gate could not read
+				// (unary-star-membership-two-hops), and rooting at the subtype is the sound
+				// direction anyway: the population is the subtype's, never wider.
+				ObjectType memberT = null;
+				int memberCount = 0;
+				foreach (ObjectType mt in memberU) if (mt != null) { memberT = mt; memberCount++; }
+				if (memberCount > 1) continue;
+				var ruleU = haveU;
+				if (ruleU == null)
+				{
+					ruleU = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hEU.Fact, ruleU);
+					ApplyDerivationMarkers(hEU.Fact, ruleU);
+				}
+				var leadU = new LeadRolePath(myStore);
+				ruleU.OwnedLeadRolePathCollection.Add(leadU);
+				var rootU = new RolePathObjectTypeRoot(leadU, memberT ?? rootUT);
+				RoleSubPath walkU = null;
+				PathedRole topU = null;
+				string exprU = null;
+				bool laidU = true;
+				if (memberT != null)
+				{
+					walkU = new RoleSubPath(myStore);
+					leadU.SubPathCollection.Add(walkU);
+					laidU = LaySubtypeSteps(walkU, memberT, rootUT);
+					if (laidU) topU = walkU.PathedRoleCollection[walkU.PathedRoleCollection.Count - 1];
+					// canon names a type's population with its bare atom
+					exprU = IAtom(memberT.Name);
+				}
+				for (int k = 0; k < lEs.Count && laidU; k++)
+				{
+					FactIndexEntry le = lEs[k];
+					if (le == null) continue;
+					var subU = new RoleSubPath(myStore);
+					(walkU ?? (RolePath)leadU).SubPathCollection.Add(subU);
+					var prU = new PathedRole(subU, le.Roles[0]);
+					prU.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+					for (int c = 1; c < le.Roles.Count; c++)
+					{
+						var contU = new PathedRole(subU, le.Roles[c]);
+						contU.PathedRolePurpose = PathedRolePurpose.SameFactType;
+					}
+					// a wider leg contributes its first column only
+					string srcU = le.Roles.Count == 1 ? IAtom(le.Fact.Name) : "S3(A(\"proj\"), " + IAtom(le.Fact.Name) + ", S1(N(1)))";
+					exprU = exprU == null ? srcU
+						: "S5(A(\"joinon\"), " + exprU + ", " + srcU + ", S1(S2(N(1), N(1))), S1(N(1)))";
+				}
+				if (!laidU) { ruleU.OwnedLeadRolePathCollection.Remove(leadU); leadU.Delete(); continue; }
+				var pjU = new RoleSetDerivationProjection(ruleU, leadU);
+				var drpU = new DerivedRoleProjection(pjU, hEU.Roles[0]);
+				if (topU != null) new DerivedRoleProjectedFromPathedRole(drpU, topU);
+				else new DerivedRoleProjectedFromRolePathRoot(drpU, rootU);
+				myRuleRecipes.Add("S3(" + IAtom(hEU.Fact.Name) + ", S1(" + IAtom(hEU.Players[0]) + "), " + exprU + ")");
+				myBuiltRuleSentences.Add(sRawU);
+				log.Add(hEU.Fact.Name + " := unary star on " + hEU.Players[0] + " over " + lEs.Count + " legs, " + DescribeDerivation(hEU.Fact));
+			}
 			// NEGATION, shape two: `<positive> and no <X> <clause> where <clause>`.
 			//     * Status is terminal in SMD iff that Status is defined in that SMD and
 			//       no Transition is defined in that SMD where that Transition is from
@@ -6774,10 +6894,16 @@ namespace Arest.NormaOracle
 				string c = Regex.Replace(queue[qi].Trim(), @"\s+", " ");
 				if (c.Length == 0) continue;
 				// `T is a S` with S a subtype of T types the variable and is no clause: the
-				// path's subtype-fact instance folds into that variable already
+				// path's subtype-fact instance folds into that variable already -- and so
+				// does a chain of them (`Future Interest is a Contingent Remainder`, two
+				// hops), every hop's instance folding into the same variable
 				{
 					List<string> membership;
 					if (MembershipEntry(c, out membership) != null) continue;
+					Match mc = Regex.Match(c, @"^(?:that |some )?(.+?)\d* is an? (.+?)\d*$");
+					ObjectType mcSuper, mcSub;
+					if (mc.Success && myTypes.TryGetValue(mc.Groups[1].Value.Trim(), out mcSuper)
+						&& myTypes.TryGetValue(mc.Groups[2].Value.Trim(), out mcSub) && mcSub != mcSuper && RootsAt(mcSub, mcSuper.Name)) continue;
 				}
 				// AN AGGREGATE CARRIES ITS OWN FACT CLAUSES after `where`. The aggregate is
 				// a calculation and is not compared; what it ranges over is the join, and
@@ -6823,13 +6949,22 @@ namespace Arest.NormaOracle
 				if (tm.Success) { t.CalcIgnored++; c = tm.Groups[1].Value.Trim(); }
 				bool neg = noNeg;
 				if (c.StartsWith("it is not true that ", StringComparison.OrdinalIgnoreCase)) { neg = true; c = c.Substring(20).Trim(); }
-				// `Authority has no Supersession Date` is the negation of `Authority has
-				// Supersession Date`, NORMA's own negative quantifier on the object.
-				Match hn = Regex.Match(c, @"^(.+?) (has|have) no (.+)$");
-				if (hn.Success) { neg = true; c = hn.Groups[1].Value + " " + hn.Groups[2].Value + " " + hn.Groups[3].Value; }
 				string bare = LiteralWithSpaceRx.Replace(c, "");
 				List<string> players; string cSwapped;
 				FactIndexEntry e = ResolveClauseSub(bare, out players, out cSwapped);
+				// `Authority has no Supersession Date` is the negation of `Authority has
+				// Supersession Date`, NORMA's own negative quantifier on the object -- unless
+				// the clause as written names a declared reading with "no" in its own text
+				// (`Bona Fide Purchaser has no Actual Notice of prior conveyance`), which the
+				// path holds as a positive fact and the gate must read as one
+				Match hn = Regex.Match(c, @"^(.+?) (has|have) no (.+)$");
+				if (e == null && hn.Success)
+				{
+					neg = true;
+					c = hn.Groups[1].Value + " " + hn.Groups[2].Value + " " + hn.Groups[3].Value;
+					bare = LiteralWithSpaceRx.Replace(c, "");
+					e = ResolveClauseSub(bare, out players, out cSwapped);
+				}
 				if (e == null)
 				{
 					// AN IDENTITY CLAUSE names one variable twice: `Category is Issue Type`

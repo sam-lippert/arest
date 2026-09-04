@@ -1,0 +1,4 @@
+errors 0
+*Interest violates the rule if and only if
+some Contingent Remainder is some Remainder that is that Interest that might not vest in time.
+
