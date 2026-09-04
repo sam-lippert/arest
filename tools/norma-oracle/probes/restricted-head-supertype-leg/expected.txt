@@ -1,5 +1,5 @@
 errors 0
-UNBUILT (head resolves, no arm matched the body) [legs resolving 0/1; chain arm: head role Nexus is bound by no leg, literal or subtype]: * Corporation has Florida Nexus iff Corporation has Employment Footprint in State 'Florida'.
+UNBUILT (head names a role the body never binds: Nexus) [legs resolving 0/1; chain arm: head role Nexus is bound by no leg, literal or subtype]: * Corporation has Florida Nexus iff Corporation has Employment Footprint in State 'Florida'.
 +Corporation1 has Nexus of Nexus Type if
 some Corporation2 is some Organization that is that Corporation1 that has principal place of business in some State where Equals(State, Minnesota)
 and some Minnesota Nexus is that Nexus

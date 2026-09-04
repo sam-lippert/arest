@@ -6879,7 +6879,7 @@ namespace Arest.NormaOracle
 				uRuleCount.TryGetValue(pe.Fact, out pc);
 				uRuleCount[pe.Fact] = pc + 1;
 			}
-			int unbuiltHeadless = 0, unbuiltUnmatched = 0, unbuiltPartial = 0, unbuiltValueRestricted = 0;
+			int unbuiltHeadless = 0, unbuiltUnmatched = 0, unbuiltPartial = 0, unbuiltValueRestricted = 0, unbuiltExistential = 0;
 			foreach (string sRaw2 in myDeferredRules)
 			{
 				string s2 = sRaw2;
@@ -6968,8 +6968,24 @@ namespace Arest.NormaOracle
 							if (ut.Length != 0 && ResolveClauseSub(ut, out upl) != null) ures++;
 						}
 						string declined;
-						log.Add("UNBUILT (head resolves, no arm matched the body) [legs resolving "
-							+ ures + "/" + ulegs.Length + (myPlanDeclines.TryGetValue(s2, out declined) ? "; " + DeclineLabel(declined) : "") + "]: " + s2);
+						myPlanDeclines.TryGetValue(s2, out declined);
+						// A HEAD ROLE THE BODY NEVER BINDS is its own kind of unbuilt: `Usage
+						// Anomaly is detected for User iff User has Request Count for Interval
+						// and that Request Count exceeds Normal Range` names an entity no leg
+						// introduces. No arm can conjure it; the reading is a unary on the
+						// bound player, or a leg introduces the entity. Counted apart, so the
+						// corpus questions are one count and the capability gaps another.
+						Match unbound = declined == null ? Match.Empty : Regex.Match(declined, @"^chain arm: head role (.+?) is bound by no leg, literal or subtype(?:$|;)");
+						if (unbound.Success)
+						{
+							unbuiltUnmatched--;
+							unbuiltExistential++;
+							log.Add("UNBUILT (head names a role the body never binds: " + unbound.Groups[1].Value + ") [legs resolving "
+								+ ures + "/" + ulegs.Length + "; " + DeclineLabel(declined) + "]: " + s2);
+						}
+						else
+							log.Add("UNBUILT (head resolves, no arm matched the body) [legs resolving "
+								+ ures + "/" + ulegs.Length + (declined != null ? "; " + DeclineLabel(declined) : "") + "]: " + s2);
 					}
 					continue;
 				}
@@ -6994,7 +7010,7 @@ namespace Arest.NormaOracle
 						+ " rule(s) - this one may be the unbuilt member): " + s2);
 				}
 			}
-			if (unbuiltHeadless != 0 || unbuiltUnmatched != 0 || unbuiltPartial != 0 || unbuiltValueRestricted != 0)
+			if (unbuiltHeadless != 0 || unbuiltUnmatched != 0 || unbuiltPartial != 0 || unbuiltValueRestricted != 0 || unbuiltExistential != 0)
 			{
 				if (myMarkerConflicts.Count > 0)
 				{
@@ -7004,6 +7020,7 @@ namespace Arest.NormaOracle
 				}
 				log.Add("UNBUILT SUMMARY: " + unbuiltHeadless + " with an undeclared head, "
 					+ unbuiltValueRestricted + " with a value-restricted head, "
+					+ unbuiltExistential + " with a head role the body never binds, "
 					+ unbuiltUnmatched + " with a body no arm accepts, "
 					+ unbuiltPartial + " on a head whose paths are fewer than its rules");
 			}
