@@ -258,7 +258,8 @@ let EVMEMON = 0;
 let DESCIDX = new WeakMap();
 let ENTIDX = new WeakMap();
 let JOINIDX = new WeakMap();
-function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); }
+let FETCHIDX = new WeakMap();
+function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); }
 // Selective: only cells whose inputs actually repeat (store-applied
 // rmap cells and fetches keyed by the frozen CELLS reference; the
 // walk's ctx-threaded helpers keyed by element references; lex:parts
@@ -303,6 +304,32 @@ function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.starts
 // the DEF stays the meaning; the head evaluates its extensional equal;
 // the unit tests certify identity). Only consulted when the DEF exists.
 const FASTPRIMS = new Map(Object.entries({
+  // CONS and CONST are canon (Backus 13.3.2, reached through tau clause (c)) and
+  // stay so; these are their fast paths, the same value in one pass.
+  // Metacomposition hands CONS <<CONS f1..fn>, y> and the answer is
+  // <f1:y .. fn:y>; the canon form allocates distr, tl and an ALPHA over apply
+  // per application, and the derivation closure over us-law applied CONS 18.6
+  // million times for 30 of its 35 seconds (2026-09-04). An atom where the form
+  // should be throws as seq does, and a one-element form answers PHI as tl does.
+  "CONS": x => { const form = seq(at(x, 0)), y = at(x, 1);
+    const out = new Array(form.length - 1);
+    for (let i = 1; i < form.length; i++) out[i - 1] = Ev(form[i], y);
+    return out; },
+  "CONST": x => Ev(2, Ev(1, x)),
+  // ast:fetch is the FIRST cell named n (Backus's rule for cells): a scan of the
+  // store with eq at every cell per fetch, 9.8 seconds for 2,650 fetches over
+  // us-law's store (2026-09-04). Indexed once per store array, keyed by name,
+  // cleared with the memo at every mutation as the other indexes are; a cell is
+  // any sequence of length 3 whose second element is the name (ast:named), the
+  // answer its third element, "#" for none.
+  "ast:fetch": x => { const name = at(x, 0), cells = seq(at(x, 1));
+    let idx = FETCHIDX.get(cells);
+    if (idx === undefined) { idx = new Map();
+      for (const c of cells) { if (!Array.isArray(c) || c.length !== 3) continue;
+        const k = JSON.stringify(c[1]); if (!idx.has(k)) idx.set(k, c[2]); }
+      FETCHIDX.set(cells, idx); }
+    const hit = idx.get(JSON.stringify(name));
+    return hit === undefined ? "#" : hit; },
   "theta:member": x => bool(seq(at(x, 1)).some(e => deepEq(at(x, 0), e))),
   "theta:filter_eq": x => seq(x).filter(p => deepEq(at(p, 0), at(p, 1))),
   // access cells - each mirrors its DEF's edges exactly: negative
@@ -365,6 +392,53 @@ const FASTPRIMS = new Map(Object.entries({
     const out = [];
     for (const v of hit) { const vs = seq(v); for (let i = 0; i < vs.length; i++) out.push(vs[i]); }
     return out; },
+  // rmap:nest curries an extension into levels: at each level the rows group by
+  // their first column and each group nests again with that column dropped, a
+  // group of pairs ending in its second columns and a level of single columns
+  // in its values. Canon writes the grouping as one filter over every row PER
+  // KEY (rmap:rows_for = INSERT keep_row_of . append_phi . distl), quadratic at
+  // every level, and the profile charged it 97 million CONS and 162 of the 165
+  // seconds the host took to load us-law's FILE (2026-09-04). The VALUE is one
+  // pass: group in a Map, then emit. Edges mirrored: keys come in theta:dedup's
+  // order (last occurrences), a group's rows keep source order, an atom where a
+  // row should be throws the selector error, the empty level is PHI.
+  "rmap:nest": function nest(x) {
+    const rows = seq(x);
+    if (rows.length === 0) return [];
+    if (seq(rows[0]).length === 1) return rows.map(r => at(r, 0));
+    const groups = new Map();
+    for (let i = 0; i < rows.length; i++) { const r = seq(rows[i]); const k = JSON.stringify(r[0]);
+      let g = groups.get(k); if (g === undefined) { g = { key: r[0], rows: [] }; groups.set(k, g); }
+      g.rows.push(r); }
+    const order = []; const seen = new Set();
+    for (let i = rows.length - 1; i >= 0; i--) { const k = JSON.stringify(seq(rows[i])[0]);
+      if (!seen.has(k)) { seen.add(k); order.push(k); } }
+    order.reverse();
+    const out = [];
+    for (const k of order) { const g = groups.get(k);
+      const leaf = seq(g.rows[0]).length === 2;
+      out.push(["CELL", g.key, leaf ? g.rows.map(r => at(r, 1)) : nest(g.rows.map(r => r.slice(1)))]); }
+    return out; },
+  // derive:count_rows is the count form: <selector, rows> to <key, n> for each
+  // distinct selector value, keys in theta:dedup's order (last occurrences).
+  // Canon takes the keys, then for EACH key scans every row again
+  // (derive:count_for = length . derive:filter_sel), quadratic; four count
+  // rules of us-law cost the closure 262 seconds in 11,332 scans (2026-09-04).
+  // The VALUE is one pass: the selector once per row, a Map of counts, then the
+  // keys in the fold's order. The selector is evaluated through Ev exactly as
+  // apply would, so a selector that throws still throws at the same row.
+  "derive:count_rows": x => { const sel = at(x, 0), rows = seq(at(x, 1));
+    const keyOf = new Array(rows.length);
+    for (let i = 0; i < rows.length; i++) keyOf[i] = Ev(sel, rows[i]);
+    const counts = new Map();
+    for (let i = 0; i < rows.length; i++) { const k = JSON.stringify(keyOf[i]);
+      const c = counts.get(k);
+      if (c === undefined) counts.set(k, { key: keyOf[i], n: 1 }); else c.n++; }
+    const order = []; const seen = new Set();
+    for (let i = rows.length - 1; i >= 0; i--) { const k = JSON.stringify(keyOf[i]);
+      if (!seen.has(k)) { seen.add(k); order.push(k); } }
+    order.reverse();
+    return order.map(k => { const c = counts.get(k); return [c.key, c.n]; }); },
   "theta:find_desc": x => { const name = at(x, 0), descs = seq(at(x, 1));
     let idx = DESCIDX.get(descs);
     if (idx === undefined) { idx = new Map();
@@ -481,6 +555,35 @@ function filterFold(body) {
   FOLDPAT.set(body, pat);
   return pat;
 }
+// AREST_PROFILE=1 counts every evaluation of a named definition and its self
+// time (its own work less its children's), and prints the top of the table on
+// stderr at each boot lap and once a minute while a phase runs. A boot that
+// takes minutes on a store of a few thousand facts is an interpreter cost with
+// a name, and this is how the name is found (us-law, 2026-09-04).
+const PROFILE = !!process.env.AREST_PROFILE;
+const PROF = new Map();
+const PROFSTACK = [];
+let PROFLAST = 0;
+let PROFN = 0;
+function profEnter(name) {
+  PROFSTACK.push([name, performance.now(), 0]);
+}
+function profExit() {
+  const fr = PROFSTACK.pop();
+  const incl = performance.now() - fr[1];
+  const self = incl - fr[2];
+  let row = PROF.get(fr[0]);
+  if (row === undefined) { row = [0, 0, 0]; PROF.set(fr[0], row); }
+  row[0]++; row[1] += self; row[2] += incl;
+  if (PROFSTACK.length) PROFSTACK[PROFSTACK.length - 1][2] += incl;
+  if ((++PROFN & 0x3ffff) === 0 && performance.now() - PROFLAST > 60000) profReport("minute");
+}
+function profReport(label) {
+  PROFLAST = performance.now();
+  const rows = [...PROF.entries()].sort((a, b) => b[1][1] - a[1][1]).slice(0, 24);
+  console.error("profile (" + label + "): name  calls  self ms  incl ms");
+  for (const [name, r] of rows) console.error("  " + name + "  " + r[0] + "  " + Math.round(r[1]) + "  " + Math.round(r[2]));
+}
 function Ev(f, x) {
   if (typeof f === "number") {
     if (!Array.isArray(x)) throw new Error("selector " + f + " on atom: " + show(x));
@@ -491,7 +594,11 @@ function Ev(f, x) {
     if (DEFS.has(f)) {
       const fp = FASTPRIMS.get(f);
       if (fp !== undefined) return fp(x);
-      if (!memoable(f)) return Ev(DEFS.get(f), x);
+      if (!memoable(f)) {
+        if (!PROFILE) return Ev(DEFS.get(f), x);
+        profEnter(f);
+        try { return Ev(DEFS.get(f), x); } finally { profExit(); }
+      }
       let node = EVMEMO.get(f);
       if (node === undefined) { node = new Map(); EVMEMO.set(f, node); }
       const chain = (Array.isArray(x) && x.length <= 4) ? [x.length, ...x] : [-1, x];
@@ -502,7 +609,13 @@ function Ev(f, x) {
       }
       const last = chain[chain.length - 1];
       if (node.has(last)) return node.get(last);
-      const v = Ev(DEFS.get(f), x);
+      let v;
+      if (PROFILE) {
+        profEnter(f);
+        try { v = Ev(DEFS.get(f), x); } finally { profExit(); }
+      } else {
+        v = Ev(DEFS.get(f), x);
+      }
       node.set(last, v);
       if (++EVMEMON > 400000) memoClear();
       return v;
@@ -625,6 +738,7 @@ function run_cli() {
   // All dispatch and all text live in canon `main`; a new operation is a
   // canon edit, never a host edit. Adding a branch here is how runners die.
   const out = Ev("main", [CELLS, process.argv.slice(2)]);
+  if (PROFILE) profReport("main");
   console.log(out[0]);
   process.exit(out[1] === "T" ? 0 : 1);
 
@@ -1053,14 +1167,22 @@ function boot(mode) {
   const t0 = Date.now();
   const lap = (what) => {
     if (mode === "mcp" || mode === "serve" || process.env.AREST_BOOT_TIMING) console.error("boot: " + what + " " + (Date.now() - t0) + " ms");
+    if (PROFILE) profReport(what);
   };
-  loadFile(); lap("file");
-  loadReflected(); lap("reflected");
-  loadDerived(); lap("derived");
-  if (loadJournal()) {
-    adoptStore(Ev("main:refile", CELLS));
-    loadDerived();
-    lap("journal folded and re-derived");
+  // A STORE WITH NO SCHEMA SURFACE has no FILE to build, nothing to reflect and
+  // nothing to close under rules: the regress composition is canon with a run's
+  // outcome and its record, and store:state over it has no state:fts to read.
+  // Not a decision about the store, only the absence of its schema.
+  const schemaless = Ev("ast:fetch", ["state:fts", CELLS]) === "#";
+  if (!schemaless) {
+    loadFile(); lap("file");
+    loadReflected(); lap("reflected");
+    loadDerived(); lap("derived");
+    if (loadJournal()) {
+      adoptStore(Ev("main:refile", CELLS));
+      loadDerived();
+      lap("journal folded and re-derived");
+    }
   }
   if (mode === "test") return run_test();
   if (mode === "serve") return run_serve();

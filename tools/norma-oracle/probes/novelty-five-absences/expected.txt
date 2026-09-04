@@ -1,0 +1,8 @@
+errors 0
+*Invention is novel if and only if
+it is not true that (that Invention was patented before its effective filing date)
+and it is not true that (that Invention was described in some Printed Publication before its effective filing date)
+and it is not true that (that Invention was in some Public Use before its effective filing date)
+and it is not true that (that Invention was some On Sale Activity before its effective filing date)
+and it is not true that (that Invention was otherwise available to public before its effective filing date).
+

@@ -105,6 +105,10 @@ namespace Arest.NormaOracle.Tests
             get { return Path.Combine(Root, "tools", "js-runner"); }
         }
 
+        // The composition is the slim one, canon with the run's outcome and the
+        // record and no schema: us-law's design-state took the host two minutes to
+        // load and minutes more to close under the rules before it could answer,
+        // and the three regress laws read none of it.
         public static Run Host(string scratch, params string[] args)
         {
             var build = new ProcessStartInfo
@@ -116,7 +120,7 @@ namespace Arest.NormaOracle.Tests
                 UseShellExecute = false,
             };
             build.ArgumentList.Add("build.js");
-            build.ArgumentList.Add("cli");
+            build.ArgumentList.Add("regress");
             build.Environment["AREST_CARRIERS"] = scratch;
             build.Environment["AREST_OUT_DIR"] = scratch;
             using (Process p = Process.Start(build))
@@ -134,7 +138,7 @@ namespace Arest.NormaOracle.Tests
                 RedirectStandardError = true,
                 UseShellExecute = false,
             };
-            psi.ArgumentList.Add(Path.Combine(scratch, "composed.g.js"));
+            psi.ArgumentList.Add(Path.Combine(scratch, "regress.g.js"));
             foreach (string a in args) psi.ArgumentList.Add(a);
             using (Process p = Process.Start(psi))
             {
