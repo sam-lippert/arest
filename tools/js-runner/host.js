@@ -984,7 +984,7 @@ function run_serve() {
       const out = Ev("main:api", [CELLS, req.method, resource, caller, fact]);
       if (out.length > 2) {
         adoptStore(out[2]);
-        journalStep(req.method, resource, fact);
+        if (Number(out[1]) < 400) journalStep(req.method, resource, fact);   // a refusal made no successor
       }
       return new Response(String(out[0]), {
         status: Number(out[1]) || 500,
@@ -1078,7 +1078,11 @@ function run_mcp() {
     // makes a tool call persist. It is not part of the reply.
     if (out.length > 2) {
       adoptStore(out[2]);
-      journalStep(String(a.method || METHODS[0]), String(name), Array.isArray(a.fact) ? a.fact : []);
+      // A REFUSED WRITE IS NOT JOURNALED. The journal is the log of the store's
+      // successors, and a refusal (status 4xx, canon's decision) made none; a
+      // journal that recorded refusals replayed 22 of them at boot for six
+      // minutes and left the store as it was (engineering.auto.dev, 2026-09-04).
+      if (Number(out[1]) < 400) journalStep(String(a.method || METHODS[0]), String(name), Array.isArray(a.fact) ? a.fact : []);
       return [out[0], out[1]];
     }
     return out;
@@ -1335,6 +1339,15 @@ function boot(mode) {
     if (loadJournal()) {
       adoptStore(Ev("main:refile", CELLS));
       loadDerived();
+      // what the fold left in each journaled fact type: the line that says
+      // whether a replayed fact reached the tables. A journal of refused writes
+      // folded for 352 seconds and left every count as it was
+      // (engineering.auto.dev, 2026-09-04); the refusal is the paper's, Thm 1,
+      // and the cure is the model's, but the line is how anyone finds out.
+      if (process.env.AREST_BOOT_TIMING) {
+        const journaled = [...new Set(CELLS.filter((c) => Array.isArray(c) && String(c[1]).startsWith("journal:") && Array.isArray(c[2])).map((c) => String(c[2][1])))];
+        for (const ft of journaled) { const r = Ev("system:pop_rows", [ft, CELLS]); console.error("boot: journaled " + ft + " now " + (Array.isArray(r) ? r.length : "?") + " rows"); }
+      }
       lap("journal folded and re-derived");
     }
   }
