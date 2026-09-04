@@ -259,7 +259,46 @@ let DESCIDX = new WeakMap();
 let ENTIDX = new WeakMap();
 let JOINIDX = new WeakMap();
 let FETCHIDX = new WeakMap();
-function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); }
+// csdp:matches keys a row list by first column; theta:member keys a list by member
+let MATCHIDX = new WeakMap();
+let MEMBIDX = new WeakMap();
+let PAIRIDX = new WeakMap();
+function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); }
+// the rows of `rows` whose first column equals `key`, in source order -- the value
+// of csdp:matches (INSERT csdp:keep_keyed . theta:append_phi . distl). The fold
+// visits every row, so a row that is not a sequence, or is empty, throws the
+// selector error whatever the key; the index throws the same way when built.
+function atomsOf(x) {
+  if (!Array.isArray(x)) return [x];
+  const out = [];
+  const stack = [x];
+  while (stack.length) {
+    const v = stack.pop();
+    if (!Array.isArray(v)) { out.push(v); continue; }
+    for (let i = v.length - 1; i >= 0; i--) stack.push(v[i]);
+  }
+  return out;
+}
+// a Map key for a value: a string or number as itself under a kind prefix, so
+// the string "[1]" and the sequence <1> never meet; anything else by its JSON
+function keyOf(v) {
+  if (typeof v === "string") return "s" + v;
+  if (typeof v === "number") return "n" + v;
+  return "j" + JSON.stringify(v);
+}
+function matchRows(key, rows) {
+  let idx = MATCHIDX.get(rows);
+  if (idx === undefined) { idx = new Map();
+    for (let i = 0; i < rows.length; i++) { const r = rows[i];
+      if (!Array.isArray(r)) throw new Error("selector 1 on atom: " + show(r));
+      if (r.length < 1) throw new Error("selector 1 out of range 0");
+      const k = keyOf(r[0]);
+      let a = idx.get(k); if (a === undefined) { a = []; idx.set(k, a); }
+      a.push(r); }
+    MATCHIDX.set(rows, idx); }
+  const hit = idx.get(keyOf(key));
+  return hit === undefined ? [] : hit;
+}
 // Selective: only cells whose inputs actually repeat (store-applied
 // rmap cells and fetches keyed by the frozen CELLS reference; the
 // walk's ctx-threaded helpers keyed by element references; lex:parts
@@ -330,7 +369,55 @@ const FASTPRIMS = new Map(Object.entries({
       FETCHIDX.set(cells, idx); }
     const hit = idx.get(JSON.stringify(name));
     return hit === undefined ? "#" : hit; },
-  "theta:member": x => bool(seq(at(x, 1)).some(e => deepEq(at(x, 0), e))),
+  // theta:member over a long list is answered by a set keyed on the list: the
+  // law walk asks it once per atom of every form against the store's cell names
+  // (43,156 asks over the same list, 13 of the base report's 89 seconds,
+  // 2026-09-04). A short list is scanned as the DEF scans it.
+  "theta:member": x => { const l = seq(at(x, 1)), e = at(x, 0);
+    if (l.length < 16) return bool(l.some(m => deepEq(e, m)));
+    let s = MEMBIDX.get(l);
+    if (s === undefined) { s = new Set(); for (let i = 0; i < l.length; i++) s.add(keyOf(l[i])); MEMBIDX.set(l, s); }
+    return bool(s.has(keyOf(e))); },
+  // csdp:matches is the equality filter over a row list's first column, written
+  // as a fold: 2.4 million calls and 20 of the base report's 89 seconds
+  // (2026-09-04). rmap:lookup0 wants the first match's second column, or PHI.
+  "csdp:matches": x => matchRows(at(x, 0), seq(at(x, 1))).slice(),
+  "rmap:lookup0": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
+    return hits.length === 0 ? [] : [at(hits[0], 1)]; },
+  // theta:append_phi = apndr . [id, CONST PHI]: the list with PHI appended, the
+  // fold base every INSERT filter carries; three million calls per report
+  "theta:append_phi": x => { const l = seq(x); const out = l.slice(); out.push([]); return out; },
+  // rmap:member_pairs turns a relation's rows into <key, nonkeys> pairs: for each
+  // row of its fifth field, the key column (rmap:keypos) and the other columns
+  // (rmap:nonkey_positions), each read by apply. The memo keys on the argument's
+  // identity, and law:slot_for hands it a tuple built fresh per call, so the
+  // same rows were paired 343,476 times over (12 of the report's 67 seconds,
+  // 2026-09-04). The value depends on the rows and the two position answers
+  // only; cached on the rows' identity under those. The positions are asked of
+  // the DEFs as apply would ask them, and a selector past a row's end throws at
+  // that row.
+  "rmap:member_pairs": x => {
+    // the same descriptor object asks again and again (each relation of a
+    // wide row, per row): answered by identity first
+    if (Array.isArray(x)) { const byId = PAIRIDX.get(x); if (byId !== undefined && !(byId instanceof Map)) return byId; }
+    const rows = seq(at(x, 4));
+    // the positions are functions of the descriptor's other fields, so those
+    // fields key the cache and the positions are asked once per distinct descriptor
+    const ck = JSON.stringify([at(x, 0), at(x, 1), at(x, 2), at(x, 3)]);
+    let per = PAIRIDX.get(rows);
+    if (per === undefined || !(per instanceof Map)) { per = new Map(); PAIRIDX.set(rows, per); }
+    let out = per.get(ck);
+    if (out === undefined) {
+      const keypos = Ev("rmap:keypos", x), nonkeys = seq(Ev("rmap:nonkey_positions", x));
+      out = new Array(rows.length);
+      for (let i = 0; i < rows.length; i++) { const r = rows[i];
+        const nk = new Array(nonkeys.length);
+        for (let j = 0; j < nonkeys.length; j++) nk[j] = Ev(nonkeys[j], r);
+        out[i] = [Ev(keypos, r), nk]; }
+      per.set(ck, out);
+    }
+    if (Array.isArray(x) && x !== rows) PAIRIDX.set(x, out);
+    return out; },
   "theta:filter_eq": x => seq(x).filter(p => deepEq(at(p, 0), at(p, 1))),
   // access cells - each mirrors its DEF's edges exactly: negative
   // counts drain, last on empty is "?", nth out-of-range throws the
@@ -368,6 +455,71 @@ const FASTPRIMS = new Map(Object.entries({
     for (const s of seq(x)) { const a = seq(s);
       for (let i = 0; i < a.length; i++) out.push(a[i]); }
     return out; },
+  // main:flat = INSERT cat . theta:append_phi, the same fold under another name
+  "main:flat": x => { const out = [];
+    for (const s of seq(x)) { const a = seq(s);
+      for (let i = 0; i < a.length; i++) out.push(a[i]); }
+    return out; },
+  // rmap:slot = rmap:lookup0 . [2, rmap:member_pairs . 1]: the row of the
+  // relation (first field) keyed by the value (second field), or PHI; two
+  // million calls per report, each a CONS and two dispatches once its parts
+  // are twins. rmap:wide_row = apndl . [1, ALPHA(rmap:slot) . distr . [2, 1]]:
+  // the key followed by its slot in each relation of the list.
+  "rmap:slot": x => { const pairs = seq(Ev("rmap:member_pairs", at(x, 0)));
+    const hits = matchRows(at(x, 1), pairs);
+    return hits.length === 0 ? [] : [at(hits[0], 1)]; },
+  "rmap:wide_row": x => { const key = at(x, 0), rels = seq(at(x, 1));
+    const out = new Array(rels.length + 1); out[0] = key;
+    for (let i = 0; i < rels.length; i++) out[i + 1] = Ev("rmap:slot", [rels[i], key]);
+    return out; },
+  // law:slot_for = rmap:lookup0 . [1, rmap:member_pairs . [1.1.2, 2.1.2, 3.1.2,
+  // 4.1.2, rmap:unnest . 2.2]]: the descriptor's four fields with the nested
+  // rows unnested make the relation; unnest memoizes on its argument, so the
+  // rows keep their identity and member_pairs' cache holds
+  "law:slot_for": x => { const d = seq(at(x, 1));
+    // the <descriptor, nested rows> pair is the same object for every key asked
+    // of it (distl pairs each key with it), so its pairs are cached on it
+    let pairs = PAIRIDX.get(d);
+    if (pairs === undefined || pairs instanceof Map) {
+      const desc = seq(at(d, 0));
+      const rel = [at(desc, 0), at(desc, 1), at(desc, 2), at(desc, 3), Ev("rmap:unnest", at(d, 1))];
+      pairs = seq(Ev("rmap:member_pairs", rel));
+      PAIRIDX.set(d, pairs);
+    }
+    const hits = matchRows(at(x, 0), pairs);
+    return hits.length === 0 ? [] : [at(hits[0], 1)]; },
+  // the atoms of a form, in order: an atom is itself, PHI is nothing, a sequence
+  // is its elements' atoms flattened. law:atoms_of and manifest:opatoms are this
+  // fold under two names, each called half a million times per report and
+  // recursing a level per nesting; one walk.
+  "law:atoms_of": x => atomsOf(x),
+  "manifest:opatoms": x => atomsOf(x),
+  // rmap:merge_cells = INSERT rmap:merge_two . theta:append_phi: cells of one
+  // name become one cell, in the order the names first appear, its contents the
+  // cells' contents in source order (the right fold prepends a new name and
+  // concatenates a seen one). A cell that stands alone is kept as itself, as
+  // apndl keeps it; a merged one is <CELL, name, contents> as merge_hit makes
+  // it. A cell short of three fields, or contents that are no sequence, throw
+  // where the fold would.
+  "rmap:merge_cells": x => { const cells = seq(x);
+    const groups = new Map(); const order = [];
+    for (let i = 0; i < cells.length; i++) { const c = cells[i];
+      const name = at(c, 1); const k = keyOf(name);
+      let g = groups.get(k);
+      if (g === undefined) { g = { cell: c, name, parts: [] }; groups.set(k, g); order.push(k); }
+      else g.cell = null;
+      g.parts.push(c); }
+    const out = new Array(order.length);
+    for (let i = 0; i < order.length; i++) { const g = groups.get(order[i]);
+      if (g.cell !== null) { out[i] = g.cell; continue; }
+      const contents = [];
+      for (const c of g.parts) { const a = seq(at(c, 2)); for (let j = 0; j < a.length; j++) contents.push(a[j]); }
+      out[i] = ["CELL", g.name, contents]; }
+    return out; },
+  // charisup: a string's first character is an ASCII capital; the empty string is
+  // F, as null . chars says. Anything but a string is asked of the DEF.
+  "charisup": x => { if (typeof x !== "string") return Ev(DEFS.get("charisup"), x);
+    return bool(x.length > 0 && x[0] >= "A" && x[0] <= "Z"); },
   // the indexed fetch. Mirrors the DEF's edges exactly: distl pairs the
   // name against each descriptor, keep_named survives those whose head
   // equals it, the right fold preserves source order, and the empty
@@ -580,7 +732,9 @@ function profExit() {
 }
 function profReport(label) {
   PROFLAST = performance.now();
-  const rows = [...PROF.entries()].sort((a, b) => b[1][1] - a[1][1]).slice(0, 24);
+  // AREST_PROFILE=<n> prints n rows; any other value prints 24
+  const nRows = parseInt(process.env.AREST_PROFILE, 10) > 1 ? parseInt(process.env.AREST_PROFILE, 10) : 24;
+  const rows = [...PROF.entries()].sort((a, b) => b[1][1] - a[1][1]).slice(0, nRows);
   console.error("profile (" + label + "): name  calls  self ms  incl ms");
   for (const [name, r] of rows) console.error("  " + name + "  " + r[0] + "  " + Math.round(r[1]) + "  " + Math.round(r[2]));
 }
