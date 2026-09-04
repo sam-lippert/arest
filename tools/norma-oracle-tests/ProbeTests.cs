@@ -98,5 +98,26 @@ namespace Arest.NormaOracle.Tests
             string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
             Assert.Contains("S3(A(\"AgencyActionIsFinal\"), S1(A(\"Agency Action\")), S3(A(\"proj\"), A(\"Final Agency Action\"), S1(N(1))))", state);
         }
+
+        // THE GENERAL CHAIN ARM'S RECIPE. That arm builds the rule as a NORMA
+        // object and emitted nothing executable, so a head only it built was
+        // marked derived and never populated -- law:markers over a booted store
+        // was the only thing that said so. The recipe here is the whole shape:
+        // the positive legs joined on their shared token keeping every column,
+        // projected onto the head's role, and the negated leg subtracted.
+        [Fact]
+        public void AChainWithANegatedLegEmitsADifference()
+        {
+            string dir = Path.Combine(ProbesDir, "chain-recipe-with-negation");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "chain-recipe-negation"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            Assert.Contains(
+                "S3(A(\"AuthorityIsCurrentlyInForce\"), S1(A(\"Authority\")), "
+                + "S3(A(\"minus\"), S3(A(\"proj\"), S5(A(\"joinon\"), A(\"AuthorityHasEffectiveDate\"), "
+                + "A(\"EffectiveDateIsInThePast\"), S1(S2(N(2), N(1))), S3(N(1), N(2), N(3))), S1(N(1))), "
+                + "S3(A(\"proj\"), A(\"AuthorityHasSupersessionDate\"), S1(N(1))))",
+                state);
+        }
     }
 }

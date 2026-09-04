@@ -6878,6 +6878,10 @@ namespace Arest.NormaOracle
 					leadC.CalculatedConditionCollection.Add(cpvC);
 				}
 				if (!okC) continue;
+				RecordGeneralChainRecipe(hC, legsC, toksC, negC, nestC, atLegC, atPosC,
+					typeRootC, crossAtC, konstAtC, arithKeyC,
+					cmpC.Count + arithC.Count + thrC.Count + otherC.Count + anaphoraC.Count
+						+ (recursiveC ? 1 : 0) + swapPlayersC.Count);
 				myBuiltRuleSentences.Add(sC);
 				log.Add(hC.Fact.Name + " := chain over " + legsC.Count + " clauses"
 					+ (cmpC.Count > 0 ? " with " + cmpC.Count + " comparison" : "") + ", "
@@ -8103,6 +8107,122 @@ namespace Arest.NormaOracle
 					+ ", S1(N(" + (roots[0] + 1) + ")))";
 			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S1("
 				+ IAtom(headE.Players[0]) + "), " + recipe + ")");
+		}
+
+		// THE GENERAL CHAIN ARM BUILDS THE RULE AND EMITTED NO RECIPE, so every head
+		// only it built was marked derived, verbalized, passed the read-back gate --
+		// and never populated, because the closure reads state:rules and there was
+		// nothing there. law:markers is the only thing that says so, and only over a
+		// booted store. law-core's `Authority is currently in force` is the case that
+		// found it (2026-09-04).
+		//
+		// This emits for the part of the arm that maps onto the recipe grammar and
+		// DECLINES for the rest, which is most of what the arm can do: a comparison,
+		// arithmetic, a threshold, `some other`, an objectification, recursion, a
+		// substituted subtype, a nested (universal) leg, a head role filled by a
+		// constant or a bare type root or a calculated value -- any one of them and
+		// this writes nothing, leaving the head exactly as unexecutable as before.
+		// That asymmetry is deliberate. A missing recipe leaves a population empty,
+		// which law:markers reports; a recipe that says more than the rule does
+		// derives rows nobody wrote, which store-closed reports only if someone runs
+		// it. Silence is the safe failure here.
+		//
+		// What it does emit: the positive legs joined on their shared tokens keeping
+		// every column, projected onto the head's roles through the arm's own
+		// atLegC/atPosC binding, then each negated leg subtracted. A negated leg is
+		// only admitted when the tokens it shares with the rest of the body are the
+		// head's own -- `Authority has no Supersession Date` is a set difference on
+		// Authority, while `that Effective Date has no X` would need the join kept
+		// and is declined.
+		private void RecordGeneralChainRecipe(FactIndexEntry hC, List<FactIndexEntry> legsC,
+			List<List<string>> toksC, List<bool> negC, List<int> nestC,
+			int[] atLegC, int[] atPosC, ObjectType[] typeRootC, ObjectType[] crossAtC,
+			int[] konstAtC, string[] arithKeyC, int shapesThisCannotSay)
+		{
+			if (shapesThisCannotSay != 0) return;
+			if (legsC.Count == 0) return;
+			for (int i = 0; i < legsC.Count; i++)
+			{
+				if (nestC[i] != -1) return;                        // a universal's nested leg
+				if (legsC[i].Players.Count < 1 || legsC[i].Players.Count > 2) return;
+				if (toksC[i] == null || toksC[i].Count != legsC[i].Players.Count) return;
+			}
+			for (int i = 0; i < hC.Players.Count; i++)
+			{
+				if (typeRootC[i] != null || crossAtC[i] != null) return;
+				if (konstAtC[i] >= 0 || arithKeyC[i] != null) return;
+				if (atLegC[i] < 0 || atPosC[i] < 0) return;
+				if (negC[atLegC[i]]) return;                       // the head bound inside a negation
+			}
+			var positives = new List<int>();
+			var negatives = new List<int>();
+			for (int i = 0; i < legsC.Count; i++) (negC[i] ? negatives : positives).Add(i);
+			if (positives.Count == 0) return;
+			// the head's tokens, which are what a negated leg may share
+			var headToks = new HashSet<string>(StringComparer.Ordinal);
+			for (int i = 0; i < hC.Players.Count; i++) headToks.Add(toksC[atLegC[i]][atPosC[i]]);
+			// walk the positive legs, joining each onto the accumulator at a shared
+			// token and keeping every column, so the head's binding stays addressable
+			var order = new List<int>();
+			var accToks = new List<string>();
+			var colOf = new Dictionary<int, int>();               // leg -> its first column, 1-based
+			var todo = new List<int>(positives);
+			order.Add(todo[0]);
+			colOf[todo[0]] = 1;
+			accToks.AddRange(toksC[todo[0]]);
+			string acc = IAtom(legsC[todo[0]].Fact.Name);
+			todo.RemoveAt(0);
+			while (todo.Count > 0)
+			{
+				int pick = -1, accAt = -1, legAt = -1;
+				foreach (int cand in todo)
+				{
+					for (int p = 0; p < toksC[cand].Count && pick < 0; p++)
+					{
+						int at = accToks.IndexOf(toksC[cand][p]);
+						if (at >= 0) { pick = cand; accAt = at; legAt = p; }
+					}
+					if (pick >= 0) break;
+				}
+				if (pick < 0) return;                              // a leg the chain never reaches
+				int width = accToks.Count + toksC[pick].Count;
+				var keep = new List<string>();
+				for (int c = 1; c <= width; c++) keep.Add("N(" + c + ")");
+				acc = "S5(" + IAtom("joinon") + ", " + acc + ", " + IAtom(legsC[pick].Fact.Name)
+					+ ", S1(S2(N(" + (accAt + 1) + "), N(" + (legAt + 1) + "))), S" + keep.Count
+					+ "(" + string.Join(", ", keep) + "))";
+				colOf[pick] = accToks.Count + 1;
+				accToks.AddRange(toksC[pick]);
+				order.Add(pick);
+				todo.Remove(pick);
+			}
+			var headCols = new List<string>();
+			for (int i = 0; i < hC.Players.Count; i++)
+			{
+				if (!colOf.ContainsKey(atLegC[i])) return;
+				headCols.Add("N(" + (colOf[atLegC[i]] + atPosC[i]) + ")");
+			}
+			string expr = "S3(" + IAtom("proj") + ", " + acc + ", S" + headCols.Count
+				+ "(" + string.Join(", ", headCols) + "))";
+			foreach (int n in negatives)
+			{
+				var cols = new List<string>();
+				for (int i = 0; i < hC.Players.Count; i++)
+				{
+					int at = toksC[n].IndexOf(toksC[atLegC[i]][atPosC[i]]);
+					if (at < 0) return;                            // does not bind the head
+					cols.Add("N(" + (at + 1) + ")");
+				}
+				for (int p = 0; p < toksC[n].Count; p++)
+					if (!headToks.Contains(toksC[n][p]) && accToks.Contains(toksC[n][p])) return;
+				expr = "S3(" + IAtom("minus") + ", " + expr + ", S3(" + IAtom("proj") + ", "
+					+ IAtom(legsC[n].Fact.Name) + ", S" + cols.Count + "("
+					+ string.Join(", ", cols) + ")))";
+			}
+			var players = new List<string>();
+			foreach (string p in hC.Players) players.Add(IAtom(p));
+			myRuleRecipes.Add("S3(" + IAtom(hC.Fact.Name) + ", S" + players.Count + "("
+				+ string.Join(", ", players) + "), " + expr + ")");
 		}
 
 		private void RecordChainFoldRecipe(FactIndexEntry headE, List<FactIndexEntry> legsIn,
