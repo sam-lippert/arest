@@ -11216,6 +11216,20 @@ namespace Arest.NormaOracle
 		// one on their next legitimate write.
 		public static string CarrierSourceId;
 
+		// A REFUSAL IS A DECISION, NOT A FAULT. The two carrier guards below
+		// answer a question the run asked -- may I write over this? -- and the
+		// answer no is as ordinary as the answer yes. Thrown as a plain
+		// exception it reached the top handler, which prints the exception with
+		// its stack, so a run that had merely been started in the wrong
+		// directory read as a crash in the oracle (engineering.auto.dev,
+		// 2026-09-04). This type is the difference: the entry point prints its
+		// Message alone and exits 2, and prints the stack for everything else,
+		// which is what a stack is for.
+		public sealed class Refusal : Exception
+		{
+			public Refusal(string message) : base(message) { }
+		}
+
 		private static void WriteCarrier(string path, string content)
 		{
 			string full = System.IO.Path.GetFullPath(path);
@@ -11230,7 +11244,7 @@ namespace Arest.NormaOracle
 				string prev = System.IO.File.ReadAllText(stamp).Trim();
 				if (!string.Equals(prev, CarrierSourceId, StringComparison.OrdinalIgnoreCase) && !allow)
 				{
-					throw new InvalidOperationException(
+					throw new Refusal(
 						"refusing to overwrite " + full + ": it was generated from " + prev +
 						" but this run read " + CarrierSourceId + ". The carrier paths are" +
 						" relative, so a run started in the wrong directory lands one" +
@@ -11240,7 +11254,7 @@ namespace Arest.NormaOracle
 			}
 			if (had > 0 && now * 4 < had && !allow)
 			{
-				throw new InvalidOperationException(
+				throw new Refusal(
 					"refusing to shrink " + full + " from " + had + " to " + now +
 					" bytes. This usually means the working directory is a station whose" +
 					" sources are not the ones being read. Set AREST_ORACLE_ALLOW_SHRINK=1" +
