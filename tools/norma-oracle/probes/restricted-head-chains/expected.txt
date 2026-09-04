@@ -1,0 +1,8 @@
+errors 0
++Person is subject to Authority if
+that Person is employed
+and  is resident
+and some Delaware Authority1 is that Authority
+or that Person holds some Account that is active
+and some Delaware Authority2 is that Authority.
+

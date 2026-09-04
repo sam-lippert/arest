@@ -1,5 +1,5 @@
 errors 0
-UNBUILT (head resolves, no arm matched the body) [legs resolving 1/1]: * Customer has granted Trial iff some Admin provisions that Customer.
+UNBUILT (head resolves, no arm matched the body) [legs resolving 1/1; chain arm: head role Trial is bound by no leg, literal or subtype]: * Customer has granted Trial iff some Admin provisions that Customer.
 ++Customer is flagged if
 some Admin provisions that Customer.
 
