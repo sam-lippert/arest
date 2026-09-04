@@ -71,6 +71,13 @@ namespace Arest.NormaOracle
 			{
 				return Run(args);
 			}
+			catch (Verifier.Refusal refused)
+			{
+				// the run asked whether it could write and was told no: one line,
+				// because there is nothing to debug and a stack reads as a crash
+				Console.Error.WriteLine("REFUSED: " + refused.Message);
+				return 2;
+			}
 			catch (Exception ex)
 			{
 				Console.Error.WriteLine("FATAL: " + ex);
