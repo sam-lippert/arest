@@ -197,6 +197,15 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   is Count`, declared) is that reading's leg, never arithmetic.
   A quoted value on a leg is a condition however the leg resolved, and a
   quoted `'no'` is a value, not a negation.
+- A leg may name the rule's own head: the inductive step of a cost-to-goal
+  (`State1 reaches goal at Count3 iff State1 steps to State2 by Operator1
+  and Operator1 costs Count2 and State2 reaches goal at Count1 and Count2
+  plus Count1 is Count3`) is a chain like any other, and NORMA builds the
+  recursive rule as any other. A body that is only the head's own reading
+  is refused. Every arm registers the sentence it builds, so no later arm
+  lays a second path for it -- an unregistered base case once cost a head
+  its inductive step, the paths-vs-rules cap having been met by the
+  duplicate.
 - A later leg may re-enter a variable an earlier leg bound and join back to
   the variable bound most recently (`that Person has knowledge of that
   Patent`); a join back to an OLDER variable in the same leg is not laid and
