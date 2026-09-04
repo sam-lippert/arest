@@ -80,5 +80,23 @@ namespace Arest.NormaOracle.Tests
             Assert.Contains("DEO:m:PostIsApproved#1", state);
             Assert.Contains("A(\"PostIsApproved\"), N(1)", state);
         }
+
+        // A RECIPE IS A FORM; AN ATOM IS AN OPERAND. state:rules rows are
+        // S3(head, players, recipe), and the closure asks a recipe for its tag,
+        // so a recipe that is a bare atom throws selector 1 on an atom from
+        // inside the fixpoint -- nine us-law rules were that shape and no
+        // us-law store could boot. Nothing else here would see it: the corpus
+        // theories compare the expectation carrier and never run the closure
+        // over an app store, and this shape only appears when a single leg
+        // leaves the source unwrapped.
+        [Fact]
+        public void ASingleMembershipLegIsWrappedInAForm()
+        {
+            string dir = Path.Combine(ProbesDir, "subtype-membership-head");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "subtype-membership-form"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            Assert.Contains("S3(A(\"AgencyActionIsFinal\"), S1(A(\"Agency Action\")), S3(A(\"proj\"), A(\"Final Agency Action\"), S1(N(1))))", state);
+        }
     }
 }
