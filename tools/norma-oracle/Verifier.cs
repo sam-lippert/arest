@@ -6081,9 +6081,17 @@ namespace Arest.NormaOracle
 							// Declining here leaves the rule visibly unbuilt, which is the honest answer
 							// -- the reading equates two differently-typed values and only the author can
 							// say which one the head should carry.
+							// ... and not across the value/entity line, nor between two unrelated entity
+							// types: `Residence is State` equates a value type with law-core's entity
+							// State, and NORMA refused the projection the moment the leg resolved
+							// (auto.dev's customer residence, 2026-09-04)
 							ObjectType tHead, tOther;
-							if (myTypes.TryGetValue(hC.Players[i], out tHead) && myTypes.TryGetValue(other, out tOther)
-								&& tHead.DataType != null && tOther.DataType != null && tHead.DataType != tOther.DataType) continue;
+							if (myTypes.TryGetValue(hC.Players[i], out tHead) && myTypes.TryGetValue(other, out tOther))
+							{
+								if (tHead.DataType != null && tOther.DataType != null && tHead.DataType != tOther.DataType) continue;
+								if (tHead.IsValueType != tOther.IsValueType) continue;
+								if (!tHead.IsValueType && tHead != tOther && !RootsAt(tHead, tOther.Name) && !RootsAt(tOther, tHead.Name)) continue;
+							}
 							for (int l = 0; l < legsC.Count && found == 0; l++)
 								for (int c = 0; c < legsC[l].Players.Count; c++)
 									if (legsC[l].Players[c] == other) { atLegC[i] = l; atPosC[i] = c; found = 1; aliasC[i] = q; break; }
