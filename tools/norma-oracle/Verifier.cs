@@ -5382,7 +5382,18 @@ namespace Arest.NormaOracle
 				rulesPerHead.TryGetValue(RuleHeadKey(headA), out rulesA);
 				if (rulesA != 1) continue;
 				List<string> hqA = RoleQualified(headA, hA.Players, true);
-				string vA = am.Groups[2].Value.Trim();
+				// THE AGGREGATE MAY END A CHAIN: `Vehicle Purchase Quote has ZIP Code and ...
+				// and Vehicle Fee Schedule belongs to that State and dmv-fee-total- Amount is
+				// the sum of Fee Amount where that Vehicle Fee Schedule has DMV Fee and ...`.
+				// The legs before the aggregated value and the where-clauses after it are
+				// one chain from the head's root; the bag is every row of it.
+				string vRawA = am.Groups[2].Value.Trim();
+				string preA = null;
+				{
+					int lastAnd = vRawA.LastIndexOf(" and ", StringComparison.Ordinal);
+					if (lastAnd > 0) { preA = vRawA.Substring(0, lastAnd).Trim(); vRawA = vRawA.Substring(lastAnd + 5).Trim(); }
+				}
+				string vA = vRawA;
 				int vAtA = hqA.IndexOf(vA);
 				if (vAtA < 0) vAtA = hA.Players.IndexOf(vA);
 				if (vAtA <= 0) continue;
@@ -5394,7 +5405,8 @@ namespace Arest.NormaOracle
 				// kept as a condition on the path, which is the row filter the bag ranges over.
 				var thrA = new List<string[]>();
 				bool okA = true;
-				foreach (string clA in Regex.Split(am.Groups[5].Value, @" and (?=that |some |[A-Z])"))
+				string clausesA = (preA == null ? "" : preA + " and ") + am.Groups[5].Value;
+				foreach (string clA in Regex.Split(clausesA, @" and (?=that |some |[A-Z])"))
 				{
 					string tA = clA.Trim();
 					if (tA.Length == 0) continue;

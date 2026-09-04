@@ -1,0 +1,7 @@
+errors 0
+*Vehicle Purchase Quote has dmv-fee-total Amount if and only if
+that Vehicle Purchase Quote has some ZIP Code that is in some State
+where some Vehicle Fee Schedule belongs to that State
+and  has some DMV Fee that has some Fee Amount
+where Amount = Sum(each Fee Amount for  that Vehicle Purchase Quote).
+

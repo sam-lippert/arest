@@ -207,7 +207,12 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   bag ranges over. The aggregated value must have a role in the head
   (`Provider Resource has monthly- Cost for Billing Period`, not `has
   monthly cost for`, which declares no Cost role), and a phrase naming a
-  value (`the sum of Invoice Line Item Amount`) is not a variable.
+  value (`the sum of Invoice Line Item Amount`) is not a variable. The
+  aggregate may end a chain (`... and Vehicle Fee Schedule belongs to
+  that State and dmv-fee-total- Amount is the sum of Fee Amount where
+  that Vehicle Fee Schedule has DMV Fee and that DMV Fee has Fee
+  Amount`): the legs before it and the where-clauses after it are one
+  chain, and the bag is every row of it.
 - A compared value may be a bare value type's own population (`that Retry
   Count is less than Retry Limit`, with `Retry Limit is 3.` as its
   population): a root over the type is the variable, bound to the
