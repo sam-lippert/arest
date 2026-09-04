@@ -68,6 +68,7 @@ EasementIsValidlyCreated
 EasementIsValidlyCreated
 EasementIsValidlyCreated
 Entity Type
+EquitableServitudeIsEnforceableAgainstSuccessor
 FactBelongsToDomain
 FactIsInConsequentFactType
 FactIsOfFunction

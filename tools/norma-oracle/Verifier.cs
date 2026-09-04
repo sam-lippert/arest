@@ -1690,23 +1690,35 @@ namespace Arest.NormaOracle
 			return t == to ? chain : null;
 		}
 
-		// lay the steps from a variable of type `from` to a role played by `to`
+		// lay the steps from a variable of type `from` to a role played by `to`, in
+		// either direction: up when `from` is the subtype, and DOWN when the variable
+		// is bound at a role typed the supertype and enters the subtype's leg (bound
+		// at Authority, entering Revenue Procedure: without the walk the general join
+		// laid a fresh Revenue Procedure and the rule was a cross product, which the
+		// gate could not see until it checked substituted clauses)
 		private bool LaySubtypeSteps(RoleSubPath sp, ObjectType from, ObjectType to)
 		{
 			if (from == null || to == null || from == to) return true;
+			bool down = false;
 			List<SubtypeFact> chain = SubtypeChain(from, to);
-			if (chain == null) return false;
+			if (chain == null)
+			{
+				chain = SubtypeChain(to, from);
+				if (chain == null) return false;
+				chain.Reverse();
+				down = true;
+			}
 			foreach (SubtypeFact sf in chain)
 			{
 				Role subRole, supRole;
 				SubtypeFactRoles(sf, out subRole, out supRole);
 				if (subRole == null || supRole == null) return false;
-				var stepIn = new PathedRole(sp, subRole);
+				var stepIn = new PathedRole(sp, down ? supRole : subRole);
 				stepIn.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
-				var stepUp = new PathedRole(sp, supRole);
-				stepUp.PathedRolePurpose = PathedRolePurpose.SameFactType;
+				var stepOn = new PathedRole(sp, down ? subRole : supRole);
+				stepOn.PathedRolePurpose = PathedRolePurpose.SameFactType;
 			}
-			Count("subtype step laid (" + chain.Count + " hop(s))");
+			Count("subtype step laid (" + chain.Count + " hop(s), " + (down ? "down" : "up") + ")");
 			return true;
 		}
 
@@ -6758,7 +6770,21 @@ namespace Arest.NormaOracle
 					t.Unchecked = "clause names no fact type: " + c;
 					return t;
 				}
-				if (cSwapped != null) { t.Unchecked = "clause substitutes a subtype: " + c; return t; }
+				if (cSwapped != null)
+				{
+					// the clause names the SUBTYPE where the reading names the supertype: the
+					// path lays the supertype fact with the subtype fact folded into the same
+					// variable, so the clause reads as that fact with the subtype's own token
+					string subName = null;
+					foreach (string cand in CandidateNames(bare))
+					{
+						ObjectType ct;
+						if (cand != cSwapped && myTypes.TryGetValue(cand, out ct) && RootsAt(ct, cSwapped)) { subName = cand; break; }
+					}
+					if (subName == null) { t.Unchecked = "clause substitutes a subtype: " + c; return t; }
+					int swappedAt = players.IndexOf(cSwapped);
+					if (swappedAt >= 0) players[swappedAt] = subName;
+				}
 				List<string> clits;
 				string[] toks = RbTokens(c, players, out clits);
 				if (quantTok != null) for (int i = 0; i < toks.Length; i++) if (toks[i] == quantTok) toks[i] = quantNew;
@@ -7752,7 +7778,18 @@ namespace Arest.NormaOracle
 				{
 					if (supName == subName || !RootsAt(myTypes[subName], supName)) continue;
 					e = ResolveClause(clause.Substring(0, at) + supName + clause.Substring(end), out players);
-					if (e != null) { swappedPlayer = supName; return e; }
+					if (e != null)
+					{
+						// the players carry the SUBTYPE's name at the substituted position, the
+						// name the clause actually uses: every arm tokenises the clause from its
+						// players, and a supertype's name it cannot find fell back to a bare token
+						// no other leg shared, so BuildChain rooted the next leg afresh (us-law's
+						// tax-bracket rule built as a cross product, 2026-09-03)
+						int subAt = players.IndexOf(supName);
+						if (subAt >= 0) players[subAt] = subName;
+						swappedPlayer = supName;
+						return e;
+					}
 				}
 			}
 			// A ROLE NAME CAN QUALIFY A VARIABLE WHERE THE DECLARATION CARRIES NONE.
@@ -8018,9 +8055,12 @@ namespace Arest.NormaOracle
 				// a variable typed a SUBTYPE of the leg's entry player walks up through the
 				// subtype fact first, or NORMA joins incompatible players
 				{
-					ObjectType varT = TypeOfToken(entryTok);
+					// from where the variable IS: the player of the role that bound it, else its
+					// own type; a walk in either direction
+					ObjectType varT = boundRole.ContainsKey(entryTok) ? boundRole[entryTok].Role.RolePlayer : TypeOfToken(entryTok);
 					ObjectType playerT;
-					if (varT != null && myTypes.TryGetValue(legs[li].Players[ep], out playerT) && varT != playerT && RootsAt(varT, playerT.Name))
+					if (varT != null && myTypes.TryGetValue(legs[li].Players[ep], out playerT) && varT != playerT
+						&& (RootsAt(varT, playerT.Name) || RootsAt(playerT, varT.Name)))
 					{
 						if (!LaySubtypeSteps(sp, varT, playerT)) return null;
 					}
