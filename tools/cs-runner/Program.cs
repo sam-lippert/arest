@@ -18,6 +18,18 @@ public static class Program
         Reader.Load(Reader.Path("AREST_DESIGN_STATE", "../norma-oracle/design-state"));
         Reader.Load(Reader.Path("AREST_NORMA_ANSWER", "../norma-oracle/norma-answer"));
         Reader.Load(Reader.Path("AREST_SCENARIOS", "../../engine/shared/scenarios.canon"));
+        // THE CARRIERS THE OTHER HOST READS. js-runner/build.js splices the
+        // compiled relational map when its stamp matches the design-state it
+        // was compiled from, the outcome carrier when the oracle wrote one, and
+        // the journal; this host read none of the three, so the two hosts held
+        // different stores before either evaluated a thing.
+        Reader.LoadCompiled(Reader.Path("AREST_COMPILED", "../norma-oracle/compiled"),
+                            Reader.Path("AREST_DESIGN_STATE", "../norma-oracle/design-state"));
+        Reader.LoadOptional(Reader.Path("AREST_OUTCOME", "../norma-oracle/outcome"));
+        Reader.LoadJournal(Reader.Path("AREST_JOURNAL", "../norma-oracle/journal"));
+        // AND THE STORE IS BOOTED, not merely read: FILE projected, the
+        // meta-types reflected, the closure taken, the journal folded.
+        Arest.Boot();
         var outp = (object[])Arest.Ev("main", new object[] { Arest.CELLS.ToArray(), args.Cast<object>().ToArray() });
         Console.Out.Write((string)outp[0]);
         Console.Out.Write((char)10);
