@@ -346,7 +346,7 @@ function matchRows(key, rows) {
 // the schema's size and every ask after the first is a lookup.
 const MEMOCN = new Set(["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
   "cn:sfx", "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts",
-  "cn:chrank", "lex:lw", "induce:sig_of", "system:pop_in"]);
+  "cn:chrank", "lex:lw", "induce:sig_of", "system:pop_in", "store:fts"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot canon list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
