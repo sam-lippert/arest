@@ -335,9 +335,18 @@ function matchRows(key, rows) {
 // previous firings" — and sizes the class at orders of magnitude. law:induce IS
 // rule-firing over derivation candidates, so that is the governing reference,
 // not an analogy.
+// system:pop_in is the same case at the population level, and it was the
+// largest single line of the base law report (402 calls, 1.17 s of ~11 s,
+// 2026-09-04). It is COMP(apply, <apply(<CONST ast:FetchPop, name>), cells>) --
+// it BUILDS a fetch form and then runs it, and because the built form is
+// anonymous the whole walk (FILE, then main:flat . ALPHA(ast:pop_exp) over the
+// named cell) is charged to this one frame rather than to a DEF of its own.
+// That walk is a pure function of <name, cells>, name ranges over the model's
+// fact-type names and cells is the frozen store, so the distinct-input count is
+// the schema's size and every ask after the first is a lookup.
 const MEMOCN = new Set(["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
   "cn:sfx", "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts",
-  "cn:chrank", "lex:lw", "induce:sig_of"]);
+  "cn:chrank", "lex:lw", "induce:sig_of", "system:pop_in"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot canon list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
