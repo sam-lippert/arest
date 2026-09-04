@@ -4098,6 +4098,13 @@ namespace Arest.NormaOracle
 					new DerivedRoleProjectedFromPathedRole(drp9, rows9[0][lp9]);
 				}
 				if (!ok9) continue;
+				// THE CONSTANT IS A CONDITION ON THE PATH, NOT ONLY ON THE RECIPE. The canon
+				// recipe carried `sel ... 'success'` while the NORMA path had no condition at
+				// all, so NORMA held a rule wider than the reading (every HTTP Status Class,
+				// not the one named), and the gate, which does not compare literals, passed
+				// it. Measured on the calculated-legs probe: `... has In-Lieu-Of Tax Flag 'no'`
+				// verbalized as `has In-Lieu-Of Tax some Flag`.
+				AddEqualsCondition(lead9, rows9[1][kpos], konst);
 				var hp9 = new List<string>();
 				foreach (string p in hE9.Players) hp9.Add(IAtom(p));
 				string joined = "S5(A(\"joinon\"), " + expr1 + ", " + IAtom(e2.Fact.Name)
@@ -5958,7 +5965,9 @@ namespace Arest.NormaOracle
 				// `no`/`not` in the body still declines the rule, rather than being built as
 				// though it were not there -- dropping a negation does not narrow a rule, it
 				// inverts it.
-				if (Regex.IsMatch(Regex.Replace(bodyC, " has no | is not | does not ", " "), @"\b(no|not)\b"))
+				// ... and a quoted value is not a negation: `that State has In-Lieu-Of Motor
+				// Vehicle Tax 'no'` restricts a value to the word no. Blank the literals first.
+				if (Regex.IsMatch(Regex.Replace(LiteralRx.Replace(bodyC, "''"), " has no | is not | does not ", " "), @"\b(no|not)\b"))
 				{
 					myPlanDeclines[sC] = "chain arm: a negation in a form this arm does not read";
 					continue;
@@ -5977,10 +5986,38 @@ namespace Arest.NormaOracle
 					// Its target appears in no leg -- it is the answer, not an input -- so it is
 					// projected from a CalculatedPathValue instead of a pathed role. Checked
 					// first: `equals` is unambiguous, and no fact type answers to such a clause.
-					Match am = Regex.Match(tC, @"^(?:that )?([A-Za-z][\w- ]*?) equals (.+)$");
-					if (am.Success)
+					// ... when the other side IS an expression. `document- Fee Amount equals
+					// Document Fee Charged` names one bound value: an alias, read below as the
+					// comparison arm reads `is`, and the head role projects from that value.
+					// A DECLARED READING WINS HERE TOO. kernel declares `Count plus Count is Count`
+					// as a fact type and writes `Count2 plus Count3 is Count1` as a leg of it;
+					// read as arithmetic, the path had four legs and a condition where the
+					// reading -- and the gate -- had five legs.
+					List<string> plArith;
+					bool clauseIsReading = ArithOpRx.IsMatch(tC)
+						&& ResolveClauseSub(Dequantify(" " + tC + " ").Trim(), out plArith) != null;
+					Match am = clauseIsReading ? Match.Empty : Regex.Match(tC, @"^(?:that )?([A-Za-z][\w- ]*?) equals (.+)$");
+					if (am.Success && (ArithOpRx.IsMatch(am.Groups[2].Value) || Regex.IsMatch(am.Groups[2].Value.Trim(), @"^[0-9]")))
 					{
 						arithC.Add(new string[] { am.Groups[1].Value.Trim(), am.Groups[2].Value.Trim() });
+						continue;
+					}
+					// THE SAME CLAUSE WITH `is`, EITHER WAY ROUND, when one side carries an
+					// operator: the Monroney label's `that Suggested Retail Price plus that
+					// Optional Equipment Total is that Label Subtotal`, and `Registration Age is
+					// current Year minus model Year`. A side with no operator is not an
+					// expression, so `Request is Submission` and `that Retry Count is less than
+					// Retry Limit` stay what they are.
+					Match ai = clauseIsReading ? Match.Empty : Regex.Match(tC, @"^(.+?) is (?:that |some )?([A-Z][\w- ]*?)$");
+					if (ai.Success && ArithOpRx.IsMatch(ai.Groups[1].Value) && !ArithOpRx.IsMatch(ai.Groups[2].Value))
+					{
+						arithC.Add(new string[] { ai.Groups[2].Value.Trim(), ai.Groups[1].Value.Trim() });
+						continue;
+					}
+					Match aj = clauseIsReading ? Match.Empty : Regex.Match(tC, @"^(?:that )?([A-Za-z][\w- ]*?) is (.+)$");
+					if (aj.Success && ArithOpRx.IsMatch(aj.Groups[2].Value) && !ArithOpRx.IsMatch(aj.Groups[1].Value))
+					{
+						arithC.Add(new string[] { aj.Groups[1].Value.Trim(), aj.Groups[2].Value.Trim() });
 						continue;
 					}
 					// A DECLARED READING WINS OVER A COMPARISON READING. `Request is Submission`
@@ -6032,7 +6069,7 @@ namespace Arest.NormaOracle
 					else leC = ResolveClauseSub(Dequantify(" " + tPosC + " ").Trim(), out plC, out swapC);
 					if (leC == null)
 					{
-						Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|starts with|is) (?:that |some )?('[^']*'|[A-Z][\w ]*?)$");
+						Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|starts with|is|equals) (?:that |some )?('[^']*'|[A-Z][\w ]*?)$");
 						if (cm.Success)
 						{
 							cmpC.Add(new string[] { cm.Groups[1].Value.Trim(), cm.Groups[2].Value, cm.Groups[3].Value.Trim() });
@@ -6079,6 +6116,16 @@ namespace Arest.NormaOracle
 							}
 						}
 					}
+					// A LITERAL ON A CLAUSE THAT RESOLVES AS WRITTEN IS STILL A RESTRICTION. The
+					// resolver blanks quoted spans to match the reading, so `that State has
+					// In-Lieu-Of Motor Vehicle Tax 'no'` resolved directly and the value it wrote
+					// was dropped -- a build wider than the rule. Keep it as the Equals condition
+					// the split above makes for a clause the resolver could not read whole.
+					if (leC != null && thrOp == null && !thisNegC)
+					{
+						Match vm0 = Regex.Match(tC, @"^(.+?) '([^']*)'$");
+						if (vm0.Success) { thrOp = "is"; thrVal = vm0.Groups[2].Value; }
+					}
 					if (leC == null || leC == hC)
 					{
 						okC = false;
@@ -6090,6 +6137,37 @@ namespace Arest.NormaOracle
 					if (swapC != null) swapPlayersC.Add(swapC);
 					negC.Add(thisNegC);
 					toksC.Add(RoleQualified(Dequantify(" " + tPosC + " ").Trim(), plC, true));
+				}
+				// AN OPERAND MAY NAME A ROLE OF A BOUND VARIABLE WITHOUT A LEG OF ITS OWN.
+				//   * Vehicle Purchase Quote has combined-sales-tax- Amount iff combined-sales-tax-
+				//     Amount equals state-sales-tax- Amount plus county-sales-tax- Amount plus ...
+				//   ... and city-sales-tax- Amount equals taxable-base- Amount times Sales Tax
+				//     Rate Percentage divided by 100
+				// FORML lets a rule refer to a role by its name as an attribute of a variable it
+				// has bound (Halpin's `Person.age`), and the corpus does: eight amounts of one
+				// quote, a rate's percentage. Such an operand is the declared reading
+				// `<Variable> has <operand>` over a variable the body binds -- the head's
+				// subject first, then any bound player -- and that reading is laid as a leg, so
+				// the operand is bound the way every other operand is. Nothing is guessed: no
+				// declared reading, no leg, and EmitExpression declines the unbound operand.
+				if (okC && arithC.Count > 0)
+				{
+					var boundC = new List<string>();
+					boundC.Add(hqC[0]);
+					foreach (List<string> tl in toksC) foreach (string tk in tl) if (!boundC.Contains(tk)) boundC.Add(tk);
+					foreach (string[] aq in arithC)
+					{
+						foreach (string implied in ImpliedAttributeClauses(aq[1], boundC,
+							op => toksC.Any(tl => tl.Contains(op)) || legsC.Any(le => le.Players.Contains(op) || OperandNamesReadingRole(le, op)), hC))
+						{
+							List<string> plI;
+							FactIndexEntry leI = ResolveClauseSub(implied, out plI);
+							if (leI == null) continue;
+							legsC.Add(leI);
+							negC.Add(false);
+							toksC.Add(RoleQualified(implied, plI, true));
+						}
+					}
 				}
 				// ONE LEG IS ENOUGH WHEN SOMETHING ELSE CONSTRAINS IT. `Citation has URI and
 				// that URI starts with 'https://...'` is a single reading plus a condition on
@@ -6173,7 +6251,7 @@ namespace Arest.NormaOracle
 						// for a value the body did bind. Project the head role from the other side.
 						for (int q = 0; q < cmpC.Count && found == 0; q++)
 						{
-							if (cmpC[q][1] != "is") continue;
+							if (cmpC[q][1] != "is" && cmpC[q][1] != "equals") continue;
 							string other = (cmpC[q][0] == hC.Players[i] || cmpC[q][0] == hqC[i]) ? cmpC[q][2]
 								: ((cmpC[q][2] == hC.Players[i] || cmpC[q][2] == hqC[i]) ? cmpC[q][0] : null);
 							if (other == null) continue;
@@ -6301,8 +6379,16 @@ namespace Arest.NormaOracle
 				foreach (string[] aq in arithC)
 				{
 					CalculatedPathValue topC = EmitExpression(aq[1], legsC, toksC, rowsC, ref arithFnsC);
-					if (topC == null) { okC = false; break; }
+					if (topC == null) { okC = false; myPlanDeclines[sC] = "chain arm: an operand of " + aq[0] + " is bound by no leg, or the expression is bracketed: " + aq[1]; break; }
 					leadC.CalculatedValueCollection.Add(topC);
+					// A TARGET THE BODY ALREADY BOUND MAKES THE CLAUSE A CONDITION, not a value
+					// for the head: kernel's `Count2 plus Count3 is Count1`, with Count1 from
+					// `State1 shortest to goal at Count1`, says the two agree. NORMA requires a
+					// calculated value to be consumed -- as the head's value it is, by the
+					// projection; here it is the left side of Equals against the bound value.
+					// Left as a projection it consumed nothing (CalculatedPathValueMustBeConsumed).
+					object boundTarget = OperandFor(aq[0], legsC, toksC, rowsC);
+					if (boundTarget is PathedRole) { AddEqualsCondition(leadC, topC, boundTarget); continue; }
 					computedC[aq[0]] = topC;
 				}
 				if (!okC) { leadC.Delete(); if (madeRuleC) ruleC.Delete(); continue; }
@@ -6417,8 +6503,19 @@ namespace Arest.NormaOracle
 							if ((toksC[l][c] == cp[2] || legsC[l].Players[c] == cp[2]) && lR < 0) { lR = l; pR = c; }
 						}
 					}
-					if (lL < 0 || (lR < 0 && cpLit == null)) { okC = false; break; }
-					bool equalC = cp[1] == "is";
+					// ... or by the reading's own words (`submission Date`), as OperandFor reads it
+					for (int l = 0; l < legsC.Count; l++)
+					{
+						if (lL < 0 && OperandNamesReadingRole(legsC[l], Regex.Replace(cp[0], @"^(?:that|some) ", ""))) { lL = l; pL = legsC[l].Players.Count - 1; }
+						if (lR < 0 && cpLit == null && OperandNamesReadingRole(legsC[l], Regex.Replace(cp[2], @"^(?:that|some) ", ""))) { lR = l; pR = legsC[l].Players.Count - 1; }
+					}
+					if (lL < 0 || (lR < 0 && cpLit == null))
+					{
+						okC = false;
+						myPlanDeclines[sC] = "chain arm: a compared value is bound by no leg: " + (lL < 0 ? cp[0] : cp[2]);
+						break;
+					}
+					bool equalC = cp[1] == "is" || cp[1] == "equals";
 					bool greater = cp[1] == "exceeds" || cp[1] == "is greater than" || cp[1] == "is above";
 					bool startsC = cp[1] == "starts with";
 					// minted on first use like Equals and GreaterThan, which NORMA does not
@@ -7155,7 +7252,9 @@ namespace Arest.NormaOracle
 					// between value types, or `that Fact Type is that Function` where one
 					// entity type roots at the other (the reflection bridge). Both alias.
 					string plain = Regex.Replace(bare, @"\b(that|some|a|an|the) ", "");
-					Match am = Regex.Match(plain, @"^([A-Z][\w-]*(?: [A-Z][\w-]*)*\d*) (?:is|equals) ([A-Z][\w-]*(?: [A-Z][\w-]*)*\d*)$");
+					// either side may carry a role name: `taxable-base- Amount equals Vehicle
+					// Purchase Price` aliases the head's qualified role to the bound value
+					Match am = Regex.Match(plain, @"^((?:[a-z][\w-]*- )?[A-Z][\w-]*(?: [A-Z][\w-]*)*\d*) (?:is|equals) ((?:[a-z][\w-]*- )?[A-Z][\w-]*(?: [A-Z][\w-]*)*\d*)$");
 					if (am.Success)
 					{
 						string ta = StripRolePrefix(am.Groups[1].Value), tb = StripRolePrefix(am.Groups[2].Value);
@@ -7167,7 +7266,19 @@ namespace Arest.NormaOracle
 							continue;
 						}
 					}
-					if (RbCalc.IsMatch(bare)) { t.CalcIgnored++; continue; }
+					if (RbCalc.IsMatch(bare))
+					{
+						t.CalcIgnored++;
+						// the arm lays a leg for an operand that names a role of a bound variable
+						// (ImpliedAttributeClauses); the gate expects the same leg
+						var boundG = new List<string>();
+						foreach (string ht in t.HeadTokens) if (ht != null && !boundG.Contains(ht)) boundG.Add(ht);
+						foreach (RbClause cl in t.Clauses) foreach (string tk in cl.Tokens) if (tk != null && !boundG.Contains(tk)) boundG.Add(tk);
+						foreach (string implied in ImpliedAttributeClauses(bare, boundG,
+							op => boundG.Contains(op) || t.Clauses.Any(cl => cl.Entry.Players.Contains(op) || OperandNamesReadingRole(cl.Entry, op)), t.Head))
+							queue.Add(implied);
+						continue;
+					}
 					t.Unchecked = "clause names no fact type: " + c;
 					return t;
 				}
@@ -8108,9 +8219,68 @@ namespace Arest.NormaOracle
 
 		// A value already walked to by the chain, or a literal number. Anything else is
 		// not an operand this can honour.
+		private static readonly Regex ArithOpRx = new Regex(@" (plus|minus|times|divided by) ");
+
+		// THE CLAUSES AN EXPRESSION IMPLIES. For each operand no variable binds, the
+		// declared reading `<Variable> has <operand>` over a variable the rule bound --
+		// the head's subject first, then any bound token -- or nothing. Shared by the
+		// chain arm, which lays each as a leg, and the read-back gate, which expects it:
+		// the two must agree or the gate reports the arm's own leg as a mismatch.
+		// AN OPERAND MAY NAME A ROLE BY THE READING'S OWN WORDS. `submission Date` in
+		// `deadline- Date is submission Date plus Response Deadline Days` is the Date of
+		// the leg `Data Subject Request has submission Date`: the reading's last words
+		// followed by its last player. That operand is bound by that leg -- it is not a
+		// second Date, and laying the reading again would make it one.
+		private static bool OperandNamesReadingRole(FactIndexEntry e, string op)
+		{
+			if (e == null || e.Players.Count == 0) return false;
+			string last = e.Players[e.Players.Count - 1];
+			if (op == last) return true;
+			if (!op.EndsWith(" " + last, StringComparison.Ordinal)) return false;
+			string qualifier = op.Substring(0, op.Length - last.Length).Trim();
+			string words = Regex.Replace(e.ReadingWords ?? "", @"\s+", " ").Trim();
+			return qualifier.Length > 0 && (words == qualifier || words.EndsWith(" " + qualifier, StringComparison.Ordinal));
+		}
+
+		private List<string> ImpliedAttributeClauses(string expr, List<string> boundVars, Func<string, bool> isBound, FactIndexEntry head)
+		{
+			// a whole clause may arrive (`H equals A plus B`, `A plus B is that H`): the
+			// side carrying an operator is the expression
+			Match eq = Regex.Match(expr, @"^(.+?) (?:equals|is) (.+)$");
+			if (eq.Success)
+			{
+				bool lOp = ArithOpRx.IsMatch(eq.Groups[1].Value), rOp = ArithOpRx.IsMatch(eq.Groups[2].Value);
+				if (lOp && !rOp) expr = eq.Groups[1].Value;
+				else if (rOp && !lOp) expr = eq.Groups[2].Value;
+			}
+			var outC = new List<string>();
+			foreach (string rawOp in ArithOpRx.Split(expr))
+			{
+				string op = Regex.Replace(rawOp.Trim(), @"^(?:that|some) ", "");
+				if (op.Length == 0 || op == "plus" || op == "minus" || op == "times" || op == "divided by") continue;
+				if (Regex.IsMatch(op, @"^[0-9]+(\.[0-9]+)?$") || op.IndexOf('(') >= 0 || op.IndexOf(')') >= 0) continue;
+				if (isBound(op)) continue;
+				foreach (string v in boundVars)
+				{
+					string vBare = StripRolePrefix(v);
+					if (vBare.Length == 0 || vBare == op) continue;
+					string implied = vBare + " has " + op;
+					List<string> plI;
+					FactIndexEntry leI = ResolveClauseSub(implied, out plI);
+					if (leI == null || leI == head) continue;
+					outC.Add(implied);
+					break;
+				}
+			}
+			return outC;
+		}
+
 		private object OperandFor(string tok, List<FactIndexEntry> legs,
 			List<List<string>> toks, PathedRole[][] rows)
 		{
+			// `that Suggested Retail Price` is the variable the leg bound, under FORML's
+			// back-reference; the word is not part of the name
+			tok = Regex.Replace(tok, @"^(?:that|some) ", "");
 			if (Regex.IsMatch(tok, @"^[0-9]+(\.[0-9]+)?$"))
 			{
 				var pc = new PathConstant(myStore);
@@ -8129,6 +8299,10 @@ namespace Arest.NormaOracle
 			for (int l = 0; l < legs.Count; l++)
 				for (int c = 0; c < legs[l].Players.Count; c++)
 					if (legs[l].Players[c] == tok) return rows[l][c];
+			// the reading's own words name the role: `submission Date` is the last role of
+			// `Data Subject Request has submission Date`
+			for (int l = 0; l < legs.Count; l++)
+				if (OperandNamesReadingRole(legs[l], tok)) return rows[l][legs[l].Players.Count - 1];
 			return null;
 		}
 
@@ -8239,6 +8413,14 @@ namespace Arest.NormaOracle
 		// role to a constant, the construction the single-clause arm uses for a quoted leg
 		private void AddEqualsCondition(LeadRolePath lead, PathedRole on, string value)
 		{
+			var pc = new PathConstant(myStore);
+			pc.LexicalValue = value;
+			AddEqualsCondition(lead, on, pc);
+		}
+
+		// Equals between any two operands (a pathed role, a constant, a calculated value)
+		private void AddEqualsCondition(LeadRolePath lead, object left, object right)
+		{
 			Function eq = GetOrMakeFunction("Equals", true);
 			var cpv = new CalculatedPathValue(myStore);
 			cpv.Function = eq;
@@ -8251,10 +8433,8 @@ namespace Arest.NormaOracle
 				else if (pi == 1) { new CalculatedPathValueInputCorrespondsToFunctionParameter(cR, fp); break; }
 				pi++;
 			}
-			new CalculatedPathValueInputBindsToPathedRole(cL, on);
-			var pc = new PathConstant(myStore);
-			pc.LexicalValue = value;
-			new CalculatedPathValueInputBindsToPathConstant(cR, pc);
+			BindOperand(cL, left);
+			BindOperand(cR, right);
 			lead.CalculatedConditionCollection.Add(cpv);
 		}
 

@@ -180,6 +180,23 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   `Organization has ...`) is the chain arm's: it substitutes the subtype and
   lays the step up. A membership leg is `Person is a Customer`, with its
   article; `Person is Customer` names no fact.
+- A calculated head value is stated either way round (`Label Subtotal equals
+  A plus B`, `that A plus that B is that Label Subtotal`, `Registration Age
+  is current Year minus model Year`): the side with the operator is the
+  expression. An operand names a value a leg bound, by its token
+  (`taxable-base- Amount`), by the reading's own words (`submission Date`
+  for `... has submission Date`), or as a role of a bound variable with no
+  leg of its own (`state-sales-tax- Amount` of the quote, `Sales Tax Rate
+  Percentage` of the rate): that last one is the declared reading
+  `<Variable> has <operand>`, laid as a leg, and the gate expects the same
+  leg. An operand nothing binds (`current Year`) declines the rule and the
+  census says which. `H equals V` with no operator is an alias, as `is` is.
+  A target a leg already bound (`Count2 plus Count3 is Count1` after
+  `State1 shortest to goal at Count1`) makes the clause a condition, not a
+  head value; and a clause that names a declared reading (`Count plus Count
+  is Count`, declared) is that reading's leg, never arithmetic.
+  A quoted value on a leg is a condition however the leg resolved, and a
+  quoted `'no'` is a value, not a negation.
 - A later leg may re-enter a variable an earlier leg bound and join back to
   the variable bound most recently (`that Person has knowledge of that
   Patent`); a join back to an OLDER variable in the same leg is not laid and
