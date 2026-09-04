@@ -2461,6 +2461,11 @@ namespace Arest.NormaOracle
 				if (found != null) return null;
 				found = e;
 			}
+			// THE IDENTIFIER IS A READING TOO. `Vehicle(.VIN)` mints `Vehicle has VIN`, kept
+			// aside for a restatement to adopt; a rule that names it (`Vehicle has VIN and
+			// some Listing has that VIN`) names a fact type that exists.
+			FactIndexEntry scheme;
+			if (found == null && mySchemeFacts.TryGetValue(key, out scheme) && !scheme.Fact.IsDeleted) return scheme;
 			return found;
 		}
 
@@ -5951,7 +5956,7 @@ namespace Arest.NormaOracle
 				//     ... and state Sales Tax Amount equals taxable Base Amount times ...
 				// so splitting only before `that`, `some` or a capital leaves the arithmetic
 				// glued to the clause before it, and it is never seen as its own clause.
-				string[] partsC = SplitBody(bodyC);
+				string[] partsC = MergeConcatenation(SplitBody(bodyC));
 				// TWO CLAUSES TOO. This arm used to leave those to the arms above, and they
 				// do take most of them -- but each of those wants a particular shape (a
 				// binary head, the join variable opening the second leg), and a two-clause
@@ -6067,6 +6072,16 @@ namespace Arest.NormaOracle
 					// as a fact type and writes `Count2 plus Count3 is Count1` as a leg of it;
 					// read as arithmetic, the path had four legs and a condition where the
 					// reading -- and the gate -- had five legs.
+					// A CONCATENATION IS A VALUE FUNCTION: `target- URL is the concatenation of
+					// that Base Path and that Resource Path` computes the head's value from two
+					// bound ones, as `plus` does; Concat is minted as Add is, and nests for more
+					Match ccm = Regex.Match(tC, @"^(?:that )?([A-Za-z][\w- ]*?) is the concatenation of (.+)$");
+					if (ccm.Success)
+					{
+						var partsCc = new List<string>();
+						foreach (string pc in Regex.Split(ccm.Groups[2].Value, @",? and |, ")) if (pc.Trim().Length > 0) partsCc.Add(pc.Trim());
+						if (partsCc.Count >= 2) { arithC.Add(new string[] { ccm.Groups[1].Value.Trim(), string.Join(" concat ", partsCc) }); continue; }
+					}
 					List<string> plArith;
 					bool clauseIsReading = ArithOpRx.IsMatch(tC)
 						&& ResolveClauseSub(Dequantify(" " + tC + " ").Trim(), out plArith) != null;
@@ -6143,10 +6158,27 @@ namespace Arest.NormaOracle
 					else leC = ResolveClauseSub(Dequantify(" " + tPosC + " ").Trim(), out plC, out swapC);
 					if (leC == null)
 					{
-						Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|starts with|is|equals) (?:that |some )?('[^']*'|[A-Z][\w ]*?)$");
+						// ... and the string comparisons, `begins with` / `contains` / `matches`,
+						// whose right side may be AN ATTRIBUTE OF A BOUND VARIABLE: `that Base
+						// Path begins with the URL of that Source Service` compares against the
+						// URL the declared `Source Service has URL` binds, laid as a leg
+						Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|starts with|begins with|contains|matches|is|equals) (?:that |some )?('[^']*'|the [A-Z][\w ]*? of (?:that |some )?[A-Z][\w ]*?|(?:[a-z][\w-]*- )?[A-Z][\w ]*?)$");
 						if (cm.Success)
 						{
-							cmpC.Add(new string[] { cm.Groups[1].Value.Trim(), cm.Groups[2].Value, cm.Groups[3].Value.Trim() });
+							string rightC = cm.Groups[3].Value.Trim();
+							Match ofm = Regex.Match(rightC, @"^the ([A-Z][\w ]*?) of (?:that |some )?([A-Z][\w ]*?)$");
+							if (ofm.Success)
+							{
+								string implied = ofm.Groups[2].Value.Trim() + " has " + ofm.Groups[1].Value.Trim();
+								List<string> plI;
+								FactIndexEntry leI = ResolveClauseSub(implied, out plI);
+								if (leI == null) { okC = false; myPlanDeclines[sC] = "chain arm: clause names no fact type: " + implied; break; }
+								legsC.Add(leI);
+								negC.Add(false);
+								toksC.Add(RoleQualified(implied, plI, true));
+								rightC = ofm.Groups[1].Value.Trim();
+							}
+							cmpC.Add(new string[] { cm.Groups[1].Value.Trim(), cm.Groups[2].Value, rightC });
 							continue;
 						}
 					}
@@ -6671,13 +6703,14 @@ namespace Arest.NormaOracle
 						myPlanDeclines[sC] = "chain arm: a compared value is bound by no leg: " + (lL < 0 ? cp[0] : cp[2]);
 						break;
 					}
-					bool equalC = cp[1] == "is" || cp[1] == "equals";
+					bool equalC = cp[1] == "is" || cp[1] == "equals" || cp[1] == "matches";
 					bool notEqC = cp[1] == "is not";
 					bool greater = cp[1] == "exceeds" || cp[1] == "is greater than" || cp[1] == "is above";
-					bool startsC = cp[1] == "starts with";
+					bool startsC = cp[1] == "starts with" || cp[1] == "begins with";
+					bool containsC = cp[1] == "contains";
 					// minted on first use like Equals and GreaterThan, which NORMA does not
 					// ship either -- the function library is tool-loaded data in the UI
-					Function fnC = GetOrMakeFunction(startsC ? "StartsWith" : notEqC ? "NotEquals"
+					Function fnC = GetOrMakeFunction(startsC ? "StartsWith" : containsC ? "Contains" : notEqC ? "NotEquals"
 						: (equalC ? "Equals" : (greater ? "GreaterThan" : "LessThan")), true);
 					var cpvC = new CalculatedPathValue(myStore);
 					cpvC.Function = fnC;
@@ -7286,7 +7319,7 @@ namespace Arest.NormaOracle
 		}
 
 		private static readonly Regex RbCalc = new Regex(
-			@"\b(exceeds|equals|minus|plus|times|count|sum|total|average|is (at least|at most|greater than|less than|more than|equal to|before|after|within))\b|[=<>]",
+			@"\b(exceeds|equals|minus|plus|times|count|sum|total|average|concatenation|begins with|starts with|contains|matches|is (at least|at most|greater than|less than|more than|equal to|before|after|within))\b|[=<>]",
 			RegexOptions.IgnoreCase);
 
 		// Tokens in reading order, with a literal-filled position returned as null.
@@ -7349,7 +7382,7 @@ namespace Arest.NormaOracle
 			t.HeadTokens = RbTokens(head, he.Players, out headLits);
 			t.HeadLits = headLits.ToArray();
 			var alias = new Dictionary<string, string>(StringComparer.Ordinal);
-			var queue = new List<string>(SplitBody(body));
+			var queue = new List<string>(MergeConcatenation(SplitBody(body)));
 			int noGroups = 0;
 			for (int qi = 0; qi < queue.Count; qi++)
 			{
@@ -7470,6 +7503,15 @@ namespace Arest.NormaOracle
 						foreach (string implied in ImpliedAttributeClauses(bare, boundG,
 							op => boundG.Contains(op) || t.Clauses.Any(cl => cl.Entry.Players.Contains(op) || OperandNamesReadingRole(cl.Entry, op)), t.Head))
 							queue.Add(implied);
+						// `... begins with the URL of that Source Service`: the arm lays `Source
+						// Service has URL` as a leg; expect it
+						Match ofG = Regex.Match(bare, @"the ([A-Z][\w ]*?) of (?:that |some )?([A-Z][\w ]*?)$");
+						if (ofG.Success)
+						{
+							string impliedOf = ofG.Groups[2].Value.Trim() + " has " + ofG.Groups[1].Value.Trim();
+							List<string> plOf;
+							if (ResolveClauseSub(impliedOf, out plOf) != null) queue.Add(impliedOf);
+						}
 						continue;
 					}
 					t.Unchecked = "clause names no fact type: " + c;
@@ -8391,7 +8433,7 @@ namespace Arest.NormaOracle
 			List<List<string>> toks, PathedRole[][] rows, ref Dictionary<string, Function> fns)
 		{
 			if (expr.IndexOf('(') >= 0 || expr.IndexOf(')') >= 0) return null;
-			string[] bits = Regex.Split(expr.Trim(), @" (plus|minus|times|divided by) ");
+			string[] bits = Regex.Split(expr.Trim(), @" (plus|minus|times|divided by|concat) ");
 			if (bits.Length < 3 || bits.Length % 2 == 0) return null;
 			object acc = OperandFor(bits[0].Trim(), legs, toks, rows);
 			if (acc == null) return null;
@@ -8400,7 +8442,7 @@ namespace Arest.NormaOracle
 				object rhs = OperandFor(bits[i + 1].Trim(), legs, toks, rows);
 				if (rhs == null) return null;
 				string fname = bits[i] == "plus" ? "Add" : bits[i] == "minus" ? "Subtract"
-					: bits[i] == "times" ? "Multiply" : "Divide";
+					: bits[i] == "times" ? "Multiply" : bits[i] == "concat" ? "Concat" : "Divide";
 				Function fn = GetOrMakeFunction(fname, false);
 				var cpv = new CalculatedPathValue(myStore);
 				cpv.Function = fn;
@@ -8422,7 +8464,31 @@ namespace Arest.NormaOracle
 
 		// A value already walked to by the chain, or a literal number. Anything else is
 		// not an operand this can honour.
-		private static readonly Regex ArithOpRx = new Regex(@" (plus|minus|times|divided by) ");
+		private static readonly Regex ArithOpRx = new Regex(@" (plus|minus|times|divided by|concat) ");
+
+		// THE CONCATENATION'S `and` IS NOT A CLAUSE BOUNDARY. The splitter cuts `target-
+		// URL is the concatenation of that Base Path and that Resource Path` before the
+		// second `that`, leaving `that Resource Path` as a clause naming no fact type.
+		// A concatenation clause takes back the bare variables that follow it, for the
+		// chain arm and for the gate alike.
+		private static string[] MergeConcatenation(string[] parts)
+		{
+			var outP = new List<string>();
+			for (int i = 0; i < parts.Length; i++)
+			{
+				string p = parts[i];
+				if (Regex.IsMatch(p, @" is the concatenation of "))
+				{
+					while (i + 1 < parts.Length && Regex.IsMatch(parts[i + 1].Trim(), @"^(?:that |some )?(?:[a-z][\w-]*- )?[A-Z][\w- ]*$"))
+					{
+						p = p.TrimEnd() + " and " + parts[i + 1].Trim();
+						i++;
+					}
+				}
+				outP.Add(p);
+			}
+			return outP.ToArray();
+		}
 
 		// THE THRESHOLD WORDS, READ AS WRITTEN. `of 500 or more` is at least 500 --
 		// 500 itself included -- and `of 500` alone is exactly 500; both used to read as
@@ -8491,7 +8557,7 @@ namespace Arest.NormaOracle
 			foreach (string rawOp in ArithOpRx.Split(expr))
 			{
 				string op = Regex.Replace(rawOp.Trim(), @"^(?:that|some) ", "");
-				if (op.Length == 0 || op == "plus" || op == "minus" || op == "times" || op == "divided by") continue;
+				if (op.Length == 0 || op == "plus" || op == "minus" || op == "times" || op == "divided by" || op == "concat") continue;
 				if (Regex.IsMatch(op, @"^[0-9]+(\.[0-9]+)?$") || op.IndexOf('(') >= 0 || op.IndexOf(')') >= 0) continue;
 				if (isBound(op)) continue;
 				foreach (string v in boundVars)
@@ -9392,6 +9458,16 @@ namespace Arest.NormaOracle
 				{
 					playersOut = players;
 					return entry;
+				}
+			}
+			// the identifier fact type a reference scheme minted (see FindEntryByExactKey)
+			if (players.Count == 2)
+			{
+				FactIndexEntry scheme;
+				if (mySchemeFacts.TryGetValue(NormalizeWords(players[0] + " " + words + " " + players[1]), out scheme) && !scheme.Fact.IsDeleted)
+				{
+					playersOut = players;
+					return scheme;
 				}
 			}
 			return MembershipEntry(clause, out playersOut);
