@@ -7,7 +7,7 @@ where Response Time1 = Mean(each Response Time2 for  each unique External System
 
 *External System has Error Rate for Interval if and only if
 some Log Entry has that External System
-and  has some HTTP Status where GreaterThan(HTTP Status, 400)
+and  has some HTTP Status where GreaterThanOrEqual(HTTP Status, 400)
 and  is in that Interval
 where Error Rate = Count(each Log Entry for  each unique External System, Interval combination).
 
