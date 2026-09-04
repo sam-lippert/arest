@@ -6046,9 +6046,15 @@ namespace Arest.NormaOracle
 				var cmpC = new List<string[]>();
 				var arithC = new List<string[]>();
 				var thrC = new List<string[]>();
+				// `some other Fact2 ...` binds a fresh variable DISTINCT from the nearest
+				// earlier one of its type; the clause resolves as `some Fact2 ...` and the
+				// distinctness is a NotEquals condition against that antecedent
+				var otherC = new List<string[]>();
 				foreach (string clC in partsC)
 				{
 					string tC = clC.Trim();
+					bool isOtherC = false;
+					if (tC.StartsWith("some other ", StringComparison.Ordinal)) { isOtherC = true; tC = "some " + tC.Substring(11); }
 					// AN ARITHMETIC CLAUSE COMPUTES a head value rather than binding one:
 					//     ... and Net Amount equals Gross Amount minus Discount Amount
 					// Its target appears in no leg -- it is the answer, not an input -- so it is
@@ -6191,6 +6197,17 @@ namespace Arest.NormaOracle
 						Match vm0 = Regex.Match(tC, @"^(.+?) '([^']*)'$");
 						if (vm0.Success) { thrOp = "is"; thrVal = vm0.Groups[2].Value; }
 					}
+					// AN UNQUOTED NUMBER IS A VALUE TOO: `that RoleIsUsedInReading has Position 2`
+					// restricts Position to 2, as FORML writes a number (`Max Mileage is 125000.`)
+					if (leC == null && thrOp == null && !thisNegC)
+					{
+						Match vn = Regex.Match(tC, @"^(.+?) ([0-9]+(?:\.[0-9]+)?)$");
+						if (vn.Success)
+						{
+							FactIndexEntry nLeg = ResolveClauseSub(Dequantify(" " + vn.Groups[1].Value.Trim() + " ").Trim(), out plC);
+							if (nLeg != null) { leC = nLeg; thrOp = "is"; thrVal = vn.Groups[2].Value; }
+						}
+					}
 					if (leC == null)
 					{
 						okC = false;
@@ -6212,7 +6229,38 @@ namespace Arest.NormaOracle
 					if (swapC != null) swapPlayersC.Add(swapC);
 					negC.Add(thisNegC);
 					toksC.Add(RoleQualified(Dequantify(" " + tPosC + " ").Trim(), plC, true));
+					// A RESTRICTED VALUE IS ITS OWN VARIABLE. Two legs restricting Position to 2
+					// and to 1 both tokenised the role as `Position`, and the repeated token
+					// unified the two values into one that had to be both. The restricted
+					// position takes a token no other leg shares.
+					if (thrOp != null)
+					{
+						List<string> lastToks = toksC[toksC.Count - 1];
+						int rp = lastToks.Count - 1;
+						if (rp >= 0) lastToks[rp] = lastToks[rp] + "~v" + legsC.Count;
+					}
+					if (isOtherC)
+					{
+						string fresh = toksC[toksC.Count - 1][0];
+						string ante = null;
+						for (int l = toksC.Count - 2; l >= 0 && ante == null; l--)
+							foreach (string tk in toksC[l])
+								if (tk != fresh && StripRolePrefix(tk) == StripRolePrefix(fresh)) { ante = tk; break; }
+						if (ante != null) otherC.Add(new string[] { fresh, "is not", ante });
+					}
 				}
+				// the objectifications a clause names anaphorically, renamed to their
+				// antecedents; joined after the chain is laid (LayObjectificationJoin)
+				var anaphoraC = new Dictionary<string, int>(StringComparer.Ordinal);
+				if (okC)
+				{
+					var factsO = new List<FactType>();
+					var toksO = new List<IList<string>>();
+					foreach (FactIndexEntry le in legsC) factsO.Add(le.Fact);
+					foreach (List<string> tl in toksC) toksO.Add(tl);
+					anaphoraC = RenameAnaphoricObjectifications(factsO, toksO);
+				}
+				foreach (string[] oc in otherC) cmpC.Add(oc);
 				// AN OPERAND MAY NAME A ROLE OF A BOUND VARIABLE WITHOUT A LEG OF ITS OWN.
 				//   * Vehicle Purchase Quote has combined-sales-tax- Amount iff combined-sales-tax-
 				//     Amount equals state-sales-tax- Amount plus county-sales-tax- Amount plus ...
@@ -6455,6 +6503,16 @@ namespace Arest.NormaOracle
 				// bodies never reached this arm while it refused every `no`.
 				if (rowsC == null) { leadC.Delete(); if (madeRuleC) ruleC.Delete(); continue; }
 				UnifyRepeatedTokens(leadC, toksC, rowsC);
+				foreach (KeyValuePair<string, int> kv in anaphoraC)
+				{
+					if (!LayObjectificationJoin(leadC, legsC, toksC, rowsC, kv.Key, kv.Value))
+					{
+						okC = false;
+						myPlanDeclines[sC] = "chain arm: the objectification " + kv.Key + " has no variable to join";
+						break;
+					}
+				}
+				if (!okC) { leadC.Delete(); if (madeRuleC) ruleC.Delete(); continue; }
 				var computedC = new Dictionary<string, CalculatedPathValue>(StringComparer.Ordinal);
 				foreach (string[] aq in arithC)
 				{
@@ -6614,11 +6672,12 @@ namespace Arest.NormaOracle
 						break;
 					}
 					bool equalC = cp[1] == "is" || cp[1] == "equals";
+					bool notEqC = cp[1] == "is not";
 					bool greater = cp[1] == "exceeds" || cp[1] == "is greater than" || cp[1] == "is above";
 					bool startsC = cp[1] == "starts with";
 					// minted on first use like Equals and GreaterThan, which NORMA does not
 					// ship either -- the function library is tool-loaded data in the UI
-					Function fnC = GetOrMakeFunction(startsC ? "StartsWith"
+					Function fnC = GetOrMakeFunction(startsC ? "StartsWith" : notEqC ? "NotEquals"
 						: (equalC ? "Equals" : (greater ? "GreaterThan" : "LessThan")), true);
 					var cpvC = new CalculatedPathValue(myStore);
 					cpvC.Function = fnC;
@@ -7059,12 +7118,34 @@ namespace Arest.NormaOracle
 				varOf[root] = cur;
 				curInst = null;
 			}
+			bool afterLink = false;
 			foreach (PathedRole pr in path.PathedRoleCollection)
 			{
 				Role role = pr.Role;
 				FactType fact = role == null ? null : role.FactType;
 				if (fact == null) continue;
 				int idx = fact.RoleCollection.IndexOf(role);
+				// AN OBJECTIFICATION STEP IS NO INSTANCE OF ITS OWN. The arm reaches an
+				// objectifying variable's fact through the link fact type `E involves X`:
+				// entered at E's own role (the current variable is E), continued to the
+				// proxied role, whose variable is X's and is unified with the antecedent
+				// leg's. The link's entry keeps the variable; the continuation is a fresh
+				// variable the unifiers then merge; neither is a fact the rule states.
+				if (fact.ImpliedByObjectification != null)
+				{
+					varOf[pr] = cur;
+					afterLink = true;
+					continue;
+				}
+				if (afterLink)
+				{
+					int lv = RbNewVar(types, uf, role.RolePlayer);
+					varOf[pr] = lv;
+					cur = lv;
+					curInst = null;
+					afterLink = false;
+					continue;
+				}
 				// A NEGATED STEP NEGATES THE REST OF ITS PATH: NORMA verbalizes "it is not
 				// true that" before the step and every later step of the path and its
 				// sub-paths sits inside it, as `no Transition is defined in ... where that
@@ -7274,6 +7355,8 @@ namespace Arest.NormaOracle
 			{
 				string c = Regex.Replace(queue[qi].Trim(), @"\s+", " ");
 				if (c.Length == 0) continue;
+				// `some other X` is `some X` plus a distinctness the arm keeps as a calculation
+				if (c.StartsWith("some other ", StringComparison.Ordinal)) c = "some " + c.Substring(11);
 				// `T is a S` with S a subtype of T types the variable and is no clause: the
 				// path's subtype-fact instance folds into that variable already -- and so
 				// does a chain of them (`Future Interest is a Contingent Remainder`, two
@@ -7332,6 +7415,14 @@ namespace Arest.NormaOracle
 				if (tm.Success) { t.CalcIgnored++; c = tm.Groups[1].Value.Trim(); }
 				bool neg = noNeg;
 				if (c.StartsWith("it is not true that ", StringComparison.OrdinalIgnoreCase)) { neg = true; c = c.Substring(20).Trim(); }
+				// an unquoted number at the end is a value (`has Position 2`), read as the
+				// arms read it: the clause is the reading, the number its restriction
+				{
+					Match vn = Regex.Match(c, @"^(.+?) ([0-9]+(?:\.[0-9]+)?)$");
+					List<string> vnPlayers;
+					if (vn.Success && ResolveClauseSub(Dequantify(" " + vn.Groups[1].Value.Trim() + " ").Trim(), out vnPlayers) != null)
+						c = vn.Groups[1].Value.Trim() + " '" + vn.Groups[2].Value + "'";
+				}
 				string bare = LiteralWithSpaceRx.Replace(c, "");
 				List<string> players; string cSwapped;
 				FactIndexEntry e = ResolveClauseSub(bare, out players, out cSwapped);
@@ -7403,6 +7494,16 @@ namespace Arest.NormaOracle
 				string[] toks = RbTokens(c, players, out clits);
 				if (quantTok != null) for (int i = 0; i < toks.Length; i++) if (toks[i] == quantTok) toks[i] = quantNew;
 				t.Clauses.Add(new RbClause { Entry = e, Tokens = toks, Negated = neg });
+			}
+			// the objectifications the clauses name anaphorically, renamed to their
+			// antecedents as the arm renames them; the path's link fact instances are
+			// not read (RbWalk skips them), so the objectifying variable is expected only
+			// where the rule uses it
+			{
+				var factsG = new List<FactType>();
+				var toksG = new List<IList<string>>();
+				foreach (RbClause cl in t.Clauses) { factsG.Add(cl.Entry.Fact); toksG.Add(cl.Tokens); }
+				RenameAnaphoricObjectifications(factsG, toksG);
 			}
 			if (alias.Count > 0)
 			{
@@ -8853,6 +8954,128 @@ namespace Arest.NormaOracle
 				row[c] = new PathedRole(sp, leg.Roles[c]);
 				row[c].PathedRolePurpose = PathedRolePurpose.SameFactType;
 			}
+		}
+
+		// NEAREST-ANTECEDENT OBJECTIFICATION. `that RoleInstance uses some Object Type
+		// Instance` after `Fact1 fills some Role1` names the objectification of that
+		// leg -- RoleInstance objectifies `Fact fills Role` -- and a second `that
+		// RoleInstance` after `Fact2 fills some Role2` names the second one (metamodel's
+		// `Fact1 joins Fact2`, unbuilt in every corpus). Each such token is renamed to
+		// its antecedent (`RoleInstance~0`, `RoleInstance~4`, by the antecedent's leg),
+		// so the two are two variables. Returns the antecedent leg for each new token;
+		// the arm lays the link fact type between that leg's entry variable and the
+		// objectifying variable, and the gate expects the same two variables.
+		private Dictionary<string, int> RenameAnaphoricObjectifications(List<FactType> facts, List<IList<string>> toks)
+		{
+			var made = new Dictionary<string, int>(StringComparer.Ordinal);
+			for (int m = 0; m < toks.Count; m++)
+			{
+				for (int c = 0; c < toks[m].Count; c++)
+				{
+					string t = toks[m][c];
+					if (t == null || t.IndexOf('~') >= 0) continue;
+					ObjectType nesting;
+					if (!myTypes.TryGetValue(StripRolePrefix(t), out nesting) || nesting.NestedFactType == null) continue;
+					int ante = -1;
+					for (int l = m - 1; l >= 0; l--)
+						if (facts[l] == nesting.NestedFactType) { ante = l; break; }
+					if (ante < 0) continue;
+					string renamed = t + "~" + ante;
+					toks[m][c] = renamed;
+					made[renamed] = ante;
+				}
+			}
+			return made;
+		}
+
+		// THE OBJECTIFICATION JOIN. A link fact type's far role is a RoleProxy, which NORMA
+		// does not path ("the only normal role relationship allowed on a proxy role is
+		// inclusion in a reading order"), so the objectifying variable reaches its fact
+		// the other way: a sub-path rooted at the nesting type enters the objectified
+		// fact type itself, and that entry's variables are unified with the antecedent
+		// leg's. The variable the anaphoric token bound (its first pathed role's object,
+		// as the unifier rules require) is unified with the root.
+		private bool LayObjectificationJoin(LeadRolePath lead, List<FactIndexEntry> legs, List<List<string>> toks,
+			PathedRole[][] rows, string tok, int ante)
+		{
+			ObjectType nesting = legs[ante].Fact.NestingType;
+			Objectification obj = legs[ante].Fact.Objectification;
+			if (nesting == null || obj == null || rows[ante] == null) return false;
+			object tokObj = null;
+			for (int m = 0; m < toks.Count && tokObj == null; m++)
+				for (int c = 0; c < toks[m].Count; c++)
+					if (toks[m][c] == tok && rows[m] != null && rows[m][c] != null) { tokObj = RbObjectOf(rows[m][c]); break; }
+			if (tokObj == null) return false;
+			// one link fact type per role of the objectified fact type: enter it at the
+			// nesting type's own role, continue to the proxied role, and that variable
+			// is the antecedent leg's variable at the same position
+			for (int c = 0; c < legs[ante].Roles.Count; c++)
+			{
+				Role orig = legs[ante].Roles[c];
+				Role eRole = null;
+				foreach (FactType link in obj.ImpliedFactTypeCollection)
+				{
+					bool proxied = false; Role er = null;
+					foreach (RoleBase rb in link.RoleCollection)
+					{
+						Role r = rb.Role;
+						if (!(rb is Role) && r == orig) proxied = true;
+						else if (rb is Role && r != null && r.RolePlayer == nesting) er = r;
+					}
+					if (proxied && er != null) { eRole = er; break; }
+				}
+				if (eRole == null) return false;
+				var sp = new RoleSubPath(myStore);
+				lead.SubPathCollection.Add(sp);
+				var root = new RolePathObjectTypeRoot(sp, nesting);
+				var entry = new PathedRole(sp, eRole);
+				entry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+				var far = new PathedRole(sp, orig);
+				far.PathedRolePurpose = PathedRolePurpose.SameFactType;
+				UnifyObjects(lead, root, tokObj);
+				UnifyObjects(lead, far, RbObjectOf(rows[ante][c]));
+			}
+			return true;
+		}
+
+		// two path objects (pathed roles or roots) are one variable: added to the
+		// unifier either already sits in, else a new one -- a member sits in at most one
+		private void UnifyObjects(LeadRolePath lead, object a, object b)
+		{
+			if (a == null || b == null || a == b) return;
+			PathObjectUnifier uA = UnifierOf(lead, a), uB = UnifierOf(lead, b);
+			if (uA != null && uB != null && uA != uB)
+			{
+				// two variables already unified elsewhere are one: merge B into A
+				foreach (PathedRole pr in new List<PathedRole>(uB.PathedRoleCollection)) { uB.PathedRoleCollection.Remove(pr); uA.PathedRoleCollection.Add(pr); }
+				foreach (RolePathObjectTypeRoot rt in new List<RolePathObjectTypeRoot>(uB.PathRootCollection)) { uB.PathRootCollection.Remove(rt); uA.PathRootCollection.Add(rt); }
+				uB.Delete();
+				return;
+			}
+			PathObjectUnifier uni = uA ?? uB;
+			if (uni == null)
+			{
+				uni = new PathObjectUnifier(myStore.DefaultPartition);
+				new LeadRolePathHasObjectUnifier(lead, uni);
+			}
+			foreach (object o in new[] { a, b })
+			{
+				PathedRole pr = o as PathedRole;
+				RolePathObjectTypeRoot rt = o as RolePathObjectTypeRoot;
+				if (pr != null && !uni.PathedRoleCollection.Contains(pr)) new PathObjectUnifierUnifiesPathedRole(uni, pr);
+				else if (rt != null && !uni.PathRootCollection.Contains(rt)) new PathObjectUnifierUnifiesRolePathRoot(uni, rt);
+			}
+		}
+
+		private static PathObjectUnifier UnifierOf(LeadRolePath lead, object o)
+		{
+			PathedRole pr = o as PathedRole;
+			RolePathObjectTypeRoot rt = o as RolePathObjectTypeRoot;
+			foreach (PathObjectUnifier u in lead.ObjectUnifierCollection)
+			{
+				if ((pr != null && u.PathedRoleCollection.Contains(pr)) || (rt != null && u.PathRootCollection.Contains(rt))) return u;
+			}
+			return null;
 		}
 
 		// Which role positions of a clause are BOUND to the surrounding rule, read off the

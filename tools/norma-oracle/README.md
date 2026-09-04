@@ -214,6 +214,20 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   comparison as a pathed role would be. A threshold reads as written:
   `of 500 or more` and `at least` are inclusive (GreaterThanOrEqual),
   `of 500` alone is Equals, `greater than` / `more than` strict.
+- A clause may name an objectification anaphorically: `Fact1 fills some
+  Role1 and that RoleInstance uses some Object Type Instance`, RoleInstance
+  objectifying `Fact fills Role`, names the objectification of the nearest
+  earlier leg over that fact type, and a second `that RoleInstance` after
+  `Fact2 fills some Role2` names the second one. NORMA does not path a
+  link fact type's proxy role, so the objectifying variable reaches its
+  fact through the link fact types entered at its own role
+  (`RoleInstance1 involves that Fact1 and involves that Role1`), one per
+  role, unified with the antecedent's variables; the gate reads those
+  steps as no instance of their own. `some other Fact2` is `some Fact2`
+  with NotEquals against the nearest earlier Fact; `has Position 2`
+  restricts the value as `'2'` would; and a restricted value is its own
+  variable, so two legs restricting Position to 2 and to 1 no longer
+  unify into one Position that must be both.
 - A leg may name the rule's own head: the inductive step of a cost-to-goal
   (`State1 reaches goal at Count3 iff State1 steps to State2 by Operator1
   and Operator1 costs Count2 and State2 reaches goal at Count1 and Count2
