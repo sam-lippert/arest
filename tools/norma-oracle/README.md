@@ -228,6 +228,14 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   restricts the value as `'2'` would; and a restricted value is its own
   variable, so two legs restricting Position to 2 and to 1 no longer
   unify into one Position that must be both.
+- String comparisons: `begins with` / `starts with` (StartsWith), `contains`
+  (Contains), `matches` (Equals), between two bound values or against a
+  quoted value; the right side may be an attribute of a bound variable
+  (`that Base Path begins with the URL of that Source Service`), which is
+  the declared `Source Service has URL` laid as a leg. A concatenated
+  head value is `target- URL is the concatenation of that Base Path and
+  that Resource Path` (Concat, nested for more), and the concatenation's
+  `and` is not a clause boundary.
 - A leg may name the rule's own head: the inductive step of a cost-to-goal
   (`State1 reaches goal at Count3 iff State1 steps to State2 by Operator1
   and Operator1 costs Count2 and State2 reaches goal at Count1 and Count2
