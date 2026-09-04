@@ -396,6 +396,48 @@ const FASTPRIMS = new Map(Object.entries({
   // theta:append_phi = apndr . [id, CONST PHI]: the list with PHI appended, the
   // fold base every INSERT filter carries; three million calls per report
   "theta:append_phi": x => { const l = seq(x); const out = l.slice(); out.push([]); return out; },
+  // derive:jo_rows = INSERT(derive:keep_jo) . append_phi . distl . [1, derive:cross . 2]:
+  // the CROSS PRODUCT of the two row lists, then every pair tested on the key
+  // columns. That is a nested loop, and once the schema stopped being rebuilt it
+  // was the whole us-law closure -- 640,372 derive:jo_check calls over 2009
+  // joins, 2.5 of 4.1 seconds (2026-09-04). A hash join answers the same rows.
+  //
+  // The SEQUENCE is the same too, which is what makes this a twin and not a
+  // rewrite. derive:cross is distr then ALPHA(distl) then flatten, so the pairs
+  // run left-major and right-minor; INSERT over append_phi folds from the right
+  // and prepends, so the survivors keep that order. Indexing the RIGHT list in
+  // its own order and walking the LEFT one gives pair for pair what the fold
+  // gives. An empty key list is Backus's and-of-nothing -- true -- so it is the
+  // full cross product, and either side empty is nothing.
+  "derive:jo_rows": x => {
+    const keys = seq(at(x, 0)), pair = at(x, 1);
+    const A = seq(at(pair, 0)), B = seq(at(pair, 1));
+    const out = [];
+    if (A.length === 0 || B.length === 0) return out;
+    if (keys.length === 0) {
+      for (const a of A) for (const b of B) out.push([...seq(a), ...seq(b)]);
+      return out;
+    }
+    const selA = keys.map(k => at(k, 0)), selB = keys.map(k => at(k, 1));
+    const idx = new Map();
+    for (const b of B) {
+      // length-prefixed: plain concatenation lets <"a","sb"> and <"as","b">
+      // spell one string, which would join rows that do not match
+      let k = "";
+      for (let i = 0; i < selB.length; i++) { const v = keyOf(Ev(selB[i], b)); k += v.length + ":" + v; }
+      let bucket = idx.get(k);
+      if (bucket === undefined) { bucket = []; idx.set(k, bucket); }
+      bucket.push(b);
+    }
+    for (const a of A) {
+      let kk = "";
+      for (let i = 0; i < selA.length; i++) { const v = keyOf(Ev(selA[i], a)); kk += v.length + ":" + v; }
+      const bucket = idx.get(kk);
+      if (bucket === undefined) continue;
+      const as = seq(a);
+      for (const b of bucket) out.push([...as, ...seq(b)]);
+    }
+    return out; },
   // rmap:member_pairs turns a relation's rows into <key, nonkeys> pairs: for each
   // row of its fifth field, the key column (rmap:keypos) and the other columns
   // (rmap:nonkey_positions), each read by apply. The memo keys on the argument's
