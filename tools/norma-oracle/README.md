@@ -246,6 +246,14 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   X the body bound, the distinctness a NotEquals whose inputs bind inside
   the negation, which is where NORMA evaluates it (the explicit calculation
   scope is retired in NORMA). The splitter cuts before `no`.
+- An identity clause (`Timestamp is Date`, `Description is Message Body`)
+  projects the head's role from the value the other side bound, when the
+  two are the same kind, the same data type, and, for entities, one a
+  subtype of the other. A bridge reading declared between two entity
+  types (`Support Request is Contact Submission.`) is a leg like any
+  other. What the alias refuses, the census says: `Timestamp is Date`
+  equates a datetime with a date, which NORMA will not project, and only
+  the author can say which value the head carries.
 - A leg may name the rule's own head: the inductive step of a cost-to-goal
   (`State1 reaches goal at Count3 iff State1 steps to State2 by Operator1
   and Operator1 costs Count2 and State2 reaches goal at Count1 and Count2
