@@ -1121,7 +1121,7 @@ namespace Arest.NormaOracle
 				// only rows, so an asserted one is erased by the next derivation.
 				Match mk = Regex.Match(s, @"^(\+{1,2}) (.+?) (?:iff|if) ");
 				if (mk.Success) myRuleMarkers.Add(new string[] { mk.Groups[1].Value, mk.Groups[2].Value.Trim() });
-				foreach (string alt in SplitDisjunction(NormalizeRuleSentence(s))) myDeferredRules.Add(alt);
+				myDeferredRules.Add(NormalizeRuleSentence(s));
 				Count("derivation rule (deferred: no textual rule input in NORMA)");
 				return;
 			}
@@ -1257,7 +1257,7 @@ namespace Arest.NormaOracle
 			}
 			if (s.StartsWith("* "))
 			{
-				foreach (string alt in SplitDisjunction(s)) myDeferredRules.Add(alt);
+				myDeferredRules.Add(s);
 				Count("derivation rule (deferred: no textual rule input in NORMA)");
 				return;
 			}
@@ -1415,15 +1415,36 @@ namespace Arest.NormaOracle
 			{
 				Match m = Regex.Match(rule, @"^(?:\*+ |\+ )(.+?) iff (.+)\.$");
 				if (!m.Success) continue;
-				// runs of consecutive legs too: the splitter cannot re-join a sentence cut
-				// at two ` and `s until it is declared, and it is declared from its use here
-				string[] legs = SplitBody(m.Groups[2].Value);
-				for (int i = 0; i < legs.Length; i++)
+				// every run of the body's atoms across both ` and ` and ` or ` boundaries,
+				// rejoined with their own connectives: a skipped sentence may be one
+				// alternative of a disjunction or a reading containing either word, and
+				// the splitters cannot see it whole until it is declared from its use here
+				var atoms = new List<string>();
+				var conns = new List<string>();
+				string bodyR = m.Groups[2].Value;
+				int startA = 0;
+				bool quotedA = false;
+				for (int i = 0; i < bodyR.Length; i++)
 				{
-					for (int j = i; j < legs.Length && j <= i + 3; j++)
+					if (bodyR[i] == '\'') { quotedA = !quotedA; continue; }
+					if (quotedA) continue;
+					string conn = null;
+					if (string.CompareOrdinal(bodyR, i, " and ", 0, 5) == 0) conn = " and ";
+					else if (string.CompareOrdinal(bodyR, i, " or ", 0, 4) == 0 && !Regex.IsMatch(bodyR.Substring(i + 4), @"^(more|fewer|less|later|earlier|equal|otherwise)\b")) conn = " or ";
+					if (conn == null) continue;
+					atoms.Add(bodyR.Substring(startA, i - startA));
+					conns.Add(conn);
+					startA = i + conn.Length;
+					i += conn.Length - 1;
+				}
+				atoms.Add(bodyR.Substring(startA));
+				for (int i = 0; i < atoms.Count; i++)
+				{
+					var run = new System.Text.StringBuilder(atoms[i]);
+					for (int j = i; j < atoms.Count && j <= i + 5; j++)
 					{
-						string run = string.Join(" and ", legs, i, j - i + 1);
-						string sentence = Dequantify(" " + run.Trim() + " ").Trim() + ".";
+						if (j > i) run.Append(conns[j - 1]).Append(atoms[j]);
+						string sentence = Dequantify(" " + run.ToString().Trim() + " ").Trim() + ".";
 						if (!myProseSkipped.Contains(sentence)) continue;
 						myProseSkipped.Remove(sentence);
 						if (MapFactReading(sentence, true)) Count("reading declared by its use in a rule (prose guard lifted)");
@@ -2377,8 +2398,23 @@ namespace Arest.NormaOracle
 		// bodies — exceeds a single role path; those rules stay deferred prose
 		// here and EXECUTE in the canon's rules:metamodel under the C# runner,
 		// which law:markers holds to closure (no marker without a deliverer).
+		// THE SPLIT RUNS HERE, NOT AT DEFERRAL: at deferral the prose replay has not
+		// yet declared the long readings, so an undeclared reading containing " or "
+		// was cut at its own "or" and the replay, which matches whole legs, could
+		// never declare it. Every arm and the census read the expanded list.
+		private bool myDisjunctionsExpanded;
+		private void ExpandDisjunctions()
+		{
+			if (myDisjunctionsExpanded) return;
+			myDisjunctionsExpanded = true;
+			var expanded = new List<string>();
+			foreach (string rule in myDeferredRules) expanded.AddRange(SplitDisjunction(rule));
+			myDeferredRules.Clear();
+			myDeferredRules.AddRange(expanded);
+		}
 		public List<string> BuildDerivationRules()
 		{
+			ExpandDisjunctions();
 			var log = new List<string>();
 			// a fully-derived head is the CWA closure over ALL its rules; one
 			// role path can hold one rule, so only single-rule heads build —
@@ -4147,20 +4183,13 @@ namespace Arest.NormaOracle
 				// filter and stays fine -- that is the case this guard leaves alone.
 				// a subtype filler that is also the join variable is fine now: BuildChain lays
 				// the subtype step where a variable enters a role of its supertype
-				// A VARIABLE IN EVERY LEG IS THE STAR ARM'S SHAPE -- decline, or both arms
-				// build the same sentence and the head ends with more paths than rules.
-				// Measured when this guard was missing: three heads carried a duplicate
-				// recipe and two others gained a second, differently shaped and non-canon
-				// plan for a rule that already matched. "Paths fewer than rules" catches
-				// the under-built case; nothing was catching the over-built one.
-				bool everyLeg = false;
-				foreach (string tok in toksC[0])
-				{
-					bool all = true;
-					for (int li = 1; li < toksC.Count && all; li++) if (!toksC[li].Contains(tok)) all = false;
-					if (all) { everyLeg = true; break; }
-				}
-				if (everyLeg) continue;
+				// A VARIABLE IN EVERY LEG WAS "THE STAR ARM'S SHAPE", declined here so both
+				// arms would not build one sentence (three heads once carried a duplicate
+				// recipe). The star arm declines a star with a chain hanging off one ray
+				// (`... runs to some Successor ... and that Successor has Notice of ...`), so
+				// that shape fell between the two arms. The registry of built sentences is
+				// the guard the comment wanted: what the star arm built, this arm skips.
+				if (myBuiltRuleSentences.Contains(sRawC) || myBuiltRuleSentences.Contains(sC)) continue;
 				string whyC;
 				string recC = GeneralJoinRecipe(legsC, toksC, htC, out whyC);
 				if (recC == null)
@@ -6133,7 +6162,10 @@ namespace Arest.NormaOracle
 						foreach (string ul in ulegs)
 						{
 							string ut = Dequantify(" " + ul.Trim() + " ").Trim();
-							if (ut.Length != 0 && FindEntryByNormalizedSentence(ut) != null) ures++;
+							// with subtype substitution, as the census resolves: a subtype subject over its
+							// supertype's readings read as 0/6 resolving while every leg resolved
+							List<string> upl;
+							if (ut.Length != 0 && ResolveClauseSub(ut, out upl) != null) ures++;
 						}
 						log.Add("UNBUILT (head resolves, no arm matched the body) [legs resolving "
 							+ ures + "/" + ulegs.Length + "]: " + s2);
