@@ -3785,7 +3785,19 @@ namespace Arest.NormaOracle
 				var drpU = new DerivedRoleProjection(pjU, hEU.Roles[0]);
 				if (topU != null) new DerivedRoleProjectedFromPathedRole(drpU, topU);
 				else new DerivedRoleProjectedFromRolePathRoot(drpU, rootU);
-				myRuleRecipes.Add("S3(" + IAtom(hEU.Fact.Name) + ", S1(" + IAtom(hEU.Players[0]) + "), " + exprU + ")");
+				// A RECIPE IS A FORM; AN ATOM IS AN OPERAND. Both sources above can
+				// answer a bare atom -- a membership leg names the subtype's
+				// population, a unary leg names its own -- and with a second leg the
+				// joinon wraps it. With ONE leg nothing did, so the recipe WAS the
+				// atom, and the closure asks a recipe for its tag: selector 1 on an
+				// atom, thrown from inside the fixpoint. Nine us-law rules are that
+				// shape (Agency Action is final iff it is a Final Agency Action, pass-
+				// through by entity kind, taking by taking kind) and NO us-law store
+				// could boot. The wrapper is the one a wider leg already uses, so the
+				// single-leg and multi-leg spellings now agree.
+				myRuleRecipes.Add("S3(" + IAtom(hEU.Fact.Name) + ", S1(" + IAtom(hEU.Players[0]) + "), "
+					+ (exprU.StartsWith("A(", StringComparison.Ordinal)
+						? "S3(A(\"proj\"), " + exprU + ", S1(N(1)))" : exprU) + ")");
 				myBuiltRuleSentences.Add(sRawU);
 				log.Add(hEU.Fact.Name + " := unary star on " + hEU.Players[0] + " over " + lEs.Count + " legs, " + DescribeDerivation(hEU.Fact));
 			}
