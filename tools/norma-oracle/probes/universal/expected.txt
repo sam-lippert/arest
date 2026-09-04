@@ -1,0 +1,7 @@
+errors 0
+*API is load bearing for Use Case if and only if
+some Customer1 calls that API in some Measurement Window with some Call Volume
+and  pursues that Use Case
+where no Customer2 pursues that Use Case
+where it is not true that (that Customer2 calls that API in some Measurement Window with some Call Volume).
+

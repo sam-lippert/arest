@@ -254,6 +254,17 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   other. What the alias refuses, the census says: `Timestamp is Date`
   equates a datetime with a date, which NORMA will not project, and only
   the author can say which value the head carries.
+- The universal `every X that P Q` (`every Customer that pursues that Use
+  Case calls that API in some Measurement Window with some Call Volume`)
+  is "no X P without Q": a negated leg over a fresh X with the consequent
+  negated inside it, laid as a sub-path of the outer negated leg's own
+  path, which NORMA keeps inside the negation (`no Customer2 pursues that
+  Use Case where it is not true that (that Customer2 calls that API in
+  some Measurement Window with some Call Volume)`). A `some` inside the
+  universal is a fresh variable; only `that` binds to the outside. The
+  head's roles must be bound by positive legs before it -- a universal
+  alone binds nothing (an unpursued use case would make every API load
+  bearing) -- so the corpus states the witness first.
 - A leg may name the rule's own head: the inductive step of a cost-to-goal
   (`State1 reaches goal at Count3 iff State1 steps to State2 by Operator1
   and Operator1 costs Count2 and State2 reaches goal at Count1 and Count2

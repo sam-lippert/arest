@@ -6067,9 +6067,69 @@ namespace Arest.NormaOracle
 				// earlier one of its type; the clause resolves as `some Fact2 ...` and the
 				// distinctness is a NotEquals condition against that antecedent
 				var otherC = new List<string[]>();
-				foreach (string clC in partsC)
+				// `nestC[l]` is the negated leg that leg l sits inside, or -1 (BuildChain)
+				var nestC = new List<int>();
+				for (int pcI = 0; pcI < partsC.Length; pcI++)
 				{
-					string tC = clC.Trim();
+					string tC = partsC[pcI].Trim();
+					// THE UNIVERSAL: `every Customer that pursues that Use Case calls that API in
+					// some Measurement Window with some Call Volume` is "no Customer pursues
+					// that Use Case without calling that API" -- a negated leg over a fresh
+					// Customer (the restriction) with the consequent negated INSIDE it. The two
+					// readings are found by the one cut of the words that resolves both. The
+					// relative clause reaches this arm rewritten -- `every Customer` and then
+					// `that Customer pursues ... calls ...` -- so a bare `every X` takes the
+					// clause after it.
+					Match evm = Regex.Match(tC, @"^every ([A-Z][\w ]*?) that (.+)$");
+					if (!evm.Success && pcI + 1 < partsC.Length)
+					{
+						Match evBare = Regex.Match(tC, @"^every ([A-Z][\w ]*)$");
+						string nextC = partsC[pcI + 1].Trim();
+						if (evBare.Success && nextC.StartsWith("that " + evBare.Groups[1].Value.Trim() + " ", StringComparison.Ordinal))
+						{
+							evm = Regex.Match("every " + evBare.Groups[1].Value.Trim() + " that " + nextC.Substring(5 + evBare.Groups[1].Value.Trim().Length + 1), @"^every ([A-Z][\w ]*?) that (.+)$");
+							if (evm.Success) pcI++;
+						}
+					}
+					if (evm.Success)
+					{
+						string evX = evm.Groups[1].Value.Trim();
+						string[] evWords = evm.Groups[2].Value.Trim().Split(' ');
+						FactIndexEntry evP = null, evQ = null; List<string> plP = null, plQ = null; string txtP = null, txtQ = null;
+						for (int cut = 1; cut < evWords.Length && evP == null; cut++)
+						{
+							string pText = evX + " " + string.Join(" ", evWords, 0, cut);
+							string qText = evX + " " + string.Join(" ", evWords, cut, evWords.Length - cut);
+							List<string> pl1, pl2;
+							FactIndexEntry e1 = ResolveClauseSub(Dequantify(" " + pText + " ").Trim(), out pl1);
+							if (e1 == null) continue;
+							FactIndexEntry e2 = ResolveClauseSub(Dequantify(" " + qText + " ").Trim(), out pl2);
+							if (e2 == null) continue;
+							evP = e1; evQ = e2; plP = pl1; plQ = pl2; txtP = pText; txtQ = qText;
+						}
+						if (evP == null) { okC = false; myPlanDeclines[sC] = "chain arm: no cut of `" + tC + "` resolves both readings"; break; }
+						string evFresh = evX + "~every" + legsC.Count;
+						List<string> tP = RoleQualified(Dequantify(" " + txtP + " ").Trim(), plP, true);
+						List<string> tQ = RoleQualified(Dequantify(" " + txtQ + " ").Trim(), plQ, true);
+						// X is one variable in both; a `some` inside the universal is a FRESH one
+						// (`calls that API in some Measurement Window`: any window, not the
+						// guard's), so only `that` binds to the outside
+						bool[] bP = BoundPositions(txtP, plP), bQ = BoundPositions(txtQ, plQ);
+						bool xP = false, xQ = false;
+						for (int c = 0; c < tP.Count; c++)
+						{
+							if (!xP && StripRolePrefix(tP[c]) == evX) { tP[c] = evFresh; xP = true; }
+							else if (c < bP.Length && !bP[c]) tP[c] = tP[c] + "~e" + legsC.Count;
+						}
+						for (int c = 0; c < tQ.Count; c++)
+						{
+							if (!xQ && StripRolePrefix(tQ[c]) == evX) { tQ[c] = evFresh; xQ = true; }
+							else if (c < bQ.Length && !bQ[c]) tQ[c] = tQ[c] + "~e" + (legsC.Count + 1);
+						}
+						legsC.Add(evP); negC.Add(true); nestC.Add(-1); toksC.Add(tP);
+						legsC.Add(evQ); negC.Add(true); nestC.Add(legsC.Count - 2); toksC.Add(tQ);
+						continue;
+					}
 					bool isOtherC = false;
 					if (tC.StartsWith("some other ", StringComparison.Ordinal)) { isOtherC = true; tC = "some " + tC.Substring(11); }
 					// AN ARITHMETIC CLAUSE COMPUTES a head value rather than binding one:
@@ -6192,6 +6252,7 @@ namespace Arest.NormaOracle
 								if (leI == null) { okC = false; myPlanDeclines[sC] = "chain arm: clause names no fact type: " + implied; break; }
 								legsC.Add(leI);
 								negC.Add(false);
+								nestC.Add(-1);
 								toksC.Add(RoleQualified(implied, plI, true));
 								rightC = ofm.Groups[1].Value.Trim();
 							}
@@ -6277,6 +6338,7 @@ namespace Arest.NormaOracle
 					legsC.Add(leC);
 					if (swapC != null) swapPlayersC.Add(swapC);
 					negC.Add(thisNegC);
+					nestC.Add(-1);
 					toksC.Add(RoleQualified(Dequantify(" " + tPosC + " ").Trim(), plC, true));
 					// A RESTRICTED VALUE IS ITS OWN VARIABLE. Two legs restricting Position to 2
 					// and to 1 both tokenised the role as `Position`, and the repeated token
@@ -6351,6 +6413,7 @@ namespace Arest.NormaOracle
 							if (leI == null) continue;
 							legsC.Add(leI);
 							negC.Add(false);
+							nestC.Add(-1);
 							toksC.Add(RoleQualified(implied, plI, true));
 						}
 					}
@@ -6572,7 +6635,8 @@ namespace Arest.NormaOracle
 				var leadC = new LeadRolePath(myStore);
 				ruleC.OwnedLeadRolePathCollection.Add(leadC);
 				new RolePathObjectTypeRoot(leadC, rootC);
-				PathedRole[][] rowsC = BuildChain(leadC, legsC, toksC, rootTokC, false, negArrC);
+				while (nestC.Count < legsC.Count) nestC.Add(-1);
+				PathedRole[][] rowsC = BuildChain(leadC, legsC, toksC, rootTokC, false, negArrC, nestC.ToArray());
 				// AN ARM THAT BAILS MUST TAKE ITS LEAD PATH WITH IT. The path is attached to
 				// the head's derivation rule BEFORE the parts that can fail, so every
 				// `continue` below here used to leave a rooted path with nothing projected
@@ -7446,6 +7510,45 @@ namespace Arest.NormaOracle
 				// `no other X` is `no X` with the same distinctness inside the negation
 				if (c.StartsWith("some other ", StringComparison.Ordinal)) c = "some " + c.Substring(11);
 				if (c.StartsWith("no other ", StringComparison.Ordinal)) c = "no " + c.Substring(9);
+				// `every X that P Q` is two negated clauses over one fresh X, as the arm lays it;
+				// the relative clause arrives rewritten, `every X` then `that X P Q`
+				{
+					Match evm = Regex.Match(c, @"^every ([A-Z][\w ]*?) that (.+)$");
+					if (!evm.Success && qi + 1 < queue.Count)
+					{
+						Match evBare = Regex.Match(c, @"^every ([A-Z][\w ]*)$");
+						string nextQ = Regex.Replace(queue[qi + 1].Trim(), @"\s+", " ");
+						if (evBare.Success && nextQ.StartsWith("that " + evBare.Groups[1].Value.Trim() + " ", StringComparison.Ordinal))
+						{
+							evm = Regex.Match("every " + evBare.Groups[1].Value.Trim() + " that " + nextQ.Substring(5 + evBare.Groups[1].Value.Trim().Length + 1), @"^every ([A-Z][\w ]*?) that (.+)$");
+							if (evm.Success) queue.RemoveAt(qi + 1);
+						}
+					}
+					if (evm.Success)
+					{
+						string evX = evm.Groups[1].Value.Trim();
+						string[] evWords = evm.Groups[2].Value.Trim().Split(' ');
+						string txtP = null, txtQ = null;
+						for (int cut = 1; cut < evWords.Length && txtP == null; cut++)
+						{
+							string pText = evX + " " + string.Join(" ", evWords, 0, cut);
+							string qText = evX + " " + string.Join(" ", evWords, cut, evWords.Length - cut);
+							List<string> pl1, pl2;
+							if (ResolveClauseSub(Dequantify(" " + pText + " ").Trim(), out pl1) == null) continue;
+							if (ResolveClauseSub(Dequantify(" " + qText + " ").Trim(), out pl2) == null) continue;
+							txtP = pText; txtQ = qText;
+						}
+						if (txtP != null)
+						{
+							noGroups++;
+							// `;*` in the marker: a `some` inside the universal is a fresh variable
+							string mark = "" + evX + "|" + evX + "~every" + noGroups + ";*it is not true that ";
+							queue.Add(mark + txtP);
+							queue.Add(mark + txtQ);
+							continue;
+						}
+					}
+				}
 				// `T is a S` with S a subtype of T types the variable and is no clause: the
 				// path's subtype-fact instance folds into that variable already -- and so
 				// does a chain of them (`Future Interest is a Contingent Remainder`, two
@@ -7475,11 +7578,16 @@ namespace Arest.NormaOracle
 				// along in a marker so its clause renames the same way.
 				bool noNeg = false;
 				string quantTok = null, quantNew = null;
+				// `*` after the marker's pair: every token the clause does not bind with `that`
+				// is a fresh variable there (a `some` inside a universal)
+				bool freshUnbound = false;
 				if (c.StartsWith("\u0002"))
 				{
 					int m3 = c.IndexOf('\u0003');
-					string[] mk = c.Substring(1, m3 - 1).Split('|');
+					string[] mkAll = c.Substring(1, m3 - 1).Split(';');
+					string[] mk = mkAll[0].Split('|');
 					quantTok = mk[0]; quantNew = mk[1];
+					for (int mi = 1; mi < mkAll.Length; mi++) if (mkAll[mi] == "*") freshUnbound = true;
 					c = c.Substring(m3 + 1);
 				}
 				if (c.StartsWith("no ", StringComparison.OrdinalIgnoreCase))
@@ -7591,6 +7699,12 @@ namespace Arest.NormaOracle
 				List<string> clits;
 				string[] toks = RbTokens(c, players, out clits);
 				if (quantTok != null) for (int i = 0; i < toks.Length; i++) if (toks[i] == quantTok) toks[i] = quantNew;
+				if (freshUnbound)
+				{
+					bool[] boundHere = BoundPositions(c, players);
+					for (int i = 0; i < toks.Length && i < boundHere.Length; i++)
+						if (toks[i] != null && toks[i] != quantNew && !boundHere[i]) toks[i] = toks[i] + "~e" + qi;
+				}
 				t.Clauses.Add(new RbClause { Entry = e, Tokens = toks, Negated = neg });
 			}
 			// the objectifications the clauses name anaphorically, renamed to their
@@ -8920,8 +9034,24 @@ namespace Arest.NormaOracle
 		private PathedRole[][] BuildChain(RolePath parent, List<FactIndexEntry> legs,
 			List<List<string>> toks, string rootTok, bool negated, bool[] negLeg)
 		{
+			return BuildChain(parent, legs, toks, rootTok, negated, negLeg, null);
+		}
+
+		// `nestUnder[li]` names the negated leg a negated leg li sits INSIDE: the
+		// universal `every Customer that pursues that Use Case calls that API` is
+		// "no Customer pursues that Use Case without calling that API", i.e. it is not
+		// true that (some Customer pursues that Use Case and it is not true that that
+		// Customer calls that API). The inner leg hangs off the outer leg's own path
+		// -- NORMA keeps every later step of a negated path, and its sub-paths, inside
+		// the negation -- entered at the variable the outer leg bound, which is a
+		// variable only there, with its own entry negated in turn.
+		private PathedRole[][] BuildChain(RolePath parent, List<FactIndexEntry> legs,
+			List<List<string>> toks, string rootTok, bool negated, bool[] negLeg, int[] nestUnder)
+		{
 			List<int> order = ChainOrder(toks, rootTok, negLeg);
 			if (order == null) return null;
+			// the variables each negated leg bound, for a leg nested inside it only
+			var negBound = new Dictionary<int, Dictionary<string, PathedRole>>();
 			// EACH LEG ATTACHES WHERE ITS ENTRY VARIABLE WAS BOUND, which is sometimes the
 			// lead and sometimes another leg's sub-path. Laying every leg into ONE sub-path
 			// chains them unconditionally, and NORMA rejects that the moment two legs both
@@ -8955,6 +9085,29 @@ namespace Arest.NormaOracle
 			for (int k = 0; k < order.Count; k++)
 			{
 				int li = order[k];
+				int nestP = nestUnder != null && li < nestUnder.Length ? nestUnder[li] : -1;
+				if (nestP >= 0)
+				{
+					Dictionary<string, PathedRole> outer;
+					if (slots[nestP] == null || !negBound.TryGetValue(nestP, out outer) || leadForUni == null) return null;
+					string nEntry = null; PathedRole nPr = null;
+					foreach (string t in toks[li]) { PathedRole cand; if (outer.TryGetValue(t, out cand)) { nEntry = t; nPr = cand; break; } }
+					if (nEntry == null) return null;
+					int nep = toks[li].IndexOf(nEntry);
+					RoleSubPath under = nPr.RolePath as RoleSubPath;
+					if (under == null) return null;
+					ObjectType nRootT;
+					if (!myTypes.TryGetValue(legs[li].Players[nep], out nRootT)) return null;
+					var nsp = new RoleSubPath(myStore);
+					under.SubPathCollection.Add(nsp);
+					var nRoot = new RolePathObjectTypeRoot(nsp, nRootT);
+					var nRow = new PathedRole[legs[li].Roles.Count];
+					EnterLeg(nsp, legs[li], nep, nRow);
+					UnifyObjects(leadForUni, RbObjectOf(nPr), nRoot);
+					nRow[nep].IsNegated = true;
+					slots[li] = nRow;
+					continue;
+				}
 				string entryTok = null;
 				foreach (string t in toks[li]) if (boundAt.ContainsKey(t)) { entryTok = t; break; }
 				var sp = new RoleSubPath(myStore);
@@ -9014,7 +9167,14 @@ namespace Arest.NormaOracle
 						new PathObjectUnifierUnifiesRolePathRoot(uni, uniRoot);
 						slots[li] = uniRow;
 						if (firstSp == null) firstSp = sp;
-						if (negLeg != null && negLeg[li]) { uniRow[ep].IsNegated = true; continue; }
+						if (negLeg != null && negLeg[li])
+						{
+							uniRow[ep].IsNegated = true;
+							var nb = new Dictionary<string, PathedRole>(StringComparer.Ordinal);
+							for (int c = 0; c < toks[li].Count; c++) if (c != ep && !nb.ContainsKey(toks[li][c])) nb[toks[li][c]] = uniRow[c];
+							negBound[li] = nb;
+							continue;
+						}
 						for (int c = 0; c < toks[li].Count; c++)
 							if (!boundAt.ContainsKey(toks[li][c]))
 								{ boundAt[toks[li][c]] = sp; boundRole[toks[li][c]] = uniRow[c]; }
@@ -9043,8 +9203,12 @@ namespace Arest.NormaOracle
 				if (negLeg != null && negLeg[li])
 				{
 					// negated ON ITS ENTRY ROLE, the same place the whole-chain form puts it,
-					// and its variables stay unbound so nothing downstream can join to them
+					// and its variables stay unbound so nothing downstream can join to them --
+					// except a leg nested inside this negation, which enters at one of them
 					row[ep].IsNegated = true;
+					var nb = new Dictionary<string, PathedRole>(StringComparer.Ordinal);
+					for (int c = 0; c < toks[li].Count; c++) if (c != ep && !nb.ContainsKey(toks[li][c])) nb[toks[li][c]] = row[c];
+					negBound[li] = nb;
 					continue;
 				}
 				for (int c = 0; c < toks[li].Count; c++)
@@ -9438,8 +9602,9 @@ namespace Arest.NormaOracle
 					leads.Add(Regex.Escape(first) + " ");
 				}
 				string alt = leads.Count == 0 ? "" : string.Join("|", leads) + "|";
-				// `no ` opens a clause too (`... and no other Style Candidate has that Squish VIN`)
-				mySplitRe = new Regex(@" and (?=that |some |no |[A-Z]|" + alt
+				// `no ` opens a clause too (`... and no other Style Candidate has that Squish VIN`),
+				// and so does `every ` (`... and every Customer that pursues that Use Case ...`)
+				mySplitRe = new Regex(@" and (?=that |some |no |every |[A-Z]|" + alt
 					+ @"[A-Za-z][\w-]*(?: [\w-]+){0,3} equals |[a-z][\w-]*(?: [\w-]+){0,3} is )");
 			}
 			string[] parts = mySplitRe.Split(body);
