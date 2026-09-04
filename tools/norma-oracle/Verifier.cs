@@ -6039,7 +6039,7 @@ namespace Arest.NormaOracle
 				// inverts it.
 				// ... and a quoted value is not a negation: `that State has In-Lieu-Of Motor
 				// Vehicle Tax 'no'` restricts a value to the word no. Blank the literals first.
-				if (Regex.IsMatch(Regex.Replace(LiteralRx.Replace(bodyC, "''"), " has no | is not | does not ", " "), @"\b(no|not)\b"))
+				if (Regex.IsMatch(Regex.Replace(LiteralRx.Replace(bodyC, "''"), " has no | is not | does not | no other ", " "), @"\b(no|not)\b"))
 				{
 					myPlanDeclines[sC] = "chain arm: a negation in a form this arm does not read";
 					continue;
@@ -6126,7 +6126,12 @@ namespace Arest.NormaOracle
 					// THE CANONICAL FORM FIRST: `it is not true that <clause>` contains " is not "
 					// and the idiom below turned it into "it is true that ...", which resolves
 					// to nothing -- the rewritten GDPR rule lost its build that way.
-					if (tC.StartsWith("it is not true that ", StringComparison.OrdinalIgnoreCase)) { thisNegC = true; negTriesC.Add(tC.Substring(20).Trim()); }
+					// `no other Style Candidate has that Squish VIN`: a negated leg over a FRESH
+					// variable of the type -- not the Style Candidate the head bound -- with the
+					// distinctness NotEquals(fresh, that one) scoped INSIDE the negation
+					bool noOtherC = false;
+					if (tC.StartsWith("no other ", StringComparison.Ordinal)) { thisNegC = true; noOtherC = true; negTriesC.Add("some " + tC.Substring(9)); }
+					else if (tC.StartsWith("it is not true that ", StringComparison.OrdinalIgnoreCase)) { thisNegC = true; negTriesC.Add(tC.Substring(20).Trim()); }
 					else if (tC.Contains(" has no ")) { thisNegC = true; negTriesC.Add(tC.Replace(" has no ", " has ")); }
 					else if (tC.Contains(" is not ")) { thisNegC = true; negTriesC.Add(tC.Replace(" is not ", " is ")); }
 					else if (tC.Contains(" does not "))
@@ -6279,6 +6284,20 @@ namespace Arest.NormaOracle
 							foreach (string tk in toksC[l])
 								if (tk != fresh && StripRolePrefix(tk) == StripRolePrefix(fresh)) { ante = tk; break; }
 						if (ante != null) otherC.Add(new string[] { fresh, "is not", ante });
+					}
+					if (noOtherC)
+					{
+						List<string> lastToks = toksC[toksC.Count - 1];
+						string subjectTok = lastToks[0];
+						string fresh = subjectTok + "~other" + legsC.Count;
+						string ante = null;
+						for (int l = toksC.Count - 2; l >= 0 && ante == null; l--)
+							foreach (string tk in toksC[l])
+								if (StripRolePrefix(tk) == StripRolePrefix(subjectTok)) { ante = tk; break; }
+						lastToks[0] = fresh;
+						if (ante == null) { okC = false; myPlanDeclines[sC] = "chain arm: `no other " + subjectTok + "` has no earlier " + subjectTok + " to differ from"; break; }
+						// the fourth element scopes the condition to this negated leg
+						otherC.Add(new string[] { fresh, "is not", ante, (legsC.Count - 1).ToString() });
 					}
 				}
 				// the objectifications a clause names anaphorically, renamed to their
@@ -6733,6 +6752,13 @@ namespace Arest.NormaOracle
 					}
 					else if (popR != null) BindOperand(ciR, PopulationRoot(leadC, popR));
 					else new CalculatedPathValueInputBindsToPathedRole(ciR, rowsC[lR][pR]);
+					// A CONDITION INSIDE A NEGATION: `no other Style Candidate has that Squish
+					// VIN` holds NotEquals(fresh, bound) within the "it is not true that", where
+					// the fresh variable lives. NORMA retired the explicit scope
+					// (CalculatedPathValueScopedWithPathedRole is _Deprecated); a condition is
+					// evaluated where its inputs are bound, so binding the fresh variable's
+					// negated pathed role places it inside. The fourth element records the
+					// negated leg for the record; nothing more is laid.
 					leadC.CalculatedConditionCollection.Add(cpvC);
 				}
 				if (!okC) continue;
@@ -7388,8 +7414,10 @@ namespace Arest.NormaOracle
 			{
 				string c = Regex.Replace(queue[qi].Trim(), @"\s+", " ");
 				if (c.Length == 0) continue;
-				// `some other X` is `some X` plus a distinctness the arm keeps as a calculation
+				// `some other X` is `some X` plus a distinctness the arm keeps as a calculation;
+				// `no other X` is `no X` with the same distinctness inside the negation
 				if (c.StartsWith("some other ", StringComparison.Ordinal)) c = "some " + c.Substring(11);
+				if (c.StartsWith("no other ", StringComparison.Ordinal)) c = "no " + c.Substring(9);
 				// `T is a S` with S a subtype of T types the variable and is no clause: the
 				// path's subtype-fact instance folds into that variable already -- and so
 				// does a chain of them (`Future Interest is a Contingent Remainder`, two
@@ -9382,7 +9410,8 @@ namespace Arest.NormaOracle
 					leads.Add(Regex.Escape(first) + " ");
 				}
 				string alt = leads.Count == 0 ? "" : string.Join("|", leads) + "|";
-				mySplitRe = new Regex(@" and (?=that |some |[A-Z]|" + alt
+				// `no ` opens a clause too (`... and no other Style Candidate has that Squish VIN`)
+				mySplitRe = new Regex(@" and (?=that |some |no |[A-Z]|" + alt
 					+ @"[A-Za-z][\w-]*(?: [\w-]+){0,3} equals |[a-z][\w-]*(?: [\w-]+){0,3} is )");
 			}
 			string[] parts = mySplitRe.Split(body);
