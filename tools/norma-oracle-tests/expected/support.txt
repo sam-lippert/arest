@@ -98,6 +98,7 @@ EasementIsValidlyCreated
 EasementIsValidlyCreated
 EasementIsValidlyCreated
 Entity Type
+EquitableServitudeIsEnforceableAgainstSuccessor
 ExternalSystemHasServiceHealthStatus
 ExternalSystemHasServiceHealthStatus
 ExternalSystemHasServiceHealthStatus

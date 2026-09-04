@@ -292,5 +292,8 @@ its first run named twenty kernel rules whose second shared token had been
 left as a free existential, plus a metamodel rule whose Failure succeeded
 itself. Coverage is stated in the summary line: a head whose text needs a
 subtype substitution, or has a clause naming no fact type, is UNCHECKED and
-counted, and calculation clauses are not compared. `CorpusTests` carries the
+counted, and calculation clauses are not compared. A CLAUSE that resolves by
+subtype substitution is checked: it reads as its supertype's fact with the
+subtype's own token, the path having folded the subtype fact into that
+variable -- the first such check found a rule built as a cross product. `CorpusTests` carries the
 count as `read-back`; `ProbeTests` records the lines.
