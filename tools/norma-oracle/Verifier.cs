@@ -2693,8 +2693,10 @@ namespace Arest.NormaOracle
 				// declined it while its leg resolved 1/1 (the Bolar safe harbor, title 35)
 				if (SplitBody(body1).Length != 1) continue;
 				// a quoted literal is a condition, not a rename — the value-condition
-				// arm owns that shape and baking it here would lose the constant
-				if (body1.Contains("'")) continue;
+				// arm owns that shape and baking it here would lose the constant. A
+				// possessive is not a literal (`Judge's impartiality might reasonably be
+				// questioned`, title 28), so the test is the literal regex, not the apostrophe
+				if (LiteralRx.IsMatch(body1)) continue;
 				string head1 = m1.Groups[1].Value.Trim();
 				FactIndexEntry hE = FindEntryByNormalizedSentence(head1);
 				FactIndexEntry sE = FindEntryByNormalizedSentence(Dequantify(" " + body1 + " ").Trim());
@@ -3434,11 +3436,21 @@ namespace Arest.NormaOracle
 				new RolePathObjectTypeRoot(lead6, myTypes[hE6.Players[0]]);
 				var subPos = new RoleSubPath(myStore);
 				lead6.SubPathCollection.Add(subPos);
+				// THE ENTRY ROLE IS LAID FIRST. NORMA reads a subpath's pathed roles in
+				// order, and a same-fact-type role before the fact's entry is
+				// PathSameFactTypeRoleFollowsJoinError; laying the roles in fact order
+				// put the entry second whenever the head's player was not the reading's
+				// first (`Civil Action is removable iff District Court would have had
+				// original jurisdiction over Civil Action and ...`, us-law 2026-09-04)
 				var pRoles = new PathedRole[pE.Roles.Count];
+				var pEntry = new PathedRole(subPos, pE.Roles[pPos[0]]);
+				pEntry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+				pRoles[pPos[0]] = pEntry;
 				for (int c = 0; c < pE.Roles.Count; c++)
 				{
+					if (c == pPos[0]) continue;
 					var pr = new PathedRole(subPos, pE.Roles[c]);
-					pr.PathedRolePurpose = c == pPos[0] ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
+					pr.PathedRolePurpose = PathedRolePurpose.SameFactType;
 					pRoles[c] = pr;
 				}
 				// PathedRole.IsNegated, NOT RolePath.SplitIsNegated. The split flag negates
@@ -3460,11 +3472,14 @@ namespace Arest.NormaOracle
 					// in some Printed Publication") with no error, a wrong build the gate had to
 					// learn to see; the entry role negated reads "it is not true that (...)",
 					// for a unary leg the same role as before
+					var nEntry = new PathedRole(subNeg, nE.Roles[nPos[0]]);
+					nEntry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+					nEntry.IsNegated = true;
 					for (int c = 0; c < nE.Roles.Count; c++)
 					{
+						if (c == nPos[0]) continue;
 						var nr = new PathedRole(subNeg, nE.Roles[c]);
-						nr.PathedRolePurpose = c == nPos[0] ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
-						if (c == nPos[0]) nr.IsNegated = true;
+						nr.PathedRolePurpose = PathedRolePurpose.SameFactType;
 					}
 					negNames.Add(nE.Fact.Name);
 				}
@@ -3478,6 +3493,8 @@ namespace Arest.NormaOracle
 				foreach (string p in hE6.Players) hp6.Add(IAtom(p));
 				myRuleRecipes.Add("S3(" + IAtom(hE6.Fact.Name) + ", S" + hp6.Count + "("
 					+ string.Join(", ", hp6) + "), " + rightSide + ")");
+				// registered, so the general join lays no second path on a head this arm built
+				myBuiltRuleSentences.Add(sRaw6);
 				log.Add(hE6.Fact.Name + " := minus (" + pE.Fact.Name + " less " + string.Join(", ", negNames)
 					+ "), " + DescribeDerivation(hE6.Fact));
 			}
@@ -3542,12 +3559,16 @@ namespace Arest.NormaOracle
 					int nAt6b = nAts6b[k];
 					var subN6b = new RoleSubPath(myStore);
 					lead6b.SubPathCollection.Add(subN6b);
-					// the negation sits on the entry role (see shape one)
+					// the negation sits on the entry role (see shape one), and the entry is
+					// laid first
+					var nEntry6b = new PathedRole(subN6b, nE6b.Roles[nAt6b]);
+					nEntry6b.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+					nEntry6b.IsNegated = true;
 					for (int c = 0; c < nE6b.Roles.Count; c++)
 					{
+						if (c == nAt6b) continue;
 						var nr6b = new PathedRole(subN6b, nE6b.Roles[c]);
-						nr6b.PathedRolePurpose = c == nAt6b ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
-						if (c == nAt6b) nr6b.IsNegated = true;
+						nr6b.PathedRolePurpose = PathedRolePurpose.SameFactType;
 					}
 					expr6b ="S3(A(\"minus\"), " + expr6b + ", " + IAtom(nE6b.Fact.Name) + ")";
 					negNames6b.Add(nE6b.Fact.Name);
@@ -3557,6 +3578,7 @@ namespace Arest.NormaOracle
 				new DerivedRoleProjectedFromRolePathRoot(drp6b, root6b);
 				myRuleRecipes.Add("S3(" + IAtom(hE6b.Fact.Name) + ", S1(" + IAtom(hE6b.Players[0])
 					+ "), " + expr6b + ")");
+				myBuiltRuleSentences.Add(sRaw6b);
 				log.Add(hE6b.Fact.Name + " := minus (" + hE6b.Players[0] + " less " + string.Join(", ", negNames6b)
 					+ "), " + DescribeDerivation(hE6b.Fact));
 			}
@@ -3577,11 +3599,14 @@ namespace Arest.NormaOracle
 				if (!mU.Success) continue;
 				// ` and no ` is shape two's connective; a leg reading `has no Actual Notice`
 				// is an ordinary unary and stays
-				if (sU.Contains("'") || sU.Contains(" and no ") || sU.Contains("not true")) continue;
+				if (LiteralRx.IsMatch(sU) || sU.Contains(" and no ") || sU.Contains("not true")) continue;
 				if (myBuiltRuleSentences.Contains(sRawU) || myBuiltRuleSentences.Contains(sU)) continue;
 				string headU = mU.Groups[1].Value.Trim();
+				// one leg is enough when it is a membership leg the projection arm cannot
+				// take (`Taxpayer is pass-through iff Taxpayer is an S Corporation`, two
+				// hops); a head the projection arm already built has its paths and is skipped
 				string[] legsU = SplitBody(mU.Groups[2].Value);
-				if (legsU.Length < 2) continue;
+				if (legsU.Length < 1) continue;
 				FactIndexEntry hEU = FindEntryByNormalizedSentence(headU);
 				if (hEU == null || hEU.Players.Count != 1) continue;
 				// every leg is entered at the head's player as its SUBJECT; a wider leg keeps
