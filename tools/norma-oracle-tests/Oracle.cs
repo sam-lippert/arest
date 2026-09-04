@@ -155,6 +155,59 @@ namespace Arest.NormaOracle.Tests
             }
         }
 
+        // THE FULL COMPOSITION, BOOTED, ASKED FOR THE LAW REPORT. Host() above
+        // composes the SLIM regress module on purpose -- the three regress laws
+        // read the carriers and nothing else, and paying for a boot there would
+        // cost minutes per corpus for nothing. This is the other half: the
+        // carriers are NOT the store, and a check that only reads them cannot
+        // see a closure that crashes, doubles a row, or silently computes
+        // nothing. Composed as `cli` because that mode boots.
+        public static Run LawReport(string scratch)
+        {
+            var build = new ProcessStartInfo
+            {
+                FileName = "bun",
+                WorkingDirectory = JsRunner,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+            build.ArgumentList.Add("build.js");
+            build.ArgumentList.Add("cli");
+            build.Environment["AREST_CARRIERS"] = scratch;
+            build.Environment["AREST_OUT_DIR"] = scratch;
+            using (Process p = Process.Start(build))
+            {
+                var err = p.StandardError.ReadToEndAsync();
+                p.StandardOutput.ReadToEnd();
+                p.WaitForExit();
+                if (p.ExitCode != 0) throw new InvalidOperationException("the composition failed: " + err.Result);
+            }
+            var psi = new ProcessStartInfo
+            {
+                FileName = "bun",
+                WorkingDirectory = scratch,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+            psi.ArgumentList.Add(Path.Combine(scratch, "composed.g.js"));
+            psi.ArgumentList.Add("verify");
+            using (Process p = Process.Start(psi))
+            {
+                var err = p.StandardError.ReadToEndAsync();
+                string outp = p.StandardOutput.ReadToEnd();
+                p.WaitForExit();
+                return new Run
+                {
+                    Output = (outp + err.Result).Replace("\r\n", "\n"),
+                    Scratch = scratch,
+                    Report = "",
+                    ExitCode = p.ExitCode,
+                };
+            }
+        }
+
         public static string[] Lines(string text)
         {
             return text.Split('\n');

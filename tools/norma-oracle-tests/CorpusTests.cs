@@ -121,6 +121,45 @@ namespace Arest.NormaOracle.Tests
             Assert.True(regress.ExitCode == 0, name + " does not read as recorded:\n" + regress.Output);
         }
 
+        // THE CARRIERS ARE NOT THE STORE. Every other check here reads what the
+        // oracle wrote; this one BOOTS it -- FILE projected from state:fts, the
+        // meta-types reflected, the populations closed under the program's own
+        // rules -- and asks canon for the law report. Three defects in one day
+        // (2026-09-04) were invisible to every reading check and would each have
+        // been caught here: a single-leg rule emitting a bare atom where a form
+        // belongs, which crashed the closure on any us-law store; deontic
+        // constraints that could have stopped building with all six corpora
+        // still green; and a closure that doubled a semi-derived head, writing
+        // `Right has World Assumption open` beside `... closed`.
+        //
+        // Recorded, not asserted green: law-core's report is 58 laws holding and
+        // marker-closure answering F, because `Authority is currently in force`
+        // is marked derived and has no executable recipe. Pinning the real
+        // answer makes a change visible; asserting a green we do not have would
+        // only mean deleting the test later. NORMA_ORACLE_RECORD=1 writes it.
+        [Fact]
+        [Trait("Category", "Corpus")]
+        public void LawReportReadsAsRecorded()
+        {
+            const string name = "lawcore";
+            List<string> dirs = Corpus.Directories(name);
+            foreach (string d in dirs) Assert.True(Directory.Exists(d), "corpus " + name + " names a directory that does not exist: " + d);
+            string scratch = Oracle.Scratch("corpora", name + "-laws");
+            Oracle.Run run = Oracle.Execute(scratch, dirs);
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            Oracle.Run report = Oracle.LawReport(scratch);
+            string actual = report.Output.Trim();
+            string expectedPath = ExpectedPath("laws-" + name);
+            if (Oracle.Recording)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(expectedPath));
+                File.WriteAllText(expectedPath, actual);
+                return;
+            }
+            Assert.True(File.Exists(expectedPath), "NO EXPECTED laws-" + name + " (NORMA_ORACLE_RECORD=1 records it)");
+            Assert.Equal(File.ReadAllText(expectedPath).Replace("\r\n", "\n").Trim(), actual);
+        }
+
         // the carriers are a function of the readings: two runs of the same
         // corpus are byte-identical (they were not until 2026-09-03, when
         // object-kind rows and the fact order were made canonical)
