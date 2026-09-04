@@ -474,8 +474,12 @@ namespace Arest.NormaOracle
 			// sanctioned host shape whenever one is called for.
 			verifier.WriteDesignState("design-state",
 				verifier.InputStateCells()
-				+ Verifier.MappingStateCells(store, assemblies[1], assemblies[2], assemblies[4]));
+				+ Verifier.MappingStateCells(store, assemblies[1], assemblies[2], assemblies[4])
+				+ verifier.RunOutcomeCells(builtDerivations));
 			Verifier.WriteNormaAnswer(store, assemblies[4], assemblies[1], assemblies[3], "norma-answer", verifier.FullyDerivedNames());
+			// the run's own outcome in the expectation's form: recording an accepted
+			// run is copying this file beside the corpus's name
+			verifier.WriteExpectation("expectation", builtDerivations);
 			Console.WriteLine();
 			Mark("carriers");
 			Console.WriteLine("== carriers ==");

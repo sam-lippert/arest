@@ -64,6 +64,19 @@ try {
   /* uncompiled schema: canon derives instead */
 }
 
+// THE RECORDED EXPECTATION IS OPTIONAL TOO. The oracle writes every run's
+// outcome into design-state (state:built, state:errors, state:readback) and
+// the same under expect: names into `expectation`; an accepted run's copy,
+// placed in the carriers directory as `expected`, is composed in, and
+// law:regress holds the store to it (`bun composed.g.js regress`). A directory
+// without one is a store nobody has recorded, and the law holds of it.
+try {
+  statSync(join(oracle, "expected"));
+  SPLICED.push(join(oracle, "expected"));
+} catch {
+  /* nothing recorded */
+}
+
 // The journal is APPEND-ONLY and carries a leading doc atom, so it is spliced
 // as CANON("journal", ...entries) rather than as a bare tuple: every entry is
 // appended bytes, never a rewrite. An empty journal registers nothing.
@@ -120,7 +133,11 @@ if (out.length < 1_000_000) {
   process.exit(1);
 }
 const name = OUT[mode] + ".g.js";
-writeFileSync(join(here, name), out);
+// AREST_OUT_DIR puts the module elsewhere: a corpus theory composes each
+// store into its own scratch directory rather than over this directory's
+// modules, which are the base store's
+const outDir = process.env.AREST_OUT_DIR || here;
+writeFileSync(join(outDir, name), out);
 // --run COMPOSES AND THEN STARTS THE MODULE, so a launcher (the MCP entry in
 // .mcp.json) never runs a stale composition: the module the harness started on
 // 2026-09-03 had been built two days earlier and took two minutes to boot, past
@@ -130,6 +147,6 @@ writeFileSync(join(here, name), out);
 const run = process.argv.includes("--run");
 (run ? console.error : console.log)(name + ": " + out.length + " bytes from " + (SPLICED.length + 2) + " inputs");
 if (run) {
-  const proc = Bun.spawn(["bun", join(here, name)], { stdio: ["inherit", "inherit", "inherit"] });
+  const proc = Bun.spawn(["bun", join(outDir, name)], { stdio: ["inherit", "inherit", "inherit"] });
   process.exit(await proc.exited);
 }
