@@ -2328,6 +2328,11 @@ namespace Arest.NormaOracle
 
 		private readonly List<KeyValuePair<string, string>> myTextual = new List<KeyValuePair<string, string>>();
 		private readonly List<string> myRuleRecipes = new List<string>();
+		// why the general chain arm built a rule and emitted no recipe for it. The
+		// build is NORMA's answer and is reported already; this is the other half,
+		// and without it a head that never populates looks exactly like a head that
+		// does. Keyed by the rule sentence, as myPlanDeclines is.
+		private readonly Dictionary<string, string> myRecipeDeclines = new Dictionary<string, string>(StringComparer.Ordinal);
 		private readonly List<string> myRingRows = new List<string>();
 		private readonly List<string> myDeferredRules = new List<string>();
 		// "H iff A or B" IS TWO RULES ON ONE HEAD. FORML's "or" between clauses, with
@@ -6878,10 +6883,12 @@ namespace Arest.NormaOracle
 					leadC.CalculatedConditionCollection.Add(cpvC);
 				}
 				if (!okC) continue;
-				RecordGeneralChainRecipe(hC, legsC, toksC, negC, nestC, atLegC, atPosC,
+				RecordGeneralChainRecipe(sC, hC, legsC, toksC, negC, nestC, atLegC, atPosC,
 					typeRootC, crossAtC, konstAtC, arithKeyC,
-					cmpC.Count + arithC.Count + thrC.Count + otherC.Count + anaphoraC.Count
-						+ (recursiveC ? 1 : 0) + swapPlayersC.Count);
+					cmpC.Count > 0 ? "a comparison (" + cmpC[0][1] + ")" : arithC.Count > 0 ? "arithmetic"
+						: thrC.Count > 0 ? "a threshold" : otherC.Count > 0 ? "`some other`"
+						: anaphoraC.Count > 0 ? "an objectification" : recursiveC ? "recursion"
+						: swapPlayersC.Count > 0 ? "a substituted subtype" : null);
 				myBuiltRuleSentences.Add(sC);
 				log.Add(hC.Fact.Name + " := chain over " + legsC.Count + " clauses"
 					+ (cmpC.Count > 0 ? " with " + cmpC.Count + " comparison" : "") + ", "
@@ -7056,6 +7063,30 @@ namespace Arest.NormaOracle
 					+ unbuiltExistential + " with a head role the body never binds, "
 					+ unbuiltUnmatched + " with a body no arm accepts, "
 					+ unbuiltPartial + " on a head whose paths are fewer than its rules");
+			}
+			// BUILT IS NOT EXECUTABLE. A rule can build as a NORMA object, verbalize,
+			// pass the read-back gate and mark its head derived while emitting no
+			// recipe into state:rules -- and then the closure cannot compute the head
+			// and its population stays empty with nothing raised anywhere. These are
+			// the general chain arm's own refusals, counted by shape, so the worklist
+			// says which extension buys how many heads. It does NOT claim the head is
+			// broken: a head canon's rules:metamodel delivers is correctly recipe-less
+			// here, which is why this counts DECLINES rather than comparing markers
+			// against recipes. law:markers over a booted store is the reading that
+			// names heads.
+			if (myRecipeDeclines.Count > 0)
+			{
+				var byShape = new Dictionary<string, int>(StringComparer.Ordinal);
+				foreach (var kv in myRecipeDeclines)
+				{
+					int n;
+					byShape.TryGetValue(kv.Value, out n);
+					byShape[kv.Value] = n + 1;
+				}
+				log.Add("NO RECIPE EMITTED: " + myRecipeDeclines.Count
+					+ " rule(s) the chain arm built but could not make executable");
+				foreach (var kv in byShape.OrderByDescending(x => x.Value))
+					log.Add("    " + kv.Value + "  " + kv.Key);
 			}
 			// CLAUSES NAMING NO DECLARED FACT TYPE. The arms are no longer the binding
 			// constraint on this corpus -- the vocabulary is -- and this is the worklist
@@ -8134,30 +8165,57 @@ namespace Arest.NormaOracle
 		// head's own -- `Authority has no Supersession Date` is a set difference on
 		// Authority, while `that Effective Date has no X` would need the join kept
 		// and is declined.
-		private void RecordGeneralChainRecipe(FactIndexEntry hC, List<FactIndexEntry> legsC,
+		// A FLAT SEQUENCE, AT ANY LENGTH. S1..S9 is notation, not a ceiling on how
+		// long a sequence may be (Backus 13.2 rule 4), and ISeq's answer to a longer
+		// one -- chunk it into nested nines -- is wrong here: depth means tenancy,
+		// and a projection's positions are one flat list. S() is the variadic
+		// constructor both hosts and both readers already carry for exactly this.
+		// A join of six binary legs is twelve columns, so this is not a corner: it
+		// is every chain of four legs or more, and emitting S12 wrote a store that
+		// would not load (auto.dev, "S10 is not defined", 2026-09-04).
+		private static string IFlat(List<string> elements)
+		{
+			if (elements.Count == 0) return "PHI()";
+			if (elements.Count <= 9)
+				return "S" + elements.Count + "(" + string.Join(", ", elements) + ")";
+			return "S(" + string.Join(", ", elements) + ")";
+		}
+
+		private void RecordGeneralChainRecipe(string sC, FactIndexEntry hC, List<FactIndexEntry> legsC,
 			List<List<string>> toksC, List<bool> negC, List<int> nestC,
 			int[] atLegC, int[] atPosC, ObjectType[] typeRootC, ObjectType[] crossAtC,
-			int[] konstAtC, string[] arithKeyC, int shapesThisCannotSay)
+			int[] konstAtC, string[] arithKeyC, string shapeThisCannotSay)
 		{
-			if (shapesThisCannotSay != 0) return;
-			if (legsC.Count == 0) return;
+			if (shapeThisCannotSay != null) { myRecipeDeclines[sC] = shapeThisCannotSay; return; }
+			if (legsC.Count == 0) { myRecipeDeclines[sC] = "no legs"; return; }
 			for (int i = 0; i < legsC.Count; i++)
 			{
-				if (nestC[i] != -1) return;                        // a universal's nested leg
-				if (legsC[i].Players.Count < 1 || legsC[i].Players.Count > 2) return;
-				if (toksC[i] == null || toksC[i].Count != legsC[i].Players.Count) return;
+				if (nestC[i] != -1) { myRecipeDeclines[sC] = "a nested leg (the universal)"; return; }
+				if (legsC[i].Players.Count < 1)
+					{ myRecipeDeclines[sC] = "a leg of arity 0"; return; }
+				if (toksC[i] == null || toksC[i].Count != legsC[i].Players.Count)
+					{ myRecipeDeclines[sC] = "a leg whose tokens do not match its players"; return; }
+				// A TOKEN TWICE IN ONE LEG is an equality between two of that leg's own
+				// columns, which the NORMA path expresses by unifying the repeated
+				// pathed roles and this grammar has no filter for. Joining cannot say
+				// it, so saying nothing is the answer.
+				for (int p = 1; p < toksC[i].Count; p++)
+					if (toksC[i].IndexOf(toksC[i][p]) < p)
+						{ myRecipeDeclines[sC] = "a leg binding one token twice"; return; }
 			}
 			for (int i = 0; i < hC.Players.Count; i++)
 			{
-				if (typeRootC[i] != null || crossAtC[i] != null) return;
-				if (konstAtC[i] >= 0 || arithKeyC[i] != null) return;
-				if (atLegC[i] < 0 || atPosC[i] < 0) return;
-				if (negC[atLegC[i]]) return;                       // the head bound inside a negation
+				if (typeRootC[i] != null) { myRecipeDeclines[sC] = "a head role from a bare type root"; return; }
+				if (crossAtC[i] != null) { myRecipeDeclines[sC] = "a head role from a subtype extent"; return; }
+				if (konstAtC[i] >= 0) { myRecipeDeclines[sC] = "a head role from a constant"; return; }
+				if (arithKeyC[i] != null) { myRecipeDeclines[sC] = "a head role from a calculated value"; return; }
+				if (atLegC[i] < 0 || atPosC[i] < 0) { myRecipeDeclines[sC] = "a head role no leg binds"; return; }
+				if (negC[atLegC[i]]) { myRecipeDeclines[sC] = "a head role bound inside a negation"; return; }
 			}
 			var positives = new List<int>();
 			var negatives = new List<int>();
 			for (int i = 0; i < legsC.Count; i++) (negC[i] ? negatives : positives).Add(i);
-			if (positives.Count == 0) return;
+			if (positives.Count == 0) { myRecipeDeclines[sC] = "every leg negated"; return; }
 			// the head's tokens, which are what a negated leg may share
 			var headToks = new HashSet<string>(StringComparer.Ordinal);
 			for (int i = 0; i < hC.Players.Count; i++) headToks.Add(toksC[atLegC[i]][atPosC[i]]);
@@ -8174,23 +8232,32 @@ namespace Arest.NormaOracle
 			todo.RemoveAt(0);
 			while (todo.Count > 0)
 			{
-				int pick = -1, accAt = -1, legAt = -1;
+				// EVERY SHARED TOKEN IS A KEY, not just the first one found. Two legs
+				// that share two variables are joined on both; keying on one and
+				// keeping the other column unconstrained is a cross product wearing a
+				// join's name, and it derives rows the rule does not say. The NORMA
+				// path says this with UnifyRepeatedTokens over the whole path, and
+				// joinon already takes a LIST of key pairs, so the grammar was never
+				// the limit -- the first version of this emitter simply took the first
+				// match and stopped.
+				int pick = -1;
+				var keys = new List<string>();
 				foreach (int cand in todo)
 				{
-					for (int p = 0; p < toksC[cand].Count && pick < 0; p++)
+					var found = new List<string>();
+					for (int p = 0; p < toksC[cand].Count; p++)
 					{
 						int at = accToks.IndexOf(toksC[cand][p]);
-						if (at >= 0) { pick = cand; accAt = at; legAt = p; }
+						if (at >= 0) found.Add("S2(N(" + (at + 1) + "), N(" + (p + 1) + "))");
 					}
-					if (pick >= 0) break;
+					if (found.Count > 0) { pick = cand; keys = found; break; }
 				}
-				if (pick < 0) return;                              // a leg the chain never reaches
+				if (pick < 0) { myRecipeDeclines[sC] = "a leg the chain never reaches"; return; }
 				int width = accToks.Count + toksC[pick].Count;
 				var keep = new List<string>();
 				for (int c = 1; c <= width; c++) keep.Add("N(" + c + ")");
 				acc = "S5(" + IAtom("joinon") + ", " + acc + ", " + IAtom(legsC[pick].Fact.Name)
-					+ ", S1(S2(N(" + (accAt + 1) + "), N(" + (legAt + 1) + "))), S" + keep.Count
-					+ "(" + string.Join(", ", keep) + "))";
+					+ ", " + IFlat(keys) + ", " + IFlat(keep) + ")";
 				colOf[pick] = accToks.Count + 1;
 				accToks.AddRange(toksC[pick]);
 				order.Add(pick);
@@ -8199,25 +8266,24 @@ namespace Arest.NormaOracle
 			var headCols = new List<string>();
 			for (int i = 0; i < hC.Players.Count; i++)
 			{
-				if (!colOf.ContainsKey(atLegC[i])) return;
+				if (!colOf.ContainsKey(atLegC[i])) { myRecipeDeclines[sC] = "a head role bound by a leg the join left out"; return; }
 				headCols.Add("N(" + (colOf[atLegC[i]] + atPosC[i]) + ")");
 			}
-			string expr = "S3(" + IAtom("proj") + ", " + acc + ", S" + headCols.Count
-				+ "(" + string.Join(", ", headCols) + "))";
+			string expr = "S3(" + IAtom("proj") + ", " + acc + ", " + IFlat(headCols) + ")";
 			foreach (int n in negatives)
 			{
 				var cols = new List<string>();
 				for (int i = 0; i < hC.Players.Count; i++)
 				{
 					int at = toksC[n].IndexOf(toksC[atLegC[i]][atPosC[i]]);
-					if (at < 0) return;                            // does not bind the head
+					if (at < 0) { myRecipeDeclines[sC] = "a negated leg that does not bind the head"; return; }
 					cols.Add("N(" + (at + 1) + ")");
 				}
 				for (int p = 0; p < toksC[n].Count; p++)
-					if (!headToks.Contains(toksC[n][p]) && accToks.Contains(toksC[n][p])) return;
+					if (!headToks.Contains(toksC[n][p]) && accToks.Contains(toksC[n][p]))
+						{ myRecipeDeclines[sC] = "a negated leg sharing a non-head token with the body"; return; }
 				expr = "S3(" + IAtom("minus") + ", " + expr + ", S3(" + IAtom("proj") + ", "
-					+ IAtom(legsC[n].Fact.Name) + ", S" + cols.Count + "("
-					+ string.Join(", ", cols) + ")))";
+					+ IAtom(legsC[n].Fact.Name) + ", " + IFlat(cols) + "))";
 			}
 			var players = new List<string>();
 			foreach (string p in hC.Players) players.Add(IAtom(p));
