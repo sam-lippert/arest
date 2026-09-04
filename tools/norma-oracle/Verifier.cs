@@ -5383,16 +5383,49 @@ namespace Arest.NormaOracle
 				if (vAtA <= 0) continue;
 				var legsA = new List<FactIndexEntry>();
 				var toksA = new List<List<string>>();
+				// A WHERE-CLAUSE MAY CARRY A THRESHOLD OR A VALUE, as a chain leg may:
+				// `Log Entry has HTTP Status of 400 or more` counts the failed entries, and
+				// dropping the threshold would count them all. Same split as the chain arm,
+				// kept as a condition on the path, which is the row filter the bag ranges over.
+				var thrA = new List<string[]>();
 				bool okA = true;
 				foreach (string clA in Regex.Split(am.Groups[5].Value, @" and (?=that |some |[A-Z])"))
 				{
 					string tA = clA.Trim();
 					if (tA.Length == 0) continue;
 					List<string> plA;
-					FactIndexEntry eA = ResolveClauseSub(Dequantify(" " + tA + " ").Trim(), out plA);
-					if (eA == null) { okA = false; break; }
+					string qA = Dequantify(" " + tA + " ").Trim();
+					FactIndexEntry eA = ResolveClauseSub(qA, out plA);
+					string thrOpA = null, thrValA = null;
+					Match vmA = Regex.Match(tA, @"^(.+?) '([^']*)'$");
+					if (eA == null && vmA.Success)
+					{
+						qA = Dequantify(" " + vmA.Groups[1].Value.Trim() + " ").Trim();
+						eA = ResolveClauseSub(qA, out plA);
+						if (eA != null) { thrOpA = "is"; thrValA = vmA.Groups[2].Value; }
+					}
+					else if (eA != null && vmA.Success) { thrOpA = "is"; thrValA = vmA.Groups[2].Value; }
+					if (eA == null)
+					{
+						Match tmA = Regex.Match(tA, @"^(.+?) (greater than|less than|at least|at most|of) ([0-9]+)( or more| or fewer)?$");
+						if (tmA.Success)
+						{
+							qA = Dequantify(" " + tmA.Groups[1].Value.Trim() + " ").Trim();
+							eA = ResolveClauseSub(qA, out plA);
+							if (eA != null)
+							{
+								string sufA = tmA.Groups[4].Value;
+								thrOpA = tmA.Groups[2].Value == "of"
+									? (sufA.Contains("fewer") ? "is less than" : "exceeds")
+									: (tmA.Groups[2].Value == "greater than" || tmA.Groups[2].Value == "at least" ? "exceeds" : "is less than");
+								thrValA = tmA.Groups[3].Value;
+							}
+						}
+					}
+					if (eA == null) { okA = false; myPlanDeclines[sAg] = "aggregate arm: clause names no fact type: " + tA; break; }
+					if (thrOpA != null) thrA.Add(new string[] { plA[plA.Count - 1], thrOpA, thrValA, legsA.Count.ToString() });
 					legsA.Add(eA);
-					toksA.Add(RoleQualified(Dequantify(" " + tA + " ").Trim(), plA, true) ?? plA);
+					toksA.Add(RoleQualified(qA, plA, true) ?? plA);
 				}
 				if (!okA || legsA.Count < 1) continue;
 				// the aggregated thing is a variable the chain binds -- an entity for a
@@ -5453,6 +5486,32 @@ namespace Arest.NormaOracle
 					break;
 				}
 				new CalculatedPathValueInputBindsToPathedRole(inputA, rowsA[xL][xC]);
+				// the thresholds and values the where-clauses carried, as conditions on the
+				// path the bag ranges over
+				foreach (string[] th in thrA)
+				{
+					int tl = int.Parse(th[3]);
+					int tp = legsA[tl].Players.IndexOf(th[0]);
+					if (tp < 0) { okA = false; break; }
+					Function tf = GetOrMakeFunction(th[1] == "is" ? "Equals" : (th[1] == "exceeds" ? "GreaterThan" : "LessThan"), true);
+					var tcpv = new CalculatedPathValue(myStore);
+					tcpv.Function = tf;
+					var tiL = new CalculatedPathValueInput(myStore); tcpv.InputCollection.Add(tiL);
+					var tiR = new CalculatedPathValueInput(myStore); tcpv.InputCollection.Add(tiR);
+					int tpi = 0;
+					foreach (FunctionParameter fp in tf.ParameterCollection)
+					{
+						if (tpi == 0) new CalculatedPathValueInputCorrespondsToFunctionParameter(tiL, fp);
+						else if (tpi == 1) { new CalculatedPathValueInputCorrespondsToFunctionParameter(tiR, fp); break; }
+						tpi++;
+					}
+					new CalculatedPathValueInputBindsToPathedRole(tiL, rowsA[tl][tp]);
+					var tpc = new PathConstant(myStore);
+					tpc.LexicalValue = th[2];
+					new CalculatedPathValueInputBindsToPathConstant(tiR, tpc);
+					leadA.CalculatedConditionCollection.Add(tcpv);
+				}
+				if (!okA) { ruleA.Delete(); continue; }
 				var projA = new RoleSetDerivationProjection(ruleA, leadA);
 				for (int i = 0; i < hA.Players.Count; i++)
 				{
@@ -7248,6 +7307,8 @@ namespace Arest.NormaOracle
 				// AN INLINE THRESHOLD rides on a fact clause: `that Query Route has Max Retry
 				// Count greater than 0`. The fact is compared; the threshold is a calculation.
 				Match tm = Regex.Match(c, @"^(.+?) (?:is )?(?:greater than|less than|more than|fewer than|at least|at most|exceeds|equals) (?:-?[0-9]+(?:\.[0-9]+)?|'[^']*')$", RegexOptions.IgnoreCase);
+				// ... and the `of N or more` form the arms read (`Log Entry has HTTP Status of 400 or more`)
+				if (!tm.Success) tm = Regex.Match(c, @"^(.+?) of [0-9]+(?: or more| or fewer)?$");
 				if (tm.Success) { t.CalcIgnored++; c = tm.Groups[1].Value.Trim(); }
 				bool neg = noNeg;
 				if (c.StartsWith("it is not true that ", StringComparison.OrdinalIgnoreCase)) { neg = true; c = c.Substring(20).Trim(); }

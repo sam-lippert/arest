@@ -197,6 +197,17 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   is Count`, declared) is that reading's leg, never arithmetic.
   A quoted value on a leg is a condition however the leg resolved, and a
   quoted `'no'` is a value, not a negation.
+- An aggregate is `<value> is the count|sum|mean|min|max of <variable>
+  where <clauses>`: the where-clauses are a chain rooted at the head's
+  first player, the aggregated variable is one the chain binds (`the sum
+  of Amount where some Invoice Line Item has that Amount and ...`, `the
+  count of Log Entry where ...`), and every other head role is the
+  grouping. A where-clause may carry a threshold or a value (`Log Entry
+  has HTTP Status of 400 or more`), kept as a condition on the path the
+  bag ranges over. The aggregated value must have a role in the head
+  (`Provider Resource has monthly- Cost for Billing Period`, not `has
+  monthly cost for`, which declares no Cost role), and a phrase naming a
+  value (`the sum of Invoice Line Item Amount`) is not a variable.
 - A leg may name the rule's own head: the inductive step of a cost-to-goal
   (`State1 reaches goal at Count3 iff State1 steps to State2 by Operator1
   and Operator1 costs Count2 and State2 reaches goal at Count1 and Count2
