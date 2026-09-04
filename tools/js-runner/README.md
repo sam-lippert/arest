@@ -22,6 +22,17 @@ precisely how the last runners died.
     npm run build           && bun composed.g.js          # base: 24 laws
     npm run build:order     && bun composed.g.js app      # an app's 10 laws
     npm run build:sherlock  && bun composed.g.js solve    # the solve narrative
+    bun build.js mcp --run                                # the MCP server, on stdio
+
+The composed modules (`*.g.js`) are build products and are not tracked,
+so anything that starts one must compose it first. The MCP entry in the
+repository's `.mcp.json` runs `build.js mcp --run`, which composes from
+the current canon and carriers and then starts the module on the same
+stdio (the size line and the boot timings go to stderr; stdout is the
+protocol channel). A module started directly can be days old: the one the
+harness started on 2026-09-03 took two minutes to boot, past the client's
+thirty-second limit, where a current one boots in about eight seconds,
+most of it the derivation closure (`boot: derived` on stderr says how much).
 
 `head.part.js` is the strict μ, unchanged from the certified fleet era
 (selector-on-atom throws, duplicate DEF throws, compare-across-kinds

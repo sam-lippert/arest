@@ -1047,12 +1047,20 @@ function loadReflected() {
 }
 
 function boot(mode) {
-  loadFile();
-  loadReflected();
-  loadDerived();
+  // a server says where its boot went: the MCP client gives a server thirty
+  // seconds to answer initialize, and this boot took two minutes on 2026-09-03
+  // without a line to say which step
+  const t0 = Date.now();
+  const lap = (what) => {
+    if (mode === "mcp" || mode === "serve" || process.env.AREST_BOOT_TIMING) console.error("boot: " + what + " " + (Date.now() - t0) + " ms");
+  };
+  loadFile(); lap("file");
+  loadReflected(); lap("reflected");
+  loadDerived(); lap("derived");
   if (loadJournal()) {
     adoptStore(Ev("main:refile", CELLS));
     loadDerived();
+    lap("journal folded and re-derived");
   }
   if (mode === "test") return run_test();
   if (mode === "serve") return run_serve();
