@@ -5376,11 +5376,18 @@ namespace Arest.NormaOracle
 				if (!am.Success) continue;
 				string headA = am.Groups[1].Value.Trim();
 				FactIndexEntry hA = FindEntryByNormalizedSentence(headA);
-				// the single-source arm above runs FIRST and keeps what it can build
-				if (hA == null || hA.Fact.DerivationRule != null) continue;
+				if (hA == null) continue;
+				// A MULTI-RULE HEAD IS A UNION HERE TOO. kernel's `State shortest to goal at
+				// Count` has a literal rule for the goal and the min over the reaching costs;
+				// requiring one rule refused the min once the literal had built. The rule is
+				// got-or-created as the chain arm gets it, behind the registry and the
+				// paths-vs-rules cap.
+				if (myBuiltRuleSentences.Contains(sAg)) continue;
 				int rulesA;
 				rulesPerHead.TryGetValue(RuleHeadKey(headA), out rulesA);
-				if (rulesA != 1) continue;
+				var haveRuleA = hA.Fact.DerivationRule as FactTypeDerivationRule;
+				if (rulesA > 0 && haveRuleA != null && haveRuleA.OwnedLeadRolePathCollection.Count >= rulesA) continue;
+				if (hA.Fact.DerivationRule != null && haveRuleA == null) continue;
 				List<string> hqA = RoleQualified(headA, hA.Players, true);
 				// THE AGGREGATE MAY END A CHAIN: `Vehicle Purchase Quote has ZIP Code and ...
 				// and Vehicle Fee Schedule belongs to that State and dmv-fee-total- Amount is
@@ -5470,14 +5477,19 @@ namespace Arest.NormaOracle
 				if (!myTypes.TryGetValue(hA.Players[0], out rootTypeA)) continue;
 				Function aggFn = GetOrMakeAggregate(char.ToUpper(am.Groups[3].Value[0]) + am.Groups[3].Value.Substring(1));
 				if (aggFn == null) continue;
-				var ruleA = new FactTypeDerivationRule(myStore);
-				new FactTypeHasDerivationRule(hA.Fact, ruleA);
-				ApplyDerivationMarkers(hA.Fact, ruleA);
+				var ruleA = hA.Fact.DerivationRule as FactTypeDerivationRule;
+				bool madeRuleA = ruleA == null;
+				if (madeRuleA)
+				{
+					ruleA = new FactTypeDerivationRule(myStore);
+					new FactTypeHasDerivationRule(hA.Fact, ruleA);
+					ApplyDerivationMarkers(hA.Fact, ruleA);
+				}
 				var leadA = new LeadRolePath(myStore);
 				ruleA.OwnedLeadRolePathCollection.Add(leadA);
 				var rootA = new RolePathObjectTypeRoot(leadA, rootTypeA);
 				PathedRole[][] rowsA = BuildChain(leadA, legsA, toksA, rootTokA, false);
-				if (rowsA == null) { ruleA.Delete(); continue; }
+				if (rowsA == null) { leadA.Delete(); if (madeRuleA) ruleA.Delete(); continue; }
 				UnifyRepeatedTokens(leadA, toksA, rowsA);
 				var cpvA = new CalculatedPathValue(myStore);
 				leadA.CalculatedValueCollection.Add(cpvA);
@@ -5525,7 +5537,7 @@ namespace Arest.NormaOracle
 					new CalculatedPathValueInputBindsToPathConstant(tiR, tpc);
 					leadA.CalculatedConditionCollection.Add(tcpv);
 				}
-				if (!okA) { ruleA.Delete(); continue; }
+				if (!okA) { leadA.Delete(); if (madeRuleA) ruleA.Delete(); continue; }
 				var projA = new RoleSetDerivationProjection(ruleA, leadA);
 				for (int i = 0; i < hA.Players.Count; i++)
 				{
@@ -5959,9 +5971,9 @@ namespace Arest.NormaOracle
 				// earlier and will have claimed it.
 				// (`or more`, `at least` and `more than` used to be refused here too; the
 				// threshold reader below keeps them as conditions now)
-				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |the (minimum|maximum) of |\b(implies|neither|if|else)\b"))
+				if (Regex.IsMatch(bodyC, @" is the (count|sum|mean|min|max) of |\b(implies|neither|if|else)\b"))
 				{
-					myPlanDeclines[sC] = "chain arm: an aggregate, a minimum/maximum or a conditional this arm does not read";
+					myPlanDeclines[sC] = "chain arm: an aggregate or a conditional this arm does not read";
 					continue;
 				}
 				// FORML gives a computed value a ROLE NAME, in lower case:
@@ -6158,7 +6170,7 @@ namespace Arest.NormaOracle
 					bool clauseIsReading = ArithOpRx.IsMatch(tC)
 						&& ResolveClauseSub(Dequantify(" " + tC + " ").Trim(), out plArith) != null;
 					Match am = clauseIsReading ? Match.Empty : Regex.Match(tC, @"^(?:that )?([A-Za-z][\w- ]*?) equals (.+)$");
-					if (am.Success && (ArithOpRx.IsMatch(am.Groups[2].Value) || Regex.IsMatch(am.Groups[2].Value.Trim(), @"^[0-9]")))
+					if (am.Success && (ArithOpRx.IsMatch(am.Groups[2].Value) || Regex.IsMatch(am.Groups[2].Value.Trim(), @"^[0-9]|^the (minimum|maximum) of ")))
 					{
 						arithC.Add(new string[] { am.Groups[1].Value.Trim(), am.Groups[2].Value.Trim() });
 						continue;
@@ -7006,8 +7018,13 @@ namespace Arest.NormaOracle
 				if (have < want)
 				{
 					unbuiltPartial++;
+					// a member the built registry does not hold IS the unbuilt one, and the arm
+					// that declined it said why; a member it holds built
+					string whyPartial;
+					bool builtMember = myBuiltRuleSentences.Contains(sRaw2) || myBuiltRuleSentences.Contains(s2);
 					log.Add("UNBUILT (head has " + have + " path(s) for " + want
-						+ " rule(s) - this one may be the unbuilt member): " + s2);
+						+ (builtMember ? " rule(s) - this one built" : " rule(s) - this one is unbuilt")
+						+ (!builtMember && myPlanDeclines.TryGetValue(s2, out whyPartial) ? "; " + DeclineLabel(whyPartial) : "") + "): " + s2);
 				}
 			}
 			if (unbuiltHeadless != 0 || unbuiltUnmatched != 0 || unbuiltPartial != 0 || unbuiltValueRestricted != 0 || unbuiltExistential != 0)
@@ -8620,6 +8637,33 @@ namespace Arest.NormaOracle
 			List<List<string>> toks, PathedRole[][] rows, ref Dictionary<string, Function> fns)
 		{
 			if (expr.IndexOf('(') >= 0 || expr.IndexOf(')') >= 0) return null;
+			// THE LEAST OR GREATEST OF TWO VALUES groups its operands as the prose does:
+			// `the minimum of 5000 and Vehicle Purchase Price times Sales Tax Rate
+			// Percentage divided by 100` is min(5000, price * pct / 100), each side its own
+			// expression. Least / Greatest are minted like Add; Min and Max are the
+			// aggregates' names, and a function is found by name.
+			Match mm = Regex.Match(expr.Trim(), @"^the (minimum|maximum) of (.+?) and (.+)$");
+			if (mm.Success)
+			{
+				object mL = EmitValue(mm.Groups[2].Value.Trim(), legs, toks, rows, ref fns);
+				object mR = EmitValue(mm.Groups[3].Value.Trim(), legs, toks, rows, ref fns);
+				if (mL == null || mR == null) return null;
+				Function mfn = GetOrMakeFunction(mm.Groups[1].Value == "minimum" ? "Least" : "Greatest", false);
+				var mcpv = new CalculatedPathValue(myStore);
+				mcpv.Function = mfn;
+				var mIn1 = new CalculatedPathValueInput(myStore); mcpv.InputCollection.Add(mIn1);
+				var mIn2 = new CalculatedPathValueInput(myStore); mcpv.InputCollection.Add(mIn2);
+				int mpi = 0;
+				foreach (FunctionParameter fp in mfn.ParameterCollection)
+				{
+					if (mpi == 0) new CalculatedPathValueInputCorrespondsToFunctionParameter(mIn1, fp);
+					else if (mpi == 1) { new CalculatedPathValueInputCorrespondsToFunctionParameter(mIn2, fp); break; }
+					mpi++;
+				}
+				BindOperand(mIn1, mL);
+				BindOperand(mIn2, mR);
+				return mcpv;
+			}
 			string[] bits = Regex.Split(expr.Trim(), @" (plus|minus|times|divided by|concat) ");
 			if (bits.Length < 3 || bits.Length % 2 == 0) return null;
 			object acc = OperandFor(bits[0].Trim(), legs, toks, rows);
@@ -8667,6 +8711,18 @@ namespace Arest.NormaOracle
 				if (Regex.IsMatch(p, @" is the concatenation of "))
 				{
 					while (i + 1 < parts.Length && Regex.IsMatch(parts[i + 1].Trim(), @"^(?:that |some )?(?:[a-z][\w-]*- )?[A-Z][\w- ]*$"))
+					{
+						p = p.TrimEnd() + " and " + parts[i + 1].Trim();
+						i++;
+					}
+				}
+				// ... and neither is the `and` of `the minimum of A and B`, whose B may be
+				// an expression (`Vehicle Purchase Price times Sales Tax Rate Percentage
+				// divided by 100`) or a number
+				else if (Regex.IsMatch(p, @"the (minimum|maximum) of [^ ].*$") && !Regex.IsMatch(p, @"the (minimum|maximum) of .+ and .+"))
+				{
+					if (i + 1 < parts.Length && Regex.IsMatch(parts[i + 1].Trim(),
+						@"^(?:that |some )?(?:[0-9]+(?:\.[0-9]+)?|(?:[a-z][\w-]*- )?[A-Z][\w- ]*)(?: (?:plus|minus|times|divided by) (?:that |some )?(?:[0-9]+(?:\.[0-9]+)?|(?:[a-z][\w-]*- )?[A-Z][\w- ]*))*$"))
 					{
 						p = p.TrimEnd() + " and " + parts[i + 1].Trim();
 						i++;
@@ -8760,6 +8816,15 @@ namespace Arest.NormaOracle
 				}
 			}
 			return outC;
+		}
+
+		// a side of a least/greatest: an expression when it carries an operator (or is
+		// itself a least/greatest), else one operand
+		private object EmitValue(string s, List<FactIndexEntry> legs, List<List<string>> toks, PathedRole[][] rows, ref Dictionary<string, Function> fns)
+		{
+			if (ArithOpRx.IsMatch(" " + s + " ") || Regex.IsMatch(s, @"^the (minimum|maximum) of "))
+				return EmitExpression(s, legs, toks, rows, ref fns);
+			return OperandFor(s, legs, toks, rows);
 		}
 
 		private object OperandFor(string tok, List<FactIndexEntry> legs,

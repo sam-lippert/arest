@@ -240,7 +240,11 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   the declared `Source Service has URL` laid as a leg. A concatenated
   head value is `target- URL is the concatenation of that Base Path and
   that Resource Path` (Concat, nested for more), and the concatenation's
-  `and` is not a clause boundary.
+  `and` is not a clause boundary. `the minimum of A and B` / `the maximum
+  of A and B` is Least / Greatest of two values (Min and Max are the
+  aggregates' names), each side its own expression, so `the minimum of
+  5000 and Price times Percentage divided by 100` groups as the prose
+  does; that `and` is not a boundary either.
 - `no other X <reading>` (`... and no other Style Candidate has that Squish
   VIN`) is a negated leg over a fresh X, distinct from the nearest earlier
   X the body bound, the distinctness a NotEquals whose inputs bind inside
