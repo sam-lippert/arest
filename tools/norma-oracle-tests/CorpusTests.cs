@@ -1,11 +1,14 @@
 // Every corpus in corpora.md is one theory (trait Category=Corpus: the three
 // closures that carry us-law take the oracle minutes each, so
 //   dotnet test --filter Category!=Corpus
-// is the quick suite). A corpus must read as recorded in expected/<name>.txt:
-// the blocking-error total, the read-back count, then every built head with
-// multiplicity. A lost head, a new head, or a changed count fails the theory
-// with the difference in the words regress.sh printed; a change you verified
-// is recorded deliberately with NORMA_ORACLE_RECORD=1.
+// is the quick suite). A corpus must read as recorded in expected/<name>, a
+// carrier in intersection source the oracle itself wrote (expect:built, the
+// built heads with multiplicity; expect:errors; expect:readback). The check
+// is canon: the theory composes the run's carriers with that record and asks
+// the host `regress`, which answers with law:regress over state:* and
+// expect:* and, under its three rows, the heads lost and new. A change you
+// verified is recorded deliberately with NORMA_ORACLE_RECORD=1, which copies
+// the run's own expectation there.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -85,7 +88,7 @@ namespace Arest.NormaOracle.Tests
 
         static string ExpectedPath(string name)
         {
-            return Path.Combine(Oracle.Root, "tools", "norma-oracle-tests", "expected", name + ".txt");
+            return Path.Combine(Oracle.Root, "tools", "norma-oracle-tests", "expected", name);
         }
 
         [Theory]
@@ -95,20 +98,27 @@ namespace Arest.NormaOracle.Tests
         {
             List<string> dirs = Corpus.Directories(name);
             foreach (string d in dirs) Assert.True(Directory.Exists(d), "corpus " + name + " names a directory that does not exist: " + d);
-            Oracle.Run run = Oracle.Execute(Oracle.Scratch("corpora", name), dirs);
+            string scratch = Oracle.Scratch("corpora", name);
+            // the record composed in is this theory's copy of the file under expected/,
+            // never a previous run's: absent while the oracle runs and while recording
+            string spliced = Path.Combine(scratch, "expected");
+            if (File.Exists(spliced)) File.Delete(spliced);
+            Oracle.Run run = Oracle.Execute(scratch, dirs);
             Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
-            string actual = Oracle.CorpusActual(run);
-            File.WriteAllText(Path.Combine(run.Scratch, "actual.txt"), actual);
+            string expectation = Path.Combine(scratch, "expectation");
+            Assert.True(File.Exists(expectation), "the oracle wrote no expectation carrier");
             string expectedPath = ExpectedPath(name);
             if (Oracle.Recording)
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(expectedPath));
-                File.WriteAllText(expectedPath, actual);
+                File.Copy(expectation, expectedPath, true);
                 return;
             }
             Assert.True(File.Exists(expectedPath), "NO EXPECTED " + name + " (NORMA_ORACLE_RECORD=1 records it)");
-            string expected = File.ReadAllText(expectedPath).Replace("\r\n", "\n");
-            Assert.True(expected == actual, name + " does not read as recorded:\n" + Oracle.Explain(expected, actual));
+            File.Copy(expectedPath, spliced, true);
+            // the host's three rows and, under them, the heads lost and new
+            Oracle.Run regress = Oracle.Host(scratch, "regress");
+            Assert.True(regress.ExitCode == 0, name + " does not read as recorded:\n" + regress.Output);
         }
 
         // the carriers are a function of the readings: two runs of the same

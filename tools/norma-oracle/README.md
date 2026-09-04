@@ -246,9 +246,9 @@ the target may not have):
 
 The tests drive the shipped `norma-oracle.exe` as a process from a scratch
 directory under `_reports/` (the oracle writes its carriers into its working
-directory, and it is one verifier run per process), and read back what the
-old shell gates extracted: the blocking-error total, the UNBUILT lines, the
-read-back verdicts, the verbalized rule blocks, the built heads.
+directory, and it is one verifier run per process). A probe's expectation is
+still text, NORMA's own verbalization of each rule; a corpus's is a carrier,
+and its check runs in the system.
 
 `ProbeTests`: every directory under `probes/` is one theory, a minimal model
 with distinct types run through the oracle ALONE, whose `expected.txt` holds
@@ -260,13 +260,25 @@ expectation keeps a known wrong build red until it is fixed.
 facts -- `Corpus 'uslaw' reads Directory '../apps/us-law/readings/**'` -- an
 app's readings closure as its package.json declares it, the metamodel first,
 a library's domain tree expanded because the oracle reads one directory
-level. `expected/<corpus>.txt` holds the error total, the read-back count
-and every built head by NAME with multiplicity (a count hides a dropped
-rule; a name does not); a lost head, a new head or a changed count fails the
-theory with the difference spelled out. The expectation IS the baseline:
-a change you verified is recorded deliberately, never by a run that happened
-to pass. `MetamodelCarriersAreReproducible` runs the metamodel twice and
-requires byte-identical carriers.
+level. Every run writes its outcome into `design-state` as three surfaces,
+`state:built` (the built heads by NAME with multiplicity, sorted: a count
+hides a dropped rule, a name does not), `state:errors` and
+`state:readback`, and the same three under `expect:` names into a carrier
+called `expectation`. `expected/<corpus>` is an accepted run's expectation,
+copied there by recording. The theory composes the run's carriers with that
+record (the js runner splices a file named `expected` beside `design-state`,
+as it does `compiled` and `journal`) and asks the host:
+
+    bun composed.g.js regress       # law:regress_built, _errors, _readback,
+                                    # then the heads lost and new
+
+The check is canon, `law:regress_report` in `arest`, over `state:*` and
+`expect:*`; a store with no record is held to nothing and the laws hold of
+it. A lost head, a new head or a changed count fails the theory with the
+host's rows and its witness. The expectation IS the baseline: a change you
+verified is recorded deliberately, never by a run that happened to pass.
+`MetamodelCarriersAreReproducible` runs the metamodel twice and requires
+byte-identical carriers.
 
 `CarrierKind` classifies two carriers as identical, order only or content
 (a chunked collection is a multiset, a direct one keeps its order) and is

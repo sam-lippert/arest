@@ -23,6 +23,14 @@ precisely how the last runners died.
     npm run build:order     && bun composed.g.js app      # an app's 10 laws
     npm run build:sherlock  && bun composed.g.js solve    # the solve narrative
     bun build.js mcp --run                                # the MCP server, on stdio
+    bun composed.g.js regress                             # the run against its record
+
+`regress` is law:regress over the run's own outcome (`state:built`,
+`state:errors`, `state:readback`, three surfaces the oracle writes into
+`design-state`) and a recorded expectation composed in as the carrier
+`expected` beside `design-state` (optional, like `compiled` and `journal`;
+`AREST_OUT_DIR` puts the composed module beside them). Three rows, then the
+heads lost and new. That is the corpus check of tools/norma-oracle-tests.
 
 The composed modules (`*.g.js`) are build products and are not tracked,
 so anything that starts one must compose it first. The MCP entry in the
