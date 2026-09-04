@@ -40,3 +40,15 @@ Corpus 'eulaw' reads Directory '../apps/law-core/readings'.
 Corpus 'uslaw' reads Directory 'metamodel'.
 Corpus 'uslaw' reads Directory '../apps/us-law/readings/**'.
 Corpus 'uslaw' reads Directory '../apps/law-core/readings'.
+
+# The smallest LAW-CLOSURE store, and the one LawReportReadsAsRecorded
+# runs: metamodel plus the shared law library, no jurisdiction on top.
+# Every other corpus here is checked by reading its carriers; this one is
+# also BOOTED and asked for the law report, because the carriers are not
+# the store -- FILE is a projection, the meta-types are reflected and the
+# populations are a closure, and three defects in one day (a bare-atom
+# recipe that crashed every us-law boot, deontic constraints that stopped
+# building, a closure that doubled a semi-derived head) were invisible to
+# every check here for exactly that reason. 27 s for the report.
+Corpus 'lawcore' reads Directory 'metamodel'.
+Corpus 'lawcore' reads Directory '../apps/law-core/readings'.
