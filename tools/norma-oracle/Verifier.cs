@@ -1415,6 +1415,12 @@ namespace Arest.NormaOracle
 			{
 				Match m = Regex.Match(rule, @"^(?:\*+ |\+ )(.+?) iff (.+)\.$");
 				if (!m.Success) continue;
+				// the head is a sentence the rule uses too: a marked reading whose connective
+				// text runs past the guard (`Defendant is liable for defamation of public
+				// official or public figure. *`, 61 characters) was skipped as documentation
+				// and its rule reported a head the corpus declares
+				string head = Dequantify(" " + m.Groups[1].Value.Trim() + " ").Trim() + ".";
+				if (myProseSkipped.Remove(head) && MapFactReading(head, true)) Count("reading declared by its use in a rule (prose guard lifted)");
 				// every run of the body's atoms across both ` and ` and ` or ` boundaries,
 				// rejoined with their own connectives: a skipped sentence may be one
 				// alternative of a disjunction or a reading containing either word, and
@@ -2085,6 +2091,8 @@ namespace Arest.NormaOracle
 		}
 		// the sentences the prose guard skipped, whole: a rule may name one as a leg
 		private readonly HashSet<string> myProseSkipped = new HashSet<string>(StringComparer.Ordinal);
+		// the general join's reason for declining a rule, printed only if no arm built it
+		private readonly Dictionary<string, string> myPlanDeclines = new Dictionary<string, string>(StringComparer.Ordinal);
 		private bool MapFactReading(string s, bool liftProseGuard)
 		{
 			string body = s.TrimEnd('.');
@@ -4206,7 +4214,11 @@ namespace Arest.NormaOracle
 				string recC = GeneralJoinRecipe(legsC, toksC, htC, out whyC);
 				if (recC == null)
 				{
-					log.Add("  general-join: no plan (" + whyC + ") for: " + Shorten(sC));
+					// recorded, not logged: a later arm builds most of these (every torts
+					// liability rule read as declined while the chain arm built them all); the
+					// unbuilt reporter prints the decline on the rules that stay unbuilt
+					myPlanDeclines[sC] = whyC;
+					myPlanDeclines[sRawC] = whyC;
 					continue;
 				}
 				var ruleC = hEC.Fact.DerivationRule as FactTypeDerivationRule;
@@ -6179,8 +6191,9 @@ namespace Arest.NormaOracle
 							List<string> upl;
 							if (ut.Length != 0 && ResolveClauseSub(ut, out upl) != null) ures++;
 						}
+						string declined;
 						log.Add("UNBUILT (head resolves, no arm matched the body) [legs resolving "
-							+ ures + "/" + ulegs.Length + "]: " + s2);
+							+ ures + "/" + ulegs.Length + (myPlanDeclines.TryGetValue(s2, out declined) ? "; general join: " + declined : "") + "]: " + s2);
 					}
 					continue;
 				}
