@@ -236,6 +236,11 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   head value is `target- URL is the concatenation of that Base Path and
   that Resource Path` (Concat, nested for more), and the concatenation's
   `and` is not a clause boundary.
+- `no other X <reading>` (`... and no other Style Candidate has that Squish
+  VIN`) is a negated leg over a fresh X, distinct from the nearest earlier
+  X the body bound, the distinctness a NotEquals whose inputs bind inside
+  the negation, which is where NORMA evaluates it (the explicit calculation
+  scope is retired in NORMA). The splitter cuts before `no`.
 - A leg may name the rule's own head: the inductive step of a cost-to-goal
   (`State1 reaches goal at Count3 iff State1 steps to State2 by Operator1
   and Operator1 costs Count2 and State2 reaches goal at Count1 and Count2
