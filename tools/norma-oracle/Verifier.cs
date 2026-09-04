@@ -2811,7 +2811,7 @@ namespace Arest.NormaOracle
 					var drp = new DerivedRoleProjection(proj1, hE.Roles[i]);
 					new DerivedRoleProjectedFromPathedRole(drp, stepAt[at[i]]);
 				}
-				log.Add(hE.Fact.Name + " := proj " + sE.Fact.Name + ", " + DescribeDerivation(hE.Fact));
+				myBuiltRuleSentences.Add(sRaw); log.Add(hE.Fact.Name + " := proj " + sE.Fact.Name + ", " + DescribeDerivation(hE.Fact));
 				RecordProjRecipe(hE, sE, at);
 			}
 
@@ -3184,6 +3184,11 @@ namespace Arest.NormaOracle
 					new DerivedRoleProjectedFromPathedRole(drp3, steps3[i]);
 				}
 				if (!ok3) continue;
+				// REGISTERED. The chain arm reads two clauses too, behind this registry and
+				// the paths-vs-rules cap; unregistered, this arm's base case was built a
+				// second time there, and the cap then refused the head's inductive step
+				// (the recursive-chain probe: two paths, both the base case).
+				myBuiltRuleSentences.Add(sRaw3);
 				log.Add(hE3.Fact.Name + " := subscripted join over " + at3[ja] + " ("
 					+ aE.Fact.Name + " x " + bE.Fact.Name + "), " + DescribeDerivation(hE3.Fact));
 				// explicit leg indices, NOT RecordRuleRecipe: a self-join gives both legs
@@ -3312,7 +3317,7 @@ namespace Arest.NormaOracle
 					var drp4 = new DerivedRoleProjection(pr4, hE4.Roles[i]);
 					new DerivedRoleProjectedFromPathedRole(drp4, srcLeg[i] == 0 ? pa[srcPos[i]] : pb[srcPos[i]]);
 				}
-				log.Add(hE4.Fact.Name + " := " + keys.Count + "-key join (" + aE4.Fact.Name
+				myBuiltRuleSentences.Add(sRaw4); log.Add(hE4.Fact.Name + " := " + keys.Count + "-key join (" + aE4.Fact.Name
 					+ " x " + bE4.Fact.Name + "), " + DescribeDerivation(hE4.Fact));
 				RecordJoinOnRecipe(hE4, aE4, bE4, keys, srcLeg, srcPos);
 			}
@@ -3871,7 +3876,7 @@ namespace Arest.NormaOracle
 				foreach (string p in hE7.Players) hp7.Add(IAtom(p));
 				myRuleRecipes.Add("S3(" + IAtom(hE7.Fact.Name) + ", S" + hp7.Count + "("
 					+ string.Join(", ", hp7) + "), S3(A(\"minus\"), " + lhs + ", " + rhs + "))");
-				log.Add(hE7.Fact.Name + " := minus with negated chain, " + DescribeDerivation(hE7.Fact));
+				myBuiltRuleSentences.Add(sRaw7); log.Add(hE7.Fact.Name + " := minus with negated chain, " + DescribeDerivation(hE7.Fact));
 			}
 			// THE SUBTYPE-NARROWED SINGLE LEG. The clause names a SUBTYPE where the fact
 			// type declares its SUPERTYPE, so the clause does not resolve at all:
@@ -3961,7 +3966,7 @@ namespace Arest.NormaOracle
 					+ string.Join(", ", hp8) + "), S5(A(\"joinon\"), " + IAtom(sE8.Fact.Name)
 					+ ", " + IAtom(narrowType) + ", S1(S2(N(" + (npos + 1) + "), N(1))), S"
 					+ outs8.Count + "(" + string.Join(", ", outs8) + ")))");
-				log.Add(hE8.Fact.Name + " := narrowed to " + narrowType + " over " + sE8.Fact.Name
+				myBuiltRuleSentences.Add(sRaw8); log.Add(hE8.Fact.Name + " := narrowed to " + narrowType + " over " + sE8.Fact.Name
 					+ ", " + DescribeDerivation(hE8.Fact));
 			}
 			// TWO LEGS WITH A CONSTANT CONDITION on the second:
@@ -4116,7 +4121,7 @@ namespace Arest.NormaOracle
 					+ string.Join(", ", hp9) + "), S3(A(\"proj\"), S4(A(\"sel\"), " + joined
 					+ ", N(" + outs9.Count + "), " + IAtom(konst) + "), S" + proj9.Count
 					+ "(" + string.Join(", ", proj9) + ")))");
-				log.Add(hE9.Fact.Name + " := constant condition '" + konst + "' over "
+				myBuiltRuleSentences.Add(sRaw9); log.Add(hE9.Fact.Name + " := constant condition '" + konst + "' over "
 					+ e1.Fact.Name + " x " + e2.Fact.Name + ", " + DescribeDerivation(hE9.Fact));
 			}
 			// NEGATION, shape three: `<positive> and no <clause>` with NO `where`.
@@ -4216,7 +4221,7 @@ namespace Arest.NormaOracle
 				foreach (string p in hEA.Players) hpA.Add(IAtom(p));
 				myRuleRecipes.Add("S3(" + IAtom(hEA.Fact.Name) + ", S" + hpA.Count + "("
 					+ string.Join(", ", hpA) + "), S3(A(\"minus\"), " + leftA + ", " + rightA + "))");
-				log.Add(hEA.Fact.Name + " := minus on bound-only negation, " + DescribeDerivation(hEA.Fact));
+				myBuiltRuleSentences.Add(sRawA); log.Add(hEA.Fact.Name + " := minus on bound-only negation, " + DescribeDerivation(hEA.Fact));
 			}
 			// boolean LessThan, created on first use by the comparison arm below
 			Function ltFn = null;
@@ -4363,7 +4368,7 @@ namespace Arest.NormaOracle
 					+ IAtom(L1.Fact.Name) + ", " + IAtom(L2.Fact.Name) + ", PHI(), S" + idB.Count
 					+ "(" + string.Join(", ", idB) + ")), N(" + cA + "), N(" + cB + ")), S"
 					+ outB.Count + "(" + string.Join(", ", outB) + ")))");
-				log.Add(hEB.Fact.Name + " := value comparison over " + L1.Fact.Name + " x "
+				myBuiltRuleSentences.Add(sRawB); log.Add(hEB.Fact.Name + " := value comparison over " + L1.Fact.Name + " x "
 					+ L2.Fact.Name + ", " + DescribeDerivation(hEB.Fact));
 			}
 			// THE GENERAL n-LEG JOIN. Legs whose shared variables do not all meet at one
@@ -4557,7 +4562,7 @@ namespace Arest.NormaOracle
 				foreach (string p in hEC.Players) hpC.Add(IAtom(p));
 				myRuleRecipes.Add("S3(" + IAtom(hEC.Fact.Name) + ", S" + hpC.Count + "("
 					+ string.Join(", ", hpC) + "), " + recC + ")");
-				log.Add(hEC.Fact.Name + " := general join over " + legsC.Count + " legs, "
+				myBuiltRuleSentences.Add(sC); myBuiltRuleSentences.Add(sRawC); log.Add(hEC.Fact.Name + " := general join over " + legsC.Count + " legs, "
 					+ DescribeDerivation(hEC.Fact));
 			}
 			// the value-condition class: a UNARY head whose legs all anchor
@@ -4864,7 +4869,7 @@ namespace Arest.NormaOracle
 					// parse-side (state:rules/canon); the store carries the
 					// marker triple only.
 					RecordConjunctionRecipe(headE, condLegs);
-					log.Add(headE.Fact.Name + " := conjunction head, " + DescribeDerivation(headE.Fact) + " (body external to store)");
+					myBuiltRuleSentences.Add(s); log.Add(headE.Fact.Name + " := conjunction head, " + DescribeDerivation(headE.Fact) + " (body external to store)");
 					continue;
 				}
 				var vlead = new LeadRolePath(myStore);
@@ -4925,7 +4930,7 @@ namespace Arest.NormaOracle
 				// field wholesale into the descriptor without indexing it, so a
 				// one-element list is safe there.
 				RecordConjunctionRecipe(headE, condLegs);
-				log.Add(headE.Fact.Name + " := conjunction at " + rootVar + " ("
+				myBuiltRuleSentences.Add(s); log.Add(headE.Fact.Name + " := conjunction at " + rootVar + " ("
 					+ string.Join(" & ", condLegs.Select(l => l.Key.Fact.Name + (l.Value.Value != null ? "='" + l.Value.Value + "'" : ""))) + "), "
 					+ DescribeDerivation(headE.Fact));
 			}
@@ -5291,7 +5296,7 @@ namespace Arest.NormaOracle
 				myRuleRecipes.Add("S3(" + IAtom(nHeadE.Fact.Name) + ", S" + nHeadPlayers.Count + "("
 					+ string.Join(", ", nHeadPlayers) + "), S3(" + IAtom("minus") + ", "
 					+ posRecipe + ", " + negRecipe + "))");
-				log.Add(nHeadE.Fact.Name + " := negation (positive minus no-" + negVar
+				myBuiltRuleSentences.Add(s); log.Add(nHeadE.Fact.Name + " := negation (positive minus no-" + negVar
 					+ "), fully derived, not stored");
 			}
 			foreach (string s in myDeferredRules)
@@ -5345,7 +5350,7 @@ namespace Arest.NormaOracle
 				var drpValue = new DerivedRoleProjection(proj, headE.Roles[vAt]);
 				new DerivedRoleProjectedFromCalculatedPathValue(drpValue, cpv);
 				RecordCountRecipe(headE, src, vAt, gAt);
-				log.Add(headE.Fact.Name + " := Count(" + x + ") per " + groupPlayer + " over " + src.Fact.Name + ", fully derived, not stored");
+				myBuiltRuleSentences.Add(s); log.Add(headE.Fact.Name + " := Count(" + x + ") per " + groupPlayer + " over " + src.Fact.Name + ", fully derived, not stored");
 			}
 			// THE AGGREGATE OVER A CHAIN. The arm above is Definition 7's flagship shape --
 			// a COUNT over ONE binary source, grouped by the head's other role. The corpus
@@ -5456,7 +5461,7 @@ namespace Arest.NormaOracle
 					else if (i == 0) new DerivedRoleProjectedFromRolePathRoot(drpA, rootA);
 					else new DerivedRoleProjectedFromPathedRole(drpA, rowsA[gL[i]][gC[i]]);
 				}
-				log.Add(hA.Fact.Name + " := " + aggFn.Name + "(" + xA + ") over "
+				myBuiltRuleSentences.Add(sAg); log.Add(hA.Fact.Name + " := " + aggFn.Name + "(" + xA + ") over "
 					+ legsA.Count + " clauses per " + rootTokA + ", " + DescribeDerivation(hA.Fact));
 			}
 			// THE OFFSET CLASS: "* <head> iff <leg> and <headValue> is [that]
@@ -5571,7 +5576,7 @@ namespace Arest.NormaOracle
 				new DerivedRoleProjectedFromRolePathRoot(oDrpEnt, oRoot);
 				var oDrpVal = new DerivedRoleProjection(oProj, oHead.Roles[1 - hEnt]);
 				new DerivedRoleProjectedFromCalculatedPathValue(oDrpVal, oCpv);
-				log.Add(oHead.Fact.Name + " := " + oLeg.Fact.Name + " + " + oDurType.Name
+				myBuiltRuleSentences.Add(sRaw3); log.Add(oHead.Fact.Name + " := " + oLeg.Fact.Name + " + " + oDurType.Name
 					+ " per " + shared + ", " + DescribeDerivation(oHead.Fact));
 			}
 			// THE COPY CLASS: "* <head> iff <one leg>." — a binary head taking a
@@ -5650,7 +5655,7 @@ namespace Arest.NormaOracle
 					var drp = new DerivedRoleProjection(cProj, cHead.Roles[i]);
 					new DerivedRoleProjectedFromPathedRole(drp, cPathed[cMap[i]]);
 				}
-				log.Add(cHead.Fact.Name + " := copy of " + cLeg.Fact.Name
+				myBuiltRuleSentences.Add(sRaw4); log.Add(cHead.Fact.Name + " := copy of " + cLeg.Fact.Name
 					+ " (" + cHeadTok[0] + "->" + cLegTok[cMap[0]] + ", "
 					+ cHeadTok[1] + "->" + cLegTok[cMap[1]] + "), "
 					+ DescribeDerivation(cHead.Fact));
@@ -5975,6 +5980,7 @@ namespace Arest.NormaOracle
 				var negC = new List<bool>();
 				// declared players that only matched because a subtype was substituted for them
 				var swapPlayersC = new HashSet<string>(StringComparer.Ordinal);
+				bool recursiveC = false;
 				var cmpC = new List<string[]>();
 				var arithC = new List<string[]>();
 				var thrC = new List<string[]>();
@@ -6126,12 +6132,22 @@ namespace Arest.NormaOracle
 						Match vm0 = Regex.Match(tC, @"^(.+?) '([^']*)'$");
 						if (vm0.Success) { thrOp = "is"; thrVal = vm0.Groups[2].Value; }
 					}
-					if (leC == null || leC == hC)
+					if (leC == null)
 					{
 						okC = false;
-						myPlanDeclines[sC] = leC == null ? "chain arm: clause names no fact type: " + tC : "chain arm: a clause names the head";
+						myPlanDeclines[sC] = "chain arm: clause names no fact type: " + tC;
 						break;
 					}
+					// A LEG MAY NAME THE HEAD. kernel's cost-to-goal is the inductive step over
+					// its own fact type -- `State1 reaches goal at Count3 iff State1 steps to
+					// State2 by Operator1 and Operator1 costs Count2 and State2 reaches goal at
+					// Count1 and Count2 plus Count1 is Count3` -- as the two-leg transitive step
+					// (`Domain1 reaches Domain3 iff Domain1 reaches Domain2 and Domain2 reaches
+					// Domain3`) is for its arm. NORMA builds a recursive derivation rule as any
+					// other; this arm refused the clause and the rule stayed unbuilt in every
+					// corpus. A body that is ONLY the head's reading says nothing and is
+					// refused below.
+					if (leC == hC) recursiveC = true;
 					if (thrOp != null) thrC.Add(new string[] { plC[plC.Count - 1], thrOp, thrVal, legsC.Count.ToString() });
 					legsC.Add(leC);
 					if (swapC != null) swapPlayersC.Add(swapC);
@@ -6175,6 +6191,11 @@ namespace Arest.NormaOracle
 				// is one reading and one test belonged to none of them. Running last, behind
 				// the registry and the paths cap, taking it steals nothing.
 				if (!okC || legsC.Count < 1) continue;
+				if (recursiveC && legsC.Count < 2 && arithC.Count == 0 && cmpC.Count == 0 && thrC.Count == 0)
+				{
+					myPlanDeclines[sC] = "chain arm: the body is only the head's own reading";
+					continue;
+				}
 				// every head player must sit at exactly one leg position, or the projection
 				// would be guessing which occurrence the head means
 				var atLegC = new int[hC.Players.Count];
