@@ -1450,7 +1450,13 @@ namespace Arest.NormaOracle
 					for (int j = i; j < atoms.Count && j <= i + 5; j++)
 					{
 						if (j > i) run.Append(conns[j - 1]).Append(atoms[j]);
-						string sentence = Dequantify(" " + run.ToString().Trim() + " ").Trim() + ".";
+						// a negated leg is a sentence the rule uses too: `it is not true that
+						// Invention was otherwise available to public before its effective
+						// filing date` names a reading 67 characters past the guard, and the
+						// replay could not see it behind the negation (title 35, 2026-09-04)
+						string runText = run.ToString().Trim();
+						if (runText.StartsWith("it is not true that ", StringComparison.OrdinalIgnoreCase)) runText = runText.Substring(20).Trim();
+						string sentence = Dequantify(" " + runText + " ").Trim() + ".";
 						if (!myProseSkipped.Contains(sentence)) continue;
 						myProseSkipped.Remove(sentence);
 						if (MapFactReading(sentence, true)) Count("reading declared by its use in a rule (prose guard lifted)");
@@ -2681,8 +2687,11 @@ namespace Arest.NormaOracle
 				Match m1 = Regex.Match(s1, @"^\* (.+?) iff (.+)\.$");
 				if (!m1.Success) continue;
 				string body1 = m1.Groups[2].Value.Trim();
-				// one clause only: a conjunction is the join arm's business
-				if (body1.Contains(" and ")) continue;
+				// one clause only: a conjunction is the join arm's business. Resolution-aware,
+				// as every arm's split is: `... related to development and submission of
+				// information ...` is one reading with "and" inside it, and a textual test
+				// declined it while its leg resolved 1/1 (the Bolar safe harbor, title 35)
+				if (SplitBody(body1).Length != 1) continue;
 				// a quoted literal is a condition, not a rename — the value-condition
 				// arm owns that shape and baking it here would lose the constant
 				if (body1.Contains("'")) continue;
@@ -3368,28 +3377,51 @@ namespace Arest.NormaOracle
 				Match m6 = Regex.Match(s6, @"^\* (.+?) iff (.+?) and it is not true that (.+)\.$");
 				if (!m6.Success) continue;
 				string head6 = m6.Groups[1].Value.Trim();
-				string posC = m6.Groups[2].Value.Trim(), negC = m6.Groups[3].Value.Trim();
-				if (posC.Contains(" and ") || negC.Contains(" and ")) continue;
+				string posC = m6.Groups[2].Value.Trim();
+				// ANY NUMBER OF NEGATED LEGS: `Patent is in force iff Patent is maintained and
+				// it is not true that that Patent has Expiration Date in past` has one, the
+				// eligibility rule of title 35 has three (not an abstract idea, not a law of
+				// nature, not a natural phenomenon), each its own negated subpath beside the
+				// positive one and one more `minus` in the recipe
+				string[] negCs = m6.Groups[3].Value.Trim().Split(new[] { " and it is not true that " }, StringSplitOptions.None);
+				if (posC.Contains(" and ") || Array.Exists(negCs, x => x.Contains(" and "))) continue;
 				FactIndexEntry hE6 = FindEntryByNormalizedSentence(head6);
 				FactIndexEntry pE = FindEntryByNormalizedSentence(Dequantify(" " + posC + " ").Trim());
-				FactIndexEntry nE = FindEntryByNormalizedSentence(Dequantify(" " + negC + " ").Trim());
-				if (hE6 == null || pE == null || nE == null) continue;
+				var nEs = new List<FactIndexEntry>();
+				foreach (string negC in negCs) nEs.Add(FindEntryByNormalizedSentence(Dequantify(" " + negC.Trim() + " ").Trim()));
+				if (hE6 == null || pE == null || nEs.Contains(null)) continue;
 				List<string> ht6 = SubscriptedTokens(head6, hE6.Players);
 				List<string> pt = SubscriptedTokens(posC, pE.Players);
-				List<string> nt = SubscriptedTokens(negC, nE.Players);
-				if (ht6 == null || pt == null || nt == null) continue;
+				var nts = new List<List<string>>();
+				for (int k = 0; k < negCs.Length; k++) nts.Add(SubscriptedTokens(negCs[k].Trim(), nEs[k].Players));
+				if (ht6 == null || pt == null || nts.Contains(null)) continue;
 				// both sides must present exactly the head's columns for a set difference
-				var pPos = new List<int>(); var nPos = new List<int>();
+				var pPos = new List<int>();
+				var nPoss = new List<List<int>>();
 				bool ok6 = true;
 				foreach (string h in ht6)
 				{
-					int a = pt.IndexOf(h), b = nt.IndexOf(h);
-					if (a < 0 || b < 0) { ok6 = false; break; }
-					pPos.Add(a); nPos.Add(b);
+					int a = pt.IndexOf(h);
+					if (a < 0) { ok6 = false; break; }
+					pPos.Add(a);
+				}
+				for (int k = 0; ok6 && k < nts.Count; k++)
+				{
+					var nPos = new List<int>();
+					foreach (string h in ht6)
+					{
+						int b = nts[k].IndexOf(h);
+						if (b < 0) { ok6 = false; break; }
+						nPos.Add(b);
+					}
+					nPoss.Add(nPos);
 				}
 				if (!ok6) continue;
-				string leftSide = SideExpr(pE, pt.Count, pPos, true);
-				string rightSide = SideExpr(nE, nt.Count, nPos, false);
+				string rightSide = SideExpr(pE, pt.Count, pPos, true);
+				for (int k = 0; k < nEs.Count; k++)
+				{
+					rightSide = "S3(A(\"minus\"), " + rightSide + ", " + SideExpr(nEs[k], nts[k].Count, nPoss[k], false) + ")";
+				}
 				var rule6 = hE6.Fact.DerivationRule as FactTypeDerivationRule;
 				if (rule6 == null)
 				{
@@ -3416,15 +3448,26 @@ namespace Arest.NormaOracle
 				// reading, built and populated without complaint. RolePath.cs:8264 names
 				// the right mechanism: PathedRoleNegationState, "a negatable unary fact
 				// type", which is what this clause is.
-				var subNeg = new RoleSubPath(myStore);
-				lead6.SubPathCollection.Add(subNeg);
-				for (int c = 0; c < nE.Roles.Count; c++)
+				var negNames = new List<string>();
+				for (int k = 0; k < nEs.Count; k++)
 				{
-					var nr = new PathedRole(subNeg, nE.Roles[c]);
-					nr.PathedRolePurpose = c == nPos[0] ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
-					if (c != nPos[0]) nr.IsNegated = true;
+					FactIndexEntry nE = nEs[k];
+					List<int> nPos = nPoss[k];
+					var subNeg = new RoleSubPath(myStore);
+					lead6.SubPathCollection.Add(subNeg);
+					// THE NEGATION SITS ON THE ENTRY ROLE. Negating the other roles of a binary
+					// leg left NORMA verbalizing it positively ("and that Invention was described
+					// in some Printed Publication") with no error, a wrong build the gate had to
+					// learn to see; the entry role negated reads "it is not true that (...)",
+					// for a unary leg the same role as before
+					for (int c = 0; c < nE.Roles.Count; c++)
+					{
+						var nr = new PathedRole(subNeg, nE.Roles[c]);
+						nr.PathedRolePurpose = c == nPos[0] ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
+						if (c == nPos[0]) nr.IsNegated = true;
+					}
+					negNames.Add(nE.Fact.Name);
 				}
-				if (nE.Roles.Count == 1) { foreach (PathedRole pr0 in subNeg.PathedRoleCollection) pr0.IsNegated = true; }
 				var pj6 = new RoleSetDerivationProjection(rule6, lead6);
 				for (int i = 0; i < hE6.Roles.Count; i++)
 				{
@@ -3434,8 +3477,8 @@ namespace Arest.NormaOracle
 				var hp6 = new List<string>();
 				foreach (string p in hE6.Players) hp6.Add(IAtom(p));
 				myRuleRecipes.Add("S3(" + IAtom(hE6.Fact.Name) + ", S" + hp6.Count + "("
-					+ string.Join(", ", hp6) + "), S3(A(\"minus\"), " + leftSide + ", " + rightSide + "))");
-				log.Add(hE6.Fact.Name + " := minus (" + pE.Fact.Name + " less " + nE.Fact.Name
+					+ string.Join(", ", hp6) + "), " + rightSide + ")");
+				log.Add(hE6.Fact.Name + " := minus (" + pE.Fact.Name + " less " + string.Join(", ", negNames)
 					+ "), " + DescribeDerivation(hE6.Fact));
 			}
 			// NEGATION, shape one and a half: THE POSITIVE SIDE IS THE TYPE ITSELF.
@@ -3454,13 +3497,26 @@ namespace Arest.NormaOracle
 				while (s6b.StartsWith("* * ")) s6b = s6b.Substring(2);
 				Match m6b = Regex.Match(s6b, @"^\* (.+?) iff it is not true that (.+)\.$");
 				if (!m6b.Success) continue;
-				string head6b = m6b.Groups[1].Value.Trim(), neg6b = m6b.Groups[2].Value.Trim();
-				if (neg6b.Contains(" and ")) continue;
+				string head6b = m6b.Groups[1].Value.Trim();
+				// any number of negated legs, as in shape one: title 35's novelty rule is five
+				// absences (not patented, not described, not in public use, not on sale, not
+				// otherwise available before the effective filing date), one subpath each
+				string[] negs6b = m6b.Groups[2].Value.Trim().Split(new[] { " and it is not true that " }, StringSplitOptions.None);
+				if (Array.Exists(negs6b, x => x.Contains(" and "))) continue;
 				FactIndexEntry hE6b = FindEntryByNormalizedSentence(head6b);
-				FactIndexEntry nE6b = FindEntryByNormalizedSentence(Dequantify(" " + neg6b + " ").Trim());
-				if (hE6b == null || nE6b == null || hE6b.Players.Count != 1) continue;
-				int nAt6b = nE6b.Players.IndexOf(hE6b.Players[0]);
-				if (nAt6b < 0) continue;
+				if (hE6b == null || hE6b.Players.Count != 1) continue;
+				var nEs6b = new List<FactIndexEntry>();
+				var nAts6b = new List<int>();
+				foreach (string neg6b in negs6b)
+				{
+					FactIndexEntry nE6b = FindEntryByNormalizedSentence(Dequantify(" " + neg6b.Trim() + " ").Trim());
+					if (nE6b == null) { nEs6b = null; break; }
+					int nAt6b = nE6b.Players.IndexOf(hE6b.Players[0]);
+					if (nAt6b < 0) { nEs6b = null; break; }
+					nEs6b.Add(nE6b);
+					nAts6b.Add(nAt6b);
+				}
+				if (nEs6b == null) continue;
 				int rules6b;
 				rulesPerHead.TryGetValue(RuleHeadKey(head6b), out rules6b);
 				var have6b = hE6b.Fact.DerivationRule as FactTypeDerivationRule;
@@ -3478,21 +3534,30 @@ namespace Arest.NormaOracle
 				var lead6b = new LeadRolePath(myStore);
 				rule6b.OwnedLeadRolePathCollection.Add(lead6b);
 				var root6b = new RolePathObjectTypeRoot(lead6b, root6bT);
-				var subN6b = new RoleSubPath(myStore);
-				lead6b.SubPathCollection.Add(subN6b);
-				for (int c = 0; c < nE6b.Roles.Count; c++)
+				string expr6b = IAtom(hE6b.Players[0]);
+				var negNames6b = new List<string>();
+				for (int k = 0; k < nEs6b.Count; k++)
 				{
-					var nr6b = new PathedRole(subN6b, nE6b.Roles[c]);
-					nr6b.PathedRolePurpose = c == nAt6b ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
-					if (c != nAt6b) nr6b.IsNegated = true;
+					FactIndexEntry nE6b = nEs6b[k];
+					int nAt6b = nAts6b[k];
+					var subN6b = new RoleSubPath(myStore);
+					lead6b.SubPathCollection.Add(subN6b);
+					// the negation sits on the entry role (see shape one)
+					for (int c = 0; c < nE6b.Roles.Count; c++)
+					{
+						var nr6b = new PathedRole(subN6b, nE6b.Roles[c]);
+						nr6b.PathedRolePurpose = c == nAt6b ? PathedRolePurpose.PostInnerJoin : PathedRolePurpose.SameFactType;
+						if (c == nAt6b) nr6b.IsNegated = true;
+					}
+					expr6b ="S3(A(\"minus\"), " + expr6b + ", " + IAtom(nE6b.Fact.Name) + ")";
+					negNames6b.Add(nE6b.Fact.Name);
 				}
-				if (nE6b.Roles.Count == 1) { foreach (PathedRole pr6b in subN6b.PathedRoleCollection) pr6b.IsNegated = true; }
 				var pj6b = new RoleSetDerivationProjection(rule6b, lead6b);
 				var drp6b = new DerivedRoleProjection(pj6b, hE6b.Roles[0]);
 				new DerivedRoleProjectedFromRolePathRoot(drp6b, root6b);
 				myRuleRecipes.Add("S3(" + IAtom(hE6b.Fact.Name) + ", S1(" + IAtom(hE6b.Players[0])
-					+ "), S3(A(\"minus\"), " + IAtom(hE6b.Players[0]) + ", " + IAtom(nE6b.Fact.Name) + "))");
-				log.Add(hE6b.Fact.Name + " := minus (" + hE6b.Players[0] + " less " + nE6b.Fact.Name
+					+ "), " + expr6b + ")");
+				log.Add(hE6b.Fact.Name + " := minus (" + hE6b.Players[0] + " less " + string.Join(", ", negNames6b)
 					+ "), " + DescribeDerivation(hE6b.Fact));
 			}
 			// NEGATION, shape two: `<positive> and no <X> <clause> where <clause>`.
@@ -6503,14 +6568,18 @@ namespace Arest.NormaOracle
 				// true that" before the step and every later step of the path and its
 				// sub-paths sits inside it, as `no Transition is defined in ... where that
 				// Transition is from that Status` does in the text.
-				negated = negated || pr.IsNegated;
+				// ONLY AN ENTRY ROLE'S NEGATION COUNTS, as it does for NORMA's verbalizer: a
+				// negation placed on a same-fact continuation role is verbalized as nothing
+				// at all, and reading it here as the leg's negation is how a build that
+				// negated the wrong role of a binary leg passed this gate with NORMA
+				// rendering the leg positively (the negation-many-legs probe, 2026-09-04)
 				bool sameFact = pr.PathedRolePurpose == PathedRolePurpose.SameFactType
 					&& curInst != null && curInst.Fact == fact && idx >= 0 && curInst.Vars[idx] < 0;
+				if (!sameFact) negated = negated || pr.IsNegated;
 				if (sameFact)
 				{
 					int v = RbNewVar(types, uf, role.RolePlayer);
 					curInst.Vars[idx] = v;
-					if (pr.IsNegated) curInst.Negated = true;
 					varOf[pr] = v;
 					cur = v;
 				}
@@ -9915,9 +9984,13 @@ namespace Arest.NormaOracle
 				+ "DEF(\"" + prefix + ":errors\", N(" + myBlockingErrors + ")),\n\n"
 				+ "DEF(\"" + prefix + ":readback\", N(" + myReadBackMismatches + ")),\n\n";
 		}
-		public string RunOutcomeCells(List<string> built)
+		// a carrier of its own rather than three more surfaces of design-state: the
+		// regression check composes it with the record and nothing else, so the host
+		// answers in seconds on a store whose schema takes it minutes to load
+		public void WriteOutcome(string path, List<string> built)
 		{
-			return OutcomeCells("state", built);
+			WriteCarrier(path, "(\n\"THE RUN'S OUTCOME in INTERSECTION SOURCE (generated by norma-oracle; regenerate, never edit): state:built, the built rule heads with multiplicity, sorted; state:errors, the blocking-error total; state:readback, the read-back count. Composed beside `expected`, the record, for law:regress_report.\",\n\n"
+				+ OutcomeCells("state", built).TrimEnd().TrimEnd(',') + "\n)\n");
 		}
 		public void WriteExpectation(string path, List<string> built)
 		{

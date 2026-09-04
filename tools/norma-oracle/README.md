@@ -260,16 +260,17 @@ expectation keeps a known wrong build red until it is fixed.
 facts -- `Corpus 'uslaw' reads Directory '../apps/us-law/readings/**'` -- an
 app's readings closure as its package.json declares it, the metamodel first,
 a library's domain tree expanded because the oracle reads one directory
-level. Every run writes its outcome into `design-state` as three surfaces,
-`state:built` (the built heads by NAME with multiplicity, sorted: a count
-hides a dropped rule, a name does not), `state:errors` and
-`state:readback`, and the same three under `expect:` names into a carrier
+level. Every run writes its outcome as a carrier called `outcome`, three
+surfaces: `state:built` (the built heads by NAME with multiplicity, sorted:
+a count hides a dropped rule, a name does not), `state:errors` and
+`state:readback`; and the same three under `expect:` names into a carrier
 called `expectation`. `expected/<corpus>` is an accepted run's expectation,
-copied there by recording. The theory composes the run's carriers with that
-record (the js runner splices a file named `expected` beside `design-state`,
-as it does `compiled` and `journal`) and asks the host:
+copied there by recording. The theory composes the run's outcome with that
+record and canon, no schema (us-law's `design-state` took the host minutes
+to load and close, and the three laws read none of it), and asks the host:
 
-    bun composed.g.js regress       # law:regress_built, _errors, _readback,
+    bun build.js regress && bun regress.g.js regress
+                                    # law:regress_built, _errors, _readback,
                                     # then the heads lost and new
 
 The check is canon, `law:regress_report` in `arest`, over `state:*` and

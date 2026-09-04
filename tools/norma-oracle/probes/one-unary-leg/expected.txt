@@ -1,0 +1,4 @@
+errors 0
+*Activity is exempt if and only if
+that Activity is reasonably related to regulatory submission.
+

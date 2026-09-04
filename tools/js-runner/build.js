@@ -32,7 +32,15 @@ const oracle = process.env.AREST_CARRIERS || join(here, "..", "norma-oracle");
 // module as the laws rather than a second composition, because the case cells
 // do not disturb law:report -- the base report is byte-identical with and
 // without them -- and one module then answers both `law:report` and `case`.
-const SPLICED = [
+// THE REGRESS MODE COMPOSES NO SCHEMA. law:regress_report reads the run's
+// outcome (state:built, state:errors, state:readback, the oracle's `outcome`
+// carrier) and the record (`expected`), nothing else; composing us-law's
+// 15 MB design-state beside them cost the host two minutes to load the
+// module and minutes more in the derivation closure before the three rows
+// could be answered (2026-09-04). Canon, the outcome and the record boot in
+// seconds on any store.
+const slim = process.argv[2] === "regress";
+const SPLICED = slim ? [join(root, "arest")] : [
   join(root, "arest"),
   join(root, "engine", "shared", "scenarios.canon"),
   join(oracle, "design-state"),
@@ -43,7 +51,7 @@ const SPLICED = [
 // store that has not been compiled still runs, it just pays the Rmap
 // derivation the way every store did before tools/compile-rmap.js existed.
 // Splicing it when present is what makes rmap run for uncompiled schemas only.
-try {
+if (!slim) try {
   const carrier = readFileSync(join(oracle, "compiled"), "utf8");
   const stamped = (carrier.match(/AREST_COMPILED_FROM=([0-9a-f]+)/) || [])[1];
   const now = createHash("sha256")
@@ -70,11 +78,16 @@ try {
 // placed in the carriers directory as `expected`, is composed in, and
 // law:regress holds the store to it (`bun composed.g.js regress`). A directory
 // without one is a store nobody has recorded, and the law holds of it.
-try {
-  statSync(join(oracle, "expected"));
-  SPLICED.push(join(oracle, "expected"));
-} catch {
-  /* nothing recorded */
+// The run's own outcome rides in `outcome`, three surfaces the oracle writes
+// beside design-state every run; a carriers directory from before it has
+// none, and the regress laws then hold vacuously of the store.
+for (const carrier of ["outcome", "expected"]) {
+  try {
+    statSync(join(oracle, carrier));
+    SPLICED.push(join(oracle, carrier));
+  } catch {
+    /* not written, or nothing recorded */
+  }
 }
 
 // The journal is APPEND-ONLY and carries a leading doc atom, so it is spliced
@@ -83,9 +96,9 @@ try {
 const JOURNAL = join(oracle, "journal");
 
 const mode = process.argv[2] || "cli";
-const OUT = { cli: "composed", test: "cases", serve: "serve", mcp: "mcp", sql: "sql", ui: "ui" };
+const OUT = { cli: "composed", test: "cases", serve: "serve", mcp: "mcp", sql: "sql", ui: "ui", regress: "regress" };
 if (!(mode in OUT)) {
-  console.error("unknown mode: " + mode + " (cli, test, serve, mcp, sql, ui)");
+  console.error("unknown mode: " + mode + " (cli, test, serve, mcp, sql, ui, regress)");
   process.exit(1);
 }
 
