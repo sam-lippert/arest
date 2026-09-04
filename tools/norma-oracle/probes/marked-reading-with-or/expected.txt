@@ -1,0 +1,5 @@
+errors 0
+*Defendant is liable for defamation of public official or public figure if and only if
+that Defendant makes false some Statement of Fact concerning some Plaintiff
+and  acts with Actual Malice.
+

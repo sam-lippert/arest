@@ -158,14 +158,18 @@ Four rules of the body, each found by a corpus rule that stayed unbuilt:
   one unary reading), never before more/fewer/less/later/earlier/equal.
 - A possessive is not a quote: `Defendant's Conduct ... Plaintiff's use` is
   a reading, not an instance fact with a literal.
-- A sentence a rule uses as a leg is a reading by construction: the prose
-  guard (more than sixty characters of connective text is documentation)
-  still skips such a sentence at first, and the replay after the map declares
-  it once a deferred rule names it.
+- A sentence a rule uses, as a leg or as its head, is a reading by
+  construction: the prose guard (more than sixty characters of connective
+  text is documentation) still skips such a sentence at first, and the replay
+  after the map declares it once a deferred rule names it. A marked head
+  declared past the guard (`Defendant is liable for defamation of public
+  official or public figure. *`) keeps its marking, which registers per line.
 
 The census then says per rule what it lacks: `ONE AWAY: <clause> <- <head>`
 for a body one declaration short, `MISSING (n): <clause> | ... <- <head>` for
-the rest. `Estate is a Fee Simple` as a body leg is a leg over the subtype
+the rest, and `UNBUILT ... [legs resolving k/n; general join: <reason>]` for
+a body every arm declined; the general join's reason is printed only there,
+since a later arm builds most of what it declines. `Estate is a Fee Simple` as a body leg is a leg over the subtype
 fact itself, entered at the supertype role; and a variable typed a subtype
 of a leg's player walks up through the subtype fact before the leg (NORMA
 models a subtype as a fact type with two roles, so the step is an ordinary
