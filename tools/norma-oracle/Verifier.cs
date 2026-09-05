@@ -12698,8 +12698,57 @@ namespace Arest.NormaOracle
 			return parts;
 		}
 
+		// NORMA MINTS ITS IMPLIED MANDATORIES IN DELAYED VALIDATION, and which
+		// object types the queue reaches is not a function of the readings.
+		// FrameworkDomainModel queues them in a Dictionary keyed on
+		// Element.GetHashCode() ^ Validation.GetHashCode(), then sorts only by
+		// domain model, order and priority with List.Sort, which is UNSTABLE --
+		// so every same-priority ValidateIsIndependent keeps an arbitrary
+		// relative order, and an object type whose validation was never queued
+		// simply never gets its implied constraint.
+		//
+		// MEASURED: six runs of the autodev corpus over identical readings and
+		// an identical directory list gave five identical design-states and one
+		// differing by 102 bytes. Role 1 of PlanProductHasPricePerCall read
+		// "none" in five and "implied" in one, and the odd run carried the
+		// matching S2(PlanProductHasPricePerCall, N(1)) and DJ:i rows in
+		// state:djmands -- 1364 implied constraints against 1363. Plan Product
+		// is an objectification, so its implied mandatory is created by
+		// ObjectType.ValidateIsIndependent (ObjectType.cs:2997), reached only
+		// through FrameworkDomainModel.DelayValidateElement.
+		//
+		// That is one row in 1364 and it moved two carriers the witness hashes,
+		// so the corpus suite has been red at about one run in six. state:djmands
+		// feeds rmap:djrows and thence assimilation, so this is not cosmetic.
+		//
+		// So the phase is FORCED rather than hoped for -- the same move
+		// MappingStateCells already makes on TransformORMtoOial rather than
+		// trusting the load fixup to have run. Every object type is validated
+		// exactly once, in NAME order, before anything reads a mandatory, so the
+		// answer is NORMA's own fully computed one instead of whatever the queue
+		// happened to reach. Name order because it is the only order that is a
+		// function of the model rather than of this run's element hashes, which
+		// is the same reason the ObjectKind synthesis above sorts by name.
+		private void ForceIndependenceValidation()
+		{
+			var validate = typeof(ObjectType).GetMethod("ValidateIsIndependent",
+				System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+			if (validate == null || myModel == null) return;
+			using (Transaction t = myStore.TransactionManager.BeginTransaction("force independence validation"))
+			{
+				foreach (ObjectType ot in myModel.ObjectTypeCollection
+					.Where(o => !o.IsDeleted && !string.IsNullOrEmpty(o.Name))
+					.OrderBy(o => o.Name, StringComparer.Ordinal).ToList())
+				{
+					validate.Invoke(ot, new object[] { null });
+				}
+				t.Commit();
+			}
+		}
+
 		public string InputStateCells()
 		{
+			ForceIndependenceValidation();
 			var rows = new List<string>();
 			foreach (FactType ft in myStore.ElementDirectory.FindElements<FactType>(true))
 			{
