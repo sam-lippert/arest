@@ -1,0 +1,6 @@
+errors 0
+*Request has deadline Day Count1 if and only if
+that Request has some submission Day Count2
+and  has some response Day Count3
+where Day Count1 = Add(Day Count2, Day Count3).
+
