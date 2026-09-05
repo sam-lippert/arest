@@ -42,7 +42,15 @@ if (names.length === 0) {
 // pointing the env var at one app while the composition holds another emits
 // the WRONG store's artifacts into that app -- auto.dev twice received a
 // carrier byte-identical to the oracle's, 1,009,655 bytes of another schema.
-const composed = readFileSync(join(here, "js-runner", "cases.g.js"), "utf8");
+// WHERE the composition is read from follows AREST_OUT_DIR, the same variable
+// build.js writes to, so a caller that composed into its own directory can
+// compile there without touching the runner's working module. Compiling a
+// corpus used to mean building js-runner/cases.g.js for that corpus and
+// leaving it there, which clobbers the module every other check reads. The
+// stamp test below is unchanged and is what actually keeps the two honest:
+// wherever the composition sits, it must be the one built for THESE carriers.
+const modDir = process.env.AREST_OUT_DIR || join(here, "js-runner");
+const composed = readFileSync(join(modDir, "cases.g.js"), "utf8");
 const stamped = (composed.match(/AREST_CARRIERS_DIR=(.*)/) || [])[1];
 // Compared with separators normalised: build.js stamps a native Windows path
 // while AREST_CARRIERS is usually given with forward slashes.
@@ -54,7 +62,7 @@ if (stamped === undefined || norm(stamped) !== norm(carriers)) {
   console.error("  AREST_CARRIERS=" + carriers + " bun tools/js-runner/build.js test");
   process.exit(1);
 }
-await import("file://" + join(here, "js-runner", "cases.g.js").replace(/\\/g, "/"));
+await import("file://" + join(modDir, "cases.g.js").replace(/\\/g, "/"));
 const { Ev, CELLS } = globalThis.AREST;
 
 // A("...") carries no escape -- an embedded quote ends the string and a newline
