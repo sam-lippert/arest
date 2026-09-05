@@ -799,6 +799,32 @@ Constraint has modality of Modality Type.
 Constraint has Text.
   Each Constraint has at most one Text.
 Constraint is semantic.
+
+<!-- WHICH DECIDER OWNS THIS CONSTRAINT (2026-09-05). Sam: the deontic rules
+     for messaging split into "deterministic ones that may be determined by a
+     rule such as a regex, population check, or other custom function, and
+     otherwise ones to be determined by llm having to do with tone or policy",
+     and a violation is a trigger to regenerate the message with the
+     corrections, before human approval. Nothing in the model said WHICH kind a
+     rule was, so both landed in one bucket -- 26 in one store, 36 in another,
+     12 more in support.auto.dev's state-law-wiring.md -- and the runtime could
+     not route what the model would not say.
+
+     A Predicate is already a bound function (has Name, Module Path, Symbol
+     Name), so naming one IS the deterministic case. Its absence is the judged
+     case, made explicit as a derivation rather than left as an implication of
+     silence. `Object Type is described to AI by prompt Text` is the hook the
+     judged side already has, and `Constraint Type has Violation Template` is
+     the corrections text a regeneration is handed.
+
+     NOT `Constraint is semantic` above, which derives as deontic AND spanning
+     a role whose object type has no instances -- that is "nothing to check
+     against yet", a neighbouring notion, and reusing it here would conflate an
+     empty population with a rule that needs judgement. -->
+Constraint is decided by Predicate.
+  Each Constraint is decided by at most one Predicate.
+Constraint is machine-decidable. *
+
 Constraint has Constraint Match Keyword.
   Each Constraint, Constraint Match Keyword combination occurs at most once in the population of Constraint has Constraint Match Keyword.
   It is possible that some Constraint has more than one Constraint Match Keyword.
@@ -1095,6 +1121,8 @@ Derivation Rule depends on Derivation Rule. *
 
 
 Constraint is semantic iff Constraint has modality of Modality Type 'Deontic' and Constraint spans some Role and that Role is played by some Object Type and no Object Type Instance is instance of that Object Type.
+
+* Constraint is machine-decidable iff Constraint is decided by some Predicate.
 
 ## Implicit Derivation Rules (#316 / #287c)
 
