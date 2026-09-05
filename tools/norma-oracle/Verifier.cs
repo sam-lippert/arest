@@ -11523,7 +11523,9 @@ namespace Arest.NormaOracle
 			heads.Sort(StringComparer.Ordinal);
 			return "DEF(\"" + prefix + ":built\", " + (heads.Count == 0 ? "PHI()" : IChunked(heads)) + "),\n\n"
 				+ "DEF(\"" + prefix + ":errors\", N(" + myBlockingErrors + ")),\n\n"
-				+ "DEF(\"" + prefix + ":readback\", N(" + myReadBackMismatches + ")),\n\n";
+				+ "DEF(\"" + prefix + ":readback\", N(" + myReadBackMismatches + ")),\n\n"
+				+ "DEF(\"" + prefix + ":carriers\", "
+					+ (myCarrierRows.Count == 0 ? "PHI()" : IChunked(myCarrierRows)) + "),\n\n";
 		}
 		// a carrier of its own rather than three more surfaces of design-state: the
 		// regression check composes it with the record and nothing else, so the host
@@ -12120,7 +12122,56 @@ namespace Arest.NormaOracle
 				sb.Append(",\n\n").Append(extraCells.TrimEnd().TrimEnd(','));
 			}
 			sb.Append("\n)\n");
+			myCarrierRows = CarrierRows(sb.ToString());
 			WriteCarrier(path, sb.ToString());
+		}
+
+		// EVERY CARRIER GETS A WITNESS, and this is the general one. The recorded
+		// expectation held three surfaces -- the built rule heads, the blocking-error
+		// total, the read-back count -- and all three are summaries of the RUN. What
+		// the closure actually consumes is the carriers, and nothing recorded them,
+		// so a carrier could change or stop being written with every corpus record
+		// still reading as recorded. That is not hypothetical: state:rules took a
+		// malformed recipe that crashed every us-law boot (21f4eb0b) and state:deontics
+		// began carrying constraints it had never carried (bde4be7a), and all six
+		// corpora passed unchanged through both.
+		//
+		// One row per DEF of the design state: its name, how many bytes it occupies,
+		// and a digest of it. The byte count is there so a record DIFF is readable --
+		// a digest alone says only that something moved -- and the digest catches a
+		// change that keeps the size. Neither says what is right; they say what
+		// changed, which is the job a recorded expectation does.
+		private List<string> myCarrierRows = new List<string>();
+		private static List<string> CarrierRows(string carrier)
+		{
+			var rows = new List<string>();
+			using (var sha = System.Security.Cryptography.SHA256.Create())
+			{
+				foreach (string line in carrier.Split('\n'))
+				{
+					if (!line.StartsWith("DEF(\"", StringComparison.Ordinal)) continue;
+					int close = line.IndexOf('"', 5);
+					if (close < 0) continue;
+					string name = line.Substring(5, close - 5);
+					// state:conorder IS NOT REPRODUCIBLE, and this witness is what found
+					// it: two runs of auto.dev over identical readings differ in one
+					// composite foreign key, which picks (hasStateName2, hasCountyName1)
+					// in one and (hasStateName1, hasCountyName2) in the other. Not an
+					// ordering of the same pair -- DIFFERENT COLUMNS, from a reflection
+					// walk over NORMA's ColumnReferenceCollection whose iteration order
+					// is not guaranteed. Nothing in canon reads state:conorder, so it
+					// costs nothing today, and it is the only one of the thirty that
+					// moves. Excluded by name rather than silently, because including it
+					// would make the witness fail at random on the two largest corpora
+					// and the first thing anyone did would be to delete the witness.
+					if (name == "state:conorder") continue;
+					var hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(line));
+					var hex = new System.Text.StringBuilder();
+					for (int i = 0; i < 6; i++) hex.Append(hash[i].ToString("x2"));
+					rows.Add("S3(" + IAtom(name) + ", N(" + line.Length + "), " + IAtom(hex.ToString()) + ")");
+				}
+			}
+			return rows;
 		}
 
 		public static void WriteNormaAnswer(Store store, System.Reflection.Assembly relationalAssembly, System.Reflection.Assembly abstractionAssembly, System.Reflection.Assembly dcilBridgeAssembly, string path, HashSet<string> excludeFullyDerived)

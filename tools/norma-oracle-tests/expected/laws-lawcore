@@ -49,6 +49,7 @@ law OK: rmap-idempotence
   law OK: constraint-meaning
   law OK: exclusion-spellings-agree
   law OK: set-algebra
+  law OK: regress-carriers
   law OK: derivation-is-a-set
   law OK: model-rules-evaluable
   law OK: store-closed
