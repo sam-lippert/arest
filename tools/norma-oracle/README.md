@@ -180,6 +180,16 @@ carriers to regenerate):
     mkdir -p .check && cd .check
     .../norma-oracle.exe <law-core/readings> <the library's reading dirs...>
 
+ORACLE RUN TIME IS A SECOND CEILING, measured 2026-09-05. The support corpus --
+the largest, reading auto.dev, law-core, us-law and arest's templates -- ran its
+oracle pass in 8m02s and 8m12s on two occasions, and adding FIVE fact types to
+its readings took that to 12m16s. A 53% increase for five declarations. Two
+consequences worth knowing before you plan work: a corpus this size can no
+longer be recorded inside a ten-minute foreground budget, and the cost of a
+model edit is not proportional to its size. The oracle emits `timing:` lines per
+phase and nobody has profiled them; arest #84 tracks the evaluator's half of the
+same problem (a law report over eu-law is 283 s) and now carries this half too.
+
 What to read in the output: the sentence census, the `unrecognized sentences`
 list, and the UNBUILT lines -- one per derivation the compiler could not build,
 each carrying the head, the body no arm accepted, and how many legs resolved,
