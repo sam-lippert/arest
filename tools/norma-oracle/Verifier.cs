@@ -8571,6 +8571,37 @@ namespace Arest.NormaOracle
 		private void RecordRuleRecipe(FactIndexEntry headE, FactIndexEntry e1, FactIndexEntry e2,
 			int j1, int j2, List<KeyValuePair<FactIndexEntry, int>> located)
 		{
+			// A UNARY HEAD OVER A TWO-LEG JOIN, which JoinRecipe below cannot say and
+			// refuses on its first line. That shape builds the NatJoin form: each leg
+			// projected to <contributed column, join column> and the two paired, which
+			// needs the head to name exactly two players. A head naming ONE fell
+			// through and the arm emitted nothing at all -- the head was marked
+			// derived, verbalized, passed the read-back gate, and never populated.
+			//
+			// It is not an edge case. It is the shape of every MEMBERSHIP question --
+			// two legs, one shared variable, keep one column -- and modelling arest's
+			// own build surface produced it immediately: `Head is delivered iff some
+			// Rule produces Head and that Rule has some Recipe` is a unary head over
+			// RuleProducesHead x RuleHasRecipe joined on Rule. The model of inert
+			// heads was itself an inert head.
+			//
+			// joinon says it directly and needs no new form: join on the shared pair,
+			// then project the one column the head names. No ambiguity to refuse here
+			// -- the projection keeps a single named column rather than discarding the
+			// rest of a wide leg, which is what JoinRecipe's guard was protecting.
+			if (headE.Players.Count == 1 && located.Count == 1
+				&& (located[0].Key == e1 || located[0].Key == e2)
+				&& j1 >= 0 && j1 < e1.Players.Count && j2 >= 0 && j2 < e2.Players.Count)
+			{
+				int leg = located[0].Key == e1 ? 0 : 1;
+				if (located[0].Value >= 0 && located[0].Value < located[0].Key.Players.Count)
+				{
+					RecordJoinOnRecipe(headE, e1, e2,
+						new List<KeyValuePair<int, int>> { new KeyValuePair<int, int>(j1, j2) },
+						new[] { leg }, new[] { located[0].Value });
+					return;
+				}
+			}
 			string recipe = JoinRecipe(headE, e1, e2, j1, j2, located);
 			if (recipe == null) return;
 			var headPlayers = new List<string>();
