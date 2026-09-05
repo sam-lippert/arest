@@ -1,0 +1,4 @@
+errors 0
+*External System is secure if and only if
+that External System has some URI where StartsWith(URI, https://).
+
