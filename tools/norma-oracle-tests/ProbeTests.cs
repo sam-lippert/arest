@@ -99,6 +99,24 @@ namespace Arest.NormaOracle.Tests
             Assert.Contains("S3(A(\"AgencyActionIsFinal\"), S1(A(\"Agency Action\")), S3(A(\"proj\"), A(\"Final Agency Action\"), S1(N(1))))", state);
         }
 
+        // A PREFIX TEST, WITH NO NEW PRIMITIVE. strip_prefix answers the string
+        // unchanged when the prefix is absent, so `starts with` is that answer
+        // compared against the original -- the idiom ui:replay already uses to
+        // find the journal cells. Fifteen auto.dev rules were blocked on this and
+        // none of them was blocked on the evaluator.
+        [Fact]
+        public void APrefixTestEmitsAStartsStep()
+        {
+            string dir = Path.Combine(ProbesDir, "chain-recipe-prefix");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "chain-recipe-prefix-run"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            Assert.Contains(
+                "S3(A(\"ExternalSystemIsSecure\"), S1(A(\"External System\")), "
+                + "S3(A(\"proj\"), S4(A(\"starts\"), A(\"ExternalSystemHasURI\"), N(2), A(\"https://\")), S1(N(1))))",
+                state);
+        }
+
         // A COMPUTED HEAD ROLE REACHES THE EVALUATOR. `+`, `-` and `*` were always
         // base primitives -- canon applies `+` forty-six times -- so arithmetic was
         // never missing from the language, only from the recipe grammar, and a rule

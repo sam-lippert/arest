@@ -8292,6 +8292,23 @@ namespace Arest.NormaOracle
 				string op = cmpC[b[0]][1];
 				bool less = op == "is less than" || op == "is below";
 				bool more = op == "exceeds" || op == "is greater than" || op == "is above";
+				// `starts with 'https://'` is a filter on one bound column against a
+				// quoted literal, which `starts` says directly. The literal is read
+				// the way the arm reads it -- single quotes, stripped -- and anything
+				// else on the right (another column, a value type's own population)
+				// is declined, because a prefix test against a moving value is not
+				// what this form means.
+				if (op == "starts with" || op == "begins with")
+				{
+					string rt = cmpC[b[0]][2];
+					bool quoted = rt.Length > 1 && rt[0] == (char)39 && rt[rt.Length - 1] == (char)39;
+					if (!quoted) { myRecipeDeclines[sC] = "a prefix test against something not a literal"; return; }
+					if (b[1] < 0) { myRecipeDeclines[sC] = "a prefix test on a value no leg binds"; return; }
+					if (!colOf.ContainsKey(b[1])) { myRecipeDeclines[sC] = "a prefix test over a leg the join left out"; return; }
+					acc = "S4(" + IAtom("starts") + ", " + acc + ", N(" + (colOf[b[1]] + b[2]) + "), "
+						+ IAtom(rt.Substring(1, rt.Length - 2)) + ")";
+					continue;
+				}
 				if (!less && !more) { myRecipeDeclines[sC] = "a comparison (" + op + ")"; return; }
 				if (b[1] < 0 || b[3] < 0) { myRecipeDeclines[sC] = "a comparison against a literal or a bare population"; return; }
 				if (!colOf.ContainsKey(b[1]) || !colOf.ContainsKey(b[3]))
