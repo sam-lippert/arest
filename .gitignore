@@ -129,6 +129,7 @@ tools/wpf-runner/Composed.g.cs
 tools/ifactr-oracle/Composed.g.cs
 tools/norma-oracle/design-state
 tools/norma-oracle/norma-answer
+tools/norma-oracle/build-facts.md
 tools/norma-oracle/outcome
 tools/norma-oracle/expectation
 # and the compiled relational map with them: it is derived FROM design-state,
