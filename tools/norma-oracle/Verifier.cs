@@ -6895,9 +6895,8 @@ namespace Arest.NormaOracle
 				}
 				if (!okC) continue;
 				RecordGeneralChainRecipe(sC, hC, legsC, toksC, negC, nestC, atLegC, atPosC,
-					typeRootC, crossAtC, konstAtC, arithKeyC, cmpC, cmpBindC,
-					arithC.Count > 0 ? "arithmetic"
-						: thrC.Count > 0 ? "a threshold" : otherC.Count > 0 ? "`some other`"
+					typeRootC, crossAtC, konstAtC, hLitsC, arithKeyC, arithC, cmpC, cmpBindC,
+					thrC.Count > 0 ? "a threshold" : otherC.Count > 0 ? "`some other`"
 						: anaphoraC.Count > 0 ? "an objectification" : recursiveC ? "recursion"
 						: swapPlayersC.Count > 0 ? "a substituted subtype" : null);
 				myBuiltRuleSentences.Add(sC);
@@ -8195,7 +8194,7 @@ namespace Arest.NormaOracle
 		private void RecordGeneralChainRecipe(string sC, FactIndexEntry hC, List<FactIndexEntry> legsC,
 			List<List<string>> toksC, List<bool> negC, List<int> nestC,
 			int[] atLegC, int[] atPosC, ObjectType[] typeRootC, ObjectType[] crossAtC,
-			int[] konstAtC, string[] arithKeyC, List<string[]> cmpC, List<int[]> cmpBindC,
+			int[] konstAtC, List<string> hLitsC, string[] arithKeyC, List<string[]> arithC, List<string[]> cmpC, List<int[]> cmpBindC,
 			string shapeThisCannotSay)
 		{
 			if (shapeThisCannotSay != null) { myRecipeDeclines[sC] = shapeThisCannotSay; return; }
@@ -8219,8 +8218,8 @@ namespace Arest.NormaOracle
 			{
 				if (typeRootC[i] != null) { myRecipeDeclines[sC] = "a head role from a bare type root"; return; }
 				if (crossAtC[i] != null) { myRecipeDeclines[sC] = "a head role from a subtype extent"; return; }
-				if (konstAtC[i] >= 0) { myRecipeDeclines[sC] = "a head role from a constant"; return; }
-				if (arithKeyC[i] != null) { myRecipeDeclines[sC] = "a head role from a calculated value"; return; }
+				if (arithKeyC[i] != null) continue;                 // a computed column, calc'd on below
+				if (konstAtC[i] >= 0) continue;                    // a constant column, paired on below
 				if (atLegC[i] < 0 || atPosC[i] < 0) { myRecipeDeclines[sC] = "a head role no leg binds"; return; }
 				if (negC[atLegC[i]]) { myRecipeDeclines[sC] = "a head role bound inside a negation"; return; }
 			}
@@ -8230,7 +8229,9 @@ namespace Arest.NormaOracle
 			if (positives.Count == 0) { myRecipeDeclines[sC] = "every leg negated"; return; }
 			// the head's tokens, which are what a negated leg may share
 			var headToks = new HashSet<string>(StringComparer.Ordinal);
-			for (int i = 0; i < hC.Players.Count; i++) headToks.Add(toksC[atLegC[i]][atPosC[i]]);
+			for (int i = 0; i < hC.Players.Count; i++)
+				// a constant or computed role binds no token of its own
+				if (konstAtC[i] < 0 && arithKeyC[i] == null) headToks.Add(toksC[atLegC[i]][atPosC[i]]);
 			// walk the positive legs, joining each onto the accumulator at a shared
 			// token and keeping every column, so the head's binding stays addressable
 			var order = new List<int>();
@@ -8299,13 +8300,94 @@ namespace Arest.NormaOracle
 				if (more) { int t = lo; lo = hi; hi = t; }
 				acc = "S4(" + IAtom("cmp") + ", " + acc + ", N(" + lo + "), N(" + hi + "))";
 			}
-			var headCols = new List<string>();
+			// A HEAD ROLE MAY BE A CONSTANT, and the grammar says it already:
+			// pairwith appends a constant column to every row, which is how the
+			// metamodel writes `ObjectTypeHasWorldAssumption ... 'closed'`. So the
+			// bound roles project first, each constant is paired on after, and a
+			// final proj puts the columns back in the head's own order -- pairwith
+			// can only append, and the constant is rarely last. Nineteen auto.dev
+			// rules are blocked on this alone, the largest single bucket.
+			var boundOrder = new List<int>();
+			var konstOrder = new List<int>();
+			var calcOrder = new List<int>();
 			for (int i = 0; i < hC.Players.Count; i++)
 			{
+				if (arithKeyC[i] != null) calcOrder.Add(i);
+				// a computed role lives in the accumulator like a bound one, so it
+				// projects with them; only a constant has to be paired on afterwards
+				(konstAtC[i] >= 0 ? konstOrder : boundOrder).Add(i);
+			}
+			// A COMPUTED HEAD ROLE. The expression is resolved to two COLUMNS by the
+			// same precedence the comparison loop uses -- the leg's token, else its
+			// declared player -- so the recipe and the NORMA rule read the operands
+			// the same way. One binary operation, both operands bound by legs: a
+			// nested expression or a literal operand is declined rather than
+			// half-emitted. calc appends the value, so the column is known before the
+			// projection below and the head's own order is restored at the end.
+			var calcSteps = new List<string[]>();   // <op, leftCol, rightCol> per calc role
+			foreach (int i in calcOrder)
+			{
+				string aexpr = null;
+				foreach (string[] aq in arithC) if (aq[0] == arithKeyC[i]) { aexpr = aq[1]; break; }
+				if (aexpr == null) { myRecipeDeclines[sC] = "a computed head role with no expression"; return; }
+				string[] bits = Regex.Split(aexpr.Trim(), @" (plus|minus|times|divided by|concat) ");
+				if (bits.Length != 3) { myRecipeDeclines[sC] = "arithmetic of more than one operation"; return; }
+				string op = bits[1] == "plus" ? "+" : bits[1] == "minus" ? "-"
+					: bits[1] == "times" ? "*" : bits[1] == "divided by" ? "/" : null;
+				if (op == null) { myRecipeDeclines[sC] = "arithmetic this grammar has no primitive for (" + bits[1] + ")"; return; }
+				var cols = new string[2];
+				for (int side = 0; side < 2; side++)
+				{
+					string want = bits[side == 0 ? 0 : 2].Trim();
+					cols[side] = null;
+					for (int l = 0; l < legsC.Count && cols[side] == null; l++)
+						for (int c = 0; c < legsC[l].Players.Count; c++)
+							if ((toksC[l][c] == want || legsC[l].Players[c] == want) && colOf.ContainsKey(l))
+								{ cols[side] = (colOf[l] + c).ToString(); break; }
+					if (cols[side] == null) { myRecipeDeclines[sC] = "an arithmetic operand no leg binds"; return; }
+				}
+				calcSteps.Add(new string[] { op, cols[0], cols[1] });
+			}
+			// each calc appends one column to the accumulator, so the role's column is
+			// known once the steps are laid, and they are laid before the projection
+			var calcCol = new Dictionary<int, int>();
+			int accWidth = accToks.Count;
+			for (int k = 0; k < calcOrder.Count; k++)
+			{
+				acc = "S5(" + IAtom("calc") + ", " + acc + ", " + IAtom(calcSteps[k][0])
+					+ ", N(" + calcSteps[k][1] + "), N(" + calcSteps[k][2] + "))";
+				calcCol[calcOrder[k]] = ++accWidth;
+			}
+			// a negated leg is subtracted on the head's own columns, and it cannot
+			// bind a constant one, so the two together are declined rather than guessed
+			if (konstOrder.Count > 0 && negatives.Count > 0)
+				{ myRecipeDeclines[sC] = "a constant head role beside a negated leg"; return; }
+			var headCols = new List<string>();
+			foreach (int i in boundOrder)
+			{
+				if (calcCol.ContainsKey(i)) { headCols.Add("N(" + calcCol[i] + ")"); continue; }
 				if (!colOf.ContainsKey(atLegC[i])) { myRecipeDeclines[sC] = "a head role bound by a leg the join left out"; return; }
 				headCols.Add("N(" + (colOf[atLegC[i]] + atPosC[i]) + ")");
 			}
+			if (headCols.Count == 0) { myRecipeDeclines[sC] = "every head role a constant"; return; }
 			string expr = "S3(" + IAtom("proj") + ", " + acc + ", " + IFlat(headCols) + ")";
+			foreach (int i in konstOrder)
+			{
+				if (konstAtC[i] >= hLitsC.Count) { myRecipeDeclines[sC] = "a constant head role with no literal"; return; }
+				expr = "S3(" + IAtom("pairwith") + ", " + expr + ", " + IAtom(hLitsC[konstAtC[i]]) + ")";
+			}
+			if (konstOrder.Count > 0)
+			{
+				var back = new List<string>();
+				for (int i = 0; i < hC.Players.Count; i++)
+				{
+					int at = konstAtC[i] >= 0
+						? boundOrder.Count + konstOrder.IndexOf(i) + 1
+						: boundOrder.IndexOf(i) + 1;
+					back.Add("N(" + at + ")");
+				}
+				expr = "S3(" + IAtom("proj") + ", " + expr + ", " + IFlat(back) + ")";
+			}
 			foreach (int n in negatives)
 			{
 				var cols = new List<string>();

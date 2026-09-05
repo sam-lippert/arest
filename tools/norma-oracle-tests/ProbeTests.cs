@@ -99,6 +99,28 @@ namespace Arest.NormaOracle.Tests
             Assert.Contains("S3(A(\"AgencyActionIsFinal\"), S1(A(\"Agency Action\")), S3(A(\"proj\"), A(\"Final Agency Action\"), S1(N(1))))", state);
         }
 
+        // A COMPUTED HEAD ROLE REACHES THE EVALUATOR. `+`, `-` and `*` were always
+        // base primitives -- canon applies `+` forty-six times -- so arithmetic was
+        // never missing from the language, only from the recipe grammar, and a rule
+        // whose head is a sum built as a NORMA rule and then had nothing the closure
+        // could run. calc appends op(col i, col j) the way pairwith appends a
+        // constant, so the rule composes as join, calc, proj. Twelve auto.dev rules
+        // are this shape.
+        [Fact]
+        public void AComputedHeadRoleEmitsACalcStep()
+        {
+            string dir = Path.Combine(ProbesDir, "chain-recipe-arithmetic");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "chain-recipe-arith"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            Assert.Contains(
+                "S3(A(\"RequestHasDeadlineDayCount\"), S2(A(\"Request\"), A(\"Day Count\")), "
+                + "S3(A(\"proj\"), S5(A(\"calc\"), S5(A(\"joinon\"), A(\"RequestHasSubmissionDayCount\"), "
+                + "A(\"RequestHasResponseDayCount\"), S1(S2(N(1), N(1))), S4(N(1), N(2), N(3), N(4))), "
+                + "A(\"+\"), N(2), N(4)), S2(N(1), N(5))))",
+                state);
+        }
+
         // THE GENERAL CHAIN ARM'S RECIPE. That arm builds the rule as a NORMA
         // object and emitted nothing executable, so a head only it built was
         // marked derived and never populated -- law:markers over a booted store
