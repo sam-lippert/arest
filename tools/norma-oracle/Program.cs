@@ -483,6 +483,10 @@ namespace Arest.NormaOracle
 				verifier.InputStateCells()
 				+ Verifier.MappingStateCells(store, assemblies[1], assemblies[2], assemblies[4]));
 			Verifier.WriteNormaAnswer(store, assemblies[4], assemblies[1], assemblies[3], "norma-answer", verifier.FullyDerivedNames());
+			// the build surface as FORML instance facts (arest #94): the same
+			// derivation-mode / delivered / declined facts this tool has always
+			// printed, written where a corpus can read them instead of a log.
+			verifier.WriteBuildFacts("build-facts.md");
 			// the run's outcome as a carrier of its own (the regression check composes
 			// it without the schema), and the same in the expectation's form: recording
 			// an accepted run is copying that file beside the corpus's name
