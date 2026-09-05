@@ -139,6 +139,34 @@ namespace Arest.NormaOracle.Tests
                 state);
         }
 
+        // A UNARY HEAD OVER A TWO-LEG JOIN -- the membership shape, and the one
+        // that found itself. JoinRecipe builds the NatJoin form, which projects
+        // each leg to <contributed, join column> and pairs them, so it needs a
+        // head naming exactly two players and refuses on its first line
+        // otherwise. A head naming ONE fell through and the arm emitted nothing:
+        // marked derived, verbalized, read-back clean, never populated.
+        //
+        // It surfaced by modelling arest's own build surface in FORML
+        // (apps/arest-dev/readings/build-surface.md): `Head is delivered iff
+        // some Rule produces Head and that Rule has some Recipe` is exactly this
+        // shape, so the model of inert heads was itself an inert head. joinon
+        // says it with no new form -- join on the shared pair, project the one
+        // column the head names -- and the probe's population confirms it runs:
+        // r1 has a recipe and r2 does not, and HeadIsDelivered answers (h1).
+        [Fact]
+        public void AUnaryHeadOverATwoLegJoinEmitsAJoinon()
+        {
+            string dir = Path.Combine(ProbesDir, "join-unary-head");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "join-unary-head-run"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            Assert.Contains(
+                "S3(A(\"HeadIsDelivered\"), S1(A(\"Head\")), "
+                + "S5(A(\"joinon\"), A(\"RuleProducesHead\"), A(\"RuleHasRecipe\"), "
+                + "S1(S2(N(1), N(1))), S1(N(2))))",
+                state);
+        }
+
         // THE GENERAL CHAIN ARM'S RECIPE. That arm builds the rule as a NORMA
         // object and emitted nothing executable, so a head only it built was
         // marked derived and never populated -- law:markers over a booted store
