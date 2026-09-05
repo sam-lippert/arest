@@ -132,11 +132,20 @@ namespace Arest.NormaOracle.Tests
         // still green; and a closure that doubled a semi-derived head, writing
         // `Right has World Assumption open` beside `... closed`.
         //
-        // Recorded, not asserted green: law-core's report is 58 laws holding and
-        // marker-closure answering F, because `Authority is currently in force`
-        // is marked derived and has no executable recipe. Pinning the real
-        // answer makes a change visible; asserting a green we do not have would
-        // only mean deleting the test later. NORMA_ORACLE_RECORD=1 writes it.
+        // Recorded, not asserted green. It has been both: the record was 58
+        // laws holding with marker-closure F while `Authority is currently in
+        // force` had no executable recipe, and it is all-holding now that the
+        // negation form delivers it. Pinning the real answer makes a change
+        // visible; asserting a green we do not have would only mean deleting
+        // the test later. NORMA_ORACLE_RECORD=1 writes it.
+        //
+        // THIS IS THE CHECK THAT CAUGHT THE MARKER LAW WIDENING (2026-09-05).
+        // law:marker_marked read `full` and `stored` and skipped `semi` and
+        // `subtype`, so a `+` head with no rule was outside the law; widening
+        // it to every mode turned this red on two heads whose derivation was
+        // promised only in a prose comment. Nothing else here would have said
+        // so -- the corpus theories compare the expectation carrier, which
+        // carries no verdict, and the carrier digests move for any edit at all.
         [Fact]
         [Trait("Category", "Corpus")]
         public void LawReportReadsAsRecorded()

@@ -947,8 +947,20 @@ If Object Type1 is subtype of Object Type2 and Object Type2 is subtype of Object
      (DR1→DR2→DR3 with DR1→DR3). Cor 1 makes the true check a query over
      the dependency graph; the faithful constraint follows. -->
 
-Derivation Rule introduces values. +
-  <!-- Cor 1: value introduction is syntactic — a rule body applies a
+Derivation Rule introduces values.
+  <!-- THE `+` CAME OFF (2026-09-05) BECAUSE IT WAS A CLAIM ABOUT A RULE
+       THAT IS NOT THERE. Halpin: "Derivation rules should normally be
+       biconditionals (i.e., their main operator is iff). If their main
+       operator is if, the fact type is only partly derived." So `+` says
+       a rule EXISTS and is one-directional — it does not say "a rule is
+       owed". The note below is right that assertion is the only
+       population source until the evaluator phase lands, and that
+       sentence is the definition of a BASE fact type. Marked `+`, this
+       failed softly and invisibly for as long as it has existed: the
+       asserted half populates, so the head looks alive while the derived
+       half silently never arrives, and law:markers did not look at semi
+       heads at all. The marker comes back in the same commit as the rule.
+       Cor 1: value introduction is syntactic — a rule body applies a
        definition with origin 'registered' (the Eq 5 boundary) or a
        value-constructing base operation (arithmetic, length, dynamic
        application); every other operation rearranges atoms already in
