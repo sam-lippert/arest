@@ -11884,6 +11884,51 @@ namespace Arest.NormaOracle
 				derivedPairs.Add("S2(" + IAtom(n) + ", " + IAtom("subtype") + ")");
 			derivedPairs.Sort(StringComparer.Ordinal);
 			sb.Append("DEF(\"state:derived\", ").Append(IChunked(derivedPairs)).Append("),\n\n");
+			// MARKED AND UNDELIVERED, said once, in the store. A head can be marked
+			// derived, verbalize, pass the read-back gate and have no recipe here,
+			// because the recipe grammar cannot yet say what its rule says -- 71 of
+			// auto.dev's are in that state, and the marker is right in every one of
+			// them: the modeller said the population comes from rules, NORMA built
+			// the rule, only the executable form is missing. Until now that fact was
+			// only findable by booting a store, closing it and running law:markers,
+			// so an agent asking for the rows of such a head saw an empty population
+			// and could not tell it from one that legitimately has none.
+			//
+			// This is the ORACLE's half and it says so: these are the heads THIS tool
+			// marked and did not deliver. A head canon's own rules:metamodel delivers
+			// belongs in the list too, because the oracle did not deliver it -- which
+			// is exactly why a naive census over-reported (#80) and why subtracting
+			// the metamodel's deliverers is canon's job, in law:undelivered.
+			var recipeHeadNames = new HashSet<string>(StringComparer.Ordinal);
+			foreach (string r in myRuleRecipes)
+			{
+				int a = r.IndexOf("A(\"", StringComparison.Ordinal);
+				if (a < 0) continue;
+				int b = r.IndexOf('"', a + 3);
+				if (b > a) recipeHeadNames.Add(r.Substring(a + 3, b - a - 3));
+			}
+			var whyByHead = new Dictionary<string, string>(StringComparer.Ordinal);
+			foreach (var kv in myRecipeDeclines)
+			{
+				Match hm = Regex.Match(kv.Key, @"^\*+ (.+?) iff ");
+				if (!hm.Success) continue;
+				FactIndexEntry he = FindEntryByNormalizedSentence(hm.Groups[1].Value.Trim());
+				if (he != null && !whyByHead.ContainsKey(he.Fact.Name)) whyByHead[he.Fact.Name] = kv.Value;
+			}
+			var undelivered = new List<string>();
+			foreach (string pair in derivedPairs)
+			{
+				int a = pair.IndexOf("A(\"", StringComparison.Ordinal);
+				int b = a < 0 ? -1 : pair.IndexOf('"', a + 3);
+				if (b <= a) continue;
+				string name = pair.Substring(a + 3, b - a - 3);
+				if (recipeHeadNames.Contains(name)) continue;
+				string why;
+				undelivered.Add("S2(" + IAtom(name) + ", "
+					+ IAtom(whyByHead.TryGetValue(name, out why) ? why : "no arm emitted a recipe") + ")");
+			}
+			undelivered.Sort(StringComparer.Ordinal);
+			sb.Append("DEF(\"state:undelivered\", ").Append(IChunked(undelivered)).Append("),\n\n");
 			// the executable rule surface: every NORMA-built app derivation
 			// rule as (name, recipe) in the rules:metamodel grammar, so the
 			// canon's closure machinery derives app populations from the
