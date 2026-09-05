@@ -12252,18 +12252,30 @@ namespace Arest.NormaOracle
 					int close = line.IndexOf('"', 5);
 					if (close < 0) continue;
 					string name = line.Substring(5, close - 5);
-					// state:conorder IS NOT REPRODUCIBLE, and this witness is what found
-					// it: two runs of auto.dev over identical readings differ in one
-					// composite foreign key, which picks (hasStateName2, hasCountyName1)
-					// in one and (hasStateName1, hasCountyName2) in the other. Not an
-					// ordering of the same pair -- DIFFERENT COLUMNS, from a reflection
-					// walk over NORMA's ColumnReferenceCollection whose iteration order
-					// is not guaranteed. Nothing in canon reads state:conorder, so it
-					// costs nothing today, and it is the only one of the thirty that
-					// moves. Excluded by name rather than silently, because including it
-					// would make the witness fail at random on the two largest corpora
-					// and the first thing anyone did would be to delete the witness.
-					if (name == "state:conorder") continue;
+					// NO CARRIER IS EXCLUDED. state:conorder used to be, because it was
+					// not reproducible -- two runs of auto.dev over identical readings
+					// differed in one composite foreign key, picking (hasStateName2,
+					// hasCountyName1) in one and (hasStateName1, hasCountyName2) in the
+					// other. Not an ordering of the same pair: DIFFERENT COLUMNS, one
+					// from each of two subscripted pairs, off a reflection walk over
+					// NORMA's ColumnReferenceCollection whose iteration order is not
+					// guaranteed. Halpin settles that this is wrong and not merely
+					// unstable -- "each instance of the child's foreign key that has no
+					// null components must occur as an instance of the parent's primary
+					// key", and an instance of a composite key is a TUPLE, so the
+					// components correspond positionally; the 1/2 subscripts are the
+					// prepended rolenames of 8.37(a) disambiguating a ring's migrated
+					// keys, so crossing them names two different references.
+					//
+					// The carrier is GONE rather than stabilised (2026-09-05). Nothing
+					// read it: canon recovers a constraint's ordinal by stripping the
+					// digit off NORMA's own name (rmap:conbase, rmap:conrem,
+					// rmap:conalldig over norma:constraints), which already carries kind,
+					// table, name and columns. So conorder was an input for a derivation
+					// that ended up written a different way -- unread, redundant, and
+					// wrong in at least one run of every pair. An excluded-by-name
+					// carrier is a witness with a hole in it, and the hole was the only
+					// thing keeping a dead emit alive.
 					var hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(line));
 					var hex = new System.Text.StringBuilder();
 					for (int i = 0; i < 6; i++) hex.Append(hash[i].ToString("x2"));
@@ -13394,79 +13406,6 @@ namespace Arest.NormaOracle
 			sb.Append("DEF(\"state:normauniq\", ").Append(IChunked(uniqs)).Append("),\n\n");
 			sb.Append("DEF(\"state:normapaths\", ").Append(IChunked(paths)).Append("),\n\n");
 
-			// THE ORDER NORMA NUMBERS FROM. Utility.GenerateUniqueNames walks
-			// IterateConstraints (NameGeneration.cs:171, :415) - schema.TableCollection,
-			// then each table's CONSTRAINT COLLECTION in ADD order - and appends
-			// 1, 2, 3 to colliding generated names, which is where the digits in
-			// Function_UC1 and CacheEntry_FK2 come from. That order is a fact
-			// about how the model was BUILT, and the answer records what was
-			// built; nine orderings derivable from the answer have been measured
-			// against it and every one failed.
-			// EMIT THE POSITION ONLY, keyed on (table, columns). Canon still
-			// derives the NAME from it and still applies the single-vs-multiple
-			// rule. The name would be an answer canon is meant to compute; the
-			// position is a fact canon cannot compute. Sorting the rows is
-			// harmless because the ordinal rides IN the row.
-			if (relationalAssembly != null)
-			{
-				Type conTableType = relationalAssembly.GetTypes().FirstOrDefault(x => x.Name == "Table" && typeof(ModelElement).IsAssignableFrom(x));
-				Type conLinkType = relationalAssembly.GetTypes().FirstOrDefault(x => x.Name == "TableContainsConstraint" && typeof(ModelElement).IsAssignableFrom(x));
-				var conAccessor = conLinkType == null ? null : conLinkType.GetMethod("GetConstraintCollection",
-					System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-				var conRows = new List<string>();
-				if (conTableType != null && conAccessor != null)
-				{
-					foreach (ModelElement conTable in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(conTableType), true))
-					{
-						string conTableName = (string)conTableType.GetProperty("Name").GetValue(conTable, null);
-						int conPos = 0;
-						foreach (object con in (System.Collections.IEnumerable)conAccessor.Invoke(null, new object[] { conTable }))
-						{
-							++conPos;
-							// uniqueness constraints carry ColumnCollection; reference
-							// constraints carry ColumnReferenceCollection and their
-							// source columns hang off each reference. Reading only the
-							// former left 164 of 226 rows keyless.
-							var colProp = con.GetType().GetProperty("ColumnCollection");
-							var conCols = new List<string>();
-							if (colProp != null)
-								foreach (object c in (System.Collections.IEnumerable)colProp.GetValue(con, null))
-									conCols.Add(IAtom((string)c.GetType().GetProperty("Name").GetValue(c, null)));
-							if (conCols.Count == 0)
-							{
-								var refProp = con.GetType().GetProperty("ColumnReferenceCollection");
-								if (refProp != null)
-									foreach (object cr in (System.Collections.IEnumerable)refProp.GetValue(con, null))
-									{
-										object sc = cr.GetType().GetProperty("SourceColumn").GetValue(cr, null);
-										if (sc != null)
-											conCols.Add(IAtom((string)sc.GetType().GetProperty("Name").GetValue(sc, null)));
-									}
-							}
-							// KIND IS PART OF THE KEY. A table can carry a uniqueness
-							// constraint and a reference constraint over the SAME single
-							// column - Function has both on transitionPredicateId - and
-							// keying on (table, columns) alone collides them, so one
-							// lookup wins and the other reads a position belonging to a
-							// different constraint. That collision, not the order, was
-							// the whole of the 2% disagreement measured at 4541e74c.
-							// The kinds match norma:constraints' own: pk, uc, fk.
-							string conKind = "fk";
-							var primProp = con.GetType().GetProperty("IsPrimary");
-							if (colProp != null && colProp.GetValue(con, null) != null &&
-								con.GetType().GetProperty("ColumnReferenceCollection") == null)
-								conKind = (primProp != null && (bool)primProp.GetValue(con, null)) ? "pk" : "uc";
-							else if (primProp != null)
-								conKind = (bool)primProp.GetValue(con, null) ? "pk" : "uc";
-							conRows.Add("S4(" + IAtom(conKind) + ", " + IAtom(conTableName)
-								+ ", " + (conCols.Count == 0 ? "PHI()" : "S" + conCols.Count + "(" + string.Join(", ", conCols) + ")")
-								+ ", N(" + conPos + "))");
-						}
-					}
-				}
-				conRows.Sort(StringComparer.Ordinal);
-				sb.Append("DEF(\"state:conorder\", ").Append(conRows.Count == 0 ? "S1(PHI())" : IChunked(conRows)).Append("),\n\n");
-			}
 			return sb.ToString();
 		}
 
