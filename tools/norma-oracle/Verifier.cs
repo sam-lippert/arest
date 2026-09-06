@@ -2520,6 +2520,55 @@ namespace Arest.NormaOracle
 		// Add sites set FullKey at construction, no indexed entry's FullKey is
 		// ever rewritten (the one assignment at ~1818 builds a membership entry
 		// that never enters this list), and there are no removals.
+		// THE ANCESTORS OF A TYPE, IN KEY ORDER, COMPUTED ONCE. ResolveClauseSub
+		// asked "which type names are ancestors of subName" by walking EVERY name
+		// in myTypes and calling RootsAt on each -- for every candidate word of
+		// every clause, three clauses per rule, in the three passes that are half
+		// of the derivation-rules phase (@7178, @6042, @2810: 107 s of auto.dev's
+		// 207). The ancestors of a type are a handful; the walk was thousands.
+		// Same answer, same ORDER: the list is filtered by position in
+		// myTypes.Keys, so the first hit is the first hit the old loop found.
+		// Keyed on myTypes.Count, which is sound because myTypes has one
+		// assignment site (in declarations) and every subtype edge is created
+		// there too, before any caller of ResolveClauseSub runs.
+		private Dictionary<string, List<string>> myAncestorsOf;
+		private int myAncestorsKeyedAt = -1;
+		private List<string> AncestorsOf(string subName)
+		{
+			if (myAncestorsOf == null || myAncestorsKeyedAt != myTypes.Count)
+			{
+				myAncestorsOf = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+				myAncestorsKeyedAt = myTypes.Count;
+			}
+			List<string> found;
+			if (myAncestorsOf.TryGetValue(subName, out found)) return found;
+			var pos = new Dictionary<string, int>(StringComparer.Ordinal);
+			int i = 0;
+			foreach (string k in myTypes.Keys) pos[k] = i++;
+			var set = new HashSet<string>(StringComparer.Ordinal);
+			var stack = new Stack<ObjectType>();
+			ObjectType t0;
+			if (myTypes.TryGetValue(subName, out t0) && t0 != null) stack.Push(t0);
+			while (stack.Count > 0)
+			{
+				ObjectType t = stack.Pop();
+				foreach (ObjectType sup in t.SupertypeCollection)
+				{
+					if (sup == null || !set.Add(sup.Name)) continue;
+					stack.Push(sup);
+				}
+			}
+			found = new List<string>();
+			foreach (string name in set)
+			{
+				if (name == subName || !pos.ContainsKey(name)) continue;
+				found.Add(name);
+			}
+			found.Sort((a, b) => pos[a].CompareTo(pos[b]));
+			myAncestorsOf[subName] = found;
+			return found;
+		}
+
 		private Dictionary<string, List<FactIndexEntry>> myFactIndexByKey;
 		private int myFactIndexKeyedAt = -1;
 
@@ -2592,6 +2641,13 @@ namespace Arest.NormaOracle
 			Pass("preamble");
 			ExpandDisjunctions();
 			var log = new List<string>();
+			// EVERY TYPE NAME, LONGEST FIRST, SORTED ONCE. Three passes below walked
+			// myTypes.Keys.OrderByDescending(...) inside their per-rule loop -- a
+			// full sort of every type name for every rule, on a corpus with
+			// thousands of types and hundreds of rules. myTypes is not mutated
+			// anywhere in this method (checked, not assumed), so one list serves
+			// all three, and the walk order the arms depend on is unchanged.
+			var namesByLength = myTypes.Keys.OrderByDescending(n => n.Length).ToList();
 			// a fully-derived head is the CWA closure over ALL its rules; one
 			// role path can hold one rule, so only single-rule heads build —
 			// a multi-rule head built partially would be wrong, not partial
@@ -5139,7 +5195,7 @@ namespace Arest.NormaOracle
 					if (t.StartsWith("that ") || t.StartsWith("some ")) t = t.Substring(5);
 					else { ok = false; break; }
 					string cur = null;
-					foreach (string key in myTypes.Keys.OrderByDescending(k => k.Length))
+					foreach (string key in namesByLength)
 					{
 						Match vm = Regex.Match(t, @"^(" + Regex.Escape(key) + @"\d*) ");
 						if (vm.Success) { cur = vm.Groups[1].Value; typeOfVar[cur] = key; break; }
@@ -5156,7 +5212,7 @@ namespace Arest.NormaOracle
 							break;
 						}
 						string mid = null, nxt = null, more = null;
-						foreach (string key in myTypes.Keys.OrderByDescending(k => k.Length))
+						foreach (string key in namesByLength)
 						{
 							Match hm2 = Regex.Match(rest, @"^(.+?) (?:some|that) (" + Regex.Escape(key) + @"\d*)(?: that (.+))?$");
 							if (hm2.Success)
@@ -5924,7 +5980,7 @@ namespace Arest.NormaOracle
 				}
 				if (clauses.Length != 2) continue;
 				string j = null;
-				foreach (string name in myTypes.Keys.OrderByDescending(n => n.Length))
+				foreach (string name in namesByLength)
 				{
 					// the shared player is quantified ("some J") or BARE in one
 					// clause and referenced "that J" in the other
@@ -9392,9 +9448,8 @@ namespace Arest.NormaOracle
 				bool leftOk = at == 0 || !char.IsLetterOrDigit(clause[at - 1]) && clause[at - 1] != '-';
 				bool rightOk = end >= clause.Length || (!char.IsLetterOrDigit(clause[end]) && clause[end] != '-');
 				if (!leftOk || !rightOk) continue;
-				foreach (string supName in myTypes.Keys)
+				foreach (string supName in AncestorsOf(subName))
 				{
-					if (supName == subName || !RootsAt(myTypes[subName], supName)) continue;
 					e = ResolveClause(clause.Substring(0, at) + supName + clause.Substring(end), out players);
 					if (e != null)
 					{
