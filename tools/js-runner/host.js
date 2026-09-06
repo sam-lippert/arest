@@ -878,17 +878,32 @@ function joinPat(form) {
     if (Array.isArray(body) && body[0] === "COND" && body.length === 4
         && Array.isArray(body[3]) && body[3][0] === "CONST"
         && Array.isArray(body[3][1]) && body[3][1].length === 0) {
-      const p = body[1];
-      if (Array.isArray(p) && p[0] === "COMP" && p.length === 3 && p[1] === "eq"
+      // The key may sit under an `and`: COND(and[eq[a,b], q], emit, PHI) is the
+      // same join with a residual predicate q on the pairs whose keys agree.
+      // rmap:pidchains:step extends every live chain by scanning childrenN
+      // (7,352 rows on support) under exactly that shape, 424 million CONS
+      // applications in nine minutes with no law printed (2026-09-06). The eq
+      // still keys the index; q runs on the hits, in list order, before the
+      // emit -- so the value and its order are the scan's. What differs is
+      // that q is never evaluated on a row whose key does not agree, which a
+      // scan would have done and thrown on if q were partial there.
+      let p = body[1], residual = null;
+      const isEq = (f) => Array.isArray(f) && f[0] === "COMP" && f.length === 3 && f[1] === "eq"
+          && Array.isArray(f[2]) && f[2][0] === "CONS" && f[2].length === 3;
+      if (!isEq(p) && Array.isArray(p) && p[0] === "COMP" && p.length === 3 && p[1] === "and"
           && Array.isArray(p[2]) && p[2][0] === "CONS" && p[2].length === 3) {
+        if (isEq(p[2][1])) { residual = p[2][2]; p = p[2][1]; }
+        else if (isEq(p[2][2])) { residual = p[2][1]; p = p[2][2]; }
+      }
+      if (isEq(p)) {
         const l = p[2][1], r = p[2][2], rl = rootSel(l), rr = rootSel(r);
         // distr frames are <element, carrier>; distl frames are <carrier, element>.
         // So the ELEMENT sits at slot 1 under distr and at slot 2 under distl,
         // and the resolution below inverts with it.
         const dl = form[3] === "distl";
         const es = dl ? 2 : 1, cs = dl ? 1 : 2;
-        if (rl === es && rr === cs) pat = { elem: l, carrier: r, emit: body[2], distl: dl };
-        else if (rl === cs && rr === es) pat = { elem: r, carrier: l, emit: body[2], distl: dl };
+        if (rl === es && rr === cs) pat = { elem: l, carrier: r, emit: body[2], distl: dl, residual: residual };
+        else if (rl === cs && rr === es) pat = { elem: r, carrier: l, emit: body[2], distl: dl, residual: residual };
       }
     }
   }
@@ -1141,7 +1156,9 @@ function Ev(f, x) {
         if (hits === undefined) return [];
         const out = [];
         for (let i = 0; i < hits.length; i++) {
-          const vs = seq(Ev(jp.emit, jp.distl ? [carrier, hits[i]] : [hits[i], carrier]));
+          const frame = jp.distl ? [carrier, hits[i]] : [hits[i], carrier];
+          if (jp.residual !== null && Ev(jp.residual, frame) !== "T") continue;
+          const vs = seq(Ev(jp.emit, frame));
           for (let j = 0; j < vs.length; j++) out.push(vs[j]);
         }
         return out;
