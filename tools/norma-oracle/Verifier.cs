@@ -163,8 +163,17 @@ namespace Arest.NormaOracle
 		public List<string> AssumeSetSemantics()
 		{
 			var assumed = new List<string>();
+			// WHERE THE PHASE'S SECONDS GO. This method is a loop and two calls into
+			// NORMA, and the phase around it is ~100 s on auto.dev; the split says
+			// whether that is the oracle's own check (walking every role's
+			// constraint sequences per fact type) or NORMA reacting to each
+			// CreateInternalUniquenessConstraint inside the open transaction.
+			var swCheck = new System.Diagnostics.Stopwatch();
+			var swCreate = new System.Diagnostics.Stopwatch();
+			int created = 0;
 			foreach (FactIndexEntry entry in myFactIndex)
 			{
+				swCheck.Start();
 				bool hasUC = false;
 				foreach (var role in entry.Fact.RoleCollection)
 				{
@@ -187,13 +196,19 @@ namespace Arest.NormaOracle
 					}
 					if (hasUC) break;
 				}
+				swCheck.Stop();
 				if (!hasUC)
 				{
+					swCreate.Start();
 					UniquenessConstraint uc = UniquenessConstraint.CreateInternalUniquenessConstraint(entry.Fact);
 					foreach (Role r in entry.Roles) uc.RoleCollection.Add(r);
+					swCreate.Stop();
+					created++;
 					assumed.Add(entry.ReadingWords + "  [" + string.Join(", ", entry.Players) + "]");
 				}
 			}
+			Console.WriteLine("timing: set semantics check " + swCheck.ElapsedMilliseconds + " ms, create "
+				+ swCreate.ElapsedMilliseconds + " ms, " + created + " UCs assumed over " + myFactIndex.Count + " fact types");
 			return assumed;
 		}
 
@@ -228,6 +243,20 @@ namespace Arest.NormaOracle
 			}
 			myPassName = next;
 			if (next == null) myPassWatch = null;
+		}
+
+		// WHERE THE MAP PHASE'S SECONDS GO. ~106 s on auto.dev, and MapPass is a
+		// loop calling MapSentence, which is twenty-odd branches ending in
+		// MapFactReading. Two accumulated stopwatches -- every sentence, and the
+		// fact-reading fallthrough alone -- printed once after the last file,
+		// say whether the cost is the readings or everything before them.
+		private readonly System.Diagnostics.Stopwatch mySwMapSentence = new System.Diagnostics.Stopwatch();
+		private readonly System.Diagnostics.Stopwatch mySwFactReading = new System.Diagnostics.Stopwatch();
+		private int myMapSentences, myMapFactReadings;
+		public void ReportMapTiming()
+		{
+			Console.WriteLine("timing: map sentences " + mySwMapSentence.ElapsedMilliseconds + " ms over " + myMapSentences
+				+ " sentences, of which fact readings " + mySwFactReading.ElapsedMilliseconds + " ms over " + myMapFactReadings);
 		}
 
 		private void Count(string kind)
@@ -1081,7 +1110,9 @@ namespace Arest.NormaOracle
 			{
 				try
 				{
-					MapSentence(s);
+					mySwMapSentence.Start();
+					myMapSentences++;
+					try { MapSentence(s); } finally { mySwMapSentence.Stop(); }
 				}
 				catch (Exception ex)
 				{
@@ -1368,7 +1399,11 @@ namespace Arest.NormaOracle
 				return;
 			}
 			// candidate fact-type reading
-			if (MapFactReading(s))
+			mySwFactReading.Start();
+			myMapFactReadings++;
+			bool readAsFact;
+			try { readAsFact = MapFactReading(s); } finally { mySwFactReading.Stop(); }
+			if (readAsFact)
 			{
 				return;
 			}
