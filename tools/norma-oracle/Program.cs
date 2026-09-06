@@ -319,6 +319,7 @@ namespace Arest.NormaOracle
 			TimedCommit(build);
 			build.Dispose();
 			Console.WriteLine("mapped every file");
+			verifier.ReportMapTiming();
 			build = store.TransactionManager.BeginTransaction("constrain");
 
 			Mark("deferred constraints");
