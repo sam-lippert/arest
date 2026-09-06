@@ -474,6 +474,34 @@ const FASTPRIMS = new Map(Object.entries({
   // argument, the same object across the calls, so the index is built once.
   "cn:fokey": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? 999999 : at(hits[0], 1); },
+  // the same first-match lookup, three more times, each written in canon as
+  // distr and ALPHA over the whole table: cn:rmvt answers the first match's
+  // fourth column or "" (2,874 calls), cn:owner its second column as a
+  // singleton or PHI (1,632), cn:gmpl the first elements of its second and
+  // third columns as a pair, or PHI when there is no match or the third is
+  // empty (595 calls at 2.5 ms each on the eu-law report, 2026-09-06)
+  "cn:rmvt": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
+    return hits.length === 0 ? "" : at(hits[0], 3); },
+  "cn:owner": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
+    return hits.length === 0 ? [] : [at(hits[0], 1)]; },
+  "cn:gmpl": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
+    if (hits.length === 0) return [];
+    const third = at(hits[0], 2);
+    if (Array.isArray(third) && third.length === 0) return [];
+    return [Ev(1, at(hits[0], 1)), Ev(1, third)]; },
+  // cn:entsat is <rows, key>: the second columns of every row whose first
+  // column is the key, concatenated (theta:flatten over the matches; a
+  // second column that is not a list throws, as it does there); 123,792
+  // calls from cn:dinner and cn:decitem
+  "cn:entsat": x => { const hits = matchRows(at(x, 1), seq(at(x, 0))); const out = [];
+    for (let i = 0; i < hits.length; i++) { const a = seq(at(hits[i], 1)); for (let j = 0; j < a.length; j++) out.push(a[j]); }
+    return out; },
+  // cn:xisot: does any row's second column contain the key (theta:member,
+  // i.e. deepEq); 708 calls scanning the table per call
+  "cn:xisot": x => { const key = at(x, 0), rows = seq(at(x, 1));
+    for (let i = 0; i < rows.length; i++) { const l = seq(at(rows[i], 1));
+      for (let j = 0; j < l.length; j++) if (deepEq(l[j], key)) return "T"; }
+    return "F"; },
   // cn:nlexlt is lexicographic less-than over two key paths: walk both while
   // the heads are eq, decide by gt on the first pair that differs, and a
   // path that runs out first is less. The DEF is a WHILE over <"?", a, b>
