@@ -517,6 +517,13 @@ const FASTPRIMS = new Map(Object.entries({
   "theta:zip": x => { const a = seq(at(x, 0)), b = seq(at(x, 1));
     const n = Math.min(a.length, b.length); const out = new Array(n);
     for (let i = 0; i < n; i++) out[i] = [a[i], b[i]]; return out; },
+  // theta:dedup is 55 s of eu-law's report, and it is NOT re-keying sequences
+  // it has already keyed: remembering each element's JSON against the element
+  // (a WeakMap, sound because canon values are immutable) was byte-identical
+  // and bought nothing, 284 -> 294 s, because rmap:pidchains rebuilds its
+  // chains every round rather than carrying the same objects forward. The cost
+  // is real stringify work over genuinely new sequences, so reaching it means
+  // deduping less or deduping on a cheaper key, not caching.
   "theta:dedup": x => { const l = seq(x); const seen = new Set(); const out = [];
     for (let i = l.length - 1; i >= 0; i--) { const k = JSON.stringify(l[i]);
       if (!seen.has(k)) { seen.add(k); out.push(l[i]); } }
@@ -848,7 +855,19 @@ function Ev(f, x) {
   if (typeof f === "string") {
     if (DEFS.has(f)) {
       const fp = FASTPRIMS.get(f);
-      if (fp !== undefined) return fp(x);
+      // A native answered here without ever entering the profile, which made
+      // the report's own instrument lie by omission: rmap:pidchains:step shows
+      // 63 s of "self" time whose real spenders are theta:dedup, theta:member
+      // and theta:flatten, none of which could appear. Twice this session a
+      // definition was optimised on the strength of what the profile DID show,
+      // measured byte-identical, and moved nothing -- the work had never been
+      // where the only visible names were. Under AREST_PROFILE a native is now
+      // entered like any DEF; with profiling off the dispatch is unchanged.
+      if (fp !== undefined) {
+        if (!PROFILE) return fp(x);
+        profEnter(f);
+        try { return fp(x); } finally { profExit(); }
+      }
       if (!memoable(f)) {
         if (!PROFILE) return Ev(DEFS.get(f), x);
         profEnter(f);
