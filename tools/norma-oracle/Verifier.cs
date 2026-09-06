@@ -2483,14 +2483,52 @@ namespace Arest.NormaOracle
 			return stripped == sentence ? null : FindEntryByExactKey(NormalizeWords(stripped));
 		}
 
+		// THE SAME ANSWER WITHOUT WALKING THE WHOLE INDEX. This scanned every fact
+		// type on every call, from seventy-four call sites -- once per rule marker
+		// and again inside every derivation arm -- so the `derivation rules` phase
+		// cost rules x fact types. That phase is 265 s of auto.dev's 816 s oracle
+		// pass and scales 88x from the metamodel corpus to auto.dev's, the same
+		// shape csdp:matches_at answered on the evaluator side: index the equality.
+		//
+		// The bucket holds EVERY entry for a key, not one, because deletion is
+		// invisible from here -- a fact can be deleted without myFactIndex
+		// changing -- so deleted entries are skipped at lookup and the rule that
+		// two live entries mean AMBIGUOUS and answer null is preserved exactly.
+		// Keyed on Count alone because that is sound here and nowhere else: both
+		// Add sites set FullKey at construction, no indexed entry's FullKey is
+		// ever rewritten (the one assignment at ~1818 builds a membership entry
+		// that never enters this list), and there are no removals.
+		private Dictionary<string, List<FactIndexEntry>> myFactIndexByKey;
+		private int myFactIndexKeyedAt = -1;
+
 		private FactIndexEntry FindEntryByExactKey(string key)
 		{
-			FactIndexEntry found = null;
-			foreach (FactIndexEntry e in myFactIndex)
+			if (myFactIndexByKey == null || myFactIndexKeyedAt != myFactIndex.Count)
 			{
-				if (e.Fact.IsDeleted || e.FullKey != key) continue;
-				if (found != null) return null;
-				found = e;
+				myFactIndexByKey = new Dictionary<string, List<FactIndexEntry>>(StringComparer.Ordinal);
+				foreach (FactIndexEntry e in myFactIndex)
+				{
+					string k = e.FullKey ?? "";
+					List<FactIndexEntry> bucket;
+					if (!myFactIndexByKey.TryGetValue(k, out bucket))
+					{
+						bucket = new List<FactIndexEntry>();
+						myFactIndexByKey.Add(k, bucket);
+					}
+					bucket.Add(e);
+				}
+				myFactIndexKeyedAt = myFactIndex.Count;
+			}
+			FactIndexEntry found = null;
+			List<FactIndexEntry> hits;
+			if (myFactIndexByKey.TryGetValue(key, out hits))
+			{
+				foreach (FactIndexEntry e in hits)
+				{
+					if (e.Fact.IsDeleted) continue;
+					if (found != null) return null;
+					found = e;
+				}
 			}
 			// THE IDENTIFIER IS A READING TOO. `Vehicle(.VIN)` mints `Vehicle has VIN`, kept
 			// aside for a restatement to adopt; a rule that names it (`Vehicle has VIN and
