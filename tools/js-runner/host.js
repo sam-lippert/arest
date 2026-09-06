@@ -875,40 +875,63 @@ function joinPat(form) {
       && (form[3] === "distr" || form[3] === "distl")
       && Array.isArray(form[2]) && form[2][0] === "ALPHA") {
     const body = form[2][1];
-    if (Array.isArray(body) && body[0] === "COND" && body.length === 4
-        && Array.isArray(body[3]) && body[3][0] === "CONST"
-        && Array.isArray(body[3][1]) && body[3][1].length === 0) {
-      // The key may sit under an `and`: COND(and[eq[a,b], q], emit, PHI) is the
-      // same join with a residual predicate q on the pairs whose keys agree.
-      // rmap:pidchains:step extends every live chain by scanning childrenN
-      // (7,352 rows on support) under exactly that shape, 424 million CONS
-      // applications in nine minutes with no law printed (2026-09-06). The eq
-      // still keys the index; q runs on the hits, in list order, before the
-      // emit -- so the value and its order are the scan's. What differs is
-      // that q is never evaluated on a row whose key does not agree, which a
-      // scan would have done and thrown on if q were partial there.
-      let p = body[1], residual = null;
-      const isEq = (f) => Array.isArray(f) && f[0] === "COMP" && f.length === 3 && f[1] === "eq"
-          && Array.isArray(f[2]) && f[2][0] === "CONS" && f[2].length === 3;
-      if (!isEq(p) && Array.isArray(p) && p[0] === "COMP" && p.length === 3 && p[1] === "and"
-          && Array.isArray(p[2]) && p[2][0] === "CONS" && p[2].length === 3) {
-        if (isEq(p[2][1])) { residual = p[2][2]; p = p[2][1]; }
-        else if (isEq(p[2][2])) { residual = p[2][1]; p = p[2][2]; }
-      }
-      if (isEq(p)) {
-        const l = p[2][1], r = p[2][2], rl = rootSel(l), rr = rootSel(r);
-        // distr frames are <element, carrier>; distl frames are <carrier, element>.
-        // So the ELEMENT sits at slot 1 under distr and at slot 2 under distl,
-        // and the resolution below inverts with it.
-        const dl = form[3] === "distl";
-        const es = dl ? 2 : 1, cs = dl ? 1 : 2;
-        if (rl === es && rr === cs) pat = { elem: l, carrier: r, emit: body[2], distl: dl, residual: residual };
-        else if (rl === cs && rr === es) pat = { elem: r, carrier: l, emit: body[2], distl: dl, residual: residual };
-      }
-    }
+    // distr frames are <element, carrier>; distl frames are <carrier, element>.
+    // So the ELEMENT sits at slot 1 under distr and at slot 2 under distl,
+    // and the resolution below inverts with it.
+    const dl = form[3] === "distl";
+    const es = dl ? 2 : 1, cs = dl ? 1 : 2;
+    // THE KEY IS THE EQUALITY EVERY EMITTING PATH NEEDS. The first cut matched
+    // COND(eq, emit, PHI) alone; the key may sit under an `and`
+    // (rmap:pidchains:step: COND(and[eq, q], emit, PHI) over childrenN, 424
+    // million CONS applications in nine minutes with no law printed), or
+    // below a kind test (cn:mandfor: COND(eq[kind, info], COND(eq[key],
+    // COND(.., emit, PHI), PHI), COND(eq[key], .., PHI)) over every chain row,
+    // 1,555 calls in the column mapping, 2026-09-06). necKey walks the COND
+    // tree: a branch that is PHI never emits, a branch guarded by the eq
+    // requires it, and the tree has a key when every branch that can emit
+    // requires the same one. The index answers the key; the BODY itself runs
+    // on the hits, in list order, so the value and its order are the scan's.
+    // What differs is that the body is never evaluated on a row whose key
+    // disagrees, which the scan would have done and could only have thrown
+    // on, since such a row emits nothing.
+    const k = necKey(body, es, cs);
+    if (k !== null && k !== "never") pat = { elem: k.elem, carrier: k.carrier, body: body, distl: dl };
   }
   JOINPAT.set(form, pat);
   return pat;
+}
+function isPhiForm(f) {
+  return Array.isArray(f) && f[0] === "CONST" && Array.isArray(f[1]) && f[1].length === 0;
+}
+function eqKey(p, es, cs) {
+  if (!(Array.isArray(p) && p[0] === "COMP" && p.length === 3 && p[1] === "eq"
+      && Array.isArray(p[2]) && p[2][0] === "CONS" && p[2].length === 3)) return null;
+  const l = p[2][1], r = p[2][2], rl = rootSel(l), rr = rootSel(r);
+  // SAFETY: the two sides must be ROOTED at different frame slots -- one
+  // reading only the element, one only the carrier -- or the key is not a
+  // function of the element alone and no index is valid.
+  if (rl === es && rr === cs) return { elem: l, carrier: r, form: p };
+  if (rl === cs && rr === es) return { elem: r, carrier: l, form: p };
+  return null;
+}
+// null: no key; "never": this branch emits nothing; else the key.
+function necKey(body, es, cs) {
+  if (isPhiForm(body)) return "never";
+  if (!(Array.isArray(body) && body[0] === "COND" && body.length === 4)) return null;
+  const p = body[1];
+  let kp = eqKey(p, es, cs);
+  if (kp === null && Array.isArray(p) && p[0] === "COMP" && p.length === 3 && p[1] === "and"
+      && Array.isArray(p[2]) && p[2][0] === "CONS" && p[2].length === 3)
+    kp = eqKey(p[2][1], es, cs) || eqKey(p[2][2], es, cs);
+  const kf = necKey(body[2], es, cs), kg = necKey(body[3], es, cs);
+  // the then-branch emits only when p holds: it requires p's key if p has
+  // one, else whatever the branch itself requires; the else-branch learns
+  // nothing from p being false.
+  const reqF = kf === "never" ? "never" : (kp !== null ? kp : kf);
+  if (kg === "never") return reqF;
+  if (reqF === "never") return kg;
+  if (reqF !== null && kg !== null && JSON.stringify(reqF.form) === JSON.stringify(kg.form)) return reqF;
+  return null;
 }
 const FOLDPAT = new WeakMap();
 const FOLDPATN = new Map();
@@ -1156,9 +1179,7 @@ function Ev(f, x) {
         if (hits === undefined) return [];
         const out = [];
         for (let i = 0; i < hits.length; i++) {
-          const frame = jp.distl ? [carrier, hits[i]] : [hits[i], carrier];
-          if (jp.residual !== null && Ev(jp.residual, frame) !== "T") continue;
-          const vs = seq(Ev(jp.emit, frame));
+          const vs = seq(Ev(jp.body, jp.distl ? [carrier, hits[i]] : [hits[i], carrier]));
           for (let j = 0; j < vs.length; j++) out.push(vs[j]);
         }
         return out;
