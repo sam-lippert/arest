@@ -875,6 +875,16 @@ const PROFSTACK = [];
 const PROFEDGES = new Map();
 let PROFLAST = 0;
 let PROFN = 0;
+// WHERE IT THREW, NOT JUST WHAT IT SAID. A throw inside the evaluator reaches
+// the top as a stack of Ev frames, which names nothing; the profiler's stack
+// is the canon's, so under AREST_PROFILE an uncaught throw prints it,
+// outermost first (support's law report died with "INSERT on empty" and no
+// law printed, 2026-09-06).
+if (PROFILE) process.on("uncaughtException", (e) => {
+  console.error("canon stack at throw: " + ((e && e.canonStack) || "(no canon frame)"));
+  console.error(String(e && e.stack || e));
+  process.exit(2);
+});
 function profEnter(name) {
   // the caller is the nearest DEFINITION on the stack -- a namespaced name --
   // not the CONS or COMP form it sits inside, which is what the top frame
@@ -888,6 +898,13 @@ function profEnter(name) {
     break;
   }
   PROFSTACK.push([name, performance.now(), 0]);
+}
+// the frames are gone by the time an uncaught throw reaches the top (every
+// `finally` has popped its own), so the stack is attached to the error at the
+// innermost frame it passes through, and the top prints that
+function profThrow(e) {
+  if (e && typeof e === "object" && e.canonStack === undefined) e.canonStack = PROFSTACK.map((f) => f[0]).join(" > ");
+  throw e;
 }
 function profExit() {
   const fr = PROFSTACK.pop();
@@ -971,12 +988,12 @@ function Ev(f, x) {
       if (fp !== undefined) {
         if (!PROFILE) return fp(x);
         profEnter(f);
-        try { return fp(x); } finally { profExit(); }
+        try { return fp(x); } catch (e) { profThrow(e); } finally { profExit(); }
       }
       if (!memoable(f)) {
         if (!PROFILE) return Ev(DEFS.get(f), x);
         profEnter(f);
-        try { return Ev(DEFS.get(f), x); } finally { profExit(); }
+        try { return Ev(DEFS.get(f), x); } catch (e) { profThrow(e); } finally { profExit(); }
       }
       let node = EVMEMO.get(f);
       if (node === undefined) { node = new Map(); EVMEMO.set(f, node); }
@@ -991,7 +1008,7 @@ function Ev(f, x) {
       let v;
       if (PROFILE) {
         profEnter(f);
-        try { v = Ev(DEFS.get(f), x); } finally { profExit(); }
+        try { v = Ev(DEFS.get(f), x); } catch (e) { profThrow(e); } finally { profExit(); }
       } else {
         v = Ev(DEFS.get(f), x);
       }
