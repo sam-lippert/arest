@@ -208,6 +208,28 @@ namespace Arest.NormaOracle
 		public IEnumerable<KeyValuePair<string, int>> Census { get { return myCensus.OrderByDescending(kv => kv.Value); } }
 		public IEnumerable<string> MapLog { get { return myMapLog; } }
 
+		// ONE TIMING LINE PER ARM PASS. BuildDerivationRules is not one loop with
+		// arms inside it; it is twenty-seven sequential passes, each a foreach
+		// over every deferred rule, and the phase timer around the whole method
+		// (Program.cs Mark) could only say that the sum was 239 s on auto.dev --
+		// not which pass. Same running-stopwatch shape as Mark: each call prints
+		// the PREVIOUS pass and starts the next; Pass(null) flushes the last.
+		// Named by the pass's opening line, which is stable enough to grep and
+		// says nothing false when an arm is later renamed.
+		private System.Diagnostics.Stopwatch myPassWatch;
+		private string myPassName;
+		private void Pass(string next)
+		{
+			if (myPassWatch == null) myPassWatch = System.Diagnostics.Stopwatch.StartNew();
+			else
+			{
+				Console.WriteLine("timing: derivation rules pass " + myPassName + " " + myPassWatch.ElapsedMilliseconds + " ms");
+				myPassWatch.Restart();
+			}
+			myPassName = next;
+			if (next == null) myPassWatch = null;
+		}
+
 		private void Count(string kind)
 		{
 			int n;
@@ -2669,6 +2691,7 @@ namespace Arest.NormaOracle
 					generalPerHead[h] = n + 1;
 				}
 			}
+			Pass("@2672");
 			foreach (string s in myDeferredRules)
 			{
 				Match m = Regex.Match(s, @"^\* (.+?) iff some ([A-Z][\w ]*?) (.+) and that \2 (.+)\.$");
@@ -2807,6 +2830,7 @@ namespace Arest.NormaOracle
 			// source position (subscripts breaking ties exactly as the join arm does,
 			// since a ring head like `Domain1 reaches Domain2` is ambiguous by name).
 			// Anything else declines and stays UNBUILT rather than building a guess.
+			Pass("@2810");
 			foreach (string sRaw in myDeferredRules)
 			{
 				string s1 = sRaw;
@@ -2911,6 +2935,7 @@ namespace Arest.NormaOracle
 			{
 				if (!fn.IsDeleted && fn.IsBoolean && fn.Name == "Equals") { eqFnV = fn; break; }
 			}
+			Pass("@2914");
 			foreach (string sV in myDeferredRules)
 			{
 				// A HEAD MAY NAME MORE THAN ONE VALUE, AND MAY NAME A SUBTYPE:
@@ -3170,6 +3195,7 @@ namespace Arest.NormaOracle
 			// A single-key join would silently drop the second equality and admit paths
 			// across two different machines. So a second shared token DECLINES here and
 			// waits for a multi-key arm rather than building a weaker rule that looks right.
+			Pass("@3173");
 			foreach (string sRaw3 in myDeferredRules)
 			{
 				string s3 = sRaw3;
@@ -3301,6 +3327,7 @@ namespace Arest.NormaOracle
 			// CONCATENATION, so leg2 position p is n1+p -- Status3 at leg2 role 2 with
 			// n1=3 is N(5). Separate arm rather than a widening of the single-key one so
 			// the eight rules that arm already reproduces cannot regress.
+			Pass("@3304");
 			foreach (string sRaw4 in myDeferredRules)
 			{
 				string s4 = sRaw4;
@@ -3408,6 +3435,7 @@ namespace Arest.NormaOracle
 			// built in NORMA and emitted no recipe: canon learned nothing and the hand-
 			// written twin stayed the only copy. The fold in StarJoinRecipe is the general
 			// form; see its note for the index conventions.
+			Pass("@3411");
 			foreach (string sRaw5 in myDeferredRules)
 			{
 				string s5 = sRaw5;
@@ -3525,6 +3553,7 @@ namespace Arest.NormaOracle
 			// (sec. on negation: "A negated role path is an inference from absence"),
 			// which is exactly `minus`. Stratification itself is Cor. 3's query and is
 			// NOT checked here; this arm only refuses to build what it cannot express.
+			Pass("@3528");
 			foreach (string sRaw6 in myDeferredRules)
 			{
 				string s6 = sRaw6;
@@ -3661,6 +3690,7 @@ namespace Arest.NormaOracle
 			// exactly as `A("Domain Change")` already appears as an operand elsewhere in
 			// state:rules. Unary head only: with two roles the "all" side would be a
 			// cross product nobody wrote down.
+			Pass("@3664");
 			foreach (string sRaw6b in myDeferredRules)
 			{
 				string s6b = sRaw6b;
@@ -3744,6 +3774,7 @@ namespace Arest.NormaOracle
 			// of them while all legs resolved (us-law, 2026-09-04). Root at the player's
 			// type, one subpath per leg, projection from the root, as the lone negation
 			// does without the negation; the recipe folds joinon on column 1.
+			Pass("@3747");
 			foreach (string sRawU in myDeferredRules)
 			{
 				string sU = sRawU;
@@ -3882,6 +3913,7 @@ namespace Arest.NormaOracle
 			// and the negated one carries PathedRole.IsNegated so NORMA renders it with
 			// NegatedChainedList ("it is not true that (") rather than NegatedAndList
 			// ("at least one of the following is false"), which would be De Morgan.
+			Pass("@3885");
 			foreach (string sRaw7 in myDeferredRules)
 			{
 				string s7 = sRaw7;
@@ -3978,6 +4010,7 @@ namespace Arest.NormaOracle
 			//      A("Domain Change"), S1(S2(N(2), N(1))), S1(N(3)))
 			// so the concatenation is <fact type columns> ++ <the subtype column>, and the
 			// head reads the narrowed column at n+1 rather than the supertype role at n.
+			Pass("@3981");
 			foreach (string sRaw8 in myDeferredRules)
 			{
 				string s8 = sRaw8;
@@ -4069,6 +4102,7 @@ namespace Arest.NormaOracle
 			// original columns with the supertype role replaced by the narrowed one.
 			// Then leg two joins on the shared Violation, the constant filters the role it
 			// fills, and the head is projected out.
+			Pass("@4072");
 			foreach (string sRaw9 in myDeferredRules)
 			{
 				string s9 = sRaw9;
@@ -4225,6 +4259,7 @@ namespace Arest.NormaOracle
 			//         S1(S2(N(2), N(2))), S2(N(1), N(2))))
 			// Joining on BOTH positions instead would subtract only statuses that are
 			// themselves initial -- a rule that builds and quietly means something else.
+			Pass("@4228");
 			foreach (string sRawA in myDeferredRules)
 			{
 				string sA = sRawA;
@@ -4326,6 +4361,7 @@ namespace Arest.NormaOracle
 			//
 			// `cmp` is hard-wired to strict less-than (derive:keep_cmp is not-ge), so
 			// `after` is expressed by swapping the operands rather than by another operator.
+			Pass("@4329");
 			foreach (string sRawB in myDeferredRules)
 			{
 				string sB = sRawB;
@@ -4469,6 +4505,7 @@ namespace Arest.NormaOracle
 			// transition whose `from` status is the machine super-state induces an
 			// effective transition out of every child status. It reads exactly like an
 			// undeclared-head defect and is not one.
+			Pass("@4472");
 			foreach (string sRawC in myDeferredRules)
 			{
 				string sC = sRawC;
@@ -4889,6 +4926,7 @@ namespace Arest.NormaOracle
 				log.Add(subN + " := " + supN + " where " + verb + " = '" + pm.Groups[2].Value
 					+ "', subtype rule, fully derived");
 			}
+			Pass("@4892");
 			foreach (string s in myDeferredRules)
 			{
 				Match m = Regex.Match(s, @"^\* (.+?) iff (.+)\.$");
@@ -5062,6 +5100,7 @@ namespace Arest.NormaOracle
 			// and other-quantifier notes were waiting on; casts ("that is
 			// that") and quantified legs stay outside the leg shape and
 			// remain deferred prose, executing as canon recipes.
+			Pass("@5065");
 			foreach (string s in myDeferredRules)
 			{
 				Match m = Regex.Match(s, @"^\* (.+?) iff (that [\w ]+? .+)\.$");
@@ -5339,6 +5378,7 @@ namespace Arest.NormaOracle
 			// Each side is a BARE fact type or the two-leg join JoinRecipe already builds, and
 			// minus wraps them -- no new recipe shape. legA is the clause holding the head's
 			// FIRST player, since legA's non-join column becomes column 1 of the join.
+			Pass("@5342");
 			foreach (string s in myDeferredRules)
 			{
 				Match nm = Regex.Match(s, @"^\* (.+?) iff (.+?) and no ([A-Z][\w ]*?) (.+?) where (.+)\.$");
@@ -5385,6 +5425,7 @@ namespace Arest.NormaOracle
 				myBuiltRuleSentences.Add(s); log.Add(nHeadE.Fact.Name + " := negation (positive minus no-" + negVar
 					+ "), fully derived, not stored");
 			}
+			Pass("@5388");
 			foreach (string s in myDeferredRules)
 			{
 				Match m = Regex.Match(s, @"^\* (.+?) iff ([\w ]+?) is the count of ([\w ]+?) where (.+)\.$");
@@ -5451,6 +5492,7 @@ namespace Arest.NormaOracle
 			// where the chain bound it. Grouping is NORMA's aggregation context, which is
 			// why the head's first player has to root the path and the aggregated role may
 			// not BE that player.
+			Pass("@5454");
 			foreach (string sAg in myDeferredRules)
 			{
 				Match am = Regex.Match(sAg, @"^\* (.+?) iff (.+?) is the (count|sum|mean|min|max) of ([\w\- ]+?) where (.+)\.$");
@@ -5651,6 +5693,7 @@ namespace Arest.NormaOracle
 			// sentence: head and leg share exactly one player (the entity), and
 			// each one's OTHER role is its value. Matching `expires- Timestamp`
 			// against a player named `Timestamp` would be parsing decoration.
+			Pass("@5654");
 			foreach (string sRaw3 in myDeferredRules)
 			{
 				Match om = Regex.Match(sRaw3,
@@ -5764,6 +5807,7 @@ namespace Arest.NormaOracle
 			// are read back to BIND. Where a rule carries no subscripts the tokens
 			// are the bare type names, which distinguishes the roles of a non-ring
 			// fact type and is exactly the case that needs no disambiguation.
+			Pass("@5767");
 			foreach (string sRaw4 in myDeferredRules)
 			{
 				string s4 = sRaw4;
@@ -5838,6 +5882,7 @@ namespace Arest.NormaOracle
 			// recipe for state:rules in the rules:metamodel grammar (join =
 			// left's last column meets right's first; proj flips a leg);
 			// v1 records the all-binary shape.
+			Pass("@5841");
 			foreach (string sRaw in myDeferredRules)
 			{
 				// an orphan derivation marker from a preceding ". *" declaration
@@ -6039,6 +6084,7 @@ namespace Arest.NormaOracle
 			// The walk is pre-checked with ChainOrder before anything is constructed: this
 			// arm claims heads other arms may also want, and abandoning a half-built rule
 			// in the store leaves NORMA validating a path nobody meant.
+			Pass("@6042");
 			foreach (string sC in myDeferredRules)
 			{
 				if (myBuiltRuleSentences.Contains(sC)) continue;
@@ -6969,6 +7015,7 @@ namespace Arest.NormaOracle
 					+ DescribeDerivation(hC.Fact));
 			}
 			var uRuleCount = new Dictionary<FactType, int>();
+			Pass("@6972");
 			foreach (string sPre in myDeferredRules)
 			{
 				string sp = sPre;
@@ -6989,6 +7036,7 @@ namespace Arest.NormaOracle
 				uRuleCount[pe.Fact] = pc + 1;
 			}
 			int unbuiltHeadless = 0, unbuiltUnmatched = 0, unbuiltPartial = 0, unbuiltValueRestricted = 0, unbuiltExistential = 0;
+			Pass("@6992");
 			foreach (string sRaw2 in myDeferredRules)
 			{
 				string s2 = sRaw2;
@@ -7175,6 +7223,7 @@ namespace Arest.NormaOracle
 			int rulesOneAway = 0;
 			var oneAway = new SortedSet<string>(StringComparer.Ordinal);
 			var missingRules = new SortedSet<string>(StringComparer.Ordinal);
+			Pass("@7178");
 			foreach (string sN in myDeferredRules)
 			{
 				Match mn = Regex.Match(sN, @"^\* (.+?) iff (.+)\.$");
@@ -7285,6 +7334,7 @@ namespace Arest.NormaOracle
 				log.Add("partial heads (a strict subset of a head's rules emitted): "
 					+ partialHeads);
 			}
+			Pass(null);
 			return log;
 		}
 
