@@ -2165,16 +2165,21 @@ namespace Arest.NormaOracle
 			{
 				return false;
 			}
-			// The fallback is kept, because a fact type carries one indexed
-			// reading and a sentence may legitimately be written with another,
-			// but it is no longer SILENT: taking a row on the player signature
-			// while the words disagree is exactly how two fact types differing
-			// by one adjective swapped each other's populations.
+			// THE FALLBACK IS A REJECTION NOW. It was kept, loud, while 336
+			// sentences across the corpora depended on it -- filed by player
+			// signature into fact types they did not name, which is exactly how
+			// two fact types differing by one adjective swapped each other's
+			// populations and a law store asserted that Chancery opinions were
+			// in force. With every corpus at zero (#95, 2026-09-06) a sentence
+			// whose predicate words match no reading of the sole candidate is
+			// reported and NOT taken: the row's absence is visible in the
+			// store, where a wrong row never was.
 			if (!wordsMatched)
 			{
-				Count("instance fact (predicate words unread, sole player signature)");
-				myMapLog.Add("READING NOT MATCHED: '" + Shorten(s) + "' attributed to '"
+				Count("instance fact (rejected: predicate words match no reading)");
+				myMapLog.Add("READING NOT MATCHED: '" + Shorten(s) + "' rejected; nearest '"
 					+ match.ReadingWords + "' [" + string.Join(", ", match.Players) + "]");
+				return false;
 			}
 			match.Rows.Add(new List<string>(quotes));
 			match.RowKinds.Add(new List<string>(kinds.Select(k => k ?? "")));
