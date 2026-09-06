@@ -893,6 +893,11 @@ function filterFold(body) {
 // takes minutes on a store of a few thousand facts is an interpreter cost with
 // a name, and this is how the name is found (us-law, 2026-09-04).
 const PROFILE = !!process.env.AREST_PROFILE;
+// AREST_STACK=1 keeps the canon frame stack without the timing: the stack at
+// an uncaught throw costs a push and a pop per call, the profile costs two
+// clock reads and a table update, and a report that takes twenty minutes to
+// die takes forty under the profile (support, 2026-09-06)
+const STACKS = PROFILE || !!process.env.AREST_STACK;
 const PROF = new Map();
 const PROFSTACK = [];
 // caller -> callee -> calls: a callee's count and self time say it is hot;
@@ -906,12 +911,13 @@ let PROFN = 0;
 // is the canon's, so under AREST_PROFILE an uncaught throw prints it,
 // outermost first (support's law report died with "INSERT on empty" and no
 // law printed, 2026-09-06).
-if (PROFILE) process.on("uncaughtException", (e) => {
+if (STACKS) process.on("uncaughtException", (e) => {
   console.error("canon stack at throw: " + ((e && e.canonStack) || "(no canon frame)"));
   console.error(String(e && e.stack || e));
   process.exit(2);
 });
 function profEnter(name) {
+  if (!PROFILE) { PROFSTACK.push([name, 0, 0]); return; }
   // the caller is the nearest DEFINITION on the stack -- a namespaced name --
   // not the CONS or COMP form it sits inside, which is what the top frame
   // usually is and attributes nothing (246k of theta:dedup's 334k calls went
@@ -934,6 +940,7 @@ function profThrow(e) {
 }
 function profExit() {
   const fr = PROFSTACK.pop();
+  if (!PROFILE) return;
   const incl = performance.now() - fr[1];
   const self = incl - fr[2];
   let row = PROF.get(fr[0]);
@@ -1012,12 +1019,12 @@ function Ev(f, x) {
       // where the only visible names were. Under AREST_PROFILE a native is now
       // entered like any DEF; with profiling off the dispatch is unchanged.
       if (fp !== undefined) {
-        if (!PROFILE) return fp(x);
+        if (!STACKS) return fp(x);
         profEnter(f);
         try { return fp(x); } catch (e) { profThrow(e); } finally { profExit(); }
       }
       if (!memoable(f)) {
-        if (!PROFILE) return Ev(DEFS.get(f), x);
+        if (!STACKS) return Ev(DEFS.get(f), x);
         profEnter(f);
         try { return Ev(DEFS.get(f), x); } catch (e) { profThrow(e); } finally { profExit(); }
       }
@@ -1032,7 +1039,7 @@ function Ev(f, x) {
       const last = chain[chain.length - 1];
       if (node.has(last)) return node.get(last);
       let v;
-      if (PROFILE) {
+      if (STACKS) {
         profEnter(f);
         try { v = Ev(DEFS.get(f), x); } catch (e) { profThrow(e); } finally { profExit(); }
       } else {
