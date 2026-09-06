@@ -496,6 +496,16 @@ const FASTPRIMS = new Map(Object.entries({
   "cn:entsat": x => { const hits = matchRows(at(x, 1), seq(at(x, 0))); const out = [];
     for (let i = 0; i < hits.length; i++) { const a = seq(at(hits[i], 1)); for (let j = 0; j < a.length; j++) out.push(a[j]); }
     return out; },
+  // cn:panc walks a position n downward from its start while the n-th entry
+  // of the row (theta:nth, 0-based) has anything but F in its third column,
+  // and answers <k, n> where it stops, or PHI when it runs off the front
+  // (n == -1). The DEF is a WHILE rebuilding a three-field state per step:
+  // 323,008 calls from cn:dinner and cn:decitem on the eu-law report. The
+  // same theta:nth answers the entries, so an index past the row fails as
+  // it does there.
+  "cn:panc": x => { const row = FASTPRIMS.get("theta:nth")([at(x, 0), at(x, 1)]); const k = at(x, 1); let n = at(x, 2);
+    while (!deepEq(n, -1) && !deepEq(at(FASTPRIMS.get("theta:nth")([row, n]), 2), "F")) n = n - 1;
+    return deepEq(n, -1) ? [] : [k, n]; },
   // cn:xisot: does any row's second column contain the key (theta:member,
   // i.e. deepEq); 708 calls scanning the table per call
   "cn:xisot": x => { const key = at(x, 0), rows = seq(at(x, 1));
