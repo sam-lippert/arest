@@ -2589,6 +2589,7 @@ namespace Arest.NormaOracle
 		}
 		public List<string> BuildDerivationRules()
 		{
+			Pass("preamble");
 			ExpandDisjunctions();
 			var log = new List<string>();
 			// a fully-derived head is the CWA closure over ALL its rules; one
