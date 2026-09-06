@@ -299,6 +299,32 @@ function matchRows(key, rows) {
   const hit = idx.get(keyOf(key));
   return hit === undefined ? [] : hit;
 }
+// the same, on an arbitrary column. csdp:matches indexes column 1 and ONLY
+// column 1, which is why the joins that cost the most were invisible to it:
+// rmap:uniqs:derive scans rmap:childrenN once per rmap:ucrows row keeping the
+// children whose SECOND column matches, 3784 x 2255 pairs on eu-law, and that
+// one scan is the whole 44 s the definition costs. Fourteen sites in canon key
+// on column 2; forty-six key on column 1 but inside a filter carrying further
+// conjuncts, so the bare csdp:matches node never matched them either. Both are
+// this shape: index the equality, test the remaining conjuncts only on what the
+// index returns. The index is per (rows, column) because one row list is joined
+// on different columns in different definitions.
+let MATCHATIDX = new WeakMap();
+function matchRowsAt(n, key, rows) {
+  let byCol = MATCHATIDX.get(rows);
+  if (byCol === undefined) { byCol = new Map(); MATCHATIDX.set(rows, byCol); }
+  let idx = byCol.get(n);
+  if (idx === undefined) { idx = new Map();
+    for (let i = 0; i < rows.length; i++) { const r = rows[i];
+      if (!Array.isArray(r)) throw new Error("selector " + n + " on atom: " + show(r));
+      if (n < 1 || n > r.length) throw new Error("selector " + n + " out of range " + r.length);
+      const k = keyOf(r[n - 1]);
+      let a = idx.get(k); if (a === undefined) { a = []; idx.set(k, a); }
+      a.push(r); }
+    byCol.set(n, idx); }
+  const hit = idx.get(keyOf(key));
+  return hit === undefined ? [] : hit;
+}
 // Selective: only cells whose inputs actually repeat (store-applied
 // rmap cells and fetches keyed by the frozen CELLS reference; the
 // walk's ctx-threaded helpers keyed by element references; lex:parts
@@ -391,6 +417,8 @@ const FASTPRIMS = new Map(Object.entries({
   // as a fold: 2.4 million calls and 20 of the base report's 89 seconds
   // (2026-09-04). rmap:lookup0 wants the first match's second column, or PHI.
   "csdp:matches": x => matchRows(at(x, 0), seq(at(x, 1))).slice(),
+  // csdp:matches_at is the same filter on a named column: <n, key, rows>.
+  "csdp:matches_at": x => matchRowsAt(at(x, 0), at(x, 1), seq(at(x, 2))).slice(),
   "rmap:lookup0": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? [] : [at(hits[0], 1)]; },
   // theta:append_phi = apndr . [id, CONST PHI]: the list with PHI appended, the
