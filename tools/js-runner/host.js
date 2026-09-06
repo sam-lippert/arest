@@ -813,9 +813,24 @@ function filterFold(body) {
 const PROFILE = !!process.env.AREST_PROFILE;
 const PROF = new Map();
 const PROFSTACK = [];
+// caller -> callee -> calls: a callee's count and self time say it is hot;
+// only its callers say which rewrite would help (theta:dedup at 334k calls
+// is one fix if one join makes them and another if a hundred do, 2026-09-06)
+const PROFEDGES = new Map();
 let PROFLAST = 0;
 let PROFN = 0;
 function profEnter(name) {
+  // the caller is the nearest DEFINITION on the stack -- a namespaced name --
+  // not the CONS or COMP form it sits inside, which is what the top frame
+  // usually is and attributes nothing (246k of theta:dedup's 334k calls went
+  // to "CONS" on the first try); names carry no spaces, so one separates
+  for (let i = PROFSTACK.length - 1; i >= 0; i--) {
+    const c = PROFSTACK[i][0];
+    if (c.indexOf(":") < 0) continue;
+    const k = c + " " + name;
+    PROFEDGES.set(k, (PROFEDGES.get(k) || 0) + 1);
+    break;
+  }
   PROFSTACK.push([name, performance.now(), 0]);
 }
 function profExit() {
@@ -865,6 +880,17 @@ function profReport(label) {
       + Math.round(r[2]) + "' in JS Package '" + esc(pkg) + "' on Timing Basis 'inclusive'." + L
       + "Function '" + esc(name) + "' has Call Count '"
       + r[0] + "' in JS Package '" + esc(pkg) + "'." + L;
+  }
+  // and who calls each reported function, `Function calls Function with Call
+  // Count in JS Package` -- edges into the reported rows only, so the file
+  // stays the size of the report and not of the whole call graph
+  const named = new Set(rows.map(([name]) => name));
+  for (const [k, n] of PROFEDGES) {
+    const i = k.indexOf(" ");
+    const caller = k.slice(0, i), callee = k.slice(i + 1);
+    if (!named.has(callee)) continue;
+    out += "Function '" + esc(caller) + "' calls Function '" + esc(callee) + "' with Call Count '"
+      + n + "' in JS Package '" + esc(pkg) + "'." + L;
   }
   try { require("node:fs").writeFileSync(factPath, out); }
   catch (e) { console.error("profile facts not written: " + e.message); }
