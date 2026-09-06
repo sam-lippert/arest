@@ -483,6 +483,18 @@ const FASTPRIMS = new Map(Object.entries({
   "cn:nlexlt": x => { const a = seq(at(x, 0)), b = seq(at(x, 1)); const n = Math.min(a.length, b.length);
     for (let i = 0; i < n; i++) { if (deepEq(a[i], b[i])) continue; return bool(cmp(b[i], a[i]) > 0); }
     return bool(a.length < b.length); },
+  // cn:strlt orders two words by the ranks of their lowercased characters in
+  // the fixed 37-character alphabet (cn:chrank; a character outside it ranks
+  // 37, so all such characters are equal), shorter-on-prefix first, equal is
+  // F. The lowering and the ranking stay CANON -- lex:lw and cn:chrank are
+  // memoised and evaluated here by name, so the twin cannot mean anything
+  // the DEF does not -- and only the per-character WHILE is native: 136,110
+  // calls from cn:ordlt on the eu-law report (2026-09-06).
+  "cn:strlt": x => { const la = [...String(Ev("lex:lw", at(x, 0)))], lb = [...String(Ev("lex:lw", at(x, 1)))];
+    const n = Math.min(la.length, lb.length);
+    for (let i = 0; i < n; i++) { const ra = Ev("cn:chrank", la[i]), rb = Ev("cn:chrank", lb[i]);
+      if (ra === rb) continue; return bool(rb > ra); }
+    return bool(la.length < lb.length); },
   "solve:assoc3": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? ["", [], []] : hits[0]; },
   // theta:append_phi = apndr . [id, CONST PHI]: the list with PHI appended, the
