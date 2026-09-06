@@ -9989,6 +9989,14 @@ namespace Arest.NormaOracle
 			myTextual.Clear();
 		}
 
+		// WHICH SENTENCE SHAPES THIS TOOL CAN BUILD IS A FACT, and it was only ever
+		// a log line. Reconstructing it meant writing a scratch corpus per phrasing
+		// and reading a census -- eleven of them in one session, to learn that a
+		// join-path subset takes three clauses and a value comparison forces the
+		// antecedent's order. Every one of those answers was already here, at the
+		// moment of the decline, and was thrown away.
+		private readonly List<KeyValuePair<string, string>> myConstraintNotes = new List<KeyValuePair<string, string>>();
+
 		private void AddNote(string kind, string sentence, string reason)
 		{
 			ModelNote note = new ModelNote(myStore);
@@ -9996,6 +10004,7 @@ namespace Arest.NormaOracle
 			note.Model = myModel;
 			Count("textual constraint (model note: " + kind + ", " + reason + ")");
 			myMapLog.Add("note (" + reason + "): " + Shorten(sentence));
+			myConstraintNotes.Add(new KeyValuePair<string, string>(sentence, reason));
 		}
 
 		private FactIndexEntry FindRingEntry(string player, string words)
@@ -11751,6 +11760,20 @@ namespace Arest.NormaOracle
 				else
 					sb.Append("Derivation Rule 'r:").Append(kv.Key).Append("' is declined for Decline Reason '")
 					  .Append(whyByHead.TryGetValue(kv.Key, out why) ? why : "no arm emitted a recipe").Append("'.\n");
+			}
+			// and the constraint sentences this tool DECLINED, with the reason it
+			// gave. `Constraint awaits an arm` then answers which shapes the
+			// builder cannot yet take, over a real corpus, instead of a scratch
+			// experiment per phrasing.
+			int cn = 0;
+			foreach (var kv in myConstraintNotes)
+			{
+				string text = Regex.Replace(kv.Key.Replace("'", ""), @"\s+", " ").Trim();
+				string why = Regex.Replace(kv.Value.Replace("'", ""), @"\s+", " ").Trim();
+				if (text.Length == 0) continue;
+				cn++;
+				sb.Append("Constraint 'note-").Append(cn).Append("' has Text '").Append(text).Append("'.\n");
+				sb.Append("Constraint 'note-").Append(cn).Append("' is declined for Decline Reason '").Append(why).Append("'.\n");
 			}
 			File.WriteAllText(path, sb.ToString());
 		}
