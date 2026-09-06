@@ -1152,8 +1152,55 @@ namespace Arest.NormaOracle
 			@"^For each ([\w :]+?), (exactly one|at most one) of the following holds:\s*(.+?)\.?$");
 		private static readonly Regex GroupSubtypeItem = new Regex(
 			@"^that\s+.+?\s+is an?\s+(.+?)\.?$");
-		private static readonly Regex PossibleValues = new Regex(@"^The possible values of\s+([\w :]+?)\s+are\s+(.+)\.$");
+		// the name class admits an internal hyphen (Cross-Border Recognition,
+		// In-Lieu-Of Motor Vehicle Tax): without it the sentence was not a
+		// value constraint at all and fell through to the instance-fact path,
+		// where its three quoted values filed by player signature into a
+		// ternary (`SQL Dialect maps Value Type to SQL Type`, 2026-09-06)
+		private static readonly Regex PossibleValues = new Regex(@"^The possible values of\s+([\w :-]+?)\s+are\s+(.+)\.$");
 		private static readonly Regex DataTypeDecl = new Regex(@"^The data type of\s+([\w :]+?)\s+is\s+(\w+)");
+
+		// a reading's words as a sentence speaks them: FORML's hyphen binding
+		// ("payoff- Balance", "is from- Status", "has default- Fetcher") is
+		// absorption naming, silent in an instance sentence, so the hyphen
+		// goes and the whitespace collapses -- applied to BOTH sides of the
+		// comparison in MapInstanceFact, which is the whole point
+		private static string SpokenWords(string x)
+		{
+			return Regex.Replace(x.Replace("- ", " ").TrimEnd('-'), @"\s+", " ").Trim();
+		}
+
+		// A QUOTED SPAN OPENS AND CLOSES AT A WORD BOUNDARY. This is the rule
+		// ExtractSentences already splits sentences by and LiteralRx already
+		// blanks rule text by: a quote with a letter or digit straight after it
+		// is a possessive ("the metamodel's types"), not a terminator. The
+		// instance-fact scanner alone paired quotes with '([^']*)', so an
+		// apostrophe inside a Description ended the value early and the rest
+		// of it became predicate words -- stored truncated, reported nowhere
+		// (#96). One scanner for every quoted value; each span is (index of
+		// the opening quote, length including both quotes, the text between).
+		private struct QuotedSpan { public int Index; public int Length; public string Value; }
+		private static List<QuotedSpan> QuotedSpans(string s)
+		{
+			var spans = new List<QuotedSpan>();
+			int open = -1;
+			for (int i = 0; i < s.Length; i++)
+			{
+				if (s[i] != '\'') continue;
+				char prevC = i >= 1 ? s[i - 1] : ' ';
+				char nextC = i + 1 < s.Length ? s[i + 1] : ' ';
+				if (open < 0)
+				{
+					if (!char.IsLetterOrDigit(prevC)) open = i;
+				}
+				else if (!char.IsLetterOrDigit(nextC))
+				{
+					spans.Add(new QuotedSpan { Index = open, Length = i - open + 1, Value = s.Substring(open + 1, i - open - 1) });
+					open = -1;
+				}
+			}
+			return spans;
+		}
 
 		private void MapSentence(string s)
 		{
@@ -1700,7 +1747,7 @@ namespace Arest.NormaOracle
 			lits = new List<string>();
 			litOwners = new List<string>();
 			var litAt = new List<int>();
-			foreach (Match lm in Regex.Matches(headRaw, @"'([^']*)'")) { lits.Add(lm.Groups[1].Value); litAt.Add(lm.Index); }
+			foreach (QuotedSpan lm in QuotedSpans(headRaw)) { lits.Add(lm.Value); litAt.Add(lm.Index); }
 			// A head may be SPECIALISED WITHOUT NAMING A VALUE:
 			//   + Person is subject to Minnesota Authority if Person works in State 'Minnesota'.
 			// names the declared `Person is subject to Authority` with the Authority role
@@ -1906,7 +1953,13 @@ namespace Arest.NormaOracle
 		{
 			myDeferredEnums.Add(new KeyValuePair<string, string>(typeName, valueList));
 		}
-		private void FlushValueEnums()
+		// CALLED TWICE, AND THE SECOND CALL IS THE ONE THAT MATTERS. FlushSchemes
+		// runs in the declarations phase; "The possible values of ..." is read
+		// in the map pass after it, so everything deferred there sat in the
+		// list until the process ended -- no corpus had ever built a value
+		// constraint, and no counter said so (2026-09-06). Program.cs flushes
+		// again once every file is mapped.
+		public void FlushValueEnums()
 		{
 			foreach (var kv in myDeferredEnums)
 			{
@@ -1941,19 +1994,19 @@ namespace Arest.NormaOracle
 				constraint = new ValueTypeValueConstraint(myStore);
 				constraint.ValueType = vt;
 			}
-			foreach (Match vm in Regex.Matches(valueList, @"'([^']*)'"))
+			foreach (QuotedSpan vm in QuotedSpans(valueList))
 			{
 				// idempotent (the tab doctrine): a value already in the
 				// constraint is the same declaration restated, not an overlap
 				bool present = false;
 				foreach (ValueRange existing in constraint.ValueRangeCollection)
 				{
-					if (existing.MinValue == vm.Groups[1].Value) { present = true; break; }
+					if (existing.MinValue == vm.Value) { present = true; break; }
 				}
 				if (present) continue;
 				ValueRange range = new ValueRange(myStore);
-				range.MinValue = vm.Groups[1].Value;
-				range.MaxValue = vm.Groups[1].Value;
+				range.MinValue = vm.Value;
+				range.MaxValue = vm.Value;
 				range.ValueConstraint = constraint;
 			}
 			Count("value enumeration");
@@ -2028,10 +2081,10 @@ namespace Arest.NormaOracle
 			var quotes = new List<string>();
 			var texts = new List<string>();
 			int cursor = 0;
-			foreach (Match qm in Regex.Matches(body, @"'([^']*)'"))
+			foreach (QuotedSpan qm in QuotedSpans(body))
 			{
 				texts.Add(body.Substring(cursor, qm.Index - cursor));
-				quotes.Add(qm.Groups[1].Value);
+				quotes.Add(qm.Value);
 				cursor = qm.Index + qm.Length;
 			}
 			texts.Add(body.Substring(cursor));
@@ -2057,7 +2110,12 @@ namespace Arest.NormaOracle
 			}
 			string tail = texts[texts.Count - 1].Trim();
 			if (tail.Length > 0) wordParts.Add(tail);
-			string words = Regex.Replace(string.Join(" ", wordParts), @"\s+", " ").Trim();
+			// the SAME normalization as the entry side below: a sentence keeps
+			// its hyphen binding ("has default-" before Fetcher, "has
+			// applicable-" before Tax Year) where the reading's was trimmed,
+			// so a declared fact type never matched its own instance sentence
+			// and the fallback filed it (2026-09-06)
+			string words = SpokenWords(string.Join(" ", wordParts));
 
 			FactIndexEntry match = null;
 			int candidates = 0;
@@ -2092,8 +2150,7 @@ namespace Arest.NormaOracle
 				// declaring `Widget has Blob for Gizmo` accepted
 				// `Widget 'w2' completely unrelated nonsense Blob '43' banana
 				// split Gizmo 'g2'` as a row of it.
-				string entryWords = Regex.Replace(
-					entry.ReadingWords.Replace("- ", " ").TrimEnd('-'), @"\s+", " ").Trim();
+				string entryWords = SpokenWords(entry.ReadingWords);
 				if (string.Equals(entryWords, words, StringComparison.Ordinal))
 				{
 					match = entry;
@@ -10372,22 +10429,114 @@ namespace Arest.NormaOracle
 			steps.Add("S3(" + IAtom(ft) + ", N(" + joinPos + "), N(" + projPos + "))");
 		}
 
+		// A SUBTYPE STEP IN A CONSTRAINT JOIN PATH. From a path position typed by
+		// one side of a subtype fact: a sub-path that ENTERS that side
+		// (PostInnerJoin) and steps to the other (SameFactType). `up` walks
+		// subtype -> supertype, so the returned sub-path is typed by the far
+		// side and the next leg hangs off it; `up == false` walks down and is
+		// left dangling, which is how a leg over the subtype fact restricts a
+		// variable to the subtype without projecting from it -- the shape the
+		// chain arm lays for a cross-subtype head (xEntry/xUp there).
+		private RoleSubPath LayHop(RolePath from, SubtypeFact sf, bool up, out PathedRole far)
+		{
+			far = null;
+			Role subRole = null, supRole = null;
+			foreach (RoleBase rb in sf.RoleCollection)
+			{
+				Role r = rb.Role;
+				if (r.RolePlayer == sf.Subtype) subRole = r;
+				else if (r.RolePlayer == sf.Supertype) supRole = r;
+			}
+			if (subRole == null || supRole == null) return null;
+			var hop = new RoleSubPath(myStore);
+			from.SubPathCollection.Add(hop);
+			myMapLog.Add("constraint subtype step (" + (up ? "up" : "down") + "): " + sf.Subtype.Name + " -> " + sf.Supertype.Name
+				+ " off " + (from is LeadRolePath ? "the lead" : "a sub-path"));
+			var near = new PathedRole(hop, up ? subRole : supRole);
+			near.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+			far = new PathedRole(hop, up ? supRole : subRole);
+			far.PathedRolePurpose = PathedRolePurpose.SameFactType;
+			return hop;
+		}
+
+		// THE SUBTYPE FACT BETWEEN A SUBTYPE AND ITS NAMED SUPERTYPE, or null. The
+		// chain arm looks this up inline (FindElements<SubtypeFact> per rule per
+		// role); the constraint arms need the same answer to lay a subtype step.
+		private SubtypeFact SubtypeFactFor(ObjectType sub, string supName)
+		{
+			if (sub == null || supName == null) return null;
+			foreach (SubtypeFact sf in myStore.ElementDirectory.FindElements<SubtypeFact>(true))
+			{
+				if (!sf.IsDeleted && sf.Subtype == sub && sf.Supertype != null && sf.Supertype.Name == supName) return sf;
+			}
+			return null;
+		}
+
 		private sealed class SideClause
 		{
 			public FactIndexEntry Entry;
 			public List<string> Players;
+			// A CLAUSE THAT RESOLVED ONLY BY SUBSTITUTING A SUBTYPE. The sentence
+			// names the subtype (Players carries it at SwappedAt); the fact type's
+			// role there is typed by the supertype (Swapped). The path builders read
+			// these to lay a subtype step at that position -- the step whose absence
+			// is why the constraint arms could not use the subtype-aware resolver:
+			// a join laid straight onto the supertype role would drop the
+			// restriction and forbid more than the sentence says.
+			public string Swapped;
+			public int SwappedAt = -1;
+			public ObjectType SwappedTo;
+		}
+
+		// A SIDE CLAUSE THAT REMEMBERS ITS SUBTYPE SUBSTITUTION. ResolveClauseSub
+		// reports the DECLARED player it matched only by substituting a subtype;
+		// the sentence's own name for that position is in `players`, and the
+		// subtype's object type is what the path builders need to find the
+		// subtype fact and lay the step.
+		private SideClause MakeSide(FactIndexEntry e, List<string> players, string swapped)
+		{
+			var sc = new SideClause { Entry = e, Players = players };
+			if (swapped != null)
+			{
+				for (int i = 0; i < e.Players.Count && i < players.Count; i++)
+				{
+					if (e.Players[i] == swapped && players[i] != swapped)
+					{
+						ObjectType sub;
+						if (myTypes.TryGetValue(players[i], out sub))
+						{
+							sc.Swapped = swapped;
+							sc.SwappedAt = i;
+							sc.SwappedTo = sub;
+						}
+						break;
+					}
+				}
+			}
+			return sc;
 		}
 
 		// a side is one clause or a two-clause chain joined by
 		// where/and/that; backtracking split, right-to-left, each piece
-		// resolved against the fact index
+		// resolved against the fact index.
+		//
+		// SUBTYPE-AWARE, DELIBERATELY. This used ResolveClause -- exact type
+		// match -- and ResolveClauseSub's own comment says why: the role NORMA
+		// builds is typed by the supertype, so joining another leg onto it is a
+		// subtype step, and an arm that cannot lay one down must decline rather
+		// than join anyway. The join-path builders below now lay that step
+		// wherever a side clause carries a swap, so the resolver may substitute.
+		// `some Minnesota Customer` against a fact type declared on Customer then
+		// builds SCOPED, the restriction in the path, instead of staying unbuilt
+		// -- or, worse, building unscoped and forbidding more than the sentence.
 		private List<SideClause> ParseSide(string text)
 		{
 			List<string> players;
-			FactIndexEntry whole = ResolveClause(text, out players);
+			string sw;
+			FactIndexEntry whole = ResolveClauseSub(text, out players, out sw);
 			if (whole != null)
 			{
-				return new List<SideClause> { new SideClause { Entry = whole, Players = players } };
+				return new List<SideClause> { MakeSide(whole, players, sw) };
 			}
 			foreach (string splitter in new[] { " where ", " and ", " that " })
 			{
@@ -10397,25 +10546,37 @@ namespace Arest.NormaOracle
 					string left = text.Substring(0, at);
 					string right = text.Substring(at + splitter.Length);
 					List<string> lp, rp;
-					FactIndexEntry le = ResolveClause(left, out lp);
+					string lsw, rsw;
+					FactIndexEntry le = ResolveClauseSub(left, out lp, out lsw);
 					if (le == null) continue;
 					// a bare continuation names no subject; try the left
 					// clause's players as the elided subject (last for
 					// that-relatives, first for and-continuations)
-					FactIndexEntry re = ResolveClause(right, out rp);
+					FactIndexEntry re = ResolveClauseSub(right, out rp, out rsw);
 					if (re == null && lp.Count > 0)
 					{
+						// EXACT, on purpose. An elided subject is a GUESS at what the
+						// sentence meant, and a guess must not be rescued by substituting
+						// a subtype: `For each Domain and Local Name, at most one Function
+						// belongs to that Domain and has that Local Name` tries "Domain
+						// has Local Name" before "Function has Local Name", and since a
+						// Domain is a Function the wrong guess resolved, the join variable
+						// flipped to Domain, and NORMA rejected the path. Substitution is
+						// for clauses that NAME the subtype, which the whole clause and
+						// the direct halves do.
+						rsw = null;
 						re = ResolveClause(lp[lp.Count - 1] + " " + right, out rp);
 					}
 					if (re == null && lp.Count > 0)
 					{
+						rsw = null;
 						re = ResolveClause(lp[0] + " " + right, out rp);
 					}
 					if (re == null) continue;
 					return new List<SideClause>
 					{
-						new SideClause { Entry = le, Players = lp },
-						new SideClause { Entry = re, Players = rp },
+						MakeSide(le, lp, lsw),
+						MakeSide(re, rp, rsw),
 					};
 				}
 			}
@@ -10439,6 +10600,9 @@ namespace Arest.NormaOracle
 			var seq = new SetComparisonConstraintRoleSequence(myStore);
 			if (side.Count == 1)
 			{
+				// a lone clause resolved by substituting a subtype must still
+				// carry a path, or the constraint ranges over the supertype role
+				if (side[0].SwappedAt >= 0) return BuildSinglePathForSequence(seq, side[0], projVars) ? seq : null;
 				foreach (string v in projVars)
 				{
 					int at = side[0].Players.IndexOf(v);
@@ -10481,13 +10645,39 @@ namespace Arest.NormaOracle
 				string newVar = entryVar == cl.Players[0] ? cl.Players[1] : cl.Players[0];
 				int eAt = cl.Players.IndexOf(entryVar);
 				int nAt = 1 - eAt;
+				// THE SUBTYPE STEP, laid where the clause was resolved by
+				// substitution. Entering a supertype-typed role from a variable
+				// bound at the subtype: hop UP first, then join. Introducing the
+				// subtype variable at a supertype-typed step: hop DOWN after it
+				// and bind the variable there, so the next clause enters from a
+				// subtype-typed position and the restriction survives the join.
+				// A missing subtype fact declines the whole path rather than
+				// joining onto the supertype and forbidding more than the sentence.
+				RolePath hang = boundAt[entryVar];
+				if (cl.SwappedAt == eAt)
+				{
+					SubtypeFact sfUp = SubtypeFactFor(cl.SwappedTo, cl.Swapped);
+					PathedRole farUp;
+					RoleSubPath hopUp = sfUp == null ? null : LayHop(hang, sfUp, true, out farUp);
+					if (hopUp == null) return false;
+					hang = hopUp;
+				}
 				var sub = new RoleSubPath(myStore);
-				boundAt[entryVar].SubPathCollection.Add(sub);
+				hang.SubPathCollection.Add(sub);
 				var entry = new PathedRole(sub, cl.Entry.Roles[eAt]);
 				entry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
 				var step = new PathedRole(sub, cl.Entry.Roles[nAt]);
 				step.PathedRolePurpose = PathedRolePurpose.SameFactType;
-				if (!boundAt.ContainsKey(newVar)) boundAt[newVar] = sub;
+				RolePath bindTo = sub;
+				if (cl.SwappedAt == nAt)
+				{
+					SubtypeFact sfDown = SubtypeFactFor(cl.SwappedTo, cl.Swapped);
+					PathedRole farDown;
+					RoleSubPath hopDown = sfDown == null ? null : LayHop(sub, sfDown, false, out farDown);
+					if (hopDown == null) return false;
+					bindTo = hopDown;
+				}
+				if (!boundAt.ContainsKey(newVar)) boundAt[newVar] = bindTo;
 				stepPathed[newVar] = step;
 				RecordPathStep(seq, cl.Entry.Fact.Name, eAt + 1, nAt + 1);
 				if (projVars.Contains(newVar) && !projLoc.ContainsKey(newVar))
@@ -10515,6 +10705,62 @@ namespace Arest.NormaOracle
 				if (link == null) return false;
 				var crp = new ConstraintRoleProjection(jpp, link);
 				new ConstraintRoleProjectedFromPathedRole(crp, stepPathed[v]);
+			}
+			return true;
+		}
+
+		// A SINGLE SWAPPED CLAUSE STILL NEEDS A PATH. With one clause a side has
+		// no join, and the role sequence is the clause's own roles -- which is
+		// exactly what drops the restriction when a variable was resolved by
+		// substituting a subtype: the constraint would range over the supertype
+		// role. So: a lead rooted at the subtype, the hop up, the clause entered
+		// at the substituted role, the projections from there.
+		private bool BuildSinglePathForSequence(ConstraintRoleSequence seq, SideClause cl, List<string> projVars)
+		{
+			SubtypeFact sf = SubtypeFactFor(cl.SwappedTo, cl.Swapped);
+			if (sf == null) return false;
+			var projRole = new Dictionary<string, int>(StringComparer.Ordinal);
+			foreach (string v in projVars)
+			{
+				int at = cl.Players.IndexOf(v);
+				if (at < 0) return false;
+				projRole[v] = at;
+				seq.RoleCollection.Add(cl.Entry.Roles[at]);
+			}
+			var jp = new ConstraintRoleSequenceJoinPath(myStore);
+			jp.RoleSequence = seq;
+			var lead = new LeadRolePath(myStore);
+			jp.OwnedLeadRolePathCollection.Add(lead);
+			new RolePathObjectTypeRoot(lead, cl.SwappedTo);
+			PathedRole far;
+			RoleSubPath hop = LayHop(lead, sf, true, out far);
+			if (hop == null) return false;
+			var sub = new RoleSubPath(myStore);
+			hop.SubPathCollection.Add(sub);
+			var entry = new PathedRole(sub, cl.Entry.Roles[cl.SwappedAt]);
+			entry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+			var pathed = new Dictionary<string, PathedRole>(StringComparer.Ordinal);
+			foreach (string v in projVars)
+			{
+				int at = projRole[v];
+				if (at == cl.SwappedAt) { pathed[v] = entry; continue; }
+				var step = new PathedRole(sub, cl.Entry.Roles[at]);
+				step.PathedRolePurpose = PathedRolePurpose.SameFactType;
+				pathed[v] = step;
+				RecordPathStep(seq, cl.Entry.Fact.Name, cl.SwappedAt + 1, at + 1);
+			}
+			var jpp = new ConstraintRoleSequenceJoinPathProjection(jp, lead);
+			foreach (string v in projVars)
+			{
+				Role role = cl.Entry.Roles[projRole[v]];
+				ConstraintRoleSequenceHasRole link = null;
+				foreach (ConstraintRoleSequenceHasRole l in ConstraintRoleSequenceHasRole.GetLinksToRoleCollection(seq))
+				{
+					if (l.Role == role) { link = l; break; }
+				}
+				if (link == null) return false;
+				var crp = new ConstraintRoleProjection(jpp, link);
+				new ConstraintRoleProjectedFromPathedRole(crp, pathed[v]);
 			}
 			return true;
 		}
@@ -10555,8 +10801,19 @@ namespace Arest.NormaOracle
 			{
 				int joinAt = side[c].Players.IndexOf(joinVar);
 				if (joinAt < 0) return false;
+				// the join variable is the subtype and this clause's role is typed
+				// by its supertype: hop up first, then enter (see LayHop)
+				RolePath hangS = lead;
+				if (side[c].SwappedAt == joinAt)
+				{
+					SubtypeFact sfS = SubtypeFactFor(side[c].SwappedTo, side[c].Swapped);
+					PathedRole farS;
+					RoleSubPath hopS = sfS == null ? null : LayHop(lead, sfS, true, out farS);
+					if (hopS == null) return false;
+					hangS = hopS;
+				}
 				var sub = new RoleSubPath(myStore);
-				lead.SubPathCollection.Add(sub);
+				hangS.SubPathCollection.Add(sub);
 				var entry = new PathedRole(sub, side[c].Entry.Roles[joinAt]);
 				entry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
 				foreach (string v in projVars)
@@ -10566,6 +10823,15 @@ namespace Arest.NormaOracle
 					var step = new PathedRole(sub, side[c].Entry.Roles[loc.Value]);
 					step.PathedRolePurpose = PathedRolePurpose.SameFactType;
 					stepPathed[v] = step;
+					// a projected variable named as a subtype of the role's player:
+					// a dangling leg down over the subtype fact carries the
+					// restriction; the projection stays on the fact type's own role
+					if (side[c].SwappedAt == loc.Value)
+					{
+						SubtypeFact sfD = SubtypeFactFor(side[c].SwappedTo, side[c].Swapped);
+						PathedRole farD;
+						if (sfD == null || LayHop(sub, sfD, false, out farD) == null) return false;
+					}
 					RecordPathStep(seq, side[c].Entry.Fact.Name, joinAt + 1, loc.Value + 1);
 				}
 			}

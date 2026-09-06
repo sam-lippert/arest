@@ -118,6 +118,67 @@ namespace Arest.NormaOracle.Tests
             Assert.Contains("A(\"PostIsApproved\"), N(1)", state);
         }
 
+        // A HYPHEN IS SILENT WHEN A SENTENCE IS SPOKEN. FORML's hyphen binding
+        // on a predicate word (`has default- Fetcher`, `has applicable- Tax
+        // Year`) is absorption naming; the reading's words dropped the hyphen
+        // and the instance sentence's kept it, so a DECLARED fact type never
+        // matched its own row and the fallback filed it by player signature
+        // (three auto.dev source declarations, a us-law revenue procedure). And
+        // a type name with an internal hyphen (`Cross-Border Recognition`) was
+        // not admitted by the value-constraint regex, so "The possible values
+        // of ..." fell through to the instance path and its three quoted
+        // values filed into a ternary. The probe theory above reads neither: it
+        // records errors, UNBUILT lines, read-back and rules, and there are
+        // none here.
+        [Fact]
+        public void AHyphenBoundReadingTakesItsOwnSentence()
+        {
+            string dir = Path.Combine(ProbesDir, "hyphen-bound-reading");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "hyphen-bound-reading-facts"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            // every sentence found its reading; none was reported or filed elsewhere
+            Assert.DoesNotContain("[instance]", run.Output);
+            Assert.DoesNotContain("READING NOT MATCHED", run.Output);
+            Assert.Contains("A(\"SourceDeclarationHasDefaultFetcher\")", state);
+            Assert.Contains("S2(A(\"edmunds\"), A(\"fetch\"))", state);
+            Assert.Contains("A(\"CaseHasCrossBorderRecognition\")", state);
+            Assert.Contains("S2(A(\"c1\"), A(\"foreign_main\"))", state);
+            // and the value constraints were BUILT -- NORMA verbalizes them, a
+            // value no row uses among them. Nothing had ever built one: the one
+            // flush ran in the declarations phase, before the map pass that
+            // reads the sentence (2026-09-06).
+            string verbalized = File.ReadAllText(Path.Combine(run.Scratch, "verbalization-report.txt"));
+            Assert.Contains("'foreign_nonmain'", verbalized);
+            Assert.Contains("'two'", verbalized);
+        }
+
+        // AN APOSTROPHE INSIDE A VALUE IS PART OF THE VALUE. The instance-fact
+        // scanner paired quotes with '([^']*)', so `... the metamodel's types
+        // ...` ended the Description at "metamodel" and stored it truncated
+        // with the rest as predicate words, reported nowhere (#96) -- while
+        // ExtractSentences and LiteralRx already read a quote with a letter
+        // straight after it as a possessive. One scanner now; the probe
+        // theory sees none of this, it records errors, UNBUILT, read-back and
+        // rules.
+        [Fact]
+        public void AnApostropheInsideAValueStaysInTheValue()
+        {
+            string dir = Path.Combine(ProbesDir, "apostrophe-in-value");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "apostrophe-in-value-facts"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            // the whole Description, past the possessive, is the stored value
+            Assert.Contains("populated BY, and what a Fact is of a Function means", state);
+            Assert.Contains("and Chris's plan, both of them", state);
+            // no sentence was reported or filed elsewhere
+            Assert.DoesNotContain("[instance]", run.Output);
+            Assert.DoesNotContain("READING NOT MATCHED", run.Output);
+            // and the enumerated value with the apostrophe is one value
+            string verbalized = File.ReadAllText(Path.Combine(run.Scratch, "verbalization-report.txt"));
+            Assert.Contains("'Sam's Tier', 'plain'", verbalized);
+        }
+
         // A RECIPE IS A FORM; AN ATOM IS AN OPERAND. state:rules rows are
         // S3(head, players, recipe), and the closure asks a recipe for its tag,
         // so a recipe that is a bare atom throws selector 1 on an atom from

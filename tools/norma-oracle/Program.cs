@@ -312,6 +312,10 @@ namespace Arest.NormaOracle
 				swCommit.Start();
 				swCommit.Stop();
 			}
+			// value enumerations are read in the map pass, after the declarations
+			// phase already flushed them once (empty then); this is the flush that
+			// builds them (2026-09-06)
+			verifier.FlushValueEnums();
 			// THE MAP COMMITS ON ITS OWN. NORMA's ORM-to-OIAL bridge validates incrementally
 			// at commit and threw KeyNotFoundException (us-law, 2026-09-03) when the fact
 			// types, their constraints and their derivations arrived in one commit; with
