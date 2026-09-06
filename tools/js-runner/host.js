@@ -124,10 +124,10 @@ const PRIMS = new Map(Object.entries({
   "tl": x => { const a = seq(x); if (a.length === 0) throw new Error("tl on empty"); return a.slice(1); },
   "atom": x => bool(!Array.isArray(x)),
   "apndl": x => [at(x,0), ...seq(at(x,1))],
-  "apndr": x => [...seq(at(x,0)), at(x,1)],
+  "apndr": x => { const p = seq(at(x,0)), e = at(x,1); const out = [...p, e]; CATPROV.set(out, [p, [e]]); return out; },
   "distl": x => { const h = at(x,0); return seq(at(x,1)).map(e => [h, e]); },
   "distr": x => { const t = at(x,1); return seq(at(x,0)).map(e => [e, t]); },
-  "cat": x => [...seq(at(x,0)), ...seq(at(x,1))],
+  "cat": x => { const p = seq(at(x,0)), s = seq(at(x,1)); const out = [...p, ...s]; CATPROV.set(out, [p, s]); return out; },
   "null": x => bool(Array.isArray(x) && x.length === 0),
   "eq": x => bool(deepEq(at(x,0), at(x,1))),
   "not": x => bool(!(x === "T")),
@@ -281,9 +281,27 @@ function atomsOf(x) {
 }
 // a Map key for a value: a string or number as itself under a kind prefix, so
 // the string "[1]" and the sequence <1> never meet; anything else by its JSON
+// A ROW'S KEY WITHOUT JSON. theta:dedup stringified 75 million elements on
+// the eu-law report (334k calls at a mean of 225, 94% of them cn:dinner and
+// cn:dcc naming the metamodel's Function table's columns, 2026-09-06), and
+// JSON.stringify was the cost. A row of atoms keys as its atoms tagged and
+// joined on a control character; anything nested, and any string that
+// carries the separator itself, keys as JSON exactly as before, so two
+// values key equal iff they are deepEq -- the same contract, cheaper.
+const KSEP = String.fromCharCode(1);
 function keyOf(v) {
   if (typeof v === "string") return "s" + v;
   if (typeof v === "number") return "n" + v;
+  if (Array.isArray(v)) {
+    let k = "r";
+    for (let i = 0; i < v.length; i++) {
+      const e = v[i];
+      if (typeof e === "string") { if (e.indexOf(KSEP) >= 0) return "j" + JSON.stringify(v); k += KSEP + "s" + e; }
+      else if (typeof e === "number") k += KSEP + "n" + e;
+      else return "j" + JSON.stringify(v);
+    }
+    return k;
+  }
   return "j" + JSON.stringify(v);
 }
 function matchRows(key, rows) {
@@ -377,6 +395,18 @@ function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.starts
 // Compiled forms of hot canon list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
 // the unit tests certify identity). Only consulted when the DEF exists.
+// DEDUP LESS, WITHOUT CHANGING WHAT DEDUP MEANS. cn:dinner rebuilds its
+// accumulator at every step as dedup(apndr(acc, item)) or dedup(cat(acc,
+// pairs)), and acc is the previous step's dedup output: 91,800 steps keying
+// ~470 elements each on the eu-law report (2026-09-06). theta:dedup keeps
+// LAST occurrences, so for a duplicate-free prefix p, dedup(cat(p, s)) is
+// exactly "p without the keys of s, then dedup(s)" -- the same rows in the
+// same order, keying only s. Two provenances make that recognizable: cat
+// and apndr remember what they joined (CATPROV: out -> [p, s]), and dedup
+// remembers its output's keys, aligned (DEDUPKEYS: out -> keys). Any array
+// without both takes the full path exactly as before.
+const CATPROV = new WeakMap();
+const DEDUPKEYS = new WeakMap();
 const FASTPRIMS = new Map(Object.entries({
   // CONS and CONST are canon (Backus 13.3.2, reached through tau clause (c)) and
   // stay so; these are their fast paths, the same value in one pass.
@@ -431,6 +461,14 @@ const FASTPRIMS = new Map(Object.entries({
   // triple.
   "solve:assoc": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? [] : at(hits[0], 1); },
+  // cn:fokey is the same first-match lookup with a sentinel: the second
+  // column of the first row whose first column is the key, 999999 when none.
+  // As a DEF it scanned the table with distr and ALPHA -- 2,814 calls over a
+  // ~3,200-row table on the eu-law report, 9M constructor applications,
+  // 13 s under the profiler (2026-09-06). The table is cn:keypath's second
+  // argument, the same object across the calls, so the index is built once.
+  "cn:fokey": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
+    return hits.length === 0 ? 999999 : at(hits[0], 1); },
   "solve:assoc3": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? ["", [], []] : hits[0]; },
   // theta:append_phi = apndr . [id, CONST PHI]: the list with PHI appended, the
@@ -536,13 +574,31 @@ const FASTPRIMS = new Map(Object.entries({
   // chains every round rather than carrying the same objects forward. The cost
   // is real stringify work over genuinely new sequences, so reaching it means
   // deduping less or deduping on a cheaper key, not caching.
-  "theta:dedup": x => { const l = seq(x); const seen = new Set(); const out = [];
-    for (let i = l.length - 1; i >= 0; i--) { const k = JSON.stringify(l[i]);
-      if (!seen.has(k)) { seen.add(k); out.push(l[i]); } }
-    out.reverse(); return out; },
+  "theta:dedup": x => { const l = seq(x);
+    const prov = CATPROV.get(l);
+    if (prov !== undefined) {
+      const p = prov[0], s = prov[1], pk = DEDUPKEYS.get(p);
+      if (pk !== undefined && pk.length === p.length) {
+        // p is duplicate-free with its keys aligned: drop from p what s
+        // re-states (its last occurrence is in s), then dedup(s) in order
+        const sk = new Array(s.length), drop = new Set();
+        for (let i = 0; i < s.length; i++) { sk[i] = keyOf(s[i]); drop.add(sk[i]); }
+        const out = [], ok = [];
+        for (let i = 0; i < p.length; i++) if (!drop.has(pk[i])) { out.push(p[i]); ok.push(pk[i]); }
+        const seen = new Set(), tail = [], tk = [];
+        for (let i = s.length - 1; i >= 0; i--) if (!seen.has(sk[i])) { seen.add(sk[i]); tail.push(s[i]); tk.push(sk[i]); }
+        for (let i = tail.length - 1; i >= 0; i--) { out.push(tail[i]); ok.push(tk[i]); }
+        DEDUPKEYS.set(out, ok);
+        return out;
+      }
+    }
+    const seen = new Set(); const out = [], ok = [];
+    for (let i = l.length - 1; i >= 0; i--) { const k = keyOf(l[i]);
+      if (!seen.has(k)) { seen.add(k); out.push(l[i]); ok.push(k); } }
+    out.reverse(); ok.reverse(); DEDUPKEYS.set(out, ok); return out; },
   "theta:setminus": x => { const a = seq(at(x, 0)), b = seq(at(x, 1));
-    const drop = new Set(b.map(e => JSON.stringify(e)));
-    return a.filter(e => !drop.has(JSON.stringify(e))); },
+    const drop = new Set(b.map(keyOf));
+    return a.filter(e => !drop.has(keyOf(e))); },
   // theta:flatten = INSERT cat, and cat copies BOTH operands, so the right
   // fold recopies every suffix: O(total x sublists) — quadratic in the
   // number of sublists, which is what made the induce candidate crosses
