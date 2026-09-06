@@ -1223,7 +1223,12 @@ function run_test() {
   //
   // Nothing is added: no dispatch, no rendering, no branch. A test that needed
   // either would be testing the runner instead of the canon.
-  globalThis.AREST = { Ev: Ev, CELLS: CELLS };
+  // DEFS is exported so a throw can be bisected from outside: the canon
+  // stack names the DEFs a throw passed through and nothing finer (the
+  // forms inside a DEF are anonymous), so finding WHICH selector met an
+  // empty list means re-evaluating the DEF's form piece by piece on the
+  // same input, which needs the form.
+  globalThis.AREST = { Ev: Ev, CELLS: CELLS, DEFS: DEFS };
 
 }
 // A create ANSWERS a store. main:api returns <body, status, D-prime> for a
