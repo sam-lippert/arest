@@ -407,6 +407,11 @@ function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.starts
 // without both takes the full path exactly as before.
 const CATPROV = new WeakMap();
 const DEDUPKEYS = new WeakMap();
+// AREST_NOTWIN=name,name disables those twins for one run, so a twin can be
+// held against its DEF on the same inputs: the law report is the only gate
+// that exercises most of them, and a twin that is not the DEF fails it
+// with no word about where (cn:nlexlt, 2026-09-06)
+const NOTWIN = new Set(String(process.env.AREST_NOTWIN || "").split(",").filter(Boolean));
 const FASTPRIMS = new Map(Object.entries({
   // CONS and CONST are canon (Backus 13.3.2, reached through tau clause (c)) and
   // stay so; these are their fast paths, the same value in one pass.
@@ -469,6 +474,15 @@ const FASTPRIMS = new Map(Object.entries({
   // argument, the same object across the calls, so the index is built once.
   "cn:fokey": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? 999999 : at(hits[0], 1); },
+  // cn:nlexlt is lexicographic less-than over two key paths: walk both while
+  // the heads are eq, decide by gt on the first pair that differs, and a
+  // path that runs out first is less. The DEF is a WHILE over <"?", a, b>
+  // building a state per element -- 142,518 calls from cn:kplt inside the
+  // naming walk's insertion sort on the eu-law report (2026-09-06). The same
+  // eq and gt decide here.
+  "cn:nlexlt": x => { const a = seq(at(x, 0)), b = seq(at(x, 1)); const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) { if (deepEq(a[i], b[i])) continue; return bool(cmp(b[i], a[i]) > 0); }
+    return bool(a.length < b.length); },
   "solve:assoc3": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? ["", [], []] : hits[0]; },
   // theta:append_phi = apndr . [id, CONST PHI]: the list with PHI appended, the
@@ -976,7 +990,7 @@ function Ev(f, x) {
   }
   if (typeof f === "string") {
     if (DEFS.has(f)) {
-      const fp = FASTPRIMS.get(f);
+      const fp = NOTWIN.has(f) ? undefined : FASTPRIMS.get(f);
       // A native answered here without ever entering the profile, which made
       // the report's own instrument lie by omission: rmap:pidchains:step shows
       // 63 s of "self" time whose real spenders are theta:dedup, theta:member
