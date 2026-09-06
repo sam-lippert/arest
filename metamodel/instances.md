@@ -146,6 +146,22 @@ Fact Type cites Citation.
 FactTypeCitesCitation objectifies "Fact Type cites Citation".
 FactTypeCitesCitation is a subtype of Function.
 
+### Constraint Citation
+### A Fact may cite its authority and a Fact Type may cite its authority, and a
+### CONSTRAINT -- the thing a statute most often is -- could not. The us-law and
+### auto.dev readings write `Constraint 'Employer withholds FICA and pays
+### employer share' cites Citation 'IRC-3101'` forty times over, and with no
+### such fact type every one of them was filed by player signature alone into
+### `Function is superseded by Function`. us-law's store therefore said
+### `Taxpayer files return` IS SUPERSEDED BY `IRC-6012` -- thirty-one rows
+### asserting, of a legal corpus, the opposite of what the citation means.
+Constraint cites Citation.
+  For each combination of Constraint and Citation, that Constraint cites that Citation at most once.
+  It is possible that some Constraint cites more than one Citation.
+  It is possible that more than one Constraint cites the same Citation.
+ConstraintCitesCitation objectifies "Constraint cites Citation".
+ConstraintCitesCitation is a subtype of Function.
+
 ### Object Type Instance
 Object Type Instance is instance of Object Type.
   Each Object Type Instance, Object Type combination occurs at most once in the population of Object Type Instance is instance of Object Type.
