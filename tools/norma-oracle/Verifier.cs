@@ -2005,6 +2005,7 @@ namespace Arest.NormaOracle
 
 			FactIndexEntry match = null;
 			int candidates = 0;
+			bool wordsMatched = false;
 			foreach (FactIndexEntry entry in myFactIndex)
 			{
 				if (entry.Players.Count != quotes.Count) continue;
@@ -2023,12 +2024,25 @@ namespace Arest.NormaOracle
 				}
 				if (!ok) continue;
 				// hyphen-bound role qualifiers ("is from- Status") are
-				// absorption naming, invisible in spoken instance facts
-				string entryWords = entry.ReadingWords.Replace("- ", " ").TrimEnd('-');
+				// absorption naming, invisible in spoken instance facts.
+				// COLLAPSE THE WHITESPACE. ReadingWords is the reading with its
+				// {n} placeholders replaced by single spaces, so every role
+				// leaves a RUN of spaces behind ("{0} has {1} for {2}" becomes
+				// "has   for"), while `words` above is collapsed with \s+. The
+				// two could therefore never be equal for any reading with two
+				// or more roles, this branch never fired, and every such
+				// sentence was decided by the fallback below -- on its player
+				// signature alone, with its predicate text unread. A corpus
+				// declaring `Widget has Blob for Gizmo` accepted
+				// `Widget 'w2' completely unrelated nonsense Blob '43' banana
+				// split Gizmo 'g2'` as a row of it.
+				string entryWords = Regex.Replace(
+					entry.ReadingWords.Replace("- ", " ").TrimEnd('-'), @"\s+", " ").Trim();
 				if (string.Equals(entryWords, words, StringComparison.Ordinal))
 				{
 					match = entry;
 					candidates = 1;
+					wordsMatched = true;
 					break;
 				}
 				candidates++;
@@ -2037,6 +2051,17 @@ namespace Arest.NormaOracle
 			if (match == null || candidates != 1)
 			{
 				return false;
+			}
+			// The fallback is kept, because a fact type carries one indexed
+			// reading and a sentence may legitimately be written with another,
+			// but it is no longer SILENT: taking a row on the player signature
+			// while the words disagree is exactly how two fact types differing
+			// by one adjective swapped each other's populations.
+			if (!wordsMatched)
+			{
+				Count("instance fact (predicate words unread, sole player signature)");
+				myMapLog.Add("READING NOT MATCHED: '" + Shorten(s) + "' attributed to '"
+					+ match.ReadingWords + "' [" + string.Join(", ", match.Players) + "]");
 			}
 			match.Rows.Add(new List<string>(quotes));
 			match.RowKinds.Add(new List<string>(kinds.Select(k => k ?? "")));
