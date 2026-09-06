@@ -421,6 +421,18 @@ const FASTPRIMS = new Map(Object.entries({
   "csdp:matches_at": x => matchRowsAt(at(x, 0), at(x, 1), seq(at(x, 2))).slice(),
   "rmap:lookup0": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? [] : [at(hits[0], 1)]; },
+  // solve:assoc / solve:assoc3 are the same first-match lookup, over the
+  // closure (a head's rows) and the readings or rules (a head's row): explain
+  // asks them once per sentence it says and once per leg it un-projects, and
+  // at ~1 ms per interpreted scan of 281 readings each sat at 1.6 s inclusive
+  // inside the 2.5 s a lawcore justification pass spends outside the fixpoint
+  // (AREST_PROFILE, 2026-09-06).
+  // assoc answers the second column or PHI; assoc3 the row or the DEF's empty
+  // triple.
+  "solve:assoc": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
+    return hits.length === 0 ? [] : at(hits[0], 1); },
+  "solve:assoc3": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
+    return hits.length === 0 ? ["", [], []] : hits[0]; },
   // theta:append_phi = apndr . [id, CONST PHI]: the list with PHI appended, the
   // fold base every INSERT filter carries; three million calls per report
   "theta:append_phi": x => { const l = seq(x); const out = l.slice(); out.push([]); return out; },

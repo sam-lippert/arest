@@ -10691,39 +10691,124 @@ DEF("solve:say",
 DEF("solve:phrase",
     S3(A("COMP"), A("solve:sentence"), S5(A("CONS"), S4(A("COMP"), N(2), A("solve:assoc3"), S3(A("CONS"), N(2), N(1))), S4(A("COMP"), N(3), A("solve:assoc3"), S3(A("CONS"), N(2), N(1))), S4(A("COMP"), N(2), A("solve:assoc3"), S3(A("CONS"), N(2), N(1))), K(A("F"))))),
 
-"EXPLAIN (provenance, the audit trail): a derived fact is justified by the witness legs of its rule's join - solve:witness re-runs the recipe with the identity projection and keeps the first triple that projects to the target row; solve:just renders because/and lines per leg and recurses on derived legs, terminating at asserted facts; solve:explain speaks every verdict's full tree. Every line is a FORML instance sentence at its indentation. The old engine's explain contract (derivation chains and the audit trail), canonical.",
+"EXPLAIN (provenance, the audit trail): a derived fact is justified by the witness legs of its rule's join - solve:witness re-runs the recipe with the identity projection over the tuple's FULL width (solve:width from the legs' arities: joinon keeps every column of both legs, join keeps the shared key once - the layouts derive:jo_rows and theta:join_combine actually produce) and keeps the first tuple that projects to the target row; solve:split hands each leg exactly the columns it contributed, never a fixed (1,2)/(2,3) pair, which is what made a ternary leg read as a binary and a nested join speak the wrong columns for the wrong leg; solve:legsay says an atom leg and recurses through solve:just, un-projects a proj leg against its source's population (solve:unproj: the first source row that projects to the leg's row), passes a filter's row through, and witnesses a nested join exactly as a head is witnessed; solve:explain speaks every verdict's full tree. Every line is a FORML instance sentence at its indentation. The old engine's explain contract (derivation chains and the audit trail), canonical.",
 
 DEF("solve:project",
     S3(A("COMP"), S2(A("ALPHA"), A("apply")), A("distr"))),
 
-DEF("solve:legname",
-    S4(A("COND"), A("atom"), A("id"), S2(A("COMP"), N(2)))),
+DEF("solve:joins",
+    S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("join")))), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("joinon"))))))),
 
-DEF("solve:legrow",
-    S4(A("COND"), S3(A("COMP"), A("atom"), N(1)), N(2), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(3), N(1)), K(S2(N(2), N(1))))), S3(A("CONS"), S3(A("COMP"), N(2), N(2)), S3(A("COMP"), N(1), N(2))), N(2)))),
+DEF("solve:widens",
+    S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("pairwith")))), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("calc"))))))),
+
+DEF("solve:keeps",
+    S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("sel")))), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("cmp")))))), S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("starts")))), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("minus"))))))))),
+
+DEF("solve:arity",
+    S4(A("COND"), S3(A("COMP"), A("atom"), N(2)), S4(A("COMP"), A("length"), N(2), S3(A("COMP"), A("solve:assoc3"), S3(A("CONS"), N(2), S3(A("COMP"), N(2), N(1))))),
+       S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), K(A("joinon")))), S4(A("COMP"), A("length"), N(5), N(2)),
+       S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), K(A("join")))), S4(A("COMP"), A("length"), N(4), N(2)),
+       S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), K(A("proj")))), S4(A("COMP"), A("length"), N(3), N(2)),
+       S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), K(A("count")))), S3(A("COMP"), A("+"), S3(A("CONS"), S4(A("COMP"), A("length"), N(3), N(2)), K(N(1)))),
+       S4(A("COND"), S3(A("COMP"), A("solve:widens"), S3(A("COMP"), N(1), N(2))), S3(A("COMP"), A("+"), S3(A("CONS"), S3(A("COMP"), A("solve:arity"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)))), K(N(1)))),
+          S3(A("COMP"), A("solve:arity"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2))))))))))),
+
+DEF("solve:width",
+    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), K(A("joinon")))), S3(A("COMP"), A("+"), S3(A("CONS"), S3(A("COMP"), A("solve:arity"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)))), S3(A("COMP"), A("solve:arity"), S3(A("CONS"), N(1), S3(A("COMP"), N(3), N(2)))))),
+       S3(A("COMP"), A("-"), S3(A("CONS"), S3(A("COMP"), A("+"), S3(A("CONS"), S3(A("COMP"), A("solve:arity"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)))), S3(A("COMP"), A("solve:arity"), S3(A("CONS"), N(1), S3(A("COMP"), N(3), N(2)))))), K(N(1)))))),
+
+DEF("solve:split",
+    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), K(A("joinon")))),
+       S3(A("CONS"), S3(A("COMP"), A("theta:take"), S3(A("CONS"), N(3), S3(A("COMP"), A("solve:arity"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)))))), S3(A("COMP"), A("theta:drop"), S3(A("CONS"), N(3), S3(A("COMP"), A("solve:arity"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2))))))),
+       S3(A("CONS"), S3(A("COMP"), A("theta:take"), S3(A("CONS"), N(3), S3(A("COMP"), A("solve:arity"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)))))), S3(A("COMP"), A("apndl"), S3(A("CONS"), S3(A("COMP"), N(2), N(3)), S3(A("COMP"), A("theta:drop"), S3(A("CONS"), N(3), S3(A("COMP"), A("solve:arity"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2))))))))))),
+
+DEF("solve:pop",
+    S4(A("COND"), S3(A("COMP"), A("atom"), N(2)), S3(A("COMP"), A("solve:assoc"), S3(A("CONS"), N(2), S3(A("COMP"), N(3), N(1)))), S3(A("COMP"), A("derive:eval"), S3(A("CONS"), N(2), S3(A("COMP"), N(3), N(1)))))),
+
+DEF("solve:unproj",
+    S6(A("COMP"), S4(A("COND"), A("null"), A("id"), N(1)), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("solve:project"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), S3(A("COMP"), N(2), N(1)))), S2(A("CONS"), N(2)), K(PHI()))), A("distl"), S3(A("CONS"), S3(A("CONS"), N(3), N(4)), S3(A("COMP"), A("solve:pop"), S3(A("CONS"), N(1), N(2)))))),
+
+DEF("solve:sources",
+    S4(A("COND"), S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("solve:joins"), N(1)), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("minus")))))), S3(A("CONS"), N(2), N(3)), S2(A("CONS"), N(2)))),
+
+DEF("solve:subjoins",
+    S4(A("COND"), A("atom"), K(PHI()), S3(A("COMP"), A("cat"), S3(A("CONS"), S4(A("COND"), S3(A("COMP"), A("solve:joins"), N(1)), S2(A("CONS"), A("id")), K(PHI())), S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("solve:subjoins")), A("solve:sources")))))),
+
+DEF("solve:wits",
+    S4(A("COMP"), S2(A("ALPHA"), S3(A("CONS"), N(2), S3(A("COMP"), A("derive:eval"), S3(A("CONS"), S3(A("COMP"), A("solve:rebuild"), S3(A("CONS"), N(1), S4(A("CONS"), K(A("")), K(PHI()), N(2)))), S3(A("COMP"), N(3), N(1)))))), A("distl"), S3(A("CONS"), A("id"), S5(A("COMP"), A("theta:dedup"), A("theta:flatten"), S2(A("ALPHA"), S3(A("COMP"), A("solve:subjoins"), N(3))), N(1))))),
+
+DEF("solve:relation",
+    S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("null"), N(2)), S3(A("COMP"), A("derive:eval"), S3(A("CONS"), S3(A("COMP"), A("solve:rebuild"), S3(A("CONS"), N(1), S4(A("CONS"), K(A("")), K(PHI()), N(3)))), S3(A("COMP"), N(3), N(1)))), N(2)),
+       S4(A("CONS"), N(1), S3(A("COMP"), A("solve:assoc"), S3(A("CONS"), N(2), S3(A("COMP"), N(5), N(1)))), N(2)))),
 
 DEF("solve:cols",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), K(A("joinon")))), S3(A("COMP"), N(5), N(3)), S3(A("COMP"), N(4), N(3)))),
 
 DEF("solve:rebuild",
-    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), K(A("joinon")))),
-       S6(A("CONS"), K(A("joinon")), S3(A("COMP"), N(2), N(3)), S3(A("COMP"), N(3), N(3)), S3(A("COMP"), N(4), N(3)), S3(A("COMP"), A("theta:iota"), S3(A("COMP"), S2(A("INSERT"), A("solve:max2")), A("solve:cols")))),
-       S5(A("CONS"), K(A("join")), S3(A("COMP"), N(2), N(3)), S3(A("COMP"), N(3), N(3)), S3(A("COMP"), A("theta:iota"), S3(A("COMP"), S2(A("INSERT"), A("solve:max2")), A("solve:cols")))))),
-
-DEF("solve:max2",
-    S4(A("COND"), S3(A("COMP"), A("le"), S3(A("CONS"), N(1), N(2))), N(2), N(1))),
+    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S4(A("COMP"), N(1), N(3), N(2)), K(A("joinon")))),
+       S6(A("CONS"), K(A("joinon")), S4(A("COMP"), N(2), N(3), N(2)), S4(A("COMP"), N(3), N(3), N(2)), S4(A("COMP"), N(4), N(3), N(2)), S3(A("COMP"), A("theta:iota"), S3(A("COMP"), A("solve:width"), S3(A("CONS"), N(1), S3(A("COMP"), N(3), N(2)))))),
+       S5(A("CONS"), K(A("join")), S4(A("COMP"), N(2), N(3), N(2)), S4(A("COMP"), N(3), N(3), N(2)), S3(A("COMP"), A("theta:iota"), S3(A("COMP"), A("solve:width"), S3(A("CONS"), N(1), S3(A("COMP"), N(3), N(2)))))))),
 
 DEF("solve:witness",
-    S4(A("COND"), S3(A("COMP"), A("le"), S3(A("CONS"), K(N(4)), S4(A("COMP"), A("length"), N(3), N(2)))), S6(A("COMP"), S4(A("COND"), A("null"), A("id"), S2(A("CONS"), N(1))), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("solve:project"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), S3(A("COMP"), N(2), N(1)))), S2(A("CONS"), N(2)), K(PHI()))), A("distl"), S3(A("CONS"), S3(A("CONS"), S3(A("COMP"), A("solve:cols"), N(2)), N(3)), S3(A("COMP"), A("derive:eval"), S3(A("CONS"), S3(A("COMP"), A("solve:rebuild"), N(2)), S3(A("COMP"), N(3), N(1)))))), K(PHI()))),
+    S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("solve:project"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), S3(A("COMP"), N(2), N(1)))), S2(A("CONS"), N(2)), K(PHI()))), A("distl"), S3(A("CONS"), S3(A("CONS"), S3(A("COMP"), A("solve:cols"), N(2)), N(3)), S3(A("COMP"), A("solve:relation"), S3(A("CONS"), N(1), S3(A("COMP"), N(3), N(2))))))),
+
+DEF("solve:recipesof",
+    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(2)))), S2(A("CONS"), S3(A("COMP"), N(3), N(2))), K(PHI()))), A("distl"))),
+
+DEF("solve:atoms",
+    S4(A("COND"), A("atom"), S2(A("CONS"), A("id")), S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("solve:atoms")), A("solve:sources")))),
+
+DEF("solve:rulesof",
+    S3(A("COMP"), S3(A("COMP"), A("cat"), S3(A("CONS"),
+          S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), N(1), S3(A("COMP"), A("solve:atoms"), N(2)))), K(PHI()), S2(A("CONS"), N(2))))),
+          S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), N(1), S3(A("COMP"), A("solve:atoms"), N(2)))), S2(A("CONS"), N(2)), K(PHI())))))),
+       S3(A("COMP"), A("distl"), S3(A("CONS"), N(1), A("solve:recipesof"))))),
 
 DEF("solve:just",
-    S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), N(3), S3(A("COMP"), A("solve:assoc3"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(1)))))), K(PHI()), S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("null"), N(4)), K(PHI()), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S2(A("CONS"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S4(A("CONS"), N(2), K(A("because ")), S3(A("COMP"), A("solve:say"), S4(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), A("solve:legname"), S4(A("COMP"), N(2), N(3), N(3))), S3(A("COMP"), A("solve:legrow"), S3(A("CONS"), S4(A("COMP"), N(2), N(3), N(3)), S3(A("CONS"), S3(A("COMP"), N(1), S3(A("COMP"), N(1), N(4))), S3(A("COMP"), N(2), S3(A("COMP"), N(1), N(4)))))))))))), S3(A("COMP"), A("solve:just"), S5(A("CONS"), N(1), S3(A("COMP"), A("solve:legname"), S4(A("COMP"), N(2), N(3), N(3))), S3(A("COMP"), A("solve:legrow"), S3(A("CONS"), S4(A("COMP"), N(2), N(3), N(3)), S3(A("CONS"), S3(A("COMP"), N(1), S3(A("COMP"), N(1), N(4))), S3(A("COMP"), N(2), S3(A("COMP"), N(1), N(4)))))), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("CONS"), N(2), K(A("  "))))))))), S3(A("COMP"), A("cat"), S3(A("CONS"), S2(A("CONS"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S4(A("CONS"), N(2), K(A("and ")), S3(A("COMP"), A("solve:say"), S4(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), A("solve:legname"), S4(A("COMP"), N(3), N(3), N(3))), S3(A("COMP"), A("solve:legrow"), S3(A("CONS"), S4(A("COMP"), N(3), N(3), N(3)), S3(A("CONS"), S3(A("COMP"), N(2), S3(A("COMP"), N(1), N(4))), S3(A("COMP"), N(3), S3(A("COMP"), N(1), N(4)))))))))))), S3(A("COMP"), A("solve:just"), S5(A("CONS"), N(1), S3(A("COMP"), A("solve:legname"), S4(A("COMP"), N(3), N(3), N(3))), S3(A("COMP"), A("solve:legrow"), S3(A("CONS"), S4(A("COMP"), N(3), N(3), N(3)), S3(A("CONS"), S3(A("COMP"), N(2), S3(A("COMP"), N(1), N(4))), S3(A("COMP"), N(3), S3(A("COMP"), N(1), N(4)))))), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("CONS"), N(2), K(A("  ")))))))))))), S5(A("CONS"), N(1), N(4), S3(A("COMP"), A("solve:assoc3"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(1)))), S3(A("COMP"), A("solve:witness"), S4(A("CONS"), N(1), S3(A("COMP"), A("solve:assoc3"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(1)))), N(3))))))),
+    S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("CONS"), N(2), N(3)), S3(A("COMP"), N(4), N(1)))), K(PHI()),
+       S7(A("COMP"), S4(A("COND"), A("null"), A("id"), N(1)), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), A("null"), K(PHI()), S2(A("CONS"), A("id")))),
+          S2(A("ALPHA"), S3(A("COMP"), A("solve:legsay"), S6(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(3), N(1)), K(A("because "))))),
+          A("distl"),
+          S3(A("CONS"), S4(A("CONS"), S6(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(3), N(1)), S3(A("COMP"), A("apndr"), S3(A("CONS"), S3(A("COMP"), N(4), N(1)), S3(A("CONS"), N(2), N(3)))), S3(A("COMP"), N(5), N(1))), N(3), N(4)), S3(A("COMP"), A("solve:rulesof"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(1)))))))),
+
+DEF("solve:legsay",
+    S4(A("COND"), S3(A("COMP"), A("atom"), N(2)),
+       S4(A("COND"), S3(A("COMP"), A("solve:leafish"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(1)))),
+          S2(A("CONS"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S4(A("CONS"), N(4), N(5), S3(A("COMP"), A("solve:say"), S4(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2), N(3))))))),
+          S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("null"), N(2)), K(PHI()), S3(A("COMP"), A("cat"), S3(A("CONS"), S2(A("CONS"), N(1)), N(2)))),
+             S3(A("CONS"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S4(A("CONS"), N(4), N(5), S3(A("COMP"), A("solve:say"), S4(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2), N(3)))))), S3(A("COMP"), A("solve:just"), S5(A("CONS"), N(1), N(2), N(3), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("CONS"), N(4), K(A("  ")))))))))),
+       S4(A("COND"), S3(A("COMP"), A("solve:joins"), S3(A("COMP"), N(1), N(2))),
+          S3(A("COMP"), A("solve:legpair"), S6(A("CONS"), N(1), N(2), S3(A("COMP"), A("solve:witness"), S4(A("CONS"), N(1), S4(A("CONS"), K(A("")), K(PHI()), N(2)), N(3))), N(4), N(5))),
+       S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), K(A("proj")))),
+          S3(A("COMP"), A("solve:legsay_row"), S6(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)), S3(A("COMP"), A("solve:unproj"), S5(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)), S3(A("COMP"), N(3), N(2)), N(3))), N(4), N(5))),
+       S4(A("COND"), S3(A("COMP"), A("solve:widens"), S3(A("COMP"), N(1), N(2))),
+          S3(A("COMP"), A("solve:legsay"), S6(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)), S3(A("COMP"), A("theta:take"), S3(A("CONS"), N(3), S3(A("COMP"), A("solve:arity"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)))))), N(4), N(5))),
+       S4(A("COND"), S3(A("COMP"), A("solve:keeps"), S3(A("COMP"), N(1), N(2))),
+          S3(A("COMP"), A("solve:legsay"), S6(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)), N(3), N(4), N(5))),
+          K(PHI()))))))),
+
+DEF("solve:legsay_row",
+    S4(A("COND"), S3(A("COMP"), A("null"), N(3)), K(PHI()), A("solve:legsay"))),
+
+DEF("solve:leafish",
+    S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("null"), A("solve:rulesof")), S4(A("COMP"), A("fp:and_all"), S2(A("ALPHA"), S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("count")))), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("flat"))))))), A("solve:rulesof"))))),
+
+DEF("solve:legtry",
+    S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("theta:or"), S3(A("CONS"), S3(A("COMP"), A("null"), N(1)), S3(A("COMP"), A("null"), N(2)))), K(PHI()), S2(A("CONS"), A("cat"))),
+       S3(A("CONS"), S3(A("COMP"), A("solve:legsay"), S6(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)), S3(A("COMP"), N(1), S3(A("COMP"), A("solve:split"), S4(A("CONS"), N(1), N(2), N(3)))), N(4), N(5))),
+                     S3(A("COMP"), A("solve:legsay"), S6(A("CONS"), N(1), S3(A("COMP"), N(3), N(2)), S3(A("COMP"), N(2), S3(A("COMP"), A("solve:split"), S4(A("CONS"), N(1), N(2), N(3)))), N(4), K(A("and "))))))),
+
+DEF("solve:legpair",
+    S6(A("COMP"), S4(A("COND"), A("null"), A("id"), N(1)), A("theta:flatten"),
+       S2(A("ALPHA"), S3(A("COMP"), A("solve:legtry"), S6(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)), N(2), S3(A("COMP"), N(3), N(1)), S3(A("COMP"), N(4), N(1))))),
+       A("distl"), S3(A("CONS"), S5(A("CONS"), N(1), N(2), N(4), N(5)), N(3)))),
 
 DEF("solve:vblock",
     S3(A("COMP"), A("cat"), S3(A("CONS"), S2(A("CONS"), S3(A("COMP"), A("solve:say"), S4(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2), N(3)))), S3(A("COMP"), A("solve:just"), S5(A("CONS"), N(1), N(2), N(3), K(A("  "))))))),
 
 DEF("solve:explain",
-    S4(A("COMP"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("\n")), S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S3(A("COMP"), A("solve:vblock"), S4(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)), N(2)))), A("distl"), S3(A("CONS"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(2))), S3(A("COMP"), N(2), N(2))))), A("distl"), S3(A("CONS"), S4(A("CONS"), S3(A("COMP"), A("solve:rules"), A("id")), S3(A("COMP"), A("solve:readings"), A("id")), S3(A("COMP"), A("solve:closure"), A("id"))), A("solve:verdicts"))))), N(1), A("solve:fix"))),
+    S4(A("COMP"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("\n")), S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S3(A("COMP"), A("solve:vblock"), S4(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)), N(2)))), A("distl"), S3(A("CONS"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(2))), S3(A("COMP"), N(2), N(2))))), A("distl"), S3(A("CONS"), S3(A("COMP"), S6(A("CONS"), N(1), N(2), N(3), K(PHI()), A("solve:wits")), S4(A("CONS"), S3(A("COMP"), A("solve:rules"), A("id")), S3(A("COMP"), A("solve:readings"), A("id")), S3(A("COMP"), A("solve:closure"), A("id")))), A("solve:verdicts"))))), N(1), A("solve:fix"))),
 
 "THE INDUCE-CLOSURE FIXPOINT (the overfitting ruling: most facts should be induced from premises - and the metamodel already says how much: Each Derivation Rule produces exactly one Fact Type, so induction answers each bound target ONCE, WITH A RULE): solve:kept rows carry the winning recipe and exclude targets that already head a rule; solve:commit ((name, recipe), store) appends the learned rule to the state:rules cell inside the store VALUE, so the closure derives the target thereafter - deduction, not re-search, and provenance flows through the learned rule like any declared one. solve:fix commits the globally MDL-minimal finding per iteration (the most confident induction lands first and every later judgment sees it) and terminates when every bound target has its rule - without the once-per-target discipline, saturating junk coverings ratchet on each other's committed facts until every hypothesis wins. solve:induced selects bindings BY TEXT (the Func term); solve:report renders CONCLUDED from the fixed store and LEARNED from the log via solve:learnedrows; solve:explain explains the fixed store.",
 

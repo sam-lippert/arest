@@ -241,6 +241,46 @@ describe("every constructor holds what it was given", () => {
   }
 });
 
+// ---- EXPLAIN JUSTIFIES EVERY CONCLUSION ------------------------------------
+//
+// `verify` never touches solve:*, so the law report stayed byte-identical
+// through a mis-parenthesised solve:witness and through the fixed (1,2)/(2,3)
+// leg split that read a ternary leg as a binary and a nested join's columns as
+// its second element's (#97). This is explain's own gate, over whatever store
+// the suite was built against: every derived row gets a justification, none
+// throws, a head with a rule is never left bare unless every rule it has is a
+// count or a flat (no row witnesses those), the first line is a `because` and
+// each later one a `because` or an `and`, and no fact witnesses itself -- its
+// own sentence never appears as a leg at the next indentation.
+describe("explain justifies every conclusion", () => {
+  const rules = Ev("solve:rules", CELLS);
+  const reads = Ev("solve:readings", CELLS);
+  const clos = Ev("solve:closure", CELLS);
+  // the path guard empty, and every join recipe's identity relation evaluated
+  // once (solve:wits) -- as solve:explain builds it
+  const env = [rules, reads, clos, [], Ev("solve:wits", [rules, reads, clos])];
+  const bare = (head) =>
+    rules.filter((r) => r[0] === head).every((r) => r[2][0] === "count" || r[2][0] === "flat");
+  // the property is per row; the first fifty of a head are the gate, so a
+  // 730-row head does not cost the suite a minute
+  const SAMPLE = 50;
+  for (const [head, rows] of clos) {
+    if (!rules.some((r) => r[0] === head)) continue;
+    test(head + " (" + (rows || []).length + " rows)", () => {
+      for (const row of (rows || []).slice(0, SAMPLE)) {
+        const said = Ev("solve:say", [reads, head, row]);
+        const lines = Ev("solve:just", [env, head, row, "  "]);
+        if (bare(head)) continue;
+        expect(lines.length).toBeGreaterThan(0);
+        expect(lines[0].startsWith("  because ")).toBe(true);
+        for (const l of lines.slice(1)) expect(/^ {2,}(because|and) /.test(l)).toBe(true);
+        expect(lines).not.toContain("  because " + said);
+        expect(lines).not.toContain("  and " + said);
+      }
+    }, 120000);
+  }
+});
+
 describe("intersection source", () => {
   for (const file of CANON_FILES) {
     const name = file.split(/[\/]/).pop();
