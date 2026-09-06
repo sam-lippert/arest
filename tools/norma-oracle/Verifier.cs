@@ -1696,9 +1696,8 @@ namespace Arest.NormaOracle
 					bool rightOk = end >= bare.Length || (!char.IsLetterOrDigit(bare[end]) && bare[end] != '-');
 					if (leftOk && rightOk)
 					{
-						foreach (string supName in myTypes.Keys)
+						foreach (string supName in AncestorsOf(subName))
 						{
-							if (supName == subName || !RootsAt(myTypes[subName], supName)) continue;
 							FactIndexEntry cand = FindEntryByNormalizedSentence(
 								bare.Substring(0, at) + supName + bare.Substring(end));
 							if (cand != null)
