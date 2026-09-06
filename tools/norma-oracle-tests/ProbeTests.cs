@@ -57,6 +57,43 @@ namespace Arest.NormaOracle.Tests
             Assert.Equal(expected, actual);
         }
 
+        // A SENTENCE MUST SAY WHAT THE READING SAYS, and nothing else here reads
+        // an instance fact at all. ProbeActual carries error counts, UNBUILT
+        // lines, read-back verdicts and rule verbalizations, and the corpus
+        // theories compare carrier sizes and hashes — a population that is
+        // silently empty, or silently holding a sentence that means something
+        // else, passes every one of them.
+        //
+        // MapInstanceFact compared the sentence's collapsed predicate words
+        // against FactIndexEntry.ReadingWords, which is the reading with its
+        // {n} placeholders replaced by single spaces: "{0} has {1} for {2}"
+        // became "has   for", carrying a RUN of spaces per role, while the
+        // sentence's words were collapsed with \s+. For any reading of two or
+        // more roles the two could never be equal, that branch never fired, and
+        // every sentence was decided by the fallback instead — the sole
+        // player-signature-compatible entry, whatever the sentence actually
+        // said. So ONE candidate accepted anything (a corpus declaring only
+        // `Widget has Blob for Gizmo` took `Widget 'w2' completely unrelated
+        // nonsense Blob '44' banana split Gizmo 'g2'` as a row of it) and TWO
+        // candidates dropped everything (`has Blob` and `has Spare Blob`
+        // annihilated each other and both populations came back empty).
+        [Fact]
+        public void EachReadingTakesOnlyTheSentencesThatMatchIt()
+        {
+            string dir = Path.Combine(ProbesDir, "reading-words-unread");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "reading-words-unread-facts"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            // each fact type takes its own row and only its own
+            Assert.Contains("S5(A(\"WidgetHasBlobForGizmo\"), S3(A(\"Widget\"), A(\"Blob\"), A(\"Gizmo\")), "
+                + "S1(S2(N(1), N(3))), PHI(), S1(S1(S3(A(\"w1\"), A(\"42\"), A(\"g1\")))))", state);
+            Assert.Contains("S5(A(\"WidgetHasSpareBlobForGizmo\"), S3(A(\"Widget\"), A(\"Blob\"), A(\"Gizmo\")), "
+                + "S1(S2(N(1), N(3))), PHI(), S1(S1(S3(A(\"w1\"), A(\"43\"), A(\"g1\")))))", state);
+            // and the sentence whose words match neither is REPORTED, not taken
+            Assert.Contains("[instance] Widget 'w2' completely unrelated nonsense", run.Output);
+            Assert.DoesNotContain("A(\"44\")", state);
+        }
+
         // A CONSTRAINT IS NOT A RULE, and nothing else here would notice one.
         // ProbeActual carries the error count, the UNBUILT lines, the read-back
         // verdicts and the rule verbalizations — every one of them about DERIVED
