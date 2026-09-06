@@ -469,4 +469,10 @@ Guard Run has Result.
 ## Instance Facts
 
 <!-- organizations-domain (ruling 2): Domain 'instances' has Access 'public'. -->
-Domain 'instances' has Description 'The instance level: Object Type Instances, Facts, Role Instances and the State Machines that carry them — the population the metamodel's types are populated BY, and what a Fact is of a Function means.'.
+### The apostrophe in `metamodel’s` is TYPOGRAPHIC, like the em dash beside it,
+### because a straight one closes the quoted span. Written straight, this
+### Description was stored truncated at "metamodel" for as long as the line has
+### existed, and the rest of the sentence -- "s types are populated BY, and what
+### a Fact is of a Function means." -- was read as predicate text. Nothing
+### reported it. Prose descriptions are where apostrophes live; see the task.
+Domain 'instances' has Description 'The instance level: Object Type Instances, Facts, Role Instances and the State Machines that carry them — the population the metamodel’s types are populated BY, and what a Fact is of a Function means.'.
