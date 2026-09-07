@@ -1293,7 +1293,9 @@ function run_test() {
 // while replaying the fact it produced cannot.
 function journalStep(method, resource, fact) {
   if (!JOURNAL_PATH) return;
-  const entry = Ev("main:jentry_for", [++JOURNAL_N, String(method), String(resource), fact]);
+  // The store rides along so canon can tell a collection (an entity POST,
+  // journaled as the screen's `submit`) from a fact type (an `assert`).
+  const entry = Ev("main:jentry_for", [++JOURNAL_N, String(method), String(resource), fact, CELLS]);
   Ev("store:append", ["journal", entry]);
 }
 
