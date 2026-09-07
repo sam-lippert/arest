@@ -67,6 +67,10 @@ JS Package 'support.auto.dev' has Readings Directory '../apps/support.auto.dev/r
 JS Package 'arest' has Readings Directory 'readings/templates'.
 JS Package 'connectors' has Readings Directory '../apps/connectors/readings'.
 JS Package 'arest-dev' has Readings Directory '../apps/arest-dev/readings'.
+<!-- The smallest app: one reading, the engineering punchlist, driven daily over
+     MCP. Gated here so the pipeline's simplest case is measured every time. -->
+JS Package 'tasks' depends on JS Package 'arest'.
+JS Package 'tasks' has Readings Directory '../apps/tasks/readings'.
 <!-- This file is a FORML reading and arest-dev is the package that models
      arest's own engineering, so the manifest's directory is one of arest-dev's
      readings directories. That is not a trick to make the arithmetic work: it
@@ -137,6 +141,9 @@ Corpus 'lawcore' reads Directory '../apps/law-core/readings'.
 # THIS FILE's directory too, which is the point: corpora.md declares Corpus and
 # Directory, build-surface.md declared Corpus a second time, and nothing could
 # say so because the two were never in one store. Now law:one_name can.
+Corpus 'tasks' reads Directory 'metamodel'.
+Corpus 'tasks' reads Directory 'readings/templates'.
+Corpus 'tasks' reads Directory '../apps/tasks/readings'.
 Corpus 'arestdev' reads Directory 'metamodel'.
 Corpus 'arestdev' reads Directory '../apps/arest-dev/readings'.
 Corpus 'arestdev' reads Directory 'tools/norma-oracle-tests'.
