@@ -1067,6 +1067,13 @@ function profReport(label) {
   // AREST_PROFILE=<n> prints n rows; any other value prints 24
   const nRows = parseInt(process.env.AREST_PROFILE, 10) > 1 ? parseInt(process.env.AREST_PROFILE, 10) : 24;
   const rows = [...PROF.entries()].sort((a, b) => b[1][1] - a[1][1]).slice(0, nRows);
+  // WHAT IS RUNNING NOW, because the table cannot say: a definition's time is
+  // recorded when it EXITS, so the law that has been running since the last
+  // report is absent from the table that is supposed to name the cost. The
+  // canon stack at the report, outermost first, is the answer (support's
+  // report over its compiled carrier, 2026-09-07: no row over 14 s, and the
+  // minutes were in a law that had not returned).
+  console.error("profile (" + label + ") running: " + PROFSTACK.filter((f) => String(f[0]).indexOf(":") >= 0).map((f) => f[0]).slice(0, 14).join(" > "));
   console.error("profile (" + label + "): name  calls  self ms  incl ms");
   for (const [name, r] of rows) console.error("  " + name + "  " + r[0] + "  " + Math.round(r[1]) + "  " + Math.round(r[2]));
   // AND AS FACTS, because a printed table is read by a person and then lost.
