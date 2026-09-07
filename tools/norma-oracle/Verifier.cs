@@ -12465,6 +12465,41 @@ namespace Arest.NormaOracle
 					}
 				}
 			}
+			// AND THE ENUMERATION LANDS IN ITS OWN FACT TYPE. "The possible values
+			// of Task State are 'open', 'done', ..." became a NORMA value
+			// constraint (ApplyValueEnum) and nothing carried it out: Object Type
+			// has Enum Values stood at 0 rows in every store, so a form could not
+			// tell an enumerated value type from free text and drew a textbox for
+			// both (2026-09-07). The text is the reading's own quoted list, one row
+			// per constrained value type, in the value order the constraint
+			// holds; the identifier of an entity whose values were enumerated is
+			// the value type the row names, as FlushValueEnums resolved it.
+			{
+				FactIndexEntry enumEntry = null;
+				foreach (FactIndexEntry e in myFactIndex)
+					if (!e.Fact.IsDeleted && e.Fact.Name == "ObjectTypeHasEnumValues") { enumEntry = e; break; }
+				if (enumEntry != null)
+				{
+					var haveEnum = new HashSet<string>(StringComparer.Ordinal);
+					foreach (var row in enumEntry.Rows) if (row.Count == 2) haveEnum.Add(row[0]);
+					foreach (ObjectType ot in myModel.ObjectTypeCollection.OrderBy(o => o.Name, StringComparer.Ordinal))
+					{
+						if (ot.IsDeleted || string.IsNullOrEmpty(ot.Name) || !ot.IsValueType) continue;
+						ValueTypeValueConstraint vc = ot.ValueConstraint;
+						if (vc == null || vc.IsDeleted || haveEnum.Contains(ot.Name)) continue;
+						var values = new List<string>();
+						foreach (ValueRange range in vc.ValueRangeCollection)
+						{
+							if (range.IsDeleted || range.MinValue != range.MaxValue) continue;
+							values.Add("'" + range.MinValue + "'");
+						}
+						if (values.Count == 0) continue;
+						enumEntry.Rows.Add(new List<string> { ot.Name, string.Join(", ", values) });
+						enumEntry.RowKinds.Add(new List<string> { "", "" });
+						haveEnum.Add(ot.Name);
+					}
+				}
+			}
 			// AND THE INSTANCE-OF PAIRING IS ALREADY COMPUTED TOO. The walk below
 			// that materializes state:otpops reads exactly this: for every row of
 			// every fact type, RowKinds[r][i] names the object type of

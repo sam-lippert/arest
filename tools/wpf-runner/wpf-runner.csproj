@@ -7,8 +7,12 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <CarrierDir Condition="'$(App)' == ''">$(MSBuildProjectDirectory)\..\..\apps\sherlock</CarrierDir>
-    <CarrierDir Condition="'$(App)' != ''">$(MSBuildProjectDirectory)\..\..\apps\$(App)</CarrierDir>
+    <!-- the carriers of one app's check (-p:App=tasks/.check); the path is
+         normalized because `copy /b` reads a forward slash as a switch and
+         then skips the file without failing, which composed a container
+         over the canon alone (2026-09-07). The default is the punchlist. -->
+    <App Condition="'$(App)' == ''">tasks\.check</App>
+    <CarrierDir>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '..', '..', '..', 'apps', '$(App)'))</CarrierDir>
     <ComposedFile>$(MSBuildProjectDirectory)\Composed.g.cs</ComposedFile>
     <IFactrWpf>$(MSBuildProjectDirectory)\..\..\..\iFactr-WPF</IFactrWpf>
   </PropertyGroup>
@@ -20,6 +24,11 @@
   <ItemGroup>
     <Compile Include="..\cs-runner\Mu.cs" Link="Mu.cs" />
     <Compile Include="..\cs-runner\Vocabulary.cs" Link="Vocabulary.cs" />
+    <!-- the boot is the cs-runner's too: FILE projected, the meta-types
+         reflected, the closure taken, the journal folded. Without it the
+         container read a store whose populations were all empty and died on
+         the root screen's first row (2026-09-07). -->
+    <Compile Include="..\cs-runner\Boot.cs" Link="Boot.cs" />
     <Compile Remove="Composed.g.cs" />
     <Reference Include="iFactr.Wpf">
       <HintPath>$(IFactrWpf)\Distribution\iFactr.Wpf.dll</HintPath>
@@ -33,7 +42,14 @@
   </ItemGroup>
 
   <Target Name="ComposeCanon" BeforeTargets="CoreCompile">
+    <!-- a carrier that is not there is a build error, never a silent omission -->
+    <Error Condition="!Exists('$(CarrierDir)\design-state')" Text="no design-state in $(CarrierDir): run the app's check first" />
+    <Error Condition="!Exists('$(CarrierDir)\norma-answer')" Text="no norma-answer in $(CarrierDir): run the app's check first" />
+    <Error Condition="!Exists('$(CarrierDir)\journal')" Text="no journal in $(CarrierDir): the js host writes one on the first submit; an empty file is a valid journal" />
     <Exec Command="cmd /c copy /b /y &quot;$(MSBuildProjectDirectory)\..\cs-runner\head.part&quot; + &quot;$(MSBuildProjectDirectory)\..\..\arest&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid1.part&quot; + &quot;$(CarrierDir)\design-state&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid2.part&quot; + &quot;$(CarrierDir)\norma-answer&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid3.part&quot; + &quot;$(CarrierDir)\journal&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid4.part&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\tail.part&quot; &quot;$(ComposedFile)&quot; &gt;nul" />
+    <!-- the build records where it composed the carriers from, so the
+         container's one durable write (the journal) lands beside them -->
+    <WriteLinesToFile File="$(OutDir)carriers.path" Lines="$(CarrierDir)" Overwrite="true" />
     <ItemGroup>
       <Compile Include="$(ComposedFile)" />
     </ItemGroup>

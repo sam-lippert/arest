@@ -27,7 +27,9 @@ public static class Gui
     static ScrollViewer detailScroller;
     static ScrollViewer scroller;         // the pane being measured
     static readonly Dictionary<string, string> STYLE = new Dictionary<string, string>();
-    static readonly Dictionary<string, TextBox> formInputs = new Dictionary<string, TextBox>();
+    // the form's inputs by fact type: each typed control registers how it
+    // reads back as the value text the address carries
+    static readonly Dictionary<string, Func<string>> formInputs = new Dictionary<string, Func<string>>();
 
     static string sv(string prop) { return STYLE[prop]; }
     static int num(string prop) { return int.Parse(STYLE[prop]); }
@@ -45,6 +47,13 @@ public static class Gui
 
     static void navigate(object addr)
     {
+        try { navigate0(addr); }
+        catch (Exception e) { crash(e); throw; }
+    }
+
+    static void navigate0(object addr)
+    {
+        stage = "navigate " + show(addr);
         var od = (object[])Arest.Ev("ui:navpe", new object[] { store, stacks, addr });
         store = (object[])od[0];
         stacks = od[1];
@@ -177,20 +186,74 @@ public static class Gui
             }
             return p;
         });
+        // THE TYPED ENTRY CONTROLS. The placed row is <control, x, y, w, h,
+        // label, fact type, options>; the control's name was chosen in canon
+        // from the column's conceptual data type (ui:control_for over
+        // ui:field_type), and each registration here is the concrete WPF
+        // control that abstract control binds to: a text box, a multi-line
+        // text box, a numeric text box, a date picker, a check box whose
+        // value is 'true', a read-only box for the columns the store fills
+        // itself, and a combo box over the row's options (the enumeration,
+        // or the referenced type's population for the navigation field).
         Arest.Register("render:textbox", x =>
         {
-            var r = (object[])x;
-            var p = new Canvas();
-            p.Background = brush("layerBg");
-            var l = label(text(r[5]), "subtextSize", "sectionTextColor", false);
-            Canvas.SetLeft(l, 0); Canvas.SetTop(l, 0); l.Width = 300; l.Height = 20;
-            p.Children.Add(l);
             var t = new TextBox();
-            Canvas.SetLeft(t, 0); Canvas.SetTop(t, 22); t.Width = 300; t.Height = 26;
-            p.Children.Add(t);
-            formInputs[text(r[6])] = t;
-            return p;
+            return field((object[])x, t, () => t.Text);
         });
+        Arest.Register("render:textarea", x =>
+        {
+            var t = new TextBox();
+            t.AcceptsReturn = true;
+            t.TextWrapping = TextWrapping.Wrap;
+            return field((object[])x, t, () => t.Text);
+        });
+        Arest.Register("render:numericfield", x =>
+        {
+            var t = new TextBox();
+            t.PreviewTextInput += (s, e) =>
+                e.Handled = !System.Text.RegularExpressions.Regex.IsMatch(e.Text, "^[0-9.-]$");
+            return field((object[])x, t, () => t.Text);
+        });
+        Arest.Register("render:datepicker", x =>
+        {
+            var d = new DatePicker();
+            return field((object[])x, d, () =>
+                d.SelectedDate.HasValue ? d.SelectedDate.Value.ToString("yyyy-MM-dd") : "");
+        });
+        // WPF ships no time picker; the text is the time
+        Arest.Register("render:timepicker", x =>
+        {
+            var t = new TextBox();
+            return field((object[])x, t, () => t.Text);
+        });
+        // the image is a value the store holds by address
+        Arest.Register("render:imagepicker", x =>
+        {
+            var t = new TextBox();
+            return field((object[])x, t, () => t.Text);
+        });
+        Arest.Register("render:switch", x =>
+        {
+            var c = new CheckBox();
+            return field((object[])x, c, () => c.IsChecked == true ? "true" : "");
+        });
+        Arest.Register("render:label", x =>
+        {
+            var t = new TextBox();
+            t.IsReadOnly = true;
+            return field((object[])x, t, () => "");
+        });
+        Func<object, object> select = x =>
+        {
+            var r = (object[])x;
+            var c = new ComboBox();
+            c.Items.Add("");
+            foreach (string o in options(r)) c.Items.Add(o);
+            c.SelectedIndex = 0;
+            return field(r, c, () => c.SelectedItem == null ? "" : c.SelectedItem.ToString());
+        };
+        Arest.Register("render:selectlist", select);
+        Arest.Register("render:navigationfield", select);
         Arest.Register("render:button", x =>
         {
             var r = (object[])x;
@@ -199,12 +262,13 @@ public static class Gui
             string group = text(r[6]);
             b.Click += (s, e) =>
             {
-                TextBox idf;
-                if (!formInputs.TryGetValue(group, out idf) || idf.Text.Length == 0) return;
-                var addr = new System.Collections.Generic.List<object> { "submit", group, idf.Text };
+                Func<string> idf;
+                stage = "submit " + group + " with " + formInputs.Count + " inputs";
+                if (!formInputs.TryGetValue(group, out idf) || idf().Length == 0) return;
+                var addr = new System.Collections.Generic.List<object> { "submit", group, idf() };
                 foreach (var kv in formInputs)
-                    if (kv.Key != group && kv.Value.Text.Length > 0)
-                    { addr.Add(kv.Key); addr.Add(kv.Value.Text); }
+                    if (kv.Key != group && kv.Value().Length > 0)
+                    { addr.Add(kv.Key); addr.Add(kv.Value()); }
                 formInputs.Clear();
                 navigate(addr.ToArray());
             };
@@ -226,17 +290,52 @@ public static class Gui
         });
         // the storage surface: the one durable write, and nothing else -
         // the byte form, the timing, and the sequence are all canon's
+        // the same instant stamps the same bytes on every host: ISO 8601 UTC
+        // to the millisecond, as the js and rust hosts answer it
         Arest.Register("clock", x =>
-            System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                .ToString(System.Globalization.CultureInfo.InvariantCulture));
+            System.DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
+                System.Globalization.CultureInfo.InvariantCulture));
         Arest.Register("store:append", x =>
         {
             var p = (object[])x;
             System.IO.File.AppendAllText(
-                System.IO.Path.Combine("..", "..", "apps", "sherlock", (string)p[0]),
+                System.IO.Path.Combine(carrierDir(), (string)p[0]),
                 (string)p[1]);
             return "T";
         });
+    }
+
+    // the carriers this build composed from: AREST_CARRIERS when set (the js
+    // host's convention), else the path the build recorded beside the exe
+    static string carrierDir()
+    {
+        var env = Environment.GetEnvironmentVariable("AREST_CARRIERS");
+        if (!string.IsNullOrEmpty(env)) return env;
+        var beside = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "carriers.path");
+        if (System.IO.File.Exists(beside)) return System.IO.File.ReadAllText(beside).Trim();
+        return System.IO.Path.Combine("..", "..", "apps", "sherlock");
+    }
+
+    // one labelled entry control: the label above, the input below, the
+    // read-back registered under the fact type the row names
+    static Canvas field(object[] r, FrameworkElement input, Func<string> value)
+    {
+        var p = new Canvas();
+        p.Background = brush("layerBg");
+        var l = label(text(r[5]), "subtextSize", "sectionTextColor", false);
+        Canvas.SetLeft(l, 0); Canvas.SetTop(l, 0); l.Width = 300; l.Height = 20;
+        p.Children.Add(l);
+        Canvas.SetLeft(input, 0); Canvas.SetTop(input, 22); input.Width = 300; input.Height = 26;
+        p.Children.Add(input);
+        formInputs[text(r[6])] = value;
+        return p;
+    }
+    static string[] options(object[] r)
+    {
+        var o = r.Length > 7 && r[7] is object[] ? (object[])r[7] : new object[0];
+        var s = new string[o.Length];
+        for (int i = 0; i < o.Length; i++) s[i] = text(o[i]);
+        return s;
     }
 
     static void place(Canvas parent, FrameworkElement c, object[] rect)
@@ -248,12 +347,64 @@ public static class Gui
         parent.Children.Add(c);
     }
 
+    // WHAT THE CONTAINER WAS DOING WHEN IT DIED. A WinExe has no console, so
+    // an exception out of the mu reached the event log as a bare
+    // IndexOutOfRange with lambda numbers for a stack; the stage and the
+    // exception now land in crash.txt beside the exe before the rethrow.
+    // the stage is also written beside the exe as it changes (stage.txt), so
+    // a container that is killed or hangs still says what it was doing last
+    static string stageValue = "load";
+    static string stage
+    {
+        get { return stageValue; }
+        set
+        {
+            stageValue = value;
+            try
+            {
+                System.IO.File.WriteAllText(
+                    System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "stage.txt"), value);
+            }
+            catch { }
+        }
+    }
+    static string show(object x)
+    {
+        if (!(x is object[])) return x == null ? "" : x.ToString();
+        var parts = new List<string>();
+        foreach (object y in (object[])x) parts.Add(show(y));
+        return "(" + string.Join(" ", parts) + ")";
+    }
+    static void crash(Exception e)
+    {
+        try
+        {
+            System.IO.File.WriteAllText(
+                System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash.txt"),
+                stage + "\n" + e);
+        }
+        catch { }
+    }
+
     [STAThread]
     public static void Main()
     {
+        try { Run(); }
+        catch (Exception e) { crash(e); throw; }
+    }
+
+    static void Run()
+    {
         Arest.Load();
+        stage = "carriers";
         Arest.LoadCarriers();
+        // AND THE STORE IS BOOTED, not merely read (the cs-runner's Boot.cs):
+        // FILE projected, the meta-types reflected, the closure taken, the
+        // journal folded -- the same four canon calls the js host makes
+        stage = "boot";
+        Arest.Boot();
         store = new List<object>(Arest.CELLS).ToArray();
+        stage = "style";
         var style = (object[])Arest.Ev(
             new object[] { "COMP", "theta:flatten", "ui:style" }, new object[0]);
         foreach (object row in style)
@@ -263,6 +414,13 @@ public static class Gui
         }
         registerComponents();
 
+        // the canvas sits where canon placed it: a ScrollViewer centres content
+        // smaller than its viewport, which put every rectangle ~130 px below
+        // the coordinates canon computed for it
+        masterCanvas.VerticalAlignment = VerticalAlignment.Top;
+        masterCanvas.HorizontalAlignment = HorizontalAlignment.Left;
+        detailCanvas.VerticalAlignment = VerticalAlignment.Top;
+        detailCanvas.HorizontalAlignment = HorizontalAlignment.Left;
         masterScroller = new ScrollViewer();
         masterScroller.Content = masterCanvas;
         masterScroller.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
@@ -278,8 +436,9 @@ public static class Gui
         grid.Children.Add(detailScroller);
         var win = new Window();
         // the window names its tenant, like the root layer
+        stage = "title";
         win.Title = text(((object[])Arest.Ev("ui:screen",
-            new object[] { store, new object[0], new object[0] }))[1]);
+            new object[] { store, new object[0], new object[0], new object[0] }))[1]);
         win.Width = num("frameW");
         win.Height = num("frameH");
         win.Content = grid;
