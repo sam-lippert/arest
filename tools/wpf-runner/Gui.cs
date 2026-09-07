@@ -62,6 +62,19 @@ public static class Gui
         renderPane("detail", detailCanvas, detailScroller);
     }
 
+    static void rerender()
+    {
+        renderPane("master", masterCanvas, masterScroller);
+        renderPane("detail", detailCanvas, detailScroller);
+    }
+
+    static bool formHasInput()
+    {
+        foreach (var kv in formInputs)
+            if (kv.Value().Length > 0) return true;
+        return false;
+    }
+
     static void renderPane(string pane, Canvas c, ScrollViewer s)
     {
         canvas = c;
@@ -442,18 +455,23 @@ public static class Gui
         win.Width = num("frameW");
         win.Height = num("frameH");
         win.Content = grid;
-        win.SizeChanged += (s, e) => navigate(new object[0]);
+        // a resize re-renders the panes where they are; it used to navigate to
+        // the root, which pushed the root onto the master stack on every resize
+        win.SizeChanged += (s, e) => rerender();
         win.Loaded += (s, e) =>
         {
             navigate(new object[0]);
-            // browse the FIXED store: derive once (async), swap, re-render
+            // browse the FIXED store: derive once (async), swap, re-render --
+            // unless the user is mid-form, because a re-render rebuilds every
+            // input and wiped what had been typed in the first forty seconds
+            // (2026-09-07); the swapped store is read at the next navigation
             new System.Threading.Thread(() =>
             {
                 var fixedStore = (object[])Arest.Ev("ui:boot", store);
                 win.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     store = fixedStore;
-                    navigate(new object[0]);
+                    if (!formHasInput()) rerender();
                 }));
             }).Start();
         };

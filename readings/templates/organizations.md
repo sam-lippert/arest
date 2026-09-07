@@ -134,8 +134,15 @@ If some User authenticates and that User has some Email and that User does not o
      shares a key (Domain, then Object Type) with the prior clause. The original
      Object Type-displayed-first order joined C1(Object Type,Element) x C2(App,Domain) -- which
      share NO variable -- as a full cartesian before the C3 filter, materializing
-     a multi-GB witness set that OOM-crashed every app compile. -->
-App uses Generator 'ilayer' if that App contains some Domain and some Object Type is defined in that Domain and that Object Type is displayed by some Element.
+     a multi-GB witness set that OOM-crashed every app compile.
+
+     2026-09-07: that rule named three fact types this model never declared
+     (`App contains Domain`, `Object Type is defined in Domain`, `Object Type is
+     displayed by Element`) and every check dropped it as matching no fact type,
+     in every store that composes the templates. The rule it meant is the one
+     the declared vocabulary can say: an app that displays an object type is
+     rendered by the layer generator. -->
++ App uses Generator 'ilayer' if App displays some Object Type.
 
 ## Instance Facts
 
