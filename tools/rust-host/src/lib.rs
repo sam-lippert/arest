@@ -319,9 +319,39 @@ fn prim(name: &str, x: &V) -> Option<V> {
         // It is Backus 11.2.3 base, the right selector, and it stays.
         "1r" => { let s = seq(x); s[s.len() - 1].clone() }
         "tlr" => { let s = seq(x); q(s[..s.len() - 1].to_vec()) }
+        // clock is REGISTERED (resolution.md): the journal stamps each
+        // submitted event with it. ISO 8601 in UTC, the js host's shape.
+        "clock" => astr(clock_text()),
         _ => return None,
     };
     Some(r)
+}
+
+// The wall clock as ISO 8601 UTC text. wasm32-unknown-unknown has no clock
+// (SystemTime::now panics there), so the module stamps the epoch until the
+// boundary imports one from its embedder.
+fn clock_text() -> String {
+    #[cfg(target_arch = "wasm32")]
+    { "1970-01-01T00:00:00.000Z".to_string() }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let d = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+        let secs = d.as_secs() as i64;
+        let ms = d.subsec_millis();
+        let days = secs.div_euclid(86_400);
+        let sod = secs.rem_euclid(86_400);
+        // civil_from_days (Hinnant): proleptic Gregorian date of a day count from 1970-01-01.
+        let z = days + 719_468;
+        let era = z.div_euclid(146_097);
+        let doe = z.rem_euclid(146_097);
+        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let day = doy - (153 * mp + 2) / 5 + 1;
+        let month = if mp < 10 { mp + 3 } else { mp - 9 };
+        let year = yoe + era * 400 + if month <= 2 { 1 } else { 0 };
+        format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z", year, month, day, sod / 3600, (sod % 3600) / 60, sod % 60, ms)
+    }
 }
 
 fn int_of(x: &V) -> i64 {
