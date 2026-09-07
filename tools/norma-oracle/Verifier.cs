@@ -393,8 +393,20 @@ namespace Arest.NormaOracle
 		private static readonly Regex LiteralWithSpaceRx = new Regex(@"\s*(?<![\p{L}\p{Nd}])'[^']*'(?![\p{L}\p{Nd}])");
 		private static readonly Regex ValueDecl = new Regex(@"^(" + NameChars + @"+?)\s+is a value type\.$");
 
+		// A CASE FILE POPULATES AND NEVER DECLARES. The support app's check reads
+		// its 66 support cases beside its readings, and every prose sentence that
+		// happened to start with a declared type's name was minted as a fact type
+		// -- 77 of them, `VehicleListingsIsAStopgapPricingSignal,NotATrueValuation`,
+		// a column quoting a URL in the Function table (2026-09-06) -- because the
+		// reader has one mode: a sentence it cannot populate declares. Under this
+		// flag (Program.cs `--cases <dir>`) a sentence either populates a declared
+		// fact type or is reported as unrecognized, and the unrecognized remainder
+		// is the honest measure of how much of the UoD the readings cover.
+		public bool PopulationOnly { get; set; }
+
 		public void DeclarePass(IEnumerable<string> sentences)
 		{
+			if (PopulationOnly) return;
 			foreach (string s in sentences)
 			{
 				try
@@ -1204,6 +1216,13 @@ namespace Arest.NormaOracle
 
 		private void MapSentence(string s)
 		{
+			if (PopulationOnly)
+			{
+				if (MapInstanceFact(s)) return;
+				Count("population file: sentence populates no declared fact type (nothing minted)");
+				myUnrecognized.Add("[population] " + Shorten(s));
+				return;
+			}
 			// fully derived rules verbalize with "iff" (the CWA closure over
 			// all rules of the head); semi-derived rules state sufficient
 			// conditions with a bare "if" — both are derivations to defer
@@ -1658,6 +1677,41 @@ namespace Arest.NormaOracle
 					Count("subtype restated");
 					return;
 				}
+			}
+			// A DIRECT SUPERTYPE A LONGER DECLARED PATH ALREADY IMPLIES is not asserted
+			// twice. Composing packages does this: the metamodel says `Agent is a
+			// subtype of Object Type Instance`, support's vendored auto.dev says `Agent
+			// is a subtype of User`, and User is an Object Type Instance -- so NORMA
+			// reports the direct link as CompatibleSupertypesError (the support check's
+			// last blocking error, 2026-09-06). Halpin's subtype graph is transitively
+			// reduced: the link a path implies is dropped, whichever arrives second, and
+			// the map log says which. Identification follows the surviving path (the
+			// ProvidesPreferredIdentifier rule below runs after the drop).
+			foreach (ObjectType existingSuper in sub.SupertypeCollection)
+			{
+				if (existingSuper != super && RootsAt(existingSuper, super.Name))
+				{
+					Count("subtype implied by a declared path (not asserted)");
+					myMapLog.Add("SUBTYPE IMPLIED: '" + subName + " is a subtype of " + superName
+						+ "' already follows through '" + existingSuper.Name + "'; not asserted");
+					return;
+				}
+			}
+			var implied = new List<SubtypeFact>();
+			foreach (Role role in sub.PlayedRoleCollection)
+			{
+				SubtypeMetaRole smr = role as SubtypeMetaRole;
+				if (smr == null) continue;
+				SubtypeFact sf = smr.FactType as SubtypeFact;
+				if (sf == null || sf.Supertype == null || sf.Supertype == super) continue;
+				if (RootsAt(super, sf.Supertype.Name)) implied.Add(sf);
+			}
+			foreach (SubtypeFact sf in implied)
+			{
+				Count("subtype direct link dropped (a declared path now implies it)");
+				myMapLog.Add("SUBTYPE IMPLIED: '" + subName + " is a subtype of " + sf.Supertype.Name
+					+ "' now follows through '" + superName + "'; the direct link is dropped");
+				sf.Delete();
 			}
 			SubtypeFact subtypeFact = SubtypeFact.Create(sub, super);
 			myKindCache.Clear();

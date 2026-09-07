@@ -232,8 +232,22 @@ namespace Arest.NormaOracle
 			// Reading the metamodel by REFERENCE removes the duplicate rather than
 			// refreshing it - 566a1043 refreshed it and it came back, because a refresh
 			// does not fix a mechanism that regenerates the problem.
-			string[] sourceDirs = args.Length > 0
-				? args
+			// A CASE DIRECTORY POPULATES AND NEVER DECLARES. Directories after
+			// `--cases` are read for instance facts of the fact types the readings
+			// declared; a sentence there that populates nothing is reported, not
+			// minted (Verifier.PopulationOnly). support.auto.dev's 66 cases minted
+			// 77 prose fact types before this (2026-09-06).
+			var dirArgs = new List<string>();
+			var populationDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			bool casesFollow = false;
+			foreach (string a in args)
+			{
+				if (a == "--cases") { casesFollow = true; continue; }
+				dirArgs.Add(a);
+				if (casesFollow) populationDirs.Add(System.IO.Path.GetFullPath(a));
+			}
+			string[] sourceDirs = dirArgs.Count > 0
+				? dirArgs.ToArray()
 				: new string[] { System.IO.Path.Combine("..", "..", "metamodel") };
 			// Carriers are written relative to the CWD while the model is read from
 			// here, so the two can disagree. Record which source this run read;
@@ -251,6 +265,7 @@ namespace Arest.NormaOracle
 			// instances.md, and the app's 'Citation is a value type' was the
 			// declaration kept while the canon's entity was the one reported
 			// (measured 2026-09-03 in every corpus that carries law-core).
+			var populationFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			foreach (string d in sourceDirs)
 			{
 				string[] dirFiles = System.IO.Directory.GetFiles(d, "*.md");
@@ -258,6 +273,10 @@ namespace Arest.NormaOracle
 					System.IO.Path.GetFileName(x) == "core.md" ? "0" : System.IO.Path.GetFileName(x),
 					System.IO.Path.GetFileName(y) == "core.md" ? "0" : System.IO.Path.GetFileName(y)));
 				fileList.AddRange(dirFiles);
+				if (populationDirs.Contains(System.IO.Path.GetFullPath(d)))
+				{
+					foreach (string pf in dirFiles) populationFiles.Add(pf);
+				}
 			}
 			string[] files = fileList.ToArray();
 			var fileSentences = new Dictionary<string, List<string>>();
@@ -269,6 +288,7 @@ namespace Arest.NormaOracle
 			Verifier verifier = new Verifier(store, model);
 			foreach (string f in files)
 			{
+				if (populationFiles.Contains(f)) continue;
 				verifier.RegisterMarkers(System.IO.File.ReadAllText(f));
 			}
 			Mark("declarations");
@@ -283,8 +303,10 @@ namespace Arest.NormaOracle
 			{
 				foreach (string f in files)
 				{
+					verifier.PopulationOnly = populationFiles.Contains(f);
 					verifier.DeclarePass(fileSentences[f]);
 				}
+				verifier.PopulationOnly = false;
 				// schemes AFTER every file's declarations: cross-file order
 				// must not decide a component's kind
 				verifier.FlushSchemes();
@@ -304,11 +326,13 @@ namespace Arest.NormaOracle
 				foreach (string f in files)
 				{
 					verifier.ResetContext();
+					verifier.PopulationOnly = populationFiles.Contains(f);
 					var swMap = System.Diagnostics.Stopwatch.StartNew();
 					verifier.MapPass(fileSentences[f]);
 					swMap.Stop();
 					Console.WriteLine("mapped: " + System.IO.Path.GetFileName(f) + " (" + fileSentences[f].Count + " sentences, map " + swMap.ElapsedMilliseconds + " ms)");
 				}
+				verifier.PopulationOnly = false;
 				swCommit.Start();
 				swCommit.Stop();
 			}
