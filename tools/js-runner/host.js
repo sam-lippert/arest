@@ -235,6 +235,11 @@ const PRIMS = new Map(Object.entries({
   // chardown is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
   "1r": x => { const a = seq(x); if (a.length === 0) throw new Error("1r on empty"); return a[a.length - 1]; },
   "tlr": x => { const a = seq(x); if (a.length === 0) throw new Error("tlr on empty"); return a.slice(0, a.length - 1); },
+  // clock is REGISTERED (resolution.md: accepts sequence, yields text). The
+  // journal stamps every submitted event with it (ui:navpe), and the GUI
+  // hosts that used to supply it are deleted, so the thin host registers it:
+  // ISO 8601 in UTC, the one shape every host can stamp identically.
+  "clock": x => new Date().toISOString(),
 }));
 
 // ---- the mu: atoms resolve through DEFS then the primitives, numbers are
@@ -1362,9 +1367,88 @@ function run_ui() {
   // path as segments, which the router matches against ui:groups word-wise --
   // so segments are character sequences and an atom segment raises.
   const words = process.argv.slice(2);
-  const segs = words.map((w) => Ev("chars", w));
-  const layer = Ev("ui:route", [CELLS, words, [], segs]);
-  console.log(String(Ev("render:json", layer)));
+  if (words[0] !== "--serve") {
+    const segs = words.map((w) => Ev("chars", w));
+    const layer = Ev("ui:route", [CELLS, words, [], segs]);
+    console.log(String(Ev("render:json", layer)));
+    return;
+  }
+  // THE CONTAINER (2026-09-07): the PaneManager at its smallest faithful
+  // form, over HTTP. It holds <store, panes> -- the registered form factor is
+  // every pane in ui:panes, empty -- and on each request evaluates ONE
+  // navigation: ui:navpe takes the address the browser followed and answers
+  // the store and the pane stacks after it; ui:pane_view answers each pane's
+  // layer; ui:arrange places it; ui:render realizes every placed row through
+  // the registered render:<control>. This reads a path, applies those four,
+  // and writes bytes: it decides nothing, not the route, not the layout, not
+  // a colour, not who may see a control. A form's submit posts to the same
+  // address; the fields ride as the fact.
+  //
+  // THE PLATFORM REGISTERS ITS CONTROLS. The manifest declares every
+  // render:<control> registered -- a control is what a platform draws itself
+  // -- and this platform's drawing is the HTML in canon under html:<control>,
+  // so the registration is the one line each: render:x resolves to html:x.
+  // Registered here, at runtime, in the host that serves HTML; a canon cell
+  // named render:x would shadow every native platform and fail
+  // one-name-one-cell.
+  for (const c of ["canvas", "headerbar", "titletext", "backbtn", "sectionheader",
+                   "itemrow", "sep", "blocktext", "textbox", "button"]) {
+    PRIMS.set("render:" + c, (x) => Ev("html:" + c, x));
+  }
+  const PORT = Number(process.env.AREST_PORT || 8787);
+  let store = CELLS;
+  let panes = Ev("ui:panes", []).map((p) => [p, []]);
+  const frameW = Number(Ev("ui:sv", "frameW")) || 980;
+  const paneW = Math.floor(frameW / panes.length);
+  const font = String(Ev("ui:sv", "fontFamily") || "system-ui, sans-serif");
+  Bun.serve({
+    port: PORT,
+    async fetch(req) {
+      const url = new URL(req.url);
+      let address = url.pathname.split("/").filter((s) => s.length > 0).map((s) => decodeURIComponent(s));
+      if (req.method === "POST") {
+        // The form is the entry screen (ui:entryscreen): one textbox named by
+        // the object type carries the new instance's id, one per fact type
+        // carries a value, and the button's value names the type. The submit
+        // address canon reads (ui:create0 folds <fact type, value> pairs after
+        // <submit, type, id>) is built here; a blank textbox is no fact and
+        // is left out, so the pairs stay pairs.
+        const form = await req.formData().catch(() => null);
+        const pairs = [];
+        let target = "";
+        let id = "";
+        if (form) for (const [k, v] of form.entries()) {
+          const s = String(v);
+          if (k === "submit") target = s;
+          else if (s.length === 0) continue;
+          else pairs.push([k, s]);
+        }
+        for (const [k, v] of pairs) if (k === target) id = v;
+        address = ["submit", target, id];
+        for (const [k, v] of pairs) if (k !== target) address.push(k, v);
+      }
+      // One evaluation: navigation, the new store value, and the journal
+      // bytes a command appends (empty for plain navigation). The bytes go
+      // through the registered store:append, the platform's one durable
+      // write, so the next boot replays what this session committed.
+      const out = Ev("ui:navpe", [store, panes, address, ""]);
+      store = out[0];
+      panes = out[1];
+      if (typeof out[2] === "string" && out[2].length > 0) Ev("store:append", ["journal", out[2]]);
+      let body = "";
+      for (const pane of panes) {
+        const layer = Ev("ui:pane_view", [store, panes, pane[0]]);
+        const placed = Ev("ui:arrange", [layer, paneW]);
+        body += "<div class='pane'>" + Ev("ui:render", placed).map(String).join("") + "</div></div>";
+      }
+      const page = "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'>"
+        + "<title>" + String(Ev("escape_html", address.join(" ") || "arest")) + "</title></head>"
+        + "<body style='margin:0;padding:20px;display:flex;gap:20px;align-items:flex-start;font-family:" + font + "'>"
+        + "<form method='post' style='display:flex;gap:20px;align-items:flex-start'>" + body + "</form></body></html>";
+      return new Response(page, { headers: { "content-type": "text/html; charset=utf-8" } });
+    },
+  });
+  console.error("arest ui on :" + PORT);
 }
 
 function run_mcp() {
