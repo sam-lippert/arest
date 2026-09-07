@@ -7,6 +7,14 @@ Agent Definition(.id) is an entity type.
 Agent(.id) is an entity type.
 Completion(.id) is an entity type.
 
+## Value Types
+
+# Declared nowhere until 2026-09-07: `Agent Definition has Prompt` built over
+# an undeclared Prompt, so no instance of it could ever land and every Agent
+# Definition violated `has exactly one Prompt` from the moment it existed.
+Prompt is a value type.
+  The data type of Prompt is largeText.
+
 ## Readings
 
 ### Model

@@ -1369,6 +1369,7 @@ function run_ui() {
   // path as segments, which the router matches against ui:groups word-wise --
   // so segments are character sequences and an atom segment raises.
   const words = process.argv.slice(2);
+  if (words[0] === "--text") return run_text(words.slice(1));
   if (words[0] !== "--serve") {
     const segs = words.map((w) => Ev("chars", w));
     const layer = Ev("ui:route", [CELLS, words, [], segs]);
@@ -1453,6 +1454,66 @@ function run_ui() {
     },
   });
   console.error("arest ui on :" + PORT);
+}
+
+// THE CONSOLE CONTAINER (2026-09-07): the same four evaluations as the HTML
+// container -- ui:navpe, ui:pane_view, ui:arrange, ui:render -- realized as
+// lines of text, so a session that cannot open a browser or a window can
+// still read a screen. `ui.g.js --text <address>...` follows each address
+// (words joined by /), prints every pane, and for a collection follows each
+// item's link one level, so the entities are read with their facts and not
+// only their ids. This is what a SessionStart hook prints back into a
+// conversation after a compaction: a fresh boot's answer, never a cache.
+// Nothing here decides: the controls are registered, the screens are canon's.
+function run_text(args) {
+  const T = (r, i) => (r[i] === undefined || (Array.isArray(r[i]) && r[i].length === 0)) ? "" : String(r[i]);
+  const link = (r) => Array.isArray(r[7]) && r[7].length > 0 ? r[7].map(String).join("/") : "";
+  PRIMS.set("render:canvas", () => "");
+  PRIMS.set("render:headerbar", () => "");
+  PRIMS.set("render:backbtn", () => "");
+  PRIMS.set("render:sep", () => "");
+  PRIMS.set("render:titletext", (r) => "# " + T(r, 5) + "\n");
+  PRIMS.set("render:sectionheader", (r) => "\n" + T(r, 5) + "\n");
+  // an item's subtext is the spoken fact (Thm 2's representation verbalized);
+  // when it is there it is the line, since the value is inside it
+  PRIMS.set("render:itemrow", (r) => "- " + (T(r, 6) || T(r, 5)) + (link(r) ? "  [" + link(r) + "]" : "") + "\n");
+  PRIMS.set("render:blocktext", (r) => T(r, 5) + "\n");
+  for (const c of ["textbox", "button", "selectlist", "navigationfield", "numericfield", "datepicker",
+                   "timepicker", "switch", "textarea", "imagepicker", "label"]) {
+    PRIMS.set("render:" + c, (r) => "[" + c + "] " + T(r, 5) + "\n");
+  }
+  let store = CELLS;
+  let panes = Ev("ui:panes", []).map((p) => [p, []]);
+  const screen = (address) => {
+    const out = Ev("ui:navpe", [store, panes, address, ""]);
+    store = out[0];
+    panes = out[1];
+    // the pane the address landed in: the one whose stack now ends with it
+    const key = JSON.stringify(address);
+    const pane = panes.find((p) => p[1].length > 0 && JSON.stringify(p[1][p[1].length - 1]) === key) || panes[panes.length - 1];
+    const placed = Ev("ui:arrange", [Ev("ui:pane_view", [store, panes, pane[0]]), 80]);
+    return { text: Ev("ui:render", placed).map(String).join(""), placed };
+  };
+  // `Group/*` follows each item's link one level: the entities with their
+  // facts, not only their ids. An entity screen is Thm 2's representation
+  // over the closure-augmented populations and costs about a second each on
+  // a 3,400-fact store, so the follow is asked for, never assumed.
+  let outp = "";
+  for (const a of args) {
+    const words = a.split("/").filter((s) => s.length > 0);
+    const follow = words[words.length - 1] === "*";
+    const address = follow ? words.slice(0, -1) : words;
+    const s = screen(address);
+    outp += s.text;
+    if (follow) {
+      for (const r of s.placed) {
+        if (r[0] !== "itemrow" || !Array.isArray(r[7]) || r[7].length !== address.length + 1) continue;
+        outp += "\n" + screen(r[7].map(String)).text;
+      }
+    }
+    outp += "\n";
+  }
+  process.stdout.write(outp);
 }
 
 function run_mcp() {
