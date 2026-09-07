@@ -392,6 +392,14 @@ namespace Arest.NormaOracle
 		private static readonly Regex LiteralRx = new Regex(@"(?<![\p{L}\p{Nd}])'[^']*'(?![\p{L}\p{Nd}])");
 		private static readonly Regex LiteralWithSpaceRx = new Regex(@"\s*(?<![\p{L}\p{Nd}])'[^']*'(?![\p{L}\p{Nd}])");
 		private static readonly Regex ValueDecl = new Regex(@"^(" + NameChars + @"+?)\s+is a value type\.$");
+		// A VALUE TYPE DECLARED WITH A REFERENCE MODE. `Accreditation Requirement(.code)
+		// is a value type.` matched no declaration and fell through without a word
+		// (2026-09-07, twelve in eu-law): the type was never declared, every later
+		// sentence naming it bound to the shorter `Accreditation` instead, and the
+		// design state and NORMA's model parted company on which facts existed --
+		// ten rmap-vs-NORMA laws followed. A value type identifies itself, so the
+		// mode is dropped and counted, and the type is declared.
+		private static readonly Regex ValueDeclWithMode = new Regex(@"^(" + NameChars + @"+?)\(\.\w+\)\s+is a value type\.$");
 
 		// A CASE FILE POPULATES AND NEVER DECLARES. The support app's check reads
 		// its 66 support cases beside its readings, and every prose sentence that
@@ -443,6 +451,12 @@ namespace Arest.NormaOracle
 			}
 			// an objectification names its nesting type: the NAME is declared here
 			// so readings map it as one player ("Plan Product has Price Per Call"
+			Match vmode = ValueDeclWithMode.Match(s);
+			if (vmode.Success)
+			{
+				Count("value type declared with a reference mode (mode dropped: a value type identifies itself)");
+				s = vmode.Groups[1].Value.Trim() + " is a value type.";
+			}
 			// read as Plan, Product, Price Per Call while the nesting was unknown);
 			// the objectification itself follows its fact in the map pass
 			Match od = ObjectifiesDecl.Match(s);
@@ -1355,7 +1369,7 @@ namespace Arest.NormaOracle
 				return;
 			}
 			Match m;
-			if (EntityDecl.IsMatch(s) || EntityDeclBare.IsMatch(s) || ValueDecl.IsMatch(s))
+			if (EntityDecl.IsMatch(s) || EntityDeclBare.IsMatch(s) || ValueDecl.IsMatch(s) || ValueDeclWithMode.IsMatch(s))
 			{
 				return; // pass 1 handled
 			}
@@ -14034,6 +14048,10 @@ namespace Arest.NormaOracle
 		public static string MappingStateCells(Store store, System.Reflection.Assembly abstractionAssembly, System.Reflection.Assembly bridgeAssembly, System.Reflection.Assembly relationalAssembly = null)
 		{
 			var sb = new System.Text.StringBuilder();
+			var indepBefore = new Dictionary<string, bool>(StringComparer.Ordinal);
+			if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NORMA_ORACLE_CTDEBUG")))
+				foreach (ObjectType o in store.ElementDirectory.FindElements<ObjectType>(true))
+					if (!o.IsDeleted && !string.IsNullOrEmpty(o.Name) && !indepBefore.ContainsKey(o.Name)) indepBefore[o.Name] = o.TreatAsIndependent;
 			// FORCE THE FULL ORM->OIAL TRANSFORM: the bridge maintains
 			// mappings incrementally under delayed validation, and a
 			// programmatic build (no .orm load, no deserialization fixups)
@@ -14112,10 +14130,75 @@ namespace Arest.NormaOracle
 			assims.Sort(StringComparer.Ordinal);
 
 			var cts = new List<string>();
+			// WHICH CLAUSE MADE IT A CONCEPT TYPE (NORMA_ORACLE_CTDEBUG=1): B.1 of
+			// rmap-algorithm.md re-evaluated on the ORM object type behind each
+			// concept type, printed to stderr. Written on 2026-09-07 because 62
+			// eu-law entities were concept types in NORMA's answer with none of
+			// the four clauses visibly true in the design state; the answer is
+			// the witness and this says why it answered.
+			bool ctDebug = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NORMA_ORACLE_CTDEBUG"));
+			Type ctForType = ctDebug ? abstractionAssembly.GetTypes().FirstOrDefault(x => x.Name == "ConceptTypeIsForObjectType") : null;
+			// independence as the object types stand NOW, after the forced transform
+			// above; the transform itself ran with whatever validation had reached
+			var indepNow = new Dictionary<string, bool>(StringComparer.Ordinal);
+			if (ctDebug) foreach (ObjectType o in store.ElementDirectory.FindElements<ObjectType>(true)) if (!o.IsDeleted && !string.IsNullOrEmpty(o.Name) && !indepNow.ContainsKey(o.Name)) indepNow[o.Name] = o.TreatAsIndependent;
 			foreach (ModelElement ct in store.ElementDirectory.FindElements(store.DomainDataDirectory.GetDomainClass(ctType), true).Cast<ModelElement>())
 			{
 				string name = (string)ctType.GetProperty("Name").GetValue(ct, null);
 				cts.Add("S2(" + IAtom(name) + ", " + IAtom(assimilated.Contains(ct) ? "F" : "T") + ")");
+				if (!ctDebug) continue;
+				var sameName = store.ElementDirectory.FindElements<ObjectType>(true).Where(o => !o.IsDeleted && o.Name == name).ToList();
+				object forOt = ctForType == null ? null : ctForType.GetMethod("GetObjectType", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)?.Invoke(null, new object[] { ct });
+				ObjectType ot = forOt as ObjectType ?? sameName.FirstOrDefault();
+				if (ot == null) { Console.Error.WriteLine("ctdebug " + name + " no object type"); continue; }
+				if (sameName.Count > 1) Console.Error.WriteLine("ctdebug " + name + " DUPLICATE object types: " + sameName.Count + " (roles " + string.Join(",", sameName.Select(o => ObjectTypePlaysRole.GetPlayedRoleCollection(o).Count)) + ")");
+				bool anySub = false, anyDeep = false, anyTowardsNonPid = false, anyTowards = false; int roles = 0, mappedRoles = 0;
+				int excs = 0;
+				foreach (Role role in ObjectTypePlaysRole.GetPlayedRoleCollection(ot))
+				{
+					roles++;
+					try
+					{
+					FactType ft = role.BinarizedOrSameFactType;
+					if (ft == null) continue;
+					if (ft is SubtypeFact) anySub = true;
+					object link = mapType.GetMethod("GetLinkToTowardsRole", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)?.Invoke(null, new object[] { ft });
+					if (link == null) continue;
+					mappedRoles++;
+					if (ft.Name == name.Replace(" ", "") + "Has" + name.Replace(" ", "") + "Id")
+					{
+						object tr0 = mapType.GetProperty("TowardsRole")?.GetValue(link, null);
+						object fr0 = mapType.GetProperty("FromRole")?.GetValue(link, null);
+						Console.Error.WriteLine("ctdebug " + name + " IDFACT " + ft.Name + " link=" + link.GetType().Name + " towards=" + (tr0 == null ? "null" : tr0.GetType().Name + "/" + ((tr0 as RoleBase)?.Role?.RolePlayer?.Name ?? "?")) + " from=" + (fr0 == null ? "null" : fr0.GetType().Name + "/" + ((fr0 as RoleBase)?.Role?.RolePlayer?.Name ?? "?")) + " props=" + string.Join(",", mapType.GetProperties().Select(p => p.Name).Where(n => n.Contains("Role") || n.Contains("Towards") || n.Contains("From") || n.Contains("Depth"))));
+					}
+					var depthProp = mapType.GetProperty("Depth") ?? mapType.GetProperty("MappingDepth");
+					string depth = depthProp == null ? "?" : depthProp.GetValue(link, null).ToString();
+					if (depth.ToLowerInvariant() == "deep") anyDeep = true;
+					object towardsBase = mapType.GetProperty("TowardsRole").GetValue(link, null);
+					object towardsRole = towardsBase == null ? null : (towardsBase.GetType().GetProperty("Role") != null ? towardsBase.GetType().GetProperty("Role").GetValue(towardsBase, null) : towardsBase);
+					var rpProp = towardsRole == null ? null : towardsRole.GetType().GetProperty("RolePlayer");
+					object towardsPlayer = rpProp == null ? null : rpProp.GetValue(towardsRole, null);
+					if (towardsPlayer == ot)
+					{
+						anyTowards = true;
+						object fromBase = mapType.GetProperty("FromRole").GetValue(link, null);
+						object testRoleObj = fromBase ?? towardsBase;
+						Role testRole = null;
+						if (testRoleObj != null)
+						{
+							testRole = testRoleObj as Role;
+							if (testRole == null && testRoleObj.GetType().GetProperty("Role") != null)
+								testRole = testRoleObj.GetType().GetProperty("Role").GetValue(testRoleObj, null) as Role;
+						}
+						bool pid = false;
+						if (testRole != null) foreach (ConstraintRoleSequence crs in testRole.ConstraintRoleSequenceCollection) { var uc = crs as UniquenessConstraint; if (uc != null && uc.IsPreferred) { pid = true; break; } }
+						if (!pid) anyTowardsNonPid = true;
+					}
+					}
+					catch (Exception ex) { excs++; if (excs == 1) Console.Error.WriteLine("ctdebug " + name + " EXC role of " + (role.FactType == null ? "(no fact)" : role.FactType.Name) + " " + (role.FactType is SubtypeFact ? "SUBTYPE" : "") + ": " + ex.GetType().Name + " " + ex.StackTrace.Split('\n')[0].Trim().Replace("C:\\Users\\lippe\\Repos\\arest\\tools\\norma-oracle\\", "")); }
+				}
+				Console.Error.WriteLine("ctdebug " + name + " excs=" + excs + " indepBefore=" + (indepBefore.ContainsKey(name) ? indepBefore[name].ToString() : "?") + " | treatIndep=" + ot.TreatAsIndependent + " isIndep=" + ot.IsIndependent + " impliedMand=" + (ot.ImpliedMandatoryConstraint != null)
+					+ " roles=" + roles + " mapped=" + mappedRoles + " sub=" + anySub + " deep=" + anyDeep + " towards=" + anyTowards + " towardsNonPid=" + anyTowardsNonPid + " top=" + (assimilated.Contains(ct) ? "F" : "T"));
 			}
 			cts.Sort(StringComparer.Ordinal);
 			sb.Append("DEF(\"state:normacts\", ").Append(IChunked(cts)).Append("),\n\n");
