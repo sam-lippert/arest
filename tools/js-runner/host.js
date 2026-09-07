@@ -1394,7 +1394,9 @@ function run_ui() {
   // named render:x would shadow every native platform and fail
   // one-name-one-cell.
   for (const c of ["canvas", "headerbar", "titletext", "backbtn", "sectionheader",
-                   "itemrow", "sep", "blocktext", "textbox", "button"]) {
+                   "itemrow", "sep", "blocktext", "textbox", "button",
+                   "selectlist", "navigationfield", "numericfield", "datepicker",
+                   "timepicker", "switch", "textarea", "imagepicker", "label"]) {
     PRIMS.set("render:" + c, (x) => Ev("html:" + c, x));
   }
   const PORT = Number(process.env.AREST_PORT || 8787);

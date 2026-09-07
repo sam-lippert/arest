@@ -80,20 +80,49 @@
     }
     return p;
   });
+  // the typed entry controls: the placed row is <control, x, y, w, h,
+  // label, fact type, options>, and the control's name is what the
+  // column's conceptual data type chose in canon (ui:control_for over
+  // ui:field_type); each registration realizes one of them as the one
+  // DOM element it is, and reads back through the same `inputs` map
   const inputs = {};
-  PRIMS.set("render:textbox", r => {
+  function field(r, input) {
     const p = el("div", {});
     const l = label(r[5], "subtextSize", "sectionTextColor", false);
     Object.assign(l.style, { position: "absolute", left: "0", top: "0",
       width: "100%", height: "22px" });
     p.appendChild(l);
-    const i = el("input", { position: "absolute", left: "0", top: "24px",
+    Object.assign(input.style, { position: "absolute", left: "0", top: "24px",
       width: "95%", fontFamily: sv("fontFamily"),
       fontSize: px(+sv("textSize")), color: sv("textColor") });
-    p.appendChild(i);
-    inputs[r[6]] = i;
+    p.appendChild(input);
+    inputs[r[6]] = input;
+    return p;
+  }
+  const typed = type => r => { const i = el("input", {}); i.type = type; return field(r, i); };
+  PRIMS.set("render:textbox", typed("text"));
+  PRIMS.set("render:numericfield", typed("number"));
+  PRIMS.set("render:datepicker", typed("date"));
+  PRIMS.set("render:timepicker", typed("time"));
+  PRIMS.set("render:imagepicker", typed("url"));
+  PRIMS.set("render:textarea", r => field(r, el("textarea", {})));
+  PRIMS.set("render:label", r => { const i = el("input", {}); i.readOnly = true; return field(r, i); });
+  PRIMS.set("render:switch", r => {
+    const i = el("input", {}); i.type = "checkbox";
+    const p = field(r, i);
+    inputs[r[6]] = { get value() { return i.checked ? "true" : ""; } };
     return p;
   });
+  const select = r => {
+    const s = el("select", {});
+    s.appendChild(el("option", {}));
+    for (const o of (Array.isArray(r[7]) ? r[7] : [])) {
+      const e = el("option", {}); e.textContent = o; s.appendChild(e);
+    }
+    return field(r, s);
+  };
+  PRIMS.set("render:selectlist", select);
+  PRIMS.set("render:navigationfield", select);
   PRIMS.set("render:button", r => {
     const b = el("button", { fontFamily: sv("fontFamily"),
       fontSize: px(+sv("textSize")), cursor: "pointer" });
@@ -147,9 +176,9 @@
     return "T";
   });
   // the clock: command addresses stamp their tau (Fact < Event, and
-  // each Event occurred at exactly one Timestamp); the format is this
-  // host's choice - epoch milliseconds as the string atom
-  PRIMS.set("clock", () => "" + Date.now());
+  // each Event occurred at exactly one Timestamp); ISO 8601 UTC to the
+  // millisecond, the same bytes every host stamps for the same instant
+  PRIMS.set("clock", () => new Date().toISOString());
 
   function navigate(addr) {
     const od = Ev("ui:navpe", [store, stacks, addr]);
@@ -177,7 +206,7 @@
     root.appendChild(paneEls.detail);
     document.body.style.margin = "0";
     document.body.appendChild(root);
-    document.title = Ev("ui:screen", [store, [], []])[1];
+    document.title = Ev("ui:screen", [store, [], [], []])[1];
     navigate([]);
     // browse the FIXED store: derive on a WORKER (the mu is synchronous;
     // 104s of solve:fix must not block the UI thread), swap, re-render
