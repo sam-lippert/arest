@@ -661,6 +661,63 @@ pub fn cell_count() -> usize {
     CELLS.with(|c| c.borrow().len())
 }
 
+// ============================ the wasm boundary ==============================
+// The same six-line contract over linear memory, for a caller that has no
+// thread to spawn and no argv to pass: a bun script, a browser, a Worker.
+// `arest_ask` takes the address as UTF-8 arguments joined by 0x1F (the unit
+// separator) and answers one buffer -- a little-endian u32 length, canon's
+// flag as `T` or `F`, then canon's text. No wasm-bindgen: a host carries no
+// dependencies, and the loader is twenty lines (wasm.js beside Cargo.toml).
+// The stack budget main.rs spawns a thread for is a LINK flag on this target
+// (.cargo/config.toml); the build is
+//   cargo rustc --lib --target wasm32-unknown-unknown --crate-type cdylib
+// so the native builds keep linking only the rlib. A panic is a trap here
+// (the target's strategy is abort), which the caller sees as an exception --
+// the same host error the CLI reports with a non-zero exit.
+#[cfg(target_arch = "wasm32")]
+mod wasm_boundary {
+    /// A buffer the caller fills; freed with `arest_free` at the same length.
+    #[no_mangle]
+    pub extern "C" fn arest_alloc(n: usize) -> *mut u8 {
+        let mut v = Vec::<u8>::with_capacity(n.max(1));
+        let p = v.as_mut_ptr();
+        std::mem::forget(v);
+        p
+    }
+
+    /// Give a buffer from `arest_alloc` or `arest_ask` back, at its length.
+    #[no_mangle]
+    pub unsafe extern "C" fn arest_free(p: *mut u8, n: usize) {
+        drop(Vec::from_raw_parts(p, 0, n.max(1)));
+    }
+
+    /// Load canon and the carriers without asking anything; answers the cell
+    /// count, the boot receipt, so a caller can time the load apart from
+    /// `main`.
+    #[no_mangle]
+    pub extern "C" fn arest_boot() -> usize {
+        super::cell_count()
+    }
+
+    /// Ask canon `main` an address: arguments joined by 0x1F in; out, a
+    /// buffer of [len: u32 LE][`T` | `F`][text], `len` counting the flag and
+    /// the text, to be freed with `arest_free(ptr, 4 + len)`.
+    #[no_mangle]
+    pub unsafe extern "C" fn arest_ask(p: *const u8, n: usize) -> *const u8 {
+        let bytes = std::slice::from_raw_parts(p, n);
+        let s = std::str::from_utf8(bytes).unwrap_or("");
+        let argv: Vec<&str> = if n == 0 { Vec::new() } else { s.split(char::from(31u8)).collect() };
+        let (text, ok) = super::ask(&argv);
+        let mut out = Vec::<u8>::with_capacity(5 + text.len());
+        out.extend_from_slice(&((1 + text.len()) as u32).to_le_bytes());
+        out.push(if ok { b'T' } else { b'F' });
+        out.extend_from_slice(text.as_bytes());
+        let p = out.as_ptr();
+        std::mem::forget(out);
+        p
+    }
+}
+
 // ---------------------------------------------------------------------------
 // The rust host's own unit tests. `cargo test` -- no python, no second host.
 //

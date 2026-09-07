@@ -1,0 +1,10 @@
+# THE STACK BUDGET, AS A LINK FLAG. main.rs spawns a 512 MB thread because
+# canon is one deeply nested expression and mu recurses deeper still; a wasm
+# module has no thread to spawn, so the same budget is the linker's stack
+# size, and the same reduction forces the same figure on every host. The
+# build for this target is
+#   cargo rustc --lib --target wasm32-unknown-unknown --crate-type cdylib
+# (the crate type is given on the command line so the native builds, whose
+# callers are the CLI and engine/os, keep linking only the rlib).
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=-zstack-size=536870912"]
