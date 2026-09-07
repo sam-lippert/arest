@@ -2235,6 +2235,32 @@ namespace Arest.NormaOracle
 					+ match.ReadingWords + "' [" + string.Join(", ", match.Players) + "]");
 				return false;
 			}
+			// A READING NAMES ITS FACT TYPE, AND THE ROW CARRIES THE FACT TYPE'S ID.
+			// `Transition 'accept' is triggered by Fact Type 'Admin accepts Support
+			// Request'` (Fact Type is a subtype of Event Type, so the trigger role
+			// takes it) registered a SECOND instance of that fact type, identified
+			// by its reading text, beside the reflected one identified by
+			// AdminAcceptsSupportRequest. The orphan had no roles and no reading,
+			// and support.auto.dev's store carried 31 + 26 mandatory violations for
+			// exactly those (2026-09-06) -- not incomplete data, one thing named
+			// twice. Halpin: a reference by an alternate identifier resolves to the
+			// preferred one at entry. A quoted value whose kind is a fact type (or
+			// Event Type, its supertype) and whose text is a declared reading is
+			// entered as that fact type's id; a value that resolves to no reading
+			// (a webhook's 'customer.subscription.created') is left as written.
+			for (int i = 0; i < quotes.Count; i++)
+			{
+				string k = kinds[i];
+				if (k == null) continue;
+				if (!(KindSatisfies(k, "Fact Type") || KindSatisfies("Fact Type", k))) continue;
+				FactIndexEntry named = FindEntryByNormalizedSentence(quotes[i]);
+				if (named == null || named.Fact == null || named.Fact.IsDeleted) continue;
+				if (quotes[i] == named.Fact.Name) continue;
+				myMapLog.Add("FACT TYPE NAMED BY ITS READING: '" + quotes[i] + "' entered as " + named.Fact.Name
+					+ " in '" + Shorten(s) + "'");
+				quotes[i] = named.Fact.Name;
+				Count("fact type named by its reading (entered as its id)");
+			}
 			match.Rows.Add(new List<string>(quotes));
 			match.RowKinds.Add(new List<string>(kinds.Select(k => k ?? "")));
 			Count("instance fact (row attributed)");
