@@ -1191,6 +1191,37 @@ namespace Arest.NormaOracle
 		// of it became predicate words -- stored truncated, reported nowhere
 		// (#96). One scanner for every quoted value; each span is (index of
 		// the opening quote, length including both quotes, the text between).
+		// A NUMBER IS A VALUE WITHOUT QUOTES. FORML writes a numeric literal
+		// bare -- `Error Code 'INVALID_VIN_FORMAT' has HTTP Status 400`, `Cost
+		// Tier 'BrightData/datacenter' has Unit Rate 0.60` -- as NORMA's own
+		// verbalization does, and the instance mapper saw only quoted spans, so
+		// 429 such facts across the corpora populated nothing while their
+		// mandatory constraints still checked the entity: every Error Code
+		// without its declared status, every Cost Tier without its rate
+		// (2026-09-07). A bare token that is a number, bounded by whitespace or
+		// punctuation and not glued to a letter, a quote, a hyphen or a slash,
+		// is a value span like a quoted one; the kind before it resolves the
+		// same way. Dates (2023-07-10) stay quoted, and a number inside a name
+		// (Title 28, Chapter 176) is the identifying value of that entity,
+		// which is exactly what the span mechanism makes of it.
+		private static readonly Regex BareNumber = new Regex(@"(?<![\w'/.-])-?\d+(?:\.\d+)?(?![\w'/.-])");
+		private static List<QuotedSpan> ValueSpans(string s)
+		{
+			var spans = QuotedSpans(s);
+			foreach (Match nm in BareNumber.Matches(s))
+			{
+				bool inside = false;
+				foreach (QuotedSpan q in spans)
+				{
+					if (nm.Index >= q.Index && nm.Index < q.Index + q.Length) { inside = true; break; }
+				}
+				if (inside) continue;
+				spans.Add(new QuotedSpan { Index = nm.Index, Length = nm.Length, Value = nm.Value });
+			}
+			spans.Sort((a, b) => a.Index.CompareTo(b.Index));
+			return spans;
+		}
+
 		private struct QuotedSpan { public int Index; public int Length; public string Value; }
 		private static List<QuotedSpan> QuotedSpans(string s)
 		{
@@ -2135,7 +2166,7 @@ namespace Arest.NormaOracle
 			var quotes = new List<string>();
 			var texts = new List<string>();
 			int cursor = 0;
-			foreach (QuotedSpan qm in QuotedSpans(body))
+			foreach (QuotedSpan qm in ValueSpans(body))
 			{
 				texts.Add(body.Substring(cursor, qm.Index - cursor));
 				quotes.Add(qm.Value);
