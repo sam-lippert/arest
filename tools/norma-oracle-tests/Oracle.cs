@@ -240,6 +240,12 @@ namespace Arest.NormaOracle.Tests
             foreach (string l in Lines(output))
             {
                 if (l.Contains("Unhandled Exception") || l.StartsWith("   at Arest.NormaOracle.Program", StringComparison.Ordinal)) return l;
+                // A REFUSED run wrote nothing: the oracle declines to land carriers on a
+                // scratch built from a different source list. The scratch's previous
+                // carriers then read as this run's, and a record made from them is the
+                // old record -- two corpora "re-recorded" identical on 2026-09-07 with
+                // the connector registry newly composed, because the refusal passed.
+                if (l.StartsWith("REFUSED:", StringComparison.Ordinal)) return l;
             }
             return null;
         }

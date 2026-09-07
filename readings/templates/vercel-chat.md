@@ -25,21 +25,25 @@ JS Package 'ai-elements' has Package Manager 'npm'.
 Predicate 'useChat' is exported from JS Package '@ai-sdk/react'.
 Predicate 'useChat' has Module Path '@ai-sdk/react'.
 Predicate 'useChat' has Symbol Name 'useChat'.
+Predicate 'useChat' has Name 'useChat'.
 Predicate 'useChat' has Description 'React hook for managed multi-turn chat state. Takes {api, id, initialMessages, body, headers, onFinish, onError, ...}; returns {messages, input, handleInputChange, handleSubmit, append, reload, stop, isLoading, error, setMessages, setInput, data}. Consumes the AI SDK Data Stream protocol over SSE.'.
 
 Predicate 'useCompletion' is exported from JS Package '@ai-sdk/react'.
 Predicate 'useCompletion' has Module Path '@ai-sdk/react'.
 Predicate 'useCompletion' has Symbol Name 'useCompletion'.
+Predicate 'useCompletion' has Name 'useCompletion'.
 Predicate 'useCompletion' has Description 'React hook for single-turn text completion. Takes {api, id, initialInput, body, headers, onFinish, onError, ...}; returns {completion, input, handleInputChange, handleSubmit, complete, stop, isLoading, error, setCompletion, setInput}.'.
 
 Predicate 'useObject' is exported from JS Package '@ai-sdk/react'.
 Predicate 'useObject' has Module Path '@ai-sdk/react'.
 Predicate 'useObject' has Symbol Name 'experimental_useObject'.
+Predicate 'useObject' has Name 'useObject'.
 Predicate 'useObject' has Description 'React hook for streaming a typed object matching a schema. Takes {api, schema, id, headers, ...}; returns {object, submit, isLoading, error, stop}. Pairs with server-side streamObject.'.
 
 Predicate 'useAssistant' is exported from JS Package '@ai-sdk/react'.
 Predicate 'useAssistant' has Module Path '@ai-sdk/react'.
 Predicate 'useAssistant' has Symbol Name 'useAssistant'.
+Predicate 'useAssistant' has Name 'useAssistant'.
 Predicate 'useAssistant' has Description 'React hook for OpenAI Assistants API integration. Takes {api, threadId, ...}; returns {messages, input, status, threadId, append, submitMessage, ...}.'.
 
 ### AI Elements components
@@ -47,26 +51,31 @@ Predicate 'useAssistant' has Description 'React hook for OpenAI Assistants API i
 Predicate 'Conversation' is exported from JS Package 'ai-elements'.
 Predicate 'Conversation' has Module Path 'ai-elements/conversation'.
 Predicate 'Conversation' has Symbol Name 'Conversation'.
+Predicate 'Conversation' has Name 'Conversation'.
 Predicate 'Conversation' has Description 'Scrollable container for chat messages. Wraps the messages array from useChat and provides auto-scroll, sticky bottom, and overflow handling.'.
 
 Predicate 'Message' is exported from JS Package 'ai-elements'.
 Predicate 'Message' has Module Path 'ai-elements/message'.
 Predicate 'Message' has Symbol Name 'Message'.
+Predicate 'Message' has Name 'Message'.
 Predicate 'Message' has Description 'Per-message bubble rendering a single chat turn. Takes {from: "user" | "assistant"} and content; styles user vs assistant variants.'.
 
 Predicate 'PromptInput' is exported from JS Package 'ai-elements'.
 Predicate 'PromptInput' has Module Path 'ai-elements/prompt-input'.
 Predicate 'PromptInput' has Symbol Name 'PromptInput'.
+Predicate 'PromptInput' has Name 'PromptInput'.
 Predicate 'PromptInput' has Description 'Composable input form for chat. Wraps useChat.handleSubmit + handleInputChange with submit-on-Enter behavior, attachment slots, and stop button.'.
 
 Predicate 'Response' is exported from JS Package 'ai-elements'.
 Predicate 'Response' has Module Path 'ai-elements/response'.
 Predicate 'Response' has Symbol Name 'Response'.
+Predicate 'Response' has Name 'Response'.
 Predicate 'Response' has Description 'Markdown renderer for streaming assistant text. Handles partial streaming gracefully and applies syntax highlighting to code blocks.'.
 
 Predicate 'Reasoning' is exported from JS Package 'ai-elements'.
 Predicate 'Reasoning' has Module Path 'ai-elements/reasoning'.
 Predicate 'Reasoning' has Symbol Name 'Reasoning'.
+Predicate 'Reasoning' has Name 'Reasoning'.
 Predicate 'Reasoning' has Description 'Collapsible disclosure for thinking-mode model output. Renders the reasoning channel from streamText results without dominating the visible chat.'.
 
 ### Server-side handlers (paired with hooks)
@@ -74,11 +83,13 @@ Predicate 'Reasoning' has Description 'Collapsible disclosure for thinking-mode 
 Predicate 'toDataStreamResponse' is exported from JS Package 'ai'.
 Predicate 'toDataStreamResponse' has Module Path 'ai'.
 Predicate 'toDataStreamResponse' has Symbol Name 'toDataStreamResponse'.
+Predicate 'toDataStreamResponse' has Name 'toDataStreamResponse'.
 Predicate 'toDataStreamResponse' has Description 'Method on StreamTextResult that emits the AI SDK Data Stream protocol. The Response returned by this method is what useChat / useObject expect from the {api} URL.'.
 
 Predicate 'toAIStreamResponse' is exported from JS Package 'ai'.
 Predicate 'toAIStreamResponse' has Module Path 'ai'.
 Predicate 'toAIStreamResponse' has Symbol Name 'toAIStreamResponse'.
+Predicate 'toAIStreamResponse' has Name 'toAIStreamResponse'.
 Predicate 'toAIStreamResponse' has Description 'Legacy converter for older streaming clients. Prefer toDataStreamResponse for new code.'.
 
 Domain 'vercel-chat' has Access 'public'.

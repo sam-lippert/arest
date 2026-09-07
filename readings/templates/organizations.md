@@ -28,8 +28,14 @@ App Type is a value type.
 
 ### Organization
 
-Organization has Name.
-  Each Organization has exactly one Name.
+<!-- `Organization has Name` is not declared here (2026-09-07): Organization
+     is an Object Type Instance and so a Function (core.md), and the
+     metamodel's `Function has Name` is the fact type an
+     `Organization 'x' has Name 'y'` sentence lands in -- the oracle files by
+     the supertype's reading -- so a second declaration here was a fact type
+     with an `exactly one` and no rows, an alethic violation per organization
+     that refused every write. When the oracle files by the most specific
+     player the declaration and its mandatory can return. -->
 
 User owns Organization.
   Each Organization is owned by at most one User.
@@ -78,7 +84,15 @@ Domain has Label.
   Each Domain has at most one Label.
 
 Domain has Access.
-  Each Domain has exactly one Access.
+  Each Domain has at most one Access.
+<!-- Optional, not mandatory (2026-09-07): every domain in a composed
+     closure is a Domain, the metamodel's own included, and `exactly one`
+     made each of the 57 in support.auto.dev's closure an alethic violation
+     that refused every write. The derivation below already reads absence
+     as private: only a Domain with Access 'public' is accessed without
+     membership. -->
+
+## Value Types (continued)
 
 ### Derived Fact Types
 

@@ -47,6 +47,12 @@ JS Package 'support.auto.dev' depends on JS Package 'us-law'.
      directory list did not follow from the graph until arest was written down
      as a package like any other. -->
 JS Package 'support.auto.dev' depends on JS Package 'arest'.
+<!-- The connector registry (apps/connectors) is where an External System's
+     URL, auth shape and Country Code live; both apps' readings say so in
+     their comments and both checks compose it since 2026-09-07, so the
+     corpora do too. -->
+JS Package 'auto.dev' depends on JS Package 'connectors'.
+JS Package 'support.auto.dev' depends on JS Package 'connectors'.
 
 ## Where each package keeps its readings
 
@@ -59,6 +65,7 @@ JS Package 'auto.dev' has Readings Directory '../apps/auto.dev'.
 JS Package 'auto.dev' has Readings Directory '../apps/auto.dev/readings'.
 JS Package 'support.auto.dev' has Readings Directory '../apps/support.auto.dev/readings'.
 JS Package 'arest' has Readings Directory 'readings/templates'.
+JS Package 'connectors' has Readings Directory '../apps/connectors/readings'.
 JS Package 'arest-dev' has Readings Directory '../apps/arest-dev/readings'.
 <!-- This file is a FORML reading and arest-dev is the package that models
      arest's own engineering, so the manifest's directory is one of arest-dev's
@@ -89,6 +96,7 @@ Corpus 'kernel' reads Directory 'metamodel'.
 Corpus 'kernel' reads Directory '../apps/kernel/readings'.
 
 Corpus 'autodev' reads Directory 'metamodel'.
+Corpus 'autodev' reads Directory '../apps/connectors/readings'.
 Corpus 'autodev' reads Directory '../apps/auto.dev'.
 Corpus 'autodev' reads Directory '../apps/auto.dev/readings'.
 Corpus 'autodev' reads Directory '../apps/law-core/readings'.
@@ -101,6 +109,7 @@ Corpus 'support' reads Directory '../apps/auto.dev/readings'.
 Corpus 'support' reads Directory '../apps/law-core/readings'.
 Corpus 'support' reads Directory '../apps/us-law/readings/**'.
 Corpus 'support' reads Directory 'readings/templates'.
+Corpus 'support' reads Directory '../apps/connectors/readings'.
 
 Corpus 'eulaw' reads Directory 'metamodel'.
 Corpus 'eulaw' reads Directory '../apps/eu-law/readings'.
