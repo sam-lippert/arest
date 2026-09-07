@@ -547,6 +547,22 @@ const FASTPRIMS = new Map(Object.entries({
     for (let i = 0; i < n; i++) { const ra = Ev("cn:chrank", la[i]), rb = Ev("cn:chrank", lb[i]);
       if (ra === rb) continue; return bool(rb > ra); }
     return bool(la.length < lb.length); },
+  // cn:ordlt orders <rank, name> pairs: equal ranks by cn:strlt on the names,
+  // otherwise "a's rank is below b's", which canon writes as `not null
+  // (theta:drop [theta:iota b, a])` -- a list of b integers built and cut per
+  // comparison. The support report's column sort made 379k comparisons a
+  // minute and iota's 190k lists were 18.7 of its 60 s (2026-09-07). The
+  // VALUE of that test is arithmetic: iota has max(0, b) elements and drop
+  // keeps them all past a (0 keeps all, a negative drops all, as the twins
+  // above read the count), so the list is non-empty iff that remainder is.
+  // Ranks that are not integers, where the list's length would be a rounding
+  // question, are asked of the DEF; the names stay canon's through cn:strlt.
+  "cn:ordlt": x => { const a = seq(at(x, 0)), b = seq(at(x, 1)); const a1 = at(a, 0), b1 = at(b, 0);
+    if (deepEq(a1, b1)) return Ev("cn:strlt", [at(a, 1), at(b, 1)]);
+    if (!Number.isInteger(a1) || !Number.isInteger(b1)) return Ev(DEFS.get("cn:ordlt"), x);
+    const L = b1 > 0 ? b1 : 0;
+    const k = a1 === 0 ? 0 : (a1 < 0 ? L : Math.min(L, a1));
+    return bool(L - k > 0); },
   "solve:assoc3": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? ["", [], []] : hits[0]; },
   // theta:append_phi = apndr . [id, CONST PHI]: the list with PHI appended, the
