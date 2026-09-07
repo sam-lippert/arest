@@ -65,17 +65,23 @@ if (stamped === undefined || norm(stamped) !== norm(carriers)) {
 await import("file://" + join(modDir, "cases.g.js").replace(/\\/g, "/"));
 const { Ev, CELLS } = globalThis.AREST;
 
-// A("...") carries no escape -- an embedded quote ends the string and a newline
-// ends the line -- so a value holding either cannot be emitted, and emitting it
-// anyway would produce a carrier that parses as something else. Refuse instead.
+// A("...") is a string literal to every reader of a carrier -- the js module
+// takes it as JavaScript, the rust build's splitter (build.rs top_level) reads
+// a backslash as escaping the next byte, and the oracle already writes
+// design-state values this way (Verifier.cs, the A() emitter: backslash
+// doubled, quote escaped). The refusal that stood here skipped two artifacts
+// of the support store, cexp and childrenN, over one reading that quotes a
+// phrase, and the report then derived both at every boot (2026-09-07). A
+// newline still ends the line for the rust splitter, so a value holding one
+// is still refused.
 function src(v) {
   if (Array.isArray(v)) return v.length === 0 ? "PHI()" : "S(" + v.map(src).join(", ") + ")";
   if (typeof v === "number") return "N(" + v + ")";
   const s = String(v);
-  if (s.includes('"') || s.includes("\n") || s.includes("\r")) {
+  if (s.includes("\n") || s.includes("\r")) {
     throw new Error("value is not emittable as canon source: " + JSON.stringify(s.slice(0, 60)));
   }
-  return 'A("' + s + '")';
+  return 'A("' + s.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '")';
 }
 
 const parts = [];
