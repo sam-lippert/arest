@@ -12648,6 +12648,11 @@ namespace Arest.NormaOracle
 						break;
 					}
 				}
+				// THE SLOT IS THE SOURCE (2026-09-07). The descriptor's fifth slot is
+				// where a population is written; FILE, the relational projection the
+				// host builds at boot (ast:File) and every commit rebuilds
+				// (main:refile), is derived from it and never written by anything
+				// else. Canon's law file-is-projection holds the two equal.
 				bool intSecond = entry.Fact.Name == "FactTypeHasDeclarationOrder";
 				var rows = new List<string>();
 				for (int r = 0; r < entry.Rows.Count; r++)
