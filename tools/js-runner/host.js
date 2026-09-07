@@ -459,6 +459,15 @@ const FASTPRIMS = new Map(Object.entries({
   "csdp:matches": x => matchRows(at(x, 0), seq(at(x, 1))).slice(),
   // csdp:matches_at is the same filter on a named column: <n, key, rows>.
   "csdp:matches_at": x => matchRowsAt(at(x, 0), at(x, 1), seq(at(x, 2))).slice(),
+  // rmap:rows_for is the same first-column filter, <key, rows>, written as the
+  // right fold INSERT keep_row_of . append_phi . distl. rmap:nest's twin above
+  // took it out of the nesting, but law:l2_key still asks it once PER KEY over
+  // the whole table: 8,487 asks, 4.5 million row tests, the first 55 of the
+  // support report's 560 profiled seconds (2026-09-07). The rows are the same
+  // array across the asks, so the index is built once. Edges mirrored: source
+  // order, an atom or empty row throws the selector error the fold's predicate
+  // threw at that row, no match is PHI.
+  "rmap:rows_for": x => matchRows(at(x, 0), seq(at(x, 1))).slice(),
   "rmap:lookup0": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? [] : [at(hits[0], 1)]; },
   // solve:assoc / solve:assoc3 are the same first-match lookup, over the
@@ -974,6 +983,13 @@ function filterFold(body) {
 // takes minutes on a store of a few thousand facts is an interpreter cost with
 // a name, and this is how the name is found (us-law, 2026-09-04).
 const PROFILE = !!process.env.AREST_PROFILE;
+// AREST_PROFILE_EVERY=<ms> is the recording horizon (default a minute): the
+// table prints, and the facts file is written, each time that many ms have
+// passed since the last report. A run recorded at a fixed horizon is one
+// measurement comparable across stores -- "the first 90 s of support's
+// report" beside "the first 90 s of eu-law's" -- where the minute cadence
+// gives whichever snapshot the kill happened to leave (Sam, 2026-09-07).
+const PROFEVERY = parseInt(process.env.AREST_PROFILE_EVERY, 10) > 0 ? parseInt(process.env.AREST_PROFILE_EVERY, 10) : 60000;
 // AREST_STACK=1 keeps the canon frame stack without the timing: the stack at
 // an uncaught throw costs a push and a pop per call, the profile costs two
 // clock reads and a table update, and a report that takes twenty minutes to
@@ -1028,7 +1044,7 @@ function profExit() {
   if (row === undefined) { row = [0, 0, 0]; PROF.set(fr[0], row); }
   row[0]++; row[1] += self; row[2] += incl;
   if (PROFSTACK.length) PROFSTACK[PROFSTACK.length - 1][2] += incl;
-  if ((++PROFN & 0x3ffff) === 0 && performance.now() - PROFLAST > 60000) profReport("minute");
+  if ((++PROFN & 0x3ffff) === 0 && performance.now() - PROFLAST > PROFEVERY) profReport("minute");
 }
 function profReport(label) {
   PROFLAST = performance.now();
