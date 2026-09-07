@@ -160,6 +160,11 @@ writeFileSync(join(outDir, name), out);
 const run = process.argv.includes("--run");
 (run ? console.error : console.log)(name + ": " + out.length + " bytes from " + (SPLICED.length + 2) + " inputs");
 if (run) {
-  const proc = Bun.spawn(["bun", join(outDir, name)], { stdio: ["inherit", "inherit", "inherit"] });
+  // the module's own arguments follow `--` (`build.js ui --run -- --serve`,
+  // `build.js ui --run -- --text Task`); they were dropped until 2026-09-07,
+  // so `bun run ui` composed a container and then ran it with no address
+  const sep = process.argv.indexOf("--");
+  const rest = sep < 0 ? [] : process.argv.slice(sep + 1);
+  const proc = Bun.spawn(["bun", join(outDir, name), ...rest], { stdio: ["inherit", "inherit", "inherit"] });
   process.exit(await proc.exited);
 }

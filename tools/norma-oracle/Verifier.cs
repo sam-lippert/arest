@@ -1223,6 +1223,14 @@ namespace Arest.NormaOracle
 		}
 
 		private struct QuotedSpan { public int Index; public int Length; public string Value; }
+		// A DOUBLED APOSTROPHE IS ONE APOSTROPHE. Inside a span an apostrophe
+		// followed by a letter or digit is interior (don't, Sam's), and the
+		// readings written for the earlier engine double every interior one
+		// (don''t) as SQL and NORMA's verbalizer do; the first of the pair is
+		// followed by an apostrophe, not a letter, and closed the span there.
+		// 78 of the memory corpus's instance facts matched no fact type for
+		// exactly that reason (2026-09-07). The pair is skipped as one
+		// character and the value carries the single apostrophe.
 		private static List<QuotedSpan> QuotedSpans(string s)
 		{
 			var spans = new List<QuotedSpan>();
@@ -1236,9 +1244,13 @@ namespace Arest.NormaOracle
 				{
 					if (!char.IsLetterOrDigit(prevC)) open = i;
 				}
+				else if (nextC == '\'')
+				{
+					i++;
+				}
 				else if (!char.IsLetterOrDigit(nextC))
 				{
-					spans.Add(new QuotedSpan { Index = open, Length = i - open + 1, Value = s.Substring(open + 1, i - open - 1) });
+					spans.Add(new QuotedSpan { Index = open, Length = i - open + 1, Value = s.Substring(open + 1, i - open - 1).Replace("''", "'") });
 					open = -1;
 				}
 			}
@@ -11625,8 +11637,18 @@ namespace Arest.NormaOracle
 					return;
 				}
 			}
-			MandatoryConstraint mc = MandatoryConstraint.CreateSimpleMandatoryConstraint(role);
-			mc.Modality = modality;
+			// THE MODALITY IS SET AT CONSTRUCTION, NOT AFTER. Changing it on an
+			// attached constraint fires NORMA's MandatoryModalityChangedRule
+			// (SamplePopulation.cs), which walks each role's
+			// OppositeOrUnaryRole.Role; a unary's role has none here, and every
+			// `It is obligatory that each X is <unary>` died as a harness
+			// error -- six in claude's rules alone (2026-09-07). A property
+			// assignment at construction fires no change rule, and the role is
+			// added afterwards exactly as CreateSimpleMandatoryConstraint does.
+			MandatoryConstraint mc = new MandatoryConstraint(myStore,
+				new Microsoft.VisualStudio.Modeling.PropertyAssignment(MandatoryConstraint.IsSimpleDomainPropertyId, true),
+				new Microsoft.VisualStudio.Modeling.PropertyAssignment(MandatoryConstraint.ModalityDomainPropertyId, modality));
+			mc.RoleCollection.Add(role);
 			Count(kind);
 		}
 
