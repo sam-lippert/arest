@@ -544,7 +544,17 @@ const MEMOCN = new Set(["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
   // main:status_fts is the state-machine fact types of a store and main:cell2
   // a population of one by name: every GET on the API recomputed both,
   // 60% of a request's work in-process (the profile-and-fix loop, 2026-09-08)
-  "main:status_fts", "main:cell2"]);
+  "main:status_fts", "main:cell2",
+  // lex:subruns and lex:camel finish the column-name tokenizer lex:parts
+  // starts: parts -> run-substitution -> camelCase. lex:parts is memoised on
+  // the name atom (stable list out) and rmap:freesubs is memoable, so both
+  // arguments of lex:subruns are stable and lex:camel's is stable in turn. The
+  // law report transforms the same column names across the schema laws
+  // (normacolorder, normaconstraints, rmap_idempotence), the top of the
+  // report's self by lex:subruns 22.8% / lex:camel 14.2% inclusive; memoised
+  // they answer once per column name, not once per law (the profile-and-fix
+  // loop, 2026-09-08)
+  "lex:subruns", "lex:camel"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot canon list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
