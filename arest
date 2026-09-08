@@ -10981,8 +10981,10 @@ DEF("ui:control_for",
              A("ui:ctl_lookup"),
              S3(A("CONS"), N(2), A("ui:ctl_entry")))))),
 
+"THE MENU ASKS FOR THE GROUP NAMES, NOT THE GROUPS (the profile-and-fix loop, 2026-09-07). ui:groups was the first field of every group of rmap:schema -- and rmap:groups builds each group entire, a wide row per key value over every member relation, the whole relational population, to hand back its key. The first screen of the support store spent 53% of its time there. The group names are rmap:keys of the functionals, which is exactly what ALPHA(1) of rmap:groups answers, in the same order, since each group's first field is the key it was distributed over; the value is unchanged and the population is not built.",
+
 DEF("ui:groups",
-    S5(A("COMP"), S2(A("ALPHA"), N(1)), N(1), A("rmap:schema"), A("store:state"))),
+    S5(A("COMP"), A("rmap:keys"), A("rmap:functionals"), N(1), A("store:state"))),
 
 DEF("ui:ids",
     S4(A("COMP"), A("theta:unfold_atoms"), A("solve:assoc"), S3(A("CONS"), N(2), S4(A("COMP"), A("theta:flatten"), A("solve:cell"), S3(A("CONS"), K(A("state:otpops")), N(1)))))),
