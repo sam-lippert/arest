@@ -25,9 +25,13 @@
 // the C# Dictionary.Add does — law:one_name is the law.
 const DEFS = new Map();
 const CELLS = [];
+// bumped by every definition, so a form compiled against an older set of
+// definitions is compiled again (the compiled form, below Ev)
+let DEFSVER = 0;
 function DEF(name, body) {
   if (DEFS.has(name)) throw new Error("duplicate DEF: " + name);
   DEFS.set(name, body);
+  DEFSVER++;
   CELLS.push(["CELL", name, body]);
   return name;
 }
@@ -1189,7 +1193,9 @@ function sreport(label) {
     const rows = [];
     for (let i = 0; i < SNAMES.length; i++) { const n = STAMP[base + i]; if (n > 0) rows.push([SNAMES[i], n]); }
     rows.sort((a, b) => b[1] - a[1]);
-    return rows.slice(0, 16).map(([name, n]) => name + " " + Math.round(1000 * n / total) / 10 + "%").join("  ");
+    // AREST_SAMPLE_TOP=<n> rows per line (16 by default)
+    const nTop = parseInt(process.env.AREST_SAMPLE_TOP, 10) > 0 ? parseInt(process.env.AREST_SAMPLE_TOP, 10) : 16;
+    return rows.slice(0, nTop).map(([name, n]) => name + " " + Math.round(1000 * n / total) / 10 + "%").join("  ");
   };
   const d = Math.min(STAMP[0], SDEPTH);
   const stack = [];
@@ -1238,29 +1244,7 @@ function Ev(f, x) {
         profEnter(f);
         try { return Ev(DEFS.get(f), x); } catch (e) { profThrow(e); } finally { profExit(); }
       }
-      let node = EVMEMO.get(f);
-      if (node === undefined) { node = new Map(); EVMEMO.set(f, node); }
-      const chain = (Array.isArray(x) && x.length <= 4) ? [x.length, ...x] : [-1, x];
-      for (let i = 0; i < chain.length - 1; i++) {
-        let nn = node.get(chain[i]);
-        if (nn === undefined) { nn = new Map(); node.set(chain[i], nn); }
-        node = nn;
-      }
-      const last = chain[chain.length - 1];
-      if (node.has(last)) return node.get(last);
-      let v;
-      if (SAMPLE) {
-        senter(f);
-        try { v = Ev(DEFS.get(f), x); } finally { sexit(); }
-      } else if (STACKS) {
-        profEnter(f);
-        try { v = Ev(DEFS.get(f), x); } catch (e) { profThrow(e); } finally { profExit(); }
-      } else {
-        v = Ev(DEFS.get(f), x);
-      }
-      node.set(last, v);
-      if (++EVMEMON > 400000) memoClear();
-      return v;
+      return memoCall(f, x, stampedName(f, (y) => Ev(DEFS.get(f), y)));
     }
     if (PRIMS.has(f)) {
       if (SAMPLE) { senter(f); try { return PRIMS.get(f)(x); } finally { sexit(); } }
@@ -1268,8 +1252,8 @@ function Ev(f, x) {
     }
     throw new Error("unresolved atom: " + f);
   }
-  const form = seq(f);
-  const head = form[0];
+  // a form is compiled once into a closure and applied (compileForm, below);
+  // the arms described here are the arms it compiles
   // ---- tau clause (c): METACOMPOSITION (Backus 13.3.2, 13.4) --------------
   //     (rho <x1..xn>):y = (rho x1):<<x1..xn>, y>
   // This head used to be MATCHED by the switch below and never FETCHED, which
@@ -1291,90 +1275,209 @@ function Ev(f, x) {
   // is an optimization of the general case, not a separate dispatch. A
   // sequence head (a computed form) goes the general way, which the switch
   // could never express at all.
-  if (typeof head !== "string" || DEFS.has(head)) return Ev(head, [f, x]);
-  // the primitive forms are stamped by their head (COMP, ALPHA, COND, INSERT,
-  // WHILE) so the sample says which FORM carries the time, not only which
-  // definition -- the ops are what the stamp is for (Sam, 2026-09-07)
-  if (SAMPLE) { senter(head); try { return evForm(f, x, form, head); } finally { sexit(); } }
-  return evForm(f, x, form, head);
+  return compiled(f)(x);
 }
-function evForm(f, x, form, head) {
+
+// ---- THE COMPILED FORM ----------------------------------------------------
+// Sam, 2026-09-07, on the sample that put COMP and CONS at 55 to 65 percent of
+// self time on every store: "so a better eval strategy will squeeze out the
+// performance?" -- for the constant, yes. Applying a form resolved it every
+// time: seq the node, read the head, ask DEFS whether canon shadows it, pick
+// the switch arm, look the join pattern up, and for CONS go through the name
+// dispatch (four map lookups) into the twin. A form node is now compiled ONCE
+// into a closure with all of that resolved, its children compiled the same
+// way and bound, and applying the form is applying the closure. Meaning is
+// untouched: each arm is the interpreter's arm with its decisions hoisted,
+// a name still goes through Ev (twins, memo, profiler and stamp as before), a
+// selector is the selector, CONS and CONST compile to what their twins
+// answered, a head canon defines is fetched as tau clause (c) says, and a
+// definition registered after a node was compiled recompiles it (DEFSVER).
+// The 700 cases and the report hashes hold it byte for byte.
+const COMPILED = new WeakMap();
+function compiled(f) {
+  let g = COMPILED.get(f);
+  if (g === undefined || g.ver !== DEFSVER) { g = compileForm(f); g.ver = DEFSVER; COMPILED.set(f, g); }
+  return g;
+}
+// a child of a form: a selector inlined, a form compiled and bound, an atom
+// through Ev exactly as before (a name's dispatch is Ev's; an atom that is
+// neither raises there)
+function sub(f) {
+  if (typeof f === "number") return (x) => {
+    if (!Array.isArray(x)) throw new Error("selector " + f + " on atom: " + show(x));
+    if (f < 1 || f > x.length) throw new Error("selector " + f + " out of range " + x.length);
+    return x[f - 1];
+  };
+  if (Array.isArray(f)) return compiled(f);
+  if (typeof f === "string") return subName(f);
+  return (x) => Ev(f, x);
+}
+// THE MEMO, shared by Ev's name path and the compiled name: the small-argument
+// chain of maps, a hit returned before any instrumentation, a miss evaluated
+// by `run` (already stamped or profiled as the name) and stored
+function memoCall(f, x, run) {
+  let node = EVMEMO.get(f);
+  if (node === undefined) { node = new Map(); EVMEMO.set(f, node); }
+  const chain = (Array.isArray(x) && x.length <= 4) ? [x.length, ...x] : [-1, x];
+  for (let i = 0; i < chain.length - 1; i++) {
+    let nn = node.get(chain[i]);
+    if (nn === undefined) { nn = new Map(); node.set(chain[i], nn); }
+    node = nn;
+  }
+  const last = chain[chain.length - 1];
+  if (node.has(last)) return node.get(last);
+  const v = run(x);
+  node.set(last, v);
+  if (++EVMEMON > 400000) memoClear();
+  return v;
+}
+// A NAME IN A FORM, resolved once: Ev asked four maps per application (DEFS,
+// NOTWIN, FASTPRIMS, the memo's name set and two string prefixes) before it
+// did anything, and the sample charged all of it to the enclosing COMP. The
+// kind is decided here, at compile time, in Ev's order: a twin, else a
+// definition (its body compiled on first application, so a definition that
+// names itself compiles), memoised or not, stamped or profiled as the name
+// exactly as Ev did; a primitive is looked up at each application because
+// the containers register theirs after boot; anything else is left to Ev,
+// which raises the unresolved atom as before. The definitions themselves are
+// fixed after load (DEF bumps DEFSVER, and compiled forms follow it).
+function subName(s) {
+  if (DEFS.has(s)) {
+    const fp = NOTWIN.has(s) ? undefined : FASTPRIMS.get(s);
+    if (fp !== undefined) return stampedName(s, fp);
+    let body = null;
+    const run = stampedName(s, (x) => { if (body === null) body = sub(DEFS.get(s)); return body(x); });
+    if (!memoable(s)) return run;
+    return (x) => memoCall(s, x, run);
+  }
+  if (PRIMS.has(s)) {
+    if (SAMPLE) return (x) => { const p = PRIMS.get(s); senter(s); try { return p(x); } finally { sexit(); } };
+    return (x) => PRIMS.get(s)(x);
+  }
+  return (x) => Ev(s, x);
+}
+// the sample stamps a primitive form by its head; the profiler never entered
+// one, so under it a form is applied bare -- both as the interpreter did
+function stamped(head, g) {
+  if (!SAMPLE) return g;
+  return (x) => { senter(head); try { return g(x); } finally { sexit(); } };
+}
+// CONS and CONST were reached by name (Ev(head, [f, x]) into the twin), which
+// entered the profiler as that name and the stamp as that name: kept
+function stampedName(name, g) {
+  if (SAMPLE) return (x) => { senter(name); try { return g(x); } finally { sexit(); } };
+  if (STACKS) return (x) => { profEnter(name); try { return g(x); } catch (e) { profThrow(e); } finally { profExit(); } };
+  return g;
+}
+function compileForm(f) {
+  const form = seq(f);
+  const head = form[0];
+  // tau clause (c): a head that is not an atom is fetched (a computed form)
+  if (typeof head !== "string") return (x) => Ev(head, [f, x]);
+  // a head canon defines is fetched too; CONS and CONST are canon's, and when
+  // their twins stand (not NOTWIN) their value is built here directly: CONS is
+  // <f1:y .. fn:y> (the twin: seq the form, apply each part), CONST is the
+  // form's second element (COMP(2, 1): selector 2 of the form, which raises
+  // on a form without one exactly as the selector did)
+  if (DEFS.has(head)) {
+    const fp = NOTWIN.has(head) ? undefined : FASTPRIMS.get(head);
+    if (fp !== undefined && head === "CONS") {
+      const parts = [];
+      for (let i = 1; i < form.length; i++) parts.push(sub(form[i]));
+      const n = parts.length;
+      return stampedName("CONS", (y) => { const out = new Array(n); for (let i = 0; i < n; i++) out[i] = parts[i](y); return out; });
+    }
+    if (fp !== undefined && head === "CONST") {
+      if (form.length < 2) return stampedName("CONST", () => { throw new Error("selector 2 out of range " + form.length); });
+      const v = form[1];
+      return stampedName("CONST", () => v);
+    }
+    return (x) => Ev(head, [f, x]);
+  }
   switch (head) {
     case "COMP": {
+      const parts = [];
+      for (let i = 1; i < form.length; i++) parts.push(sub(form[i]));
+      const n = parts.length;
+      const chain = (x) => { let v = x; for (let i = n - 1; i >= 0; i--) v = parts[i](v); return v; };
       // the written strategy only pays to replace once the scan is long
       // enough for the index build to be worth it
       const jp = (form.length === 4 || form.length === 5) ? joinPat(form) : null;
-      let jx = jp === null ? null : (form.length === 5 ? Ev(form[4], x) : x);
-      if (jp !== null && Array.isArray(jx) && jx.length === 2
-          && Array.isArray(jx[jp.distl ? 1 : 0]) && jx[jp.distl ? 1 : 0].length > 32) {
-        // distl delivers <carrier, list>, distr delivers <list, carrier>
-        const list = jp.distl ? jx[1] : jx[0], carrier = jp.distl ? jx[0] : jx[1];
-        let idx = JOINIDX.get(list);
-        if (idx === undefined) { idx = new Map(); JOINIDX.set(list, idx); }
-        let byKey = idx.get(jp.elem);
-        if (byKey === undefined) {
-          byKey = new Map();
-          for (let i = 0; i < list.length; i++) {
-            const k = JSON.stringify(Ev(jp.elem, jp.distl ? [carrier, list[i]] : [list[i], carrier]));
-            let a = byKey.get(k); if (a === undefined) { a = []; byKey.set(k, a); }
-            a.push(list[i]);
+      if (jp === null) return stamped("COMP", chain);
+      const je = sub(jp.elem), jb = sub(jp.body), jc = sub(jp.carrier);
+      const last = form.length === 5 ? parts[3] : null;
+      return stamped("COMP", (x) => {
+        const jx = last === null ? x : last(x);
+        if (Array.isArray(jx) && jx.length === 2
+            && Array.isArray(jx[jp.distl ? 1 : 0]) && jx[jp.distl ? 1 : 0].length > 32) {
+          // distl delivers <carrier, list>, distr delivers <list, carrier>
+          const list = jp.distl ? jx[1] : jx[0], carrier = jp.distl ? jx[0] : jx[1];
+          let idx = JOINIDX.get(list);
+          if (idx === undefined) { idx = new Map(); JOINIDX.set(list, idx); }
+          let byKey = idx.get(jp.elem);
+          if (byKey === undefined) {
+            byKey = new Map();
+            for (let i = 0; i < list.length; i++) {
+              const k = JSON.stringify(je(jp.distl ? [carrier, list[i]] : [list[i], carrier]));
+              let a = byKey.get(k); if (a === undefined) { a = []; byKey.set(k, a); }
+              a.push(list[i]);
+            }
+            idx.set(jp.elem, byKey);
           }
-          idx.set(jp.elem, byKey);
+          const want = JSON.stringify(jc(jp.distl ? [carrier, []] : [[], carrier]));
+          const hits = byKey.get(want);
+          if (hits === undefined) return [];
+          const out = [];
+          for (let i = 0; i < hits.length; i++) {
+            const vs = seq(jb(jp.distl ? [carrier, hits[i]] : [hits[i], carrier]));
+            for (let j = 0; j < vs.length; j++) out.push(vs[j]);
+          }
+          return out;
         }
-        const want = JSON.stringify(Ev(jp.carrier, jp.distl ? [carrier, []] : [[], carrier]));
-        const hits = byKey.get(want);
-        if (hits === undefined) return [];
-        const out = [];
-        for (let i = 0; i < hits.length; i++) {
-          const vs = seq(Ev(jp.body, jp.distl ? [carrier, hits[i]] : [hits[i], carrier]));
-          for (let j = 0; j < vs.length; j++) out.push(vs[j]);
-        }
-        return out;
-      }
-      let v = x;
-      for (let i = form.length - 1; i >= 1; i--) v = Ev(form[i], v);
-      return v;
+        return chain(x);
+      });
     }
-    // CONS and CONST are CANON now -- DEF("CONS", COMP(ALPHA(apply), tl, distr))
-    // and DEF("CONST", COMP(2,1)), both Backus 13.3.2 verbatim. They are reached
-    // through tau clause (c) above, which fetches the head instead of matching
-    // it, so these two arms are dead: the switch is only the primitive arm, and
-    // canon defines these. Deleting them is the point -- equivalence was already
-    // proven (java and cs resolved them through their own switch while js
-    // resolved them through canon, byte-identical), but only removal proves
-    // REPLACEMENT. Eight copies of two theorems of the base, gone.
-    case "COND": return Ev(form[1], x) === "T" ? Ev(form[2], x) : Ev(form[3], x);
-    case "ALPHA": return seq(x).map(e => Ev(form[1], e));
+    case "COND": {
+      const p = sub(form[1]), a = sub(form[2]), b = sub(form[3]);
+      return stamped("COND", (x) => p(x) === "T" ? a(x) : b(x));
+    }
+    case "ALPHA": {
+      const g = sub(form[1]);
+      return stamped("ALPHA", (x) => seq(x).map(e => g(e)));
+    }
     case "INSERT": {
-      const xs = seq(x);
-      if (xs.length === 0) throw new Error("INSERT on empty");
-      const base = xs[xs.length - 1];
+      const g = sub(form[1]);
       // small folds keep the written strategy: the fast path only pays off
       // once the accumulator is long enough for the copying to bite.
-      const pat = (xs.length > 32 && Array.isArray(base)) ? filterFold(form[1]) : null;
-      if (pat !== null) {
-        const out = [];
-        for (let i = 0; i < xs.length - 1; i++) {
-          // the accumulator slot is null: framePure proved it unreachable,
-          // so a stray read fails loudly instead of reading stale data.
-          const frame = [xs[i], null];
-          if (Ev(pat.pred, frame) === "T")
-            out.push(pat.val === null ? xs[i] : Ev(pat.val, frame));
+      const pat = filterFold(form[1]);
+      const pp = pat === null ? null : sub(pat.pred);
+      const pv = pat === null || pat.val === null ? null : sub(pat.val);
+      return stamped("INSERT", (x) => {
+        const xs = seq(x);
+        if (xs.length === 0) throw new Error("INSERT on empty");
+        const base = xs[xs.length - 1];
+        if (pat !== null && xs.length > 32 && Array.isArray(base)) {
+          const out = [];
+          for (let i = 0; i < xs.length - 1; i++) {
+            // the accumulator slot is null: framePure proved it unreachable,
+            // so a stray read fails loudly instead of reading stale data.
+            const frame = [xs[i], null];
+            if (pp(frame) === "T") out.push(pv === null ? xs[i] : pv(frame));
+          }
+          for (let i = 0; i < base.length; i++) out.push(base[i]);
+          return out;
         }
-        for (let i = 0; i < base.length; i++) out.push(base[i]);
-        return out;
-      }
-      let acc = base;
-      for (let i = xs.length - 2; i >= 0; i--) acc = Ev(form[1], [xs[i], acc]);
-      return acc;
+        let acc = base;
+        for (let i = xs.length - 2; i >= 0; i--) acc = g([xs[i], acc]);
+        return acc;
+      });
     }
     case "WHILE": {
-      let v = x;
-      while (Ev(form[1], v) === "T") v = Ev(form[2], v);
-      return v;
+      const p = sub(form[1]), b = sub(form[2]);
+      return stamped("WHILE", (x) => { let v = x; while (p(v) === "T") v = b(v); return v; });
     }
   }
-  throw new Error("unknown form: " + head);
+  return () => { throw new Error("unknown form: " + head); };
 }
 
 // ---- THE FOUR WAYS IN ---------------------------------------------------
