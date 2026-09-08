@@ -2305,10 +2305,21 @@ function run_sql() {
 function loadStoreDb(path) {
   const { Database } = require("bun:sqlite");
   const db = new Database(path, { readonly: true });
+  const meta = db.query("select ft, kind, tbl, arity from _meta").all();
+  // entity tables = every table that is not _meta and not a relation table;
+  // a functional column name is unique to one entity table (one keyplayer per
+  // fact type), so map each column to the table that holds it. On the base
+  // every column maps to "Function", so this reads the committed DB unchanged.
+  const relTbls = new Set(meta.filter((m) => m.kind === "rel").map((m) => m.tbl));
+  const entTbls = db.query("select name from sqlite_master where type='table'").all()
+    .map((r) => r.name).filter((n) => n !== "_meta" && !relTbls.has(n));
+  const tableOfCol = new Map();
+  for (const t of entTbls) for (const c of db.query("select name from pragma_table_info('" + t.replace(/'/g, "''") + "')").all()) if (c.name !== "k") tableOfCol.set(c.name, t);
   const recon = [];
-  for (const m of db.query("select ft, kind, tbl, arity from _meta").all()) {
+  for (const m of meta) {
     if (m.kind === "func") {
-      const rows = db.query('select k, "' + m.tbl + '" v from "Function" where "' + m.tbl + '" is not null order by rowid').all();
+      const T = tableOfCol.get(m.tbl) || "Function";   // m.tbl is the column name (= ft)
+      const rows = db.query('select k, "' + m.tbl + '" v from "' + T + '" where "' + m.tbl + '" is not null order by rowid').all();
       recon.push(["CELL", m.ft, rows.map((r) => [JSON.parse(r.k), JSON.parse(r.v)])]);
     } else {
       const rows = db.query("select * from " + m.tbl + " order by rowid").all();
