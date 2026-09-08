@@ -1021,14 +1021,19 @@ const FASTPRIMS = new Map(Object.entries({
       if (!seen.has(k)) { seen.add(k); order.push(k); } }
     order.reverse();
     return order.map(k => { const c = counts.get(k); return [c.key, c.n]; }); },
+  // keyed by keyOf, not JSON.stringify: the first screen's sample on the
+  // support store put this lookup at 23% of self time, all of it the
+  // stringify of a name per ask inside the boot's rule closure (2026-09-07);
+  // keyOf keys an atom as its tag and text and a row as its atoms joined, and
+  // two values key equal iff they are deepEq, the same contract
   "theta:find_desc": x => { const name = at(x, 0), descs = seq(at(x, 1));
     let idx = DESCIDX.get(descs);
     if (idx === undefined) { idx = new Map();
       for (const d of descs) { if (!Array.isArray(d) || d.length === 0) continue;
-        const k = JSON.stringify(d[0]);
+        const k = keyOf(d[0]);
         if (!idx.has(k)) idx.set(k, d); }
       DESCIDX.set(descs, idx); }
-    const hit = idx.get(JSON.stringify(name));
+    const hit = idx.get(keyOf(name));
     return hit === undefined ? [] : hit; },
 }));
 // ---- INSERT filter fast path ---------------------------------------------
