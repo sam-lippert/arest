@@ -180,6 +180,45 @@ thread_local! {
         RefCell::new(HashMap::new());
     static ENTDESC: RefCell<HashMap<usize, (V, HashMap<String, V>)>> =
         RefCell::new(HashMap::new());
+    // The join / lookup indexes. Each mirrors a js host WeakMap (matchRows'
+    // MATCHIDX, ast:fetch's FETCHIDX, ...). Same retention discipline as ENTIDX:
+    // keyed by the Rc address of a frozen canon list, with that list held
+    // alongside so the address cannot be reused. NOT cleared by the memo's size
+    // cap (that trims EVMEMO only) -- these are true for as long as the value
+    // lives, exactly as the js WeakMaps are, and only a store mutation would
+    // invalidate them (the law report performs none).
+    // matchRows: rows-address -> (rows, key(col1) -> matching rows).
+    static MATCHIDX: RefCell<HashMap<usize, (V, HashMap<String, Vec<V>>)>> =
+        RefCell::new(HashMap::new());
+    // matchRowsAt: rows-address -> (rows, column -> key(col) -> matching rows).
+    static MATCHATIDX: RefCell<HashMap<usize, (V, HashMap<i64, HashMap<String, Vec<V>>>)>> =
+        RefCell::new(HashMap::new());
+    // ast:fetch: cells-address -> (cells, key(name) -> third field, first wins).
+    static FETCHIDX: RefCell<HashMap<usize, (V, HashMap<String, V>)>> =
+        RefCell::new(HashMap::new());
+    // solve:cell: cells-address -> (cells, key(name) -> index; a "bad" flag when
+    // an element before some name could not be selected, so a miss re-raises).
+    static SOLVEIDX: RefCell<HashMap<usize, (V, HashMap<String, usize>, bool)>> =
+        RefCell::new(HashMap::new());
+    // rmap:wide_row: relation-address -> (relation, key(col1) -> member pair).
+    static SLOTIDX: RefCell<HashMap<usize, (V, HashMap<String, V>)>> =
+        RefCell::new(HashMap::new());
+    // law:slot_for: <desc, nested>-address -> (that pair, its member pairs).
+    static SLOTFOR: RefCell<HashMap<usize, (V, V)>> =
+        RefCell::new(HashMap::new());
+    // theta:member / read:memberw over a long list: list-address -> (list, keys).
+    static MEMBIDX: RefCell<HashMap<usize, (V, HashSet<String>)>> =
+        RefCell::new(HashMap::new());
+    // joinPat: list-address -> (list, key(elem selector) -> join-key -> rows).
+    static JOINIDX: RefCell<HashMap<usize, (V, HashMap<String, HashMap<String, Vec<V>>>)>> =
+        RefCell::new(HashMap::new());
+    // rmap:member_pairs by the descriptor's identity (PAIRIDX's x-branch).
+    static PAIRIDX_X: RefCell<HashMap<usize, (V, V)>> =
+        RefCell::new(HashMap::new());
+    // rmap:member_pairs by the rows' identity, then by the four leading fields
+    // (PAIRIDX's rows-branch: the positions are a function of those fields).
+    static PAIRIDX_ROWS: RefCell<HashMap<usize, (V, HashMap<String, V>)>> =
+        RefCell::new(HashMap::new());
 }
 
 #[allow(non_snake_case)]
@@ -366,6 +405,336 @@ fn text_of(x: &V) -> String {
 // charisdigit answer F — the same five answers, from one place.
 // first_char deleted: charup/chardown are CANON, this had no callers.
 
+// ============================ join / lookup indexes ==========================
+// The shared machinery the FASTPRIMS below stand on. Each builds an index over
+// a frozen canon list ONCE, keyed by the list's Rc address, then answers O(1).
+// The index is built in locals and only then stored under a short borrow, so a
+// selector evaluated while building (ev) never re-enters the same cache.
+
+// the rows whose first column equals `key`, in source order -- the value of
+// csdp:matches. Throws building the index exactly where the fold's selector 1
+// would: at an atom row or an empty row, whatever the key (js matchRows).
+fn match_rows(k: &V, rows_v: &V) -> Vec<V> {
+    let rows = seq(rows_v);
+    let id = Rc::as_ptr(&rows) as usize;
+    let built = MATCHIDX.with(|m| m.borrow().contains_key(&id));
+    if !built {
+        let mut idx: HashMap<String, Vec<V>> = HashMap::new();
+        for r in rows.iter() {
+            match r {
+                V::Q(ra) if !ra.is_empty() => idx.entry(key(&ra[0])).or_default().push(r.clone()),
+                V::Q(_) => panic!("selector 1 out of range 0"),
+                _ => panic!("selector 1 on atom"),
+            }
+        }
+        MATCHIDX.with(|m| { m.borrow_mut().entry(id).or_insert((rows_v.clone(), idx)); });
+    }
+    let kk = key(k);
+    MATCHIDX.with(|m| m.borrow().get(&id).and_then(|e| e.1.get(&kk)).cloned().unwrap_or_default())
+}
+
+// the same, on an arbitrary 1-based column: <n, key, rows> (js matchRowsAt).
+fn match_rows_at(n: i64, k: &V, rows_v: &V) -> Vec<V> {
+    let rows = seq(rows_v);
+    let id = Rc::as_ptr(&rows) as usize;
+    let have = MATCHATIDX.with(|m| m.borrow().get(&id).map_or(false, |e| e.1.contains_key(&n)));
+    if !have {
+        let mut idx: HashMap<String, Vec<V>> = HashMap::new();
+        for r in rows.iter() {
+            match r {
+                V::Q(ra) if n >= 1 && (n as usize) <= ra.len() =>
+                    idx.entry(key(&ra[(n - 1) as usize])).or_default().push(r.clone()),
+                V::Q(ra) => panic!("selector {} out of range {}", n, ra.len()),
+                _ => panic!("selector {} on atom", n),
+            }
+        }
+        MATCHATIDX.with(|m| {
+            let mut m = m.borrow_mut();
+            let e = m.entry(id).or_insert_with(|| (rows_v.clone(), HashMap::new()));
+            e.1.entry(n).or_insert(idx);
+        });
+    }
+    let kk = key(k);
+    MATCHATIDX.with(|m| m.borrow().get(&id).and_then(|e| e.1.get(&n)).and_then(|c| c.get(&kk)).cloned().unwrap_or_default())
+}
+
+// the atoms of a value, in order: an atom is itself, a sequence is its members'
+// atoms flattened (js atomsOf, iterative to bound the stack).
+fn atoms_of(x: &V) -> Vec<V> {
+    match x {
+        V::Q(_) => {
+            let mut out: Vec<V> = Vec::new();
+            let mut stack: Vec<V> = vec![x.clone()];
+            while let Some(v) = stack.pop() {
+                if let V::Q(vv) = &v { for e in vv.iter().rev() { stack.push(e.clone()); } }
+                else { out.push(v); }
+            }
+            out
+        }
+        _ => vec![x.clone()],
+    }
+}
+
+// membership over a long list, answered by a set kept on the list (js MEMBIDX).
+fn membidx_has(list_v: &V, l: &Rc<Vec<V>>, needle: &V) -> V {
+    let id = Rc::as_ptr(l) as usize;
+    let built = MEMBIDX.with(|m| m.borrow().contains_key(&id));
+    if !built {
+        let mut s: HashSet<String> = HashSet::new();
+        for e in l.iter() { s.insert(key(e)); }
+        MEMBIDX.with(|m| { m.borrow_mut().entry(id).or_insert((list_v.clone(), s)); });
+    }
+    let nk = key(needle);
+    boolv(MEMBIDX.with(|m| m.borrow().get(&id).map_or(false, |e| e.1.contains(&nk))))
+}
+
+// rmap:nest, one pass: group rows by their first column (keys in theta:dedup's
+// last-occurrence order), each group nesting again with that column dropped
+// (js rmap:nest). Recursive because the extension is curried level by level.
+fn rmap_nest(x: &V) -> V {
+    let rows = seq(x);
+    if rows.is_empty() { return q(vec![]); }
+    if seq(&rows[0]).len() == 1 { return q(rows.iter().map(|r| at(r, 0)).collect()); }
+    let mut groups: HashMap<String, (V, Vec<V>)> = HashMap::new();
+    for row in rows.iter() {
+        let r = seq(row);
+        let k = key(&r[0]);
+        groups.entry(k).or_insert_with(|| (r[0].clone(), Vec::new())).1.push(row.clone());
+    }
+    let mut order: Vec<String> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    for row in rows.iter().rev() {
+        let k = key(&seq(row)[0]);
+        if seen.insert(k.clone()) { order.push(k); }
+    }
+    order.reverse();
+    let mut out: Vec<V> = Vec::with_capacity(order.len());
+    for k in order.iter() {
+        let (keyval, grows) = groups.get(k).unwrap();
+        let leaf = seq(&grows[0]).len() == 2;
+        let contents = if leaf {
+            q(grows.iter().map(|r| at(r, 1)).collect())
+        } else {
+            let tails: Vec<V> = grows.iter().map(|r| { let rs = seq(r); q(rs[1..].to_vec()) }).collect();
+            rmap_nest(&q(tails))
+        };
+        out.push(q(vec![a("CELL"), keyval.clone(), contents]));
+    }
+    q(out)
+}
+
+// ============================ join / filter form patterns ====================
+// The two structural fast paths the mu takes inside COMP and INSERT: a hash
+// join for the equal-keys filter over distr/distl, and a linear pass for the
+// prepend-every-survivor fold. Both are STRATEGY -- each runs the SAME body on
+// the SAME rows in the SAME order the written form would, only skipping rows the
+// form itself proves emit nothing (joinPat) or copy nothing (filterFold).
+
+#[derive(Clone)]
+struct JoinPattern { elem: V, carrier: V, body: V, distl: bool }
+#[derive(Clone)]
+struct EqKey { elem: V, carrier: V, form: V }
+enum NecKey { NoKey, Never, Key(EqKey) }
+#[derive(Clone)]
+struct FoldPattern { pred: V, val: Option<V> }
+
+// the frame slot a selector reads: a number is itself, COMP inherits its last
+// step's, anything else is not rooted at a slot (js rootSel).
+fn root_sel(f: &V) -> i64 {
+    match f {
+        V::I(n) => *n,
+        V::Q(form) if !form.is_empty() && matches!(&form[0], V::S(s) if &**s == "COMP") =>
+            root_sel(&form[form.len() - 1]),
+        _ => 0,
+    }
+}
+// CONST PHI, the base every emitting filter falls through to (js isPhiForm).
+fn is_phi_form(f: &V) -> bool {
+    matches!(f, V::Q(form) if form.len() >= 2
+        && matches!(&form[0], V::S(s) if &**s == "CONST")
+        && matches!(&form[1], V::Q(inner) if inner.is_empty()))
+}
+// a body that reaches the fold frame only through selector 1 (the element), so
+// the accumulator slot is provably unread (js framePure).
+fn frame_pure(f: &V) -> bool {
+    match f {
+        V::I(n) => *n == 1,
+        V::Q(form) if !form.is_empty() => match &form[0] {
+            V::S(s) => match &**s {
+                "CONST" => true,
+                "COMP" => frame_pure(&form[form.len() - 1]),
+                "CONS" | "COND" => form[1..].iter().all(frame_pure),
+                _ => false,
+            },
+            _ => false,
+        },
+        _ => false,
+    }
+}
+// COMP(eq, CONS(l, r)) whose two sides root at the element and the carrier
+// slot, in either order (js eqKey).
+fn eq_key(p: &V, es: i64, cs: i64) -> Option<EqKey> {
+    let form = match p { V::Q(f) => f, _ => return None };
+    if form.len() != 3 { return None; }
+    if !matches!(&form[0], V::S(s) if &**s == "COMP") { return None; }
+    if !matches!(&form[1], V::S(s) if &**s == "eq") { return None; }
+    let cons = match &form[2] { V::Q(c) => c, _ => return None };
+    if cons.len() != 3 || !matches!(&cons[0], V::S(s) if &**s == "CONS") { return None; }
+    let (l, r) = (&cons[1], &cons[2]);
+    let (rl, rr) = (root_sel(l), root_sel(r));
+    if rl == es && rr == cs { return Some(EqKey { elem: l.clone(), carrier: r.clone(), form: p.clone() }); }
+    if rl == cs && rr == es { return Some(EqKey { elem: r.clone(), carrier: l.clone(), form: p.clone() }); }
+    None
+}
+// the necessary key of a COND tree: a branch that is PHI emits nothing, a branch
+// guarded by an eq requires it, and the tree has a key when every emitting
+// branch requires the same one (js necKey).
+fn nec_key(body: &V, es: i64, cs: i64) -> NecKey {
+    if is_phi_form(body) { return NecKey::Never; }
+    let form = match body {
+        V::Q(f) if f.len() == 4 && matches!(&f[0], V::S(s) if &**s == "COND") => f,
+        _ => return NecKey::NoKey,
+    };
+    let p = &form[1];
+    let mut kp = eq_key(p, es, cs);
+    if kp.is_none() {
+        if let V::Q(pf) = p {
+            if pf.len() == 3 && matches!(&pf[0], V::S(s) if &**s == "COMP")
+                && matches!(&pf[1], V::S(s) if &**s == "and") {
+                if let V::Q(cons) = &pf[2] {
+                    if cons.len() == 3 && matches!(&cons[0], V::S(s) if &**s == "CONS") {
+                        kp = eq_key(&cons[1], es, cs).or_else(|| eq_key(&cons[2], es, cs));
+                    }
+                }
+            }
+        }
+    }
+    let kf = nec_key(&form[2], es, cs);
+    let kg = nec_key(&form[3], es, cs);
+    // the then-branch emits only when p holds: it requires p's key if p has
+    // one, else whatever the branch itself requires; the else-branch learns
+    // nothing from p being false.
+    let req_f = match kf {
+        NecKey::Never => NecKey::Never,
+        other => match kp { Some(k) => NecKey::Key(k), None => other },
+    };
+    // kg never -> reqF; reqF never -> kg; both keys and equal -> that key; else none.
+    match (req_f, kg) {
+        (rf, NecKey::Never) => rf,
+        (NecKey::Never, g) => g,
+        (NecKey::Key(a), NecKey::Key(b)) =>
+            if deep_eq(&a.form, &b.form) { NecKey::Key(a) } else { NecKey::NoKey },
+        _ => NecKey::NoKey,
+    }
+}
+// COMP(flatten, ALPHA(body), distr|distl) [, operand] whose body has a
+// necessary key: the equal-keys filter answered by an index (js joinPat).
+fn join_pat(form: &[V]) -> Option<JoinPattern> {
+    if !(form.len() == 4 || form.len() == 5) { return None; }
+    if !matches!(&form[1], V::S(s) if &**s == "theta:flatten") { return None; }
+    let dl = match &form[3] {
+        V::S(s) if &**s == "distl" => true,
+        V::S(s) if &**s == "distr" => false,
+        _ => return None,
+    };
+    let alpha = match &form[2] {
+        V::Q(a2) if a2.len() >= 2 && matches!(&a2[0], V::S(s) if &**s == "ALPHA") => a2,
+        _ => return None,
+    };
+    let body = &alpha[1];
+    let (es, cs) = if dl { (2i64, 1i64) } else { (1i64, 2i64) };
+    match nec_key(body, es, cs) {
+        NecKey::Key(k) => Some(JoinPattern { elem: k.elem, carrier: k.carrier, body: body.clone(), distl: dl }),
+        _ => None,
+    }
+}
+// run the join: distr frames are <element, carrier>, distl frames <carrier,
+// element>; index the list on the element key, look up the carrier key, run the
+// body on the hits in list order and flatten -- pair for pair the scan's value.
+fn join_exec(jp: &JoinPattern, list_v: &V, carrier_v: &V, list: &Rc<Vec<V>>) -> V {
+    let frame = |elem: &V| -> V {
+        if jp.distl { q(vec![carrier_v.clone(), elem.clone()]) }
+        else { q(vec![elem.clone(), carrier_v.clone()]) }
+    };
+    let id = Rc::as_ptr(list) as usize;
+    let elemk = key(&jp.elem);
+    let have = JOINIDX.with(|m| m.borrow().get(&id).map_or(false, |e| e.1.contains_key(&elemk)));
+    if !have {
+        let mut by_key: HashMap<String, Vec<V>> = HashMap::new();
+        for e in list.iter() {
+            let k = key(&ev(&jp.elem, &frame(e)));
+            by_key.entry(k).or_default().push(e.clone());
+        }
+        JOINIDX.with(|m| {
+            let mut m = m.borrow_mut();
+            let e = m.entry(id).or_insert_with(|| (list_v.clone(), HashMap::new()));
+            e.1.entry(elemk.clone()).or_insert(by_key);
+        });
+    }
+    let want_frame = if jp.distl { q(vec![carrier_v.clone(), q(vec![])]) } else { q(vec![q(vec![]), carrier_v.clone()]) };
+    let want = key(&ev(&jp.carrier, &want_frame));
+    let hits = JOINIDX.with(|m| m.borrow().get(&id).and_then(|e| e.1.get(&elemk)).and_then(|bk| bk.get(&want)).cloned());
+    match hits {
+        None => q(vec![]),
+        Some(hs) => {
+            let mut out: Vec<V> = Vec::new();
+            for h in hs.iter() { out.extend(seq(&ev(&jp.body, &frame(h))).iter().cloned()); }
+            q(out)
+        }
+    }
+}
+// the INSERT filter fold: COND(pred, apndl, 2) or COND(pred, apndl . CONS(v, 2),
+// 2), the pred frame-pure, resolving a named body to its DEF (js filterFold).
+fn fold_pattern(body: &V, depth: usize) -> Option<FoldPattern> {
+    if depth > 8 { return None; }
+    match body {
+        V::S(name) => {
+            if is_fastprim_name(name) { return None; }
+            let b = DEFS.with(|d| d.borrow().get(&**name).cloned());
+            b.and_then(|bb| fold_pattern(&bb, depth + 1))
+        }
+        V::Q(f) => {
+            if f.len() == 4 && matches!(&f[0], V::S(s) if &**s == "COND")
+                && matches!(&f[3], V::I(2)) && frame_pure(&f[1]) {
+                let then = &f[2];
+                if matches!(then, V::S(s) if &**s == "apndl") {
+                    return Some(FoldPattern { pred: f[1].clone(), val: None });
+                }
+                if let V::Q(tf) = then {
+                    if tf.len() == 3 && matches!(&tf[0], V::S(s) if &**s == "COMP")
+                        && matches!(&tf[1], V::S(s) if &**s == "apndl") {
+                        if let V::Q(cons) = &tf[2] {
+                            if cons.len() == 3 && matches!(&cons[0], V::S(s) if &**s == "CONS")
+                                && matches!(&cons[2], V::I(2)) && frame_pure(&cons[1]) {
+                                return Some(FoldPattern { pred: f[1].clone(), val: Some(cons[1].clone()) });
+                            }
+                        }
+                    }
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+// the names fastprim answers, so filterFold does not mistake a twin for a fold
+// body (js FASTPRIMS.has). Kept beside fastprim; a name added there is added
+// here.
+fn is_fastprim_name(s: &str) -> bool {
+    matches!(s,
+        "theta:member" | "theta:filter_eq" | "theta:drop" | "theta:take" | "theta:nth"
+        | "theta:last" | "theta:butlast" | "theta:iota" | "theta:zip" | "theta:dedup"
+        | "theta:setminus" | "theta:flatten" | "cn:entsat" | "theta:find_desc"
+        | "read:memberw" | "CONS" | "CONST" | "ast:fetch" | "csdp:matches"
+        | "csdp:matches_at" | "rmap:rows_for" | "rmap:lookup0" | "solve:assoc"
+        | "solve:assoc3" | "cn:fokey" | "cn:rmvt" | "cn:owner" | "cn:gmpl"
+        | "theta:natjoin" | "derive:jo_rows" | "rmap:nest" | "derive:count_rows"
+        | "rmap:merge_cells" | "rmap:member_pairs" | "rmap:slot" | "rmap:wide_row"
+        | "law:slot_for" | "main:flat" | "theta:append_phi" | "law:atoms_of"
+        | "manifest:opatoms" | "solve:cell")
+}
+
 // ============================ FASTPRIMS ======================================
 // Compiled forms of hot canon list cells. The DEF stays the meaning; the head
 // evaluates its EXTENSIONAL EQUAL and the unit tests certify identity. Measured
@@ -374,8 +743,8 @@ fn text_of(x: &V) -> String {
 // Neither alone suffices, which is exactly why java and cs would not finish.
 fn fastprim(name: &str, x: &V) -> Option<V> {
     let r = match name {
-        "theta:member" => { let needle = at(x, 0);
-            boolv(seq(&at(x, 1)).iter().any(|e| deep_eq(&needle, e))) }
+        "theta:member" => { let needle = at(x, 0); let lv = at(x, 1); let l = seq(&lv);
+            if l.len() < 16 { boolv(l.iter().any(|e| deep_eq(&needle, e))) } else { membidx_has(&lv, &l, &needle) } }
         "theta:filter_eq" => q(seq(x).iter()
             .filter(|p| deep_eq(&at(p, 0), &at(p, 1))).cloned().collect()),
         "theta:drop" => { let l = seq(&at(x, 0)); let k = drain(&l, &at(x, 1)); q(l[k..].to_vec()) }
@@ -449,6 +818,223 @@ fn fastprim(name: &str, x: &V) -> Option<V> {
                 });
                 idx.get(&name_k).cloned()
             }).unwrap_or_else(|| q(vec![])) }
+        // -- CONS / CONST: the combining forms' fast paths (Backus 13.3.2),
+        // reached by name through metacomposition. CONS <<CONS f1..fn>, y> is
+        // <f1:y .. fn:y>; CONST is the form's second element (Ev 2 . Ev 1).
+        "CONS" => { let form = seq(&at(x, 0)); let y = at(x, 1);
+            q(form[1..].iter().map(|fi| ev(fi, &y)).collect()) }
+        "CONST" => at(&at(x, 0), 1),
+        // -- ast:fetch: the FIRST cell named n, the store indexed once by name.
+        // A cell is any sequence of length 3; the answer is its third element.
+        "ast:fetch" => { let name = at(x, 0); let cells_v = at(x, 1); let cells = seq(&cells_v);
+            let id = Rc::as_ptr(&cells) as usize;
+            let built = FETCHIDX.with(|m| m.borrow().contains_key(&id));
+            if !built {
+                let mut idx: HashMap<String, V> = HashMap::new();
+                for c in cells.iter() {
+                    if let V::Q(ca) = c { if ca.len() == 3 { idx.entry(key(&ca[1])).or_insert_with(|| ca[2].clone()); } }
+                }
+                FETCHIDX.with(|m| { m.borrow_mut().entry(id).or_insert((cells_v.clone(), idx)); });
+            }
+            let kk = key(&name);
+            FETCHIDX.with(|m| m.borrow().get(&id).and_then(|e| e.1.get(&kk).cloned())).unwrap_or_else(|| a("#")) }
+        // -- the first-match lookups, all matchRows over a table indexed once by
+        // its first column, each with its DEF's own answer and sentinel.
+        "csdp:matches" => q(match_rows(&at(x, 0), &at(x, 1))),
+        "csdp:matches_at" => q(match_rows_at(int_of(&at(x, 0)), &at(x, 1), &at(x, 2))),
+        "rmap:rows_for" => q(match_rows(&at(x, 0), &at(x, 1))),
+        "rmap:lookup0" => { let h = match_rows(&at(x, 0), &at(x, 1));
+            if h.is_empty() { q(vec![]) } else { q(vec![at(&h[0], 1)]) } }
+        "solve:assoc" => { let h = match_rows(&at(x, 0), &at(x, 1));
+            if h.is_empty() { q(vec![]) } else { at(&h[0], 1) } }
+        "solve:assoc3" => { let h = match_rows(&at(x, 0), &at(x, 1));
+            if h.is_empty() { q(vec![a(""), q(vec![]), q(vec![])]) } else { h[0].clone() } }
+        "cn:fokey" => { let h = match_rows(&at(x, 0), &at(x, 1));
+            if h.is_empty() { V::I(999999) } else { at(&h[0], 1) } }
+        "cn:rmvt" => { let h = match_rows(&at(x, 0), &at(x, 1));
+            if h.is_empty() { a("") } else { at(&h[0], 3) } }
+        "cn:owner" => { let h = match_rows(&at(x, 0), &at(x, 1));
+            if h.is_empty() { q(vec![]) } else { q(vec![at(&h[0], 1)]) } }
+        "cn:gmpl" => { let h = match_rows(&at(x, 0), &at(x, 1));
+            if h.is_empty() { q(vec![]) } else {
+                let third = at(&h[0], 2);
+                if matches!(&third, V::Q(t) if t.is_empty()) { q(vec![]) }
+                else { q(vec![at(&at(&h[0], 1), 0), at(&third, 0)]) } } }
+        // -- solve:cell: the first cell named n, indexed like ast:fetch but with
+        // this DEF's edges -- a cell needs a second field to index and a third
+        // to answer, and a name missing before a malformed cell raises it.
+        "solve:cell" => { let name = at(x, 0); let cells_v = at(x, 1); let cells = seq(&cells_v);
+            let id = Rc::as_ptr(&cells) as usize;
+            let built = SOLVEIDX.with(|m| m.borrow().contains_key(&id));
+            if !built {
+                let mut idx: HashMap<String, usize> = HashMap::new();
+                let mut bad = false;
+                for (i, c) in cells.iter().enumerate() {
+                    match c {
+                        V::Q(ca) if ca.len() >= 2 => { idx.entry(key(&ca[1])).or_insert(i); }
+                        _ => { bad = true; break; }
+                    }
+                }
+                SOLVEIDX.with(|m| { m.borrow_mut().entry(id).or_insert((cells_v.clone(), idx, bad)); });
+            }
+            let kk = key(&name);
+            let (hit, bad) = SOLVEIDX.with(|m| { let mm = m.borrow(); let e = mm.get(&id).unwrap(); (e.1.get(&kk).copied(), e.2) });
+            match hit {
+                Some(i) => at(&cells[i], 2),
+                None => { if bad { panic!("solve:cell: selector on a cell with no name"); } q(vec![]) }
+            } }
+        // -- the two hash joins. theta:natjoin <(theta:natjoin keys), <A, B>>
+        // and derive:jo_rows <keys, <A, B>>: index the right list in its own
+        // order, walk the left, each hit combined -- pair for pair the loop.
+        "theta:natjoin" => { let form_v = at(x, 0); let keys = at(&form_v, 1);
+            let ab = at(x, 1); let a_v = at(&ab, 0); let b_v = at(&ab, 1);
+            let av = seq(&a_v); let bv = seq(&b_v);
+            if av.is_empty() { q(vec![]) } else {
+                let mut idx: HashMap<String, Vec<V>> = HashMap::new();
+                for b in bv.iter() {
+                    match b { V::Q(bb) if !bb.is_empty() => idx.entry(key(&bb[0])).or_default().push(b.clone()),
+                              V::Q(_) => panic!("selector 1 out of range 0"), _ => panic!("selector 1 on atom") }
+                }
+                let mut out: Vec<V> = Vec::new();
+                for a_row in av.iter() {
+                    let hk = key(&ev(&keys, a_row));
+                    if let Some(hits) = idx.get(&hk) {
+                        let arow = seq(a_row);
+                        for b in hits.iter() { let bb = seq(b);
+                            let mut row = arow.to_vec(); row.extend(bb[1..].iter().cloned()); out.push(q(row)); }
+                    }
+                }
+                q(out)
+            } }
+        "derive:jo_rows" => { let keys_v = at(x, 0); let keys = seq(&keys_v);
+            let pair = at(x, 1); let a_v = at(&pair, 0); let b_v = at(&pair, 1);
+            let av = seq(&a_v); let bv = seq(&b_v);
+            if av.is_empty() || bv.is_empty() { q(vec![]) }
+            else if keys.is_empty() {
+                let mut out: Vec<V> = Vec::new();
+                for a_row in av.iter() { for b_row in bv.iter() {
+                    let mut r = seq(a_row).to_vec(); r.extend(seq(b_row).iter().cloned()); out.push(q(r)); } }
+                q(out)
+            } else {
+                let sel_a: Vec<V> = keys.iter().map(|k| at(k, 0)).collect();
+                let sel_b: Vec<V> = keys.iter().map(|k| at(k, 1)).collect();
+                let mut idx: HashMap<String, Vec<V>> = HashMap::new();
+                for b_row in bv.iter() {
+                    let mut kk = String::new();
+                    for sel in sel_b.iter() { let v = key(&ev(sel, b_row)); kk.push_str(&v.len().to_string()); kk.push(':'); kk.push_str(&v); }
+                    idx.entry(kk).or_default().push(b_row.clone());
+                }
+                let mut out: Vec<V> = Vec::new();
+                for a_row in av.iter() {
+                    let mut kk = String::new();
+                    for sel in sel_a.iter() { let v = key(&ev(sel, a_row)); kk.push_str(&v.len().to_string()); kk.push(':'); kk.push_str(&v); }
+                    if let Some(hits) = idx.get(&kk) {
+                        let asq = seq(a_row);
+                        for b_row in hits.iter() { let mut r = asq.to_vec(); r.extend(seq(b_row).iter().cloned()); out.push(q(r)); }
+                    }
+                }
+                q(out)
+            } }
+        // -- grouping in one pass: rmap:nest, derive:count_rows, rmap:merge_cells.
+        "rmap:nest" => rmap_nest(x),
+        "derive:count_rows" => { let sel = at(x, 0); let rows_v = at(x, 1); let rows = seq(&rows_v);
+            let keyvals: Vec<V> = rows.iter().map(|r| ev(&sel, r)).collect();
+            let mut counts: HashMap<String, (V, i64)> = HashMap::new();
+            for kv in keyvals.iter() { let e = counts.entry(key(kv)).or_insert_with(|| (kv.clone(), 0)); e.1 += 1; }
+            let mut order: Vec<String> = Vec::new(); let mut seen: HashSet<String> = HashSet::new();
+            for kv in keyvals.iter().rev() { let k = key(kv); if seen.insert(k.clone()) { order.push(k); } }
+            order.reverse();
+            q(order.iter().map(|k| { let (kv, n) = counts.get(k).unwrap(); q(vec![kv.clone(), V::I(*n)]) }).collect()) }
+        "rmap:merge_cells" => { let cells = seq(x);
+            let mut groups: HashMap<String, (Option<V>, V, Vec<V>)> = HashMap::new();
+            let mut order: Vec<String> = Vec::new();
+            for c in cells.iter() { let name = at(c, 1); let k = key(&name);
+                if let Some(g) = groups.get_mut(&k) { g.0 = None; g.2.push(c.clone()); }
+                else { groups.insert(k.clone(), (Some(c.clone()), name.clone(), vec![c.clone()])); order.push(k); } }
+            let mut out: Vec<V> = Vec::with_capacity(order.len());
+            for k in order.iter() { let (cell, name, parts) = groups.get(k).unwrap();
+                match cell { Some(c) => out.push(c.clone()),
+                    None => { let mut contents: Vec<V> = Vec::new();
+                        for c in parts.iter() { contents.extend(seq(&at(c, 2)).iter().cloned()); }
+                        out.push(q(vec![a("CELL"), name.clone(), q(contents)])); } } }
+            q(out) }
+        // -- the rmap wide-row machinery. member_pairs caches on the rows'
+        // identity (and the descriptor's); slot / wide_row / slot_for are its
+        // first-column lookups.
+        "rmap:member_pairs" => {
+            if let V::Q(xr) = x {
+                let xid = Rc::as_ptr(xr) as usize;
+                if let Some(v) = PAIRIDX_X.with(|m| m.borrow().get(&xid).map(|(_, v)| v.clone())) { return Some(v); }
+            }
+            let rows_v = at(x, 4); let rows = seq(&rows_v);
+            let rid = Rc::as_ptr(&rows) as usize;
+            let ck = key(&q(vec![at(x, 0), at(x, 1), at(x, 2), at(x, 3)]));
+            let cached = PAIRIDX_ROWS.with(|m| m.borrow().get(&rid).and_then(|(_, per)| per.get(&ck).cloned()));
+            let out = match cached {
+                Some(o) => o,
+                None => {
+                    let keypos = ev(&a("rmap:keypos"), x);
+                    let nonkeys_v = ev(&a("rmap:nonkey_positions"), x);
+                    let nonkeys = seq(&nonkeys_v);
+                    let mut rowsout: Vec<V> = Vec::with_capacity(rows.len());
+                    for r in rows.iter() {
+                        let nk: Vec<V> = nonkeys.iter().map(|sel| ev(sel, r)).collect();
+                        rowsout.push(q(vec![ev(&keypos, r), q(nk)]));
+                    }
+                    let o = q(rowsout);
+                    PAIRIDX_ROWS.with(|m| { let mut m = m.borrow_mut();
+                        let e = m.entry(rid).or_insert_with(|| (rows_v.clone(), HashMap::new()));
+                        e.1.insert(ck.clone(), o.clone()); });
+                    o
+                }
+            };
+            if let V::Q(xr) = x { let xid = Rc::as_ptr(xr) as usize;
+                if xid != rid { PAIRIDX_X.with(|m| { m.borrow_mut().entry(xid).or_insert((x.clone(), out.clone())); }); } }
+            out
+        }
+        "rmap:slot" => { let pairs = ev(&a("rmap:member_pairs"), &at(x, 0));
+            let h = match_rows(&at(x, 1), &pairs);
+            if h.is_empty() { q(vec![]) } else { q(vec![at(&h[0], 1)]) } }
+        "rmap:wide_row" => { let key_v = at(x, 0); let rels_v = at(x, 1); let rels = seq(&rels_v);
+            let kk = key(&key_v);
+            let mut out: Vec<V> = Vec::with_capacity(rels.len() + 1);
+            out.push(key_v.clone());
+            for rel in rels.iter() {
+                let relrc = seq(rel); let rid = Rc::as_ptr(&relrc) as usize;
+                let built = SLOTIDX.with(|m| m.borrow().contains_key(&rid));
+                if !built {
+                    let pairs_v = ev(&a("rmap:member_pairs"), rel); let pairs = seq(&pairs_v);
+                    let mut slots: HashMap<String, V> = HashMap::new();
+                    for p in pairs.iter() {
+                        match p { V::Q(pa) if !pa.is_empty() => { slots.entry(key(&pa[0])).or_insert_with(|| p.clone()); }
+                                  V::Q(_) => panic!("selector 1 out of range 0"), _ => panic!("selector 1 on atom") }
+                    }
+                    SLOTIDX.with(|m| { m.borrow_mut().entry(rid).or_insert((rel.clone(), slots)); });
+                }
+                let hit = SLOTIDX.with(|m| m.borrow().get(&rid).and_then(|e| e.1.get(&kk).cloned()));
+                out.push(match hit { Some(p) => q(vec![at(&p, 1)]), None => q(vec![]) });
+            }
+            q(out) }
+        "law:slot_for" => { let d_v = at(x, 1); let d = seq(&d_v);
+            let did = Rc::as_ptr(&d) as usize;
+            let cached = SLOTFOR.with(|m| m.borrow().get(&did).map(|(_, v)| v.clone()));
+            let pairs = match cached { Some(p) => p, None => {
+                let desc = seq(&at(&d_v, 0));
+                let unnested = ev(&a("rmap:unnest"), &at(&d_v, 1));
+                let rel = q(vec![desc[0].clone(), desc[1].clone(), desc[2].clone(), desc[3].clone(), unnested]);
+                let p = ev(&a("rmap:member_pairs"), &rel);
+                SLOTFOR.with(|m| { m.borrow_mut().entry(did).or_insert((d_v.clone(), p.clone())); });
+                p } };
+            let h = match_rows(&at(x, 0), &pairs);
+            if h.is_empty() { q(vec![]) } else { q(vec![at(&h[0], 1)]) } }
+        // -- concatenation and atom twins.
+        "main:flat" => { let mut out: Vec<V> = Vec::new();
+            for s in seq(x).iter() { out.extend(seq(s).iter().cloned()); } q(out) }
+        "theta:append_phi" => { let l = seq(x); let mut out = l.to_vec(); out.push(q(vec![])); q(out) }
+        "law:atoms_of" | "manifest:opatoms" => q(atoms_of(x)),
+        // -- read:memberw: theta:member's twin on the same kept set.
+        "read:memberw" => { let needle = at(x, 0); let lv = at(x, 1); let l = seq(&lv);
+            if l.len() < 16 { boolv(l.iter().any(|e| deep_eq(&needle, e))) } else { membidx_has(&lv, &l, &needle) } }
         _ => return None,
     };
     Some(r)
@@ -461,9 +1047,16 @@ fn drain(l: &[V], n: &V) -> usize {
 }
 
 fn memoable(f: &str) -> bool {
-    const MEMOCN: [&str; 13] = ["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor", "cn:sfx",
+    // The js host's MEMOCN, in full. Each names a PURE function of its argument
+    // whose input repeats: fetches and lookups keyed by the frozen store, the
+    // column tokenizer keyed by a name atom, the store-shaped reports. Memoising
+    // a pure def cannot change a value while D is frozen (Backus 14.6), so this
+    // is speed only; the leaf twins above intercept the ones that are also
+    // FASTPRIMS (ast:fetch, cn:gmpl) before the memo is consulted.
+    const MEMOCN: [&str; 22] = ["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor", "cn:sfx",
         "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts", "cn:chrank", "lex:lw",
-        "induce:sig_of"];
+        "induce:sig_of", "system:pop_in", "store:fts", "ui:otpops", "mcp:tools",
+        "derive:sm_marks", "main:status_fts", "main:cell2", "lex:subruns", "lex:camel"];
     MEMOCN.contains(&f) || f.starts_with("rmap:") || f.starts_with("state:")
 }
 
@@ -526,6 +1119,25 @@ fn ev(f: &V, x: &V) -> V {
             }
             match head.as_str() {
                 "COMP" => {
+                    // the equal-keys filter over distr/distl, answered by an
+                    // index once the scanned list is long enough to pay for the
+                    // build (joinPat). The written chain runs otherwise, and
+                    // always for a short list -- same value, same order.
+                    if form.len() == 4 || form.len() == 5 {
+                        if let Some(jp) = join_pat(&form[..]) {
+                            let jx = if form.len() == 5 { ev(&form[4], x) } else { x.clone() };
+                            if let V::Q(pairv) = &jx {
+                                if pairv.len() == 2 {
+                                    let (list_v, carrier_v) = if jp.distl { (&pairv[1], &pairv[0]) } else { (&pairv[0], &pairv[1]) };
+                                    if let V::Q(list) = list_v {
+                                        if list.len() > 32 {
+                                            return join_exec(&jp, list_v, carrier_v, list);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     let mut v = x.clone();
                     for i in (1..form.len()).rev() { v = ev(&form[i], &v); }
                     v
@@ -538,7 +1150,29 @@ fn ev(f: &V, x: &V) -> V {
                 "INSERT" => {
                     let xs = seq(x);
                     if xs.is_empty() { panic!("INSERT on empty"); }
-                    let mut acc = xs[xs.len() - 1].clone();
+                    let base = xs[xs.len() - 1].clone();
+                    // the prepend-every-survivor filter in one linear pass, when
+                    // the accumulator is long enough for the copying to bite
+                    // (filterFold). framePure proved the accumulator slot unread,
+                    // so the sentinel standing in it is never selected; a stray
+                    // read would surface loudly rather than as stale data.
+                    if xs.len() > 32 {
+                        if let V::Q(basev) = &base {
+                            if let Some(pat) = fold_pattern(&form[1], 0) {
+                                let sentinel = a("\u{0}unread-accumulator");
+                                let mut out: Vec<V> = Vec::new();
+                                for i in 0..xs.len() - 1 {
+                                    let frame = q(vec![xs[i].clone(), sentinel.clone()]);
+                                    if is_t(&ev(&pat.pred, &frame)) {
+                                        out.push(match &pat.val { None => xs[i].clone(), Some(v) => ev(v, &frame) });
+                                    }
+                                }
+                                out.extend(basev.iter().cloned());
+                                return q(out);
+                            }
+                        }
+                    }
+                    let mut acc = base;
                     for i in (0..xs.len() - 1).rev() {
                         acc = ev(&form[1], &q(vec![xs[i].clone(), acc]));
                     }
@@ -645,6 +1279,167 @@ thread_local! {
     static BOOTED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+// ============================ the store boot =================================
+// A STORE IS NOT THE FILE IT WAS READ FROM (cs-runner/Boot.cs, ported here). The
+// carriers give canon plus the composed populations; the STORE js and the C#
+// host answer over is three steps further on -- FILE is a projection of
+// state:fts, the reflected meta-types are computed from the schema, and the
+// derived populations are the closure under the program's own rules. Skipping
+// them is the whole of "the law golden is js-only": the hosts were not
+// disagreeing about an answer, they were answering over different stores, and
+// origin-boundary-match / store-closed / unreachable-set / nothing-owed /
+// writable / file-is-projection are the family that reads exactly that state.
+//
+// Every step is the same canon call the js and C# hosts make, in the same order
+// and under the same memo rule: CELLS is mutated, so the memo and the identity
+// indexes are cleared at each mutation point, because ev keys on the store's
+// identity and a store whose contents changed under the same reference would
+// keep answering from the old one. Order is not free: FILE is what the
+// population accessor reads, so it is first; a reflected population is an input
+// a rule may read, so it precedes the closure; the journal is folded last
+// because its entries change state:fts, whose projection FILE must then rebuild.
+
+// a fresh snapshot of the cell store, the operand every boot step evaluates over
+fn store_cells() -> V { CELLS.with(|c| q(c.borrow().clone())) }
+
+// CELLS was mutated: drop the memo and every identity index, exactly as js
+// memoClear does, so the next evaluation reindexes the new store.
+fn memo_clear_all() {
+    EVMEMO.with(|m| m.borrow_mut().clear());
+    EVMEMON.with(|n| *n.borrow_mut() = 0);
+    ENTIDX.with(|m| m.borrow_mut().clear());
+    ENTDESC.with(|m| m.borrow_mut().clear());
+    MATCHIDX.with(|m| m.borrow_mut().clear());
+    MATCHATIDX.with(|m| m.borrow_mut().clear());
+    FETCHIDX.with(|m| m.borrow_mut().clear());
+    SOLVEIDX.with(|m| m.borrow_mut().clear());
+    SLOTIDX.with(|m| m.borrow_mut().clear());
+    SLOTFOR.with(|m| m.borrow_mut().clear());
+    MEMBIDX.with(|m| m.borrow_mut().clear());
+    JOINIDX.with(|m| m.borrow_mut().clear());
+    PAIRIDX_X.with(|m| m.borrow_mut().clear());
+    PAIRIDX_ROWS.with(|m| m.borrow_mut().clear());
+}
+
+fn is_cell_named(cell: &V, name: &V) -> bool {
+    matches!(cell, V::Q(a) if a.len() >= 2
+        && matches!(&a[0], V::S(s) if &**s == "CELL") && deep_eq(&a[1], name))
+}
+fn is_journal_cell(cell: &V) -> bool {
+    matches!(cell, V::Q(a) if a.len() >= 2
+        && matches!(&a[1], V::S(s) if s.starts_with("journal:")))
+}
+
+// FILE is a projection of state:fts, and the accessor reads it, so it is built
+// first. Prepend each built cell (js unshift / C# Insert(0), which reverses).
+fn load_file() {
+    let cells = store_cells();
+    if !deep_eq(&ev(&a("ast:fetch"), &q(vec![a("FILE"), cells.clone()])), &a("#")) { return; }
+    let built = ev(&a("ast:File"), &ev(&a("store:state"), &cells));
+    let bs = seq(&built);
+    if bs.is_empty() { return; }
+    CELLS.with(|c| {
+        let mut cc = c.borrow_mut();
+        let mut nv: Vec<V> = bs.iter().rev().cloned().collect();
+        nv.extend(cc.drain(..));
+        *cc = nv;
+    });
+    memo_clear_all();
+}
+
+// canon says WHICH meta-types are reflected: reflect:cells answers
+// <name, population> pairs computed from the schema. Prepend each new one.
+fn load_reflected() {
+    let cells = store_cells();
+    let entries = ev(&a("reflect:cells"), &cells);
+    let mut added = false;
+    for entry in seq(&entries).iter() {
+        let e = seq(entry);
+        let name = &e[0];
+        let pop = &e[1];
+        if !matches!(pop, V::Q(p) if !p.is_empty()) { continue; }
+        if CELLS.with(|c| c.borrow().iter().any(|cell| is_cell_named(cell, name))) { continue; }
+        CELLS.with(|c| c.borrow_mut().insert(0, q(vec![a("CELL"), name.clone(), pop.clone()])));
+        added = true;
+    }
+    if added { memo_clear_all(); }
+}
+
+// THE STORE IS CLOSED UNDER ITS OWN RULES. derive:closed is the closure; carry a
+// head only when it holds MORE rows than already present (a semi-derived head
+// may carry an asserted prefix), never when empty, never over its own cell.
+fn load_derived() -> bool {
+    let cells = store_cells();
+    let mut carried: HashMap<String, usize> = HashMap::new();
+    for p in seq(&ev(&a("derive:store_pairs"), &cells)).iter() {
+        let pa = seq(p);
+        let n = if let V::Q(rows) = &pa[1] { rows.len() } else { 0 };
+        carried.insert(key(&pa[0]), n);
+    }
+    let mut seen: HashSet<String> = HashSet::new();
+    CELLS.with(|c| for cell in c.borrow().iter() {
+        if let V::Q(a2) = cell {
+            if a2.len() >= 2 && matches!(&a2[0], V::S(s) if &**s == "CELL") { seen.insert(key(&a2[1])); }
+        }
+    });
+    let closed = ev(&a("derive:closed"), &cells);
+    let mut to_add: Vec<V> = Vec::new();
+    for entry in seq(&closed).iter() {
+        let e = seq(entry);
+        let nk = key(&e[0]);
+        if seen.contains(&nk) { continue; }
+        let rows_len = if let V::Q(rows) = &e[1] { rows.len() } else { 0 };
+        if *carried.get(&nk).unwrap_or(&0) >= rows_len { continue; }
+        if rows_len == 0 { continue; }
+        to_add.push(q(vec![a("CELL"), e[0].clone(), e[1].clone()]));
+    }
+    if to_add.is_empty() { return false; }
+    CELLS.with(|c| {
+        let mut cc = c.borrow_mut();
+        for cell in to_add.iter() { cc.insert(0, cell.clone()); }
+    });
+    memo_clear_all();
+    true
+}
+
+// ui:replay folds the journal:<n> cells on their verbs and answers the store
+// they produce; canon returns the SAME operand when nothing folds. Returns
+// whether there were journal entries at all (the count, not the cell delta).
+fn load_journal() -> bool {
+    let before = store_cells();
+    let out = ev(&a("ui:replay"), &before);
+    if let (V::Q(o), V::Q(b)) = (&out, &before) { if Rc::ptr_eq(o, b) { return false; } }
+    let outv = match &out { V::Q(o) if !o.is_empty() => o.clone(), _ => return false };
+    let n = CELLS.with(|c| c.borrow().iter().filter(|cell| is_journal_cell(cell)).count());
+    CELLS.with(|c| *c.borrow_mut() = outv.iter().cloned().collect());
+    memo_clear_all();
+    n > 0
+}
+
+// a new store replaces the old wholesale (main:refile after a journal fold).
+fn adopt_store(next: &V) {
+    if let V::Q(arr) = next {
+        if arr.is_empty() { return; }
+        CELLS.with(|c| *c.borrow_mut() = arr.iter().cloned().collect());
+        memo_clear_all();
+    }
+}
+
+// The boot, mirroring Boot.cs / js boot() for the canon+carriers path (no
+// store-db). A store with no schema surface has no FILE to build, nothing to
+// reflect and no rules to close under, and asking anyway throws -- so it is left
+// as the carriers gave it.
+fn build_store() {
+    if deep_eq(&ev(&a("ast:fetch"), &q(vec![a("state:fts"), store_cells()])), &a("#")) { return; }
+    load_file();
+    load_reflected();
+    load_derived();
+    if load_journal() {
+        adopt_store(&ev(&a("main:refile"), &store_cells()));
+        load_derived();
+    }
+}
+
 /// Load canon and the carriers, once per thread. Every entry below calls it so
 /// a caller cannot forget, and the flag is why: DEF registration order is the
 /// contract, and loading twice would double CELLS rather than fail loudly.
@@ -653,6 +1448,7 @@ pub fn boot() {
         if !b.get() {
             load_canon();
             load_carriers();
+            build_store();
             b.set(true);
         }
     });
