@@ -367,7 +367,8 @@ let MEMBIDX = new WeakMap();
 let PAIRIDX = new WeakMap();
 let SOLVEIDX = new WeakMap();
 let MPIDX = new WeakMap();
-function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); }
+let SLOTIDX = new WeakMap();
+function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); }
 // the rows of `rows` whose first column equals `key`, in source order -- the value
 // of csdp:matches (INSERT csdp:keep_keyed . theta:append_phi . distl). The fold
 // visits every row, so a row that is not a sequence, or is empty, throws the
@@ -1018,12 +1019,33 @@ const FASTPRIMS = new Map(Object.entries({
   // (AREST_SAMPLE, 2026-09-07); the pairs come through rmap:member_pairs'
   // twin, remembered against the relation, and the lookup through the index
   // rmap:lookup0 uses -- the same value the slot twin above answers.
+  // A slot index per relation: keyOf of the first field of each member pair to
+  // the second field of the first such pair (rmap:lookup0's answer), built once
+  // per relation and kept against it; the key's keyOf is taken once per row.
+  // 13,809 wide rows over a few hundred relations each were half of the
+  // support report's first ten seconds at half a millisecond a row with the
+  // general index (the profile-and-fix loop, 2026-09-08).
   "rmap:wide_row": x => { const key = at(x, 0), rels = seq(at(x, 1));
     const pairsOf = FASTPRIMS.get("rmap:member_pairs");
+    const kk = keyOf(key);
     const out = new Array(rels.length + 1); out[0] = key;
     for (let i = 0; i < rels.length; i++) {
-      const hits = matchRows(key, seq(pairsOf(rels[i])));
-      out[i + 1] = hits.length === 0 ? [] : [at(hits[0], 1)];
+      const rel = rels[i];
+      let slots = SLOTIDX.get(rel);
+      if (slots === undefined) {
+        slots = new Map();
+        const pairs = seq(pairsOf(rel));
+        for (let j = 0; j < pairs.length; j++) {
+          const p = pairs[j];
+          if (!Array.isArray(p)) throw new Error("selector 1 on atom: " + show(p));
+          if (p.length < 1) throw new Error("selector 1 out of range 0");
+          const k = keyOf(p[0]);
+          if (!slots.has(k)) slots.set(k, p);
+        }
+        SLOTIDX.set(rel, slots);
+      }
+      const hit = slots.get(kk);
+      out[i + 1] = hit === undefined ? [] : [at(hit, 1)];
     }
     return out; },
   // law:slot_for = rmap:lookup0 . [1, rmap:member_pairs . [1.1.2, 2.1.2, 3.1.2,
