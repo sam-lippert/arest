@@ -540,7 +540,11 @@ const MEMOCN = new Set(["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
   "ui:otpops", "mcp:tools",
   // derive:sm_marks is the semi-derived markings of a store, asked once per
   // fact type per round of the closure (the profile-and-fix loop, 2026-09-08)
-  "derive:sm_marks"]);
+  "derive:sm_marks",
+  // main:status_fts is the state-machine fact types of a store and main:cell2
+  // a population of one by name: every GET on the API recomputed both,
+  // 60% of a request's work in-process (the profile-and-fix loop, 2026-09-08)
+  "main:status_fts", "main:cell2"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot canon list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
