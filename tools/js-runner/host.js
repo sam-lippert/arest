@@ -59,6 +59,16 @@ function S7(a,b,c,d,e,f,g){return [a,b,c,d,e,f,g];}
 function S8(a,b,c,d,e,f,g,h){return [a,b,c,d,e,f,g,h];}
 function S9(a,b,c,d,e,f,g,h,i){return [a,b,c,d,e,f,g,h,i];}
 function CANON() { return arguments; }
+// A CARRIER ARRIVES AS JSON. build.js reads design-state, norma-answer and the
+// compiled map once at compose time into the value their constructors would
+// have built and emits one JSON string each; JSON.parse reads 45 MB in a
+// fraction of a second where bun spent 8.6 s parsing the same carriers as
+// nested calls (the support store, 2026-09-07). Each entry is <name, body>,
+// registered with DEF exactly as the spliced text was.
+function CANONJSON(json) {
+  const entries = JSON.parse(json);
+  for (let i = 0; i < entries.length; i++) DEF(entries[i][0], entries[i][1]);
+}
 
 // ---- helpers: seq / at strictly mirror C# Seq(x) and Seq(x)[i] ------------
 function show(x) { return Array.isArray(x) ? "[" + x.map(show).join(",") + "]" : "" + x; }
@@ -600,6 +610,22 @@ const FASTPRIMS = new Map(Object.entries({
     let v = MPIDX.get(x);
     if (v === undefined) { v = Ev(DEFS.get("rmap:member_pairs"), x); MPIDX.set(x, v); }
     return v; },
+  // rmap:wide_row <key, rows> is <key, slot(row)...>: for each row, the value
+  // at the key among the row's member pairs as a one-element sequence, or
+  // PHI. Written as apndl over ALPHA(rmap:slot) over distr, it applied three
+  // forms and two names per row, 4.5 million rows on the support store, and
+  // rmap:slot was 17% of the compiled report's self time with the pairs
+  // already remembered (2026-09-07). The loop here is the value: the pairs
+  // through the twin above, the lookup through the index rmap:lookup0 uses.
+  "rmap:wide_row": x => { const key = at(x, 0), rows = seq(at(x, 1));
+    const pairsOf = FASTPRIMS.get("rmap:member_pairs");
+    const out = new Array(rows.length + 1);
+    out[0] = key;
+    for (let i = 0; i < rows.length; i++) {
+      const hits = matchRows(key, seq(pairsOf(rows[i])));
+      out[i + 1] = hits.length === 0 ? [] : [at(hits[0], 1)];
+    }
+    return out; },
   "solve:cell": x => { const name = at(x, 0), cells = seq(at(x, 1));
     let idx = SOLVEIDX.get(cells);
     if (idx === undefined) { idx = { at: new Map(), bad: null };
