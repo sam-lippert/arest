@@ -1051,11 +1051,19 @@ function profThrow(e) {
   if (e && typeof e === "object" && e.canonStack === undefined) e.canonStack = PROFSTACK.map((f) => f[0]).join(" > ");
   throw e;
 }
+// AREST_PROFILE_TRACE=<prefix,...> prints each exit of a definition whose name
+// starts with one of the prefixes, with its inclusive time, as it happens:
+// `law:` gives the report law by law, in order, inside whatever cap the run
+// has, where the table at a horizon shows only what has already returned and
+// the running line only what is running (support's compiled report,
+// 2026-09-07: fifty-odd laws of seconds each, none the elephant).
+const PROFTRACE = PROFILE && process.env.AREST_PROFILE_TRACE ? String(process.env.AREST_PROFILE_TRACE).split(",").filter((p) => p.length > 0) : [];
 function profExit() {
   const fr = PROFSTACK.pop();
   if (!PROFILE) return;
   const incl = performance.now() - fr[1];
   const self = incl - fr[2];
+  if (PROFTRACE.length && PROFTRACE.some((p) => String(fr[0]).startsWith(p))) console.error("trace: " + fr[0] + "  " + Math.round(incl) + " ms");
   let row = PROF.get(fr[0]);
   if (row === undefined) { row = [0, 0, 0]; PROF.set(fr[0], row); }
   row[0]++; row[1] += self; row[2] += incl;
@@ -1121,6 +1129,62 @@ function profReport(label) {
   try { require("node:fs").writeFileSync(factPath, out); }
   catch (e) { console.error("profile facts not written: " + e.message); }
 }
+// THE STAMP (Sam, 2026-09-07: "there's got to be some cheap way to stamp the
+// FP/FFP/AST ops so that stack traces aren't the only execution tracker").
+// AREST_SAMPLE=<ms> stamps every definition entry with an integer id in a
+// shared typed array -- a depth counter and a stack of ids, two stores and a
+// map lookup per call, no clock -- and a worker thread samples that stack once
+// a millisecond into two histograms: the top id (self) and every id on the
+// stack (inclusive). Every <ms> the main thread prints the top of both with
+// names, plus the stack as it stands. The clock profiler (AREST_PROFILE)
+// costs two clock reads and a table update per call and doubles a run; this
+// costs the stores. The two are not meant together: a call under the stamp
+// takes this path and not the profiler's.
+const SAMPLE = parseInt(process.env.AREST_SAMPLE, 10) > 0 ? parseInt(process.env.AREST_SAMPLE, 10) : 0;
+const SDEPTH = 1024, SMAX = 32768;
+const STAMP = SAMPLE ? new Int32Array(new SharedArrayBuffer(4 * (2 + SDEPTH + 2 * SMAX))) : null;
+const SNAMES = [];
+const SIDS = new Map();
+let SN = 0, SLAST = 0;
+function sid(f) {
+  let id = SIDS.get(f);
+  if (id === undefined) { id = SNAMES.length; if (id >= SMAX) return SMAX - 1; SNAMES.push(f); SIDS.set(f, id); }
+  return id;
+}
+function senter(f) {
+  const d = STAMP[0];
+  if (d < SDEPTH) STAMP[2 + d] = sid(f);
+  STAMP[0] = d + 1;
+  if ((++SN & 0xffff) === 0) { const now = performance.now(); if (now - SLAST >= SAMPLE) { SLAST = now; sreport("sample"); } }
+}
+function sexit() { STAMP[0]--; }
+function sreport(label) {
+  const total = STAMP[1];
+  if (total === 0) return;
+  const top = (base) => {
+    const rows = [];
+    for (let i = 0; i < SNAMES.length; i++) { const n = STAMP[base + i]; if (n > 0) rows.push([SNAMES[i], n]); }
+    rows.sort((a, b) => b[1] - a[1]);
+    return rows.slice(0, 16).map(([name, n]) => name + " " + Math.round(1000 * n / total) / 10 + "%").join("  ");
+  };
+  const d = Math.min(STAMP[0], SDEPTH);
+  const stack = [];
+  for (let i = 0; i < d; i++) stack.push(SNAMES[STAMP[2 + i]]);
+  console.error(label + " (" + total + " samples, " + Math.round(performance.now() / 1000) + " s): self: " + top(2 + SDEPTH));
+  console.error(label + " inclusive: " + top(2 + SDEPTH + SMAX));
+  console.error(label + " running: " + stack.filter((n) => String(n).indexOf(":") >= 0).slice(0, 14).join(" > "));
+}
+if (SAMPLE) {
+  // inclusive counts a name once per sample however many times it is on the
+  // stack (CONS is on it at every level), so a name's inclusive share is the
+  // share of samples it was on the stack for and never exceeds the whole
+  const src = "self.onmessage = (e) => { const S = new Int32Array(e.data.sab), D = e.data.depth, M = e.data.max, W = new Int32Array(new SharedArrayBuffer(4)), seen = new Int32Array(M); let n = 0;"
+    + " for (;;) { Atomics.wait(W, 0, 0, 1); n++; const d = Math.min(Atomics.load(S, 0), D); if (d > 0) { S[2 + D + S[2 + d - 1]]++; for (let i = 0; i < d; i++) { const id = S[2 + i]; if (seen[id] !== n) { seen[id] = n; S[2 + D + M + id]++; } } } S[1]++; } };";
+  const w = new Worker(URL.createObjectURL(new Blob([src], { type: "application/javascript" })));
+  w.postMessage({ sab: STAMP.buffer, depth: SDEPTH, max: SMAX });
+  if (typeof w.unref === "function") w.unref();
+  process.on("exit", () => sreport("sample at exit"));
+}
 function Ev(f, x) {
   if (typeof f === "number") {
     if (!Array.isArray(x)) throw new Error("selector " + f + " on atom: " + show(x));
@@ -1139,11 +1203,13 @@ function Ev(f, x) {
       // where the only visible names were. Under AREST_PROFILE a native is now
       // entered like any DEF; with profiling off the dispatch is unchanged.
       if (fp !== undefined) {
+        if (SAMPLE) { senter(f); try { return fp(x); } finally { sexit(); } }
         if (!STACKS) return fp(x);
         profEnter(f);
         try { return fp(x); } catch (e) { profThrow(e); } finally { profExit(); }
       }
       if (!memoable(f)) {
+        if (SAMPLE) { senter(f); try { return Ev(DEFS.get(f), x); } finally { sexit(); } }
         if (!STACKS) return Ev(DEFS.get(f), x);
         profEnter(f);
         try { return Ev(DEFS.get(f), x); } catch (e) { profThrow(e); } finally { profExit(); }
@@ -1159,7 +1225,10 @@ function Ev(f, x) {
       const last = chain[chain.length - 1];
       if (node.has(last)) return node.get(last);
       let v;
-      if (STACKS) {
+      if (SAMPLE) {
+        senter(f);
+        try { v = Ev(DEFS.get(f), x); } finally { sexit(); }
+      } else if (STACKS) {
         profEnter(f);
         try { v = Ev(DEFS.get(f), x); } catch (e) { profThrow(e); } finally { profExit(); }
       } else {
@@ -1169,7 +1238,10 @@ function Ev(f, x) {
       if (++EVMEMON > 400000) memoClear();
       return v;
     }
-    if (PRIMS.has(f)) return PRIMS.get(f)(x);
+    if (PRIMS.has(f)) {
+      if (SAMPLE) { senter(f); try { return PRIMS.get(f)(x); } finally { sexit(); } }
+      return PRIMS.get(f)(x);
+    }
     throw new Error("unresolved atom: " + f);
   }
   const form = seq(f);
@@ -1196,6 +1268,13 @@ function Ev(f, x) {
   // sequence head (a computed form) goes the general way, which the switch
   // could never express at all.
   if (typeof head !== "string" || DEFS.has(head)) return Ev(head, [f, x]);
+  // the primitive forms are stamped by their head (COMP, ALPHA, COND, INSERT,
+  // WHILE) so the sample says which FORM carries the time, not only which
+  // definition -- the ops are what the stamp is for (Sam, 2026-09-07)
+  if (SAMPLE) { senter(head); try { return evForm(f, x, form, head); } finally { sexit(); } }
+  return evForm(f, x, form, head);
+}
+function evForm(f, x, form, head) {
   switch (head) {
     case "COMP": {
       // the written strategy only pays to replace once the scan is long
