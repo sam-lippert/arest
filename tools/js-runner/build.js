@@ -127,114 +127,28 @@ function mayBe(p) {
   }
 }
 
-// ---- THE CARRIERS AS JSON --------------------------------------------------
+// ---- THE CARRIERS ARE SPLICED AS TEXT THE HOST READS ------------------------
 // 8.6 s of the support module's 13.8-second load was bun parsing 50 MB of
 // nested constructor calls, three quarters of them the three carriers
-// (2026-09-07). A carrier is data, and JSON.parse reads 45 MB in a fraction
-// of a second, so a carrier's text is read HERE, once, into the value its
-// constructors would have built -- S* a sequence, A an atom, N a number, PHI
-// the empty sequence, K a CONST form -- and emitted as one JSON string of
-// <name, body> entries that the host registers with DEF at load (CANONJSON),
-// the prose entries dropped as CANON dropped them. The canon and the
-// scenarios stay spliced as source: they are code, and small. The rust build
-// reads the carrier files themselves and is unaffected.
-function carrierToJson(text) {
-  let i = 0;
-  const n = text.length;
-  const fail = (what) => { throw new Error("carrier: " + what + " at " + i + ": " + JSON.stringify(text.slice(i, i + 40))); };
-  const ws = () => { for (;;) { const c = text.charCodeAt(i); if (c === 32 || c === 10 || c === 13 || c === 9) i++; else return; } };
-  const str = () => {
-    // a double-quoted literal as the oracle and compile-rmap.js write it: a
-    // backslash escapes the next character (\" and \\), and the JS escapes
-    // for a newline, return and tab read as bun read them
-    i++;
-    let out = "";
-    for (;;) {
-      // the next quote, then a backslash only within the span before it: a
-      // search for the next backslash in the whole text ran to the next
-      // escape however far away, once per string, and took the support
-      // carriers from seconds to a minute and a half (2026-09-07)
-      const q = text.indexOf('"', i);
-      if (q < 0) fail("unterminated string");
-      const seg = text.slice(i, q);
-      const b = seg.indexOf("\\");
-      if (b < 0) { out += seg; i = q + 1; return out; }
-      out += seg.slice(0, b);
-      const d = text[i + b + 1];
-      out += d === "n" ? "\n" : d === "r" ? "\r" : d === "t" ? "\t" : d;
-      i = i + b + 2;
-    }
-  };
-  const isWord = (c) => (c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95;
-  const expr = () => {
-    ws();
-    const c = text.charCodeAt(i);
-    if (c === 34) return str();
-    if (c === 45 || (c >= 48 && c <= 57)) {
-      let j = i + 1;
-      for (;;) { const d = text.charCodeAt(j); if ((d >= 48 && d <= 57) || d === 46 || d === 101 || d === 69 || d === 43 || d === 45) j++; else break; }
-      const v = Number(text.slice(i, j));
-      if (Number.isNaN(v)) fail("bad number");
-      i = j;
-      return v;
-    }
-    const s = i;
-    while (isWord(text.charCodeAt(i))) i++;
-    const head = text.slice(s, i);
-    if (head.length === 0) fail("expected a constructor");
-    ws();
-    if (text.charCodeAt(i) !== 40) fail("expected ( after " + head);
-    i++;
-    const args = [];
-    ws();
-    if (text.charCodeAt(i) === 41) i++;
-    else for (;;) {
-      args.push(expr());
-      ws();
-      const d = text.charCodeAt(i);
-      if (d === 44) { i++; continue; }
-      if (d === 41) { i++; break; }
-      fail("expected , or )");
-    }
-    if (head === "A" || head === "N") return args[0];
-    if (head === "PHI") return [];
-    if (head === "K") return ["CONST", args[0]];
-    if (head === "DEF") return { def: args[0], body: args[1] };
-    if (head === "S" || (head.length === 2 && head.charCodeAt(0) === 83 && head.charCodeAt(1) >= 48 && head.charCodeAt(1) <= 57)) return args;
-    fail("unknown constructor " + head);
-  };
-  ws();
-  if (text.charCodeAt(i) !== 40) fail("expected ( to open the carrier");
-  i++;
-  const entries = [];
-  ws();
-  if (text.charCodeAt(i) === 41) i++;
-  else for (;;) {
-    const e = expr();
-    if (e !== null && typeof e === "object" && !Array.isArray(e) && e.def !== undefined) entries.push([e.def, e.body]);
-    ws();
-    const d = text.charCodeAt(i);
-    if (d === 44) { i++; continue; }
-    if (d === 41) { i++; break; }
-    fail("expected , or ) between entries");
-  }
-  return JSON.stringify(entries);
+// (2026-09-07). A carrier is data: design-state, norma-answer and the compiled
+// map are spliced as ONE literal each, in their own intersection source, and
+// the host reads the literal at load (CANONTEXT in host.js) into the value the
+// constructors would have built -- the same DEF registrations, the prose
+// dropped as CANON dropped it. The carrier stays the carrier, inside the
+// composition, and nothing is read from a path beside the module: a JSON
+// sidecar stood here for an hour and Sam's answer was "Codd says no". The
+// canon and the scenarios stay spliced as source: they are code, and small.
+// The rust build reads the carrier files themselves and is unaffected. The
+// literal is a template string, so only its three delimiters are escaped.
+const AS_TEXT = new Set([join(oracle, "design-state"), join(oracle, "norma-answer"), join(oracle, "compiled")]);
+function asLiteral(text) {
+  return "`" + text.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${") + "`";
 }
-const AS_JSON = new Set([join(oracle, "design-state"), join(oracle, "norma-answer"), join(oracle, "compiled")]);
 
-// THE JSON RIDES BESIDE THE MODULE, not inside it: a 45 MB string literal is
-// still 45 MB for bun to scan before the module runs (parsed 8.6 s -> 5.4 s
-// with the literal, 2026-09-07); read from a file at load it costs JSON.parse
-// alone. The sidecar is named after the module and read relative to it.
 const parts = [must(join(here, "host.js"))];
-const sidecar = [];
 for (const p of SPLICED) {
-  if (AS_JSON.has(p)) { sidecar.push(carrierToJson(must(p).toString("utf8"))); continue; }
+  if (AS_TEXT.has(p)) { parts.push(Buffer.from("\n;\nCANONTEXT(" + asLiteral(must(p).toString("utf8")) + ");\n")); continue; }
   parts.push(Buffer.from("\n;\nCANON"), must(p));
-}
-const sideName = OUT[mode] + ".carriers.json";
-if (sidecar.length) {
-  parts.push(Buffer.from("\n;\nCANONJSON(require(\"node:fs\").readFileSync(require(\"node:path\").join(__dirname, " + JSON.stringify(sideName) + "), \"utf8\"));\n"));
 }
 parts.push(Buffer.from('\n;\nCANON("journal"'), mayBe(JOURNAL), Buffer.from(")"));
 parts.push(Buffer.from("\n;\nJOURNAL_PATH = " + JSON.stringify(JOURNAL) + ";\n"));
@@ -256,8 +170,6 @@ const name = OUT[mode] + ".g.js";
 // modules, which are the base store's
 const outDir = process.env.AREST_OUT_DIR || here;
 writeFileSync(join(outDir, name), out);
-// the carriers' JSON sits beside the module (see THE CARRIERS AS JSON above)
-if (sidecar.length) writeFileSync(join(outDir, sideName), "[" + sidecar.map((j) => j.slice(1, -1)).filter((s) => s.length > 0).join(",") + "]");
 // --run COMPOSES AND THEN STARTS THE MODULE, so a launcher (the MCP entry in
 // .mcp.json) never runs a stale composition: the module the harness started on
 // 2026-09-03 had been built two days earlier and took two minutes to boot, past

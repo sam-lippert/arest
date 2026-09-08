@@ -59,15 +59,93 @@ function S7(a,b,c,d,e,f,g){return [a,b,c,d,e,f,g];}
 function S8(a,b,c,d,e,f,g,h){return [a,b,c,d,e,f,g,h];}
 function S9(a,b,c,d,e,f,g,h,i){return [a,b,c,d,e,f,g,h,i];}
 function CANON() { return arguments; }
-// A CARRIER ARRIVES AS JSON. build.js reads design-state, norma-answer and the
-// compiled map once at compose time into the value their constructors would
-// have built and emits one JSON string each; JSON.parse reads 45 MB in a
-// fraction of a second where bun spent 8.6 s parsing the same carriers as
-// nested calls (the support store, 2026-09-07). Each entry is <name, body>,
-// registered with DEF exactly as the spliced text was.
-function CANONJSON(json) {
-  const entries = JSON.parse(json);
-  for (let i = 0; i < entries.length; i++) DEF(entries[i][0], entries[i][1]);
+// A CARRIER IS READ BY THE HOST, NOT PARSED AS CODE. design-state,
+// norma-answer and the compiled map are intersection source -- S* a sequence,
+// A an atom, N a number, PHI the empty sequence, K a CONST form, DEF a <name,
+// body> entry, prose between -- and bun spent 8.6 s of the support store's
+// 13.8-second load parsing 45 MB of them as nested JavaScript calls
+// (2026-09-07). build.js now splices each carrier's text as ONE literal and
+// this reads it: the same value the constructors would have built, registered
+// with DEF exactly as the spliced calls were, prose dropped as CANON dropped
+// it. The carrier stays the carrier, inside the composition, and nothing is
+// read from a path beside the module (Sam, on a JSON sidecar that was here
+// for an hour: "Codd says no").
+function CANONTEXT(text) {
+  let i = 0;
+  const n = text.length;
+  const fail = (what) => { throw new Error("carrier: " + what + " at " + i + ": " + JSON.stringify(text.slice(i, i + 40))); };
+  const ws = () => { for (;;) { const c = text.charCodeAt(i); if (c === 32 || c === 10 || c === 13 || c === 9) i++; else return; } };
+  const str = () => {
+    // a double-quoted literal as the oracle and compile-rmap.js write it: a
+    // backslash escapes the next character (\" and \\), and the JS escapes
+    // for a newline, return and tab read as bun read them; the backslash is
+    // sought only within the span before the next quote
+    i++;
+    let out = "";
+    for (;;) {
+      const q = text.indexOf('"', i);
+      if (q < 0) fail("unterminated string");
+      const seg = text.slice(i, q);
+      const b = seg.indexOf("\\");
+      if (b < 0) { out += seg; i = q + 1; return out; }
+      out += seg.slice(0, b);
+      const d = text[i + b + 1];
+      out += d === "n" ? "\n" : d === "r" ? "\r" : d === "t" ? "\t" : d;
+      i = i + b + 2;
+    }
+  };
+  const isWord = (c) => (c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95;
+  const expr = () => {
+    ws();
+    const c = text.charCodeAt(i);
+    if (c === 34) return str();
+    if (c === 45 || (c >= 48 && c <= 57)) {
+      let j = i + 1;
+      for (;;) { const d = text.charCodeAt(j); if ((d >= 48 && d <= 57) || d === 46 || d === 101 || d === 69 || d === 43 || d === 45) j++; else break; }
+      const v = Number(text.slice(i, j));
+      if (Number.isNaN(v)) fail("bad number");
+      i = j;
+      return v;
+    }
+    const s = i;
+    while (isWord(text.charCodeAt(i))) i++;
+    const head = text.slice(s, i);
+    if (head.length === 0) fail("expected a constructor");
+    ws();
+    if (text.charCodeAt(i) !== 40) fail("expected ( after " + head);
+    i++;
+    const args = [];
+    ws();
+    if (text.charCodeAt(i) === 41) i++;
+    else for (;;) {
+      args.push(expr());
+      ws();
+      const d = text.charCodeAt(i);
+      if (d === 44) { i++; continue; }
+      if (d === 41) { i++; break; }
+      fail("expected , or )");
+    }
+    if (head === "A" || head === "N") return args[0];
+    if (head === "PHI") return [];
+    if (head === "K") return ["CONST", args[0]];
+    if (head === "DEF") return { def: args[0], body: args[1] };
+    if (head === "S" || (head.length === 2 && head.charCodeAt(0) === 83 && head.charCodeAt(1) >= 48 && head.charCodeAt(1) <= 57)) return args;
+    fail("unknown constructor " + head);
+  };
+  ws();
+  if (text.charCodeAt(i) !== 40) fail("expected ( to open the carrier");
+  i++;
+  ws();
+  if (text.charCodeAt(i) === 41) { i++; return; }
+  for (;;) {
+    const e = expr();
+    if (e !== null && typeof e === "object" && !Array.isArray(e) && e.def !== undefined) DEF(e.def, e.body);
+    ws();
+    const d = text.charCodeAt(i);
+    if (d === 44) { i++; continue; }
+    if (d === 41) { i++; return; }
+    fail("expected , or ) between entries");
+  }
 }
 
 // ---- helpers: seq / at strictly mirror C# Seq(x) and Seq(x)[i] ------------
