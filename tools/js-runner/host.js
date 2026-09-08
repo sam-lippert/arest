@@ -23,6 +23,10 @@
 // DEF accumulates the composed store (one CELL per registered name) so the
 // store reads itself; a duplicate throws by collection semantics, exactly as
 // the C# Dictionary.Add does — law:one_name is the law.
+// the clock at this line is the time bun spent starting and PARSING the whole
+// module (host, canon and carriers) before running any of it; on the support
+// store's 50 MB module that is most of an eleven-second load (2026-09-07)
+if (process.env.AREST_BOOT_TIMING) console.error("boot: parsed " + Math.round(performance.now()) + " ms");
 const DEFS = new Map();
 const CELLS = [];
 // bumped by every definition, so a form compiled against an older set of
@@ -273,7 +277,8 @@ let MATCHIDX = new WeakMap();
 let MEMBIDX = new WeakMap();
 let PAIRIDX = new WeakMap();
 let SOLVEIDX = new WeakMap();
-function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); }
+let MPIDX = new WeakMap();
+function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); }
 // the rows of `rows` whose first column equals `key`, in source order -- the value
 // of csdp:matches (INSERT csdp:keep_keyed . theta:append_phi . distl). The fold
 // visits every row, so a row that is not a sequence, or is empty, throws the
@@ -582,6 +587,19 @@ const FASTPRIMS = new Map(Object.entries({
   // not select (an atom, or one without a second field) throws only when the
   // walk would have reached it: the index holds the elements before the first
   // such element, and a name not found before it raises that element's error.
+  // rmap:member_pairs answers a row's <position, value> pairs from the row
+  // alone, and rmap:wide_row asks it for every row of a group once per key
+  // the group is walked for (rmap:group_for): 4.5 million times on the support
+  // store, each rebuilding the same pairs, 17% of the compiled report's
+  // self time in the sample (2026-09-07). The memo of small arguments cannot
+  // hold a row, so this remembers the answer against the row itself -- a
+  // canon value is never mutated, so the identity is the value -- and
+  // evaluates the DEF once per row. Reset with the other indexes.
+  "rmap:member_pairs": x => {
+    if (!Array.isArray(x)) return Ev(DEFS.get("rmap:member_pairs"), x);
+    let v = MPIDX.get(x);
+    if (v === undefined) { v = Ev(DEFS.get("rmap:member_pairs"), x); MPIDX.set(x, v); }
+    return v; },
   "solve:cell": x => { const name = at(x, 0), cells = seq(at(x, 1));
     let idx = SOLVEIDX.get(cells);
     if (idx === undefined) { idx = { at: new Map(), bad: null };
