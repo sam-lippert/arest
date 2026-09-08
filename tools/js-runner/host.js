@@ -268,7 +268,8 @@ let FETCHIDX = new WeakMap();
 let MATCHIDX = new WeakMap();
 let MEMBIDX = new WeakMap();
 let PAIRIDX = new WeakMap();
-function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); }
+let SOLVEIDX = new WeakMap();
+function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); }
 // the rows of `rows` whose first column equals `key`, in source order -- the value
 // of csdp:matches (INSERT csdp:keep_keyed . theta:append_phi . distl). The fold
 // visits every row, so a row that is not a sequence, or is empty, throws the
@@ -565,6 +566,29 @@ const FASTPRIMS = new Map(Object.entries({
     return bool(L - k > 0); },
   "solve:assoc3": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? ["", [], []] : hits[0]; },
+  // solve:cell is the first cell named n, written as a WHILE walk of the
+  // store one tail at a time -- tl copies the rest of the store at every
+  // step, so one lookup costs the square of the store, and the writable law
+  // asks it once per mandatory role of every fact type (ui:ids -> solve:cell
+  // [state:otpops, store]): tl alone was 22% of the base report's samples
+  // (AREST_SAMPLE, 2026-09-07). The VALUE is the lookup ast:fetch already
+  // indexes, with this DEF's edges: a cell is any element whose second field
+  // equals the name, the answer is its third field, none is PHI. The walk
+  // stops at the first match and never looks past it, so an element it could
+  // not select (an atom, or one without a second field) throws only when the
+  // walk would have reached it: the index holds the elements before the first
+  // such element, and a name not found before it raises that element's error.
+  "solve:cell": x => { const name = at(x, 0), cells = seq(at(x, 1));
+    let idx = SOLVEIDX.get(cells);
+    if (idx === undefined) { idx = { at: new Map(), bad: null };
+      for (let i = 0; i < cells.length; i++) {
+        let k;
+        try { k = keyOf(at(cells[i], 1)); } catch (e) { idx.bad = e; break; }
+        if (!idx.at.has(k)) idx.at.set(k, i); }
+      SOLVEIDX.set(cells, idx); }
+    const i = idx.at.get(keyOf(name));
+    if (i === undefined) { if (idx.bad !== null) throw idx.bad; return []; }
+    return at(cells[i], 2); },
   // theta:append_phi = apndr . [id, CONST PHI]: the list with PHI appended, the
   // fold base every INSERT filter carries; three million calls per report
   "theta:append_phi": x => { const l = seq(x); const out = l.slice(); out.push([]); return out; },
