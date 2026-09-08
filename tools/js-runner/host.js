@@ -820,6 +820,34 @@ const FASTPRIMS = new Map(Object.entries({
     const rows = seq(cell);
     for (let i = 0; i < rows.length; i++) popExp(rows[i], out);
     return out; },
+  // store:drop_cell <name, store> is the store without the cells of that
+  // name, in order, and store:cl_put <cell, store> is the cell before the
+  // store without its namesake; both written as an INSERT fold prepending
+  // with apndl, which copies the accumulator at every kept cell, so one drop
+  // costs the square of the store. The journal fold runs them once per
+  // derived population per entry (store:closed), and the arest-dev hook's
+  // boot sampled at apndl 34% and apndr 17% of self inside ui:replay (the
+  // profile-and-fix loop, 2026-09-08). The VALUE is one pass; the selector on
+  // a cell without a name throws where the fold's predicate threw at it.
+  "store:drop_cell": x => { const name = at(x, 0), cells = seq(at(x, 1));
+    const out = [];
+    for (let i = 0; i < cells.length; i++) {
+      const c = cells[i];
+      if (!Array.isArray(c)) throw new Error("selector 2 on atom: " + show(c));
+      if (c.length < 2) throw new Error("selector 2 out of range " + c.length);
+      if (!deepEq(name, c[1])) out.push(c);
+    }
+    return out; },
+  "store:cl_put": x => { const cell = at(x, 0), cells = seq(at(x, 1));
+    const name = at(cell, 1);
+    const out = [cell];
+    for (let i = 0; i < cells.length; i++) {
+      const c = cells[i];
+      if (!Array.isArray(c)) throw new Error("selector 2 on atom: " + show(c));
+      if (c.length < 2) throw new Error("selector 2 out of range " + c.length);
+      if (!deepEq(name, c[1])) out.push(c);
+    }
+    return out; },
   "render:json": x => jsonText(x),
   "quote_str": x => { if (typeof x !== "string") throw new Error("chars on non-string"); return jsonQuote(x); },
   "solve:cell": x => { const name = at(x, 0), cells = seq(at(x, 1));
