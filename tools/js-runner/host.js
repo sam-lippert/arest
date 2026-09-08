@@ -2293,6 +2293,35 @@ function run_sql() {
 // composes the store, and a store without FILE is not one. Canon decides what
 // FILE IS; this only puts it there, before the first evaluation, and clears the
 // memo at the mutation point as the note above requires.
+// THE POPULATIONS AS A NORMALIZED DATABASE. Codd, not a blob: the RMAP 3NF
+// tables are the store on disk, and a fact type's population is a projection
+// (a SELECT) from them -- functional fact types are columns of an entity
+// table, m:n fact types are their own relation tables, one _meta row per fact
+// type saying which. The closure ran at build, so the stored populations are
+// the closed ones; this reconstructs each as the cell ast:FetchPop reads and
+// runs none of loadFile/loadReflected/loadDerived. Held byte-identical to a
+// text-carrier boot by the case suite and the reports. The host stays thin:
+// it runs the projection the build recorded, deciding no schema itself.
+function loadStoreDb(path) {
+  const { Database } = require("bun:sqlite");
+  const db = new Database(path, { readonly: true });
+  const recon = [];
+  for (const m of db.query("select ft, kind, tbl, arity from _meta").all()) {
+    if (m.kind === "func") {
+      const rows = db.query('select k, "' + m.tbl + '" v from "Function" where "' + m.tbl + '" is not null order by rowid').all();
+      recon.push(["CELL", m.ft, rows.map((r) => [JSON.parse(r.k), JSON.parse(r.v)])]);
+    } else {
+      const rows = db.query("select * from " + m.tbl + " order by rowid").all();
+      recon.push(["CELL", m.ft, rows.map((r) => { const t = []; for (let i = 0; i < m.arity; i++) t.push(JSON.parse(r["c" + i])); return t; })]);
+    }
+  }
+  db.close();
+  const names = new Set(recon.map((c) => c[1]));
+  for (let i = CELLS.length - 1; i >= 0; i--) if (Array.isArray(CELLS[i]) && names.has(CELLS[i][1])) CELLS.splice(i, 1);
+  for (let i = recon.length - 1; i >= 0; i--) CELLS.unshift(recon[i]);
+  memoClear();
+}
+
 function loadFile() {
   if (Ev("ast:fetch", ["FILE", CELLS]) !== "#") return;   // already carried
   const built = Ev("ast:File", Ev("store:state", CELLS));
@@ -2437,8 +2466,10 @@ function boot(mode) {
   // nothing to close under rules: the regress composition is canon with a run's
   // outcome and its record, and store:state over it has no state:fts to read.
   // Not a decision about the store, only the absence of its schema.
-  const schemaless = Ev("ast:fetch", ["state:fts", CELLS]) === "#";
-  if (!schemaless) {
+  const fromDb = process.env.AREST_STORE_DB;
+  const schemaless = !fromDb && Ev("ast:fetch", ["state:fts", CELLS]) === "#";
+  if (fromDb) { loadStoreDb(fromDb); loadFile(); loadReflected(); loadDerived(); lap("store-db"); }
+  else if (!schemaless) {
     loadFile(); lap("file");
     loadReflected(); lap("reflected");
     loadDerived(); lap("derived");
