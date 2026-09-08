@@ -407,6 +407,26 @@ function keyOf(v) {
   }
   return "j" + JSON.stringify(v);
 }
+// ast:pop_exp / ast:pop_sub, row for row -- see the system:pop_in twin
+function popIsCell(r) { return Array.isArray(r) && r.length >= 3 && r[0] === "CELL"; }
+function popExp(row, out) {
+  if (popIsCell(row)) {
+    const name = row[1];
+    const subs = popSub(row[2]);
+    for (let i = 0; i < subs.length; i++) { const s = seq(subs[i]); const r = new Array(s.length + 1); r[0] = name; for (let j = 0; j < s.length; j++) r[j + 1] = s[j]; out.push(r); }
+    return;
+  }
+  if (!Array.isArray(row)) { out.push([row]); return; }
+  out.push(row);
+}
+function popSub(contents) {
+  const c = seq(contents);
+  if (c.length === 0) return [[]];
+  if (popIsCell(c[0])) { const out = []; for (let i = 0; i < c.length; i++) popExp(c[i], out); return out; }
+  const out = new Array(c.length);
+  for (let i = 0; i < c.length; i++) out[i] = Array.isArray(c[i]) ? c[i] : [c[i]];
+  return out;
+}
 // canon's JSON text (render:json, quote_str), one pass -- see the twins
 function jsonQuote(s) {
   let out = '"';
@@ -511,10 +531,11 @@ function matchRowsAt(n, key, rows) {
 const MEMOCN = new Set(["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
   "cn:sfx", "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts",
   "cn:chrank", "lex:lw", "induce:sig_of", "system:pop_in", "store:fts",
-  // ui:otpops is the object-type populations of a store: a write's validation
-  // asks it once per mandatory role of every fact type over the store it is
-  // validating (the profile-and-fix loop, 2026-09-07)
-  "ui:otpops"]);
+  // ui:otpops is the object-type populations of a store, and mcp:tools the
+  // fact-type table of one: a write's validation asks each once per mandatory
+  // role of every fact type over the store it is validating, and a fresh list
+  // per ask meant a fresh index per ask (the profile-and-fix loop, 2026-09-07)
+  "ui:otpops", "mcp:tools"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot canon list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
@@ -774,6 +795,31 @@ const FASTPRIMS = new Map(Object.entries({
   // chars per atom, it was 55% of a GET on the support store's API (a
   // 3,000-row collection, 341 ms; the profile-and-fix loop, 2026-09-07). The
   // same text, one pass; quote_str is the same quoting on its own.
+  // system:pop_in <name, store> is the population named: a top-level cell of
+  // that name as it is, else the cell of that name inside FILE with its
+  // nested cells unfolded into flat rows (ast:FetchPop, a form built per name
+  // over ast:fp_hashp / ast:fp_nested / ast:FetchM, then main:flat over
+  // ALPHA(ast:pop_exp)), else PHI. A write validates every fact type's
+  // mandatory roles over the store after the leg, and this fetch, several
+  // forms per row, was 53% of a POST on the support store that never
+  // answered inside the cap (the profile-and-fix loop, 2026-09-07). The
+  // unfolding here is ast:pop_exp's, row for row: a cell row <CELL, name,
+  // contents> becomes name before each row of its contents unfolded
+  // (ast:pop_sub: nothing is one empty row, cells recurse, an atom is a
+  // one-atom row, a row is itself); an atom row is a one-atom row; a row is
+  // itself. The lookups are ast:fetch's twin, the first cell named.
+  "system:pop_in": x => { const name = at(x, 0), store = at(x, 1);
+    const fetch = FASTPRIMS.get("ast:fetch");
+    const top = fetch([name, store]);
+    if (top !== "#") return top;
+    const file = fetch(["FILE", store]);
+    if (file === "#") return [];
+    const cell = fetch([name, file]);
+    if (cell === "#") return [];
+    const out = [];
+    const rows = seq(cell);
+    for (let i = 0; i < rows.length; i++) popExp(rows[i], out);
+    return out; },
   "render:json": x => jsonText(x),
   "quote_str": x => { if (typeof x !== "string") throw new Error("chars on non-string"); return jsonQuote(x); },
   "solve:cell": x => { const name = at(x, 0), cells = seq(at(x, 1));
