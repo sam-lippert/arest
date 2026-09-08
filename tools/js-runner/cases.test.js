@@ -88,6 +88,17 @@ test("law:report holds, byte for byte", () => {
   expect(got).toBe(want);
 }, 900_000);
 
+// THE FIRST SCREEN IS A GOLDEN TOO. The laws never read the panes, so a canon
+// change to ui:groups that emptied the root screen passed every gate above and
+// was caught by running a container (2026-09-07). The root layer of the base
+// store, as the ui container routes it, is recorded here and compared as the
+// law report is; a screen that changes on purpose re-records it.
+test("the root screen holds, byte for byte", () => {
+  const want = readFileSync(join(SHARED, "expected-root.txt"), "utf8").trim();
+  const got = JSON.stringify(Ev("ui:route", [CELLS, [], [], []])).trim();
+  expect(got).toBe(want);
+}, 60_000);
+
 // ---- DOES CANON'S RELATIONAL MAPPING PROJECT TO A REAL DATABASE? -----------
 //
 // rmap:ddl renders the mapping as CREATE TABLE. Asserting the text against a
