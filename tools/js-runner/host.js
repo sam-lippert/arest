@@ -610,20 +610,43 @@ const FASTPRIMS = new Map(Object.entries({
     let v = MPIDX.get(x);
     if (v === undefined) { v = Ev(DEFS.get("rmap:member_pairs"), x); MPIDX.set(x, v); }
     return v; },
-  // rmap:wide_row <key, rows> is <key, slot(row)...>: for each row, the value
-  // at the key among the row's member pairs as a one-element sequence, or
-  // PHI. Written as apndl over ALPHA(rmap:slot) over distr, it applied three
-  // forms and two names per row, 4.5 million rows on the support store, and
-  // rmap:slot was 17% of the compiled report's self time with the pairs
-  // already remembered (2026-09-07). The loop here is the value: the pairs
-  // through the twin above, the lookup through the index rmap:lookup0 uses.
-  "rmap:wide_row": x => { const key = at(x, 0), rows = seq(at(x, 1));
-    const pairsOf = FASTPRIMS.get("rmap:member_pairs");
-    const out = new Array(rows.length + 1);
-    out[0] = key;
-    for (let i = 0; i < rows.length; i++) {
-      const hits = matchRows(key, seq(pairsOf(rows[i])));
-      out[i + 1] = hits.length === 0 ? [] : [at(hits[0], 1)];
+  // theta:natjoin <(theta:natjoin keys), <A, B>> is the natural join canon's
+  // theta:NatJoin builds: for each a of A in order, for each b of B in order,
+  // a followed by the tail of b where keys:a equals the first field of b.
+  // Written as distr, distl and a Filter it is the nested loop over both
+  // lists, and it was the boot's rule closure: 20 million COMP applications
+  // inside derive:form_join in twenty seconds on the support store
+  // (AREST_SAMPLE_WHO, 2026-09-07). The VALUE is one pass: B indexed on its
+  // first field in its own order, A walked in its order, each hit combined --
+  // pair for pair what the loop gives. Edges: a b that is an atom throws the
+  // selector error the loop's predicate threw on it, a key of another kind
+  // than the field it is compared with matches nothing here where the strict
+  // eq would have thrown, and either side empty is nothing.
+  "theta:natjoin": x => {
+    const form = seq(at(x, 0)), keys = at(form, 1), ab = at(x, 1);
+    const A = seq(at(ab, 0)), B = seq(at(ab, 1));
+    const out = [];
+    if (A.length === 0) return out;
+    const idx = new Map();
+    for (let i = 0; i < B.length; i++) {
+      const b = B[i];
+      if (!Array.isArray(b)) throw new Error("selector 1 on atom: " + show(b));
+      if (b.length < 1) throw new Error("selector 1 out of range 0");
+      const k = keyOf(b[0]);
+      let bucket = idx.get(k);
+      if (bucket === undefined) { bucket = []; idx.set(k, bucket); }
+      bucket.push(b);
+    }
+    for (let i = 0; i < A.length; i++) {
+      const a = seq(A[i]);
+      const hits = idx.get(keyOf(Ev(keys, a)));
+      if (hits === undefined) continue;
+      for (let j = 0; j < hits.length; j++) {
+        const b = seq(hits[j]);
+        const row = a.slice();
+        for (let m = 1; m < b.length; m++) row.push(b[m]);
+        out.push(row);
+      }
     }
     return out; },
   "solve:cell": x => { const name = at(x, 0), cells = seq(at(x, 1));
@@ -788,9 +811,18 @@ const FASTPRIMS = new Map(Object.entries({
   "rmap:slot": x => { const pairs = seq(Ev("rmap:member_pairs", at(x, 0)));
     const hits = matchRows(at(x, 1), pairs);
     return hits.length === 0 ? [] : [at(hits[0], 1)]; },
+  // The slot is taken inline: a dispatch of rmap:slot by name per relation
+  // was 16% of the compiled support report's self time, 4.5 million times
+  // (AREST_SAMPLE, 2026-09-07); the pairs come through rmap:member_pairs'
+  // twin, remembered against the relation, and the lookup through the index
+  // rmap:lookup0 uses -- the same value the slot twin above answers.
   "rmap:wide_row": x => { const key = at(x, 0), rels = seq(at(x, 1));
+    const pairsOf = FASTPRIMS.get("rmap:member_pairs");
     const out = new Array(rels.length + 1); out[0] = key;
-    for (let i = 0; i < rels.length; i++) out[i + 1] = Ev("rmap:slot", [rels[i], key]);
+    for (let i = 0; i < rels.length; i++) {
+      const hits = matchRows(key, seq(pairsOf(rels[i])));
+      out[i + 1] = hits.length === 0 ? [] : [at(hits[0], 1)];
+    }
     return out; },
   // law:slot_for = rmap:lookup0 . [1, rmap:member_pairs . [1.1.2, 2.1.2, 3.1.2,
   // 4.1.2, rmap:unnest . 2.2]]: the descriptor's four fields with the nested
@@ -1223,8 +1255,19 @@ function sid(f) {
   if (id === undefined) { id = SNAMES.length; if (id >= SMAX) return SMAX - 1; SNAMES.push(f); SIDS.set(f, id); }
   return id;
 }
+// AREST_SAMPLE_WHO=<name,...> counts, for each named op, the nearest named
+// definition on the stack at each of its entries: a hot primitive (apndr,
+// theta:dedup) says only that it is hot; its callers say which walk to fix
+const SWHO = SAMPLE && process.env.AREST_SAMPLE_WHO ? new Set(String(process.env.AREST_SAMPLE_WHO).split(",").filter((p) => p.length > 0)) : null;
+const SWHOCOUNT = new Map();
 function senter(f) {
   const d = STAMP[0];
+  if (SWHO !== null && SWHO.has(f)) {
+    let caller = "(top)";
+    for (let i = Math.min(d, SDEPTH) - 1; i >= 0; i--) { const n = SNAMES[STAMP[2 + i]]; if (typeof n === "string" && n.indexOf(":") >= 0) { caller = n; break; } }
+    const k = f + " <- " + caller;
+    SWHOCOUNT.set(k, (SWHOCOUNT.get(k) || 0) + 1);
+  }
   if (d < SDEPTH) STAMP[2 + d] = sid(f);
   STAMP[0] = d + 1;
   if ((++SN & 0xffff) === 0) { const now = performance.now(); if (now - SLAST >= SAMPLE) { SLAST = now; sreport("sample"); } }
@@ -1247,6 +1290,10 @@ function sreport(label) {
   console.error(label + " (" + total + " samples, " + Math.round(performance.now() / 1000) + " s): self: " + top(2 + SDEPTH));
   console.error(label + " inclusive: " + top(2 + SDEPTH + SMAX));
   console.error(label + " running: " + stack.filter((n) => String(n).indexOf(":") >= 0).slice(0, 14).join(" > "));
+  if (SWHOCOUNT.size > 0) {
+    const rows = [...SWHOCOUNT.entries()].sort((a, b) => b[1] - a[1]).slice(0, 24);
+    console.error(label + " who: " + rows.map(([k, n]) => k + " " + n).join("  "));
+  }
 }
 if (SAMPLE) {
   // inclusive counts a name once per sample however many times it is on the

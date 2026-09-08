@@ -56,7 +56,9 @@ DEF("theta:Filter",
              K(A("apndl")), K(N(2)))),
        K(A("theta:append_phi")))),
 
-DEF("theta:NatJoin",
+"THE NATURAL JOIN HAS A NAME (2026-09-07). theta:NatJoin built its join as an anonymous form -- flatten over ALPHA over (join_combine, a Filter on the key, distl) over distr, the nested loop over both row lists -- and handed it to apply, so no host could recognise the join to answer it any faster: the boot's rule closure over the support store ran 20 million COMP applications inside derive:form_join in twenty seconds, all of them that loop. theta:NatJoin now builds the form (theta:natjoin keys), and theta:natjoin, reached through tau clause (c) with the form and the argument, applies the old builder's form exactly as before; a host with a twin for theta:natjoin answers the same rows by hashing the right list on its first column, in the same order. theta:natjoin0 is the builder as it was.",
+
+DEF("theta:natjoin0",
     S5(A("CONS"), K(A("COMP")), K(A("theta:flatten")),
        S3(A("CONS"), K(A("ALPHA")),
           S5(A("CONS"), K(A("COMP")),
@@ -68,6 +70,13 @@ DEF("theta:NatJoin",
                       K(S3(A("COMP"), N(1), N(2)))))),
              K(A("distl")))),
        K(A("distr")))),
+
+DEF("theta:natjoin",
+    S3(A("COMP"), A("apply"),
+       S3(A("CONS"), S3(A("COMP"), A("theta:natjoin0"), S3(A("COMP"), N(2), N(1))), N(2)))),
+
+DEF("theta:NatJoin",
+    S3(A("CONS"), K(A("theta:natjoin")), A("id"))),
 
 DEF("theta:Project",
     S4(A("CONS"), K(A("COMP")), K(A("theta:dedup")),
