@@ -510,7 +510,11 @@ function matchRowsAt(n, key, rows) {
 // the schema's size and every ask after the first is a lookup.
 const MEMOCN = new Set(["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
   "cn:sfx", "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts",
-  "cn:chrank", "lex:lw", "induce:sig_of", "system:pop_in", "store:fts"]);
+  "cn:chrank", "lex:lw", "induce:sig_of", "system:pop_in", "store:fts",
+  // ui:otpops is the object-type populations of a store: a write's validation
+  // asks it once per mandatory role of every fact type over the store it is
+  // validating (the profile-and-fix loop, 2026-09-07)
+  "ui:otpops"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot canon list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
