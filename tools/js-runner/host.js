@@ -551,6 +551,24 @@ const FASTPRIMS = new Map(Object.entries({
     let s = MEMBIDX.get(l);
     if (s === undefined) { s = new Set(); for (let i = 0; i < l.length; i++) s.add(keyOf(l[i])); MEMBIDX.set(l, s); }
     return bool(s.has(keyOf(e))); },
+  // read:pos1 <x, list> is the 1-based positions of the elements equal to x,
+  // in order, and read:memberw is whether there is one; both are written as
+  // a WHILE walking the list by tl, which copies the rest of the list at
+  // every step. The first screen of the support store asks memberw for every
+  // fact type against the group list several times over (ui:sub), and the
+  // walks were 40% of the screen's sample with tl at 17% of self (the
+  // profile-and-fix loop, 2026-09-07). The VALUE of pos1 is one scan with
+  // the strict equality; memberw over a long list is the set theta:member's
+  // twin keeps on that list, under the same contract (keyOf equal iff deepEq).
+  "read:pos1": x => { const e = at(x, 0), l = seq(at(x, 1));
+    const out = [];
+    for (let i = 0; i < l.length; i++) if (deepEq(e, l[i])) out.push(i + 1);
+    return out; },
+  "read:memberw": x => { const e = at(x, 0), l = seq(at(x, 1));
+    if (l.length < 16) return bool(l.some(m => deepEq(e, m)));
+    let s = MEMBIDX.get(l);
+    if (s === undefined) { s = new Set(); for (let i = 0; i < l.length; i++) s.add(keyOf(l[i])); MEMBIDX.set(l, s); }
+    return bool(s.has(keyOf(e))); },
   // csdp:matches is the equality filter over a row list's first column, written
   // as a fold: 2.4 million calls and 20 of the base report's 89 seconds
   // (2026-09-04). rmap:lookup0 wants the first match's second column, or PHI.
