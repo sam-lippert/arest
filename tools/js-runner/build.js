@@ -145,7 +145,30 @@ function asLiteral(text) {
   return "`" + text.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${") + "`";
 }
 
-const parts = [must(join(here, "host.js"))];
+// A RELEASE MODULE CARRIES NO INSTRUMENTS (Sam, 2026-09-07: "we don't want
+// to leave perf counters in a release build"). The host's profiler, stamp and
+// trace live between `// @instrument-begin` and `// @instrument-end`, and the
+// lines that call them in the evaluator end with `// @instrument`; both are
+// dropped here unless the composition is asked to be instrumented
+// (AREST_INSTRUMENTED=1), which is what a 30-second sample composes. A
+// release module therefore has no counter, no stamp and no clock in the hot
+// path, and the gates run on the module that ships.
+function hostSource() {
+  const text = must(join(here, "host.js")).toString("utf8");
+  if (process.env.AREST_INSTRUMENTED) return Buffer.from(text);
+  const out = [];
+  let inside = false;
+  for (const line of text.split("\n")) {
+    const t = line.trimEnd();
+    if (t.endsWith("// @instrument-begin")) { inside = true; continue; }
+    if (t.endsWith("// @instrument-end")) { inside = false; continue; }
+    if (inside || t.endsWith("// @instrument")) continue;
+    out.push(line);
+  }
+  return Buffer.from(out.join("\n"));
+}
+
+const parts = [hostSource()];
 for (const p of SPLICED) {
   if (AS_TEXT.has(p)) { parts.push(Buffer.from("\n;\nCANONTEXT(" + asLiteral(must(p).toString("utf8")) + ");\n")); continue; }
   parts.push(Buffer.from("\n;\nCANON"), must(p));

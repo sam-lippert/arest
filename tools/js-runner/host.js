@@ -1175,6 +1175,13 @@ function filterFold(body) {
   FOLDPAT.set(body, pat);
   return pat;
 }
+// ---- THE INSTRUMENTS -------------------------------------------------------
+// Everything from here to the matching end marker, and every line in the
+// evaluator ending in `// @instrument`, is dropped by build.js unless the
+// composition is instrumented (AREST_INSTRUMENTED=1): a release module
+// carries no profiler, no stamp, no trace (Sam, 2026-09-07: "we don't want
+// to leave perf counters in a release build").
+// @instrument-begin
 // AREST_PROFILE=1 counts every evaluation of a named definition and its self
 // time (its own work less its children's), and prints the top of the table on
 // stderr at each boot lap and once a minute while a phase runs. A boot that
@@ -1384,6 +1391,7 @@ if (SAMPLE) {
   if (typeof w.unref === "function") w.unref();
   process.on("exit", () => sreport("sample at exit"));
 }
+// @instrument-end
 function Ev(f, x) {
   if (typeof f === "number") {
     if (!Array.isArray(x)) throw new Error("selector " + f + " on atom: " + show(x));
@@ -1402,21 +1410,19 @@ function Ev(f, x) {
       // where the only visible names were. Under AREST_PROFILE a native is now
       // entered like any DEF; with profiling off the dispatch is unchanged.
       if (fp !== undefined) {
-        if (SAMPLE) { senter(f); try { return fp(x); } finally { sexit(); } }
-        if (!STACKS) return fp(x);
-        profEnter(f);
-        try { return fp(x); } catch (e) { profThrow(e); } finally { profExit(); }
+        if (SAMPLE) { senter(f); try { return fp(x); } finally { sexit(); } } // @instrument
+        if (STACKS) { profEnter(f); try { return fp(x); } catch (e) { profThrow(e); } finally { profExit(); } } // @instrument
+        return fp(x);
       }
       if (!memoable(f)) {
-        if (SAMPLE) { senter(f); try { return Ev(DEFS.get(f), x); } finally { sexit(); } }
-        if (!STACKS) return Ev(DEFS.get(f), x);
-        profEnter(f);
-        try { return Ev(DEFS.get(f), x); } catch (e) { profThrow(e); } finally { profExit(); }
+        if (SAMPLE) { senter(f); try { return Ev(DEFS.get(f), x); } finally { sexit(); } } // @instrument
+        if (STACKS) { profEnter(f); try { return Ev(DEFS.get(f), x); } catch (e) { profThrow(e); } finally { profExit(); } } // @instrument
+        return Ev(DEFS.get(f), x);
       }
       return memoCall(f, x, stampedName(f, (y) => Ev(DEFS.get(f), y)));
     }
     if (PRIMS.has(f)) {
-      if (SAMPLE) { senter(f); try { return PRIMS.get(f)(x); } finally { sexit(); } }
+      if (SAMPLE) { senter(f); try { return PRIMS.get(f)(x); } finally { sexit(); } } // @instrument
       return PRIMS.get(f)(x);
     }
     throw new Error("unresolved atom: " + f);
@@ -1520,7 +1526,7 @@ function subName(s) {
     return (x) => memoCall(s, x, run);
   }
   if (PRIMS.has(s)) {
-    if (SAMPLE) return (x) => { const p = PRIMS.get(s); senter(s); try { return p(x); } finally { sexit(); } };
+    if (SAMPLE) return (x) => { const p = PRIMS.get(s); senter(s); try { return p(x); } finally { sexit(); } }; // @instrument
     return (x) => PRIMS.get(s)(x);
   }
   return (x) => Ev(s, x);
@@ -1528,14 +1534,14 @@ function subName(s) {
 // the sample stamps a primitive form by its head; the profiler never entered
 // one, so under it a form is applied bare -- both as the interpreter did
 function stamped(head, g) {
-  if (!SAMPLE) return g;
-  return (x) => { senter(head); try { return g(x); } finally { sexit(); } };
+  if (SAMPLE) return (x) => { senter(head); try { return g(x); } finally { sexit(); } }; // @instrument
+  return g;
 }
 // CONS and CONST were reached by name (Ev(head, [f, x]) into the twin), which
 // entered the profiler as that name and the stamp as that name: kept
 function stampedName(name, g) {
-  if (SAMPLE) return (x) => { senter(name); try { return g(x); } finally { sexit(); } };
-  if (STACKS) return (x) => { profEnter(name); try { return g(x); } catch (e) { profThrow(e); } finally { profExit(); } };
+  if (SAMPLE) return (x) => { senter(name); try { return g(x); } finally { sexit(); } }; // @instrument
+  if (STACKS) return (x) => { profEnter(name); try { return g(x); } catch (e) { profThrow(e); } finally { profExit(); } }; // @instrument
   return g;
 }
 function compileForm(f) {
@@ -1662,7 +1668,7 @@ function run_cli() {
   // All dispatch and all text live in canon `main`; a new operation is a
   // canon edit, never a host edit. Adding a branch here is how runners die.
   const out = Ev("main", [CELLS, process.argv.slice(2)]);
-  if (PROFILE) profReport("main");
+  if (PROFILE) profReport("main"); // @instrument
   console.log(out[0]);
   process.exit(out[1] === "T" ? 0 : 1);
 
@@ -2244,7 +2250,7 @@ function boot(mode) {
   const t0 = Date.now();
   const lap = (what) => {
     if (mode === "mcp" || mode === "serve" || process.env.AREST_BOOT_TIMING) console.error("boot: " + what + " " + (Date.now() - t0) + " ms");
-    if (PROFILE) profReport(what);
+    if (PROFILE) profReport(what); // @instrument
   };
   // A STORE WITH NO SCHEMA SURFACE has no FILE to build, nothing to reflect and
   // nothing to close under rules: the regress composition is canon with a run's
