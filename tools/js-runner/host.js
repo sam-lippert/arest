@@ -407,6 +407,23 @@ function keyOf(v) {
   }
   return "j" + JSON.stringify(v);
 }
+// canon's JSON text (render:json, quote_str), one pass -- see the twins
+function jsonQuote(s) {
+  let out = '"';
+  for (const c of s) out += c === "\\" ? "\\\\" : c === '"' ? '\\"' : c === "\n" ? "\\n" : c === "\r" ? "\\r" : c;
+  return out + '"';
+}
+function jsonText(x) {
+  if (Array.isArray(x)) {
+    if (x.length === 0) return "[]";
+    let out = "[";
+    for (let i = 0; i < x.length; i++) { if (i > 0) out += ","; out += jsonText(x[i]); }
+    return out + "]";
+  }
+  if (typeof x === "number") return "" + x;
+  if (typeof x === "string") return jsonQuote(x);
+  return Ev(DEFS.get("render:json_atom"), x);
+}
 function matchRows(key, rows) {
   let idx = MATCHIDX.get(rows);
   if (idx === undefined) { idx = new Map();
@@ -745,6 +762,16 @@ const FASTPRIMS = new Map(Object.entries({
       }
     }
     return out; },
+  // render:json is canon's renderer of a value as JSON text: the empty
+  // sequence is [], a sequence is its elements rendered and joined by a comma
+  // between brackets, a number is its text (implode of the atom, "" + n), and
+  // a string is quoted with canon's four escapes -- backslash, quote, newline
+  // and return -- every other character as it is. Written as ALPHA over
+  // chars per atom, it was 55% of a GET on the support store's API (a
+  // 3,000-row collection, 341 ms; the profile-and-fix loop, 2026-09-07). The
+  // same text, one pass; quote_str is the same quoting on its own.
+  "render:json": x => jsonText(x),
+  "quote_str": x => { if (typeof x !== "string") throw new Error("chars on non-string"); return jsonQuote(x); },
   "solve:cell": x => { const name = at(x, 0), cells = seq(at(x, 1));
     let idx = SOLVEIDX.get(cells);
     if (idx === undefined) { idx = { at: new Map(), bad: null };
@@ -1381,6 +1408,10 @@ function senter(f) {
   if ((++SN & 0xffff) === 0) { const now = performance.now(); if (now - SLAST >= SAMPLE) { SLAST = now; sreport("sample"); } }
 }
 function sexit() { STAMP[0]--; }
+// AREST_SAMPLE_AFTER_BOOT=1 clears the histograms when the boot laps are done,
+// so a report over a container or a cli verb is the sample of the COMMAND and
+// not of the load that preceded it (the profile-and-fix loop, 2026-09-07)
+function sreset() { if (!SAMPLE) return; STAMP.fill(0, 2 + SDEPTH); STAMP[1] = 0; SWHOCOUNT.clear(); }
 function sreport(label) {
   const total = STAMP[1];
   if (total === 0) return;
@@ -2299,6 +2330,7 @@ function boot(mode) {
       lap("journal folded and re-derived");
     }
   }
+  if (SAMPLE && process.env.AREST_SAMPLE_AFTER_BOOT) sreset(); // @instrument
   if (mode === "test") return run_test();
   if (mode === "serve") return run_serve();
   if (mode === "mcp") return run_mcp();
