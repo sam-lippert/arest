@@ -537,7 +537,10 @@ const MEMOCN = new Set(["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
   // fact-type table of one: a write's validation asks each once per mandatory
   // role of every fact type over the store it is validating, and a fresh list
   // per ask meant a fresh index per ask (the profile-and-fix loop, 2026-09-07)
-  "ui:otpops", "mcp:tools"]);
+  "ui:otpops", "mcp:tools",
+  // derive:sm_marks is the semi-derived markings of a store, asked once per
+  // fact type per round of the closure (the profile-and-fix loop, 2026-09-08)
+  "derive:sm_marks"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot canon list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
@@ -1175,6 +1178,7 @@ const FASTPRIMS = new Map(Object.entries({
   "theta:find_desc": x => { const name = at(x, 0), descs = seq(at(x, 1));
     let idx = DESCIDX.get(descs);
     if (idx === undefined) { idx = new Map();
+      if (SAMPLE) SWHOCOUNT.set("theta:find_desc <- (index built, " + descs.length + " descs)", (SWHOCOUNT.get("theta:find_desc <- (index built, " + descs.length + " descs)") || 0) + 1); // @instrument
       for (const d of descs) { if (!Array.isArray(d) || d.length === 0) continue;
         const k = keyOf(d[0]);
         if (!idx.has(k)) idx.set(k, d); }
