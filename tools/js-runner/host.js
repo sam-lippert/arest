@@ -347,7 +347,8 @@ const PRIMS = new Map(Object.entries({
 // value; remembering it is evaluator quality, not semantics. Keys: atoms by
 // value, sequences by reference (small frames by element, so ctx-threaded
 // references hit). Any harness that mutates CELLS between evaluations MUST
-// call memoClear() at the mutation point. Bounded: full clear past the cap.
+// call memoClear() at the mutation point. Bounded: the memo alone is emptied
+// past the cap; the identity-keyed indexes below outlive it (memoCall).
 const EVMEMO = new Map();
 let EVMEMON = 0;
 // Backus 13.3.4 defines fetch as a linear walk (`↑n∘tl:x`), and canon's
@@ -1635,7 +1636,15 @@ function memoCall(f, x, run) {
   if (node.has(last)) return node.get(last);
   const v = run(x);
   node.set(last, v);
-  if (++EVMEMON > 400000) memoClear();
+  // THE SIZE BOUND TRIMS THE MEMO, NOT THE INDEXES. The bound existed to
+  // keep the memo's maps from growing without limit, and it emptied every
+  // identity-keyed index with them; those are WeakMaps on immutable canon
+  // values and stay true for as long as the value lives, so wiping them only
+  // rebuilt them -- the support report's first ten seconds were rmap:wide_row
+  // at 82% of self, most of it re-indexing relations it had indexed before
+  // (the profile-and-fix loop, 2026-09-08). The one mutable array is the
+  // store, and its mutation points call memoClear, which still clears all.
+  if (++EVMEMON > 400000) { EVMEMO.clear(); EVMEMON = 0; }
   return v;
 }
 // A NAME IN A FORM, resolved once: Ev asked four maps per application (DEFS,
