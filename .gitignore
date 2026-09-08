@@ -114,8 +114,6 @@ obj/
 # is a byte-concatenation of head + canon + carriers + a tail, so it is always
 # regenerable and never worth tracking.
 tools/js-runner/*.g.js
-# and the carriers' JSON that build.js writes beside each module (2026-09-07)
-tools/js-runner/*.carriers.json
 # the stations wall's whole output tree (composed sources + per-station
 # stdout it diffs), by DIRECTORY per the lesson above — never by name.
 tools/wall/stations.out/
