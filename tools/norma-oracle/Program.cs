@@ -476,7 +476,8 @@ namespace Arest.NormaOracle
 			Console.WriteLine();
 			Mark("harness map log");
 			Console.WriteLine("== harness map log ==");
-			foreach (string line in verifier.MapLog) Console.WriteLine("  " + line);
+			int mapLogPrinted = 0;
+			foreach (string line in verifier.MapLog) { Console.WriteLine("  " + line); mapLogPrinted++; }
 			Console.WriteLine();
 			// second disambiguation sweep: the checker-era readers above build
 			// facts AFTER the first pass, and their rings' link readings would
@@ -516,6 +517,15 @@ namespace Arest.NormaOracle
 			// derivation-mode / delivered / declined facts this tool has always
 			// printed, written where a corpus can read them instead of a log.
 			verifier.WriteBuildFacts("build-facts.md");
+			// what the carriers' writers reported while writing (state:undelivered's
+			// heads and their reasons): the map log's tail, printed where it lands
+			var lateMapLog = verifier.MapLog.Skip(mapLogPrinted).ToList();
+			if (lateMapLog.Count > 0)
+			{
+				Console.WriteLine("== harness map log (while writing the carriers) ==");
+				foreach (string line in lateMapLog) Console.WriteLine("  " + line);
+				Console.WriteLine();
+			}
 			// the run's outcome as a carrier of its own (the regression check composes
 			// it without the schema), and the same in the expectation's form: recording
 			// an accepted run is copying that file beside the corpus's name

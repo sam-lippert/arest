@@ -1,4 +1,6 @@
 errors 0
+UNDELIVERED (arithmetic of more than one operation): QuoteHasDocumentFeeAmount
+UNDELIVERED (arithmetic of more than one operation): QuoteHasTaxAmount
 *Quote has document Fee Amount1 if and only if
 that Quote has some charged Fee Amount2
 and  has some Cap that has some Fee Amount3

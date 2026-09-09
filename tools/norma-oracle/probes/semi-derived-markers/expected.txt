@@ -1,5 +1,6 @@
 errors 0
 UNBUILT (head names a role the body never binds: Trial) [legs resolving 1/1; chain arm: head role Trial is bound by no leg, literal or subtype]: * Customer has granted Trial iff some Admin provisions that Customer.
+UNDELIVERED (no arm emitted a recipe): CustomerHasGrantedTrial
 ++Customer is flagged if
 some Admin provisions that Customer.
 

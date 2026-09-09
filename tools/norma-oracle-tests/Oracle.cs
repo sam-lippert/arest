@@ -273,6 +273,11 @@ namespace Arest.NormaOracle.Tests
             {
                 if (l.StartsWith("  REFUSED (", StringComparison.Ordinal)) sb.Append(l.TrimStart()).Append('\n');
             }
+            // and what it did not deliver, with the reason state:undelivered carries
+            foreach (string l in Lines(r.Output))
+            {
+                if (l.StartsWith("  UNDELIVERED (", StringComparison.Ordinal)) sb.Append(l.TrimStart()).Append('\n');
+            }
             bool printing = false;
             foreach (string l in Lines(r.Report))
             {

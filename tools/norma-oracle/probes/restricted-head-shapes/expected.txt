@@ -1,6 +1,9 @@
 errors 0
 UNBUILT (head names a role the body never binds: Arbitration Proceeding) [legs resolving 0/2; chain arm: head role Arbitration Proceeding is bound by no leg, literal or subtype]: * Dispute requires Arbitration Proceeding iff Dispute is governed by Governing Law 'Delaware' and Dispute has Status 'negotiation-failed'.
 UNBUILT (head is value-restricted; the fact type is declared, the restriction is not built; chain arm: no chain order from Person): * Person is subject to Delaware Authority iff Person is Customer and that Customer accepts current terms.
+UNDELIVERED (marked derived, no rule written): CorporationHasNexusOfNexusType
+UNDELIVERED (no arm emitted a recipe): DisputeRequiresArbitrationProceeding
+UNDELIVERED (marked derived, no rule written): PersonIsSubjectToAuthority
 +Corporation has Nexus of Nexus Type if
 that Corporation has principal place of business in some State where Equals(State, Minnesota)
 and some Minnesota Nexus is that Nexus

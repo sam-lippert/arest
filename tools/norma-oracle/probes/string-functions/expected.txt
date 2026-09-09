@@ -1,4 +1,7 @@
 errors 0
+UNDELIVERED (a leg the chain never reaches): SourceDeclarationTargetsSourceService
+UNDELIVERED (arithmetic this grammar has no primitive for (concat)): SourceRequestResolvesToTargetURL
+UNDELIVERED (a leg the chain never reaches): StyleCandidateMatchesListing
 *Source Declaration targets Source Service if and only if
 that Source Declaration has some Base Path
 and that Source Service has some URL

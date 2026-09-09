@@ -12761,9 +12761,33 @@ namespace Arest.NormaOracle
 		// The Arm is absent on purpose: which arm built a rule exists only in
 		// log strings (`:= chain over N clauses`), so recording it structurally
 		// is its own change rather than a guess parsed back out of prose.
+		// THE CENSUS NAMES WHOSE DEBT AN UNDELIVERED HEAD IS. state:undelivered
+		// said "no arm emitted a recipe" of every marked head no recipe reached,
+		// and on eu-law that was 123 of 124 -- but none of those 123 had a rule
+		// sentence at all: `AI System has incident. *` is a fact type marked
+		// derived whose rule was never written (2026-09-09). No arm was ever given
+		// a rule, so no arm declined one; the debt is the corpus's, not the
+		// oracle's, and the census must say so. A head is "ruled" when some
+		// deferred rule sentence names it as its head, after the disjunctions are
+		// split; a marked head no rule names is reported as
+		// "marked derived, no rule written".
+		private HashSet<string> HeadsWithARule()
+		{
+			var ruled = new HashSet<string>(StringComparer.Ordinal);
+			foreach (string rule in myDeferredRules)
+			{
+				Match m = Regex.Match(rule, @"^(?:\*+ |\++ )?(.+?) (?:iff|if) ");
+				if (!m.Success) continue;
+				FactIndexEntry he = FindEntryByNormalizedSentence(m.Groups[1].Value.Trim());
+				if (he != null && he.Fact != null && !he.Fact.IsDeleted) ruled.Add(he.Fact.Name);
+			}
+			return ruled;
+		}
+
 		public void WriteBuildFacts(string path)
 		{
 			var derivedPairs = myDerivedPairs;
+			HashSet<string> ruled = HeadsWithARule();
 			var recipeHeads = new HashSet<string>(StringComparer.Ordinal);
 			foreach (string r in myRuleRecipes)
 			{
@@ -12810,7 +12834,7 @@ namespace Arest.NormaOracle
 					sb.Append("Derivation Rule 'r:").Append(kv.Key).Append("' has Recipe 'emitted'.\n");
 				else
 					sb.Append("Derivation Rule 'r:").Append(kv.Key).Append("' is declined for Decline Reason '")
-					  .Append(whyByHead.TryGetValue(kv.Key, out why) ? why : "no arm emitted a recipe").Append("'.\n");
+					  .Append(whyByHead.TryGetValue(kv.Key, out why) ? why : ruled.Contains(kv.Key) ? "no arm emitted a recipe" : "marked derived, no rule written").Append("'.\n");
 			}
 			// and the constraint sentences this tool DECLINED, with the reason it
 			// gave. `Constraint awaits an arm` then answers which shapes the
@@ -13285,6 +13309,7 @@ namespace Arest.NormaOracle
 				if (he != null && !whyByHead.ContainsKey(he.Fact.Name)) whyByHead[he.Fact.Name] = kv.Value;
 			}
 			var undelivered = new List<string>();
+			HashSet<string> ruled = HeadsWithARule();
 			foreach (string pair in derivedPairs)
 			{
 				int a = pair.IndexOf("A(\"", StringComparison.Ordinal);
@@ -13293,8 +13318,9 @@ namespace Arest.NormaOracle
 				string name = pair.Substring(a + 3, b - a - 3);
 				if (recipeHeadNames.Contains(name)) continue;
 				string why;
-				undelivered.Add("S2(" + IAtom(name) + ", "
-					+ IAtom(whyByHead.TryGetValue(name, out why) ? why : "no arm emitted a recipe") + ")");
+				if (!whyByHead.TryGetValue(name, out why)) why = ruled.Contains(name) ? "no arm emitted a recipe" : "marked derived, no rule written";
+				undelivered.Add("S2(" + IAtom(name) + ", " + IAtom(why) + ")");
+				myMapLog.Add("UNDELIVERED (" + why + "): " + name);
 			}
 			undelivered.Sort(StringComparer.Ordinal);
 			sb.Append("DEF(\"state:undelivered\", ").Append(IChunked(undelivered)).Append("),\n\n");
