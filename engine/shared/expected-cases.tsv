@@ -667,3 +667,4 @@ case:post-introduces-no-warning	"('committed', (('cal', '555-9999'), ('ann', '55
 case:post-introduces-a-warning	"('committed_with_violations', (('t1', 'dan')), (), (('AgentHasPhone', 'deontic', 'dan')))"
 case:entity-machine-by-instance-type	"'Ticket'"
 case:entity-machine-falls-back-to-the-type	"'Thing'"
+case:screen-actions-at-a-nested-status	"(('menu', 'actions (A)', ('item', 'TicketAdvances', '-> B', ('fire', 'TicketAdvances', 'Ticket', 't1')), ('item', 'TicketCloses', '-> Closed', ('fire', 'TicketCloses', 'Ticket', 't1'))))"
