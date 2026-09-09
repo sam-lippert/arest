@@ -331,8 +331,33 @@ namespace Arest.NormaOracle
 				{
 					char next = i + 1 < joined.Length ? joined[i + 1] : ' ';
 					char prev = i >= 1 ? joined[i - 1] : ' ';
+					// AN ABBREVIATION BEFORE A NUMBER DOES NOT END A SENTENCE. eu-law
+					// writes `Processor makes available information necessary to
+					// demonstrate compliance with Art. 28 to Controller. *` and the split
+					// at "Art." left "28 to Controller." as a sentence of its own, which
+					// the fact-reading fallback minted as the fact type 28ToController --
+					// seventeen numeric heads in eu-law's state:fts (42ForDataProtection-
+					// ByDesign, 65ToLeadSupervisoryAuthority..., 2026-09-09), each a marked
+					// derived fact type nothing could ever derive. No FORML sentence
+					// begins with a digit, and every period the corpora write before a
+					// number closes a short capitalized abbreviation (Art. 4, Cl. 1,
+					// Ch. 2, Sec. 1): that period is inside the sentence.
+					bool abbreviationBeforeNumber = false;
+					if (next == ' ')
+					{
+						int j = i + 1;
+						while (j < joined.Length && joined[j] == ' ') j++;
+						if (j < joined.Length && char.IsDigit(joined[j]))
+						{
+							int w = i - 1;
+							while (w >= 0 && char.IsLetter(joined[w])) w--;
+							int wordLength = i - 1 - w;
+							abbreviationBeforeNumber = wordLength >= 1 && wordLength <= 5
+								&& char.IsUpper(joined[w + 1]) && (w < 0 || joined[w] == ' ');
+						}
+					}
 					// avoid splitting "X(.id)" reference modes and "10.3" style
-					if ((next == ' ' || next == '\0') && prev != '(' && !char.IsDigit(next))
+					if ((next == ' ' || next == '\0') && prev != '(' && !char.IsDigit(next) && !abbreviationBeforeNumber)
 					{
 						string s = current.ToString().Trim();
 						if (s.Length > 1) sentences.Add(s);
