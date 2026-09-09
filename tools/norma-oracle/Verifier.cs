@@ -1913,6 +1913,23 @@ namespace Arest.NormaOracle
 			return null;
 		}
 
+		// The subtype fact between two types, reached through the subtype's OWN played
+		// SubtypeMetaRole (O(X's roles)) rather than SubtypeFactBetween's scan of every
+		// subtype fact in the model (O(all subtype facts)). MapInstanceFact calls this once
+		// per subtype-naming sentence to resolve `X is a subtype of Y` to that fact's id;
+		// the directory scan per sentence pushed support's map past 600 s.
+		private SubtypeFact SubtypeFactForSubject(ObjectType sub, ObjectType super)
+		{
+			foreach (Role role in sub.PlayedRoleCollection)
+			{
+				SubtypeMetaRole smr = role as SubtypeMetaRole;
+				if (smr == null) continue;
+				SubtypeFact sf = smr.FactType as SubtypeFact;
+				if (sf != null && !sf.IsDeleted && sf.Subtype == sub && sf.Supertype == super) return sf;
+			}
+			return null;
+		}
+
 		// THE SUBTYPE STEP. A variable typed Real Covenant entering a Covenant role, or
 		// a leg `Estate in Land is a Fee Simple`, is a walk through the subtype fact:
 		// NORMA models a subtype as a fact type with two roles, so the step is an
@@ -2311,12 +2328,36 @@ namespace Arest.NormaOracle
 				if (k == null) continue;
 				if (!(KindSatisfies(k, "Fact Type") || KindSatisfies("Fact Type", k))) continue;
 				FactIndexEntry named = FindEntryByNormalizedSentence(quotes[i]);
-				if (named == null || named.Fact == null || named.Fact.IsDeleted) continue;
-				if (quotes[i] == named.Fact.Name) continue;
-				myMapLog.Add("FACT TYPE NAMED BY ITS READING: '" + quotes[i] + "' entered as " + named.Fact.Name
+				if (named != null && named.Fact != null && !named.Fact.IsDeleted)
+				{
+					if (quotes[i] == named.Fact.Name) continue;
+					myMapLog.Add("FACT TYPE NAMED BY ITS READING: '" + quotes[i] + "' entered as " + named.Fact.Name
+						+ " in '" + Shorten(s) + "'");
+					quotes[i] = named.Fact.Name;
+					Count("fact type named by its reading (entered as its id)");
+					continue;
+				}
+				// NORMA models a subtype as a fact type with two roles, but its reading
+				// "X is a subtype of Y" is not in the sentence index, so a citation of a
+				// DECLARED subtype -- `Fact Type 'Subliminal Manipulation is a subtype of
+				// Prohibited Practice' cites Citation 'EU-AI-Act-Art-5'` -- named a second,
+				// roleless, readingless FactType beside the reflected one: the same "one
+				// thing named twice" phantom the reading resolution above removes for an
+				// ordinary fact type. Resolve the subtype reading to its SubtypeFact's id so
+				// the citation attaches to the real subtype and the phantom is never minted.
+				// A subtype named ONLY in a citation has no SubtypeFact, is left as written,
+				// and stays a visible violation -- a genuine undeclared reference, not forced.
+				int at = quotes[i].IndexOf(" is a subtype of ", StringComparison.Ordinal);
+				if (at < 0) continue;
+				ObjectType subT, supT;
+				if (!myTypes.TryGetValue(quotes[i].Substring(0, at).Trim(), out subT) || subT == null || subT.IsDeleted) continue;
+				if (!myTypes.TryGetValue(quotes[i].Substring(at + " is a subtype of ".Length).Trim(), out supT) || supT == null || supT.IsDeleted) continue;
+				SubtypeFact sf = SubtypeFactForSubject(subT, supT);
+				if (sf == null || sf.IsDeleted || quotes[i] == sf.Name) continue;
+				myMapLog.Add("SUBTYPE FACT TYPE NAMED BY ITS READING: '" + quotes[i] + "' entered as " + sf.Name
 					+ " in '" + Shorten(s) + "'");
-				quotes[i] = named.Fact.Name;
-				Count("fact type named by its reading (entered as its id)");
+				quotes[i] = sf.Name;
+				Count("subtype fact type named by its reading (entered as its id)");
 			}
 			match.Rows.Add(new List<string>(quotes));
 			match.RowKinds.Add(new List<string>(kinds.Select(k => k ?? "")));
