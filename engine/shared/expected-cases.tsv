@@ -654,3 +654,6 @@ case:auth-unary-permits-the-login	"(('t1', 'A'), ('A', 'TicketAdvances', 'B'), (
 case:auth-unary-refuses-another-login	"()"
 case:auth-unary-refuses-the-empty-caller	"()"
 case:auth-ternary-names-the-link	"(('A', 'TicketCloses', 'Closed'))"
+case:declared-names	"('AgentHasPhone', 'TeamHasAgent')"
+case:declared-names-without-the-cell	"()"
+case:api-unknown-resource-is-404	"404"
