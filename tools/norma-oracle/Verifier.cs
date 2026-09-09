@@ -12767,6 +12767,42 @@ namespace Arest.NormaOracle
 					}
 				}
 			}
+			// AND THE REFERENCE MODE LANDS IN ITS OWN FACT TYPE. `Entity Type has
+			// Reference Mode` (core.md; on Entity Type since 2026-09-09, Halpin's
+			// ORM metamodel Fig 13.29) stood at 0 rows in every store while the
+			// declaration `Task(.id)` had set ReferenceModeString on the NORMA
+			// entity, and state:refmodes carried only the RESOLVED scheme per
+			// entity (the subtype climbing to its supertype's pattern, which is
+			// what the column-naming surface needs). This is the metafact's
+			// population as the instances per se: each entity type with the
+			// reference mode IT declares, as NORMA answers it.
+			// ObjectType.GetReferenceMode reads the type's OWN preferred
+			// identifier (GetValueTypeForPreferredConstraint: an internal
+			// single-role uniqueness whose player is a value type) and answers
+			// the matched mode's name, else that value type's name -- so a
+			// subtype identified through its supertype's scheme has no row (it
+			// has no reference mode of its own) and a composite preferred
+			// identifier has none (it is a uniqueness constraint, not a
+			// reference mode). Unattributed, and explicit rows win, as above.
+			{
+				FactIndexEntry rmEntry = null;
+				foreach (FactIndexEntry e in myFactIndex)
+					if (!e.Fact.IsDeleted && e.Fact.Name == "EntityTypeHasReferenceMode") { rmEntry = e; break; }
+				if (rmEntry != null)
+				{
+					var haveRm = new HashSet<string>(StringComparer.Ordinal);
+					foreach (var row in rmEntry.Rows) if (row.Count == 2) haveRm.Add(row[0]);
+					foreach (ObjectType ot in myModel.ObjectTypeCollection.OrderBy(o => o.Name, StringComparer.Ordinal))
+					{
+						if (ot.IsDeleted || string.IsNullOrEmpty(ot.Name) || ot.IsValueType || haveRm.Contains(ot.Name)) continue;
+						string mode = ot.ReferenceModeString;
+						if (string.IsNullOrEmpty(mode)) continue;
+						rmEntry.Rows.Add(new List<string> { ot.Name, mode });
+						rmEntry.RowKinds.Add(new List<string> { "", "" });
+						haveRm.Add(ot.Name);
+					}
+				}
+			}
 			// AND THE INSTANCE-OF PAIRING IS ALREADY COMPUTED TOO. The walk below
 			// that materializes state:otpops reads exactly this: for every row of
 			// every fact type, RowKinds[r][i] names the object type of
