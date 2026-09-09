@@ -10669,6 +10669,13 @@ namespace Arest.NormaOracle
 			public string Swapped;
 			public int SwappedAt = -1;
 			public ObjectType SwappedTo;
+			// A CLAUSE THAT CARRIES A LITERAL. `that Object Type has World Assumption 'open'`
+			// restricts the player named just before the quote to that value; LitAt is that
+			// player's position and LitVal the value. The path builders lay it as a
+			// CalculatedPathValue Equals condition on the NORMA path and as a sel in the
+			// recipe canon evaluates. A restricted player is never a shared (projected) one.
+			public string LitVal;
+			public int LitAt = -1;
 		}
 
 		// A SIDE CLAUSE THAT REMEMBERS ITS SUBTYPE SUBSTITUTION. ResolveClauseSub
@@ -10776,6 +10783,174 @@ namespace Arest.NormaOracle
 			return null;
 		}
 
+		// THE LEG AS A RECIPE (2026-09-09). Sam: a subset constraint is modeled in NORMA as a
+		// role sequence over a join path, and the join path may come from any number of facts
+		// if the roles match. The step triples RecordPathStep keeps carry one join and cannot
+		// say which bound variable a third step enters from, so canon reassembled the join
+		// from hints; a leg with two members and no path, or over an objectified pair, was
+		// answered PHI -- unchecked, indistinguishable from clean. The builders below walk the
+		// path as they lay it in NORMA, so each records the leg in the grammar the derivation
+		// arms emit -- joinon, proj, sel over concatenation-absolute positions -- and
+		// cmd:sc_leg evaluates it with derive:eval. Direct legs are projected at emission
+		// from their member roles' own fact type. Positions are 1-based.
+		private readonly Dictionary<ConstraintRoleSequence, string> myLegRecipe =
+			new Dictionary<ConstraintRoleSequence, string>();
+
+		private static string RecipeProj(string src, List<int> pos)
+		{
+			var ps = new List<string>();
+			foreach (int p in pos) ps.Add("N(" + p + ")");
+			return "S3(A(\"proj\"), " + src + ", S" + ps.Count + "(" + string.Join(", ", ps) + "))";
+		}
+
+		private string RecipeSel(string src, int pos, string val)
+		{
+			return "S4(A(\"sel\"), " + src + ", N(" + pos + "), " + IAtom(val) + ")";
+		}
+
+		// keys are 1-based within each leg; outs are 1-based over the concatenation, a
+		// leg-two position p being n1 + p -- RecordJoinOnRecipe's convention
+		private static string RecipeJoinOn(string src1, string src2, int k1, int k2, List<int> outs)
+		{
+			var os = new List<string>();
+			foreach (int o in outs) os.Add("N(" + o + ")");
+			return "S5(A(\"joinon\"), " + src1 + ", " + src2 + ", S1(S2(N(" + k1 + "), N(" + k2 + "))), S"
+				+ os.Count + "(" + string.Join(", ", os) + "))";
+		}
+
+		// a clause's source: its fact type, wrapped in sel when the clause carries a literal
+		private string ClauseSource(SideClause cl)
+		{
+			string src = IAtom(cl.Entry.Fact.Name);
+			return cl.LitAt >= 0 ? RecipeSel(src, cl.LitAt + 1, cl.LitVal) : src;
+		}
+
+		// the two-clause star: both clauses joined on the internal variable, the projected
+		// variables read out in MEMBER order so canon compares position for position
+		private string StarRecipe(List<SideClause> side, string joinVar, List<string> projVars,
+			Dictionary<string, KeyValuePair<int, int>> projRole)
+		{
+			int k1 = side[0].Players.IndexOf(joinVar) + 1, k2 = side[1].Players.IndexOf(joinVar) + 1;
+			int n1 = side[0].Players.Count;
+			var outs = new List<int>();
+			foreach (string v in projVars)
+			{
+				var loc = projRole[v];
+				outs.Add(loc.Key == 0 ? loc.Value + 1 : n1 + loc.Value + 1);
+			}
+			return RecipeJoinOn(ClauseSource(side[0]), ClauseSource(side[1]), k1, k2, outs);
+		}
+
+		// A LITERAL IN A SIDE. Blanked before the side parses (a quoted span is never
+		// predicate text, and ResolveClause would fail on it), then attached to the clause
+		// and player it follows -- the player whose name ENDS nearest before the quote, so
+		// `Role Instance` wins over the `Role` inside it. One literal a side.
+		private static string BlankLiteral(string text, out string val, out int at)
+		{
+			val = null;
+			at = -1;
+			Match lit = Regex.Match(text, @"'([^']*)'");
+			if (!lit.Success) return text;
+			val = lit.Groups[1].Value;
+			at = lit.Index;
+			return Regex.Replace(text.Substring(0, lit.Index) + " " + text.Substring(lit.Index + lit.Length), @"\s+", " ").Trim();
+		}
+
+		private static void AttachLiteral(List<SideClause> side, string original, string val, int at)
+		{
+			if (side == null || val == null || at < 0) return;
+			string before = original.Substring(0, at);
+			int bestC = -1, bestP = -1, bestEnd = -1;
+			for (int c = 0; c < side.Count; c++)
+			{
+				for (int p = 0; p < side[c].Players.Count; p++)
+				{
+					int i = before.LastIndexOf(side[c].Players[p], StringComparison.Ordinal);
+					if (i < 0) continue;
+					int end = i + side[c].Players[p].Length;
+					if (end > bestEnd) { bestEnd = end; bestC = c; bestP = p; }
+				}
+			}
+			if (bestC < 0) return;
+			side[bestC].LitVal = val;
+			side[bestC].LitAt = bestP;
+		}
+
+		// THE SUBSETS THIS ORACLE BUILT WITH A VALUE CONDITION, by NORMA name. NORMA's
+		// EqualityOrSubsetImpliedByMandatoryError reads the superset role alone (`Object
+		// Type has World Assumption` is mandatory) and NORMA keeps no condition on a
+		// constraint path, so the error is inevitable for exactly these; DumpErrors sets
+		// it aside for them by name and prints each one set aside.
+		public readonly HashSet<string> ConditionedSubsetNames = new HashSet<string>(StringComparer.Ordinal);
+
+		// A SINGLE CLAUSE WITH A VALUE CONDITION NEEDS A PATH, as a swapped single clause
+		// does: the sequence's roles alone cannot say `where World Assumption is open`, and
+		// without the path the constraint would range over every value. Rooted at the first
+		// projected variable, entered through its role, a SameFactType step to the literal's
+		// role carrying the Equals condition, the projections from the entry (the shape
+		// BuildSinglePathForSequence lays). Recipe: proj(sel(F, lit, value), projected).
+		private bool BuildValuePathForSequence(ConstraintRoleSequence seq, SideClause cl, List<string> projVars)
+		{
+			if (cl.SwappedAt >= 0 || projVars.Count == 0) return false;
+			var projRole = new Dictionary<string, int>(StringComparer.Ordinal);
+			foreach (string v in projVars)
+			{
+				int at = cl.Players.IndexOf(v);
+				if (at < 0 || at == cl.LitAt) return false;
+				projRole[v] = at;
+				seq.RoleCollection.Add(cl.Entry.Roles[at]);
+			}
+			ObjectType rootType;
+			if (!myTypes.TryGetValue(projVars[0], out rootType)) return false;
+			var jp = new ConstraintRoleSequenceJoinPath(myStore);
+			jp.RoleSequence = seq;
+			var lead = new LeadRolePath(myStore);
+			jp.OwnedLeadRolePathCollection.Add(lead);
+			new RolePathObjectTypeRoot(lead, rootType);
+			var sub = new RoleSubPath(myStore);
+			lead.SubPathCollection.Add(sub);
+			int rootAt = projRole[projVars[0]];
+			var entry = new PathedRole(sub, cl.Entry.Roles[rootAt]);
+			entry.PathedRolePurpose = PathedRolePurpose.PostInnerJoin;
+			var pathed = new Dictionary<string, PathedRole>(StringComparer.Ordinal);
+			foreach (string v in projVars)
+			{
+				int at = projRole[v];
+				if (at == rootAt) { pathed[v] = entry; continue; }
+				var step = new PathedRole(sub, cl.Entry.Roles[at]);
+				step.PathedRolePurpose = PathedRolePurpose.SameFactType;
+				pathed[v] = step;
+			}
+			// THE CONDITION IS NOT IN THE NORMA PATH. Both forms were tried on the literal's
+			// pathed role -- a CalculatedPathValue Equals over a PathConstant, then a
+			// PathConditionRoleValueConstraint -- and NORMA holds neither on a constraint join
+			// path at commit (254 pathed roles, none with a condition; zero path value
+			// constraints in the store after a build that made one). So NORMA models the
+			// subset over its roles and path, the recipe carries `where World Assumption is
+			// open` as sel, and the implied-by-mandatory error NORMA raises for the
+			// condition-less element is set aside by the oracle's own record of this
+			// constraint (ConditionedSubsetNames), never by NORMA's.
+			myMapLog.Add("value condition in the recipe: " + cl.Entry.Fact.Name + " where " + cl.Players[cl.LitAt] + " = '" + cl.LitVal + "'");
+			var jpp = new ConstraintRoleSequenceJoinPathProjection(jp, lead);
+			foreach (string v in projVars)
+			{
+				Role role = cl.Entry.Roles[projRole[v]];
+				ConstraintRoleSequenceHasRole link = null;
+				foreach (ConstraintRoleSequenceHasRole l in ConstraintRoleSequenceHasRole.GetLinksToRoleCollection(seq))
+				{
+					if (l.Role == role) { link = l; break; }
+				}
+				if (link == null) return false;
+				var crp = new ConstraintRoleProjection(jpp, link);
+				new ConstraintRoleProjectedFromPathedRole(crp, pathed[v]);
+			}
+			var pos = new List<int>();
+			foreach (string v in projVars) pos.Add(projRole[v] + 1);
+			myLegRecipe[seq] = RecipeProj(RecipeSel(IAtom(cl.Entry.Fact.Name), cl.LitAt + 1, cl.LitVal), pos);
+			Count("set-comparison side: single clause with a value condition");
+			return true;
+		}
+
 		// one constraint role sequence for a side; a two-clause side gets a
 		// join path in NORMA's own serialized shape
 		private SetComparisonConstraintRoleSequence BuildSideSequence(List<SideClause> side, List<string> projVars)
@@ -10785,6 +10960,7 @@ namespace Arest.NormaOracle
 			{
 				// a lone clause resolved by substituting a subtype must still
 				// carry a path, or the constraint ranges over the supertype role
+				if (side[0].LitAt >= 0) return BuildValuePathForSequence(seq, side[0], projVars) ? seq : null;
 				if (side[0].SwappedAt >= 0) return BuildSinglePathForSequence(seq, side[0], projVars) ? seq : null;
 				foreach (string v in projVars)
 				{
@@ -11017,7 +11193,10 @@ namespace Arest.NormaOracle
 					}
 					RecordPathStep(seq, side[c].Entry.Fact.Name, joinAt + 1, loc.Value + 1);
 				}
+				// a literal on this clause rides in the recipe (ClauseSource wraps the
+				// clause in sel); NORMA keeps no condition on a constraint join path
 			}
+			myLegRecipe[seq] = StarRecipe(side, joinVar, projVars, projRole);
 			var jpp = new ConstraintRoleSequenceJoinPathProjection(jp, lead);
 			foreach (string v in projVars)
 			{
@@ -11202,13 +11381,23 @@ namespace Arest.NormaOracle
 			m = Regex.Match(body, @"^If (.+?) then (.+)$");
 			if (m.Success)
 			{
-				var ante = ParseSide(m.Groups[1].Value);
-				var cons = ParseSide(m.Groups[2].Value);
+				// a literal is blanked before the side parses and attached to the clause
+				// and player it follows; its player is restricted, never shared
+				string aLit, cLit;
+				int aLitAt, cLitAt;
+				string anteText = BlankLiteral(m.Groups[1].Value, out aLit, out aLitAt);
+				string consText = BlankLiteral(m.Groups[2].Value, out cLit, out cLitAt);
+				var ante = ParseSide(anteText);
+				var cons = ParseSide(consText);
+				AttachLiteral(ante, m.Groups[1].Value, aLit, aLitAt);
+				AttachLiteral(cons, m.Groups[2].Value, cLit, cLitAt);
 				if (ante != null && cons != null)
 				{
 					var anteVars = ante.SelectMany(c => c.Players).Distinct().ToList();
 					var consVars = cons.SelectMany(c => c.Players).Distinct().ToList();
 					var proj = consVars.Intersect(anteVars).Distinct().ToList();
+					foreach (SideClause lc in ante) if (lc.LitAt >= 0) proj.Remove(lc.Players[lc.LitAt]);
+					foreach (SideClause lc in cons) if (lc.LitAt >= 0) proj.Remove(lc.Players[lc.LitAt]);
 					// internal join vars must not be projection vars
 					if (ante.Count == 2)
 					{
@@ -11231,8 +11420,9 @@ namespace Arest.NormaOracle
 							sc.RoleSequenceCollection.Add(sub);
 							sc.RoleSequenceCollection.Add(super);
 							sc.Modality = modality;
+							if (aLit != null || cLit != null) ConditionedSubsetNames.Add(sc.Name);
 							bool joined = ante.Count > 1 || cons.Count > 1;
-							Count("subset constraint (" + (joined ? "join path" : "direct") + ", " + proj.Count + "-role sequences)");
+							Count("subset constraint (" + (joined ? "join path" : "direct") + ", " + proj.Count + "-role sequences" + (aLit != null || cLit != null ? ", value condition" : "") + ")");
 							myMapLog.Add("subset built (" + (joined ? "join path" : "direct") + "): " + Shorten(s));
 							return true;
 						}
@@ -13006,6 +13196,10 @@ namespace Arest.NormaOracle
 			// still carries both sides, so one shape serves both and the kind
 			// says how to read it.
 			var setcmp = new List<string>();
+			// the fact types state:fts carries -- a leg over an objectified pair projects its
+			// roles' own fact type, which is evaluable only when it is one of these
+			var emittedFacts = new HashSet<FactType>();
+			foreach (FactIndexEntry fe in myFactIndex) if (fe.Fact != null && !fe.Fact.IsDeleted) emittedFacts.Add(fe.Fact);
 			foreach (SetComparisonConstraint scc in myStore.ElementDirectory.FindElements<SetComparisonConstraint>(true))
 			{
 				if (scc.IsDeleted) continue;
@@ -13018,6 +13212,11 @@ namespace Arest.NormaOracle
 				foreach (SetComparisonConstraintRoleSequence seq in scc.RoleSequenceCollection)
 				{
 					var members = new List<string>();
+					// the leg's own fact type, for a direct projection: an objectified pair's
+					// members name binarized halves, but the roles belong to ONE fact type
+					FactType directFt = null;
+					bool direct = true;
+					var directPos = new List<int>();
 					foreach (Role r in seq.RoleCollection)
 					{
 						FactType mft = r.BinarizedOrSameFactType;
@@ -13027,12 +13226,26 @@ namespace Arest.NormaOracle
 							if (mft.RoleCollection[i].Role == r) { pos = i + 1; break; }
 						if (pos == 0) { ok = false; break; }
 						members.Add("S2(" + IAtom(mft.Name) + ", N(" + pos + "))");
+						FactType rft = r.FactType;
+						if (directFt == null) directFt = rft; else if (directFt != rft) direct = false;
+						int rpos = 0;
+						if (rft != null)
+							for (int i = 0; i < rft.RoleCollection.Count; i++)
+								if (rft.RoleCollection[i].Role == r) { rpos = i + 1; break; }
+						if (rpos == 0) direct = false; else directPos.Add(rpos);
 					}
 					if (!ok || members.Count == 0) { ok = false; break; }
 					legs.Add(IMemberSeq(members));
-					List<string> pathSteps;
-					paths.Add(myLegPath.TryGetValue(seq, out pathSteps) && pathSteps.Count > 0
-						? IMemberSeq(pathSteps) : "PHI()");
+					string legRecipe;
+					if (myLegRecipe.TryGetValue(seq, out legRecipe)) paths.Add(legRecipe);
+					else if (direct && directFt != null && emittedFacts.Contains(directFt)) paths.Add(RecipeProj(IAtom(directFt.Name), directPos));
+					else
+					{
+						paths.Add("PHI()");
+						Count("set-comparison leg with no evaluable recipe");
+						myMapLog.Add("no leg recipe: " + (directFt == null ? "?" : directFt.Name)
+							+ (direct ? " is not an emitted fact type" : " -- members span fact types with no path"));
+					}
 				}
 				if (!ok || legs.Count != 2) continue;
 				setcmp.Add("S5(" + IAtom(kind) + ", " + IAtom(scc.Modality == ConstraintModality.Deontic ? "deontic" : "alethic")
@@ -13240,16 +13453,36 @@ namespace Arest.NormaOracle
 		#endregion
 
 		#region reporting
+		// THE ONE EXCEPTION, AND WHY IT IS NOT A WHITELIST. EqualityOrSubsetImpliedByMandatoryError
+		// reads the superset role alone: `Object Type has World Assumption` is mandatory, so NORMA
+		// calls `backed Object Types within those whose World Assumption is open` implied. The
+		// value condition is what makes it a constraint at all, NORMA keeps no condition on a
+		// constraint path, so the caller passes the names of the subsets the oracle built with
+		// one (ConditionedSubsetNames); the error is set aside for exactly those, each printed
+		// under the total. The ring probe passes none.
 		public static void DumpErrors(Store store, TextWriter w)
 		{
-			// No whitelist. The former ring-twin class (duplicate link-reading
-			// signatures on same-player m:n facts) is FIXED at the source by
-			// DisambiguateRingLinkReadings; any survivor is a real error.
+			DumpErrors(store, w, null);
+		}
+
+		public static void DumpErrors(Store store, TextWriter w, HashSet<string> conditioned)
+		{
+			// No whitelist, with ONE named exception (ConditionedSubsetNames, printed under the
+			// total). The former ring-twin class (duplicate link-reading signatures on
+			// same-player m:n facts) is FIXED at the source by DisambiguateRingLinkReadings;
+			// any other survivor is a real error.
 			var groups = new Dictionary<string, List<string>>();
+			HashSet<string> conditionedNames = conditioned ?? new HashSet<string>(StringComparer.Ordinal);
+			var exempted = new List<string>();
 			foreach (ModelError err in store.ElementDirectory.FindElements<ModelError>(true))
 			{
 				string kind = err.GetDomainClass().Name;
 				string text = err.ErrorText;
+				if (kind == "EqualityOrSubsetImpliedByMandatoryError" && conditionedNames.Any(n => text.Contains(n)))
+				{
+					exempted.Add(text);
+					continue;
+				}
 				List<string> list;
 				if (!groups.TryGetValue(kind, out list)) groups[kind] = list = new List<string>();
 				list.Add(text);
@@ -13266,6 +13499,8 @@ namespace Arest.NormaOracle
 				if (kv.Value.Count > 8) w.WriteLine("      ... and " + (kv.Value.Count - 8) + " more");
 			}
 			w.WriteLine(total == 0 ? "  (none)" : "  TOTAL BLOCKING ERRORS: " + total);
+			foreach (string text in exempted)
+				w.WriteLine("  exempted (a subset on a conditioned path; NORMA's implied-by-mandatory check reads the superset role alone): " + text);
 			myBlockingErrors = total;
 			// the silent class: role players invented by usage with no
 			// declaration sentence anywhere - each composes as an accidental
