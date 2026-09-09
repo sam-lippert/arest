@@ -1,0 +1,4 @@
+errors 0
+REFUSED (labeled note, not a sentence): * Verbalization: Each Information Notice has some Language Quality characterising its f...
+REFUSED (labeled note, not a sentence): + Deontic: Obligatory on Controller for every Data Subject interaction.
+REFUSED (labeled note, not a sentence): Note: this line is a note and nothing else.

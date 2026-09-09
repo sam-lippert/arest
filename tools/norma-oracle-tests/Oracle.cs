@@ -265,6 +265,14 @@ namespace Arest.NormaOracle.Tests
             {
                 if (Regex.IsMatch(l, @"^  READ-BACK (MISMATCH|NO PATH)")) sb.Append(l.TrimStart()).Append('\n');
             }
+            // What the oracle REFUSED to read is as much its answer as what it
+            // built: a labeled note, a citation of a fact type nobody declared.
+            // Without these lines a probe could only pin the refusal by its
+            // absence from the carriers, which no probe surface shows.
+            foreach (string l in Lines(r.Output))
+            {
+                if (l.StartsWith("  REFUSED (", StringComparison.Ordinal)) sb.Append(l.TrimStart()).Append('\n');
+            }
             bool printing = false;
             foreach (string l in Lines(r.Report))
             {
