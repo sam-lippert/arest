@@ -490,7 +490,7 @@ namespace Arest.NormaOracle
 			}
 			Mark("NORMA model errors");
 			Console.WriteLine("== NORMA model errors ==");
-			Verifier.DumpErrors(store, Console.Out);
+			Verifier.DumpErrors(store, Console.Out, verifier.ConditionedSubsetNames);
 			Console.WriteLine();
 			Mark("value-type data types");
 			Console.WriteLine("== value-type data types ==");
