@@ -69,6 +69,18 @@ App belongs to Organization.
 
 App uses Generator.
 
+<!-- The app's auth context (2026-09-09). Sam: "Users aren't necessary,
+     but if an app has no auth context, then all operations are permitted.
+     Permission is inherent to users." An app that asserts this fact names
+     the fact type whose population answers whether a caller may follow a
+     link; canon (auth:designation) reads it, and an app that asserts none
+     offers every link to every caller. The named fact type's first role is
+     the user; a unary one (`User is authorized`) permits the login every
+     operation on every resource, a wider one narrows by operation and by
+     resource. -->
+App answers authorization with Fact Type.
+  Each App answers authorization with at most one Fact Type.
+
 ### Domain
 
 Domain has Name.

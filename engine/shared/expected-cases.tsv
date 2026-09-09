@@ -649,3 +649,8 @@ case:links-at-a-nested-status	"(('t1', 'A'), ('A', 'TicketAdvances', 'B'), ('A',
 case:recipe-restricted-head-constants	"(('bryant@driv.ly', 'create', 'Support Request'))"
 case:recipe-restricted-head-and-body	"(('f1', 'open'))"
 case:recipe-restricted-head-reordered	"(('c', 'a'))"
+case:auth-no-context-permits-all	"(('t1', 'A'), ('A', 'TicketAdvances', 'B'), ('A', 'TicketCloses', 'Closed'))"
+case:auth-unary-permits-the-login	"(('t1', 'A'), ('A', 'TicketAdvances', 'B'), ('A', 'TicketCloses', 'Closed'))"
+case:auth-unary-refuses-another-login	"()"
+case:auth-unary-refuses-the-empty-caller	"()"
+case:auth-ternary-names-the-link	"(('A', 'TicketCloses', 'Closed'))"
