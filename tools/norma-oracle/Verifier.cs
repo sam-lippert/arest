@@ -2648,6 +2648,9 @@ namespace Arest.NormaOracle
 		}
 
 		private readonly List<KeyValuePair<string, string>> myTextual = new List<KeyValuePair<string, string>>();
+		// prohibited populations: <fact type name, recipe> per `It is forbidden that <clause>`
+		// whose clause names a declared fact type, carried to state:deontics for canon
+		private readonly List<KeyValuePair<string, string>> myProhibitions = new List<KeyValuePair<string, string>>();
 		private readonly List<string> myRuleRecipes = new List<string>();
 		// why the general chain arm built a rule and emitted no recipe for it. The
 		// build is NORMA's answer and is reported already; this is the other half,
@@ -11823,6 +11826,70 @@ namespace Arest.NormaOracle
 				}
 			}
 
+			// A PROHIBITED POPULATION IS A DEONTIC CONSTRAINT CANON CHECKS (2026-09-09).
+			// `It is forbidden that Message uses Dash` says the fact type's population
+			// ought to be empty; every row is a violation, warned and committed as any
+			// deontic is. support.auto.dev's response rules are thirty-five of these
+			// and every one stood as a model note nothing read, so a response that
+			// recommended an internal API drew no verdict at all. NORMA has no element
+			// for an empty-population constraint, so the note stays as NORMA's record
+			// of the text and the constraint goes to canon as a state:deontics row of
+			// kind `prohibited` carrying a recipe -- the same grammar the derivation
+			// and subset legs use -- whose rows ARE the violations: the fact type
+			// itself (`Message uses Dash`), sel on a literal (`Message has Opening
+			// Style 'separate-greeting'`: the literal restricts the last role), or a
+			// joinon with a unary that qualifies the last player (`Message recommends
+			// API that is internal`). A clause naming no declared fact type stays
+			// prose, as before.
+			if (kind == "deontic" && body.StartsWith("It is forbidden that ", StringComparison.Ordinal))
+			{
+				string clause = body.Substring("It is forbidden that ".Length).Trim();
+				string recipe = null;
+				FactIndexEntry pE = null;
+				Match qm = Regex.Match(clause, @"^(.+?) that is (.+)$");
+				if (qm.Success)
+				{
+					FactIndexEntry bE = FindEntryByNormalizedSentence(Dequantify(" " + qm.Groups[1].Value.Trim() + " ").Trim());
+					if (bE != null && bE.Players.Count > 0)
+					{
+						string last = bE.Players[bE.Players.Count - 1];
+						FactIndexEntry uE = FindEntryByNormalizedSentence(last + " is " + qm.Groups[2].Value.Trim());
+						if (uE != null && uE.Players.Count == 1)
+						{
+							var outs = new List<string>();
+							for (int i = 1; i <= bE.Players.Count; i++) outs.Add("N(" + i + ")");
+							recipe = "S5(A(\"joinon\"), " + IAtom(bE.Fact.Name) + ", " + IAtom(uE.Fact.Name)
+								+ ", S1(S2(N(" + bE.Players.Count + "), N(1))), S" + outs.Count + "(" + string.Join(", ", outs) + "))";
+							pE = bE;
+						}
+					}
+				}
+				if (recipe == null)
+				{
+					Match lm = Regex.Match(clause, @"^(.+?) '([^']*)'$");
+					if (lm.Success)
+					{
+						FactIndexEntry bE = FindEntryByNormalizedSentence(Dequantify(" " + lm.Groups[1].Value.Trim() + " ").Trim());
+						if (bE != null && bE.Players.Count > 0)
+						{
+							recipe = "S4(A(\"sel\"), " + IAtom(bE.Fact.Name) + ", N(" + bE.Players.Count + "), " + IAtom(lm.Groups[2].Value) + ")";
+							pE = bE;
+						}
+					}
+				}
+				if (recipe == null)
+				{
+					FactIndexEntry bE = FindEntryByNormalizedSentence(Dequantify(" " + clause + " ").Trim());
+					if (bE != null) { recipe = IAtom(bE.Fact.Name); pE = bE; }
+				}
+				if (recipe != null)
+				{
+					myProhibitions.Add(new KeyValuePair<string, string>(pE.Fact.Name, recipe));
+					AddNote(kind, s, "prohibited population");
+					Count("prohibited population (deontic)");
+					return true;
+				}
+			}
 			AddNote(kind, s, kind == "deontic" ? "qualified deontic prose" : "no direct construction");
 			if (kind == "deontic")
 			{
@@ -14158,6 +14225,12 @@ namespace Arest.NormaOracle
 						MemberKeyParts(sc.RoleCollection)),
 					", " + IAtom(kind) + ", " + IMemberSeq(members) + ")"));
 			}
+			// the prohibited populations: <fact type, recipe>, kind `prohibited`, keyed
+			// by the fact type they forbid (BuildTextual records them)
+			foreach (var p in myProhibitions)
+				deoKeyed.Add(new KeyValuePair<string, string>(
+					CanonicalConstraintKey("DEO", "p", new List<string> { p.Key }),
+					", " + IAtom("prohibited") + ", S2(" + IAtom(p.Key) + ", " + p.Value + "))"));
 			foreach (var kv in DisambiguateKeys(deoKeyed))
 				deoRows.Add("S3(" + IAtom(kv.Key) + kv.Value);
 			deoRows.Sort(StringComparer.Ordinal);
