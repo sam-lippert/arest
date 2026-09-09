@@ -171,6 +171,18 @@ Guard guards Transition.
 
 + Predicate is performed during Transition if that Transition is to some Status and that Predicate is performed in that Status.
 
+<!-- Moore and Mealy are two views of one machine (ruling 5) and both are
+     first-class: a state action is asserted `Predicate is performed in Status`
+     (the rule above derives its edge view), a genuine edge action is asserted
+     `Predicate is performed during Transition` and is NOT performed in the
+     transition's target status. Mixing the two styles in ONE machine is a
+     style smell, not an error, so it is flagged deontically -- the write still
+     succeeds. The negated clause is what separates a real edge action from a
+     derived edge row: a derived row IS in the target status, so a pure-Moore
+     machine never trips this and a pure-Mealy machine has no state action to
+     trip it -- only a machine doing both flags. -->
+It is obligatory that if some Predicate1 is performed in some Status1 and that Status1 is defined in some State Machine Definition and some Predicate2 is performed during some Transition and that Transition is defined in that State Machine Definition and that Transition is to some Status2 then Predicate2 is performed in Status2.
+
 * Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from that Status.
 
 * Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is to that Status.
