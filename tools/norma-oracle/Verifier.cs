@@ -420,6 +420,8 @@ namespace Arest.NormaOracle
 		// a labeled note: a word and a colon open the sentence (`Verbalization: Each
 		// ...`, `Deontic: Obligatory on ...`), behind any derivation marker
 		private static readonly Regex LabeledNoteRx = new Regex(@"^(\*\*|\*|\+\+|\+)?\s*[A-Z][A-Za-z]*:\s");
+		// a markdown bullet: a hyphen opens the sentence
+		private static readonly Regex BulletRx = new Regex(@"^-\s");
 		private static readonly Regex LiteralWithSpaceRx = new Regex(@"\s*(?<![\p{L}\p{Nd}])'[^']*'(?![\p{L}\p{Nd}])");
 		private static readonly Regex ValueDecl = new Regex(@"^(" + NameChars + @"+?)\s+is a value type\.$");
 		// A VALUE TYPE DECLARED WITH A REFERENCE MODE. `Accreditation Requirement(.code)
@@ -1325,6 +1327,19 @@ namespace Arest.NormaOracle
 			{
 				Count("labeled note (not a sentence; refused)");
 				myMapLog.Add("REFUSED (labeled note, not a sentence): " + Shorten(s));
+				return;
+			}
+			// A MARKDOWN BULLET IS NOT A SENTENCE EITHER. support.auto.dev's corpus
+			// reads the app's root markdown, and `- **Feature Request** -- Proposed
+			// -> Approved -> In Progress -> Shipped` was read as a unary fact type
+			// over Feature Request with the bullet as its predicate text; canon and
+			// NORMA then spelled its column differently and the information-type
+			// law answered F for that row (2026-09-09). A FORML sentence never
+			// opens with a hyphen; the derivation markers are * and +.
+			if (BulletRx.IsMatch(s))
+			{
+				Count("markdown bullet (not a sentence; refused)");
+				myMapLog.Add("REFUSED (markdown bullet, not a sentence): " + Shorten(s));
 				return;
 			}
 			// fully derived rules verbalize with "iff" (the CWA closure over
