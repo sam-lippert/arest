@@ -415,6 +415,9 @@ namespace Arest.NormaOracle
 		// a quoted literal opens and closes at a word boundary; an apostrophe with a
 		// letter on its outer side is a possessive (the tokenizer's rule, shared)
 		private static readonly Regex LiteralRx = new Regex(@"(?<![\p{L}\p{Nd}])'[^']*'(?![\p{L}\p{Nd}])");
+		// a labeled note: a word and a colon open the sentence (`Verbalization: Each
+		// ...`, `Deontic: Obligatory on ...`), behind any derivation marker
+		private static readonly Regex LabeledNoteRx = new Regex(@"^(\*\*|\*|\+\+|\+)?\s*[A-Z][A-Za-z]*:\s");
 		private static readonly Regex LiteralWithSpaceRx = new Regex(@"\s*(?<![\p{L}\p{Nd}])'[^']*'(?![\p{L}\p{Nd}])");
 		private static readonly Regex ValueDecl = new Regex(@"^(" + NameChars + @"+?)\s+is a value type\.$");
 		// A VALUE TYPE DECLARED WITH A REFERENCE MODE. `Accreditation Requirement(.code)
@@ -1303,6 +1306,23 @@ namespace Arest.NormaOracle
 				if (MapInstanceFact(s)) return;
 				Count("population file: sentence populates no declared fact type (nothing minted)");
 				myUnrecognized.Add("[population] " + Shorten(s));
+				return;
+			}
+			// A LABELED NOTE IS NOT A SENTENCE. eu-law's gdpr-rights.md writes
+			// `Information Notice has Language Quality. Fact Type. * Verbalization:
+			// Each Information Notice has some Language Quality characterising its
+			// form.` -- the reading, its kind, and a note under a label -- and the
+			// fact-reading fallback read the note as a SECOND fact type over the
+			// same two players, VerbalizationEachInformationNoticeHasSome...,
+			// beside DeonticObligatoryOnControllerForEveryDataSubjectInteraction
+			// from the line below it (2026-09-09; NORMA's own table names kept the
+			// colon). No FORML sentence opens with a word and a colon: that is a
+			// label, and what follows it is prose about the sentence before it.
+			// Refused and reported, never read.
+			if (LabeledNoteRx.IsMatch(s))
+			{
+				Count("labeled note (not a sentence; refused)");
+				myMapLog.Add("REFUSED (labeled note, not a sentence): " + Shorten(s));
 				return;
 			}
 			// fully derived rules verbalize with "iff" (the CWA closure over
