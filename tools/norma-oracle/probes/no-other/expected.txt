@@ -1,4 +1,5 @@
 errors 0
+UNDELIVERED (`some other`): VehicleIsResolvedToStyleCandidate
 *Vehicle is resolved to Style Candidate1 if and only if
 that Vehicle has some Squish VIN
 where that Style Candidate1 has that Squish VIN

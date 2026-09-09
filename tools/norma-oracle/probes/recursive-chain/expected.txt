@@ -1,4 +1,5 @@
 errors 0
+UNDELIVERED (recursion): NodeIsReachedAtDistance
 *Node1 is reached at Distance1 if and only if
 for some Node2, that Node1 links to that Node2 at that Distance1
 and that Node2 is root
