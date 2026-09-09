@@ -86,7 +86,8 @@ namespace Arest.NormaOracle
 			var names = new HashSet<string>(StringComparer.Ordinal);
 			foreach (FactType f in myFullyDerived)
 			{
-				if (!f.IsDeleted) names.Add(f.Name);
+				// spelled as the carriers spell it, or a name escapes the exclusion
+				if (!f.IsDeleted) names.Add(Spell(f.Name));
 			}
 			return names;
 		}
@@ -122,6 +123,7 @@ namespace Arest.NormaOracle
 		{
 			myStore = store;
 			myModel = model;
+			myCurrent = this;
 		}
 
 		private readonly List<KeyValuePair<string, ConstraintModality>> myDeferred = new List<KeyValuePair<string, ConstraintModality>>();
@@ -12544,9 +12546,114 @@ namespace Arest.NormaOracle
 		// and base, zero atoms contain a backslash, and none can contain a quote
 		// because that used to throw. So no shipped byte moves; the escape only
 		// admits text that previously could not be emitted at all.
+		// ONE NAME FOR A FACT TYPE: ITS RELATION'S, BY NORMA'S DCIL RULE (Sam,
+		// 2026-09-09: "the naming should be consistent"; option A, the renames
+		// accepted). NORMA generates a fact type's Name in the ORM model by
+		// ToTitleCase over its reading -- DataSubject'SBehalf, Art28 with the
+		// abbreviation's period dropped, an objectified fact type named by its
+		// nesting type verbatim (Constraint Span) -- and its relational mapping
+		// names the relation again from the reading's parts: every object type
+		// name and predicate word with its first letter raised and nothing else
+		// touched (DataSubject'sBehalf, Art.28, ConstraintSpan, not-for-profit
+		// as NotForProfit). The design state carried the ORM spelling, canon's
+		// Rmap reproduced it, and the laws that compare canon's relations with
+		// NORMA's DCIL could never agree on those fact types (eu-law: 13 of its
+		// 23 fact-type tables, and 10 fully derived fact types kept in
+		// norma:tables because their 'S/Art28 names matched no 's/Art.28 table).
+		// The relation is the resource (main:api addresses it) and the cell in D
+		// (Backus's FILE, which Rmap structures into Codd's tables), so the DCIL
+		// name is the fact type's one name: every atom written passes through
+		// Spell, which replaces a registered fact type's ORM name with its DCIL
+		// name -- the atom itself, or the name as a segment of a role, column,
+		// key or concept-type name NORMA composed from it. A value is never
+		// touched: a match beside a space or a lowercase letter is prose.
+		private static Verifier myCurrent;
+		private readonly Dictionary<string, string> myDcilIds = new Dictionary<string, string>(StringComparer.Ordinal);
+		private int myDcilIndexCount = -1;
+		private static string DcilPart(string s)
+		{
+			var sb = new System.Text.StringBuilder();
+			foreach (string piece in Regex.Split(s, @"[\s\-]+"))
+			{
+				if (piece.Length == 0) continue;
+				int k = 0;
+				while (k < piece.Length && !char.IsLetter(piece[k])) k++;
+				if (k < piece.Length) sb.Append(piece, 0, k).Append(char.ToUpperInvariant(piece[k])).Append(piece, k + 1, piece.Length - k - 1);
+				else sb.Append(piece);
+			}
+			return sb.ToString();
+		}
+		private static string DcilName(FactIndexEntry e)
+		{
+			// An EXPLICIT objectification names the relation by its nesting type
+			// (Constraint Span -> ConstraintSpan; a fact type's Name IS its nesting
+			// type's in NORMA, explicit or not). NORMA objectifies every other
+			// fact type implicitly, naming that nesting type by the fact type's
+			// own generated name, and its DCIL names the relation from the
+			// reading -- so an implied objectification is spelled from the
+			// reading like any other fact type.
+			ObjectType nesting = e.Fact.NestingType;
+			Objectification objectification = e.Fact.Objectification;
+			bool implied = objectification != null && objectification.IsImplied;
+			if (nesting != null && !implied) return DcilPart(nesting.Name);
+			var sb = new System.Text.StringBuilder();
+			foreach (string tok in Regex.Split(e.ReadingText ?? "", @"\s+"))
+			{
+				if (tok.Length == 0) continue;
+				string filled = Regex.Replace(tok, @"\{(\d+)\}", m =>
+				{
+					int i = int.Parse(m.Groups[1].Value);
+					return i < e.Players.Count ? DcilPart(e.Players[i]) : m.Value;
+				});
+				sb.Append(filled == tok ? DcilPart(tok) : filled);
+			}
+			return sb.ToString();
+		}
+		private static string Spell(string s)
+		{
+			return myCurrent == null ? s : myCurrent.SpellDcil(s);
+		}
+		private string SpellDcil(string s)
+		{
+			if (myDcilIndexCount != myFactIndex.Count)
+			{
+				myDcilIds.Clear();
+				foreach (FactIndexEntry e in myFactIndex)
+				{
+					if (e.Fact == null || e.Fact.IsDeleted) continue;
+					string orm = e.Fact.Name;
+					if (string.IsNullOrEmpty(orm) || myDcilIds.ContainsKey(orm)) continue;
+					string dcil = DcilName(e);
+					if (dcil.Length > 0 && dcil != orm) myDcilIds[orm] = dcil;
+				}
+				myDcilIndexCount = myFactIndex.Count;
+			}
+			foreach (var kv in myDcilIds)
+			{
+				int at = s.IndexOf(kv.Key, StringComparison.Ordinal);
+				if (at < 0) continue;
+				if (s.Length == kv.Key.Length) { s = kv.Value; continue; }
+				var sb = new System.Text.StringBuilder();
+				int from = 0;
+				while (at >= 0)
+				{
+					char before = at > 0 ? s[at - 1] : '\0';
+					int end = at + kv.Key.Length;
+					char after = end < s.Length ? s[end] : '\0';
+					bool prose = before == ' ' || after == ' ' || char.IsLower(before) || char.IsLower(after);
+					sb.Append(s, from, at - from).Append(prose ? kv.Key : kv.Value);
+					from = end;
+					at = s.IndexOf(kv.Key, from, StringComparison.Ordinal);
+				}
+				sb.Append(s, from, s.Length - from);
+				s = sb.ToString();
+			}
+			return s;
+		}
+
 		private static string IAtom(string s)
 		{
-			return "A(\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\")";
+			return "A(\"" + Spell(s).Replace("\\", "\\\\").Replace("\"", "\\\"") + "\")";
 		}
 
 		private static string ISeq(List<string> elements)
@@ -12779,7 +12886,7 @@ namespace Arest.NormaOracle
 				Match m = Regex.Match(rule, @"^(?:\*+ |\++ )?(.+?) (?:iff|if) ");
 				if (!m.Success) continue;
 				FactIndexEntry he = FindEntryByNormalizedSentence(m.Groups[1].Value.Trim());
-				if (he != null && he.Fact != null && !he.Fact.IsDeleted) ruled.Add(he.Fact.Name);
+				if (he != null && he.Fact != null && !he.Fact.IsDeleted) ruled.Add(Spell(he.Fact.Name));
 			}
 			return ruled;
 		}
@@ -12801,7 +12908,7 @@ namespace Arest.NormaOracle
 				Match hm = Regex.Match(kv.Key, @"^\*+ (.+?) iff ");
 				if (!hm.Success) continue;
 				FactIndexEntry he = FindEntryByNormalizedSentence(hm.Groups[1].Value.Trim());
-				if (he != null && !whyByHead.ContainsKey(he.Fact.Name)) whyByHead[he.Fact.Name] = kv.Value;
+				if (he != null && !whyByHead.ContainsKey(Spell(he.Fact.Name))) whyByHead[Spell(he.Fact.Name)] = kv.Value;
 			}
 			// state:derived's rows -> the model's single-valued Derivation Mode
 			var modes = new Dictionary<string, SortedSet<string>>(StringComparer.Ordinal);
@@ -13306,7 +13413,7 @@ namespace Arest.NormaOracle
 				Match hm = Regex.Match(kv.Key, @"^\*+ (.+?) iff ");
 				if (!hm.Success) continue;
 				FactIndexEntry he = FindEntryByNormalizedSentence(hm.Groups[1].Value.Trim());
-				if (he != null && !whyByHead.ContainsKey(he.Fact.Name)) whyByHead[he.Fact.Name] = kv.Value;
+				if (he != null && !whyByHead.ContainsKey(Spell(he.Fact.Name))) whyByHead[Spell(he.Fact.Name)] = kv.Value;
 			}
 			var undelivered = new List<string>();
 			HashSet<string> ruled = HeadsWithARule();
