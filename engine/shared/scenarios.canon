@@ -1750,7 +1750,7 @@ DEF("case:refmode-expand",
 DEF("case:refmode-none",
     S2(A("system:h_entity"), S3(S2(A("Task"), A("")), PHI(), A("")))),
 
-"THE FIELD-TYPE CASES HOLD A STORE IN THE SHAPE EVERY STORE HAS (2026-09-07): the fact types' players in state:declared, the object types' kinds in state:otmeta, and the populations as FILE tables - Object Type has Enum Values for the enumerated value type (the reading's own quoted list), Object Type has Conceptual Data Type for the declared one, Object Type has Reference Mode for the identified entities. The earlier cases held `role`, `instanceOf`, `refMode`, `constraint` and `Value_Type_has_Conceptual_Data_Type` cells, the old engine's tables, and were the only stores in that shape the lookups ever read.",
+"THE FIELD-TYPE CASES HOLD A STORE IN THE SHAPE EVERY STORE HAS (2026-09-07): the fact types' players in state:declared, the object types' kinds in state:otmeta, and the populations as FILE tables - Object Type has Enum Values for the enumerated value type (the reading's own quoted list), Object Type has Conceptual Data Type for the declared one, Entity Type has Reference Mode for the identified entities. The earlier cases held `role`, `instanceOf`, `refMode`, `constraint` and `Value_Type_has_Conceptual_Data_Type` cells, the old engine's tables, and were the only stores in that shape the lookups ever read.",
 
 DEF("fixture:field-store",
     K(S3(S3(A("CELL"), A("state:declared"),
@@ -1769,7 +1769,7 @@ DEF("fixture:field-store",
                   S1(S3(A("CELL"), A("Task State"), S1(A("'open', 'done', 'blocked'"))))),
                S3(A("CELL"), A("ObjectTypeHasConceptualDataType"),
                   S1(S3(A("CELL"), A("Due Date"), S1(A("date"))))),
-               S3(A("CELL"), A("ObjectTypeHasReferenceMode"),
+               S3(A("CELL"), A("EntityTypeHasReferenceMode"),
                   S2(S3(A("CELL"), A("Task"), S1(A("id"))),
                      S3(A("CELL"), A("Commit"), S1(A("sha")))))))))),
 
