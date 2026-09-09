@@ -2393,16 +2393,47 @@ namespace Arest.NormaOracle
 				// A subtype named ONLY in a citation has no SubtypeFact, is left as written,
 				// and stays a visible violation -- a genuine undeclared reference, not forced.
 				int at = quotes[i].IndexOf(" is a subtype of ", StringComparison.Ordinal);
-				if (at < 0) continue;
-				ObjectType subT, supT;
-				if (!myTypes.TryGetValue(quotes[i].Substring(0, at).Trim(), out subT) || subT == null || subT.IsDeleted) continue;
-				if (!myTypes.TryGetValue(quotes[i].Substring(at + " is a subtype of ".Length).Trim(), out supT) || supT == null || supT.IsDeleted) continue;
-				SubtypeFact sf = SubtypeFactForSubject(subT, supT);
-				if (sf == null || sf.IsDeleted || quotes[i] == sf.Name) continue;
-				myMapLog.Add("SUBTYPE FACT TYPE NAMED BY ITS READING: '" + quotes[i] + "' entered as " + sf.Name
-					+ " in '" + Shorten(s) + "'");
-				quotes[i] = sf.Name;
-				Count("subtype fact type named by its reading (entered as its id)");
+				ObjectType subT = null, supT = null;
+				SubtypeFact sf = null;
+				if (at >= 0
+					&& myTypes.TryGetValue(quotes[i].Substring(0, at).Trim(), out subT) && subT != null && !subT.IsDeleted
+					&& myTypes.TryGetValue(quotes[i].Substring(at + " is a subtype of ".Length).Trim(), out supT) && supT != null && !supT.IsDeleted)
+				{
+					sf = SubtypeFactForSubject(subT, supT);
+				}
+				if (sf != null && !sf.IsDeleted)
+				{
+					if (quotes[i] == sf.Name) continue;
+					myMapLog.Add("SUBTYPE FACT TYPE NAMED BY ITS READING: '" + quotes[i] + "' entered as " + sf.Name
+						+ " in '" + Shorten(s) + "'");
+					quotes[i] = sf.Name;
+					Count("subtype fact type named by its reading (entered as its id)");
+					continue;
+				}
+				// AN INSTANCE DOES NOT DECLARE A TYPE (Sam, 2026-09-09: "instances
+				// shouldn't parse as types"). `Fact Type 'AI System is High Risk'
+				// cites Citation 'EU-AI-Act-Art-6'` names a sentence eu-law never
+				// declares -- 88 such subjects, none mentioned anywhere but in its
+				// citation -- and the value left as written became a Fact Type
+				// instance with no role and no reading, a phantom that carried the
+				// metamodel's has-a-role and has-a-reading mandatories as violations:
+				// 176 of eu-law's 254. A filler whose kind IS Fact Type (or a subtype
+				// of it; an Event Type's own name, a webhook's
+				// 'customer.subscription.created', is not a fact type and stays as
+				// written) and that resolves to no declared fact type by reading, by
+				// subtype reading, or by id is refused with its sentence, and the
+				// refusal reported: the citation is orphaned until the corpus
+				// declares what it cites.
+				if (!KindSatisfies(k, "Fact Type")) continue;
+				bool namedById = false;
+				foreach (FactIndexEntry e in myFactIndex)
+				{
+					if (e.Fact != null && !e.Fact.IsDeleted && e.Fact.Name == quotes[i]) { namedById = true; break; }
+				}
+				if (namedById) continue;
+				myMapLog.Add("REFUSED (names no declared fact type): '" + quotes[i] + "' in '" + Shorten(s) + "'");
+				Count("instance fact (rejected: names no declared fact type)");
+				return false;
 			}
 			match.Rows.Add(new List<string>(quotes));
 			match.RowKinds.Add(new List<string>(kinds.Select(k => k ?? "")));

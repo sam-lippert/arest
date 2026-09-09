@@ -1,0 +1,2 @@
+errors 0
+REFUSED (names no declared fact type): 'Person drinks' in 'Fact Type 'Person drinks' cites Citation 'C-4'.'
