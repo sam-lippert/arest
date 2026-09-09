@@ -646,3 +646,6 @@ case:shared-status-name-does-not-cross-attach	"(('A', 'NotePublishes', 'Publishe
 case:entering-a-composite-descends	"(('t1', 'A'))"
 case:transition-from-a-composite-fires	"(('t1', 'Closed'))"
 case:links-at-a-nested-status	"(('t1', 'A'), ('A', 'TicketAdvances', 'B'), ('A', 'TicketCloses', 'Closed'))"
+case:recipe-restricted-head-constants	"(('bryant@driv.ly', 'create', 'Support Request'))"
+case:recipe-restricted-head-and-body	"(('f1', 'open'))"
+case:recipe-restricted-head-reordered	"(('c', 'a'))"

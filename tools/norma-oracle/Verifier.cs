@@ -3504,6 +3504,7 @@ namespace Arest.NormaOracle
 				myBuiltRuleSentences.Add(sV);
 				log.Add(hV.Fact.Name + " := proj " + bV.Fact.Name + " with "
 					+ string.Join(", ", shownV) + ", " + DescribeDerivation(hV.Fact));
+				RecordValProjRecipe(sV, hV, bV, atV, konstAt, litsV, bodyLit, condRole);
 			}
 			// THE SUBSCRIPTED TWO-LEG JOIN — the recursive step of a transitive closure:
 			//     * Domain1 reaches Domain3 iff Domain1 reaches Domain2 and Domain2 reaches Domain3.
@@ -9068,6 +9069,61 @@ namespace Arest.NormaOracle
 			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S" + headPlayers.Count + "("
 				+ string.Join(", ", headPlayers) + "), S3(A(\"proj\"), " + IAtom(srcE.Fact.Name)
 				+ ", S" + pos.Count + "(" + string.Join(", ", pos) + ")))");
+		}
+
+		// THE VALUE-RESTRICTED PROJECTION'S RECIPE (2026-09-09). The arm builds
+		// NORMA's path -- a constant projected into a head role, a subtype leg, an
+		// Equals condition on the body -- and recorded no recipe, so every head of
+		// this shape stood in state:undelivered as "no arm emitted a recipe": all
+		// fifteen of support.auto.dev's authorization rules among them, so the
+		// population `User is authorized for Operation on Protected Resource` that
+		// auth:links restricts every link by was empty and no caller was ever
+		// shown a link. Canon's grammar has each piece: proj takes the body columns
+		// the head projects, pairwith appends a constant column per restricted
+		// role, sel restricts the body on its literal, and a closing proj puts the
+		// columns in head-role order when a constant precedes a projected role. A
+		// specialised role with no body column and no literal (`Authority in
+		// Minnesota Authority`) has no source in the grammar -- its rows are a
+		// subtype's population, which is no fact type -- so that shape stays
+		// undelivered and says why.
+		private void RecordValProjRecipe(string sentence, FactIndexEntry headE, FactIndexEntry srcE, int[] at, int[] konstAt, List<string> lits, string bodyLit, int condRole)
+		{
+			int n = headE.Roles.Count;
+			int projected = 0;
+			for (int i = 0; i < n; i++)
+			{
+				if (at[i] < 0 && konstAt[i] < 0)
+				{
+					if (!myRecipeDeclines.ContainsKey(sentence)) myRecipeDeclines[sentence] = "a specialised role with no body column and no literal";
+					return;
+				}
+				if (konstAt[i] < 0) projected++;
+			}
+			if (projected == 0)
+			{
+				if (!myRecipeDeclines.ContainsKey(sentence)) myRecipeDeclines[sentence] = "a head of constants alone";
+				return;
+			}
+			string src = IAtom(srcE.Fact.Name);
+			if (bodyLit != null) src = "S4(A(\"sel\"), " + src + ", N(" + (condRole + 1) + "), " + IAtom(bodyLit) + ")";
+			var pos = new List<string>();
+			for (int i = 0; i < n; i++) if (konstAt[i] < 0) pos.Add("N(" + (at[i] + 1) + ")");
+			string r = "S3(A(\"proj\"), " + src + ", S" + pos.Count + "(" + string.Join(", ", pos) + "))";
+			for (int i = 0; i < n; i++) if (konstAt[i] >= 0) r = "S3(A(\"pairwith\"), " + r + ", " + IAtom(lits[konstAt[i]]) + ")";
+			var order = new List<string>();
+			int pi = 0, ci = 0;
+			bool identity = true;
+			for (int i = 0; i < n; i++)
+			{
+				int col = konstAt[i] < 0 ? ++pi : projected + (++ci);
+				if (col != i + 1) identity = false;
+				order.Add("N(" + col + ")");
+			}
+			if (!identity) r = "S3(A(\"proj\"), " + r + ", S" + n + "(" + string.Join(", ", order) + "))";
+			var headPlayers = new List<string>();
+			foreach (string p in headE.Players) headPlayers.Add(IAtom(p));
+			myRuleRecipes.Add("S3(" + IAtom(headE.Fact.Name) + ", S" + headPlayers.Count + "("
+				+ string.Join(", ", headPlayers) + "), " + r + ")");
 		}
 
 		// The multi-key join recipe. Keys are 1-based WITHIN each leg; out positions are
