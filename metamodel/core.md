@@ -532,57 +532,6 @@ Object Type plays Role.
   It is obligatory that each Object Type plays some Role.
   For each Role, exactly one Object Type plays that Role.
   It is possible that some Object Type plays more than one Role.
-Object Type is instantiable. **
-  <!-- task-961 lift (shipped bdde710d/a9a78c74): a Noun is instantiable iff
-       it is an entity type (objectType='entity') AND it has a reference
-       scheme (identity). The derivation under ## Derivation Rules below
-       carries the logic; the Rust create/update gate at
-       command.rs::noun_runtime_defined reads this stored cell first.
-
-       task-961 Phase A (derivation rework): the 2nd conjunct now reads the
-       VALUE-typed presence projection `Noun has Reference Scheme` (above),
-       which reconstitutes from the absorbed `referenceScheme` field — so the
-       derivation MATERIALIZES the real entity types (Task, Source File, App,
-       Domain, …). Previously the 2nd conjunct pointed at the entity-valued
-       `Noun has Reference Scheme Noun`, which is never populated for real
-       entities, so this cell stayed empty for them and the procedural
-       fallback alone carried the gate. The `**` marker stores the consequent.
-
-       task-961 Phase B: the alethic instantiability constraint below makes
-       the rejection of a non-instantiable-noun create/update DECLARATIVE.
-       `command.rs::noun_runtime_defined` treats the cell as the AUTHORITATIVE
-       source whenever it is NON-EMPTY. A create of a noun absent from a
-       populated `Noun_is_instantiable` is rejected (D' = D, per AREST.tex
-       eq:create §157). The procedural Noun-cell scan was retained as a
-       fallback ONLY for states where the cell was still empty.
-
-       task-961 Phase C (this codebase): `compile_to_defs_state` now ALWAYS
-       emits `_Noun_is_instantiable_compiled` (same predicate: objectType='entity'
-       AND non-empty referenceScheme, evaluated at compile time against the Noun
-       cell). `noun_instantiable_per_cell` checks BOTH `Noun_is_instantiable`
-       (forward-chain-produced) AND `_Noun_is_instantiable_compiled` (compile-time
-       constant, with FFP `[', Seq]` wrapper unwrapped), providing a fast-path
-       declarative admit for any noun known at compile time.  The procedural
-       fallback `noun_runtime_defined_procedural` is RETAINED for:
-         (a) states built without `compile_to_defs_state` (phi-state test
-             fixtures like `apply_command_phi_state()`), and
-         (b) nouns added to `state` dynamically after the last compile.
-       Full procedural removal requires guaranteeing every `apply` path passes
-       through `compile_to_defs_state` — a follow-up child task.
-       Oracle-equivalence pinned by
-       `compile_noun_is_instantiable_compile_time_cell_matches_procedural_predicate`
-       in compile.rs. -->
-
-It is impossible that an Object Type Instance is an instance of a Object Type that is not instantiable.
-  <!-- task-961 Phase B/C — the declarative instantiability constraint. ALETHIC
-       (AREST.tex §328 "It is impossible that …"): instantiating an entity of
-       a noun that is not in either the derived `Noun_is_instantiable` cell OR
-       the compile-time `_Noun_is_instantiable_compiled` cell is a structural
-       impossibility and rejects (D' = D). The check is a set-membership test
-       whose predicate logic lives in the `Noun is instantiable` derivation
-       and the compile-time materialisation in `compile_to_defs_state`.
-       Evaluated by `command.rs::noun_runtime_defined` as the create/update
-       run-time gate (with procedural fallback for uncomplied states). -->
 
 ### Reading
 Reading has Text.
@@ -1117,7 +1066,6 @@ Derivation Rule depends on Derivation Rule. *
 
 * Derivation Rule1 reaches Derivation Rule3 iff Derivation Rule1 depends on Derivation Rule2 and Derivation Rule2 reaches Derivation Rule3.
 
-* Object Type is instantiable iff Object Type is of Object Kind 'entity' and Object Type has some Reference Mode.
 
 
 Constraint is semantic iff Constraint has modality of Modality Type 'Deontic' and Constraint spans some Role and that Role is played by some Object Type and no Object Type Instance is instance of that Object Type.
