@@ -10928,7 +10928,7 @@ DEF("ui:ref_mode_of",
     S4(A("COMP"),
        S4(A("COND"), A("null"), K(A("")), A("id")),
        A("solve:assoc"),
-       S3(A("CONS"), A("ui:ft_player"), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("ObjectTypeHasReferenceMode")), N(2)))))),
+       S3(A("CONS"), A("ui:ft_player"), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("EntityTypeHasReferenceMode")), N(2)))))),
 
 DEF("ui:field_type",
     S4(A("COND"),

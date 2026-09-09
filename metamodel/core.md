@@ -431,20 +431,16 @@ Object Type has Permission.
   Each Object Type, Permission combination occurs at most once in the population of Object Type has Permission.
 ObjectTypeHasPermission objectifies "Object Type has Permission".
 ObjectTypeHasPermission is a subtype of Function.
-Object Type has Reference Mode.
-  Each Object Type has at most one Reference Mode.
-  <!-- task-961 Phase A: a VALUE-typed presence projection of the absorbed
-       `referenceScheme` field on the Noun cell. `Reference Scheme` is a
-       value type, so this functional binary is RMAP-absorbed into the Noun
-       cell (no own data cell) and `rmap::reconstitute_absorbed_ft` projects
-       it back out as `<<Noun, X>, <Reference Scheme, "id,…">>` for exactly
-       those Nouns whose `referenceScheme` key is present (an entity with a
-       declared `(.col)` reference scheme). lower_camel("Reference Scheme")
-       == "referenceScheme", so reconstitution locates the stored value.
-       This is the materializable 2nd conjunct of `Noun is instantiable`
-       below — it replaces the entity-valued `Noun has Reference Scheme
-       Noun`, which never populated for real entities (their identity lives
-       in the absorbed field, not an entity-valued fact). -->
+Entity Type has Reference Mode.
+  Each Entity Type has at most one Reference Mode.
+  <!-- Halpin, ORM metamodel (Fig 13.29): the reference mode is a fact about
+       an entity type -- a value type is identified by its values and has
+       none -- and a subtype is identified by its supertype's scheme rather
+       than by a reference mode of its own; a composite preferred identifier
+       is a uniqueness constraint, not a reference mode. Moved here from
+       Object Type on 2026-09-09 (Sam: "Object Type doesn't have a reference
+       mode directly though, the entity subtype does"). The population is
+       the reflection: each entity type with the reference mode it declares. -->
 Object Type is subtype of Object Type.
   Each Object Type, Object Type combination occurs at most once in the population of Object Type is subtype of Object Type.
 ObjectTypeIsSubtypeOfObjectType objectifies "Object Type is subtype of Object Type".
