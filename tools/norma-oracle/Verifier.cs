@@ -2464,10 +2464,13 @@ namespace Arest.NormaOracle
 				}
 				if (sf != null && !sf.IsDeleted)
 				{
-					if (quotes[i] == sf.Name) continue;
-					myMapLog.Add("SUBTYPE FACT TYPE NAMED BY ITS READING: '" + quotes[i] + "' entered as " + sf.Name
+					// entered as the reflected subtype fact's one name (state:subtypefacts),
+					// not NORMA's raw `Sub IsASubtypeOf Super` with the types' spaces kept
+					string sfName = SubtypeFactName(sf);
+					if (quotes[i] == sfName) continue;
+					myMapLog.Add("SUBTYPE FACT TYPE NAMED BY ITS READING: '" + quotes[i] + "' entered as " + sfName
 						+ " in '" + Shorten(s) + "'");
-					quotes[i] = sf.Name;
+					quotes[i] = sfName;
 					Count("subtype fact type named by its reading (entered as its id)");
 					continue;
 				}
@@ -2577,6 +2580,31 @@ namespace Arest.NormaOracle
 				edges.Add(sf.Subtype.Name + " < " + sf.Supertype.Name);
 			}
 			return edges;
+		}
+
+		// A SUBTYPE FACT'S ONE NAME. NORMA names it "{0}IsASubtypeOf{1}"
+		// (ORMModel.resx, SubtypeFact.ElementNameFormat) from the raw type names,
+		// spaces and all -- `Annex III CategoryIsASubtypeOf...` -- and the one
+		// name a fact type has here is its DCIL spelling (2026-09-09, #103): the
+		// same format over each type name's DCIL part, so the reflected subtype
+		// fact, the pair it asserts and a citation of it agree on one atom.
+		private static string SubtypeFactName(SubtypeFact sf)
+		{
+			return DcilPart(sf.Subtype.Name) + "IsASubtypeOf" + DcilPart(sf.Supertype.Name);
+		}
+
+		// every live subtype fact, in the order of that name, so the carriers
+		// reproduce (the element directory's order is not stable across runs)
+		private List<SubtypeFact> SubtypeFacts()
+		{
+			var facts = new List<SubtypeFact>();
+			foreach (SubtypeFact sf in myStore.ElementDirectory.FindElements<SubtypeFact>(true))
+			{
+				if (sf.IsDeleted || sf.Subtype == null || sf.Supertype == null) continue;
+				facts.Add(sf);
+			}
+			facts.Sort((a, b) => string.CompareOrdinal(SubtypeFactName(a), SubtypeFactName(b)));
+			return facts;
 		}
 
 		public bool HasType(string name)
@@ -13563,6 +13591,55 @@ namespace Arest.NormaOracle
 					}
 				}
 			}
+			// AND THE SUBTYPE LINKS LAND IN HALPIN'S FACT TYPE (2026-09-10).
+			// `Object Type is subtype of Object Type` is the metaschema's own fact
+			// type for them (Halpin 13.8, p.705: "you can capture subtype links by
+			// adding the fact type ObjectType is a subtype of ObjectType") and stood
+			// at 0 rows in every store while NORMA held every link as a SubtypeFact
+			// (ORMCore.dsl:712). One row per subtype fact, <subtype, supertype>: the
+			// direct links, which are NORMA's population and Halpin's "links"; an
+			// indirect subtype follows from the transitivity of subtypehood (6.5)
+			// and is not a row, which is why the fact type's ring constraints are
+			// irreflexive and asymmetric and not transitive. Unattributed, and
+			// explicit rows win, as above.
+			{
+				FactIndexEntry subE = null;
+				foreach (FactIndexEntry e in myFactIndex)
+					if (!e.Fact.IsDeleted && e.Fact.Name == "ObjectTypeIsSubtypeOfObjectType") { subE = e; break; }
+				if (subE != null)
+				{
+					var haveSub = new HashSet<string>(StringComparer.Ordinal);
+					foreach (var row in subE.Rows) if (row.Count == 2) haveSub.Add(row[0] + "" + row[1]);
+					foreach (SubtypeFact sf in SubtypeFacts())
+					{
+						string key = sf.Subtype.Name + "" + sf.Supertype.Name;
+						if (haveSub.Contains(key)) continue;
+						subE.Rows.Add(new List<string> { sf.Subtype.Name, sf.Supertype.Name });
+						subE.RowKinds.Add(new List<string> { "", "" });
+						haveSub.Add(key);
+					}
+				}
+				// and the identification path, ORMCore's ProvidesPreferredIdentifier
+				// (shown as IdentificationPath, ORMCore.dsl:731): the link along
+				// which a subtype takes its supertype's reference scheme
+				FactIndexEntry ppiE = null;
+				foreach (FactIndexEntry e in myFactIndex)
+					if (!e.Fact.IsDeleted && e.Fact.Name == "SubtypeFactProvidesPreferredIdentifier") { ppiE = e; break; }
+				if (ppiE != null)
+				{
+					var havePpi = new HashSet<string>(StringComparer.Ordinal);
+					foreach (var row in ppiE.Rows) if (row.Count == 1) havePpi.Add(row[0]);
+					foreach (SubtypeFact sf in SubtypeFacts())
+					{
+						if (!sf.ProvidesPreferredIdentifier) continue;
+						string name = SubtypeFactName(sf);
+						if (havePpi.Contains(name)) continue;
+						ppiE.Rows.Add(new List<string> { name });
+						ppiE.RowKinds.Add(new List<string> { "" });
+						havePpi.Add(name);
+					}
+				}
+			}
 			// AND THE ENUMERATION LANDS IN ITS OWN FACT TYPE. "The possible values
 			// of Task State are 'open', 'done', ..." became a NORMA value
 			// constraint (ApplyValueEnum) and nothing carried it out: Object Type
@@ -13662,6 +13739,38 @@ namespace Arest.NormaOracle
 					var have = new HashSet<string>(StringComparer.Ordinal);
 					foreach (var row in instEntry.Rows)
 						if (row.Count == 2) have.Add(row[0] + "" + row[1]);
+					// A SUBTYPE FACT IS AN INSTANCE OF Subtype Fact (core.md: `Subtype
+					// Fact is a subtype of Fact Type`, ORMCore's SubtypeFact : FactType)
+					// and, up that chain, of Fact Type, Event Type and Function. No
+					// population row fills a Subtype Fact role for most of them, so the
+					// walk below would not list them; the extent is written outright,
+					// with the same climb.
+					ObjectType subtypeFactType;
+					myTypes.TryGetValue("Subtype Fact", out subtypeFactType);
+					if (subtypeFactType != null && !subtypeFactType.IsDeleted)
+					{
+						foreach (SubtypeFact sf in SubtypeFacts())
+						{
+							string sfVal = SubtypeFactName(sf);
+							ObjectType sfType = subtypeFactType;
+							string sfKind = sfType.Name;
+							while (true)
+							{
+								string sfKey = sfVal + "" + sfKind;
+								if (!have.Contains(sfKey))
+								{
+									instEntry.Rows.Add(new List<string> { sfVal, sfKind });
+									instEntry.RowKinds.Add(new List<string> { "", "" });
+									have.Add(sfKey);
+								}
+								ObjectType sfSuper = null;
+								foreach (ObjectType sup in sfType.SupertypeCollection) { sfSuper = sup; break; }
+								if (sfSuper == null) break;
+								sfKind = sfSuper.Name;
+								sfType = sfSuper;
+							}
+						}
+					}
 					foreach (FactIndexEntry e in myFactIndex)
 					{
 						if (e.Fact.IsDeleted) continue;
@@ -13870,7 +13979,7 @@ namespace Arest.NormaOracle
 				.ToList();
 			var sb = new System.Text.StringBuilder();
 			sb.Append("(\n");
-			sb.Append("\"THE DESIGN STATE in INTERSECTION SOURCE (generated by norma-oracle; regenerate, never edit). state:fts — one S5 descriptor per parsed fact type: name, players (top-collapsed), ucs (1-based positions), mands (1-based positions of roles carrying an EXPLICIT ALETHIC simple mandatory -- implied ones follow from the reference scheme rather than a declaration, and a deontic one belongs on its own modality-carrying surface, since this slot feeds the arm that REFUSES a commit), pop (attributed instance rows). state:declared pairs each name with its declared players; state:nestings pairs objectified fact names with their nesting types; state:otpops the per-kind entity populations, inclusion materialized up the subtype chain; state:derived pairs each derivation-marked name with its mode (full/stored/semi/subtype) — the marker surface the closure law reads against rules:metamodel; state:exclusions holds one scope-list per exclusion constraint (population name + 1-based positions; a subtype-meta scope names the child extent). state:rules — every NORMA-built app derivation rule as (name, recipe) in the rules:metamodel grammar (join/proj), the executable surface the canon closure runs beside rules:metamodel. Chunk convention: state:fts, each pop, each otpop, and state:declared/state:nestings/state:derived/state:rules are chunked — consumers flatten exactly one level; descriptors, rows, and uc spans are direct.\",\n\n");
+			sb.Append("\"THE DESIGN STATE in INTERSECTION SOURCE (generated by norma-oracle; regenerate, never edit). state:fts — one S5 descriptor per parsed fact type: name, players (top-collapsed), ucs (1-based positions), mands (1-based positions of roles carrying an EXPLICIT ALETHIC simple mandatory -- implied ones follow from the reference scheme rather than a declaration, and a deontic one belongs on its own modality-carrying surface, since this slot feeds the arm that REFUSES a commit), pop (attributed instance rows). state:declared pairs each name with its declared players; state:nestings pairs objectified fact names with their nesting types; state:otpops the per-kind entity populations, inclusion materialized up the subtype chain; state:derived pairs each derivation-marked name with its mode (full/stored/semi/subtype) — the marker surface the closure law reads against rules:metamodel; state:exclusions holds one scope-list per exclusion constraint (population name + 1-based positions; a subtype-meta scope names the child extent). state:rules — every NORMA-built app derivation rule as (name, recipe) in the rules:metamodel grammar (join/proj), the executable surface the canon closure runs beside rules:metamodel. state:subtypefacts — every subtype fact as NORMA has it, one reading-shaped row per link (name, <subtype, supertype>, `{0} is a subtype of {1}`), the surface the reflection reads beside state:readings and the relational map does not. Chunk convention: state:fts, each pop, each otpop, and state:declared/state:nestings/state:derived/state:rules are chunked — consumers flatten exactly one level; descriptors, rows, and uc spans are direct.\",\n\n");
 			sb.Append("DEF(\"state:fts\", ").Append(IChunked(fts)).Append("),\n\n");
 			sb.Append("DEF(\"state:declared\", ").Append(IChunked(declared)).Append("),\n\n");
 			sb.Append("DEF(\"state:nestings\", ").Append(IChunked(nestings)).Append("),\n\n");
@@ -13965,6 +14074,29 @@ namespace Arest.NormaOracle
 					"S" + groups.Count + "(" + string.Join(", ", groups) + ")") + ")");
 			}
 			sb.Append("DEF(\"state:readings\", ").Append(IChunked(readingRows)).Append("),\n\n");
+			// AND EVERY SUBTYPE FACT AS NORMA HAS IT (2026-09-10): a fact type
+			// whose two roles the subtype and the supertype play, read `{0} is a
+			// subtype of {1}` (ORMModel.resx SubtypeFact.DefaultReadingText;
+			// ORMCore's SubtypeFact : FactType with a SubtypeMetaRole and a
+			// SupertypeMetaRole, ORMCore.dsl:712, :2437, :2443), in the shape of a
+			// state:readings row. Its own surface and not state:readings because
+			// the relational map reads that one (rmap:readrows, rmap:nreadings) and
+			// makes no relation of a subtype link -- the link is absorbed through
+			// the identification path, and state:mapinputs already carries it for
+			// that -- while the reflection at boot reads both: Fact Type has Role,
+			// Object Type plays Role, Fact Type has Reading and Role is used in
+			// Reading follow for a subtype fact as for any fact type, so a citation
+			// of `X is a subtype of Y` names a fact type with roles and a reading
+			// where it named a phantom (eu-law: 19 + 19 has-a-role / has-a-reading
+			// violations). Halpin 13.8 (p.705) keeps the links themselves in
+			// `Object Type is subtype of Object Type`, written with the pops above.
+			var subtypeRows = new List<string>();
+			foreach (SubtypeFact sf in SubtypeFacts())
+			{
+				subtypeRows.Add("S3(" + IAtom(SubtypeFactName(sf)) + ", S2(" + IAtom(sf.Subtype.Name) + ", " + IAtom(sf.Supertype.Name)
+					+ "), S1(S6(" + IAtom("{0}") + ", " + IAtom("is") + ", " + IAtom("a") + ", " + IAtom("subtype") + ", " + IAtom("of") + ", " + IAtom("{1}") + ")))");
+			}
+			sb.Append("DEF(\"state:subtypefacts\", ").Append(subtypeRows.Count == 0 ? "S1(PHI())" : IChunked(subtypeRows)).Append("),\n\n");
 			// the scheme facts' generated readings: reference-scheme facts
 			// stay out of state:readings (membership semantics above), but
 			// NAMEGEN reads their NORMA-generated '{0} has {1}' when naming

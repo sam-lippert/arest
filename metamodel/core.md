@@ -104,6 +104,22 @@ Object Type is a subtype of Function.
 
   Event Type is a subtype of Function.
   Fact Type is a subtype of Event Type.
+  Subtype Fact is a subtype of Fact Type.
+  <!-- ORMCore (NORMA's own metamodel, made canonical here 2026-09-10 at
+       Sam's ruling): SubtypeFact derives from FactType (ORMCore.dsl:712),
+       its two roles a SubtypeMetaRole and a SupertypeMetaRole
+       (ORMCore.dsl:2437, :2443), its reading `{0} is a subtype of {1}`
+       and its name `{0}IsASubtypeOf{1}` (ORMModel.resx). The oracle
+       reflects every subtype fact on its own reading-shaped surface
+       (state:subtypefacts), so its roles, players and reading follow at
+       boot like any fact type's, and lists it as an instance of Subtype
+       Fact (Object Type Instance is instance of Object Type). The meta
+       roles are the reading's positions 1 and 2, which is also how NORMA
+       finds them when the role class is absent (SubtypeFact.cs:100-136);
+       they are not declared as Role subtypes here because nothing attaches
+       to them. The links themselves are Halpin's fact type below, `Object
+       Type is subtype of Object Type`. -->
+
   For each Function, at most one of the following holds:
       that Function is an Event Type;
       that Function is a Constraint;
@@ -441,6 +457,15 @@ Entity Type has Reference Mode.
        Object Type on 2026-09-09 (Sam: "Object Type doesn't have a reference
        mode directly though, the entity subtype does"). The population is
        the reflection: each entity type with the reference mode it declares. -->
+<!-- Halpin 13.8 (p.705): "you can capture subtype links by adding the fact
+     type ObjectType is a subtype of ObjectType" -- this is that fact type.
+     Its population is the direct links, one row per NORMA SubtypeFact
+     (ORMCore.dsl:712), written by the oracle from the model it built; the
+     fact type of each link, with its two roles and its reading `{0} is a
+     subtype of {1}`, is reflected as a Subtype Fact (see Fact Type). An
+     indirect subtype is not a row: subtypehood is transitive (6.5), the rows
+     are the graph's edges, so the rings below are irreflexive and asymmetric
+     and not transitive. Empty in every store until 2026-09-10. -->
 Object Type is subtype of Object Type.
   Each Object Type, Object Type combination occurs at most once in the population of Object Type is subtype of Object Type.
 ObjectTypeIsSubtypeOfObjectType objectifies "Object Type is subtype of Object Type".
@@ -566,6 +591,14 @@ Fact Type has Role Relationship.
   Each Fact Type has at most one Role Relationship.
 Fact Type has Derivation Mode.
   Each Fact Type has at most one Derivation Mode.
+Subtype Fact provides preferred identifier.
+<!-- ORMCore SubtypeFact.ProvidesPreferredIdentifier, shown as
+     IdentificationPath (ORMCore.dsl:731): the subtype link along which the
+     subtype takes its supertype's reference scheme, the identifying path of
+     "a subtype inherits the primary reference scheme of the root" (the note
+     at Entity Type has Reference Mode). The oracle writes it from the model
+     it built. NORMA's IsPrimary (ORMCore.dsl:726, not browsable) is a display
+     choice and is not reflected. -->
 
 ### Role
 Constraint spans Role.
@@ -907,7 +940,15 @@ If some API accepts some Object Type as parameter and some other Object Type is 
 
 No Object Type is subtype of itself.
 If Object Type1 is subtype of Object Type2, then Object Type2 is not subtype of Object Type1.
-If Object Type1 is subtype of Object Type2 and Object Type2 is subtype of Object Type3, then Object Type1 is subtype of Object Type3.
+<!-- The population of `Object Type is subtype of Object Type` is the DIRECT
+     links, one row per NORMA SubtypeFact (2026-09-10), so the transitive
+     ring that stood here -- "If Object Type1 is subtype of Object Type2 and
+     Object Type2 is subtype of Object Type3, then Object Type1 is subtype of
+     Object Type3" -- would have made every chain of two links a violation.
+     Subtypehood is transitive (Halpin 6.5: an indirect subtype), the stored
+     links are the graph's edges, and the graph is acyclic; the oracle reads
+     no acyclic ring form yet, so irreflexive and asymmetric are what is
+     declared. -->
 
 <!-- arest-audit B: the former rings here (irreflexive + intransitive; and
      validation.md carried irreflexive + asymmetric) contradicted Lem 1 and
