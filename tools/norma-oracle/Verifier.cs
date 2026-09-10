@@ -73,6 +73,13 @@ namespace Arest.NormaOracle
 		}
 		private readonly HashSet<FactType> myStoredDerived = new HashSet<FactType>();
 		private readonly HashSet<string> mySubtypeDerived = new HashSet<string>(StringComparer.Ordinal);
+		// THE HEADS A CONSTRAINT PROVIDES A RULE FOR. `If some Object Type is backed by
+		// some External System then that Object Type has World Assumption 'open'` is
+		// the derivation of a `+` head (core.md: `Derivation Rule is provided by
+		// Constraint`; Samuel 2026-09-01, "a set of subset constraint derivations");
+		// the census counted only `if`/`iff` sentences and called such a head
+		// rule-less (2026-09-10). Filled where the conditional is built.
+		private readonly HashSet<string> myConstraintProvidedHeads = new HashSet<string>(StringComparer.Ordinal);
 		// The qualified subtype DEFINITIONS, kept whole. mySubtypeDerived above
 		// holds only the subtype NAME (it feeds the state:derived marker), but
 		// building the defining rule needs the qualifying clause too, and the
@@ -11582,6 +11589,9 @@ namespace Arest.NormaOracle
 				AttachLiteral(cons, m.Groups[2].Value, cLit, cLitAt);
 				if (ante != null && cons != null)
 				{
+					// the consequent's fact types are heads this constraint provides a rule for
+					foreach (SideClause lc in cons)
+						if (lc.Entry != null && lc.Entry.Fact != null) myConstraintProvidedHeads.Add(Spell(lc.Entry.Fact.Name));
 					var anteVars = ante.SelectMany(c => c.Players).Distinct().ToList();
 					var consVars = cons.SelectMany(c => c.Players).Distinct().ToList();
 					var proj = consVars.Intersect(anteVars).Distinct().ToList();
@@ -12937,10 +12947,30 @@ namespace Arest.NormaOracle
 			{
 				Match m = Regex.Match(rule, @"^(?:\*+ |\++ )?(.+?) (?:iff|if) ");
 				if (!m.Success) continue;
-				FactIndexEntry he = FindEntryByNormalizedSentence(m.Groups[1].Value.Trim());
+				FactIndexEntry he = HeadEntryOf(m.Groups[1].Value.Trim());
 				if (he != null && he.Fact != null && !he.Fact.IsDeleted) ruled.Add(Spell(he.Fact.Name));
 			}
+			foreach (string h in myConstraintProvidedHeads) ruled.Add(h);
 			return ruled;
+		}
+
+		// THE CENSUS RESOLVES A HEAD THE WAY THE BUILDER DOES. `Person is subject to
+		// Minnesota Authority`, `Integration has Integration Shape 'fan-out'` and
+		// `Customer is subject to Regulation 'GDPR (EU 2016/679)'` are rules for the
+		// declared fact types Person is subject to Authority, Integration has
+		// Integration Shape and Customer is subject to Authority -- the builder
+		// resolves them so (ResolveRestrictedHead: a literal on a role, a subtype
+		// in a role, or both) and even builds them -- while the census looked the
+		// head sentence up verbatim, found nothing, and reported the head as
+		// "marked derived, no rule written": the corpus's debt, when the debt was
+		// the recipe grammar's or nobody's (support.auto.dev, 2026-09-10: five of
+		// its nine such heads had rules). One resolution for both.
+		private FactIndexEntry HeadEntryOf(string head)
+		{
+			FactIndexEntry he = FindEntryByNormalizedSentence(head);
+			if (he != null) return he;
+			List<string> lits;
+			return ResolveRestrictedHead(head, out lits);
 		}
 
 		public void WriteBuildFacts(string path)
@@ -12957,9 +12987,9 @@ namespace Arest.NormaOracle
 			var whyByHead = new Dictionary<string, string>(StringComparer.Ordinal);
 			foreach (var kv in myRecipeDeclines)
 			{
-				Match hm = Regex.Match(kv.Key, @"^\*+ (.+?) iff ");
+				Match hm = Regex.Match(kv.Key, @"^(?:\*+|\++) (.+?) (?:iff|if) ");
 				if (!hm.Success) continue;
-				FactIndexEntry he = FindEntryByNormalizedSentence(hm.Groups[1].Value.Trim());
+				FactIndexEntry he = HeadEntryOf(hm.Groups[1].Value.Trim());
 				if (he != null && !whyByHead.ContainsKey(Spell(he.Fact.Name))) whyByHead[Spell(he.Fact.Name)] = kv.Value;
 			}
 			// state:derived's rows -> the model's single-valued Derivation Mode
@@ -13462,9 +13492,9 @@ namespace Arest.NormaOracle
 			var whyByHead = new Dictionary<string, string>(StringComparer.Ordinal);
 			foreach (var kv in myRecipeDeclines)
 			{
-				Match hm = Regex.Match(kv.Key, @"^\*+ (.+?) iff ");
+				Match hm = Regex.Match(kv.Key, @"^(?:\*+|\++) (.+?) (?:iff|if) ");
 				if (!hm.Success) continue;
-				FactIndexEntry he = FindEntryByNormalizedSentence(hm.Groups[1].Value.Trim());
+				FactIndexEntry he = HeadEntryOf(hm.Groups[1].Value.Trim());
 				if (he != null && !whyByHead.ContainsKey(Spell(he.Fact.Name))) whyByHead[Spell(he.Fact.Name)] = kv.Value;
 			}
 			var undelivered = new List<string>();

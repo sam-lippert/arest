@@ -141,6 +141,11 @@ If some User authenticates and that User has some Email and that User does not o
 + User accesses Domain if Domain has Access 'public'.
 
 + App navigates Domain if App has navigable Domain.
+<!-- The object types an app displays are those of the domains it navigates:
+     an Object Type is a Function and belongs to a Domain the way every
+     Function does (core.md). The `+` head below had no rule at all until
+     2026-09-10; an app may still assert more. -->
++ App displays Object Type if App navigates Domain and Object Type belongs to that Domain.
 <!-- ilayer-join-order (2026-06-23): clauses ordered "App contains Domain" ->
      "Object Type is defined in Domain" -> "Object Type is displayed by Element" so each join
      shares a key (Domain, then Object Type) with the prior clause. The original
