@@ -2184,11 +2184,35 @@ function run_mcp() {
   // controls that caller may use is auth:links' business, decided by the
   // designated authorization fact type, and it is already decided inside main:api.
   const TOOLS = Ev("mcp:tools", CELLS);
+  // AND THE VERBS BESIDE THEM (Sam, 2026-09-10: the shape of the tools). A
+  // fact-type tool is the NOUN half -- main:api addresses a resource and a
+  // method -- and the verb half was reachable only from the CLI. mcp:verbs
+  // answers <name, accepts, yields> for the catalogued Operations the model
+  // describes AND the store can run, so a verb joins this list by declaring
+  // its shape in the readings. The two surfaces stand together while apply
+  // and retract are undeclared: support asserts facts through the fact-type
+  // tools today, and taking that door away before its replacement answers
+  // would break the running app.
+  const VERBS = Ev("mcp:verbs", CELLS);
+  const VERB_NAMES = new Set(VERBS.map((v) => String(v[0])));
   // the admitted methods are canon's too -- http:method_kinds, not a constant
   const METHODS = Ev("http:method_kinds", []).map((m) => String(m[0]));
 
+  function verbTools() {
+    return VERBS.map((v) => ({
+      name: String(v[0]),
+      description: "takes the " + String(v[1]) + ", answers the " + String(v[2]),
+      inputSchema: {
+        type: "object",
+        properties: {
+          args: { type: "array", description: "the verb's arguments, in order; a verb that takes the store takes none" },
+        },
+      },
+    }));
+  }
+
   function tools() {
-    return TOOLS.map((t) => {
+    return verbTools().concat(TOOLS.map((t) => {
       // THE DESCRIPTION IS THE READING (Sam, 2026-09-10). It used to be
       // "fact type " + the id + the player list, on a comment claiming the
       // reading and the signature were the same row; `Message, Plan` is not
@@ -2215,11 +2239,22 @@ function run_mcp() {
           required: ["method"],
         },
       };
-    });
+    }));
   }
 
   function call(name, args) {
     const a = args || {};
+    // A VERB IS THE OTHER HALF OF THE SURFACE, and it is dispatched by the
+    // same canon that dispatches the CLI: main looks the name up in the store
+    // (the paper's SYSTEM:x) and main:verb_pair builds the operand the model
+    // says the verb takes. The answer is <text, T|F>, a claim rather than a
+    // status, so a false answer is an error to the client and nothing is
+    // written: no verb here mutates.
+    if (VERB_NAMES.has(String(name))) {
+      const rest = Array.isArray(a.args) ? a.args.map(String) : [];
+      const out = Ev("main", [CELLS, [String(name)].concat(rest)]);
+      return [out[0], String(out[1]) === "T" ? 200 : 500];
+    }
     const method = String(a.method || METHODS[0]);
     const before = method === "GET" ? null : popSnapshot(CELLS);
     // no dispatch: the resource IS the fact type and the method IS the operation
