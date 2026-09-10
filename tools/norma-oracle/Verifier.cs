@@ -3644,7 +3644,7 @@ namespace Arest.NormaOracle
 				myBuiltRuleSentences.Add(sV);
 				log.Add(hV.Fact.Name + " := proj " + bV.Fact.Name + " with "
 					+ string.Join(", ", shownV) + ", " + DescribeDerivation(hV.Fact));
-				RecordValProjRecipe(sV, hV, bV, atV, konstAt, litsV, bodyLit, condRole);
+				RecordValProjRecipe(sV, hV, bV, atV, konstAt, litsV, bodyLit, condRole, crossAt, subTypeV);
 			}
 			// THE SUBSCRIPTED TWO-LEG JOIN — the recursive step of a transitive closure:
 			//     * Domain1 reaches Domain3 iff Domain1 reaches Domain2 and Domain2 reaches Domain3.
@@ -8811,12 +8811,13 @@ namespace Arest.NormaOracle
 					if (toksC[i].IndexOf(toksC[i][p]) < p)
 						{ myRecipeDeclines[sC] = "a leg binding one token twice"; return; }
 			}
+			var fromExtentC = new List<int>();   // head positions filled from a subtype's extent
 			for (int i = 0; i < hC.Players.Count; i++)
 			{
 				if (typeRootC[i] != null) { myRecipeDeclines[sC] = "a head role from a bare type root"; return; }
-				if (crossAtC[i] != null) { myRecipeDeclines[sC] = "a head role from a subtype extent"; return; }
 				if (arithKeyC[i] != null) continue;                 // a computed column, calc'd on below
 				if (konstAtC[i] >= 0) continue;                    // a constant column, paired on below
+				if (crossAtC[i] != null) { fromExtentC.Add(i); continue; }   // filled from the subtype's extent, joined on below
 				if (atLegC[i] < 0 || atPosC[i] < 0) { myRecipeDeclines[sC] = "a head role no leg binds"; return; }
 				if (negC[atLegC[i]]) { myRecipeDeclines[sC] = "a head role bound inside a negation"; return; }
 			}
@@ -8827,8 +8828,8 @@ namespace Arest.NormaOracle
 			// the head's tokens, which are what a negated leg may share
 			var headToks = new HashSet<string>(StringComparer.Ordinal);
 			for (int i = 0; i < hC.Players.Count; i++)
-				// a constant or computed role binds no token of its own
-				if (konstAtC[i] < 0 && arithKeyC[i] == null) headToks.Add(toksC[atLegC[i]][atPosC[i]]);
+				// a constant, computed or extent-filled role binds no token of its own
+				if (konstAtC[i] < 0 && arithKeyC[i] == null && crossAtC[i] == null) headToks.Add(toksC[atLegC[i]][atPosC[i]]);
 			// walk the positive legs, joining each onto the accumulator at a shared
 			// token and keeping every column, so the head's binding stays addressable
 			var order = new List<int>();
@@ -8895,11 +8896,27 @@ namespace Arest.NormaOracle
 				if (negC[sl]) { myRecipeDeclines[sC] = "a substituted subtype inside a negated leg"; return; }
 				if (!colOf.ContainsKey(sl)) { myRecipeDeclines[sC] = "a substituted subtype over a leg the join left out"; return; }
 				int scol = colOf[sl] + sp;
-				string extent = mySubtypeDerived.Contains(sw[2]) ? IAtom(sw[2])
-					: "S4(" + IAtom("sel") + ", " + IAtom("ObjectTypeInstanceIsInstanceOfObjectType") + ", N(2), " + IAtom(sw[2]) + ")";
+				string extent = ExtentSource(sw[2]);
 				var keepAcc = new List<string>();
 				for (int c = 1; c <= accToks.Count; c++) keepAcc.Add("N(" + c + ")");
 				acc = "S5(" + IAtom("joinon") + ", " + acc + ", " + extent + ", S1(S2(N(" + scol + "), N(1))), " + IFlat(keepAcc) + ")";
+			}
+			// A HEAD ROLE FROM A SUBTYPE EXTENT: the body's rows cross-joined with the
+			// extent (a joinon with no key pairs), its instance column appended and
+			// projected into the head -- `Person is subject to Minnesota Authority if
+			// Person is Customer and that Customer has Residence 'Minnesota'` pairs each
+			// such Person with every Minnesota Authority. The same fill as the
+			// single-clause arm's (RecordValProjRecipe), laid after the legs and the
+			// substituted subtypes so the columns the comparisons read stay where the
+			// join put them.
+			var extentColC = new Dictionary<int, int>();
+			foreach (int i in fromExtentC)
+			{
+				var keepAcc = new List<string>();
+				for (int c = 1; c <= accToks.Count + 1; c++) keepAcc.Add("N(" + c + ")");
+				acc = "S5(" + IAtom("joinon") + ", " + acc + ", " + ExtentSource(crossAtC[i].Name) + ", PHI(), " + IFlat(keepAcc) + ")";
+				accToks.Add("#extent:" + crossAtC[i].Name);
+				extentColC[i] = accToks.Count;
 			}
 			// A COMPARISON IS A FILTER ON THE JOINED ROWS, and it must be applied
 			// BEFORE the projection, while both operands still have columns. The
@@ -9105,6 +9122,7 @@ namespace Arest.NormaOracle
 			foreach (int i in boundOrder)
 			{
 				if (calcCol.ContainsKey(i)) { headCols.Add("N(" + calcCol[i] + ")"); continue; }
+				if (extentColC.ContainsKey(i)) { headCols.Add("N(" + extentColC[i] + ")"); continue; }
 				if (!colOf.ContainsKey(atLegC[i])) { myRecipeDeclines[sC] = "a head role bound by a leg the join left out"; return; }
 				headCols.Add("N(" + (colOf[atLegC[i]] + atPosC[i]) + ")");
 			}
@@ -9362,14 +9380,26 @@ namespace Arest.NormaOracle
 		// Minnesota Authority`) has no source in the grammar -- its rows are a
 		// subtype's population, which is no fact type -- so that shape stays
 		// undelivered and says why.
-		private void RecordValProjRecipe(string sentence, FactIndexEntry headE, FactIndexEntry srcE, int[] at, int[] konstAt, List<string> lits, string bodyLit, int condRole)
+		private void RecordValProjRecipe(string sentence, FactIndexEntry headE, FactIndexEntry srcE, int[] at, int[] konstAt, List<string> lits, string bodyLit, int condRole, bool[] crossAt, ObjectType subType)
 		{
 			int n = headE.Roles.Count;
 			int projected = 0;
+			// A SPECIALISED ROLE WITH NO BODY COLUMN AND NO LITERAL IS FILLED FROM THE
+			// SUBTYPE'S EXTENT. `Person is subject to Minnesota Authority if Person
+			// works in State 'Minnesota'` names a subtype on the Authority role and
+			// binds nothing to it: every Minnesota Authority pairs with every Person
+			// the body keeps, which is the body rows cross-joined with the extent (a
+			// joinon with no key pairs -- Backus's and-of-nothing -- as the host's
+			// twin reads it), the extent's instance column appended and projected.
+			// Until 2026-09-10 the arm built the NORMA rule with the subtype as its
+			// root and declined the recipe by this name (support.auto.dev: Person /
+			// Organization is subject to Minnesota Authority).
+			var fromExtent = new List<int>();
 			for (int i = 0; i < n; i++)
 			{
 				if (at[i] < 0 && konstAt[i] < 0)
 				{
+					if (crossAt != null && crossAt[i] && subType != null) { fromExtent.Add(i); projected++; continue; }
 					if (!myRecipeDeclines.ContainsKey(sentence)) myRecipeDeclines[sentence] = "a specialised role with no body column and no literal";
 					return;
 				}
@@ -9381,9 +9411,20 @@ namespace Arest.NormaOracle
 				return;
 			}
 			string src = IAtom(srcE.Fact.Name);
-			if (bodyLit != null) src = "S4(A(\"sel\"), " + src + ", N(" + (condRole + 1) + "), " + IAtom(bodyLit) + ")";
+			if (bodyLit != null)
+				src = "S4(A(\"sel\"), " + src + ", N(" + (condRole + 1) + "), "
+					+ IValue(condRole >= 0 && condRole < srcE.Players.Count ? srcE.Players[condRole] : null, bodyLit) + ")";
+			int width = srcE.Players.Count;
+			var extentCol = new Dictionary<int, int>();
+			foreach (int i in fromExtent)
+			{
+				var keep = new List<string>();
+				for (int c = 1; c <= width + 1; c++) keep.Add("N(" + c + ")");
+				src = "S5(" + IAtom("joinon") + ", " + src + ", " + ExtentSource(subType.Name) + ", PHI(), " + IFlat(keep) + ")";
+				extentCol[i] = ++width;
+			}
 			var pos = new List<string>();
-			for (int i = 0; i < n; i++) if (konstAt[i] < 0) pos.Add("N(" + (at[i] + 1) + ")");
+			for (int i = 0; i < n; i++) if (konstAt[i] < 0) pos.Add("N(" + (extentCol.ContainsKey(i) ? extentCol[i] : at[i] + 1) + ")");
 			string r = "S3(A(\"proj\"), " + src + ", S" + pos.Count + "(" + string.Join(", ", pos) + "))";
 			for (int i = 0; i < n; i++) if (konstAt[i] >= 0) r = "S3(A(\"pairwith\"), " + r + ", " + IAtom(lits[konstAt[i]]) + ")";
 			var order = new List<string>();
@@ -12909,6 +12950,18 @@ namespace Arest.NormaOracle
 		private string IValue(string playerName, string v)
 		{
 			return ValueKindOf(playerName) == "integer" && IntegerLexeme.IsMatch(v) ? "N(" + v + ")" : IAtom(v);
+		}
+
+		// A SUBTYPE'S EXTENT AS A SOURCE. An asserted subtype's extent is the
+		// reflective instance-of population selected on its name (the oracle writes
+		// that population from every fact row's kind, climbing the supertypes, so it
+		// exists where the metamodel is read; column 1 is the instance); a derived
+		// subtype's is the population its own definition produces, named by the
+		// object type with its space.
+		private string ExtentSource(string subtypeName)
+		{
+			return mySubtypeDerived.Contains(subtypeName) ? IAtom(subtypeName)
+				: "S4(" + IAtom("sel") + ", " + IAtom("ObjectTypeInstanceIsInstanceOfObjectType") + ", N(2), " + IAtom(subtypeName) + ")";
 		}
 
 		private static string IAtom(string s)
