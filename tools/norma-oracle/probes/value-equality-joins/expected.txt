@@ -1,0 +1,16 @@
+errors 0
++Customer has PostHog Person if
+that Customer has some Email
+and that PostHog Person has some Email Address
+where Equals(Email Address, Email).
+
++Customer has Stripe Customer if
+that Customer has some Email
+and that Stripe Customer has some Email Address
+where Equals(Email Address, Email).
+
+*Order is consistent if and only if
+that Order has some billing Email1
+and  has some shipping Email2
+where Equals(Email1, Email2).
+
