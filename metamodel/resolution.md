@@ -56,6 +56,34 @@ Operation 'compile' is overridable.
 Operation 'propose' is overridable.
 Operation 'ask' is overridable.
 
+<!-- WHAT EACH SERVED VERB TAKES AND ANSWERS (2026-09-10). The verb route
+     dispatches by looking the name up in the store, and until now it passed
+     one operand shape to all of them: <first argument, store state>. Most of
+     these verbs read the STORE at their first selector, so they were handed
+     the argument where the store belongs and answered an empty schema, one
+     empty cell, an empty menu -- wrong answers rather than errors. This is
+     where the model says which shape each takes, and main:verb_pair reads it.
+     The shapes were measured against the base store, comparing the CONTENT
+     each verb answers under each operand rather than whether it merely
+     returned. A verb whose shape is not yet settled carries no row and keeps
+     the pair, which is what get, ask, induce and retract take. -->
+Function 'schema' accepts Type Expression 'store'.
+Function 'schema' yields Type Expression 'table-list'.
+Function 'cells' accepts Type Expression 'store'.
+Function 'cells' yields Type Expression 'cell-list'.
+Function 'rmap' accepts Type Expression 'store'.
+Function 'rmap' yields Type Expression 'cell-list'.
+Function 'actions' accepts Type Expression 'store'.
+Function 'actions' yields Type Expression 'menu'.
+Function 'nav' accepts Type Expression 'store'.
+Function 'nav' yields Type Expression 'pattern-list'.
+Function 'propose' accepts Type Expression 'store'.
+Function 'propose' yields Type Expression 'descriptor-list'.
+Function 'get' accepts Type Expression 'name-and-store'.
+Function 'get' yields Type Expression 'entity-view'.
+Function 'ask' accepts Type Expression 'name-and-store'.
+Function 'ask' yields Type Expression 'filtered-population'.
+
 <!-- The REGISTERED class (Samuel, 2026-07-13): operations a host may serve
      through a registered function (kernel.register, origin=registered, the
      Def 9 / Cor 5 (cor:boundary) surface — "Cor. 8" in the original note
