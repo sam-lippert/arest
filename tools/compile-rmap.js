@@ -18,7 +18,7 @@
 // canon may not -- S1..S9 is the ceiling there -- which is why this emits a
 // carrier and not canon.
 import { createHash } from "node:crypto";
-import { writeFileSync, readFileSync } from "node:fs";
+import { writeFileSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const here = import.meta.dir;
@@ -61,6 +61,31 @@ if (stamped === undefined || norm(stamped) !== norm(carriers)) {
   console.error("build it for these carriers first:");
   console.error("  AREST_CARRIERS=" + carriers + " bun tools/js-runner/build.js test");
   process.exit(1);
+}
+// AND IT MUST BE THE ONE BUILT FROM THESE CARRIERS AS THEY ARE NOW. The
+// stamp says which directory; it cannot say which VERSION of the carriers.
+// After the Fetcher metamodel change (2026-09-10) the gate compiled before it
+// rebuilt, so this tool read the previous module -- Fetcher still a value
+// type in rmap:gmi, FetcherIsASubtypeOfFunction absent from rmap:s1p -- and
+// wrote those cells beside the new carriers; the base laws then reported a
+// foreign key canon never lost. A module older than design-state or
+// norma-answer is refused, and the order is said: the compiled carrier is
+// spliced into the module build.js makes, so it is dropped first, the module
+// built from the carriers alone, compiled, and built again with the result.
+const moduleAt = statSync(join(modDir, "cases.g.js")).mtimeMs;
+for (const carrier of ["design-state", "norma-answer"]) {
+  let carrierAt;
+  try { carrierAt = statSync(join(carriers, carrier)).mtimeMs; } catch (e) { continue; }
+  if (carrierAt > moduleAt) {
+    console.error("refusing: the composition is older than " + carrier + " in " + carriers);
+    console.error("           a module built before its carriers changed would emit the previous store's cells");
+    console.error("rebuild it from these carriers first, in this order:");
+    console.error("  rm " + join(carriers, "compiled"));
+    console.error("  AREST_CARRIERS=" + carriers + " AREST_OUT_DIR=" + modDir + " bun tools/js-runner/build.js test");
+    console.error("  AREST_CARRIERS=" + carriers + " AREST_OUT_DIR=" + modDir + " bun tools/compile-rmap.js");
+    console.error("  AREST_CARRIERS=" + carriers + " AREST_OUT_DIR=" + modDir + " bun tools/js-runner/build.js test");
+    process.exit(1);
+  }
 }
 await import("file://" + join(modDir, "cases.g.js").replace(/\\/g, "/"));
 const { Ev, CELLS } = globalThis.AREST;
