@@ -6879,7 +6879,7 @@ namespace Arest.NormaOracle
 						// whose right side may be AN ATTRIBUTE OF A BOUND VARIABLE: `that Base
 						// Path begins with the URL of that Source Service` compares against the
 						// URL the declared `Source Service has URL` binds, laid as a leg
-						Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (exceeds|is less than|is greater than|is below|is above|starts with|begins with|contains|matches|is|equals) (?:that |some )?('[^']*'|the [A-Z][\w ]*? of (?:that |some )?[A-Z][\w ]*?|(?:[a-z][\w-]*- )?[A-Z][\w ]*?)$");
+						Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (is at most|is at least|exceeds|is less than|is greater than|is below|is above|starts with|begins with|contains|matches|is|equals) (?:that |some )?('[^']*'|the [A-Z][\w ]*? of (?:that |some )?[A-Z][\w ]*?|(?:[a-z][\w-]*- )?[A-Z][\w ]*?)$");
 						if (cm.Success)
 						{
 							string rightC = cm.Groups[3].Value.Trim();
@@ -7478,9 +7478,15 @@ namespace Arest.NormaOracle
 					bool greater = cp[1] == "exceeds" || cp[1] == "is greater than" || cp[1] == "is above";
 					bool startsC = cp[1] == "starts with" || cp[1] == "begins with";
 					bool containsC = cp[1] == "contains";
+					// `that effective- Date is at most that Date`: the bounds between two
+					// bound values, which a rule over dated events needs ("in force on the
+					// quote's date" is effective on or before it), as LessThanOrEqual /
+					// GreaterThanOrEqual (2026-09-10)
+					bool atMostC = cp[1] == "is at most", atLeastC = cp[1] == "is at least";
 					// minted on first use like Equals and GreaterThan, which NORMA does not
 					// ship either -- the function library is tool-loaded data in the UI
 					Function fnC = GetOrMakeFunction(startsC ? "StartsWith" : containsC ? "Contains" : notEqC ? "NotEquals"
+						: atMostC ? "LessThanOrEqual" : atLeastC ? "GreaterThanOrEqual"
 						: (equalC ? "Equals" : (greater ? "GreaterThan" : "LessThan")), true);
 					var cpvC = new CalculatedPathValue(myStore);
 					cpvC.Function = fnC;
@@ -8916,6 +8922,25 @@ namespace Arest.NormaOracle
 						if (pick >= 0) break;
 					}
 				}
+				// A STRICT ORDER OR A BOUND BETWEEN TWO LEGS THAT SHARE NO TOKEN is a
+				// theta join: `Rate has effective- Date and that effective- Date is at
+				// most that Date` against `Quote occurred on Date` relates every Rate to
+				// every Quote and keeps the pairs the bound names. The candidate is
+				// joined on nothing (a joinon with no key pairs, the full product) and
+				// the comparison is laid below with the others.
+				if (pick < 0)
+				{
+					foreach (int cand in todo)
+					{
+						for (int q = 0; q < cmpBindC.Count && pick < 0; q++)
+						{
+							int[] eb = cmpBindC[q];
+							if (eb[1] < 0 || eb[3] < 0) continue;
+							if ((eb[1] == cand && colOf.ContainsKey(eb[3])) || (eb[3] == cand && colOf.ContainsKey(eb[1]))) pick = cand;
+						}
+						if (pick >= 0) break;
+					}
+				}
 				if (pick < 0) { myRecipeDeclines[sC] = "a leg the chain never reaches"; return; }
 				int width = accToks.Count + toksC[pick].Count;
 				var keep = new List<string>();
@@ -9014,6 +9039,7 @@ namespace Arest.NormaOracle
 			{
 				string op = cmpC[b[0]][1];
 				bool less = op == "is less than" || op == "is below";
+				bool atMost = op == "is at most", atLeast = op == "is at least";
 				bool more = op == "exceeds" || op == "is greater than" || op == "is above";
 				// `starts with 'https://'` is a filter on one bound column against a
 				// quoted literal, which `starts` says directly. The literal is read
@@ -9035,7 +9061,7 @@ namespace Arest.NormaOracle
 				// an equality consumed as a join key above is laid already
 				if (eqUsed.Contains(cmpBindC.IndexOf(b))) continue;
 				bool equal = op == "is" || op == "equals";
-				if (!less && !more && !equal) { myRecipeDeclines[sC] = "a comparison (" + op + ")"; return; }
+				if (!less && !more && !equal && !atMost && !atLeast) { myRecipeDeclines[sC] = "a comparison (" + op + ")"; return; }
 				if (b[1] < 0 || b[3] < 0) { myRecipeDeclines[sC] = "a comparison against a literal or a bare population"; return; }
 				if (!colOf.ContainsKey(b[1]) || !colOf.ContainsKey(b[3]))
 					{ myRecipeDeclines[sC] = "a comparison over a leg the join left out"; return; }
@@ -9060,6 +9086,14 @@ namespace Arest.NormaOracle
 						+ ", S4(" + IAtom("cmp") + ", " + acc + ", N(" + hi + "), N(" + lo + ")))";
 					continue;
 				}
+				// A BOUND IS THE ROWS MINUS THE STRICT ROWS THE OTHER WAY: left at most
+				// right is every row where right is not less than left; left at least
+				// right, every row where left is not less than right. Dates order
+				// lexically in their ISO spelling, which is the order the hosts' cmp
+				// gives text, so `effective- Date is at most that Date` reads as the law
+				// means it.
+				if (atMost) { acc = "S3(" + IAtom("minus") + ", " + acc + ", S4(" + IAtom("cmp") + ", " + acc + ", N(" + hi + "), N(" + lo + ")))"; continue; }
+				if (atLeast) { acc = "S3(" + IAtom("minus") + ", " + acc + ", S4(" + IAtom("cmp") + ", " + acc + ", N(" + lo + "), N(" + hi + ")))"; continue; }
 				acc = "S4(" + IAtom("cmp") + ", " + acc + ", N(" + lo + "), N(" + hi + "))";
 			}
 			// A LITERAL IN A BODY LEG IS A FILTER ON THE JOINED ROWS, applied where the
