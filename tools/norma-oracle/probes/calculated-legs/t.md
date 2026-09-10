@@ -2,12 +2,17 @@
 
 Monroney Label(.id) is an entity type.
 Suggested Retail Price is a value type.
+  The data type of Suggested Retail Price is integer.
 Optional Equipment Total is a value type.
+  The data type of Optional Equipment Total is integer.
 Label Subtotal is a value type.
+  The data type of Label Subtotal is integer.
 Quote(.id) is an entity type.
 Amount is a value type.
+  The data type of Amount is integer.
 Rate(.id) is an entity type.
 Percentage is a value type.
+  The data type of Percentage is integer.
 State(.name) is an entity type.
 Flag is a value type.
 

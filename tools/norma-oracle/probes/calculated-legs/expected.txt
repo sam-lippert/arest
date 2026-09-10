@@ -1,6 +1,5 @@
 errors 0
 UNDELIVERED (an arithmetic operand no leg binds): MonroneyLabelHasLabelSubtotal
-UNDELIVERED (arithmetic of more than one operation): QuoteHasTaxAmount
 *Monroney Label has Label Subtotal if and only if
 that Monroney Label discloses standard equipment some Suggested Retail Price
 and  has some Optional Equipment Total
