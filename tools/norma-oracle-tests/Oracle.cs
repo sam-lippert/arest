@@ -278,6 +278,13 @@ namespace Arest.NormaOracle.Tests
             {
                 if (l.StartsWith("  UNDELIVERED (", StringComparison.Ordinal)) sb.Append(l.TrimStart()).Append('\n');
             }
+            // A declaration the oracle kept over another is an answer too: the
+            // second reference scheme or kind it read and did not take. Two
+            // identical composite declarations print nothing here (2026-09-10).
+            foreach (string l in Lines(r.Output))
+            {
+                if (l.StartsWith("  DECLARED TWICE", StringComparison.Ordinal) || l.StartsWith("  KIND CONFLICT:", StringComparison.Ordinal)) sb.Append(l.TrimStart()).Append('\n');
+            }
             bool printing = false;
             foreach (string l in Lines(r.Report))
             {
