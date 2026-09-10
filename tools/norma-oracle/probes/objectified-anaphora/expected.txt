@@ -1,5 +1,5 @@
 errors 0
-UNDELIVERED (a threshold): FactJoinsFact
+UNDELIVERED (`some other`): FactJoinsFact
 *Fact1 joins Fact2 if and only if
 that Fact1 fills some Role1 that is used in some Reading1
 and some RoleInstance1 uses some Object Type Instance
