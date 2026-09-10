@@ -2,7 +2,13 @@
 
 ## Entity Types
 
-Model(.code) is an entity type.
+# The model an agent runs on is the AI Model: `Model` alone is the car model
+# wherever this template meets auto.dev (`Model(.Name)`, Year Make Model Trim),
+# and two concepts sharing a name is a kind conflict the oracle settles by
+# keeping the first declaration (Sam, 2026-09-10: "AI Model is good for the
+# llm one"; a domain outside our control that insists on a conflicting name
+# is namespaced instead).
+AI Model(.code) is an entity type.
 Agent Definition(.id) is an entity type.
 Agent(.id) is an entity type.
 Completion(.id) is an entity type.
@@ -17,9 +23,9 @@ Prompt is a value type.
 
 ## Readings
 
-### Model
-Model has Name.
-  Each Model has exactly one Name.
+### AI Model
+AI Model has Name.
+  Each AI Model has exactly one Name.
 
 ### Agent Definition
 Agent Definition belongs to Domain.
@@ -28,8 +34,8 @@ Agent Definition belongs to Domain.
 Agent Definition has Name.
   Each Agent Definition has exactly one Name.
 
-Agent Definition uses Model.
-  Each Agent Definition uses exactly one Model.
+Agent Definition uses AI Model.
+  Each Agent Definition uses exactly one AI Model.
 
 Agent Definition has Prompt.
   Each Agent Definition has exactly one Prompt.
@@ -63,7 +69,7 @@ Predicate invokes Agent Definition.
   name resolves to `Func::Platform(name)` in DEFS. The handler
   (installed per-target via `arest::externals` / `install_platform_fn`
   or `install_async_platform_fn`) walks the Agent Definition's `uses
-  Model` + `has Prompt` facts to assemble the request, calls the
+  AI Model` + `has Prompt` facts to assemble the request, calls the
   model, and writes the resulting `Completion` cell. No separate
   agent-dispatch machinery — the same `Func::Platform` path serves
   every external function (LLMs, HTTP APIs, hardware sensors).
