@@ -680,3 +680,4 @@ case:mcp-tool-without-a-reading	"(('MessageRecommendsPlan', ('Message', 'Plan'),
 case:verb-declared-to-take-the-store	"'T'"
 case:verb-declared-to-take-arguments	"'F'"
 case:verb-the-model-does-not-describe	"'F'"
+case:verbs-are-the-runnable-declared-operations	"(('v1', 'store', 'cell-list'))"
