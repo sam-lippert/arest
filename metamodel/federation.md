@@ -30,10 +30,21 @@ Source is a subtype of Function.
 Connector is an entity type.
 Connector is a subtype of Function.
 
+<!-- A Fetcher is a definition name resolved by rho (the note above), which is
+     to say a Function: src.example keys its fetchers map by name and dispatches by
+     it (index.js, doFetch), and each fetcher has properties of its own (an
+     implementation, proxy-based, isolated), which is what example.dev's
+     source-routing.md says of it. Declared a value type in the 2026-08-09
+     sweep, it met example.dev's Fetcher entity as a KIND CONFLICT the oracle
+     settled by keeping this file's kind and refusing the app's scheme (the designer,
+     2026-09-10).
+     Translator stays a value type: src.example has no translators to consult. -->
+Fetcher is an entity type.
+Fetcher is a subtype of Function.
+
 ## Value Types
 
 Url is a value type.
-Fetcher is a value type.
 Translator is a value type.
 
 ## Fact Types
