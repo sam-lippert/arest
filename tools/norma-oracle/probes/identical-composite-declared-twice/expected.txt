@@ -1,0 +1,2 @@
+errors 0
+DECLARED TWICE WITH DIFFERENT REFERENCE SCHEMES: 'Ticket' (.Queue, Number) then (.Number) -- the first kept

@@ -606,6 +606,12 @@ namespace Arest.NormaOracle
 		// poisons customer-auth.md's entity declaration)
 		private sealed class DeferredScheme { public string Name; public List<string> Comps; public int IndexPos; }
 		private readonly List<DeferredScheme> myDeferredSchemes = new List<DeferredScheme>();
+		// THE COMPONENTS A COMPOSITE SCHEME WAS DECLARED WITH, by entity, so a second
+		// declaration is compared with the first's words and not with "<composite>":
+		// `OAuth Account(.OAuth Provider, .Provider Account Id)` in auth.md and again
+		// in customer-auth.md is one scheme said twice, which the oracle tolerates
+		// for a single mode and reported as DECLARED TWICE for a composite (2026-09-10).
+		private readonly Dictionary<string, List<string>> myCompositeComps = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 		// scheme facts stay OUT of myFactIndex (the emitters' surface) until
 		// a file explicitly restates them - then the restatement adopts the
 		// fact at its own stream position, which is the old pipeline's
@@ -646,7 +652,9 @@ namespace Arest.NormaOracle
 						// THE FIRST SCHEME WINS, AND THE SECOND IS SAID, not swallowed:
 						// `Filing Status(.status)` in one file and `Filing Status(.name)` in
 						// another make the same entity mean two things in two corpora.
-						string have = t.ReferenceModeString.Length != 0 ? t.ReferenceModeString : "<composite>";
+						List<string> haveComps;
+						string have = t.ReferenceModeString.Length != 0 ? t.ReferenceModeString
+							: myCompositeComps.TryGetValue(t.Name, out haveComps) ? string.Join(", ", haveComps) : "<composite>";
 						string want = string.Join(", ", scheme.Comps);
 						if (!string.Equals(have, want, StringComparison.OrdinalIgnoreCase))
 							myMapLog.Add("DECLARED TWICE WITH DIFFERENT REFERENCE SCHEMES: '" + scheme.Name + "' (." + have + ") then (." + want + ") -- the first kept");
@@ -712,6 +720,7 @@ namespace Arest.NormaOracle
 		{
 			int added = 0;
 			var farRoles = new List<Role>();
+			myCompositeComps[t.Name] = new List<string>(comps);
 			foreach (string comp in comps)
 			{
 				ObjectType compT;
