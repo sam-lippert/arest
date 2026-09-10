@@ -285,5 +285,43 @@ namespace Arest.NormaOracle.Tests
                 + "S3(A(\"proj\"), A(\"AuthorityHasSupersessionDate\"), S1(N(1))))",
                 state);
         }
+
+        // A SUBTYPING IS A FACT TYPE, AS NORMA HAS IT (2026-09-10). NORMA holds
+        // `Person is a subtype of Party` as a SubtypeFact, a FactType with two
+        // roles and the reading `{0} is a subtype of {1}`, and the design state
+        // carried it nowhere the reflection could read: a citation of it named a
+        // Fact Type instance with no role and no reading (eu-law, 19 + 19). The
+        // oracle writes every subtype fact as a reading-shaped row of
+        // state:subtypefacts under its one DCIL name; over the metamodel the link
+        // is a row of Halpin's `Object Type is subtype of Object Type` (13.8,
+        // p.705), the fact an instance of Subtype Fact and, up the chain, of Fact
+        // Type, and a citation of the subtyping names that fact.
+        [Fact]
+        public void ASubtypeFactIsReflectedAsAFactType()
+        {
+            string dir = Path.Combine(ProbesDir, "subtype-fact-is-reflected");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "subtype-fact-reflected"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            string reading = "S1(S6(A(\"{0}\"), A(\"is\"), A(\"a\"), A(\"subtype\"), A(\"of\"), A(\"{1}\")))";
+            Assert.Contains("S3(A(\"CustomerIsASubtypeOfPerson\"), S2(A(\"Customer\"), A(\"Person\")), " + reading + ")", state);
+            Assert.Contains("S3(A(\"PersonIsASubtypeOfParty\"), S2(A(\"Person\"), A(\"Party\")), " + reading + ")", state);
+
+            List<string> dirs = Corpus.Directories("metamodel");
+            dirs.Add(Path.Combine(ProbesDir, "subtype-fact-lab"));
+            Oracle.Run lab = Oracle.Execute(Oracle.Scratch("probes", "subtype-fact-lab"), dirs);
+            Assert.True(Oracle.Crash(lab.Output) == null, "the oracle crashed: " + Oracle.Crash(lab.Output));
+            string labState = File.ReadAllText(Path.Combine(lab.Scratch, "design-state"));
+            // the pair is a row of the fact type's own population, so it is read
+            // inside that descriptor and not anywhere the two names meet
+            int at = labState.IndexOf("S5(A(\"ObjectTypeIsSubtypeOfObjectType\")", StringComparison.Ordinal);
+            Assert.True(at >= 0, "no descriptor for Object Type is subtype of Object Type");
+            int next = labState.IndexOf("S5(A(\"", at + 1, StringComparison.Ordinal);
+            string descriptor = next < 0 ? labState.Substring(at) : labState.Substring(at, next - at);
+            Assert.Contains("S2(A(\"Person\"), A(\"Party\"))", descriptor);
+            Assert.Contains("S2(A(\"PersonIsASubtypeOfParty\"), A(\"Subtype Fact\"))", labState);
+            Assert.Contains("S2(A(\"PersonIsASubtypeOfParty\"), A(\"Fact Type\"))", labState);
+            Assert.Contains("S2(A(\"PersonIsASubtypeOfParty\"), A(\"C-1\"))", labState);
+        }
     }
 }
