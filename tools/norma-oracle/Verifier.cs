@@ -2829,6 +2829,10 @@ namespace Arest.NormaOracle
 				if (body[i] == '\'') { quoted = !quoted; continue; }
 				if (quoted || protectedTo[i] == 1 || !string.CompareOrdinal(body, i, " or ", 0, 4).Equals(0)) continue;
 				if (Regex.IsMatch(body.Substring(i + 4), @"^(more|fewer|less|later|earlier|equal|otherwise)\b")) continue;
+				// `'vehicle-identifier' or 'plate-identifier'` is an alternation of
+				// VALUES on one role, not of legs: the sentence is not cut there, and
+				// the piece is distributed over the literals below
+				if (i > 0 && body[i - 1] == '\'' && i + 4 < body.Length && body[i + 4] == '\'') continue;
 				pieces.Add(body.Substring(start, i - start).Trim());
 				start = i + 4;
 				i += 3;
@@ -2849,9 +2853,30 @@ namespace Arest.NormaOracle
 					break;
 				}
 			}
-			if (pieces.Count == 1) { yield return rule; yield break; }
-			Count("derivation rule split at or (" + pieces.Count + " alternatives)");
-			foreach (string piece in pieces) yield return m.Groups[1].Value + m.Groups[2].Value + " iff " + piece + ".";
+			// A VALUE ALTERNATION DISTRIBUTES. `... has Identifier Sensitivity
+			// 'vehicle-identifier' or 'plate-identifier' and Log Entry has Date and
+			// ...` is one rule per literal with everything else in common. Until
+			// 2026-09-10 the sentence was cut at that `or` like any other, which made
+			// the first piece a rule missing every clause after the alternation and
+			// the second a piece beginning with a literal, unbuildable; the head then
+			// carried a recipe for a rule the reading never said (auto.dev's EEA
+			// purge, once the first piece's chain reached its legs).
+			var distributed = new List<string>();
+			foreach (string piece in pieces) distributed.AddRange(DistributeLiterals(piece));
+			if (distributed.Count == 1) { yield return rule; yield break; }
+			Count("derivation rule split at or (" + distributed.Count + " alternatives)");
+			foreach (string piece in distributed) yield return m.Groups[1].Value + m.Groups[2].Value + " iff " + piece + ".";
+		}
+
+		private static readonly Regex LiteralAlternation = new Regex(@"'[^']*'(?: or '[^']*')+");
+		private static IEnumerable<string> DistributeLiterals(string piece)
+		{
+			Match a = LiteralAlternation.Match(piece);
+			if (!a.Success) { yield return piece; yield break; }
+			string before = piece.Substring(0, a.Index), after = piece.Substring(a.Index + a.Length);
+			foreach (Match lit in Regex.Matches(a.Value, @"'[^']*'"))
+				foreach (string rest in DistributeLiterals(after))
+					yield return before + lit.Value + rest;
 		}
 		// WHICH RULE SENTENCES HAVE BEEN BUILT. The paths-vs-rules cap counts how many
 		// paths a head has, which stops an arm adding a third to a two-rule head -- but
@@ -8831,6 +8856,7 @@ namespace Arest.NormaOracle
 			var accToks = new List<string>();
 			var colOf = new Dictionary<int, int>();               // leg -> its first column, 1-based
 			var todo = new List<int>(positives);
+			var eqUsed = new HashSet<int>();                      // comparisons consumed as join keys
 			order.Add(todo[0]);
 			colOf[todo[0]] = 1;
 			accToks.AddRange(toksC[todo[0]]);
@@ -8857,6 +8883,38 @@ namespace Arest.NormaOracle
 						if (at >= 0) found.Add("S2(N(" + (at + 1) + "), N(" + (p + 1) + "))");
 					}
 					if (found.Count > 0) { pick = cand; keys = found; break; }
+				}
+				// A VALUE EQUALITY IS A JOIN KEY. `Customer has Stripe Customer if Stripe
+				// Customer has Email Address and Customer has Email and that Email
+				// Address is that Email` joins two legs that share no token: the equality
+				// clause names the pair. When no candidate shares a token with the
+				// accumulator, an equality between a token the accumulator holds and one
+				// of a candidate's is the key the join runs on, and that comparison is
+				// consumed here rather than laid again below. Until 2026-09-10 the leg
+				// was "a leg the chain never reaches" (auto.dev: the PostHog Person and
+				// Stripe Customer links).
+				if (pick < 0)
+				{
+					foreach (int cand in todo)
+					{
+						for (int q = 0; q < cmpBindC.Count && pick < 0; q++)
+						{
+							int[] eb = cmpBindC[q];
+							string eop = cmpC[eb[0]][1];
+							if (eop != "is" && eop != "equals") continue;
+							if (eb[1] < 0 || eb[3] < 0) continue;
+							int jl, jp, cpos;
+							if (eb[1] == cand && colOf.ContainsKey(eb[3])) { jl = eb[3]; jp = eb[4]; cpos = eb[2]; }
+							else if (eb[3] == cand && colOf.ContainsKey(eb[1])) { jl = eb[1]; jp = eb[2]; cpos = eb[4]; }
+							else continue;
+							string jk = ValueKindOf(legsC[jl].Players[jp]), ck = ValueKindOf(legsC[cand].Players[cpos]);
+							if (jk != ck) { myRecipeDeclines[sC] = "a join across kinds (" + legsC[jl].Players[jp] + " is " + jk + ", " + legsC[cand].Players[cpos] + " is " + ck + ")"; return; }
+							pick = cand;
+							keys.Add("S2(N(" + (colOf[jl] + jp) + "), N(" + (cpos + 1) + "))");
+							eqUsed.Add(q);
+						}
+						if (pick >= 0) break;
+					}
 				}
 				if (pick < 0) { myRecipeDeclines[sC] = "a leg the chain never reaches"; return; }
 				int width = accToks.Count + toksC[pick].Count;
@@ -8974,7 +9032,10 @@ namespace Arest.NormaOracle
 						+ IAtom(rt.Substring(1, rt.Length - 2)) + ")";
 					continue;
 				}
-				if (!less && !more) { myRecipeDeclines[sC] = "a comparison (" + op + ")"; return; }
+				// an equality consumed as a join key above is laid already
+				if (eqUsed.Contains(cmpBindC.IndexOf(b))) continue;
+				bool equal = op == "is" || op == "equals";
+				if (!less && !more && !equal) { myRecipeDeclines[sC] = "a comparison (" + op + ")"; return; }
 				if (b[1] < 0 || b[3] < 0) { myRecipeDeclines[sC] = "a comparison against a literal or a bare population"; return; }
 				if (!colOf.ContainsKey(b[1]) || !colOf.ContainsKey(b[3]))
 					{ myRecipeDeclines[sC] = "a comparison over a leg the join left out"; return; }
@@ -8990,6 +9051,15 @@ namespace Arest.NormaOracle
 					return;
 				}
 				if (kl != kr) { myRecipeDeclines[sC] = "a comparison across kinds (" + pl + " is " + kl + ", " + pr + " is " + kr + ")"; return; }
+				// AN EQUALITY BETWEEN TWO JOINED COLUMNS IS A FILTER, and the grammar's
+				// only order is cmp, strictly less-than: the rows where neither column
+				// is less than the other are the rows minus the strict rows each way.
+				if (equal)
+				{
+					acc = "S3(" + IAtom("minus") + ", S3(" + IAtom("minus") + ", " + acc + ", S4(" + IAtom("cmp") + ", " + acc + ", N(" + lo + "), N(" + hi + ")))"
+						+ ", S4(" + IAtom("cmp") + ", " + acc + ", N(" + hi + "), N(" + lo + ")))";
+					continue;
+				}
 				acc = "S4(" + IAtom("cmp") + ", " + acc + ", N(" + lo + "), N(" + hi + "))";
 			}
 			// A LITERAL IN A BODY LEG IS A FILTER ON THE JOINED ROWS, applied where the
