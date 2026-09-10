@@ -24,7 +24,7 @@ import { join } from "node:path";
 const here = import.meta.dir;
 const root = join(here, "..", "..");
 // which carriers to compose in. The oracle's are the default; an app's own
-// design-state, norma-answer and journal are the same three files elsewhere,
+// design-state and norma-answer are the same two files elsewhere,
 // so a per-app build is this one pointed at a different directory.
 const oracle = process.env.AREST_CARRIERS || join(here, "..", "norma-oracle");
 
@@ -90,11 +90,6 @@ for (const carrier of ["outcome", "expected"]) {
   }
 }
 
-// The journal is APPEND-ONLY and carries a leading doc atom, so it is spliced
-// as CANON("journal", ...entries) rather than as a bare tuple: every entry is
-// appended bytes, never a rewrite. An empty journal registers nothing.
-const JOURNAL = join(oracle, "journal");
-
 const mode = process.argv[2] || "cli";
 const OUT = { cli: "composed", test: "cases", serve: "serve", mcp: "mcp", sql: "sql", ui: "ui", regress: "regress" };
 if (!(mode in OUT)) {
@@ -109,22 +104,9 @@ function must(p) {
     console.error("missing composition input: " + p);
     process.exit(1);
   }
-  // an EMPTY carrier is legitimate -- a fresh journal has no entries -- so
-  // emptiness is not an error here; the size check below catches a lost input
+  // an EMPTY carrier is legitimate, so emptiness is not an error here; the
+  // size check below catches a lost input
   return readFileSync(p);
-}
-
-// A journal that has never been written is ABSENT, not empty, and absent is
-// the ordinary state of an app store that has only ever been checked. It is
-// the same case as an uncompiled schema having no `compiled` carrier: the
-// composition is well-formed without it, so read it as the empty journal
-// rather than refusing to build. Only the two derived carriers are required.
-function mayBe(p) {
-  try {
-    return readFileSync(p);
-  } catch {
-    return Buffer.alloc(0);
-  }
 }
 
 // ---- THE CARRIERS ARE SPLICED AS TEXT THE HOST READS ------------------------
@@ -173,8 +155,6 @@ for (const p of SPLICED) {
   if (AS_TEXT.has(p)) { parts.push(Buffer.from("\n;\nCANONTEXT(" + asLiteral(must(p).toString("utf8")) + ");\n")); continue; }
   parts.push(Buffer.from("\n;\nCANON"), must(p));
 }
-parts.push(Buffer.from('\n;\nCANON("journal"'), mayBe(JOURNAL), Buffer.from(")"));
-parts.push(Buffer.from("\n;\nJOURNAL_PATH = " + JSON.stringify(JOURNAL) + ";\n"));
 // STAMP THE CARRIERS THIS COMPOSITION WAS MADE FROM. tools/compile-rmap.js
 // writes beside AREST_CARRIERS but reads whatever composition is on disk, so
 // the two can disagree and it will emit one store's relational map into

@@ -193,14 +193,6 @@ function cmp(a, b) {
 // ---- the base primitives: Backus 11.2.3 plus the registered boundary rows
 // of resolution.md (lex, implode, slug, escape_html, strip_prefix, 1r, tlr).
 // Each mirrors its Mu.cs form; unary prims take x, pair prims take at(x,0/1). -
-// WHERE THE DURABLE WRITE GOES. The journal is append-only CANON SOURCE:
-// ui:jentry emits a comma, two newlines, and a DEF form naming the cell and
-// its value, and the build splices the whole file as CANON of journal and
-// those entries. So persisting is appending text and rebooting is reading it.
-// The build knows which carrier set is composed and the host does not, so
-// build.js writes this in beside the boot call.
-let JOURNAL_PATH = null;
-
 // THE DURABLE WRITE IS THE TABLE (Samuel 2026-09-09, arest #108). The paper's
 // storage is Backus's FILE, one cell in D, which Rmap structures into Codd's
 // tables; tools/compile-store.js writes those tables as <carriers>/store.db and
@@ -279,22 +271,7 @@ function emitToDb(before, cells) {
   })();
   return written;
 }
-// how many entries the journal already holds. It has to be a counter rather
-// than a count of cells: an appended entry is not a CELL until the next boot,
-// so two writes in one session would both compute the same index and collide
-// on the duplicate DEF that law:one_name forbids.
-let JOURNAL_N = 0;
-
 const PRIMS = new Map(Object.entries({
-  // the one durable write, registered rather than defined: it appends outside
-  // D, so it cannot be canon (AREST.tex eq:boundary). Same name and same shape
-  // as the web host's POST-to-journal and the wpf and java hosts' file writes.
-  // Empty bytes never leave -- the identity effect.
-  "store:append": x => {
-    const bytes = String(at(x, 1));
-    if (bytes !== "" && JOURNAL_PATH) require("node:fs").appendFileSync(JOURNAL_PATH, bytes);
-    return "T";
-  },
   "id": x => x,
   "tl": x => { const a = seq(x); if (a.length === 0) throw new Error("tl on empty"); return a.slice(1); },
   "atom": x => bool(!Array.isArray(x)),
@@ -1962,23 +1939,6 @@ function run_test() {
 // Mutated in place so the array identity survives, then the memo is dropped:
 // Ev keys on the store REFERENCE, so a store whose contents changed under the
 // same reference would keep answering from the old one.
-// A WRITE IS RECORDED AS A FACT, not as a request. main:jverb says which verb a
-// method journals -- POST asserts, DELETE retracts, PUT replaces, and a GET
-// journals nothing, which is why nav has no row in that table. The entry text
-// is built by canon (main:jentry_for over ui:jentry); the host supplies only
-// the sequence number and the bytes, because what an entry SAYS is not its.
-//
-// Recorded post-resolve, which is what makes replay safe to repeat: resolve_S
-// is where external functions run, so replaying a COMMAND would re-fetch,
-// while replaying the fact it produced cannot.
-function journalStep(method, resource, fact) {
-  if (!JOURNAL_PATH) return;
-  // The store rides along so canon can tell a collection (an entity POST,
-  // journaled as the screen's `submit`) from a fact type (an `assert`).
-  const entry = Ev("main:jentry_for", [++JOURNAL_N, String(method), String(resource), fact, CELLS]);
-  Ev("store:append", ["journal", entry]);
-}
-
 function adoptStore(next) {
   if (!Array.isArray(next) || next.length === 0) return false;
   // next may BE CELLS -- canon answers the same array when a step changes nothing,
@@ -2028,10 +1988,7 @@ function run_serve() {
       const out = Ev("main:api", [CELLS, req.method, resource, caller, fact]);
       if (out.length > 2) {
         adoptStore(out[2]);
-        if (Number(out[1]) < 400) {   // a refusal made no successor
-          if (before) emitToDb(before, CELLS);
-          journalStep(req.method, resource, fact);
-        }
+        if (before && Number(out[1]) < 400) emitToDb(before, CELLS);   // a refusal made no successor
       }
       return new Response(String(out[0]), {
         status: Number(out[1]) || 500,
@@ -2116,18 +2073,15 @@ function run_ui() {
         address = ["submit", target, id];
         for (const [k, v] of pairs) if (k !== target) address.push(k, v);
       }
-      // One evaluation: navigation, the new store value, and the journal
-      // bytes a command appends (empty for plain navigation). The bytes go
-      // through the registered store:append, the platform's one durable
-      // write, so the next boot replays what this session committed.
+      // One evaluation: navigation and the new store value. A command that
+      // changed the store answers a new array (canon answers the same one when
+      // a step changes nothing), and the change is emitted into the tables.
       const before = popSnapshot(store);
+      const prior = store;
       const out = Ev("ui:navpe", [store, panes, address, ""]);
       store = out[0];
       panes = out[1];
-      if (typeof out[2] === "string" && out[2].length > 0) {
-        emitToDb(before, store);
-        Ev("store:append", ["journal", out[2]]);
-      }
+      if (store !== prior) emitToDb(before, store);
       let body = "";
       for (const pane of panes) {
         const layer = Ev("ui:pane_view", [store, panes, pane[0]]);
@@ -2277,10 +2231,7 @@ function run_mcp() {
       // made no successor, so the tables stay as they were; the journal that
       // once recorded refusals replayed 22 of them at boot for six minutes and
       // left the store as it was (engineering.auto.dev, 2026-09-04).
-      if (Number(out[1]) < 400) {
-        if (before) emitToDb(before, CELLS);
-        journalStep(method, String(name), Array.isArray(a.fact) ? a.fact : []);
-      }
+      if (before && Number(out[1]) < 400) emitToDb(before, CELLS);
       return [out[0], out[1]];
     }
     return out;
@@ -2475,7 +2426,7 @@ function loadDerived() {
   // this line threw the result away.
   //
   // The second check stays as it was and is why the first has to be narrowed
-  // rather than deleted: loadDerived runs AGAIN after the journal fold, and
+  // rather than deleted: loadDerived may run AGAIN after a store change, and
   // without a guard on the cells it already added it prepends every derived
   // population twice.
   // AND CARRIED IS NOT THE SAME AS COMPLETE. The first narrowing here was from
@@ -2504,29 +2455,6 @@ function loadDerived() {
   }
   if (added) memoClear();
   return added;
-}
-
-// THE JOURNAL IS FOLDED AT LOAD. ui:replay picks out the cells named journal:<n>,
-// dispatches each on its verb -- fire an event on an entity, submit a new one,
-// retract an earlier entry -- and answers the store those events produce.
-//
-// Order matters and cost me a boot: the fold READS through the accessor, which
-// wants FILE, so it cannot run before loadFile. But the events change state:fts,
-// and FILE is a projection of that, so a fold that changed anything leaves the
-// projection stale and it is rebuilt. A store with no journal cells comes back
-// unchanged and neither step costs anything.
-function loadJournal() {
-  const out = Ev("ui:replay", CELLS);
-  if (out === CELLS) return 0;   // nothing folded; same array back
-  if (!Array.isArray(out) || out.length === 0) return 0;
-  // the fold usually changes CONTENTS, not the cell count, so counting cells is
-  // not the signal -- what matters is whether there were entries to fold at all
-  const n = CELLS.filter((c) => Array.isArray(c) && String(c[1]).startsWith("journal:")).length;
-  JOURNAL_N = n;
-  CELLS.length = 0;
-  for (const c of out) CELLS.push(c);
-  memoClear();
-  return n;
 }
 
 // THE META-TYPES ARE REFLECTED AT LOAD, and canon says which. reflect:cells
@@ -2576,20 +2504,6 @@ function boot(mode) {
     loadFile(); lap("file");
     loadReflected(); lap("reflected");
     loadDerived(); lap("derived");
-    if (loadJournal()) {
-      adoptStore(Ev("main:refile", CELLS));
-      loadDerived();
-      // what the fold left in each journaled fact type: the line that says
-      // whether a replayed fact reached the tables. A journal of refused writes
-      // folded for 352 seconds and left every count as it was
-      // (engineering.auto.dev, 2026-09-04); the refusal is the paper's, Thm 1,
-      // and the cure is the model's, but the line is how anyone finds out.
-      if (process.env.AREST_BOOT_TIMING) {
-        const journaled = [...new Set(CELLS.filter((c) => Array.isArray(c) && String(c[1]).startsWith("journal:") && Array.isArray(c[2])).map((c) => String(c[2][1])))];
-        for (const ft of journaled) { const r = Ev("system:pop_rows", [ft, CELLS]); console.error("boot: journaled " + ft + " now " + (Array.isArray(r) ? r.length : "?") + " rows"); }
-      }
-      lap("journal folded and re-derived");
-    }
   }
   if (SAMPLE && process.env.AREST_SAMPLE_AFTER_BOOT) sreset(); // @instrument
   if (mode === "test") return run_test();
