@@ -1,5 +1,5 @@
 errors 0
-UNDELIVERED (marked derived, no rule written): PersonIsSubjectToAuthority
+UNDELIVERED (a head role from a subtype extent): PersonIsSubjectToAuthority
 +Person is subject to Authority if
 that Person is employed
 and  is resident

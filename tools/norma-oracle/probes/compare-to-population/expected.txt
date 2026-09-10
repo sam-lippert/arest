@@ -1,5 +1,5 @@
 errors 0
-UNDELIVERED (marked derived, no rule written): ExternalSystemHasServiceHealthStatus
+UNDELIVERED (a comparison against a literal or a bare population): ExternalSystemHasServiceHealthStatus
 UNDELIVERED (a threshold): LogEntryIsRetried
 +External System has Service Health Status if
 that External System has some Error Rate for some Interval
