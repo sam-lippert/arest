@@ -1,5 +1,4 @@
 errors 0
-UNDELIVERED (a head role from a subtype extent): PersonIsSubjectToAuthority
 +Person is subject to Authority if
 that Person is some Customer that is registered
 and some Delaware Authority is that Authority.
