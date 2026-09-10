@@ -626,6 +626,21 @@ namespace Arest.NormaOracle
 				try
 				{
 					ObjectType t = myTypes[scheme.Name];
+					if (t.IsValueType)
+					{
+						// A REFERENCE SCHEME ON A VALUE TYPE IS REFUSED, NOT HALF-BUILT.
+						// `Fetcher is a value type` (metamodel) then `Fetcher(.Fetcher
+						// Name) is an entity type` (auto.dev) is a KIND CONFLICT the
+						// first declaration wins, and the scheme still ran: the value
+						// type got a preferred identifier, NORMA answered "An object
+						// type with a preferred identifier must be an entity type",
+						// and its DCIL carried both a value column and a fetcherName
+						// key that canon rightly never derived (support, 2026-09-09).
+						// The kind is decided above; the scheme is refused and said.
+						Count("reference scheme on a value type (refused)");
+						myMapLog.Add("REFUSED (reference scheme on a value type; the kind conflict kept the value type): '" + scheme.Name + "' (." + string.Join(", ", scheme.Comps) + ")");
+						continue;
+					}
 					if (t.ReferenceModeString.Length != 0 || t.PreferredIdentifier != null)
 					{
 						// THE FIRST SCHEME WINS, AND THE SECOND IS SAID, not swallowed:
