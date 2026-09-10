@@ -303,7 +303,7 @@ Constraint Type 'RF' has Violation Template 'Reflexive violation: {value} does n
 Constraint Type 'UC' has Violation Template 'Uniqueness violation: {object_type} {value} is not unique in {reading}'.
 Constraint Type 'MC' has Violation Template 'Mandatory violation: {object_type} {value} does not participate in {reading}'.
 Constraint Type 'FC' has Violation Template 'Frequency violation: {object_type} {value} in {reading} expected {range}'.
-Constraint Type 'VC' has Violation Template 'Value constraint violation: {object_type} {value} is not in {valid_set}'.
+Constraint Type 'VC' has Violation Template 'Value comparison violation: {object_type} {value} is not {operator} {other_value}'.
 Constraint Type 'CC' has Violation Template 'Cardinality violation: population of {object_type} expected {range}'.
 Constraint Type 'XO' has Violation Template 'Set-comparison violation: {entity} {value} expected {requirement} of {clause_count} clause fact types'.
 Constraint Type 'XC' has Violation Template 'Set-comparison violation: {entity} {value} expected {requirement} of {clause_count} clause fact types'.

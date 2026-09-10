@@ -395,7 +395,7 @@ Constraint Type Label is a value type.
   The data type of Constraint Type Label is text.
 
 Constraint Type Family is a value type.
-  The possible values of Constraint Type Family are 'ring', 'uniqueness', 'mandatory', 'frequency', 'value', 'set-comparison', 'subset', 'equality', 'deontic', 'cardinality'.
+  The possible values of Constraint Type Family are 'ring', 'uniqueness', 'mandatory', 'frequency', 'value-comparison', 'set-comparison', 'subset', 'equality', 'deontic', 'cardinality'.
   The data type of Constraint Type Family is text.
 
 Constraint Match Keyword is a value type.
@@ -1936,8 +1936,23 @@ Constraint Type 'MC' has Constraint Type Label 'Mandatory'.
 Constraint Type 'MC' has Constraint Type Family 'mandatory'.
 Constraint Type 'FC' has Constraint Type Label 'Frequency'.
 Constraint Type 'FC' has Constraint Type Family 'frequency'.
-Constraint Type 'VC' has Constraint Type Label 'Value'.
-Constraint Type 'VC' has Constraint Type Family 'value'.
+Constraint Type 'VC' has Constraint Type Label 'Value Comparison'.
+Constraint Type 'VC' has Constraint Type Family 'value-comparison'.
+<!-- ORMCore separates two things this row said at once (2026-09-10, #107's
+     audit): ValueComparisonConstraint is a SetConstraint over a role sequence
+     -- `that Order's ship Date is after that Order's order Date`, which the
+     oracle builds (Verifier.cs, "value comparison (Codd's inequality theta)")
+     -- while ValueConstraint : ORMNamedElement is the allowed values or ranges
+     of a value type or role, a different class that is not a constraint over
+     roles at all (ORMCore.dsl, ValueComparisonConstraint : SetConstraint;
+     ValueConstraint, ValueTypeValueConstraint, RoleValueConstraint). This row
+     is NAMED ValueComparison and was LABELLED 'Value', so the constraint-type
+     table gave one id two meanings and the comparison had no name of its own.
+     ORMCore's ValueConstraint is not missing from AREST: it is carried as
+     facts of the object type it restricts -- `Object Type has Enum Values`,
+     `Object Type has Value Range` with its Bounds, `Object Type has Facet` --
+     which is where the oracle writes it (ApplyValueEnum), so it needs no
+     Constraint Type row and has none. -->
 Constraint Type 'XO' has Constraint Type Label 'Exclusive Or'.
 Constraint Type 'XO' has Constraint Type Family 'set-comparison'.
 Constraint Type 'XC' has Constraint Type Label 'Exclusion'.
