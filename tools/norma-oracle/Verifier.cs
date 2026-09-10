@@ -6670,6 +6670,8 @@ namespace Arest.NormaOracle
 				var negC = new List<bool>();
 				// declared players that only matched because a subtype was substituted for them
 				var swapPlayersC = new HashSet<string>(StringComparer.Ordinal);
+				// and WHERE: <leg, position, subtype>, which the recorder joins with the extent
+				var swapsC = new List<string[]>();
 				bool recursiveC = false;
 				var cmpC = new List<string[]>();
 				// what the comparison loop below resolved, for the recipe emitter to reuse
@@ -6949,7 +6951,17 @@ namespace Arest.NormaOracle
 					if (leC == hC) recursiveC = true;
 					if (thrOp != null) thrC.Add(new string[] { plC[plC.Count - 1], thrOp, thrVal, legsC.Count.ToString() });
 					legsC.Add(leC);
-					if (swapC != null) swapPlayersC.Add(swapC);
+					if (swapC != null)
+					{
+						swapPlayersC.Add(swapC);
+						// the substituted position is where the clause's players differ from
+						// the declared ones (ResolveClauseSub writes the subtype's name there)
+						int swAt = -1;
+						for (int k = 0; k < plC.Count && k < leC.Players.Count && swAt < 0; k++)
+							if (!string.Equals(plC[k], leC.Players[k], StringComparison.Ordinal)) swAt = k;
+						if (swAt < 0) swAt = leC.Players.LastIndexOf(swapC);
+						swapsC.Add(new string[] { (legsC.Count - 1).ToString(), swAt.ToString(), swAt >= 0 && swAt < plC.Count ? plC[swAt] : "" });
+					}
 					negC.Add(thisNegC);
 					nestC.Add(-1);
 					toksC.Add(RoleQualified(Dequantify(" " + tPosC + " ").Trim(), plC, true));
@@ -7477,10 +7489,9 @@ namespace Arest.NormaOracle
 				}
 				if (!okC) continue;
 				RecordGeneralChainRecipe(sC, hC, legsC, toksC, negC, nestC, atLegC, atPosC,
-					typeRootC, crossAtC, konstAtC, hLitsC, arithKeyC, arithC, cmpC, cmpBindC, thrC,
+					typeRootC, crossAtC, konstAtC, hLitsC, arithKeyC, arithC, cmpC, cmpBindC, thrC, swapsC,
 					otherC.Count > 0 ? "`some other`"
-						: anaphoraC.Count > 0 ? "an objectification" : recursiveC ? "recursion"
-						: swapPlayersC.Count > 0 ? "a substituted subtype" : null);
+						: anaphoraC.Count > 0 ? "an objectification" : recursiveC ? "recursion" : null);
 				myBuiltRuleSentences.Add(sC);
 				log.Add(hC.Fact.Name + " := chain over " + legsC.Count + " clauses"
 					+ (cmpC.Count > 0 ? " with " + cmpC.Count + " comparison" : "") + ", "
@@ -8781,7 +8792,7 @@ namespace Arest.NormaOracle
 			List<List<string>> toksC, List<bool> negC, List<int> nestC,
 			int[] atLegC, int[] atPosC, ObjectType[] typeRootC, ObjectType[] crossAtC,
 			int[] konstAtC, List<string> hLitsC, string[] arithKeyC, List<string[]> arithC, List<string[]> cmpC, List<int[]> cmpBindC,
-			List<string[]> thrC, string shapeThisCannotSay)
+			List<string[]> thrC, List<string[]> swapsC, string shapeThisCannotSay)
 		{
 			if (shapeThisCannotSay != null) { myRecipeDeclines[sC] = shapeThisCannotSay; return; }
 			if (legsC.Count == 0) { myRecipeDeclines[sC] = "no legs"; return; }
@@ -8861,6 +8872,34 @@ namespace Arest.NormaOracle
 				accToks.AddRange(toksC[pick]);
 				order.Add(pick);
 				todo.Remove(pick);
+			}
+			// A LEG THAT NAMES A SUBTYPE IS THE DECLARED LEG JOINED WITH THE SUBTYPE'S
+			// EXTENT. `that ZIP Code is within some State Sales Tax Jurisdiction`
+			// resolves to the declared `ZIP Code is within Sales Tax Jurisdiction`
+			// with the subtype in that role, and this recorder declined the rule
+			// as "a substituted subtype" (support.auto.dev: ten heads, the Vehicle
+			// Purchase Quote amounts, 2026-09-10). The restriction the sentence
+			// states is membership, and the store carries every extent: an
+			// asserted subtype's is the reflective `Object Type Instance is
+			// instance of Object Type` selected on the subtype's name (the oracle
+			// materialises inclusion up the chain, so an instance of a further
+			// subtype is in it too); a derived subtype's is its own population,
+			// the head its definition produces. The leg's rows are joined with
+			// that extent on the substituted column and only the accumulator's
+			// own columns are kept, so nothing laid after this moves.
+			foreach (string[] sw in swapsC)
+			{
+				int sl = int.Parse(sw[0]), sp = int.Parse(sw[1]);
+				if (sp < 0 || sw[2].Length == 0) { myRecipeDeclines[sC] = "a substituted subtype at no position"; return; }
+				if (sl < 0 || sl >= legsC.Count) { myRecipeDeclines[sC] = "a substituted subtype on a leg the chain did not keep"; return; }
+				if (negC[sl]) { myRecipeDeclines[sC] = "a substituted subtype inside a negated leg"; return; }
+				if (!colOf.ContainsKey(sl)) { myRecipeDeclines[sC] = "a substituted subtype over a leg the join left out"; return; }
+				int scol = colOf[sl] + sp;
+				string extent = mySubtypeDerived.Contains(sw[2]) ? IAtom(sw[2])
+					: "S4(" + IAtom("sel") + ", " + IAtom("ObjectTypeInstanceIsInstanceOfObjectType") + ", N(2), " + IAtom(sw[2]) + ")";
+				var keepAcc = new List<string>();
+				for (int c = 1; c <= accToks.Count; c++) keepAcc.Add("N(" + c + ")");
+				acc = "S5(" + IAtom("joinon") + ", " + acc + ", " + extent + ", S1(S2(N(" + scol + "), N(1))), " + IFlat(keepAcc) + ")";
 			}
 			// A COMPARISON IS A FILTER ON THE JOINED ROWS, and it must be applied
 			// BEFORE the projection, while both operands still have columns. The
