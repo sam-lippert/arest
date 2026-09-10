@@ -730,7 +730,20 @@ namespace Arest.NormaOracle
 				}
 				if (compT == null)
 				{
-					compT = EnsureType(t.Name + "_" + comp, true);
+					// A COMPOSITE SCHEME'S COMPONENT IS NAMED THE WAY A MODELER NAMES
+					// AN IDENTIFYING VALUE TYPE, WITH A SPACE. `Entity_mode` is
+					// NORMA's name for the value type behind a single reference
+					// mode, and its ReferenceModeNaming renders that pair as
+					// Entity+Mode everywhere the DCIL speaks of it (specsId); a
+					// composite scheme has no such pattern, so an underscore
+					// minted here reached the DCIL raw -- measurementWindow_Start,
+					// measurementWindow_End -- a spelling no NORMA modeler
+					// produces and the one column class canon's word rule, which
+					// is NamePart's, cannot reproduce (support.auto.dev's
+					// colorder-normacolorder, 2026-09-09). `Measurement Window
+					// Start` names the same value type as a modeler would, and
+					// NORMA's DCIL and canon agree on measurementWindowStart.
+					compT = EnsureType(t.Name + " " + comp, true);
 					compT.IsValueType = true;
 					EnsureDataType(compT, "text");
 				}
