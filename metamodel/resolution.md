@@ -83,6 +83,13 @@ Function 'get' accepts Type Expression 'name-and-store'.
 Function 'get' yields Type Expression 'entity-view'.
 Function 'ask' accepts Type Expression 'name-and-store'.
 Function 'ask' yields Type Expression 'filtered-population'.
+Function 'query' accepts Type Expression 'recipe-and-populations'.
+Function 'query' yields Type Expression 'rows'.
+<!-- derive is NOT declared: it reads its first element as a sequence, so it
+     answers to <[], populations> and throws on the empty argument an address
+     of one element gives it. Its shape is real but not settled, and a verb is
+     listed only when a call to it answers, so it stays off the surface until
+     the argument it wants is measured rather than guessed. -->
 
 <!-- The REGISTERED class (Samuel, 2026-07-13): operations a host may serve
      through a registered function (kernel.register, origin=registered, the
