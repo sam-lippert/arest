@@ -273,6 +273,14 @@ namespace Arest.NormaOracle.Tests
             {
                 if (l.StartsWith("  REFUSED (", StringComparison.Ordinal)) sb.Append(l.TrimStart()).Append('\n');
             }
+            // and a sentence FILED somewhere other than where it was written is
+            // the same kind of answer read the other way: the reading whose role
+            // player the filler's real kind satisfies took the row, and only the
+            // absence of a REFUSED line would otherwise show it (2026-09-10).
+            foreach (string l in Lines(r.Output))
+            {
+                if (l.StartsWith("  FILED BY THE FILLER'S KIND:", StringComparison.Ordinal)) sb.Append(l.TrimStart()).Append('\n');
+            }
             // and what it did not deliver, with the reason state:undelivered carries
             foreach (string l in Lines(r.Output))
             {
