@@ -200,6 +200,85 @@ function cmp(a, b) {
 // The build knows which carrier set is composed and the host does not, so
 // build.js writes this in beside the boot call.
 let JOURNAL_PATH = null;
+
+// THE DURABLE WRITE IS THE TABLE (Samuel 2026-09-09, arest #108). The paper's
+// storage is Backus's FILE, one cell in D, which Rmap structures into Codd's
+// tables; tools/compile-store.js writes those tables as <carriers>/store.db and
+// serve and mcp boot from them (AREST_STORE_DB, loadStoreDb below). The emit
+// leg of a write (Def 6: resolve, lfp, validate, emit) now writes the
+// populations the write changed into their tables, so the next boot reads the
+// tables and nothing else. A store booted without a database keeps its writes
+// in memory, which is what a test wants. The journal -- an append-only file of
+// DEF entries spliced into the module and replayed at boot, my own device of
+// 2026-07-20 and nowhere in AREST.tex -- is retired.
+let STORE_DB = null;
+function storeDb() {
+  if (STORE_DB !== null) return STORE_DB;
+  const path = process.env.AREST_STORE_DB;
+  if (!path) { STORE_DB = false; return false; }
+  const { Database } = require("bun:sqlite");
+  STORE_DB = new Database(path);
+  return STORE_DB;
+}
+// every declared population as text, so a write's diff is its changed fact
+// types: 247 fact types and 4,457 rows in a millisecond on the base store
+function popSnapshot(cells) {
+  const snap = new Map();
+  for (const d of Ev("store:fts", cells)) {
+    const ft = d[0];
+    if (typeof ft !== "string") continue;
+    let p;
+    try { p = Ev("system:pop_rows", [ft, cells]); } catch (e) { p = []; }
+    snap.set(ft, JSON.stringify(Array.isArray(p) ? p : []));
+  }
+  return snap;
+}
+// the tables as compile-store.js lays them out: _meta(ft, kind, tbl, arity);
+// a 'rel' fact type its own table of c0..cn, JSON values; a 'func' fact type a
+// JSON column named by the fact type in its entity's table, keyed by k. A fact
+// type populated for the first time since the tables were built gets a
+// relation table of its own, which loadStoreDb reads like any other.
+function relTableName(ft) { return "r" + Math.abs([...ft].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7)); }
+function emitToDb(before, cells) {
+  const db = storeDb();
+  if (!db) return 0;
+  const after = popSnapshot(cells);
+  const meta = new Map(db.query("select ft, kind, tbl, arity from _meta").all().map((m) => [m.ft, m]));
+  const tableOfCol = new Map();
+  for (const t of db.query("select name from sqlite_master where type='table'").all().map((r) => r.name)) {
+    if (t === "_meta") continue;
+    for (const c of db.query("select name from pragma_table_info('" + t.replace(/'/g, "''") + "')").all()) if (c.name !== "k") tableOfCol.set(c.name, t);
+  }
+  let written = 0;
+  db.transaction(() => {
+    for (const [ft, text] of after) {
+      if (before.get(ft) === text) continue;
+      const rows = JSON.parse(text).map((r) => (Array.isArray(r) ? r : [r]));
+      let m = meta.get(ft);
+      if (m && m.kind === "func") {
+        const T = tableOfCol.get(m.tbl) || "Function";
+        db.run('update "' + T + '" set "' + m.tbl + '" = null');
+        const upd = db.prepare('update "' + T + '" set "' + m.tbl + '" = ? where k = ?');
+        const ins = db.prepare('insert into "' + T + '" (k, "' + m.tbl + '") values (?, ?)');
+        for (const r of rows) { const k = JSON.stringify(r[0]), v = JSON.stringify(r[1]); if (upd.run(v, k).changes === 0) ins.run(k, v); }
+      } else {
+        if (!m) {
+          const ar = rows.length ? rows[0].length : 1;
+          const tbl = relTableName(ft);
+          db.run("create table if not exists " + tbl + " (" + Array.from({ length: ar }, (_, i) => '"c' + i + '" text').join(",") + ")");
+          db.run("insert into _meta values(?,?,?,?)", [ft, "rel", tbl, ar]);
+          m = { ft, kind: "rel", tbl, arity: ar };
+          meta.set(ft, m);
+        }
+        db.run("delete from " + m.tbl);
+        const ins = db.prepare("insert into " + m.tbl + " values(" + Array.from({ length: m.arity }, () => "?").join(",") + ")");
+        for (const r of rows) ins.run(...Array.from({ length: m.arity }, (_, i) => JSON.stringify(r[i])));
+      }
+      written++;
+    }
+  })();
+  return written;
+}
 // how many entries the journal already holds. It has to be a counter rather
 // than a count of cells: an appended entry is not a CELL until the next boot,
 // so two writes in one session would both compute the same index and collide
@@ -1945,10 +2024,14 @@ function run_serve() {
       const caller = req.headers.get("x-arest-caller") || "";
       const resource = decodeURIComponent(url.pathname.replace(/^\//, ""));
       const fact = await req.json().catch(() => []);
+      const before = req.method === "GET" ? null : popSnapshot(CELLS);
       const out = Ev("main:api", [CELLS, req.method, resource, caller, fact]);
       if (out.length > 2) {
         adoptStore(out[2]);
-        if (Number(out[1]) < 400) journalStep(req.method, resource, fact);   // a refusal made no successor
+        if (Number(out[1]) < 400) {   // a refusal made no successor
+          if (before) emitToDb(before, CELLS);
+          journalStep(req.method, resource, fact);
+        }
       }
       return new Response(String(out[0]), {
         status: Number(out[1]) || 500,
@@ -2037,10 +2120,14 @@ function run_ui() {
       // bytes a command appends (empty for plain navigation). The bytes go
       // through the registered store:append, the platform's one durable
       // write, so the next boot replays what this session committed.
+      const before = popSnapshot(store);
       const out = Ev("ui:navpe", [store, panes, address, ""]);
       store = out[0];
       panes = out[1];
-      if (typeof out[2] === "string" && out[2].length > 0) Ev("store:append", ["journal", out[2]]);
+      if (typeof out[2] === "string" && out[2].length > 0) {
+        emitToDb(before, store);
+        Ev("store:append", ["journal", out[2]]);
+      }
       let body = "";
       for (const pane of panes) {
         const layer = Ev("ui:pane_view", [store, panes, pane[0]]);
@@ -2172,9 +2259,11 @@ function run_mcp() {
 
   function call(name, args) {
     const a = args || {};
+    const method = String(a.method || METHODS[0]);
+    const before = method === "GET" ? null : popSnapshot(CELLS);
     // no dispatch: the resource IS the fact type and the method IS the operation
     const out = Ev("mcp:call", [
-      String(a.method || METHODS[0]),
+      method,
       String(name),
       String(a.caller || ""),
       Array.isArray(a.fact) ? a.fact : [],
@@ -2184,11 +2273,14 @@ function run_mcp() {
     // makes a tool call persist. It is not part of the reply.
     if (out.length > 2) {
       adoptStore(out[2]);
-      // A REFUSED WRITE IS NOT JOURNALED. The journal is the log of the store's
-      // successors, and a refusal (status 4xx, canon's decision) made none; a
-      // journal that recorded refusals replayed 22 of them at boot for six
-      // minutes and left the store as it was (engineering.auto.dev, 2026-09-04).
-      if (Number(out[1]) < 400) journalStep(String(a.method || METHODS[0]), String(name), Array.isArray(a.fact) ? a.fact : []);
+      // A REFUSED WRITE IS NOT EMITTED. A refusal (status 4xx, canon's decision)
+      // made no successor, so the tables stay as they were; the journal that
+      // once recorded refusals replayed 22 of them at boot for six minutes and
+      // left the store as it was (engineering.auto.dev, 2026-09-04).
+      if (Number(out[1]) < 400) {
+        if (before) emitToDb(before, CELLS);
+        journalStep(method, String(name), Array.isArray(a.fact) ? a.fact : []);
+      }
       return [out[0], out[1]];
     }
     return out;
