@@ -17,7 +17,7 @@ Request(.id) is an entity type.
 Tier is a value type.
   The possible values of Tier are 'gold', 'silver'.
 Score is a value type.
-  The data type of Score is numeric.
+  The data type of Score is integer.
 
 Request is by Customer.
   Each Request is by exactly one Customer.

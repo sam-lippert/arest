@@ -8731,7 +8731,7 @@ namespace Arest.NormaOracle
 					// sel arm, which pairs it with the value and hands both to
 					// derive:filter_sel. Columns are 1-based.
 					src = "S4(" + IAtom("sel") + ", " + src + ", N(" + (2 - rootAt)
-						+ "), " + IAtom(leg.Value.Value) + ")";
+						+ "), " + IValue(leg.Key.Players[1 - rootAt], leg.Value.Value) + ")";
 				srcs.Add(src);
 				roots.Add(rootAt);
 			}
@@ -8940,6 +8940,16 @@ namespace Arest.NormaOracle
 					{ myRecipeDeclines[sC] = "a comparison over a leg the join left out"; return; }
 				int lo = colOf[b[1]] + b[2], hi = colOf[b[3]] + b[4];
 				if (more) { int t = lo; lo = hi; hi = t; }
+				// the two columns must hold one kind, and one the hosts order
+				string pl = legsC[b[1]].Players[b[2]], pr = legsC[b[3]].Players[b[4]];
+				string kl = ValueKindOf(pl), kr = ValueKindOf(pr);
+				if (kl == "number" || kr == "number")
+				{
+					string dp = kl == "number" ? pl : pr;
+					myRecipeDeclines[sC] = "a comparison on a role typed " + ConceptualIdOf(dp) + " (" + dp + "): the hosts hold integers and text";
+					return;
+				}
+				if (kl != kr) { myRecipeDeclines[sC] = "a comparison across kinds (" + pl + " is " + kl + ", " + pr + " is " + kr + ")"; return; }
 				acc = "S4(" + IAtom("cmp") + ", " + acc + ", N(" + lo + "), N(" + hi + "))";
 			}
 			// A LITERAL IN A BODY LEG IS A FILTER ON THE JOINED ROWS, applied where the
@@ -8967,8 +8977,24 @@ namespace Arest.NormaOracle
 				if (tp < 0) { myRecipeDeclines[sC] = "a threshold on a role the leg does not show"; return; }
 				int tcol = colOf[tl] + tp;
 				string top = t[1];
-				if (top == "is") { acc = "S4(" + IAtom("sel") + ", " + acc + ", N(" + tcol + "), " + IAtom(t[2]) + ")"; continue; }
-				acc = "S3(" + IAtom("pairwith") + ", " + acc + ", " + IAtom(t[2]) + ")";
+				// THE LITERAL IS WRITTEN IN THE ROLE'S KIND (IValue), and a threshold
+				// that would compare across kinds -- a number against a role typed
+				// text, text against one typed integer -- or reach for a kind the
+				// hosts lack (a decimal on either side) is declined by name rather
+				// than emitted as a cmp that throws in the closure. An equality
+				// against a numeral on a text role is a plain atom equality and stands.
+				string tk = ValueKindOf(t[0]);
+				bool intLit = IntegerLexeme.IsMatch(t[2]);
+				if (tk == "number" || DecimalLexeme.IsMatch(t[2]))
+				{
+					myRecipeDeclines[sC] = "a decimal in a threshold (" + (tk == "number" ? t[0] + " is typed " + ConceptualIdOf(t[0]) : t[2])
+						+ "): the hosts hold integers and text";
+					return;
+				}
+				if (tk == "integer" && !intLit) { myRecipeDeclines[sC] = "a threshold in text on a role typed integer (" + t[0] + ")"; return; }
+				if (tk != "integer" && intLit && top != "is") { myRecipeDeclines[sC] = "a numeric threshold on a role typed text (" + t[0] + ")"; return; }
+				if (top == "is") { acc = "S4(" + IAtom("sel") + ", " + acc + ", N(" + tcol + "), " + IValue(t[0], t[2]) + ")"; continue; }
+				acc = "S3(" + IAtom("pairwith") + ", " + acc + ", " + IValue(t[0], t[2]) + ")";
 				accToks.Add("#" + t[2]);
 				int kcol = accToks.Count;
 				if (top == "exceeds") acc = "S4(" + IAtom("cmp") + ", " + acc + ", N(" + kcol + "), N(" + tcol + "))";
@@ -8994,46 +9020,82 @@ namespace Arest.NormaOracle
 				// projects with them; only a constant has to be paired on afterwards
 				(konstAtC[i] >= 0 ? konstOrder : boundOrder).Add(i);
 			}
-			// A COMPUTED HEAD ROLE. The expression is resolved to two COLUMNS by the
-			// same precedence the comparison loop uses -- the leg's token, else its
-			// declared player -- so the recipe and the NORMA rule read the operands
-			// the same way. One binary operation, both operands bound by legs: a
-			// nested expression or a literal operand is declined rather than
-			// half-emitted. calc appends the value, so the column is known before the
-			// projection below and the head's own order is restored at the end.
-			var calcSteps = new List<string[]>();   // <op, leftCol, rightCol> per calc role
+			// A COMPUTED HEAD ROLE. The expression is a LEFT FOLD of binary steps, the
+			// order NORMA nests them: `taxable-base- Amount times Sales Tax Rate
+			// Percentage divided by 100` is Divide(Multiply(base, rate), 100) in the
+			// built rule, so each calc reads the previous step's column as its left
+			// operand. An operand is a column a leg binds (the leg's token, else its
+			// declared player), the column a previous step appended, or a numeric
+			// literal paired on as a column (pairwith), which is how 100 reaches `/`.
+			// A bare operand with no operation is a copy: the head role IS that
+			// column. One step per operation, laid before the projection so the
+			// head's column is known and its own order restored at the end. Until
+			// 2026-09-10 a nested expression was declined outright, and a literal
+			// operand with it: seven of support.auto.dev's tax amounts. `the
+			// minimum of` and `the maximum of` name a primitive this grammar lacks.
+			var calcCol = new Dictionary<int, int>();
+			int accWidth = accToks.Count;
 			foreach (int i in calcOrder)
 			{
 				string aexpr = null;
 				foreach (string[] aq in arithC) if (aq[0] == arithKeyC[i]) { aexpr = aq[1]; break; }
 				if (aexpr == null) { myRecipeDeclines[sC] = "a computed head role with no expression"; return; }
+				Match mm = Regex.Match(aexpr.Trim(), @"^the (minimum|maximum|least|greatest) of ");
+				if (mm.Success) { myRecipeDeclines[sC] = "arithmetic this grammar has no primitive for (" + mm.Groups[1].Value + ")"; return; }
 				string[] bits = Regex.Split(aexpr.Trim(), @" (plus|minus|times|divided by|concat) ");
-				if (bits.Length != 3) { myRecipeDeclines[sC] = "arithmetic of more than one operation"; return; }
-				string op = bits[1] == "plus" ? "+" : bits[1] == "minus" ? "-"
-					: bits[1] == "times" ? "*" : bits[1] == "divided by" ? "/" : null;
-				if (op == null) { myRecipeDeclines[sC] = "arithmetic this grammar has no primitive for (" + bits[1] + ")"; return; }
-				var cols = new string[2];
-				for (int side = 0; side < 2; side++)
+				// an operator this grammar has no primitive for is the reason before
+				// any operand is looked for: a concat whose operand no leg binds is
+				// still a concat
+				for (int b = 1; b < bits.Length; b += 2)
+					if (bits[b] != "plus" && bits[b] != "minus" && bits[b] != "times" && bits[b] != "divided by")
+						{ myRecipeDeclines[sC] = "arithmetic this grammar has no primitive for (" + bits[b] + ")"; return; }
+				int left = -1;
+				string leftKind = null, leftName = null;
+				for (int b = 0; b < bits.Length; b += 2)
 				{
-					string want = bits[side == 0 ? 0 : 2].Trim();
-					cols[side] = null;
-					for (int l = 0; l < legsC.Count && cols[side] == null; l++)
-						for (int c = 0; c < legsC[l].Players.Count; c++)
-							if ((toksC[l][c] == want || legsC[l].Players[c] == want) && colOf.ContainsKey(l))
-								{ cols[side] = (colOf[l] + c).ToString(); break; }
-					if (cols[side] == null) { myRecipeDeclines[sC] = "an arithmetic operand no leg binds"; return; }
+					string want = bits[b].Trim();
+					int col = -1;
+					string kind = null, name = want;
+					if (Regex.IsMatch(want, @"^-?[0-9]+(\.[0-9]+)?$"))
+					{
+						// a numeral is a number, the kind the hosts compute with; a decimal
+						// names the kind they lack
+						if (!IntegerLexeme.IsMatch(want))
+							{ myRecipeDeclines[sC] = "a decimal literal in arithmetic (" + want + "): the hosts hold integers and text"; return; }
+						acc = "S3(" + IAtom("pairwith") + ", " + acc + ", N(" + want + "))";
+						accToks.Add("#" + want);
+						col = ++accWidth;
+						kind = "integer";
+					}
+					else
+					{
+						for (int l = 0; l < legsC.Count && col < 0; l++)
+							for (int c = 0; c < legsC[l].Players.Count; c++)
+								if ((toksC[l][c] == want || legsC[l].Players[c] == want) && colOf.ContainsKey(l))
+									{ col = colOf[l] + c; name = legsC[l].Players[c]; kind = ValueKindOf(name); break; }
+					}
+					if (col < 0) { myRecipeDeclines[sC] = "an arithmetic operand no leg binds"; return; }
+					if (b == 0) { left = col; leftKind = kind; leftName = name; continue; }
+					string word = bits[b - 1];
+					string op = word == "plus" ? "+" : word == "minus" ? "-" : word == "times" ? "*" : word == "divided by" ? "/" : null;
+					if (op == null) { myRecipeDeclines[sC] = "arithmetic this grammar has no primitive for (" + word + ")"; return; }
+					// an operation takes two numbers: a column whose player is typed
+					// integer, a numeral, or an earlier step. A value type the reading
+					// left as text, or typed decimal, is declined by that name.
+					foreach (string[] side in new[] { new[] { leftKind, leftName }, new[] { kind, name } })
+					{
+						if (side[0] == "integer") continue;
+						myRecipeDeclines[sC] = side[0] == "number"
+							? "an arithmetic operand typed " + ConceptualIdOf(side[1]) + " (" + side[1] + "): the hosts hold integers and text"
+							: "an arithmetic operand not typed integer (" + side[1] + ")";
+						return;
+					}
+					acc = "S5(" + IAtom("calc") + ", " + acc + ", " + IAtom(op) + ", N(" + left + "), N(" + col + "))";
+					left = ++accWidth;
+					leftKind = "integer";
+					leftName = "the step before";
 				}
-				calcSteps.Add(new string[] { op, cols[0], cols[1] });
-			}
-			// each calc appends one column to the accumulator, so the role's column is
-			// known once the steps are laid, and they are laid before the projection
-			var calcCol = new Dictionary<int, int>();
-			int accWidth = accToks.Count;
-			for (int k = 0; k < calcOrder.Count; k++)
-			{
-				acc = "S5(" + IAtom("calc") + ", " + acc + ", " + IAtom(calcSteps[k][0])
-					+ ", N(" + calcSteps[k][1] + "), N(" + calcSteps[k][2] + "))";
-				calcCol[calcOrder[k]] = ++accWidth;
+				calcCol[i] = left;
 			}
 			// a negated leg is subtracted on the head's own columns, and it cannot
 			// bind a constant one, so the two together are declined rather than guessed
@@ -9051,7 +9113,7 @@ namespace Arest.NormaOracle
 			foreach (int i in konstOrder)
 			{
 				if (konstAtC[i] >= hLitsC.Count) { myRecipeDeclines[sC] = "a constant head role with no literal"; return; }
-				expr = "S3(" + IAtom("pairwith") + ", " + expr + ", " + IAtom(hLitsC[konstAtC[i]]) + ")";
+				expr = "S3(" + IAtom("pairwith") + ", " + expr + ", " + IValue(i < hC.Players.Count ? hC.Players[i] : null, hLitsC[konstAtC[i]]) + ")";
 			}
 			if (konstOrder.Count > 0)
 			{
@@ -11073,9 +11135,9 @@ namespace Arest.NormaOracle
 			return "S3(A(\"proj\"), " + src + ", S" + ps.Count + "(" + string.Join(", ", ps) + "))";
 		}
 
-		private string RecipeSel(string src, int pos, string val)
+		private string RecipeSel(string src, int pos, string val, string player)
 		{
-			return "S4(A(\"sel\"), " + src + ", N(" + pos + "), " + IAtom(val) + ")";
+			return "S4(A(\"sel\"), " + src + ", N(" + pos + "), " + IValue(player, val) + ")";
 		}
 
 		// keys are 1-based within each leg; outs are 1-based over the concatenation, a
@@ -11092,7 +11154,7 @@ namespace Arest.NormaOracle
 		private string ClauseSource(SideClause cl)
 		{
 			string src = IAtom(cl.Entry.Fact.Name);
-			return cl.LitAt >= 0 ? RecipeSel(src, cl.LitAt + 1, cl.LitVal) : src;
+			return cl.LitAt >= 0 ? RecipeSel(src, cl.LitAt + 1, cl.LitVal, cl.LitAt < cl.Entry.Players.Count ? cl.Entry.Players[cl.LitAt] : null) : src;
 		}
 
 		// the two-clause star: both clauses joined on the internal variable, the projected
@@ -11216,7 +11278,8 @@ namespace Arest.NormaOracle
 			}
 			var pos = new List<int>();
 			foreach (string v in projVars) pos.Add(projRole[v] + 1);
-			myLegRecipe[seq] = RecipeProj(RecipeSel(IAtom(cl.Entry.Fact.Name), cl.LitAt + 1, cl.LitVal), pos);
+			myLegRecipe[seq] = RecipeProj(RecipeSel(IAtom(cl.Entry.Fact.Name), cl.LitAt + 1, cl.LitVal,
+				cl.LitAt >= 0 && cl.LitAt < cl.Entry.Players.Count ? cl.Entry.Players[cl.LitAt] : null), pos);
 			Count("set-comparison side: single clause with a value condition");
 			return true;
 		}
@@ -12787,6 +12850,67 @@ namespace Arest.NormaOracle
 			return s;
 		}
 
+		// WHERE TEXT BECOMES VALUES. The hosts order numbers numerically and text
+		// lexically, refuse to compare across the two kinds, and take numbers only
+		// in + - * / (host.js cmp: "the store's mixed int/lexical atoms are a
+		// READING-BOUNDARY defect, to be fixed where text becomes values"). This
+		// is that boundary. A value type's Conceptual Data Type -- the reading's
+		// own `Value Type 'X' has Conceptual Data Type 'y'` row first, else its
+		// `The data type of X is y` declaration -- decides the kind by core.md's
+		// `Conceptual Data Type has JSON Type`: the ids typed 'integer' there are
+		// written N(v), so `Price 200` computes and "9" < "10" holds; the ids typed
+		// 'number' (singleFloat, doubleFloat, decimal, money) name a kind the
+		// certified hosts lack (rust's V::I is i64 and js truncates the quotient)
+		// and stay atoms, which the recipe emitter declines by name rather than
+		// emit a step that throws in the closure; everything else -- text, an
+		// entity reference, a date -- is the atom the reading wrote. Until
+		// 2026-09-10 every value was an atom but Declaration Order, and the
+		// arithmetic-fold probe's `Price times Rate` threw "* on non-number".
+		private static readonly HashSet<string> IntegerConceptualIds = new HashSet<string>(StringComparer.Ordinal)
+			{ "smallInteger", "integer", "largeInteger", "unsignedTiny", "unsignedSmall", "unsigned", "unsignedLarge", "autoCounter" };
+		private static readonly HashSet<string> NumberConceptualIds = new HashSet<string>(StringComparer.Ordinal)
+			{ "singleFloat", "doubleFloat", "decimal", "money" };
+		private static readonly Regex IntegerLexeme = new Regex(@"^-?[0-9]+$", RegexOptions.Compiled);
+		private static readonly Regex DecimalLexeme = new Regex(@"^-?[0-9]+\.[0-9]+$", RegexOptions.Compiled);
+		private Dictionary<string, string> myConceptualIds;
+		private FactIndexEntry myCdtEntry;
+		private int myConceptualIdsAt = -1;
+
+		private string ConceptualIdOf(string valueTypeName)
+		{
+			if (myCdtEntry == null)
+				foreach (FactIndexEntry e in myFactIndex)
+					if (e.Fact != null && !e.Fact.IsDeleted && e.Fact.Name == "ObjectTypeHasConceptualDataType") { myCdtEntry = e; break; }
+			// the three sources only grow, so their sum moving is the map being stale
+			int stamp = myFactIndex.Count + myDeclaredDataType.Count + (myCdtEntry == null ? 0 : myCdtEntry.Rows.Count);
+			if (myConceptualIds == null || stamp != myConceptualIdsAt)
+			{
+				myConceptualIds = new Dictionary<string, string>(StringComparer.Ordinal);
+				foreach (var kv in myDeclaredDataType) myConceptualIds[kv.Key] = kv.Value;
+				if (myCdtEntry != null)
+					foreach (var row in myCdtEntry.Rows) if (row.Count == 2) myConceptualIds[row[0]] = row[1];
+				myConceptualIdsAt = stamp;
+			}
+			string id;
+			return valueTypeName != null && myConceptualIds.TryGetValue(valueTypeName, out id) ? id : null;
+		}
+
+		// "integer" (a host number), "number" (a kind the hosts lack), or "text"
+		private string ValueKindOf(string playerName)
+		{
+			ObjectType t;
+			if (playerName == null || !myTypes.TryGetValue(playerName, out t) || t == null || !t.IsValueType) return "text";
+			string id = ConceptualIdOf(playerName);
+			if (id == null) return "text";
+			return IntegerConceptualIds.Contains(id) ? "integer" : NumberConceptualIds.Contains(id) ? "number" : "text";
+		}
+
+		// a literal written for the role its player plays: a number on an integer-typed role, else the atom
+		private string IValue(string playerName, string v)
+		{
+			return ValueKindOf(playerName) == "integer" && IntegerLexeme.IsMatch(v) ? "N(" + v + ")" : IAtom(v);
+		}
+
 		private static string IAtom(string s)
 		{
 			return "A(\"" + Spell(s).Replace("\\", "\\\\").Replace("\"", "\\\"") + "\")";
@@ -13477,12 +13601,20 @@ namespace Arest.NormaOracle
 				// host builds at boot (ast:File) and every commit rebuilds
 				// (main:refile), is derived from it and never written by anything
 				// else. Canon's law file-is-projection holds the two equal.
-				bool intSecond = entry.Fact.Name == "FactTypeHasDeclarationOrder";
+				// A VALUE IS WRITTEN IN THE KIND ITS ROLE'S PLAYER DECLARES (IValue
+				// above): an integer-typed value type's values are numbers, every
+				// other cell is the atom the reading wrote.
+				var cellKinds = new List<string>();
+				for (int i = 0; i < entry.Roles.Count; i++)
+				{
+					Role role = entry.Roles[i];
+					cellKinds.Add(role != null && role.RolePlayer != null && role.RolePlayer.IsValueType ? ValueKindOf(role.RolePlayer.Name) : "text");
+				}
 				var rows = new List<string>();
 				for (int r = 0; r < entry.Rows.Count; r++)
 				{
 					rows.Add(ISeq(entry.Rows[r].Select((v, ci) =>
-						intSecond && ci == 1 && System.Text.RegularExpressions.Regex.IsMatch(v, "^[0-9]+$")
+						ci < cellKinds.Count && cellKinds[ci] == "integer" && IntegerLexeme.IsMatch(v)
 							? "N(" + v + ")" : IAtom(v)).ToList()));
 					for (int i = 0; i < entry.Rows[r].Count; i++)
 					{

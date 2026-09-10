@@ -18,7 +18,7 @@ Jurisdiction(.id) is an entity type.
 State Jurisdiction is a subtype of Jurisdiction.
 County Jurisdiction is a subtype of Jurisdiction.
 Rate is a value type.
-  The data type of Rate is numeric.
+  The data type of Rate is integer.
 Level is a value type.
 
 Quote has ZIP Code.

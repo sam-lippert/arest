@@ -1,0 +1,20 @@
+errors 0
+UNDELIVERED (arithmetic this grammar has no primitive for (minimum)): QuoteHasCappedAmount
+*Quote has base Amount if and only if
+that Quote has some Price that is that Amount.
+
+*Quote has capped Amount1 if and only if
+that Quote has some Price
+and  has some tax Amount2
+where Amount1 = Least(Price, Amount2).
+
+*Quote has tax Amount if and only if
+that Quote has some Price
+and  has some Rate
+where Amount = Divide(Multiply(Price, Rate), 100).
+
+*Quote has total Amount1 if and only if
+that Quote has some Price
+and  has some tax Amount2
+where Amount1 = Add(Add(Price, Amount2), 5).
+

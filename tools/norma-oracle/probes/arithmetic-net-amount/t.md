@@ -2,8 +2,11 @@
 Quote(.id) is an entity type.
 ## Value Types
 Gross Amount is a value type.
+  The data type of Gross Amount is integer.
 Discount Amount is a value type.
+  The data type of Discount Amount is integer.
 Net Amount is a value type.
+  The data type of Net Amount is integer.
 ## Fact Types
 Quote has Gross Amount.
   Each Quote has at most one Gross Amount.

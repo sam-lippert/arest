@@ -2,7 +2,7 @@
 
 Request(.id) is an entity type.
 Day Count is a value type.
-  The data type of Day Count is numeric.
+  The data type of Day Count is integer.
 
 Request has submission- Day Count.
 Request has response- Day Count.
