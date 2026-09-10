@@ -55,7 +55,11 @@ Tool Call has Tool Call Id.
 Tool Call has Result.
   Each Tool Call has at most one Result.
 
-This association with Chat Message, Predicate, Tool Call Id provides the preferred identification scheme for Tool Call.
+# The id is the model API's own (Anthropic tool_use.id, OpenAI tool_calls[].id,
+# unique per call), so Tool Call(.Tool Call Id) above is the reference scheme.
+# An association sentence here restated it over Chat Message, Predicate and
+# Tool Call Id, a second scheme the oracle refused in every closure reading
+# this template (support, tasks; 2026-09-10).
 
 ### User actions
 User closes Agent Chat.
