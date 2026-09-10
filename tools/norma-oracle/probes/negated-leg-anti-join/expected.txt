@@ -1,0 +1,11 @@
+errors 0
+*Billable Request triggers cross-border Personal Data Transfer if and only if
+that Billable Request involves Personal Data
+and  has some Meter Endpoint that is provided by some External System that is established in some Country Code
+where it is not true that (that Country Code is in EEA).
+
+*Quote is uncapped if and only if
+that Quote is in some State
+where some Fee Schedule belongs to that State
+where it is not true that (that Fee Schedule has some Cap Amount).
+

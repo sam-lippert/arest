@@ -8825,11 +8825,6 @@ namespace Arest.NormaOracle
 			var negatives = new List<int>();
 			for (int i = 0; i < legsC.Count; i++) (negC[i] ? negatives : positives).Add(i);
 			if (positives.Count == 0) { myRecipeDeclines[sC] = "every leg negated"; return; }
-			// the head's tokens, which are what a negated leg may share
-			var headToks = new HashSet<string>(StringComparer.Ordinal);
-			for (int i = 0; i < hC.Players.Count; i++)
-				// a constant, computed or extent-filled role binds no token of its own
-				if (konstAtC[i] < 0 && arithKeyC[i] == null && crossAtC[i] == null) headToks.Add(toksC[atLegC[i]][atPosC[i]]);
 			// walk the positive legs, joining each onto the accumulator at a shared
 			// token and keeping every column, so the head's binding stays addressable
 			var order = new List<int>();
@@ -8917,6 +8912,34 @@ namespace Arest.NormaOracle
 				acc = "S5(" + IAtom("joinon") + ", " + acc + ", " + ExtentSource(crossAtC[i].Name) + ", PHI(), " + IFlat(keepAcc) + ")";
 				accToks.Add("#extent:" + crossAtC[i].Name);
 				extentColC[i] = accToks.Count;
+			}
+			// A NEGATED LEG IS AN ANTI-JOIN ON THE ACCUMULATOR: the rows with no match
+			// in the negated leg's population on the tokens they share -- `that Country
+			// Code is not in EEA`, `that Vehicle Fee Schedule has no Document Fee Cap`
+			// -- are acc minus (acc joined with the leg on those tokens, the
+			// accumulator's own columns kept). Laid before the comparisons and the
+			// projection, it reads the body's columns whether or not the head shows
+			// them; until 2026-09-10 the subtraction was projected onto the head's
+			// columns and a negated leg binding a body token the head does not show
+			// was declined (support.auto.dev: Billable Request triggers cross-border
+			// Personal Data Transfer, the document fee amount), and a constant head
+			// role beside any negated leg with it. A token of the negated leg bound
+			// nowhere in the body is inside the negation's own existential ("has no
+			// Cap Amount") and is simply not a key; a leg sharing nothing with the
+			// body would subtract everything or nothing and is declined by name.
+			foreach (int n in negatives)
+			{
+				var keys = new List<string>();
+				for (int p = 0; p < toksC[n].Count; p++)
+				{
+					int at = accToks.IndexOf(toksC[n][p]);
+					if (at >= 0) keys.Add("S2(N(" + (at + 1) + "), N(" + (p + 1) + "))");
+				}
+				if (keys.Count == 0) { myRecipeDeclines[sC] = "a negated leg sharing no token with the body"; return; }
+				var keepAcc = new List<string>();
+				for (int c = 1; c <= accToks.Count; c++) keepAcc.Add("N(" + c + ")");
+				acc = "S3(" + IAtom("minus") + ", " + acc + ", S5(" + IAtom("joinon") + ", " + acc + ", "
+					+ IAtom(legsC[n].Fact.Name) + ", " + IFlat(keys) + ", " + IFlat(keepAcc) + "))";
 			}
 			// A COMPARISON IS A FILTER ON THE JOINED ROWS, and it must be applied
 			// BEFORE the projection, while both operands still have columns. The
@@ -9114,10 +9137,6 @@ namespace Arest.NormaOracle
 				}
 				calcCol[i] = left;
 			}
-			// a negated leg is subtracted on the head's own columns, and it cannot
-			// bind a constant one, so the two together are declined rather than guessed
-			if (konstOrder.Count > 0 && negatives.Count > 0)
-				{ myRecipeDeclines[sC] = "a constant head role beside a negated leg"; return; }
 			var headCols = new List<string>();
 			foreach (int i in boundOrder)
 			{
@@ -9144,21 +9163,6 @@ namespace Arest.NormaOracle
 					back.Add("N(" + at + ")");
 				}
 				expr = "S3(" + IAtom("proj") + ", " + expr + ", " + IFlat(back) + ")";
-			}
-			foreach (int n in negatives)
-			{
-				var cols = new List<string>();
-				for (int i = 0; i < hC.Players.Count; i++)
-				{
-					int at = toksC[n].IndexOf(toksC[atLegC[i]][atPosC[i]]);
-					if (at < 0) { myRecipeDeclines[sC] = "a negated leg that does not bind the head"; return; }
-					cols.Add("N(" + (at + 1) + ")");
-				}
-				for (int p = 0; p < toksC[n].Count; p++)
-					if (!headToks.Contains(toksC[n][p]) && accToks.Contains(toksC[n][p]))
-						{ myRecipeDeclines[sC] = "a negated leg sharing a non-head token with the body"; return; }
-				expr = "S3(" + IAtom("minus") + ", " + expr + ", S3(" + IAtom("proj") + ", "
-					+ IAtom(legsC[n].Fact.Name) + ", " + IFlat(cols) + "))";
 			}
 			var players = new List<string>();
 			foreach (string p in hC.Players) players.Add(IAtom(p));
