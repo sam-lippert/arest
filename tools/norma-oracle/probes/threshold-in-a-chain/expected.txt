@@ -1,0 +1,22 @@
+errors 0
+UNBUILT (head resolves, no arm matched the body) [legs resolving 1/2; chain arm: clause names no fact type: that Request has no Score greater than 10]: * Request is unscored iff Request is by Customer and that Request has no Score greater than 10.
+UNDELIVERED (no arm emitted a recipe): RequestIsUnscored
+*Request is capped if and only if
+that Request is by some Customer
+and  has some Score where LessThanOrEqual(Score, 10).
+
+*Request is heavy if and only if
+that Request is by some Customer
+and  has some Score where GreaterThan(Score, 10).
+
+*Request is light if and only if
+that Request is by some Customer
+and  has some Score where LessThan(Score, 10).
+
+*Request is premium if and only if
+that Request is by some Customer that has some Tier where Equals(Tier, gold).
+
+*Request is qualified if and only if
+that Request is by some Customer
+and  has some Score where GreaterThanOrEqual(Score, 10).
+

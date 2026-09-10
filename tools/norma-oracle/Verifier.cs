@@ -7477,8 +7477,8 @@ namespace Arest.NormaOracle
 				}
 				if (!okC) continue;
 				RecordGeneralChainRecipe(sC, hC, legsC, toksC, negC, nestC, atLegC, atPosC,
-					typeRootC, crossAtC, konstAtC, hLitsC, arithKeyC, arithC, cmpC, cmpBindC,
-					thrC.Count > 0 ? "a threshold" : otherC.Count > 0 ? "`some other`"
+					typeRootC, crossAtC, konstAtC, hLitsC, arithKeyC, arithC, cmpC, cmpBindC, thrC,
+					otherC.Count > 0 ? "`some other`"
 						: anaphoraC.Count > 0 ? "an objectification" : recursiveC ? "recursion"
 						: swapPlayersC.Count > 0 ? "a substituted subtype" : null);
 				myBuiltRuleSentences.Add(sC);
@@ -8781,7 +8781,7 @@ namespace Arest.NormaOracle
 			List<List<string>> toksC, List<bool> negC, List<int> nestC,
 			int[] atLegC, int[] atPosC, ObjectType[] typeRootC, ObjectType[] crossAtC,
 			int[] konstAtC, List<string> hLitsC, string[] arithKeyC, List<string[]> arithC, List<string[]> cmpC, List<int[]> cmpBindC,
-			string shapeThisCannotSay)
+			List<string[]> thrC, string shapeThisCannotSay)
 		{
 			if (shapeThisCannotSay != null) { myRecipeDeclines[sC] = shapeThisCannotSay; return; }
 			if (legsC.Count == 0) { myRecipeDeclines[sC] = "no legs"; return; }
@@ -8902,6 +8902,41 @@ namespace Arest.NormaOracle
 				int lo = colOf[b[1]] + b[2], hi = colOf[b[3]] + b[4];
 				if (more) { int t = lo; lo = hi; hi = t; }
 				acc = "S4(" + IAtom("cmp") + ", " + acc + ", N(" + lo + "), N(" + hi + "))";
+			}
+			// A LITERAL IN A BODY LEG IS A FILTER ON THE JOINED ROWS, applied where the
+			// comparisons are, before the projection. The chain arm collected every
+			// leg that carries one -- `that Customer has Tier 'gold'`, `HTTP Status
+			// of 500 or more`, `Max Retry Count greater than 0` -- and this recorder
+			// declined the whole rule as "a threshold" (support.auto.dev: 11 heads,
+			// 13 rules, 2026-09-10), though the grammar says each of them. An
+			// equality is `sel` on the column, the same form the single-clause arm
+			// emits. A strict threshold is the literal paired on as a column and
+			// `cmp` against it, the constant on whichever side the sense needs, since
+			// cmp is strictly less-than. A bound (`at least`, `of N or more`) is the
+			// rows minus the rows the strict comparison keeps: `minus` takes a
+			// nested source on both sides. The paired constant stays as a trailing
+			// column and is counted in the width, so the calc and projection
+			// columns laid below still land where they were. A literal on a negated
+			// leg has no column to filter and is declined by name.
+			foreach (string[] t in thrC)
+			{
+				int tl = int.Parse(t[3]);
+				if (tl < 0 || tl >= legsC.Count) { myRecipeDeclines[sC] = "a threshold on a leg the chain did not keep"; return; }
+				if (negC[tl]) { myRecipeDeclines[sC] = "a threshold inside a negated leg"; return; }
+				if (!colOf.ContainsKey(tl)) { myRecipeDeclines[sC] = "a threshold over a leg the join left out"; return; }
+				int tp = legsC[tl].Players.LastIndexOf(t[0]);
+				if (tp < 0) { myRecipeDeclines[sC] = "a threshold on a role the leg does not show"; return; }
+				int tcol = colOf[tl] + tp;
+				string top = t[1];
+				if (top == "is") { acc = "S4(" + IAtom("sel") + ", " + acc + ", N(" + tcol + "), " + IAtom(t[2]) + ")"; continue; }
+				acc = "S3(" + IAtom("pairwith") + ", " + acc + ", " + IAtom(t[2]) + ")";
+				accToks.Add("#" + t[2]);
+				int kcol = accToks.Count;
+				if (top == "exceeds") acc = "S4(" + IAtom("cmp") + ", " + acc + ", N(" + kcol + "), N(" + tcol + "))";
+				else if (top == "is less than") acc = "S4(" + IAtom("cmp") + ", " + acc + ", N(" + tcol + "), N(" + kcol + "))";
+				else if (top == "is at least") acc = "S3(" + IAtom("minus") + ", " + acc + ", S4(" + IAtom("cmp") + ", " + acc + ", N(" + tcol + "), N(" + kcol + ")))";
+				else if (top == "is at most") acc = "S3(" + IAtom("minus") + ", " + acc + ", S4(" + IAtom("cmp") + ", " + acc + ", N(" + kcol + "), N(" + tcol + ")))";
+				else { myRecipeDeclines[sC] = "a threshold (" + top + ")"; return; }
 			}
 			// A HEAD ROLE MAY BE A CONSTANT, and the grammar says it already:
 			// pairwith appends a constant column to every row, which is how the
