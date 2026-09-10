@@ -673,3 +673,5 @@ case:one-name-raises-each-word	"'CharterOfFundamentalRightsOfTheCrossBorderUnion
 case:screen-actions-at-a-nested-status	"(('menu', 'actions (A)', ('item', 'TicketAdvances', '-> B', ('fire', 'TicketAdvances', 'Ticket', 't1')), ('item', 'TicketCloses', '-> Closed', ('fire', 'TicketCloses', 'Ticket', 't1'))))"
 case:collapse-follows-the-identifier-order	"(('info', 'X', 'Start', 'Start', 'T', ('f', 'XHasStart')), ('info', 'X', 'End', 'End', 'T', ('f', 'XHasEnd')))"
 case:collapse-keeps-an-unheld-child-last	"(('info', 'X', 'Start', 'Start', 'T', ('f', 'XHasStart')), ('info', 'X', 'End', 'End', 'T', ('f', 'XHasEnd')), ('info', 'X', 'Z', 'Z', 'F', ('f', 'XHasZ')))"
+case:get-of-an-empty-population	"('[[\"resource\",\"MessageUsesDash\"],[\"rows\",[]],[\"violations\",[]],[\"links\",[]]]', 200)"
+case:get-of-an-unknown-resource-is-404	"('', 404)"
