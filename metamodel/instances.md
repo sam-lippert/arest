@@ -105,10 +105,12 @@ Fact belongs to Domain. *
        derivation so a Fact's domain is the domain of its Fact Type. -->
 Fact is completed.
 Fact is example.
-Fact cites Citation.
-  For each combination of Fact and Citation, that Fact cites that Citation at most once.
-FactCitesCitation objectifies "Fact cites Citation".
-FactCitesCitation is a subtype of Function.
+<!-- `Fact cites Citation` moved to `Function cites Citation` (2026-09-10, Sam:
+     "shouldn't we get Citation analysis moved to a supertype so that we don't
+     have to keep redeclaring that for every type?"). A Fact is an Object Type
+     Instance and so a Function; the role it plays is inherited. See the
+     Citation section below. -->
+
 
 ### Event
 Event is of Event Type.
@@ -138,29 +140,49 @@ Event Type can be created by Predicate.
 EventTypeCanBeCreatedByPredicate objectifies "Event Type can be created by Predicate".
 EventTypeCanBeCreatedByPredicate is a subtype of Function.
 
-### Fact Type Citation
-Fact Type cites Citation.
-  For each combination of Fact Type and Citation, that Fact Type cites that Citation at most once.
-  It is possible that some Fact Type cites more than one Citation.
-  It is possible that more than one Fact Type cites the same Citation.
-FactTypeCitesCitation objectifies "Fact Type cites Citation".
-FactTypeCitesCitation is a subtype of Function.
-
-### Constraint Citation
-### A Fact may cite its authority and a Fact Type may cite its authority, and a
-### CONSTRAINT -- the thing a statute most often is -- could not. The us-law and
-### auto.dev readings write `Constraint 'Employer withholds FICA and pays
-### employer share' cites Citation 'IRC-3101'` forty times over, and with no
-### such fact type every one of them was filed by player signature alone into
-### `Function is superseded by Function`. us-law's store therefore said
-### `Taxpayer files return` IS SUPERSEDED BY `IRC-6012` -- thirty-one rows
-### asserting, of a legal corpus, the opposite of what the citation means.
-Constraint cites Citation.
-  For each combination of Constraint and Citation, that Constraint cites that Citation at most once.
-  It is possible that some Constraint cites more than one Citation.
-  It is possible that more than one Constraint cites the same Citation.
-ConstraintCitesCitation objectifies "Constraint cites Citation".
-ConstraintCitesCitation is a subtype of Function.
+### Citing an Authority
+### ONE DOOR, ON THE SUPERTYPE (Sam, 2026-09-10: "shouldn't we get Citation
+### analysis moved to a supertype so that we don't have to keep redeclaring
+### that for every type?"). This stood as four fact types -- `Fact cites
+### Citation`, `Fact Type cites Citation`, `Constraint cites Citation` and, for
+### an hour, `Object Type cites Citation` -- one per kind that turned out to
+### cite an authority, each a table of its own and each a new declaration the
+### next kind would need again. Every one of those players is a Function: an
+### Object Type is (core.md), a Constraint is, a Fact Type is through Event
+### Type, and a Fact is through Event and Object Type Instance. So the role is
+### played by Function and the kinds inherit it by population inclusion, which
+### is what subtyping means here; the cited element's own kind is read off the
+### store, where `Object Type Instance is instance of Object Type` already
+### says it, and is not duplicated in four relations.
+###
+### NORMA HAS THE SAME GENERAL FORM. ORMCore gives each element class its own
+### embedded Note and Definition (ObjectTypeHasNote, FactTypeHasNote,
+### SetConstraintHasNote, ORMCore.dsl:5079-5199) AND a general reference,
+### ModelNoteReferencesModelElement (:5279), for a note that points at any
+### element. A Citation is that second thing: it is not owned by the element it
+### cites, it refers to it.
+###
+### WHAT THIS FIXES BESIDES THE REDECLARATION. us-law writes `Fact Type 'Buyer'
+### cites Citation 'UCC-2-103'` -- Buyer is a declared entity type, not a
+### sentence -- 134 times over 93 subjects, refused since the citation subject
+### stopped being minted (2026-09-09) and, before that, minted as a phantom
+### fact type with no role and no reading. With one door those sentences are
+### rows like any other; only the row's KIND is corrected, to the kind the
+### value really is. A subject that names neither a declared fact type nor a
+### declared object type is still refused with its sentence.
+###
+### And the older defect this replaced (2026-09-09): with no `Constraint cites
+### Citation`, us-law's 34 `Constraint '...' cites Citation '...'` sentences
+### were filed by player signature alone into `Function is superseded by
+### Function`, so its store said `Taxpayer files return` IS SUPERSEDED BY
+### `IRC-6012` -- thirty-one rows asserting, of a legal corpus, the opposite of
+### what the citation means.
+Function cites Citation.
+  For each combination of Function and Citation, that Function cites that Citation at most once.
+  It is possible that some Function cites more than one Citation.
+  It is possible that more than one Function cites the same Citation.
+FunctionCitesCitation objectifies "Function cites Citation".
+FunctionCitesCitation is a subtype of Function.
 
 ### Object Type Instance
 Object Type Instance is instance of Object Type.

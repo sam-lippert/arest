@@ -2495,6 +2495,26 @@ namespace Arest.NormaOracle
 					if (e.Fact != null && !e.Fact.IsDeleted && e.Fact.Name == quotes[i]) { namedById = true; break; }
 				}
 				if (namedById) continue;
+				// AND THE FILLER'S REAL KIND IS RECORDED, NOT THE ONE THE SENTENCE
+				// CLAIMED (2026-09-10, #107's third part). `Fact Type 'Buyer' cites
+				// Citation 'UCC-2-103'` names a declared ENTITY TYPE, not a sentence:
+				// us-law writes 134 of them over 93 subjects. The citation door is one
+				// fact type on the supertype now (`Function cites Citation`,
+				// instances.md), so the row needs no re-filing -- every kind that cites
+				// plays the same role -- and what was wrong is only the row's KIND at
+				// this position, which drives the object type's population and
+				// `Object Type Instance is instance of Object Type`. A value that names
+				// a declared object type is recorded as an Object Type; one that names
+				// neither a declared fact type nor a declared object type is still
+				// refused with its sentence.
+				if (myTypes.ContainsKey(quotes[i]))
+				{
+					myMapLog.Add("FILED BY THE FILLER'S KIND: '" + quotes[i] + "' is an Object Type, not a Fact Type, in '"
+						+ Shorten(s) + "'");
+					Count("instance fact (filed by the filler's kind)");
+					kinds[i] = "Object Type";
+					continue;
+				}
 				myMapLog.Add("REFUSED (names no declared fact type): '" + quotes[i] + "' in '" + Shorten(s) + "'");
 				Count("instance fact (rejected: names no declared fact type)");
 				return false;
