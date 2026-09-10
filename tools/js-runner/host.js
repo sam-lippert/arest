@@ -2189,14 +2189,21 @@ function run_mcp() {
 
   function tools() {
     return TOOLS.map((t) => {
-      // state:declared carries each fact type's PLAYER TYPES in role order, so
-      // the reading and its signature are the same row
+      // THE DESCRIPTION IS THE READING (Sam, 2026-09-10). It used to be
+      // "fact type " + the id + the player list, on a comment claiming the
+      // reading and the signature were the same row; `Message, Plan` is not
+      // `Message recommends Plan`, and the reading is what the paper's
+      // verbalization answers. mcp:tools carries it now as the row's third
+      // element, rendered in canon from state:readings. The NAME stays the id
+      // because MCP names admit no spaces and the id is what main:api
+      // addresses.
       const players = Array.isArray(t[1]) ? t[1].map(String) : [];
+      const reading = t[2] === undefined ? "" : String(t[2]);
       return {
         name: String(t[0]),
         description:
-          "fact type " + t[0] +
-          (players.length ? "; roles played by " + players.join(", ") : ""),
+          (reading || String(t[0])) +
+          (players.length ? " -- roles played by " + players.join(", ") : ""),
         inputSchema: {
           type: "object",
           properties: {

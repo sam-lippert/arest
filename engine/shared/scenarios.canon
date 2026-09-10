@@ -2088,8 +2088,9 @@ DEF("case:any-reads-hit", S2(A("derive:any_reads"),
 DEF("case:any-reads-miss", S2(A("derive:any_reads"),
     S2(S1(A("F9")),
        S1(S2(A("H"), S4(A("join"), A("F1"), A("F2"), S1(N(1)))))))),
-"mcp:tools IS NOT PINNED BY A CASE, and that is a real gap rather than an oversight. The two cases that stood here pinned a hand-written verb table -- a count and a first row -- and the table is gone: the tool surface is now derived from the store, so pinning it needs a store, and a case operand is a literal. What checks it today is only the server answering 24 tools. Everything this session learned about structural coverage says that is not enough."
-,
+"mcp:tools IS PINNED BY A CASE AGAIN (2026-09-10). The note that stood here said pinning it needed a store and that a case operand is a literal, so nothing checked the tool surface but the server answering a count -- and that count drifted from 24 to 1,133 with nothing to say so. A literal store IS what a case operand is: the fixtures on this page carry one each. This store declares one fact type and carries its reading, and the case is the whole tool row -- the id the caller addresses, the players in role order, and the reading rendered with those players in its slots, which is what a tool description says since Sam ruled that an id is not one. A fact type whose reading the store does not carry answers the empty text, which the second case pins.",
+DEF("case:mcp-tool-carries-its-reading", S2(A("mcp:tools"), S2(S3(A("CELL"), A("state:declared"), S1(S1(S2(A("MessageRecommendsPlan"), S2(A("Message"), A("Plan")))))), S3(A("CELL"), A("state:readings"), S1(S1(S3(A("MessageRecommendsPlan"), S2(A("Message"), A("Plan")), S1(S3(A("{0}"), A("recommends"), A("{1}")))))))))),
+DEF("case:mcp-tool-without-a-reading", S2(A("mcp:tools"), S1(S3(A("CELL"), A("state:declared"), S1(S1(S2(A("MessageRecommendsPlan"), S2(A("Message"), A("Plan"))))))))),
 "THE FORM TABLE CLOSES THE TAG SET, and these pin it. delta_eval used to be a COND chain whose final else was the join, so a recipe form nobody recognized did not refuse -- it QUIETLY BECAME A JOIN. That is how a transitive closure stopped closing this session, caught by law rules-reproduce and by none of the cases. Now the tag resolves through derive:forms or it resolves to nothing.",
 DEF("case:form-lookup", S2(
     S3(A("COMP"), A("theta:find_desc"),
