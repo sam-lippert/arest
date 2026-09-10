@@ -1,0 +1,12 @@
+errors 0
+*Quote has local Rate if and only if
+that Quote has some ZIP Code that is within some Jurisdiction that has that Rate.
+
+*Quote has state Rate if and only if
+that Quote has some ZIP Code that is within some Jurisdiction that has that Rate.
+
+*Each Local Jurisdiction is by definition some Jurisdiction that has some Level where Equals(Level, local).
+Reference Scheme: Jurisdiction has Jurisdiction_id.
+Reference Mode: .id.
+Data Type: Numeric: Auto Counter.
+
