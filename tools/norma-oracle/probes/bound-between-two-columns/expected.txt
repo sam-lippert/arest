@@ -1,0 +1,12 @@
+errors 0
+*Rate is in force for Quote if and only if
+that Rate has some effective Date1
+and that Quote occurred on some Date2
+where LessThanOrEqual(Date1, Date2)
+and it is not true that (that Rate has some supersession Date)
+or that Rate has some effective Date3
+and  has some supersession Date4
+and that Quote occurred on some Date5
+where LessThanOrEqual(Date3, Date5)
+where GreaterThan(Date4, Date5).
+
