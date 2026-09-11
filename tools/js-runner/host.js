@@ -2233,14 +2233,8 @@ function run_mcp() {
     return ENTITIES.map((e) => {
       const table = String(e[1]);
       const props = {
-        // POST is what this surface is for. GET is in the enum because the
-        // methods are canon's list and main:api takes a collection on any of
-        // them, but main:read_rows answers a collection's name with no rows
-        // today (measured on support: Plan and Error Code both empty, while
-        // PlanProduct answers because it is ALSO a fact type), so this does not
-        // promise a read it cannot give.
         method: { type: "string", enum: METHODS,
-                  description: "POST creates one of these with its facts, whole" },
+                  description: "GET reads the table's rows; POST creates one of these with its facts, whole" },
         caller: { type: "string", description: "who is calling; gates which controls are shown" },
         id: { type: "string", description: "the " + table + " this is about" },
       };
