@@ -683,3 +683,4 @@ case:verb-the-model-does-not-describe	"''"
 case:verbs-are-the-runnable-declared-operations	"(('v1', 'store', 'cell-list'))"
 
 case:verb-declared-to-take-the-populations	"'populations'"
+case:synthesize-separates-unchecked-from-violated	"((('MessageUsesDash', 'deontic', 'm1')), ('MessageIsNatural'), 'F')"
