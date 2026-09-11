@@ -127,11 +127,17 @@ public class CasesTest {
 
     // A def NO host can evaluate answers <refused> everywhere and agrees
     // perfectly, so the refusal COUNT is the signal, not the pass line.
+    // AND THE NUMBER IS 19, not 17 (2026-09-11). Two deliberate refusals were
+    // added to the golden and this constant was not moved with them, so the
+    // canary that exists to notice a host losing the ability to reduce
+    // something was itself failing for a reason that had nothing to do with
+    // any host -- and failing inside a station whose suite takes 23 minutes,
+    // where nobody reads the tail. The rust station's twin already says 19.
     @Test
-    void theGoldenStillExpectsExactlySeventeenRefusals() throws IOException {
+    void theGoldenStillExpectsExactlyNineteenRefusals() throws IOException {
         int n = 0;
         for (String[] r : golden()) if ("<refused>".equals(r[1])) n++;
-        assertEquals(17, n);
+        assertEquals(19, n);
     }
 
     @Test
