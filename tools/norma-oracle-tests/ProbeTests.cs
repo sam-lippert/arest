@@ -450,6 +450,35 @@ namespace Arest.NormaOracle.Tests
         // that chose Separate answered F on six laws where the same store without
         // the sentence answered 63 of 63.
         //
+        // THE RULE, MEASURED 2026-09-11 with both cases side by side. Canon names
+        // the reference after the LAST assimilation step's target; NORMA after the
+        // FIRST's; and the two coincide on every walk that goes DOWN, which is
+        // every walk any corpus has today.
+        //
+        //   absorbed   Function.subscriptionPlanCode, path
+        //              assim Function->Object Type Instance
+        //              assim Object Type Instance->Subscription
+        //              info  Subscription->Plan Code
+        //              last assim target = Subscription; both sides say
+        //              "subscription", and canon is right.
+        //
+        //   separated  Subscription.<the reference>, path (the same three
+        //              reversed)
+        //              assim Object Type Instance->Subscription
+        //              assim Function->Object Type Instance
+        //              info  Function->Function_id
+        //              last assim target = Object Type Instance, so canon says
+        //              objectTypeInstanceId; FIRST assim target = Subscription,
+        //              the table's own concept type, so NORMA says subscriptionId.
+        //
+        // AND THE SIGNAL THAT TELLS THEM APART IS ALREADY COMPUTED. rmap:tagstep
+        // appends each assim step's absorb flag out of rmap:assim, rmap:absorbtag
+        // carries the tagged paths, and rmap:cexp_row consumes them -- so the
+        // naming pipeline can already see that the separated walk's FIRST step is
+        // the F-tagged one and the absorbed walk's is T. What is left is finding
+        // where the cn: walk picks an assim step's target and preferring the first
+        // F-tagged step over the last.
+        //
         // THE FOUR STILL RED are ONE difference, and it is a column name.
         // rmap:seprefs' fourth field, IsPreferredForTarget, now reads
         // `Subtype Fact provides preferred identifier` and answers T for a
