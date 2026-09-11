@@ -25,9 +25,57 @@
 
 ### So an app entity cannot appear in ANY metamodel fact type whose player is
 ### Object Type Instance, and going through the state machine does not help:
-### `State Machine is for Object Type Instance` has the same player. That is
-### the gap, it is the engine's rather than support's, and it is not fixed
-### here -- this probe records where the search got to and what it ruled out.
+### `State Machine is for Object Type Instance` has the same player.
+
+### THE EDGE IS NOT THE ENGINE'S TO ADD, MEASURED 2026-09-10. The obvious
+### repair -- have the oracle mint `X is a subtype of Object Type Instance`
+### for every entity type that has no supertype -- was measured before being
+### written, and the measurement disqualifies it. NORMA ABSORBS a subtype into
+### its supertype's table, so a declared edge costs the subtype its table:
+###
+###                        base   support   eu-law
+###   entity types          116       548     1063
+###   declared subtypings   111       141      250
+###   entity types w/o one    5       407      813
+###   tables NORMA maps       5       435      772
+###   columns on Function   304       341      324
+###   columns, all tables     -      1602     2053
+###
+### In support NOT ONE of User, Event, Citation, State Machine, Guard Run,
+### Fact, Object Type Instance or Customer has a table of its own: all 141
+### declared subtypes live in `Function`. `Subscription`, which has no
+### supertype, has its own table. Minting the edge for the 407 that lack one
+### would absorb every remaining table into `Function`, leaving support ONE
+### table of about 1,600 columns and eu-law ONE of about 2,050. That is not a
+### side effect of the change; it is the change.
+###
+### WHAT WORKS INSTEAD is already in the corpus and costs one sentence. Support
+### reaches Object Type Instance for Customer the ordinary way -- `Customer is
+### a subtype of User`, and `User is a subtype of Object Type Instance`
+### (instances.md:39) -- and every shape below declares its edge and builds.
+### A type whose state machine an app wants to read declares the edge in the
+### app's own readings, per type, deliberately, and pays one table for it.
+### An implied ancestor is not a substitute: resolving the clause without a
+### SubtypeFact leaves NORMA's join path no subtype step to walk, which is
+### what `joins to a path role with an incompatible role player` said when
+### that shortcut was tried and reverted on 2026-09-10.
+###
+### SAM RULED ON THE SCHEMA SHAPE, 2026-09-10, shown this measurement:
+### "Absorbtion should be configurable, same as in NORMA." NORMA carries the
+### choice per SUBTYPE FACT, not per object type: AssimilationMapping has an
+### AbsorptionChoice, related to its fact type by AssimilationMappingCustomizes-
+### FactType at ZeroOne, and AssimilationAbsorptionChoice has three literals
+### (OialDcilBridge.dsl:398) --
+###   Absorb      all assimilations are pulled into the supertype's table
+###   Partition   each subtype gets its own table, supertype data duplicated
+###   Separate    each subtype gets its own table, supertype data in a
+###               separate referenced table
+### The stored default is Absorb, and GetDefaultAbsorptionChoice answers Absorb
+### for a SubtypeFact or an objectification-implied fact type and Separate for
+### anything else (AssimilationMapping.cs:429), which is exactly the one-table
+### outcome measured above. So the numbers here are NORMA's default and not
+### NORMA's only answer, and making the choice sayable is the next piece of
+### work rather than a decision anyone still owes.
 
 Customer(.id) is an entity type.
 Ticket(.id) is an entity type.
