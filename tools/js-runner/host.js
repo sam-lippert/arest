@@ -1940,7 +1940,12 @@ function run_test() {
   // exposes no loader. The host's unit test calls it on three databases it
   // writes itself rather than on whatever store.db happens to be on disk --
   // an absent artifact would make an artifact-shaped test pass saying nothing.
-  globalThis.AREST = { Ev: Ev, CELLS: CELLS, DEFS: DEFS, composition: COMPOSITION, loadStoreDb: loadStoreDb };
+  // popSnapshot and emitToDb ride here for the same reason, and as the PAIR the
+  // three real callers compose (the serve POST, ui:navpe and the MCP call), so
+  // the durability test runs the same three lines they do rather than a wrapper
+  // that could drift from them: snapshot, evaluate, emit what changed.
+  globalThis.AREST = { Ev: Ev, CELLS: CELLS, DEFS: DEFS, composition: COMPOSITION,
+    loadStoreDb: loadStoreDb, popSnapshot: popSnapshot, adoptStore: adoptStore, emitToDb: emitToDb };
 
 }
 // A create ANSWERS a store. main:api returns <body, status, D-prime> for a
