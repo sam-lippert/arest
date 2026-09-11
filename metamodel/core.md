@@ -2043,7 +2043,7 @@ HTTP Method 'OPTIONS' has Name 'OPTIONS'.
 
 ### External Systems
 
-<!-- External System auth shape instance facts (URL/Header/Prefix/Country Code/Kind) for auth.vin, auto.dev, stripe, github, resend live in arest/readings/templates/connectors.md. Per-app Domain Connection facts carrying Secret References live in each consuming app's gitignored .env file. -->
+<!-- External System auth shape instance facts (URL/Header/Prefix/Country Code/Kind) for auth.vin, auto.dev, stripe, github, resend live in apps/connectors/readings/connectors.md, which is what a consuming app composes via ../../connectors/readings. It was written here as arest/readings/templates/connectors.md in seven places across the corpus and in none correctly: a path in a comment cannot fail a check, so it was written once and propagated by copy while everything around it was gated. Per-app Domain Connection facts carrying Secret References live in each consuming app's gitignored .env file, as TWO sentences since the 2026-07-16 one-table wave -- the connection, then the secret on the objectification, identified <Domain>/<ExternalSystem> (support.auto.dev confirmed the spelling by row count, 2026-09-11). -->
 
 <!-- organizations-domain (ruling 2): Domain 'core' has Access 'public'. -->
 Domain 'core' has Description 'Extracted from NORMA ORM2 model (design/html/). The canonical FORML 2 metamodel against which every user domain is a subtype binding.'.
