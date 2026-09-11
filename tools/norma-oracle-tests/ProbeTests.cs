@@ -401,15 +401,24 @@ namespace Arest.NormaOracle.Tests
         // that chose Separate answered F on six laws where the same store without
         // the sentence answered 63 of 63.
         //
-        // THE FOUR STILL RED are one named case, not a mystery: a separated
-        // assimilation that IS the target's preferred identifier. Subscription
-        // takes its identity from Object Type Instance, so NORMA names the
-        // reference column subscriptionId and makes it the PRIMARY key, where
-        // canon names it objectTypeInstanceId and emits a uniqueness beside a key
-        // -- rmap:seprefs' fourth field, IsPreferredForTarget, which its own note
-        // records as false for every separated assimilation the corpora have.
-        // This assertion is deliberately exact so that fixing it turns the test
-        // red and forces this comment to be rewritten.
+        // THE FOUR STILL RED are ONE difference, and it is a column name.
+        // rmap:seprefs' fourth field, IsPreferredForTarget, now reads
+        // `Subtype Fact provides preferred identifier` and answers T for a
+        // subtyping that identifies, so canon emits Subscription_PK where it used
+        // to emit a uniqueness beside a key -- measured in
+        // rmap:normaconstraints_witness, which went from
+        //   canon ["uc", "Subscription", "Subscription_UC", ["objectTypeInstanceId"]]
+        // to
+        //   canon ["pk", "Subscription", "Subscription_PK", ["objectTypeInstanceId"]]
+        // against NORMA's ["pk", "Subscription", "Subscription_PK", ["subscriptionId"]].
+        // What is left is objectTypeInstanceId versus subscriptionId: canon names a
+        // separated assimilation's reference after the ASSIMILATOR, NORMA after the
+        // table's own concept type when the assimilation is its preferred identifier
+        // (NAMEGEN, GenerateColumnsForConceptTypePreferredIdentifier). Canon's PATH
+        // already matches -- colpaths-normacolpaths is green -- so this is the cn:
+        // walk and nothing upstream of it. The four laws below all fail on that one
+        // name, and the assertion is deliberately exact so that fixing it turns the
+        // test red and forces this comment to be rewritten.
         [Fact]
         public void CanonsRelationalMapFollowsTheAbsorptionChoice()
         {
