@@ -9249,12 +9249,17 @@ namespace Arest.NormaOracle
 				// the two columns must hold one kind, and one the hosts order
 				string pl = legsC[b[1]].Players[b[2]], pr = legsC[b[3]].Players[b[4]];
 				string kl = ValueKindOf(pl), kr = ValueKindOf(pr);
-				if (kl == "number" || kr == "number")
-				{
-					string dp = kl == "number" ? pl : pr;
-					myRecipeDeclines[sC] = "a comparison on a role typed " + ConceptualIdOf(dp) + " (" + dp + "): the hosts hold integers and text";
-					return;
-				}
+				// A DECIMAL ORDERS EXACTLY AND IS NO LONGER REFUSED HERE (2026-09-10).
+				// This declined every comparison touching a decimal with "the hosts
+				// hold integers and text", which was about IValue and not about the
+				// mu: cmp answers 6.875 < 6.9 correctly for two host numbers and only
+				// throws across kinds. IValue now writes a decimal-typed role's value
+				// as a numeral, so both columns of a number-vs-number comparison are
+				// host numbers and the order is exact. Nothing widens beyond that:
+				// the kl != kr line below still refuses a number against an integer
+				// or against text, and arithmetic on a decimal is still refused,
+				// because ORDERING a decimal is exact where COMPUTING with one is
+				// not.
 				if (kl != kr) { myRecipeDeclines[sC] = "a comparison across kinds (" + pl + " is " + kl + ", " + pr + " is " + kr + ")"; return; }
 				// AN EQUALITY BETWEEN TWO JOINED COLUMNS IS A FILTER, and the grammar's
 				// only order is cmp, strictly less-than: the rows where neither column
@@ -9308,14 +9313,23 @@ namespace Arest.NormaOracle
 				// against a numeral on a text role is a plain atom equality and stands.
 				string tk = ValueKindOf(t[0]);
 				bool intLit = IntegerLexeme.IsMatch(t[2]);
-				if (tk == "number" || DecimalLexeme.IsMatch(t[2]))
+				// A DECIMAL THRESHOLD ORDERS EXACTLY (2026-09-10). The literal beside
+				// the column is emitted through IValue with the SAME player, so on a
+				// number-typed role both sides are host numbers and cmp is exact --
+				// the same argument as the column-against-column comparison above.
+				// What stays refused is a decimal literal on a role that is NOT
+				// number-typed, because cmp throws across atom kinds rather than
+				// coercing (host.js:187), and a threshold whose literal is not a
+				// numeral at all on a role whose column is.
+				bool numLit = intLit || DecimalLexeme.IsMatch(t[2]);
+				if (tk != "number" && DecimalLexeme.IsMatch(t[2]))
 				{
-					myRecipeDeclines[sC] = "a decimal in a threshold (" + (tk == "number" ? t[0] + " is typed " + ConceptualIdOf(t[0]) : t[2])
-						+ "): the hosts hold integers and text";
+					myRecipeDeclines[sC] = "a decimal threshold on a role typed " + tk + " (" + t[0] + ")";
 					return;
 				}
+				if (tk == "number" && !numLit) { myRecipeDeclines[sC] = "a threshold in text on a role typed " + ConceptualIdOf(t[0]) + " (" + t[0] + ")"; return; }
 				if (tk == "integer" && !intLit) { myRecipeDeclines[sC] = "a threshold in text on a role typed integer (" + t[0] + ")"; return; }
-				if (tk != "integer" && intLit && top != "is") { myRecipeDeclines[sC] = "a numeric threshold on a role typed text (" + t[0] + ")"; return; }
+				if (tk == "text" && intLit && top != "is") { myRecipeDeclines[sC] = "a numeric threshold on a role typed text (" + t[0] + ")"; return; }
 				if (top == "is") { acc = "S4(" + IAtom("sel") + ", " + acc + ", N(" + tcol + "), " + IValue(t[0], t[2]) + ")"; continue; }
 				acc = "S3(" + IAtom("pairwith") + ", " + acc + ", " + IValue(t[0], t[2]) + ")";
 				accToks.Add("#" + t[2]);
@@ -9381,10 +9395,17 @@ namespace Arest.NormaOracle
 					string kind = null, name = want;
 					if (Regex.IsMatch(want, @"^-?[0-9]+(\.[0-9]+)?$"))
 					{
-						// a numeral is a number, the kind the hosts compute with; a decimal
-						// names the kind they lack
+						// A DECIMAL IN ARITHMETIC IS REFUSED FOR EXACTNESS, NOT FOR KIND
+						// (2026-09-10). The mu computes with fractions happily -- 2.5 + 4
+						// is 6.5 -- and that is the problem: * and + are binary floating
+						// point, so 0.06875 * 100000 answers 6875.000000000001, / is
+						// Math.trunc so 7 / 2 answers 3, and there is no rounding
+						// primitive to state a money rule with. Sales tax computed that
+						// way is wrong by a cent and silently. ORDERING a decimal is
+						// exact and is allowed above; COMPUTING with one waits on a
+						// decision about the mu's arithmetic.
 						if (!IntegerLexeme.IsMatch(want))
-							{ myRecipeDeclines[sC] = "a decimal literal in arithmetic (" + want + "): the hosts hold integers and text"; return; }
+							{ myRecipeDeclines[sC] = "a decimal literal in arithmetic (" + want + "): the mu multiplies in binary floating point and truncates division"; return; }
 						acc = "S3(" + IAtom("pairwith") + ", " + acc + ", N(" + want + "))";
 						accToks.Add("#" + want);
 						col = ++accWidth;
@@ -9404,12 +9425,14 @@ namespace Arest.NormaOracle
 					if (op == null) { myRecipeDeclines[sC] = "arithmetic this grammar has no primitive for (" + word + ")"; return; }
 					// an operation takes two numbers: a column whose player is typed
 					// integer, a numeral, or an earlier step. A value type the reading
-					// left as text, or typed decimal, is declined by that name.
+					// left as text, or typed decimal, is declined by that name -- the
+					// decimal for EXACTNESS and not for kind, as the literal branch
+					// above records at length.
 					foreach (string[] side in new[] { new[] { leftKind, leftName }, new[] { kind, name } })
 					{
 						if (side[0] == "integer") continue;
 						myRecipeDeclines[sC] = side[0] == "number"
-							? "an arithmetic operand typed " + ConceptualIdOf(side[1]) + " (" + side[1] + "): the hosts hold integers and text"
+							? "an arithmetic operand typed " + ConceptualIdOf(side[1]) + " (" + side[1] + "): the mu multiplies in binary floating point and truncates division"
 							: "an arithmetic operand not typed integer (" + side[1] + ")";
 						return;
 					}
@@ -13223,7 +13246,7 @@ namespace Arest.NormaOracle
 			return valueTypeName != null && myConceptualIds.TryGetValue(valueTypeName, out id) ? id : null;
 		}
 
-		// "integer" (a host number), "number" (a kind the hosts lack), or "text"
+		// "integer" (a whole host number), "number" (a fractional one), or "text"
 		private string ValueKindOf(string playerName)
 		{
 			ObjectType t;
@@ -13233,10 +13256,32 @@ namespace Arest.NormaOracle
 			return IntegerConceptualIds.Contains(id) ? "integer" : NumberConceptualIds.Contains(id) ? "number" : "text";
 		}
 
-		// a literal written for the role its player plays: a number on an integer-typed role, else the atom
+		// A DECIMAL IS A HOST NUMBER TOO (2026-09-10). A literal is written as a
+		// numeral for the role its player plays, and only an INTEGER-typed role got
+		// one: `Tax Rate 6.875` landed as the TEXT atom "6.875", which is why the
+		// recipe emitter refused every arithmetic and every comparison touching a
+		// decimal with "the hosts hold integers and text" -- a true sentence about
+		// this line, not about the mu. Measured the same day: the mu's cmp orders
+		// two numbers exactly (6.875 < 6.9 is T) and its + - * accept fractions
+		// (2.5 + 4 is 6.5), while cmp on two TEXT atoms is lexicographic, so "10"
+		// sorts before "9" and a decimal written as text orders wrongly. So the
+		// boundary is where the kind was missing, exactly as the cmp note says
+		// (host.js:184, "a READING-BOUNDARY defect, to be fixed where text becomes
+		// values, not by breaking the order axioms in every host").
+		//
+		// INERT ON EVERY CORPUS TODAY: base and support each declare number-typed
+		// value types (6 and 15) and NEITHER has a single populated row on one, so
+		// no carrier moves until a model asserts a decimal. What it does not fix is
+		// exactness: * and + are binary floating point (0.06875 * 100000 is
+		// 6875.000000000001), / truncates (7 / 2 is 3), and the mu has no rounding
+		// primitive, which is why arithmetic on a decimal stays refused and now
+		// says that instead.
 		private string IValue(string playerName, string v)
 		{
-			return ValueKindOf(playerName) == "integer" && IntegerLexeme.IsMatch(v) ? "N(" + v + ")" : IAtom(v);
+			string kind = ValueKindOf(playerName);
+			if (kind == "integer" && IntegerLexeme.IsMatch(v)) return "N(" + v + ")";
+			if (kind == "number" && (IntegerLexeme.IsMatch(v) || DecimalLexeme.IsMatch(v))) return "N(" + v + ")";
+			return IAtom(v);
 		}
 
 		// A SUBTYPE'S EXTENT AS A SOURCE. An asserted subtype's extent is the
