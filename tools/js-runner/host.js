@@ -2268,7 +2268,23 @@ function run_mcp() {
     // status, so a false answer is an error to the client and nothing is
     // written: no verb here mutates.
     if (VERB_NAMES.has(String(name))) {
-      const rest = Array.isArray(a.args) ? a.args.map(String) : [];
+      // A JSON ARGUMENT KEEPS ITS SHAPE (2026-09-11). This read `a.args.map(String)`,
+      // which stringifies a nested array into one comma-joined atom: `create`'s
+      // command -- a list of <fact type, rows> pairs, the shape law:apply has
+      // always exercised -- arrived as the atom `ErrorCodeHasHTTPStatus,PROBE_CODE,
+      // 429,...` and the verb answered `expected sequence, got atom`. The address
+      // route's arguments ARE atoms, because an address is words; the MCP's are
+      // JSON, and forcing them through the address shape is what made a verb taking
+      // anything structured unreachable here. Mapping String over the LEAVES only
+      // leaves a flat argument list of strings byte-identical -- every call that
+      // worked before still produces exactly what it did -- and lets a nested one
+      // through. A JSON NUMBER STAYS A NUMBER for the same reason the shape is
+      // kept: the mu has both, N(i) and A(x), and a recipe's projection positions
+      // are numbers. Stringifying them answered `unresolved atom: 1` and made
+      // `query` -- declared, served, and taking recipe-and-populations -- as
+      // unreachable as the structure did.
+      const deep = (x) => (Array.isArray(x) ? x.map(deep) : typeof x === "number" ? x : String(x));
+      const rest = Array.isArray(a.args) ? a.args.map(deep) : [];
       const out = Ev("main", [CELLS, [String(name)].concat(rest)]);
       return [out[0], String(out[1]) === "T" ? 200 : 500];
     }
