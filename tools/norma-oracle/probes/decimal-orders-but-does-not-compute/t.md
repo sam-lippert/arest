@@ -25,14 +25,16 @@
 ### `Quote is over six` BUILDS: a decimal column ordered against the INTEGER
 ### literal 6, which IValue writes as a numeral for the same reason.
 ###
-### `Quote is over cap` does NOT build, and not for any reason the emitter
-### decides: `greater than 6.5` is refused upstream by the READING MATCHER,
-### "clause names no fact type", so the decimal literal never reaches the
-### threshold branch at all. That is the unquoted-numeral class -- the matcher
-### blanks quoted spans before matching and a bare 6.5 is not one -- and it is a
-### separate defect from anything about decimals as values. The relaxed decimal
-### threshold is therefore written and not yet reachable, which is worth knowing
-### precisely rather than assuming it works.
+### `Quote is over cap` BUILDS as well, and only since 2026-09-11. It did not,
+### and not for any reason the emitter decided: the clause-splitting regex that
+### peels a threshold off a leg took `([0-9]+)` and nothing else, so `greater
+### than 6.5` never split, went to the resolver whole, matched no reading, and
+### the arm died as "clause names no fact type" -- a reading-matcher refusal
+### reported for a rule whose only fault was a decimal point. The equality
+### branch three lines below it already read `([0-9]+(?:\.[0-9]+)?)`, so the
+### threshold was the odd one out rather than a decision. Worth keeping as a
+### case: the emitter's own decimal refusal had already been lifted and nothing
+### could reach it, so the fix looked done and was not.
 ###
 ### `Quote has total- Tax Rate` does NOT build, and its reason is now exactness
 ### rather than kind: "an arithmetic operand typed decimal (Tax Rate): the mu

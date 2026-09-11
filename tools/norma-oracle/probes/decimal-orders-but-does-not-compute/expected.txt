@@ -1,11 +1,13 @@
 errors 0
-UNBUILT (head resolves, no arm matched the body) [legs resolving 1/2; chain arm: clause names no fact type: that Quote has Tax Rate greater than 6.5]: * Quote is over cap iff Quote has Cap Rate and that Quote has Tax Rate greater than 6.5.
 UNDELIVERED (an arithmetic operand typed decimal (Tax Rate): the mu multiplies in binary floating point and truncates division): QuoteHasTotalTaxRate
-UNDELIVERED (no arm emitted a recipe): QuoteIsOverCap
 *Quote has total Tax Rate1 if and only if
 that Quote has some submission Tax Rate2
 and  has some response Tax Rate3
 where Tax Rate1 = Add(Tax Rate2, Tax Rate3).
+
+*Quote is over cap if and only if
+that Quote has some Cap Rate
+and  has some Tax Rate where GreaterThan(Tax Rate, 6.5).
 
 *Quote is over six if and only if
 that Quote has some Cap Rate
