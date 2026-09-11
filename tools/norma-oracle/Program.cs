@@ -509,6 +509,11 @@ namespace Arest.NormaOracle
 			// the law: family in the canon; the composed-file recipe
 			// (vocabulary ; arest ; carriers ; apply-and-print) is the
 			// sanctioned host shape whenever one is called for.
+			// BEFORE THE TRANSFORM, NOT AFTER: an absorption choice is an input to
+			// the ORM-to-OIAL step MappingStateCells forces, so `Fact Type 'X' has
+			// Assimilation Absorption Choice 'Separate'.` has to be a NORMA element
+			// by the time the transform reads the subtyping (core.md).
+			verifier.ApplyAbsorptionChoices(store, assemblies[3]);
 			verifier.WriteDesignState("design-state",
 				verifier.InputStateCells()
 				+ Verifier.MappingStateCells(store, assemblies[1], assemblies[2], assemblies[4]));
