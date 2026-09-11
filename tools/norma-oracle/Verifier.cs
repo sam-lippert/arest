@@ -6229,7 +6229,9 @@ namespace Arest.NormaOracle
 					else if (eA != null && vmA.Success) { thrOpA = "is"; thrValA = vmA.Groups[2].Value; }
 					if (eA == null)
 					{
-						Match tmA = Regex.Match(tA, @"^(.+?) (greater than|less than|more than|fewer than|at least|at most|of) ([0-9]+)( or more| or fewer)?$");
+						// the same decimal lexeme the chain arm's threshold takes, and for the
+						// same reason: 6.5 is a number a threshold may name
+						Match tmA = Regex.Match(tA, @"^(.+?) (greater than|less than|more than|fewer than|at least|at most|of) ([0-9]+(?:\.[0-9]+)?)( or more| or fewer)?$");
 						if (tmA.Success)
 						{
 							qA = Dequantify(" " + tmA.Groups[1].Value.Trim() + " ").Trim();
@@ -7102,8 +7104,19 @@ namespace Arest.NormaOracle
 								thrVal = vm.Groups[2].Value;
 							}
 						}
+						// A THRESHOLD MAY NAME A DECIMAL (2026-09-11). This took [0-9]+ and
+						// nothing else, so `that Quote has Tax Rate greater than 6.5` never
+						// split: the clause went to the resolver whole, resolved to no fact
+						// type, and the arm died as "clause names no fact type" -- a reading-
+						// matcher refusal reported for a rule whose only fault was a decimal.
+						// The equality branch just below already reads the same lexeme
+						// (`([0-9]+(?:\.[0-9]+)?)`), so this was the odd one out rather than a
+						// decision. A decimal threshold is exact to compare once IValue writes
+						// the role's values as numerals (719b1067), which is why it is worth
+						// reaching: the emitter's own decimal refusal was lifted there and
+						// nothing could get to it.
 						Match tm = leC != null ? Match.Empty
-							: Regex.Match(tC, @"^(.+?) (greater than|less than|more than|fewer than|at least|at most|of) ([0-9]+)( or more| or fewer)?$");
+							: Regex.Match(tC, @"^(.+?) (greater than|less than|more than|fewer than|at least|at most|of) ([0-9]+(?:\.[0-9]+)?)( or more| or fewer)?$");
 						if (tm.Success)
 						{
 							FactIndexEntry baseLeg = ResolveClauseSub(Dequantify(" " + tm.Groups[1].Value.Trim() + " ").Trim(), out plC);
