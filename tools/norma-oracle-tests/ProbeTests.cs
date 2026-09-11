@@ -392,5 +392,53 @@ namespace Arest.NormaOracle.Tests
             Assert.False(NormaTables(partitioned).ContainsKey("Subscription"),
                 "partitioned: a refused choice must leave the default mapping standing");
         }
+
+        // AND CANON FOLLOWS THE CHOICE, not just NORMA. rmap:absorbed and
+        // rmap:sepnames are the two cells that read NORMA's subtype flag as an
+        // absorption verdict, so they are where the choice lands; rmap:assim is
+        // NORMA's own carrier and is left alone (its third field is
+        // refersToSubtype, held against state:normaassim). Before this, a store
+        // that chose Separate answered F on six laws where the same store without
+        // the sentence answered 63 of 63.
+        //
+        // THE FOUR STILL RED are one named case, not a mystery: a separated
+        // assimilation that IS the target's preferred identifier. Subscription
+        // takes its identity from Object Type Instance, so NORMA names the
+        // reference column subscriptionId and makes it the PRIMARY key, where
+        // canon names it objectTypeInstanceId and emits a uniqueness beside a key
+        // -- rmap:seprefs' fourth field, IsPreferredForTarget, which its own note
+        // records as false for every separated assimilation the corpora have.
+        // This assertion is deliberately exact so that fixing it turns the test
+        // red and forces this comment to be rewritten.
+        [Fact]
+        public void CanonsRelationalMapFollowsTheAbsorptionChoice()
+        {
+            string fixtures = Path.Combine(Oracle.Root, "tools", "norma-oracle-tests", "absorption");
+            Func<string, List<string>> report = name =>
+            {
+                List<string> dirs = Corpus.Directories("metamodel");
+                dirs.Add(Path.Combine(fixtures, name));
+                Oracle.Run r = Oracle.Execute(Oracle.Scratch("absorption", name + "-laws"), dirs);
+                Assert.True(Oracle.Crash(r.Output) == null, name + ": the oracle crashed: " + Oracle.Crash(r.Output));
+                return Oracle.LawReport(r.Scratch).Output
+                    .Split('\n').Where(l => l.Contains("LAW FAILED")).Select(l => l.Trim()).ToList();
+            };
+
+            Assert.Empty(report("absorbed"));
+
+            List<string> failed = report("separated");
+            Assert.DoesNotContain(failed, l => l.Contains("tables-normatables"));
+            Assert.DoesNotContain(failed, l => l.Contains("colpaths-normacolpaths"));
+            Assert.DoesNotContain(failed, l => l.Contains("assimilations-normaassim"));
+            Assert.Equal(
+                new[]
+                {
+                    "LAW FAILED: schema-match -> F",
+                    "LAW FAILED: colnames-normacolnames -> F",
+                    "LAW FAILED: colorder-normacolorder -> F",
+                    "LAW FAILED: constraints-normaconstraints -> F",
+                },
+                failed);
+        }
     }
 }
