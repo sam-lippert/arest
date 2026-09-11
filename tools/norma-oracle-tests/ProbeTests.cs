@@ -471,13 +471,30 @@ namespace Arest.NormaOracle.Tests
         //              objectTypeInstanceId; FIRST assim target = Subscription,
         //              the table's own concept type, so NORMA says subscriptionId.
         //
-        // AND THE SIGNAL THAT TELLS THEM APART IS ALREADY COMPUTED. rmap:tagstep
-        // appends each assim step's absorb flag out of rmap:assim, rmap:absorbtag
-        // carries the tagged paths, and rmap:cexp_row consumes them -- so the
-        // naming pipeline can already see that the separated walk's FIRST step is
-        // the F-tagged one and the absorbed walk's is T. What is left is finding
-        // where the cn: walk picks an assim step's target and preferring the first
-        // F-tagged step over the last.
+        // WHERE IT IS DECIDED. In the NAMING path the separated reference's first
+        // step is not an assim at all: rmap:colpathsP:derive builds it from a
+        // rmap:seprefs row as
+        //     <"rel", assimilated, assimilator, assimilated, [factName],
+        //      isPreferredForTarget>
+        // and cn:asrun's WHILE only runs over consecutive `assim` heads, so with a
+        // `rel` head it returns its seed, <N(3)(head), head> -- element 3, the
+        // ASSIMILATOR. That one selector is the whole difference; NORMA wants
+        // element 2, the assimilated, which is the table's own concept type.
+        //
+        // AND BOTH ONE-LINE FIXES ARE WRONG, which is why this is still a
+        // measurement. Changing colpathsP's element 3 propagates, because
+        // rmap:colpaths:derive is built FROM colpathsP and rewrites this rel into
+        // NORMA's <"assim", step.3, step.2, step.3>, matching seprefs on <step.2,
+        // step.3, factName> -- so the compared cell and its membership test both
+        // break and colpaths-normacolpaths goes red. Testing the step's element 6
+        // instead misfires: it reads as IsPreferredForTarget here, but the base's
+        // 151 ordinary `rel` steps carry "T" in that slot from a different branch,
+        // so the test would rename every relation foreign key in every store.
+        //
+        // What it wants is a discriminator of its own -- a distinct kind atom for
+        // the seprefs-built step, or a seventh element -- carried through
+        // colpathsP and matched by the colpaths rewrite in place of the current
+        // membership test. That is two cells and their tests, not one selector.
         //
         // THE FOUR STILL RED are ONE difference, and it is a column name.
         // rmap:seprefs' fourth field, IsPreferredForTarget, now reads
