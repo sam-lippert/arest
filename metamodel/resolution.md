@@ -87,11 +87,35 @@ Function 'query' accepts Type Expression 'recipe-and-populations'.
 Function 'query' yields Type Expression 'rows'.
 Function 'synthesize' accepts Type Expression 'name-and-cells'.
 Function 'synthesize' yields Type Expression 'sentences-and-checked-and-unchecked-and-verdict'.
-<!-- derive is NOT declared: it reads its first element as a sequence, so it
-     answers to <[], populations> and throws on the empty argument an address
-     of one element gives it. Its shape is real but not settled, and a verb is
-     listed only when a call to it answers, so it stays off the surface until
-     the argument it wants is measured rather than guessed. -->
+Function 'derive' accepts Type Expression 'arguments-and-populations'.
+Function 'derive' yields Type Expression 'populations'.
+Function 'validate' accepts Type Expression 'descriptor-list'.
+Function 'validate' yields Type Expression 'violation-list'.
+<!-- MEASURED 2026-09-11, which is the condition the note these replace set.
+     It said derive "reads its first element as a sequence, so it answers to
+     <[], populations> and throws on the empty argument an address of one
+     element gives it", and that its shape stays off the surface "until the
+     argument it wants is measured rather than guessed". Both were asked, on
+     the base store, for every operand the verb route can build:
+
+       derive   <[], derive:store_pairs>   247 rows, the populations unchanged
+                <[], store:state>          throws, selector 1 out of range 0
+       validate store:fts                  0 rows, no violations on the base
+                store:state                throws, expected sequence, got atom
+                derive:store_pairs         throws, selector 5 out of range 2
+
+     So derive wants what 'arguments-and-populations' already builds, <args,
+     derive:store_pairs>, which is the operand law:all_rules is handed at the
+     one call site canon has. No rules in the argument means no round runs and
+     the populations come back as they went in: an answer, not a failure.
+     validate wants the fact type DESCRIPTORS that store:fts holds, a shape
+     the table did not have and now does. Through the route both used to throw
+     'selector 2 out of range 1', which is the one-element address the old
+     note names, and query threw it too. query still throws, but the throw
+     moved: it is now 'selector 1 out of range 0', raised inside query rather
+     than while building its operand. query is declared and its operand is
+     built as declared; what it does with an empty recipe is a separate
+     question this did not settle. -->
 
 <!-- The REGISTERED class (Samuel, 2026-07-13): operations a host may serve
      through a registered function (kernel.register, origin=registered, the
