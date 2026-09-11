@@ -1,0 +1,2 @@
+errors 0
+REFUSED (names no declared fact type): 'Non-Existent Rule is a subtype of Rule' in 'Fact Type 'Non-Existent Rule is a subtype of Rule' cites Citation 'C-3'.'

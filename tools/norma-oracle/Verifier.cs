@@ -1256,9 +1256,23 @@ namespace Arest.NormaOracle
 			return s.Length <= 90 ? s : s.Substring(0, 87) + "...";
 		}
 
-		private static readonly Regex SubtypeDecl = new Regex(@"^([\w :]+?)\s+is a subtype of\s+([\w :]+?)\.$");
-		private static readonly Regex SupertypeDecl = new Regex(@"^([\w :]+?)\s+is a supertype of\s+([\w :]+?)\.$");
-		private static readonly Regex ExclusiveSubtypes = new Regex(@"^\{(.+?)\}\s+are mutually exclusive subtypes of\s+([\w :]+?)\.$");
+		// A SUBTYPING NAMES TWO TYPES, so it takes NameChars like every other
+		// declaration in pass 1 (2026-09-11). These three were written with the
+		// bare class and the hyphen fix of that comment never reached them, which
+		// is the failure that comment PREDICTS: "the declaration falls through
+		// pass 1 entirely and the declaration line itself is minted as a fact
+		// type". Measured -- `Real-Time Scan is a subtype of Practice` gave
+		// Practice the column `realTimeScanIsASubtypeOf?` where its unhyphenated
+		// siblings gave `isPlainScan?`, so the type was never declared, the
+		// subtyping never existed, and every citation of it was refused as naming
+		// no declared fact type. 17 real declarations across the corpora were
+		// read that way -- Sub-Processor, Non-Merchant, Cooling-Off Rule Section,
+		// Short-Term/Long-Term Capital Gain, S-Corporation, Donor-Advised Fund --
+		// three of them the very names the NameChars comment cites as its
+		// motivation. The metamodel has none, which is why the base is untouched.
+		private static readonly Regex SubtypeDecl = new Regex(@"^(" + NameChars + @"+?)\s+is a subtype of\s+(" + NameChars + @"+?)\.$");
+		private static readonly Regex SupertypeDecl = new Regex(@"^(" + NameChars + @"+?)\s+is a supertype of\s+(" + NameChars + @"+?)\.$");
+		private static readonly Regex ExclusiveSubtypes = new Regex(@"^\{(.+?)\}\s+are mutually exclusive subtypes of\s+(" + NameChars + @"+?)\.$");
 		// NORMA's OWN group verbalization of the same constraint, which is what
 		// this corpus actually writes: "For each P, exactly one of the following
 		// holds: that P is an A; that P is a B." GroupExclusiveOr ("exactly one")
