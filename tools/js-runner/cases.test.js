@@ -12,8 +12,9 @@
 //
 //   bun run build:test && bun test
 import { expect, test, describe } from "bun:test";
-import { readFileSync, unlinkSync } from "node:fs";
+import { readFileSync, unlinkSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import { Database } from "bun:sqlite";
 
@@ -177,6 +178,93 @@ test("a store.db from another composition is refused rather than loaded", () => 
     for (const p of [mine, other, unstamped]) try { unlinkSync(p); } catch { /* left behind */ }
   }
 });
+
+// ---- DOES A WRITE REACH THE TABLES, AND ONLY WHEN THERE ARE TABLES? --------
+//
+// #108's whole claim: the journal is retired because a write emits the changed
+// populations into the sqlite tables and the next boot reads them. Nothing
+// checked it. The three host callers that do it -- the serve POST, ui:navpe and
+// the MCP call -- each run the same four lines, so this runs those four rather
+// than a wrapper that could drift: snapshot the populations, evaluate main:api,
+// adopt the successor store, emit what changed.
+//
+// AND THE ABSENCE IS A DIFFERENT ANSWER, not a quiet one. A store booted with
+// no database keeps its writes in memory, which is what a test wants and what
+// the host says it does; a store booted WITH one must have them on disk
+// afterwards. Measured 2026-09-11 on the base store: with a database the write
+// emits 1 fact type, the file grows 434,176 -> 438,272 bytes and a fresh boot
+// from it has the row; without one the write still answers 201, emits 0, the
+// file is byte-identical and a fresh boot has 0 rows. A check that only
+// asserted the first half would pass just as happily on a host that had
+// silently stopped writing.
+//
+// The database is BUILT here rather than read from disk: an artifact-shaped
+// test skips when the artifact is missing, and an empty _meta also exercises
+// the path a fact type takes when it is populated for the first time since the
+// tables were built.
+test("a write reaches the tables, and a store with no tables keeps it in memory", () => {
+  const stamp = globalThis.AREST.composition;
+  const dir = mkdtempSync(join(tmpdir(), "arest-write-"));
+  const mod = join(import.meta.dir, "cases.g.js");
+  const FT = "StreamHasName", KEY = "probe-stream-" + Math.random().toString(36).slice(2, 8);
+
+  const fresh = (name) => {
+    const p = join(dir, name);
+    const db = new Database(p);
+    db.run("create table _meta (ft text, kind text, tbl text, arity int)");
+    db.run("create table _composition (hash text)");
+    db.prepare("insert into _composition values(?)").run(stamp);
+    db.run("pragma wal_checkpoint(TRUNCATE)");
+    db.close();
+    return p;
+  };
+  const driver = join(dir, "drive.mjs");
+  writeFileSync(driver, [
+    "await import(process.env.MODULE);",
+    "const { Ev, CELLS, popSnapshot, adoptStore, emitToDb } = globalThis.AREST;",
+    "if (process.env.WRITE) {",
+    "  const before = popSnapshot(CELLS);",
+    "  const out = Ev('main:api', [CELLS, 'POST', process.env.FT, '', [process.env.KEY, 'probe-name']]);",
+    "  if (out.length > 2) { adoptStore(out[2]); if (Number(out[1]) < 400) console.log('emitted ' + emitToDb(before, CELLS)); }",
+    "  console.log('status ' + out[1]);",
+    "} else {",
+    "  const rows = Ev('system:pop_rows', [process.env.FT, CELLS]);",
+    "  console.log('present ' + rows.some((r) => String(r[0]) === process.env.KEY));",
+    "}",
+  ].join("\n"));
+
+  const run = (db, write) => {
+    const env = { ...process.env, MODULE: pathToFileURL(mod).href, FT, KEY };
+    if (db) env.AREST_STORE_DB = db; else delete env.AREST_STORE_DB;
+    if (write) env.WRITE = "1"; else delete env.WRITE;
+    const p = Bun.spawnSync(["bun", driver], { env, stdout: "pipe", stderr: "pipe" });
+    return p.stdout.toString() + p.stderr.toString();
+  };
+
+  try {
+    const withDb = fresh("with.db"), without = fresh("without.db");
+    const untouched = readFileSync(without);
+
+    // HOW MANY fact types move is not the claim and is not pinned: against the
+    // full base store.db this write emits 1 and against this empty _meta it
+    // emits 2, because a carriers boot has more to diff. The claim is that
+    // SOMETHING reached the tables, and that the row is there on the next boot.
+    const wrote = run(withDb, true);
+    expect(wrote).toContain("status 201");
+    expect(wrote).toMatch(/emitted [1-9]/);
+    expect(run(withDb, false)).toContain("present true");
+
+    // the same write with no database attached: it still answers, emits
+    // nothing, leaves the file it was never given alone, and is gone next boot
+    const memoryOnly = run(null, true);
+    expect(memoryOnly).toContain("status 201");
+    expect(memoryOnly).toContain("emitted 0");
+    expect(readFileSync(without).equals(untouched)).toBe(true);
+    expect(run(without, false)).toContain("present false");
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 120_000);
 
 // ---- IS EACH CANON FILE STILL INTERSECTION SOURCE? -------------------------
 //
