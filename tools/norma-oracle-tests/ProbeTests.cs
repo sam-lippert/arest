@@ -271,7 +271,26 @@ namespace Arest.NormaOracle.Tests
         // marked derived and never populated -- law:markers over a booted store
         // was the only thing that said so. The recipe here is the whole shape:
         // the positive legs joined on their shared token keeping every column,
-        // projected onto the head's role, and the negated leg subtracted.
+        // the negated leg subtracted, and the result projected onto the head's
+        // role.
+        //
+        // THE SUBTRACTION MOVED INSIDE THE PROJECTION and this assertion did
+        // not follow it, so the test stood red against a correct emitter. It
+        // read minus(proj(chain), proj(SupersessionDate)) -- project both sides
+        // to keys, subtract keys -- and the emitter now writes
+        // proj(minus(chain, joinon(chain, SupersessionDate))): the anti-join on
+        // whole ROWS, projected afterwards. MEASURED 2026-09-11 over a
+        // population -- a1 qualifies, a2 has a past date but is superseded, a3's
+        // date is not past, a4 is superseded with no past date -- both shapes
+        // answer exactly (a1), and the minus compares rows of width 3 against
+        // width 3, so the difference really subtracts rather than silently
+        // subtracting nothing. The new shape is what generalises: subtracting
+        // KEYS is only sound while the head carries one role, and the anti-join
+        // is sound for any head. So the golden follows the emitter here, and
+        // case:a-negated-leg-subtracts-the-superseded-rows in the case table
+        // pins what it ANSWERS -- a re-association that preserves the answer
+        // moves this string and that case stays green, while one that breaks it
+        // fails the case even if someone re-records this.
         [Fact]
         public void AChainWithANegatedLegEmitsADifference()
         {
@@ -279,11 +298,13 @@ namespace Arest.NormaOracle.Tests
             Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "chain-recipe-negation"), new[] { dir });
             Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
             string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            const string chain = "S5(A(\"joinon\"), A(\"AuthorityHasEffectiveDate\"), "
+                + "A(\"EffectiveDateIsInThePast\"), S1(S2(N(2), N(1))), S3(N(1), N(2), N(3)))";
             Assert.Contains(
                 "S3(A(\"AuthorityIsCurrentlyInForce\"), S1(A(\"Authority\")), "
-                + "S3(A(\"minus\"), S3(A(\"proj\"), S5(A(\"joinon\"), A(\"AuthorityHasEffectiveDate\"), "
-                + "A(\"EffectiveDateIsInThePast\"), S1(S2(N(2), N(1))), S3(N(1), N(2), N(3))), S1(N(1))), "
-                + "S3(A(\"proj\"), A(\"AuthorityHasSupersessionDate\"), S1(N(1))))",
+                + "S3(A(\"proj\"), S3(A(\"minus\"), " + chain + ", "
+                + "S5(A(\"joinon\"), " + chain + ", A(\"AuthorityHasSupersessionDate\"), "
+                + "S1(S2(N(1), N(1))), S3(N(1), N(2), N(3)))), S1(N(1))))",
                 state);
         }
 
