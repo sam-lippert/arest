@@ -46,6 +46,15 @@ const SPLICED = slim ? [join(root, "arest")] : [
   join(oracle, "design-state"),
   join(oracle, "norma-answer"),
 ];
+// AND THESE ARE WHAT DECIDE THE POPULATIONS. The three optional carriers pushed
+// below do not: `compiled` is a precomputed answer ABOUT the relational map
+// (and carries a stamp of its own, checked twenty lines down), `outcome` and
+// `expected` are a run's record, read only by the regress laws. A store.db is a
+// projection of the POPULATIONS, so its identity is these and not those --
+// measured 2026-09-11, when hashing all seven gave support.auto.dev's
+// cases.g.js and composed.g.js two different stamps for one store, because its
+// build writes cases.g.js before `compiled` and composed.g.js after.
+const IDENTITY = SPLICED.slice();
 
 // THE COMPILED RELATIONAL MAP IS OPTIONAL, and optional is the whole point: a
 // store that has not been compiled still runs, it just pays the Rmap
@@ -150,16 +159,31 @@ function hostSource() {
   return Buffer.from(out.join("\n"));
 }
 
+// AND THE COMPOSITION'S IDENTITY IS ITS CANON AND ITS CARRIERS, NOT ITS HOST.
+// tools/compile-store.js projects the booted populations into <dir>/store.db
+// and the host boots serve and mcp from it; the database is therefore a
+// projection of IDENTITY above and goes stale when any of it changes. The host
+// source is deliberately not hashed: a comment or a strategy in host.js does
+// not move a population, and hashing it would invalidate every database on
+// every host edit. Measured 2026-09-11: the base store.db of 09-08 booted into
+// the current module and `schema` threw `selector 2 out of range 1`, while the
+// same call over a database rebuilt from it is byte-identical to a carriers
+// boot -- the stale database lacked four fact types that had since become
+// populated, and nothing anywhere said so.
+const composition = createHash("sha256");
 const parts = [hostSource()];
 for (const p of SPLICED) {
-  if (AS_TEXT.has(p)) { parts.push(Buffer.from("\n;\nCANONTEXT(" + asLiteral(must(p).toString("utf8")) + ");\n")); continue; }
-  parts.push(Buffer.from("\n;\nCANON"), must(p));
+  const buf = must(p);
+  if (IDENTITY.includes(p)) composition.update(buf);
+  if (AS_TEXT.has(p)) { parts.push(Buffer.from("\n;\nCANONTEXT(" + asLiteral(buf.toString("utf8")) + ");\n")); continue; }
+  parts.push(Buffer.from("\n;\nCANON"), buf);
 }
 // STAMP THE CARRIERS THIS COMPOSITION WAS MADE FROM. tools/compile-rmap.js
 // writes beside AREST_CARRIERS but reads whatever composition is on disk, so
 // the two can disagree and it will emit one store's relational map into
 // another's directory. That happened twice today. This is what lets it refuse.
 parts.push(Buffer.from([""," // AREST_CARRIERS_DIR=" + oracle, ""].join(String.fromCharCode(10))));
+parts.push(Buffer.from("\n;\nCOMPOSED(" + JSON.stringify(composition.digest("hex").slice(0, 16)) + ");\n"));
 parts.push(Buffer.from("\n;\nboot(" + JSON.stringify(mode) + ");\n"));
 
 const out = Buffer.concat(parts);

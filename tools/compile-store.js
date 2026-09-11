@@ -120,6 +120,18 @@ for (const ft of rel) {
   db.transaction(() => { for (const row of pop) { const t = Array.isArray(row) ? row : [row]; ins.run(...t.map((v) => JSON.stringify(v))); } })();
   mins.run(ft, "rel", tbl, ar);
 }
+// _composition: WHICH MODULE THESE TABLES ARE A PROJECTION OF. build.js hashes
+// the canon and carriers it splices and stamps the module with it; this records
+// the stamp of the module booted above, and host.js loadStoreDb refuses a
+// database carrying any other value. Refusing to WRITE an unstamped database is
+// the same rule from the other side: an unstamped one can never be shown to
+// match, so producing it would only produce a refusal later.
+if (!globalThis.AREST.composition) {
+  console.error("the module carries no composition stamp; rebuild it: bun tools/js-runner/build.js test");
+  process.exit(1);
+}
+db.run("create table _composition (hash text)");
+db.prepare("insert into _composition values(?)").run(globalThis.AREST.composition);
 db.run("pragma wal_checkpoint(TRUNCATE)");
 db.close();
 const fcount = Object.keys(funcCol).length;

@@ -59,6 +59,13 @@ function S7(a,b,c,d,e,f,g){return [a,b,c,d,e,f,g];}
 function S8(a,b,c,d,e,f,g,h){return [a,b,c,d,e,f,g,h];}
 function S9(a,b,c,d,e,f,g,h,i){return [a,b,c,d,e,f,g,h,i];}
 function CANON() { return arguments; }
+// THE COMPOSITION'S IDENTITY, stamped by build.js from canon and the carriers
+// it spliced -- not from this file, because a host edit does not move a
+// population. tools/compile-store.js writes this value into the store.db it
+// projects and loadStoreDb refuses a database carrying any other, which is the
+// same move build.js makes for a stale `compiled` carrier.
+let COMPOSITION = null;
+function COMPOSED(h) { COMPOSITION = h; }
 // A CARRIER IS READ BY THE HOST, NOT PARSED AS CODE. design-state,
 // norma-answer and the compiled map are intersection source -- S* a sequence,
 // A an atom, N a number, PHI the empty sequence, K a CONST form, DEF a <name,
@@ -238,7 +245,7 @@ function emitToDb(before, cells) {
   const meta = new Map(db.query("select ft, kind, tbl, arity from _meta").all().map((m) => [m.ft, m]));
   const tableOfCol = new Map();
   for (const t of db.query("select name from sqlite_master where type='table'").all().map((r) => r.name)) {
-    if (t === "_meta") continue;
+    if (t[0] === "_") continue;                       // _meta, _composition
     for (const c of db.query("select name from pragma_table_info('" + t.replace(/'/g, "''") + "')").all()) if (c.name !== "k") tableOfCol.set(c.name, t);
   }
   let written = 0;
@@ -1928,7 +1935,12 @@ function run_test() {
   // forms inside a DEF are anonymous), so finding WHICH selector met an
   // empty list means re-evaluating the DEF's form piece by piece on the
   // same input, which needs the form.
-  globalThis.AREST = { Ev: Ev, CELLS: CELLS, DEFS: DEFS };
+  // loadStoreDb rides here for the same reason and only here: run_test is the
+  // test module's own boot, so a release composition (cli, serve, mcp, ui, sql)
+  // exposes no loader. The host's unit test calls it on three databases it
+  // writes itself rather than on whatever store.db happens to be on disk --
+  // an absent artifact would make an artifact-shaped test pass saying nothing.
+  globalThis.AREST = { Ev: Ev, CELLS: CELLS, DEFS: DEFS, composition: COMPOSITION, loadStoreDb: loadStoreDb };
 
 }
 // A create ANSWERS a store. main:api returns <body, status, D-prime> for a
@@ -2390,6 +2402,30 @@ function run_sql() {
 function loadStoreDb(path) {
   const { Database } = require("bun:sqlite");
   const db = new Database(path, { readonly: true });
+  // AND IT MUST BE A PROJECTION OF THIS COMPOSITION. The tables ARE the durable
+  // store (#108), so a database built from an older canon or older carriers is
+  // not a slow path to fall back from -- it is the wrong store, and every write
+  // made since lives only in it. Measured 2026-09-11: the base store.db of
+  // 09-08 booted into the current module and `schema` threw `selector 2 out of
+  // range 1` from somewhere inside the answer, naming a selector rather than a
+  // database. It differed from a rebuilt one only in lacking four fact types
+  // that had since become populated (EntityTypeHasReferenceMode,
+  // ObjectTypeIsSubtypeOfObjectType, FactTypeHasDerivationMode,
+  // SubtypeFactProvidesPreferredIdentifier) -- no kind, arity or column count
+  // had moved, so nothing recoverable from _meta alone could have caught it.
+  // Hence the stamp. A database written before the stamp existed carries none
+  // and is refused for the same reason: it cannot be shown to match.
+  // An ABSENT database is a different answer and not this check's: the readonly
+  // open above refuses it with sqlite's own `unable to open database file`, and
+  // a store asked for no database at all never reaches here.
+  let stamped = null;
+  try { stamped = (db.query("select hash from _composition").get() || {}).hash; } catch { /* predates the stamp */ }
+  if (stamped !== COMPOSITION) {
+    db.close();
+    throw new Error("store.db was built from composition " + (stamped || "(none: it predates the stamp)") +
+      ", this module is " + (COMPOSITION || "(unstamped)") + " -- " + path +
+      "\n  rebuild it: AREST_OUT_DIR=" + path.replace(/[\\/][^\\/]*$/, "") + " bun tools/compile-store.js");
+  }
   const meta = db.query("select ft, kind, tbl, arity from _meta").all();
   // entity tables = every table that is not _meta and not a relation table;
   // a functional column name is unique to one entity table (one keyplayer per
@@ -2397,7 +2433,7 @@ function loadStoreDb(path) {
   // every column maps to "Function", so this reads the committed DB unchanged.
   const relTbls = new Set(meta.filter((m) => m.kind === "rel").map((m) => m.tbl));
   const entTbls = db.query("select name from sqlite_master where type='table'").all()
-    .map((r) => r.name).filter((n) => n !== "_meta" && !relTbls.has(n));
+    .map((r) => r.name).filter((n) => n[0] !== "_" && !relTbls.has(n));
   const tableOfCol = new Map();
   for (const t of entTbls) for (const c of db.query("select name from pragma_table_info('" + t.replace(/'/g, "''") + "')").all()) if (c.name !== "k") tableOfCol.set(c.name, t);
   const recon = [];
