@@ -1107,7 +1107,7 @@ Derivation Rule depends on Derivation Rule. *
 
 Constraint is semantic iff Constraint has modality of Modality Type 'Deontic' and Constraint spans some Role and that Role is played by some Object Type and no Object Type Instance is instance of that Object Type.
 
-* Constraint is machine-decidable iff Constraint is decided by some Predicate.
+* Constraint is machine-decidable iff Constraint is decided by some Predicate and that Predicate is bound.
 
 ## Implicit Derivation Rules (#316 / #287c)
 

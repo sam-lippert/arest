@@ -325,6 +325,55 @@ namespace Arest.NormaOracle.Tests
             Assert.Contains("S2(A(\"PersonIsASubtypeOfParty\"), A(\"C-1\"))", labState);
         }
 
+        // A PREDICATE WITH A NAME AND NO BINDING DECIDES NOTHING (2026-09-11).
+        // `Constraint is machine-decidable iff Constraint is decided by some
+        // Predicate` trusted the NAME, so support.auto.dev's three state-law
+        // constraints claimed a judge on the strength of two Predicates that
+        // carry a Name and no Module Path, no Symbol Name and no JS Package --
+        // the model asserting that something decides a rule when nothing
+        // resolves. Sam's own parenthesis says the three go together: "a
+        // Predicate is already a bound function (has Name, Module Path, Symbol
+        // Name)". `Predicate is bound` is that test, and the fixture's two
+        // predicates differ in nothing else.
+        [Fact]
+        public void APredicateWithNoBindingDecidesNothing()
+        {
+            List<string> dirs = Corpus.Directories("metamodel");
+            dirs.Add(Path.Combine(Oracle.Root, "tools", "norma-oracle-tests", "decider"));
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("decider", "bound"), dirs);
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+
+            // both derived heads are marked and both BUILT -- a marker whose rule
+            // declines would leave the model claiming a test it cannot run, which
+            // is the very shape this fixture exists to refuse
+            Assert.Contains("S2(A(\"PredicateIsBound\"), A(\"full\"))", state);
+            Assert.Contains("S2(A(\"ConstraintIsMachineDecidable\"), A(\"full\"))", state);
+            Assert.DoesNotContain("S2(A(\"PredicateIsBound\"), A(\"", Undelivered(state));
+            Assert.DoesNotContain("S2(A(\"ConstraintIsMachineDecidable\"), A(\"", Undelivered(state));
+
+            // THE RECIPES ARE THE MECHANISM. Both heads are fully derived, so
+            // neither has a state:fts descriptor to carry a population (#103: a
+            // `*` type is omitted) and the rows follow from these at closure time.
+            // Bound joins the two bindings; machine-decidable joins the naming to
+            // the binding, which is the whole change -- naming alone used to do it.
+            Assert.Contains("S5(A(\"joinon\"), S3(A(\"proj\"), A(\"PredicateHasModulePath\"), S1(N(1))), "
+                + "S3(A(\"proj\"), A(\"PredicateHasSymbolName\"), S1(N(1)))", Rules(state));
+            Assert.Contains("S3(A(\"ConstraintIsMachineDecidable\"), S1(A(\"Constraint\")), "
+                + "S4(A(\"join\"), A(\"ConstraintIsDecidedByPredicate\"), A(\"PredicateIsBound\")", Rules(state));
+        }
+
+        private static string Cell(string state, string name)
+        {
+            int at = state.IndexOf("DEF(\"" + name + "\"", StringComparison.Ordinal);
+            Assert.True(at >= 0, "no " + name + " in the design state");
+            int next = state.IndexOf("\nDEF(", at + 1, StringComparison.Ordinal);
+            return next < 0 ? state.Substring(at) : state.Substring(at, next - at);
+        }
+
+        private static string Rules(string state) { return Cell(state, "state:rules"); }
+        private static string Undelivered(string state) { return Cell(state, "state:undelivered"); }
+
         // the table names and their columns, read off a run's norma-answer
         private static Dictionary<string, List<string>> NormaTables(Oracle.Run run)
         {

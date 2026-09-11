@@ -87,6 +87,20 @@ Predicate has Symbol Name.
 Predicate has Description.
   Each Predicate has at most one Description.
 
+Predicate is bound. *
+<!-- A NAME IS NOT A BINDING (2026-09-11). Sam's own parenthesis when he split
+     the deciders says what a Predicate is: "a Predicate is already a bound
+     function (has Name, Module Path, Symbol Name)" (core.md, 2026-09-05), and
+     the three come together because a Predicate without the last two resolves
+     to nothing. support.auto.dev has two that do not: breach-precedes-
+     notification and consent-on-file carry a Name and no Module Path, no
+     Symbol Name and no JS Package, yet three of its constraints name them and
+     `Constraint is machine-decidable` therefore answered T for all three. The
+     model claimed a judge that does not exist, which is the same shape as a
+     head marked derived whose rule never built. This is the test that tells
+     them apart, and it answers F when the binding is ABSENT rather than
+     wrong. -->
+
 ## Derivations
 
 <!-- Same construction as core.md's `Domain reaches Domain`: the base edge, then
@@ -97,6 +111,8 @@ Predicate has Description.
      for a law to report, not a shape the closure may not hold. -->
 * JS Package1 reaches JS Package2 iff JS Package1 depends on JS Package2.
 If JS Package1 reaches JS Package2 and JS Package2 reaches JS Package3 then JS Package1 reaches JS Package3.
+
+* Predicate is bound iff Predicate has some Module Path and Predicate has some Symbol Name.
 
 ## Constraints
 
