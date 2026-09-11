@@ -34,6 +34,13 @@ namespace Arest.NormaOracle
 		// 2026-09-10). The census skips any head that has a recipe, so a half-built
 		// head read as healthy in every count; this is what lets it be named.
 		private readonly Dictionary<string, string> myPartialHeads = new Dictionary<string, string>(StringComparer.Ordinal);
+		// AN ABSORPTION CHOICE A READING ASKED FOR, by the fact type it customises.
+		// `Fact Type 'CustomerIsASubtypeOfUser' has Assimilation Absorption Choice
+		// 'Separate'.` is an ordinary instance fact of core.md's binary, so it arrives
+		// through MapInstanceFact like any other row and is collected here on its way
+		// past; ApplyAbsorptionChoices turns the collected rows into NORMA's own
+		// AssimilationMapping elements before the ORM-to-OIAL transform runs.
+		private readonly Dictionary<string, string> myAbsorptionChoices = new Dictionary<string, string>(StringComparer.Ordinal);
 		private readonly List<string> myMapLog = new List<string>();
 		private FactType myLastFact;
 		private List<Role> myLastRoles;
@@ -2502,6 +2509,22 @@ namespace Arest.NormaOracle
 					if (e.Fact != null && !e.Fact.IsDeleted && e.Fact.Name == quotes[i]) { namedById = true; break; }
 				}
 				if (namedById) continue;
+				// A SUBTYPE FACT NAMED BY ITS OWN NAME IS A DECLARED FACT TYPE.
+				// The branch above enters one named by its READING (`Customer is a
+				// subtype of User`) as SubtypeFactName's id, and the id scan just
+				// above misses it because a SubtypeFact's raw NORMA Name keeps the
+				// players' spaces. So `Fact Type 'CustomerIsASubtypeOfUser' has
+				// Assimilation Absorption Choice 'Separate'` -- the shape core.md's
+				// absorption surface is written in, and any other sentence about a
+				// subtyping -- refused as naming nothing, which since b610da23 is
+				// wrong twice over: Subtype Fact IS a subtype of Fact Type, and
+				// state:subtypefacts already publishes exactly this name.
+				bool namedAsSubtypeFact = false;
+				foreach (SubtypeFact sfn in SubtypeFacts())
+				{
+					if (SubtypeFactName(sfn) == quotes[i]) { namedAsSubtypeFact = true; break; }
+				}
+				if (namedAsSubtypeFact) continue;
 				// AND THE FILLER'S REAL KIND IS RECORDED, NOT THE ONE THE SENTENCE
 				// CLAIMED (2026-09-10, #107's third part). `Fact Type 'Buyer' cites
 				// Citation 'UCC-2-103'` names a declared ENTITY TYPE, not a sentence:
@@ -2528,8 +2551,108 @@ namespace Arest.NormaOracle
 			}
 			match.Rows.Add(new List<string>(quotes));
 			match.RowKinds.Add(new List<string>(kinds.Select(k => k ?? "")));
+			// the row is the population AND the instruction: a customised absorption
+			// is read off the attributed row rather than re-parsed from the sentence,
+			// so a row the matcher refused can never reach the relational map
+			if (quotes.Count == 2 && Spell(match.Fact.Name) == "FactTypeHasAssimilationAbsorptionChoice")
+				myAbsorptionChoices[quotes[0]] = quotes[1];
 			Count("instance fact (row attributed)");
 			return true;
+		}
+
+		// NORMA'S OWN CUSTOMISATION, CREATED THE WAY NORMA CREATES IT
+		// (AssimilationMapping.cs:1550-1576): an AssimilationMapping carrying the
+		// choice, parented on the MappingCustomizationModel, then linked to its fact
+		// type. Reflection because the bridge assembly is loaded, not referenced by
+		// type here. Called before MappingStateCells forces the ORM-to-OIAL transform,
+		// since the choice is an INPUT to that transform and a mapping created after
+		// it would be read by nothing.
+		//
+		// A ROW NAMING NO FACT TYPE IS REFUSED AND SAID SO. The alternative is a
+		// silent no-op, and a schema that quietly ignored the sentence asking it to
+		// separate a table is the failure this whole surface exists to prevent.
+		public void ApplyAbsorptionChoices(Store store, System.Reflection.Assembly dcilBridgeAssembly)
+		{
+			if (myAbsorptionChoices.Count == 0 || dcilBridgeAssembly == null) return;
+			Type mappingType = dcilBridgeAssembly.GetTypes().FirstOrDefault(x => x.Name == "AssimilationMapping" && typeof(ModelElement).IsAssignableFrom(x));
+			Type modelType = dcilBridgeAssembly.GetTypes().FirstOrDefault(x => x.Name == "MappingCustomizationModel" && typeof(ModelElement).IsAssignableFrom(x));
+			Type choiceType = dcilBridgeAssembly.GetTypes().FirstOrDefault(x => x.Name == "AssimilationAbsorptionChoice" && x.IsEnum);
+			if (mappingType == null || modelType == null || choiceType == null)
+			{
+				myMapLog.Add("ABSORPTION CHOICE UNAVAILABLE: the DCIL bridge offers no AssimilationMapping; "
+					+ myAbsorptionChoices.Count + " row(s) ignored");
+				return;
+			}
+			var getModel = modelType.GetMethod("GetMappingCustomizationModel",
+				System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+			var propIdField = mappingType.GetField("AbsorptionChoiceDomainPropertyId",
+				System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+			if (getModel == null || propIdField == null)
+			{
+				myMapLog.Add("ABSORPTION CHOICE UNAVAILABLE: AssimilationMapping has no creation surface; "
+					+ myAbsorptionChoices.Count + " row(s) ignored");
+				return;
+			}
+			// the fact types by the name the readings spell them with, which for a
+			// subtyping is SubtypeFactName's `{sub}IsASubtypeOf{super}`
+			var byName = new Dictionary<string, FactType>(StringComparer.Ordinal);
+			foreach (FactType f in store.ElementDirectory.FindElements<FactType>(true))
+			{
+				if (f.IsDeleted) continue;
+				string n = f is SubtypeFact ? SubtypeFactName((SubtypeFact)f) : f.Name;
+				if (!string.IsNullOrEmpty(n) && !byName.ContainsKey(n)) byName[n] = f;
+			}
+			// ONE TRANSACTION PER CHOICE, because NORMA refuses some of them and a
+			// refusal must cost only its own row. `Partition` is the case that shows
+			// it: AssimilationMappingAddedRule throws "Partitioning is not allowed
+			// with the current subtyping pattern. Partitioning requires an ExclusiveOr
+			// constraint between all subtypes", which is NORMA validating its own
+			// model correctly -- so the sentence is reported refused, in NORMA's own
+			// words, and every other choice in the same run still lands. Sharing one
+			// transaction would have rolled them all back, and letting the exception
+			// out killed the whole check.
+			foreach (var kv in myAbsorptionChoices.OrderBy(x => x.Key, StringComparer.Ordinal))
+			{
+				FactType fact;
+				if (!byName.TryGetValue(kv.Key, out fact))
+				{
+					myMapLog.Add("ABSORPTION CHOICE REFUSED (names no fact type): '" + kv.Key + "' asked for '" + kv.Value + "'");
+					Count("absorption choice (rejected: names no fact type)");
+					continue;
+				}
+				object choice;
+				try { choice = Enum.Parse(choiceType, kv.Value, false); }
+				catch (ArgumentException)
+				{
+					myMapLog.Add("ABSORPTION CHOICE REFUSED (not one of NORMA's literals): '" + kv.Value + "' on '" + kv.Key + "'");
+					Count("absorption choice (rejected: not a literal)");
+					continue;
+				}
+				using (Transaction t = store.TransactionManager.BeginTransaction("absorption choice " + kv.Key))
+				{
+					try
+					{
+						object mapping = Activator.CreateInstance(mappingType, new object[]
+						{
+							store,
+							new PropertyAssignment[] { new PropertyAssignment((Guid)propIdField.GetValue(null), choice) },
+						});
+						mappingType.GetProperty("Model").SetValue(mapping, getModel.Invoke(null, new object[] { store, true }), null);
+						mappingType.GetProperty("FactType").SetValue(mapping, fact, null);
+						t.Commit();
+						myMapLog.Add("ABSORPTION CHOICE: '" + kv.Key + "' mapped " + kv.Value);
+						Count("absorption choice (applied)");
+					}
+					catch (Exception ex)
+					{
+						Exception cause = ex;
+						while (cause.InnerException != null) cause = cause.InnerException;
+						if (t.IsActive) t.Rollback();
+						myMapLog.Add("ABSORPTION CHOICE REFUSED BY NORMA: '" + kv.Value + "' on '" + kv.Key + "' -- " + cause.Message);
+						Count("absorption choice (refused by NORMA)");
+					}
+				}
+			}
 		}
 
 		// nf round-trip surfaces: normalized reading signatures and UC spans,

@@ -1277,6 +1277,17 @@ Derivation Storage Type is a value type.
   The possible values of Derivation Storage Type are 'stored', 'derived', 'derived-and-stored'.
   The data type of Derivation Storage Type is text.
 
+Assimilation Absorption Choice is a value type.
+  The possible values of Assimilation Absorption Choice are 'Absorb', 'Partition', 'Separate'.
+  The data type of Assimilation Absorption Choice is text.
+<!-- NORMA'S OWN NAMES AND NORMA'S OWN THREE LITERALS, verbatim from
+     RelationalModel/OialDcilBridge/OialDcilBridge.dsl:398 -- Absorb pulls all
+     assimilations into the supertype's table, Partition gives each subtype its
+     own table with the supertype's data duplicated, Separate gives each
+     subtype its own table with the supertype's data in a separate referenced
+     table. The literals keep NORMA's capitalisation because they are NORMA's
+     enumeration and not a spelling of ours. -->
+
 ### Fact types
 
 Derivation Rule has Join Path.
@@ -1323,6 +1334,31 @@ DerivationRuleHasRoleProjection is a subtype of Function.
 
 Fact Type has Derivation Storage Type.
   Each Fact Type has at most one Derivation Storage Type.
+
+Fact Type has Assimilation Absorption Choice.
+  Each Fact Type has at most one Assimilation Absorption Choice.
+<!-- WHY THE CHOICE HANGS ON A FACT TYPE AND NOT AN OBJECT TYPE. NORMA carries
+     it as AssimilationMapping.AbsorptionChoice, joined to its fact type by
+     AssimilationMappingCustomizesFactType at ZeroOne (OialDcilBridge.dsl:57,
+     :147), so the customised thing is the SUBTYPING, not the subtype: `Customer
+     is a subtype of User` and `Customer is a subtype of Party` can be answered
+     differently. The AssimilationMapping class hosts no other role, so Halpin's
+     own preference for the unnested schema applies and this is the plain
+     binary rather than an objectification of it.
+
+     ABSENCE IS NOT 'Absorb'. GetDefaultAbsorptionChoice (AssimilationMapping.cs
+     :429) answers Absorb for a subtype fact or an objectification-implied fact
+     type and Separate for anything else, so a fact type with no row here takes
+     the structural default and a row OVERRIDES it. That is why this is `at most
+     one` and not mandatory: writing Absorb on every subtyping would say nothing
+     and cost a row per subtyping.
+
+     MEASURED BEFORE IT EXISTED (2026-09-10, recorded in the probe
+     body-leg-on-a-derived-cell): under the default, support.auto.dev's 141
+     declared subtypings all absorb, so User, Event, Citation, State Machine,
+     Guard Run, Fact, Object Type Instance and Customer have no table of their
+     own and Subscription, which has no supertype, does. Sam: "Absorbtion should
+     be configurable, same as in NORMA." -->
 
 ## Negation
 

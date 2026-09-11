@@ -14,6 +14,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Arest.NormaOracle.Tests
 {
@@ -322,6 +323,74 @@ namespace Arest.NormaOracle.Tests
             Assert.Contains("S2(A(\"PersonIsASubtypeOfParty\"), A(\"Subtype Fact\"))", labState);
             Assert.Contains("S2(A(\"PersonIsASubtypeOfParty\"), A(\"Fact Type\"))", labState);
             Assert.Contains("S2(A(\"PersonIsASubtypeOfParty\"), A(\"C-1\"))", labState);
+        }
+
+        // the table names and their columns, read off a run's norma-answer
+        private static Dictionary<string, List<string>> NormaTables(Oracle.Run run)
+        {
+            string answer = File.ReadAllText(Path.Combine(run.Scratch, "norma-answer"));
+            int at = answer.IndexOf("DEF(\"norma:tables\"", StringComparison.Ordinal);
+            int end = answer.IndexOf("\nDEF(", at + 1, StringComparison.Ordinal);
+            string seg = end < 0 ? answer.Substring(at) : answer.Substring(at, end - at);
+            var result = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            var starts = new List<KeyValuePair<string, int>>();
+            foreach (Match m in Regex.Matches(seg, "S2\\(A\\(\"([A-Za-z][A-Za-z0-9_']*)\"\\), S[0-9]?\\("))
+                starts.Add(new KeyValuePair<string, int>(m.Groups[1].Value, m.Index));
+            for (int i = 0; i < starts.Count; i++)
+            {
+                int from = starts[i].Value, to = i + 1 < starts.Count ? starts[i + 1].Value : seg.Length;
+                var cols = new List<string>();
+                foreach (Match c in Regex.Matches(seg.Substring(from, to - from), "A\\(\"([a-z][A-Za-z0-9_']*)\"\\)"))
+                    cols.Add(c.Groups[1].Value);
+                result[starts[i].Key] = cols;
+            }
+            return result;
+        }
+
+        // ABSORPTION IS CONFIGURABLE, THE WAY IT IS IN NORMA (Sam, 2026-09-10).
+        // NORMA's default for a subtyping is Absorb (AssimilationMapping.cs:429),
+        // which is why the base maps 116 entity types to five tables and support
+        // maps 548 to 435 with all 141 of its declared subtypes inside Function.
+        // `Fact Type 'SubscriptionIsASubtypeOfObjectTypeInstance' has Assimilation
+        // Absorption Choice 'Separate'.` is core.md's surface for overriding that,
+        // per SUBTYPING rather than per subtype, and this is the measured
+        // difference the one sentence makes. Partition is NORMA's third literal
+        // and NORMA refuses it on this shape; what is pinned there is that the
+        // oracle reports the refusal and finishes, since letting the exception out
+        // killed the check.
+        [Fact]
+        public void AnAbsorptionChoiceSeparatesASubtypeThatOtherwiseAbsorbs()
+        {
+            string fixtures = Path.Combine(Oracle.Root, "tools", "norma-oracle-tests", "absorption");
+            Func<string, Oracle.Run> at = name =>
+            {
+                List<string> dirs = Corpus.Directories("metamodel");
+                dirs.Add(Path.Combine(fixtures, name));
+                Oracle.Run r = Oracle.Execute(Oracle.Scratch("absorption", name), dirs);
+                Assert.True(Oracle.Crash(r.Output) == null, name + ": the oracle crashed: " + Oracle.Crash(r.Output));
+                return r;
+            };
+
+            // the default: no table of its own, and Function carries both the
+            // discriminator and the absorbed column
+            Dictionary<string, List<string>> absorbed = NormaTables(at("absorbed"));
+            Assert.False(absorbed.ContainsKey("Subscription"), "absorbed: Subscription should have no table of its own");
+            Assert.Contains("isSubscription", absorbed["Function"]);
+            Assert.Contains("subscriptionPlanCode", absorbed["Function"]);
+
+            // one sentence later: its own table, and Function carries neither
+            Dictionary<string, List<string>> separated = NormaTables(at("separated"));
+            Assert.True(separated.ContainsKey("Subscription"), "separated: Subscription should have its own table");
+            Assert.Equal(new[] { "subscriptionId", "planCode" }, separated["Subscription"]);
+            Assert.DoesNotContain("isSubscription", separated["Function"]);
+            Assert.DoesNotContain("subscriptionPlanCode", separated["Function"]);
+
+            // NORMA refuses Partition here, in its own words, and the run survives
+            Oracle.Run partitioned = at("partitioned");
+            Assert.Contains("ABSORPTION CHOICE REFUSED BY NORMA", partitioned.Output);
+            Assert.Contains("Partitioning requires an ExclusiveOr constraint between all subtypes", partitioned.Output);
+            Assert.False(NormaTables(partitioned).ContainsKey("Subscription"),
+                "partitioned: a refused choice must leave the default mapping standing");
         }
     }
 }
