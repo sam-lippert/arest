@@ -695,3 +695,4 @@ case:a-judgement-decides-what-was-unchecked	"(('Message 'm1' is natural.'), (('M
 case:an-obligation-nothing-violates-is-still-unchecked	"((), (), ('MessageIsNatural'), 'T')"
 case:a-constraint-awaiting-a-decider-is-unchecked	"((), (), ('de-arbitration-misstated'), 'T')"
 case:a-transition-performs-the-predicate-the-model-declares	"(('sendMail', 'r1', ('MailSent')))"
+case:file-is-not-a-tenant-but-a-sibling-store-is	"('support', 'engineering')"
