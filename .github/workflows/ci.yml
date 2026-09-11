@@ -1,36 +1,51 @@
-# CI for AREST — the 0.9.0 engine (engine/ is the codebase of record;
-# the old crates/ + TS orchestration retired 2026-07-08, ledger entry
-# "the old rust goes").
+# CI for AREST — the 0.9.0 engine.
 #
 # THE WALL IS THE GATE. A law is a canon DEF the mu applies ("THE LAWS AS
 # CANON", 2026-07-16: "a law written in a host IS the meaning-location
 # failure"), so the verification of record is canon's own law:report
-# evaluated over the composed store — not host test code. That gate had
-# never run in CI; the `wall` leg below is it.
+# evaluated over the composed store — not host test code.
 #
-# The `python` and `rust` legs are HOST TEST CODE and are therefore
-# scheduled for retirement, not extension. Each retires when its subject
-# lands in canon and the wall covers it. Do not add cases to them; add a
-# law to `law:report` in `arest` instead.
+# EACH HOST VERIFIES ITSELF, with its own toolchain and nothing else. They
+# assert against engine/shared/expected-cases.tsv rather than against each
+# other, so agreement is transitive through the golden and no host needs a
+# second one installed. A station that is missing prints SKIPPED, never a
+# pass.
 #
-# STATION PARITY IS NOW A MEASUREMENT (2026-08-06). js, java and cs each
-# evaluate all 53 laws over the base carriers and print BYTE-IDENTICAL
-# atoms (md5 1219ce08..., 1664 bytes, exit 0; js 49.7s / java 29.7s /
-# cs 80.1s). Previously java and cs ran >20 min without finishing: their
-# heads lacked both of the js head's evaluator optimizations (the
-# pure-application memo and FASTPRIMS' 14 compiled theta: cells). Controls
-# on the js station proved each necessary and neither sufficient; both are
-# now ported, and byte-identity is what certifies them as extensional
-# equals rather than semantics.
+# WHAT THIS FILE SAID BEFORE 2026-09-11, and why none of it could run. `delete
+# the fat hosts` (8cc259ca, 08-29) removed tools/rust-station and the python
+# suites, and this file was not read again, because it triggers on main alone
+# and the work has been on a branch since. So of six steps:
 #
-# ONE blocker remains before the host suites can go: there is no rust
-# station driving canon `main` (tools/rust-runner exists but is not wired
-# to the wall), so `cargo test` has no canon-side replacement yet.
-# Deleting the host suites before that holds would leave no verification.
+#   wall / java host    FAILED  — test.sh handed javac a POSIX jar path
+#   wall / rust host    FAILED  — tools/rust-station does not exist
+#   python (whole job)  FAILED  — all 14 test files it names are gone;
+#                                 engine/tests holds only __pycache__
+#   rust (whole job)    FAILED  — engine/rust does not exist
 #
-# The frozen worker surface (src/, wrangler) is deliberately NOT built
-# here: its wasm fed from the retired crates; the successor WASM path
-# builds from engine/rust when that rung starts (see the ledger).
+# The js and cs steps were the only two that could pass. A gate describing a
+# tree from August is not a gate, so this file now names what is here.
+#
+# THE GUI STATIONS ARE PART OF IT (Samuel, 2026-09-11: GUI runners should
+# work). Neither was compiled by anything in this repo: test.sh built
+# CasesTest alone, which reaches Arest and Reader and not Gui or Program, and
+# tools/wpf-runner appeared in no step at all. They both build today, but that
+# was a fact about the last person to run javac by hand. The java leg now
+# compiles every source in the runner, and the wpf container has a step of its
+# own — conditional, because it links iFactr.Wpf, iFactr.UI and MonoCross from
+# the iFactr-WPF repo BESIDE this one, which a CI checkout does not have.
+#
+# THE RUST STATION IS OWED, not quietly dropped. tools/rust-host is
+# tools/rust-station's successor and carries the tests
+# (every_case_answers_what_the_canon_says, the 19-refusal golden,
+# law_report_holds_byte_for_byte), but canon is compiled INTO it as rust
+# source and is 87% of the build: after a canon edit `cargo test --no-run` did
+# not finish in 560 s here (2026-09-11), and law_report_holds_byte_for_byte is
+# the open subject of the rust mu having none of the js host's strategies. A
+# leg that cannot be run is not a gate, so it returns when that build and that
+# law finish — and it is listed here so its absence is a debt rather than an
+# oversight.
+#
+# The frozen worker surface (src/, wrangler) is deliberately NOT built here.
 
 name: ci
 
@@ -45,75 +60,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The canon gate: canon judges, the harness only drives. Every verdict
-  # printed is a law's own atom, and the runner exits nonzero iff some
-  # law answered F (tail.part.js: `process.exit(out[1] === "T" ? 0 : 1)`).
+  # canon judges, the harness only drives. Every verdict printed is a law's
+  # own atom, and the runner exits nonzero iff some law answered F
+  # (tail.part.js: `process.exit(out[1] === "T" ? 0 : 1)`).
   wall:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      # java (compose.py needs python) and dotnet are preinstalled on
-      # windows-latest; a station that is missing prints SKIPPED, never a pass.
-      # EACH HOST VERIFIES ITSELF, with its own toolchain and nothing else.
-      # They assert against engine/shared/expected-cases.tsv rather than
-      # against each other, so agreement is transitive through the golden and
-      # no host needs a second one installed. Python is not in this job.
+      # java and dotnet are preinstalled on windows-latest.
       - name: js host
         shell: bash
         working-directory: tools/js-runner
         run: bun run build:test && bun test
-      - name: java host
+      # compiles Arest, Reader, Program, CasesTest AND Gui — the Swing
+      # container is gated here or nowhere
+      - name: java host and its GUI
         shell: bash
         run: sh tools/java-runner/test.sh
       - name: cs host
         shell: bash
         working-directory: tools/cs-runner-tests
         run: dotnet test --nologo -v q
-      - name: rust host
+      # the iFactr container. TWO of its inputs live OUTSIDE this repo: the
+      # references are DISTRIBUTION DLLs from the sibling iFactr-WPF repo, and
+      # ComposeCanon splices an app's checked carriers from ../apps/<app>/.check
+      # — and apps is a set of repos, one .git each. A CI checkout has neither,
+      # so this SKIPS and says so; a skip is never read as a pass.
+      #
+      # Its third carrier is a `journal`, and the csproj makes a missing one a
+      # BUILD ERROR. The journal is being retired (the js host already proves
+      # durability through store.db and never reads one), so this container
+      # stops building the day that lands. That is the port this station owes:
+      # Boot.cs folds the journal where the js host loads the tables, and its
+      # store:append registration writes bytes where emitToDb writes rows.
+      - name: wpf container
         shell: bash
-        working-directory: tools/rust-station
-        run: cargo test -- --test-threads=1
-
-  python:
-    runs-on: windows-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install pytest
-      - name: engine fast suites
-        working-directory: engine
-        run: >
-          python -m pytest
-          tests/test_scheduler_canon.py tests/test_classify_canon.py
-          tests/test_derive.py tests/test_rule_if.py
-          tests/test_rule_anaphora.py tests/test_rule_negation.py
-          tests/test_aggregates.py tests/test_derivation.py
-          tests/test_skolem_prim.py tests/test_skolem_head.py
-          tests/test_verb_parity.py tests/test_tutor_port.py
-          tests/test_select_component.py tests/test_shared_scenarios.py
-          -q
-
-  rust:
-    runs-on: windows-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            engine/rust/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('engine/rust/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-      - name: resident test suites
-        working-directory: engine/rust
-        run: cargo test
+        run: |
+          if [ -d ../iFactr-WPF ] && [ -d ../apps/tasks/.check ]; then
+            dotnet build tools/wpf-runner -v q --nologo
+          else
+            echo "SKIPPED: needs iFactr-WPF and apps/tasks/.check beside this repo"
+          fi
