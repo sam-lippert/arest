@@ -2212,8 +2212,51 @@ function run_mcp() {
   // would break the running app.
   const VERBS = Ev("mcp:verbs", CELLS);
   const VERB_NAMES = new Set(VERBS.map((v) => String(v[0])));
+  // AND THE COLLECTIONS BESIDE BOTH (Sam, 2026-09-11: an entity is like a
+  // complex sentence, where the atomic fact is like a simple sentence). The
+  // resource surface has taken an entity whole since 09-07 and the MCP had no
+  // way to address one, so an entity with three mandatory roles -- a Support
+  // Request -- was unwritable here however many single-fact calls you made.
+  // mcp:entities answers <tool name, table name, fields> where fields is
+  // ui:formfields, the same columns the screen's form shows, so the parameters
+  // are the model's and not a shape invented at this boundary.
+  const ENTITIES = Ev("mcp:entities", CELLS);
+  const ENTITY_OF = new Map(ENTITIES.map((e) => [String(e[0]), e]));
   // the admitted methods are canon's too -- http:method_kinds, not a constant
   const METHODS = Ev("http:method_kinds", []).map((m) => String(m[0]));
+
+  function entityFields(e) {
+    return Array.isArray(e[2]) ? e[2].map((f) => String(f[0])) : [];
+  }
+
+  function entityTools() {
+    return ENTITIES.map((e) => {
+      const table = String(e[1]);
+      const props = {
+        // POST is what this surface is for. GET is in the enum because the
+        // methods are canon's list and main:api takes a collection on any of
+        // them, but main:read_rows answers a collection's name with no rows
+        // today (measured on support: Plan and Error Code both empty, while
+        // PlanProduct answers because it is ALSO a fact type), so this does not
+        // promise a read it cannot give.
+        method: { type: "string", enum: METHODS,
+                  description: "POST creates one of these with its facts, whole" },
+        caller: { type: "string", description: "who is calling; gates which controls are shown" },
+        id: { type: "string", description: "the " + table + " this is about" },
+      };
+      // one parameter per column, named by the fact type and described by the
+      // role it fills -- a caller may send any subset, and the mandatory ones
+      // it leaves out are what the refusal will name back to it
+      for (const f of (Array.isArray(e[2]) ? e[2] : [])) {
+        props[String(f[0])] = { type: "string", description: String(f[1]) };
+      }
+      return {
+        name: String(e[0]),
+        description: table + " -- the whole entity in one command, validated once",
+        inputSchema: { type: "object", properties: props, required: ["method"] },
+      };
+    });
+  }
 
   function verbTools() {
     return VERBS.map((v) => ({
@@ -2229,7 +2272,7 @@ function run_mcp() {
   }
 
   function tools() {
-    return verbTools().concat(TOOLS.map((t) => {
+    return verbTools().concat(entityTools()).concat(TOOLS.map((t) => {
       // THE DESCRIPTION IS THE READING (Sam, 2026-09-10). It used to be
       // "fact type " + the id + the player list, on a comment claiming the
       // reading and the signature were the same row; `Message, Plan` is not
@@ -2290,12 +2333,31 @@ function run_mcp() {
     }
     const method = String(a.method || METHODS[0]);
     const before = method === "GET" ? null : popSnapshot(CELLS);
+    // AN ENTITY TOOL IS THE SAME ROUTE WITH THE COLLECTION'S BODY. The address
+    // main:api takes for a word in ui:groups is <id, fact type, value, fact
+    // type, value...> -- ui:create0's own, the one the screen's submit carries
+    // -- so the only work here is reading the named parameters back into that
+    // order. Canon decides the order (ui:formfields), canon decides the
+    // resource (the row's second element, the table's real name with its
+    // spaces), and a field the caller omitted is simply absent: the mandatory
+    // ones it left out come back as the refusal's violations rather than as an
+    // empty value the store would have to hold.
+    const ent = ENTITY_OF.get(String(name));
+    let resource = String(name);
+    let fact = Array.isArray(a.fact) ? a.fact : [];
+    if (ent) {
+      resource = String(ent[1]);
+      fact = a.id === undefined ? [] : [String(a.id)];
+      for (const ft of entityFields(ent)) {
+        if (a[ft] !== undefined) fact.push(ft, String(a[ft]));
+      }
+    }
     // no dispatch: the resource IS the fact type and the method IS the operation
     const out = Ev("mcp:call", [
       method,
-      String(name),
+      resource,
       String(a.caller || ""),
-      Array.isArray(a.fact) ? a.fact : [],
+      fact,
       CELLS,
     ]);
     // a POST answers a third part, the store it made; adopting it is what
