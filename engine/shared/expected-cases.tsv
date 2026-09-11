@@ -684,3 +684,4 @@ case:verbs-are-the-runnable-declared-operations	"(('v1', 'store', 'cell-list'))"
 
 case:verb-declared-to-take-the-populations	"'populations'"
 case:synthesize-separates-unchecked-from-violated	"(('Message 'm1' uses Dash '-'.'), (('MessageUsesDash', 'deontic', 'm1')), ('MessageIsNatural'), 'F')"
+case:a-judgement-decides-what-was-unchecked	"(('Message 'm1' is natural.'), (('MessageIsNatural', 'deontic', 'm2')), (), 'F')"
