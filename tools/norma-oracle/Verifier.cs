@@ -27,6 +27,13 @@ namespace Arest.NormaOracle
 		private readonly Dictionary<string, ObjectType> myTypes = new Dictionary<string, ObjectType>(StringComparer.Ordinal);
 		private readonly Dictionary<string, int> myCensus = new Dictionary<string, int>(StringComparer.Ordinal);
 		private readonly List<string> myUnrecognized = new List<string>();
+		// A HEAD SOME OF WHOSE RULES BUILT, BY NAME. `Message is delivered to
+		// Customer` has two rules and one path: the chat arm built, the support-request
+		// arm did not, and the head therefore DELIVERS -- for chat messages only,
+		// silently missing every email and dashboard request (support.auto.dev,
+		// 2026-09-10). The census skips any head that has a recipe, so a half-built
+		// head read as healthy in every count; this is what lets it be named.
+		private readonly Dictionary<string, string> myPartialHeads = new Dictionary<string, string>(StringComparer.Ordinal);
 		private readonly List<string> myMapLog = new List<string>();
 		private FactType myLastFact;
 		private List<Role> myLastRoles;
@@ -7725,6 +7732,7 @@ namespace Arest.NormaOracle
 				if (have < want)
 				{
 					unbuiltPartial++;
+					myPartialHeads[Spell(uE.Fact.Name)] = have + " of " + want + " rules built, so this head under-populates";
 					// a member the built registry does not hold IS the unbuilt one, and the arm
 					// that declined it said why; a member it holds built
 					string whyPartial;
@@ -14052,6 +14060,18 @@ namespace Arest.NormaOracle
 				int b = a < 0 ? -1 : pair.IndexOf('"', a + 3);
 				if (b <= a) continue;
 				string name = pair.Substring(a + 3, b - a - 3);
+				// A PARTIALLY BUILT HEAD IS NOT DELIVERED, it is delivered WRONG, and
+				// having a recipe is exactly what used to hide it: a `+` head delivers if
+				// ANY arm builds, so the broken arm never reached this census and the head
+				// read as healthy. Its population is missing the rows of every rule that
+				// did not build, which is a wrong answer wearing a right one's clothes.
+				string partial;
+				if (myPartialHeads.TryGetValue(name, out partial))
+				{
+					undelivered.Add("S2(" + IAtom(name) + ", " + IAtom(partial) + ")");
+					myMapLog.Add("UNDELIVERED (" + partial + "): " + name);
+					continue;
+				}
 				if (recipeHeadNames.Contains(name)) continue;
 				string why;
 				if (!whyByHead.TryGetValue(name, out why)) why = ruled.Contains(name) ? "no arm emitted a recipe" : "marked derived, no rule written";
