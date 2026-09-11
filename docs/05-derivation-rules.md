@@ -97,10 +97,11 @@ User accesses Domain. +
 + User accesses Domain if User owns Organization and App belongs to that Organization and Domain belongs to that App.
 + User accesses Domain if User administers Organization and App belongs to that Organization and Domain belongs to that App.
 + User accesses Domain if User belongs to Organization and App belongs to that Organization and Domain belongs to that App.
-+ User accesses Domain if Domain has Access 'public'.
 ```
 
-Four partial derivations unioned into the same consequent. Semi-derived because the access check fires whenever any one path holds; no single path is necessary.
+Three partial derivations unioned into the same consequent. Semi-derived because the access check fires whenever any one path holds; no single path is necessary.
+
+A fourth arm, `+ User accesses Domain if Domain has Access 'public'.`, stood here until 2026-09-10 and is the example of what a body may not do: it binds Domain and leaves the head's `User` role bound by no leg. Every role of the consequent must be bound by some leg of the antecedent, and a role you can only bind by pairing the whole population of one type with the whole population of another is telling you the fact belongs to one of them alone. Public access is a fact about the Domain; `Domain has Access` holds it, and a reader deciding visibility reads both populations.
 
 ### Arity (fully derived, aggregate)
 
