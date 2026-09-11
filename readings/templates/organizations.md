@@ -100,9 +100,10 @@ Domain has Access.
 <!-- Optional, not mandatory (2026-09-07): every domain in a composed
      closure is a Domain, the metamodel's own included, and `exactly one`
      made each of the 57 in support.auto.dev's closure an alethic violation
-     that refused every write. The derivation below already reads absence
-     as private: only a Domain with Access 'public' is accessed without
-     membership. -->
+     that refused every write. Absence reads as private: a Domain with no
+     Access value is not public. Access is read beside `User accesses
+     Domain` rather than folded into it -- see the note beside the
+     derivation rules. -->
 
 ## Value Types (continued)
 
@@ -138,7 +139,31 @@ If some User authenticates and that User has some Email and that User does not o
 + User accesses Domain if User owns Organization and App belongs to that Organization and Domain belongs to that App.
 + User accesses Domain if User administers Organization and App belongs to that Organization and Domain belongs to that App.
 + User accesses Domain if User belongs to Organization and App belongs to that Organization and Domain belongs to that App.
-+ User accesses Domain if Domain has Access 'public'.
+<!-- A FOURTH ARM, `+ User accesses Domain if Domain has Access 'public'.`,
+     stood here until 2026-09-10 and must not come back. Its body bound
+     Domain and left the head's User role bound by no leg, so the emitter
+     declined it ("a head role no leg binds") and three of this head's four
+     rules built: a public domain was accessed by nobody, silently, in every
+     app that composes this template. The census is what named it, in
+     support.auto.dev's closure on 2026-09-10: `3 of 4 rules built, so this
+     head under-populates`.
+
+     It cannot be repaired by binding User, because binding it IS the cross
+     product. `... if User has Email and Domain has Access 'public'` joins two
+     legs sharing no token, which the chain builder refuses as "a leg the
+     chain never reaches" -- the same deliberate guard the note beside `App
+     displays Object Type` records, where an unconstrained cartesian
+     OOM-crashed every app compile. Storing the product is wrong on its own
+     terms too: |User| x |public Domain| rows carry one bit of information
+     between them, and `Domain has Access 'public'` already carries it.
+
+     So public access is a fact about the Domain and stays one. Whoever asks
+     whether a caller may reach a domain has both bound and reads both
+     populations: membership here, openness in `Domain has Access`.
+     `Fact Type has Derivation Storage Type` (core.md) is where a
+     derived-on-query marking would live, but nothing in canon, the hosts or
+     the oracle populates or reads it, so asserting it here would be a fact
+     with no reader. -->
 
 + App navigates Domain if App has navigable Domain.
 <!-- The object types an app displays are those of the domains it navigates:
