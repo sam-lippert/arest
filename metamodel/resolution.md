@@ -91,6 +91,8 @@ Function 'derive' accepts Type Expression 'arguments-and-populations'.
 Function 'derive' yields Type Expression 'populations'.
 Function 'validate' accepts Type Expression 'descriptor-list'.
 Function 'validate' yields Type Expression 'violation-list'.
+Function 'verify' accepts Type Expression 'cells'.
+Function 'verify' yields Type Expression 'boolean'.
 <!-- MEASURED 2026-09-11, which is the condition the note these replace set.
      It said derive "reads its first element as a sequence, so it answers to
      <[], populations> and throws on the empty argument an address of one
@@ -116,6 +118,35 @@ Function 'validate' yields Type Expression 'violation-list'.
      than while building its operand. query is declared and its operand is
      built as declared; what it does with an empty recipe is a separate
      question this did not settle. -->
+<!-- AND THE THREE STILL UNDECLARED ARE UNDECLARED FOR A MEASURED REASON,
+     2026-09-11. explain, induce and retract have canon DEFs and are not on
+     the served surface, and the missing declaration is not what keeps them
+     off it. Each was asked on the base store for every operand the route
+     can build, with an empty argument and with a fact type's name:
+
+       explain  <[], anything>   throws, selector 1 out of range 0
+                <[name], pairs>  throws, selector 2 out of range 1
+       induce   <[], anything>   0 rows
+                <[name], pairs>  throws, selector 2 on atom
+       retract  <[], pairs>      247 rows, the populations unchanged
+                <[name], pairs>  throws, selector 1 on atom
+
+     So all three take a STRUCTURED argument -- explain a pair, induce a
+     pair of sequences, retract a sequence of rows -- and the route builds
+     its argument half out of the words of an address, which are atoms. No
+     declaration reaches them: the operand they want is not one an address
+     can spell. That is a question about the address, not about this file,
+     and it is why retract answering 247 rows to <[], pairs> is not enough
+     to declare it -- an empty retraction is the only call it could serve.
+
+     verify is the opposite and is declared above: `verify` IS law:all, it
+     takes the CELLS (answering 'T' on the base store, where store:state
+     raises `expected sequence, got atom`), and `cells` is an operand the
+     route already builds. It was off the surface only for want of the two
+     rows. Through the CLI it never reaches the route at all -- main's very
+     first arm matches the address <'verify'> and answers the law report --
+     but mcp:call goes through main:api, which has no mode chain, so this
+     is what puts it in mcp:verbs beside the other twelve. -->
 
 <!-- The REGISTERED class (Samuel, 2026-07-13): operations a host may serve
      through a registered function (kernel.register, origin=registered, the
