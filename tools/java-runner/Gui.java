@@ -62,7 +62,9 @@ public class Gui {
             Object[] od = (Object[]) Arest.Ev("ui:navpe", new Object[] { store, stacks, addr });
             store = (Object[]) od[0];
             stacks = od[1];
-            Arest.Ev("store:append", new Object[] { "journal", od[2] });
+            // od[2] IS the journal entry text and nothing writes it any more
+            // (2026-09-11). See the note on the removed registration below: this
+            // line threw on the FIRST navigation, before either pane rendered.
             Object masterPlaced = panePlaced("master", masterScroller);
             Object detailPlaced = panePlaced("detail", detailScroller);
             SwingUtilities.invokeLater(() -> {
@@ -208,7 +210,8 @@ public class Gui {
         Reader.load(Reader.path("AREST_CANON", "../../arest"));
         Reader.load(Reader.path("AREST_DESIGN_STATE", "../norma-oracle/design-state"));
         Reader.load(Reader.path("AREST_NORMA_ANSWER", "../norma-oracle/norma-answer"));
-        Reader.load(Reader.path("AREST_JOURNAL", "../norma-oracle/journal"));
+        // no journal here: it is not a carrier of this container any more, and
+        // ../norma-oracle/journal does not exist in this tree either.
         store = Arest.CELLS.toArray();
         Object[] style = (Object[]) Arest.Ev(
             new Object[] { "COMP", "theta:flatten", "ui:style" }, new Object[0]);
@@ -255,17 +258,38 @@ public class Gui {
             });
             return b;
         });
-        Arest.register("store:append", x -> {
-            Object[] p = (Object[]) x;
-            try {
-                java.nio.file.Files.write(
-                    java.nio.file.Paths.get("..", "..", "apps", "sherlock", (String) p[0]),
-                    ((String) p[1]).getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                    java.nio.file.StandardOpenOption.CREATE,
-                    java.nio.file.StandardOpenOption.APPEND);
-            } catch (java.io.IOException e) { throw new RuntimeException(e); }
-            return "T";
-        });
+        // THE ONE DURABLE WRITE IS GONE BECAUSE IT NEVER HAPPENED (Samuel,
+        // 2026-09-11: GUI runners should work; they can't be journal-bound).
+        // This registered store:append to append the entry to
+        // ../../apps/sherlock/journal while the boot above LOADED
+        // ../norma-oracle/journal -- two different files, so whatever it wrote
+        // its own boot could never read. NEITHER EXISTS, and both are fatal:
+        //
+        //   Reader.load throws `canon reader: cannot read` on a missing file,
+        //   so the container died in main() on the journal load, before a
+        //   window was ever shown;
+        //   and had it got past that, this write throws too -- measured today
+        //   by running the exact Files.write from this exact directory,
+        //   `NoSuchFileException: ..\..\apps\sherlock\journal`, because CREATE
+        //   makes a file and not a directory and arest/apps has never been in
+        //   this tree -- on EVERY navigation, before either pane rendered.
+        //
+        // It compiled, which is all anything here ever checked.
+        //
+        // Removing both is what makes the container RUN, and it loses nothing:
+        // the only sherlock/journal that exists anywhere -- Repos/apps/sherlock,
+        // which is where ../../apps resolves if you run from arest/tools rather
+        // than from here -- is ZERO BYTES. A write that has never landed under
+        // any reading of its own path is not durability. It also matches the js
+        // host, which registers store:append nowhere at all: the GUI containers
+        // were the only registrants left.
+        //
+        // WHAT REPLACES IT IS THE TABLES, and it is the next commit, not this
+        // one: the js host's popSnapshot/emitToDb pair reads store:fts and
+        // system:pop_rows -- both canon -- and writes the changed populations
+        // into store.db, which is what #108 means by the journal being retired.
+        // For this station that needs sqlite-jdbc, fetched the way test.sh
+        // already fetches the JUnit console launcher.
 
         SwingUtilities.invokeLater(() -> {
             // the frame names its tenant, like the root layer
