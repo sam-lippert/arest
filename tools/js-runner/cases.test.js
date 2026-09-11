@@ -12,8 +12,9 @@
 //
 //   bun run build:test && bun test
 import { expect, test, describe } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { Database } from "bun:sqlite";
 
 import "./cases.g.js";
@@ -126,6 +127,55 @@ test("canon's DDL is a database SQLite will accept", () => {
     expect(tables).toContain(String(name));
   }
   expect(tables.length).toBeGreaterThan(0);
+});
+
+// ---- IS A store.db A PROJECTION OF *THIS* MODULE? --------------------------
+//
+// tools/compile-store.js projects the booted populations into store.db and the
+// host boots serve and mcp from it, so the database is a projection of ONE
+// composition's canon and carriers. Nothing said which. Measured 2026-09-11:
+// the base store.db of 09-08 booted into the current module and `schema` threw
+// `selector 2 out of range 1` from inside the answer; a database rebuilt from
+// the same module answered byte-identically to a carriers boot. The stale one
+// differed only in lacking four fact types that had since become populated, so
+// no comparison of _meta against the module's own descriptors could have caught
+// it -- most declared fact types are unpopulated and have no table either.
+//
+// The test writes its own three databases rather than reading whatever store.db
+// is on disk: an artifact-shaped test skips when the artifact is missing, which
+// is a pass that answers nothing. These three are the whole rule.
+test("a store.db from another composition is refused rather than loaded", () => {
+  const stamp = globalThis.AREST.composition;
+  expect(stamp).toMatch(/^[0-9a-f]{16}$/);
+
+  const make = (hash) => {
+    const p = join(tmpdir(), "arest-stamp-" + Math.random().toString(36).slice(2) + ".db");
+    const db = new Database(p);
+    db.run("create table _meta (ft text, kind text, tbl text, arity int)");
+    if (hash !== null) {
+      db.run("create table _composition (hash text)");
+      db.prepare("insert into _composition values(?)").run(hash);
+    }
+    db.run("pragma wal_checkpoint(TRUNCATE)");
+    db.close();
+    return p;
+  };
+
+  const mine = make(stamp), other = make("0000deadbeef0000"), unstamped = make(null);
+  try {
+    // this module's own stamp loads; _meta is empty, so it reconstructs no cell
+    // and the store it was asked about is unchanged
+    const before = CELLS.length;
+    globalThis.AREST.loadStoreDb(mine);
+    expect(CELLS.length).toBe(before);
+    // any other answer is a refusal, and the ABSENCE of an answer is one too:
+    // a database written before the stamp existed cannot be shown to match, and
+    // falling back to the carriers would silently drop every write living in it
+    expect(() => globalThis.AREST.loadStoreDb(other)).toThrow(/was built from composition 0000deadbeef0000/);
+    expect(() => globalThis.AREST.loadStoreDb(unstamped)).toThrow(/predates the stamp/);
+  } finally {
+    for (const p of [mine, other, unstamped]) try { unlinkSync(p); } catch { /* left behind */ }
+  }
 });
 
 // ---- IS EACH CANON FILE STILL INTERSECTION SOURCE? -------------------------
