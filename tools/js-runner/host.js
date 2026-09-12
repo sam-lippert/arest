@@ -2191,7 +2191,26 @@ function run_ui() {
       const out = Ev("ui:navpe", [store, panes, address, ""]);
       store = out[0];
       panes = out[1];
-      if (store !== prior) emitToDb(before, store);
+      if (store !== prior) {
+        emitToDb(before, store);
+        // THE PERFORMER IS OFF UNLESS ASKED. A write that fires a declared
+        // transition can make an outbound call, and that must never become
+        // something a server starts doing because someone deployed it.
+        // AREST_PERFORM turns it on; AREST_PERFORM=dry resolves and records
+        // the call WITHOUT sending, which is how a new performer is exercised
+        // before a real inbox is. Nothing is asserted back here either way:
+        // the answer and its may-create ceiling are reported, and the
+        // assertion belongs where the store is written and can refuse it.
+        const mode = process.env.AREST_PERFORM;
+        if (mode) {
+          const opts = { secret: process.env.AREST_PERFORM_SECRET };
+          if (mode === 'dry')
+            opts.send = () => Promise.resolve({ status: 0, text: 'DRY RUN, nothing sent' });
+          performDeclared(prior, store, opts)
+            .then((r) => { for (const one of r) console.log('performed ' + JSON.stringify(one)); })
+            .catch((e) => console.log('performer failed: ' + String(e)));
+        }
+      }
       let body = "";
       for (const pane of panes) {
         const layer = Ev("ui:pane_view", [store, panes, pane[0]]);
