@@ -1983,7 +1983,62 @@ function run_test() {
   // the durability test runs the same three lines they do rather than a wrapper
   // that could drift from them: snapshot, evaluate, emit what changed.
   globalThis.AREST = { Ev: Ev, CELLS: CELLS, DEFS: DEFS, composition: COMPOSITION,
-    loadStoreDb: loadStoreDb, popSnapshot: popSnapshot, adoptStore: adoptStore, emitToDb: emitToDb };
+    loadStoreDb: loadStoreDb, popSnapshot: popSnapshot, adoptStore: adoptStore, emitToDb: emitToDb,
+    performDeclared: performDeclared };
+
+// THE PERFORMER, and it chooses NOTHING. Canon says what the call is --
+// perform:call_for the method and the address, perform:headers_of the headers
+// the backing External System declares with their values, perform:auth_header_of
+// which of them carries the credential, perform:body_of the JSON paths joined
+// from the entity's own facts -- and this makes it. No method, no path, no
+// header name and no field is decided here. If the model does not say it, it
+// does not go on the wire. That is the whole reason the last four commits were
+// metamodel and canon rather than a fetch with a hardcoded URL.
+//
+// A HOLE IS A REFUSAL, NOT A BLANK. main:performed answers <predicate, entity,
+// may-create>; if a declared JSON Path has no fact to fill it for that entity,
+// the call is NOT made. A send whose `to` is empty is a bug, and posting it to
+// find out is the expensive way to learn that. This is the enforcement half of
+// the law that is owed on perform:body_of.
+//
+// THE CEILING IS NOT ADVISORY. may-create is the set of Event Types the model
+// says this Predicate can create. The response is handed back with that set,
+// and a caller that asserts outside it is asserting something the model never
+// permitted -- which is a hole in Thm 1, not a convenience. This function does
+// not assert at all: it answers what was sent and what came back, and the
+// ceiling it came with, so the assertion happens where the store is written and
+// can be refused there.
+async function performDeclared(before, after, opts) {
+  const o = opts || {};
+  const send = o.send || ((m, a, h, b) => fetch(a, { method: m, headers: h, body: JSON.stringify(b) })
+    .then((r) => r.text().then((t) => ({ status: r.status, text: t }))));
+  const done = [];
+  let rows;
+  try { rows = Ev("main:performed", [before, after]); } catch (e) { return done; }
+  for (const row of (Array.isArray(rows) ? rows : [])) {
+    const predicate = String(row[0]);
+    const entity = String(row[1]);
+    const ceiling = (Array.isArray(row[2]) ? row[2] : []).map(String);
+    const call = Ev("perform:call_for", [predicate, after]);
+    const method = Array.isArray(call[0]) ? "" : String(call[0]);
+    const address = Array.isArray(call[1]) ? "" : String(call[1]);
+    if (!method || !address) { done.push({ predicate, entity, refused: "the model does not fully address this call" }); continue; }
+    const headers = {};
+    for (const h of Ev("perform:headers_of", [predicate, after])) headers[String(h[0])] = String(h[1]);
+    const auth = Ev("perform:auth_header_of", [predicate, after]);
+    if (!Array.isArray(auth) && o.secret) headers[String(auth)] = (headers[String(auth)] || "") + (headers[String(auth)] ? " " : "") + o.secret;
+    const body = {};
+    let hole = null;
+    for (const b of Ev("perform:body_of", [predicate, entity, after])) {
+      if (Array.isArray(b[1])) { hole = String(b[0]); break; }
+      body[String(b[0])] = String(b[1]);
+    }
+    if (hole) { done.push({ predicate, entity, refused: "declared path '" + hole + "' has no fact to fill it" }); continue; }
+    const answer = await send(method, address, headers, body);
+    done.push({ predicate, entity, method, address, sent: body, ceiling, answer });
+  }
+  return done;
+}
 
 }
 // A create ANSWERS a store. main:api returns <body, status, D-prime> for a
