@@ -1985,6 +1985,15 @@ function run_test() {
   globalThis.AREST = { Ev: Ev, CELLS: CELLS, DEFS: DEFS, composition: COMPOSITION,
     loadStoreDb: loadStoreDb, popSnapshot: popSnapshot, adoptStore: adoptStore, emitToDb: emitToDb,
     performDeclared: performDeclared };
+}
+// AND run_test CLOSES HERE, WHICH IS THE WHOLE BUG (2026-09-12). The performer
+// was declared INSIDE run_test, so only the test entry point could see it: the
+// servers reached the call site and threw ReferenceError, and the form path had
+// the same latent fault and had simply never been driven. In-process tests
+// passed throughout because importing cases.g.js RUNS run_test, which publishes
+// performDeclared on globalThis.AREST -- so the one harness that could see it
+// was the one that could not tell me it was unreachable from anywhere else.
+// Function declarations hoist, so the line above still binds it.
 
 // THE PERFORMER, and it chooses NOTHING. Canon says what the call is --
 // perform:call_for the method and the address, perform:headers_of the headers
@@ -2040,7 +2049,29 @@ async function performDeclared(before, after, opts) {
   return done;
 }
 
+// AND BOTH WRITE PATHS MUST ASK THE SAME WAY. This was wired into the form path
+// only, so the JSON API -- the path an app is actually driven through -- could
+// commit a fired transition and perform nothing, with no line either way. Four
+// configurations were run against it before the absence was traced to the code
+// not being there, which is the cost of a trigger that reports nothing when it
+// is not reached. THE PERFORMER STAYS OFF UNLESS ASKED: a write that fires a
+// declared transition can make an outbound call, and that must never become
+// something a server starts doing because someone deployed it. AREST_PERFORM
+// turns it on; AREST_PERFORM=dry resolves and records the call WITHOUT sending,
+// which is how a new performer is exercised before a real inbox is. Nothing is
+// asserted back either way -- the answer and its may-create ceiling are
+// reported, and the assertion belongs where the store is written and can refuse.
+function maybePerform(prior, after) {
+  const mode = process.env.AREST_PERFORM;
+  if (!mode || !prior || prior === after) return;
+  const opts = { secret: process.env.AREST_PERFORM_SECRET };
+  if (mode === "dry")
+    opts.send = () => Promise.resolve({ status: 0, text: "DRY RUN, nothing sent" });
+  performDeclared(prior, after, opts)
+    .then((r) => { for (const one of r) console.log("performed " + JSON.stringify(one)); })
+    .catch((e) => console.log("performer failed: " + String(e)));
 }
+
 // A create ANSWERS a store. main:api returns <body, status, D-prime> for a
 // transition and <body, status> for a read, because following a nav link makes
 // no new store. Adopting it is transport's business -- D is what this file
@@ -2095,10 +2126,16 @@ function run_serve() {
       const resource = decodeURIComponent(url.pathname.replace(/^\//, ""));
       const fact = await req.json().catch(() => []);
       const before = req.method === "GET" ? null : popSnapshot(CELLS);
+      // adoptStore mutates CELLS IN PLACE so the array identity survives, which
+      // means the pre-write store has to be copied out before the write or it is
+      // gone by the time anything can compare against it. A fresh array is also
+      // what makes main:performed evaluate: Ev memoises on the store REFERENCE.
+      const prior = req.method === "GET" ? null : CELLS.slice();
       const out = Ev("main:api", [CELLS, req.method, resource, caller, fact]);
       if (out.length > 2) {
         adoptStore(out[2]);
         if (before && Number(out[1]) < 400) emitToDb(before, CELLS);   // a refusal made no successor
+        if (prior && Number(out[1]) < 400) maybePerform(prior, CELLS);
       }
       return new Response(String(out[0]), {
         status: Number(out[1]) || 500,
@@ -2193,23 +2230,7 @@ function run_ui() {
       panes = out[1];
       if (store !== prior) {
         emitToDb(before, store);
-        // THE PERFORMER IS OFF UNLESS ASKED. A write that fires a declared
-        // transition can make an outbound call, and that must never become
-        // something a server starts doing because someone deployed it.
-        // AREST_PERFORM turns it on; AREST_PERFORM=dry resolves and records
-        // the call WITHOUT sending, which is how a new performer is exercised
-        // before a real inbox is. Nothing is asserted back here either way:
-        // the answer and its may-create ceiling are reported, and the
-        // assertion belongs where the store is written and can refuse it.
-        const mode = process.env.AREST_PERFORM;
-        if (mode) {
-          const opts = { secret: process.env.AREST_PERFORM_SECRET };
-          if (mode === 'dry')
-            opts.send = () => Promise.resolve({ status: 0, text: 'DRY RUN, nothing sent' });
-          performDeclared(prior, store, opts)
-            .then((r) => { for (const one of r) console.log('performed ' + JSON.stringify(one)); })
-            .catch((e) => console.log('performer failed: ' + String(e)));
-        }
+        maybePerform(prior, store);
       }
       let body = "";
       for (const pane of panes) {
