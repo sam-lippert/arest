@@ -707,3 +707,5 @@ case:a-request-body-is-joined-from-the-entitys-own-facts	"(('to', 'samuel@driv.l
 case:a-declared-path-the-entity-cannot-fill-is-a-hole-not-an-omission	"(('to', ()), ('subject', ()))"
 case:a-body-path-the-sender-carries-is-read-from-the-function	"(('subject', 'Auto.dev - Support'), ('to', 'samuel@driv.ly'))"
 case:the-entity-outranks-the-function-where-both-carry-a-path	"(('to', 'the entity is own'))"
+case:ask-selects-a-whole-population-by-name	"(('Beta', (('b1', 'y'), ('b2', 'z'))))"
+case:ask-on-a-name-no-population-carries-is-empty	"()"
