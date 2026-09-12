@@ -673,6 +673,31 @@ Function has Name.
   Each Function has at most one Name.
 Function has callback URI.
   Each Function has at most one callback URI.
+Function is called with HTTP Method.
+  Each Function is called with at most one HTTP Method.
+  <!-- THE PATH WITHOUT THE METHOD IS HALF AN ADDRESS. `Function has callback
+       URI` has been here since the connector work and says WHERE; nothing said
+       WITH WHAT, so a performer assembling the call had to choose POST in host
+       code, which is the one thing a host must never decide. Status has HTTP
+       Method already (state.md:59) for the route a lifecycle step answers on;
+       this is the same value type on the other side of the boundary, for the
+       call the store MAKES rather than the one it serves. At most one, because
+       a Function with two methods is two Functions.
+
+       AND IT IS `is called with`, NOT `has`, BECAUSE `has` STOLE. Written the
+       obvious way -- `Function has HTTP Method` -- this fact type captured
+       `Status 'deleted' has HTTP Method 'DELETE'` outright: Status is a subtype
+       of Function here, so the instance sentence matches both readings and the
+       newer one wins. StatusHasHTTPMethod went from its one row to EMPTY and
+       the oracle reported no errors; only reading the population showed it.
+       A different predicate cannot capture it, and it is the truer sentence
+       besides: a Status HAS the method it answers on, a Function IS CALLED WITH
+       the one that invokes it.
+
+       MEASURED 2026-09-12:
+       support's sendSupportEmail has callback URI '/emails' and External System
+       'resend' at https://api.resend.com, and the method was the only piece of
+       the line the model could not supply. -->
 Function has Header.
   Each Function has each Header at most once.
 FunctionHasHeader objectifies "Function has Header".
@@ -1048,6 +1073,23 @@ Object Type is backed by External System.
   Each Object Type is backed by at most one External System.
 Function is backed by External System.
   Each Function is backed by at most one External System.
+Function sends Fact Type with Role to JSON Path.
+  Each Function, Fact Type, Role combination occurs at most once.
+  It is possible that some Function sends more than one Fact Type.
+  It is possible that more than one Function sends the same Fact Type.
+  <!-- THE MIRROR OF ingest.md:49, WHICH HAD NO MIRROR. `Webhook Event Type
+       yields Fact Type with Role from JSON Path` says how an arriving payload
+       becomes facts; nothing said how facts become a LEAVING one, so a request
+       body could not be assembled from the model at all and every outbound call
+       had to carry its shape in host code.
+
+       THE OBLIGATION IS NOT MIRRORED, deliberately. Inbound, every Role of a
+       yielded Fact Type must be fillable or the fact cannot be built, and
+       ingest.md makes that obligatory. Outbound the opposite is normal: a call
+       sends ONE role of a fact type and leaves the rest -- `to` is filled from
+       the Email Address role of Support Request has Email Address and the
+       Support Request role is the subject being sent, not a field. Copying the
+       inbound constraint here would refuse every real request body. -->
 
 Object Type has URI.
   Each Object Type has at most one URI.
