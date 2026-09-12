@@ -705,3 +705,5 @@ case:a-call-carries-only-the-headers-of-the-system-that-backs-it	"(('Authorizati
 case:which-header-carries-the-credential-is-a-fact-not-a-guess	"'Authorization'"
 case:a-request-body-is-joined-from-the-entitys-own-facts	"(('to', 'samuel@driv.ly'), ('subject', 'Re: your request'))"
 case:a-declared-path-the-entity-cannot-fill-is-a-hole-not-an-omission	"(('to', ()), ('subject', ()))"
+case:a-body-path-the-sender-carries-is-read-from-the-function	"(('subject', 'Auto.dev - Support'), ('to', 'samuel@driv.ly'))"
+case:the-entity-outranks-the-function-where-both-carry-a-path	"(('to', 'the entity is own'))"
