@@ -40,7 +40,6 @@ public class ArestLayer : iLayer
                 var r = (object[])Arest.Ev("ui:applye",
                     new object[] { OracleHost.Store, addr });
                 OracleHost.Store = (object[])r[1];
-                Arest.Ev("store:append", new object[] { "journal", r[2] });
                 addr = (object[])r[0];
                 Console.Out.Write("fired; status in answer: "
                     + Arest.Ev("ui:status", new object[] {

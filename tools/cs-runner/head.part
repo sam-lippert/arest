@@ -7,7 +7,6 @@ public static partial class Arest
     static object ROOT;
     static object DS;
     static object NA;
-    static object J;
     // the shared case table, loaded as one more carrier so Program.cs stays
     // the six-line contract. Same binary as the laws: the case cells leave
     // law:report byte-identical (md5 1219ce08..., 53 laws).

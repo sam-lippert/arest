@@ -21,7 +21,7 @@
     <Reference Include="System.Configuration" />
   </ItemGroup>
   <Target Name="ComposeCanon" BeforeTargets="CoreCompile">
-    <Exec Command="cmd /c copy /b /y &quot;$(MSBuildProjectDirectory)\..\cs-runner\head.part&quot; + &quot;$(MSBuildProjectDirectory)\..\..\arest&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid1.part&quot; + &quot;$(CarrierDir)\design-state&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid2.part&quot; + &quot;$(CarrierDir)\norma-answer&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid3.part&quot; + &quot;$(CarrierDir)\journal&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid4.part&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\tail.part&quot; &quot;$(ComposedFile)&quot; &gt;nul" />
+    <Exec Command="cmd /c copy /b /y &quot;$(MSBuildProjectDirectory)\..\cs-runner\head.part&quot; + &quot;$(MSBuildProjectDirectory)\..\..\arest&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid1.part&quot; + &quot;$(CarrierDir)\design-state&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid2.part&quot; + &quot;$(CarrierDir)\norma-answer&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\tail.part&quot; &quot;$(ComposedFile)&quot; &gt;nul" />
     <ItemGroup><Compile Include="$(ComposedFile)" /></ItemGroup>
   </Target>
 </Project>

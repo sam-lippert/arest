@@ -26,9 +26,8 @@ public static class Program
         Reader.LoadCompiled(Reader.Path("AREST_COMPILED", "../norma-oracle/compiled"),
                             Reader.Path("AREST_DESIGN_STATE", "../norma-oracle/design-state"));
         Reader.LoadOptional(Reader.Path("AREST_OUTCOME", "../norma-oracle/outcome"));
-        Reader.LoadJournal(Reader.Path("AREST_JOURNAL", "../norma-oracle/journal"));
         // AND THE STORE IS BOOTED, not merely read: FILE projected, the
-        // meta-types reflected, the closure taken, the journal folded.
+        // meta-types reflected, the closure taken. No journal is folded.
         Arest.Boot();
         var outp = (object[])Arest.Ev("main", new object[] { Arest.CELLS.ToArray(), args.Cast<object>().ToArray() });
         Console.Out.Write((string)outp[0]);

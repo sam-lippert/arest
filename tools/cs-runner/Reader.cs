@@ -186,23 +186,6 @@ public static class Reader
         if (stamped == now) Load(path);
     }
 
-    // The journal is APPEND-ONLY and is a FRAGMENT: it opens with a comma and
-    // carries no parenthesis of its own, because every entry is appended bytes
-    // and never a rewrite. The js host splices it as CANON("journal", ...entries);
-    // wrapping it here is the same act in this reader's grammar.
-    public static void LoadJournal(string path)
-    {
-        if (!File.Exists(path) || new FileInfo(path).Length == 0) return;
-        var body = File.ReadAllBytes(path);
-        var open = System.Text.Encoding.UTF8.GetBytes("(\"journal\"");
-        var close = System.Text.Encoding.UTF8.GetBytes(")");
-        var src = new byte[open.Length + body.Length + close.Length];
-        Buffer.BlockCopy(open, 0, src, 0, open.Length);
-        Buffer.BlockCopy(body, 0, src, open.Length, body.Length);
-        Buffer.BlockCopy(close, 0, src, open.Length + body.Length, close.Length);
-        Parse(src, path);
-    }
-
     public static void Load(string path)
     {
         byte[] src;
