@@ -62,9 +62,8 @@ public class Gui {
             Object[] od = (Object[]) Arest.Ev("ui:navpe", new Object[] { store, stacks, addr });
             store = (Object[]) od[0];
             stacks = od[1];
-            // od[2] IS the journal entry text and nothing writes it any more
-            // (2026-09-11). See the note on the removed registration below: this
-            // line threw on the FIRST navigation, before either pane rendered.
+            // ui:navpe answers a PAIR now -- there is no third slot, because the
+            // journal is gone (Samuel, 2026-09-11). This station already ignored it.
             Object masterPlaced = panePlaced("master", masterScroller);
             Object detailPlaced = panePlaced("detail", detailScroller);
             SwingUtilities.invokeLater(() -> {
@@ -314,7 +313,7 @@ public class Gui {
             // carries the derived facts (Prop 3). Async - the pristine
             // store shows immediately, the fixed one swaps in.
             new Thread(() -> {
-                Object fixed = Arest.Ev("ui:boot", store);
+                Object fixed = ((Object[]) Arest.Ev("solve:fix", store))[0];
                 store = (Object[]) fixed;
                 navigate(new Object[0]);
             }).start();

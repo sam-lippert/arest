@@ -89,12 +89,13 @@ jobs:
       # — and apps is a set of repos, one .git each. A CI checkout has neither,
       # so this SKIPS and says so; a skip is never read as a pass.
       #
-      # Its third carrier is a `journal`, and the csproj makes a missing one a
-      # BUILD ERROR. The journal is being retired (the js host already proves
-      # durability through store.db and never reads one), so this container
-      # stops building the day that lands. That is the port this station owes:
-      # Boot.cs folds the journal where the js host loads the tables, and its
-      # store:append registration writes bytes where emitToDb writes rows.
+      # It used to have a THIRD carrier, a `journal`, and the csproj made a
+      # missing one a build error. The journal is gone (Samuel, 2026-09-11):
+      # the splice, the J field nothing read, and that Error condition are all
+      # out, and this container is verified to build against a carrier dir with
+      # no journal in it. What the station still owes is durability -- Boot.cs
+      # folded a journal where the js host loads the tables, and neither GUI
+      # writes rows the way emitToDb does.
       - name: wpf container
         shell: bash
         run: |

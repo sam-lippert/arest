@@ -45,10 +45,10 @@
     <!-- a carrier that is not there is a build error, never a silent omission -->
     <Error Condition="!Exists('$(CarrierDir)\design-state')" Text="no design-state in $(CarrierDir): run the app's check first" />
     <Error Condition="!Exists('$(CarrierDir)\norma-answer')" Text="no norma-answer in $(CarrierDir): run the app's check first" />
-    <Error Condition="!Exists('$(CarrierDir)\journal')" Text="no journal in $(CarrierDir): the js host writes one on the first submit; an empty file is a valid journal" />
-    <Exec Command="cmd /c copy /b /y &quot;$(MSBuildProjectDirectory)\..\cs-runner\head.part&quot; + &quot;$(MSBuildProjectDirectory)\..\..\arest&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid1.part&quot; + &quot;$(CarrierDir)\design-state&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid2.part&quot; + &quot;$(CarrierDir)\norma-answer&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid3.part&quot; + &quot;$(CarrierDir)\journal&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid4.part&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\tail.part&quot; &quot;$(ComposedFile)&quot; &gt;nul" />
-    <!-- the build records where it composed the carriers from, so the
-         container's one durable write (the journal) lands beside them -->
+    <Exec Command="cmd /c copy /b /y &quot;$(MSBuildProjectDirectory)\..\cs-runner\head.part&quot; + &quot;$(MSBuildProjectDirectory)\..\..\arest&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid1.part&quot; + &quot;$(CarrierDir)\design-state&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\mid2.part&quot; + &quot;$(CarrierDir)\norma-answer&quot; + &quot;$(MSBuildProjectDirectory)\..\cs-runner\tail.part&quot; &quot;$(ComposedFile)&quot; &gt;nul" />
+    <!-- the build records where it composed the carriers from. There is no
+         durable write beside them any more: the journal is gone (Samuel,
+         2026-09-11) and this station owes a write into the tables instead. -->
     <WriteLinesToFile File="$(OutDir)carriers.path" Lines="$(CarrierDir)" Overwrite="true" />
     <ItemGroup>
       <Compile Include="$(ComposedFile)" />

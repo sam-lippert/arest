@@ -39,11 +39,6 @@ public static partial class Arest
         LoadFile();
         LoadReflected();
         LoadDerived();
-        if (LoadJournal())
-        {
-            AdoptStore(Ev("main:refile", Cells()));
-            LoadDerived();
-        }
     }
 
     static void LoadFile()
@@ -114,29 +109,10 @@ public static partial class Arest
         return added;
     }
 
-    // ui:replay picks out the cells named journal:<n> and dispatches each on
-    // its verb. A store with no journal cells comes back unchanged -- canon
-    // answers the same object when a step changes nothing -- and neither this
-    // nor the refile after it costs anything.
-    static bool LoadJournal()
-    {
-        var before = Cells();
-        var outp = Ev("ui:replay", before);
-        if (ReferenceEquals(outp, before)) return false;
-        var arr = outp as object[];
-        if (arr == null || arr.Length == 0) return false;
-        int n = CELLS.Count(c => IsJournalCell(c));
-        CELLS.Clear();
-        CELLS.AddRange(arr);
-        MemoClear();
-        return n > 0;
-    }
-
-    static bool IsJournalCell(object c)
-    {
-        var a = c as object[];
-        return a != null && a.Length >= 2 && Name(a[1]).StartsWith("journal:", StringComparison.Ordinal);
-    }
+    // NO JOURNAL FOLD. The journal is gone (Samuel, 2026-09-11): boot is FILE,
+    // the reflected meta-types and the closure, and durability is the write into
+    // the tables. ui:replay and the journal: cell prefix this recognised are not
+    // in canon any more, so LoadJournal and IsJournalCell went with them.
 
     static void AdoptStore(object next)
     {

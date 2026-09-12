@@ -28,7 +28,7 @@ precisely how the last runners died.
 `regress` is law:regress_report over the run's own outcome (`state:built`,
 `state:errors`, `state:readback`: the carrier `outcome` the oracle writes
 beside `design-state` every run) and a recorded expectation composed in as
-the carrier `expected` (both optional, like `compiled` and `journal`;
+the carrier `expected` (both optional, like `compiled`;
 `AREST_OUT_DIR` puts the composed module beside them). The `regress` build
 mode composes canon with those two carriers and no schema, since the laws
 read nothing else and us-law's design-state took the host minutes to load
@@ -52,16 +52,15 @@ throws, Backus ⊥ on `tl`/`tlr`/`1r`/`INSERT` of the empty sequence).
 The compose step is byte concatenation; bun execs the composed file;
 nothing is read, eval'd, or interpreted at runtime.
 
-The fourth carrier is the JOURNAL (Def 6's emit leg): an append-only
-argument list whose open paren lives in `mid3.part.js` and whose close
-lives in `mid4.part.js`, so the journal file itself is nothing but
-appended entries — `,\n\nDEF("journal:n", address)` — and an empty
-journal is an empty file. Entries are written by the registered
-`store:append` (the one durable write a container owns); their bytes,
-names, and sequence are canon (`ui:jentry`, `ui:jname`, `ui:jcount`),
-and `ui:boot` replays the journal cells through `ui:apply`/`ui:create`
-in file order, so a fired transition survives recomposition — the
-continuity law, certified two boots at a time.
+THERE IS NO FOURTH CARRIER. A JOURNAL used to be one: an append-only
+argument list of `,\n\nDEF("journal:n", address)` entries written by a
+registered `store:append`, replayed at boot by `ui:boot` through
+`ui:apply`/`ui:create` in file order, so a fired transition survived
+recomposition. It is gone (Samuel, 2026-09-11) — eleven canon DEFs,
+the slot in `ui:navpe` that minted a `journal:<n>` cell on every write,
+and the `mid3.part.js`/`mid4.part.js` this paragraph named, which this
+station had already stopped composing. Continuity is the tables: a
+write emits into them through `emitToDb`, and boot reads them back.
 
 The certification story after the reset: the NORMA oracle remains the
 independent semantic anchor, and any second μ — a redeployed station

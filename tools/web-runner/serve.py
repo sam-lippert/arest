@@ -1,11 +1,17 @@
 # -*- coding: utf-8 -*-
-# The web station's server: static files plus the ONE durable write.
-# POST /append?d=<designation> appends the request body to the app's
-# carrier of that name - the worthy driver, network-shaped: the bytes,
-# their name, and their sequence are all canon's; this end holds the
-# platform's single irreducible act. Single-writer by usage.
+# The web station's server: static files, and nothing else.
+#
+# IT USED TO HOLD ONE WRITE. POST /append?d=<designation> appended the request
+# body to the app's carrier of that name, and it was the browser station's half
+# of the journal: the page evaluated ui:navpe, took the third slot, and posted
+# those bytes here. The journal is gone (Samuel, 2026-09-11), so nothing calls
+# it -- and an unauthenticated append-to-a-file endpoint with no caller is worse
+# than no endpoint, so it goes with its caller rather than waiting for one.
+#
+# What this station owes instead is what the GUI containers owe: a write into
+# the tables, the way the js host's emitToDb does it. Until then the page keeps
+# its store for the life of the tab.
 #   python serve.py [port] [appdir]        (default 8137, ../../apps/arest)
-import io
 import os
 import sys
 from http.server import SimpleHTTPRequestHandler, HTTPServer
@@ -14,26 +20,6 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8137
 APPDIR = os.path.abspath(sys.argv[2] if len(sys.argv) > 2
                          else os.path.join("..", "..", "apps", "arest"))
 
-class Handler(SimpleHTTPRequestHandler):
-    def do_POST(self):
-        if not self.path.startswith("/append"):
-            self.send_error(404)
-            return
-        d = "journal"
-        if "?d=" in self.path:
-            d = self.path.split("?d=", 1)[1]
-        if "/" in d or "\\" in d or ".." in d:
-            self.send_error(400)
-            return
-        n = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(n)
-        with io.open(os.path.join(APPDIR, d), "ab") as f:
-            f.write(body)
-        self.send_response(200)
-        self.send_header("Content-Length", "1")
-        self.end_headers()
-        self.wfile.write(b"T")
-
 if __name__ == "__main__":
-    print("serving on %d, appending into %s" % (PORT, APPDIR))
-    HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    print("serving on %d, files from %s" % (PORT, APPDIR))
+    HTTPServer(("127.0.0.1", PORT), SimpleHTTPRequestHandler).serve_forever()

@@ -166,15 +166,10 @@
     }
   }
 
-  // the storage surface: the one durable write, network-shaped - the
-  // page POSTs the canon's bytes to serve.py, which appends them to the
-  // app's journal; empty bytes never leave (the identity effect)
-  PRIMS.set("store:append", x => {
-    if (x[1] !== "")
-      fetch("/append?d=" + encodeURIComponent(x[0]),
-        { method: "POST", body: x[1], keepalive: true });
-    return "T";
-  });
+  // NO store:append. The journal is gone (Samuel, 2026-09-11), so this page
+  // POSTs nothing to serve.py and keeps its store for the life of the tab.
+  // Durability here is the same debt the GUI containers carry: a write into
+  // the tables, which this station does not do yet.
   // the clock: command addresses stamp their tau (Fact < Event, and
   // each Event occurred at exactly one Timestamp); ISO 8601 UTC to the
   // millisecond, the same bytes every host stamps for the same instant
@@ -184,7 +179,6 @@
     const od = Ev("ui:navpe", [store, stacks, addr]);
     store = od[0];
     stacks = od[1];
-    Ev("store:append", ["journal", od[2]]);
     renderPane("master");
     renderPane("detail");
   }
@@ -192,7 +186,7 @@
   if (typeof window === "undefined") {
     // worker context: the same composed bytes serve as the derivation
     // worker - same mu, same store; answer the fixed store on request
-    self.onmessage = () => { self.postMessage(Ev("ui:boot", CELLS.slice())); };
+    self.onmessage = () => { self.postMessage(Ev("solve:fix", CELLS.slice())[0]); };
     return;
   }
   window.addEventListener("load", () => {

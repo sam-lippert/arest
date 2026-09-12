@@ -60,20 +60,12 @@ public static class OracleHost
         Arest.Register("clock", x =>
             System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                 .ToString(System.Globalization.CultureInfo.InvariantCulture));
-        // the storage surface: the one durable write, and nothing else
-        Arest.Register("store:append", x =>
-        {
-            var p = (object[])x;
-            System.IO.File.AppendAllText(
-                System.IO.Path.Combine("..", "..", "apps", "sherlock", (string)p[0]),
-                (string)p[1]);
-            return "T";
-        });
+        // NO store:append: the journal is gone (Samuel, 2026-09-11).
         win.Dispatcher.BeginInvoke(new Action(() => iApp.Navigate("")));
         // browse the FIXED store: derive once (async), swap when done
         new System.Threading.Thread(() =>
         {
-            var fixedStore = (object[])Arest.Ev("ui:boot", Store);
+            var fixedStore = (object[])((object[])Arest.Ev("solve:fix", Store))[0];
             win.Dispatcher.BeginInvoke(new Action(() =>
             {
                 Store = fixedStore;

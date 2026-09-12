@@ -57,7 +57,6 @@ public static class Gui
         var od = (object[])Arest.Ev("ui:navpe", new object[] { store, stacks, addr });
         store = (object[])od[0];
         stacks = od[1];
-        Arest.Ev("store:append", new object[] { "journal", od[2] });
         renderPane("master", masterCanvas, masterScroller);
         renderPane("detail", detailCanvas, detailScroller);
     }
@@ -308,14 +307,12 @@ public static class Gui
         Arest.Register("clock", x =>
             System.DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
                 System.Globalization.CultureInfo.InvariantCulture));
-        Arest.Register("store:append", x =>
-        {
-            var p = (object[])x;
-            System.IO.File.AppendAllText(
-                System.IO.Path.Combine(carrierDir(), (string)p[0]),
-                (string)p[1]);
-            return "T";
-        });
+        // NO store:append. The journal is gone (Samuel, 2026-09-11), so this
+        // container no longer writes an entry file and no longer replays one at
+        // boot: what it loses is its OWN session restore, which nothing else read.
+        // Durability for this station is a write into the tables the way the js
+        // host does it (emitToDb), which needs Microsoft.Data.Sqlite and is not
+        // done here -- the deletion does not pretend to have delivered it.
     }
 
     // the carriers this build composed from: AREST_CARRIERS when set (the js
@@ -467,7 +464,7 @@ public static class Gui
             // (2026-09-07); the swapped store is read at the next navigation
             new System.Threading.Thread(() =>
             {
-                var fixedStore = (object[])Arest.Ev("ui:boot", store);
+                var fixedStore = (object[])((object[])Arest.Ev("solve:fix", store))[0];
                 win.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     store = fixedStore;
