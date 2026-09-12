@@ -699,10 +699,29 @@ Function is called with HTTP Method.
        support's sendSupportEmail has callback URI '/emails' and External System
        'resend' at https://api.resend.com, and the method was the only piece of
        the line the model could not supply. -->
-Function has Header.
-  Each Function has each Header at most once.
-FunctionHasHeader objectifies "Function has Header".
-FunctionHasHeader is a subtype of Function.
+Function sends Header.
+  Each Function sends each Header at most once.
+FunctionSendsHeader objectifies "Function sends Header".
+FunctionSendsHeader is a subtype of Function.
+  <!-- `has`, HERE, STOLE FROM External System. MEASURED 2026-09-12 on
+       support's corpus: FunctionHasHeader carried 16 rows and every subject
+       was an External System -- cornell-lii, congress-gov, auto.dev and the
+       rest, cross-checked against ExternalSystemHasURL -- while
+       ExternalSystemHasHeader carried NONE. External System is a subtype of
+       Function, both readings were `{0} has Header {1}`, and the general one
+       took every sentence the specific one was written for. Zero of those 16
+       rows was ever a fact about a Function, so this fact type has never held
+       its own population and nothing is lost by moving it off `has`.
+
+       THE SAME COLLISION AS `Function has HTTP Method` against `Status has
+       HTTP Method` the day before, and the same remedy: the specific subject
+       keeps the plain verb, the general one takes a predicate that cannot
+       capture. This one is worse only because nobody was watching -- the HTTP
+       Method theft was caught the hour it was written, and this had been
+       silently misfiling every connector's headers for as long as both
+       declarations have existed. It is why the Resend credential could not
+       reach the store, and why widening External System has Header to carry a
+       value changed nothing on its own. -->
 <!-- arest-batch ruling 2 (organizations-domain vocabulary, moved out):
 Function has Scope.
   Each Function has at most one Scope. -->
@@ -1066,10 +1085,15 @@ External System has URL.
   Each External System has exactly one URL.
 External System has Header.
   Each External System has each Header at most once.
-ExternalSystemHasHeader objectifies "External System has Header".
-ExternalSystemHasHeader is a subtype of Function.
-ExternalSystemHasHeader has Header Value.
-  Each ExternalSystemHasHeader has at most one Header Value.
+External System has Header with Header Value.
+  Each External System, Header combination occurs at most once in the population of External System has Header with Header Value.
+  <!-- A TERNARY, NOT AN OBJECTIFIED BINARY PLUS AN ATTRIBUTE, because the
+       Header Value is functionally dependent on the System and the Header
+       together, and because apps/connectors had ALREADY WRITTEN the ternary
+       sentence -- `External System 'resend' has Header 'Authorization' with
+       Header Value 'Bearer'` -- before any of this was declared. The model
+       should hold the sentence a reader naturally wrote, not make the corpus
+       restate it in two. -->
 External System authenticates with Header.
   Each External System authenticates with at most one Header.
   <!-- A SYSTEM HAS MORE THAN ONE HEADER AND THEY CARRY VALUES, which this could
