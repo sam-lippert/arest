@@ -395,3 +395,5 @@ Function 'crypt:encrypt' yields Type Expression 'ciphertext'.
 Function 'crypt:decrypt' has Definition Origin 'registered'.
 Function 'crypt:decrypt' accepts Type Expression 'key-and-ciphertext'.
 Function 'crypt:decrypt' yields Type Expression 'text'.
+Function 'crypt:encrypt' is inverted by Function 'crypt:decrypt'.
+Function 'crypt:decrypt' is inverted by Function 'crypt:encrypt'.
