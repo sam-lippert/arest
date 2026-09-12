@@ -1710,6 +1710,30 @@ Object Type has Precision.
 Object Type has Scale.
   Each Object Type has at most one Scale.
 
+<!-- THE VALUE TYPE DECLARES ITS OWN CIPHER (Samuel, 2026-09-11: .env should
+     read as encrypted fields, and it is the value type for whatever the secret
+     is that declares it as using an encrypt/decrypt function). This is the
+     Connector move one level down — federation.md's note that a Fetcher and a
+     Translator "are DEFINITION NAMES resolved by rho at fetch time, so swapping
+     an implementation is a data edit". A value type that names its cipher is
+     ciphertext at rest everywhere it is carried, without a single consumer
+     knowing, and swapping AES for a KMS handle is an instance fact.
+
+     THE DECRYPT IS DELIBERATELY NOT DECLARED. resolution.md:392-397 already
+     states that crypt:encrypt yields 'ciphertext' and crypt:decrypt accepts
+     'key-and-ciphertext', so the inverse of an encryption is the Function whose
+     accepts-type matches what it yields. One link gives the pair and cannot be
+     mismatched; two independent links could name an encrypt and a decrypt that
+     are not each other's inverse, and nothing would catch it.
+
+     The key is NOT here and must not be: a key in the store defeats the store
+     being encrypted. AREST.tex puts it outside — "external identity,
+     authorization, and transport controls remain deployment concerns" — so one
+     key reaches the host from its deployment and every other secret is a fact. -->
+Object Type is encrypted with Function.
+  Each Object Type is encrypted with at most one Function.
+  It is possible that more than one Object Type is encrypted with the same Function.
+
 Conceptual Data Type has JSON Type.
   Each Conceptual Data Type has exactly one JSON Type.
 
@@ -1745,6 +1769,22 @@ Format has Pattern.
        as `pattern`; absent when the Format imposes no lexical shape. -->
 
 ## Instance Facts
+
+### Ciphers
+
+<!-- The one value type that is ciphertext at rest, and the reason the seam
+     stopped being a false row. A DomainConnectsToExternalSystem carries at most
+     one Secret Reference (core.md:1039); with this fact the value it carries is
+     encrypted, so the connection facts can live in a readings file the oracle
+     reads and in git instead of a gitignored .env that no store ever sees.
+
+     MEASURED on support.auto.dev the day before this landed. Its .env is
+     already FORML -- `Domain ...` and `DomainConnectsToExternalSystem ...`
+     sentences, not shell assignments -- and `.env` is the first line of that
+     repo's .gitignore and sits in no readings directory, so the oracle never
+     reads it and DomainConnectsToExternalSystem answers 0 rows. The sentences
+     were written; nothing could ever see them. -->
+Object Type 'Secret Reference' is encrypted with Function 'crypt:encrypt'.
 
 ### Constraint Types
 
