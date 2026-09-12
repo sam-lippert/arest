@@ -696,3 +696,6 @@ case:an-obligation-nothing-violates-is-still-unchecked	"((), (), ('MessageIsNatu
 case:a-constraint-awaiting-a-decider-is-unchecked	"((), (), ('de-arbitration-misstated'), 'T')"
 case:a-transition-performs-the-predicate-the-model-declares	"(('sendMail', 'r1', ('MailSent')))"
 case:file-is-not-a-tenant-but-a-sibling-store-is	"('support', 'engineering')"
+case:a-secret-reference-decrypts-with-the-function-its-type-names	"'s3cr3t'"
+case:a-value-whose-type-names-no-cipher-is-read-unchanged	"'visible'"
+case:an-encryption-whose-function-has-no-inverse-cannot-be-read-back	"'F'"
