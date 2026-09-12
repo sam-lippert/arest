@@ -81,7 +81,7 @@ Function 'propose' accepts Type Expression 'store'.
 Function 'propose' yields Type Expression 'descriptor-list'.
 Function 'get' accepts Type Expression 'name-and-store'.
 Function 'get' yields Type Expression 'entity-view'.
-Function 'ask' accepts Type Expression 'name-and-store'.
+Function 'ask' accepts Type Expression 'arguments-and-populations'.
 Function 'ask' yields Type Expression 'filtered-population'.
 Function 'query' accepts Type Expression 'recipe-and-populations'.
 Function 'query' yields Type Expression 'rows'.
