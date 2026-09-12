@@ -750,6 +750,27 @@ Function yields Type Expression.
        Origin; population arrives with the canon manifest (the rebuild's
        SALVAGE transcribed dom/cod for the five boundary primitives). -->
 
+Function is inverted by Function.
+  Each Function is inverted by at most one Function.
+  <!-- THE PAIR IS A FACT ABOUT THE FUNCTIONS, NOT A CONVENTION OVER THEIR
+       TYPE EXPRESSIONS. Samuel, 2026-09-11, named `an encrypt/decrypt
+       function` -- a pair -- and `Object Type is encrypted with Function`
+       below names only one end of it, so the other end has to be findable.
+       The first attempt said it already was: the inverse of an encryption
+       is the Function whose accepts-type is what it yields. MEASURED, that
+       resolves to nothing. crypt:encrypt yields `ciphertext`, crypt:decrypt
+       accepts `key-and-ciphertext`, and NO Function in the model accepts
+       `ciphertext`; `key-and-` occurs on 2 of the 112 accepts/yields rows,
+       which is two functions agreeing, not a convention. Matching them
+       would mean canon taking a prefix off an identifier to discover a
+       fact -- grepping a name for something the model should say.
+
+       NO RING CONSTRAINT, and both are deliberate. Irreflexive would be
+       false: an involution is its own inverse. Symmetric would be true and
+       the oracle reads no symmetric ring (Irreflexive, Asymmetric and
+       Transitive are the three it knows), so the honest substitute is to
+       assert both rows and let the at-most-one keep each end single. -->
+
 Implementation is a value type.
   The data type of Implementation is text.
 Function has Implementation.
@@ -1719,12 +1740,15 @@ Object Type has Scale.
      ciphertext at rest everywhere it is carried, without a single consumer
      knowing, and swapping AES for a KMS handle is an instance fact.
 
-     THE DECRYPT IS DELIBERATELY NOT DECLARED. resolution.md:392-397 already
-     states that crypt:encrypt yields 'ciphertext' and crypt:decrypt accepts
-     'key-and-ciphertext', so the inverse of an encryption is the Function whose
-     accepts-type matches what it yields. One link gives the pair and cannot be
-     mismatched; two independent links could name an encrypt and a decrypt that
-     are not each other's inverse, and nothing would catch it.
+     ONE END, AND THE PAIR LIVES ON THE FUNCTIONS. Only the encryption is
+     named here, because a second link on the Object Type could name an encrypt
+     and a decrypt that are not each other's inverse and nothing would catch it.
+     The first version of this comment claimed the decrypt needed no declaring
+     at all, being the Function whose accepts-type is what the encrypt yields;
+     that was measured false the same day (crypt:encrypt yields 'ciphertext',
+     crypt:decrypt accepts 'key-and-ciphertext', and no Function accepts
+     'ciphertext'), so `Function is inverted by Function` carries the pair --
+     one fact, on the two definitions it is actually about.
 
      The key is NOT here and must not be: a key in the store defeats the store
      being encrypted. AREST.tex puts it outside — "external identity,
