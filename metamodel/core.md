@@ -329,6 +329,7 @@ URI is a value type.
 Prefix is a value type.
   The data type of Prefix is text.
 Header is a value type.
+Header Value is a value type.
   The data type of Header is text.
 Kind is a value type.
   The data type of Kind is text.
@@ -779,7 +780,7 @@ Function is inverted by Function.
   Each Function is inverted by at most one Function.
   <!-- THE PAIR IS A FACT ABOUT THE FUNCTIONS, NOT A CONVENTION OVER THEIR
        TYPE EXPRESSIONS. Samuel, 2026-09-11, named `an encrypt/decrypt
-       function` -- a pair -- and `Object Type is encrypted with Function`
+       function` -- a pair -- and `Object Type is stored through Function`
        below names only one end of it, so the other end has to be findable.
        The first attempt said it already was: the inverse of an encryption
        is the Function whose accepts-type is what it yields. MEASURED, that
@@ -1064,7 +1065,32 @@ It is impossible that some Derivation Rule introduces values and that Derivation
 External System has URL.
   Each External System has exactly one URL.
 External System has Header.
-  Each External System has at most one Header.
+  Each External System has each Header at most once.
+ExternalSystemHasHeader objectifies "External System has Header".
+ExternalSystemHasHeader is a subtype of Function.
+ExternalSystemHasHeader has Header Value.
+  Each ExternalSystemHasHeader has at most one Header Value.
+External System authenticates with Header.
+  Each External System authenticates with at most one Header.
+  <!-- A SYSTEM HAS MORE THAN ONE HEADER AND THEY CARRY VALUES, which this could
+       not say. It was a binary with `at most one` and no Header Value type
+       existed, so apps/connectors wrote what it needed anyway --
+       `External System 'resend' has Header 'Authorization' with Header Value
+       'Bearer'` plus a User-Agent and an `authenticates via` line -- and ALL
+       THREE fell through silently. MEASURED 2026-09-12 on support's built
+       store: ExternalSystemHasHeader 0 rows, and neither
+       ExternalSystemHasHeaderWithHeaderValue nor
+       ExternalSystemAuthenticatesViaHeader existed as a fact type at all. The
+       oracle reported no errors. This is the same shape as the unquoted
+       rotation limit and `Resource (.Name)` with a space: well-formed English
+       the model cannot hold.
+
+       OBJECTIFIED THE WAY `Function has Header` ALREADY IS, so the value hangs
+       off the header rather than becoming a third role, and the authenticating
+       header is named separately because WHICH header carries the credential is
+       not something a caller should infer from the name. `with`, not `via`,
+       because `Customer authenticates via Cookie Name` already exists and the
+       lesson of this week is that a shared predicate steals. -->
 External System has Prefix.
   Each External System has at most one Prefix.
 External System has Kind.
@@ -1773,7 +1799,19 @@ Object Type has Precision.
 Object Type has Scale.
   Each Object Type has at most one Scale.
 
-<!-- THE VALUE TYPE DECLARES ITS OWN CIPHER (Samuel, 2026-09-11: .env should
+<!-- A VALUE TYPE DECLARES THE FUNCTION IT IS STORED THROUGH, and encryption is
+     one instance of that rather than the mechanism itself. Samuel, 2026-09-12:
+     `'filter' I guess was me being colorful about the projection done by the
+     hook. Let's get the generic in place and replace the previous encryption
+     reading with wiring up the generic.` The Function runs on the way to
+     STORAGE; `Function is inverted by Function` gives the way back; a type
+     whose Function declares no inverse reads as itself, which is how a ONE-WAY
+     store -- hashing, redaction, normalisation -- falls out with no second fact
+     type. NOT named a projection: Role Projection is already a distinct concept
+     here, and a second meaning for one word is the collision `has HTTP Method`
+     just cost us.
+
+     ORIGINALLY WRITTEN AS ENCRYPTION (Samuel, 2026-09-11: .env should
      read as encrypted fields, and it is the value type for whatever the secret
      is that declares it as using an encrypt/decrypt function). This is the
      Connector move one level down — federation.md's note that a Fetcher and a
@@ -1796,9 +1834,9 @@ Object Type has Scale.
      being encrypted. AREST.tex puts it outside — "external identity,
      authorization, and transport controls remain deployment concerns" — so one
      key reaches the host from its deployment and every other secret is a fact. -->
-Object Type is encrypted with Function.
-  Each Object Type is encrypted with at most one Function.
-  It is possible that more than one Object Type is encrypted with the same Function.
+Object Type is stored through Function.
+  Each Object Type is stored through at most one Function.
+  It is possible that more than one Object Type is stored through the same Function.
 
 Conceptual Data Type has JSON Type.
   Each Conceptual Data Type has exactly one JSON Type.
@@ -1850,7 +1888,7 @@ Format has Pattern.
      repo's .gitignore and sits in no readings directory, so the oracle never
      reads it and DomainConnectsToExternalSystem answers 0 rows. The sentences
      were written; nothing could ever see them. -->
-Object Type 'Secret Reference' is encrypted with Function 'crypt:encrypt'.
+Object Type 'Secret Reference' is stored through Function 'crypt:encrypt'.
 
 ### Constraint Types
 
