@@ -399,6 +399,44 @@ const PRIMS = new Map(Object.entries({
   // hosts that used to supply it are deleted, so the thin host registers it:
   // ISO 8601 in UTC, the one shape every host can stamp identically.
   "clock": x => new Date().toISOString(),
+  // crypt:encrypt / crypt:decrypt are REGISTERED, and until now they were a
+  // FALSE ROW IN THE ENUMERABLE BOUNDARY -- declared in resolution.md on the
+  // 2026-07-20 hooks ruling ("the core carries the named seam, a host
+  // registers real platform crypto only when a domain's data types demand
+  // it"), with accepts/yields stated, and implemented by nobody. That is the
+  // exact defect the 08-12 note six lines above them diagnoses for
+  // store:append: "it claimed a host capability that did not exist", and Cor 6
+  // is meant to be the honest list of where unverified computation enters.
+  // store:append was deleted because canon already carried ast:Store and
+  // nothing needed it. These are the other resolution: Samuel, 2026-09-11, the
+  // value type for a secret declares the encrypt/decrypt function it uses, so
+  // a domain's data types now demand it and the claim becomes true.
+  //
+  // AES-256-GCM because the answer must be one TEXT ATOM -- the mu has no byte
+  // type -- so the iv and the auth tag ride inside it: base64 of iv(12) ||
+  // tag(16) || ciphertext, which decrypt splits back out. The key is any text
+  // and is hashed to the 32 bytes the cipher needs, so a passphrase and a
+  // generated key are both usable and neither is truncated silently. GCM
+  // rather than CBC so a tampered ciphertext FAILS rather than decrypting to
+  // rubbish: an unregistered hook refuses loudly through the mu, and a
+  // registered one should refuse just as loudly on a bad answer.
+  "crypt:encrypt": x => {
+    const { createCipheriv, createHash, randomBytes } = require("node:crypto");
+    const key = createHash("sha256").update(String(at(x, 0))).digest();
+    const iv = randomBytes(12);
+    const c = createCipheriv("aes-256-gcm", key, iv);
+    const body = Buffer.concat([c.update(String(at(x, 1)), "utf8"), c.final()]);
+    return Buffer.concat([iv, c.getAuthTag(), body]).toString("base64");
+  },
+  "crypt:decrypt": x => {
+    const { createDecipheriv, createHash } = require("node:crypto");
+    const key = createHash("sha256").update(String(at(x, 0))).digest();
+    const all = Buffer.from(String(at(x, 1)), "base64");
+    if (all.length < 28) throw new Error("crypt:decrypt on a ciphertext shorter than its iv and tag");
+    const d = createDecipheriv("aes-256-gcm", key, all.subarray(0, 12));
+    d.setAuthTag(all.subarray(12, 28));
+    return Buffer.concat([d.update(all.subarray(28)), d.final()]).toString("utf8");
+  },
 }));
 
 // ---- the mu: atoms resolve through DEFS then the primitives, numbers are
