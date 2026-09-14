@@ -2028,14 +2028,34 @@ async function performDeclared(before, after, opts) {
     const predicate = String(row[0]);
     const entity = String(row[1]);
     const ceiling = (Array.isArray(row[2]) ? row[2] : []).map(String);
+    // WHETHER THIS CALL GOES OUT IS READ FROM ITS OWN CONNECTION. Absent means
+    // the connection is not performed at all, which is the safe default and needs
+    // no row; 'dry' resolves the whole call and records what it WOULD send.
+    const modeRaw = Ev("perform:send_mode_of", [predicate, after]);
+    const mode = Array.isArray(modeRaw) ? "" : String(modeRaw);
+    if (!mode) { done.push({ predicate, entity, refused: "this connection declares no Send Mode, so it is not performed" }); continue; }
     const call = Ev("perform:call_for", [predicate, after]);
     const method = Array.isArray(call[0]) ? "" : String(call[0]);
     const address = Array.isArray(call[1]) ? "" : String(call[1]);
     if (!method || !address) { done.push({ predicate, entity, refused: "the model does not fully address this call" }); continue; }
     const headers = {};
     for (const h of Ev("perform:headers_of", [predicate, after])) headers[String(h[0])] = String(h[1]);
+    // THE CREDENTIAL COMES FROM THE CONNECTION, DECRYPTED HERE AND NOWHERE ELSE.
+    // perform:secret_of answers the ciphertext exactly as stored -- canon never
+    // sees the plaintext -- and hook:read applies whatever Function the Object
+    // Type is stored through in reverse, given the master key the boundary holds.
+    // An unmarked type passes through unchanged, so a store that keeps its
+    // credential in the clear still works and simply declares no marking.
     const auth = Ev("perform:auth_header_of", [predicate, after]);
-    if (!Array.isArray(auth) && o.secret) headers[String(auth)] = (headers[String(auth)] || "") + (headers[String(auth)] ? " " : "") + o.secret;
+    let secret = "";
+    if (!Array.isArray(auth)) {
+      const cipher = Ev("perform:secret_of", [predicate, after]);
+      if (!Array.isArray(cipher)) {
+        const plain = Ev("hook:read", [String(o.master || ""), "Secret Reference", String(cipher), after]);
+        secret = Array.isArray(plain) ? "" : String(plain);
+      }
+    }
+    if (!Array.isArray(auth) && secret) headers[String(auth)] = (headers[String(auth)] || "") + (headers[String(auth)] ? " " : "") + secret;
     const body = {};
     let hole = null;
     for (const b of Ev("perform:body_of", [predicate, entity, after])) {
@@ -2043,7 +2063,15 @@ async function performDeclared(before, after, opts) {
       body[String(b[0])] = String(b[1]);
     }
     if (hole) { done.push({ predicate, entity, refused: "declared path '" + hole + "' has no fact to fill it" }); continue; }
-    const answer = await send(method, address, headers, body);
+    // A DRY STUB MUST LOOK LIKE THE REAL ANSWER OR IT PROVES HALF THE LOOP. The
+    // first version answered plain text, which is not JSON, so the response
+    // projection found nothing and reported no asserts -- and "no asserts" would
+    // have read as `the model yields nothing here` when it actually meant `my own
+    // stub said nothing`. Absence caused by the harness is not evidence. The id is
+    // visibly fake so a dry assert can never be mistaken for a real receipt.
+    const answer = mode === "live" || o.send
+      ? await send(method, address, headers, body)
+      : { status: 0, text: JSON.stringify({ id: "dry-run-not-sent" }) };
     // WHAT THE ANSWER PRODUCES IS DECLARED, AND THE CEILING STILL DECIDES.
     // perform:yields_of gives the <JSON Path, Fact Type, Role> triples this
     // Function's response fills and perform:subject_of says WHO they are about
@@ -2084,18 +2112,27 @@ async function performDeclared(before, after, opts) {
 // not being there, which is the cost of a trigger that reports nothing when it
 // is not reached. THE PERFORMER STAYS OFF UNLESS ASKED: a write that fires a
 // declared transition can make an outbound call, and that must never become
-// something a server starts doing because someone deployed it. AREST_PERFORM
-// turns it on; AREST_PERFORM=dry resolves and records the call WITHOUT sending,
-// which is how a new performer is exercised before a real inbox is. Nothing is
-// asserted back either way -- the answer and its may-create ceiling are
-// reported, and the assertion belongs where the store is written and can refuse.
+// something a server starts doing because someone deployed it. What ASKS is now
+// a fact -- `DomainConnectsToExternalSystem has Send Mode`, read per predicate
+// inside performDeclared, absent meaning not performed at all -- and no longer
+// AREST_PERFORM, which this comment described until 2026-09-14 and which would
+// have gone on describing it. Nothing is asserted back either way: the answer
+// and its may-create ceiling are reported, and the assertion belongs where the
+// store is written and can refuse.
 function maybePerform(prior, after) {
-  const mode = process.env.AREST_PERFORM;
-  if (!mode || !prior || prior === after) return;
-  const opts = { secret: process.env.AREST_PERFORM_SECRET };
-  if (mode === "dry")
-    opts.send = () => Promise.resolve({ status: 0, text: "DRY RUN, nothing sent" });
-  performDeclared(prior, after, opts)
+  if (!prior || prior === after) return;
+  // THE ARMING IS A FACT, NOT AN ENVIRONMENT KEY (2026-09-14). AREST_PERFORM and
+  // AREST_PERFORM_SECRET are gone: `DomainConnectsToExternalSystem has Send Mode`
+  // says whether a connection is live, and the connection carries its own
+  // credential. The decision is PER PREDICATE and therefore per connection, so it
+  // is made inside performDeclared against the store rather than once out here
+  // against the process -- a store may connect to two systems and be permitted to
+  // call one of them.
+  //
+  // THE MASTER KEY IS THE ONE THING THAT CANNOT BE A FACT, because it is what
+  // decrypts the credential the store holds. It stays in the environment and is
+  // passed in, which is the shape hook:read already had before it had a caller.
+  performDeclared(prior, after, { master: process.env.AREST_MASTER_KEY })
     .then((r) => { for (const one of r) console.log("performed " + JSON.stringify(one)); })
     .catch((e) => console.log("performer failed: " + String(e)));
 }
