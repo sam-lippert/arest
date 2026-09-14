@@ -1123,6 +1123,32 @@ Object Type is backed by External System.
   Each Object Type is backed by at most one External System.
 Function is backed by External System.
   Each Function is backed by at most one External System.
+Function yields Fact Type with Role from JSON Path.
+  Each Function, Fact Type, Role combination occurs at most once in the population of Function yields Fact Type with Role from JSON Path.
+  It is possible that some Function yields more than one Fact Type.
+  It is possible that more than one Function yields the same Fact Type.
+  <!-- THE RESPONSE HAD NOWHERE TO LAND. `Webhook Event Type yields Fact Type
+       with Role from JSON Path` (ingest.md:49) covers a payload that ARRIVES
+       unbidden; `Function sends ... to JSON Path` above covers the body that
+       LEAVES. Neither covers the answer to a call the app itself made, which
+       is where a send receipt comes back -- so a performed predicate could
+       state its whole request from facts and had no declared way to record
+       what it got. `Function yields Type Expression` (core.md:789) is the
+       signature's return type, not a projection, and was the near-miss that
+       made this look already modelled.
+
+       ONE ROLE PER ROW, AND THE OTHER ROLES ARE NOT THIS FACT TYPE'S JOB.
+       Inbound, ingest.md:58 obliges every Role of the yielded Fact Type to
+       appear in the payload, because a webhook is all there is. A response is
+       not: the call was made ABOUT something, so the entity role is already
+       bound by `main:performed`'s row and only the values the service
+       returned come from the body. Mirroring that obligation would demand a
+       JSON Path for a role the request already knows.
+
+       AND IT MAY NOT MINT. What a performed predicate is permitted to assert
+       is `Event Type can be created by Predicate`, the may-create ceiling,
+       which is the Thm 1 boundary. This says WHERE a value is found in the
+       answer; it never widens WHAT may be written. -->
 Function sends Fact Type with Role to JSON Path.
   Each Function, Fact Type, Role combination occurs at most once.
   It is possible that some Function sends more than one Fact Type.
