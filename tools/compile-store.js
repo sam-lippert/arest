@@ -85,6 +85,72 @@ for (const ft of ftnames) {
   rel.push(ft);
 }
 
+// A VALUE TYPE THAT NAMES A STORAGE FUNCTION IS WRITTEN THROUGH IT (2026-09-14).
+// `Object Type is stored through Function` (core.md) says a value reaches the
+// STORE as what that Function made of it; hook:write applies it and hook:read
+// applies the inverse. Samuel: "Prod keys live in .env at compile time and in
+// db at runtime, encrypted if marked so" -- so plaintext exists in .env and in
+// the carriers the oracle writes beside it, both gitignored and both on the
+// machine that compiles, and the db that TRAVELS carries ciphertext.
+//
+// WHY THE SEAM IS HERE AND NOT IN THE ORACLE, which is the other candidate and
+// would have made the carriers ciphertext too: crypt:encrypt is AES-256-GCM
+// with a randomBytes(12) iv, so it answers differently every call. The carriers
+// are byte-compared goldens. Encrypting upstream would churn every corpus
+// golden on every run; store.db is gitignored and compared by nothing. The
+// non-determinism picks the seam, not a preference.
+//
+// The players come from main:cr_players, the same reader main:api uses to check
+// a POST body, so a role's Object Type is read from the model rather than named
+// here -- swapping AES for a KMS handle stays an instance fact. On the base and
+// on eight of the nine corpora ObjectTypeIsStoredThroughFunction is EMPTY and
+// this whole block is skipped; on support it is one row, Secret Reference.
+const master = process.env.AREST_MASTER_KEY || "";
+const cipherAt = {};                         // ft -> [role index...] needing the hook
+for (const ft of ftnames) {
+  if (!popof[ft].length) continue;
+  let players; try { players = Ev("main:cr_players", [CELLS, ft]); } catch { continue; }
+  if (!Array.isArray(players)) continue;
+  const marked = [];
+  for (let i = 0; i < players.length; i++) {
+    const ot = flat(players[i]);
+    if (typeof ot !== "string") continue;
+    let fn; try { fn = Ev("hook:fn_of", [ot, CELLS]); } catch { continue; }
+    if (typeof fn === "string" && fn) marked.push([i, ot]);
+  }
+  if (marked.length) cipherAt[ft] = marked;
+}
+// REFUSE RATHER THAN WRITE PLAINTEXT. A db that is supposed to be ciphertext at
+// rest and silently is not is the failure this whole marking exists to stop, and
+// it would be invisible: the rows look identical to a reader without the key.
+if (Object.keys(cipherAt).length && !master) {
+  console.error("this store carries a value type marked `is stored through Function` (" +
+    Object.keys(cipherAt).join(", ") + ") and AREST_MASTER_KEY is not set, so the value " +
+    "could only be stored as plaintext. Set it, or remove the marking.");
+  process.exit(1);
+}
+// A MARKED TYPE AT ROLE 0 OF AN ABSORBED FACT TYPE would land in the entity
+// table's KEY column, which is written from the wide row's key and never passes
+// through store1 -- so it would be stored as plaintext while every other marked
+// value was encrypted, and nothing would say so. No corpus has one today (Secret
+// Reference is always the value role), which is exactly why it would go unnoticed
+// if one ever arrived. Refuse instead, on the same principle as the missing key.
+for (const ft of Object.keys(cipherAt)) {
+  if (funcCol[ft] && cipherAt[ft].some((e) => e[0] === 0)) {
+    console.error(ft + " carries a value type marked `is stored through Function` in the role " +
+      "its entity table uses as the key, which this writer stores unencrypted. Encrypting an " +
+      "identifier is not supported here; give the marking to the value role or store it as a " +
+      "relation.");
+    process.exit(1);
+  }
+}
+// ft, role index, raw value -> what the store should hold.
+const store1 = (ft, i, v) => {
+  const m = cipherAt[ft]; if (!m) return v;
+  const hit = m.find((e) => e[0] === i); if (!hit) return v;
+  return Ev("hook:write", [master, hit[1], String(v), CELLS]);
+};
+
 const dbp = join(modDir, "store.db");
 try { unlinkSync(dbp); } catch {}
 try { unlinkSync(dbp + "-wal"); } catch {}
@@ -98,7 +164,7 @@ for (const gi of usedGis) {
   const fcols = funcByTable.get(gi);
   db.run('create table "' + grp.table + '" (k text' + fcols.map((ft) => ', "' + ft + '" text').join("") + ")");
   const ins = db.prepare('insert into "' + grp.table + '" values(?' + ",?".repeat(fcols.length) + ")");
-  db.transaction(() => { for (const r of grp.wrows) { const row = [JSON.stringify(flat(r[0]))]; for (const ft of fcols) { const s = r[funcCol[ft].col + 1]; row.push(Array.isArray(s) && s.length ? JSON.stringify(flat(s)) : null); } ins.run(...row); } })();
+  db.transaction(() => { for (const r of grp.wrows) { const row = [JSON.stringify(flat(r[0]))]; for (const ft of fcols) { const s = r[funcCol[ft].col + 1]; row.push(Array.isArray(s) && s.length ? JSON.stringify(store1(ft, 1, flat(s))) : null); } ins.run(...row); } })();
 }
 
 // _meta: one row per materialized fact type. func rows keep tbl = the column
@@ -117,7 +183,7 @@ for (const ft of rel) {
   const tbl = "r" + Math.abs([...ft].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7));
   db.run("create table " + tbl + " (" + Array.from({ length: ar }, (_, i) => '"c' + i + '" text').join(",") + ")");
   const ins = db.prepare("insert into " + tbl + " values(" + Array.from({ length: ar }, () => "?").join(",") + ")");
-  db.transaction(() => { for (const row of pop) { const t = Array.isArray(row) ? row : [row]; ins.run(...t.map((v) => JSON.stringify(v))); } })();
+  db.transaction(() => { for (const row of pop) { const t = Array.isArray(row) ? row : [row]; ins.run(...t.map((v, i) => JSON.stringify(store1(ft, i, v)))); } })();
   mins.run(ft, "rel", tbl, ar);
 }
 // _composition: WHICH MODULE THESE TABLES ARE A PROJECTION OF. build.js hashes
