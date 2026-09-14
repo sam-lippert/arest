@@ -1,1 +1,14 @@
 arest -text
+
+# THE GOLDENS ARE COMPARED BYTE FOR BYTE, so they must reach disk as they are
+# stored. core.autocrlf is true here, and it was rewriting all four of these on
+# every checkout: the blob is LF and the working file came back CRLF, so the
+# bytes the tests compared were not the bytes git holds. expected-cases.tsv
+# failed loudly -- its reader splits on newline and the blank line came back as
+# a lone CR, which has no tab, so JSON.parse got EOF and the whole suite loaded
+# 0 tests -- and expected-laws.txt would have failed a byte-for-byte compare
+# quietly. `arest` was already pinned this way; the rest belong with it.
+engine/shared/expected-cases.tsv -text
+engine/shared/expected-laws.txt -text
+engine/shared/expected-root.txt -text
+engine/shared/scenarios.canon -text
