@@ -1123,6 +1123,27 @@ Object Type is backed by External System.
   Each Object Type is backed by at most one External System.
 Function is backed by External System.
   Each Function is backed by at most one External System.
+Function reaches its subject through Fact Type.
+  Each Function reaches its subject through at most one Fact Type.
+  <!-- THE FACTS A CALL SENDS AND RECORDS ARE OFTEN NOT ABOUT THE ENTITY THAT
+       FIRED IT. main:performed answers <predicate, entity, may-create> where the
+       entity is the one whose STATUS MOVED -- support.auto.dev's Support Response
+       -- while the body it sends and the receipt it records are facts of that
+       response's EMAIL MESSAGE. One declared functional step apart, and nothing
+       said which step, so perform:body_val could read the entity or the function
+       and neither of those is the subject.
+
+       A NARROW SPECIAL CASE OF A JOIN PATH, LIMITED TO ONE STEP ON PURPOSE. Join
+       Path, Join and Role Sequence already model an arbitrary path and are
+       populated by nothing, anywhere. A multi-step subject belongs there when
+       something finally reads them. One functional step covers every caller that
+       exists, is decided by the uniqueness constraint on the named fact type
+       rather than by a search, and does not raise a second general mechanism
+       beside the one already declared.
+
+       ABSENT MEANS THE ENTITY ITSELF, which is what every Function without a
+       federated subject wants, and is why this is optional rather than one more
+       mandatory that nothing can satisfy. -->
 Function yields Fact Type with Role from JSON Path.
   Each Function, Fact Type, Role combination occurs at most once in the population of Function yields Fact Type with Role from JSON Path.
   It is possible that some Function yields more than one Fact Type.
