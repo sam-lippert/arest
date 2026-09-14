@@ -2133,8 +2133,45 @@ function maybePerform(prior, after) {
   // decrypts the credential the store holds. It stays in the environment and is
   // passed in, which is the shape hook:read already had before it had a caller.
   performDeclared(prior, after, { master: process.env.AREST_MASTER_KEY })
-    .then((r) => { for (const one of r) console.log("performed " + JSON.stringify(one)); })
+    .then((r) => {
+      for (const one of r) console.log("performed " + JSON.stringify(one));
+      writeBack(r);
+    })
     .catch((e) => console.log("performer failed: " + String(e)));
+}
+
+// AND THE ANSWER COMES BACK AS FACTS (2026-09-14). performDeclared computed
+// `asserts` from the day it was written and nothing ever applied them, so the
+// call went out, the id came back, and the store never heard: a Support Response
+// stayed Approved forever and a restart could not have told you the mail had
+// been sent. The ceiling is already enforced upstream -- performDeclared puts a
+// yield INSIDE the declared ceiling in `asserts` and anything else in `outside`,
+// so what arrives here is exactly what the model permitted this call to write.
+//
+// It goes through main:api like every other write rather than splicing rows in:
+// the yielded fact meets the same alethic check as a POST, and a refusal is
+// reported instead of being pushed past. emitToDb then persists it, which is
+// what makes the id survive a restart -- the store.db is the durable copy, and
+// adoptStore keeps CELLS' array identity so the next read sees it.
+function writeBack(done) {
+  for (const one of done) {
+    for (const a of one.asserts || []) {
+      if (!Array.isArray(a) || a.length < 2) continue;
+      const ft = String(a[0]);
+      const args = a.slice(1).map(String);
+      const before = popSnapshot(CELLS);
+      let out;
+      try { out = Ev("main:api", [CELLS, "POST", ft, "", args]); }
+      catch (e) { console.log("write-back threw on " + ft + ": " + String(e)); continue; }
+      if (out.length > 2 && Number(out[1]) < 400) {
+        adoptStore(out[2]);
+        emitToDb(before, CELLS);
+        console.log("wrote back " + JSON.stringify([ft].concat(args)));
+      } else {
+        console.log("write-back REFUSED " + ft + ": " + String(out[0]).slice(0, 200));
+      }
+    }
+  }
 }
 
 // A create ANSWERS a store. main:api returns <body, status, D-prime> for a
