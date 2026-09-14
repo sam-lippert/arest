@@ -1196,6 +1196,32 @@ Domain connects to External System.
   Each Domain, External System combination occurs at most once in the population of Domain connects to External System.
 DomainConnectsToExternalSystem objectifies "Domain connects to External System".
 DomainConnectsToExternalSystem is a subtype of Function.
+Send Mode is a value type.
+  The possible values of Send Mode are 'dry', 'live'.
+DomainConnectsToExternalSystem has Send Mode.
+  Each DomainConnectsToExternalSystem has at most one Send Mode.
+  <!-- WHETHER BYTES LEAVE WAS THE ONE THING NOT IN THE MODEL. Everything about
+       an outbound call is declared -- the External System's URL, the Function's
+       callback URI and HTTP Method, the headers and which carries the credential,
+       the body's JSON Paths, the may-create ceiling, and now the subject and the
+       response projection. The arming was an environment variable, AREST_PERFORM,
+       which is a configuration key beside a fact-based configuration system and
+       the most consequential decision of the lot (Sam, 2026-09-14).
+
+       IT RIDES THE CONNECTION because that is what is or is not live: the same
+       objectified `Domain connects to External System` that carries the Secret
+       Reference, and a connection with no credential cannot send anyway. Not the
+       Function -- one Function reaches one system, but a store may connect to a
+       system it is not yet allowed to call.
+
+       ABSENT MEANS NOT PERFORMED AT ALL, which is the safe default and needs no
+       row: 'dry' resolves the call and records what it would send without sending,
+       'live' sends. Three states out of two values plus absence, matching what the
+       environment variable expressed by being unset, 'dry', or anything else.
+
+       THE MASTER KEY STAYS OUTSIDE and is the only thing that can. It decrypts the
+       Secret Reference, so it cannot live in the store it protects; hook:read
+       already takes it as an argument rather than reading it. -->
 DomainConnectsToExternalSystem carries Secret Reference.
   Each DomainConnectsToExternalSystem carries at most one Secret Reference.
   <!-- one-table wave (2026-07-16): Halpin's nesting transformation of the
