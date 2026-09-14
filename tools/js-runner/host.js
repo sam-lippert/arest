@@ -2044,7 +2044,35 @@ async function performDeclared(before, after, opts) {
     }
     if (hole) { done.push({ predicate, entity, refused: "declared path '" + hole + "' has no fact to fill it" }); continue; }
     const answer = await send(method, address, headers, body);
-    done.push({ predicate, entity, method, address, sent: body, ceiling, answer });
+    // WHAT THE ANSWER PRODUCES IS DECLARED, AND THE CEILING STILL DECIDES.
+    // perform:yields_of gives the <JSON Path, Fact Type, Role> triples this
+    // Function's response fills and perform:subject_of says WHO they are about
+    // -- the entity, or the one declared functional step from it, which on
+    // support is the Support Response's Email Message rather than the response
+    // that fired the transition. A triple whose Fact Type is outside the
+    // may-create ceiling is REFUSED here and reported, never quietly written:
+    // the ceiling is the Thm 1 boundary, and a performer that asserted past it
+    // would be a hole in it.
+    //
+    // STILL NOTHING IS WRITTEN. These are ANSWERED, so the write happens where
+    // the store is written and can refuse, and so the first exercise of a new
+    // write-back is a dry run that SHOWS the facts rather than a commit that
+    // explains them afterwards.
+    const asserts = [];
+    const outside = [];
+    let parsed = null;
+    try { parsed = JSON.parse(String(answer && answer.text)); } catch (e) { parsed = null; }
+    if (parsed && typeof parsed === "object") {
+      const subject = Ev("perform:subject_of", [predicate, entity, after]);
+      const subj = Array.isArray(subject) ? entity : String(subject);
+      for (const t of Ev("perform:yields_of", [predicate, after])) {
+        const path = String(t[0]), ft = String(t[1]);
+        if (!(path in parsed)) continue;            // the service did not return it
+        const row = [ft, subj, String(parsed[path])];
+        (ceiling.indexOf(ft) >= 0 ? asserts : outside).push(row);
+      }
+    }
+    done.push({ predicate, entity, method, address, sent: body, ceiling, answer, asserts, outside });
   }
   return done;
 }
