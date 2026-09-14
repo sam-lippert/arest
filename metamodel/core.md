@@ -1973,18 +1973,44 @@ Format has Pattern.
 
 ### Ciphers
 
-<!-- The one value type that is ciphertext at rest, and the reason the seam
-     stopped being a false row. A DomainConnectsToExternalSystem carries at most
-     one Secret Reference (core.md:1039); with this fact the value it carries is
-     encrypted, so the connection facts can live in a readings file the oracle
-     reads and in git instead of a gitignored .env that no store ever sees.
+<!-- The one value type that is ciphertext at rest. A DomainConnectsToExternal
+     System carries at most one Secret Reference (:1225); with this fact the
+     value it carries is encrypted.
 
-     MEASURED on support.auto.dev the day before this landed. Its .env is
-     already FORML -- `Domain ...` and `DomainConnectsToExternalSystem ...`
-     sentences, not shell assignments -- and `.env` is the first line of that
-     repo's .gitignore and sits in no readings directory, so the oracle never
-     reads it and DomainConnectsToExternalSystem answers 0 rows. The sentences
-     were written; nothing could ever see them. -->
+     THE FIRST VERSION OF THIS COMMENT DREW THE WRONG CONCLUSION, and it is
+     corrected here rather than quietly replaced, because it told a future
+     reader to do the unsafe thing. It said the point of encrypting was "so the
+     connection facts can live in a readings file the oracle reads and in git
+     instead of a gitignored .env that no store ever sees" -- that is, move the
+     secrets into a COMMITTED .md once they were ciphertext. Samuel overruled
+     that the same day (2026-09-12): ".env contains compile-time plaintext
+     secrets. They are never put in a .md. .env in arest contains atomic fact
+     instance readings itself. The fact types are in the .md and specify whether
+     the field is encrypted." support.auto.dev's .gitignore records the reversal
+     in its own words ("NO SECRETS .md IS PLANNED OR WANTED").
+
+     SO THE FIX WENT THE OTHER WAY: the oracle reads .env, which is what Samuel
+     asked for on 2026-09-14 -- ".env should be read into the system to make it
+     all work in the live db. .env is compile-time, and a db must be portable to
+     another environment."
+
+     MEASURED on support.auto.dev, 2026-09-14, both sides of that change. Its
+     .env was already FORML -- `Domain ...` and `DomainConnectsToExternalSystem
+     ...` sentences, not shell assignments -- but sat in no readings directory,
+     so DomainConnectsToExternalSystem answered 0 ROWS while `Domain Connects To
+     External System has Send Mode`, which rides that same objectification and
+     lives in a .md, had its one row. The sentences were written; nothing could
+     ever see them. The cost was not theoretical: perform:conn_of could not
+     build the 'domain/system' key, so a correctly declared and correctly armed
+     performer refused every send with "this connection declares no Send Mode".
+     Reading .env took the same corpus to 6 connections, 6 Secret References,
+     conn_of 'support/resend' and send_mode_of 'dry', NORMA model errors (none).
+
+     WHERE THE CIPHER APPLIES, since "stored through" names a moment and not a
+     file. Plaintext exists at COMPILE time -- in .env and in the carriers the
+     oracle writes, both gitignored, both on the machine that compiles. The
+     value that reaches the STORE is what hook:write made of it, so the db
+     carries ciphertext and travels while the key does not travel in it. -->
 Object Type 'Secret Reference' is stored through Function 'crypt:encrypt'.
 
 ### Constraint Types

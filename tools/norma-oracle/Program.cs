@@ -37,6 +37,31 @@ namespace Arest.NormaOracle
 			t.Commit();
 			Console.WriteLine("timing: commit " + sw.ElapsedMilliseconds + " ms");
 		}
+		// A .env CARRIES READINGS, BUT IT MAY ALSO CARRY SHELL ASSIGNMENTS, and the
+		// value on the right of one is a plaintext secret. MEASURED 2026-09-14 with
+		// a dotenv-shaped .env in a source directory: the build stays green and
+		// mints NOTHING -- 'types minted by usage' is empty -- but every assignment
+		// line is echoed verbatim into the unrecognized-sentence census, which is
+		// stdout and therefore a CI log. arest's own .env is exactly this shape
+		// (DATABASE_URI=, PAYLOAD_SECRET=, added by Payload), so that is the common
+		// case and not the exotic one. Dropping assignment lines BEFORE the text
+		// reaches the extractor means such a value is never a sentence and so can
+		// never be reported; a .env mixing the two keeps its FORML sentences. Only
+		// .env is filtered, so every .md is read byte-for-byte as it was.
+		private static string ReadReadings(string path)
+		{
+			string text = System.IO.File.ReadAllText(path);
+			if (System.IO.Path.GetFileName(path) != ".env") return text;
+			var kept = new List<string>();
+			foreach (string line in text.Split('\n'))
+			{
+				if (System.Text.RegularExpressions.Regex.IsMatch(line.TrimStart(),
+						"^(export[ \t]+)?[A-Za-z_][A-Za-z0-9_]*[ \t]*=")) continue;
+				kept.Add(line);
+			}
+			return string.Join("\n", kept);
+		}
+
 		private static void Mark(string next)
 		{
 			if (myPhase == null)
@@ -273,23 +298,46 @@ namespace Arest.NormaOracle
 					System.IO.Path.GetFileName(x) == "core.md" ? "0" : System.IO.Path.GetFileName(x),
 					System.IO.Path.GetFileName(y) == "core.md" ? "0" : System.IO.Path.GetFileName(y)));
 				fileList.AddRange(dirFiles);
+				// .ENV IS A READINGS FILE, NOT A CONFIG FILE (2026-09-14). Sam, 09-12:
+				// ".env contains compile-time plaintext secrets. They are never put in a
+				// .md. .env in arest contains atomic fact instance readings itself. The
+				// fact types are in the .md and specify whether the field is encrypted."
+				// It is FORML throughout -- # comments, a '## Instance Facts' heading and
+				// sentences -- so it needs no reader of its own; it was simply never in
+				// the file list. It lands AFTER its directory's .md files because it
+				// carries instance facts only, and canon-first means the declarations are
+				// already in hand when they arrive.
+				//
+				// WHAT IT COST while missing: `Domain connects to External System` had
+				// ZERO rows in every app, because the connection sentence lives only here,
+				// while `DomainConnectsToExternalSystem has Send Mode` -- which rides that
+				// objectification and IS in a .md -- had its row. So perform:conn_of could
+				// not build the 'domain/system' key, send_mode_of answered PHI, and a
+				// correctly declared and correctly armed performer refused every send with
+				// 'this connection declares no Send Mode'. Measured on support 2026-09-14:
+				// writing that one connection fact into the store by hand flipped conn_of
+				// to 'support/resend' and send_mode_of to 'dry'.
+				string envFile = System.IO.Path.Combine(d, ".env");
+				bool hasEnv = System.IO.File.Exists(envFile);
+				if (hasEnv) fileList.Add(envFile);
 				if (populationDirs.Contains(System.IO.Path.GetFullPath(d)))
 				{
 					foreach (string pf in dirFiles) populationFiles.Add(pf);
+					if (hasEnv) populationFiles.Add(envFile);
 				}
 			}
 			string[] files = fileList.ToArray();
 			var fileSentences = new Dictionary<string, List<string>>();
 			foreach (string f in files)
 			{
-				fileSentences[f] = Verifier.ExtractSentences(System.IO.File.ReadAllText(f));
+				fileSentences[f] = Verifier.ExtractSentences(ReadReadings(f));
 			}
 
 			Verifier verifier = new Verifier(store, model);
 			foreach (string f in files)
 			{
 				if (populationFiles.Contains(f)) continue;
-				verifier.RegisterMarkers(System.IO.File.ReadAllText(f));
+				verifier.RegisterMarkers(ReadReadings(f));
 			}
 			Mark("declarations");
 			// ONE TRANSACTION FOR THE WHOLE BUILD. NORMA validates the model at every
