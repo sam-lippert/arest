@@ -709,3 +709,6 @@ case:a-body-path-the-sender-carries-is-read-from-the-function	"(('subject', 'Aut
 case:the-entity-outranks-the-function-where-both-carry-a-path	"(('to', 'the entity is own'))"
 case:ask-selects-a-whole-population-by-name	"(('Beta', (('b1', 'y'), ('b2', 'z'))))"
 case:ask-on-a-name-no-population-carries-is-empty	"()"
+case:a-subject-one-declared-step-away-is-reached	"'em1'"
+case:a-function-declaring-no-reach-is-about-the-entity-itself	"'r1'"
+case:the-response-projection-is-read-for-one-function-only	"(('id', 'EmailHasReceiptId', 'EmailHasReceiptId.2'))"
