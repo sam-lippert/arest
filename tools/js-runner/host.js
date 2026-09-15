@@ -197,6 +197,109 @@ function cmp(a, b) {
   throw new Error("compare across atom kinds: " + show(a) + " vs " + show(b));
 }
 
+// ---- EXACT DECIMAL ARITHMETIC (#109, the decimal cluster) -------------------
+//
+// THE DEFECT: the mu's arithmetic was not total on a decimal value type's
+// declared domain. `*` was binary floating point -- 0.06875 * 100000 answered
+// 6875.000000000001, which is not a value of DECIMAL(p, s) for any s a model
+// would declare -- and `/` was Math.trunc of a floating quotient, which is
+// integer division computed inexactly. Def. 3 admits only a "deterministic,
+// side-effect-free total function", Lemma 1 requires the base operations to be
+// "total on their declared domains", and Val is "the disjoint union of the
+// value-type domains". A decimal IS a declared value type here:
+// metamodel/core.md:2083 puts `decimal` in the numeric group, :2189 maps it to
+// Abstract SQL Type DECIMAL, and :1803-1806 declare Precision and Scale as the
+// facets a value type absorbs ("The data type of Price is decimal with
+// precision 10 and scale 2", core.md:2044). So DECIMAL(p, s) is the set of
+// m * 10^-s with |m| < 10^p, and 6875.000000000001 is outside every one of them.
+//
+// THE FIX IS NOT A NEW VALUE REPRESENTATION, and that is the whole reason it
+// can be this small. Canon already says what a number IS: system:isnum is
+// not.eq<id, implode.<K(''), <id>>> -- an atom is a number exactly when it
+// differs from its own string spelling -- and ntoa/system:numtext spell it with
+// that same implode. So the mu's number is ALREADY its shortest decimal
+// spelling, not the 53-bit binary fraction underneath; `0.06875` means the
+// decimal 0.06875 and never 0.068750000000000005551115123125782670974731445.
+// These operations therefore do exactly what that reading says: decompose each
+// operand into the (mantissa, scale) of its own spelling, do the arithmetic in
+// BigInt where it is exact, and hand back the number whose spelling is the
+// exact result. Nothing about typeof, ===, cmp, deepEq, implode, N() or any
+// carrier changes, because no new kind of value is ever constructed.
+//
+// AND WHERE THE EXACT RESULT IS NOT A NUMBER OF THIS HOST, IT REFUSES. Two
+// DECIMAL(10, 2) operands multiply into DECIMAL(20, 4), and a double holds
+// every decimal of 15 significant digits and not every one of 20. The old code
+// silently returned the nearest double; 19c1ed00 is the record of what silent
+// numeric wrongness costs ("The failure is not even reliably loud, which is
+// worse than the throw"). The test is stated in the mu's own terms and needs no
+// digit count: the exact decimal is a value of this host iff Number() of its
+// spelling spells itself again. That makes the admission condition of Lemma 1
+// checkable -- a schema whose decimal columns multiply within 15 significant
+// digits is admissible, one that does not is refused at the operation instead
+// of being quietly approximated.
+//
+// THE FAST PATH IS THE WHOLE INTEGER DOMAIN, so nothing existing pays for this.
+// If both operands are safe integers and the double answer is a safe integer,
+// the double answer IS the exact answer (both operands and the true result are
+// exactly representable, so the correctly-rounded result is the true result)
+// and it is returned without a BigInt ever being built. `/` takes the same
+// path on safe integers: writing a = bq + r, Math.trunc(a/b) can only exceed q
+// if the rounding of q + r/b reaches q + 1, which needs ulp(a/b) >= 2/b, i.e.
+// |a| >= 2^53. Below that it is already exact.
+//
+// PARITY IS NOT CLAIMED AND MUST NOT BE. The other certified hosts have no
+// decimal in their value domain at all: tools/rust-host/src/lib.rs:1214 is
+// `fn N(n: i64) -> V`, tools/cs-runner/Reader.cs:113 is int.Parse and
+// tools/java-runner/Reader.java:106 is Integer.parseInt, so N(6.875) does not
+// compile in one and throws in the other two. On the INTEGER domain where the
+// four hosts do agree this change moves js TOWARDS them, not away: a product
+// that i64 gets right and a double got wrong is now either right or refused.
+// Decimals below still make js the only host that can hold them, which is why
+// nothing here is pinned in engine/shared/expected-cases.tsv -- that golden is
+// the cross-host agreement surface and every host asserts every row of it.
+function decOf(op, x) {
+  if (typeof x !== "number") throw new Error(op + " on non-number");
+  if (!Number.isFinite(x)) throw new Error(op + " on a non-finite number: " + show(x));
+  // the operand's OWN spelling, the one implode and ntoa give canon
+  const t = "" + x;
+  const e = t.indexOf("e") < 0 ? t.indexOf("E") : t.indexOf("e");
+  let digits = t, exp = 0;
+  if (e >= 0) { digits = t.slice(0, e); exp = parseInt(t.slice(e + 1), 10); }
+  const dot = digits.indexOf(".");
+  let s = 0;
+  if (dot >= 0) { s = digits.length - dot - 1; digits = digits.slice(0, dot) + digits.slice(dot + 1); }
+  let m = BigInt(digits);
+  s -= exp;
+  // value is m / 10^s, and s is held non-negative so every pair is comparable
+  if (s < 0) { m *= 10n ** BigInt(-s); s = 0; }
+  return [m, s];
+}
+function decStr(m, s) {
+  const neg = m < 0n;
+  let d = (neg ? -m : m).toString();
+  if (s === 0) return (neg ? "-" : "") + d;
+  if (d.length <= s) d = "0".repeat(s - d.length + 1) + d;
+  return (neg ? "-" : "") + d.slice(0, d.length - s) + "." + d.slice(d.length - s);
+}
+function decNum(op, m, s) {
+  while (s > 0 && m % 10n === 0n) { m /= 10n; s--; }
+  const t = decStr(m, s);
+  const v = Number(t);
+  // a value of this host's number domain is one that spells itself back
+  const [m2, s2] = Number.isFinite(v) ? decOf(op, v) : [0n, -1];
+  // the exact value NAMES the refusal, elided in the middle when a subtraction
+  // of magnitudes has made it six hundred digits long and unreadable
+  if (!(m2 === m && s2 === s)) throw new Error(op + " exceeds the exact decimal domain: "
+    + (t.length > 48 ? t.slice(0, 24) + "..." + t.slice(-12) + " (" + t.length + " digits)" : t));
+  return v;
+}
+// the two scales brought to a common one, so the mantissas add directly
+function decAlign(am, as, bm, bs) {
+  if (as < bs) return [am * 10n ** BigInt(bs - as), bm, bs];
+  if (bs < as) return [am, bm * 10n ** BigInt(as - bs), as];
+  return [am, bm, as];
+}
+
 // ---- the base primitives: Backus 11.2.3 plus the registered boundary rows
 // of resolution.md (lex, implode, slug, escape_html, strip_prefix, 1r, tlr).
 // Each mirrors its Mu.cs form; unary prims take x, pair prims take at(x,0/1). -
@@ -310,19 +413,66 @@ const PRIMS = new Map(Object.entries({
   "le": x => bool(cmp(at(x,0), at(x,1)) <= 0),
   "ge": x => bool(cmp(at(x,0), at(x,1)) >= 0),
   "gt": x => bool(cmp(at(x,0), at(x,1)) > 0),
+  // the four are EXACT DECIMAL, over the operands' own spellings; see decOf
+  // above for why that is what the mu already meant by a number
   "+": x => { const a = at(x,0), b = at(x,1);
     if (typeof a !== "number" || typeof b !== "number") throw new Error("+ on non-number");
-    return a + b; },
+    const r = a + b;
+    if (Number.isSafeInteger(a) && Number.isSafeInteger(b) && Number.isSafeInteger(r)) return r;
+    const [am, as] = decOf("+", a), [bm, bs] = decOf("+", b);
+    const [ma, mb, s] = decAlign(am, as, bm, bs);
+    return decNum("+", ma + mb, s); },
   "-": x => { const a = at(x,0), b = at(x,1);
     if (typeof a !== "number" || typeof b !== "number") throw new Error("- on non-number");
-    return a - b; },
+    const r = a - b;
+    if (Number.isSafeInteger(a) && Number.isSafeInteger(b) && Number.isSafeInteger(r)) return r;
+    const [am, as] = decOf("-", a), [bm, bs] = decOf("-", b);
+    const [ma, mb, s] = decAlign(am, as, bm, bs);
+    return decNum("-", ma - mb, s); },
   "*": x => { const a = at(x,0), b = at(x,1);
     if (typeof a !== "number" || typeof b !== "number") throw new Error("* on non-number");
-    return a * b; },
+    const r = a * b;
+    if (Number.isSafeInteger(a) && Number.isSafeInteger(b) && Number.isSafeInteger(r)) return r;
+    const [am, as] = decOf("*", a), [bm, bs] = decOf("*", b);
+    return decNum("*", am * bm, as + bs); },
+  // `/` KEEPS ITS MEANING AND GAINS ITS EXACTNESS. It is truncation toward
+  // zero, as it has always been and as the cs, java and rust hosts' integer
+  // division is; what changes is that the quotient is now computed rather than
+  // rounded -- BigInt division truncates toward zero, so (-7)/2 is -3 here
+  // exactly as Math.trunc gave. Decimal division at a declared scale is NOT
+  // this operation and is not total (1/3 is in no DECIMAL(p, s)); it is
+  // round . <*, K(10^s)> over this one, which is why `round` is the primitive
+  // that had to arrive with the exact arithmetic rather than a third argument.
   "/": x => { const a = at(x,0), b = at(x,1);
     if (typeof a !== "number" || typeof b !== "number") throw new Error("/ on non-number");
     if (b === 0) throw new Error("division by zero");
-    return Math.trunc(a / b); },
+    if (Number.isSafeInteger(a) && Number.isSafeInteger(b)) return Math.trunc(a / b);
+    const [am, as] = decOf("/", a), [bm, bs] = decOf("/", b);
+    const [ma, mb] = decAlign(am, as, bm, bs);
+    if (mb === 0n) throw new Error("division by zero");
+    return decNum("/", ma / mb, 0); },
+  // round IS THE OPERATION THAT PUTS A PRODUCT BACK IN ITS COLUMN'S DOMAIN.
+  // DECIMAL(p1,s1) x DECIMAL(p2,s2) is DECIMAL(p1+p2, s1+s2), so exact `*`
+  // alone leaves the answer outside the declared scale of the column it is
+  // written to; round<x, s> is the total function from the wider domain back
+  // into DECIMAL(., s), and without it "exact arithmetic" would just move the
+  // domain violation one step later. Half AWAY FROM ZERO, which is what
+  // Abstract SQL Type DECIMAL means by ROUND in Postgres numeric, MySQL,
+  // Oracle and SQL Server, so a store and its projected SQL agree; half-even
+  // is a DIFFERENT function and would be a second registered row, never a flag.
+  // Total for every finite number and every integer scale, negative included
+  // (round<1250, -2> is 1300), and s >= the operand's own scale answers the
+  // operand -- which is also what keeps a huge s from building a huge BigInt.
+  "round": x => { const v = at(x,0), s = at(x,1);
+    if (typeof v !== "number") throw new Error("round on non-number");
+    if (typeof s !== "number" || !Number.isInteger(s)) throw new Error("round to a non-integer scale");
+    const [m, sc] = decOf("round", v);
+    if (sc <= s) return v;
+    const pow = 10n ** BigInt(sc - s);
+    let q = m / pow;
+    const rem = m % pow;
+    if (rem < 0n ? -rem * 2n >= pow : rem * 2n >= pow) q += m < 0n ? -1n : 1n;
+    return s >= 0 ? decNum("round", q, s) : decNum("round", q * 10n ** BigInt(-s), 0); },
   "apply": x => Ev(at(x,0), at(x,1)),
   // lex yields TOKEN-RECORDS, ten fields per token, exactly as
   // metamodel/resolution.md types it. This head answered a flat word list, as

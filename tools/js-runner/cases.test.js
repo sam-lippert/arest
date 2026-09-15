@@ -604,3 +604,133 @@ describe("intersection source", () => {
     });
   }
 });
+
+// ---- IS THE ARITHMETIC TOTAL ON A DECIMAL COLUMN'S DOMAIN? (#109) -----------
+//
+// THIS IS NOT IN engine/shared/expected-cases.tsv AND MUST NOT BE. That golden
+// is the CROSS-HOST agreement surface -- every host asserts every row of it
+// (tools/rust-host/src/lib.rs:1651 loops the whole file) -- and the other
+// certified hosts have no decimal in their value domain at all:
+// tools/rust-host/src/lib.rs:1214 is `fn N(n: i64) -> V`,
+// tools/cs-runner/Reader.cs:113 is int.Parse, tools/java-runner/Reader.java:106
+// is Integer.parseInt. A decimal case there would make three hosts refuse a row
+// this one answers, which is not disagreement about canon but a question canon
+// cannot ask them. So these are the js mu's OWN properties, beside the store.db
+// and emitToDb tests, and the shared table keeps saying only what all four hosts
+// can say.
+//
+// The defect measured at HEAD (6278af5b), before any of this:
+//   * <0.06875, 100000> = 6875.000000000001    not a value of DECIMAL(p, s)
+//   * <1.15, 100>       = 114.99999999999999   for any s a model declares
+//   + <0.1, 0.2>        = 0.30000000000000004  and + is the sum emitter's fold
+//   / <0.3, 0.1>        = 2                    truncation turns a last-bit
+//   / <0.29, 0.01>      = 28                   error into a WHOLE UNIT
+// Def. 3 admits only a total function, Lemma 1 wants the base operations total
+// on their declared domains, and Val is the disjoint union of the value-type
+// domains -- of which decimal is one (metamodel/core.md:2083, :2189, and
+// Precision / Scale at :1803-1806).
+describe("the mu's arithmetic is exact on a decimal value type's domain", () => {
+  const ev = (f, x) => Ev(f, x);
+  const threw = (f, x) => { try { ev(f, x); return null; } catch (e) { return e.message; } };
+
+  test("* is exact where binary floating point was not", () => {
+    expect(ev("*", [0.06875, 100000])).toBe(6875);
+    expect(ev("*", [1.15, 100])).toBe(115);
+    expect(ev("*", [0.1, 0.2])).toBe(0.02);
+    expect(ev("*", [19.99, 3])).toBe(59.97);
+  });
+
+  test("+ and - are exact, which is what a sum over a decimal column folds with", () => {
+    expect(ev("+", [0.1, 0.2])).toBe(0.3);
+    expect(ev("-", [0.3, 0.1])).toBe(0.2);
+    // the fold itself: five DECIMAL(10,2) rows, left to right as INSERT runs it
+    expect([19.99, 0.07, 1.15, 100.10, 0.01].reduce((a, b) => ev("+", [a, b]), 0)).toBe(121.32);
+    // and every partial sum stays inside DECIMAL(., 2) -- the property the
+    // declared domain actually asserts, which a single total can pass by luck
+    let acc = 0;
+    for (const v of [0.07, 0.07, 0.07, 0.07, 0.07, 0.07, 0.07, 0.07, 0.07, 0.07]) {
+      acc = ev("+", [acc, v]);
+      expect(("" + acc).split(".")[1] === undefined || ("" + acc).split(".")[1].length <= 2).toBe(true);
+    }
+    expect(acc).toBe(0.7);
+  });
+
+  test("/ keeps truncation toward zero and gains exactness", () => {
+    // MEASURED AT HEAD, where / was Math.trunc of a FLOATING quotient: these
+    // five each came back one short, because 0.3/0.1 is 2.9999999999999996 in
+    // binary and truncation is the one operation that turns a last-bit error
+    // into a whole unit. It is exact division of the two spellings now.
+    expect(ev("/", [0.3, 0.1])).toBe(3);      // HEAD: 2
+    expect(ev("/", [0.7, 0.1])).toBe(7);      // HEAD: 6
+    expect(ev("/", [0.29, 0.01])).toBe(29);   // HEAD: 28
+    expect(ev("/", [6.6, 1.1])).toBe(6);      // HEAD: 5
+    expect(ev("/", [0.69, 0.23])).toBe(3);    // HEAD: 2
+    // and the MEANING is unchanged -- truncation toward zero, which is what
+    // the cs, java and rust hosts' integer division does
+    expect(ev("/", [10, 4])).toBe(2);
+    expect(ev("/", [-7, 2])).toBe(-3);
+    expect(ev("/", [1, 3])).toBe(0);
+    expect(ev("/", [19.99, 3])).toBe(6);
+    expect(ev("/", [-0.69, 0.23])).toBe(-3);
+    expect(threw("/", [5, 0])).toBe("division by zero");
+  });
+
+  test("round puts a product back in its column's declared scale", () => {
+    // DECIMAL(10,2) x DECIMAL(10,3) is DECIMAL(20,5); the column is still (.,2)
+    expect(ev("*", [19.99, 0.075])).toBe(1.49925);
+    expect(ev("round", [ev("*", [19.99, 0.075]), 2])).toBe(1.5);
+    // half AWAY FROM ZERO, symmetric, which is what SQL DECIMAL's ROUND means
+    expect(ev("round", [6.875, 2])).toBe(6.88);
+    expect(ev("round", [-6.875, 2])).toBe(-6.88);
+    expect(ev("round", [2.5, 0])).toBe(3);
+    expect(ev("round", [-2.5, 0])).toBe(-3);
+    expect(ev("round", [2.4, 0])).toBe(2);
+    // a scale finer than the operand's own answers the operand
+    expect(ev("round", [6.875, 5])).toBe(6.875);
+    // and a NEGATIVE scale rounds to tens and hundreds, so the one operation
+    // covers the integer side too
+    expect(ev("round", [1250, -2])).toBe(1300);
+    expect(ev("round", [1249, -2])).toBe(1200);
+    // it is a function of two numbers and refuses anything else
+    expect(threw("round", ["6.875", 2])).toBe("round on non-number");
+    expect(threw("round", [6.875, 0.5])).toBe("round to a non-integer scale");
+  });
+
+  test("an exact result the host's number domain cannot hold is REFUSED, not approximated", () => {
+    // 12345678.90 x 98765432.10 is exactly 1219326311126352.6890, twenty
+    // significant digits; a double holds fifteen. The old code answered the
+    // nearest double and said nothing, which is the failure mode 19c1ed00
+    // names: "not even reliably loud, which is worse than the throw".
+    expect(threw("*", [12345678.90, 98765432.10])).toContain("* exceeds the exact decimal domain");
+    expect(threw("*", [123456789, 987654321])).toContain("exceeds the exact decimal domain");
+    expect(threw("+", [1e300, 1e-300])).toContain("exceeds the exact decimal domain");
+    // and the diagnostic names the exact value rather than printing 600 digits
+    expect(threw("+", [1e300, 1e-300]).length).toBeLessThan(120);
+    // a non-finite operand is in no value type's domain either
+    expect(threw("*", [Infinity, 2])).toBe("* on a non-finite number: Infinity");
+  });
+
+  test("the integer domain the four hosts share is untouched", () => {
+    expect(ev("+", [2, 3])).toBe(5);
+    expect(ev("-", [2, 3])).toBe(-1);
+    expect(ev("*", [4, 5])).toBe(20);
+    expect(ev("/", [7, 2])).toBe(3);
+    // the fast path runs to the safe-integer boundary and never builds a BigInt
+    expect(ev("+", [Number.MAX_SAFE_INTEGER - 1, 1])).toBe(Number.MAX_SAFE_INTEGER);
+    expect(ev("*", [94906265, 94906265])).toBe(9007199136250225);
+    // PAST IT THE TEST IS REPRESENTABILITY, NOT SAFETY, and the two differ:
+    // 94906266^2 is 9007199326062756, above MAX_SAFE_INTEGER and EVEN, so the
+    // double holds it exactly and the exact path hands it back...
+    expect(ev("*", [94906266, 94906266])).toBe(9007199326062756);
+    // ...while 99999999^2 is 9999999800000001, odd, and the nearest double is
+    // 9999999800000000. HEAD answered that, one short, in silence; the rust
+    // host's i64 answers 9999999800000001. A double cannot, so this refuses
+    // rather than joining HEAD in being quietly wrong.
+    expect(threw("*", [99999999, 99999999]))
+      .toBe("* exceeds the exact decimal domain: 9999999800000001");
+    // and a non-number still refuses by kind, before any of this is reached --
+    // which is what a `number`-typed store cell arriving as TEXT hits today
+    expect(threw("+", ["2", "3"])).toBe("+ on non-number");
+    expect(threw("*", ["4", 5])).toBe("* on non-number");
+  });
+});
