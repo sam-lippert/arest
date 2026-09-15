@@ -197,6 +197,58 @@ namespace Arest.NormaOracle.Tests
             Assert.Contains("'two'", verbalized);
         }
 
+        // A GENERAL REFERENCE MODE SHARES ITS VALUE TYPE; A POPULAR ONE MINTS ONE.
+        // probes/refmode-names-entity was recorded by ac757d90 (#99) with a one-line
+        // `errors 0` expectation and no [Fact] beside it -- and the defect it guards
+        // raises NO NORMA ERROR, which that commit says in as many words. So the
+        // check could not fail on the thing it was named for: the whole question is
+        // what the reference mode RESOLVES TO, and nothing read that.
+        //
+        // WHAT IT RESOLVES TO, measured 2026-09-15 from state:refmodes:
+        //   Law(.citation)  general  -> the value type `citation`   (SHARED)
+        //   Person(.name)   popular  -> the value type `Person_name` (MINTED)
+        //   Citation(.id)   popular  -> the value type `Citation_id` (MINTED)
+        // and state:otmeta marks `citation` value/implied beside the `Citation`
+        // ENTITY, which is exactly what ac757d90 reports: "NORMA minting a lowercase
+        // citation value type beside the entity with no error, and THE NAME WAS
+        // NEVER THE CAUSE". The real defect was rmap:tpairs feeding 1:1 entity-value
+        // pairs into an undirected closure; the name stays, because a citation is
+        // one thing and a document citing another (Sam, 2026-09-06).
+        //
+        // THE PROBE'S OWN COMMENT INVERTED BOTH HALVES and this is why it mattered
+        // that nothing checked. It said the mode "now gets the entity's own value
+        // type, Law_citation, and the census says so" -- `Law_citation` occurs in
+        // exactly one commit, ac757d90, on a comment line, never in code or output,
+        // and that same commit records the entity-named-mode branch as "inert and is
+        // not kept". And it said "Person keeps sharing Name", where Person's POPULAR
+        // mode mints Person_name and it is LAW's general mode that shares. Nothing
+        // regressed; the comment was wrong the day it was written, and an
+        // unfalsifiable probe is how it stayed wrong.
+        //
+        // So this asserts the resolution itself, including that Law's identifying
+        // fact type takes the VALUE as its second player and not the entity -- the
+        // #99 shape read the other way round.
+        [Fact]
+        public void AGeneralReferenceModeSharesItsValueTypeAndAPopularOneMintsIts()
+        {
+            string dir = Path.Combine(ProbesDir, "refmode-names-entity");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "refmode-names-entity-facts"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            // the general mode shares the value type the mode NAMES, lowercase
+            Assert.Contains("S4(A(\"Law\"), A(\"citation\"), A(\"general\"), A(\"citation\"))", state);
+            // the popular modes mint one apiece, and Person does NOT adopt `Name`
+            Assert.Contains("S4(A(\"Person\"), A(\"name\"), A(\"popular\"), A(\"Person_name\"))", state);
+            Assert.Contains("S4(A(\"Citation\"), A(\"id\"), A(\"popular\"), A(\"Citation_id\"))", state);
+            // and Law is identified by that VALUE, never by the Citation ENTITY:
+            // `S2(A("Law"), A("Citation"))` here would be #99 back again
+            Assert.Contains("S3(A(\"LawHasCitation\"), S2(A(\"Law\"), A(\"citation\"))", state);
+            // the branch ac757d90 tried and did not keep stays not kept
+            Assert.DoesNotContain("Law_citation", state);
+            // and the whole point: NORMA raises nothing, so the error count is blind
+            Assert.Equal("0", Oracle.BlockingErrors(run.Output).ToString());
+        }
+
         // AN APOSTROPHE INSIDE A VALUE IS PART OF THE VALUE. The instance-fact
         // scanner paired quotes with '([^']*)', so `... the metamodel's types
         // ...` ended the Description at "metamodel" and stored it truncated
