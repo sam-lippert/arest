@@ -130,6 +130,146 @@ test("canon's DDL is a database SQLite will accept", () => {
   expect(tables.length).toBeGreaterThan(0);
 });
 
+// ---- DOES orient ANSWER THE FACTS OF A DOMAIN? -----------------------------
+//
+// `orient` was named in system:session_verbs and had NO definition -- no cell
+// called orient, main:orient or session:orient -- so solve:cell answered PHI,
+// the CLI route printed `unknown mode`, and mcp:verb_keep dropped it from the
+// tool list. FROM OUTSIDE, A VERB THAT ANSWERS NOTHING AND A VERB THAT DOES NOT
+// EXIST ARE THE SAME THING, and that indistinguishability is the whole defect.
+// So the assertion here is not `it did not throw` and not `errors 0`: it is
+// that for every Domain the store attributes facts to, orient answers rows,
+// and answers EXACTLY the rows the store attributes -- recomputed here from the
+// populations rather than read back from orient, so the two can disagree.
+//
+// Proven to fail before it was trusted: replacing orient's body with K(PHI())
+// reports `silent` holding all 25 domains of the composed store and 4 of the
+// synthetic one, naming each with the count of facts it dropped.
+//
+// The Domain role sits at position 2 in every `belongs to Domain` fact type and
+// at position 1 in `Domain has Description`; that is the model's shape, not a
+// convention -- see system:domain_belongings in canon.
+const ORIENT_SOURCES = [
+  ["DomainHasDescription", 0, 1],
+  ["FunctionBelongsToDomain", 1, 0],
+  ["FactBelongsToDomain", 1, 0],
+  ["ObjectTypeInstanceBelongsToDomain", 1, 0],
+  ["ViolationBelongsToDomain", 1, 0],
+  ["FailureBelongsToDomain", 1, 0],
+];
+
+const popOf = (store, ft) => Ev("system:pop_rows", [ft, store]).map((r) => r.map(String));
+const key = (row) => JSON.stringify(row);   // a separator no value can forge
+
+// the rule, stated a second time and independently: the Domain's Description
+// plus the facts belonging to it and to the Domains it reaches, less the
+// entities in a terminal status
+function attributedTo(store, domain) {
+  const reaches = popOf(store, "DomainReachesDomain");
+  const scope = new Set([domain, ...reaches.filter((r) => r[0] === domain).map((r) => r[1])]);
+  const terminal = new Set(popOf(store, "StatusIsTerminalInStateMachineDefinition").map((r) => r[0]));
+  const retired = new Set(
+    popOf(store, "ObjectTypeInstanceIsCurrentlyInStatus").filter((r) => terminal.has(r[1])).map((r) => r[0]),
+  );
+  const out = [];
+  for (const [ft, dpos, vpos] of ORIENT_SOURCES)
+    for (const row of popOf(store, ft))
+      if (scope.has(row[dpos]) && !retired.has(row[vpos])) out.push(key([row[dpos], ft, row[vpos]]));
+  return out.sort();
+}
+
+const orientRows = (store, domain) => Ev("orient", [domain, store]).map((r) => key(r.map(String))).sort();
+
+function orientHolds(store, label) {
+  const domains = new Set();
+  for (const [ft, dpos] of ORIENT_SOURCES) for (const row of popOf(store, ft)) domains.add(row[dpos]);
+
+  const silent = [], wrong = [];
+  let fired = 0;
+  for (const d of [...domains].sort()) {
+    const want = attributedTo(store, d);
+    if (!want.length) continue;            // nothing attributed: nothing to answer
+    fired++;
+    const got = orientRows(store, d);
+    if (!got.length) silent.push(`${d}: store attributes ${want.length} facts, orient answered 0`);
+    else if (got.join("\n") !== want.join("\n"))
+      wrong.push(`${d}: orient ${got.length} rows, store ${want.length}; only in orient ` +
+        JSON.stringify(got.filter((r) => !want.includes(r)).slice(0, 3)) +
+        `, only in store ` + JSON.stringify(want.filter((r) => !got.includes(r)).slice(0, 3)));
+  }
+  // A CHECK THAT NEVER FIRES IS NOT A CHECK: if no domain in this store had
+  // facts, every assertion above would pass on a verb that answers nothing.
+  expect(`${label}: domains with facts = ${fired}`).not.toBe(`${label}: domains with facts = 0`);
+  expect(silent).toEqual([]);
+  expect(wrong).toEqual([]);
+  return fired;
+}
+
+test("orient is declared AND defined, which was the defect", () => {
+  expect(Ev("system:session_verbs", []).map((v) => String(v))).toContain("orient");
+  // solve:cell is what main's verb route and mcp:verb_row both ask; PHI here is
+  // exactly what made the verb unreachable from every surface
+  expect(Ev("solve:cell", ["orient", CELLS]).length).toBeGreaterThan(0);
+});
+
+test("orient answers what the composed store attributes to a domain", () => {
+  expect(orientHolds(CELLS, "composed store")).toBeGreaterThan(0);
+});
+
+// The composed store populates ONE of the six sources (Domain has Description),
+// because nothing in the metamodel or the templates asserts `belongs to Domain`
+// and `Domain is contained in Domain` is empty, so its reach closure is empty
+// too. A rule checked only where it degenerates is not checked: this store
+// carries all three legs -- a reach closure two deep, four belonging
+// populations, and an entity in a terminal status -- and the SAME assertions
+// run over it. The cells are prepended because ast:FetchPop consults top-level
+// cells before FILE, so these populations win over the composed store's.
+const SYNTHETIC = [
+  ["CELL", "DomainHasDescription", [["d1", "Top"], ["d2", "Child"], ["d3", "Grandchild"], ["dx", "Unrelated"]]],
+  ["CELL", "DomainReachesDomain", [["d1", "d2"], ["d2", "d3"], ["d1", "d3"]]],
+  ["CELL", "FunctionBelongsToDomain", [["f1", "d1"], ["f2", "d2"], ["f3", "d3"], ["fx", "dx"]]],
+  ["CELL", "FactBelongsToDomain", [["k1", "d2"]]],
+  ["CELL", "ObjectTypeInstanceBelongsToDomain", [["e1", "d1"], ["edead", "d2"]]],
+  ["CELL", "ViolationBelongsToDomain", [["v1", "d3"]]],
+  ["CELL", "ObjectTypeInstanceIsCurrentlyInStatus", [["edead", "Closed"], ["e1", "Open"]]],
+  ["CELL", "StatusIsTerminalInStateMachineDefinition", [["Closed", "M"]]],
+  ...CELLS,
+];
+
+test("orient answers what a store with reach and terminal statuses attributes", () => {
+  expect(orientHolds(SYNTHETIC, "synthetic store")).toBeGreaterThan(0);
+});
+
+test("orient's three legs each do something: reach, restriction, terminal", () => {
+  // REACH: d1 reaches d2 and d3, so their facts and their Descriptions are
+  // d1's orientation -- one rule, not a description rule and a facts rule
+  expect(Ev("orient:scope", ["d1", SYNTHETIC]).map(String)).toEqual(["d1", "d2", "d3"]);
+  const d1 = orientRows(SYNTHETIC, "d1");
+  expect(d1).toContain(key(["d3", "DomainHasDescription", "Grandchild"]));
+  expect(d1).toContain(key(["d2", "FactBelongsToDomain", "k1"]));
+  expect(d1).toContain(key(["d3", "ViolationBelongsToDomain", "v1"]));
+
+  // RESTRICTION: dx reaches nothing and nothing reaches it, so it is absent
+  expect(d1.filter((r) => r.includes("dx") || r.includes("fx"))).toEqual([]);
+  // and a leaf answers only its own, which is what makes reach load-bearing
+  expect(orientRows(SYNTHETIC, "d3")).toEqual(
+    [key(["d3", "DomainHasDescription", "Grandchild"]),
+     key(["d3", "FunctionBelongsToDomain", "f3"]),
+     key(["d3", "ViolationBelongsToDomain", "v1"])].sort());
+
+  // TERMINAL: `edead` is currently in Closed, which is terminal, so it is gone
+  // while `e1` in Open survives -- AREST.tex's logical deletion, compiled as a
+  // restriction over the collection view rather than a delete
+  expect(Ev("orient:retired", SYNTHETIC).map(String)).toEqual(["edead"]);
+  expect(d1).toContain(key(["d1", "ObjectTypeInstanceBelongsToDomain", "e1"]));
+  expect(d1.some((r) => r.includes("edead"))).toBe(false);
+
+  // a Domain nobody declared answers nothing, which is the one empty that is
+  // correct -- and is why the test above asks whether the store attributes
+  // anything before demanding rows
+  expect(orientRows(SYNTHETIC, "no-such-domain")).toEqual([]);
+});
+
 // ---- IS A store.db A PROJECTION OF *THIS* MODULE? --------------------------
 //
 // tools/compile-store.js projects the booted populations into store.db and the
