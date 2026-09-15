@@ -187,13 +187,33 @@ It is obligatory that each Domain Change has exactly one Rationale.
      the core. The Human requirement is what keeps that from happening,
      and it must be stated HERE because it is no longer implied by the
      subtype lattice. -->
-It is obligatory that each applied Domain Change targeting Domain 'core' is approved by exactly one Human.
-It is obligatory that each applied Domain Change targeting Domain 'evolution' is approved by exactly one Human.
-<!-- arest-audit: the same human-gate for Domain 'ethics' referenced a
-     domain declared nowhere in the base readings. Preserved here as a
-     forward declaration; reinstate as a reading the moment an ethics
-     domain exists:
-       It is obligatory that each applied Domain Change targeting Domain 'ethics' is approved by exactly one Human. -->
+<!-- EVERY DOMAIN, not an enumeration (Sam, 2026-09-15: "It must always be
+     gated by human approval, but either agents or humans may propose fact
+     types and mutations to them along with instructions for how to modify
+     changed data"). This read `targeting Domain 'core'` and again
+     `targeting Domain 'evolution'`, which is a list somebody has to keep,
+     and the proof that it does not get kept was the third line: an 'ethics'
+     gate was written, found to name a domain declared nowhere, and parked
+     in a comment as a forward declaration. A domain that does not exist yet
+     cannot be enumerated, and one added later was UNGATED BY DEFAULT -- a
+     failure that reads as silence, because an ungated domain raises
+     nothing.
+
+     Every reason above is a reason about domain changes, not about those
+     two domains: the throat to choke, `exactly one` because a committee is
+     not one, the obligation form because a prohibition puts the cardinality
+     inside the negated scope, and User being a role over the mixin so an
+     Agent may be a User and could otherwise approve its own rewrite. None
+     of that narrows. The forward declaration is no longer needed: an ethics
+     domain is gated the day it is declared, by this sentence, without
+     anyone remembering to add it.
+
+     This is also the gate domain evolution's IMPLEMENTATION needs. A
+     Migration is proposable by an agent -- `Domain Change proposes Function`
+     carries it, since Migration is a subtype of Function, which is exactly
+     the openness the ontology-lens comment above was written for -- and
+     applying one is a Domain Change being applied, so it arrives here. -->
+It is obligatory that each applied Domain Change is approved by exactly one Human.
 
 ## Ring Constraints
 
