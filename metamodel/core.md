@@ -1684,7 +1684,7 @@ Migration Rule Text is a value type.
   The data type of Migration Rule Text is text.
 
 Migration has Fact Type as source.
-  Each Migration has exactly one Fact Type as source.
+  Each Migration, Fact Type combination occurs at most once in the population of Migration has Fact Type as source.
 
 Migration produces Fact Type as target.
   Each Migration, Fact Type combination occurs at most once in the population of Migration produces Fact Type as target.
@@ -1718,7 +1718,7 @@ Migration Application has Migration.
   Each Migration Application has exactly one Migration.
 
 Migration Application has Fact as source.
-  Each Migration Application has exactly one Fact as source.
+  Each Migration Application, Fact combination occurs at most once in the population of Migration Application has Fact as source.
 
 Migration Application produces Fact.
   Each Migration Application, Fact combination occurs at most once in the population of Migration Application produces Fact.
