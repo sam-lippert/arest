@@ -13044,9 +13044,79 @@ namespace Arest.NormaOracle
 					if (!known && !phrase.StartsWith("It ") && !phrase.StartsWith("Each "))
 						myUnresolvedDeonticRefs.Add(phrase);
 				}
+				RefuseRolelessDeonticRefs(s, bare);
 			}
 			return true;
 		}
+
+		// A DECLARED TYPE THAT PLAYS NO ASSERTED ROLE PASSED THE CHECK ABOVE (2026-09-15).
+		// That check asks `is the phrase a declared type`, and a type can be declared,
+		// subtyped, and still take part in nothing: `Human is an entity type. Human is a
+		// subtype of Object Type Instance.` is the whole of Human in metamodel/core.md,
+		// and no reading anywhere puts a Human in a fact. So
+		//
+		//   It is obligatory that each applied Domain Change is approved by exactly one Human.
+		//
+		// -- the self-modification gate, the highest-stakes sentence in the metamodel --
+		// names a relation the model has no column for. It stood as a model note: declared,
+		// and UNFALSIFIABLE, because nothing evaluates it and therefore no store can ever
+		// contradict it. No constructor arm can rescue it, however wide: there is nothing to
+		// build from. Widening the resolver to take the nearest declared player instead
+		// (`User approves Domain Change`) would carry a rule WEAKER than the sentence in
+		// exactly the direction the sentence exists to forbid -- User is a role over the
+		// mixin, an Agent may be a User, and the gate is what stops an agent approving its
+		// own rewrite of the core. A wrong rule here is worse than the silence it replaces,
+		// so this REFUSES by name rather than constructing.
+		//
+		// TWO REASONS IT WAS INVISIBLE, and both are in the loop above. Its regex requires
+		// TWO capitalized words, so a one-word type name -- `Human` -- never entered it at
+		// all; and the rolelessness question was never asked of the words that did. This
+		// scan takes maximal capitalized runs of ONE OR MORE words and reports only EXACT
+		// declared names, so no prefix, plural or containment relaxation can widen it: a
+		// phrase that is not verbatim a declared type says nothing here and is left to the
+		// unresolved report, which is the half that already covers it.
+		//
+		// SUBTYPE ROLES DO NOT COUNT AS PARTICIPATION. Every declared subtyping is a
+		// SubtypeFact with two roles in NORMA, so `Human is a subtype of Object Type
+		// Instance` would otherwise answer `plays a role` and hide the very case this
+		// reads. Anything else -- an ordinary fact type, a reference-mode fact, an
+		// objectification's implied links -- is participation and clears the type.
+		//
+		// IT SAYS ONLY WHAT IT MEASURED, and the line is deliberately not `no fact carries
+		// it`. The metamodel's other two hits are `Ring Constraint` (core.md:165), a
+		// DERIVED subtype whose instances ARE carried, as Constraints, through the
+		// supertype -- so its two obligations are unexpressible HERE, not unexpressible in
+		// principle, and a line claiming otherwise would close the question. Those two are
+		// the same defect #66 recorded ("meaning present in the text, absent from the
+		// machinery") and answered by declaring the subtype: declaring it did not make
+		// either sentence enforceable, and until now nothing said so. `Human` is the
+		// harder case and the lattice is why: its supertype chain does not reach the
+		// relation its sentence asserts, because the approval fact type's player, User,
+		// is Human's SIBLING under the mixin and not its ancestor.
+		private void RefuseRolelessDeonticRefs(string s, string bare)
+		{
+			foreach (Match pm in Regex.Matches(bare, @"\b[A-Z][A-Za-z0-9_]*(?: [A-Z][A-Za-z0-9_]*)*\b"))
+			{
+				string phrase = pm.Value;
+				ObjectType ot;
+				if (!myTypes.TryGetValue(phrase, out ot) || ot == null || ot.IsDeleted) continue;
+				bool plays = false;
+				foreach (Role r in ObjectTypePlaysRole.GetPlayedRoleCollection(ot))
+				{
+					FactType ft = r.BinarizedOrSameFactType;
+					if (ft == null || ft.IsDeleted || ft is SubtypeFact) continue;
+					plays = true;
+					break;
+				}
+				if (plays) continue;
+				string line = "REFUSED (a declared type that plays no role in any asserted fact type): '"
+					+ phrase + "' in '" + Shorten(s) + "'";
+				if (myRolelessDeonticRefs.Add(line)) myMapLog.Add(line);
+			}
+		}
+
+		// said once per (type, sentence): the scan runs over every prose deontic
+		private static readonly HashSet<string> myRolelessDeonticRefs = new HashSet<string>(StringComparer.Ordinal);
 
 		// deontic prose phrases that resolve to no declared type - reported,
 		// never blocking (deontics are adjudication surfaces by design)
