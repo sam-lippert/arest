@@ -1234,7 +1234,7 @@ DomainConnectsToExternalSystem carries Secret Reference.
 
 Derivation Rule is an entity type.
 Derivation Rule has Text.
-  Each Derivation Rule has exactly one Text.
+  Each Derivation Rule has at most one Text.
 Derivation Rule is provided by Constraint.
   Each Derivation Rule is provided by at most one Constraint.
   For each Constraint, at most one Derivation Rule is provided by that Constraint.
