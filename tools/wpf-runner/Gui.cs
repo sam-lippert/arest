@@ -31,6 +31,126 @@ public static class Gui
     // reads back as the value text the address carries
     static readonly Dictionary<string, Func<string>> formInputs = new Dictionary<string, Func<string>>();
 
+    // THE PAIRS THIS CONTAINER MADE. Registration goes into the mu's DEFS,
+    // which is the mu's business; the PAIRING is this container's -- an
+    // abstract control kind bound to the native control that draws it
+    // (iFactr's IPairable, whose abstract half is complete without the native
+    // half, and Pair is the slot the native one goes in). So the table is kept
+    // here, and law:origin_boundary is handed it at boot.
+    static readonly List<object> paired = new List<object>();
+    static void Pair(string name, Func<object, object> impl)
+    {
+        paired.Add(name);
+        Arest.Register(name, impl);
+    }
+
+    // ---- THE ONE SEAM TO SERVE -------------------------------------------
+    //
+    // ONE CALL, NO METHOD BRANCH. api() sends the method it is handed and
+    // reads back what came; what a method MEANS is http:method_kinds' business
+    // on the other side -- main:api0 dispatches on the KIND (nav, transition,
+    // retraction, replacement) and never on the spelling -- so a container
+    // that tested the method here would be deciding that for it.
+    static string serveBase()
+    {
+        var url = Environment.GetEnvironmentVariable("AREST_SERVE");
+        if (!string.IsNullOrEmpty(url)) return url;
+        var port = Environment.GetEnvironmentVariable("AREST_PORT");
+        return "http://127.0.0.1:" + (string.IsNullOrEmpty(port) ? "8787" : port);
+    }
+
+    // a resource is words, and serve decodes the whole path at once
+    // (decodeURIComponent), so each segment is encoded and the slashes stay
+    // slashes -- a table's real name has spaces in it
+    static string enc(string resource)
+    {
+        var parts = resource.Split('/');
+        for (int i = 0; i < parts.Length; i++) parts[i] = Uri.EscapeDataString(parts[i]);
+        return string.Join("/", parts);
+    }
+
+    static string[] api(string method, string resource, string fact)
+    {
+        var where = serveBase() + "/" + enc(resource);
+        try
+        {
+            var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create(where);
+            req.Method = method;
+            req.Timeout = 30000;
+            req.ReadWriteTimeout = 30000;
+            if (fact != null)
+            {
+                req.ContentType = "application/json";
+                var body = System.Text.Encoding.UTF8.GetBytes(fact);
+                req.ContentLength = body.Length;
+                using (var s = req.GetRequestStream()) s.Write(body, 0, body.Length);
+            }
+            using (var res = (System.Net.HttpWebResponse)req.GetResponse())
+                return new string[] { readBody(res), ((int)res.StatusCode).ToString() };
+        }
+        catch (System.Net.WebException e)
+        {
+            // A REFUSAL IS AN ANSWER. Canon decided the status (http:status_of)
+            // and 4xx arrives here as an exception only because this is .NET;
+            // the answer is read out of it rather than thrown away.
+            var res = e.Response as System.Net.HttpWebResponse;
+            if (res != null) using (res) return new string[] { readBody(res), ((int)res.StatusCode).ToString() };
+            // A WRITE THAT DID NOT LAND IS NOT A WRITE -- the lesson the
+            // journal taught, spelled as a status of 0 rather than as a fact
+            // folded into a store only this window can see.
+            return new string[] { e.Message, "0" };
+        }
+        catch (Exception e) { return new string[] { e.Message, "0" }; }
+    }
+
+    static string readBody(System.Net.HttpWebResponse res)
+    {
+        using (var s = res.GetResponseStream())
+        using (var r = new System.IO.StreamReader(s, System.Text.Encoding.UTF8))
+            return r.ReadToEnd();
+    }
+
+    // the fact as canon reads it: <id, fact type, value, fact type, value...>,
+    // ui:create0's own address with the two words that named the screen dropped
+    static string json(List<string> words)
+    {
+        var s = new System.Text.StringBuilder("[");
+        for (int i = 0; i < words.Count; i++)
+        {
+            if (i > 0) s.Append(",");
+            s.Append('"');
+            foreach (char ch in words[i])
+            {
+                if (ch == '"' || ch == '\\') s.Append('\\').Append(ch);
+                else if (ch < 0x20) s.Append(' ');
+                else s.Append(ch);
+            }
+            s.Append('"');
+        }
+        return s.Append("]").ToString();
+    }
+
+    static int statusOf(string[] answer)
+    {
+        int n;
+        return int.TryParse(answer[1], out n) ? n : 0;
+    }
+
+    // THE WRITE GOES OUT THROUGH SERVE AND IS READ BACK THROUGH SERVE, both
+    // legs on the one seam: POST the fact to the group's resource, then GET the
+    // item. The read-back is unconditional because it is the honest question --
+    // what does the server hold now? -- and a refusal answers it as truthfully
+    // as an acceptance does. A WinExe has no console, so both exchanges go to
+    // stage.txt beside the exe, which is where this container speaks.
+    static bool submit(string group, string id, List<string> fact)
+    {
+        var wrote = api("POST", group, json(fact));
+        stage = "POST /" + group + " -> " + wrote[1] + " " + wrote[0];
+        var back = api("GET", group + "/" + id, null);
+        stage = "GET /" + group + "/" + id + " -> " + back[1] + " " + back[0];
+        return statusOf(wrote) > 0 && statusOf(wrote) < 400;
+    }
+
     static string sv(string prop) { return STYLE[prop]; }
     static int num(string prop) { return int.Parse(STYLE[prop]); }
     static Brush brush(string prop)
@@ -123,7 +243,7 @@ public static class Gui
 
     static void registerComponents()
     {
-        Arest.Register("render:canvas", x =>
+        Pair("render:canvas", x =>
         {
             var r = (object[])x;
             canvas.Background = brush("layerBg");
@@ -131,7 +251,7 @@ public static class Gui
             canvas.Height = num2(r[4]);
             return null;
         });
-        Arest.Register("render:headerbar", x =>
+        Pair("render:headerbar", x =>
         {
             var b = new Border();
             b.Background = brush("headerColor");
@@ -139,12 +259,12 @@ public static class Gui
             b.BorderThickness = new Thickness(0, 0, 0, 1);
             return b;
         });
-        Arest.Register("render:titletext", x =>
+        Pair("render:titletext", x =>
         {
             var r = (object[])x;
             return label(text(r[5]), "titleSize", "titleColor", true);
         });
-        Arest.Register("render:backbtn", x =>
+        Pair("render:backbtn", x =>
         {
             var r = (object[])x;
             var l = label(sv("backLabel"), "textSize", "linkColor", false);
@@ -153,19 +273,19 @@ public static class Gui
             l.MouseLeftButtonUp += (s, e) => navigate(addr);
             return l;
         });
-        Arest.Register("render:sectionheader", x =>
+        Pair("render:sectionheader", x =>
         {
             var r = (object[])x;
             var l = label(text(r[5]), "sectionSize", "sectionTextColor", false);
             return l;
         });
-        Arest.Register("render:sep", x =>
+        Pair("render:sep", x =>
         {
             var b = new Border();
             b.Background = brush("sepColor");
             return b;
         });
-        Arest.Register("render:itemrow", x =>
+        Pair("render:itemrow", x =>
         {
             var r = (object[])x;
             bool linked = !empty(r[7]);
@@ -207,49 +327,49 @@ public static class Gui
         // value is 'true', a read-only box for the columns the store fills
         // itself, and a combo box over the row's options (the enumeration,
         // or the referenced type's population for the navigation field).
-        Arest.Register("render:textbox", x =>
+        Pair("render:textbox", x =>
         {
             var t = new TextBox();
             return field((object[])x, t, () => t.Text);
         });
-        Arest.Register("render:textarea", x =>
+        Pair("render:textarea", x =>
         {
             var t = new TextBox();
             t.AcceptsReturn = true;
             t.TextWrapping = TextWrapping.Wrap;
             return field((object[])x, t, () => t.Text);
         });
-        Arest.Register("render:numericfield", x =>
+        Pair("render:numericfield", x =>
         {
             var t = new TextBox();
             t.PreviewTextInput += (s, e) =>
                 e.Handled = !System.Text.RegularExpressions.Regex.IsMatch(e.Text, "^[0-9.-]$");
             return field((object[])x, t, () => t.Text);
         });
-        Arest.Register("render:datepicker", x =>
+        Pair("render:datepicker", x =>
         {
             var d = new DatePicker();
             return field((object[])x, d, () =>
                 d.SelectedDate.HasValue ? d.SelectedDate.Value.ToString("yyyy-MM-dd") : "");
         });
         // WPF ships no time picker; the text is the time
-        Arest.Register("render:timepicker", x =>
+        Pair("render:timepicker", x =>
         {
             var t = new TextBox();
             return field((object[])x, t, () => t.Text);
         });
         // the image is a value the store holds by address
-        Arest.Register("render:imagepicker", x =>
+        Pair("render:imagepicker", x =>
         {
             var t = new TextBox();
             return field((object[])x, t, () => t.Text);
         });
-        Arest.Register("render:switch", x =>
+        Pair("render:switch", x =>
         {
             var c = new CheckBox();
             return field((object[])x, c, () => c.IsChecked == true ? "true" : "");
         });
-        Arest.Register("render:label", x =>
+        Pair("render:label", x =>
         {
             var t = new TextBox();
             t.IsReadOnly = true;
@@ -264,9 +384,9 @@ public static class Gui
             c.SelectedIndex = 0;
             return field(r, c, () => c.SelectedItem == null ? "" : c.SelectedItem.ToString());
         };
-        Arest.Register("render:selectlist", select);
-        Arest.Register("render:navigationfield", select);
-        Arest.Register("render:button", x =>
+        Pair("render:selectlist", select);
+        Pair("render:navigationfield", select);
+        Pair("render:button", x =>
         {
             var r = (object[])x;
             var b = new Button();
@@ -277,16 +397,30 @@ public static class Gui
                 Func<string> idf;
                 stage = "submit " + group + " with " + formInputs.Count + " inputs";
                 if (!formInputs.TryGetValue(group, out idf) || idf().Length == 0) return;
-                var addr = new System.Collections.Generic.List<object> { "submit", group, idf() };
+                string id = idf();
+                var addr = new System.Collections.Generic.List<object> { "submit", group, id };
                 foreach (var kv in formInputs)
                     if (kv.Key != group && kv.Value().Length > 0)
                     { addr.Add(kv.Key); addr.Add(kv.Value()); }
-                formInputs.Clear();
-                navigate(addr.ToArray());
+                // the fact is the address without the two words that named the
+                // screen; the same list serves both, because ui:create0 and
+                // main:api read the same order
+                var fact = new List<string>();
+                for (int i = 2; i < addr.Count; i++) fact.Add(Convert.ToString(addr[i]));
+                var address = addr.ToArray();
+                // off the UI thread: the durable write is a network call, and a
+                // frozen window is not a rendering of anything
+                new System.Threading.Thread(() =>
+                {
+                    if (!submit(group, id, fact)) return;   // refused: what was
+                    // typed stays typed, and no fact enters this window's store
+                    b.Dispatcher.BeginInvoke(new Action(() =>
+                    { formInputs.Clear(); navigate(address); }));
+                }).Start();
             };
             return b;
         });
-        Arest.Register("render:blocktext", x =>
+        Pair("render:blocktext", x =>
         {
             var r = (object[])x;
             var t = new TextBox();
@@ -304,15 +438,28 @@ public static class Gui
         // the byte form, the timing, and the sequence are all canon's
         // the same instant stamps the same bytes on every host: ISO 8601 UTC
         // to the millisecond, as the js and rust hosts answer it
-        Arest.Register("clock", x =>
+        Pair("clock", x =>
             System.DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
                 System.Globalization.CultureInfo.InvariantCulture));
         // NO store:append. The journal is gone (Samuel, 2026-09-11), so this
         // container no longer writes an entry file and no longer replays one at
         // boot: what it loses is its OWN session restore, which nothing else read.
-        // Durability for this station is a write into the tables the way the js
-        // host does it (emitToDb), which needs Microsoft.Data.Sqlite and is not
-        // done here -- the deletion does not pretend to have delivered it.
+        //
+        // AND WHAT REPLACED IT IS SERVE, NOT A DATABASE DRIVER HERE (#108,
+        // 2026-09-15). What stood here said durability for this station was a
+        // write into the tables the way the js host does it, needing
+        // Microsoft.Data.Sqlite; the java container carried the same proposal
+        // against sqlite-jdbc. That is one persistence implementation per
+        // platform, and Samuel ruled it out (2026-09-14): a gui should just be
+        // the abstract ui as a thin hateoas wrapper, and a platform factory
+        // renders the abstract ui. The rendering half is already here -- the
+        // Pair(render:<control>, native control) table above IS the platform
+        // factory, and ui:screen is the abstract ui -- so the durable half is
+        // reached the way any other client reaches it: over HTTP to serve,
+        // which applies main:api and does the validating, the deriving, the
+        // emitting into the tables and the deciding of the status, none of
+        // which is per-platform. api() above is the whole seam; the button
+        // posts through it and reads back through it.
     }
 
     // the carriers this build composed from: AREST_CARRIERS when set (the js
@@ -423,6 +570,47 @@ public static class Gui
             STYLE[(string)pv[0]] = pv[1].ToString();
         }
         registerComponents();
+
+        // PAIRING TOTALITY, ASKED OF THIS CONTAINER (#108). Pair(control,
+        // impl) IS the pairing, so the table it built is this container's half
+        // of Def 11, and law:origin_boundary now takes it: does every abstract
+        // control kind the store declares registered HAVE a registration here?
+        // The law ships inside Composed.g.cs -- it has been compiled into this
+        // container all along -- and nothing ever handed it this table, so the
+        // container was unchecked by the one check written for it. An unpaired
+        // kind is a window that dies mid-render on the first row that names it,
+        // so this refuses before the window and law:unpaired names what is
+        // missing. The two halves are reported apart because they measure
+        // different things: law:origins_match is the store's, and law:report is
+        // where a store is gated; law:paired is this container's own.
+        stage = "pairing";
+        var registered = paired.ToArray();
+        var pair = new object[] { store, registered };
+        var kinds = (object[])Arest.Ev("law:ctl_declared", store);
+        var verdict = "law:origin_boundary over <store, " + registered.Length + " registered>: "
+            + Convert.ToString(Arest.Ev("law:origin_boundary", pair))
+            + "  (store halves " + Convert.ToString(Arest.Ev("law:origins_match", store))
+            + ", pairing " + Convert.ToString(Arest.Ev("law:paired", pair))
+            + " over " + kinds.Length + " declared control kinds)";
+        stage = verdict;
+        // AND A VERDICT NOTHING CAN READ IS NOT A VERDICT. stage.txt holds only
+        // the last thing this container was doing, and the next stage overwrites
+        // this one a millisecond later; a WinExe has no console to have said it
+        // to. So the answer is left beside the exe the way the build leaves
+        // carriers.path, and the last boot's boundary is readable after it.
+        try
+        {
+            System.IO.File.WriteAllText(
+                System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "boundary.txt"), verdict);
+        }
+        catch { }
+        if (!"T".Equals(Convert.ToString(Arest.Ev("law:paired", pair))))
+        {
+            var names = new List<string>();
+            foreach (var m in (object[])Arest.Ev("law:unpaired", pair)) names.Add(Convert.ToString(m));
+            crash(new Exception("unpaired control kinds: " + string.Join(", ", names)));
+            Environment.Exit(2);
+        }
 
         // the canvas sits where canon placed it: a ScrollViewer centres content
         // smaller than its viewport, which put every rectangle ~130 px below

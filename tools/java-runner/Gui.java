@@ -105,6 +105,103 @@ public class Gui {
 
     static int num2(Object n) { return ((Integer) n).intValue(); }
 
+    // ---- THE ONE SEAM TO SERVE ------------------------------------------
+    //
+    // ONE CALL, NO METHOD BRANCH. api() sends the method it is handed and
+    // reads back what came; what a method MEANS is http:method_kinds' business
+    // on the other side -- main:api0 dispatches on the KIND (nav, transition,
+    // retraction, replacement) and never on the spelling -- so a container that
+    // tested the method here would be deciding that for it. There is no
+    // dispatch here, no rendering of the answer, no status decision: serve
+    // answers <body, status> and this reports both.
+    static String serveBase() {
+        String url = System.getenv("AREST_SERVE");
+        if (url != null && !url.isEmpty()) return url;
+        String port = System.getenv("AREST_PORT");
+        return "http://127.0.0.1:" + (port == null || port.isEmpty() ? "8787" : port);
+    }
+
+    // a resource is words, and serve decodes the whole path at once
+    // (decodeURIComponent), so each segment is encoded and the slashes stay
+    // slashes -- a table's real name has spaces in it and + is not one
+    static String enc(String resource) {
+        StringBuilder out = new StringBuilder();
+        for (String seg : resource.split("/", -1)) {
+            if (out.length() > 0) out.append("/");
+            try { out.append(java.net.URLEncoder.encode(seg, "UTF-8").replace("+", "%20")); }
+            catch (java.io.UnsupportedEncodingException e) { out.append(seg); }
+        }
+        return out.toString();
+    }
+
+    static String[] api(String method, String resource, String fact) {
+        String where = serveBase() + "/" + enc(resource);
+        try {
+            java.net.HttpURLConnection c =
+                (java.net.HttpURLConnection) new java.net.URL(where).openConnection();
+            c.setRequestMethod(method);
+            c.setConnectTimeout(3000);
+            c.setReadTimeout(30000);
+            if (fact != null) {
+                c.setDoOutput(true);
+                c.setRequestProperty("content-type", "application/json");
+                c.getOutputStream().write(fact.getBytes("UTF-8"));
+            }
+            int status = c.getResponseCode();
+            return new String[] { read(status < 400 ? c.getInputStream() : c.getErrorStream()),
+                                  String.valueOf(status) };
+        } catch (Exception e) {
+            // A WRITE THAT DID NOT LAND IS NOT A WRITE -- the lesson the
+            // journal above taught, spelled as a status of 0 rather than as a
+            // fact folded into a store only this window can see.
+            return new String[] { String.valueOf(e), "0" };
+        }
+    }
+
+    static String read(java.io.InputStream in) throws java.io.IOException {
+        if (in == null) return "";
+        java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+        byte[] buf = new byte[4096];
+        for (int n = in.read(buf); n > 0; n = in.read(buf)) b.write(buf, 0, n);
+        in.close();
+        return new String(b.toByteArray(), "UTF-8");
+    }
+
+    // the fact as canon reads it: <id, fact type, value, fact type, value...>,
+    // ui:create0's own address with the two words that named the screen dropped
+    static String json(java.util.List<String> words) {
+        StringBuilder s = new StringBuilder("[");
+        for (int i = 0; i < words.size(); i++) {
+            if (i > 0) s.append(",");
+            s.append('"');
+            for (char ch : words.get(i).toCharArray()) {
+                if (ch == '"' || ch == '\\') s.append('\\').append(ch);
+                else if (ch < 0x20) s.append(' ');
+                else s.append(ch);
+            }
+            s.append('"');
+        }
+        return s.append("]").toString();
+    }
+
+    static int status(String[] answer) {
+        try { return Integer.parseInt(answer[1]); } catch (NumberFormatException e) { return 0; }
+    }
+
+    // THE WRITE GOES OUT THROUGH SERVE AND IS READ BACK THROUGH SERVE, both
+    // legs on the one seam: POST the fact to the group's resource, then GET
+    // the item. The read-back is unconditional because it is the honest
+    // question -- what does the server hold now? -- and a refusal answers it
+    // as truthfully as an acceptance does. Only a write serve took is folded
+    // into the store this window draws from.
+    static boolean submit(String group, String id, java.util.List<String> fact) {
+        String[] wrote = api("POST", group, json(fact));
+        System.err.println("POST /" + group + " -> " + wrote[1] + " " + wrote[0]);
+        String[] back = api("GET", group + "/" + id, null);
+        System.err.println("GET /" + group + "/" + id + " -> " + back[1] + " " + back[0]);
+        return status(wrote) < 400 && status(wrote) > 0;
+    }
+
     static void registerComponents() {
         register("canvas", r -> {
             canvas.setBackground(color("layerBg"));
@@ -246,14 +343,26 @@ public class Gui {
             b.addActionListener(e -> {
                 javax.swing.JTextField idf = inputs.get(group);
                 if (idf == null || idf.getText().isEmpty()) return;
+                final String id = idf.getText();
                 java.util.ArrayList<Object> addr = new java.util.ArrayList<>();
-                addr.add("submit"); addr.add(group); addr.add(idf.getText());
+                addr.add("submit"); addr.add(group); addr.add(id);
                 for (java.util.Map.Entry<String, javax.swing.JTextField> en : inputs.entrySet())
                     if (!en.getKey().equals(group) && !en.getValue().getText().isEmpty()) {
                         addr.add(en.getKey()); addr.add(en.getValue().getText());
                     }
-                inputs.clear();
-                navigate(addr.toArray());
+                // the fact is the address without the two words that named the
+                // screen; the same list serves both, because ui:create0 and
+                // main:api read the same order
+                final java.util.ArrayList<String> fact = new java.util.ArrayList<String>();
+                for (int i = 2; i < addr.size(); i++) fact.add(String.valueOf(addr.get(i)));
+                final Object[] address = addr.toArray();
+                // off the event thread: the durable write is a network call,
+                // and a frozen window is not a rendering of anything
+                new Thread(() -> {
+                    if (!submit(group, id, fact)) return;   // refused: what was
+                    // typed stays typed, and no fact enters this window's store
+                    SwingUtilities.invokeLater(() -> { inputs.clear(); navigate(address); });
+                }).start();
             });
             return b;
         });
@@ -283,12 +392,63 @@ public class Gui {
         // host, which registers store:append nowhere at all: the GUI containers
         // were the only registrants left.
         //
-        // WHAT REPLACES IT IS THE TABLES, and it is the next commit, not this
-        // one: the js host's popSnapshot/emitToDb pair reads store:fts and
-        // system:pop_rows -- both canon -- and writes the changed populations
-        // into store.db, which is what #108 means by the journal being retired.
-        // For this station that needs sqlite-jdbc, fetched the way test.sh
-        // already fetches the JUnit console launcher.
+        // WHAT REPLACED IT IS SERVE, AND NOT A DATABASE DRIVER HERE (#108,
+        // 2026-09-15). What stood here proposed fetching sqlite-jdbc so this
+        // station could run the js host's emitToDb itself; the wpf container
+        // carried the same proposal against Microsoft.Data.Sqlite. That is one
+        // persistence implementation per platform, and Samuel ruled it out
+        // (2026-09-14): a gui should just be the abstract ui as a thin hateoas
+        // wrapper, and a platform factory renders the abstract ui. The
+        // rendering half is already here -- the render:<control> registrations
+        // ARE the platform factory, and ui:screen is the abstract ui -- so the
+        // durable half is reached the way any other client reaches it: over
+        // HTTP to serve, which applies main:api and does the validating, the
+        // deriving, the emitting into the tables and the deciding of the
+        // status, none of which is per-platform. api() above is the whole
+        // seam; the button posts through it and reads back through it.
+
+        // PAIRING TOTALITY, ASKED OF THIS CONTAINER (#108). register(control,
+        // impl) IS the pairing -- iFactr's IPairable, whose abstract half is
+        // complete without the native half, and Pair is the slot the native
+        // control goes in -- so the registrations above are this container's
+        // pairs and the control kinds are the abstract view types.
+        // law:origin_boundary now takes the set that pairing built, and asks
+        // the one question no store can answer about itself: does every
+        // abstract control kind the store declares registered HAVE a
+        // registration here? The law shipped inside every composed module and
+        // nothing ever handed it a container's table, so the containers were
+        // unchecked by the check written for them. An unpaired kind is a
+        // window that dies mid-render on the first row that names it, so this
+        // refuses before the frame and law:unpaired names what is missing.
+        //
+        // AND THE TWO HALVES ARE REPORTED APART, because they are MEASURED
+        // apart here (2026-09-15). law:origins_match -- the store halves, the
+        // old law verbatim -- answers F over this container's store, and it is
+        // not the pairing: thirteen names the store declares registered
+        // (the ten control kinds, store:append, crypt:encrypt, crypt:decrypt)
+        // are in no canon cell's atoms, so manifest:origins cannot compute
+        // them. They are in the js host's computed surface only because that
+        // host BOOTS -- FILE projected, the meta-types reflected, the closure
+        // taken -- and those cells carry the names as DATA. This container
+        // reads and never boots, which is Boot.cs's own finding written down
+        // in 2026-09-07: the hosts were not disagreeing about an answer, they
+        // were answering over different stores. That is a store defect and
+        // law:report is where it is gated; refusing a window over it would
+        // trade a working container for a check that belongs elsewhere. The
+        // PAIRING half is this container's own, and it IS fatal here.
+        Object[] registered = Arest.PRIMS.keySet().toArray();
+        Object[] pair = new Object[] { store, registered };
+        Object[] kinds = (Object[]) Arest.Ev("law:ctl_declared", store);
+        Object[] unpaired = (Object[]) Arest.Ev("law:unpaired", pair);
+        System.err.println("law:origin_boundary over <store, " + registered.length
+            + " registered>: " + Arest.Ev("law:origin_boundary", pair)
+            + "  (store halves " + Arest.Ev("law:origins_match", store)
+            + ", pairing " + Arest.Ev("law:paired", pair)
+            + " over " + kinds.length + " declared control kinds)");
+        if (!"T".equals(String.valueOf(Arest.Ev("law:paired", pair)))) {
+            for (Object m : unpaired) System.err.println("  unpaired control kind: " + m);
+            System.exit(2);
+        }
 
         SwingUtilities.invokeLater(() -> {
             // the frame names its tenant, like the root layer
