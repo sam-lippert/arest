@@ -197,6 +197,44 @@ namespace Arest.NormaOracle.Tests
             Assert.Contains("'two'", verbalized);
         }
 
+        // AN OBJECTIFICATION DECLARED BEFORE ITS FACT RESOLVES TO THE FACT TYPE.
+        // probes/objectify-before-fact was the last of the eight one-line `errors 0`
+        // expectations left unaccounted for, and measuring it settles that it is
+        // blind: `Plan Product objectifies "Plan includes API"` is written ABOVE the
+        // reading it objectifies, and if that forward declaration fell through, the
+        // oracle would mint `Plan Product` as its own entity type and
+        // `Plan Product has Price Per Call` would take THAT as its player. The model
+        // stays well formed either way, so NORMA raises nothing and the error count
+        // reads 0 in both worlds. ProbeActual cannot see it either: its surfaces are
+        // errors, UNBUILT, read-back, REFUSED, FILED, UNDELIVERED, the deontics cell
+        // and rule blocks, and this probe declares no rule at all.
+        //
+        // The difference is one player. Measured: state:fts carries
+        // `PlanProductHasPricePerCall <PlanIncludesAPI, Price Per Call>` -- the
+        // OBJECTIFIED FACT TYPE standing as the object type -- and state:otmeta
+        // lists no `PlanProduct` at all, so nothing was minted beside it.
+        //
+        // NOT ASSERTED, because I did not establish it: state:otmeta flags
+        // PlanIncludesAPI `T` where every other type here is `F`, but that flag is
+        // not "is objectified" -- the metamodel flags six types T and none of them
+        // is one of its many declared objectifications. Pinning a flag whose meaning
+        // is unknown is how the comment on refmode-names-entity went wrong.
+        [Fact]
+        public void AnObjectificationDeclaredBeforeItsFactStandsAsTheFactType()
+        {
+            string dir = Path.Combine(ProbesDir, "objectify-before-fact");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "objectify-before-fact-nesting"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            // the objectified fact type is the player, not a minted `Plan Product`
+            Assert.Contains("S5(A(\"PlanProductHasPricePerCall\"), S2(A(\"PlanIncludesAPI\"), A(\"Price Per Call\"))", state);
+            // and nothing was minted beside it: no PlanProduct object type exists
+            Assert.DoesNotContain("A(\"PlanProduct\"), A(\"entity\")", state);
+            Assert.DoesNotContain("A(\"PlanProduct\"), A(\"value\")", state);
+            // stated rather than relied on: the error count is blind to all of it
+            Assert.Equal(0, Oracle.BlockingErrors(run.Output));
+        }
+
         // A GENERAL REFERENCE MODE SHARES ITS VALUE TYPE; A POPULAR ONE MINTS ONE.
         // probes/refmode-names-entity was recorded by ac757d90 (#99) with a one-line
         // `errors 0` expectation and no [Fact] beside it -- and the defect it guards
