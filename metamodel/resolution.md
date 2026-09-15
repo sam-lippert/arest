@@ -19,6 +19,26 @@ Operation is a subtype of Function.
 
 Operation is overridable.
 Operation is registrable.
+Operation is registered.
+Operation awaits a driver. *
+
+<!-- WHAT MAY BE REGISTERED IS NOT WHAT IS (2026-09-14). `is registrable` says a host MAY
+     fill this seam; nothing said whether one had, so Cor 6's honest list of where unverified
+     computation enters could not be derived, and law:origin_boundary compares the manifest
+     against the store's own declarations -- declaration against declaration, never against a
+     host. Measured the same day: of the seven registrable Operations FIVE are empty
+     (compile, apps_compile and the three csdp seams) and THREE operations the host really
+     does register -- clock, crypt:encrypt, crypt:decrypt -- are not in the registrable list
+     at all. The boundary was unsound in both directions.
+
+     A HOST ASSERTS WHAT IT FILLED. It knows its own table, so `Operation is registered` is a
+     fact it can state at boot, and the awaiting list is then a DERIVATION rather than a
+     comment. Samuel, 2026-09-14: the LLM seams do not need wiring into the mu -- Ev is
+     synchronous and no primitive is async -- they have to be driven manually by an llm or a
+     person at those points. Driving them manually requires knowing where the points ARE, and
+     that is what this derives. The negated clause follows evolution.md's `Domain Change is
+     valid` exactly, which the oracle builds as a finite anti-join. -->
+* Operation awaits a driver iff that Operation is registrable and it is not true that that Operation is registered.
 
 ## The catalog
 
@@ -181,6 +201,22 @@ Operation 'apps_compile' is registrable.
 Operation 'csdp:elementarize' is registrable.
 Operation 'csdp:combine_judgment' is registrable.
 Operation 'csdp:accept_judgment' is registrable.
+
+<!-- REGISTERED BY THE JS HOST, and clock and the crypt pair are added to the registrable
+     list at the same time because they were filled without ever being declared fillable.
+     Probed through Ev, 2026-09-14: an unresolved atom is empty, anything else resolved.
+     What is left registrable and unregistered -- compile, apps_compile, and the three csdp
+     seams -- is what `Operation awaits a driver` now derives, and those are the points a
+     person or an llm drives by hand. -->
+Operation 'clock' is registrable.
+Operation 'crypt:encrypt' is registrable.
+Operation 'crypt:decrypt' is registrable.
+
+Operation 'synthesize' is registered.
+Operation 'validate' is registered.
+Operation 'clock' is registered.
+Operation 'crypt:encrypt' is registered.
+Operation 'crypt:decrypt' is registered.
 
 ## Def 9 boundary rows
 
