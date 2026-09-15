@@ -1,0 +1,18 @@
+errors 0
+UNDELIVERED (an aggregate this grammar has no form for (sum)): BasketHasTotalWeight
+UNDELIVERED (a count grouped by 2 columns (the count form groups by one)): GrowerHasTallyForSeason
+UNDELIVERED (a numeric threshold on a role typed text (Status Code)): ServerHasErrorTallyForWindow
+*Basket has Total Weight if and only if
+that Basket holds some Fruit that has some Weight
+where Total Weight = Sum(each Weight for  that Basket).
+
+*Grower has Tally for Season if and only if
+that Grower tends some Basket that holds some Fruit that grew in that Season
+where Tally = Count(each Fruit for  each unique Grower, Season combination).
+
+*Server has Error Tally for Window if and only if
+some Log Entry has that Server
+and  has some Status Code where GreaterThanOrEqual(Status Code, 400)
+and  falls in that Window
+where Error Tally = Count(each Log Entry for  each unique Server, Window combination).
+
