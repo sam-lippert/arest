@@ -119,6 +119,36 @@ namespace Arest.NormaOracle.Tests
             Assert.Contains("A(\"PostIsApproved\"), N(1)", state);
         }
 
+        // A DEONTIC WHOSE BODY IS A JOIN (2026-09-15). The deontic path resolved
+        // ONE clause to ONE fact type, so `It is obligatory that each Widget
+        // packed in some Crate has some Stamp Code` -- both legs declared --
+        // became a model note and nothing read it. The obligation is the dual of
+        // a prohibition (De Morgan): the Widget/Crate pairs MINUS the pairs whose
+        // Widget has a Stamp Code, every surviving row a violation. The probe
+        // theory above cannot see this: it reads errors, UNBUILT lines, read-back
+        // and rule verbalizations, and a deontic is none of those. This reads the
+        // constraint out of the design-state, where the canon closure looks for it.
+        [Fact]
+        public void ADeonticOverAJoinIsCarriedAsAProhibitedPopulation()
+        {
+            string dir = Path.Combine(ProbesDir, "deontic-join-obligation");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "deontic-join-obligation-state"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            Assert.Contains(
+                "S3(A(\"DEO:p:WidgetIsPackedInCrate\"), A(\"prohibited\"), "
+                + "S2(A(\"WidgetIsPackedInCrate\"), "
+                + "S3(A(\"minus\"), A(\"WidgetIsPackedInCrate\"), "
+                + "S5(A(\"joinon\"), A(\"WidgetIsPackedInCrate\"), A(\"WidgetHasStampCode\"), "
+                + "S1(S2(N(1), N(1))), S2(N(1), N(2))))))",
+                state);
+            // AND IT IS NOT A NOTE INSTEAD. The note stays as NORMA's record of the
+            // text (NORMA has no element for an empty-population constraint), so the
+            // presence of a note proves nothing; that the oracle stopped calling it
+            // unbuildable prose does.
+            Assert.DoesNotContain("qualified deontic prose", run.Output);
+        }
+
         // A HYPHEN IS SILENT WHEN A SENTENCE IS SPOKEN. FORML's hyphen binding
         // on a predicate word (`has default- Fetcher`, `has applicable- Tax
         // Year`) is absorption naming; the reading's words dropped the hyphen

@@ -6987,23 +6987,6 @@ namespace Arest.NormaOracle
 				var legsC = new List<FactIndexEntry>();
 				var toksC = new List<List<string>>();
 				bool okC = true;
-				// A CLAUSE IS EITHER A LEG OR A COMPARISON BETWEEN TWO BOUND VALUES.
-				//     ... and that Error Rate exceeds Error Threshold
-				// names no fact type; it constrains two values other clauses already bound,
-				// so it becomes a path CONDITION rather than a step. Both sides must be
-				// bound by legs -- a comparison against something the body never introduced
-				// would silently drop, and dropping a condition WIDENS the head.
-				// NEGATION, BUT ONLY THE TWO FORMS BELOW. Blanking them first means any OTHER
-				// `no`/`not` in the body still declines the rule, rather than being built as
-				// though it were not there -- dropping a negation does not narrow a rule, it
-				// inverts it.
-				// ... and a quoted value is not a negation: `that State has In-Lieu-Of Motor
-				// Vehicle Tax 'no'` restricts a value to the word no. Blank the literals first.
-				if (Regex.IsMatch(Regex.Replace(LiteralRx.Replace(bodyC, "''"), " has no | is not | does not | no other ", " "), @"\b(no|not)\b"))
-				{
-					myPlanDeclines[sC] = "chain arm: a negation in a form this arm does not read";
-					continue;
-				}
 				var negC = new List<bool>();
 				// declared players that only matched because a subtype was substituted for them
 				var swapPlayersC = new HashSet<string>(StringComparer.Ordinal);
@@ -7021,332 +7004,8 @@ namespace Arest.NormaOracle
 				var otherC = new List<string[]>();
 				// `nestC[l]` is the negated leg that leg l sits inside, or -1 (BuildChain)
 				var nestC = new List<int>();
-				for (int pcI = 0; pcI < partsC.Length; pcI++)
-				{
-					string tC = partsC[pcI].Trim();
-					// THE UNIVERSAL: `every Customer that pursues that Use Case calls that API in
-					// some Measurement Window with some Call Volume` is "no Customer pursues
-					// that Use Case without calling that API" -- a negated leg over a fresh
-					// Customer (the restriction) with the consequent negated INSIDE it. The two
-					// readings are found by the one cut of the words that resolves both. The
-					// relative clause reaches this arm rewritten -- `every Customer` and then
-					// `that Customer pursues ... calls ...` -- so a bare `every X` takes the
-					// clause after it.
-					Match evm = Regex.Match(tC, @"^every ([A-Z][\w ]*?) that (.+)$");
-					if (!evm.Success && pcI + 1 < partsC.Length)
-					{
-						Match evBare = Regex.Match(tC, @"^every ([A-Z][\w ]*)$");
-						string nextC = partsC[pcI + 1].Trim();
-						if (evBare.Success && nextC.StartsWith("that " + evBare.Groups[1].Value.Trim() + " ", StringComparison.Ordinal))
-						{
-							evm = Regex.Match("every " + evBare.Groups[1].Value.Trim() + " that " + nextC.Substring(5 + evBare.Groups[1].Value.Trim().Length + 1), @"^every ([A-Z][\w ]*?) that (.+)$");
-							if (evm.Success) pcI++;
-						}
-					}
-					if (evm.Success)
-					{
-						string evX = evm.Groups[1].Value.Trim();
-						string[] evWords = evm.Groups[2].Value.Trim().Split(' ');
-						FactIndexEntry evP = null, evQ = null; List<string> plP = null, plQ = null; string txtP = null, txtQ = null;
-						for (int cut = 1; cut < evWords.Length && evP == null; cut++)
-						{
-							string pText = evX + " " + string.Join(" ", evWords, 0, cut);
-							string qText = evX + " " + string.Join(" ", evWords, cut, evWords.Length - cut);
-							List<string> pl1, pl2;
-							FactIndexEntry e1 = ResolveClauseSub(Dequantify(" " + pText + " ").Trim(), out pl1);
-							if (e1 == null) continue;
-							FactIndexEntry e2 = ResolveClauseSub(Dequantify(" " + qText + " ").Trim(), out pl2);
-							if (e2 == null) continue;
-							evP = e1; evQ = e2; plP = pl1; plQ = pl2; txtP = pText; txtQ = qText;
-						}
-						if (evP == null) { okC = false; myPlanDeclines[sC] = "chain arm: no cut of `" + tC + "` resolves both readings"; break; }
-						string evFresh = evX + "~every" + legsC.Count;
-						List<string> tP = RoleQualified(Dequantify(" " + txtP + " ").Trim(), plP, true);
-						List<string> tQ = RoleQualified(Dequantify(" " + txtQ + " ").Trim(), plQ, true);
-						// X is one variable in both; a `some` inside the universal is a FRESH one
-						// (`calls that API in some Measurement Window`: any window, not the
-						// guard's), so only `that` binds to the outside
-						bool[] bP = BoundPositions(txtP, plP), bQ = BoundPositions(txtQ, plQ);
-						bool xP = false, xQ = false;
-						for (int c = 0; c < tP.Count; c++)
-						{
-							if (!xP && StripRolePrefix(tP[c]) == evX) { tP[c] = evFresh; xP = true; }
-							else if (c < bP.Length && !bP[c]) tP[c] = tP[c] + "~e" + legsC.Count;
-						}
-						for (int c = 0; c < tQ.Count; c++)
-						{
-							if (!xQ && StripRolePrefix(tQ[c]) == evX) { tQ[c] = evFresh; xQ = true; }
-							else if (c < bQ.Length && !bQ[c]) tQ[c] = tQ[c] + "~e" + (legsC.Count + 1);
-						}
-						legsC.Add(evP); negC.Add(true); nestC.Add(-1); toksC.Add(tP);
-						legsC.Add(evQ); negC.Add(true); nestC.Add(legsC.Count - 2); toksC.Add(tQ);
-						continue;
-					}
-					bool isOtherC = false;
-					if (tC.StartsWith("some other ", StringComparison.Ordinal)) { isOtherC = true; tC = "some " + tC.Substring(11); }
-					// AN ARITHMETIC CLAUSE COMPUTES a head value rather than binding one:
-					//     ... and Net Amount equals Gross Amount minus Discount Amount
-					// Its target appears in no leg -- it is the answer, not an input -- so it is
-					// projected from a CalculatedPathValue instead of a pathed role. Checked
-					// first: `equals` is unambiguous, and no fact type answers to such a clause.
-					// ... when the other side IS an expression. `document- Fee Amount equals
-					// Document Fee Charged` names one bound value: an alias, read below as the
-					// comparison arm reads `is`, and the head role projects from that value.
-					// A DECLARED READING WINS HERE TOO. kernel declares `Count plus Count is Count`
-					// as a fact type and writes `Count2 plus Count3 is Count1` as a leg of it;
-					// read as arithmetic, the path had four legs and a condition where the
-					// reading -- and the gate -- had five legs.
-					// A CONCATENATION IS A VALUE FUNCTION: `target- URL is the concatenation of
-					// that Base Path and that Resource Path` computes the head's value from two
-					// bound ones, as `plus` does; Concat is minted as Add is, and nests for more
-					Match ccm = Regex.Match(tC, @"^(?:that )?([A-Za-z][\w- ]*?) is the concatenation of (.+)$");
-					if (ccm.Success)
-					{
-						var partsCc = new List<string>();
-						foreach (string pc in Regex.Split(ccm.Groups[2].Value, @",? and |, ")) if (pc.Trim().Length > 0) partsCc.Add(pc.Trim());
-						if (partsCc.Count >= 2) { arithC.Add(new string[] { ccm.Groups[1].Value.Trim(), string.Join(" concat ", partsCc) }); continue; }
-					}
-					List<string> plArith;
-					bool clauseIsReading = ArithOpRx.IsMatch(tC)
-						&& ResolveClauseSub(Dequantify(" " + tC + " ").Trim(), out plArith) != null;
-					Match am = clauseIsReading ? Match.Empty : Regex.Match(tC, @"^(?:that )?([A-Za-z][\w- ]*?) equals (.+)$");
-					if (am.Success && (ArithOpRx.IsMatch(am.Groups[2].Value) || Regex.IsMatch(am.Groups[2].Value.Trim(), @"^[0-9]|^the (minimum|maximum) of ")))
-					{
-						arithC.Add(new string[] { am.Groups[1].Value.Trim(), am.Groups[2].Value.Trim() });
-						continue;
-					}
-					// THE SAME CLAUSE WITH `is`, EITHER WAY ROUND, when one side carries an
-					// operator: the Monroney label's `that Suggested Retail Price plus that
-					// Optional Equipment Total is that Label Subtotal`, and `Registration Age is
-					// current Year minus model Year`. A side with no operator is not an
-					// expression, so `Request is Submission` and `that Retry Count is less than
-					// Retry Limit` stay what they are.
-					Match ai = clauseIsReading ? Match.Empty : Regex.Match(tC, @"^(.+?) is (?:that |some )?([A-Z][\w- ]*?)$");
-					if (ai.Success && ArithOpRx.IsMatch(ai.Groups[1].Value) && !ArithOpRx.IsMatch(ai.Groups[2].Value))
-					{
-						arithC.Add(new string[] { ai.Groups[2].Value.Trim(), ai.Groups[1].Value.Trim() });
-						continue;
-					}
-					Match aj = clauseIsReading ? Match.Empty : Regex.Match(tC, @"^(?:that )?([A-Za-z][\w- ]*?) is (.+)$");
-					if (aj.Success && ArithOpRx.IsMatch(aj.Groups[2].Value) && !ArithOpRx.IsMatch(aj.Groups[1].Value))
-					{
-						arithC.Add(new string[] { aj.Groups[1].Value.Trim(), aj.Groups[2].Value.Trim() });
-						continue;
-					}
-					// A DECLARED READING WINS OVER A COMPARISON READING. `Request is Submission`
-					// matches `A is B` exactly as `that Email Address is that Email` does, and
-					// taking the comparison first STOLE a genuine leg -- the body then had one leg
-					// and two "comparisons", and the arm declined a rule it should have built. So
-					// resolve as a leg FIRST, and read `A is B` as an equality only when no fact
-					// type answers to it. The other comparison verbs cannot resolve as legs anyway,
-					// so the order does not affect them.
-					// `Resource Declaration has no override- Fetcher` is the declared reading
-					// `Resource Declaration has override- Fetcher` under a negation, and
-					// `Country Code is not an EEA Country Code` likewise. Resolve the POSITIVE
-					// form and carry the negation as a flag; NORMA has one place to put it.
-					bool thisNegC = false;
-					string tPosC = tC;
-					var negTriesC = new List<string>();
-					// THE CANONICAL FORM FIRST: `it is not true that <clause>` contains " is not "
-					// and the idiom below turned it into "it is true that ...", which resolves
-					// to nothing -- the rewritten GDPR rule lost its build that way.
-					// `no other Style Candidate has that Squish VIN`: a negated leg over a FRESH
-					// variable of the type -- not the Style Candidate the head bound -- with the
-					// distinctness NotEquals(fresh, that one) scoped INSIDE the negation
-					bool noOtherC = false;
-					if (tC.StartsWith("no other ", StringComparison.Ordinal)) { thisNegC = true; noOtherC = true; negTriesC.Add("some " + tC.Substring(9)); }
-					else if (tC.StartsWith("it is not true that ", StringComparison.OrdinalIgnoreCase)) { thisNegC = true; negTriesC.Add(tC.Substring(20).Trim()); }
-					else if (tC.Contains(" has no ")) { thisNegC = true; negTriesC.Add(tC.Replace(" has no ", " has ")); }
-					else if (tC.Contains(" is not ")) { thisNegC = true; negTriesC.Add(tC.Replace(" is not ", " is ")); }
-					else if (tC.Contains(" does not "))
-					{
-						// `Billable Request does not trigger cross-border Personal Data Transfer`
-						// negates the declared `Billable Request triggers ...`, and the declared
-						// reading CONJUGATES the verb that `does not` leaves bare. Try it both
-						// ways and let resolution decide -- neither is a guess, because a form
-						// naming no fact type is refused exactly as an unresolved clause always
-						// was. Conjugating silently is the thing to avoid, not conjugating.
-						thisNegC = true;
-						int dnC = tC.IndexOf(" does not ", StringComparison.Ordinal);
-						string subjC = tC.Substring(0, dnC), restC = tC.Substring(dnC + 10);
-						negTriesC.Add(subjC + " " + restC);
-						int spC = restC.IndexOf(' ');
-						if (spC > 0) negTriesC.Add(subjC + " " + restC.Substring(0, spC) + "s" + restC.Substring(spC));
-					}
-					List<string> plC = null;
-					FactIndexEntry leC = null;
-					string swapC = null;
-					if (thisNegC)
-					{
-						foreach (string candC in negTriesC)
-						{
-							leC = ResolveClauseSub(Dequantify(" " + candC + " ").Trim(), out plC, out swapC);
-							if (leC != null) { tPosC = candC; break; }
-						}
-					}
-					else leC = ResolveClauseSub(Dequantify(" " + tPosC + " ").Trim(), out plC, out swapC);
-					if (leC == null)
-					{
-						// ... and the string comparisons, `begins with` / `contains` / `matches`,
-						// whose right side may be AN ATTRIBUTE OF A BOUND VARIABLE: `that Base
-						// Path begins with the URL of that Source Service` compares against the
-						// URL the declared `Source Service has URL` binds, laid as a leg
-						Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (is at most|is at least|exceeds|is less than|is greater than|is below|is above|starts with|begins with|contains|matches|is|equals) (?:that |some )?('[^']*'|the [A-Z][\w ]*? of (?:that |some )?[A-Z][\w ]*?|(?:[a-z][\w-]*- )?[A-Z][\w ]*?)$");
-						if (cm.Success)
-						{
-							string rightC = cm.Groups[3].Value.Trim();
-							Match ofm = Regex.Match(rightC, @"^the ([A-Z][\w ]*?) of (?:that |some )?([A-Z][\w ]*?)$");
-							if (ofm.Success)
-							{
-								string implied = ofm.Groups[2].Value.Trim() + " has " + ofm.Groups[1].Value.Trim();
-								List<string> plI;
-								FactIndexEntry leI = ResolveClauseSub(implied, out plI);
-								if (leI == null) { okC = false; myPlanDeclines[sC] = "chain arm: clause names no fact type: " + implied; break; }
-								legsC.Add(leI);
-								negC.Add(false);
-								nestC.Add(-1);
-								toksC.Add(RoleQualified(implied, plI, true));
-								rightC = ofm.Groups[1].Value.Trim();
-							}
-							cmpC.Add(new string[] { cm.Groups[1].Value.Trim(), cm.Groups[2].Value, rightC });
-							continue;
-						}
-					}
-					// A LEG CARRYING ITS OWN THRESHOLD: `Query Route has Max Retry Count greater
-					// than 0` is the declared leg `Query Route has Max Retry Count` plus a
-					// condition on the value it binds. Split the comparison off the end and keep
-					// both halves -- dropping the threshold would WIDEN the rule, which is the
-					// one outcome worse than not building it.
-					string thrOp = null, thrVal = null;
-					if (leC == null)
-					{
-						// A LEG MAY CARRY A VALUE RESTRICTION as well as a threshold:
-						//     that Sales Tax Rate has Tax Rate Type 'county'
-						// is the declared leg plus an equality on the value it binds. Same treatment,
-						// Equals instead of GreaterThan -- and dropping it would widen the rule the
-						// same way dropping a threshold does.
-						Match vm = Regex.Match(tC, @"^(.+?) '([^']*)'$");
-						if (vm.Success)
-						{
-							FactIndexEntry vLeg = ResolveClauseSub(Dequantify(" " + vm.Groups[1].Value.Trim() + " ").Trim(), out plC);
-							if (vLeg != null)
-							{
-								leC = vLeg;
-								thrOp = "is";
-								thrVal = vm.Groups[2].Value;
-							}
-						}
-						// A THRESHOLD MAY NAME A DECIMAL (2026-09-11). This took [0-9]+ and
-						// nothing else, so `that Quote has Tax Rate greater than 6.5` never
-						// split: the clause went to the resolver whole, resolved to no fact
-						// type, and the arm died as "clause names no fact type" -- a reading-
-						// matcher refusal reported for a rule whose only fault was a decimal.
-						// The equality branch just below already reads the same lexeme
-						// (`([0-9]+(?:\.[0-9]+)?)`), so this was the odd one out rather than a
-						// decision. A decimal threshold is exact to compare once IValue writes
-						// the role's values as numerals (719b1067), which is why it is worth
-						// reaching: the emitter's own decimal refusal was lifted there and
-						// nothing could get to it.
-						Match tm = leC != null ? Match.Empty
-							: Regex.Match(tC, @"^(.+?) (greater than|less than|more than|fewer than|at least|at most|of) ([0-9]+(?:\.[0-9]+)?)( or more| or fewer)?$");
-						if (tm.Success)
-						{
-							FactIndexEntry baseLeg = ResolveClauseSub(Dequantify(" " + tm.Groups[1].Value.Trim() + " ").Trim(), out plC);
-							if (baseLeg != null)
-							{
-								leC = baseLeg;
-								thrOp = ThresholdOp(tm.Groups[2].Value, tm.Groups[4].Value);
-								thrVal = tm.Groups[3].Value;
-							}
-						}
-					}
-					// A LITERAL ON A CLAUSE THAT RESOLVES AS WRITTEN IS STILL A RESTRICTION. The
-					// resolver blanks quoted spans to match the reading, so `that State has
-					// In-Lieu-Of Motor Vehicle Tax 'no'` resolved directly and the value it wrote
-					// was dropped -- a build wider than the rule. Keep it as the Equals condition
-					// the split above makes for a clause the resolver could not read whole.
-					if (leC != null && thrOp == null && !thisNegC)
-					{
-						Match vm0 = Regex.Match(tC, @"^(.+?) '([^']*)'$");
-						if (vm0.Success) { thrOp = "is"; thrVal = vm0.Groups[2].Value; }
-					}
-					// AN UNQUOTED NUMBER IS A VALUE TOO: `that RoleIsUsedInReading has Position 2`
-					// restricts Position to 2, as FORML writes a number (`Max Mileage is 125000.`)
-					if (leC == null && thrOp == null && !thisNegC)
-					{
-						Match vn = Regex.Match(tC, @"^(.+?) ([0-9]+(?:\.[0-9]+)?)$");
-						if (vn.Success)
-						{
-							FactIndexEntry nLeg = ResolveClauseSub(Dequantify(" " + vn.Groups[1].Value.Trim() + " ").Trim(), out plC);
-							if (nLeg != null) { leC = nLeg; thrOp = "is"; thrVal = vn.Groups[2].Value; }
-						}
-					}
-					if (leC == null)
-					{
-						okC = false;
-						myPlanDeclines[sC] = "chain arm: clause names no fact type: " + tC;
-						break;
-					}
-					// A LEG MAY NAME THE HEAD. kernel's cost-to-goal is the inductive step over
-					// its own fact type -- `State1 reaches goal at Count3 iff State1 steps to
-					// State2 by Operator1 and Operator1 costs Count2 and State2 reaches goal at
-					// Count1 and Count2 plus Count1 is Count3` -- as the two-leg transitive step
-					// (`Domain1 reaches Domain3 iff Domain1 reaches Domain2 and Domain2 reaches
-					// Domain3`) is for its arm. NORMA builds a recursive derivation rule as any
-					// other; this arm refused the clause and the rule stayed unbuilt in every
-					// corpus. A body that is ONLY the head's reading says nothing and is
-					// refused below.
-					if (leC == hC) recursiveC = true;
-					if (thrOp != null) thrC.Add(new string[] { plC[plC.Count - 1], thrOp, thrVal, legsC.Count.ToString() });
-					legsC.Add(leC);
-					if (swapC != null)
-					{
-						swapPlayersC.Add(swapC);
-						// the substituted position is where the clause's players differ from
-						// the declared ones (ResolveClauseSub writes the subtype's name there)
-						int swAt = -1;
-						for (int k = 0; k < plC.Count && k < leC.Players.Count && swAt < 0; k++)
-							if (!string.Equals(plC[k], leC.Players[k], StringComparison.Ordinal)) swAt = k;
-						if (swAt < 0) swAt = leC.Players.LastIndexOf(swapC);
-						swapsC.Add(new string[] { (legsC.Count - 1).ToString(), swAt.ToString(), swAt >= 0 && swAt < plC.Count ? plC[swAt] : "" });
-					}
-					negC.Add(thisNegC);
-					nestC.Add(-1);
-					toksC.Add(RoleQualified(Dequantify(" " + tPosC + " ").Trim(), plC, true));
-					// A RESTRICTED VALUE IS ITS OWN VARIABLE. Two legs restricting Position to 2
-					// and to 1 both tokenised the role as `Position`, and the repeated token
-					// unified the two values into one that had to be both. The restricted
-					// position takes a token no other leg shares.
-					if (thrOp != null)
-					{
-						List<string> lastToks = toksC[toksC.Count - 1];
-						int rp = lastToks.Count - 1;
-						if (rp >= 0) lastToks[rp] = lastToks[rp] + "~v" + legsC.Count;
-					}
-					if (isOtherC)
-					{
-						string fresh = toksC[toksC.Count - 1][0];
-						string ante = null;
-						for (int l = toksC.Count - 2; l >= 0 && ante == null; l--)
-							foreach (string tk in toksC[l])
-								if (tk != fresh && StripRolePrefix(tk) == StripRolePrefix(fresh)) { ante = tk; break; }
-						if (ante != null) otherC.Add(new string[] { fresh, "is not", ante });
-					}
-					if (noOtherC)
-					{
-						List<string> lastToks = toksC[toksC.Count - 1];
-						string subjectTok = lastToks[0];
-						string fresh = subjectTok + "~other" + legsC.Count;
-						string ante = null;
-						for (int l = toksC.Count - 2; l >= 0 && ante == null; l--)
-							foreach (string tk in toksC[l])
-								if (StripRolePrefix(tk) == StripRolePrefix(subjectTok)) { ante = tk; break; }
-						lastToks[0] = fresh;
-						if (ante == null) { okC = false; myPlanDeclines[sC] = "chain arm: `no other " + subjectTok + "` has no earlier " + subjectTok + " to differ from"; break; }
-						// the fourth element scopes the condition to this negated leg
-						otherC.Add(new string[] { fresh, "is not", ante, (legsC.Count - 1).ToString() });
-					}
-				}
+				okC = ResolveChainClauses(sC, bodyC, partsC, hC, legsC, toksC, negC, nestC,
+					swapPlayersC, swapsC, cmpC, arithC, thrC, otherC, ref recursiveC, myPlanDeclines);
 				// the objectifications a clause names anaphorically, renamed to their
 				// antecedents; joined after the chain is laid (LayObjectificationJoin)
 				var anaphoraC = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -9102,89 +8761,426 @@ namespace Arest.NormaOracle
 				+ IAtom(headE.Players[0]) + "), " + recipe + ")");
 		}
 
-		// THE GENERAL CHAIN ARM BUILDS THE RULE AND EMITTED NO RECIPE, so every head
-		// only it built was marked derived, verbalized, passed the read-back gate --
-		// and never populated, because the closure reads state:rules and there was
-		// nothing there. law:markers is the only thing that says so, and only over a
-		// booted store. law-core's `Authority is currently in force` is the case that
-		// found it (2026-09-04).
-		//
-		// This emits for the part of the arm that maps onto the recipe grammar and
-		// DECLINES for the rest, which is most of what the arm can do: a comparison,
-		// arithmetic, a threshold, `some other`, an objectification, recursion, a
-		// substituted subtype, a nested (universal) leg, a head role filled by a
-		// constant or a bare type root or a calculated value -- any one of them and
-		// this writes nothing, leaving the head exactly as unexecutable as before.
-		// That asymmetry is deliberate. A missing recipe leaves a population empty,
-		// which law:markers reports; a recipe that says more than the rule does
-		// derives rows nobody wrote, which store-closed reports only if someone runs
-		// it. Silence is the safe failure here.
-		//
-		// What it does emit: the positive legs joined on their shared tokens keeping
-		// every column, projected onto the head's roles through the arm's own
-		// atLegC/atPosC binding, then each negated leg subtracted. A negated leg is
-		// only admitted when the tokens it shares with the rest of the body are the
-		// head's own -- `Authority has no Supersession Date` is a set difference on
-		// Authority, while `that Effective Date has no X` would need the join kept
-		// and is declined.
-		// A FLAT SEQUENCE, AT ANY LENGTH. S1..S9 is notation, not a ceiling on how
-		// long a sequence may be (Backus 13.2 rule 4), and ISeq's answer to a longer
-		// one -- chunk it into nested nines -- is wrong here: depth means tenancy,
-		// and a projection's positions are one flat list. S() is the variadic
-		// constructor both hosts and both readers already carry for exactly this.
-		// A join of six binary legs is twelve columns, so this is not a corner: it
-		// is every chain of four legs or more, and emitting S12 wrote a store that
-		// would not load (auto.dev, "S10 is not defined", 2026-09-04).
-		private static string IFlat(List<string> elements)
+		// THE BODY CLAUSES, RESOLVED ONCE (2026-09-15). This loop was inline in the
+		// general chain arm and nothing else could reach it, so the deontic side --
+		// which needs exactly the same answer, a body of clauses turned into legs --
+		// had only FindEntryByNormalizedSentence and could read ONE clause. A second
+		// resolver written beside this one would drift from it, which is the defect
+		// class this file keeps paying for, so the loop is a method and both callers
+		// take its answer. It resolves and records ONLY: no NORMA element is built
+		// here, which is why a prohibition -- an empty-population constraint NORMA
+		// has no element for -- can use it at all. `declines` is the caller's own
+		// census: the chain arm keeps its refusals in myPlanDeclines, and a deontic
+		// body must not be counted there as a derivation rule that failed to build.
+		private bool ResolveChainClauses(string sC, string bodyC, string[] partsC, FactIndexEntry hC,
+			List<FactIndexEntry> legsC, List<List<string>> toksC, List<bool> negC, List<int> nestC,
+			HashSet<string> swapPlayersC, List<string[]> swapsC, List<string[]> cmpC,
+			List<string[]> arithC, List<string[]> thrC, List<string[]> otherC,
+			ref bool recursiveC, Dictionary<string, string> declines)
 		{
-			if (elements.Count == 0) return "PHI()";
-			if (elements.Count <= 9)
-				return "S" + elements.Count + "(" + string.Join(", ", elements) + ")";
-			return "S(" + string.Join(", ", elements) + ")";
+			bool okC = true;
+			// A CLAUSE IS EITHER A LEG OR A COMPARISON BETWEEN TWO BOUND VALUES.
+			//     ... and that Error Rate exceeds Error Threshold
+			// names no fact type; it constrains two values other clauses already bound,
+			// so it becomes a path CONDITION rather than a step. Both sides must be
+			// bound by legs -- a comparison against something the body never introduced
+			// would silently drop, and dropping a condition WIDENS the head.
+			// NEGATION, BUT ONLY THE TWO FORMS BELOW. Blanking them first means any OTHER
+			// `no`/`not` in the body still declines the rule, rather than being built as
+			// though it were not there -- dropping a negation does not narrow a rule, it
+			// inverts it.
+			// ... and a quoted value is not a negation: `that State has In-Lieu-Of Motor
+			// Vehicle Tax 'no'` restricts a value to the word no. Blank the literals first.
+			if (Regex.IsMatch(Regex.Replace(LiteralRx.Replace(bodyC, "''"), " has no | is not | does not | no other ", " "), @"\b(no|not)\b"))
+			{
+				declines[sC] = "chain arm: a negation in a form this arm does not read";
+				return false;
+			}
+			for (int pcI = 0; pcI < partsC.Length; pcI++)
+			{
+				string tC = partsC[pcI].Trim();
+				// THE UNIVERSAL: `every Customer that pursues that Use Case calls that API in
+				// some Measurement Window with some Call Volume` is "no Customer pursues
+				// that Use Case without calling that API" -- a negated leg over a fresh
+				// Customer (the restriction) with the consequent negated INSIDE it. The two
+				// readings are found by the one cut of the words that resolves both. The
+				// relative clause reaches this arm rewritten -- `every Customer` and then
+				// `that Customer pursues ... calls ...` -- so a bare `every X` takes the
+				// clause after it.
+				Match evm = Regex.Match(tC, @"^every ([A-Z][\w ]*?) that (.+)$");
+				if (!evm.Success && pcI + 1 < partsC.Length)
+				{
+					Match evBare = Regex.Match(tC, @"^every ([A-Z][\w ]*)$");
+					string nextC = partsC[pcI + 1].Trim();
+					if (evBare.Success && nextC.StartsWith("that " + evBare.Groups[1].Value.Trim() + " ", StringComparison.Ordinal))
+					{
+						evm = Regex.Match("every " + evBare.Groups[1].Value.Trim() + " that " + nextC.Substring(5 + evBare.Groups[1].Value.Trim().Length + 1), @"^every ([A-Z][\w ]*?) that (.+)$");
+						if (evm.Success) pcI++;
+					}
+				}
+				if (evm.Success)
+				{
+					string evX = evm.Groups[1].Value.Trim();
+					string[] evWords = evm.Groups[2].Value.Trim().Split(' ');
+					FactIndexEntry evP = null, evQ = null; List<string> plP = null, plQ = null; string txtP = null, txtQ = null;
+					for (int cut = 1; cut < evWords.Length && evP == null; cut++)
+					{
+						string pText = evX + " " + string.Join(" ", evWords, 0, cut);
+						string qText = evX + " " + string.Join(" ", evWords, cut, evWords.Length - cut);
+						List<string> pl1, pl2;
+						FactIndexEntry e1 = ResolveClauseSub(Dequantify(" " + pText + " ").Trim(), out pl1);
+						if (e1 == null) continue;
+						FactIndexEntry e2 = ResolveClauseSub(Dequantify(" " + qText + " ").Trim(), out pl2);
+						if (e2 == null) continue;
+						evP = e1; evQ = e2; plP = pl1; plQ = pl2; txtP = pText; txtQ = qText;
+					}
+					if (evP == null) { okC = false; declines[sC] = "chain arm: no cut of `" + tC + "` resolves both readings"; break; }
+					string evFresh = evX + "~every" + legsC.Count;
+					List<string> tP = RoleQualified(Dequantify(" " + txtP + " ").Trim(), plP, true);
+					List<string> tQ = RoleQualified(Dequantify(" " + txtQ + " ").Trim(), plQ, true);
+					// X is one variable in both; a `some` inside the universal is a FRESH one
+					// (`calls that API in some Measurement Window`: any window, not the
+					// guard's), so only `that` binds to the outside
+					bool[] bP = BoundPositions(txtP, plP), bQ = BoundPositions(txtQ, plQ);
+					bool xP = false, xQ = false;
+					for (int c = 0; c < tP.Count; c++)
+					{
+						if (!xP && StripRolePrefix(tP[c]) == evX) { tP[c] = evFresh; xP = true; }
+						else if (c < bP.Length && !bP[c]) tP[c] = tP[c] + "~e" + legsC.Count;
+					}
+					for (int c = 0; c < tQ.Count; c++)
+					{
+						if (!xQ && StripRolePrefix(tQ[c]) == evX) { tQ[c] = evFresh; xQ = true; }
+						else if (c < bQ.Length && !bQ[c]) tQ[c] = tQ[c] + "~e" + (legsC.Count + 1);
+					}
+					legsC.Add(evP); negC.Add(true); nestC.Add(-1); toksC.Add(tP);
+					legsC.Add(evQ); negC.Add(true); nestC.Add(legsC.Count - 2); toksC.Add(tQ);
+					continue;
+				}
+				bool isOtherC = false;
+				if (tC.StartsWith("some other ", StringComparison.Ordinal)) { isOtherC = true; tC = "some " + tC.Substring(11); }
+				// AN ARITHMETIC CLAUSE COMPUTES a head value rather than binding one:
+				//     ... and Net Amount equals Gross Amount minus Discount Amount
+				// Its target appears in no leg -- it is the answer, not an input -- so it is
+				// projected from a CalculatedPathValue instead of a pathed role. Checked
+				// first: `equals` is unambiguous, and no fact type answers to such a clause.
+				// ... when the other side IS an expression. `document- Fee Amount equals
+				// Document Fee Charged` names one bound value: an alias, read below as the
+				// comparison arm reads `is`, and the head role projects from that value.
+				// A DECLARED READING WINS HERE TOO. kernel declares `Count plus Count is Count`
+				// as a fact type and writes `Count2 plus Count3 is Count1` as a leg of it;
+				// read as arithmetic, the path had four legs and a condition where the
+				// reading -- and the gate -- had five legs.
+				// A CONCATENATION IS A VALUE FUNCTION: `target- URL is the concatenation of
+				// that Base Path and that Resource Path` computes the head's value from two
+				// bound ones, as `plus` does; Concat is minted as Add is, and nests for more
+				Match ccm = Regex.Match(tC, @"^(?:that )?([A-Za-z][\w- ]*?) is the concatenation of (.+)$");
+				if (ccm.Success)
+				{
+					var partsCc = new List<string>();
+					foreach (string pc in Regex.Split(ccm.Groups[2].Value, @",? and |, ")) if (pc.Trim().Length > 0) partsCc.Add(pc.Trim());
+					if (partsCc.Count >= 2) { arithC.Add(new string[] { ccm.Groups[1].Value.Trim(), string.Join(" concat ", partsCc) }); continue; }
+				}
+				List<string> plArith;
+				bool clauseIsReading = ArithOpRx.IsMatch(tC)
+					&& ResolveClauseSub(Dequantify(" " + tC + " ").Trim(), out plArith) != null;
+				Match am = clauseIsReading ? Match.Empty : Regex.Match(tC, @"^(?:that )?([A-Za-z][\w- ]*?) equals (.+)$");
+				if (am.Success && (ArithOpRx.IsMatch(am.Groups[2].Value) || Regex.IsMatch(am.Groups[2].Value.Trim(), @"^[0-9]|^the (minimum|maximum) of ")))
+				{
+					arithC.Add(new string[] { am.Groups[1].Value.Trim(), am.Groups[2].Value.Trim() });
+					continue;
+				}
+				// THE SAME CLAUSE WITH `is`, EITHER WAY ROUND, when one side carries an
+				// operator: the Monroney label's `that Suggested Retail Price plus that
+				// Optional Equipment Total is that Label Subtotal`, and `Registration Age is
+				// current Year minus model Year`. A side with no operator is not an
+				// expression, so `Request is Submission` and `that Retry Count is less than
+				// Retry Limit` stay what they are.
+				Match ai = clauseIsReading ? Match.Empty : Regex.Match(tC, @"^(.+?) is (?:that |some )?([A-Z][\w- ]*?)$");
+				if (ai.Success && ArithOpRx.IsMatch(ai.Groups[1].Value) && !ArithOpRx.IsMatch(ai.Groups[2].Value))
+				{
+					arithC.Add(new string[] { ai.Groups[2].Value.Trim(), ai.Groups[1].Value.Trim() });
+					continue;
+				}
+				Match aj = clauseIsReading ? Match.Empty : Regex.Match(tC, @"^(?:that )?([A-Za-z][\w- ]*?) is (.+)$");
+				if (aj.Success && ArithOpRx.IsMatch(aj.Groups[2].Value) && !ArithOpRx.IsMatch(aj.Groups[1].Value))
+				{
+					arithC.Add(new string[] { aj.Groups[1].Value.Trim(), aj.Groups[2].Value.Trim() });
+					continue;
+				}
+				// A DECLARED READING WINS OVER A COMPARISON READING. `Request is Submission`
+				// matches `A is B` exactly as `that Email Address is that Email` does, and
+				// taking the comparison first STOLE a genuine leg -- the body then had one leg
+				// and two "comparisons", and the arm declined a rule it should have built. So
+				// resolve as a leg FIRST, and read `A is B` as an equality only when no fact
+				// type answers to it. The other comparison verbs cannot resolve as legs anyway,
+				// so the order does not affect them.
+				// `Resource Declaration has no override- Fetcher` is the declared reading
+				// `Resource Declaration has override- Fetcher` under a negation, and
+				// `Country Code is not an EEA Country Code` likewise. Resolve the POSITIVE
+				// form and carry the negation as a flag; NORMA has one place to put it.
+				bool thisNegC = false;
+				string tPosC = tC;
+				var negTriesC = new List<string>();
+				// THE CANONICAL FORM FIRST: `it is not true that <clause>` contains " is not "
+				// and the idiom below turned it into "it is true that ...", which resolves
+				// to nothing -- the rewritten GDPR rule lost its build that way.
+				// `no other Style Candidate has that Squish VIN`: a negated leg over a FRESH
+				// variable of the type -- not the Style Candidate the head bound -- with the
+				// distinctness NotEquals(fresh, that one) scoped INSIDE the negation
+				bool noOtherC = false;
+				if (tC.StartsWith("no other ", StringComparison.Ordinal)) { thisNegC = true; noOtherC = true; negTriesC.Add("some " + tC.Substring(9)); }
+				else if (tC.StartsWith("it is not true that ", StringComparison.OrdinalIgnoreCase)) { thisNegC = true; negTriesC.Add(tC.Substring(20).Trim()); }
+				else if (tC.Contains(" has no ")) { thisNegC = true; negTriesC.Add(tC.Replace(" has no ", " has ")); }
+				else if (tC.Contains(" is not ")) { thisNegC = true; negTriesC.Add(tC.Replace(" is not ", " is ")); }
+				else if (tC.Contains(" does not "))
+				{
+					// `Billable Request does not trigger cross-border Personal Data Transfer`
+					// negates the declared `Billable Request triggers ...`, and the declared
+					// reading CONJUGATES the verb that `does not` leaves bare. Try it both
+					// ways and let resolution decide -- neither is a guess, because a form
+					// naming no fact type is refused exactly as an unresolved clause always
+					// was. Conjugating silently is the thing to avoid, not conjugating.
+					thisNegC = true;
+					int dnC = tC.IndexOf(" does not ", StringComparison.Ordinal);
+					string subjC = tC.Substring(0, dnC), restC = tC.Substring(dnC + 10);
+					negTriesC.Add(subjC + " " + restC);
+					int spC = restC.IndexOf(' ');
+					if (spC > 0) negTriesC.Add(subjC + " " + restC.Substring(0, spC) + "s" + restC.Substring(spC));
+				}
+				List<string> plC = null;
+				FactIndexEntry leC = null;
+				string swapC = null;
+				if (thisNegC)
+				{
+					foreach (string candC in negTriesC)
+					{
+						leC = ResolveClauseSub(Dequantify(" " + candC + " ").Trim(), out plC, out swapC);
+						if (leC != null) { tPosC = candC; break; }
+					}
+				}
+				else leC = ResolveClauseSub(Dequantify(" " + tPosC + " ").Trim(), out plC, out swapC);
+				if (leC == null)
+				{
+					// ... and the string comparisons, `begins with` / `contains` / `matches`,
+					// whose right side may be AN ATTRIBUTE OF A BOUND VARIABLE: `that Base
+					// Path begins with the URL of that Source Service` compares against the
+					// URL the declared `Source Service has URL` binds, laid as a leg
+					Match cm = Regex.Match(tC, @"^(?:that |some )?((?:[a-z][\w-]*- )?[A-Z][\w ]*?) (is at most|is at least|exceeds|is less than|is greater than|is below|is above|starts with|begins with|contains|matches|is|equals) (?:that |some )?('[^']*'|the [A-Z][\w ]*? of (?:that |some )?[A-Z][\w ]*?|(?:[a-z][\w-]*- )?[A-Z][\w ]*?)$");
+					if (cm.Success)
+					{
+						string rightC = cm.Groups[3].Value.Trim();
+						Match ofm = Regex.Match(rightC, @"^the ([A-Z][\w ]*?) of (?:that |some )?([A-Z][\w ]*?)$");
+						if (ofm.Success)
+						{
+							string implied = ofm.Groups[2].Value.Trim() + " has " + ofm.Groups[1].Value.Trim();
+							List<string> plI;
+							FactIndexEntry leI = ResolveClauseSub(implied, out plI);
+							if (leI == null) { okC = false; declines[sC] = "chain arm: clause names no fact type: " + implied; break; }
+							legsC.Add(leI);
+							negC.Add(false);
+							nestC.Add(-1);
+							toksC.Add(RoleQualified(implied, plI, true));
+							rightC = ofm.Groups[1].Value.Trim();
+						}
+						cmpC.Add(new string[] { cm.Groups[1].Value.Trim(), cm.Groups[2].Value, rightC });
+						continue;
+					}
+				}
+				// A LEG CARRYING ITS OWN THRESHOLD: `Query Route has Max Retry Count greater
+				// than 0` is the declared leg `Query Route has Max Retry Count` plus a
+				// condition on the value it binds. Split the comparison off the end and keep
+				// both halves -- dropping the threshold would WIDEN the rule, which is the
+				// one outcome worse than not building it.
+				string thrOp = null, thrVal = null;
+				if (leC == null)
+				{
+					// A LEG MAY CARRY A VALUE RESTRICTION as well as a threshold:
+					//     that Sales Tax Rate has Tax Rate Type 'county'
+					// is the declared leg plus an equality on the value it binds. Same treatment,
+					// Equals instead of GreaterThan -- and dropping it would widen the rule the
+					// same way dropping a threshold does.
+					Match vm = Regex.Match(tC, @"^(.+?) '([^']*)'$");
+					if (vm.Success)
+					{
+						FactIndexEntry vLeg = ResolveClauseSub(Dequantify(" " + vm.Groups[1].Value.Trim() + " ").Trim(), out plC);
+						if (vLeg != null)
+						{
+							leC = vLeg;
+							thrOp = "is";
+							thrVal = vm.Groups[2].Value;
+						}
+					}
+					// A THRESHOLD MAY NAME A DECIMAL (2026-09-11). This took [0-9]+ and
+					// nothing else, so `that Quote has Tax Rate greater than 6.5` never
+					// split: the clause went to the resolver whole, resolved to no fact
+					// type, and the arm died as "clause names no fact type" -- a reading-
+					// matcher refusal reported for a rule whose only fault was a decimal.
+					// The equality branch just below already reads the same lexeme
+					// (`([0-9]+(?:\.[0-9]+)?)`), so this was the odd one out rather than a
+					// decision. A decimal threshold is exact to compare once IValue writes
+					// the role's values as numerals (719b1067), which is why it is worth
+					// reaching: the emitter's own decimal refusal was lifted there and
+					// nothing could get to it.
+					Match tm = leC != null ? Match.Empty
+						: Regex.Match(tC, @"^(.+?) (greater than|less than|more than|fewer than|at least|at most|of) ([0-9]+(?:\.[0-9]+)?)( or more| or fewer)?$");
+					if (tm.Success)
+					{
+						FactIndexEntry baseLeg = ResolveClauseSub(Dequantify(" " + tm.Groups[1].Value.Trim() + " ").Trim(), out plC);
+						if (baseLeg != null)
+						{
+							leC = baseLeg;
+							thrOp = ThresholdOp(tm.Groups[2].Value, tm.Groups[4].Value);
+							thrVal = tm.Groups[3].Value;
+						}
+					}
+				}
+				// A LITERAL ON A CLAUSE THAT RESOLVES AS WRITTEN IS STILL A RESTRICTION. The
+				// resolver blanks quoted spans to match the reading, so `that State has
+				// In-Lieu-Of Motor Vehicle Tax 'no'` resolved directly and the value it wrote
+				// was dropped -- a build wider than the rule. Keep it as the Equals condition
+				// the split above makes for a clause the resolver could not read whole.
+				if (leC != null && thrOp == null && !thisNegC)
+				{
+					Match vm0 = Regex.Match(tC, @"^(.+?) '([^']*)'$");
+					if (vm0.Success) { thrOp = "is"; thrVal = vm0.Groups[2].Value; }
+				}
+				// AN UNQUOTED NUMBER IS A VALUE TOO: `that RoleIsUsedInReading has Position 2`
+				// restricts Position to 2, as FORML writes a number (`Max Mileage is 125000.`)
+				if (leC == null && thrOp == null && !thisNegC)
+				{
+					Match vn = Regex.Match(tC, @"^(.+?) ([0-9]+(?:\.[0-9]+)?)$");
+					if (vn.Success)
+					{
+						FactIndexEntry nLeg = ResolveClauseSub(Dequantify(" " + vn.Groups[1].Value.Trim() + " ").Trim(), out plC);
+						if (nLeg != null) { leC = nLeg; thrOp = "is"; thrVal = vn.Groups[2].Value; }
+					}
+				}
+				if (leC == null)
+				{
+					okC = false;
+					declines[sC] = "chain arm: clause names no fact type: " + tC;
+					break;
+				}
+				// A LEG MAY NAME THE HEAD. kernel's cost-to-goal is the inductive step over
+				// its own fact type -- `State1 reaches goal at Count3 iff State1 steps to
+				// State2 by Operator1 and Operator1 costs Count2 and State2 reaches goal at
+				// Count1 and Count2 plus Count1 is Count3` -- as the two-leg transitive step
+				// (`Domain1 reaches Domain3 iff Domain1 reaches Domain2 and Domain2 reaches
+				// Domain3`) is for its arm. NORMA builds a recursive derivation rule as any
+				// other; this arm refused the clause and the rule stayed unbuilt in every
+				// corpus. A body that is ONLY the head's reading says nothing and is
+				// refused below.
+				if (leC == hC) recursiveC = true;
+				if (thrOp != null) thrC.Add(new string[] { plC[plC.Count - 1], thrOp, thrVal, legsC.Count.ToString() });
+				legsC.Add(leC);
+				if (swapC != null)
+				{
+					swapPlayersC.Add(swapC);
+					// the substituted position is where the clause's players differ from
+					// the declared ones (ResolveClauseSub writes the subtype's name there)
+					int swAt = -1;
+					for (int k = 0; k < plC.Count && k < leC.Players.Count && swAt < 0; k++)
+						if (!string.Equals(plC[k], leC.Players[k], StringComparison.Ordinal)) swAt = k;
+					if (swAt < 0) swAt = leC.Players.LastIndexOf(swapC);
+					swapsC.Add(new string[] { (legsC.Count - 1).ToString(), swAt.ToString(), swAt >= 0 && swAt < plC.Count ? plC[swAt] : "" });
+				}
+				negC.Add(thisNegC);
+				nestC.Add(-1);
+				toksC.Add(RoleQualified(Dequantify(" " + tPosC + " ").Trim(), plC, true));
+				// A RESTRICTED VALUE IS ITS OWN VARIABLE. Two legs restricting Position to 2
+				// and to 1 both tokenised the role as `Position`, and the repeated token
+				// unified the two values into one that had to be both. The restricted
+				// position takes a token no other leg shares.
+				if (thrOp != null)
+				{
+					List<string> lastToks = toksC[toksC.Count - 1];
+					int rp = lastToks.Count - 1;
+					if (rp >= 0) lastToks[rp] = lastToks[rp] + "~v" + legsC.Count;
+				}
+				if (isOtherC)
+				{
+					string fresh = toksC[toksC.Count - 1][0];
+					string ante = null;
+					for (int l = toksC.Count - 2; l >= 0 && ante == null; l--)
+						foreach (string tk in toksC[l])
+							if (tk != fresh && StripRolePrefix(tk) == StripRolePrefix(fresh)) { ante = tk; break; }
+					if (ante != null) otherC.Add(new string[] { fresh, "is not", ante });
+				}
+				if (noOtherC)
+				{
+					List<string> lastToks = toksC[toksC.Count - 1];
+					string subjectTok = lastToks[0];
+					string fresh = subjectTok + "~other" + legsC.Count;
+					string ante = null;
+					for (int l = toksC.Count - 2; l >= 0 && ante == null; l--)
+						foreach (string tk in toksC[l])
+							if (StripRolePrefix(tk) == StripRolePrefix(subjectTok)) { ante = tk; break; }
+					lastToks[0] = fresh;
+					if (ante == null) { okC = false; declines[sC] = "chain arm: `no other " + subjectTok + "` has no earlier " + subjectTok + " to differ from"; break; }
+					// the fourth element scopes the condition to this negated leg
+					otherC.Add(new string[] { fresh, "is not", ante, (legsC.Count - 1).ToString() });
+				}
+			}
+			return okC;
 		}
 
-		private void RecordGeneralChainRecipe(string sC, FactIndexEntry hC, List<FactIndexEntry> legsC,
-			List<List<string>> toksC, List<bool> negC, List<int> nestC,
-			int[] atLegC, int[] atPosC, ObjectType[] typeRootC, ObjectType[] crossAtC,
-			int[] konstAtC, List<string> hLitsC, string[] arithKeyC, List<string[]> arithC, List<string[]> cmpC, List<int[]> cmpBindC,
-			List<string[]> thrC, List<string[]> swapsC, string shapeThisCannotSay)
+		// THE LEG CHECKS THE JOIN GRAMMAR CANNOT SPEAK AROUND, shared with the
+		// deontic join: a nested (universal) leg, a leg of arity 0, tokens that do
+		// not line up with the players, and a leg binding one token twice. Read by
+		// the recipe emitter before it looks at the head, and by the prohibition
+		// emitter, which has no head to look at.
+		private bool ChainLegsUsable(string sC, List<FactIndexEntry> legsC, List<List<string>> toksC,
+			List<int> nestC, Dictionary<string, string> declines)
 		{
-			if (shapeThisCannotSay != null) { myRecipeDeclines[sC] = shapeThisCannotSay; return; }
-			if (legsC.Count == 0) { myRecipeDeclines[sC] = "no legs"; return; }
+			if (legsC.Count == 0) { declines[sC] = "no legs"; return false; }
 			for (int i = 0; i < legsC.Count; i++)
 			{
-				if (nestC[i] != -1) { myRecipeDeclines[sC] = "a nested leg (the universal)"; return; }
+				if (nestC[i] != -1) { declines[sC] = "a nested leg (the universal)"; return false; }
 				if (legsC[i].Players.Count < 1)
-					{ myRecipeDeclines[sC] = "a leg of arity 0"; return; }
+					{ declines[sC] = "a leg of arity 0"; return false; }
 				if (toksC[i] == null || toksC[i].Count != legsC[i].Players.Count)
-					{ myRecipeDeclines[sC] = "a leg whose tokens do not match its players"; return; }
+					{ declines[sC] = "a leg whose tokens do not match its players"; return false; }
 				// A TOKEN TWICE IN ONE LEG is an equality between two of that leg's own
 				// columns, which the NORMA path expresses by unifying the repeated
 				// pathed roles and this grammar has no filter for. Joining cannot say
 				// it, so saying nothing is the answer.
 				for (int p = 1; p < toksC[i].Count; p++)
 					if (toksC[i].IndexOf(toksC[i][p]) < p)
-						{ myRecipeDeclines[sC] = "a leg binding one token twice"; return; }
+						{ declines[sC] = "a leg binding one token twice"; return false; }
 			}
-			var fromExtentC = new List<int>();   // head positions filled from a subtype's extent
-			for (int i = 0; i < hC.Players.Count; i++)
-			{
-				if (typeRootC[i] != null) { myRecipeDeclines[sC] = "a head role from a bare type root"; return; }
-				if (arithKeyC[i] != null) continue;                 // a computed column, calc'd on below
-				if (konstAtC[i] >= 0) continue;                    // a constant column, paired on below
-				if (crossAtC[i] != null) { fromExtentC.Add(i); continue; }   // filled from the subtype's extent, joined on below
-				if (atLegC[i] < 0 || atPosC[i] < 0) { myRecipeDeclines[sC] = "a head role no leg binds"; return; }
-				if (negC[atLegC[i]]) { myRecipeDeclines[sC] = "a head role bound inside a negation"; return; }
-			}
+			return true;
+		}
+
+		// THE BODY AS ONE POPULATION (2026-09-15). The positive legs joined on their
+		// shared tokens keeping every column, the substituted subtypes joined with
+		// their extents, the head-filling extents crossed on, each negated leg
+		// subtracted, then the comparisons and the literals filtered -- everything
+		// the chain arm does to a body BEFORE it projects onto a head. A prohibition
+		// has no head: its violation is the row itself, so it stops here and the
+		// accumulator IS the recipe. Extracted rather than copied because a second
+		// emitter would drift from this one and derive rows the rule does not say.
+		// `fromExtentC`/`crossAtC` are the head`s own extent fills and are empty on
+		// the deontic side. Answers the accumulator, or null with the reason in
+		// `declines`.
+		private string JoinChainBody(string sC, List<FactIndexEntry> legsC, List<List<string>> toksC,
+			List<bool> negC, List<string[]> cmpC, List<int[]> cmpBindC, List<string[]> thrC,
+			List<string[]> swapsC, List<int> fromExtentC, ObjectType[] crossAtC,
+			Dictionary<string, string> declines,
+			out Dictionary<int, int> colOf, out List<string> accToks, out Dictionary<int, int> extentColC)
+		{
+			colOf = new Dictionary<int, int>();
+			accToks = new List<string>();
+			extentColC = new Dictionary<int, int>();
 			var positives = new List<int>();
 			var negatives = new List<int>();
 			for (int i = 0; i < legsC.Count; i++) (negC[i] ? negatives : positives).Add(i);
-			if (positives.Count == 0) { myRecipeDeclines[sC] = "every leg negated"; return; }
+			if (positives.Count == 0) { declines[sC] = "every leg negated"; return null; }
 			// walk the positive legs, joining each onto the accumulator at a shared
 			// token and keeping every column, so the head's binding stays addressable
 			var order = new List<int>();
-			var accToks = new List<string>();
-			var colOf = new Dictionary<int, int>();               // leg -> its first column, 1-based
+			accToks = new List<string>();
+			colOf = new Dictionary<int, int>();               // leg -> its first column, 1-based
 			var todo = new List<int>(positives);
 			var eqUsed = new HashSet<int>();                      // comparisons consumed as join keys
 			order.Add(todo[0]);
@@ -9238,7 +9234,7 @@ namespace Arest.NormaOracle
 							else if (eb[3] == cand && colOf.ContainsKey(eb[1])) { jl = eb[1]; jp = eb[2]; cpos = eb[4]; }
 							else continue;
 							string jk = ValueKindOf(legsC[jl].Players[jp]), ck = ValueKindOf(legsC[cand].Players[cpos]);
-							if (jk != ck) { myRecipeDeclines[sC] = "a join across kinds (" + legsC[jl].Players[jp] + " is " + jk + ", " + legsC[cand].Players[cpos] + " is " + ck + ")"; return; }
+							if (jk != ck) { declines[sC] = "a join across kinds (" + legsC[jl].Players[jp] + " is " + jk + ", " + legsC[cand].Players[cpos] + " is " + ck + ")"; return null; }
 							pick = cand;
 							keys.Add("S2(N(" + (colOf[jl] + jp) + "), N(" + (cpos + 1) + "))");
 							eqUsed.Add(q);
@@ -9265,7 +9261,7 @@ namespace Arest.NormaOracle
 						if (pick >= 0) break;
 					}
 				}
-				if (pick < 0) { myRecipeDeclines[sC] = "a leg the chain never reaches"; return; }
+				if (pick < 0) { declines[sC] = "a leg the chain never reaches"; return null; }
 				int width = accToks.Count + toksC[pick].Count;
 				var keep = new List<string>();
 				for (int c = 1; c <= width; c++) keep.Add("N(" + c + ")");
@@ -9293,10 +9289,10 @@ namespace Arest.NormaOracle
 			foreach (string[] sw in swapsC)
 			{
 				int sl = int.Parse(sw[0]), sp = int.Parse(sw[1]);
-				if (sp < 0 || sw[2].Length == 0) { myRecipeDeclines[sC] = "a substituted subtype at no position"; return; }
-				if (sl < 0 || sl >= legsC.Count) { myRecipeDeclines[sC] = "a substituted subtype on a leg the chain did not keep"; return; }
-				if (negC[sl]) { myRecipeDeclines[sC] = "a substituted subtype inside a negated leg"; return; }
-				if (!colOf.ContainsKey(sl)) { myRecipeDeclines[sC] = "a substituted subtype over a leg the join left out"; return; }
+				if (sp < 0 || sw[2].Length == 0) { declines[sC] = "a substituted subtype at no position"; return null; }
+				if (sl < 0 || sl >= legsC.Count) { declines[sC] = "a substituted subtype on a leg the chain did not keep"; return null; }
+				if (negC[sl]) { declines[sC] = "a substituted subtype inside a negated leg"; return null; }
+				if (!colOf.ContainsKey(sl)) { declines[sC] = "a substituted subtype over a leg the join left out"; return null; }
 				int scol = colOf[sl] + sp;
 				string extent = ExtentSource(sw[2]);
 				var keepAcc = new List<string>();
@@ -9311,7 +9307,7 @@ namespace Arest.NormaOracle
 			// single-clause arm's (RecordValProjRecipe), laid after the legs and the
 			// substituted subtypes so the columns the comparisons read stay where the
 			// join put them.
-			var extentColC = new Dictionary<int, int>();
+			extentColC = new Dictionary<int, int>();
 			foreach (int i in fromExtentC)
 			{
 				var keepAcc = new List<string>();
@@ -9342,7 +9338,7 @@ namespace Arest.NormaOracle
 					int at = accToks.IndexOf(toksC[n][p]);
 					if (at >= 0) keys.Add("S2(N(" + (at + 1) + "), N(" + (p + 1) + "))");
 				}
-				if (keys.Count == 0) { myRecipeDeclines[sC] = "a negated leg sharing no token with the body"; return; }
+				if (keys.Count == 0) { declines[sC] = "a negated leg sharing no token with the body"; return null; }
 				var keepAcc = new List<string>();
 				for (int c = 1; c <= accToks.Count; c++) keepAcc.Add("N(" + c + ")");
 				acc = "S3(" + IAtom("minus") + ", " + acc + ", S5(" + IAtom("joinon") + ", " + acc + ", "
@@ -9375,9 +9371,9 @@ namespace Arest.NormaOracle
 				{
 					string rt = cmpC[b[0]][2];
 					bool quoted = rt.Length > 1 && rt[0] == (char)39 && rt[rt.Length - 1] == (char)39;
-					if (!quoted) { myRecipeDeclines[sC] = "a prefix test against something not a literal"; return; }
-					if (b[1] < 0) { myRecipeDeclines[sC] = "a prefix test on a value no leg binds"; return; }
-					if (!colOf.ContainsKey(b[1])) { myRecipeDeclines[sC] = "a prefix test over a leg the join left out"; return; }
+					if (!quoted) { declines[sC] = "a prefix test against something not a literal"; return null; }
+					if (b[1] < 0) { declines[sC] = "a prefix test on a value no leg binds"; return null; }
+					if (!colOf.ContainsKey(b[1])) { declines[sC] = "a prefix test over a leg the join left out"; return null; }
 					acc = "S4(" + IAtom("starts") + ", " + acc + ", N(" + (colOf[b[1]] + b[2]) + "), "
 						+ IAtom(rt.Substring(1, rt.Length - 2)) + ")";
 					continue;
@@ -9385,10 +9381,10 @@ namespace Arest.NormaOracle
 				// an equality consumed as a join key above is laid already
 				if (eqUsed.Contains(cmpBindC.IndexOf(b))) continue;
 				bool equal = op == "is" || op == "equals";
-				if (!less && !more && !equal && !atMost && !atLeast) { myRecipeDeclines[sC] = "a comparison (" + op + ")"; return; }
-				if (b[1] < 0 || b[3] < 0) { myRecipeDeclines[sC] = "a comparison against a literal or a bare population"; return; }
+				if (!less && !more && !equal && !atMost && !atLeast) { declines[sC] = "a comparison (" + op + ")"; return null; }
+				if (b[1] < 0 || b[3] < 0) { declines[sC] = "a comparison against a literal or a bare population"; return null; }
 				if (!colOf.ContainsKey(b[1]) || !colOf.ContainsKey(b[3]))
-					{ myRecipeDeclines[sC] = "a comparison over a leg the join left out"; return; }
+					{ declines[sC] = "a comparison over a leg the join left out"; return null; }
 				int lo = colOf[b[1]] + b[2], hi = colOf[b[3]] + b[4];
 				if (more) { int t = lo; lo = hi; hi = t; }
 				// the two columns must hold one kind, and one the hosts order
@@ -9405,7 +9401,7 @@ namespace Arest.NormaOracle
 				// or against text, and arithmetic on a decimal is still refused,
 				// because ORDERING a decimal is exact where COMPUTING with one is
 				// not.
-				if (kl != kr) { myRecipeDeclines[sC] = "a comparison across kinds (" + pl + " is " + kl + ", " + pr + " is " + kr + ")"; return; }
+				if (kl != kr) { declines[sC] = "a comparison across kinds (" + pl + " is " + kl + ", " + pr + " is " + kr + ")"; return null; }
 				// AN EQUALITY BETWEEN TWO JOINED COLUMNS IS A FILTER, and the grammar's
 				// only order is cmp, strictly less-than: the rows where neither column
 				// is less than the other are the rows minus the strict rows each way.
@@ -9443,11 +9439,11 @@ namespace Arest.NormaOracle
 			foreach (string[] t in thrC)
 			{
 				int tl = int.Parse(t[3]);
-				if (tl < 0 || tl >= legsC.Count) { myRecipeDeclines[sC] = "a threshold on a leg the chain did not keep"; return; }
-				if (negC[tl]) { myRecipeDeclines[sC] = "a threshold inside a negated leg"; return; }
-				if (!colOf.ContainsKey(tl)) { myRecipeDeclines[sC] = "a threshold over a leg the join left out"; return; }
+				if (tl < 0 || tl >= legsC.Count) { declines[sC] = "a threshold on a leg the chain did not keep"; return null; }
+				if (negC[tl]) { declines[sC] = "a threshold inside a negated leg"; return null; }
+				if (!colOf.ContainsKey(tl)) { declines[sC] = "a threshold over a leg the join left out"; return null; }
 				int tp = legsC[tl].Players.LastIndexOf(t[0]);
-				if (tp < 0) { myRecipeDeclines[sC] = "a threshold on a role the leg does not show"; return; }
+				if (tp < 0) { declines[sC] = "a threshold on a role the leg does not show"; return null; }
 				int tcol = colOf[tl] + tp;
 				string top = t[1];
 				// THE LITERAL IS WRITTEN IN THE ROLE'S KIND (IValue), and a threshold
@@ -9469,12 +9465,12 @@ namespace Arest.NormaOracle
 				bool numLit = intLit || DecimalLexeme.IsMatch(t[2]);
 				if (tk != "number" && DecimalLexeme.IsMatch(t[2]))
 				{
-					myRecipeDeclines[sC] = "a decimal threshold on a role typed " + tk + " (" + t[0] + ")";
-					return;
+					declines[sC] = "a decimal threshold on a role typed " + tk + " (" + t[0] + ")";
+					return null;
 				}
-				if (tk == "number" && !numLit) { myRecipeDeclines[sC] = "a threshold in text on a role typed " + ConceptualIdOf(t[0]) + " (" + t[0] + ")"; return; }
-				if (tk == "integer" && !intLit) { myRecipeDeclines[sC] = "a threshold in text on a role typed integer (" + t[0] + ")"; return; }
-				if (tk == "text" && intLit && top != "is") { myRecipeDeclines[sC] = "a numeric threshold on a role typed text (" + t[0] + ")"; return; }
+				if (tk == "number" && !numLit) { declines[sC] = "a threshold in text on a role typed " + ConceptualIdOf(t[0]) + " (" + t[0] + ")"; return null; }
+				if (tk == "integer" && !intLit) { declines[sC] = "a threshold in text on a role typed integer (" + t[0] + ")"; return null; }
+				if (tk == "text" && intLit && top != "is") { declines[sC] = "a numeric threshold on a role typed text (" + t[0] + ")"; return null; }
 				if (top == "is") { acc = "S4(" + IAtom("sel") + ", " + acc + ", N(" + tcol + "), " + IValue(t[0], t[2]) + ")"; continue; }
 				acc = "S3(" + IAtom("pairwith") + ", " + acc + ", " + IValue(t[0], t[2]) + ")";
 				accToks.Add("#" + t[2]);
@@ -9483,8 +9479,75 @@ namespace Arest.NormaOracle
 				else if (top == "is less than") acc = "S4(" + IAtom("cmp") + ", " + acc + ", N(" + tcol + "), N(" + kcol + "))";
 				else if (top == "is at least") acc = "S3(" + IAtom("minus") + ", " + acc + ", S4(" + IAtom("cmp") + ", " + acc + ", N(" + tcol + "), N(" + kcol + ")))";
 				else if (top == "is at most") acc = "S3(" + IAtom("minus") + ", " + acc + ", S4(" + IAtom("cmp") + ", " + acc + ", N(" + kcol + "), N(" + tcol + ")))";
-				else { myRecipeDeclines[sC] = "a threshold (" + top + ")"; return; }
+				else { declines[sC] = "a threshold (" + top + ")"; return null; }
 			}
+			return acc;
+		}
+
+		// THE GENERAL CHAIN ARM BUILDS THE RULE AND EMITTED NO RECIPE, so every head
+		// only it built was marked derived, verbalized, passed the read-back gate --
+		// and never populated, because the closure reads state:rules and there was
+		// nothing there. law:markers is the only thing that says so, and only over a
+		// booted store. law-core's `Authority is currently in force` is the case that
+		// found it (2026-09-04).
+		//
+		// This emits for the part of the arm that maps onto the recipe grammar and
+		// DECLINES for the rest, which is most of what the arm can do: a comparison,
+		// arithmetic, a threshold, `some other`, an objectification, recursion, a
+		// substituted subtype, a nested (universal) leg, a head role filled by a
+		// constant or a bare type root or a calculated value -- any one of them and
+		// this writes nothing, leaving the head exactly as unexecutable as before.
+		// That asymmetry is deliberate. A missing recipe leaves a population empty,
+		// which law:markers reports; a recipe that says more than the rule does
+		// derives rows nobody wrote, which store-closed reports only if someone runs
+		// it. Silence is the safe failure here.
+		//
+		// What it does emit: the positive legs joined on their shared tokens keeping
+		// every column, projected onto the head's roles through the arm's own
+		// atLegC/atPosC binding, then each negated leg subtracted. A negated leg is
+		// only admitted when the tokens it shares with the rest of the body are the
+		// head's own -- `Authority has no Supersession Date` is a set difference on
+		// Authority, while `that Effective Date has no X` would need the join kept
+		// and is declined.
+		// A FLAT SEQUENCE, AT ANY LENGTH. S1..S9 is notation, not a ceiling on how
+		// long a sequence may be (Backus 13.2 rule 4), and ISeq's answer to a longer
+		// one -- chunk it into nested nines -- is wrong here: depth means tenancy,
+		// and a projection's positions are one flat list. S() is the variadic
+		// constructor both hosts and both readers already carry for exactly this.
+		// A join of six binary legs is twelve columns, so this is not a corner: it
+		// is every chain of four legs or more, and emitting S12 wrote a store that
+		// would not load (auto.dev, "S10 is not defined", 2026-09-04).
+		private static string IFlat(List<string> elements)
+		{
+			if (elements.Count == 0) return "PHI()";
+			if (elements.Count <= 9)
+				return "S" + elements.Count + "(" + string.Join(", ", elements) + ")";
+			return "S(" + string.Join(", ", elements) + ")";
+		}
+
+		private void RecordGeneralChainRecipe(string sC, FactIndexEntry hC, List<FactIndexEntry> legsC,
+			List<List<string>> toksC, List<bool> negC, List<int> nestC,
+			int[] atLegC, int[] atPosC, ObjectType[] typeRootC, ObjectType[] crossAtC,
+			int[] konstAtC, List<string> hLitsC, string[] arithKeyC, List<string[]> arithC, List<string[]> cmpC, List<int[]> cmpBindC,
+			List<string[]> thrC, List<string[]> swapsC, string shapeThisCannotSay)
+		{
+			if (shapeThisCannotSay != null) { myRecipeDeclines[sC] = shapeThisCannotSay; return; }
+			if (!ChainLegsUsable(sC, legsC, toksC, nestC, myRecipeDeclines)) return;
+			var fromExtentC = new List<int>();   // head positions filled from a subtype's extent
+			for (int i = 0; i < hC.Players.Count; i++)
+			{
+				if (typeRootC[i] != null) { myRecipeDeclines[sC] = "a head role from a bare type root"; return; }
+				if (arithKeyC[i] != null) continue;                 // a computed column, calc'd on below
+				if (konstAtC[i] >= 0) continue;                    // a constant column, paired on below
+				if (crossAtC[i] != null) { fromExtentC.Add(i); continue; }   // filled from the subtype's extent, joined on below
+				if (atLegC[i] < 0 || atPosC[i] < 0) { myRecipeDeclines[sC] = "a head role no leg binds"; return; }
+				if (negC[atLegC[i]]) { myRecipeDeclines[sC] = "a head role bound inside a negation"; return; }
+			}
+			Dictionary<int, int> colOf, extentColC;
+			List<string> accToks;
+			string acc = JoinChainBody(sC, legsC, toksC, negC, cmpC, cmpBindC, thrC, swapsC,
+				fromExtentC, crossAtC, myRecipeDeclines, out colOf, out accToks, out extentColC);
+			if (acc == null) return;
 			// A HEAD ROLE MAY BE A CONSTANT, and the grammar says it already:
 			// pairwith appends a constant column to every row, which is how the
 			// metamodel writes `ObjectTypeHasWorldAssumption ... 'closed'`. So the
@@ -12043,6 +12106,153 @@ namespace Arest.NormaOracle
 			return true;
 		}
 
+		// AN OBLIGATION IS THE DUAL OF A PROHIBITION (De Morgan). `each X <restriction>
+		// has some Y` says that no X meeting the restriction lacks a Y, which is
+		// `forbidden that X <restriction> and it is not true that X has some Y` -- a body
+		// the chain resolver reads as written, negation and all. So an obligation needs no
+		// new carrier row kind: it becomes a state:deontics row of kind `prohibited` like
+		// every other, whose rows ARE the violations.
+		//
+		// Answers the prohibited body a deontic sentence states, or null. A forbidden body
+		// is already one; an obligation is turned into one here.
+		private string ProhibitedBodyOf(string body)
+		{
+			if (body.StartsWith("It is forbidden that ", StringComparison.Ordinal))
+				return body.Substring("It is forbidden that ".Length).Trim();
+			if (!body.StartsWith("Each ", StringComparison.Ordinal)) return null;
+			string[] w = Regex.Replace(body.Substring(5).Trim(), @"\s+", " ").Split(' ');
+			// THE SUBJECT IS THE LONGEST DECLARED TYPE THE BODY OPENS WITH. A shorter prefix
+			// that happens to be declared (`Object` inside `Object Type`) would bind the
+			// wrong variable; an undeclared one binds nothing, and this answers null so the
+			// sentence stays the note it was.
+			string subj = null;
+			int used = 0;
+			for (int take = w.Length - 1; take >= 1 && subj == null; take--)
+			{
+				string cand = string.Join(" ", w, 0, take);
+				if (myTypes.ContainsKey(cand)) { subj = cand; used = take; }
+			}
+			if (subj == null) return null;
+			// THE CUT BETWEEN RESTRICTION AND CONSEQUENT IS NOT GUESSED. Every cut of the
+			// remaining words is tried and the first where BOTH halves resolve to declared
+			// readings is taken -- the test the chain arm already applies to its universal
+			// (`no cut of ... resolves both readings`). No such cut, and the body is prose.
+			for (int cut = 1; used + cut < w.Length; cut++)
+			{
+				string anteTail = string.Join(" ", w, used, cut);
+				string cons = subj + " " + string.Join(" ", w, used + cut, w.Length - used - cut);
+				if (!DeonticClauseResolves(cons)) continue;
+				string ante = subj + " " + anteTail;
+				if (!DeonticClauseResolves(ante))
+				{
+					// A REDUCED RELATIVE ELIDES THE COPULA: `each Predicate exported from some
+					// JS Package` is `each Predicate that IS exported from some JS Package`,
+					// and the declared reading carries the `is`. Restoring it is not a guess --
+					// the restored form goes to the same resolver, and a form naming no fact
+					// type is refused exactly as the bare one was. Same treatment the chain arm
+					// gives a `does not` whose declared reading conjugates the verb.
+					ante = subj + " is " + anteTail;
+					if (!DeonticClauseResolves(ante)) continue;
+				}
+				return ante + " and it is not true that " + cons;
+			}
+			return null;
+		}
+
+		private bool DeonticClauseResolves(string clause)
+		{
+			List<string> players;
+			return ResolveClauseSub(Dequantify(" " + clause + " ").Trim(), out players) != null;
+		}
+
+		// A PROHIBITION OVER A JOIN, built from the chain arm's own two halves: the clause
+		// resolver and the body join emitter. Answers true when the sentence became a
+		// state:deontics row; false leaves it to the note, which is where every body
+		// naming no declared fact type still lands.
+		//
+		// CONTAINMENT, CHECKED RATHER THAN ASSERTED: nothing below the resolver runs until
+		// a clause has actually resolved to a declared fact type, and a body that resolved
+		// none says nothing at all -- no decline line, no census row. us-law's and
+		// support's thousands of prose deontics are exactly that population and must stay
+		// prose; a corpus that started emitting constraints from legal prose would be a
+		// worse failure than the one this fixes.
+		private bool BuildDeonticJoin(string s, string body)
+		{
+			string pBody = ProhibitedBodyOf(body);
+			if (pBody == null) return false;
+			string[] parts = MergeConcatenation(SplitBody(pBody));
+			// ONE CLAUSE IS THE THREE SINGLE-CLAUSE SHAPES, which have already had their turn.
+			if (parts.Length < 2) return false;
+			var legs = new List<FactIndexEntry>();
+			var toks = new List<List<string>>();
+			var neg = new List<bool>();
+			var nest = new List<int>();
+			var swapPlayers = new HashSet<string>(StringComparer.Ordinal);
+			var swaps = new List<string[]>();
+			var cmp = new List<string[]>();
+			var arith = new List<string[]>();
+			var thr = new List<string[]>();
+			var other = new List<string[]>();
+			bool recursive = false;
+			var declines = new Dictionary<string, string>(StringComparer.Ordinal);
+			bool ok = ResolveChainClauses(s, pBody, parts, null, legs, toks, neg, nest,
+				swapPlayers, swaps, cmp, arith, thr, other, ref recursive, declines);
+			if (legs.Count == 0) return false;
+			string why = null;
+			if (!ok)
+			{
+				declines.TryGetValue(s, out why);
+				if (why == null) why = "a clause this arm does not read";
+			}
+			// A COMPARISON, ARITHMETIC OR A `some other` IS BOUND WHERE THE NORMA PATH IS
+			// LAID (the chain arm fills cmpBindC beside the CalculatedPathValue), and a
+			// prohibition lays no path -- NORMA has no element for an empty-population
+			// constraint, which is why the note stays as its record. Binding those operands
+			// again here would be the second resolver this reuse exists to avoid, so a body
+			// carrying one is declined by name.
+			else if (cmp.Count > 0) why = "a comparison, which is bound where the path is laid";
+			else if (arith.Count > 0) why = "arithmetic, which is bound where the path is laid";
+			else if (other.Count > 0) why = "`some other`";
+			else if (legs.Count < 2) why = "one leg, so no join";
+			else
+			{
+				var factsO = new List<FactType>();
+				var toksO = new List<IList<string>>();
+				foreach (FactIndexEntry le in legs) factsO.Add(le.Fact);
+				foreach (List<string> tl in toks) toksO.Add(tl);
+				if (RenameAnaphoricObjectifications(factsO, toksO).Count > 0) why = "an objectification";
+			}
+			string recipe = null;
+			if (why == null && ChainLegsUsable(s, legs, toks, nest, declines))
+			{
+				Dictionary<int, int> colOf, extentCol;
+				List<string> accToks;
+				recipe = JoinChainBody(s, legs, toks, neg, cmp, new List<int[]>(), thr, swaps,
+					new List<int>(), null, declines, out colOf, out accToks, out extentCol);
+			}
+			if (recipe == null)
+			{
+				if (why == null) declines.TryGetValue(s, out why);
+				// SAID OUT LOUD, but only for a body that named a declared fact type: this is
+				// the worklist of deontics one shape away from carrying, and it is silent on
+				// prose by construction (legs.Count == 0 returned above).
+				myMapLog.Add("deontic join declined (" + (why == null ? "no reason recorded" : why) + "): " + Shorten(s));
+				Count("deontic join declined");
+				return false;
+			}
+			// A PROHIBITED RULE JUDGES THE FACT TYPE IT NAMES (canon, main:vd_keep), so a
+			// joined one names the leg whose rows it judges: the body's first positive leg.
+			// The recipe's rows are wider than that fact type -- they carry the join -- and
+			// every one of them is a violation, which is what cmd:dv_prohib evaluates.
+			int firstPositive = -1;
+			for (int i = 0; i < legs.Count && firstPositive < 0; i++) if (!neg[i]) firstPositive = i;
+			if (firstPositive < 0) return false;
+			myProhibitions.Add(new KeyValuePair<string, string>(legs[firstPositive].Fact.Name, recipe));
+			AddNote("deontic", s, "prohibited population");
+			Count("prohibited population, joined (deontic)");
+			return true;
+		}
+
 		private bool BuildTextual(string kind, string s)
 		{
 			string body = s.TrimEnd('.').Trim();
@@ -12663,6 +12873,19 @@ namespace Arest.NormaOracle
 					return true;
 				}
 			}
+			// THE DEONTIC JOIN (2026-09-15). The three shapes above resolve ONE clause to ONE
+			// fact type, so a deontic whose body needs a join across two DECLARED fact types
+			// fell through to the model note below -- and a note is documentation, read by
+			// nothing. `It is obligatory that each Predicate exported from some JS Package
+			// has some Module Path` names two declared readings (imports.md: `Predicate is
+			// exported from JS Package`, `Predicate has Module Path`) and carried no verdict.
+			//
+			// The derivation side already resolves a multi-leg body: the general chain arm.
+			// This routes the deontic body through THE SAME resolver (ResolveChainClauses)
+			// and THE SAME join emitter (JoinChainBody), and forbids the population they
+			// produce. A second resolver beside them would drift from them, which is the
+			// defect class this file keeps paying for.
+			if (kind == "deontic" && BuildDeonticJoin(s, body)) return true;
 			AddNote(kind, s, kind == "deontic" ? "qualified deontic prose" : "no direct construction");
 			if (kind == "deontic")
 			{
