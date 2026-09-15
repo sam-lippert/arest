@@ -1,0 +1,4 @@
+errors 0
+*Clause is labelled if and only if
+that Clause has some Label.
+
