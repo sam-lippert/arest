@@ -8839,9 +8839,56 @@ namespace Arest.NormaOracle
 				declines[sC] = "chain arm: a negation in a form this arm does not read";
 				return false;
 			}
+			// THE SUBJECT THE LAST CLAUSE LEFT STANDING, for the elided-subject carry
+			// below. Null except immediately after a clause that resolved as written,
+			// positively, whose own subject token IS the plain type name.
+			string carrySubjC = null;
 			for (int pcI = 0; pcI < partsC.Length; pcI++)
 			{
 				string tC = partsC[pcI].Trim();
+				// THE ELIDED SUBJECT (2026-09-15). `It is forbidden that a Predicate is
+				// exported from a JS Package and also is backed by an External System`
+				// writes its second conjunct without a subject. SplitBody cuts at ` and `
+				// and hands this arm `also is backed by an External System`, which names no
+				// fact type, so a sentence whose only fault was English ellipsis declined
+				// as missing vocabulary -- and the deontic never reached canon.
+				//
+				// THE SUBJECT IS NOT GUESSED. It is the type the PREVIOUS clause resolved
+				// at position 0, and every one of these must hold or tC is left exactly as
+				// written and the decline below fires on the original text:
+				//   - the previous clause resolved AS WRITTEN, positively, and its subject
+				//     token is the bare type name (carrySubjC, set at the loop's end): a
+				//     role prefix, a `~` freshener or a `no other` rename means that token
+				//     names a DIFFERENT variable than the type, and carrying the type name
+				//     forward would bind this clause to an antecedent the last one never
+				//     had -- the wrong-antecedent defect this arm exists to refuse;
+				//   - this clause opens with a lowercase word that is not a quantifier, an
+				//     anaphor or a connective, and is not a role prefix (`primary- Source
+				//     is ...` HAS a subject). A FORML type name is capitalized, so a clause
+				//     opening lowercase after those exclusions opens with a verb and can
+				//     name no subject of its own;
+				//   - the clause resolves to NO fact type as written, with or without the
+				//     `also` -- a clause that reads on its own is never rewritten;
+				//   - the restored `that <Subject> <rest>` DOES resolve.
+				// So an elided clause carrying a negation, a threshold or a literal is
+				// refused: the restored form is tested by the plain resolver only, and
+				// those shapes do not answer to it. Refusing them costs a decline; reading
+				// them through a second resolver beside the one below is the drift this
+				// file keeps paying for.
+				string prevSubjC = carrySubjC;
+				carrySubjC = null;
+				if (prevSubjC != null)
+				{
+					string elidedC = tC.StartsWith("also ", StringComparison.Ordinal) ? tC.Substring(5).Trim() : tC;
+					if (elidedC.Length > 0 && char.IsLower(elidedC[0])
+						&& !Regex.IsMatch(elidedC, @"^(?:that|some|a|an|the|no|every|it|there|and|or|if|then|both|either|neither)\b")
+						&& !Regex.IsMatch(elidedC, @"^[a-z][\w-]*- [A-Z]")
+						&& !LegResolves(tC) && !LegResolves(elidedC)
+						&& LegResolves(prevSubjC + " " + elidedC))
+					{
+						tC = "that " + prevSubjC + " " + elidedC;
+					}
+				}
 				// THE UNIVERSAL: `every Customer that pursues that Use Case calls that API in
 				// some Measurement Window with some Call Volume` is "no Customer pursues
 				// that Use Case without calling that API" -- a negated leg over a fresh
@@ -9164,6 +9211,21 @@ namespace Arest.NormaOracle
 					// the fourth element scopes the condition to this negated leg
 					otherC.Add(new string[] { fresh, "is not", ante, (legsC.Count - 1).ToString() });
 				}
+				// THE SUBJECT THIS CLAUSE OFFERS THE NEXT ONE (the elided-subject carry at
+				// the top of the loop). Read AFTER every rename above, and offered only
+				// when the leg's own subject token is still the plain type name: a role
+				// prefix, a threshold freshener or a `no other` rename means the token
+				// names a different variable than the type, so the bare type name carried
+				// forward would join the next clause to the wrong one. A NEGATED leg
+				// offers nothing either -- `... and it is not true that X has some Y and
+				// also is Z` states Z of the X outside the negation, not of the negated
+				// scope, and this arm has no way to say which. The comparison and
+				// universal branches `continue` above and so offer nothing, which is the
+				// same refusal: a comparison has no subject of this kind to lend.
+				if (!thisNegC && plC != null && plC.Count > 0
+					&& toksC[toksC.Count - 1] != null && toksC[toksC.Count - 1].Count > 0
+					&& string.Equals(toksC[toksC.Count - 1][0], plC[0], StringComparison.Ordinal))
+					carrySubjC = plC[0];
 			}
 			return okC;
 		}
