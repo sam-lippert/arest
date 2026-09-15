@@ -1072,6 +1072,7 @@ namespace Arest.NormaOracle
 				myTypes[name] = t;
 				myTypesVersion++;
 				myKindCache.Clear();
+				mySubtypeFactsByName = null;
 			}
 			return t;
 		}
@@ -1933,6 +1934,7 @@ namespace Arest.NormaOracle
 			}
 			SubtypeFact subtypeFact = SubtypeFact.Create(sub, super);
 			myKindCache.Clear();
+			mySubtypeFactsByName = null;
 			// Halpin §6.7: "By default, a subtype inherits the primary
 			// reference scheme of the root supertype." SubtypeFact.Create
 			// wires ProvidesPreferredIdentifier only for value types; an
@@ -2309,6 +2311,90 @@ namespace Arest.NormaOracle
 		// the predicate, matched against the fact index.
 		private readonly List<string> myInstanceSentences = new List<string>();
 
+		// WHICH OF THE TWO O(T) REGIONS SQUARES. The phase measured
+		// O(instance facts * fact types^2) across five corpora (1.06, 1.47, 1.90,
+		// 0.92, 0.98 ns per unit over a 2,470x range in the product), and it is one
+		// call, so the census could not say whether the kind resolution or the
+		// index scan carries it. Both are timed, with the work each does counted.
+		private readonly System.Diagnostics.Stopwatch mySwInstKinds = new System.Diagnostics.Stopwatch();
+		private readonly System.Diagnostics.Stopwatch mySwInstScan = new System.Diagnostics.Stopwatch();
+		private long myInstCandidateNames;
+		private long myInstEntriesScanned;
+		private long myInstSpokenCalls;
+		private readonly System.Diagnostics.Stopwatch mySwInstFillers = new System.Diagnostics.Stopwatch();
+
+		// A NAME LOOKUP IS NOT A WALK. The filler loop in MapInstanceFact asks two
+		// membership questions per Fact-Type-kinded filler per instance sentence --
+		// is this the name of an indexed fact type, is it the name of a subtype fact
+		// -- and both were answered by walking. The second walked NORMA's whole
+		// ElementDirectory, allocated a list and SORTED it with a comparator that
+		// rebuilds SubtypeFactName on every comparison, so one question cost S log S
+		// string constructions. MEASURED on the us-law closure: instance facts
+		// 65,825 ms, of which the kind resolution is 53 and the index scan 657; the
+		// other 65,115 ms is these two questions.
+		//
+		// Both take the shape FindEntryByExactKey already has, for the same reason
+		// and with the same soundness argument: myFactIndex only ever grows by Add,
+		// so its Count is a sufficient key, and deletion -- invisible from here --
+		// is re-checked at lookup, not at build. SubtypeFacts() itself is untouched:
+		// its sort is what makes the carriers reproduce, and five callers want it.
+		private Dictionary<string, List<FactIndexEntry>> myFactIndexByName;
+		private int myFactIndexNamedAt = -1;
+		private bool EntryNamedById(string name)
+		{
+			if (myFactIndexByName == null || myFactIndexNamedAt != myFactIndex.Count)
+			{
+				myFactIndexByName = new Dictionary<string, List<FactIndexEntry>>(StringComparer.Ordinal);
+				foreach (FactIndexEntry e in myFactIndex)
+				{
+					if (e.Fact == null) continue;
+					List<FactIndexEntry> bucket;
+					if (!myFactIndexByName.TryGetValue(e.Fact.Name, out bucket))
+					{
+						bucket = new List<FactIndexEntry>();
+						myFactIndexByName.Add(e.Fact.Name, bucket);
+					}
+					bucket.Add(e);
+				}
+				myFactIndexNamedAt = myFactIndex.Count;
+			}
+			List<FactIndexEntry> hits;
+			if (!myFactIndexByName.TryGetValue(name, out hits)) return false;
+			foreach (FactIndexEntry e in hits) if (!e.Fact.IsDeleted) return true;
+			return false;
+		}
+
+		// Cleared wherever myKindCache is, which is the one type-creation site and
+		// the one subtype creation-and-deletion site; a name here is built from two
+		// object type names, which do not change once declared.
+		private Dictionary<string, List<SubtypeFact>> mySubtypeFactsByName;
+		private bool SubtypeFactNamed(string name)
+		{
+			if (mySubtypeFactsByName == null)
+			{
+				mySubtypeFactsByName = new Dictionary<string, List<SubtypeFact>>(StringComparer.Ordinal);
+				foreach (SubtypeFact sf in myStore.ElementDirectory.FindElements<SubtypeFact>(true))
+				{
+					if (sf.IsDeleted || sf.Subtype == null || sf.Supertype == null) continue;
+					string n = SubtypeFactName(sf);
+					List<SubtypeFact> bucket;
+					if (!mySubtypeFactsByName.TryGetValue(n, out bucket))
+					{
+						bucket = new List<SubtypeFact>();
+						mySubtypeFactsByName.Add(n, bucket);
+					}
+					bucket.Add(sf);
+				}
+			}
+			List<SubtypeFact> hits;
+			if (!mySubtypeFactsByName.TryGetValue(name, out hits)) return false;
+			foreach (SubtypeFact sf in hits)
+			{
+				if (!sf.IsDeleted && sf.Subtype != null && sf.Supertype != null) return true;
+			}
+			return false;
+		}
+
 		public void AttributeInstanceFacts()
 		{
 			foreach (string s in myInstanceSentences)
@@ -2329,6 +2415,11 @@ namespace Arest.NormaOracle
 				}
 			}
 			myInstanceSentences.Clear();
+			Console.WriteLine("timing: instance facts kinds " + mySwInstKinds.ElapsedMilliseconds
+				+ " ms (" + myInstCandidateNames + " candidate names), scan " + mySwInstScan.ElapsedMilliseconds
+				+ " ms (" + myInstEntriesScanned + " entries over " + myFactIndex.Count + ", "
+				+ myInstSpokenCalls + " reading normalizations), fillers "
+				+ mySwInstFillers.ElapsedMilliseconds + " ms");
 		}
 
 		// a kind satisfies a role player if it IS the player or is a subtype
@@ -2385,8 +2476,10 @@ namespace Arest.NormaOracle
 			{
 				string t = texts[i].Trim();
 				string kind = null;
+				mySwInstKinds.Start();
 				foreach (string name in CandidateSuffixNames(t))
 				{
+					myInstCandidateNames++;
 					if (t == name || t.EndsWith(" " + name, StringComparison.Ordinal))
 					{
 						kind = name;
@@ -2394,6 +2487,7 @@ namespace Arest.NormaOracle
 						break;
 					}
 				}
+				mySwInstKinds.Stop();
 				kinds.Add(kind);
 				if (t.Length > 0) wordParts.Add(t);
 			}
@@ -2409,8 +2503,10 @@ namespace Arest.NormaOracle
 			FactIndexEntry match = null;
 			int candidates = 0;
 			bool wordsMatched = false;
+			mySwInstScan.Start();
 			foreach (FactIndexEntry entry in myFactIndex)
 			{
+				myInstEntriesScanned++;
 				if (entry.Players.Count != quotes.Count) continue;
 				bool ok = true;
 				for (int i = 0; i < quotes.Count && ok; i++)
@@ -2439,6 +2535,7 @@ namespace Arest.NormaOracle
 				// declaring `Widget has Blob for Gizmo` accepted
 				// `Widget 'w2' completely unrelated nonsense Blob '43' banana
 				// split Gizmo 'g2'` as a row of it.
+				myInstSpokenCalls++;
 				string entryWords = SpokenWords(entry.ReadingWords);
 				if (string.Equals(entryWords, words, StringComparison.Ordinal))
 				{
@@ -2450,6 +2547,7 @@ namespace Arest.NormaOracle
 				candidates++;
 				if (match == null) match = entry;
 			}
+			mySwInstScan.Stop();
 			if (match == null || candidates != 1)
 			{
 				return false;
@@ -2483,6 +2581,7 @@ namespace Arest.NormaOracle
 			// Event Type, its supertype) and whose text is a declared reading is
 			// entered as that fact type's id; a value that resolves to no reading
 			// (a webhook's 'customer.subscription.created') is left as written.
+			mySwInstFillers.Start();
 			for (int i = 0; i < quotes.Count; i++)
 			{
 				string k = kinds[i];
@@ -2544,12 +2643,7 @@ namespace Arest.NormaOracle
 				// refusal reported: the citation is orphaned until the corpus
 				// declares what it cites.
 				if (!KindSatisfies(k, "Fact Type")) continue;
-				bool namedById = false;
-				foreach (FactIndexEntry e in myFactIndex)
-				{
-					if (e.Fact != null && !e.Fact.IsDeleted && e.Fact.Name == quotes[i]) { namedById = true; break; }
-				}
-				if (namedById) continue;
+				if (EntryNamedById(quotes[i])) continue;
 				// A SUBTYPE FACT NAMED BY ITS OWN NAME IS A DECLARED FACT TYPE.
 				// The branch above enters one named by its READING (`Customer is a
 				// subtype of User`) as SubtypeFactName's id, and the id scan just
@@ -2560,12 +2654,7 @@ namespace Arest.NormaOracle
 				// subtyping -- refused as naming nothing, which since b610da23 is
 				// wrong twice over: Subtype Fact IS a subtype of Fact Type, and
 				// state:subtypefacts already publishes exactly this name.
-				bool namedAsSubtypeFact = false;
-				foreach (SubtypeFact sfn in SubtypeFacts())
-				{
-					if (SubtypeFactName(sfn) == quotes[i]) { namedAsSubtypeFact = true; break; }
-				}
-				if (namedAsSubtypeFact) continue;
+				if (SubtypeFactNamed(quotes[i])) continue;
 				// AND THE FILLER'S REAL KIND IS RECORDED, NOT THE ONE THE SENTENCE
 				// CLAIMED (2026-09-10, #107's third part). `Fact Type 'Buyer' cites
 				// Citation 'UCC-2-103'` names a declared ENTITY TYPE, not a sentence:
@@ -2588,8 +2677,10 @@ namespace Arest.NormaOracle
 				}
 				myMapLog.Add("REFUSED (names no declared fact type): '" + quotes[i] + "' in '" + Shorten(s) + "'");
 				Count("instance fact (rejected: names no declared fact type)");
+				mySwInstFillers.Stop();
 				return false;
 			}
+			mySwInstFillers.Stop();
 			match.Rows.Add(new List<string>(quotes));
 			match.RowKinds.Add(new List<string>(kinds.Select(k => k ?? "")));
 			// the row is the population AND the instruction: a customised absorption
