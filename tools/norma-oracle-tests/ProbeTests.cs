@@ -60,7 +60,8 @@ namespace Arest.NormaOracle.Tests
 
         // A SENTENCE MUST SAY WHAT THE READING SAYS, and nothing else here reads
         // an instance fact at all. ProbeActual carries error counts, UNBUILT
-        // lines, read-back verdicts and rule verbalizations, and the corpus
+        // lines, read-back verdicts, REFUSED and FILED lines, the state:deontics
+        // cell (2026-09-15) and rule verbalizations, and the corpus
         // theories compare carrier sizes and hashes — a population that is
         // silently empty, or silently holding a sentence that means something
         // else, passes every one of them.
@@ -96,7 +97,19 @@ namespace Arest.NormaOracle.Tests
         }
 
         // A CONSTRAINT IS NOT A RULE, and nothing else here would notice one.
-        // ProbeActual carries the error count, the UNBUILT lines, the read-back
+        //
+        // NO LONGER TRUE OF ProbeActual AS OF 2026-09-15, and the paragraph is
+        // kept because it is the reason this probe was weak for as long as it
+        // was. ProbeActual now also carries the state:deontics CELL whenever a
+        // DEO: marking exists, so a built obligation shows its prohibited
+        // population and a declined one shows nothing. Measured: with
+        // BuildDeonticJoin disabled, deontic-join-obligation now fails with
+        // Expected `errors 0\nDEONTICS DEF("state:deontics", ...` against Actual
+        // `errors 0\n`. Before that surface existed the arm could be DELETED
+        // OUTRIGHT and this suite stayed green. The rest of the paragraph still
+        // describes the corpus theories correctly.
+        //
+        // ProbeActual carried the error count, the UNBUILT lines, the read-back
         // verdicts and the rule verbalizations — every one of them about DERIVED
         // HEADS. A deontic mandatory is none of those, and the corpus theories
         // compare the `expectation` carrier (state:built, state:errors,

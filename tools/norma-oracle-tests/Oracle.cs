@@ -293,6 +293,35 @@ namespace Arest.NormaOracle.Tests
             {
                 if (l.StartsWith("  DECLARED TWICE", StringComparison.Ordinal) || l.StartsWith("  KIND CONFLICT:", StringComparison.Ordinal)) sb.Append(l.TrimStart()).Append('\n');
             }
+            // AND WHAT IT BUILT AS A DEONTIC, which no line above can show. Every
+            // other surface here reads stdout; a deontic's whole answer is a CELL.
+            // probes/deontic-join-obligation recorded `errors 0` and nothing else,
+            // which is a check that cannot fail on the thing it is named for --
+            // delete BuildDeonticJoin outright and that probe still passes, because
+            // a declined deontic and a built one print the same nothing. The cell is
+            // where they differ: a built obligation is De Morgan's prohibited
+            // population, `minus(<subject>, joinon(...))` under a DEO: marking, and a
+            // declined one leaves state:deontics without that marking.
+            //
+            // Emitted only when a DEO: marking exists, so every probe that declares
+            // no deontic is untouched and needs no re-record. The cell goes in whole
+            // and whitespace-normalised rather than summarised: on a probe it is one
+            // short line, and summarising it would reintroduce exactly the blindness
+            // this repairs -- an arm that emitted the WRONG recipe would still match
+            // a summary of its shape. (2026-09-15.)
+            string dstate = Path.Combine(r.Scratch, "design-state");
+            if (File.Exists(dstate))
+            {
+                string ds = File.ReadAllText(dstate);
+                int at = ds.IndexOf("DEF(\"state:deontics\"", StringComparison.Ordinal);
+                if (at >= 0)
+                {
+                    int end = ds.IndexOf("\nDEF(\"", at, StringComparison.Ordinal);
+                    string cell = end < 0 ? ds.Substring(at) : ds.Substring(at, end - at);
+                    if (cell.Contains("A(\"DEO:"))
+                        sb.Append("DEONTICS ").Append(Regex.Replace(cell, @"\s+", " ").Trim()).Append('\n');
+                }
+            }
             bool printing = false;
             foreach (string l in Lines(r.Report))
             {
