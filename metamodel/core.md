@@ -1693,7 +1693,7 @@ MigrationProducesFactTypeAsTarget objectifies "Migration produces Fact Type as t
 MigrationProducesFactTypeAsTarget is a subtype of Function.
 
 Migration has Migration Rule Text.
-  Each Migration has exactly one Migration Rule Text.
+  Each Migration has at most one Migration Rule Text.
 
 Migration has Timestamp.
   Each Migration has exactly one Timestamp.
