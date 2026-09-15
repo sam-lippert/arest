@@ -81,6 +81,14 @@ esp/
 *.db.bak-*
 *.db.backup-*
 
+# compile-store's short-lived copies. It never opens store.db itself (bun holds a
+# sqlite handle until process exit, so an opened file cannot then be replaced):
+# .prior is the pre-build snapshot and the restore source, .check the post-build
+# copy it compares against. Swept at the START of the next run, so one may sit
+# here between builds.
+*.db.prior
+*.db.check
+
 # Tutor sandbox SQLite (per-developer, ephemeral)
 tutor/.sandbox/
 

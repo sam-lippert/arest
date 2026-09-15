@@ -30,7 +30,7 @@
 // store. The check is what keeps this byte-identical to the set-match it
 // replaces.
 import { Database } from "bun:sqlite";
-import { unlinkSync, statSync } from "node:fs";
+import { unlinkSync, statSync, existsSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -151,7 +151,77 @@ const store1 = (ft, i, v) => {
   return Ev("hook:write", [master, hit[1], String(v), CELLS]);
 };
 
+// A READINGS CHANGE MUST NOT COST THE DATA (2026-09-15). This used to unlink
+// store.db and recreate it from the carriers, which silently dropped every fact
+// written at runtime through main:api/emitToDb since the last build --
+// arest-dev.events.jsonl holds rows whose fact types are in no reading at all.
+// Samuel: "I don't want automatic schema evolution. That sounds like a ticking
+// time bomb", and: "Migrations are fact types to assert or change, and
+// optionally function definitions for adapting old facts to new types."
+//
+// So: SNAPSHOT THE OLD DATABASE FIRST, build the new one BESIDE it, and only
+// replace the old once nothing has been lost. The old file is never destroyed
+// before the comparison passes, which means a failed build leaves the store
+// exactly as it was rather than half-written.
 const dbp = join(modDir, "store.db");
+const snapp = dbp + ".prior";
+
+// BUN RELEASES A SQLITE HANDLE AT PROCESS EXIT, NOT AT close(). Opening store.db
+// here and then trying to replace it later fails with EBUSY no matter how long
+// we retry, while a separate process deletes it instantly -- measured 2026-09-15.
+// So the snapshot is taken from a COPY: the live file is never opened by this
+// process, stays replaceable, and the copy doubles as the restore if the build
+// turns out to lose rows.
+// SWEEP LAST RUN'S COPIES FIRST. The same handle behaviour means the unlink at
+// the end of a run cannot succeed -- the file is still open until this process
+// exits -- so the copies are cleared at the START, when nothing holds them.
+for (const leftover of [snapp, dbp + ".check"]) {
+  try { unlinkSync(leftover); } catch {}
+}
+
+const priorRows = new Map();
+let priorMeta = [];
+if (existsSync(dbp)) {
+  try {
+    copyFileSync(dbp, snapp);
+    const old = new Database(snapp, { readonly: true });
+    priorMeta = old.prepare("select ft, kind, tbl, arity from _meta").all();
+    // A func row's _meta.tbl is the COLUMN name, not the table, so the owning
+    // entity table is recovered from the schema -- the column name is unique to
+    // one entity table (see the _meta note below and host.js loadStoreDb).
+    const ownerOf = new Map();
+    for (const t of old.prepare("select name from sqlite_master where type='table'").all()) {
+      if (t.name.startsWith("_")) continue;
+      for (const c of old.prepare('pragma table_info("' + t.name + '")').all()) {
+        if (!ownerOf.has(c.name)) ownerOf.set(c.name, t.name);
+      }
+    }
+    for (const m of priorMeta) {
+      const isFunc = m.kind === "func";
+      const tbl = isFunc ? ownerOf.get(m.ft) : m.tbl;
+      if (!tbl) continue;
+      // a functional column is <k, value>; a relation table is <c0..cn>
+      const cols = isFunc
+        ? ['"k"', '"' + m.ft + '"']
+        : Array.from({ length: m.arity }, (_, i) => '"c' + i + '"');
+      try {
+        const rows = old.prepare("select " + cols.join(",") + ' from "' + tbl + '"').all();
+        const keep = new Set();
+        for (const r of rows) {
+          const vals = Object.values(r);
+          // an absent functional value is not a fact, so it cannot be lost
+          if (isFunc && (vals[1] === null || vals[1] === undefined)) continue;
+          keep.add(JSON.stringify(vals));
+        }
+        priorRows.set(m.ft, keep);
+      } catch { /* a table the old schema named but does not carry */ }
+    }
+    old.close();
+  } catch (e) {
+    console.error("could not read the existing store.db (" + e.message + "); treating this as a first build");
+  }
+}
+
 try { unlinkSync(dbp); } catch {}
 try { unlinkSync(dbp + "-wal"); } catch {}
 const db = new Database(dbp);
@@ -200,5 +270,76 @@ db.run("create table _composition (hash text)");
 db.prepare("insert into _composition values(?)").run(globalThis.AREST.composition);
 db.run("pragma wal_checkpoint(TRUNCATE)");
 db.close();
+
+// WHAT WOULD BE LOST. Every row the old database held is looked for in the new
+// one. A row that is gone is a fact this build cannot account for: either it was
+// written at runtime and the carriers do not produce it, or its fact type
+// changed shape and no Migration says how to carry it. Either way it is a
+// MIGRATION that has not been written -- Samuel: "Migrations are fact types to
+// assert or change, and optionally function definitions for adapting old facts
+// to new types" -- so the build refuses instead of dropping it.
+// AREST_MIGRATE=allow-loss is the deliberate override, for the case where the
+// runtime facts really are expendable.
+const lost = [];
+if (priorRows.size) {
+  // compare from a COPY -- see the handle note above; store.db must stay
+  // replaceable in case the comparison says to restore it
+  const checkp = dbp + ".check";
+  copyFileSync(dbp, checkp);
+  const fresh = new Database(checkp, { readonly: true });
+  const ownerOf = new Map();
+  for (const tb of fresh.prepare("select name from sqlite_master where type='table'").all()) {
+    if (tb.name.startsWith("_")) continue;
+    for (const c of fresh.prepare('pragma table_info("' + tb.name + '")').all()) {
+      if (!ownerOf.has(c.name)) ownerOf.set(c.name, tb.name);
+    }
+  }
+  const nowMeta = new Map(fresh.prepare("select ft, kind, tbl, arity from _meta").all().map((m) => [m.ft, m]));
+  for (const [ft, before] of priorRows) {
+    if (!before.size) continue;
+    const m = nowMeta.get(ft);
+    const after = new Set();
+    if (m) {
+      const isFunc = m.kind === "func";
+      const tbl = isFunc ? ownerOf.get(ft) : m.tbl;
+      const cols = isFunc
+        ? ['"k"', '"' + ft + '"']
+        : Array.from({ length: m.arity }, (_, i) => '"c' + i + '"');
+      if (tbl) {
+        try {
+          for (const r of fresh.prepare("select " + cols.join(",") + ' from "' + tbl + '"').all()) {
+            const vals = Object.values(r);
+            if (isFunc && (vals[1] === null || vals[1] === undefined)) continue;
+            after.add(JSON.stringify(vals));
+          }
+        } catch { /* the new schema does not carry it */ }
+      }
+    }
+    const gone = [...before].filter((r) => !after.has(r));
+    if (gone.length) lost.push({ ft, gone, dropped: !m });
+  }
+  fresh.close();
+  try { unlinkSync(checkp); } catch {}
+}
+
+if (lost.length && process.env.AREST_MIGRATE !== "allow-loss") {
+  const rows = lost.reduce((a, l) => a + l.gone.length, 0);
+  console.error("REFUSING: this build would drop " + rows + " row(s) across " +
+    lost.length + " fact type(s), and no Migration says how to carry them.");
+  for (const l of lost.slice(0, 12)) {
+    console.error("  " + l.ft + (l.dropped ? " (no longer materialized)" : "") +
+      " -- " + l.gone.length + " row(s), e.g. " + l.gone[0].slice(0, 120));
+  }
+  if (lost.length > 12) console.error("  ... and " + (lost.length - 12) + " more fact type(s)");
+  copyFileSync(snapp, dbp);
+  try { unlinkSync(dbp + "-wal"); } catch {}
+  try { unlinkSync(snapp); } catch {}
+  console.error("store.db RESTORED to what it was. Write the Migration, or rebuild with AREST_MIGRATE=allow-loss.");
+  process.exit(1);
+}
+try { unlinkSync(snapp); } catch {}
+
 const fcount = Object.keys(funcCol).length;
-console.error("store.db: " + (statSync(dbp).size / 1024).toFixed(0) + " KB (" + usedGis.length + " entity tables, " + fcount + " functional columns, " + rel.length + " relation tables) at " + dbp);
+const carried = [...priorRows.values()].reduce((a, s) => a + s.size, 0);
+console.error("store.db: " + (statSync(dbp).size / 1024).toFixed(0) + " KB (" + usedGis.length + " entity tables, " + fcount + " functional columns, " + rel.length + " relation tables) at " + dbp +
+  (priorRows.size ? " [" + carried + " prior row(s) accounted for" + (lost.length ? ", " + lost.reduce((a, l) => a + l.gone.length, 0) + " DROPPED by AREST_MIGRATE=allow-loss" : "") + "]" : ""));
