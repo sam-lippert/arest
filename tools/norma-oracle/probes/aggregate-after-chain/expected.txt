@@ -1,5 +1,5 @@
 errors 0
-UNDELIVERED (an aggregate this grammar has no form for (sum)): VehiclePurchaseQuoteHasDmvFeeTotalAmount
+UNDELIVERED (a sum over a column the reading never typed (Fee Amount)): VehiclePurchaseQuoteHasDmvFeeTotalAmount
 *Vehicle Purchase Quote has dmv-fee-total Amount if and only if
 that Vehicle Purchase Quote has some ZIP Code that is in some State
 where some Vehicle Fee Schedule belongs to that State

@@ -1,8 +1,8 @@
 errors 0
 UNDELIVERED (an aggregate this grammar has no form for (mean)): ExternalSystemHasAverageResponseTimeForInterval
 UNDELIVERED (a numeric threshold on a role typed text (HTTP Status)): ExternalSystemHasErrorRateForInterval
-UNDELIVERED (an aggregate this grammar has no form for (sum)): ProviderResourceHasMonthlyCostForBillingPeriod
-UNDELIVERED (an aggregate this grammar has no form for (sum)): ServiceHasMonthlyCostForBillingPeriod
+UNDELIVERED (a sum over a column the reading never typed (Amount)): ProviderResourceHasMonthlyCostForBillingPeriod
+UNDELIVERED (a sum over a column the reading never typed (Cost)): ServiceHasMonthlyCostForBillingPeriod
 *External System has average Response Time1 for Interval if and only if
 some Log Entry has that External System
 and  has some Response Time2
