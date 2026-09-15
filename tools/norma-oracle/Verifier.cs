@@ -1375,6 +1375,32 @@ namespace Arest.NormaOracle
 			return spans;
 		}
 
+		// A VALUE IS NOT A RULE. The three derivation tests below read the RAW
+		// sentence, with no quoting awareness at all, so an instance fact whose
+		// VALUE contained " iff " was reclassified as a derivation-rule
+		// declaration and deferred: no row, no unrecognized-sentence line, no
+		// model error, nothing in the map log -- only a +1 in the deferred-rule
+		// census bucket. That is what swallowed every `Derivation Rule 'r:X' has
+		// Text '* ... iff ...'` fact (#115, mis-attributed to reading theft at the
+		// time), and it would swallow a symbolic `Function has Implementation`
+		// body whose doc string happens to say "iff". MEASURED 2026-09-15:
+		// S2(A("x iff y"), N(1)) landed no row while S2(A("x if y"), N(1)) and
+		// S2(A("xiffy"), N(1)) both landed, which is the asymmetry this removes.
+		// Quoted interiors become spaces of the SAME WIDTH, so every index is
+		// where it was and a rule's own iff -- which is never inside a value --
+		// still reads.
+		private static string BlankValues(string s)
+		{
+			List<QuotedSpan> spans = QuotedSpans(s);
+			if (spans.Count == 0) return s;
+			char[] b = s.ToCharArray();
+			foreach (QuotedSpan q in spans)
+			{
+				for (int i = q.Index + 1; i < q.Index + q.Length - 1; i++) b[i] = ' ';
+			}
+			return new string(b);
+		}
+
 		private void MapSentence(string s)
 		{
 			if (PopulationOnly)
@@ -1417,8 +1443,9 @@ namespace Arest.NormaOracle
 			// fully derived rules verbalize with "iff" (the CWA closure over
 			// all rules of the head); semi-derived rules state sufficient
 			// conditions with a bare "if" — both are derivations to defer
-			if (s.Contains(" iff ") || (s.StartsWith("* ") && Regex.IsMatch(s, @"\bif\b"))
-				|| Regex.IsMatch(s, @"^\+{1,2} .+ if "))
+			string outside = BlankValues(s);
+			if (outside.Contains(" iff ") || (outside.StartsWith("* ") && Regex.IsMatch(outside, @"\bif\b"))
+				|| Regex.IsMatch(outside, @"^\+{1,2} .+ if "))
 			{
 				// A RULE'S OWN MARKER IS A DEF 5 MARKING, and NormalizeRuleSentence is about
 				// to strip it. Where the declaration carries the marking too there is nothing
@@ -1429,8 +1456,8 @@ namespace Arest.NormaOracle
 				// rule owns the whole population; it does not" -- and it is the same harm
 				// ApplyDerivationMarkers already guards for ++ vs **: derived rows become the
 				// only rows, so an asserted one is erased by the next derivation.
-				Match mk = Regex.Match(s, @"^(\+{1,2}) (.+?) (?:iff|if) ");
-				if (mk.Success) myRuleMarkers.Add(new string[] { mk.Groups[1].Value, mk.Groups[2].Value.Trim() });
+				Match mk = Regex.Match(outside, @"^(\+{1,2}) (.+?) (?:iff|if) ");
+				if (mk.Success) myRuleMarkers.Add(new string[] { mk.Groups[1].Value, s.Substring(mk.Groups[2].Index, mk.Groups[2].Length).Trim() });
 				myDeferredRules.Add(NormalizeRuleSentence(s));
 				Count("derivation rule (deferred: no textual rule input in NORMA)");
 				return;

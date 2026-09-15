@@ -180,6 +180,33 @@ namespace Arest.NormaOracle.Tests
             Assert.Contains("'Sam's Tier', 'plain'", verbalized);
         }
 
+        // A VALUE IS NOT A RULE. The derivation test ran s.Contains(" iff ") on
+        // the raw sentence, so an instance fact whose VALUE held those five bytes
+        // was DEFERRED as a rule declaration -- no row, no unrecognized sentence,
+        // no model error, nothing in the map log, only a +1 in a census bucket.
+        // The probe theory above cannot see that: it records errors, UNBUILT,
+        // read-back and rules, and a swallowed instance fact moves none of them.
+        // So the loss is read here, off the population, where it is visible.
+        [Fact]
+        public void IffInsideAValueIsNotReadAsARule()
+        {
+            string dir = Path.Combine(ProbesDir, "iff-inside-a-value");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "iff-inside-a-value-facts"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            // all four bodies are stored, iff and all: before the fix the three
+            // carrying " iff " were absent from the store entirely
+            Assert.Contains("x iff y", state);
+            Assert.Contains("x if y", state);
+            Assert.Contains("App navigates Domain iff App has navigable Domain", state);
+            Assert.Contains("one iff two iff three", state);
+            // and no sentence was reported, refiled, or quietly deferred
+            Assert.DoesNotContain("[instance]", run.Output);
+            Assert.DoesNotContain("READING NOT MATCHED", run.Output);
+            // the control: a rule's own iff is outside every value and still reads
+            Assert.Contains("ClauseIsLabelled", state);
+        }
+
         // A RECIPE IS A FORM; AN ATOM IS AN OPERAND. state:rules rows are
         // S3(head, players, recipe), and the closure asks a recipe for its tag,
         // so a recipe that is a bare atom throws selector 1 on an atom from
