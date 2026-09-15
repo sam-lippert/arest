@@ -10,6 +10,37 @@
 // the ORM -> OIAL -> DCIL relational mapping. Sentence kinds outside the
 // declaration fragment (derivations, ring/set-comparison text forms,
 // instance facts, SMD populations) are classified and counted, not mapped.
+//
+// THE NORMA SEAM, MEASURED 2026-09-15 (#85, bounding the dependency on Windows
+// and NORMA). Comment out this file's two non-System usings and build: 262
+// errors, every one CS0246, on 96 distinct lines, naming TWENTY types. The
+// compile does not stop early -- the last error is at 16276 of 16303 -- and
+// nothing else in 16,303 lines needs either namespace. Counting mentions
+// instead gives ~1,257 lines, but most of those are comments and string
+// literals, because canon's own vocabulary spells a metamodel entity
+// `ObjectType` too; CS0246 is the honest number because the compiler only
+// raises it where a type must actually RESOLVE.
+//
+// The twenty, by reference count, fall into three groups and the grouping is
+// the whole of what an extraction has to decide:
+//   the ORM model itself  ObjectType 58, FactType 30, Role 20, SubtypeFact 18,
+//                         ORMModel 4, UniquenessConstraint 2 -- this is what
+//                         "give the compiler its own ORM model" would replace
+//   the derivation paths  PathedRole 26, LeadRolePath 16, RolePath 14,
+//                         RoleSubPath 6, RolePathObjectTypeRoot 2,
+//                         PathObjectUnifier 2, FactTypeDerivationRule 2,
+//                         CalculatedPathValue 2, CalculatedPathValueInput 2 --
+//                         what the recipe emitter BUILDS, not what it reads
+//   the harness           Store 18, ConstraintRoleSequence 14,
+//                         ConstraintModality 12, Function 10,
+//                         SetComparisonConstraintRoleSequence 2
+//
+// What that does NOT say is that the dependency is cheap to cut. NORMA is not
+// here for its types; it is here for the JUDGEMENTS behind them -- model
+// well-formedness, reference-mode machinery, constraint arity and
+// compatibility, and ORM -> OIAL -> DCIL. Ninety-six lines is the size of the
+// SEAM, not the size of the replacement. Anyone reading this as "#85 is a
+// ninety-six-line job" has read a measurement of the wrong thing.
 using System;
 using System.Collections.Generic;
 using System.IO;
