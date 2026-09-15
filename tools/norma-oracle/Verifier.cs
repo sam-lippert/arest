@@ -416,6 +416,17 @@ namespace Arest.NormaOracle
 		// rival ("Q has Trade-In Amount" binds Amount, arity 3).
 		private const string NameChars = @"(?:[\w :]|-(?=\w))";
 		private const string RefChars = @"(?:[\w ]|-(?=\w))";
+		// THE AGGREGATE OPERATORS, IN ONE PLACE BECAUSE THEY DRIFTED (2026-09-15).
+		// The arm that builds an aggregate rule read count|sum|mean|min|max; the
+		// census that reports an UNBUILT rule's leg ratio stripped only count|sum.
+		// For a mean, min or max the prefix was therefore never stripped, and the
+		// census counted `<value> is the mean of <x> where <clause one>` as a leg --
+		// so a body whose clauses ALL resolve reported `legs resolving 2/3` and
+		// named a failing leg that does not exist. That ratio is read by a human
+		// deciding whose debt a rule is, and it sent one straight past the real
+		// cause. Two regexes over one grammar is the defect; this is the grammar.
+		// `mean` is this reading's spelling of canon's system:agg_ops `avg`.
+		private const string AggOps = "count|sum|mean|min|max";
 		private static readonly Regex EntityDecl = new Regex(@"^(" + NameChars + @"+?)\s*\(\s*\.\s*(" + RefChars + @"+)\s*\)\s+is an entity type\.$");
 		// composite reference scheme (Halpin §7.3): X(.A, .B, ...) - the
 		// components bind existing types (or mint value types, the single-
@@ -6302,7 +6313,7 @@ namespace Arest.NormaOracle
 			Pass("@5454");
 			foreach (string sAg in myDeferredRules)
 			{
-				Match am = Regex.Match(sAg, @"^\* (.+?) iff (.+?) is the (count|sum|mean|min|max) of ([\w\- ]+?) where (.+)\.$");
+				Match am = Regex.Match(sAg, @"^\* (.+?) iff (.+?) is the (" + AggOps + @") of ([\w\- ]+?) where (.+)\.$");
 				if (!am.Success) continue;
 				string headA = am.Groups[1].Value.Trim();
 				FactIndexEntry hA = FindEntryByNormalizedSentence(headA);
@@ -7609,7 +7620,7 @@ namespace Arest.NormaOracle
 						// 0/1 on every aggregate rule, which said only that the splitter
 						// could not read them.
 						string ubody = um.Groups[2].Value;
-						Match uagg = Regex.Match(ubody, @"^.+? is the (?:count|sum) of .+? where (.+)$");
+						Match uagg = Regex.Match(ubody, @"^.+? is the (?:" + AggOps + @") of .+? where (.+)$");
 						if (uagg.Success) ubody = uagg.Groups[1].Value;
 						string[] ulegs = SplitBody(ubody);
 						int ures = 0;
