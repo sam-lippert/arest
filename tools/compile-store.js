@@ -280,8 +280,20 @@ db.close();
 // to new types" -- so the build refuses instead of dropping it.
 // AREST_MIGRATE=allow-loss is the deliberate override, for the case where the
 // runtime facts really are expendable.
+// A ROW THAT IS STILL SAYABLE IS NOT A MIGRATION. Where the fact type is still
+// materialized with the SAME kind and arity, an absent row means it was asserted
+// at runtime and the carriers do not produce it -- there is nothing to migrate
+// and the row is carried back. Where the fact type is gone, or its shape moved,
+// or the build asserts a DIFFERENT value for a functional key, the row cannot be
+// re-asserted and what to do with it is a Migration somebody has to write.
+// The functional clash refuses on purpose: `Each X has at most one Y` makes
+// <k, y> one fact, so an old y and a new y for one k are two facts that cannot
+// both stand, and choosing between them silently is the automatic schema
+// evolution Sam ruled out.
 const lost = [];
+const carry = [];
 if (priorRows.size) {
+  const wasMeta = new Map(priorMeta.map((m) => [m.ft, m]));
   // compare from a COPY -- see the handle note above; store.db must stay
   // replaceable in case the comparison says to restore it
   const checkp = dbp + ".check";
@@ -298,10 +310,14 @@ if (priorRows.size) {
   for (const [ft, before] of priorRows) {
     if (!before.size) continue;
     const m = nowMeta.get(ft);
+    const was = wasMeta.get(ft);
     const after = new Set();
+    const afterKeys = new Set();
+    let isFunc = false;
+    let tbl = null;
     if (m) {
-      const isFunc = m.kind === "func";
-      const tbl = isFunc ? ownerOf.get(ft) : m.tbl;
+      isFunc = m.kind === "func";
+      tbl = isFunc ? ownerOf.get(ft) : m.tbl;
       const cols = isFunc
         ? ['"k"', '"' + ft + '"']
         : Array.from({ length: m.arity }, (_, i) => '"c' + i + '"');
@@ -311,12 +327,24 @@ if (priorRows.size) {
             const vals = Object.values(r);
             if (isFunc && (vals[1] === null || vals[1] === undefined)) continue;
             after.add(JSON.stringify(vals));
+            if (isFunc) afterKeys.add(vals[0]);
           }
         } catch { /* the new schema does not carry it */ }
       }
     }
     const gone = [...before].filter((r) => !after.has(r));
-    if (gone.length) lost.push({ ft, gone, dropped: !m });
+    if (!gone.length) continue;
+    if (!m || !was || !tbl || m.kind !== was.kind || m.arity !== was.arity) {
+      lost.push({ ft, gone, why: m ? "its shape changed" : "no longer materialized" });
+      continue;
+    }
+    const keep = [];
+    const clash = [];
+    for (const r of gone) {
+      if (isFunc && afterKeys.has(JSON.parse(r)[0])) clash.push(r); else keep.push(r);
+    }
+    if (keep.length) carry.push({ ft, tbl, isFunc, arity: m.arity, rows: keep });
+    if (clash.length) lost.push({ ft, gone: clash, why: "the build asserts a different value for the same key" });
   }
   fresh.close();
   try { unlinkSync(checkp); } catch {}
@@ -327,8 +355,8 @@ if (lost.length && process.env.AREST_MIGRATE !== "allow-loss") {
   console.error("REFUSING: this build would drop " + rows + " row(s) across " +
     lost.length + " fact type(s), and no Migration says how to carry them.");
   for (const l of lost.slice(0, 12)) {
-    console.error("  " + l.ft + (l.dropped ? " (no longer materialized)" : "") +
-      " -- " + l.gone.length + " row(s), e.g. " + l.gone[0].slice(0, 120));
+    console.error("  " + l.ft + " (" + l.why + ") -- " + l.gone.length +
+      " row(s), e.g. " + l.gone[0].slice(0, 120));
   }
   if (lost.length > 12) console.error("  ... and " + (lost.length - 12) + " more fact type(s)");
   copyFileSync(snapp, dbp);
@@ -337,9 +365,41 @@ if (lost.length && process.env.AREST_MIGRATE !== "allow-loss") {
   console.error("store.db RESTORED to what it was. Write the Migration, or rebuild with AREST_MIGRATE=allow-loss.");
   process.exit(1);
 }
+
+// NOTHING IS OWED, SO CARRY THE SURVIVORS BACK. Only reached when the build
+// loses nothing it cannot account for -- a refusal restores the snapshot above
+// and never gets here.
+let carried2 = 0;
+if (carry.length) {
+  const back = new Database(dbp);
+  back.transaction(() => {
+    for (const c of carry) {
+      if (c.isFunc) {
+        const upd = back.prepare('update "' + c.tbl + '" set "' + c.ft + '"=? where k=?');
+        const ins = back.prepare('insert into "' + c.tbl + '" (k, "' + c.ft + '") values(?,?)');
+        for (const r of c.rows) {
+          const [k, v] = JSON.parse(r);
+          if (!upd.run(v, k).changes) ins.run(k, v);
+          carried2++;
+        }
+      } else {
+        const ins = back.prepare('insert into "' + c.tbl + '" values(?' + ",?".repeat(c.arity - 1) + ")");
+        for (const r of c.rows) { ins.run(...JSON.parse(r)); carried2++; }
+      }
+    }
+  })();
+  back.run("pragma wal_checkpoint(TRUNCATE)");
+  back.close();
+  console.error("CARRIED " + carried2 + " runtime row(s) across " + carry.length +
+    " fact type(s) the carriers do not produce: " +
+    carry.slice(0, 8).map((c) => c.ft + " x" + c.rows.length).join(", ") +
+    (carry.length > 8 ? ", ... and " + (carry.length - 8) + " more" : ""));
+}
 try { unlinkSync(snapp); } catch {}
 
 const fcount = Object.keys(funcCol).length;
 const carried = [...priorRows.values()].reduce((a, s) => a + s.size, 0);
 console.error("store.db: " + (statSync(dbp).size / 1024).toFixed(0) + " KB (" + usedGis.length + " entity tables, " + fcount + " functional columns, " + rel.length + " relation tables) at " + dbp +
-  (priorRows.size ? " [" + carried + " prior row(s) accounted for" + (lost.length ? ", " + lost.reduce((a, l) => a + l.gone.length, 0) + " DROPPED by AREST_MIGRATE=allow-loss" : "") + "]" : ""));
+  (priorRows.size ? " [" + carried + " prior row(s) accounted for" +
+    (carried2 ? ", " + carried2 + " carried" : "") +
+    (lost.length ? ", " + lost.reduce((a, l) => a + l.gone.length, 0) + " DROPPED by AREST_MIGRATE=allow-loss" : "") + "]" : ""));
