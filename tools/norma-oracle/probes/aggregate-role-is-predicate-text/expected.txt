@@ -1,6 +1,6 @@
 errors 0
 UNBUILT (head resolves, no arm matched the body) [legs resolving 3/3; chain arm: an aggregate or a conditional this arm does not read]: * Variable Cost Source has trailing daily cost for Observation Date iff trailing daily cost is the sum of Daily Amount where some Cost Observation is of that Variable Cost Source and that Cost Observation has that Observation Date and that Cost Observation has that Daily Amount.
-UNDELIVERED (an aggregate this grammar has no form for (sum)): VariableCostSourceHasTrailingCostForObservationDate
+UNDELIVERED (a sum over a column the reading never typed (Daily Amount)): VariableCostSourceHasTrailingCostForObservationDate
 UNDELIVERED (no arm emitted a recipe): VariableCostSourceHasTrailingDailyCostForObservationDate
 *Variable Cost Source has trailing Cost for Observation Date if and only if
 some Cost Observation is of that Variable Cost Source

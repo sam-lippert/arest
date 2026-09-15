@@ -6520,7 +6520,8 @@ namespace Arest.NormaOracle
 					else if (i == 0) new DerivedRoleProjectedFromRolePathRoot(drpA, rootA);
 					else new DerivedRoleProjectedFromPathedRole(drpA, rowsA[gL[i]][gC[i]]);
 				}
-				RecordAggregateRecipe(sAg, am.Groups[3].Value.Trim(), xA, hA, legsA, toksA, thrA);
+				RecordAggregateRecipe(sAg, am.Groups[3].Value.Trim(), xA, hA, legsA, toksA, thrA,
+					vAtA, gL, gC, xL, xC);
 				myBuiltRuleSentences.Add(sAg); log.Add(hA.Fact.Name + " := " + aggFn.Name + "(" + xA + ") over "
 					+ legsA.Count + " clauses per " + rootTokA + ", " + DescribeDerivation(hA.Fact));
 			}
@@ -9789,33 +9790,69 @@ namespace Arest.NormaOracle
 				+ string.Join(", ", players) + "), " + expr + ")");
 		}
 
-		// THE AGGREGATE ARM BUILDS THE RULE AND THE GRAMMAR CANNOT SAY IT
-		// (2026-09-15). Nine rules in auto.dev's closure are an aggregate over a
-		// where-clause chain -- five sums, one mean, two counts, and the Monroney
-		// label's sum -- and every one of them built in NORMA, marked its head
-		// derived, verbalized, passed the read-back gate and then delivered
-		// nothing. They stood in state:undelivered as `no arm emitted a recipe`,
-		// which is the census saying it does not know; an omission with no name is
-		// the one error class no later measurement reaches.
+		// THE AGGREGATE ARM BUILDS THE RULE, AND THE GRAMMAR CAN NOW SAY A SUM
+		// (2026-09-15). EIGHT rules reach this arm in auto.dev's sanctioned
+		// closure -- five sums, one mean, one ternary count, and the DMV fee
+		// total, whose BODY does not join and which therefore never reaches the
+		// fold at all -- with the Monroney label's sum a ninth in the corpora
+		// that read us-law beside it. Every one of them built in NORMA, marked
+		// its head derived, verbalized, passed the read-back gate and then
+		// delivered nothing: they stood in state:undelivered as `no arm emitted
+		// a recipe`, which is the census saying it does not know, and an
+		// omission with no name is the one error class no later measurement
+		// reaches.
 		//
-		// THE BLOCKER IS THE RECIPE GRAMMAR, AND THE FOLDS ALREADY EXIST BESIDE IT.
-		// derive:forms carries eleven forms and exactly ONE aggregate -- `count`, a
-		// key column to <key, count> -- with no sum, no mean, no min and no max
-		// beside it, so six of the nine cannot be written at all and a recipe
-		// nothing can evaluate is worse than an honest decline. But do not read
-		// that as the mu having no aggregation: system:compile_agg_rule (arest:1163)
-		// dispatches on all five of system:agg_ops -- length for count, <INSERT,+>
-		// for sum, <COMP,/,<CONS,<INSERT,+>,length>> for avg, and an INSERT over
-		// le/ge for min and max -- and three cases certify it over ONE shared
-		// operand so that an implementation ignoring the op fails two of the three.
-		// It is unreachable, not absent. Canon's own comment says "host-called and
-		// reached by nothing"; no canon DEF names it; and the host that called it
-		// is the fat python engine retired in 8cc259ca, where the live js host has
-		// no rule-compiler boundary at all (`compile_rule`, zero hits in host.js).
-		// So the open piece is reaching a certified compiler from this grammar, not
-		// designing aggregation -- derive:form_sum, a row in derive:forms, and
-		// entries in the derive:reads and derive:minus_rights whitelists
-		// (arest:9138, 9141), which is a canon change and so Sam's call.
+		// THE BLOCKER WAS THE RECIPE GRAMMAR AND IT IS NOT ANY MORE. derive:forms
+		// carried eleven forms and exactly ONE aggregate -- `count`, a key column
+		// to <key, count> -- until 6cf45015 put `sum` beside it: derive:form_sum
+		// over derive:sum_rows, the recipe ONE SLOT WIDER at <sum, source, keyspec,
+		// overcol>, because a count needs no column and a sum must be told which
+		// one it adds. That change moved not one byte of any corpus carrier, and
+		// it could not: the decline was a LITERAL right here (`opAg != "count"`),
+		// so the oracle went on saying `an aggregate this grammar has no form for
+		// (sum)` about a grammar that had one. The canon half is necessary and
+		// this is the half that delivers.
+		//
+		// WHAT IS EMITTED, each shape measured against the js host BEFORE it was
+		// written (bun over tools/js-runner/cases.g.js, derive:eval):
+		//     <sum, body, N(k), N(v)>                       one group column
+		//     <flat, <sum, body, <CONS,N(k1),N(k2)>, N(v)>> two or more
+		//     <proj, <that>, <N(1), N(3), N(2)>>            total not head-last
+		// The fold answers <key, total>, so a composite key answers <<a,x>,5> and
+		// `flat` is what puts those columns back beside the total: form_flat is
+		// cat(<row.1, tl(row)>), a first-column unfold, and over <<a,x>,5> it
+		// gives <a,x,5>. flat over a SINGLE key throws `expected sequence, got
+		// atom`, so it is emitted only where the key is a construction. The three
+		// whitelists follow the nesting on their own -- derive:reads,
+		// derive:minus_rights and derive:cannot_produce each answer for
+		// <flat, <sum, ...>> exactly what they answer for the sum alone -- and the
+		// whole machine, run over a DERIVED source, settles F1 first and answers
+		// <a,x,5>, <a,y,5>.
+		//
+		// AND THE OVER-COLUMN MUST BE TYPED INTEGER. The fold is INSERT(+), and
+		// the boundary this file already keeps (`WHERE TEXT BECOMES VALUES`,
+		// ValueKindOf) writes ONLY integer-typed cells as host numbers: a
+		// number-typed one -- decimal, money, the floats -- names a kind the
+		// certified hosts lack and STAYS AN ATOM, and every other kind is the atom
+		// the reading wrote. Measured on the mu: two text rows in one group throw
+		// `+ on non-number`, and a group of ONE row answers the text ITSELF, so
+		// the failure is not even reliably loud -- a wrong total, silently, is
+		// exactly what a recipe must not be able to do. So a non-integer
+		// over-column declines BY NAME, and on auto.dev's sanctioned closure that
+		// is all five sums: Amount is decimal (stripe.md:36), Cost and Daily
+		// Amount are typed by nothing at all. The debt moves off arest's grammar
+		// and onto the reading boundary and the corpus -- two named pieces of work
+		// where there was one unnamed one -- and the probe aggregate-sum-delivers
+		// is the minimal pair, one integer column emitting beside one text column
+		// declining over the same body.
+		//
+		// A SUM OF THE BODY'S ROWS IS WHAT THE RULE SAYS, and that is the
+		// asymmetry with the count below rather than an inconsistency. The bag
+		// NORMA's aggregation context ranges over is the path's bindings, one
+		// value per binding; the joined body keeps EVERY column, so its rows are
+		// those bindings and summing them is summing the bag. `the count of Log
+		// Entry` says the distinct entries, which is not the row count, and this
+		// grammar still has no dedup step to make those the same thing.
 		//
 		// The two counts are ternary (an Error Rate per External
 		// System AND Interval) and `count` groups by ONE column. It does take a
@@ -9826,17 +9863,23 @@ namespace Arest.NormaOracle
 		// non-functional leg in the body and such a recipe over-counts silently,
 		// which is the failure RecordGeneralChainRecipe refuses to risk.
 		//
-		// So this emits nothing and NAMES why, through THE SAME leg checks and THE
-		// SAME join emitter the chain arm uses: the aggregate arm's legs, tokens
-		// and thresholds are already the shape those take (thrA is built by the
-		// line that builds thrC, field for field), so nothing here resolves a
-		// clause a second time. What that buys is a reason that tells the two jobs
-		// apart -- `an aggregate this grammar has no form for (sum)` against nine
-		// heads is a worklist entry naming one canon DEF, where `a leg the chain
-		// never reaches` would have been a different piece of work entirely.
+		// The body is resolved through THE SAME leg checks and THE SAME join
+		// emitter the chain arm uses: the aggregate arm's legs, tokens and
+		// thresholds are already the shape those take (thrA is built by the line
+		// that builds thrC, field for field), so nothing here resolves a clause a
+		// second time, and a body that does not join keeps the body's own reason.
+		// That is what tells the jobs apart: `a leg the chain never reaches` is a
+		// different piece of work from `a sum over a column typed decimal`, and
+		// both are different from the silence they replaced.
+		//
+		// The group columns and the summed value arrive from the arm rather than
+		// being looked for again: gLA/gCA are the leg and position the arm bound
+		// each head role at, xLA/xCA the same for the aggregated value, and vAtA
+		// the head position the fold fills (always >= 1 -- the head's first player
+		// roots the path).
 		private void RecordAggregateRecipe(string sAg, string opAg, string xAg,
 			FactIndexEntry hA, List<FactIndexEntry> legsA, List<List<string>> toksA,
-			List<string[]> thrA)
+			List<string[]> thrA, int vAtA, int[] gLA, int[] gCA, int xLA, int xCA)
 		{
 			// an aggregate's where-clauses are a positive, unnested body: every leg
 			// ranges over the bag, and a negated or nested one never reaches here
@@ -9851,16 +9894,74 @@ namespace Arest.NormaOracle
 				new ObjectType[hA.Players.Count], myRecipeDeclines,
 				out colOfA, out accToksA, out extentColA);
 			if (accA == null) return;
-			// the body joins; what has no form is the fold on the end of it
-			if (opAg != "count")
+			// the body joins; the fold goes on the end of it
+			if (opAg != "sum")
 			{
-				myRecipeDeclines[sAg] = "an aggregate this grammar has no form for (" + opAg + ")";
+				if (opAg != "count")
+				{
+					myRecipeDeclines[sAg] = "an aggregate this grammar has no form for (" + opAg + ")";
+					return;
+				}
+				int groups = hA.Players.Count - 1;
+				myRecipeDeclines[sAg] = groups > 1
+					? "a count grouped by " + groups + " columns (the count form groups by one)"
+					: "a count of the joined body's rows, not of the distinct " + xAg;
 				return;
 			}
-			int groups = hA.Players.Count - 1;
-			myRecipeDeclines[sAg] = groups > 1
-				? "a count grouped by " + groups + " columns (the count form groups by one)"
-				: "a count of the joined body's rows, not of the distinct " + xAg;
+			if (xLA < 0 || xLA >= legsA.Count || xCA < 0 || xCA >= legsA[xLA].Players.Count)
+				{ myRecipeDeclines[sAg] = "a summed value no leg binds"; return; }
+			if (!colOfA.ContainsKey(xLA))
+				{ myRecipeDeclines[sAg] = "a summed value over a leg the join left out"; return; }
+			// INSERT(+) takes host numbers, and only an integer-typed cell is one
+			string over = legsA[xLA].Players[xCA];
+			if (ValueKindOf(over) != "integer")
+			{
+				ObjectType overT;
+				bool isValue = myTypes.TryGetValue(over, out overT) && overT != null && overT.IsValueType;
+				string id = ConceptualIdOf(over);
+				myRecipeDeclines[sAg] = id != null
+					? "a sum over a column typed " + id + " (" + over + ")"
+						+ (NumberConceptualIds.Contains(id)
+							? ": a number stays an atom in the store and + throws on it" : "")
+					: isValue
+						? "a sum over a column the reading never typed (" + over + ")"
+						: "a sum over an entity (" + over + ")";
+				return;
+			}
+			// the group columns in the head's own order; the fold answers <key, total>
+			var keyCols = new List<string>();
+			for (int i = 0; i < hA.Players.Count; i++)
+			{
+				if (i == vAtA) continue;
+				if (gLA[i] < 0 || gLA[i] >= legsA.Count || gCA[i] < 0)
+					{ myRecipeDeclines[sAg] = "a group role no leg binds"; return; }
+				if (!colOfA.ContainsKey(gLA[i]))
+					{ myRecipeDeclines[sAg] = "a group role over a leg the join left out"; return; }
+				keyCols.Add("N(" + (colOfA[gLA[i]] + gCA[i]) + ")");
+			}
+			if (keyCols.Count == 0) { myRecipeDeclines[sAg] = "a sum grouped by nothing"; return; }
+			// S9 is the constructor ceiling and a construction spends one slot on CONS
+			if (keyCols.Count > 8)
+				{ myRecipeDeclines[sAg] = "a sum grouped by " + keyCols.Count + " columns (a construction takes eight)"; return; }
+			string expr = "S4(" + IAtom("sum") + ", " + accA + ", "
+				+ (keyCols.Count == 1 ? keyCols[0]
+					: "S" + (keyCols.Count + 1) + "(" + IAtom("CONS") + ", " + string.Join(", ", keyCols) + ")")
+				+ ", N(" + (colOfA[xLA] + xCA) + "))";
+			// a composite key answers <<g1,g2>, total>; flat is the first-column unfold
+			if (keyCols.Count > 1) expr = "S2(" + IAtom("flat") + ", " + expr + ")";
+			// the total lands LAST, and the head does not always want it there
+			if (vAtA != hA.Players.Count - 1)
+			{
+				var back = new List<string>();
+				int at = 0;
+				for (int i = 0; i < hA.Players.Count; i++)
+					back.Add("N(" + (i == vAtA ? keyCols.Count + 1 : ++at) + ")");
+				expr = "S3(" + IAtom("proj") + ", " + expr + ", " + IFlat(back) + ")";
+			}
+			var playersA = new List<string>();
+			foreach (string p in hA.Players) playersA.Add(IAtom(p));
+			myRuleRecipes.Add("S3(" + IAtom(hA.Fact.Name) + ", S" + playersA.Count + "("
+				+ string.Join(", ", playersA) + "), " + expr + ")");
 		}
 
 		private void RecordChainFoldRecipe(FactIndexEntry headE, List<FactIndexEntry> legsIn,

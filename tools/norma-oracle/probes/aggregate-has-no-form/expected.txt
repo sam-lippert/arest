@@ -1,5 +1,5 @@
 errors 0
-UNDELIVERED (an aggregate this grammar has no form for (sum)): BasketHasTotalWeight
+UNDELIVERED (a sum over a column the reading never typed (Weight)): BasketHasTotalWeight
 UNDELIVERED (a count grouped by 2 columns (the count form groups by one)): GrowerHasTallyForSeason
 UNDELIVERED (a numeric threshold on a role typed text (Status Code)): ServerHasErrorTallyForWindow
 *Basket has Total Weight if and only if

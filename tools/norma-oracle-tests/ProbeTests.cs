@@ -544,14 +544,25 @@ namespace Arest.NormaOracle.Tests
                 + "S4(A(\"join\"), A(\"ConstraintIsDecidedByPredicate\"), A(\"PredicateIsBound\")", Rules(state));
         }
 
-        // AN AGGREGATE THE GRAMMAR CANNOT SAY MUST SAY SO. auto.dev's closure
+        // AN AGGREGATE THIS ARM WILL NOT EMIT MUST SAY WHY. auto.dev's closure
         // writes TEN aggregates over a where-clause chain, and they stood in
         // state:undelivered as `no arm emitted a recipe` -- the census saying it
-        // does not know. derive:forms carries eleven forms and exactly one
-        // aggregate, `count`, keyed on a single column: there is no sum, no mean, no
-        // min and no max, so most have no form at all and the ternary counts group
-        // by two columns where count groups by one. None of that is a defect in the
-        // arm and none of it may be guessed at, so the deliverable is the NAME.
+        // does not know. None of the three below is a defect in the arm and none
+        // may be guessed at, so the deliverable is the NAME, and each names a
+        // DIFFERENT piece of work: a column nobody typed, a grouping the count
+        // form cannot say, a value type the reading left as text.
+        //
+        // WHAT THE NAME SAYS MOVED ONCE THE GRAMMAR LEARNED A SUM (2026-09-15).
+        // derive:forms carried eleven forms and exactly one aggregate, `count`,
+        // keyed on a single column; 6cf45015 put `sum` beside it and the emitter
+        // wires it. So BasketHasTotalWeight is no longer declined for the FORM --
+        // it is declined for its COLUMN: the fold is INSERT(+), only an
+        // integer-typed cell is written to the store as a host number, and
+        // `Weight is a value type.` types nothing. Two text rows in one group
+        // throw `+ on non-number` and a group of one row answers the text itself,
+        // so emitting here would be a wrong total rather than a missing one. The
+        // form-less case is alive next door, where the mean is (probes
+        // aggregate-where and aggregate-sum-delivers).
         //
         // MEASURE IT IN THE APP'S OWN CLOSURE. An earlier note here read "only TWO
         // of auto.dev's ten reach this arm; the other eight never build" and every
@@ -577,17 +588,22 @@ namespace Arest.NormaOracle.Tests
         // The probe aggregate-role-is-predicate-text is that minimal pair. The
         // tenth, auth.md:175, is UNBUILT at `legs resolving 2/4` and is corpus too.
         //
-        // So wiring derive:form_sum delivers FOUR heads here, and a mean form a
-        // fifth. Neither is the count: `count` counts rows where these rules say
-        // distinct instances.
+        // AND WIRING derive:form_sum DELIVERED NONE OF THEM, which an earlier
+        // note here predicted as FOUR. Measured in the sanctioned closure with
+        // the emitter in place: all five sums decline on their over-column --
+        // Amount is decimal (stripe.md:36), Cost and Daily Amount are typed by
+        // nothing -- so the debt moved off arest's grammar and onto the reading
+        // boundary and the corpus without a head crossing. A mean form would not
+        // change that either, and neither is the count: `count` counts rows where
+        // these rules say distinct instances.
         //
-        // The three rules here are the three answers. The sum and the ternary count
-        // name the missing form; the third is the corpus case
+        // The three rules here are the three answers. The sum names its column and
+        // the ternary count names the missing grouping; the third is the corpus case
         // (ExternalSystemHasErrorRateForInterval) whose BODY does not join either --
         // a numeric threshold on a text-typed role -- and it must keep the body's
         // reason, because the body is resolved through the chain arm's own
         // ChainLegsUsable and JoinChainBody and the two jobs are different sizes:
-        // one canon DEF against six heads, versus a typed value type.
+        // a line in a readings file against a grouping the grammar cannot say.
         //
         // AND NO RECIPE IS EMITTED FOR ANY OF THEM. A recipe nothing can evaluate
         // would be worse than the decline it replaced, so state:rules stays empty
@@ -601,7 +617,7 @@ namespace Arest.NormaOracle.Tests
             string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
             string why = Undelivered(state);
             Assert.Contains(
-                "S2(A(\"BasketHasTotalWeight\"), A(\"an aggregate this grammar has no form for (sum)\"))",
+                "S2(A(\"BasketHasTotalWeight\"), A(\"a sum over a column the reading never typed (Weight)\"))",
                 why);
             Assert.Contains(
                 "S2(A(\"GrowerHasTallyForSeason\"), A(\"a count grouped by 2 columns (the count form groups by one)\"))",
@@ -615,6 +631,78 @@ namespace Arest.NormaOracle.Tests
             Assert.DoesNotContain("BasketHasTotalWeight", Rules(state));
             Assert.DoesNotContain("GrowerHasTallyForSeason", Rules(state));
             Assert.DoesNotContain("ServerHasErrorTallyForWindow", Rules(state));
+        }
+
+        // A SUM DELIVERS, AND THE RECIPE IS THE ONLY SURFACE THAT SHOWS IT.
+        // ProbeActual carries what was NOT delivered, so the auto-discovered
+        // theory beside this one sees a sum arrive only as three UNDELIVERED
+        // lines going away -- which a recipe that folds the WRONG column, or
+        // groups by the wrong one, satisfies just as well. This reads state:rules
+        // and pins the text, the way the deontic cell is pinned whole and for the
+        // same reason.
+        //
+        // The three shapes here are what the emitter writes. A binary head is the
+        // fold bare, <sum, body, N(key), N(over)>, because the fold answers
+        // <key, total> and the head wants exactly that. A head with TWO group
+        // roles is a CONS key, which answers <<g1,g2>, total>, so `flat` unfolds
+        // the first column back into two and a `proj` puts the total where the
+        // head declared it -- here position 2 of <Depot, Yearly Total, Season>,
+        // hence <N(1), N(3), N(2)>. The third is the same fold over a body a
+        // THRESHOLD has filtered, which pairs its literal on as a trailing column
+        // and so moves the width the fold's selectors are read against: the key
+        // and the summed column stay the join's, 1 and 4, and a sum of the wrong
+        // one is a wrong number rather than a missing one. Evaluated against the
+        // mu before these were written: <b1,5>, <b2,5>; <d1,5,spring>,
+        // <d1,5,fall>; <b1,3>, <b2,5> where the priority-1 item drops out; and
+        // nothing at all over an empty store.
+        //
+        // AND THE COLUMN GATE IS THE MINIMAL PAIR. Total Weight and Code Total
+        // share the body and the fold and differ only in their column's declared
+        // type; forcing the decimal one through the mu with the store's own
+        // encoding (a number-typed cell stays an atom) throws `+ on non-number`.
+        // The mean is here so the form-less decline keeps a home once `sum` has
+        // one.
+        [Fact]
+        public void ASumOverAnIntegerColumnEmitsTheFold()
+        {
+            string dir = Path.Combine(ProbesDir, "aggregate-sum-delivers");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "aggregate-sum-delivers-run"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            string rules = Rules(state);
+            // the binary head: the fold bare, on the body the chain arm built
+            Assert.Contains(
+                "S3(A(\"BinHasTotalCount\"), S2(A(\"Bin\"), A(\"Total Count\")), "
+                + "S4(A(\"sum\"), S5(A(\"joinon\"), A(\"BinHoldsItem\"), A(\"ItemHasUnitCount\"), "
+                + "S1(S2(N(2), N(1))), S4(N(1), N(2), N(3), N(4))), N(1), N(4)))",
+                rules);
+            // two group roles: a CONS key, unfolded by flat, the total projected back
+            Assert.Contains(
+                "S3(A(\"proj\"), S2(A(\"flat\"), S4(A(\"sum\"), ", rules);
+            Assert.Contains(
+                "S3(A(\"CONS\"), N(1), N(8)), N(6))), S3(N(1), N(3), N(2)))", rules);
+            // a threshold pairs its literal on as a seventh column and filters on it;
+            // the fold must still read the columns the JOIN gave it, 1 and 4
+            Assert.Contains(
+                "S3(A(\"BinHasUrgentTotal\"), S2(A(\"Bin\"), A(\"Urgent Total\")), "
+                + "S4(A(\"sum\"), S3(A(\"minus\"), S3(A(\"pairwith\"), ", rules);
+            Assert.Contains("N(6), N(7))), N(1), N(4)))", rules);
+            // and what it refuses, each by its own name
+            string why = Undelivered(state);
+            Assert.Contains(
+                "S2(A(\"BinHasTotalWeight\"), A(\"a sum over a column typed decimal (Gram Weight)"
+                + ": a number stays an atom in the store and + throws on it\"))", why);
+            Assert.Contains(
+                "S2(A(\"BinHasCodeTotal\"), A(\"a sum over a column the reading never typed (Label Code)\"))", why);
+            Assert.Contains(
+                "S2(A(\"BinHasMeanCount\"), A(\"an aggregate this grammar has no form for (mean)\"))", why);
+            Assert.DoesNotContain("BinHasTotalWeight", rules);
+            Assert.DoesNotContain("BinHasCodeTotal", rules);
+            Assert.DoesNotContain("BinHasMeanCount", rules);
+            // the delivered three are not in the census at all
+            Assert.DoesNotContain("BinHasTotalCount", why);
+            Assert.DoesNotContain("BinHasUrgentTotal", why);
+            Assert.DoesNotContain("DepotHasYearlyTotalForSeason", why);
         }
 
         private static string Cell(string state, string name)
