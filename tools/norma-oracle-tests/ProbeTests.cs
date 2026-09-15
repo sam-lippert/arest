@@ -450,16 +450,33 @@ namespace Arest.NormaOracle.Tests
         // by two columns where count groups by one. None of that is a defect in the
         // arm and none of it may be guessed at, so the deliverable is the NAME.
         //
-        // MEASURE THE REACH BEFORE COSTING THE FIX: only TWO of auto.dev's ten
-        // reach this arm and get named (cost-attribution.md:94 and :96). The other
-        // eight never build -- `UNBUILT (head resolves, no arm matched the body)
-        // [legs resolving 2/3]` and `UNBOUND TYPE ... (arity 2)` -- so no arm ever
-        // sees them and their heads' `no arm emitted a recipe` is the marked-derived
-        // -with-no-rule debt of #105, not this one. service-health.md:157 is the
-        // proof: byte for byte the same sentence as aggregate-where's mean rule,
-        // named `(mean)` in that probe's small closure and UNBUILT in auto.dev's.
-        // So wiring derive:form_sum delivers two heads here, not nine, and the
-        // bigger aggregate debt is upstream of the grammar entirely.
+        // MEASURE IT IN THE APP'S OWN CLOSURE. An earlier note here read "only TWO
+        // of auto.dev's ten reach this arm; the other eight never build" and every
+        // number in it was an artifact of running the oracle on `apps/auto.dev`
+        // ALONE. THE ORACLE DOES NOT RECURSE. auto.dev's closure is its package.json
+        // `check` script -- metamodel, connectors/readings, the app dir and the app's
+        // readings/, FOUR arguments, 55 files against 34 -- and the 21 that go
+        // missing include the whole metamodel, where External System (core.md:207),
+        // Organization (core.md:244) and User (instances.md:38) are declared. Drop
+        // one declaration and a rule stops building; that is all the "small closure
+        // builds it, big closure does not" split ever was. Any measurement of an app
+        // taken outside its own closure measures nothing.
+        //
+        // MEASURED IN THE SANCTIONED CLOSURE, the ten are: 4 declined (sum)
+        // -- cost-attribution.md:94, :96 and drivly-inc-business.md:40, :44; 1 (mean)
+        // -- service-health.md:157; 1 a count grouped by 2 columns -- :159; 1 a
+        // numeric threshold on a role typed text -- :155; 1 a leg the chain never
+        // reaches -- taxes-derivation.md:433. That is EIGHT named. The ninth,
+        // cost-mitigation.md:119, is the one silent `no arm emitted a recipe` left,
+        // and it is CORPUS: `trailing daily cost` names no declared type, so the
+        // words are predicate text, the intended ternary parses as a binary and the
+        // aggregated value sits in no head role (the guard at Verifier.cs ~6348).
+        // The probe aggregate-role-is-predicate-text is that minimal pair. The
+        // tenth, auth.md:175, is UNBUILT at `legs resolving 2/4` and is corpus too.
+        //
+        // So wiring derive:form_sum delivers FOUR heads here, and a mean form a
+        // fifth. Neither is the count: `count` counts rows where these rules say
+        // distinct instances.
         //
         // The three rules here are the three answers. The sum and the ternary count
         // name the missing form; the third is the corpus case
