@@ -1,8 +1,8 @@
 errors 0
-UNDELIVERED (no arm emitted a recipe): ExternalSystemHasAverageResponseTimeForInterval
-UNDELIVERED (no arm emitted a recipe): ExternalSystemHasErrorRateForInterval
-UNDELIVERED (no arm emitted a recipe): ProviderResourceHasMonthlyCostForBillingPeriod
-UNDELIVERED (no arm emitted a recipe): ServiceHasMonthlyCostForBillingPeriod
+UNDELIVERED (an aggregate this grammar has no form for (mean)): ExternalSystemHasAverageResponseTimeForInterval
+UNDELIVERED (a numeric threshold on a role typed text (HTTP Status)): ExternalSystemHasErrorRateForInterval
+UNDELIVERED (an aggregate this grammar has no form for (sum)): ProviderResourceHasMonthlyCostForBillingPeriod
+UNDELIVERED (an aggregate this grammar has no form for (sum)): ServiceHasMonthlyCostForBillingPeriod
 *External System has average Response Time1 for Interval if and only if
 some Log Entry has that External System
 and  has some Response Time2

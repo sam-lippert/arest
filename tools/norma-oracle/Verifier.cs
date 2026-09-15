@@ -6478,6 +6478,7 @@ namespace Arest.NormaOracle
 					else if (i == 0) new DerivedRoleProjectedFromRolePathRoot(drpA, rootA);
 					else new DerivedRoleProjectedFromPathedRole(drpA, rowsA[gL[i]][gC[i]]);
 				}
+				RecordAggregateRecipe(sAg, am.Groups[3].Value.Trim(), xA, hA, legsA, toksA, thrA);
 				myBuiltRuleSentences.Add(sAg); log.Add(hA.Fact.Name + " := " + aggFn.Name + "(" + xA + ") over "
 					+ legsA.Count + " clauses per " + rootTokA + ", " + DescribeDerivation(hA.Fact));
 			}
@@ -9682,6 +9683,80 @@ namespace Arest.NormaOracle
 			foreach (string p in hC.Players) players.Add(IAtom(p));
 			myRuleRecipes.Add("S3(" + IAtom(hC.Fact.Name) + ", S" + players.Count + "("
 				+ string.Join(", ", players) + "), " + expr + ")");
+		}
+
+		// THE AGGREGATE ARM BUILDS THE RULE AND THE GRAMMAR CANNOT SAY IT
+		// (2026-09-15). Nine rules in auto.dev's closure are an aggregate over a
+		// where-clause chain -- five sums, one mean, two counts, and the Monroney
+		// label's sum -- and every one of them built in NORMA, marked its head
+		// derived, verbalized, passed the read-back gate and then delivered
+		// nothing. They stood in state:undelivered as `no arm emitted a recipe`,
+		// which is the census saying it does not know; an omission with no name is
+		// the one error class no later measurement reaches.
+		//
+		// THE BLOCKER IS THE RECIPE GRAMMAR, AND THE FOLDS ALREADY EXIST BESIDE IT.
+		// derive:forms carries eleven forms and exactly ONE aggregate -- `count`, a
+		// key column to <key, count> -- with no sum, no mean, no min and no max
+		// beside it, so six of the nine cannot be written at all and a recipe
+		// nothing can evaluate is worse than an honest decline. But do not read
+		// that as the mu having no aggregation: system:compile_agg_rule (arest:1163)
+		// dispatches on all five of system:agg_ops -- length for count, <INSERT,+>
+		// for sum, <COMP,/,<CONS,<INSERT,+>,length>> for avg, and an INSERT over
+		// le/ge for min and max -- and three cases certify it over ONE shared
+		// operand so that an implementation ignoring the op fails two of the three.
+		// It is unreachable, not absent. Canon's own comment says "host-called and
+		// reached by nothing"; no canon DEF names it; and the host that called it
+		// is the fat python engine retired in 8cc259ca, where the live js host has
+		// no rule-compiler boundary at all (`compile_rule`, zero hits in host.js).
+		// So the open piece is reaching a certified compiler from this grammar, not
+		// designing aggregation -- derive:form_sum, a row in derive:forms, and
+		// entries in the derive:reads and derive:minus_rights whitelists
+		// (arest:9138, 9141), which is a canon change and so Sam's call.
+		//
+		// The two counts are ternary (an Error Rate per External
+		// System AND Interval) and `count` groups by ONE column. It does take a
+		// construction as its key -- measured against canon: <CONS,1,3> answers
+		// <<sysA,1h>,2> and `flat` unfolds the pair back into columns -- but it
+		// counts its source's ROWS where the rule says the distinct Log Entries,
+		// and this grammar has no dedup step to make those the same thing. One
+		// non-functional leg in the body and such a recipe over-counts silently,
+		// which is the failure RecordGeneralChainRecipe refuses to risk.
+		//
+		// So this emits nothing and NAMES why, through THE SAME leg checks and THE
+		// SAME join emitter the chain arm uses: the aggregate arm's legs, tokens
+		// and thresholds are already the shape those take (thrA is built by the
+		// line that builds thrC, field for field), so nothing here resolves a
+		// clause a second time. What that buys is a reason that tells the two jobs
+		// apart -- `an aggregate this grammar has no form for (sum)` against nine
+		// heads is a worklist entry naming one canon DEF, where `a leg the chain
+		// never reaches` would have been a different piece of work entirely.
+		private void RecordAggregateRecipe(string sAg, string opAg, string xAg,
+			FactIndexEntry hA, List<FactIndexEntry> legsA, List<List<string>> toksA,
+			List<string[]> thrA)
+		{
+			// an aggregate's where-clauses are a positive, unnested body: every leg
+			// ranges over the bag, and a negated or nested one never reaches here
+			var negA = new List<bool>();
+			var nestA = new List<int>();
+			for (int i = 0; i < legsA.Count; i++) { negA.Add(false); nestA.Add(-1); }
+			if (!ChainLegsUsable(sAg, legsA, toksA, nestA, myRecipeDeclines)) return;
+			Dictionary<int, int> colOfA, extentColA;
+			List<string> accToksA;
+			string accA = JoinChainBody(sAg, legsA, toksA, negA, new List<string[]>(),
+				new List<int[]>(), thrA, new List<string[]>(), new List<int>(),
+				new ObjectType[hA.Players.Count], myRecipeDeclines,
+				out colOfA, out accToksA, out extentColA);
+			if (accA == null) return;
+			// the body joins; what has no form is the fold on the end of it
+			if (opAg != "count")
+			{
+				myRecipeDeclines[sAg] = "an aggregate this grammar has no form for (" + opAg + ")";
+				return;
+			}
+			int groups = hA.Players.Count - 1;
+			myRecipeDeclines[sAg] = groups > 1
+				? "a count grouped by " + groups + " columns (the count form groups by one)"
+				: "a count of the joined body's rows, not of the distinct " + xAg;
 		}
 
 		private void RecordChainFoldRecipe(FactIndexEntry headE, List<FactIndexEntry> legsIn,

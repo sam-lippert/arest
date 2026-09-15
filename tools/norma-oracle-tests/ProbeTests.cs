@@ -441,6 +441,62 @@ namespace Arest.NormaOracle.Tests
                 + "S4(A(\"join\"), A(\"ConstraintIsDecidedByPredicate\"), A(\"PredicateIsBound\")", Rules(state));
         }
 
+        // AN AGGREGATE THE GRAMMAR CANNOT SAY MUST SAY SO. auto.dev's closure
+        // writes TEN aggregates over a where-clause chain, and they stood in
+        // state:undelivered as `no arm emitted a recipe` -- the census saying it
+        // does not know. derive:forms carries eleven forms and exactly one
+        // aggregate, `count`, keyed on a single column: there is no sum, no mean, no
+        // min and no max, so most have no form at all and the ternary counts group
+        // by two columns where count groups by one. None of that is a defect in the
+        // arm and none of it may be guessed at, so the deliverable is the NAME.
+        //
+        // MEASURE THE REACH BEFORE COSTING THE FIX: only TWO of auto.dev's ten
+        // reach this arm and get named (cost-attribution.md:94 and :96). The other
+        // eight never build -- `UNBUILT (head resolves, no arm matched the body)
+        // [legs resolving 2/3]` and `UNBOUND TYPE ... (arity 2)` -- so no arm ever
+        // sees them and their heads' `no arm emitted a recipe` is the marked-derived
+        // -with-no-rule debt of #105, not this one. service-health.md:157 is the
+        // proof: byte for byte the same sentence as aggregate-where's mean rule,
+        // named `(mean)` in that probe's small closure and UNBUILT in auto.dev's.
+        // So wiring derive:form_sum delivers two heads here, not nine, and the
+        // bigger aggregate debt is upstream of the grammar entirely.
+        //
+        // The three rules here are the three answers. The sum and the ternary count
+        // name the missing form; the third is the corpus case
+        // (ExternalSystemHasErrorRateForInterval) whose BODY does not join either --
+        // a numeric threshold on a text-typed role -- and it must keep the body's
+        // reason, because the body is resolved through the chain arm's own
+        // ChainLegsUsable and JoinChainBody and the two jobs are different sizes:
+        // one canon DEF against six heads, versus a typed value type.
+        //
+        // AND NO RECIPE IS EMITTED FOR ANY OF THEM. A recipe nothing can evaluate
+        // would be worse than the decline it replaced, so state:rules stays empty
+        // and the assertion says that too.
+        [Fact]
+        public void AnAggregateWithNoFormDeclinesByName()
+        {
+            string dir = Path.Combine(ProbesDir, "aggregate-has-no-form");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "aggregate-has-no-form-run"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            string why = Undelivered(state);
+            Assert.Contains(
+                "S2(A(\"BasketHasTotalWeight\"), A(\"an aggregate this grammar has no form for (sum)\"))",
+                why);
+            Assert.Contains(
+                "S2(A(\"GrowerHasTallyForSeason\"), A(\"a count grouped by 2 columns (the count form groups by one)\"))",
+                why);
+            Assert.Contains(
+                "S2(A(\"ServerHasErrorTallyForWindow\"), A(\"a numeric threshold on a role typed text (Status Code)\"))",
+                why);
+            // the silence this replaced
+            Assert.DoesNotContain("no arm emitted a recipe", why);
+            // and nothing was emitted that no host could run
+            Assert.DoesNotContain("BasketHasTotalWeight", Rules(state));
+            Assert.DoesNotContain("GrowerHasTallyForSeason", Rules(state));
+            Assert.DoesNotContain("ServerHasErrorTallyForWindow", Rules(state));
+        }
+
         private static string Cell(string state, string name)
         {
             int at = state.IndexOf("DEF(\"" + name + "\"", StringComparison.Ordinal);
