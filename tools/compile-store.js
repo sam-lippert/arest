@@ -180,12 +180,24 @@ for (const leftover of [snapp, dbp + ".check"]) {
 }
 
 const priorRows = new Map();
+const priorLedger = new Map();                   // ft -> the rows the PREVIOUS build asserted
 let priorMeta = [];
 if (existsSync(dbp)) {
   try {
     copyFileSync(dbp, snapp);
     const old = new Database(snapp, { readonly: true });
     priorMeta = old.prepare("select ft, kind, tbl, arity from _meta").all();
+    // THE LEDGER (2026-09-16, see _asserted below): a stored row the previous
+    // build asserted is that build's, and the new build may say otherwise; a
+    // stored row it did not assert was written at runtime. A database built
+    // before the ledger existed carries none, and every row of it is treated
+    // as runtime, which is exactly the older, stricter behaviour.
+    try {
+      for (const r of old.prepare("select ft, row from _asserted").all()) {
+        if (!priorLedger.has(r.ft)) priorLedger.set(r.ft, new Set());
+        priorLedger.get(r.ft).add(r.row);
+      }
+    } catch { /* no ledger: built before it existed */ }
     // A func row's _meta.tbl is the COLUMN name, not the table, so the owning
     // entity table is recovered from the schema -- the column name is unique to
     // one entity table (see the _meta note below and host.js loadStoreDb).
@@ -254,9 +266,11 @@ for (const gi of usedGis) {
 db.run("create table _meta (ft text, kind text, tbl text, arity int)");
 const mins = db.prepare("insert into _meta values(?,?,?,?)");
 for (const ft of ftnames) if (funcCol[ft]) mins.run(ft, "func", ft, 2);
+const relTbl = {};                           // ft -> its relation table
 for (const ft of rel) {
   const pop = popof[ft], ar = Array.isArray(pop[0]) ? pop[0].length : 1;
   const tbl = "r" + Math.abs([...ft].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7));
+  relTbl[ft] = tbl;
   const cols = Array.from({ length: ar }, (_, i) => '"c' + i + '"');
   db.run("create table " + tbl + " (" + cols.map((c) => c + " text").join(",") + ", primary key (" + cols.join(",") + "))");
   const ins = db.prepare("insert or ignore into " + tbl + " values(" + Array.from({ length: ar }, () => "?").join(",") + ")");
@@ -275,6 +289,35 @@ if (!globalThis.AREST.composition) {
 }
 db.run("create table _composition (hash text)");
 db.prepare("insert into _composition values(?)").run(globalThis.AREST.composition);
+// _asserted: THE LEDGER OF WHAT THIS BUILD SAID (2026-09-16). Every row written
+// above, before anything is carried back, in the same encoding the comparison
+// below reads rows in. It is what lets the next build tell a readings change
+// from a runtime write: a stored row equal to a ledger row is a fact the
+// readings asserted, and the readings may now say otherwise (a different value,
+// or nothing) without that being a loss; a stored row the ledger lacks was
+// written at runtime and is what durability protects. Without it the gate
+// refused support's rebuild on 899 declaration orders the carriers renumbered,
+// six ciphertexts (AES-GCM never answers the same twice) and six numbers the
+// store held as text atoms -- none a fact anyone wrote at runtime -- and, the
+// other way round, carried back rows the readings had REMOVED as if they were
+// runtime facts (the memory store kept 20 rows of a retired carrier). The
+// ledger is the plain rows, not a hash: a hash that collided would misfile a
+// runtime edit as the build's, and nothing would ever say so.
+db.run("create table _asserted (ft text, row text, primary key (ft, row)) without rowid");
+const ains = db.prepare("insert or ignore into _asserted values(?,?)");
+db.transaction(() => {
+  for (const gi of usedGis) {
+    const grp = G[gi];
+    for (const ft of funcByTable.get(gi)) {
+      for (const r of db.prepare('select k, "' + ft + '" from "' + grp.table + '"').all()) {
+        const vals = Object.values(r);
+        if (vals[1] === null || vals[1] === undefined) continue;
+        ains.run(ft, JSON.stringify(vals));
+      }
+    }
+  }
+  for (const ft of rel) for (const r of db.prepare("select * from " + relTbl[ft]).all()) ains.run(ft, JSON.stringify(Object.values(r)));
+})();
 db.run("pragma wal_checkpoint(TRUNCATE)");
 db.close();
 
@@ -287,18 +330,26 @@ db.close();
 // to new types" -- so the build refuses instead of dropping it.
 // AREST_MIGRATE=allow-loss is the deliberate override, for the case where the
 // runtime facts really are expendable.
+// THE LEDGER DECIDES WHOSE ROW IT IS. A stored row absent from the new build
+// that the previous build asserted (it is in _asserted) is that build's own
+// reading of the readings, and the readings have moved: it is SUPERSEDED, by
+// the new value or by nothing, and that is the readings change durability was
+// meant to allow, not the loss it was meant to stop. A stored row the ledger
+// does not hold was written at runtime, and for it the older rule stands:
 // A ROW THAT IS STILL SAYABLE IS NOT A MIGRATION. Where the fact type is still
-// materialized with the SAME kind and arity, an absent row means it was asserted
-// at runtime and the carriers do not produce it -- there is nothing to migrate
-// and the row is carried back. Where the fact type is gone, or its shape moved,
-// or the build asserts a DIFFERENT value for a functional key, the row cannot be
+// materialized with the SAME kind and arity and the build does not assert its
+// key, the carriers simply do not produce it -- there is nothing to migrate and
+// the row is carried back. Where the fact type is gone, or its shape moved, or
+// the build asserts a DIFFERENT value for its functional key, the row cannot be
 // re-asserted and what to do with it is a Migration somebody has to write.
 // The functional clash refuses on purpose: `Each X has at most one Y` makes
-// <k, y> one fact, so an old y and a new y for one k are two facts that cannot
-// both stand, and choosing between them silently is the automatic schema
-// evolution Sam ruled out.
+// <k, y> one fact, so a runtime y and the readings' y for one k are two facts
+// that cannot both stand, and choosing between them silently is the automatic
+// schema evolution Sam ruled out. (A runtime edit is settled by writing it into
+// the readings: the build then asserts the stored value and nothing is gone.)
 const lost = [];
 const carry = [];
+let superseded = 0;
 if (priorRows.size) {
   const wasMeta = new Map(priorMeta.map((m) => [m.ft, m]));
   // compare from a COPY -- see the handle note above; store.db must stay
@@ -339,7 +390,12 @@ if (priorRows.size) {
         } catch { /* the new schema does not carry it */ }
       }
     }
-    const gone = [...before].filter((r) => !after.has(r));
+    const built = priorLedger.get(ft) || new Set();
+    const gone = [];
+    for (const r of before) {
+      if (after.has(r)) continue;
+      if (built.has(r)) superseded++; else gone.push(r);
+    }
     if (!gone.length) continue;
     if (!m || !was || !tbl || m.kind !== was.kind || m.arity !== was.arity) {
       lost.push({ ft, gone, why: m ? "its shape changed" : "no longer materialized" });
@@ -408,5 +464,6 @@ const fcount = Object.keys(funcCol).length;
 const carried = [...priorRows.values()].reduce((a, s) => a + s.size, 0);
 console.error("store.db: " + (statSync(dbp).size / 1024).toFixed(0) + " KB (" + usedGis.length + " entity tables, " + fcount + " functional columns, " + rel.length + " relation tables) at " + dbp +
   (priorRows.size ? " [" + carried + " prior row(s) accounted for" +
+    (superseded ? ", " + superseded + " superseded by the readings" : "") +
     (carried2 ? ", " + carried2 + " carried" : "") +
     (lost.length ? ", " + lost.reduce((a, l) => a + l.gone.length, 0) + " DROPPED by AREST_MIGRATE=allow-loss" : "") + "]" : ""));
