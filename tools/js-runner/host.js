@@ -587,6 +587,50 @@ const PRIMS = new Map(Object.entries({
     d.setAuthTag(all.subarray(12, 28));
     return Buffer.concat([d.update(all.subarray(28)), d.final()]).toString("utf8");
   },
+  // crypt:genkey MINTS THE KEY THE OTHER TWO USE, and it is REGISTERED rather
+  // than canon for the reason Def. 3 gives: canon admits only a deterministic,
+  // side-effect-free total function, and a key is neither -- it consumes
+  // entropy and answers differently every call. Samuel, 2026-09-15, asked
+  // whether this should be a canon method; the system already has the category
+  // for it, which is the boundary Cor 8 enumerates. The host also already HAS
+  // the entropy: randomBytes is four lines up, generating the iv. This only
+  // names it, so that HOW A KEY IS MADE becomes a row in the boundary instead
+  // of a shell command nobody can enumerate.
+  //
+  // IT NEVER ANSWERS THE KEY. An answer is transcript -- it reaches an MCP
+  // response, a CLI stdout, a log -- and core.md:1223 already rules that the
+  // key "cannot live in the store it protects"; the same reasoning forbids it
+  // living in the reply. So this WRITES the key and answers a FINGERPRINT,
+  // sha256 truncated, which is enough to tell two keys apart and useless for
+  // decrypting anything. That is what makes it safe to expose over MCP.
+  //
+  // IT REFUSES RATHER THAN OVERWRITES. A second key silently makes every
+  // existing ciphertext undecryptable, which is the same shape as the rebuild
+  // that dropped facts (#108, 49b33b2e): refuse, name what is already there,
+  // and leave the repair to someone who can see both sides.
+  //
+  // 32 BYTES, NOT A PASSPHRASE. crypt:encrypt hashes any text to the 32 bytes
+  // the cipher needs, deliberately, "so a passphrase and a generated key are
+  // both usable and neither is truncated silently". That sha256 is a
+  // NORMALIZER, and it is only a weak step when the input is a low-entropy
+  // passphrase -- there is nothing to stretch in 256 random bits. Minting a
+  // full-entropy key is therefore the fix for that weakness, rather than
+  // changing the derivation and invalidating every ciphertext made under it.
+  "crypt:genkey": x => {
+    const { randomBytes, createHash } = require("node:crypto");
+    const { existsSync, readFileSync, appendFileSync } = require("node:fs");
+    const path = String(at(x, 0));
+    const NAME = "AREST_MASTER_KEY";
+    if (process.env[NAME]) throw new Error("crypt:genkey refuses: " + NAME + " is already set in the environment");
+    const had = existsSync(path) ? readFileSync(path, "utf8") : "";
+    if (new RegExp("^\\s*" + NAME + "\\s*=", "m").test(had)) {
+      throw new Error("crypt:genkey refuses: " + NAME + " is already in " + path);
+    }
+    const key = randomBytes(32).toString("base64");
+    const sep = had === "" || had.endsWith("\n") ? "" : "\n";
+    appendFileSync(path, sep + NAME + "=" + key + "\n", "utf8");
+    return createHash("sha256").update(key).digest("hex").slice(0, 12);
+  },
 }));
 
 // ---- the mu: atoms resolve through DEFS then the primitives, numbers are

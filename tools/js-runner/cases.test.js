@@ -734,3 +734,65 @@ describe("the mu's arithmetic is exact on a decimal value type's domain", () => 
     expect(threw("*", ["4", 5])).toBe("* on non-number");
   });
 });
+
+// crypt:genkey mints the master key the other two use. The two properties
+// worth pinning are the ones that make it safe to expose over MCP at all: it
+// NEVER answers the key (an answer is transcript), and it REFUSES rather than
+// overwriting, because a second key silently makes every existing ciphertext
+// undecryptable. Neither is observable from the happy path, so both are
+// asserted here rather than left to the one manual run that minted the key.
+describe("crypt:genkey", () => {
+  const { mkdtempSync, writeFileSync, readFileSync, rmSync } = require("node:fs");
+  const { join } = require("node:path");
+  const { tmpdir } = require("node:os");
+  const call = (p) => {
+    try { return { ok: globalThis.AREST.Ev("crypt:genkey", [p]) }; }
+    catch (e) { return { err: e.message }; }
+  };
+
+  test("answers a fingerprint, never the key, and refuses to mint a second", () => {
+    const dir = mkdtempSync(join(tmpdir(), "arest-genkey-"));
+    // BUN AUTO-LOADS .env FROM THE CWD, so once a key has been minted into
+    // arest/.env it is live in process.env for every run from this directory
+    // and the environment guard below fires first. That guard is correct --
+    // minting a file key while an env key is active gives two keys where env
+    // silently wins -- so the file half is tested with the ambient one cleared
+    // rather than by weakening the guard.
+    const ambient = process.env.AREST_MASTER_KEY;
+    delete process.env.AREST_MASTER_KEY;
+    try {
+      // the environment guard itself, asserted rather than assumed
+      process.env.AREST_MASTER_KEY = "an-active-key";
+      expect(call(join(dir, "never-written.env")).err).toContain("already set in the environment");
+      delete process.env.AREST_MASTER_KEY;
+
+      const fresh = join(dir, "fresh.env");
+      writeFileSync(fresh, "FOO=bar\n", "utf8");
+
+      const first = call(fresh);
+      expect(first.err).toBeUndefined();
+      expect(first.ok).toMatch(/^[0-9a-f]{12}$/);
+
+      // the key reached the FILE and not the ANSWER
+      const line = readFileSync(fresh, "utf8").split(/\r?\n/)
+        .find((l) => l.startsWith("AREST_MASTER_KEY="));
+      expect(line).toBeDefined();
+      const key = line.slice("AREST_MASTER_KEY=".length);
+      expect(key.length).toBeGreaterThan(40);          // 32 random bytes, base64
+      expect(first.ok).not.toContain(key);
+      expect(key).not.toContain(first.ok);
+
+      // a second mint would orphan every ciphertext made under the first
+      expect(call(fresh).err).toContain("already in");
+
+      // and a file that arrived with one is refused on the first call
+      const had = join(dir, "had.env");
+      writeFileSync(had, "AREST_MASTER_KEY=already-here\n", "utf8");
+      expect(call(had).err).toContain("already in");
+    } finally {
+      if (ambient === undefined) delete process.env.AREST_MASTER_KEY;
+      else process.env.AREST_MASTER_KEY = ambient;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
