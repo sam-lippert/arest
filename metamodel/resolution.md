@@ -68,6 +68,8 @@ Operation 'get' is overridable.
 Operation 'actions' is overridable.
 Operation 'schema' is overridable.
 Operation 'cells' is overridable.
+Operation 'orient' is overridable.
+Operation 'tutor' is overridable.
 Operation 'derive' is overridable.
 Operation 'nav' is overridable.
 Operation 'explain' is overridable.
@@ -113,6 +115,10 @@ Function 'validate' accepts Type Expression 'descriptor-list'.
 Function 'validate' yields Type Expression 'violation-list'.
 Function 'verify' accepts Type Expression 'cells'.
 Function 'verify' yields Type Expression 'boolean'.
+Function 'orient' accepts Type Expression 'name-and-cells'.
+Function 'orient' yields Type Expression 'orientation-rows'.
+Function 'tutor' accepts Type Expression 'name-and-cells'.
+Function 'tutor' yields Type Expression 'tutorial-text'.
 <!-- MEASURED 2026-09-11, which is the condition the note these replace set.
      It said derive "reads its first element as a sequence, so it answers to
      <[], populations> and throws on the empty argument an address of one
