@@ -904,11 +904,15 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     const R = new Map(Ev("ast:fetch", ["state:fts", CELLS]).flat(1).map((d) => [String(d[0]), d]));
     const rowsEq = [...C.values()].filter((d) => R.has(String(d[0])) && J(d[4]) === J(R.get(String(d[0]))[4])).length;
     const rejected = out[2].filter((r) => Array.isArray(r[2]) && String(r[2][0]) === "rejected").length;
+    // the state canon writes (the ten synthesized populations included) and its uniqueness rows, against the carrier's
+    const X = Ev("read:x_of", rows); const S = Ev("read:state_fts", X);
+    const stateRows = S.filter((d) => R.has(String(d[0])) && J(d) === J(R.get(String(d[0])))).length;
+    const U = new Set(Ev("ast:fetch", ["state:ucs", CELLS]).flat(1).map(J)); const stateUcs = Ev("read:state_ucs", X).filter((r) => U.has(J(r))).length;
     // the pinned distance (2026-09-16); every number is a floor, and a change
     // in either direction is a finding, not noise
     expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
-             players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth] })
+             players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
       .toEqual({ witness: 257, canon: 257, both: 257, canonOnly: 0, oracleOnly: 0,
-                 players: 257, ucs: 256, mands: 257, all: 256, rows: 247, rejected: 0, derived: [37, 37, 37] });
+                 players: 257, ucs: 257, mands: 257, all: 257, rows: 247, rejected: 0, derived: [37, 37, 37], stateRows: 257, stateUcs: 624 });
   }, 300_000);
 });
