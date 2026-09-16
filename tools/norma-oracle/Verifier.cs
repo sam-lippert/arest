@@ -9397,7 +9397,40 @@ namespace Arest.NormaOracle
 				int sl = int.Parse(sw[0]), sp = int.Parse(sw[1]);
 				if (sp < 0 || sw[2].Length == 0) { declines[sC] = "a substituted subtype at no position"; return null; }
 				if (sl < 0 || sl >= legsC.Count) { declines[sC] = "a substituted subtype on a leg the chain did not keep"; return null; }
-				if (negC[sl]) { declines[sC] = "a substituted subtype inside a negated leg"; return null; }
+				// A SUBSTITUTION THE POSITIVE BODY ALREADY MADE IS NOT A SECOND RESTRICTION
+				// (2026-09-15). De Morgan puts an obligation's CONSEQUENT in a negated leg --
+				// `each Gadget packed in some Crate has some Stamp Code` is `Gadget is packed
+				// in some Crate and it is not true that Gadget has some Stamp Code` -- so an
+				// obligation whose subject is a SUBTYPE of the declared reading's player
+				// carries the substitution on BOTH legs, and every one of them declined here.
+				// That is the common case for a deontic, not the exotic one: a model declares
+				// a supertype precisely so its subtypes can be spoken of.
+				//
+				// The extent join is laid ABOVE on the accumulator's column, and the negated
+				// leg is an anti-join keyed on the TOKEN it shares with that column -- so when
+				// the same variable carries the same substitution on a kept POSITIVE leg, the
+				// accumulator's column already holds none but the subtype's instances and a
+				// second extent join over the same variable removes nothing. The decline
+				// stands wherever that is NOT so: a subtype named only inside the negation
+				// restricts what is subtracted, the accumulator never saw it, and dropping it
+				// would subtract rows the sentence does not license (fewer violations, which
+				// is the wrong direction to be wrong in).
+				if (negC[sl])
+				{
+					bool carriedByPositive = false;
+					foreach (string[] po in swapsC)
+					{
+						int pl = int.Parse(po[0]), pp = int.Parse(po[1]);
+						if (pl < 0 || pl >= legsC.Count || negC[pl] || !colOf.ContainsKey(pl)) continue;
+						if (pp < 0 || pp >= toksC[pl].Count || sp >= toksC[sl].Count) continue;
+						if (!string.Equals(po[2], sw[2], StringComparison.Ordinal)) continue;
+						if (!string.Equals(toksC[pl][pp], toksC[sl][sp], StringComparison.Ordinal)) continue;
+						carriedByPositive = true;
+						break;
+					}
+					if (!carriedByPositive) { declines[sC] = "a substituted subtype inside a negated leg"; return null; }
+					continue;
+				}
 				if (!colOf.ContainsKey(sl)) { declines[sC] = "a substituted subtype over a leg the join left out"; return null; }
 				int scol = colOf[sl] + sp;
 				string extent = ExtentSource(sw[2]);
@@ -12445,6 +12478,73 @@ namespace Arest.NormaOracle
 			return ResolveClauseSub(Dequantify(" " + clause + " ").Trim(), out players) != null;
 		}
 
+		// A QUALIFIER IS A LEG, AND IT ALREADY WAS ONE -- ALONE (2026-09-15). The
+		// single-clause prohibited arm reads `<reading> that is <unary>` as a joinon
+		// (`Message recommends API that is internal`), and the chain resolver, which asks
+		// each clause for ONE declared reading, refuses the same words as a conjunct.
+		// auto.dev's `It is forbidden that Source Request is to Source Service 'svc.do'
+		// and Source Request is routed via Fetcher that is proxy-based` declined as
+		// `clause names no fact type`, though `Source Request is routed via Fetcher` and
+		// `Fetcher is proxy-based` are both declared in the very file that states it --
+		// so an SSRF-shaped routing rule stood unenforced for the one reason that is
+		// never a modelling reason: the shape was readable alone and unreadable beside
+		// another clause.
+		//
+		// The qualifier becomes the conjunct it always was, and the chain arm joins the
+		// pair on the token they share -- the player the qualifier qualifies. NOTHING IS
+		// RESOLVED TWICE FOR THE BUILD: this asks only whether the split is licensed, the
+		// same question ProhibitedBodyOf asks of its own cut, and hands the WORDS on;
+		// every leg the recipe is built from is resolved once, by ResolveChainClauses.
+		// An unlicensed split is left exactly as it was, so a clause whose head names no
+		// reading, or whose tail is not a declared unary of the head's last player,
+		// reaches the resolver whole and still declines by name.
+		//
+		// A NEGATED CLAUSE IS NOT SPLIT, and that is a correctness rule rather than a
+		// conservatism. `it is not true that X has some Y that is Z` says X has no
+		// Z-ish Y -- an anti-join against the JOIN of the two legs -- while the chain
+		// arm subtracts one leg at a time, so the split would assert that X has no Y at
+		// all and no Z exists, which is a different and stronger claim. `that is not ...`
+		// is left alone for the same reason: the negation belongs to the clause.
+		private string[] SplitTrailingQualifiers(string[] parts)
+		{
+			var split = new List<string>();
+			foreach (string p in parts)
+			{
+				// A DECLARED READING WINS OVER ITS OWN WORDS. A reading may spell `that is`
+				// itself, and a clause the resolver already reads whole is not this shape:
+				// splitting one would trade a declared fact type for two, which is a
+				// different rule. Only a clause that resolves to NOTHING is a candidate.
+				Match qm = NegatedClauseRx.IsMatch(p) || DeonticClauseResolves(p)
+					? Match.Empty : Regex.Match(p, @"^(.+?) that is (?!not )(.+)$");
+				if (qm.Success)
+				{
+					List<string> hp;
+					FactIndexEntry hE = ResolveClauseSub(
+						Dequantify(" " + qm.Groups[1].Value.Trim() + " ").Trim(), out hp);
+					if (hE != null && hp.Count > 0)
+					{
+						string unary = hp[hp.Count - 1] + " is " + qm.Groups[2].Value.Trim();
+						List<string> up;
+						FactIndexEntry uE = ResolveClauseSub(Dequantify(" " + unary + " ").Trim(), out up);
+						if (uE != null && up.Count == 1)
+						{
+							split.Add(qm.Groups[1].Value.Trim());
+							split.Add("that " + unary);
+							continue;
+						}
+					}
+				}
+				split.Add(p);
+			}
+			return split.ToArray();
+		}
+
+		// the markers ResolveChainClauses itself reads a clause's negation from, so a
+		// clause this calls positive is one that arm will call positive too
+		private static readonly Regex NegatedClauseRx =
+			new Regex(@"^(?:no other |it is not true that |no )|(?: has no | is not | does not )",
+				RegexOptions.IgnoreCase);
+
 		// A PROHIBITION OVER A JOIN, built from the chain arm's own two halves: the clause
 		// resolver and the body join emitter. Answers true when the sentence became a
 		// state:deontics row; false leaves it to the note, which is where every body
@@ -12463,6 +12563,7 @@ namespace Arest.NormaOracle
 			string[] parts = MergeConcatenation(SplitBody(pBody));
 			// ONE CLAUSE IS THE THREE SINGLE-CLAUSE SHAPES, which have already had their turn.
 			if (parts.Length < 2) return false;
+			parts = SplitTrailingQualifiers(parts);
 			var legs = new List<FactIndexEntry>();
 			var toks = new List<List<string>>();
 			var neg = new List<bool>();

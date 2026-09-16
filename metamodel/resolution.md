@@ -211,12 +211,14 @@ Operation 'csdp:accept_judgment' is registrable.
 Operation 'clock' is registrable.
 Operation 'crypt:encrypt' is registrable.
 Operation 'crypt:decrypt' is registrable.
+Operation 'crypt:genkey' is registrable.
 
 Operation 'synthesize' is registered.
 Operation 'validate' is registered.
 Operation 'clock' is registered.
 Operation 'crypt:encrypt' is registered.
 Operation 'crypt:decrypt' is registered.
+Operation 'crypt:genkey' is registered.
 
 ## Def 9 boundary rows
 
@@ -409,6 +411,31 @@ Function '*' yields Type Expression 'number'.
 Function '/' has Definition Origin 'registered'.
 Function '/' accepts Type Expression 'number-pair'.
 Function '/' yields Type Expression 'number'.
+
+<!-- The decimal surface (2026-09-15, arest #109). `*` above is exact decimal
+     multiplication and `/` exact truncation toward zero; neither lands a
+     product back in the scale its column declares, because DECIMAL(p1,s1) x
+     DECIMAL(p2,s2) is DECIMAL(p1+p2, s1+s2). round<x, s> is that total map
+     from the wider domain into DECIMAL(., s) -- half away from zero, which
+     is what Abstract SQL Type DECIMAL means by ROUND in Postgres numeric,
+     MySQL, Oracle and SQL Server, so a store and the SQL it projects agree.
+     Half-even is a DIFFERENT function and would be another row here, never a
+     mode flag. A negative scale rounds to tens and hundreds, so the operand
+     is a number-pair like every other arithmetic row.
+
+     ONLY THE js HOST IMPLEMENTS IT, AND ONLY js CAN. The certified hosts
+     have no decimal in their value domain to round:
+     tools/rust-host/src/lib.rs:1214 is `fn N(n: i64) -> V`,
+     tools/cs-runner/Reader.cs:113 is int.Parse and
+     tools/java-runner/Reader.java:106 is Integer.parseInt, so N(6.875) does
+     not compile in one and throws in the other two. This row is the
+     declaration of record; design-state carries it once the oracle runs
+     again, and until then the store simply does not mention round -- which
+     law:origins_match permits, since the store's registered set need only be
+     a SUBSET of the manifest's, not equal to it. -->
+Function 'round' has Definition Origin 'registered'.
+Function 'round' accepts Type Expression 'number-pair'.
+Function 'round' yields Type Expression 'number'.
 Function 'ntoa' has Definition Origin 'compiled'.
 Function 'ntoa' accepts Type Expression 'number'.
 Function 'ntoa' yields Type Expression 'text'.
@@ -433,3 +460,25 @@ Function 'crypt:decrypt' accepts Type Expression 'key-and-ciphertext'.
 Function 'crypt:decrypt' yields Type Expression 'text'.
 Function 'crypt:encrypt' is inverted by Function 'crypt:decrypt'.
 Function 'crypt:decrypt' is inverted by Function 'crypt:encrypt'.
+
+<!-- AND THE KEY THOSE TWO TAKE HAS TO COME FROM SOMEWHERE (Samuel, 2026-09-15:
+     "Would it make sense to have a canon method to generate a key?" / "and
+     invoke via mcp?"). Not canon: Def 3 admits only a deterministic,
+     side-effect-free total function, and a key consumes entropy and answers
+     differently every call. Registered, then, in the boundary Cor 8 enumerates
+     -- and the host already HAS the entropy, since randomBytes makes
+     crypt:encrypt's iv. Naming it here is the difference between a boundary
+     that lists where unverified computation enters and one that omits the step
+     that mints the secret everything else depends on.
+
+     IT YIELDS A FINGERPRINT, NOT A KEY, and that is what makes it safe to put
+     on the MCP surface at all. An answer is transcript. core.md:1223 already
+     rules the key "cannot live in the store it protects"; the reply is the same
+     argument. So the yielded Type Expression is a truncated digest -- enough to
+     tell two keys apart, useless for decrypting -- and the key itself reaches
+     .env and nothing else. It refuses rather than overwriting, on an active
+     environment key or one already in the file, because a second key silently
+     orphans every ciphertext made under the first. -->
+Function 'crypt:genkey' has Definition Origin 'registered'.
+Function 'crypt:genkey' accepts Type Expression 'env-path'.
+Function 'crypt:genkey' yields Type Expression 'key-fingerprint'.
