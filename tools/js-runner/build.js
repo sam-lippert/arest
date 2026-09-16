@@ -17,7 +17,7 @@
 // and does not fail loudly: the cmd form silently produced a 38KB file with
 // every large input missing, which would have run an empty canon and passed. So
 // each input is checked for existence and the result is checked for size.
-import { readFileSync, writeFileSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, statSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 
@@ -39,12 +39,19 @@ const oracle = process.env.AREST_CARRIERS || join(here, "..", "norma-oracle");
 // module and minutes more in the derivation closure before the three rows
 // could be answered (2026-09-04). Canon, the outcome and the record boot in
 // seconds on any store.
-const slim = process.argv[2] === "regress";
+// THE READER MODE COMPOSES CANON ALONE AND BOOTS NOTHING. It is the host of
+// tools/compile-design-state.js: canon's reader needs no carrier, and the
+// carrier it writes is the one every other mode composes.
+const slim = process.argv[2] === "regress" || process.argv[2] === "reader";
+// THE WITNESS'S ANSWER IS NOT A BUILD INPUT. norma-answer is NORMA's own
+// relational answer, composed so the rmap-vs-NORMA laws can compare; a
+// carriers directory canon wrote (tools/compile-design-state.js) has none,
+// and the build is the same build without it.
 const SPLICED = slim ? [join(root, "arest")] : [
   join(root, "arest"),
   join(root, "engine", "shared", "scenarios.canon"),
   join(oracle, "design-state"),
-  join(oracle, "norma-answer"),
+  ...(existsSync(join(oracle, "norma-answer")) ? [join(oracle, "norma-answer")] : []),
 ];
 // AND THESE ARE WHAT DECIDE THE POPULATIONS. The three optional carriers pushed
 // below do not: `compiled` is a precomputed answer ABOUT the relational map
@@ -100,9 +107,9 @@ for (const carrier of ["outcome", "expected"]) {
 }
 
 const mode = process.argv[2] || "cli";
-const OUT = { cli: "composed", test: "cases", serve: "serve", mcp: "mcp", sql: "sql", ui: "ui", regress: "regress" };
+const OUT = { cli: "composed", test: "cases", serve: "serve", mcp: "mcp", sql: "sql", ui: "ui", regress: "regress", reader: "reader" };
 if (!(mode in OUT)) {
-  console.error("unknown mode: " + mode + " (cli, test, serve, mcp, sql, ui, regress)");
+  console.error("unknown mode: " + mode + " (cli, test, serve, mcp, sql, ui, regress, reader)");
   process.exit(1);
 }
 
