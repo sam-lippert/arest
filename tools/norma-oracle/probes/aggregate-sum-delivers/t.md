@@ -1,17 +1,29 @@
-# A sum delivers when its over-column is typed integer, and declines by name when it is not
+# A sum delivers when its over-column is typed as a number, and declines by name when it is not
 
 Four of the rules share one body -- Bin holds Item, that Item has the column --
-so nothing but the COLUMN and the FOLD separates them. Two of those emit
+so nothing but the COLUMN and the FOLD separates them. Three of those emit
 (`S4(A("sum"), ...)`, and the ternary with a `CONS` key under a `flat` and a
 `proj` to put the total back where the head wants it); two decline, one for the
 column's type and one for the fold. The fifth carries a THRESHOLD leg, which
 pairs its literal on as a trailing column before the fold reads one: the key and
 the summed column must still be the columns the join gave them, and a sum of the
 wrong one is a wrong number rather than a missing one. INSERT(+) takes host
-numbers and only an integer-typed cell is written to the store as one, so a
-decimal column -- which stays an atom there -- and an untyped one are refused
-rather than emitted as a fold that throws `+ on non-number` in the closure or,
-on a group of one row, silently answers the text.
+numbers, so an UNTYPED column is refused rather than emitted as a fold that
+throws `+ on non-number` in the closure or, on a group of one row, silently
+answers the text.
+
+THE DECIMAL COLUMN MOVED FROM DECLINED TO DELIVERED on 2026-09-15, and the
+reason it used to give is worth keeping visible because it named the right
+defect in the wrong place: "a sum over a column typed decimal (Gram Weight): a
+number stays an atom in the store and + throws on it". The second half was a
+statement about the ORACLE'S OWN WRITING, not about `+` -- only an integer-typed
+cell was written as a host number, so a decimal landed as text and any
+arithmetic over it threw. Now a number-typed cell of either kind is written as
+a number (one function, ICell, writes the fact row and the object type
+population together, so the two cannot disagree), and `+` has been exact over
+decimal spellings since fb2ff6c2. Nothing is left to refuse: `Bin has Total
+Weight` emits the same bare fold `Bin has Total Count` does. An UNTYPED column
+is still refused, and that decline is the one this probe keeps.
 
 Bin(.id) is an entity type.
 Item(.id) is an entity type.

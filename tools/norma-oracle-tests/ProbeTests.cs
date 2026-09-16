@@ -658,10 +658,11 @@ namespace Arest.NormaOracle.Tests
         //
         // AND THE COLUMN GATE IS THE MINIMAL PAIR. Total Weight and Code Total
         // share the body and the fold and differ only in their column's declared
-        // type; forcing the decimal one through the mu with the store's own
-        // encoding (a number-typed cell stays an atom) throws `+ on non-number`.
-        // The mean is here so the form-less decline keeps a home once `sum` has
-        // one.
+        // type. The decimal one was refused until 2026-09-15 for a reason that
+        // was about the store's encoding rather than about `+` -- a number-typed
+        // cell stayed an atom -- and it now emits the same bare fold. The UNTYPED
+        // column still throws `+ on non-number` and is still refused. The mean is
+        // here so the form-less decline keeps a home once `sum` has one.
         [Fact]
         public void ASumOverAnIntegerColumnEmitsTheFold()
         {
@@ -687,16 +688,22 @@ namespace Arest.NormaOracle.Tests
                 "S3(A(\"BinHasUrgentTotal\"), S2(A(\"Bin\"), A(\"Urgent Total\")), "
                 + "S4(A(\"sum\"), S3(A(\"minus\"), S3(A(\"pairwith\"), ", rules);
             Assert.Contains("N(6), N(7))), N(1), N(4)))", rules);
+            // the decimal column is the SAME bare fold as the integer one since
+            // 2026-09-15: a number-typed cell is written as a host number now, so the
+            // reason this used to refuse it with -- "a number stays an atom in the
+            // store and + throws on it" -- was a statement about the oracle's writing
+            // and stopped being true when that writing was fixed.
+            Assert.Contains(
+                "S3(A(\"BinHasTotalWeight\"), S2(A(\"Bin\"), A(\"Total Weight\")), "
+                + "S4(A(\"sum\"), S5(A(\"joinon\"), A(\"BinHoldsItem\"), A(\"ItemHasGramWeight\"), "
+                + "S1(S2(N(2), N(1))), S4(N(1), N(2), N(3), N(4))), N(1), N(4)))",
+                rules);
             // and what it refuses, each by its own name
             string why = Undelivered(state);
-            Assert.Contains(
-                "S2(A(\"BinHasTotalWeight\"), A(\"a sum over a column typed decimal (Gram Weight)"
-                + ": a number stays an atom in the store and + throws on it\"))", why);
             Assert.Contains(
                 "S2(A(\"BinHasCodeTotal\"), A(\"a sum over a column the reading never typed (Label Code)\"))", why);
             Assert.Contains(
                 "S2(A(\"BinHasMeanCount\"), A(\"an aggregate this grammar has no form for (mean)\"))", why);
-            Assert.DoesNotContain("BinHasTotalWeight", rules);
             Assert.DoesNotContain("BinHasCodeTotal", rules);
             Assert.DoesNotContain("BinHasMeanCount", rules);
             // the delivered three are not in the census at all

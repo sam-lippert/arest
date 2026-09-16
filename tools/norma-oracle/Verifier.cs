@@ -9738,25 +9738,44 @@ namespace Arest.NormaOracle
 				for (int b = 0; b < bits.Length; b += 2)
 				{
 					string want = bits[b].Trim();
+					// THE OPERATOR THAT WILL CONSUME THIS OPERAND, read before the operand is
+					// written, because a power-of-ten DIVISOR is written as a multiplication
+					// by its reciprocal and never reaches `/` at all.
+					string opWord = b == 0 ? null : bits[b - 1];
 					int col = -1;
 					string kind = null, name = want;
+					bool reciprocal = false;
 					if (Regex.IsMatch(want, @"^-?[0-9]+(\.[0-9]+)?$"))
 					{
-						// A DECIMAL IN ARITHMETIC IS REFUSED FOR EXACTNESS, NOT FOR KIND
-						// (2026-09-10). The mu computes with fractions happily -- 2.5 + 4
-						// is 6.5 -- and that is the problem: * and + are binary floating
-						// point, so 0.06875 * 100000 answers 6875.000000000001, / is
-						// Math.trunc so 7 / 2 answers 3, and there is no rounding
-						// primitive to state a money rule with. Sales tax computed that
-						// way is wrong by a cent and silently. ORDERING a decimal is
-						// exact and is allowed above; COMPUTING with one waits on a
-						// decision about the mu's arithmetic.
-						if (!IntegerLexeme.IsMatch(want))
-							{ myRecipeDeclines[sC] = "a decimal literal in arithmetic (" + want + "): the mu multiplies in binary floating point and truncates division"; return; }
-						acc = "S3(" + IAtom("pairwith") + ", " + acc + ", N(" + want + "))";
-						accToks.Add("#" + want);
+						// A DECIMAL LITERAL COMPUTES EXACTLY NOW (2026-09-15). What stood here
+						// refused one because * and + were binary floating point (0.06875 *
+						// 100000 answering 6875.000000000001), / was Math.trunc of a floating
+						// quotient, and there was no rounding primitive to state a money rule
+						// with. fb2ff6c2 made the four operations exact over the operands' own
+						// decimal spellings and registered `round`, so the reason is spent.
+						//
+						// `/` IS STILL TRUNCATION, AND THAT IS ITS MEANING -- the same integer
+						// division the cs, java and rust hosts do, so it is not something to
+						// change. But `... times Sales Tax Rate Percentage divided by 100`
+						// does not mean truncation, and measured through the fixed mu on
+						// 2026-09-15 it loses 89 cents: 18750.50 * 6.875 is 128909.6875, and
+						// / 100 of that is 1289. Multiplying by the exact reciprocal answers
+						// 1289.096875 instead. 10^-k is an exact decimal and `*` is exact, so
+						// the EMITTER writes the reciprocal; nothing about `/` moves. Only a
+						// dividend already typed as a number takes this road, so integer
+						// division over integer columns keeps answering exactly what it did.
+						string lit = want;
+						if (opWord == "divided by" && leftKind == "number")
+						{
+							lit = ReciprocalOfPowerOfTen(want);
+							if (lit == null)
+								{ myRecipeDeclines[sC] = "a number divided by " + want + " (only a power of ten is exact as a reciprocal; the mu's / truncates toward zero and exact decimal division needs a declared scale)"; return; }
+							reciprocal = true;
+						}
+						acc = "S3(" + IAtom("pairwith") + ", " + acc + ", N(" + lit + "))";
+						accToks.Add("#" + lit);
 						col = ++accWidth;
-						kind = "integer";
+						kind = IntegerLexeme.IsMatch(lit) ? "integer" : "number";
 					}
 					else
 					{
@@ -9768,24 +9787,40 @@ namespace Arest.NormaOracle
 					if (col < 0) { myRecipeDeclines[sC] = "an arithmetic operand no leg binds"; return; }
 					if (b == 0) { left = col; leftKind = kind; leftName = name; continue; }
 					string word = bits[b - 1];
-					string op = word == "plus" ? "+" : word == "minus" ? "-" : word == "times" ? "*" : word == "divided by" ? "/" : null;
+					// a rewritten divisor carries its own operator: the reciprocal is a factor
+					string op = reciprocal ? "*"
+						: word == "plus" ? "+" : word == "minus" ? "-" : word == "times" ? "*" : word == "divided by" ? "/" : null;
 					if (op == null) { myRecipeDeclines[sC] = "arithmetic this grammar has no primitive for (" + word + ")"; return; }
-					// an operation takes two numbers: a column whose player is typed
-					// integer, a numeral, or an earlier step. A value type the reading
-					// left as text, or typed decimal, is declined by that name -- the
-					// decimal for EXACTNESS and not for kind, as the literal branch
-					// above records at length.
+					// AN OPERATION TAKES TWO NUMBERS, and a decimal is one. Until
+					// 2026-09-15 this declined every number-typed operand with "the mu
+					// multiplies in binary floating point and truncates division", which
+					// was true when it was written and is not true now (fb2ff6c2; IValue
+					// below carries the measurement). What is still declined is a value
+					// type the reading left as TEXT, because the arithmetic primitives
+					// throw on an atom rather than coercing it.
 					foreach (string[] side in new[] { new[] { leftKind, leftName }, new[] { kind, name } })
 					{
-						if (side[0] == "integer") continue;
-						myRecipeDeclines[sC] = side[0] == "number"
-							? "an arithmetic operand typed " + ConceptualIdOf(side[1]) + " (" + side[1] + "): the mu multiplies in binary floating point and truncates division"
-							: "an arithmetic operand not typed integer (" + side[1] + ")";
+						if (side[0] == "integer" || side[0] == "number") continue;
+						myRecipeDeclines[sC] = "an arithmetic operand not typed as a number (" + side[1] + ")";
+						return;
+					}
+					// AND A TRUNCATING DIVISION OVER A DECIMAL IS NOT WHAT THE READING
+					// SAYS. `/` is truncation toward zero in every host and stays that
+					// way; a power-of-ten divisor was rewritten to an exact reciprocal
+					// above, and anything else over a number would silently drop the
+					// fraction -- 128909.6875 / 100 is 1289 -- so it is declined by name
+					// rather than emitted. Exact decimal division at a declared scale is
+					// a different operation (round . <*, K(10^s)>) and is not total.
+					if (op == "/" && (leftKind == "number" || kind == "number"))
+					{
+						myRecipeDeclines[sC] = "a division over a number (" + (leftKind == "number" ? leftName : name) + "): the mu's / truncates toward zero, and exact decimal division needs a declared scale";
 						return;
 					}
 					acc = "S5(" + IAtom("calc") + ", " + acc + ", " + IAtom(op) + ", N(" + left + "), N(" + col + "))";
 					left = ++accWidth;
-					leftKind = "integer";
+					// the step is a host number either way; it is a NUMBER as soon as one
+					// operand was, which is what keeps a later `divided by 100` exact
+					leftKind = leftKind == "number" || kind == "number" ? "number" : "integer";
 					leftName = "the step before";
 				}
 				calcCol[i] = left;
@@ -9945,17 +9980,20 @@ namespace Arest.NormaOracle
 				{ myRecipeDeclines[sAg] = "a summed value no leg binds"; return; }
 			if (!colOfA.ContainsKey(xLA))
 				{ myRecipeDeclines[sAg] = "a summed value over a leg the join left out"; return; }
-			// INSERT(+) takes host numbers, and only an integer-typed cell is one
+			// INSERT(+) TAKES HOST NUMBERS, and a decimal-typed cell is one now. The
+			// reason this gate gave -- "a number stays an atom in the store and + throws
+			// on it" -- was a statement about the STORE, not about +, and it stopped
+			// being true when ICell began writing a number-typed cell as N(v)
+			// (2026-09-15). A text column is still declined: + throws on an atom.
 			string over = legsA[xLA].Players[xCA];
-			if (ValueKindOf(over) != "integer")
+			string overKind = ValueKindOf(over);
+			if (overKind != "integer" && overKind != "number")
 			{
 				ObjectType overT;
 				bool isValue = myTypes.TryGetValue(over, out overT) && overT != null && overT.IsValueType;
 				string id = ConceptualIdOf(over);
 				myRecipeDeclines[sAg] = id != null
 					? "a sum over a column typed " + id + " (" + over + ")"
-						+ (NumberConceptualIds.Contains(id)
-							? ": a number stays an atom in the store and + throws on it" : "")
 					: isValue
 						? "a sum over a column the reading never typed (" + over + ")"
 						: "a sum over an entity (" + over + ")";
@@ -14042,6 +14080,25 @@ namespace Arest.NormaOracle
 			{ "singleFloat", "doubleFloat", "decimal", "money" };
 		private static readonly Regex IntegerLexeme = new Regex(@"^-?[0-9]+$", RegexOptions.Compiled);
 		private static readonly Regex DecimalLexeme = new Regex(@"^-?[0-9]+\.[0-9]+$", RegexOptions.Compiled);
+
+		// THE RECIPROCAL OF A POWER OF TEN, or null for anything else. `/` truncates
+		// toward zero in every host (host.js:437, mirroring the cs, java and rust
+		// integer division), which is its meaning and not a defect -- but it is not
+		// what `divided by 100` means in a money rule, where it costs 89 cents on the
+		// first quote auto.dev prices. 10^-k is an exact decimal and `*` is exact, so
+		// the emitter multiplies by the reciprocal instead of asking `/` to mean
+		// something it does not. An EMITTER choice: no primitive changes.
+		private static string ReciprocalOfPowerOfTen(string lit)
+		{
+			if (string.IsNullOrEmpty(lit)) return null;
+			bool neg = lit[0] == '-';
+			string d = neg ? lit.Substring(1) : lit;
+			if (d.Length == 0 || d[0] != '1') return null;
+			for (int i = 1; i < d.Length; i++) if (d[i] != '0') return null;
+			int k = d.Length - 1;
+			string r = k == 0 ? "1" : "0." + new string('0', k - 1) + "1";
+			return neg ? "-" + r : r;
+		}
 		private Dictionary<string, string> myConceptualIds;
 		private FactIndexEntry myCdtEntry;
 		private int myConceptualIdsAt = -1;
@@ -14088,16 +14145,36 @@ namespace Arest.NormaOracle
 		// (host.js:184, "a READING-BOUNDARY defect, to be fixed where text becomes
 		// values, not by breaking the order axioms in every host").
 		//
-		// INERT ON EVERY CORPUS TODAY: base and support each declare number-typed
-		// value types (6 and 15) and NEITHER has a single populated row on one, so
-		// no carrier moves until a model asserts a decimal. What it does not fix is
-		// exactness: * and + are binary floating point (0.06875 * 100000 is
-		// 6875.000000000001), / truncates (7 / 2 is 3), and the mu has no rounding
-		// primitive, which is why arithmetic on a decimal stays refused and now
-		// says that instead.
+		// AND THE EXACTNESS ARRIVED (2026-09-15, fb2ff6c2). The paragraph that stood
+		// here refused arithmetic on a decimal because * and + were binary floating
+		// point (0.06875 * 100000 answering 6875.000000000001), / was Math.trunc of a
+		// floating quotient, and the mu had no rounding primitive. All three are gone:
+		// host.js:398-475 computes + - * / over the operands' own decimal spellings in
+		// BigInt and `round` is a registered primitive. Measured through the fixed mu
+		// on 2026-09-15: 18750.50 * 6.875 is 128909.6875 exactly, + <0.1, 0.2> is 0.3,
+		// round<1289.096875, 2> is 1289.1. The recipe emitter's decimal refusals went
+		// out with the reason (RecordChainRecipe, above).
+		//
+		// ONE VALUE, ONE REPRESENTATION, and THAT half was never about the mu. This
+		// line wrote N(200) for an integer-typed literal while the object type
+		// population in state:otpops kept A('200') for the same value, which is the
+		// defect auto.dev/service-health.md:19-30 records: `Each HTTP Status has
+		// exactly one HTTP Status Class` then matched nothing, eighteen statuses read
+		// as classless, eighteen alethic violations, and by Thm 1 a store that refuses
+		// every write. So a cell is written in ONE place now -- ICell -- and the
+		// otpops walk carries the cell's own rendering rather than deriving a second
+		// one. The two surfaces cannot disagree because they are the same string.
 		private string IValue(string playerName, string v)
 		{
-			string kind = ValueKindOf(playerName);
+			return ICell(ValueKindOf(playerName), v);
+		}
+
+		// THE ONE PLACE A VALUE BECOMES A CELL. A number-typed role -- integer OR
+		// decimal -- whose text is a numeral is a host number; everything else is the
+		// atom the reading wrote. A numeral on a role typed neither stays text, because
+		// cmp throws across atom kinds rather than coercing (host.js:187).
+		private string ICell(string kind, string v)
+		{
 			if (kind == "integer" && IntegerLexeme.IsMatch(v)) return "N(" + v + ")";
 			if (kind == "number" && (IntegerLexeme.IsMatch(v) || DecimalLexeme.IsMatch(v))) return "N(" + v + ")";
 			return IAtom(v);
@@ -14874,7 +14951,10 @@ namespace Arest.NormaOracle
 			var fts = new List<string>();
 			var declared = new List<string>();
 			var nestings = new List<string>();
-			var otpops = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+			// KIND -> (raw value -> the CELL that value is written as). The raw value is
+			// the key so a population keeps the ordinal order it always had; the
+			// rendering rides along so it cannot drift from the row that produced it.
+			var otpops = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
 			foreach (FactIndexEntry entry in myFactIndex)
 			{
 				if (entry.Fact.IsDeleted) continue;
@@ -14946,9 +15026,23 @@ namespace Arest.NormaOracle
 				// host builds at boot (ast:File) and every commit rebuilds
 				// (main:refile), is derived from it and never written by anything
 				// else. Canon's law file-is-projection holds the two equal.
-				// A VALUE IS WRITTEN IN THE KIND ITS ROLE'S PLAYER DECLARES (IValue
-				// above): an integer-typed value type's values are numbers, every
-				// other cell is the atom the reading wrote.
+				// A VALUE IS WRITTEN IN THE KIND ITS ROLE'S PLAYER DECLARES (ICell
+				// above): a NUMBER-typed value type's values -- integer and decimal
+				// alike -- are host numbers, every other cell is the atom the reading
+				// wrote. A decimal left as text is not merely unusable by arithmetic:
+				// cmp on two text atoms is lexicographic, so a threshold answered
+				// gt<"10", "9"> = F where the numbers say T, and gt<"6.875", "6.5">
+				// = T only by the luck of equal digit widths. A SILENT wrong answer,
+				// not a refusal (measured through the mu, 2026-09-15).
+				//
+				// AND state:otpops TAKES THE SAME STRING. It re-rendered the raw value
+				// with IAtom, so typing a value type integer made state:fts write
+				// N(200) beside an otpops holding A('200') -- one value, two
+				// representations, eighteen alethic violations and a store that
+				// refused every write (auto.dev/service-health.md:19-30). The
+				// rendering is computed once per cell here and the walk below stores
+				// THAT, so widening the kind cannot reopen the same wound one kind
+				// over.
 				var cellKinds = new List<string>();
 				for (int i = 0; i < entry.Roles.Count; i++)
 				{
@@ -14958,20 +15052,22 @@ namespace Arest.NormaOracle
 				var rows = new List<string>();
 				for (int r = 0; r < entry.Rows.Count; r++)
 				{
-					rows.Add(ISeq(entry.Rows[r].Select((v, ci) =>
-						ci < cellKinds.Count && cellKinds[ci] == "integer" && IntegerLexeme.IsMatch(v)
-							? "N(" + v + ")" : IAtom(v)).ToList()));
+					var cells = entry.Rows[r]
+						.Select((v, ci) => ICell(ci < cellKinds.Count ? cellKinds[ci] : "text", v)).ToList();
+					rows.Add(ISeq(cells));
 					for (int i = 0; i < entry.Rows[r].Count; i++)
 					{
 						string kind = entry.RowKinds[r][i];
 						if (kind.Length == 0) continue;
 						ObjectType t;
 						myTypes.TryGetValue(kind, out t);
+						string raw = entry.Rows[r][i];
+						string cell = i < cells.Count ? cells[i] : IAtom(raw);
 						while (true)
 						{
-							HashSet<string> set;
-							if (!otpops.TryGetValue(kind, out set)) otpops[kind] = set = new HashSet<string>(StringComparer.Ordinal);
-							set.Add(entry.Rows[r][i]);
+							Dictionary<string, string> set;
+							if (!otpops.TryGetValue(kind, out set)) otpops[kind] = set = new Dictionary<string, string>(StringComparer.Ordinal);
+							if (!set.ContainsKey(raw)) set[raw] = cell;
 							if (t == null) break;
 							ObjectType super = null;
 							foreach (ObjectType sup in t.SupertypeCollection) { super = sup; break; }
@@ -14990,7 +15086,7 @@ namespace Arest.NormaOracle
 				}
 			}
 			var pops = otpops.OrderBy(kv => kv.Key, StringComparer.Ordinal)
-				.Select(kv => "S2(" + IAtom(kv.Key) + ", " + IChunked(kv.Value.OrderBy(x => x, StringComparer.Ordinal).Select(IAtom).ToList()) + ")")
+				.Select(kv => "S2(" + IAtom(kv.Key) + ", " + IChunked(kv.Value.OrderBy(x => x.Key, StringComparer.Ordinal).Select(x => x.Value).ToList()) + ")")
 				.ToList();
 			var sb = new System.Text.StringBuilder();
 			sb.Append("(\n");

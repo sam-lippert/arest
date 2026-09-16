@@ -1,5 +1,15 @@
 errors 0
-UNDELIVERED (an arithmetic operand typed decimal (Tax Rate): the mu multiplies in binary floating point and truncates division): QuoteHasTotalTaxRate
+UNDELIVERED (a division over a number (Price): the mu's / truncates toward zero, and exact decimal division needs a declared scale): QuoteHasOddAmount
+*Quote has odd Amount if and only if
+that Quote has some Price
+and  has some Tax Rate
+where Amount = Divide(Price, Tax Rate).
+
+*Quote has tax Amount if and only if
+that Quote has some Price
+and  has some Tax Rate
+where Amount = Divide(Multiply(Price, Tax Rate), 100).
+
 *Quote has total Tax Rate1 if and only if
 that Quote has some submission Tax Rate2
 and  has some response Tax Rate3
