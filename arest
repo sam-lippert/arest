@@ -9586,9 +9586,9 @@ DEF("ask",
 "THE LIST IS A ROW, NOT A CONJUNCTION. The five fact types carrying the belongs-to-Domain role cannot be derived from role structure: measured on the composed store, Domain plays thirteen roles across ELEVEN fact types, and the other six -- Domain has Description, Domain is contained in Domain, Domain reaches Domain, Domain connects to External System, Domain Change targets Domain, Domain is a subtype of Function -- are facts ABOUT domains rather than facts BELONGING to one, and no structural test separates them (Domain Change and Domain are both subtypes of Function, so the other-role-is-a-Function test admits both). Reading Has Text is unpopulated, so the predicate text cannot separate them either. So the set is named, the way system:cook_exceptions and system:pass_order are named, and a sixth belongs-to-Domain fact type joins orient by joining this row. All five carry the Domain at role 2 and the subject at role 1; Domain has Description carries the Domain at role 1 and is the description leg below.",
 
 DEF("system:domain_belongings",
-    K(S5(A("FunctionBelongsToDomain"), A("FactBelongsToDomain"),
+    K(S6(A("FunctionBelongsToDomain"), A("FactBelongsToDomain"),
          A("ObjectTypeInstanceBelongsToDomain"), A("ViolationBelongsToDomain"),
-         A("FailureBelongsToDomain")))),
+         A("FailureBelongsToDomain"), A("AgentDefinitionBelongsToDomain")))),
 
 "THE ONE RESTRICTION EVERY LEG IS BUILT FROM: the rows of a population whose role at a given position names anything in a given set. derive:filter_sel answers equality against ONE value, so the set is distributed over it and the answers concatenated -- the same distl-then-flatten the corpus uses everywhere. Operand <<role position, rows>, set>.",
 
