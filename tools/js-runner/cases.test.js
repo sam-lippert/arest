@@ -921,4 +921,21 @@ describe("canon's reader against the witness, on the base metamodel", () => {
       .toEqual({ witness: 257, canon: 261, both: 257, canonOnly: 4, oracleOnly: 0,
                  players: 257, ucs: 257, mands: 257, all: 257, rows: 244, rejected: 0, derived: [37, 37, 37], stateRows: 246, stateUcs: 624 });
   }, 300_000);
+
+  // state:deontics, row for row (task #93, 2026-09-16). The witness builds 12 of
+  // the base metamodel's 37 deontic sentences -- 8 mandatory, 1 uniqueness, 3
+  // prohibited -- and the carrier canon writes must hold the same 12 rows, key,
+  // kind and legs, in both directions; the rows are listed by name on a miss.
+  test("canon's state:deontics is the witness's, row for row", () => {
+    const rows = [];
+    for (const f of files) for (const s of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", s));
+    const J = (x) => JSON.stringify(x);
+    const cells = new Map(Ev("read:design_state_of", rows).map((c) => [String(c[0]), c[1]]));
+    const canon = (cells.get("state:deontics") || []).map(J);
+    const witness = Ev("ast:fetch", ["state:deontics", CELLS]).flat(1).map(J);
+    const W = new Set(witness), C = new Set(canon);
+    expect({ witness: witness.length, canon: canon.length,
+             oracleOnly: witness.filter((r) => !C.has(r)), canonOnly: canon.filter((r) => !W.has(r)) })
+      .toEqual({ witness: 12, canon: 12, oracleOnly: [], canonOnly: [] });
+  }, 300_000);
 });
