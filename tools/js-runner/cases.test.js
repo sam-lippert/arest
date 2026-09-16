@@ -909,6 +909,6 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth] })
       .toEqual({ witness: 257, canon: 257, both: 257, canonOnly: 0, oracleOnly: 0,
-                 players: 254, ucs: 256, mands: 257, all: 253, rows: 247, rejected: 0, derived: [37, 37, 37] });
+                 players: 257, ucs: 256, mands: 257, all: 256, rows: 247, rejected: 0, derived: [37, 37, 37] });
   }, 300_000);
 });

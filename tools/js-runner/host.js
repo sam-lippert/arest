@@ -3126,6 +3126,10 @@ function loadReflected() {
 }
 
 function boot(mode) {
+  // the reader's host: canon alone, no store to load, nothing to run; the
+  // importer (tools/compile-design-state.js) evaluates read:* cells itself,
+  // through the same published surface the test tail exposes
+  if (mode === "reader") return run_test();
   // a server says where its boot went: the MCP client gives a server thirty
   // seconds to answer initialize, and this boot took two minutes on 2026-09-03
   // without a line to say which step
