@@ -16,12 +16,17 @@
 //   AREST_APPS="claude=C:/.../apps/claude/.check;support=C:/.../apps/support.auto.dev/.check"
 //   bun tools/js-runner/mcp-router.js
 //
-// Each entry names an app and its .check directory (carriers and store.db).
+// Each entry names an app and its .check directory (carriers and store.db);
+// the directory above .check is the app's package, where its own scripts run.
 // The surface: the verbs (get, ask, query, orient, tutor, ...) with an `app`
-// argument, and `apps`, which lists the residents; the per-fact-type tools
-// of one app are not the tools of another, so the router serves none (#117
-// (5)). prompts/list and prompts/get are answered by the first app whose
-// canon carries the patterns, since they are the metamodel's, not an app's.
+// argument; `apps`, which lists the residents; and the two session verbs canon
+// names in system:session_verbs for what a readings change needs, apps_check
+// (the app's own check: the design state from its readings) and apps_compile
+// (the module and the store from the carriers, then that app's server again).
+// The per-fact-type tools of one app are not the tools of another, so the
+// router serves none (#117 (5)). prompts/list and prompts/get are answered by
+// the first app whose canon carries the patterns, since they are the
+// metamodel's, not an app's.
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -61,11 +66,35 @@ function parseApps(spec) {
   return apps;
 }
 
+// A BUILD STEP IS A CHILD PROCESS WHOSE LAST LINES ARE ITS REPORT. The tools
+// say what they did on stderr (design-state: ..., store.db: ..., REFUSING ...),
+// so the tail, colours stripped, is what `apps` shows afterwards.
+function run(args, cwd, extraEnv) {
+  return new Promise((resolve) => {
+    let tail = "";
+    const keep = (chunk) => { tail = (tail + String(chunk)).slice(-6000); };
+    let p;
+    try {
+      p = spawn("bun", args, { cwd, env: { ...process.env, ...(extraEnv || {}) }, stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) { resolve({ code: -1, tail: String(e.message) }); return; }
+    p.stdout.on("data", keep);
+    p.stderr.on("data", keep);
+    p.on("error", (e) => resolve({ code: -1, tail: tail + NL + String(e.message) }));
+    p.on("exit", (code) => resolve({ code, tail }));
+  });
+}
+function lastLines(tail, n) {
+  const lines = String(tail).split(/\r?\n/).map((l) => l.replace(/\x1b\[[0-9;]*m/g, "").trim()).filter(Boolean);
+  return lines.slice(-n).join(" | ");
+}
+
 // one resident: a child server and the promise-keyed requests in flight to it
 class Resident {
   constructor(app) {
     this.name = app.name;
     this.dir = app.dir;
+    this.pkg = dirname(app.dir);            // the app's package, where its scripts run
+    this.child = null;
     this.pending = new Map();
     this.nextId = 1;
     this.buf = "";
@@ -74,25 +103,50 @@ class Resident {
     this.instructions = "";
     this.tools = [];
     this.prompts = null;
-    this.child = spawn("bun", [join(here, "build.js"), "mcp", "--run"], {
-      env: { ...process.env, AREST_CARRIERS: app.dir, AREST_OUT_DIR: app.dir, AREST_STORE_DB: app.dir + "/store.db" },
+    this.state = "booting";                 // booting | serving | failed | stopped
+    this.busy = null;                       // null | checking | compiling
+    this.note = "";                         // the last check or compile result
+    this.spawn();
+  }
+  spawn() {
+    this.pending = new Map();
+    this.nextId = 1;
+    this.buf = "";
+    this.ready = null;
+    this.error = null;
+    this.state = "booting";
+    const child = spawn("bun", [join(here, "build.js"), "mcp", "--run"], {
+      env: { ...process.env, AREST_CARRIERS: this.dir, AREST_OUT_DIR: this.dir, AREST_STORE_DB: this.dir + "/store.db" },
       stdio: ["pipe", "pipe", "pipe"],
     });
-    this.child.stdout.setEncoding("utf8");
-    this.child.stdout.on("data", (chunk) => this.onData(chunk));
-    this.child.stderr.setEncoding("utf8");
-    this.child.stderr.on("data", (chunk) => {
+    this.child = child;
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => { if (this.child === child) this.onData(chunk); });
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk) => {
       for (const line of String(chunk).split(NL)) {
         if (!line.trim()) continue;
         process.stderr.write("[" + this.name + "] " + line + NL);
-        if (/error:/i.test(line) && !this.error) this.error = line.trim();
+        if (this.child === child && /error:/i.test(line) && !this.error) this.error = line.trim();
       }
     });
-    this.child.on("exit", (code) => {
+    child.on("exit", (code) => {
+      if (this.child !== child) return;      // stopped on purpose, or already replaced
       if (!this.error) this.error = "server exited with code " + code;
+      this.state = "failed";
       for (const [, p] of this.pending) p.reject(new Error(this.name + ": " + this.error));
       this.pending.clear();
     });
+  }
+  // stop the server: a rebuild needs store.db, which a serving process holds
+  // open (bun releases a sqlite handle at process exit, not before)
+  stop(why) {
+    const child = this.child;
+    this.child = null;
+    this.state = "stopped";
+    for (const [, p] of this.pending) p.reject(new Error(this.name + ": " + why));
+    this.pending.clear();
+    if (child) try { child.kill(); } catch {}
   }
   onData(chunk) {
     this.buf += chunk;
@@ -112,15 +166,17 @@ class Resident {
     }
   }
   request(method, params) {
+    if (!this.child) return Promise.reject(new Error(this.name + ": " + (this.busy || this.state)));
     if (this.error) return Promise.reject(new Error(this.name + ": " + this.error));
     const id = this.nextId++;
+    const child = this.child;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
-      this.child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + NL);
+      child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + NL);
     });
   }
   notify(method, params) {
-    this.child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method, params }) + NL);
+    if (this.child) this.child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method, params }) + NL);
   }
   // initialize the child, learn its instructions, verbs and prompts; a child
   // that cannot boot leaves the router serving the others and says so
@@ -134,11 +190,58 @@ class Resident {
         const list = await this.request("tools/list", {});
         this.tools = (list && list.tools) || [];
         try { const pl = await this.request("prompts/list", {}); this.prompts = (pl && pl.prompts) || []; } catch { this.prompts = []; }
+        if (this.child) this.state = "serving";
       } catch (e) {
         if (!this.error) this.error = String(e.message);
+        this.state = "failed";
       }
     })();
     return this.ready;
+  }
+  status() {
+    const s = this.busy
+      ? this.busy + (this.child ? " (the previous build still serves)" : "")
+      : this.state === "serving" ? "serving" : "not serving: " + (this.error || this.state);
+    return this.note ? s + " -- " + this.note : s;
+  }
+  // apps_check: the app's own check, in its package -- the design state from
+  // its readings, by whichever writer the package names (canon's
+  // compile-design-state.js or the oracle). The server keeps serving the
+  // previous build; the carriers are spliced into a module at build time, so
+  // nothing running holds them.
+  check() {
+    if (this.busy) return null;
+    this.busy = "checking";
+    this.note = "";
+    run(["run", "--silent", "check"], this.pkg).then(({ code, tail }) => {
+      this.note = (code === 0 ? "check ok: " : "check FAILED (exit " + code + "): ") + lastLines(tail, code === 0 ? 1 : 6);
+      this.busy = null;
+    });
+    return "checking " + this.name + ": bun run check in " + this.pkg + "; `apps` reports the result";
+  }
+  // apps_compile: the module from the carriers, then the store from the
+  // module (compile-store's durability gate decides what a readings change
+  // may do to it), then this app's server again over the new store. The
+  // server is stopped first because it holds store.db open.
+  compile() {
+    if (this.busy) return null;
+    this.busy = "compiling";
+    this.note = "";
+    this.stop("compiling");
+    const env = { AREST_CARRIERS: this.dir, AREST_OUT_DIR: this.dir };
+    (async () => {
+      const b = await run([join(here, "build.js"), "test"], this.pkg, env);
+      if (b.code !== 0) {
+        this.note = "module build FAILED (exit " + b.code + "): " + lastLines(b.tail, 6);
+      } else {
+        const s = await run([join(here, "..", "compile-store.js")], this.pkg, env);
+        this.note = (s.code === 0 ? "compiled: " : "compile-store FAILED (exit " + s.code + ", store restored): ") + lastLines(s.tail, s.code === 0 ? 1 : 8);
+      }
+      this.busy = null;
+      this.spawn();
+      await this.boot();
+    })();
+    return "compiling " + this.name + ": its server is stopped, build.js test then compile-store.js run in " + this.pkg + ", then it serves again; `apps` reports the result";
   }
 }
 
@@ -148,24 +251,30 @@ const booting = Promise.all([...residents.values()].map((r) => r.boot()));
 
 const isVerb = (t) => t.inputSchema && t.inputSchema.properties && t.inputSchema.properties.args && !t.inputSchema.properties.method;
 const names = () => [...residents.keys()];
+const appArg = () => ({ type: "string", enum: names(), description: "the resident app this call is for" });
 
 function tools() {
   // the verbs are canon's and the same in every app: take the first resident
-  // that booted, add the app argument, and offer `apps`
+  // that booted, add the app argument, and offer the router's own
   const first = [...residents.values()].find((r) => !r.error && r.tools.length);
   const verbs = first ? first.tools.filter(isVerb) : [];
   const withApp = verbs.map((t) => ({
     name: t.name,
     description: t.description + " -- in the app named by `app`",
     inputSchema: { type: "object",
-      properties: { app: { type: "string", enum: names(), description: "the resident app this call is for" }, ...t.inputSchema.properties },
+      properties: { app: appArg(), ...t.inputSchema.properties },
       required: ["app"] },
   }));
-  return [{ name: "apps", description: "the resident apps and whether each is serving", inputSchema: { type: "object", properties: {} } }].concat(withApp);
+  return [
+    { name: "apps", description: "the resident apps: whether each is serving, and its last check or compile result", inputSchema: { type: "object", properties: {} } },
+    { name: "apps_check", description: "run the app's own check in its package (bun run check: the design state from its readings); the app keeps serving its previous build meanwhile, and `apps` reports the result. After a readings change: apps_check, then apps_compile.", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
+    { name: "apps_compile", description: "rebuild the app's module and store from its carriers (build.js test, then compile-store.js, whose durability gate decides what a readings change may do to the store) and start its server again; the app is not served meanwhile, and `apps` reports the result", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
+  ].concat(withApp);
 }
 
 function reply(id, result) { return { jsonrpc: "2.0", id, result }; }
 function fail(id, message) { return { jsonrpc: "2.0", id, error: { code: -32603, message } }; }
+const text = (id, s, isError) => reply(id, { content: [{ type: "text", text: s }], ...(isError ? { isError: true } : {}) });
 
 async function handle(msg) {
   if (msg.method === "initialize") {
@@ -176,7 +285,8 @@ async function handle(msg) {
       protocolVersion: "2024-11-05",
       capabilities: { tools: {}, prompts: {} },
       serverInfo: { name: "arest", version: "1.0.0" },
-      instructions: "AREST serves " + residents.size + " resident apps, each its own store; every verb takes `app`: " + names().join(", ") + ". " + lines.join(" ||| "),
+      instructions: "AREST serves " + residents.size + " resident apps, each its own store; every verb takes `app`: " + names().join(", ") +
+        ". A readings change is apps_check then apps_compile on that app; `apps` reports each. " + lines.join(" ||| "),
     });
   }
   if (msg.method === "tools/list") { await booting; return reply(msg.id, { tools: tools() }); }
@@ -195,16 +305,20 @@ async function handle(msg) {
     await booting;
     const p = msg.params || {};
     if (p.name === "apps") {
-      const rows = [...residents.values()].map((r) => [r.name, r.error ? "not serving: " + r.error : "serving", r.dir]);
-      return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(rows) }] });
+      const rows = [...residents.values()].map((r) => [r.name, r.status(), r.dir]);
+      return text(msg.id, JSON.stringify(rows));
     }
     const args = { ...(p.arguments || {}) };
     const app = args.app;
     delete args.app;
     const r = residents.get(app);
-    if (!r) return reply(msg.id, { content: [{ type: "text", text: "no resident app named " + JSON.stringify(app) + "; the apps are " + names().join(", ") }], isError: true });
+    if (!r) return text(msg.id, "no resident app named " + JSON.stringify(app) + "; the apps are " + names().join(", "), true);
+    if (p.name === "apps_check" || p.name === "apps_compile") {
+      const started = p.name === "apps_check" ? r.check() : r.compile();
+      return started ? text(msg.id, started) : text(msg.id, r.name + " is " + r.status() + "; wait for `apps` to report it", true);
+    }
     try { return reply(msg.id, await r.request("tools/call", { name: p.name, arguments: args })); }
-    catch (e) { return reply(msg.id, { content: [{ type: "text", text: String(e.message) }], isError: true }); }
+    catch (e) { return text(msg.id, String(e.message), true); }
   }
   if (msg.id === undefined) return null;
   return fail(msg.id, "unknown method: " + msg.method);
@@ -230,4 +344,4 @@ process.stdin.on("data", (chunk) => {
       (e) => { process.stdout.write(JSON.stringify(fail(msg.id === undefined ? null : msg.id, String(e && e.message))) + NL); });
   }
 });
-process.stdin.on("end", () => { for (const r of residents.values()) try { r.child.kill(); } catch {} process.exit(0); });
+process.stdin.on("end", () => { for (const r of residents.values()) r.stop("router closed"); process.exit(0); });
