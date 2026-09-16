@@ -796,3 +796,40 @@ describe("crypt:genkey", () => {
     }
   });
 });
+
+// THE PAIRING HALF, MADE TO FAIL (#108). law:origin_boundary took <store,
+// registered-names> so a container could be asked whether it has a native
+// control for every abstract kind the store declares registered -- and then
+// law:report and law:app_report passed PHI, which the law reads as "not a
+// platform, owes no pairing" and answers T. So the pairing half shipped
+// without ever having run over a real set anywhere the suite could see it.
+// The java container asks (Gui.java:439) and the two js containers now do too
+// (host.js pairing_gate), and this is where the law is shown to FAIL: it is
+// handed a set with one kind removed and has to name that kind. A law that
+// only ever answers T over PHI is not a law, it is a row.
+describe("law:paired over a container's registration set", () => {
+  // the HTML container's own list, verbatim from host.js run_ui
+  const HTML = ["canvas", "headerbar", "titletext", "backbtn", "sectionheader",
+                "itemrow", "sep", "blocktext", "textbox", "button",
+                "selectlist", "navigationfield", "numericfield", "datepicker",
+                "timepicker", "switch", "textarea", "imagepicker", "label"]
+                .map((c) => "render:" + c);
+
+  test("the container that serves HTML pairs every declared control kind", () => {
+    const declared = Ev("law:ctl_declared", CELLS).map(String);
+    expect(declared.length).toBeGreaterThan(0);        // an empty set pairs vacuously
+    expect(Ev("law:unpaired", [CELLS, HTML])).toEqual([]);
+    expect(Ev("law:paired", [CELLS, HTML])).toBe("T");
+  });
+
+  test("a container missing one native control is refused, by name", () => {
+    const short = HTML.filter((n) => n !== "render:itemrow");
+    expect(Ev("law:paired", [CELLS, short])).toBe("F");
+    expect(Ev("law:unpaired", [CELLS, short]).map(String)).toEqual(["render:itemrow"]);
+  });
+
+  test("a caller that is not a platform owes no pairing", () => {
+    // what law:report and law:app_report pass; the verdict is the store half
+    expect(Ev("law:paired", [CELLS, []])).toBe("T");
+  });
+});
