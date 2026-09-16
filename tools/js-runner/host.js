@@ -1260,6 +1260,23 @@ const FASTPRIMS = new Map(Object.entries({
     return l.slice(n === 0 ? 0 : (n < 0 ? l.length : Math.min(l.length, n))); },
   "theta:take": x => { const l = seq(at(x, 0)); const n = at(x, 1);
     return l.slice(0, n === 0 ? 0 : (n < 0 ? l.length : Math.min(l.length, n))); },
+  // read:lines, one pass. The DEF scans the characters of a readings file with
+  // a WHILE whose every step takes tl of the rest, which slices, so the scan is
+  // quadratic here: 32,000 characters in 1.7 s and core.md in 22 s (2026-09-15)
+  // where the paragraphs, the sentences and the markers -- which fold over
+  // lines and paragraphs, short things -- take milliseconds. Same contract,
+  // step for step: inside a comment everything is dropped until `-->`, which
+  // closes it with one space; `<!--` opens one; a newline ends a line; a
+  // carriage return is nothing; the last line is pushed even when empty. The
+  // DEF is the meaning and the suite holds this against its compiled form.
+  "read:lines": x => { const cs = seq(x); const out = []; let line = [], inc = false;
+    for (let i = 0; i < cs.length; ) { const c = cs[i];
+      if (inc) { if (c === "-" && cs[i + 1] === "-" && cs[i + 2] === ">") { line.push(" "); inc = false; i += 3; } else i++; continue; }
+      if (c === "<" && cs[i + 1] === "!" && cs[i + 2] === "-" && cs[i + 3] === "-") { inc = true; i += 4; continue; }
+      if (c === "\n") { out.push(line); line = []; i++; continue; }
+      if (c === "\r") { i++; continue; }
+      line.push(c); i++; }
+    out.push(line); return out; },
   "theta:nth": x => { const l = seq(at(x, 0)); const n = at(x, 1);
     const k = n === 0 ? 0 : (n < 0 ? l.length : Math.min(l.length, n));
     if (k >= l.length) throw new Error("selector 1 out of range 0");

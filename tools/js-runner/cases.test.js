@@ -12,7 +12,7 @@
 //
 //   bun run build:test && bun test
 import { expect, test, describe } from "bun:test";
-import { readFileSync, unlinkSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, readdirSync, unlinkSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
@@ -832,4 +832,79 @@ describe("law:paired over a container's registration set", () => {
     // what law:report and law:app_report pass; the verdict is the store half
     expect(Ev("law:paired", [CELLS, []])).toBe("T");
   });
+});
+
+// ---- THE READER IS CANON, AND THE ORACLE IS ITS WITNESS -------------------
+//
+// Sam, 2026-09-15: "I don't want to be dependent on NORMA. I'm developing
+// AREST. AREST needs to provide all functionality." So the FORML reader is
+// canon end to end -- text in, sentences (read:sentences), tokens
+// (read:row_of), the populated conceptual schema (read:parse) -- and the C#
+// oracle is consulted only as the witness it is named for: its cells are
+// already composed into this module, so the comparison is Ev against Ev, and
+// nothing here runs NORMA. The numbers below are the measurement, not a hope:
+// they are pinned as a RATCHET, so this test fails on every improvement until
+// it is re-pinned, which is the only way a golden can be honest about a
+// reader that is still closing a distance.
+describe("canon's reader against the witness, on the base metamodel", () => {
+  const { DEFS } = globalThis.AREST;
+  const META = join(import.meta.dir, "..", "..", "metamodel");
+  const files = readdirSync(META).filter((f) => f.endsWith(".md"))
+    .sort((a, b) => (a === "core.md" ? "0" : a).localeCompare(b === "core.md" ? "0" : b));
+
+  // read:lines has a fast twin in this host (the scan is quadratic through tl,
+  // which slices); the DEF is the meaning, and its compiled form is evaluated
+  // here beside the twin, on text that exercises every branch: a comment
+  // closed with a space, a comment across lines, a carriage return, a trailing
+  // empty line.
+  test("the read:lines twin is its DEF", () => {
+    const text = "a b <!-- c. -->\r\nd\n<!-- e\nf --> g\r\n\nh";
+    const chars = Ev("chars", text);
+    const twin = Ev("read:lines", chars);
+    const def = Ev(DEFS.get("read:lines"), chars);
+    expect(JSON.stringify(twin)).toBe(JSON.stringify(def));
+    expect(twin.map((l) => l.join(""))).toEqual(["a b  ", "d", "  g", "", "h"]);   // the close adds one space and the source has its own
+  });
+
+  test("read:sentences reads the oracle's sentences", () => {
+    // the rules ExtractSentences enforces, each on one line
+    const text = [
+      "# A heading", "",
+      "Widget(.id) is an entity type. Colour is a value type.  <!-- a comment. with a period -->",
+      "Widget has Colour.", "  Each Widget has at most one Colour. **", "",
+      "Rule 'e.g. this' cites Citation 'Art. 28'. Widget weighs 10.3 kg per Art. 28 of the code.",
+      "| a | table |", "```", "code. block.", "```", "Widget is a subtype of Thing", "",
+    ].join("\r\n");
+    expect(Ev("read:sentences", text)).toEqual([
+      "Widget(.id) is an entity type.", "Colour is a value type.", "Widget has Colour.",
+      "** Each Widget has at most one Colour.",
+      "Rule 'e.g. this' cites Citation 'Art. 28'.", "Widget weighs 10.3 kg per Art. 28 of the code.",
+      "code.", "block.",   // a fence ends a paragraph; the lines inside it are lines, as ExtractSentences reads them
+      "Widget is a subtype of Thing",
+    ]);
+  });
+
+  test("the reader reproduces the witness's schema, to the pinned distance", () => {
+    const rows = [];
+    for (const f of files) for (const s of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", s));
+    const out = Ev("read:parse", rows);
+    const J = (x) => JSON.stringify(x);
+    const O = new Map(Ev("store:fts", CELLS).map((d) => [String(d[0]), d]));
+    const D = new Map(Ev("ast:fetch", ["state:declared", CELLS]).flat(1).map((d) => [String(d[0]), d]));
+    const C = new Map(out[1].map((d) => [String(d[0]), d]));
+    const derO = new Set(Ev("ast:fetch", ["state:derived", CELLS]).flat(1).map((r) => String(r[0])));
+    const derC = new Set(out[2].filter((r) => Array.isArray(r[2]) && String(r[2][0]) === "derived").map((r) => String(r[0])));
+    let both = 0, players = 0, ucs = 0, mands = 0, all = 0;
+    for (const [n, c] of C) { const o = O.get(n); if (!o) continue; both++;
+      const p = D.has(n) && J(c[1]) === J(D.get(n)[1]), u = J(c[2]) === J(o[2]), m = J(c[3]) === J(o[3]);
+      players += p; ucs += u; mands += m; all += p && u && m; }
+    const canonOnly = [...C.keys()].filter((n) => !O.has(n)), oracleOnly = [...O.keys()].filter((n) => !C.has(n));
+    const derBoth = [...derC].filter((n) => derO.has(n)).length;
+    // the pinned distance (2026-09-16); every number is a floor, and a change
+    // in either direction is a finding, not noise
+    expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
+             players, ucs, mands, all, derived: [derO.size, derC.size, derBoth] })
+      .toEqual({ witness: 257, canon: 257, both: 257, canonOnly: 0, oracleOnly: 0,
+                 players: 254, ucs: 254, mands: 255, all: 251, derived: [37, 37, 37] });
+  }, 300_000);
 });
