@@ -323,6 +323,18 @@ namespace Arest.NormaOracle
 		#region sentence extraction
 		public static List<string> ExtractSentences(string markdown)
 		{
+			return ExtractSentences(markdown, null);
+		}
+
+		// AND WHICH OF THEM WAS A LEFTOVER. A paragraph that ends without a period
+		// still yields its remainder as a sentence (the `tail` below), and every pass
+		// then treats it exactly as if it had been written as one. That is right for a
+		// restatement and wrong for prose: `Widget pricing is handled by the pricing
+		// service`, with no period, reads as a UNARY fact-type reading on a declared
+		// Widget and lands in the schema as a nullable boolean column. Callers that
+		// want to tell the two apart pass a set here; it is filled with the tails only.
+		public static List<string> ExtractSentences(string markdown, HashSet<string> unterminated)
+		{
 			// strip comments, headers, code fences; join wrapped lines; split on '.'
 			// A BLANK LINE OR HEADING ENDS A SENTENCE. These used to be `continue`d -
 			// skipped, never terminating - so the whole file joined into one string that
@@ -430,7 +442,11 @@ namespace Arest.NormaOracle
 			// on what the marker IS, not on how long it happens to be.
 			// `++` was missing from this set -- the same omission the paragraph above
 			// records for `**`, made again for the semi-derived-and-stored marker.
-			if (tail.Length > 1 && !Regex.IsMatch(tail, @"^(\*\*|\*|\+\+|\+)$")) sentences.Add(tail);
+			if (tail.Length > 1 && !Regex.IsMatch(tail, @"^(\*\*|\*|\+\+|\+)$"))
+			{
+				sentences.Add(tail);
+				if (unterminated != null) unterminated.Add(tail);
+			}
 			}
 			return sentences;
 		}
@@ -2953,6 +2969,14 @@ namespace Arest.NormaOracle
 		}
 		// the sentences the prose guard skipped, whole: a rule may name one as a leg
 		private readonly HashSet<string> myProseSkipped = new HashSet<string>(StringComparer.Ordinal);
+		// the paragraph leftovers ExtractSentences reported: sentences with no terminal
+		// period. Empty unless a caller fills it, so a host that does not collect them
+		// reads exactly as before.
+		private HashSet<string> myUnterminated = new HashSet<string>(StringComparer.Ordinal);
+		public void SetUnterminated(HashSet<string> tails)
+		{
+			myUnterminated = tails ?? new HashSet<string>(StringComparer.Ordinal);
+		}
 		// the general join's reason for declining a rule, printed only if no arm built it
 		private readonly Dictionary<string, string> myPlanDeclines = new Dictionary<string, string>(StringComparer.Ordinal);
 
@@ -3082,6 +3106,23 @@ namespace Arest.NormaOracle
 				return false;
 			}
 
+			// AN UNTERMINATED SENTENCE MAY NOT MINT A NAME (#109). Reaching this line
+			// means a NEW fact type is about to exist: the duplicate-reading and
+			// scheme-adoption checks above already returned for every name the model
+			// declares elsewhere, and the prose guard has passed. So a sentence that got
+			// here without a terminal period is creating schema out of a paragraph
+			// leftover, and the oracle cannot tell a forgotten period from a line of
+			// documentation -- which is how `Widget pricing is handled by the pricing
+			// service` became the column pricingIsHandledByThePricingService. REFUSING BY
+			// NAME is the answer to a case it cannot decide, and both readings of the
+			// refusal are repaired the same way: write the period, or delete the line.
+			// A RESTATEMENT IS UNTOUCHED, because it never reaches here.
+			if (myUnterminated.Contains(s))
+			{
+				Console.WriteLine("  REFUSED (unterminated sentence would mint a fact type): " + s);
+				Count("unterminated sentence refused (would mint a fact type)");
+				return false;
+			}
 			FactType fact = new FactType(myStore);
 			fact.Model = myModel;
 			var roles = new List<Role>();

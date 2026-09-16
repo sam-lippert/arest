@@ -328,12 +328,20 @@ namespace Arest.NormaOracle
 			}
 			string[] files = fileList.ToArray();
 			var fileSentences = new Dictionary<string, List<string>>();
+			// THE PARAGRAPH LEFTOVERS, ACROSS EVERY FILE (#109): a sentence the splitter
+			// emitted from a paragraph that ended without a period. Collected here because
+			// ExtractSentences is the only place that knows which sentence was a tail, and
+			// read at the one line where a reading is about to mint a fact type no other
+			// sentence declares. The set spans the closure rather than one file, so a
+			// leftover in one file and its properly written twin in another still pair.
+			var unterminated = new HashSet<string>(StringComparer.Ordinal);
 			foreach (string f in files)
 			{
-				fileSentences[f] = Verifier.ExtractSentences(ReadReadings(f));
+				fileSentences[f] = Verifier.ExtractSentences(ReadReadings(f), unterminated);
 			}
 
 			Verifier verifier = new Verifier(store, model);
+			verifier.SetUnterminated(unterminated);
 			foreach (string f in files)
 			{
 				if (populationFiles.Contains(f)) continue;
