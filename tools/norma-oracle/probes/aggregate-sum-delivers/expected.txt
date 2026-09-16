@@ -1,7 +1,6 @@
 errors 0
 UNDELIVERED (a sum over a column the reading never typed (Label Code)): BinHasCodeTotal
 UNDELIVERED (an aggregate this grammar has no form for (mean)): BinHasMeanCount
-UNDELIVERED (a sum over a column typed decimal (Gram Weight): a number stays an atom in the store and + throws on it): BinHasTotalWeight
 *Bin has Code Total if and only if
 that Bin holds some Item that has some Label Code
 where Code Total = Sum(each Label Code for  that Bin).
