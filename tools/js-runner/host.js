@@ -2861,13 +2861,45 @@ function run_mcp() {
 
   function handle(msg) {
     if (msg.method === "initialize") {
-      return reply(msg.id, {
+      // THE INSTRUCTIONS ORIENT THE MODEL AT SESSION START (Sam, 2026-09-16):
+      // the client shows this text to the model on connect, and canon
+      // composes it from the store -- the Apps with their navigable Domains,
+      // each App's orientation rows, and where the tutoring and the memory
+      // live (mcp:instructions). A store that cannot compose it connects
+      // without instructions rather than not at all.
+      let instructions;
+      try { instructions = String(Ev("mcp:instructions", CELLS)); } catch (e) { instructions = undefined; }
+      const result = {
         protocolVersion: "2024-11-05",
-        capabilities: { tools: {} },
+        capabilities: { tools: {}, prompts: {} },
         serverInfo: { name: "arest", version: "1.0.0" },
-      });
+      };
+      if (instructions) result.instructions = instructions;
+      return reply(msg.id, result);
     }
     if (msg.method === "tools/list") return reply(msg.id, { tools: tools() });
+    // THE PROMPTS ARE THE VERBALIZATION PATTERNS (Sam, 2026-09-16: the MCP
+    // must "provide help and tutoring (prompts) for verbalization patterns
+    // in FORML2"). Both answers are canon's: mcp:prompts lists the
+    // Verbalization Pattern rows of metamodel/verbalization.md as
+    // <name, description>, and mcp:prompt is the tutor verb, one line per
+    // pattern -- its form, the model's own example, and the note -- or the
+    // index of names when the name names no pattern. The host only shapes
+    // the protocol's envelope around them.
+    if (msg.method === "prompts/list") {
+      try {
+        const rows = Ev("mcp:prompts", CELLS);
+        return reply(msg.id, { prompts: rows.map((r) => ({ name: String(r[0]), description: String(r[1]) })) });
+      } catch (e) { return fail(msg.id, String(e.message)); }
+    }
+    if (msg.method === "prompts/get") {
+      const p = msg.params || {};
+      try {
+        const text = String(Ev("mcp:prompt", [String(p.name || ""), CELLS]));
+        return reply(msg.id, { description: "FORML 2 verbalization pattern " + String(p.name || ""),
+          messages: [{ role: "user", content: { type: "text", text } }] });
+      } catch (e) { return fail(msg.id, String(e.message)); }
+    }
     if (msg.method === "tools/call") {
       const p = msg.params || {};
       try {

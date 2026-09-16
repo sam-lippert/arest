@@ -908,11 +908,17 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     const X = Ev("read:x_of", rows); const S = Ev("read:state_fts", X);
     const stateRows = S.filter((d) => R.has(String(d[0])) && J(d) === J(R.get(String(d[0])))).length;
     const U = new Set(Ev("ast:fetch", ["state:ucs", CELLS]).flat(1).map(J)); const stateUcs = Ev("read:state_ucs", X).filter((r) => U.has(J(r))).length;
+    // the witness predates metamodel/verbalization.md and the orient and tutor
+    // operations (2026-09-16): canon reads four descriptors the witness lacks
+    // (Verbalization Pattern's fact types), and the rows of three operation fact
+    // types and of the reflected populations they touch (kinds, instances,
+    // references, data type, declaration order, subtype, reference mode, enum
+    // values) moved with them; the distance below is measured after that change
     // the pinned distance (2026-09-16); every number is a floor, and a change
     // in either direction is a finding, not noise
     expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
-      .toEqual({ witness: 257, canon: 257, both: 257, canonOnly: 0, oracleOnly: 0,
-                 players: 257, ucs: 257, mands: 257, all: 257, rows: 247, rejected: 0, derived: [37, 37, 37], stateRows: 257, stateUcs: 624 });
+      .toEqual({ witness: 257, canon: 261, both: 257, canonOnly: 4, oracleOnly: 0,
+                 players: 257, ucs: 257, mands: 257, all: 257, rows: 244, rejected: 0, derived: [37, 37, 37], stateRows: 246, stateUcs: 624 });
   }, 300_000);
 });
