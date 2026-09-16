@@ -900,11 +900,15 @@ describe("canon's reader against the witness, on the base metamodel", () => {
       players += p; ucs += u; mands += m; all += p && u && m; }
     const canonOnly = [...C.keys()].filter((n) => !O.has(n)), oracleOnly = [...O.keys()].filter((n) => !C.has(n));
     const derBoth = [...derC].filter((n) => derO.has(n)).length;
+    // the rows as the carrier holds them (state:fts, chunked by nine), in its order; store:fts unfolds them
+    const R = new Map(Ev("ast:fetch", ["state:fts", CELLS]).flat(1).map((d) => [String(d[0]), d]));
+    const rowsEq = [...C.values()].filter((d) => R.has(String(d[0])) && J(d[4]) === J(R.get(String(d[0]))[4])).length;
+    const rejected = out[2].filter((r) => Array.isArray(r[2]) && String(r[2][0]) === "rejected").length;
     // the pinned distance (2026-09-16); every number is a floor, and a change
     // in either direction is a finding, not noise
     expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
-             players, ucs, mands, all, derived: [derO.size, derC.size, derBoth] })
+             players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth] })
       .toEqual({ witness: 257, canon: 257, both: 257, canonOnly: 0, oracleOnly: 0,
-                 players: 254, ucs: 254, mands: 255, all: 251, derived: [37, 37, 37] });
+                 players: 254, ucs: 256, mands: 257, all: 253, rows: 247, rejected: 0, derived: [37, 37, 37] });
   }, 300_000);
 });
