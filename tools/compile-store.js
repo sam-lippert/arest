@@ -232,7 +232,13 @@ const usedGis = G.map((g) => g.gi).filter((gi) => funcByTable.has(gi));
 for (const gi of usedGis) {
   const grp = G[gi];
   const fcols = funcByTable.get(gi);
-  db.run('create table "' + grp.table + '" (k text' + fcols.map((ft) => ', "' + ft + '" text').join("") + ")");
+  // A TABLE WITHOUT A KEY IS NOT A RELATION (Codd). An entity table is keyed by
+  // k; a relation table below by all of its columns, and its inserts ignore a
+  // row already present, because a population is a set (AREST.tex Def. 3)
+  // and a fact asserted in two readings files is one fact -- the carriers
+  // carried `App 'arest-dev' has navigable Domain 'canon-first'` twice and the
+  // store served it twice (2026-09-16).
+  db.run('create table "' + grp.table + '" (k text primary key' + fcols.map((ft) => ', "' + ft + '" text').join("") + ")");
   const ins = db.prepare('insert into "' + grp.table + '" values(?' + ",?".repeat(fcols.length) + ")");
   db.transaction(() => { for (const r of grp.wrows) { const row = [JSON.stringify(flat(r[0]))]; for (const ft of fcols) { const s = r[funcCol[ft].col + 1]; row.push(Array.isArray(s) && s.length ? JSON.stringify(store1(ft, 1, flat(s))) : null); } ins.run(...row); } })();
 }
@@ -251,8 +257,9 @@ for (const ft of ftnames) if (funcCol[ft]) mins.run(ft, "func", ft, 2);
 for (const ft of rel) {
   const pop = popof[ft], ar = Array.isArray(pop[0]) ? pop[0].length : 1;
   const tbl = "r" + Math.abs([...ft].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7));
-  db.run("create table " + tbl + " (" + Array.from({ length: ar }, (_, i) => '"c' + i + '" text').join(",") + ")");
-  const ins = db.prepare("insert into " + tbl + " values(" + Array.from({ length: ar }, () => "?").join(",") + ")");
+  const cols = Array.from({ length: ar }, (_, i) => '"c' + i + '"');
+  db.run("create table " + tbl + " (" + cols.map((c) => c + " text").join(",") + ", primary key (" + cols.join(",") + "))");
+  const ins = db.prepare("insert or ignore into " + tbl + " values(" + Array.from({ length: ar }, () => "?").join(",") + ")");
   db.transaction(() => { for (const row of pop) { const t = Array.isArray(row) ? row : [row]; ins.run(...t.map((v, i) => JSON.stringify(store1(ft, i, v)))); } })();
   mins.run(ft, "rel", tbl, ar);
 }
@@ -383,7 +390,7 @@ if (carry.length) {
           carried2++;
         }
       } else {
-        const ins = back.prepare('insert into "' + c.tbl + '" values(?' + ",?".repeat(c.arity - 1) + ")");
+        const ins = back.prepare('insert or ignore into "' + c.tbl + '" values(?' + ",?".repeat(c.arity - 1) + ")");
         for (const r of c.rows) { ins.run(...JSON.parse(r)); carried2++; }
       }
     }

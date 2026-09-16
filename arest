@@ -10946,7 +10946,7 @@ DEF("read:pop_values",
 DEF("read:chunk_put",
     S4(A("COND"), S3(A("COMP"), A("lt"), S3(A("CONS"), S4(A("COMP"), A("length"), A("1r"), N(1)), K(N(9)))), S3(A("COMP"), A("apndr"), S3(A("CONS"), S3(A("COMP"), A("tlr"), N(1)), S3(A("COMP"), A("apndr"), S3(A("CONS"), S3(A("COMP"), A("1r"), N(1)), N(2))))), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), S2(A("CONS"), N(2)))))),
 DEF("read:row_at",
-    S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("read:is_fact"), N(1)), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(1), N(2)))))), S8(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(3), N(1)), S3(A("COMP"), N(4), N(1)), S3(A("COMP"), A("read:chunk_put"), S3(A("CONS"), S3(A("COMP"), N(5), N(1)), S3(A("COMP"), N(2), N(2)))), S3(A("COMP"), N(6), N(1)), S3(A("COMP"), N(7), N(1))), N(1))),
+    S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("read:is_fact"), N(1)), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(1), N(2)))))), S8(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(3), N(1)), S3(A("COMP"), N(4), N(1)), S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("COMP"), N(2), N(2)), S3(A("COMP"), A("read:catall"), S3(A("COMP"), N(5), N(1))))), S3(A("COMP"), N(5), N(1)), S3(A("COMP"), A("read:chunk_put"), S3(A("CONS"), S3(A("COMP"), N(5), N(1)), S3(A("COMP"), N(2), N(2))))), S3(A("COMP"), N(6), N(1)), S3(A("COMP"), N(7), N(1))), N(1))),
 DEF("read:put_row",
     S3(A("COMP"), S2(A("ALPHA"), A("read:row_at")), A("distr"))),
 
