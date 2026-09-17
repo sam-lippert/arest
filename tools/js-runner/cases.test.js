@@ -1377,3 +1377,89 @@ describe("canon's reader reads an alias and a leg's own value", () => {
     expect(rulesOf(text)).toEqual([]);
   }, 300_000);
 });
+
+// ================================================================================
+// THE KIND A ROLE PLAYS, AND THE ROWS THAT NEED IT (task #109). The reader read
+// `The data type of Sales Tax Rate Percentage is decimal` and the rules compiler
+// could not reach it, so a numeral beside a typed role was written as the atom the
+// reading wrote and every arithmetic, comparison and threshold touching one was
+// declined. read:kind_* is the oracle's ValueKindOf/ICell pair (Verifier.cs:14179,
+// 14220) over the rows x_full already carries, and read:rule_context hands them to
+// the arms. The recipe fixtures below are the ORACLE'S OWN TREES, copied from
+// apps/auto.dev/.check/design-state and apps/support.auto.dev/.check/design-state.
+// ================================================================================
+describe("canon's reader reads a value type's kind and the rows that need it", () => {
+  const J = (x) => JSON.stringify(x);
+  const META = join(import.meta.dir, "..", "..", "metamodel");
+  const order = (a, b) => (a === "core.md" ? "0" : a).localeCompare(b === "core.md" ? "0" : b);
+  const rulesOf = (text) => {
+    const rows = [];
+    for (const s of Ev("read:sentences", text)) rows.push(Ev("read:row_of", s));
+    return Ev("read:state_rules", Ev("read:x_full", Ev("read:x_of", rows)));
+  };
+
+  // tools/norma-oracle/design-state, state:fts: the ObjectTypeHasConceptualDataType
+  // population the oracle synthesises from the declarations it parsed. BOTH
+  // DIRECTIONS -- a kind the reader invents is as wrong as one it drops.
+  // verbalization.md is left out because the oracle's base carrier does not carry
+  // it: it holds no Verbalization Pattern row at all, and its four value types are
+  // the only rows the two sides would differ by.
+  const WITNESS_KINDS = [
+    ["Modality Type","text"], ["World Assumption","text"], ["URL","text"],
+    ["Secret Reference","text"], ["Reference Mode","text"], ["Arity","integer"],
+    ["Position","integer"], ["Sequence Number","integer"], ["Min Occurrence","integer"],
+    ["Max Occurrence","integer"], ["Name","text"], ["Plural","text"],
+    ["Object Kind","text"], ["Enum Values","text"], ["Minimum","decimal"],
+    ["Maximum","decimal"], ["Exclusive Minimum","decimal"], ["Exclusive Maximum","decimal"],
+    ["Multiple Of","decimal"], ["Min Length","integer"], ["Max Length","integer"],
+    ["Pattern","text"], ["Local Name","text"], ["Description","text"],
+    ["Text","text"], ["URI","text"], ["Prefix","text"],
+    ["Header","text"], ["Kind","text"], ["Timestamp","dateTime"],
+    ["Argument Length","integer"], ["Declaration Order","integer"], ["Result","text"],
+    ["Title","text"], ["Permission","text"], ["Role Relationship","text"],
+    ["Derivation Mode","text"], ["Constraint Type Label","text"], ["Constraint Type Family","text"],
+    ["Constraint Match Keyword","text"], ["Definition Origin","text"], ["Type Expression","text"],
+    ["Implementation","text"], ["Clusivity","text"], ["Derivation Storage Type","text"],
+    ["Assimilation Absorption Choice","text"], ["Clause Shape","text"], ["Migration Rule Text","text"],
+    ["Regex Pattern","text"], ["Lexical Value","text"], ["Alias","text"],
+    ["Length","integer"], ["Binary Precision","integer"], ["Digit Count","integer"],
+    ["Precision","integer"], ["Scale","integer"], ["JSON Type","text"],
+    ["JSON Format","text"], ["Abstract SQL Type","text"], ["Design Note","text"],
+    ["Rationale","text"], ["Signal Kind","text"], ["Confidence Score","decimal"],
+    ["Recipe Text","text"], ["Reference","text"], ["Email","text"],
+    ["Value","text"], ["Retrieval Date","date"], ["Cell Name","text"],
+    ["Cell Version Id","text"], ["Authority Type","text"], ["Pluralization Pattern","text"],
+    ["Pluralization Replacement","text"], ["Failure Type","text"], ["Severity","text"],
+    ["Block Kind","text"], ["Violation Template","text"],
+  ];
+  test("every value type's conceptual data type, as the oracle's carrier has it", () => {
+    const rows = [];
+    for (const f of readdirSync(META).filter((f) => f.endsWith(".md") && f !== "verbalization.md").sort(order))
+      for (const s of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", s));
+    const kinds = Ev("read:kind_rows", Ev("read:x_full", Ev("read:x_of", rows)));
+    const W = new Set(WITNESS_KINDS.map(J)), C = new Set(kinds.map(J));
+    expect([...W].filter((r) => !C.has(r))).toEqual([]);
+    expect([...C].filter((r) => !W.has(r))).toEqual([]);
+  }, 300_000);
+
+  // the kind is read off the catalogue id the value type declared, and a value is
+  // written in that kind in one place -- a numeral on an integer- or number-typed
+  // role is a host number, everything else is the atom the reading wrote
+  test("a role's kind, and a value written in it", () => {
+    const rows = [["Sales Tax Rate Percentage", "decimal"], ["Registration Age", "integer"], ["Tier", "text"]];
+    expect(Ev("read:kind_cdt", ["Registration Age", rows])).toBe("integer");
+    expect(Ev("read:kind_cdt", ["Never Declared", rows])).toBe("");
+    expect(Ev("read:kind_vkind", ["Registration Age", rows])).toBe("integer");
+    expect(Ev("read:kind_vkind", ["Sales Tax Rate Percentage", rows])).toBe("number");
+    expect(Ev("read:kind_vkind", ["Tier", rows])).toBe("text");
+    expect(Ev("read:kind_vkind", ["Never Declared", rows])).toBe("text");
+    expect(Ev("read:kind_cell", ["integer", "500"])).toEqual([500]);
+    expect(Ev("read:kind_cell", ["integer", "-12"])).toEqual([-12]);
+    expect(Ev("read:kind_cell", ["integer", "gold"])).toEqual(["gold"]);
+    expect(Ev("read:kind_cell", ["text", "500"])).toEqual(["500"]);
+    expect(Ev("read:kind_cell", ["number", "100"])).toEqual([100]);
+    // the one cell this host cannot write: a fraction needs a fractional literal,
+    // and N() is an int in the cs and java readers
+    expect(Ev("read:kind_cell", ["number", "6.875"])).toEqual([]);
+  });
+});
