@@ -1921,12 +1921,12 @@ DEF("case:show-nested", S2(A("system:show"), S2(S2(A("a"), N(1)), N(2)))),
 "THE TRANSACTION, cross-lineage for the first time. create is Def 8 -- resolve, derive to the stratified fixpoint, validate, then commit or roll back -- and cmd:answer is that definition verbatim: COND(null.2, K('committed'), K('refused')) with the new state on commit and the OLD state on refusal, which is D' = D_r[FILE -> P''] if V_A is empty else D. It is exercised by law:apply (the law report calls it command-commit) and by law:exclusion, so it is certified host-to-host. It has NEVER been in the case table, and the case table is the only oracle that spans BOTH lineages -- the law report compares hosts to hosts and the kernel differentials compare engines to engines, so a commit that diverged between the two would have been invisible. The fixture is law:apply's own, not a new one: F1 carries a uniqueness constraint on role 1 and is populated with F1(a,x), so adding F1(a,y) must refuse on Thm 1 and adding F1(b,y) must commit. 1.create takes the verdict off cmd:answer's four-tuple, the same projection law:apply uses.",
 
 DEF("case:create-commits",
-    S2(S3(A("COMP"), N(1), A("create")),
+    S2(S3(A("COMP"), N(1), A("cmd:create")),
        S2(S1(S2(A("F1"), S1(S2(A("b"), A("y"))))),
           S2(S1(S5(A("F1"), S2(A("Thing"), A("Widget")), S1(S1(N(1))), PHI(), S1(S2(A("a"), A("x"))))), PHI())))),
 
 DEF("case:create-refuses",
-    S2(S3(A("COMP"), N(1), A("create")),
+    S2(S3(A("COMP"), N(1), A("cmd:create")),
        S2(S1(S2(A("F1"), S1(S2(A("a"), A("y"))))),
           S2(S1(S5(A("F1"), S2(A("Thing"), A("Widget")), S1(S1(N(1))), PHI(), S1(S2(A("a"), A("x"))))), PHI())))),
 

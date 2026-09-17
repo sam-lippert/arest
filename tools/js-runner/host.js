@@ -2405,6 +2405,23 @@ function adoptStore(next) {
   return true;
 }
 
+// JSON READ INTO THE MU, AND THAT IS ALL IT DECIDES. The mu has two things, an
+// atom and a sequence; JSON has four, and the reading between them belongs at
+// the transport where the bytes arrive. An array is a sequence, a number stays
+// a number (the mu has N(i) and A(x), and a recipe's projection positions are
+// numbers), anything scalar is an atom -- and an OBJECT is the sequence of its
+// <name, value> pairs, which is the one case that was missing. A JS object is
+// neither of the mu's two things, so canon raised `expected sequence, got atom`
+// on the first selector that touched one: POST of a JSON object to a collection
+// answered 500 from inside main:api before any routing happened (2026-09-16).
+// What a pair list MEANS is canon's (main:row reads the entry screen's own
+// convention off the names); this only says what a JSON object IS.
+function fromJson(x) {
+  if (Array.isArray(x)) return x.map(fromJson);
+  if (x !== null && typeof x === "object") return Object.keys(x).map((k) => [k, fromJson(x[k])]);
+  return typeof x === "number" ? x : String(x);
+}
+
 function run_serve() {
 
   // THE SERVING TAIL. Same composition, same evaluator, one different last step:
@@ -2437,7 +2454,7 @@ function run_serve() {
       // designated authorization fact type's business, not this file's
       const caller = req.headers.get("x-arest-caller") || "";
       const resource = decodeURIComponent(url.pathname.replace(/^\//, ""));
-      const fact = await req.json().catch(() => []);
+      const fact = fromJson(await req.json().catch(() => []));
       const before = req.method === "GET" ? null : popSnapshot(CELLS);
       // adoptStore mutates CELLS IN PLACE so the array identity survives, which
       // means the pre-write store has to be copied out before the write or it is
@@ -2806,10 +2823,28 @@ function run_mcp() {
       // are numbers. Stringifying them answered `unresolved atom: 1` and made
       // `query` -- declared, served, and taking recipe-and-populations -- as
       // unreachable as the structure did.
-      const deep = (x) => (Array.isArray(x) ? x.map(deep) : typeof x === "number" ? x : String(x));
-      const rest = Array.isArray(a.args) ? a.args.map(deep) : [];
+      // AND AN OBJECT ARGUMENT KEEPS ITS SHAPE TOO (2026-09-16), which is what
+      // lets a verb take an entity WHOLE: `create` takes one argument, the row,
+      // and a row is a JSON object naming its fact types. fromJson is the same
+      // reading the serving tail gives a request body, so the tool call and the
+      // POST carry byte-identical JSON.
+      const rest = Array.isArray(a.args) ? a.args.map(fromJson) : [];
+      // A VERB THAT WRITES ANSWERS THE STORE IT MADE, and adopting it is the
+      // same pair the resource branch below composes -- snapshot, evaluate,
+      // emit what changed. A read verb answers two parts and none of this runs;
+      // canon decides which is which (main:verb_answer reads the accepts row),
+      // not the name and not this file. The snapshot is taken AFTER the
+      // evaluation on purpose: canon is pure, so CELLS is still the store the
+      // verb was handed until adoptStore replaces it, and a read then pays
+      // nothing for a snapshot it would never use.
       const out = Ev("main", [CELLS, [String(name)].concat(rest)]);
-      return [out[0], String(out[1]) === "T" ? 200 : 500];
+      const held = String(out[1]) === "T";
+      if (out.length > 2) {
+        const was = popSnapshot(CELLS);
+        adoptStore(out[2]);
+        if (held) emitToDb(was, CELLS);
+      }
+      return [out[0], held ? 200 : 500];
     }
     const method = String(a.method || METHODS[0]);
     const before = method === "GET" ? null : popSnapshot(CELLS);

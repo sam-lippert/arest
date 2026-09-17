@@ -96,6 +96,38 @@ namespace Arest.NormaOracle.Tests
             Assert.DoesNotContain("A(\"44\")", state);
         }
 
+        // A QUOTED VALUE IS A VALUE, whatever words are inside it, and no probe
+        // surface would show one going missing: ProbeActual carries error
+        // counts, UNBUILT lines, read-back verdicts and rule verbalizations, and
+        // a dropped instance fact is none of them -- probes/quoted-or-is-a-value
+        // reads `errors 0` with the row present and with it gone alike. The ROW
+        // is where they differ, so this is the check that reads it.
+        //
+        // The disjunctive classifier tested the whole sentence for " or some "
+        // with a naked Contains, so metamodel/verbalization.md's own statement
+        // of the disjunctive mandatory FORM -- a quoted VALUE that contains
+        // " or some " -- was filed as a textual constraint with no direct
+        // construction and its row was dropped from every store this oracle
+        // writes. VerbalizationPatternHasPatternForm is mandatory, so every
+        // write to every such store came back refused carrying a fourth
+        // violation about a verbalization pattern the write never mentioned
+        // (support.auto.dev, 2026-09-16). The connective OUTSIDE the quotes must
+        // still split, which is the second half of what this asks.
+        [Fact]
+        public void AQuotedValueIsNotADisjunction()
+        {
+            string dir = Path.Combine(ProbesDir, "quoted-or-is-a-value");
+            Oracle.Run run = Oracle.Execute(Oracle.Scratch("probes", "quoted-or-is-a-value-facts"), new[] { dir });
+            Assert.True(Oracle.Crash(run.Output) == null, "the oracle crashed: " + Oracle.Crash(run.Output));
+            string state = File.ReadAllText(Path.Combine(run.Scratch, "design-state"));
+            // the value with no connective in it, and the value with one
+            Assert.Contains("S2(A(\"simple\"), A(\"Each A R some B.\"))", state);
+            Assert.Contains("S2(A(\"disjunctive\"), A(\"For each A, some B R that A or some C S that A.\"))", state);
+            // and a connective outside the quotes is still a disjunctive mandatory
+            Assert.Contains("disjunctive mandatory constraint (for-each inverse)", run.Output);
+            Assert.DoesNotContain("note (no direct construction)", run.Output);
+        }
+
         // A CONSTRAINT IS NOT A RULE, and nothing else here would notice one.
         //
         // NO LONGER TRUE OF ProbeActual AS OF 2026-09-15, and the paragraph is
