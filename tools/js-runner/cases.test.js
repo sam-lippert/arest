@@ -1611,4 +1611,62 @@ describe("canon's reader reads a value type's kind and the rows that need it", (
     expect(Ev("read:rule_calc_cut", ["Quote", "has", "some", "dmv", "-", "Amount", "and", "total", "-", "taxes", "-", "and", "-", "fees", "-", "Amount"])).toBe(7);
     expect(Ev("read:rule_calc_cut", ["Registration", "Age"])).toBe(0);
   });
+
+  // apps/support.auto.dev/.check/design-state, state:rules: two legs that share no
+  // token and whose whole content is the comparison between them -- a cross join,
+  // which is `joinon` with no keys -- then the negated leg subtracted and the bound
+  // laid as the rows minus the strict rows the other way.
+  const CMPVOCAB = [
+    "# the comparison arm", "",
+    "Vehicle Purchase Quote(.id) is an entity type.",
+    "Sales Tax Rate(.id) is an entity type.",
+    "Date is a value type.",
+    "Effective Date is a value type.",
+    "Supersession Date is a value type.", "",
+    "Vehicle Purchase Quote occurred on Date.",
+    "Sales Tax Rate has Effective Date.",
+    "Sales Tax Rate has Supersession Date.",
+    "Sales Tax Rate is in force for Vehicle Purchase Quote. *", "", "",
+  ].join("\n");
+  test("a bound between two columns the join bound, over a cross join", () => {
+    const text = CMPVOCAB + "* Sales Tax Rate is in force for Vehicle Purchase Quote iff Vehicle Purchase Quote occurred on Date and Sales Tax Rate has Effective Date and that Effective Date is at most that Date and Sales Tax Rate has no Supersession Date." + "\n";
+    const J0 = ["joinon", "VehiclePurchaseQuoteOccurredOnDate", "SalesTaxRateHasEffectiveDate", [], [1, 2, 3, 4]];
+    const JN = ["joinon", J0, "SalesTaxRateHasSupersessionDate", [[3, 1]], [1, 2, 3, 4]];
+    const M = ["minus", J0, JN];
+    expect(rulesOf(text).map((r) => J(r))).toEqual([
+      J(["SalesTaxRateIsInForceForVehiclePurchaseQuote", ["Sales Tax Rate", "Vehicle Purchase Quote"],
+         ["proj", ["minus", M, ["cmp", M, 2, 4]], [3, 1]]]),
+    ]);
+  }, 300_000);
+
+  // and `exceeds` is the pair swapped, over the same body with the leg positive
+  test("a strict comparison is the pair the other way up", () => {
+    const text = CMPVOCAB + "* Sales Tax Rate is in force for Vehicle Purchase Quote iff Vehicle Purchase Quote occurred on Date and Sales Tax Rate has Effective Date and that Effective Date is at most that Date and Sales Tax Rate has Supersession Date and that Supersession Date exceeds that Date." + "\n";
+    const JJ = ["joinon", ["joinon", "VehiclePurchaseQuoteOccurredOnDate", "SalesTaxRateHasEffectiveDate", [], [1, 2, 3, 4]],
+                "SalesTaxRateHasSupersessionDate", [[3, 1]], [1, 2, 3, 4, 5, 6]];
+    expect(rulesOf(text).map((r) => J(r))).toEqual([
+      J(["SalesTaxRateIsInForceForVehiclePurchaseQuote", ["Sales Tax Rate", "Vehicle Purchase Quote"],
+         ["proj", ["cmp", ["minus", JJ, ["cmp", JJ, 2, 4]], 2, 6], [3, 1]]]),
+    ]);
+  }, 300_000);
+
+  // the phrases this grammar says, and the order each means
+  test("the comparison phrases, and one comparison laid", () => {
+    expect(Ev("read:rule_cmp_at", ["that", "Effective", "Date", "is", "at", "most", "that", "Date"])).toEqual([4, "atmost", 3]);
+    expect(Ev("read:rule_cmp_at", ["that", "Error", "Rate1", "exceeds", "that", "Error", "Rate2"])).toEqual([4, "more", 1]);
+    expect(Ev("read:rule_cmp_at", ["that", "Rate1", "is", "below", "that", "Rate2"])).toEqual([3, "less", 2]);
+    expect(Ev("read:rule_cmp_at", ["Sales", "Tax", "Rate", "has", "no", "Supersession", "Date"])).toEqual([]);
+    const toks = ["Vehicle Purchase Quote", "Date", "Sales Tax Rate", "Effective Date"];
+    expect(Ev("read:rule_cmp_one", ["ACC", toks, [], ["that", "Effective", "Date", "is", "at", "most", "that", "Date"]]))
+      .toEqual(["minus", "ACC", ["cmp", "ACC", 2, 4]]);
+    expect(Ev("read:rule_cmp_one", ["ACC", toks, [], ["that", "Effective", "Date", "is", "less", "than", "that", "Date"]]))
+      .toEqual(["cmp", "ACC", 4, 2]);
+    expect(Ev("read:rule_cmp_one", ["ACC", toks, [], ["that", "Effective", "Date", "exceeds", "that", "Date"]]))
+      .toEqual(["cmp", "ACC", 2, 4]);
+    // a side no leg bound is no comparison this arm may lay
+    expect(Ev("read:rule_cmp_one", ["ACC", toks, [], ["that", "Cutoff", "Date", "is", "at", "most", "that", "Date"]])).toEqual([]);
+    // and a leg that shares nothing is still a leg: the fold cross-joins it
+    expect(Ev("read:rule_cmp_join", [["A", ["X", "Y"], [], []], ["B", ["P", "Q"], [], []]])[0])
+      .toEqual(["joinon", "A", "B", [], [1, 2, 3, 4]]);
+  });
 });
