@@ -970,3 +970,91 @@ describe("canon's reader against the witness, on the base metamodel", () => {
                  witnessUndelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"] });
   }, 300_000);
 });
+// ---- THE CONSTRAINT CELLS THE STORE CONSUMES, AND THE ORDERING CELL --------
+//
+// Canon's reader wrote 17 of the 29 design-state cells the witness writes, and
+// five of the twelve it did not write are the ones a STORE reads: state:otpops
+// is ui:ids, so every mandatory verdict ranged over an empty population and 16
+// laws bottomed on `#`; state:exclusions is law:exclusion and cmd:excl_viols;
+// state:rings is solve:rings; state:setcmp is cmd:sc_rows; state:qualifiers is
+// the rendered role label. state:factorder is cn:foidx, the ordinal every
+// relational constraint name is numbered by. Each is pinned here against the
+// witness as a SET in both directions and, where the oracle's own order is
+// reproducible, position for position.
+//
+// THE WITNESS PREDATES metamodel/verbalization.md and the orient and tutor
+// operations (2026-09-16), exactly as the schema test above records: canon
+// reads six fact types and six object types the witness has never seen, so the
+// distance below is stated as "every witness row, and canon's own newer ones
+// named". A change in either direction is a finding, not noise.
+describe("canon's constraint cells against the witness, on the base metamodel", () => {
+  const META = join(import.meta.dir, "..", "..", "metamodel");
+  const files = readdirSync(META).filter((f) => f.endsWith(".md"))
+    .sort((a, b) => (a === "core.md" ? "0" : a).localeCompare(b === "core.md" ? "0" : b));
+  const rows = [];
+  for (const f of files) for (const s of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", s));
+  const F = Ev("read:x_full", Ev("read:x_of", rows));
+  const J = (x) => JSON.stringify(x);
+  const witness = (name) => Ev("ast:fetch", [name, CELLS]).flat(1);
+
+  // row for row and in the oracle's own order: the ring sentences in the order
+  // the corpus states them, the hyphen-bound qualifiers per fact type, the
+  // subtype exclusions as scope lists
+  for (const [cell, name, n] of [["read:ring_state", "state:rings", 6],
+                                 ["read:qual_state", "state:qualifiers", 3],
+                                 ["read:excl_state", "state:exclusions", 2]]) {
+    test("canon's " + name + " is the witness's, row for row", () => {
+      const w = witness(name).map(J), c = Ev(cell, F).map(J);
+      const W = new Set(w), C = new Set(c);
+      expect({ witness: w.length, canon: c.length, order: J(w) === J(c),
+               oracleOnly: w.filter((r) => !C.has(r)), canonOnly: c.filter((r) => !W.has(r)) })
+        .toEqual({ witness: n, canon: n, order: true, oracleOnly: [], canonOnly: [] });
+    }, 300_000);
+  }
+
+  // THE POPULATIONS ui:ids READS. Every object type the witness carries, with
+  // the same values in the same (ordinal) order -- except where canon reads a
+  // sentence the witness predates, which can only ADD instances, so the witness's
+  // list must be a PREFIX-FREE SUBSET of canon's and the three types that grew
+  // are named. 36 witness types, 41 canon types.
+  test("canon's state:otpops carries the witness's populations", () => {
+    const W = new Map(witness("state:otpops").map((r) => [String(r[0]), r[1].flat(1).map(String)]));
+    const C = new Map(Ev("read:otpops_state", F).map((r) => [String(r[0]), r[1].flat(1).map(String)]));
+    const missing = [...W.keys()].filter((k) => !C.has(k));
+    const same = [...W].filter(([k, v]) => C.has(k) && J(v) === J(C.get(k))).length;
+    const grew = [...W].filter(([k, v]) => C.has(k) && J(v) !== J(C.get(k)));
+    expect({ witness: W.size, canon: C.size, missing, same,
+             grew: grew.map(([k]) => k),
+             contained: grew.every(([k, v]) => v.every((x) => C.get(k).includes(x))),
+             newTypes: [...C.keys()].filter((k) => !W.has(k)) })
+      .toEqual({ witness: 36, canon: 41, missing: [], same: 33,
+                 grew: ["Function", "Operation", "Type Expression"], contained: true,
+                 newTypes: ["Pattern Example", "Pattern Family", "Pattern Form", "Pattern Note", "Verbalization Pattern"] });
+  }, 300_000);
+
+  // THE ORDER IS THE ROW, so the ordinal is only meaningful against the same
+  // set of fact types: canon's sequence restricted to the ones the witness has
+  // is the witness's sequence, and the six it adds are named.
+  test("canon's state:factorder is the witness's sequence", () => {
+    const w = witness("state:factorder").map((r) => String(r[0]));
+    const c = Ev("read:order_state", F);
+    const WN = new Set(w);
+    const kept = c.filter((r) => WN.has(String(r[0])));
+    expect({ canon: c.length, witness: w.length, kept: kept.length,
+             sequence: J(kept.map((r) => String(r[0]))) === J(w),
+             renumbered: J(kept.map((r, i) => [String(r[0]), i + 1])) === J(witness("state:factorder").map((r) => [String(r[0]), r[1]])),
+             canonOnly: c.filter((r) => !WN.has(String(r[0]))).map((r) => String(r[0])) })
+      .toEqual({ canon: 507, witness: 501, kept: 501, sequence: true, renumbered: true,
+                 canonOnly: ["VerbalizationPatternHasVerbalizationPatternName", "VerbalizationPatternIsInPatternFamily",
+                             "VerbalizationPatternHasPatternForm", "VerbalizationPatternHasPatternExample",
+                             "VerbalizationPatternHasPatternNote", "Verbalization PatternIsASubtypeOfFunction"] });
+  }, 300_000);
+
+  // and the assembler carries them: the design state canon writes holds every
+  // cell it used to hold and these beside them
+  test("read:design_state names the new cells", () => {
+    const names = Ev("read:design_state_of", rows).map((c) => String(c[0]));
+    expect(names.filter((n) => ["state:otpops", "state:rings", "state:qualifiers", "state:exclusions", "state:factorder"].includes(n)))
+      .toEqual(["state:otpops", "state:rings", "state:qualifiers", "state:exclusions", "state:factorder"]);
+  }, 600_000);
+});
