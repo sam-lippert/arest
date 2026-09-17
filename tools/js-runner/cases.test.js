@@ -1377,3 +1377,99 @@ describe("canon's reader reads an alias and a leg's own value", () => {
     expect(rulesOf(text)).toEqual([]);
   }, 300_000);
 });
+
+// ---- THE SET COMPARISONS, THE LAST CELL THE STORE CONSUMED AND THE READER DID
+// NOT WRITE ------------------------------------------------------------------
+//
+// state:setcmp is what cmd:sc_rows fetches, so cmd:sub_viols, the commit gate's
+// subset arm and law:subset_clean all bottom on it: a reader that does not write
+// it answers PHI, setminus of PHI is PHI, and a constraint that FIRES reads
+// exactly like one that holds. The nine rows below are the witness's own
+// (tools/norma-oracle/design-state), pinned as a set in both directions AND in
+// the oracle's order -- which is its rendered rows sorted ordinally, a key
+// read:setcmp_key reproduces field for field -- with the recipes compared as
+// trees, because a leg with the WRONG path is the silent wrong answer a missing
+// one is not.
+//
+// The ten sentences that state an implication and yield no constraint are named
+// here too, each with why, because a decline is a claim: `Derivation Rule2` is a
+// subscript and not an object type, so the leg has no root to lay, and the
+// oracle's BuildPathForSequence refuses it in the same place.
+describe("canon's state:setcmp against the witness, on the base metamodel", () => {
+  const META = join(import.meta.dir, "..", "..", "metamodel");
+  const files = readdirSync(META).filter((f) => f.endsWith(".md"))
+    .sort((a, b) => (a === "core.md" ? "0" : a).localeCompare(b === "core.md" ? "0" : b));
+  const rows = [];
+  for (const f of files) for (const s of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", s));
+  const F = Ev("read:x_full", Ev("read:x_of", rows));
+  const J = (x) => JSON.stringify(x);
+
+  test("canon's state:setcmp is the witness's, row for row and recipe for recipe", () => {
+    const w = Ev("ast:fetch", ["state:setcmp", CELLS]).flat(1).map(J);
+    const c = Ev("read:setcmp_state", F).map(J);
+    const W = new Set(w), C = new Set(c);
+    expect({ witness: w.length, canon: c.length, order: J(w) === J(c),
+             oracleOnly: w.filter((r) => !C.has(r)), canonOnly: c.filter((r) => !W.has(r)) })
+      .toEqual({ witness: 9, canon: 9, order: true, oracleOnly: [], canonOnly: [] });
+  }, 300_000);
+
+  // the value condition the step triples could never say: the superset leg is
+  // `sel` around the fact type, and dropped it would read every World Assumption
+  test("the valued leg is a sel and the joined legs are one joinon each", () => {
+    const c = Ev("read:setcmp_state", F);
+    expect(J(c[0])).toBe(J(["subset", "alethic", [["ObjectTypeIsBackedByExternalSystem", 1]],
+                            [["ObjectTypeHasWorldAssumption", 1]],
+                            [["proj", "ObjectTypeIsBackedByExternalSystem", [1]],
+                             ["proj", ["sel", "ObjectTypeHasWorldAssumption", 2, "open"], [1]]]]));
+    expect(J(c[1][4])).toBe(J([["proj", "EventCausedTransition", [1, 2]],
+                               ["joinon", "EventIsOfEventType", "TransitionIsTriggeredByEventType", [[2, 2]], [1, 3]]]));
+    expect(c.filter((r) => String(r[4][0][0]) === "joinon" || String(r[4][1][0]) === "joinon").length).toBe(6);
+  }, 300_000);
+
+  // every member names the BINARIZED fact type -- an objectified side's role
+  // belongs to its implied XIsInvolvedInY link -- while every recipe names the
+  // fact types themselves, which is what derive:eval can read rows from
+  test("members are binarized and recipes are not", () => {
+    const c = Ev("read:setcmp_state", F);
+    const members = c.flatMap((r) => [...r[2], ...r[3]]).map((m) => String(m[0]));
+    expect(members.filter((n) => n.includes("IsInvolvedIn")).sort()).toEqual([
+      "EventIsInvolvedInEventCausedTransition", "FactIsInvolvedInGuardRunReferencesFact",
+      "FactIsInvolvedInRoleInstance", "GuardIsInvolvedInGuardReferencesFactType",
+      "PredicateIsInvolvedInFactIsReferencedByPredicate", "RoleIsInvolvedInRoleInstance",
+      "RoleIsInvolvedInRoleIsUsedInReading", "TransitionIsInvolvedInEventCausedTransition"]);
+    expect(J(c.flatMap((r) => r[4]).map(J).filter((s) => s.includes("IsInvolvedIn")))).toBe(J([]));
+  }, 300_000);
+
+  // A DECLINE IS A CLAIM, so it is named. Ten sentences of the base state an
+  // implication and build no constraint: the oracle builds none either, and the
+  // reasons are the oracle's own -- a predicate that matches no declared reading,
+  // more clauses than a two-clause chain, or a join player that is a subscript
+  // rather than an object type (BuildPathForSequence's myTypes lookup).
+  test("the implications that lay no leg are these ten", () => {
+    const said = rows.filter((r) => Ev("read:setcmp_is", r) === "T");
+    const idx = Ev("read:rule_index", F[0][3]);
+    const declined = said.filter((r) => Ev("read:setcmp_row", [r, [idx, F]]).length === 0)
+      .map((r) => Ev("read:setcmp_words", r).map(String).join(" "));
+    expect({ said: said.length, laid: said.length - declined.length, declined: declined.length })
+      .toEqual({ said: 19, laid: 9, declined: 10 });
+    expect(declined.map((s) => s.slice(0, 52))).toEqual([
+      "If some Object Type is not backed by some External S",
+      "If some Fact Type defines some Fact then some Object",
+      "If some API accepts some Object Type as parameter an",
+      "If Object Type1 is subtype of Object Type2 , then Ob",
+      "If Derivation Rule1 reaches Derivation Rule2 and Der",
+      "If Function1 is superseded by Function2 , then Funct",
+      "If JS Package1 reaches JS Package2 and JS Package2 r",
+      "If some Violation occurs before some Transition then",
+      "It is obligatory that if some Predicate1 is performe",
+      "It is obligatory that if some Status1 reaches Status",
+    ]);
+  }, 300_000);
+
+  // and the assembler carries it, at the end, where the oracle's carrier has it
+  test("read:design_state names state:setcmp", () => {
+    const names = Ev("read:design_state_of", rows).map((c) => String(c[0]));
+    expect(names.includes("state:setcmp")).toBe(true);
+    expect(names[names.length - 1]).toBe("state:setcmp");
+  }, 600_000);
+});
