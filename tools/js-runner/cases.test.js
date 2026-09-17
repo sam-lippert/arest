@@ -938,4 +938,35 @@ describe("canon's reader against the witness, on the base metamodel", () => {
              oracleOnly: witness.filter((r) => !C.has(r)), canonOnly: canon.filter((r) => !W.has(r)) })
       .toEqual({ witness: 12, canon: 12, oracleOnly: [], canonOnly: [] });
   }, 300_000);
+
+  // THE RULES THE READER CARRIES (#109). state:rules was written EMPTY until
+  // 2026-09-16: the reader recognised a derivation sentence and kept its
+  // clauses, and nothing compiled them into the recipe derive runs, so every
+  // carrier canon wrote had its heads marked and no deliverer. The compiler is
+  // the read:rule_* family -- the oracle's arm sequence, read from the reader's
+  // own records -- and this pins its answer against the witness's rows compared
+  // as SETS of recipe trees in both directions (the trees are what derive
+  // evaluates), and the heads the witness lists undelivered against the ones
+  // canon lists with a reason of its own naming. Pinned before the compiler
+  // existed it failed at canon 0 of 44. The witness writes two of its 46 rows
+  // twice (its `and no ... where` arm re-emits what an earlier arm built);
+  // canon writes each row once, so the raw witness count is pinned beside it.
+  test("the reader carries the witness's derivation rules, row for row", () => {
+    const rows = [];
+    for (const f of files) for (const s of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", s));
+    const F = Ev("read:x_full", Ev("read:x_of", rows));
+    const J = (x) => JSON.stringify(x);
+    const witness = Ev("ast:fetch", ["state:rules", CELLS]).flat(1);
+    const W = new Set(witness.map(J));
+    const canon = Ev("read:state_rules", F);
+    const C = new Set(canon.map(J));
+    const both = [...C].filter((r) => W.has(r)).length;
+    const und = Ev("read:state_undelivered", F);
+    expect({ witnessRows: witness.length, witness: W.size, canon: canon.length, distinct: C.size, both, canonOnly: C.size - both, witnessOnly: W.size - both,
+             undelivered: und.map((p) => String(p[0])), reasons: und.every((p) => typeof p[1] === "string" && p[1].length > 0),
+             witnessUndelivered: Ev("ast:fetch", ["state:undelivered", CELLS]).flat(1).map((p) => String(p[0])) })
+      .toEqual({ witnessRows: 46, witness: 44, canon: 44, distinct: 44, both: 44, canonOnly: 0, witnessOnly: 0,
+                 undelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"], reasons: true,
+                 witnessUndelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"] });
+  }, 300_000);
 });
