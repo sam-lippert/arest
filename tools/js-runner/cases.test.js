@@ -1505,4 +1505,110 @@ describe("canon's reader reads a value type's kind and the rows that need it", (
     expect(Ev("read:rule_calc_split", ["Price", "times", "Rate", "divided", "by", "100"]))
       .toEqual([["", ["Price"]], ["times", ["Rate"]], ["divided by", ["100"]]]);
   });
+
+  // apps/auto.dev/.check/design-state, state:rules: eight legs of one entity, each
+  // an Amount of its own, added left to right; read:rule_split_body does not cut the
+  // body at the `and` before `total-taxes-and-fees- Amount equals ...` -- the role
+  // name has its own `and` in it -- so the arm cuts at the `and` whose neighbours
+  // are not the binding hyphen and takes the leg before it with the rest.
+  test("eight legs and seven additions, the oracle's own tree", () => {
+    const text = [
+      "# the calc arm, folded left", "",
+      "Vehicle Purchase Quote(.id) is an entity type.",
+      "Amount is a value type.",
+      "  The data type of Amount is decimal.",
+      "Fee Amount is a value type.",
+      "  The data type of Fee Amount is decimal.", "",
+      "Vehicle Purchase Quote has combined-sales-tax- Amount.",
+      "Vehicle Purchase Quote has title- Fee Amount.",
+      "Vehicle Purchase Quote has registration- Fee Amount.",
+      "Vehicle Purchase Quote has document- Fee Amount.",
+      "Vehicle Purchase Quote has plate- Fee Amount.",
+      "Vehicle Purchase Quote has motor-vehicle-excise-tax- Amount.",
+      "Vehicle Purchase Quote has gas-guzzler-tax- Amount.",
+      "Vehicle Purchase Quote has dmv-fee-total- Amount.",
+      "Vehicle Purchase Quote has total-taxes-and-fees- Amount. *", "",
+      "* Vehicle Purchase Quote has total-taxes-and-fees- Amount iff Vehicle Purchase Quote has some combined-sales-tax- Amount and Vehicle Purchase Quote has some title- Fee Amount and Vehicle Purchase Quote has some registration- Fee Amount and Vehicle Purchase Quote has some document- Fee Amount and Vehicle Purchase Quote has some plate- Fee Amount and Vehicle Purchase Quote has some motor-vehicle-excise-tax- Amount and Vehicle Purchase Quote has some gas-guzzler-tax- Amount and Vehicle Purchase Quote has some dmv-fee-total- Amount and total-taxes-and-fees- Amount equals combined-sales-tax- Amount plus title- Fee Amount plus registration- Fee Amount plus document- Fee Amount plus plate- Fee Amount plus motor-vehicle-excise-tax- Amount plus gas-guzzler-tax- Amount plus dmv-fee-total- Amount.", "", "",
+    ].join("\n");
+    const rows = rulesOf(text);
+    expect(rows.length).toBe(1);
+    const acc = ["joinon", ["joinon", ["joinon", ["joinon", ["joinon", ["joinon", ["joinon",
+      "VehiclePurchaseQuoteHasCombinedSalesTaxAmount", "VehiclePurchaseQuoteHasTitleFeeAmount", [[1, 1]], [1, 2, 3, 4]],
+      "VehiclePurchaseQuoteHasRegistrationFeeAmount", [[1, 1]], [1, 2, 3, 4, 5, 6]],
+      "VehiclePurchaseQuoteHasDocumentFeeAmount", [[1, 1]], [1, 2, 3, 4, 5, 6, 7, 8]],
+      "VehiclePurchaseQuoteHasPlateFeeAmount", [[1, 1]], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]],
+      "VehiclePurchaseQuoteHasMotorVehicleExciseTaxAmount", [[1, 1]], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]],
+      "VehiclePurchaseQuoteHasGasGuzzlerTaxAmount", [[1, 1]], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]],
+      "VehiclePurchaseQuoteHasDmvFeeTotalAmount", [[1, 1]], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]];
+    let e = ["calc", acc, "+", 2, 4];
+    for (const [l, r] of [[17, 6], [18, 8], [19, 10], [20, 12], [21, 14], [22, 16]]) e = ["calc", e, "+", l, r];
+    expect(J(rows[0])).toBe(J(["VehiclePurchaseQuoteHasTotalTaxesAndFeesAmount", ["Vehicle Purchase Quote", "Amount"],
+                               ["proj", e, [1, 23]]]));
+  }, 300_000);
+
+  // apps/auto.dev/.check/design-state, state:rules: `<role> is the sum of <value>
+  // where <clauses>` -- the where-clauses join, the head's other roles are the
+  // group key in the head's own order, a composite key is unfolded with `flat`, and
+  // the total lands last so a head that wants it in the middle projects back
+  test("a sum over the chain its where-clauses join", () => {
+    const text = [
+      "# the aggregate arm", "",
+      "Organization(.name) is an entity type.",
+      "Revenue Stream(.name) is an entity type.",
+      "Frequency is a value type.",
+      "Amount is a value type.",
+      "  The data type of Amount is decimal.", "",
+      "Organization generates Revenue Stream.",
+      "Revenue Stream has Amount per Frequency.",
+      "Organization has revenue- Amount per Frequency. +", "",
+      "+ Organization has revenue- Amount per Frequency if revenue- Amount is the sum of Amount where Organization generates some Revenue Stream and that Revenue Stream has some Amount per that Frequency.", "", "",
+    ].join("\n");
+    expect(rulesOf(text).map((r) => J(r))).toEqual([
+      J(["OrganizationHasRevenueAmountPerFrequency", ["Organization", "Amount", "Frequency"],
+         ["proj", ["flat", ["sum", ["joinon", "OrganizationGeneratesRevenueStream", "RevenueStreamHasAmountPerFrequency", [[2, 1]], [1, 2, 3, 4, 5]],
+                            ["CONS", 1, 5], 4]], [1, 3, 2]]]),
+    ]);
+  }, 300_000);
+
+  // and a single group role takes the column itself, with no flat and no proj: the
+  // body before the `where` joins with it, the clause boundary cut at the `and`
+  test("a sum grouped by one role is the column itself", () => {
+    const text = [
+      "# the aggregate arm, one key", "",
+      "Vehicle Purchase Quote(.id) is an entity type.",
+      "ZIP Code(.Zip Code Digits) is an entity type.",
+      "State(.name) is an entity type.",
+      "Sales Tax Jurisdiction(.Name) is an entity type.",
+      "State Sales Tax Jurisdiction is an entity type.",
+      "State Sales Tax Jurisdiction is a subtype of Sales Tax Jurisdiction.",
+      "Vehicle Fee Schedule(.id) is an entity type.",
+      "DMV Fee(.name) is an entity type.",
+      "Fee Amount is a value type.",
+      "  The data type of Fee Amount is decimal.",
+      "Amount is a value type.",
+      "  The data type of Amount is decimal.", "",
+      "Vehicle Purchase Quote has ZIP Code.",
+      "ZIP Code is within Sales Tax Jurisdiction in State.",
+      "Vehicle Fee Schedule belongs to State.",
+      "Vehicle Fee Schedule has DMV Fee.",
+      "DMV Fee has Fee Amount.",
+      "Vehicle Purchase Quote has dmv-fee-total- Amount. *", "",
+      "* Vehicle Purchase Quote has dmv-fee-total- Amount iff Vehicle Purchase Quote has ZIP Code and that ZIP Code is within some State Sales Tax Jurisdiction in some State and Vehicle Fee Schedule belongs to that State and dmv-fee-total- Amount is the sum of Fee Amount where that Vehicle Fee Schedule has DMV Fee and that DMV Fee has Fee Amount.", "", "",
+    ].join("\n");
+    expect(rulesOf(text).map((r) => J(r))).toEqual([
+      J(["VehiclePurchaseQuoteHasDmvFeeTotalAmount", ["Vehicle Purchase Quote", "Amount"],
+         ["sum", ["joinon", ["joinon", ["joinon", ["joinon", "VehiclePurchaseQuoteHasZIPCode", "ZIPCodeIsWithinSalesTaxJurisdictionInState", [[2, 1]], [1, 2, 3, 4, 5]],
+                             "VehicleFeeScheduleBelongsToState", [[5, 2]], [1, 2, 3, 4, 5, 6, 7]],
+                  "VehicleFeeScheduleHasDMVFee", [[6, 1]], [1, 2, 3, 4, 5, 6, 7, 8, 9]],
+                  "DMVFeeHasFeeAmount", [[9, 1]], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]], 1, 11]]),
+    ]);
+  }, 300_000);
+
+  // the boundary read:rule_split_body missed: a separating `and` is one whose
+  // neighbours are not the binding hyphen
+  test("the clause boundary the body splitter missed", () => {
+    expect(Ev("read:rule_calc_cut", ["Vehicle", "Fee", "Schedule", "belongs", "to", "that", "State", "and", "dmv", "-", "fee", "-", "total", "-", "Amount"])).toBe(8);
+    expect(Ev("read:rule_calc_cut", ["Quote", "has", "some", "dmv", "-", "Amount", "and", "total", "-", "taxes", "-", "and", "-", "fees", "-", "Amount"])).toBe(7);
+    expect(Ev("read:rule_calc_cut", ["Registration", "Age"])).toBe(0);
+  });
 });
