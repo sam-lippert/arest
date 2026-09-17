@@ -32,7 +32,15 @@ const out = process.env.AREST_OUT_DIR || process.cwd();
 
 const host = join(here, "js-runner", "reader.g.js");
 if (!existsSync(host)) {
-  const r = spawnSync("bun", ["build.js", "reader"], { cwd: join(here, "js-runner"), stdio: "inherit" });
+  // WITHOUT AREST_OUT_DIR, which is OURS AND NOT THE BUILD'S. build.js writes
+  // its module into AREST_OUT_DIR when that is set, and this run has it set to
+  // the app's .check -- so the build put reader.g.js beside the carrier we are
+  // about to write and the import two lines down died with "Cannot find module
+  // reader.g.js", on every first run of a clean checkout (2026-09-16). The
+  // reader's module belongs beside build.js, where the next run finds it.
+  const env = { ...process.env };
+  delete env.AREST_OUT_DIR;
+  const r = spawnSync("bun", ["build.js", "reader"], { cwd: join(here, "js-runner"), stdio: "inherit", env });
   if (r.status !== 0) process.exit(r.status || 1);
 }
 await import(pathToFileURL(host).href);
