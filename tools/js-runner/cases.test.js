@@ -613,9 +613,16 @@ function arityMismatches(text) {
 describe("every constructor holds what it was given", () => {
   for (const file of CANON_FILES) {
     const name = file.split(/[\/]/).pop();
+    // THE BUDGET IS THE FILE'S, NOT THE DEFAULT'S. This walks every character of
+    // canon -- two megabytes, and one more cell of the reader's is nine kilobytes
+    // of it -- so bun's 5-second default was a ceiling canon was already touching
+    // (5.4 s on 2026-09-17, on a scan that had not changed). A lint over a growing
+    // file that fails on the growth says nothing about the file, so it is given
+    // room to finish and still fails on what it is for: a constructor holding
+    // fewer arguments than its name.
     test(name + " has no truncated constructor", () => {
       expect(arityMismatches(readFileSync(file, "utf8"))).toEqual([]);
-    });
+    }, 60_000);
   }
 });
 
@@ -1222,4 +1229,126 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
     expect(names.filter((n) => ["state:otpops", "state:rings", "state:qualifiers", "state:exclusions", "state:factorder"].includes(n)))
       .toEqual(["state:otpops", "state:rings", "state:qualifiers", "state:exclusions", "state:factorder"]);
   }, 600_000);
+});
+
+// ---- THE GENERAL CHAIN'S TWO LAST SHAPES: AN EQUALITY THAT NAMES A ROLE, AND
+// A LEG THAT CARRIES ITS OWN VALUE ------------------------------------------
+//
+// Both are the oracle's @6042 and both were a decline here. `... and Description
+// is Message Body` names no fact type, so the leg-or-nothing resolution threw
+// the sentence away; and a quoted value anywhere in the sentence declined the
+// arm outright, so a leg the corpus writes as `that Meter Endpoint has
+// Identifier Sensitivity 'plate-identifier'` could not be read at all. Six of
+// support.auto.dev's Support Request fields were the first, three heads across
+// auto.dev and support.auto.dev the second.
+//
+// The fixtures are the ORACLE'S OWN TREES, copied from the app carriers
+// (apps/support.auto.dev/.check/design-state and apps/auto.dev/.check/design-state,
+// state:rules) and reproduced here over a corpus small enough to read: the same
+// readings, the same rule sentences, the same recipe. A rule sentence is fed to
+// the reader whole -- read:sentences, read:row_of, read:x_of, read:x_full,
+// read:state_rules -- so this exercises the arm through the door an app uses.
+describe("canon's reader reads an alias and a leg's own value", () => {
+  const J = (x) => JSON.stringify(x);
+  const rulesOf = (text) => {
+    const rows = [];
+    for (const s of Ev("read:sentences", text)) rows.push(Ev("read:row_of", s));
+    return Ev("read:state_rules", Ev("read:x_full", Ev("read:x_of", rows)));
+  };
+  const VOCAB = [
+    "# The chain's last two shapes", "",
+    "Contact Submission is an entity type.",
+    "Support Request is an entity type.",
+    "Message Body is a value type.",
+    "Description is a value type.",
+    "Customer is an entity type.",
+    "Meter Endpoint is an entity type.",
+    "Identifier Sensitivity is a value type.",
+    "Billable Request is an entity type.",
+    "Trust Score is a value type.",
+    "Authenticated Trust Score is a value type.",
+    "Request Context is an entity type.", "",
+    "Contact Submission has Message Body.",
+    "Support Request is Contact Submission.",
+    "Support Request has Description. +",
+    "Billable Request has Customer.",
+    "Customer is in EEA.",
+    "Billable Request has Meter Endpoint.",
+    "Meter Endpoint has Identifier Sensitivity.",
+    "Billable Request involves Personal Data. *",
+    "Request Context belongs to Customer.",
+    "Customer is authenticated.",
+    "Request Context has Trust Score. *", "", "",
+  ].join("\n");
+
+  // `<Type> is|equals <Type>` naming no fact type equates two declared names; a
+  // role prefix (`contact- Name`) is stripped so the answer is the player the
+  // head carries, and a name the model never declared is not an alias at all
+  test("an equality between two declared type names is an alias", () => {
+    const C = [[], ["Description", "Message Body", "Name", "Submitter Name", "Trust Score", "Issue Type"], [], [], [], []];
+    expect(Ev("read:rule_gchain_alias", [C, ["Description", "is", "Message", "Body"]])).toEqual(["Description", "Message Body"]);
+    expect(Ev("read:rule_gchain_alias", [C, ["contact", "-", "Name", "is", "Submitter", "Name"]])).toEqual(["Name", "Submitter Name"]);
+    expect(Ev("read:rule_gchain_alias", [C, ["Trust", "Score", "is", "that", "Issue", "Type"]])).toEqual(["Trust Score", "Issue Type"]);
+    // a side the model never declared is not a name this arm may project from
+    expect(Ev("read:rule_gchain_alias", [C, ["Category", "equals", "Issue", "Type"]])).toEqual([]);
+    expect(Ev("read:rule_gchain_alias", [C, ["Support", "Request", "is", "Contact", "Submission"]])).toEqual([]);
+    // and a clause with nothing on one side of the verb is not an equality
+    expect(Ev("read:rule_gchain_alias", [C, ["is", "Message", "Body"]])).toEqual([]);
+    expect(Ev("read:rule_gchain_alias", [C, ["Description", "is"]])).toEqual([]);
+  });
+
+  // the fold answers a column for every request a leg makes: a value restriction
+  // is <literal, position> on its leg and comes back <literal, absolute column>,
+  // and read:rule_gchain_sels lays one `sel` per restriction, innermost first
+  test("the fold places a leg's value and read:rule_gchain_sels selects on it", () => {
+    const folded = Ev("read:rule_gchain_fold", [
+      ["BillableRequestHasCustomer", ["Billable Request", "Customer"], [], []],
+      ["CustomerIsInEEA", ["Customer"], [], []],
+      ["BillableRequestHasMeterEndpoint", ["Billable Request", "Meter Endpoint"], [], []],
+      ["MeterEndpointHasIdentifierSensitivity", ["Meter Endpoint", "Identifier Sensitivity"], [], ["plate-identifier", 2]],
+    ]);
+    expect(J(folded[0])).toBe(J(["joinon", ["joinon", ["joinon", "BillableRequestHasCustomer", "CustomerIsInEEA", [[2, 1]], [1, 2, 3]],
+                                            "BillableRequestHasMeterEndpoint", [[1, 1]], [1, 2, 3, 4, 5]],
+                                 "MeterEndpointHasIdentifierSensitivity", [[5, 1]], [1, 2, 3, 4, 5, 6, 7]]));
+    expect(J(folded[1])).toBe(J(["Billable Request", "Customer", "Customer", "Billable Request", "Meter Endpoint", "Meter Endpoint", "Identifier Sensitivity"]));
+    expect(J(folded[3])).toBe(J([["plate-identifier", 7]]));
+    expect(J(Ev("read:rule_gchain_sels", ["ACC", folded[3]]))).toBe(J(["sel", "ACC", 7, "plate-identifier"]));
+    expect(J(Ev("read:rule_gchain_sels", ["ACC", [["gold", 3], ["eu", 5]]])))
+      .toBe(J(["sel", ["sel", "ACC", 3, "gold"], 5, "eu"]));
+    expect(J(Ev("read:rule_gchain_sels", ["ACC", []]))).toBe(J("ACC"));
+  });
+
+  // apps/support.auto.dev/.check/design-state, state:rules: the head's second
+  // role is bound by no leg -- the equality says it is the Message Body the
+  // first leg bound, and the projection reads it there
+  test("a head role an equality defines projects from the column its other side bound", () => {
+    const text = VOCAB + "+ Support Request has Description iff that Contact Submission has Message Body and Support Request is Contact Submission and Description is Message Body.\n";
+    expect(rulesOf(text).map((r) => J(r))).toEqual([
+      J(["SupportRequestHasDescription", ["Support Request", "Description"],
+         ["proj", ["joinon", "ContactSubmissionHasMessageBody", "SupportRequestIsContactSubmission", [[1, 2]], [1, 2, 3, 4]], [3, 2]]]),
+    ]);
+  }, 300_000);
+
+  // apps/auto.dev/.check/design-state, state:rules: four legs joined on every
+  // token each shares, the fourth leg's quoted value selected on its column
+  test("a leg's own value restriction is a sel on the joined rows", () => {
+    const text = VOCAB + "* Billable Request involves Personal Data iff Billable Request has some Customer and that Customer is in EEA and Billable Request has some Meter Endpoint and that Meter Endpoint has Identifier Sensitivity 'plate-identifier'.\n";
+    expect(rulesOf(text).map((r) => J(r))).toEqual([
+      J(["BillableRequestInvolvesPersonalData", ["Billable Request"],
+         ["proj", ["sel", ["joinon", ["joinon", ["joinon", "BillableRequestHasCustomer", "CustomerIsInEEA", [[2, 1]], [1, 2, 3]],
+                                      "BillableRequestHasMeterEndpoint", [[1, 1]], [1, 2, 3, 4, 5]],
+                           "MeterEndpointHasIdentifierSensitivity", [[5, 1]], [1, 2, 3, 4, 5, 6, 7]], 7, "plate-identifier"], [1]]]),
+    ]);
+  }, 300_000);
+
+  // AND THE ALIAS WHOSE OTHER SIDE NO LEG BINDS IS STILL NOT A RULE. `Trust
+  // Score is Authenticated Trust Score` names a value type carrying its value as
+  // a population, so nothing in the body binds it; the oracle records no recipe
+  // for that rule (`a head role from a bare type root`) and neither does this --
+  // the head's column is 0 and the arm declines, which is the honest answer
+  // rather than a projection from a column that is not there.
+  test("an alias onto a bare value type is no recipe", () => {
+    const text = VOCAB + "* Request Context has Trust Score iff Request Context belongs to some Customer and that Customer is authenticated and Trust Score is Authenticated Trust Score.\n";
+    expect(rulesOf(text)).toEqual([]);
+  }, 300_000);
 });
