@@ -459,10 +459,24 @@ if (priorRows.size) {
       lost.push({ ft, gone, was, why: m ? "its shape changed" : "no longer materialized" });
       continue;
     }
+    // A CIPHERTEXT DIFFERENCE IS NOT A VALUE DIFFERENCE (2026-09-17). A role
+    // marked `is stored through Function 'crypt:encrypt'` reaches the store as
+    // AES-256-GCM with a fresh randomBytes(12) iv, so the same secret encrypts
+    // to different bytes on every build, by design and deterministically. The
+    // clash test compares STORED FORM, so it read six unchanged secrets as six
+    // changed values and refused support's every rebuild. The support session
+    // settled it by decrypting both sides with the master key and comparing
+    // fingerprints of the PLAINTEXT: six identical, and the cipher is
+    // authenticated, so a wrong key raises rather than decrypts. Exempt rather
+    // than decrypt-and-compare, because a ciphertext difference carries NO
+    // information about whether the secret changed, so the test cannot be
+    // meaningful on such a role either way; its value is carried like any other
+    // row the build no longer asserts.
+    const enciphered = !!cipherAt[ft];
     const keep = [];
     const clash = [];
     for (const r of gone) {
-      if (isFunc && afterKeys.has(JSON.parse(r)[0])) clash.push(r); else keep.push(r);
+      if (!enciphered && isFunc && afterKeys.has(JSON.parse(r)[0])) clash.push(r); else keep.push(r);
     }
     if (keep.length) carry.push({ ft, tbl, isFunc, arity: m.arity, rows: keep });
     if (clash.length) lost.push({ ft, gone: clash, was, why: "the build asserts a different value for the same key" });
@@ -594,6 +608,32 @@ if (stillLost.length && process.env.AREST_MIGRATE !== "allow-loss") {
     if (d) console.error("    " + d.why);
   }
   if (stillLost.length > 12) console.error("  ... and " + (stillLost.length - 12) + " more fact type(s)");
+  // NEVER RESTORE SOMETHING THAT IS NOT A STORE (2026-09-17). This path cost
+  // the first live Support Request. An earlier run had died between creating
+  // its tables and writing its stamp, leaving a half-written stump where the
+  // store was; the next run snapshotted the stump, refused, and copied the
+  // stump back, printing "RESTORED to what it was" -- true of the file and
+  // false of the data. Three refusals walked the file backwards past the point
+  // where the case existed, and no copy on disk held it afterwards. A finished
+  // store carries a composition stamp and a ledger; a snapshot without both is
+  // not the thing that was there, it is the wreck of an earlier failure, and
+  // restoring it destroys rather than preserves. Keep the build instead and say
+  // so: the build is a real store, and refusing to overwrite it with a stump is
+  // the only reading of this guard that does what its name says.
+  let snapOk = false;
+  try {
+    const s = new Database(snapp, { readonly: true });
+    const q = (n) => s.query("select count(*) c from sqlite_master where type='table' and name=?").get(n).c > 0;
+    snapOk = q("_composition") && q("_asserted");
+    s.close();
+  } catch { snapOk = false; }
+  if (!snapOk) {
+    console.error("NOT RESTORED: the prior " + dbp + " carries no composition stamp or no ledger, so it is a");
+    console.error("  half-written store from an earlier failure and not what was there. This build is kept, and it");
+    console.error("  is a complete store; the rows named above are the ones it does not reproduce.");
+    try { unlinkSync(snapp); } catch {}
+    process.exit(1);
+  }
   copyFileSync(snapp, dbp);
   try { unlinkSync(dbp + "-wal"); } catch {}
   try { unlinkSync(snapp); } catch {}
