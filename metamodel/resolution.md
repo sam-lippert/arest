@@ -96,7 +96,22 @@ Function 'cells' accepts Type Expression 'store'.
 Function 'cells' yields Type Expression 'cell-list'.
 Function 'rmap' accepts Type Expression 'store'.
 Function 'rmap' yields Type Expression 'cell-list'.
-Function 'actions' accepts Type Expression 'store'.
+<!-- AND actions TAKES THE ENTITY AND THE CELLS (2026-09-17). This said
+     'store', measured in 2026-09-10 against a cell that was system:view_menu
+     itself; under the pair that cell also answered an empty menu, so the
+     store was recorded as the better of two wrong answers. Both are wrong.
+     Theorem 2's transitions(status(e)) is a function of an ENTITY -- the
+     machine of a type it is an instance of, the status derived for it, the
+     transitions leaving that status -- and a store alone names no entity, so
+     `actions sr-alpha-1` dropped the id and answered the empty menu for a
+     Support Request whose whole lifecycle the app declares.
+     THE CELLS AND NOT THE STORE STATE, for orient's reason: store:state is
+     <descriptors, phi>, and the machine of an instance is found through
+     state:otpops -- a top-level cell, no fact type, no descriptor -- so the
+     projection cannot see which type's population holds the id. Measured on
+     support.auto.dev: under name-and-store the menu is empty, under
+     name-and-cells it is accept, resolve and merge. -->
+Function 'actions' accepts Type Expression 'name-and-cells'.
 Function 'actions' yields Type Expression 'menu'.
 Function 'nav' accepts Type Expression 'store'.
 Function 'nav' yields Type Expression 'pattern-list'.

@@ -9616,8 +9616,9 @@ DEF("cmd:keep_explains",
 DEF("explain",
     S5(A("COMP"), S2(A("INSERT"), A("cmd:keep_explains")), A("theta:append_phi"), A("distl"), S3(A("CONS"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2))), S3(A("COMP"), N(1), N(2))))),
 
+"THE AFFORDANCES ARE AN ENTITY'S, NOT A STORE'S (2026-09-17). actions WAS system:view_menu itself -- the projection over a pair of status and machine rows -- and resolution.md declared it to accept the store, so main:verb_pair handed it the store state and DROPPED the argument: actions sr-alpha-1 answered the empty menu on a Support Request whose machine, statuses and transitions the app declares, in the writing process and after a restart alike, which is the silent-wrong-answer shape the accepts row was added to stop. The row was the wrong measurement, not the cell: Thm 2's transitions(status(e)) is a function of an ENTITY, the same shape get takes, so the model says name-and-cells and the verb is main:trs_at -- the projection main:links_at already emits over HTTP, so the menu a session is offered and the links a GET carries are ONE computation and not two. And it has to be that one because of the SUBTYPE: a Support Request is absorbed into the Request table, its machine is declared for Support Request, and the machine of an instance is found through ui:machine_type over the instance facts the create writes, never through the group the address names. AND IT TAKES THE CELLS FOR ORIENT-S REASON: store:state is the descriptor pair, ui:machine_type reads state:otpops, which is a top-level cell and no fact type, so the store-state projection answered the empty menu for every id in every store -- measured on support.auto.dev the day this was written.",
 DEF("actions",
-    A("system:view_menu")),
+    S3(A("CONS"), K(A("menu")), S3(A("COMP"), A("main:trs_at"), S4(A("CONS"), N(2), N(1), S2(A("CONS"), N(1)))))),
 
 DEF("schema",
     A("rmap:schema")),
