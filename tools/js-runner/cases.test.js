@@ -1011,18 +1011,40 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     // types and of the reflected populations they touch (kinds, instances,
     // references, data type, declaration order, subtype, reference mode, enum
     // values) moved with them; the distance below is measured after that change
+    // AND IT ALSO PREDATES evolution.md's SELF-MODIFICATION GATE (2026-09-17).
+    // That sentence named `Human`, a type that plays no role in any fact type,
+    // so NORMA refused it and the witness carries nothing for it; restated
+    // against `User`, the type that plays the role of `User approves Domain
+    // Change`, canon resolves it and the deontic `exactly one` lands on
+    // UserApprovesDomainChange exactly as the witness's own deontic `at most
+    // one` lands on MigrationApplicationHasTimestamp -- a uniqueness ON THE
+    // DESCRIPTOR ([[1,2]] becomes [[1,2],[2]]) beside the DEO:u row, which is
+    // the oracle's own behaviour and not a canon divergence. So ucs, all and
+    // stateRows are each one below the witness for that one fact type, and
+    // regenerating the witness (the oracle's run, not this repo's) closes it.
     // the pinned distance (2026-09-16); every number is a floor, and a change
     // in either direction is a finding, not noise
     expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
       .toEqual({ witness: 257, canon: 261, both: 257, canonOnly: 4, oracleOnly: 0,
-                 players: 257, ucs: 257, mands: 257, all: 257, rows: 244, rejected: 0, derived: [37, 37, 37], stateRows: 246, stateUcs: 624 });
+                 players: 257, ucs: 256, mands: 257, all: 256, rows: 244, rejected: 0, derived: [37, 37, 37], stateRows: 245, stateUcs: 624 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 12 of
   // the base metamodel's 37 deontic sentences -- 8 mandatory, 1 uniqueness, 3
   // prohibited -- and the carrier canon writes must hold the same 12 rows, key,
   // kind and legs, in both directions; the rows are listed by name on a miss.
+  // AND TWO MORE SINCE THE SELF-MODIFICATION GATE WAS RESTATED (2026-09-17,
+  // #108). `It is obligatory that each applied Domain Change is approved by
+  // exactly one Human` named a type that plays no role in any fact type, so
+  // NEITHER reader carried it and the gate was enforced nowhere. Against
+  // `User` -- what plays the role of `User approves Domain Change` -- the
+  // `exactly one` reads as the pair it is: DEO:m (every applied change has an
+  // approval) and DEO:u (no second approver) on the Domain Change role, keyed
+  // through the objectification's link fact type as read:deo_nest_leg has it.
+  // The two rows are canonOnly because the witness carrier predates the
+  // restatement; regenerating it is the oracle's run, not this repo's, and
+  // oracleOnly stays empty, which is the direction that would mean a loss.
   test("canon's state:deontics is the witness's, row for row", () => {
     const rows = [];
     for (const f of files) for (const s of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", s));
@@ -1033,7 +1055,10 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     const W = new Set(witness), C = new Set(canon);
     expect({ witness: witness.length, canon: canon.length,
              oracleOnly: witness.filter((r) => !C.has(r)), canonOnly: canon.filter((r) => !W.has(r)) })
-      .toEqual({ witness: 12, canon: 12, oracleOnly: [], canonOnly: [] });
+      .toEqual({ witness: 12, canon: 14, oracleOnly: [], canonOnly: [
+        JSON.stringify(["DEO:m:DomainChangeIsInvolvedInUserApprovesDomainChange#1", "mandatory", [["DomainChangeIsInvolvedInUserApprovesDomainChange", 1]]]),
+        JSON.stringify(["DEO:u:DomainChangeIsInvolvedInUserApprovesDomainChange#1", "uniqueness", [["DomainChangeIsInvolvedInUserApprovesDomainChange", 1]]]),
+      ] });
   }, 300_000);
 
   // THE RULES THE READER CARRIES (#109). state:rules was written EMPTY until

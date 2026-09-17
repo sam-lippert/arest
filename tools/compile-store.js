@@ -41,6 +41,11 @@ const { Ev, CELLS } = globalThis.AREST;
 if (!Ev) { console.error("no composition at " + modDir + "/cases.g.js"); process.exit(1); }
 
 const flat = (v) => { let x = v; while (Array.isArray(x)) x = x.length ? x[0] : null; return x; };
+// A RELATION TABLE'S NAME IS A FUNCTION OF THE FACT TYPE, and three places
+// compute it: here, host.js emitToDb (a runtime write to a fact type the tables
+// do not carry) and the migration writer below. Same hash, same table, or a
+// runtime row and a migrated row land in two tables under one name.
+const relTableName = (ft) => "r" + Math.abs([...ft].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7));
 const fts = Ev("store:fts", CELLS);
 const ftnames = fts.map((d) => d[0]).filter((n) => typeof n === "string");
 const popof = {};
@@ -288,7 +293,7 @@ for (const ft of ftnames) if (funcCol[ft]) mins.run(ft, "func", ft, 2);
 const relTbl = {};                           // ft -> its relation table
 for (const ft of rel) {
   const pop = popof[ft], ar = Array.isArray(pop[0]) ? pop[0].length : (priorArity.get(ft) || 1);
-  const tbl = "r" + Math.abs([...ft].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7));
+  const tbl = relTableName(ft);
   relTbl[ft] = tbl;
   const cols = Array.from({ length: ar }, (_, i) => '"c' + i + '"');
   db.run("create table " + tbl + " (" + cols.map((c) => c + " text").join(",") + ", primary key (" + cols.join(",") + "))");
@@ -369,8 +374,13 @@ db.close();
 const lost = [];
 const carry = [];
 let superseded = 0;
+let nowMeta = new Map();
+let wasMeta = new Map();
+// the declared arity of a fact type, from the same reader main:api checks a
+// POST body with -- so "still declared" is read off the model, never guessed
+const declPlayers = (ft) => { try { const p = Ev("main:cr_players", [CELLS, ft]); return Array.isArray(p) && p.length ? p.map(flat) : null; } catch { return null; } };
 if (priorRows.size) {
-  const wasMeta = new Map(priorMeta.map((m) => [m.ft, m]));
+  wasMeta = new Map(priorMeta.map((m) => [m.ft, m]));
   // compare from a COPY -- see the handle note above; store.db must stay
   // replaceable in case the comparison says to restore it
   const checkp = dbp + ".check";
@@ -383,7 +393,7 @@ if (priorRows.size) {
       if (!ownerOf.has(c.name)) ownerOf.set(c.name, tb.name);
     }
   }
-  const nowMeta = new Map(fresh.prepare("select ft, kind, tbl, arity from _meta").all().map((m) => [m.ft, m]));
+  nowMeta = new Map(fresh.prepare("select ft, kind, tbl, arity from _meta").all().map((m) => [m.ft, m]));
   for (const [ft, before] of priorRows) {
     if (!before.size) continue;
     const m = nowMeta.get(ft);
@@ -416,8 +426,25 @@ if (priorRows.size) {
       if (built.has(r)) superseded++; else gone.push(r);
     }
     if (!gone.length) continue;
+    // A FACT TYPE THE READINGS STILL DECLARE IS STILL SAYABLE, WHETHER OR NOT
+    // THIS BUILD HAPPENED TO WRITE A ROW OF IT (2026-09-17). "Materialized" was
+    // read off the new _meta, which only lists fact types the CARRIERS gave rows
+    // to -- so a fact type whose whole population was written at runtime (the
+    // usual case for a fresh one: emitToDb gives it a relation table of its own,
+    // and the carriers give it nothing) came back as `no longer materialized`
+    // and was refused on every rebuild, forever, with no Migration that could
+    // ever satisfy it. The Domain Change and Migration facts this file writes
+    // below are exactly that shape, so the gate would have refused its own
+    // proposals. Still declared, same kind, same arity: carry, and make the
+    // table. A fact type the readings no longer declare still refuses, which is
+    // the 53 ghosts support's store carried and the reason the rule exists.
+    const declAr = (declPlayers(ft) || []).length;
+    if (!m && was && was.kind === "rel" && declAr === was.arity) {
+      carry.push({ ft, tbl: relTableName(ft), isFunc: false, arity: was.arity, rows: gone, make: true });
+      continue;
+    }
     if (!m || !was || !tbl || m.kind !== was.kind || m.arity !== was.arity) {
-      lost.push({ ft, gone, why: m ? "its shape changed" : "no longer materialized" });
+      lost.push({ ft, gone, was, why: m ? "its shape changed" : "no longer materialized" });
       continue;
     }
     const keep = [];
@@ -426,26 +453,232 @@ if (priorRows.size) {
       if (isFunc && afterKeys.has(JSON.parse(r)[0])) clash.push(r); else keep.push(r);
     }
     if (keep.length) carry.push({ ft, tbl, isFunc, arity: m.arity, rows: keep });
-    if (clash.length) lost.push({ ft, gone: clash, why: "the build asserts a different value for the same key" });
+    if (clash.length) lost.push({ ft, gone: clash, was, why: "the build asserts a different value for the same key" });
   }
   fresh.close();
   try { unlinkSync(checkp); } catch {}
 }
 
-if (lost.length && process.env.AREST_MIGRATE !== "allow-loss") {
-  const rows = lost.reduce((a, l) => a + l.gone.length, 0);
+// ---------------------------------------------------------------------------
+// THE MIGRATION (2026-09-17, #108's other half). The refusal above says "Write
+// the Migration", and this is what writing one means. Samuel, 2026-09-15:
+// "Migrations are part of the implementation of domain evolution. It must
+// always be gated by human approval, but either agents or humans may propose
+// fact types and mutations to them along with instructions for how to modify
+// changed data."
+//
+// So there are two acts here and only one of them is gated. PROPOSING is
+// mechanical and this file does it: when it refuses, it writes an UNAPPROVED
+// Domain Change proposing a Migration for what it detected -- the source fact
+// type, the target the shape moved to, a Rationale naming the rows and the
+// reason, and a Migration Rule Text a human can read and edit -- into the store
+// it is restoring, so the proposal survives the refusal and is there to be
+// approved. APPLYING is gated, by evolution.md's obligation that for each
+// applied Domain Change exactly one User approves it, and the gate is canon's
+// migrate:plan: given the refused fact type and the five populations it answers
+// the Migration, its target, its rule text, the Domain Change and the one
+// approver, or nothing. Two approvers is not two votes; it is no throat, and it
+// answers nothing.
+//
+// THE RULE TEXT IS A DERIVATION BODY AND NOTHING NEW EVALUATES IT. `Memory
+// holds Title iff that Memory has Title.` reads through canon's migrate:recipe
+// into a recipe of derive:forms, and derive:eval runs it over the prior rows --
+// the same machinery that closes a store under its derivation rules. What the
+// recipe answers is written into the target's table, one Migration Application
+// is recorded per source fact (the Migration, a Timestamp, the source Fact and
+// the Fact it produced), and the Domain Change is marked applied.
+const MIGFTS = ["MigrationHasFactTypeAsSource", "MigrationProducesFactTypeAsTarget",
+  "MigrationHasMigrationRuleText", "DomainChangeProposesFunction", "UserApprovesDomainChange"];
+// the prior store's rows as canon reads rows: the columns hold JSON, so a row
+// is parsed twice -- once as the row, once per value
+const priorPop = (ft) => [...(priorRows.get(ft) || [])].map((r) => JSON.parse(r).map((v) => JSON.parse(v)));
+const decode = (rs) => rs.map((r) => JSON.parse(r).map((v) => JSON.parse(v)));
+// a fact type name is a reading tiled; split it back on the capitals and the
+// reading is legible again -- MemoryHoldsTitle is `Memory Holds Title`, which
+// is what read:tokens_of tiles and migrate:tile compares against the name
+const unTile = (ft) => ft.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
+
+// insert rows into a fact type's table, making the table when the build gave it
+// none: the same rule host.js emitToDb follows for a runtime write
+function writerFor(db) {
+  const meta = new Map(db.prepare("select ft, kind, tbl, arity from _meta").all().map((m) => [m.ft, m]));
+  const ownerOf = new Map();
+  for (const t of db.prepare("select name from sqlite_master where type='table'").all()) {
+    if (t.name.startsWith("_")) continue;
+    for (const c of db.prepare('pragma table_info("' + t.name + '")').all()) if (!ownerOf.has(c.name)) ownerOf.set(c.name, t.name);
+  }
+  const make = (ft, ar) => {
+    if (meta.has(ft)) return meta.get(ft).tbl;
+    const tbl = relTableName(ft);
+    const cols = Array.from({ length: ar }, (_, i) => '"c' + i + '"');
+    db.run("create table if not exists " + tbl + " (" + cols.map((c) => c + " text").join(",") + ", primary key (" + cols.join(",") + "))");
+    db.prepare("insert into _meta values(?,?,?,?)").run(ft, "rel", tbl, ar);
+    meta.set(ft, { ft, kind: "rel", tbl, arity: ar });
+    return tbl;
+  };
+  return {
+    has: (ft) => meta.has(ft),
+    make,
+    rows: (ft) => {
+      const m = meta.get(ft); if (!m) return [];
+      if (m.kind === "func") {
+        const T = ownerOf.get(ft); if (!T) return [];
+        return db.prepare('select k, "' + ft + '" v from "' + T + '" where "' + ft + '" is not null').all().map((r) => [JSON.parse(r.k), JSON.parse(r.v)]);
+      }
+      return db.prepare("select * from " + m.tbl).all().map((r) => Object.values(r).map((v) => JSON.parse(v)));
+    },
+    put: (ft, rows) => {
+      if (!rows.length) return 0;
+      const m = meta.get(ft);
+      if (m && m.kind === "func") {
+        const T = ownerOf.get(ft); if (!T) return 0;
+        const upd = db.prepare('update "' + T + '" set "' + ft + '"=? where k=?');
+        const ins = db.prepare('insert into "' + T + '" (k, "' + ft + '") values(?,?)');
+        for (const r of rows) { const k = JSON.stringify(r[0]), v = JSON.stringify(r[1]); if (!upd.run(v, k).changes) ins.run(k, v); }
+        return rows.length;
+      }
+      const ar = m ? m.arity : rows[0].length;
+      const tbl = m ? m.tbl : make(ft, ar);
+      const ins = db.prepare("insert or ignore into " + tbl + " values(" + Array.from({ length: ar }, () => "?").join(",") + ")");
+      for (const r of rows) ins.run(...Array.from({ length: ar }, (_, i) => JSON.stringify(r[i])));
+      return rows.length;
+    },
+  };
+}
+
+// WHAT THE GATE ANSWERS, per refused fact type. Nothing is written yet: a build
+// that still loses something restores the snapshot, and a migration applied
+// into a store that is about to be thrown away would be a lie in the summary.
+const migCtx = MIGFTS.map(priorPop);
+const applied = [];
+const declined = [];
+for (const l of lost) {
+  const plan = Ev("migrate:plan", [l.ft, migCtx]);
+  if (!Array.isArray(plan) || plan.length !== 5) { declined.push({ ft: l.ft, why: "no approved Domain Change proposes a Migration from it" }); continue; }
+  const [mig, target, ruleText, dc, user] = plan.map((v) => (Array.isArray(v) ? flat(v) : v));
+  const players = declPlayers(target);
+  if (!players) { declined.push({ ft: l.ft, why: "the Migration's target " + target + " is not a fact type this build declares" }); continue; }
+  const recipe = Ev("migrate:recipe", [ruleText, l.ft, target, players]);
+  if (!Array.isArray(recipe) || !recipe.length) { declined.push({ ft: l.ft, why: "the Migration Rule Text of " + mig + " does not read as a recipe over " + l.ft }); continue; }
+  const src = decode(l.gone);
+  let produced;
+  try { produced = Ev("derive:eval", [recipe, [[l.ft, src]]]); } catch (e) { declined.push({ ft: l.ft, why: "the Migration Rule Text of " + mig + " did not evaluate (" + e.message + ")" }); continue; }
+  if (!Array.isArray(produced) || produced.length !== src.length) {
+    declined.push({ ft: l.ft, why: "the Migration produced " + (Array.isArray(produced) ? produced.length : 0) + " row(s) from " + src.length + ", so a fact would be dropped anyway" });
+    continue;
+  }
+  applied.push({ ft: l.ft, mig, target, dc, user, src, produced, recipe });
+}
+
+const stillLost = lost.filter((l) => !applied.some((a) => a.ft === l.ft));
+if (stillLost.length && process.env.AREST_MIGRATE !== "allow-loss") {
+  const rows = stillLost.reduce((a, l) => a + l.gone.length, 0);
   console.error("REFUSING: this build would drop " + rows + " row(s) across " +
-    lost.length + " fact type(s), and no Migration says how to carry them.");
-  for (const l of lost.slice(0, 12)) {
+    stillLost.length + " fact type(s), and no Migration says how to carry them.");
+  for (const l of stillLost.slice(0, 12)) {
     console.error("  " + l.ft + " (" + l.why + ") -- " + l.gone.length +
       " row(s), e.g. " + l.gone[0].slice(0, 120));
+    const d = declined.find((x) => x.ft === l.ft);
+    if (d) console.error("    " + d.why);
   }
-  if (lost.length > 12) console.error("  ... and " + (lost.length - 12) + " more fact type(s)");
+  if (stillLost.length > 12) console.error("  ... and " + (stillLost.length - 12) + " more fact type(s)");
   copyFileSync(snapp, dbp);
   try { unlinkSync(dbp + "-wal"); } catch {}
   try { unlinkSync(snapp); } catch {}
+  // AND THE PROPOSAL GOES INTO THE STORE IT RESTORED. An agent may propose;
+  // only applying is gated, so what this writes is a Domain Change with no
+  // approval on it. A human approves it through the store -- `User approves
+  // Domain Change` is a fact a create can assert -- and reruns the build.
+  const back = new Database(dbp);
+  const w = writerFor(back);
+  const wrote = [];
+  const unproposed = [];
+  back.transaction(() => {
+    for (const l of stillLost) {
+      if (applied.some((a) => a.ft === l.ft)) continue;
+      // the target is where the shape MOVED: a fact type this build materializes
+      // that the prior store did not, of the same kind and arity. One candidate
+      // is a proposal; none or several is a question only a human can answer,
+      // and guessing at it is the automatic schema evolution Sam ruled out.
+      const cands = l.was ? [...nowMeta.values()].filter((m) => !wasMeta.has(m.ft) && m.kind === l.was.kind && m.arity === l.was.arity) : [];
+      if (cands.length !== 1) { unproposed.push(l.ft + ": " + (cands.length ? cands.length + " candidate target fact types (" + cands.slice(0, 4).map((m) => m.ft).join(", ") + ")" : "no candidate target fact type")); continue; }
+      const target = cands[0].ft;
+      const mig = "migration-" + l.ft + "-to-" + target;
+      const dc = "domain-change-" + l.ft + "-to-" + target;
+      if (w.rows("DomainChangeProposesFunction").some((r) => String(r[0]) === dc && String(r[1]) === mig)) continue;   // already proposed
+      const text = unTile(target) + " iff that " + unTile(l.ft) + ".";
+      const rationale = "compile-store refused " + l.gone.length + " runtime row(s) of " + l.ft + " (" + l.why +
+        ") on " + new Date().toISOString().slice(0, 10) + "; " + target + " is the one fact type this build materializes that the prior store did not, " +
+        "with the same kind and arity. Example row: " + JSON.stringify(decode([l.gone[0]])[0]).slice(0, 160) + ". Read the Migration Rule Text before approving.";
+      w.put("MigrationHasFactTypeAsSource", [[mig, l.ft]]);
+      w.put("MigrationProducesFactTypeAsTarget", [[mig, target]]);
+      w.put("MigrationHasMigrationRuleText", [[mig, text]]);
+      w.put("MigrationHasTimestamp", [[mig, new Date().toISOString()]]);
+      w.put("DomainChangeProposesFunction", [[dc, mig]]);
+      w.put("DomainChangeHasRationale", [[dc, rationale]]);
+      const dom = (popof["FunctionBelongsToDomain"] || []).map((r) => (Array.isArray(r) ? r.map(flat) : [flat(r)])).find((r) => r[0] === target);
+      if (dom) w.put("DomainChangeTargetsDomain", [[dc, dom[1]]]);
+      // AND THE APPROVAL'S TABLE IS MADE HERE, EMPTY, so that approving is one
+      // statement. It cannot be a `create` against this store today: the store
+      // this restored was built from the PREVIOUS carriers and loadStoreDb
+      // refuses a database whose composition is not the module's -- correctly,
+      // since the module beside it is now the one built from the CHANGED
+      // readings. The row is the same row a create would write.
+      wrote.push({ ft: l.ft, target, mig, dc, text, domain: dom ? dom[1] : null, tbl: w.make("UserApprovesDomainChange", 2) });
+    }
+  })();
+  back.run("pragma wal_checkpoint(TRUNCATE)");
+  back.close();
+  for (const p of wrote) {
+    console.error("PROPOSED (unapproved) " + p.dc + ": " + p.mig + " from " + p.ft + " to " + p.target);
+    console.error("    Migration Rule Text: " + p.text);
+    if (!p.domain) console.error("    no Domain Change targets Domain row: the store does not say which Domain " + p.target + " belongs to");
+    console.error("    approve it (exactly one User: a committee is not a throat), then rebuild:");
+    console.error('      sqlite3 "' + dbp + "\" \"insert into " + p.tbl + " values('\\\"<your user id>\\\"','\\\"" + p.dc + "\\\"')\"");
+  }
+  for (const u of unproposed) console.error("NOT PROPOSED -- " + u);
+  if (wrote.length) console.error("Read the Rationale and the Migration Rule Text before approving: `User approves Domain Change` is the fact that lets this build carry those rows, and nothing else does.");
   console.error("store.db RESTORED to what it was. Write the Migration, or rebuild with AREST_MIGRATE=allow-loss.");
   process.exit(1);
+}
+
+// THE APPROVED MIGRATIONS, RUN. Only reached when nothing is owed, so the store
+// this writes into is the one that stays.
+let migRows = 0;
+if (applied.length) {
+  const mdb = new Database(dbp);
+  const w = writerFor(mdb);
+  const t0 = Date.now();
+  let n = 0;
+  mdb.transaction(() => {
+    for (const a of applied) {
+      w.put(a.target, a.produced.map((r) => (Array.isArray(r) ? r.map(flat) : [flat(r)])));
+      migRows += a.produced.length;
+      // one Migration Application per source fact (core.md #349), each with its
+      // own Timestamp -- the deontic `for each Timestamp, at most one Migration
+      // Application has that Timestamp` is why they are spaced by one ms rather
+      // than all stamped with the run's clock. A Fact is identified by the fact
+      // type it is of and the row it is, which is the only identity a stored row
+      // has and is stable across replays, as the ordering obligation needs.
+      for (let i = 0; i < a.src.length; i++) {
+        const ma = "migration-application-" + a.mig + "-" + (i + 1);
+        const from = a.ft + "#" + JSON.stringify(a.src[i]);
+        const to = a.target + "#" + JSON.stringify(Array.isArray(a.produced[i]) ? a.produced[i].map(flat) : [flat(a.produced[i])]);
+        w.put("MigrationApplicationHasMigration", [[ma, a.mig]]);
+        w.put("MigrationApplicationHasTimestamp", [[ma, new Date(t0 + n++).toISOString()]]);
+        w.put("MigrationApplicationHasFactAsSource", [[ma, from]]);
+        w.put("MigrationApplicationProducesFact", [[ma, to]]);
+      }
+      w.put("DomainChangeIsApplied", [[a.dc]]);
+    }
+  })();
+  mdb.run("pragma wal_checkpoint(TRUNCATE)");
+  mdb.close();
+  for (const a of applied) {
+    console.error("MIGRATED " + a.src.length + " row(s) from " + a.ft + " to " + a.target +
+      " by " + a.mig + " (" + JSON.stringify(a.recipe) + "), approved by " + a.user +
+      " on " + a.dc + ", now applied.");
+  }
 }
 
 // NOTHING IS OWED, SO CARRY THE SURVIVORS BACK. Only reached when the build
@@ -456,6 +689,13 @@ if (carry.length) {
   const back = new Database(dbp);
   back.transaction(() => {
     for (const c of carry) {
+      // a fact type the readings declare and this build gave no row: its table
+      // is made here, and _meta gets the row, or loadStoreDb would never read it
+      if (c.make) {
+        const cols = Array.from({ length: c.arity }, (_, i) => '"c' + i + '"');
+        back.run("create table if not exists " + c.tbl + " (" + cols.map((x) => x + " text").join(",") + ", primary key (" + cols.join(",") + "))");
+        back.prepare("insert into _meta values(?,?,?,?)").run(c.ft, "rel", c.tbl, c.arity);
+      }
       if (c.isFunc) {
         const upd = back.prepare('update "' + c.tbl + '" set "' + c.ft + '"=? where k=?');
         const ins = back.prepare('insert into "' + c.tbl + '" (k, "' + c.ft + '") values(?,?)');
@@ -485,4 +725,5 @@ console.error("store.db: " + (statSync(dbp).size / 1024).toFixed(0) + " KB (" + 
   (priorRows.size ? " [" + carried + " prior row(s) accounted for" +
     (superseded ? ", " + superseded + " superseded by the readings" : "") +
     (carried2 ? ", " + carried2 + " carried" : "") +
-    (lost.length ? ", " + lost.reduce((a, l) => a + l.gone.length, 0) + " DROPPED by AREST_MIGRATE=allow-loss" : "") + "]" : ""));
+    (migRows ? ", " + migRows + " migrated by " + applied.length + " approved Migration(s)" : "") +
+    (stillLost.length ? ", " + stillLost.reduce((a, l) => a + l.gone.length, 0) + " DROPPED by AREST_MIGRATE=allow-loss" : "") + "]" : ""));

@@ -213,7 +213,34 @@ It is obligatory that each Domain Change has exactly one Rationale.
      carries it, since Migration is a subtype of Function, which is exactly
      the openness the ontology-lens comment above was written for -- and
      applying one is a Domain Change being applied, so it arrives here. -->
-It is obligatory that each applied Domain Change is approved by exactly one Human.
+<!-- AND IT IS STATED AGAINST THE TYPE THAT PLAYS THE ROLE (2026-09-17).
+     `Human` plays no role in any fact type - it is a bare Object Type
+     Instance subtype beside Organization and Agent (core.md:242) - so the
+     obligation named a type the approval fact does not mention, and NORMA
+     refuses it by name. It was carried by nothing: state:deontics had no
+     row for it, so the gate that this whole comment is about was enforced
+     NOWHERE. `User approves Domain Change` is the fact, and `User` is what
+     plays its first role, so that is the type the cardinality is about.
+     It is spelled in the `For each X, exactly one Y ...` form the
+     metamodel already uses for a cardinality (core.md:555), because that
+     is the form whose body restates the reading and therefore the one
+     both readers resolve. KNOWN AND STATED: the for-each head's `applied`
+     qualifier is not carried - the rows say it of every Domain Change,
+     which is stronger than the sentence and never weaker, and narrowing
+     it to the applied ones is a join the deontic row shape has no legs
+     for.
+     `exactly one` is unchanged and is still the ruling - a committee is not
+     a throat - and the reader now carries it: DEO:m on the Domain Change
+     role (every applied change has an approval) and DEO:u on it (no second
+     approver), which is the pair an `exactly one` deontic reads as.
+     WHAT THIS GIVES UP, said rather than lost: `Human` also said an Agent
+     may not sign off its own rewrite, and User being a role over the mixin
+     means an Agent may be a User. That half was never enforced either, and
+     it is a question about WHICH Object Type Instance the approving User
+     is - a join through `User is a role of Object Type Instance` - not
+     about how many there are. It belongs in its own sentence, against a
+     fact type that carries it, and is not smuggled into a cardinality. -->
+It is obligatory that for each applied Domain Change, exactly one User approves that Domain Change.
 
 ## Ring Constraints
 
