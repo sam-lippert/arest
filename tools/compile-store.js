@@ -234,6 +234,25 @@ if (existsSync(dbp)) {
   }
 }
 
+// A TABLE THE STORE ALREADY HAS IS NOT DROPPED BECAUSE THE READINGS STOPPED
+// PRODUCING ROWS FOR IT (2026-09-17). The classification above materializes a
+// fact type only when the readings give it rows, which is right for a FIRST
+// build and wrong for every one after: a Support Request created at runtime is
+// the only row SupportRequestHasSubject has, the readings have none, so the
+// rebuild materialized nothing for it and the gate below read that as `no
+// longer materialized` -- a shape change, a Migration nobody can write -- and
+// refused the rebuild of a store whose readings had not moved at all. The fact
+// type is still DECLARED and still says the same thing; what is empty is the
+// carriers' half of its population. So a relation table the previous database
+// carried is created again, empty, with its own arity, and the rows the runtime
+// wrote are carried into it like any other. A fact type the readings no longer
+// declare is NOT revived: that one is a real migration, and the gate says so.
+const priorArity = new Map();
+for (const m of priorMeta) if (m.kind === "rel") priorArity.set(m.ft, m.arity);
+const declared = new Set(ftnames);
+const already = new Set(rel);
+for (const [ft] of priorArity) if (declared.has(ft) && !already.has(ft) && !funcCol[ft]) rel.push(ft);
+
 try { unlinkSync(dbp); } catch {}
 try { unlinkSync(dbp + "-wal"); } catch {}
 const db = new Database(dbp);
@@ -268,7 +287,7 @@ const mins = db.prepare("insert into _meta values(?,?,?,?)");
 for (const ft of ftnames) if (funcCol[ft]) mins.run(ft, "func", ft, 2);
 const relTbl = {};                           // ft -> its relation table
 for (const ft of rel) {
-  const pop = popof[ft], ar = Array.isArray(pop[0]) ? pop[0].length : 1;
+  const pop = popof[ft], ar = Array.isArray(pop[0]) ? pop[0].length : (priorArity.get(ft) || 1);
   const tbl = "r" + Math.abs([...ft].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7));
   relTbl[ft] = tbl;
   const cols = Array.from({ length: ar }, (_, i) => '"c' + i + '"');

@@ -3076,22 +3076,77 @@ function loadStoreDb(path) {
     .map((r) => r.name).filter((n) => n[0] !== "_" && !relTbls.has(n));
   const tableOfCol = new Map();
   for (const t of entTbls) for (const c of db.query("select name from pragma_table_info('" + t.replace(/'/g, "''") + "')").all()) if (c.name !== "k") tableOfCol.set(c.name, t);
+  // AND A ROW WRITTEN AT RUNTIME IS NOT THE ROW THE BUILD ASSERTED (2026-09-17).
+  // Two of the store's homes are spliced into the module at BUILD time and are
+  // not projections of these tables: state:fts, the source every reader that
+  // goes through a DESCRIPTOR consults (store:fts, and so rmap:keyvals and
+  // main:table_rows), and state:otpops, the design-state cell ui:ids answers
+  // from. The reconstruction below fills neither, so a restart put the store
+  // back as the readings left it for both: sr-alpha-1's four facts read back
+  // through system:pop_rows while `get sr-alpha-1` answered # and GET /Request
+  // listed no rows.
+  //
+  // WHICH rows the store added is this loader's question and compile-store's
+  // _asserted ledger answers it: every row that build wrote is in it, so a
+  // stored row the ledger lacks was written at runtime and is exactly what the
+  // carriers cannot know. A fact type with such a row is carried into the
+  // source whole (store:src_all, through main:cf_store -- the writer a commit
+  // uses); one the build asserted and nothing has touched since is left exactly
+  // as the carriers have it, so a store with no runtime rows loads byte for byte
+  // as it did. What either write MEANS is canon's: nothing here builds a
+  // descriptor or a population cell itself.
+  const OTPOPS_FT = "ObjectTypeInstanceIsInstanceOfObjectType";
+  let ledger = null;
+  try {
+    ledger = new Map();
+    for (const r of db.query("select ft, row from _asserted").all()) {
+      if (!ledger.has(r.ft)) ledger.set(r.ft, new Set());
+      ledger.get(r.ft).add(r.row);
+    }
+  } catch { ledger = null; }
+  // A DATABASE WITH NO LEDGER SAYS NOTHING, so nothing is carried and the boot
+  // is the one before this change. compile-store reads the same absence the
+  // other way -- every row is runtime, which is the safe reading when the
+  // question is what would be LOST -- and here the safe reading is the opposite:
+  // rewriting every source population from the tables would reorder rows no one
+  // has touched. Only a database written between the composition stamp and the
+  // ledger can be in this state, and the stamp refuses every older one.
+  const moved = [];                                    // <ft, rows> for every fact type the runtime wrote
+  const runtimeInst = [];                              // the instance rows the runtime wrote
   const recon = [];
   for (const m of meta) {
+    let raw, rows;
     if (m.kind === "func") {
       const T = tableOfCol.get(m.tbl) || "Function";   // m.tbl is the column name (= ft)
-      const rows = db.query('select k, "' + m.tbl + '" v from "' + T + '" where "' + m.tbl + '" is not null order by rowid').all();
-      recon.push(["CELL", m.ft, rows.map((r) => [JSON.parse(r.k), JSON.parse(r.v)])]);
+      raw = db.query('select k, "' + m.tbl + '" v from "' + T + '" where "' + m.tbl + '" is not null order by rowid').all();
+      rows = raw.map((r) => [JSON.parse(r.k), JSON.parse(r.v)]);
     } else {
-      const rows = db.query("select * from " + m.tbl + " order by rowid").all();
-      recon.push(["CELL", m.ft, rows.map((r) => { const t = []; for (let i = 0; i < m.arity; i++) t.push(JSON.parse(r["c" + i])); return t; })]);
+      raw = db.query("select * from " + m.tbl + " order by rowid").all();
+      rows = raw.map((r) => { const t = []; for (let i = 0; i < m.arity; i++) t.push(JSON.parse(r["c" + i])); return t; });
     }
+    recon.push(["CELL", m.ft, rows]);
+    if (!ledger) continue;
+    const built = ledger.get(m.ft) || new Set();
+    let runtime = 0;
+    for (let i = 0; i < raw.length; i++) {
+      if (built.has(JSON.stringify(Object.values(raw[i])))) continue;
+      runtime++;
+      if (m.ft === OTPOPS_FT) runtimeInst.push(rows[i]);
+    }
+    if (runtime) moved.push([m.ft, rows]);
   }
   db.close();
   const names = new Set(recon.map((c) => c[1]));
   for (let i = CELLS.length - 1; i >= 0; i--) if (Array.isArray(CELLS[i]) && names.has(CELLS[i][1])) CELLS.splice(i, 1);
   for (let i = recon.length - 1; i >= 0; i--) CELLS.unshift(recon[i]);
   memoClear();
+  if (moved.length) { adoptStore(Ev("store:src_all", [moved, CELLS])); }
+  if (runtimeInst.length) {
+    const cell = Ev("store:otpops", [runtimeInst, CELLS]);
+    for (let i = CELLS.length - 1; i >= 0; i--) if (Array.isArray(CELLS[i]) && CELLS[i][1] === "state:otpops") CELLS.splice(i, 1);
+    CELLS.unshift(["CELL", "state:otpops", cell]);
+    memoClear();
+  }
 }
 
 function loadFile() {

@@ -406,6 +406,95 @@ test("a write reaches the tables, and a store with no tables keeps it in memory"
   }
 }, 120_000);
 
+// ---- IS AN INSTANCE CREATED AT RUNTIME STILL ONE AFTER A BOOT FROM TABLES? -
+//
+// That a row READS BACK is the test above; that the store still knows WHAT it
+// is, is this one, and the two came apart. `Object Type Instance is instance of
+// Object Type` and `Object Type Instance has Reference` (metamodel/instances.md
+// 188 and 231) are facts like any other, and the create wrote neither: it
+// registered the new id in state:otpops, a design-state cell spliced into the
+// module at BUILD time, and nothing else. So the write emitted its own fact into
+// the tables, the next boot read it back through system:pop_rows, and ui:ids --
+// which the mandatory check, the entry screen and main:status_base all ask --
+// answered the population the readings had, without it. Measured 2026-09-16 on
+// support.auto.dev: `create` answered committed, `get sr-alpha-1` answered the
+// row, and after a restart the same call answered `#` with the four facts still
+// in store.db.
+//
+// THE LEDGER IS SEEDED HERE THE WAY compile-store.js SEEDS IT: a fixture whose
+// _asserted holds every row the tables had BEFORE the write under test is a
+// fixture where exactly that write is the runtime one, which is what the loader
+// has to be able to tell. An empty ledger would test the same path with every
+// row of every population looking new.
+test("an instance created at runtime is listed after a boot from the tables", () => {
+  const stamp = globalThis.AREST.composition;
+  const dir = mkdtempSync(join(tmpdir(), "arest-inst-"));
+  const mod = join(import.meta.dir, "cases.g.js");
+  const FT = "StreamHasName";
+  const PRIME = "probe-prime-" + Math.random().toString(36).slice(2, 8);
+  const KEY = "probe-inst-" + Math.random().toString(36).slice(2, 8);
+
+  const path = join(dir, "inst.db");
+  const db0 = new Database(path);
+  db0.run("create table _meta (ft text, kind text, tbl text, arity int)");
+  db0.run("create table _composition (hash text)");
+  db0.prepare("insert into _composition values(?)").run(stamp);
+  db0.run("create table _asserted (ft text, row text, primary key (ft, row)) without rowid");
+  db0.run("pragma wal_checkpoint(TRUNCATE)");
+  db0.close();
+
+  const driver = join(dir, "drive.mjs");
+  writeFileSync(driver, [
+    "await import(process.env.MODULE);",
+    "const { Ev, CELLS, popSnapshot, adoptStore, emitToDb } = globalThis.AREST;",
+    "if (process.env.WRITE) {",
+    "  const before = popSnapshot(CELLS);",
+    "  const out = Ev('main:api', [CELLS, 'POST', process.env.FT, '', [process.env.WRITE, 'probe-name']]);",
+    "  if (out.length > 2) { adoptStore(out[2]); if (Number(out[1]) < 400) emitToDb(before, CELLS); }",
+    "  console.log('status ' + out[1]);",
+    "} else {",
+    "  const flat = (v) => { let x = v; while (Array.isArray(x)) x = x.length ? x[0] : null; return x; };",
+    "  const ot = String(flat(Ev('main:cr_players', [CELLS, process.env.FT])[0]));",
+    "  const inst = Ev('system:pop_rows', ['ObjectTypeInstanceIsInstanceOfObjectType', CELLS]);",
+    "  console.log('type ' + ot);",
+    "  console.log('fact ' + inst.some((r) => String(flat(r[0])) === process.env.KEY && String(flat(r[1])) === ot));",
+    "  console.log('listed ' + Ev('ui:ids', [CELLS, ot]).some((i) => String(flat(i)) === process.env.KEY));",
+    "  console.log('row ' + Ev('system:pop_rows', [process.env.FT, CELLS]).some((r) => String(flat(r[0])) === process.env.KEY));",
+    "}",
+  ].join("\n"));
+
+  const run = (write) => {
+    const env = { ...process.env, MODULE: pathToFileURL(mod).href, FT, KEY, AREST_STORE_DB: path };
+    if (write) env.WRITE = write; else delete env.WRITE;
+    const p = Bun.spawnSync(["bun", driver], { env, stdout: "pipe", stderr: "pipe" });
+    return p.stdout.toString() + p.stderr.toString();
+  };
+
+  try {
+    // the fixture's own build: one write, then every row it left is the ledger's
+    expect(run(PRIME)).toContain("status 201");
+    const db1 = new Database(path);
+    const ains = db1.prepare("insert or ignore into _asserted values(?,?)");
+    db1.transaction(() => {
+      for (const m of db1.query("select ft, kind, tbl from _meta").all()) {
+        if (m.kind !== "rel") continue;
+        for (const r of db1.query("select * from " + m.tbl).all()) ains.run(m.ft, JSON.stringify(Object.values(r)));
+      }
+    })();
+    db1.run("pragma wal_checkpoint(TRUNCATE)");
+    db1.close();
+
+    // and now the write under test, in its own process, read back in a third
+    expect(run(KEY)).toContain("status 201");
+    const back = run(null);
+    expect(back).toContain("fact true");     // the instance fact reached the tables
+    expect(back).toContain("listed true");   // and the loaded store knows the id is one
+    expect(back).toContain("row true");      // the fact it was created with is there too
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 180_000);
+
 // ---- IS EACH CANON FILE STILL INTERSECTION SOURCE? -------------------------
 //
 // The discipline: one tuple literal per file, every element either a
