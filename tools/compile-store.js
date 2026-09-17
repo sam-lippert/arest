@@ -258,7 +258,19 @@ const declared = new Set(ftnames);
 const already = new Set(rel);
 for (const [ft] of priorArity) if (declared.has(ft) && !already.has(ft) && !funcCol[ft]) rel.push(ft);
 
-try { unlinkSync(dbp); } catch {}
+// A LOCK IS A LOCK, NOT A SCHEMA ERROR (2026-09-17). This swallowed the failed
+// unlink, so a store held open by a serving process survived, and the CREATE
+// TABLE below then threw `table "App" already exists` -- a message about the
+// schema for a fault that is a file handle, which cost the support session an
+// afternoon. bun releases a sqlite handle at process exit and not before, so
+// the holder has to stop; say so, and name the file.
+try { unlinkSync(dbp); } catch (e) {
+  if (existsSync(dbp)) {
+    console.error("cannot remove " + dbp + ": a process still holds it open (" + (e.code || e.message) + ").");
+    console.error("  A serving process keeps the sqlite handle until it exits. Stop this app's server and run again.");
+    process.exit(1);
+  }
+}
 try { unlinkSync(dbp + "-wal"); } catch {}
 const db = new Database(dbp);
 

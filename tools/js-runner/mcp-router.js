@@ -27,7 +27,7 @@
 // router serves none (#117 (5)). prompts/list and prompts/get are answered by
 // the first app whose canon carries the patterns, since they are the
 // metamodel's, not an app's.
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -118,6 +118,10 @@ class Resident {
     const child = spawn("bun", [join(here, "build.js"), "mcp", "--run"], {
       env: { ...process.env, AREST_CARRIERS: this.dir, AREST_OUT_DIR: this.dir, AREST_STORE_DB: this.dir + "/store.db" },
       stdio: ["pipe", "pipe", "pipe"],
+      // its own process group where a group can be signalled, so stop() below
+      // can reach the whole tree; on Windows detached would open a console, and
+      // taskkill /T walks the tree instead.
+      detached: process.platform !== "win32",
     });
     this.child = child;
     child.stdout.setEncoding("utf8");
@@ -140,13 +144,27 @@ class Resident {
   }
   // stop the server: a rebuild needs store.db, which a serving process holds
   // open (bun releases a sqlite handle at process exit, not before)
+  // KILL THE TREE, NOT THE CHILD (2026-09-17). `bun` here is a shim that
+  // execs the real binary, so the process that opens store.db is this child's
+  // OWN child. child.kill() signals the direct child, the grandchild is
+  // orphaned, and it keeps the sqlite handle -- exactly what the note above
+  // says must not happen. Measured: four orphans held support's store from
+  // 10:05, every apps_compile on it failed, and compile-store reported the
+  // lock as `table "App" already exists` because it swallowed the failed
+  // unlink. Synchronous on purpose: compile() rebuilds immediately after, and
+  // a kill still in flight is the same defect with a shorter window.
   stop(why) {
     const child = this.child;
     this.child = null;
     this.state = "stopped";
     for (const [, p] of this.pending) p.reject(new Error(this.name + ": " + why));
     this.pending.clear();
-    if (child) try { child.kill(); } catch {}
+    if (!child) return;
+    try {
+      if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+      else process.kill(-child.pid, "SIGKILL");         // the group spawn() detached it into
+    } catch { /* already gone, or never started */ }
+    try { child.kill(); } catch {}
   }
   onData(chunk) {
     this.buf += chunk;
