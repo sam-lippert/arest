@@ -1583,7 +1583,19 @@ namespace Arest.NormaOracle
 					myStoredDerived.Add(myLastFact);
 				}
 			}
-			if (s.Contains(" or some ") || s.Contains(" or that ") || s.Contains(" or is "))
+			// A QUOTED VALUE IS A VALUE, WHATEVER WORDS ARE INSIDE IT (2026-09-16).
+			// This tested the whole sentence with a naked Contains, so
+			// `Verbalization Pattern 'mandatory-disjunctive' has Pattern Form 'For
+			// each A, some B R that A or some C S that A.'.` was filed as a textual
+			// constraint with no direct construction and its ROW was dropped from
+			// every store this oracle writes -- the role is mandatory, so every
+			// write to every such store was refused with a fourth violation about a
+			// verbalization pattern it had never mentioned. The connective has to be
+			// OUTSIDE the quotes to be a connective, which is the same rule
+			// SplitDisjunction already applies to a rule body; the prefix here is
+			// non-quote characters and whole quoted spans, so a match can only land
+			// where no quote is open.
+			if (Regex.IsMatch(s, @"^(?:[^']|'[^']*')*?( or some | or that | or is )"))
 			{
 				myTextual.Add(new KeyValuePair<string, string>("disjunctive", s));
 				return;
