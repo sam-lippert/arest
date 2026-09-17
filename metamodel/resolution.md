@@ -62,6 +62,7 @@ Operation 'synthesize' is overridable.
 Operation 'apps_compile' is overridable.
 Operation 'verify' is overridable.
 Operation 'validate' is overridable.
+Operation 'create' is overridable.
 Operation 'apply' is overridable.
 Operation 'retract' is overridable.
 Operation 'get' is overridable.
@@ -119,6 +120,24 @@ Function 'orient' accepts Type Expression 'name-and-cells'.
 Function 'orient' yields Type Expression 'orientation-rows'.
 Function 'tutor' accepts Type Expression 'name-and-cells'.
 Function 'tutor' yields Type Expression 'tutorial-text'.
+<!-- AND THE ONE THAT WRITES (2026-09-16). Every verb above reads, so the
+     served verb surface had no way to make a fact at all: a Support Request
+     has three mandatory roles and is therefore only sayable as a whole ROW,
+     and the only address that took one was an HTTP POST to its collection.
+     `apply` cannot be that verb -- it is the mu's own apply combinator,
+     registered below with the shape it has always had, and a canon cell of
+     that name would shadow the combinator everywhere in canon. `create` is
+     the name the model itself uses for the write (an app's authorization
+     readings say `Operation 'create' on Protected Resource 'Support
+     Request'`), so that is the Operation declared here. It takes ONE
+     argument, the row -- the entity whole, its fact types naming its values
+     and the pair named for the collection carrying the id -- and answers
+     what Theorem 1 says a transition answers: the outcome AND the successor
+     store. `row-and-cells` is a new type expression over a construction
+     main:verb_pair already builds, the argument beside the cells, so the
+     route needed the map row and no new arm. -->
+Function 'create' accepts Type Expression 'row-and-cells'.
+Function 'create' yields Type Expression 'outcome-and-store'.
 <!-- MEASURED 2026-09-11, which is the condition the note these replace set.
      It said derive "reads its first element as a sequence, so it answers to
      <[], populations> and throws on the empty argument an address of one
