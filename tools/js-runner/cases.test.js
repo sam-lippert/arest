@@ -970,3 +970,77 @@ describe("canon's reader against the witness, on the base metamodel", () => {
                  witnessUndelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"] });
   }, 300_000);
 });
+
+// ---- THE GENERAL CHAIN (the witness's @6042) ------------------------------
+//
+// The arms that landed with the compiler each know a shape: a two-leg join, a
+// star, a negation, a comparison. What none of them read is the body that is
+// simply a PATH -- `User accesses Domain if User owns Organization and App
+// belongs to that Organization and Domain belongs to that App` -- three legs
+// meeting at no one centre, which the witness walks as one chain and this arm
+// now walks too: each leg joined on every token it shares with what is already
+// joined, every column kept so the head stays addressable, a substituted
+// subtype joined with its own extent, a negated leg subtracted as an
+// anti-join, and the head read off the accumulator by token. The recipe trees
+// below are the witness's own, copied from the served apps' carriers
+// (.check/design-state): the three chains and the membership leg from
+// arest-dev, the anti-join from its `Fact Type is inert`.
+describe("canon's reader carries the witness's general chain", () => {
+  const META = join(import.meta.dir, "..", "..", "metamodel");
+  const TEMPLATES = join(import.meta.dir, "..", "..", "readings", "templates");
+  const order = (a, b) => (a === "core.md" ? "0" : a).localeCompare(b === "core.md" ? "0" : b);
+  const J = (x) => JSON.stringify(x);
+
+  function rulesOf(dirs) {
+    const rows = [];
+    for (const d of dirs) for (const f of readdirSync(d).filter((f) => f.endsWith(".md")).sort(order))
+      for (const s of Ev("read:sentences", readFileSync(join(d, f), "utf8"))) rows.push(Ev("read:row_of", s));
+    return Ev("read:state_rules", Ev("read:x_full", Ev("read:x_of", rows)));
+  }
+
+  test("the chain's pieces: every shared token is a key, a negation is an anti-join", () => {
+    // two legs sharing two tokens join on both, keyed on each token's first column
+    expect(Ev("read:rule_gchain_keys", [["User", "Organization", "App", "Organization"], ["App", "Organization"]]))
+      .toEqual([[3, 1], [2, 2]]);
+    expect(Ev("read:rule_gchain_keys", [["Authority", "Message", "Support Request", "Customer"], ["Customer", "Authority"]]))
+      .toEqual([[4, 1], [1, 2]]);
+    expect(Ev("read:rule_gchain_keys", [["Fact Type", "Derivation Mode"], ["Reading"]])).toEqual([]);
+    // a negated leg resolves positively and carries a flag
+    expect(Ev("read:rule_gchain_neg", ["Fact", "Type", "is", "not", "delivered"]))
+      .toEqual(["T", ["Fact", "Type", "is", "delivered"]]);
+    expect(Ev("read:rule_gchain_neg", ["Authority", "has", "no", "Supersession", "Date"]))
+      .toEqual(["T", ["Authority", "has", "Supersession", "Date"]]);
+    expect(Ev("read:rule_gchain_neg", ["it", "is", "not", "true", "that", "Operation", "is", "registered"]))
+      .toEqual(["T", ["Operation", "is", "registered"]]);
+    expect(Ev("read:rule_gchain_neg", ["App", "belongs", "to", "that", "Organization"]))
+      .toEqual(["F", ["App", "belongs", "to", "that", "Organization"]]);
+    // `Fact Type is inert iff Fact Type has some Derivation Mode and Fact Type is
+    // not delivered` (arest-dev/readings/build-surface.md), as arest-dev's carrier writes it
+    expect(J(Ev("read:rule_gchain_anti", ["FactTypeHasDerivationMode", ["Fact Type", "Derivation Mode"],
+                                          ["FactTypeIsDelivered", ["Fact Type"]]])))
+      .toBe(J(["minus", "FactTypeHasDerivationMode",
+               ["joinon", "FactTypeHasDerivationMode", "FactTypeIsDelivered", [[1, 1]], [1, 2]]]));
+    // a leg sharing nothing with the body would subtract everything or nothing
+    expect(Ev("read:rule_gchain_anti", ["FactTypeHasDerivationMode", ["Fact Type", "Derivation Mode"], ["ReadingIsPrimary", ["Reading"]]]))
+      .toEqual([]);
+  });
+
+  test("the reader walks the templates' chains as the witness does", () => {
+    const rules = rulesOf([META, TEMPLATES]);
+    const treesOf = (h) => rules.filter((r) => String(r[0]) === h).map((r) => J(r[2])).sort();
+    // three arms of one head, each a three-leg path (arest-dev/.check/design-state)
+    expect(treesOf("UserAccessesDomain")).toEqual([
+      ["UserAdministersOrganization", "UserBelongsToOrganization", "UserOwnsOrganization"].map((first) =>
+        J(["proj", ["joinon", ["joinon", first, "AppBelongsToOrganization", [[2, 2]], [1, 2, 3, 4]],
+                    "DomainBelongsToApp", [[3, 2]], [1, 2, 3, 4, 5, 6]], [1, 5]])),
+    ].flat().sort());
+    // `App displays Object Type if App navigates Domain and Object Type belongs to
+    // that Domain`: the second leg only resolves through the declared supertype
+    // (Function belongs to Domain), so the subtype's extent is joined on the
+    // substituted column and only the accumulator's own columns are kept
+    expect(treesOf("AppDisplaysObjectType")).toEqual([
+      J(["proj", ["joinon", ["joinon", "AppNavigatesDomain", "FunctionBelongsToDomain", [[2, 2]], [1, 2, 3, 4]],
+                  ["sel", "ObjectTypeInstanceIsInstanceOfObjectType", 2, "Object Type"], [[3, 1]], [1, 2, 3, 4]], [1, 3]]),
+    ]);
+  }, 300_000);
+});
