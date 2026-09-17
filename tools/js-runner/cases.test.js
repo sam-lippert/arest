@@ -1473,3 +1473,174 @@ describe("canon's state:setcmp against the witness, on the base metamodel", () =
     expect(names[names.length - 1]).toBe("state:setcmp");
   }, 600_000);
 });
+
+// ---- THE NAMED SHAPES THE GENERAL CHAIN COULD NOT SAY ----------------------
+//
+// Each fixture is one app sentence with just the vocabulary it names, and each
+// expectation is the recipe the oracle's own carrier holds for that head
+// (apps/auto.dev/.check/design-state and apps/support.auto.dev/.check, state:rules),
+// copied tree for tree rather than restated. A fixture is a corpus, not a unit:
+// what is being tested is that the whole reader answers the sentence, so a shape
+// that moves to another arm keeps its test.
+describe("canon's reader carries the chain's named shapes", () => {
+  const J = (x) => JSON.stringify(x);
+  const rulesOf = (text) => {
+    const rows = [];
+    for (const s of Ev("read:sentences", text)) rows.push(Ev("read:row_of", s));
+    return Ev("read:state_rules", Ev("read:x_full", Ev("read:x_of", rows)));
+  };
+
+  // A ROLE NAME QUALIFIES THE VARIABLE. `override- Fetcher` and `default- Fetcher`
+  // are two Fetchers, and the tokens have to say so: matching on the player alone
+  // made the anti-join carry a second key [[2,1],[6,2]] where the oracle carries
+  // [[2,1]], subtracting the rows whose default Fetcher happened to equal the
+  // override one rather than the rows that have an override at all.
+  // (apps/auto.dev/source-routing.md:155)
+  const ROUTING = [
+    "Source Request(.id) is an entity type.",
+    "Resource Declaration(.Name) is an entity type.",
+    "Source Declaration(.Name) is an entity type.",
+    "Fetcher(.Name) is an entity type.",
+    "Source Service(.Name) is an entity type.", "",
+    "Source Request is for Resource Declaration.",
+    "Source Request is for Source Declaration.",
+    "Resource Declaration has override- Fetcher.",
+    "Source Declaration has default- Fetcher.",
+    "Source Declaration is captcha-gated.",
+    "Source Request is to Source Service. +",
+    "Source Request is routed via Fetcher. +", "", "",
+  ].join("\n");
+
+  test("a leg's role name is part of its token, so two Fetchers do not join", () => {
+    const text = ROUTING + "+ Source Request is routed via Fetcher if Source Request is for some Resource Declaration and that Resource Declaration has no override- Fetcher and Source Request is for some Source Declaration and that Source Declaration has default- Fetcher.\n";
+    const legs = ["SourceRequestIsForResourceDeclaration", "SourceRequestIsForSourceDeclaration"];
+    const both = ["joinon", ["joinon", legs[0], legs[1], [[1, 1]], [1, 2, 3, 4]], "SourceDeclarationHasDefaultFetcher", [[4, 1]], [1, 2, 3, 4, 5, 6]];
+    expect(rulesOf(text).map((r) => J(r))).toEqual([
+      J(["SourceRequestIsRoutedViaFetcher", ["Source Request", "Fetcher"],
+         ["proj", ["minus", both, ["joinon", both, "ResourceDeclarationHasOverrideFetcher", [[2, 1]], [1, 2, 3, 4, 5, 6]]], [1, 6]]]),
+    ]);
+  }, 300_000);
+
+  // the pieces: the prefix is the role name written before the player, the token
+  // carries it, and a head token finds its column qualified before bare
+  test("the role-qualified token and the three passes that place it", () => {
+    const w = (s) => Ev("lex:qparts", s);
+    expect(Ev("read:rule_gchain_rq", [w("Noun is backed by primary- External System"), ["Noun", "External System"]]))
+      .toEqual(["Noun", "primary- External System"]);
+    expect(Ev("read:rule_gchain_rq", [w("Noun is backed by External System"), ["Noun", "External System"]]))
+      .toEqual(["Noun", "External System"]);
+    // a hyphen inside a name is not a role name: the segment before it is capitalised
+    expect(Ev("read:rule_gchain_rq", [w("Log Entry concerns EEA-Customer"), ["Log Entry", "Customer"]]))
+      .toEqual(["Log Entry", "Customer"]);
+    // and a role name may itself be hyphenated
+    expect(Ev("read:rule_gchain_rq", [w("Vehicle Purchase Quote has taxable-base- Amount"), ["Vehicle Purchase Quote", "Amount"]]))
+      .toEqual(["Vehicle Purchase Quote", "taxable-base- Amount"]);
+    expect(Ev("read:rule_gchain_bare", "taxable-base- Amount")).toBe("Amount");
+    expect(Ev("read:rule_gchain_bare", "External System")).toBe("External System");
+    // qualified first, then bare, then the leg whose role name the head omits
+    expect(Ev("read:rule_gchain_col", ["alternate- External System", ["Noun", "primary- External System", "alternate- External System"]])).toBe(3);
+    expect(Ev("read:rule_gchain_col", ["Fetcher", ["Source Request", "Source Declaration", "default- Fetcher"]])).toBe(3);
+    expect(Ev("read:rule_gchain_col", ["Reading", ["Noun", "External System"]])).toBe(0);
+  });
+
+  // THE SAME RULE, READ THE OTHER WAY: here the HEAD names the role and the body
+  // binds two External Systems, so the head's own token has to be the qualified
+  // one -- matching on the player alone took the first leg, which is the DEGRADED
+  // primary, the exact opposite of what the reading says.
+  // (apps/auto.dev/service-health.md:180)
+  test("a head that names the role takes the leg that names it", () => {
+    const text = [
+      "Noun(.id) is an entity type.",
+      "External System(.Name) is an entity type.",
+      "Service Health Status is a value type.", "",
+      "Noun is backed by External System.",
+      "External System has Service Health Status.",
+      "Noun is resolved from alternate- External System. +", "",
+      "+ Noun is resolved from alternate- External System if Noun is backed by primary- External System and that primary- External System has Service Health Status 'degraded' and Noun is backed by that alternate- External System.\n",
+    ].join("\n");
+    expect(rulesOf(text).map((r) => J(r))).toEqual([
+      J(["NounIsResolvedFromAlternateExternalSystem", ["Noun", "External System"],
+         ["proj", ["sel", ["joinon", ["joinon", "NounIsBackedByExternalSystem", "ExternalSystemHasServiceHealthStatus", [[2, 1]], [1, 2, 3, 4]],
+                           "NounIsBackedByExternalSystem", [[1, 1]], [1, 2, 3, 4, 5, 6]], 4, "degraded"], [1, 6]]]),
+    ]);
+  }, 300_000);
+
+  // A CLAUSE KEEPS ITS ARTICLES WHERE THE READING DROPS THEM. `that Customer
+  // exceeds the Concurrency Ceiling of some API` is the declared `Customer exceeds
+  // Concurrency Ceiling of API`, and ResolveClause drops `a`, `an` and `the` from
+  // both sides before comparing; canon keyed on the words as written and the
+  // clause named no fact type, so the whole rule declined.
+  // (apps/auto.dev/api-use-cases.md:108)
+  test("a clause resolves with its articles dropped", () => {
+    const text = [
+      "Integration(.id) is an entity type.",
+      "Customer(.Name) is an entity type.",
+      "Use Case(.Name) is an entity type.",
+      "API(.Name) is an entity type.",
+      "Concurrency Ceiling is a value type.", "",
+      "Integration is for Customer.",
+      "Integration is for Use Case.",
+      "Use Case requires API.",
+      "Customer exceeds Concurrency Ceiling of API. *",
+      "Integration is capacity bound. *", "",
+      "* Integration is capacity bound iff Integration is for some Customer and Integration is for some Use Case and that Customer exceeds the Concurrency Ceiling of some API and that Use Case requires that API.\n",
+    ].join("\n");
+    expect(rulesOf(text).map((r) => J(r))).toEqual([
+      J(["IntegrationIsCapacityBound", ["Integration"],
+         ["proj", ["joinon", ["joinon", ["joinon", "IntegrationIsForCustomer", "IntegrationIsForUseCase", [[1, 1]], [1, 2, 3, 4]],
+                              "CustomerExceedsConcurrencyCeilingOfAPI", [[2, 1]], [1, 2, 3, 4, 5, 6, 7]],
+                   "UseCaseRequiresAPI", [[4, 1], [7, 2]], [1, 2, 3, 4, 5, 6, 7, 8, 9]], [1]]]),
+    ]);
+  }, 300_000);
+
+  // the four keys read:rule_find tries, in order, against one index
+  test("the entry a clause names, keyed four ways", () => {
+    const IX = [
+      ["Noun Is Backed By External System", "NounIsBackedByExternalSystem", ["Noun", "External System"]],
+      ["Customer Exceeds Concurrency Ceiling Of API", "CustomerExceedsConcurrencyCeilingOfAPI", ["Customer", "API"]],
+      ["Resource Declaration Has Override Fetcher", "ResourceDeclarationHasOverrideFetcher", ["Resource Declaration", "Fetcher"]],
+      ["Log Entry Concerns EEA Customer", "LogEntryConcernsEEACustomer", ["Log Entry", "EEA Customer"]],
+    ];
+    const find = (s) => Ev("read:rule_find", [IX, Ev("read:rule_dequant", Ev("lex:qparts", s))]);
+    expect(find("Noun is backed by External System")).toEqual(IX[0].slice(1));
+    expect(find("Noun is backed by that alternate- External System")).toEqual(IX[0].slice(1));
+    expect(find("that Customer exceeds the Concurrency Ceiling of some API")).toEqual(IX[1].slice(1));
+    // a role name a READING declares still resolves as itself: the literal key wins
+    expect(find("that Resource Declaration has override- Fetcher")).toEqual(IX[2].slice(1));
+    // and a hyphen inside a name is not a role name
+    expect(find("Log Entry concerns EEA-Customer")).toEqual(IX[3].slice(1));
+    expect(find("Noun is backed by Reading")).toEqual([]);
+  });
+
+  // A HEAD ROLE MAY BE A CONSTANT AFTER A CHAIN. `Source Request is to Source
+  // Service 'svc.do' if ...` binds one head role from the body and names the other
+  // outright, so the bound role projects, the literal is paired on, and a final
+  // proj puts the two back in the head's order. The chain arm declined any head
+  // carrying a literal outright. (apps/auto.dev/source-routing.md:161)
+  test("a head role a literal restricts is paired on after the chain", () => {
+    const text = ROUTING + "+ Source Request is to Source Service 'svc.do' if Source Request is for Source Declaration that is captcha-gated.\n";
+    expect(rulesOf(text).map((r) => J(r))).toEqual([
+      J(["SourceRequestIsToSourceService", ["Source Request", "Source Service"],
+         ["proj", ["pairwith", ["proj", ["joinon", "SourceRequestIsForSourceDeclaration", "SourceDeclarationIsCaptchaGated", [[2, 1]], [1, 2, 3]], [1]],
+                   "svc.do"], [1, 2]]]),
+    ]);
+  }, 300_000);
+
+  // the pieces: with no literal the projection is what it always was, and the
+  // arm declines rather than guess when the counts do not meet
+  test("the constant head's projection, and what it declines", () => {
+    expect(J(Ev("read:rule_gchain_proj", ["ACC", [1, 3], []]))).toBe(J(["proj", "ACC", [1, 3]]));
+    expect(Ev("read:rule_gchain_proj", ["ACC", [1, 0], []])).toEqual([]);
+    expect(J(Ev("read:rule_gchain_proj", ["ACC", [4, 0], ["svc.do"]])))
+      .toBe(J(["proj", ["pairwith", ["proj", "ACC", [4]], "svc.do"], [1, 2]]));
+    // the literal lands on the role it follows, whichever role that is
+    expect(J(Ev("read:rule_gchain_proj", ["ACC", [0, 2], ["closed"]])))
+      .toBe(J(["proj", ["pairwith", ["proj", "ACC", [2]], "closed"], [2, 1]]));
+    // two literals over two unbound roles, in the head's order
+    expect(J(Ev("read:rule_gchain_proj", ["ACC", [0, 5, 0], ["a", "b"]])))
+      .toBe(J(["proj", ["pairwith", ["pairwith", ["proj", "ACC", [5]], "a"], "b"], [2, 1, 3]]));
+    // and never a head that is all constants, nor counts that do not meet
+    expect(Ev("read:rule_gchain_proj", ["ACC", [0, 0], ["one"]])).toEqual([]);
+    expect(Ev("read:rule_gchain_proj", ["ACC", [1, 0], ["one", "two"]])).toEqual([]);
+  });
+});
