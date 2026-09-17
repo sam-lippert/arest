@@ -1643,4 +1643,130 @@ describe("canon's reader carries the chain's named shapes", () => {
     expect(Ev("read:rule_gchain_proj", ["ACC", [0, 0], ["one"]])).toEqual([]);
     expect(Ev("read:rule_gchain_proj", ["ACC", [1, 0], ["one", "two"]])).toEqual([]);
   });
+
+// THE READER'S FIDELITY ON THE SERVED APPS (#109). Three defects measured
+// against the witness carriers (apps/*/.check/design-state, written by
+// tools/norma-oracle) on 2026-09-17, each pinned here on the smallest fixture
+// that shows it. Every case below fails on the parent commit.
+describe("canon's reader reads a numeral, a scheme's order and a marker", () => {
+  const J = (x) => JSON.stringify(x);
+  const stateOf = (cell, text) =>
+    Ev(cell, Ev("read:x_full", Ev("read:x_of", Ev("read:sentences", text).map((s) => Ev("read:row_of", s)))));
+
+  // apps/auto.dev/cost-attribution.md and listings.md, against
+  // apps/support.auto.dev/.check/design-state: the witness's state:otpops
+  // carries Amount, Max Mileage, Year and twenty more, canon carried none of
+  // them -- a numeral was not a value, so the sentence was rejected and its
+  // digits were tiled into the fact type's name (InvoiceHasAmount642.95).
+  const NUMS = [
+    "Invoice(.Id) is an entity type.",
+    "Listing Policy(.Name) is an entity type.",
+    "Amount is a value type.",
+    "  The data type of Amount is decimal.",
+    "Max Mileage is a value type.",
+    "  The data type of Max Mileage is integer.",
+    "Invoice has Amount.",
+    "  Each Invoice has at most one Amount.",
+    "Listing Policy has Max Mileage.",
+    "  Each Listing Policy has at most one Max Mileage.",
+    "Invoice 'Fly.io/2026-02' has Amount 642.95.",
+    "Listing Policy 'default' has Max Mileage 125000.", "",
+  ].join("\n");
+
+  test("a quoted word and a numeral are both values of the sentence's own reading", () => {
+    const row = Ev("read:row_of", "Invoice 'Fly.io/2026-02' has Amount 642.95.");
+    // the decimal is three tokens and one value
+    expect(Ev("read:glue_nums", row[1]).map((p) => p[0]))
+      .toEqual(["Invoice", "'Fly.io/2026-02'", "has", "Amount", "642.95"]);
+    expect(Ev("read:is_numword", "642.95")).toBe("T");
+    expect(Ev("read:is_numword", "125000")).toBe("T");
+    expect(Ev("read:is_numword", ".")).toBe("F");
+    expect(Ev("read:is_numword", "2026-02")).toBe("F");
+    expect(Ev("read:pop_values", [[], [], row])).toEqual(["Fly.io/2026-02", "642.95"]);
+    expect(Ev("read:nonlit_pairs", [[], [], row]).map((p) => p[0])).toEqual(["Invoice", "has", "Amount"]);
+  }, 300_000);
+
+  test("a numeral lands in the fact type's population and its value type's extent", () => {
+    const fts = stateOf("read:state_fts", NUMS);
+    const pop = (n) => fts.filter((r) => r[0] === n).flatMap((r) => r[4].flat());
+    expect(J(pop("InvoiceHasAmount"))).toBe(J([["Fly.io/2026-02", "642.95"]]));
+    expect(J(pop("ListingPolicyHasMaxMileage"))).toBe(J([["default", "125000"]]));
+    // and no fact type is named for the digits it was populated with
+    expect(fts.map((r) => r[0]).filter((n) => n.indexOf("642") >= 0)).toEqual([]);
+    const otpops = Object.fromEntries(stateOf("read:otpops_state", NUMS).map((r) => [r[0], r[1].flat()]));
+    expect(otpops["Amount"]).toEqual(["642.95"]);
+    expect(otpops["Max Mileage"]).toEqual(["125000"]);
+  }, 300_000);
+
+  // apps/support.auto.dev/.check/design-state, state:factorder: the oracle's
+  // order is the declaration order and its scheme facts come first, so its
+  // first row is the first entity's. read:scheme_rows read its entities
+  // through read:entity_names, which sorts, so canon's began at the
+  // alphabetically first one and diverged at position 0.
+  const SCHEMES = [
+    "Zebra(.id) is an entity type.",
+    "Apple(.id) is an entity type.",
+    "Stripe(.id) is an entity type.", "",
+    "Zebra has Apple.",
+    "  Each Zebra has at most one Apple.", "",
+  ].join("\n");
+
+  test("reference schemes are ordered by declaration, not by name", () => {
+    expect(stateOf("read:scheme_rows", SCHEMES).map((r) => r[0]))
+      .toEqual(["ZebraHasZebraId", "AppleHasAppleId", "StripeHasStripeId"]);
+    expect(stateOf("read:order_state", SCHEMES).map((r) => r[0]).slice(0, 4))
+      .toEqual(["ZebraHasZebraId", "AppleHasAppleId", "StripeHasStripeId", "ZebraHasApple"]);
+    // the sorted surfaces stay sorted: state:refmodes is the witness's own order
+    expect(stateOf("read:state_refmodes", SCHEMES).map((r) => r[0])).toEqual(["Apple", "Stripe", "Zebra"]);
+  }, 300_000);
+
+  // apps/auto.dev/cost-mitigation.md and source-routing.md, against
+  // apps/auto.dev/.check/design-state, state:derived: a markdown bullet and a
+  // **bold** phrase carry NORMA's derivation-marker characters, and every one
+  // of them was read as a marked derived head -- 109 heads to the witness's
+  // 103-105, and each phantom head is an undelivered one too.
+  const MARKS = [
+    "Loader(.Name) is an entity type.",
+    "Resumability is a value type.",
+    "Arity is a value type.", "",
+    "Loader has Resumability.",
+    "  Each Loader has at most one Resumability.",
+    "Loader has Arity. *",
+    "  Each Loader has exactly one Arity.", "",
+    "**Loader placement convention** (encoded as derivations below):",
+    "**Why this is its own reading**: the invoice arrives after the spend is irreversible.",
+    "* It is forbidden to conclude a Loader is restart-safe from the filterFn alone.",
+    "* A Loader with Resumability 'idempotent-selection' recovers work on restart.", "",
+  ].join("\n");
+
+  test("a marked reading is a derived head and a marked prose bullet is not", () => {
+    expect(stateOf("read:state_derived", MARKS)).toEqual([["LoaderHasArity", "full"]]);
+    // bold is not a marker: the star left after the first one says so
+    const starred = (s) => Ev("read:star_left", [[], [], Ev("read:row_of", s)]);
+    expect(starred("**Loader placement convention** (encoded as derivations below):")).toBe("T");
+    expect(starred("* Each Loader has exactly one Arity.")).toBe("F");
+    // and a marked sentence some later arm answers is read without its marker
+    const headed = (s) => Ev("read:marked_head", [[], [], [0, Ev("read:demark_pairs", Ev("read:row_of", s)[1])]]);
+    expect(headed("* Each Loader has exactly one Arity.")).toBe("T");
+    expect(headed("* It is forbidden to conclude a Loader is restart-safe from the filterFn alone.")).toBe("F");
+    expect(headed("* A Loader with Resumability 'idempotent-selection' recovers work on restart.")).toBe("F");
+    // and no prose sentence is tiled whole into a fact type's name
+    const names = stateOf("read:state_fts", MARKS).map((r) => r[0]);
+    expect(names.filter((n) => n.indexOf("*") >= 0 || n.indexOf("ItIsForbidden") === 0)).toEqual([]);
+  }, 300_000);
+
+  // AND THE SORTED LIST IS BISECTED, NOT WALKED. system:ins_asc inserts into a
+  // sorted list, so its position is the lower bound; the fold that builds the
+  // sort inserts from the right, so an equal key must land BEFORE the ones
+  // already there or the sort stops being stable.
+  test("system:sort_asc is stable and system:ins_lo is the lower bound", () => {
+    expect(Ev("system:ins_lo", [["c"], [["a"], ["b"], ["d"]]])).toBe(2);
+    expect(Ev("system:ins_lo", [["b"], [["a"], ["b"], ["b"], ["d"]]])).toBe(1);
+    expect(Ev("system:ins_lo", [["a"], []])).toBe(0);
+    expect(Ev("system:ins_asc", [["b", 9], [["a", 1], ["b", 2], ["c", 3]]]))
+      .toEqual([["a", 1], ["b", 9], ["b", 2], ["c", 3]]);
+    expect(Ev("system:sort_asc", [["c", 1], ["a", 2], ["b", 3], ["a", 4]]))
+      .toEqual([["a", 2], ["a", 4], ["b", 3], ["c", 1]]);
+  }, 300_000);
+});
 });
