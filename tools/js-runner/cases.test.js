@@ -1462,4 +1462,47 @@ describe("canon's reader reads a value type's kind and the rows that need it", (
     // and N() is an int in the cs and java readers
     expect(Ev("read:kind_cell", ["number", "6.875"])).toEqual([]);
   });
+
+  // apps/auto.dev/.check/design-state, state:rules: the two Years of a quote and a
+  // model are two roles of one value type, and the chain reads them under their own
+  // names, so the third leg joins on the Vehicle alone; the difference is then one
+  // `calc` over the joined rows and the head projects the column it appended.
+  const CALCVOCAB = [
+    "# the calc arm", "",
+    "Vehicle is an entity type.",
+    "Vehicle Purchase Quote(.id) is an entity type.",
+    "Year is a value type.",
+    "  The data type of Year is integer.",
+    "Registration Age is a value type.",
+    "  The data type of Registration Age is integer.", "",
+    "Vehicle Purchase Quote concerns Vehicle.",
+    "Vehicle Purchase Quote occurred in quote- Year.",
+    "Vehicle has model- Year.",
+    "Vehicle has Registration Age for Vehicle Purchase Quote. *", "", "",
+  ].join("\n");
+  test("a head role an arithmetic clause computes is a calc over the joined rows", () => {
+    const text = CALCVOCAB + "* Vehicle has Registration Age for Vehicle Purchase Quote iff Vehicle Purchase Quote concerns Vehicle and Vehicle Purchase Quote occurred in quote- Year and Vehicle has model- Year and Registration Age is quote- Year minus model- Year.\n";
+    expect(rulesOf(text).map((r) => J(r))).toEqual([
+      J(["VehicleHasRegistrationAgeForVehiclePurchaseQuote", ["Vehicle", "Registration Age", "Vehicle Purchase Quote"],
+         ["proj", ["calc", ["joinon", ["joinon", "VehiclePurchaseQuoteConcernsVehicle", "VehiclePurchaseQuoteOccurredInQuoteYear", [[1, 1]], [1, 2, 3, 4]],
+                            "VehicleHasModelYear", [[2, 1]], [1, 2, 3, 4, 5, 6]], "-", 4, 6], [2, 7, 1]]]),
+    ]);
+  }, 300_000);
+
+  // the role's own name, and the player under it: the hyphen-bound words the clause
+  // put in front of a player make it a variable of its own
+  test("a role's own name is the player with its hyphen-bound words", () => {
+    expect(Ev("read:rule_calc_qual", [["Vehicle", "has", "model", "-", "Year"], "Year"])).toBe("model - Year");
+    expect(Ev("read:rule_calc_qual", [["Vehicle", "Purchase", "Quote", "has", "some", "combined", "-", "sales", "-", "tax", "-", "Amount"], "Amount"]))
+      .toBe("combined - sales - tax - Amount");
+    expect(Ev("read:rule_calc_qual", [["Vehicle", "Purchase", "Quote", "concerns", "Vehicle"], "Vehicle"])).toBe("Vehicle");
+    expect(Ev("read:rule_calc_base", "combined - sales - tax - Amount")).toBe("Amount");
+    expect(Ev("read:rule_calc_base", "title - Fee Amount")).toBe("Fee Amount");
+    expect(Ev("read:rule_calc_base", "Registration Age")).toBe("Registration Age");
+    // the expression is cut into its <operator, operand> parts, the first empty
+    expect(Ev("read:rule_calc_split", ["quote", "-", "Year", "minus", "model", "-", "Year"]))
+      .toEqual([["", ["quote", "-", "Year"]], ["minus", ["model", "-", "Year"]]]);
+    expect(Ev("read:rule_calc_split", ["Price", "times", "Rate", "divided", "by", "100"]))
+      .toEqual([["", ["Price"]], ["times", ["Rate"]], ["divided by", ["100"]]]);
+  });
 });
