@@ -852,11 +852,12 @@ describe("canon's reader against the witness, on the base metamodel", () => {
   const files = readdirSync(META).filter((f) => f.endsWith(".md"))
     .sort((a, b) => (a === "core.md" ? "0" : a).localeCompare(b === "core.md" ? "0" : b));
 
-  // read:lines has a fast twin in this host (the scan is quadratic through tl,
-  // which slices); the DEF is the meaning, and its compiled form is evaluated
-  // here beside the twin, on text that exercises every branch: a comment
-  // closed with a space, a comment across lines, a carriage return, a trailing
-  // empty line.
+  // read:lines has a fast twin in this host -- one native pass where the DEF is
+  // an interpreted one, now that the DEF reads its input as a theta:stream and
+  // is no longer quadratic through tl. The DEF is the meaning either way, and
+  // its compiled form is evaluated here beside the twin, on text that exercises
+  // every branch: a comment closed with a space, a comment across lines, a
+  // carriage return, a trailing empty line.
   test("the read:lines twin is its DEF", () => {
     const text = "a b <!-- c. -->\r\nd\n<!-- e\nf --> g\r\n\nh";
     const chars = Ev("chars", text);

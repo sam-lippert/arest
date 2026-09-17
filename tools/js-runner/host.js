@@ -849,7 +849,17 @@ const MEMOCN = new Set(["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
   // report's self by lex:subruns 22.8% / lex:camel 14.2% inclusive; memoised
   // they answer once per column name, not once per law (the profile-and-fix
   // loop, 2026-09-08)
-  "lex:subruns", "lex:camel"]);
+  "lex:subruns", "lex:camel",
+  // read:state_rules is the rules compiler over a carrier's facts, and
+  // read:design_state asks for it TWICE: once as the cell `state:rules`, and
+  // once inside `state:undelivered`, which subtracts the heads it delivered
+  // from the heads state:derived marks. The two are the same call on the same
+  // value -- read:design_state applies every cell to one x -- so the second
+  // was the first recomputed, arm for arm (the base metamodel, 2026-09-16:
+  // read:rule_rows entered under state:rules and again under
+  // state:undelivered). Memoised on that argument's identity, the rows are
+  // the same rows: canon is pure and the two cells are unchanged.
+  "read:state_rules"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot canon list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
