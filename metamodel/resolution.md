@@ -153,6 +153,49 @@ Function 'tutor' yields Type Expression 'tutorial-text'.
      route needed the map row and no new arm. -->
 Function 'create' accepts Type Expression 'row-and-cells'.
 Function 'create' yields Type Expression 'outcome-and-store'.
+<!-- AND THE ONE THAT CORRECTS. `create` is additive and a functional fact
+     type refuses a second value for the same key, so a typo taken at intake
+     was permanent: over the MCP the store was append-only, and nothing could
+     put a customer's real address where a placeholder stood. The correction
+     is one checked step ALREADY -- http:method_kinds maps PUT to
+     `replacement`, main:api0 routes it to main:replace_step, and
+     main:replace builds ONE successor population, the old rows dropped and
+     the new row added in the same step, which main:write_answer then
+     validates once. Only the served verb was missing, and this is that verb
+     on exactly create's terms: main:api applied to PUT and the row, so a
+     tool call and a PUT are one operation and not two. The row carries the
+     collection's id and ONE fact type, because PUT at a fact-type resource
+     replaces one fact; a row carrying more is refused rather than quietly
+     folded into several checks.
+
+     THE THREE ROWS THAT SERVE IT ARE HELD, and this is the whole of the
+     hold: mcp:verbs lists an Operation that carries an accepts row and
+     resolves to a cell, the cell is in canon now, and these are the rows --
+
+       Operation 'replace' is overridable.
+       Function 'replace' accepts Type Expression 'row-and-cells'.
+       Function 'replace' yields Type Expression 'outcome-and-store'.
+
+     Measured 2026-09-18 with them in: canon's reader compiles them, mcp:verbs
+     answers 18 verbs where it answered 17, and the new row is
+     ('replace', 'row-and-cells', 'outcome-and-store'). Measured with them in
+     AND the witness carrier left as it stands: `the reader reproduces the
+     witness's schema, to the pinned distance` moves rows 250 -> 247 and
+     stateRows 258 -> 255, exactly the three fact types these rows populate and
+     nothing else, and state:otpops grows Function and Operation by one each.
+     That is the carrier being stale, not the readings being wrong, and the
+     remedy is the one that test's own comment names: regenerate
+     tools/norma-oracle over metamodel/. They go in with that regeneration, in
+     the commit that does it.
+
+     WHAT THIS DOES NOT SERVE is DELETE: the name `retract` is already a
+     canon cell, Backus's population-level one
+     that answers rows and no store, and solve:cell would serve THAT cell to
+     a caller who asked for a retraction. The address argument the note
+     below gives is stale -- create answered it by taking the row whole --
+     but the name collision is not, and freeing the name is the move
+     f1b0202f already made for create: the pipeline goes under cmd:retract
+     and `retract` becomes main:api applied to DELETE. -->
 <!-- AND THE ONE THAT ASKS (Samuel, 2026-09-17: "what the MCP needs is a way of
      asking you to do something"). The comment above `Operation awaits a driver`
      has said since 2026-09-14 that these seams "have to be driven manually by an
@@ -218,7 +261,16 @@ Function 'drive' yields Type Expression 'fact-list'.
      pair of sequences, retract a sequence of rows -- and the route builds
      its argument half out of the words of an address, which are atoms. No
      declaration reaches them: the operand they want is not one an address
-     can spell. That is a question about the address, not about this file,
+     can spell. THAT REASONING IS STALE FOR THE FIRST HALF, 2026-09-18:
+     create took the row WHOLE through main:api rather than through an
+     address, and `replace` above does the same for PUT, so a structured
+     operand is no longer something an address has to spell. What still
+     keeps retract off the surface is a NAME: `retract` already resolves to
+     Backus's population-level cell, which answers rows and no store, so
+     declaring it would serve that one and not main:retract_step. Freeing
+     the name is the move f1b0202f made for create -- the pipeline under
+     cmd:retract, the name left for the write -- and it is one commit, not
+     a design question. explain and induce are untouched by this. That is a question about the address, not about this file,
      and it is why retract answering 247 rows to <[], pairs> is not enough
      to declare it -- an empty retraction is the only call it could serve.
 
