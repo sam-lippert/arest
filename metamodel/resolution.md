@@ -153,6 +153,29 @@ Function 'tutor' yields Type Expression 'tutorial-text'.
      route needed the map row and no new arm. -->
 Function 'create' accepts Type Expression 'row-and-cells'.
 Function 'create' yields Type Expression 'outcome-and-store'.
+<!-- AND THE ONE THAT ASKS (Samuel, 2026-09-17: "what the MCP needs is a way of
+     asking you to do something"). The comment above `Operation awaits a driver`
+     has said since 2026-09-14 that these seams "have to be driven manually by an
+     llm or a person at those points"; MEANWHILE AN LLM IS ATTACHED, because
+     every caller of the MCP is one, and the protocol has the request for exactly
+     this -- sampling/createMessage, which a SERVER sends to the CLIENT. So the
+     seam is called and something answers. `drive` takes the operation to drive
+     and the subject to drive it over, and answers the facts the completion
+     commits the store to: the judgement lands as rows, with the Completion that
+     produced it beside them, so what a model decided is something someone can
+     contradict rather than a paragraph in a session nobody can audit.
+
+     `completion-and-cells` IS THE POINT OF THE NEW TYPE EXPRESSION, and it is
+     not a shape: main:verb_shapes maps it onto the argument-beside-the-cells
+     construction row-and-cells already uses. It is what tells a HOST that this
+     verb's operand has to be FETCHED before canon can be handed it -- the host
+     reads the accepts row off mcp:verbs and knows to go and ask -- so which verb
+     needs a completion is a fact of the model and not a name in a host. `drive`
+     is NOT declared registrable: it is canon's own pipeline, and what awaits a
+     driver is the seam it drives, never the driving. -->
+Operation 'drive' is overridable.
+Function 'drive' accepts Type Expression 'completion-and-cells'.
+Function 'drive' yields Type Expression 'fact-list'.
 <!-- MEASURED 2026-09-11, which is the condition the note these replace set.
      It said derive "reads its first element as a sequence, so it answers to
      <[], populations> and throws on the empty argument an address of one
