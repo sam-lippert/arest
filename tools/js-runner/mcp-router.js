@@ -130,7 +130,58 @@ class Resident {
     this.note = "";                         // the last check or compile result
     this.spawn();
   }
+  // ONE SERVER PER APP DIRECTORY, ENFORCED AT SPAWN (2026-09-18). stop() kills
+  // its own child's tree correctly (c6efdb97), and that is not enough, because
+  // a router only ever reaches the children IT spawned. Anything that ends a
+  // router's life without it reaping first -- a /mcp reconnect, which starts a
+  // new router beside the old one, or a canon merge, which moves every
+  // composition stamp and takes all six app servers down at once -- leaves
+  // servers no later router has a handle on, and they hold store.db. The next
+  // compile then fails EBUSY and the app cannot be rebuilt until a human kills
+  // them. Measured 2026-09-18: seven such failures in one day across two
+  // sessions, four of them on a single afternoon's compiles. Sam's invariant:
+  // "Restarting the server shouldn't leave zombies."
+  //
+  // So the invariant is enforced where it can be -- at the START, when this
+  // Resident has no child of its own and therefore ANY process serving this
+  // directory is an orphan by definition. The match is the exact path this
+  // router is about to run, not a pattern sweep, and it is passed through the
+  // environment so no quoting can widen it.
+  reap() {
+    if (this.child) return 0;                  // we have our own; nothing here is an orphan
+    // THE SEPARATOR IS NOT THE PATH. parseApps normalises a dir to forward
+    // slashes and node's join gives backslashes on Windows, while a command
+    // line carries whichever the caller typed -- the router's own grandchild
+    // has backslashes, a hand-started one may have slashes. Contains() is
+    // exact, so both sides are normalised to one separator before comparing;
+    // measured, matching the unnormalised marker reaped nothing at all.
+    const marker = join(this.dir, "mcp.g.js").replace(/\//g, "\\");
+    let pids = [];
+    try {
+      if (process.platform === "win32") {
+        const ps = spawnSync("powershell", ["-NoProfile", "-NonInteractive", "-Command",
+          "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine.Replace('/','\\').Contains($env:AREST_REAP_MARKER) } | ForEach-Object { $_.ProcessId }"],
+          { env: { ...process.env, AREST_REAP_MARKER: marker }, encoding: "utf8", timeout: 20000 });
+        pids = String(ps.stdout || "").split(/\s+/).filter((s) => /^\d+$/.test(s)).map(Number);
+      } else {
+        const pg = spawnSync("pgrep", ["-f", marker], { encoding: "utf8", timeout: 20000 });
+        pids = String(pg.stdout || "").split(/\s+/).filter((s) => /^\d+$/.test(s)).map(Number);
+      }
+    } catch { return 0; }
+    pids = pids.filter((p) => p !== process.pid);
+    for (const p of pids) {
+      try {
+        if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(p), "/T", "/F"], { stdio: "ignore" });
+        else process.kill(p, "SIGKILL");
+      } catch { /* already gone */ }
+    }
+    if (pids.length) process.stderr.write("[" + this.name + "] reaped " + pids.length +
+      " orphaned server process(es) still holding " + this.dir + NL);
+    return pids.length;
+  }
+
   spawn() {
+    this.reap();
     this.pending = new Map();
     this.nextId = 1;
     this.buf = "";
