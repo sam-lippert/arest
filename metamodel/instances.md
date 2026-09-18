@@ -309,6 +309,44 @@ StateMachineIsInstanceOfObjectType is a subtype of Function.
      987 ruling: complete the self-description, never scope it. -->
 State Machine is for Object Type Instance.
   For each Object Type Instance, at most one State Machine is for that Object Type Instance.
+<!-- AND NOW IT HAS A DERIVER, AND HAD NONE FOR THE WHOLE OF ITS LIFE
+     (2026-09-17). This cell held 0 rows in every store ever built, so no
+     State Machine instance had ever existed, so `State Machine is currently
+     in Status` was empty too and the store could answer no question about
+     what state anything was in — the three rules that stand on them (the
+     instance-of-definition rule, the seed rule and the Object Type Instance
+     projection below) were correct and starved. Measured on
+     support.auto.dev: 0 and 0, beside 4,343 registered Object Type
+     Instances, 15 State Machine Definitions and 15 effective-initial rows.
+     An application whose purpose is a workflow had no worklist, and a human
+     noticed instead.
+
+     The deriver is canon's, not a rule's, and it is an EVALUATOR-PHASE
+     OBLIGATION of exactly the standing `Status is effective initial in State
+     Machine Definition` already has (state.md): reflect:machines, in
+     reflect:cells, which the host materialises at load and again whenever the
+     store changes. For each Object Type Instance of an Object Type a State
+     Machine Definition is for, one machine, at the status main:status_pop
+     answers — the effective initial advanced by the fired-transition fold,
+     which is the same computation `actions` answers a menu from, so the
+     stored fact and the menu cannot disagree because they are one
+     computation. It needs no write path and cannot drift.
+
+     IT IS NOT MARKED `*` AND THAT IS DELIBERATE. A fully derived fact type
+     leaves the stored schema (Codd 1970 1.5) and so carries no descriptor;
+     derive:pop looks a source up BY descriptor, so marking it would make the
+     one query this whole change exists for — which requests are in a given
+     status — unanswerable by `query`. The marker would be honest about
+     provenance and dishonest about reach.
+
+     THE IDENTITY IS MINTED, because a State Machine is an entity and the
+     Object Type Instance it is for is another. `sm.<instance id>`, by
+     implode on a dot: the convention reflect:role_one already uses for role
+     ids and system:refmode_r1 for reference modes, and distinct from both
+     (a role id begins with a fact type name, a reading id with `r`). The
+     instance-level projection below is where an instance's own status is
+     read; a caller who wants requests rather than machines joins through
+     this cell, which is what that projection means. -->
 <!-- arest-audit F: a duplicate `State Machine is for Object Type Instance. *` stood
      here — a fully-derived marker whose rule was REMOVED 2026-06-12 (see
      the note below); the orphaned `*` declared meaning the readings could
@@ -343,6 +381,13 @@ State Machine is for Object Type Instance.
      that Status."  -->
 Object Type Instance is currently in Status. *
   Each Object Type Instance is currently in at most one Status.
+<!-- AND THIS ONE IS COMPUTED BESIDE THE MACHINE (2026-09-17,
+     reflect:otistatus). The rule below says what the population MEANS and
+     stays; what it could not do is stay single-valued, for the seed-rule
+     reason recorded beside `State Machine is currently in Status`
+     below. It
+     is the same walk over the same main:status_pop, so an instance's status,
+     its machine's status and the menu `actions` offers are one answer. -->
 
 <!-- task-955/924 (exec-6 hygiene: was a #-styled pseudo-comment): key the
      SM-keyed status projection so it stays single-valued. The killed
@@ -358,6 +403,27 @@ State Machine is currently in Status. +
   Each State Machine is currently in exactly one Status.
   <!-- audit-fix A4: semi-derived — the seed-branch rule below derives the
        initial occupancy; runtime transitions assert the moves. -->
+  <!-- AND NOTHING EVER ASSERTED A MOVE, because nothing ever had a machine
+       to move (2026-09-17). A fire in this repo asserts the TRIGGER FACT and
+       nothing else (canon ui:apply, "a fire is an event fact asserted"), and
+       the status is the fold over those facts — so the population is a
+       function of rows that are already durable, and a restart recomputes it
+       rather than reading back a copy. reflect:mstatus is that fold, the same
+       main:status_pop the machine above is walked from and `actions` answers
+       from. The marker stays `+`: the cell keeps its descriptor (a `*` one
+       has none, and then `query` cannot reach it), and a model that does
+       assert a move is still free to — derive:closed keeps an asserted row
+       over a derived one on the same uniqueness key.
+
+       THE SEED RULE BELOW STILL OVER-EMITS AND IS NOT FIXED HERE. It joins
+       `Status is effective initial in State Machine Definition` directly,
+       which names a COMPOSITE status where one is declared, while
+       main:leaf_initial descends to the leaf; and derive:closed applies the
+       semi-head keyed merge only to its OWN output, so a rule reading this
+       cell INSIDE the fixpoint sees the unmerged union. Measured on
+       support.auto.dev before the projection below was computed here: two
+       rows for one request, `Draft` and `Open`, against an at-most-one
+       uniqueness. -->
 
 ### Event Caused Transition (objectification of "Event caused Transition in State Machine")
 Event caused Transition in State Machine.

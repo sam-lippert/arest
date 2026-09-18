@@ -97,14 +97,29 @@ Status is effective initial in State Machine Definition. *
      predicate FORML 2 cannot express (count+`=1` does not compose as a same-rule
      filter; `no Status is initial` is not an antecedent kind — derivation.md
      193-223 / 414-422). So this `*` cell's deriver is an EVALUATOR-PHASE
-     OBLIGATION (audit-fix A2): a compiled definition (Def 9, origin
-     'compiled') that prefers an explicit `Status is initial in State
-     Machine Definition` and else applies the cardinality gate over
-     `Status is rooted in State Machine Definition` — the killed host's
-     Rust effective-initial helper is the reference behavior, but it does
-     not exist in this repo, so until that definition lands the cell is
-     unpopulated: the marker names the debt, not a present deriver. The
-     seed-branch rule for `State Machine is currently in Status` joins
+     OBLIGATION (audit-fix A2): a definition that prefers an explicit
+     `Status is initial in State Machine Definition` and else applies the
+     cardinality gate over `Status is rooted in State Machine Definition`.
+
+     THE DEFINITION LANDED AND THIS NOTE SAID IT HAD NOT, for long enough
+     that a colleague read it and believed it (corrected 2026-09-17). What
+     stood here — "the killed host's Rust effective-initial helper is the
+     reference behavior, but it does not exist in this repo, so until that
+     definition lands the cell is unpopulated: the marker names the debt,
+     not a present deriver" — was measurably false. Both branches are
+     ORDINARY RULES under "## Derivation Rules" below (line 232 the explicit
+     one, line 234 the cardinality gate as an anti-join against `Status is
+     initial`), they are compiled into the app's own recipes, and they FIRE.
+     Measured on support.auto.dev, booting its module from its store.db the
+     way a server does: `Status is initial in State Machine Definition` 12
+     rows, `Status is rooted in State Machine Definition` 10, and this cell
+     15 — one per State Machine Definition the app declares. The debt was
+     never here. It was one layer down, in `State Machine is for Object Type
+     Instance` and `State Machine is currently in Status` (instances.md),
+     which held 0 rows in every store ever built, so no machine instance
+     existed to seed and the whole answer was invisible.
+
+     The seed-branch rule for `State Machine is currently in Status` joins
      against this cell. This is the one deliberate, documented
      non-monotonic remnant — retained, not newly added. -->
 
@@ -228,6 +243,37 @@ It is obligatory that if some Predicate1 is performed in some Status1 and that S
 -->
 
 * Status is defined in State Machine Definition iff that Status is initial in that State Machine Definition.
+
+* Status is defined in State Machine Definition1 iff that Status is defined in some State Machine Definition2 and that State Machine Definition2 is defined in that State Machine Definition1.
+<!-- THE HAREL NESTING, WHICH THIS RELATION DID NOT CARRY (2026-09-17). A
+     State Machine Definition IS a Status (the subtype above), so an app
+     groups states by declaring one: support.auto.dev declares `Status 'Open'
+     is initial in State Machine Definition 'Support Request'` and then
+     `Status 'Received' is initial in State Machine Definition 'Open'`, with
+     Draft, Responded and Escalated defined in 'Open' too. The three rules
+     above are all FLAT — a Status is defined in the machine whose own
+     transitions or initial name it — so 'Draft' was defined in 'Open' and in
+     nothing else, and the Support Request machine's own list of statuses
+     was <Resolved, Merged, Open>.
+
+     It stayed invisible while no machine instance existed. The moment one
+     did, core.md's subset constraint read it: `If some State Machine is
+     currently in some Status then that Status is defined in some State
+     Machine Definition where that State Machine is instance of that State
+     Machine Definition`. A Support Request in Draft is an instance of the
+     'Support Request' definition and Draft was not defined in it, so the
+     constraint failed ALETHICALLY and every subsequent write to the app was
+     refused. Measured on support.auto.dev: one violation,
+     `<StateMachineIsCurrentlyInStatus, subset, <Draft,
+     sm.sr-chris-pennington-20260913>>`, refusing a create.
+
+     The containment is transitive and this says so, in the shape `Status
+     reaches Status in State Machine Definition` below already uses. It is
+     also carried in canon's rules:metamodel, which is a store-independent
+     constant: an app's compiled recipes come from ITS carrier, and a carrier
+     written before this line refuses writes the moment the machines appear,
+     which is every app until it re-checks. When a regenerated carrier
+     carries it too, law:all_rules holds both and derives the same rows. -->
 
 * Status is effective initial in State Machine Definition iff that Status is initial in that State Machine Definition.
 

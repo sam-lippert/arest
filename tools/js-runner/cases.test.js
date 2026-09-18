@@ -1073,6 +1073,20 @@ describe("canon's reader against the witness, on the base metamodel", () => {
   // existed it failed at canon 0 of 44. The witness writes two of its 46 rows
   // twice (its `and no ... where` arm re-emits what an earlier arm built);
   // canon writes each row once, so the raw witness count is pinned beside it.
+  //
+  // AND ONE ROW IS CANON-ONLY, the same way two are in the deontics test above
+  // and for the same reason: metamodel/state.md now states the Harel nesting of
+  // `Status is defined in State Machine Definition` (a state defined in a nested
+  // machine is defined in the machine that nests it), the reader reads it, and
+  // the witness carrier predates it -- regenerating tools/norma-oracle is the
+  // oracle's run and not this repo's. witnessOnly stays 0, which is the
+  // direction that would mean a loss. The reader compiles it with the SUBTYPE
+  // NARROWING arm, because `State Machine Definition2` names a subtype of the
+  // Status the fact type declares, so the recipe carries a `sel` over
+  // `Object Type Instance is instance of Object Type` that canon's own
+  // rules:metamodel copy of the rule does not: the reader's version needs the
+  // nested machine to be REGISTERED as an instance of `State Machine
+  // Definition`, and canon's fires on the containment alone.
   test("the reader carries the witness's derivation rules, row for row", () => {
     const rows = [];
     for (const f of files) for (const s of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", s));
@@ -1085,9 +1099,14 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     const both = [...C].filter((r) => W.has(r)).length;
     const und = Ev("read:state_undelivered", F);
     expect({ witnessRows: witness.length, witness: W.size, canon: canon.length, distinct: C.size, both, canonOnly: C.size - both, witnessOnly: W.size - both,
+             canonOnlyRows: canon.map(J).filter((r) => !W.has(r)),
              undelivered: und.map((p) => String(p[0])), reasons: und.every((p) => typeof p[1] === "string" && p[1].length > 0),
              witnessUndelivered: Ev("ast:fetch", ["state:undelivered", CELLS]).flat(1).map((p) => String(p[0])) })
-      .toEqual({ witnessRows: 46, witness: 44, canon: 44, distinct: 44, both: 44, canonOnly: 0, witnessOnly: 0,
+      .toEqual({ witnessRows: 46, witness: 44, canon: 45, distinct: 45, both: 44, canonOnly: 1, witnessOnly: 0,
+                 canonOnlyRows: [JSON.stringify(["StatusIsDefinedInStateMachineDefinition", ["Status", "State Machine Definition"],
+                   ["proj", ["joinon",
+                     ["joinon", "StatusIsDefinedInStateMachineDefinition", "StatusIsDefinedInStateMachineDefinition", [[2, 1]], [1, 2, 3, 4]],
+                     ["sel", "ObjectTypeInstanceIsInstanceOfObjectType", 2, "State Machine Definition"], [[3, 1]], [1, 2, 3, 4]], [1, 4]]])],
                  undelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"], reasons: true,
                  witnessUndelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"] });
   }, 300_000);

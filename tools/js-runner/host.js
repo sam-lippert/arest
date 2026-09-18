@@ -2403,6 +2403,9 @@ function writeBack(done) {
 // Mutated in place so the array identity survives, then the memo is dropped:
 // Ev keys on the store REFERENCE, so a store whose contents changed under the
 // same reference would keep answering from the old one.
+// set once the boot's own loading is done; see adoptStore
+let BOOTED = false;
+
 function adoptStore(next) {
   if (!Array.isArray(next) || next.length === 0) return false;
   // next may BE CELLS -- canon answers the same array when a step changes nothing,
@@ -2412,6 +2415,18 @@ function adoptStore(next) {
   CELLS.length = 0;
   for (const c of copy) CELLS.push(c);
   memoClear();
+  // AND A STORE THAT CHANGED IS REFLECTED AGAIN (2026-09-17). A reflected
+  // population is a function of the store, so the store moving is exactly when
+  // it has to be recomputed: a Support Request created in a running server had
+  // no machine and no status until the next boot, so `actions` offered its
+  // Received menu -- computed per call -- while the worklist query could not
+  // see it at all, which is the same silence in a smaller window. The CLOSURE
+  // is deliberately NOT re-run here: it is seconds, loadDerived's own comment
+  // says it belongs at load, and no rule head is what a session asks after a
+  // write. This is 120 ms on support.auto.dev against a write that costs two
+  // seconds. Not during boot, where the store is half-loaded and the reflection
+  // would read a seed that is not there yet; closeStore does it there.
+  if (BOOTED) loadReflected();
   return true;
 }
 
@@ -3174,6 +3189,17 @@ function loadFile() {
 // columns 1 and 5, and rules:metamodel (39) is the set -- rules:model (21)
 // cannot derive StatusIsDefinedInStateMachineDefinition, which its own minus
 // rules read.
+
+// AND WHICH POPULATIONS THIS PROCESS COMPUTED, which is what lets either
+// phase correct itself on a later pass without ever disturbing a cell the
+// carriers or the tables supplied. The two are kept apart because canon's
+// REFLECTION is the answer where it speaks: a reflected head may also be a
+// rule head, and then the rule is the readings' statement of what the
+// population means and the reflection is what computes it -- exactly the
+// standing the effective-initial cell already has (metamodel/state.md).
+const REFLECTED_NAMES = new Set();
+const DERIVED_NAMES = new Set();
+
 function loadDerived() {
   const rules = Ev("law:all_rules", CELLS);
   // READ THROUGH THE ACCESSOR THE RULES READ. induce:pairs_of takes slot 5 of
@@ -3217,13 +3243,33 @@ function loadDerived() {
   let added = 0;
   for (const entry of Ev("derive:closed", CELLS)) {
     const name = String(entry[0]);
-    if (seen.has(name)) continue;                  // already its own cell
-    if ((carried.get(name) || 0) >= (Array.isArray(entry[1]) ? entry[1].length : 0)) continue;
     // an EMPTY derived population is not worth a cell: closing under the whole
     // program derives the model's rule heads, whose inputs are empty, and
     // carrying those adds names nothing references and nothing can read
     if (!Array.isArray(entry[1]) || entry[1].length === 0) continue;
+    if (REFLECTED_NAMES.has(name)) continue;              // canon's own answer, not the closure's
+    if (DERIVED_NAMES.has(name)) {
+      // A CELL THIS BOOT COMPUTED IS REFRESHED, NOT KEPT (2026-09-17). The two
+      // guards below are about not disturbing what the CARRIERS or the TABLES
+      // say; they were also stopping the closure from correcting its own
+      // earlier answer. The state machines are the case: the first pass closed
+      // over a store whose machines the reflection had not seeded yet, so
+      // `State Machine is instance of State Machine Definition` was derived for
+      // one instance out of six and then frozen there while the reflection went
+      // on to name all six. Only a name this process computed is replaced, and
+      // only when the answer moved, so a carrier cell and a stored population
+      // are as untouched as they were.
+      const at = CELLS.findIndex((c) => Array.isArray(c) && String(c[0]) === "CELL" && String(c[1]) === name);
+      if (at >= 0) {
+        if (JSON.stringify(CELLS[at][2]) === JSON.stringify(entry[1])) continue;
+        CELLS.splice(at, 1);
+      }
+    } else {
+      if (seen.has(name)) continue;                  // already its own cell
+      if ((carried.get(name) || 0) >= entry[1].length) continue;
+    }
     CELLS.unshift(["CELL", name, entry[1]]);
+    DERIVED_NAMES.add(name);
     added++;
   }
   if (added) memoClear();
@@ -3244,17 +3290,64 @@ function loadDerived() {
 //
 // BEFORE loadDerived, because a reflected population is an INPUT a rule may
 // read -- the same reason loadFile comes before both.
+//
+// AND A REFLECTION IS RECOMPUTED, NEVER READ BACK (2026-09-17). This skipped a
+// name that already had a cell, and a store booted from store.db has a cell for
+// every fact type the tables carry -- so a reflected population, once EMITTED,
+// was frozen at the value the last compile-store computed. The state machines
+// are where that shows: a Support Request created after the build had no
+// machine and no status until the store was rebuilt, which is a worklist that
+// cannot see today's work. A reflection is a function of the store, so a copy of
+// it in the tables is a CACHE and the recomputation is the answer; nothing
+// asserts these names, and a cell that already equals the reflection is left
+// exactly where it is, so a store with nothing to recompute loads as before.
 function loadReflected() {
   let added = 0;
   for (const entry of Ev("reflect:cells", CELLS)) {
     const name = String(entry[0]);
     if (!Array.isArray(entry[1]) || entry[1].length === 0) continue;
-    if (CELLS.some((c) => Array.isArray(c) && String(c[0]) === "CELL" && String(c[1]) === name)) continue;
+    const at = CELLS.findIndex((c) => Array.isArray(c) && String(c[0]) === "CELL" && String(c[1]) === name);
+    if (at >= 0) {
+      if (JSON.stringify(CELLS[at][2]) === JSON.stringify(entry[1])) continue;
+      CELLS.splice(at, 1);
+    }
     CELLS.unshift(["CELL", name, entry[1]]);
+    REFLECTED_NAMES.add(name);
     added++;
   }
   if (added) memoClear();
   return added;
+}
+
+// AND THE TWO PHASES ALTERNATE, because a reflected population may read a
+// DERIVED one as well as feed one (2026-09-17). The comment above says why
+// reflection comes first: a reflected population is an input a rule may read.
+// The state machines are the other direction. `State Machine is for Object Type
+// Instance` is one machine per instance of an object type a State Machine
+// Definition is for, and the machine sits at its definition's EFFECTIVE INITIAL
+// status advanced by the fired-transition fold -- and `Status is effective
+// initial in State Machine Definition` is itself a derived head (the rules in
+// metamodel/state.md). Reflected once, before the closure, the walk read an
+// empty seed and answered NOTHING: measured on support.auto.dev, reflect:machines
+// answers 6 rows over the closed store and 0 over the unclosed one, which is
+// exactly the silence that left `State Machine is currently in Status` empty in
+// every store ever built. So the closure runs between two reflections: the
+// first seeds what the rules read, the closure settles the effective initial,
+// and the second is the one whose machines are right. The bound is a stop and
+// not a policy -- each phase only ever adds a name that has no cell or refreshes
+// one this process itself computed, over a store that is otherwise fixed, so it
+// settles on the second reflection and the bound has never been reached.
+function closeStore() {
+  const pass = (r) => {
+    const d = loadDerived();
+    if (process.env.AREST_BOOT_TIMING) console.error("boot: pass " + r + " reflected, " + d + " derived");
+  };
+  pass(loadReflected());
+  for (let n = 0; n < 8; n++) {
+    const r = loadReflected();
+    if (!r) return;
+    pass(r);
+  }
 }
 
 function boot(mode) {
@@ -3276,13 +3369,13 @@ function boot(mode) {
   // Not a decision about the store, only the absence of its schema.
   const fromDb = process.env.AREST_STORE_DB;
   const schemaless = !fromDb && Ev("ast:fetch", ["state:fts", CELLS]) === "#";
-  if (fromDb) { loadStoreDb(fromDb); loadFile(); loadReflected(); loadDerived(); lap("store-db"); }
+  if (fromDb) { loadStoreDb(fromDb); loadFile(); closeStore(); lap("store-db"); }
   else if (!schemaless) {
     loadFile(); lap("file");
-    loadReflected(); lap("reflected");
-    loadDerived(); lap("derived");
+    closeStore(); lap("reflected and derived");
   }
   if (SAMPLE && process.env.AREST_SAMPLE_AFTER_BOOT) sreset(); // @instrument
+  BOOTED = true;
   if (mode === "test") return run_test();
   if (mode === "serve") return run_serve();
   if (mode === "mcp") return run_mcp();
