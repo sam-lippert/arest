@@ -79,6 +79,7 @@ Operation 'apps_compile' is overridable.
 Operation 'verify' is overridable.
 Operation 'validate' is overridable.
 Operation 'create' is overridable.
+Operation 'replace' is overridable.
 Operation 'apply' is overridable.
 Operation 'retract' is overridable.
 Operation 'get' is overridable.
@@ -169,6 +170,8 @@ Function 'tutor' yields Type Expression 'tutorial-text'.
      route needed the map row and no new arm. -->
 Function 'create' accepts Type Expression 'row-and-cells'.
 Function 'create' yields Type Expression 'outcome-and-store'.
+Function 'replace' accepts Type Expression 'row-and-cells'.
+Function 'replace' yields Type Expression 'outcome-and-store'.
 <!-- AND THE ONE THAT CORRECTS. `create` is additive and a functional fact
      type refuses a second value for the same key, so a typo taken at intake
      was permanent: over the MCP the store was append-only, and nothing could
