@@ -314,6 +314,7 @@ function decAlign(am, as, bm, bs) {
 // DEF entries spliced into the module and replayed at boot, my own device of
 // 2026-07-20 and nowhere in AREST.tex -- is retired.
 let STORE_DB = null;
+let STORE_TABLES = new Map();            // ft -> the rows the tables held at load
 function storeDb() {
   if (STORE_DB !== null) return STORE_DB;
   const path = process.env.AREST_STORE_DB;
@@ -3335,6 +3336,12 @@ function loadStoreDb(path) {
     if (runtime) moved.push([m.ft, rows]);
   }
   db.close();
+  // WHAT THE TABLES THEMSELVES HOLD, in the encoding popSnapshot compares. The
+  // cells below are the same rows, but only until something recomputes one --
+  // and a reflection is recomputed at every load (loadReflected), so by the
+  // time the closure has run the cell no longer says what is on disk. boot()
+  // diffs against THIS to find out what the tables are missing.
+  STORE_TABLES = new Map(recon.map((c) => [c[1], JSON.stringify(c[2])]));
   const names = new Set(recon.map((c) => c[1]));
   for (let i = CELLS.length - 1; i >= 0; i--) if (Array.isArray(CELLS[i]) && names.has(CELLS[i][1])) CELLS.splice(i, 1);
   for (let i = recon.length - 1; i >= 0; i--) CELLS.unshift(recon[i]);
@@ -3553,7 +3560,53 @@ function boot(mode) {
   // Not a decision about the store, only the absence of its schema.
   const fromDb = process.env.AREST_STORE_DB;
   const schemaless = !fromDb && Ev("ast:fetch", ["state:fts", CELLS]) === "#";
-  if (fromDb) { loadStoreDb(fromDb); loadFile(); closeStore(); lap("store-db"); }
+  // AND WHAT THE CLOSURE DERIVES OVER A RUNTIME ROW IS STORED, OR THE TABLES
+  // AND THE ANSWER DISAGREE (2026-09-18). tools/compile-store.js builds from
+  // the CARRIERS -- it deletes AREST_STORE_DB on purpose, so its `_asserted`
+  // ledger is what the readings say and nothing else -- and only afterwards
+  // carries the rows the runtime wrote back into the tables. Nothing re-derives
+  // over them, so every head that reads a runtime row was written from a store
+  // that did not contain it. Measured on support.auto.dev's live store, built
+  // 2026-09-17 21:37: `State Machine is for Object Type Instance` holds FIVE
+  // rows in the tables -- sm.Free, sm.Starter, sm.Growth, sm.Scale,
+  // sm.Enterprise, the five Plans the readings declare as VALUES -- while the
+  // same store booted through loadStoreDb answers SIX, the sixth being
+  // sm.sr-chris-pennington-20260913 for the one Support Request a person
+  // created through the MCP, at status Draft, which is what its fired
+  // AdminAcceptsSupportRequest implies. `actions` on that request answers its
+  // four affordances from the SAME main:status_pop and has always been right.
+  // So the stored fact and the menu were two computations after all, and a
+  // worklist read off the tables found no live request while the menu beside it
+  // offered four buttons on one. loadStoreDb already knows which rows the
+  // runtime wrote (the ledger says which it did not) and rebuilds state:otpops
+  // from them; closeStore then reflects and derives over a store that has them.
+  // This writes that answer back, so the tables hold what the boot computed and
+  // the next reader of the tables alone sees what the server sees. It is the
+  // same three lines a write takes -- snapshot, evaluate, emit what changed --
+  // over the closure instead of over a POST, and on a store with no runtime
+  // rows it emits nothing, because nothing changed. A store that cannot be
+  // written (locked, read-only, another process mid-write) is not a failed
+  // boot: the answer in memory is unaffected and only durability is lost, so
+  // the refusal is reported and the boot goes on.
+  if (fromDb) {
+    loadStoreDb(fromDb); loadFile();
+    // AND THE BASELINE IS THE TABLES, NOT THE MEMORY BEFORE THE CLOSURE. A
+    // reflected population is a function of the store, so it answers the same
+    // before and after the reflection wherever its inputs are already loaded --
+    // the diff against the pre-closure memory was EMPTY for the very row that
+    // was missing from disk. A fact type the tables do not carry at all is not
+    // this loop's business: which fact types get a table, and whether that
+    // table is a relation or a column of an entity table, is the relational map
+    // compile-store lays out, and a boot inventing one would give a functional
+    // fact type a relation table of its own.
+    const beforeClosure = popSnapshot(CELLS);
+    for (const [ft, text] of STORE_TABLES) if (beforeClosure.has(ft)) beforeClosure.set(ft, text);
+    closeStore();
+    let closed = 0;
+    try { closed = emitToDb(beforeClosure, CELLS); }
+    catch (e) { console.error("the closure was computed but not stored in " + fromDb + ": " + e.message); }
+    lap("store-db" + (closed ? ", closure stored into " + closed + " fact type(s)" : ""));
+  }
   else if (!schemaless) {
     loadFile(); lap("file");
     closeStore(); lap("reflected and derived");
