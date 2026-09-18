@@ -292,7 +292,11 @@ class Resident {
         this.note = "module build FAILED (exit " + b.code + "): " + lastLines(b.tail, 6);
       } else {
         const s = await run([join(here, "..", "compile-store.js")], this.pkg, env);
-        this.note = (s.code === 0 ? "compiled: " : "compile-store FAILED (exit " + s.code + ", store restored): ") + lastLines(s.tail, s.code === 0 ? 1 : 8);
+        // "store unchanged", not "store restored": compile-store builds beside
+        // the store and renames into place, so a failed compile never wrote to
+        // it and there is nothing to restore. Saying "restored" named the act
+        // that lost the first live Support Request.
+        this.note = (s.code === 0 ? "compiled: " : "compile-store FAILED (exit " + s.code + ", store unchanged): ") + lastLines(s.tail, s.code === 0 ? 1 : 8);
       }
       this.busy = null;
       this.spawn();
