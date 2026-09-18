@@ -1167,12 +1167,25 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     // internal uniqueness constraints go with it: stateUcs 632 -> 630. Every
     // other field is unmoved -- the subtype fact is not a table, so witness,
     // canon, players, ucs, mands, all and stateRows all stay where they were.
+    // AND `Operation awaits a driver` IS STORED NOW (2026-09-18). Declaring it
+    // `**` rather than `*` in metamodel/resolution.md puts it in the STORED
+    // schema -- the oracle drops a `*` head from state:fts (Codd 1970 1.5,
+    // Verifier.cs) and canon's rmap:gate drops it from the map (NORMA
+    // GATE:187-188), so a fully derived head has no table at all, which is why
+    // this one had none while both of its inputs did. One fact type enters,
+    // both readers read it the same way, and every count that ranges over the
+    // schema moves by exactly one: witness/canon/both/players/ucs/mands/all
+    // 261 -> 262, rows 250 -> 251, stateRows 258 -> 259. derived stays [37,
+    // 37, 37] -- the head was always derivation-MARKED, only its mode moved,
+    // full -> stored -- and stateUcs stays 630, because its uniqueness was in
+    // state:ucs before the head was in state:fts.
+
     // the pinned distance (2026-09-17); every number is a floor, and a change
     // in either direction is a finding, not noise
     expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
-      .toEqual({ witness: 261, canon: 261, both: 261, canonOnly: 0, oracleOnly: 0,
-                 players: 261, ucs: 261, mands: 261, all: 261, rows: 250, rejected: 0, derived: [37, 37, 37], stateRows: 258, stateUcs: 630 });
+      .toEqual({ witness: 262, canon: 262, both: 262, canonOnly: 0, oracleOnly: 0,
+                 players: 262, ucs: 262, mands: 262, all: 262, rows: 251, rejected: 0, derived: [37, 37, 37], stateRows: 259, stateUcs: 630 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of

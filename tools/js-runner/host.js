@@ -3431,6 +3431,33 @@ function loadDerived() {
   const carried = new Map(before.map((p) => [String(p[0]), Array.isArray(p[1]) ? p[1].length : 0]));
   const seen = new Set();
   for (const c of CELLS) if (Array.isArray(c) && String(c[0]) === "CELL") seen.add(String(c[1]));
+  // AND A TABLE IS NOT AN ANSWER FOR A HEAD THE RULE OWNS (2026-09-18). The
+  // `seen` line above is PRESENCE, and presence is what the `carried` line
+  // before it already had to stop trusting. On a boot from store.db
+  // loadStoreDb makes a cell for every _meta row, so the moment a fully
+  // derived head is MATERIALISED it has a cell, and `already its own cell`
+  // throws the closure away for the one kind of head whose marker says the
+  // rule owns the whole population -- the answer is then whatever the last
+  // compile-store wrote, frozen against everything the store has learned
+  // since. Measured on metamodel/resolution.md's `Operation awaits a driver`
+  // the day it was declared `**`: the MCP asserts `Operation is registered`
+  // per connection for the seams a sampling client can drive and does not
+  // emit it (initialize, above), and with no table that assertion dropped
+  // csdp:elementarize out of the awaiting list while with one it stayed in
+  // it -- which is the defect resolution.md's own note names, the seams
+  // "stayed awaiting with the driver sitting on the other end of the pipe".
+  // A `+` head is deliberately NOT here: its rows may be ASSERTED, so what
+  // the tables hold for it is a statement and not only a computation, and
+  // the merge derive:sm_one performs is the reading of that. Only `*` and
+  // `**` say the rule owns the population, and only a name the TABLES
+  // supplied is claimed -- a carrier cell is left exactly as it was.
+  let owned;
+  try {
+    owned = new Set(Ev("derive:sm_marks", CELLS)
+      .filter((r) => String(r[1]) === "full" || String(r[1]) === "stored")
+      .map((r) => String(r[0])).filter((n) => STORE_TABLES.has(n)));
+  } catch { owned = new Set(); }
+
   let added = 0;
   for (const entry of Ev("derive:closed", CELLS)) {
     const name = String(entry[0]);
@@ -3439,7 +3466,7 @@ function loadDerived() {
     // carrying those adds names nothing references and nothing can read
     if (!Array.isArray(entry[1]) || entry[1].length === 0) continue;
     if (REFLECTED_NAMES.has(name)) continue;              // canon's own answer, not the closure's
-    if (DERIVED_NAMES.has(name)) {
+    if (DERIVED_NAMES.has(name) || owned.has(name)) {
       // A CELL THIS BOOT COMPUTED IS REFRESHED, NOT KEPT (2026-09-17). The two
       // guards below are about not disturbing what the CARRIERS or the TABLES
       // say; they were also stopping the closure from correcting its own

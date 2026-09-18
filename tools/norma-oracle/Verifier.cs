@@ -4515,6 +4515,32 @@ namespace Arest.NormaOracle
 					new FactTypeHasDerivationRule(hE6.Fact, rule6);
 					ApplyDerivationMarkers(hE6.Fact, rule6);
 				}
+				// A STORED (**) NEGATION HEAD GETS THE RECIPE AND NO PATH, the same three
+				// lines the conjunction arm carries (`(body external to store)`, below) and
+				// for the same mechanism: LeadRolePathAddedRule (RolePath.cs:6143-6152)
+				// clears ExternalDerivation on any path add at commit, and GATE:188 exempts
+				// only External+Stored from the relational-map exclusion. So laying a path
+				// here would hand a `**` head the flag triple full+stored+external=F, which
+				// NORMA's own gate excludes exactly as it excludes a bare `*`, and the
+				// marker would not survive into the map it was written to reach. Measured
+				// on metamodel/resolution.md's `Operation awaits a driver. **`: with the
+				// path, state:mapinputs said (full, stored, F) and rmap:gmi still dropped
+				// it; without, (full, stored, T) and it maps. The executable recipe is
+				// parse-side either way -- it is emitted below and again here -- so canon's
+				// closure derives the head in both cases; what changes is the LAYOUT.
+				if (myStoredDerived.Contains(hE6.Fact) && !mySemiDerived.Contains(hE6.Fact))
+				{
+					var hp6s = new List<string>();
+					foreach (string p in hE6.Players) hp6s.Add(IAtom(p));
+					myRuleRecipes.Add("S3(" + IAtom(hE6.Fact.Name) + ", S" + hp6s.Count + "("
+						+ string.Join(", ", hp6s) + "), " + rightSide + ")");
+					var negNames0 = new List<string>();
+					foreach (FactIndexEntry nE0 in nEs) negNames0.Add(nE0.Fact.Name);
+					myBuiltRuleSentences.Add(sRaw6);
+					log.Add(hE6.Fact.Name + " := minus (" + pE.Fact.Name + " less " + string.Join(", ", negNames0)
+						+ "), " + DescribeDerivation(hE6.Fact) + " (body external to store)");
+					continue;
+				}
 				var lead6 = new LeadRolePath(myStore);
 				rule6.OwnedLeadRolePathCollection.Add(lead6);
 				new RolePathObjectTypeRoot(lead6, myTypes[hE6.Players[0]]);
