@@ -297,6 +297,10 @@ class Resident {
       this.busy = null;
       this.spawn();
       await this.boot();
+      // the surface this app serves is the surface the router offers, so the
+      // client is told to read it again rather than keep the list it cached at
+      // initialize.
+      announceTools();
     })();
     return "compiling " + this.name + ": its server is stopped, build.js test then compile-store.js run in " + this.pkg + ", then it serves again; `apps` reports the result";
   }
@@ -329,6 +333,20 @@ function tools() {
   ].concat(withApp);
 }
 
+// A CACHED TOOL LIST GOES STALE AND NOTHING SAID SO (2026-09-17). `tools()`
+// rebuilds the list on every tools/list -- the app argument's enum is
+// `names()`, a function -- so the router always KNOWS the current surface. But
+// a client reads tools/list once at initialize and caches it, and the router
+// advertised no `listChanged`, so after apps_compile changed an app's verb
+// surface (any canon commit does) a running session kept calling the old list
+// and a newly registered app was not addressable without reconnecting. That
+// was one of support's seven. The capability is now declared and this is the
+// notification that goes with it: a server that says listChanged and never
+// sends one is the same silence with a promise attached.
+function announceTools() {
+  process.stdout.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/tools/list_changed" }) + NL);
+}
+
 function reply(id, result) { return { jsonrpc: "2.0", id, result }; }
 function fail(id, message) { return { jsonrpc: "2.0", id, error: { code: -32603, message } }; }
 const text = (id, s, isError) => reply(id, { content: [{ type: "text", text: s }], ...(isError ? { isError: true } : {}) });
@@ -344,7 +362,7 @@ async function handle(msg) {
     for (const r of residents.values()) lines.push(r.name + (r.error ? " (not serving: " + r.error + ")" : ": " + r.instructions));
     return reply(msg.id, {
       protocolVersion: "2024-11-05",
-      capabilities: { tools: {}, prompts: {} },
+      capabilities: { tools: { listChanged: true }, prompts: {} },
       serverInfo: { name: "arest", version: "1.0.0" },
       instructions: "AREST serves " + residents.size + " resident apps, each its own store; every verb takes `app`: " + names().join(", ") +
         ". A readings change is apps_check then apps_compile on that app; `apps` reports each. " + lines.join(" ||| "),
