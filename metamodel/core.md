@@ -220,12 +220,18 @@ Domain has Description.
   Each Domain has at most one Description.
 
 <!-- The party kinds (ruling 2026-07-24, per Halpin's Subtyping
-     Revisited 4 and the Party pattern): Human, Organization, and
-     Agent are RIGID kinds - an instance belongs for its whole
+     Revisited 4 and the Party pattern): Human and Organization are
+     RIGID kinds - an instance belongs for its whole
      existence. Function's one id space is the Party scheme ("a
      simple global identification scheme for all parties").
      Declared in core so the kind anchors before any
      alphabetically-earlier app file can infer a kind from usage.
+     Agent is the same pattern and is declared by the agents module
+     (readings/templates/agents.md), entity type and subtype link
+     together, because an agent is something this metamodel
+     describes rather than part of the metamodel's own vocabulary
+     (Sam, 2026-09-17: "I want to pull Agent out into a module.
+     That doesn't seem core."); no core fact type ever used it.
 
      User is NOT a subtype of any one kind. It was, briefly, until
      the audit against Subtyping Revisited 4 asked the paper's own
@@ -243,8 +249,6 @@ Human is an entity type.
 Human is a subtype of Object Type Instance.
 Organization is an entity type.
 Organization is a subtype of Object Type Instance.
-Agent is an entity type.
-Agent is a subtype of Object Type Instance.
 
 ## Value Types
 
@@ -1154,7 +1158,7 @@ Function yields Fact Type with Role from JSON Path.
        LEAVES. Neither covers the answer to a call the app itself made, which
        is where a send receipt comes back -- so a performed predicate could
        state its whole request from facts and had no declared way to record
-       what it got. `Function yields Type Expression` (core.md:789) is the
+       what it got. `Function yields Type Expression` (core.md:793) is the
        signature's return type, not a projection, and was the near-miss that
        made this look already modelled.
 

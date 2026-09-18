@@ -1161,12 +1161,18 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     // (evolution.md), the spanning uniqueness the objectification stands on is
     // back, and both readers say [[1,2]]: ucs/all 260 -> 261, stateRows 257 ->
     // 258, stateUcs 631 -> 632.
+    // AND Agent LEFT core (2026-09-18). `Agent is a subtype of Object Type
+    // Instance` moved to readings/templates/agents.md, so the base metamodel
+    // no longer carries AgentIsASubtypeOfObjectTypeInstance and its two
+    // internal uniqueness constraints go with it: stateUcs 632 -> 630. Every
+    // other field is unmoved -- the subtype fact is not a table, so witness,
+    // canon, players, ucs, mands, all and stateRows all stay where they were.
     // the pinned distance (2026-09-17); every number is a floor, and a change
     // in either direction is a finding, not noise
     expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
       .toEqual({ witness: 261, canon: 261, both: 261, canonOnly: 0, oracleOnly: 0,
-                 players: 261, ucs: 261, mands: 261, all: 261, rows: 250, rejected: 0, derived: [37, 37, 37], stateRows: 258, stateUcs: 632 });
+                 players: 261, ucs: 261, mands: 261, all: 261, rows: 250, rejected: 0, derived: [37, 37, 37], stateRows: 258, stateUcs: 630 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
@@ -1411,7 +1417,12 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
   // set of fact types: canon's sequence restricted to the ones the witness has
   // is the witness's sequence. The six Verbalization Pattern fact types that
   // used to be canon-only are in the regenerated witness (2026-09-17), so the
-  // two sequences are now the same 507 rows and canonOnly is empty.
+  // two sequences are now the same rows and canonOnly is empty. Agent left
+  // core on 2026-09-18 (its declaration moved to readings/templates), so
+  // AgentIsASubtypeOfObjectTypeInstance is no longer in the base metamodel's
+  // declaration order and the count is 506 where it was 507. Ordinals after
+  // it renumber, which is why `renumbered` is the field that proves nothing
+  // else moved.
   test("canon's state:factorder is the witness's sequence", () => {
     const w = witness("state:factorder").map((r) => String(r[0]));
     const c = Ev("read:order_state", F);
@@ -1421,7 +1432,7 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
              sequence: J(kept.map((r) => String(r[0]))) === J(w),
              renumbered: J(kept.map((r, i) => [String(r[0]), i + 1])) === J(witness("state:factorder").map((r) => [String(r[0]), r[1]])),
              canonOnly: c.filter((r) => !WN.has(String(r[0]))).map((r) => String(r[0])) })
-      .toEqual({ canon: 507, witness: 507, kept: 507, sequence: true, renumbered: true, canonOnly: [] });
+      .toEqual({ canon: 506, witness: 506, kept: 506, sequence: true, renumbered: true, canonOnly: [] });
   }, 300_000);
 
   // and the assembler carries them: the design state canon writes holds every
