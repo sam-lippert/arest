@@ -11,6 +11,15 @@
 AI Model(.code) is an entity type.
 Agent Definition(.id) is an entity type.
 Agent(.id) is an entity type.
+# The subtype link moved here from metamodel/core.md on 2026-09-17 (Sam: "I
+# want to pull Agent out into a module. That doesn't seem core."). Core said
+# `Agent is an entity type` and this line and nothing else -- NO core fact type
+# ever took an Agent role -- and the reference mode was already this file's, so
+# `.id` did not move and identification does not change. This line did have to
+# come with it: `Agent is for Object Type Instance` below is a fact type, not a
+# subtyping, so without this declaration `Agent 'claude'` stops being an Object
+# Type Instance and every mixin fact over the one id space goes with it.
+Agent is a subtype of Object Type Instance.
 Completion(.id) is an entity type.
 
 ## Value Types

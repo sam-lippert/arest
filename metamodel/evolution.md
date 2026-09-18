@@ -84,8 +84,9 @@ Signal has Signal Kind.
 
 Signal is raised by Object Type Instance.
   Each Signal is raised by exactly one Object Type Instance.
-  <!-- Object Type Instance is the party mixin, so a Human, an Organization or an
-       Agent may raise a signal - which is the point: automated origins
+  <!-- Object Type Instance is the party mixin, so a Human, an Organization or
+       an Agent - the agents module's type since 2026-09-17, not core's -
+       may raise a signal - which is the point: automated origins
        finally have a raiser to name. `exactly one` is the throat: every
        signal is somebody's. -->        
 
@@ -182,9 +183,11 @@ It is obligatory that each Domain Change has exactly one Rationale.
      cardinality claim, and deontic bodies here are classified rather
      than mapped, so an ambiguous one would never have been caught.
      Note this gate is now load-bearing in a way it was not
-     before - User became a ROLE type over the mixin (5f11814d), so an
-     Agent may be a User and could otherwise approve its own rewrite of
-     the core. The Human requirement is what keeps that from happening,
+     before - User became a ROLE type over the mixin (5f11814d), so a
+     User need not be a Human: an Agent, the agents module's type since
+     2026-09-17 rather than core's, may be one and could otherwise
+     approve its own rewrite of the core. The Human requirement is what
+     keeps that from happening,
      and it must be stated HERE because it is no longer implied by the
      subtype lattice. -->
 <!-- EVERY DOMAIN, not an enumeration (Sam, 2026-09-15: "It must always be
@@ -203,7 +206,8 @@ It is obligatory that each Domain Change has exactly one Rationale.
      two domains: the throat to choke, `exactly one` because a committee is
      not one, the obligation form because a prohibition puts the cardinality
      inside the negated scope, and User being a role over the mixin so an
-     Agent may be a User and could otherwise approve its own rewrite. None
+     Agent - a type the agents module declares, not this metamodel - may be
+     a User and could otherwise approve its own rewrite. None
      of that narrows. The forward declaration is no longer needed: an ethics
      domain is gated the day it is declared, by this sentence, without
      anyone remembering to add it.
@@ -215,14 +219,15 @@ It is obligatory that each Domain Change has exactly one Rationale.
      applying one is a Domain Change being applied, so it arrives here. -->
 <!-- AND IT IS STATED AGAINST THE TYPE THAT PLAYS THE ROLE (2026-09-17).
      `Human` plays no role in any fact type - it is a bare Object Type
-     Instance subtype beside Organization and Agent (core.md:242) - so the
+     Instance subtype beside Organization (core.md:248; Agent stood there
+     too until 2026-09-17, when it moved to the agents module) - so the
      obligation named a type the approval fact does not mention, and NORMA
      refuses it by name. It was carried by nothing: state:deontics had no
      row for it, so the gate that this whole comment is about was enforced
      NOWHERE. `User approves Domain Change` is the fact, and `User` is what
      plays its first role, so that is the type the cardinality is about.
      It is spelled in the `For each X, ... that X` form the metamodel
-     already uses (core.md:555), because that is the form whose body
+     already uses (core.md:559), because that is the form whose body
      restates the reading and therefore the one both readers resolve.
      KNOWN AND STATED: the for-each head's `applied`
      qualifier is not carried - the rows say it of every Domain Change,
@@ -270,9 +275,11 @@ It is obligatory that each Domain Change has exactly one Rationale.
      migrate:plan answers nothing when two Users approve one Domain Change
      (engine/shared/scenarios.canon, case:a-second-approver-is-not-a-throat)
      and compile-store declines the Migration.
-     WHAT THIS GIVES UP, said rather than lost: `Human` also said an Agent
-     may not sign off its own rewrite, and User being a role over the mixin
-     means an Agent may be a User. That half was never enforced either, and
+     WHAT THIS GIVES UP, said rather than lost: `Human` also said an Agent -
+     a type the agents module declares since 2026-09-17, not one this
+     metamodel has of its own - may not sign off its own rewrite, and User
+     being a role over the mixin means an Agent may be a User. That half was
+     never enforced either, and
      it is a question about WHICH Object Type Instance the approving User
      is - a join through `User is a role of Object Type Instance` - not
      about how many there are. It belongs in its own sentence, against a

@@ -535,7 +535,7 @@ Function 'crypt:decrypt' is inverted by Function 'crypt:encrypt'.
      that mints the secret everything else depends on.
 
      IT YIELDS A FINGERPRINT, NOT A KEY, and that is what makes it safe to put
-     on the MCP surface at all. An answer is transcript. core.md:1223 already
+     on the MCP surface at all. An answer is transcript. core.md:1227 already
      rules the key "cannot live in the store it protects"; the reply is the same
      argument. So the yielded Type Expression is a truncated digest -- enough to
      tell two keys apart, useless for decrypting -- and the key itself reaches
