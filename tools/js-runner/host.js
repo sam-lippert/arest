@@ -2857,22 +2857,48 @@ function run_mcp() {
     }));
   }
 
-  // A HOST OFFERS WHAT IT CAN FILL, AND ONLY WHILE IT CAN. The tool for a driven
-  // seam appears exactly when `Operation is registered` is asserted for it -- when
-  // the client offered sampling -- so the served surface and the store's own claim
-  // about the boundary are the same fact stated twice. With nobody to ask, the seam
-  // is offered by nobody and `drive` still names it, honestly, as awaiting.
+  // A HOST OFFERS WHAT IT CAN FILL, AND IT CAN ALWAYS FILL THIS ONE -- WITH THE
+  // CALLER. The tool for a driven seam appeared exactly when the client offered
+  // `sampling`, which was right while asking was the only way to get an answer,
+  // and it made the seam UNREACHABLE FROM THE CLIENT THAT USES IT.
+  // Measured 2026-09-18 against support.auto.dev's store, changing one thing
+  // only: a client advertising nothing got 1402 tools with csdp_elementarize
+  // ABSENT, a client advertising sampling got 1403 with it OFFERED. Claude Code
+  // advertises no sampling (20 tools at the router, no seam tool among them,
+  // measured independently in a live session the same day), so the one audience
+  // this exists for could not call it.
+  //
+  // SAMPLING EXISTS SO A SERVER CAN ASK A MODEL A QUESTION, AND HERE THE CALLER
+  // IS THE MODEL. So the judgement does not have to be FETCHED; it can be
+  // PASSED, as an ordinary second argument to the same tool. The answer lands on
+  // the same path either way (drive, below), so the only difference is who
+  // initiates -- and a door that needs no capability is a door every client has.
+  // The sampling round trip is kept and still preferred where it exists: a
+  // client that can be asked is asked, because a server-initiated ask is the
+  // better shape when it is possible.
+  //
+  // ONE TOOL, ONE PARAMETER, AN OPTIONAL SECOND ELEMENT IN THE ARRAY IT ALREADY
+  // TAKES. A named `answer` property would also have worked -- the router's
+  // isVerb test is `args and no method`, which an extra property does not
+  // disturb -- but it would make these the only verb tools on this surface with
+  // a shape of their own, and a client holding a cached tools/list would be
+  // calling a schema that had changed. The array is unconstrained (no `items`),
+  // so a second element is admitted by the schema that is already published:
+  // nothing in the served shape moves, and the router forwards it untouched.
   function drivenTools() {
-    if (!SAMPLING) return [];
     return DRIVEN.map((d) => ({
       name: String(d[0]),
       description: String(d[1]) + " -- takes the " + String(d[2]) + ", answers the " + String(d[3])
         + " -- a judgement, not a computation: this store declares it registrable and no host computes it,"
-        + " so the answer is asked of you and what you answer lands as rows with the completion that produced them",
+        + " so the answer is YOURS and what you answer lands as rows with the completion that produced them."
+        + " Call it with the subject alone to be handed the store's question; call it again with your answer"
+        + " beside the subject to have that answer written.",
       inputSchema: {
         type: "object",
         properties: {
-          args: { type: "array", description: "one argument, the subject: the id whose facts are the familiar example" },
+          args: { type: "array", description: "one or two arguments. [subject] -- the id whose facts are the familiar"
+                  + " example -- answers the store's question and writes nothing. [subject, answer] writes the answer,"
+                  + " where answer is the JSON array the question asks for: [{\"factType\": \"...\", \"players\": [\"...\"]}]" },
         },
       },
     }));
@@ -3012,24 +3038,37 @@ function run_mcp() {
   // anywhere. So the completion lands as facts beside what it decided, and WHICH
   // provenance fact types land is the store's business (drive:keep), because the
   // vocabulary is spread across three apps' readings and no closure has all of it.
+  //
+  // AND THE ANSWER MAY ARRIVE EITHER WAY (2026-09-18). `drive` is a pure
+  // function of the row it is handed: measured against support's store with a
+  // row nothing sampled -- operation, subject, at, model, definition, agent,
+  // completion, claim, prompt, input, output, facts, all supplied -- it answered
+  // the same twelve <fact type, fact> pairs it answers after a sampling round
+  // trip, ten provenance and two claims. So the CANON END ALREADY EXISTED: the
+  // seam's own note, "drive already accepts completion-and-cells, so only the
+  // door is missing", is the same diagnosis that was right about the seam
+  // itself, and everything below this line is host. The three ways in are one
+  // code path: an answer PASSED as the second argument, an answer FETCHED by
+  // sampling, or -- when neither -- the store's QUESTION handed back so the
+  // caller can answer it on the next call.
   let completions = 0;
   async function drive(args) {
     const a = args || {};
-    const given = Array.isArray(a.args) && a.args.length ? a.args[0] : null;
+    const list = Array.isArray(a.args) ? a.args : [];
+    const given = list.length ? list[0] : null;
     const row = (given && typeof given === "object" && !Array.isArray(given)) ? { ...given } : {};
     const operation = String(row.operation || "");
     const subject = String(row.subject || "");
+    // THE SECOND ARGUMENT IS THE ANSWER, and it is admitted in either of the two
+    // shapes an answer has ever had here: the JSON array of {factType, players}
+    // the question asks for, or the raw text of a completion carrying one, which
+    // is what a model that answered in prose around its array hands over.
+    const passed = list.length > 1 ? list[1] : undefined;
+    const answered = passed !== undefined && passed !== null && passed !== "";
     const awaiting = Ev("drive:awaiting", CELLS).map((r) => "  " + String(r[1]) + " -- " + String(r[0]));
-    // BE HONEST WHERE IT IS HONEST. With no sampling offered, the seam is exactly
-    // what the model says it is -- registrable, unregistered, awaiting a driver --
-    // and this says so and writes nothing. That is the case the derivation exists
-    // to name, and it has to keep working.
-    if (!SAMPLING) {
-      return ["this client offered no `sampling` capability at initialize, so there is nobody to ask and nothing was written."
-        + "\nOperation '" + operation + "' stays unregistered. Awaiting a judgement in this store:\n" + awaiting.join("\n"), 424];
-    }
     if (!operation || !subject) {
-      return ["drive takes one object argument, {operation, subject}. Awaiting a judgement in this store:\n" + awaiting.join("\n"), 400];
+      return ["drive takes one object argument, {operation, subject}, and optionally the answer beside it."
+        + " Awaiting a judgement in this store:\n" + awaiting.join("\n"), 400];
     }
     const input = String(Ev("drive:request", [fromJson(row), CELLS]));
     // the standing prompt is the Agent Definition's, the request is this call's
@@ -3037,28 +3076,73 @@ function run_mcp() {
     // asked this time, and agents.md declares them as two different fact types
     const prompt = "You are the driver for '" + operation + "', an operation this AREST store declares registrable that no host has registered."
       + " Answer only with what the store can hold, and nothing else.";
-    // the request and the result are the protocol's own shapes; the client runs
-    // the completion and a human may edit or refuse it, which is the point
-    const res = await askClient("sampling/createMessage", {
-      messages: [{ role: "user", content: { type: "text", text: input } }],
-      systemPrompt: prompt,
-      includeContext: "none",
-      maxTokens: 4096,
-      modelPreferences: { hints: [{ name: "claude" }], intelligencePriority: 0.9, speedPriority: 0.3 },
-    });
-    const output = res && res.content && res.content.type === "text" ? String(res.content.text) : "";
+    // NOBODY TO ASK IS NOT NOBODY TO TELL. This refused with 424 -- "there is
+    // nobody to ask and nothing was written" -- and its premise was wrong: the
+    // caller is a model, and it is right here. So the composed request goes back
+    // to the caller instead of a refusal, and the caller answers it by calling
+    // again with the answer beside the subject. Nothing is written on this call,
+    // which is what the refusal got right, and the status is not an error
+    // because nothing failed: this IS the question, delivered.
+    //
+    // AND DELIVERING IT IS WHAT MAKES `Completion has input Text` HONEST for a
+    // passed answer. The sampled path records the request it composed, not what
+    // the model was shown -- the client "may edit or refuse it, which is the
+    // point" -- so both paths record the same thing, the question this store put
+    // to its driver, and the passed path additionally handed that text over.
+    if (!answered && !SAMPLING) {
+      return ["this client offered no `sampling` capability at initialize, so nobody can be asked -- but you are a driver too."
+        + " NOTHING WAS WRITTEN. Answer the question below by calling this again with your answer as the SECOND argument"
+        + " beside '" + subject + "', and it lands as rows with the Completion that produced them."
+        + "\n\n" + input, 200];
+    }
+    // SAMPLING STAYS PREFERRED WHERE IT IS AVAILABLE: a client that advertised it
+    // is still asked, because a server-initiated ask is the better shape when it
+    // is possible -- a human can see it, edit it or refuse it, and the client
+    // names the model that ran it. The passed form is what makes the seam
+    // reachable from a client that cannot be asked, so it is taken only when an
+    // answer is actually in hand.
+    let res = null, output = "";
+    if (!answered) {
+      // the request and the result are the protocol's own shapes; the client runs
+      // the completion and a human may edit or refuse it, which is the point
+      res = await askClient("sampling/createMessage", {
+        messages: [{ role: "user", content: { type: "text", text: input } }],
+        systemPrompt: prompt,
+        includeContext: "none",
+        maxTokens: 4096,
+        modelPreferences: { hints: [{ name: "claude" }], intelligencePriority: 0.9, speedPriority: 0.3 },
+      });
+      output = res && res.content && res.content.type === "text" ? String(res.content.text) : "";
+    } else {
+      // A PASSED ANSWER IS THE COMPLETION'S OUTPUT, and the output Text recorded
+      // is the answer as it arrived: a JSON array re-rendered, a text kept whole.
+      // Nothing is invented -- this is what the driver said.
+      output = typeof passed === "string" ? passed : JSON.stringify(passed);
+    }
     // the bytes are read into the mu here, where every other body is read: an
     // array is a sequence and an object is its <name, value> pairs (fromJson),
     // so canon never parses text and Stage-1's boundary stays where it is
     let facts = [];
-    const lb = output.indexOf("["), rb = output.lastIndexOf("]");
-    if (lb >= 0 && rb > lb) { try { facts = JSON.parse(output.slice(lb, rb + 1)); } catch (e) { facts = []; } }
+    if (answered && Array.isArray(passed)) facts = passed;
+    else {
+      const lb = output.indexOf("["), rb = output.lastIndexOf("]");
+      if (lb >= 0 && rb > lb) { try { facts = JSON.parse(output.slice(lb, rb + 1)); } catch (e) { facts = []; } }
+    }
     if (!Array.isArray(facts)) facts = [];
     const at = String(Ev("clock", []));
     const completion = "cmp-" + Ev("slug", at) + "-" + (++completions);
     row.operation = operation; row.subject = subject;
     row.at = at;
-    row.model = String((res && res.model) || "unknown");
+    // AND THE ONE THING A PASSED ANSWER CANNOT SAY IS WHICH MODEL SAID IT. The
+    // sampled path learns it from the client's result; MCP gives a server no way
+    // to learn it from a tool call, and a caller naming itself is a claim, not a
+    // measurement. So it is `unknown` unless the caller put a `model` in the
+    // operand -- which is the same atom the sampled path already writes when the
+    // client returns no model -- and it is abstention, not a guess. The AGENT is
+    // not affected and is in fact MORE certain here than under sampling: the
+    // party that answered is the party that called, named at initialize, where a
+    // sampling client may route the ask anywhere.
+    row.model = res ? String(res.model || "unknown") : String(row.model || "unknown");
     row.definition = "agentdef-" + Ev("slug", operation);
     row.agent = AGENT;
     row.completion = completion;
@@ -3097,7 +3181,8 @@ function run_mcp() {
       const status = Number(out && out[1]) || 500;
       for (const f of b.facts) (status < 400 ? wrote : refused).push(f + (status < 400 ? "" : " -- " + status + " " + String(out && out[0]).slice(0, 240)));
     }
-    return ["asked the client for '" + operation + "' over " + subject + " (" + input.length + " characters of request, model " + row.model + ")"
+    return [(answered ? "took your answer for '" : "asked the client for '") + operation + "' over " + subject
+      + " (" + input.length + " characters of request, model " + row.model + ", agent " + row.agent + ")"
       + "\n\nthe completion:\n" + output
       + "\n\nwrote " + wrote.length + " facts:\n  " + wrote.join("\n  ")
       + (refused.length ? "\n\nrefused " + refused.length + ":\n  " + refused.join("\n  ") : ""), refused.length ? 409 : 200];
@@ -3132,6 +3217,19 @@ function run_mcp() {
       // really does answer; a client offering sampling is what makes this host
       // able to answer csdp:elementarize, so the fact is asserted here and NOT
       // emitted to store.db -- it is true of this connection and of nothing else.
+      //
+      // AND THE DOOR IS NOT THE REGISTRATION (2026-09-18). The seam tool is now
+      // offered to every client, sampling or not, and it would have been easy to
+      // move this assertion out with it on the grounds that the two should say
+      // the same thing. They are two different claims and only looked like one
+      // while sampling was the only door. Under sampling the HOST gets the
+      // answer -- it asks, within the call, on its own initiative -- and that is
+      // what registering an Operation means. Under a PASSED answer the host gets
+      // nothing by itself; it can only take what a caller volunteers, so the
+      // Operation still awaits a driver and the driver is the caller. The store
+      // goes on saying so, which is what makes the awaiting list the question
+      // step prints correct, and `drive:request`'s "no host has registered it"
+      // true of the connection reading it.
       if (SAMPLING) {
         for (const d of Ev("drive:driven", CELLS)) {
           const out = Ev("mcp:call", ["POST", "OperationIsRegistered", "", [String(d)], CELLS]);
@@ -3171,15 +3269,22 @@ function run_mcp() {
     }
     if (msg.method === "tools/call") {
       const p = msg.params || {};
-      // the one call that cannot be answered without going and asking; it is the
-      // same <text, status> answer, arriving later. A driven seam called under its
-      // OWN name is the same ask with the operand the model declares: the subject
-      // alone, because which operation is being driven is the name that was called.
+      // the one call that may have to go and ask; it is the same <text, status>
+      // answer, arriving later. A driven seam called under its OWN name is the
+      // same drive with the operand the model declares: the subject, because
+      // which operation is being driven is the name that was called -- and the
+      // ANSWER after it, when the caller brought one, which is the whole of what
+      // the second element of `args` is for. The capability no longer gates this:
+      // a seam tool is offered to every client now, so a client that calls one
+      // must reach the driver, or it would be offered a door that answers
+      // "unknown tool" and the offer would be the lie.
       const driving = SAMPLED.has(String(p.name)) ? p.arguments
-        : (SAMPLING && DRIVEN_OF.has(String(p.name))
+        : (DRIVEN_OF.has(String(p.name))
             ? { args: [{ operation: DRIVEN_OF.get(String(p.name)),
                          subject: (p.arguments && Array.isArray(p.arguments.args) && p.arguments.args.length)
-                           ? String(p.arguments.args[0]) : "" }] }
+                           ? String(p.arguments.args[0]) : "" }]
+                  .concat(p.arguments && Array.isArray(p.arguments.args) && p.arguments.args.length > 1
+                    ? [p.arguments.args[1]] : []) }
             : null);
       if (driving) {
         return drive(driving).then(
