@@ -20,7 +20,7 @@ Operation is a subtype of Function.
 Operation is overridable.
 Operation is registrable.
 Operation is registered.
-Operation awaits a driver. *
+Operation awaits a driver. **
 
 <!-- WHAT MAY BE REGISTERED IS NOT WHAT IS (2026-09-14). `is registrable` says a host MAY
      fill this seam; nothing said whether one had, so Cor 6's honest list of where unverified
@@ -38,7 +38,23 @@ Operation awaits a driver. *
      person at those points. Driving them manually requires knowing where the points ARE, and
      that is what this derives. The negated clause follows evolution.md's `Domain Change is
      valid` exactly, which the oracle builds as a finite anti-join. -->
-* Operation awaits a driver iff that Operation is registrable and it is not true that that Operation is registered.
+<!-- AND THE MARKER IS `**`, NOT `*` (2026-09-18). The awaiting list has to be READABLE
+     FROM THE TABLES -- a person or an llm driving these seams does not boot the closure
+     to find out where the points are -- and `*` is defined as `derive at runtime`
+     (core.md's marker ruling, Samuel 2026-08-04: the four are orthogonal, `*` derive,
+     `**` derive and store, `+` derive or assert, `++` both). A `*` head therefore LEAVES
+     THE STORED SCHEMA in both directions: the oracle drops it from state:fts citing Codd
+     1970 1.5, a stored derivable relation is strong redundancy, and canon's rmap:gate
+     drops it from the relational map, which is NORMA's own GATE:187-188. So this head had
+     no table AT ALL -- absent, not empty -- while both of its inputs were stored and
+     correct, and the list this derivation exists to give was readable only by booting the
+     rules. `**` is the marker that says derive AND store, and it stays unassertable,
+     which is right for a head that is nothing but a consequence of the other two.
+     The price is stated where the markers are: a stored cell is materialized and
+     persists, so between materializations the table GROWS under the rule and does not
+     shrink -- a stored row seeds the closure and derivation is monotone. Retraction is
+     the next materialization, which builds from the carriers with an empty seed. -->
+** Operation awaits a driver iff that Operation is registrable and it is not true that that Operation is registered.
 
 ## The catalog
 
