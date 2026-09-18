@@ -385,19 +385,35 @@ test("a write reaches the tables, and a store with no tables keeps it in memory"
     const withDb = fresh("with.db"), without = fresh("without.db");
     const untouched = readFileSync(without);
 
+    // AND NEITHER IS 201 (2026-09-18). These six assertions read
+    // `status 201` until a deontic scoped on a supertype began binding its
+    // subtype cone. `Stream is a subtype of Function`, and
+    // `DEO:m:FunctionBelongsToDomain#1` is a deontic mandatory on Function,
+    // whose cone is 112 of the base store's 131 object types. The base store
+    // ALREADY carried 320 standing violations of that rule; the probe entity
+    // is the 321st, and was invisible only because a runtime-created id is
+    // filed under the declared player of the role it fills and the population
+    // was an exact-name lookup. So 200 here is `committed_with_violations`
+    // one line above 201's `committed` in http:status -- the row IS created
+    // and IS in the body, main:create_outcome refuses only on an ALETHIC
+    // violation, and every driver gates on < 400, which both pass. Pinning
+    // 201 pinned the absence of a deontic warning on the probe entity, which
+    // is a fact about the base readings and never what these tests are for.
+    // `20[01]` rather than `200`: brittle the other way, and it breaks the
+    // day a probe entity is given a Domain.
     // HOW MANY fact types move is not the claim and is not pinned: against the
     // full base store.db this write emits 1 and against this empty _meta it
     // emits 2, because a carriers boot has more to diff. The claim is that
     // SOMETHING reached the tables, and that the row is there on the next boot.
     const wrote = run(withDb, true);
-    expect(wrote).toContain("status 201");
+    expect(wrote).toMatch(/status 20[01]/);
     expect(wrote).toMatch(/emitted [1-9]/);
     expect(run(withDb, false)).toContain("present true");
 
     // the same write with no database attached: it still answers, emits
     // nothing, leaves the file it was never given alone, and is gone next boot
     const memoryOnly = run(null, true);
-    expect(memoryOnly).toContain("status 201");
+    expect(memoryOnly).toMatch(/status 20[01]/);
     expect(memoryOnly).toContain("emitted 0");
     expect(readFileSync(without).equals(untouched)).toBe(true);
     expect(run(without, false)).toContain("present false");
@@ -472,7 +488,7 @@ test("an instance created at runtime is listed after a boot from the tables", ()
 
   try {
     // the fixture's own build: one write, then every row it left is the ledger's
-    expect(run(PRIME)).toContain("status 201");
+    expect(run(PRIME)).toMatch(/status 20[01]/);
     const db1 = new Database(path);
     const ains = db1.prepare("insert or ignore into _asserted values(?,?)");
     db1.transaction(() => {
@@ -485,7 +501,7 @@ test("an instance created at runtime is listed after a boot from the tables", ()
     db1.close();
 
     // and now the write under test, in its own process, read back in a third
-    expect(run(KEY)).toContain("status 201");
+    expect(run(KEY)).toMatch(/status 20[01]/);
     const back = run(null);
     expect(back).toContain("fact true");     // the instance fact reached the tables
     expect(back).toContain("listed true");   // and the loaded store knows the id is one
@@ -601,7 +617,7 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
 
   try {
     // the fixture's own build: one write, then every row it left is the ledger's
-    expect(run(PRIME)).toContain("status 201");
+    expect(run(PRIME)).toMatch(/status 20[01]/);
     const db1 = new Database(path);
     const ains = db1.prepare("insert or ignore into _asserted values(?,?)");
     db1.transaction(() => {
@@ -615,7 +631,7 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
 
     // the write under test, and then the store a rebuild would leave: the
     // request's facts, and no machine for it
-    expect(run(KEY)).toContain("status 201");
+    expect(run(KEY)).toMatch(/status 20[01]/);
     rebuild(KEY);
     expect(stored(MACH).some((r) => r.includes(KEY))).toBe(false);
 
