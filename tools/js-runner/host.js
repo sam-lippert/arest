@@ -2798,6 +2798,25 @@ function run_mcp() {
   // read here off mcp:verbs like every other verb's shape. No name in this file.
   const SAMPLED = new Set(VERBS.filter((v) => String(v[1]) === "completion-and-cells").map((v) => String(v[0])));
 
+  // AND THE SEAM ITSELF IS A VERB, under the name the model gives it. mcp:verb_row
+  // blanks the accepts of any verb solve:cell cannot find and mcp:verb_keep drops
+  // it, so `csdp:elementarize` -- registrable, with accepts and yields rows of its
+  // own and deliberately no canon cell, because it is filled by a driver -- had no
+  // door on this surface at all: the only way to reach it was the generic `drive`
+  // with its name passed as a string, which is not the operation being called.
+  // drive:tools answers <tool name, operation, accepts, yields> for exactly the
+  // seams this driver answers, so the names are canon's (drive:driven) and none is
+  // written here. The tool name is SLUG of the operation and the operation rides
+  // beside it, the same two columns mcp:entity_row carries for the same reason: an
+  // MCP name admits no colon any more than it admits a space, and `csdp:elementarize`
+  // would be the first tool name in this surface with one. It is read ONCE, at load,
+  // before any registration: drive:driven is derived from `Operation awaits a
+  // driver`, which stops holding a seam the moment this host registers it. A store
+  // that cannot say what awaits a driver offers none.
+  let DRIVEN = [];
+  try { DRIVEN = Ev("drive:tools", CELLS); } catch (e) { DRIVEN = []; }
+  const DRIVEN_OF = new Map(DRIVEN.map((d) => [String(d[0]), String(d[1])]));
+
   function entityFields(e) {
     return Array.isArray(e[2]) ? e[2].map((f) => String(f[0])) : [];
   }
@@ -2838,8 +2857,29 @@ function run_mcp() {
     }));
   }
 
+  // A HOST OFFERS WHAT IT CAN FILL, AND ONLY WHILE IT CAN. The tool for a driven
+  // seam appears exactly when `Operation is registered` is asserted for it -- when
+  // the client offered sampling -- so the served surface and the store's own claim
+  // about the boundary are the same fact stated twice. With nobody to ask, the seam
+  // is offered by nobody and `drive` still names it, honestly, as awaiting.
+  function drivenTools() {
+    if (!SAMPLING) return [];
+    return DRIVEN.map((d) => ({
+      name: String(d[0]),
+      description: String(d[1]) + " -- takes the " + String(d[2]) + ", answers the " + String(d[3])
+        + " -- a judgement, not a computation: this store declares it registrable and no host computes it,"
+        + " so the answer is asked of you and what you answer lands as rows with the completion that produced them",
+      inputSchema: {
+        type: "object",
+        properties: {
+          args: { type: "array", description: "one argument, the subject: the id whose facts are the familiar example" },
+        },
+      },
+    }));
+  }
+
   function tools() {
-    return verbTools().concat(entityTools()).concat(TOOLS.map((t) => {
+    return verbTools().concat(drivenTools()).concat(entityTools()).concat(TOOLS.map((t) => {
       // THE DESCRIPTION IS THE READING (Sam, 2026-09-10). It used to be
       // "fact type " + the id + the player list, on a comment claiming the
       // reading and the signature were the same row; `Message, Plan` is not
@@ -3132,9 +3172,17 @@ function run_mcp() {
     if (msg.method === "tools/call") {
       const p = msg.params || {};
       // the one call that cannot be answered without going and asking; it is the
-      // same <text, status> answer, arriving later
-      if (SAMPLED.has(String(p.name))) {
-        return drive(p.arguments).then(
+      // same <text, status> answer, arriving later. A driven seam called under its
+      // OWN name is the same ask with the operand the model declares: the subject
+      // alone, because which operation is being driven is the name that was called.
+      const driving = SAMPLED.has(String(p.name)) ? p.arguments
+        : (SAMPLING && DRIVEN_OF.has(String(p.name))
+            ? { args: [{ operation: DRIVEN_OF.get(String(p.name)),
+                         subject: (p.arguments && Array.isArray(p.arguments.args) && p.arguments.args.length)
+                           ? String(p.arguments.args[0]) : "" }] }
+            : null);
+      if (driving) {
+        return drive(driving).then(
           (out) => reply(msg.id, { content: [{ type: "text", text: String(out[0]) }], isError: Number(out[1]) >= 400 }),
           (e) => reply(msg.id, { content: [{ type: "text", text: String(e && e.message) }], isError: true }));
       }
