@@ -1005,46 +1005,57 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     const X = Ev("read:x_of", rows); const S = Ev("read:state_fts", X);
     const stateRows = S.filter((d) => R.has(String(d[0])) && J(d) === J(R.get(String(d[0])))).length;
     const U = new Set(Ev("ast:fetch", ["state:ucs", CELLS]).flat(1).map(J)); const stateUcs = Ev("read:state_ucs", X).filter((r) => U.has(J(r))).length;
-    // the witness predates metamodel/verbalization.md and the orient and tutor
-    // operations (2026-09-16): canon reads four descriptors the witness lacks
-    // (Verbalization Pattern's fact types), and the rows of three operation fact
-    // types and of the reflected populations they touch (kinds, instances,
-    // references, data type, declaration order, subtype, reference mode, enum
-    // values) moved with them; the distance below is measured after that change
-    // AND IT ALSO PREDATES evolution.md's SELF-MODIFICATION GATE (2026-09-17).
-    // That sentence named `Human`, a type that plays no role in any fact type,
-    // so NORMA refused it and the witness carries nothing for it; restated
-    // against `User`, the type that plays the role of `User approves Domain
-    // Change`, canon resolves it and the deontic `exactly one` lands on
-    // UserApprovesDomainChange exactly as the witness's own deontic `at most
-    // one` lands on MigrationApplicationHasTimestamp -- a uniqueness ON THE
-    // DESCRIPTOR ([[1,2]] becomes [[1,2],[2]]) beside the DEO:u row, which is
-    // the oracle's own behaviour and not a canon divergence. So ucs, all and
-    // stateRows are each one below the witness for that one fact type, and
-    // regenerating the witness (the oracle's run, not this repo's) closes it.
-    // the pinned distance (2026-09-16); every number is a floor, and a change
+    // THE WITNESS IS REGENERATED AND THE DISTANCE IS ZERO (2026-09-17). It was
+    // recorded against carriers of 2026-09-15 19:14 and had drifted two days:
+    // canon read four descriptors the witness lacked (Verbalization Pattern's
+    // fact types, from metamodel/verbalization.md and the orient and tutor
+    // operations) and the rows of three operation fact types and of the
+    // reflected populations they touch (kinds, instances, references, data
+    // type, declaration order, subtype, reference mode, enum values) moved
+    // with them. Regenerating tools/norma-oracle over metamodel/ closes all of
+    // it: witness 257 -> 261, canonOnly 4 -> 0, rows 244 -> 250, stateRows 245
+    // -> 257, stateUcs 624 -> 631, and every descriptor field agrees.
+    // AND THE LAST ONE IS THIS BRANCH'S FIX. With the witness fresh but the
+    // metamodel unchanged, ucs/all/stateRows each stayed ONE short, on
+    // UserApprovesDomainChange alone: the self-modification gate's `exactly one
+    // User approves that Domain Change` built a deontic uniqueness over the
+    // Domain Change role, which is NARROWER than the fact type's spanning one,
+    // so the oracle deleted the spanning UC ([[1,2]] -> [[2]]) while canon's
+    // reader kept both ([[1,2],[2]]) -- and NORMA then refused the model,
+    // FactTypeRequiresInternalUniquenessConstraintError, because the only
+    // uniqueness left on it was deontic. The gate now reads `some User`
+    // (evolution.md), the spanning uniqueness the objectification stands on is
+    // back, and both readers say [[1,2]]: ucs/all 260 -> 261, stateRows 257 ->
+    // 258, stateUcs 631 -> 632.
+    // the pinned distance (2026-09-17); every number is a floor, and a change
     // in either direction is a finding, not noise
     expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
-      .toEqual({ witness: 257, canon: 261, both: 257, canonOnly: 4, oracleOnly: 0,
-                 players: 257, ucs: 256, mands: 257, all: 256, rows: 244, rejected: 0, derived: [37, 37, 37], stateRows: 245, stateUcs: 624 });
+      .toEqual({ witness: 261, canon: 261, both: 261, canonOnly: 0, oracleOnly: 0,
+                 players: 261, ucs: 261, mands: 261, all: 261, rows: 250, rejected: 0, derived: [37, 37, 37], stateRows: 258, stateUcs: 632 });
   }, 300_000);
 
-  // state:deontics, row for row (task #93, 2026-09-16). The witness builds 12 of
-  // the base metamodel's 37 deontic sentences -- 8 mandatory, 1 uniqueness, 3
-  // prohibited -- and the carrier canon writes must hold the same 12 rows, key,
+  // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
+  // the base metamodel's 37 deontic sentences -- 9 mandatory, 1 uniqueness, 3
+  // prohibited -- and the carrier canon writes must hold the same 13 rows, key,
   // kind and legs, in both directions; the rows are listed by name on a miss.
-  // AND TWO MORE SINCE THE SELF-MODIFICATION GATE WAS RESTATED (2026-09-17,
-  // #108). `It is obligatory that each applied Domain Change is approved by
-  // exactly one Human` named a type that plays no role in any fact type, so
-  // NEITHER reader carried it and the gate was enforced nowhere. Against
-  // `User` -- what plays the role of `User approves Domain Change` -- the
-  // `exactly one` reads as the pair it is: DEO:m (every applied change has an
-  // approval) and DEO:u (no second approver) on the Domain Change role, keyed
-  // through the objectification's link fact type as read:deo_nest_leg has it.
-  // The two rows are canonOnly because the witness carrier predates the
-  // restatement; regenerating it is the oracle's run, not this repo's, and
-  // oracleOnly stays empty, which is the direction that would mean a loss.
+  // AND ONE MORE SINCE THE SELF-MODIFICATION GATE WAS RESTATED (2026-09-17,
+  // #108), re-recorded here against a regenerated witness. `It is obligatory
+  // that each applied Domain Change is approved by exactly one Human` named a
+  // type that plays no role in any fact type, so NEITHER reader carried it and
+  // the gate was enforced nowhere. Restated against `User`, `exactly one` read
+  // as a uniqueness over the Domain Change role -- NARROWER than the spanning
+  // uniqueness `User approves Domain Change` is objectified over, so the oracle
+  // deleted the spanning one and NORMA refused the model. The gate now reads
+  // `some User`, which is the form this metamodel uses for an obligation over
+  // an objectified fact type (core.md:1701), and it carries DEO:m -- every
+  // applied change has an approval -- keyed through the objectification's link
+  // fact type as read:deo_nest_leg has it. Both readers write that row and
+  // neither writes a DEO:u: 13 rows, no side-only rows in either direction.
+  // What `no second approver` costs to carry is written out in evolution.md
+  // beside the sentence: a deontic uniqueness beside the alethic spanning one
+  // is legal ORM and the oracle's AddInternalUC, which compares role spans and
+  // never modality, cannot build the pair.
   test("canon's state:deontics is the witness's, row for row", () => {
     const rows = [];
     for (const f of files) for (const s of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", s));
@@ -1055,10 +1066,7 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     const W = new Set(witness), C = new Set(canon);
     expect({ witness: witness.length, canon: canon.length,
              oracleOnly: witness.filter((r) => !C.has(r)), canonOnly: canon.filter((r) => !W.has(r)) })
-      .toEqual({ witness: 12, canon: 14, oracleOnly: [], canonOnly: [
-        JSON.stringify(["DEO:m:DomainChangeIsInvolvedInUserApprovesDomainChange#1", "mandatory", [["DomainChangeIsInvolvedInUserApprovesDomainChange", 1]]]),
-        JSON.stringify(["DEO:u:DomainChangeIsInvolvedInUserApprovesDomainChange#1", "uniqueness", [["DomainChangeIsInvolvedInUserApprovesDomainChange", 1]]]),
-      ] });
+      .toEqual({ witness: 13, canon: 13, oracleOnly: [], canonOnly: [] });
   }, 300_000);
 
   // THE RULES THE READER CARRIES (#109). state:rules was written EMPTY until
@@ -1074,16 +1082,18 @@ describe("canon's reader against the witness, on the base metamodel", () => {
   // twice (its `and no ... where` arm re-emits what an earlier arm built);
   // canon writes each row once, so the raw witness count is pinned beside it.
   //
-  // AND ONE ROW IS CANON-ONLY, the same way two are in the deontics test above
-  // and for the same reason: metamodel/state.md now states the Harel nesting of
+  // AND ONE ROW IS CANON-ONLY: metamodel/state.md states the Harel nesting of
   // `Status is defined in State Machine Definition` (a state defined in a nested
-  // machine is defined in the machine that nests it), the reader reads it, and
-  // the witness carrier predates it -- regenerating tools/norma-oracle is the
-  // oracle's run and not this repo's. witnessOnly stays 0, which is the
-  // direction that would mean a loss. The reader compiles it with the SUBTYPE
-  // NARROWING arm, because `State Machine Definition2` names a subtype of the
-  // Status the fact type declares, so the recipe carries a `sel` over
-  // `Object Type Instance is instance of Object Type` that canon's own
+  // machine is defined in the machine that nests it) and the reader reads it.
+  // The witness has been regenerated since this was written (2026-09-17) and the
+  // row is STILL canon-only, which says something the stale carrier could not:
+  // the oracle builds no rule for that head at all -- it lists
+  // StatusIsDefinedInStateMachineDefinition as UNDELIVERED, which is why
+  // witnessUndelivered is three names now and was two. witnessOnly stays 0,
+  // which is the direction that would mean a loss. The reader compiles it with
+  // the SUBTYPE NARROWING arm, because `State Machine Definition2` names a
+  // subtype of the Status the fact type declares, so the recipe carries a `sel`
+  // over `Object Type Instance is instance of Object Type` that canon's own
   // rules:metamodel copy of the rule does not: the reader's version needs the
   // nested machine to be REGISTERED as an instance of `State Machine
   // Definition`, and canon's fires on the containment alone.
@@ -1108,7 +1118,7 @@ describe("canon's reader against the witness, on the base metamodel", () => {
                      ["joinon", "StatusIsDefinedInStateMachineDefinition", "StatusIsDefinedInStateMachineDefinition", [[2, 1]], [1, 2, 3, 4]],
                      ["sel", "ObjectTypeInstanceIsInstanceOfObjectType", 2, "State Machine Definition"], [[3, 1]], [1, 2, 3, 4]], [1, 4]]])],
                  undelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"], reasons: true,
-                 witnessUndelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"] });
+                 witnessUndelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption", "StatusIsDefinedInStateMachineDefinition"] });
   }, 300_000);
 });
 
@@ -1198,11 +1208,12 @@ describe("canon's reader carries the witness's general chain", () => {
 // witness as a SET in both directions and, where the oracle's own order is
 // reproducible, position for position.
 //
-// THE WITNESS PREDATES metamodel/verbalization.md and the orient and tutor
-// operations (2026-09-16), exactly as the schema test above records: canon
-// reads six fact types and six object types the witness has never seen, so the
-// distance below is stated as "every witness row, and canon's own newer ones
-// named". A change in either direction is a finding, not noise.
+// THE WITNESS IS REGENERATED (2026-09-17), exactly as the schema test above
+// records. It used to predate metamodel/verbalization.md and the orient and
+// tutor operations, so canon read six fact types and six object types it had
+// never seen and the distance was stated as "every witness row, and canon's own
+// newer ones named"; the two sides now hold the same sets and the pins below say
+// so. A change in either direction is a finding, not noise.
 describe("canon's constraint cells against the witness, on the base metamodel", () => {
   const META = join(import.meta.dir, "..", "..", "metamodel");
   const files = readdirSync(META).filter((f) => f.endsWith(".md"))
@@ -1229,10 +1240,25 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
   }
 
   // THE POPULATIONS ui:ids READS. Every object type the witness carries, with
-  // the same values in the same (ordinal) order -- except where canon reads a
-  // sentence the witness predates, which can only ADD instances, so the witness's
-  // list must be a PREFIX-FREE SUBSET of canon's and the three types that grew
-  // are named. 36 witness types, 41 canon types.
+  // the same values in the same (ordinal) order: 41 types on both sides once
+  // the witness is regenerated (it was 36 against carriers of 2026-09-15, which
+  // predated metamodel/verbalization.md).
+  //
+  // KNOWN RED, AND LEFT RED ON PURPOSE (2026-09-17). This is the only failing
+  // test in the file and it fails on ONE defect, in its own right and not in
+  // this branch's: read:otpops_state CAMEL-CASES seven `Pattern Example`
+  // VALUES into identifiers. `Pattern Example` is a value type
+  // (metamodel/verbalization.md:19), so the oracle keeps `'Predicate is
+  // bound.'` verbatim while canon emits `PredicateIsBound`; the seven that
+  // disagree are exactly the examples that are themselves well-formed FORML2
+  // sentences, which is what makes the reader mistake them for fact-type
+  // readings. So `same` is 40 where it should be 41, `grew` names Pattern
+  // Example where it should be empty, and `contained` is false where it should
+  // be true. The expectation below states what a correct reader answers --
+  // recording `contained: false` would make the defect the specification, and
+  // the sentence a value type carries is not an identifier. Its fix is its own
+  // commit; this branch's work unit (the self-modification gate's uniqueness)
+  // names it as out of scope and leaves it failing so it stays visible.
   test("canon's state:otpops carries the witness's populations", () => {
     const W = new Map(witness("state:otpops").map((r) => [String(r[0]), r[1].flat(1).map(String)]));
     const C = new Map(Ev("read:otpops_state", F).map((r) => [String(r[0]), r[1].flat(1).map(String)]));
@@ -1243,14 +1269,15 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
              grew: grew.map(([k]) => k),
              contained: grew.every(([k, v]) => v.every((x) => C.get(k).includes(x))),
              newTypes: [...C.keys()].filter((k) => !W.has(k)) })
-      .toEqual({ witness: 36, canon: 41, missing: [], same: 33,
-                 grew: ["Function", "Operation", "Type Expression"], contained: true,
-                 newTypes: ["Pattern Example", "Pattern Family", "Pattern Form", "Pattern Note", "Verbalization Pattern"] });
+      .toEqual({ witness: 41, canon: 41, missing: [], same: 41,
+                 grew: [], contained: true, newTypes: [] });
   }, 300_000);
 
   // THE ORDER IS THE ROW, so the ordinal is only meaningful against the same
   // set of fact types: canon's sequence restricted to the ones the witness has
-  // is the witness's sequence, and the six it adds are named.
+  // is the witness's sequence. The six Verbalization Pattern fact types that
+  // used to be canon-only are in the regenerated witness (2026-09-17), so the
+  // two sequences are now the same 507 rows and canonOnly is empty.
   test("canon's state:factorder is the witness's sequence", () => {
     const w = witness("state:factorder").map((r) => String(r[0]));
     const c = Ev("read:order_state", F);
@@ -1260,10 +1287,7 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
              sequence: J(kept.map((r) => String(r[0]))) === J(w),
              renumbered: J(kept.map((r, i) => [String(r[0]), i + 1])) === J(witness("state:factorder").map((r) => [String(r[0]), r[1]])),
              canonOnly: c.filter((r) => !WN.has(String(r[0]))).map((r) => String(r[0])) })
-      .toEqual({ canon: 507, witness: 501, kept: 501, sequence: true, renumbered: true,
-                 canonOnly: ["VerbalizationPatternHasVerbalizationPatternName", "VerbalizationPatternIsInPatternFamily",
-                             "VerbalizationPatternHasPatternForm", "VerbalizationPatternHasPatternExample",
-                             "VerbalizationPatternHasPatternNote", "Verbalization PatternIsASubtypeOfFunction"] });
+      .toEqual({ canon: 507, witness: 507, kept: 507, sequence: true, renumbered: true, canonOnly: [] });
   }, 300_000);
 
   // and the assembler carries them: the design state canon writes holds every
