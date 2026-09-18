@@ -30,7 +30,7 @@
 // store. The check is what keeps this byte-identical to the set-match it
 // replaces.
 import { Database } from "bun:sqlite";
-import { unlinkSync, statSync, existsSync, copyFileSync } from "node:fs";
+import { unlinkSync, statSync, existsSync, copyFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -164,23 +164,66 @@ const store1 = (ft, i, v) => {
 // time bomb", and: "Migrations are fact types to assert or change, and
 // optionally function definitions for adapting old facts to new types."
 //
-// So: SNAPSHOT THE OLD DATABASE FIRST, build the new one BESIDE it, and only
-// replace the old once nothing has been lost. The old file is never destroyed
-// before the comparison passes, which means a failed build leaves the store
-// exactly as it was rather than half-written.
+// THE INVARIANT, AND IT IS ONE SENTENCE: THE LAST COMPLETE STORE IS NEVER
+// DESTROYED UNTIL A NEW COMPLETE ONE EXISTS. This run builds store.db.build,
+// compares it, carries into it and migrates into it, and only then RENAMES it
+// over store.db. store.db is opened read-only and never written, so a build
+// that dies anywhere -- mid-CREATE, mid-INSERT, mid-carry, killed outright --
+// leaves the live store exactly as it was; the wreck is the .build file, and
+// the next run sweeps it.
+//
+// WHAT THIS REPLACES, AND WHY THE OLD SHAPE LOST THE FIRST LIVE SUPPORT REQUEST
+// (2026-09-17). The paragraph above used to say "build the new one BESIDE it"
+// while the code did the opposite: it swept store.db.prior and store.db.check
+// (line 183), copied the live store to store.db.prior (192), UNLINKED THE LIVE
+// STORE (267), built into the live path (275), and deleted the snapshot at the
+// end (772). Between 267 and the end of a run the only copy of the data was
+// store.db.prior -- and line 183 of the NEXT run deleted that before copying
+// whatever stump 267 had left behind. That is the sequence exactly: a run died
+// mid-build; the next run snapshotted the stump, refused, and restored the
+// stump; three refusals walked the file backwards past the point where the case
+// existed, and no copy on disk held it afterwards. f25272da stopped a stump
+// being restored OVER a good store and said the rest of the fix is "to build
+// aside and move into place, which removes the snapshot and the restore
+// entirely". This is that: there is nothing to restore FROM because nothing is
+// destroyed, and the snapshot, the restore and the stump guard are all gone.
 const dbp = join(modDir, "store.db");
-const snapp = dbp + ".prior";
+const buildp = dbp + ".build";
 
-// BUN RELEASES A SQLITE HANDLE AT PROCESS EXIT, NOT AT close(). Opening store.db
-// here and then trying to replace it later fails with EBUSY no matter how long
-// we retry, while a separate process deletes it instantly -- measured 2026-09-15.
-// So the snapshot is taken from a COPY: the live file is never opened by this
-// process, stays replaceable, and the copy doubles as the restore if the build
-// turns out to lose rows.
-// SWEEP LAST RUN'S COPIES FIRST. The same handle behaviour means the unlink at
-// the end of a run cannot succeed -- the file is still open until this process
-// exits -- so the copies are cleared at the START, when nothing holds them.
-for (const leftover of [snapp, dbp + ".check"]) {
+// BUN RELEASES A SQLITE HANDLE ON close(true), NOT ON close(). Measured
+// 2026-09-17 on bun 1.4.2, and it is a sharper statement than the 2026-09-15
+// note it replaces ("at process exit, not at close()"): what holds the file is
+// a prepared Statement still referenced. With one outstanding, db.close()
+// leaves the handle open and unlink or rename of that file fails EBUSY however
+// long we retry, while a separate process deletes it instantly -- which is what
+// was seen in September and read as "released at process exit". db.close(true)
+// releases it with live statements outstanding: renaming the just-closed build
+// file onto an existing target then succeeds, the renamed file reads back
+// 50000/50000 rows with `pragma integrity_check` ok, and a statement used after
+// close(true) throws `Database has closed` rather than answering wrongly. So
+// EVERY close in this file is close(true), and that is load-bearing: revert one
+// and the rename at the end fails EBUSY on the file this process itself built.
+//
+// AND THE HOLDER IS FOUND BEFORE THE WORK, NOT AFTER IT. A process holding
+// store.db open blocks the rename at the end (measured: EPERM), and learning
+// that after a full build wastes the build. renameSync(x, x) is the probe: a
+// no-op when nothing holds the file, EBUSY when something does, and it cannot
+// lose the file either way. The message is the 2026-09-17 one, which cost the
+// support session an afternoon by arriving as `table "App" already exists`;
+// it is kept, and moved to where the lock now actually bites.
+if (existsSync(dbp)) {
+  try { renameSync(dbp, dbp); } catch (e) {
+    console.error("cannot replace " + dbp + ": a process still holds it open (" + (e.code || e.message) + ").");
+    console.error("  A serving process keeps the sqlite handle until it exits. Stop this app's server and run again.");
+    process.exit(1);
+  }
+}
+// SWEEP THE WRECK OF AN EARLIER RUN -- and only that. store.db.prior and
+// store.db.check are no longer written by anything, and the copies left on disk
+// by the old machinery are NOT swept: on a store that a pre-build-aside run
+// stumped, a .prior is the only complete copy there is, and deleting it is the
+// move that lost the case.
+for (const leftover of [buildp, buildp + "-wal", buildp + "-shm"]) {
   try { unlinkSync(leftover); } catch {}
 }
 
@@ -188,9 +231,36 @@ const priorRows = new Map();
 const priorLedger = new Map();                   // ft -> the rows the PREVIOUS build asserted
 let priorMeta = [];
 if (existsSync(dbp)) {
+  let old;
+  // A STORE THAT CANNOT BE READ IS NOT A STORE TO BUILD OVER. This used to warn
+  // and carry on, and carrying on meant unlinking it -- so the one case where a
+  // human might still recover something was the case where the file was thrown
+  // away. Nothing here can recover it, so nothing here may destroy it: say what
+  // is on disk and stop.
+  try { old = new Database(dbp, { readonly: true }); } catch (e) {
+    console.error("REFUSING: " + dbp + " exists but does not read as a database (" + e.message + ").");
+    console.error("  It is " + (existsSync(dbp) ? statSync(dbp).size + " bytes" : "gone") + " on disk. This build will not write over it.");
+    console.error("  Move it aside (keep it -- it may be recoverable) and run again, and a first build is made in its place.");
+    process.exit(1);
+  }
   try {
-    copyFileSync(dbp, snapp);
-    const old = new Database(snapp, { readonly: true });
+    // READ-ONLY, AND FROM THE LIVE FILE. The old code compared against a COPY
+    // because it was about to destroy the original; nothing is destroyed now,
+    // so the copy has no job, and close(true) leaves the file replaceable.
+    //
+    // A COMPLETE STORE CARRIES BOTH A COMPOSITION STAMP AND A LEDGER; one
+    // missing either is the wreck of a run that died between creating its
+    // tables and writing its stamp. This build can no longer MAKE one -- it
+    // never writes into store.db -- but one made before today may be on disk,
+    // and it is not a silent condition: with no ledger every row in it reads as
+    // a runtime row, so it is carried or refused rather than dropped, and this
+    // build replaces it with a complete store.
+    const hasTbl = (n) => old.query("select count(*) c from sqlite_master where type='table' and name=?").get(n).c > 0;
+    if (!(hasTbl("_composition") && hasTbl("_asserted"))) {
+      console.error("WARNING: " + dbp + " carries no composition stamp or no ledger, so it is a half-written store");
+      console.error("  from a run that died before builds were made aside. Every row in it is read as a runtime row and");
+      console.error("  carried or refused, never dropped, and this build replaces it with a complete store.");
+    }
     priorMeta = old.prepare("select ft, kind, tbl, arity from _meta").all();
     // THE LEDGER (2026-09-16, see _asserted below): a stored row the previous
     // build asserted is that build's, and the new build may say otherwise; a
@@ -233,10 +303,27 @@ if (existsSync(dbp)) {
         priorRows.set(m.ft, keep);
       } catch { /* a table the old schema named but does not carry */ }
     }
-    old.close();
   } catch (e) {
-    console.error("could not read the existing store.db (" + e.message + "); treating this as a first build");
+    // A DATABASE WITHOUT _meta HOLDS NO RUNTIME ROW, PROVABLY -- and that is the
+    // only reading of this failure that is safe to carry on from. host.js
+    // refuses to load a store whose _composition is not the module's, and
+    // emitToDb writes through _meta, so nothing can ever have been written at
+    // runtime into a file that has neither: it is the wreck of a build, every
+    // row in it came from the carriers, and the build below makes them again.
+    // A failure AFTER _meta read is a different animal -- the prior rows are
+    // then half-collected, and comparing against half a store would call the
+    // uncollected half `not lost` and drop it without a word. Stop instead.
+    if (priorMeta.length) {
+      console.error("REFUSING: " + dbp + " read as far as its " + priorMeta.length + " fact types and then failed (" + e.message + ").");
+      console.error("  Only " + priorRows.size + " of them were collected, so this build cannot say what it would drop.");
+      console.error("  The store is untouched. Copy it somewhere safe and look at it before running again.");
+      process.exit(1);
+    }
+    console.error("could not read " + dbp + " as a store (" + e.message + "): it is " +
+      (existsSync(dbp) ? statSync(dbp).size + " bytes" : "gone") + " with no usable _meta, so it holds no runtime row");
+    console.error("  and this build is compared against nothing and replaces it.");
   }
+  old.close(true);
 }
 
 // A TABLE THE STORE ALREADY HAS IS NOT DROPPED BECAUSE THE READINGS STOPPED
@@ -258,21 +345,12 @@ const declared = new Set(ftnames);
 const already = new Set(rel);
 for (const [ft] of priorArity) if (declared.has(ft) && !already.has(ft) && !funcCol[ft]) rel.push(ft);
 
-// A LOCK IS A LOCK, NOT A SCHEMA ERROR (2026-09-17). This swallowed the failed
-// unlink, so a store held open by a serving process survived, and the CREATE
-// TABLE below then threw `table "App" already exists` -- a message about the
-// schema for a fault that is a file handle, which cost the support session an
-// afternoon. bun releases a sqlite handle at process exit and not before, so
-// the holder has to stop; say so, and name the file.
-try { unlinkSync(dbp); } catch (e) {
-  if (existsSync(dbp)) {
-    console.error("cannot remove " + dbp + ": a process still holds it open (" + (e.code || e.message) + ").");
-    console.error("  A serving process keeps the sqlite handle until it exits. Stop this app's server and run again.");
-    process.exit(1);
-  }
-}
-try { unlinkSync(dbp + "-wal"); } catch {}
-const db = new Database(dbp);
+// AND HERE IS THE WHOLE CHANGE: THE BUILD GOES BESIDE THE STORE, NOT INTO IT.
+// This was `unlinkSync(dbp)` and `new Database(dbp)` -- the live store gone
+// before a single table of its replacement existed. Nothing below writes to
+// store.db; it is replaced by one rename at the very end, and until then it is
+// the answer to "what is the store", whatever happens to this process.
+const db = new Database(buildp);
 
 // entity tables, in group order, only those that absorbed a column. For the
 // base this is exactly one table named "Function" with the same 33 columns.
@@ -355,7 +433,7 @@ db.transaction(() => {
   for (const ft of rel) for (const r of db.prepare("select * from " + relTbl[ft]).all()) ains.run(ft, JSON.stringify(Object.values(r)));
 })();
 db.run("pragma wal_checkpoint(TRUNCATE)");
-db.close();
+db.close(true);
 
 // WHAT WOULD BE LOST. Every row the old database held is looked for in the new
 // one. A row that is gone is a fact this build cannot account for: either it was
@@ -393,11 +471,12 @@ let wasMeta = new Map();
 const declPlayers = (ft) => { try { const p = Ev("main:cr_players", [CELLS, ft]); return Array.isArray(p) && p.length ? p.map(flat) : null; } catch { return null; } };
 if (priorRows.size) {
   wasMeta = new Map(priorMeta.map((m) => [m.ft, m]));
-  // compare from a COPY -- see the handle note above; store.db must stay
-  // replaceable in case the comparison says to restore it
-  const checkp = dbp + ".check";
-  copyFileSync(dbp, checkp);
-  const fresh = new Database(checkp, { readonly: true });
+  // READ THE BUILD ITSELF. This used to copy store.db to store.db.check and
+  // read the copy, because the live file it had just built into had to stay
+  // replaceable in case the comparison said to restore it. The build is beside
+  // the store now: the file read here is the candidate, not the store, and the
+  // store needs no protecting from a reader that never touches it.
+  const fresh = new Database(buildp, { readonly: true });
   const ownerOf = new Map();
   for (const tb of fresh.prepare("select name from sqlite_master where type='table'").all()) {
     if (tb.name.startsWith("_")) continue;
@@ -481,8 +560,7 @@ if (priorRows.size) {
     if (keep.length) carry.push({ ft, tbl, isFunc, arity: m.arity, rows: keep });
     if (clash.length) lost.push({ ft, gone: clash, was, why: "the build asserts a different value for the same key" });
   }
-  fresh.close();
-  try { unlinkSync(checkp); } catch {}
+  fresh.close(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -608,40 +686,28 @@ if (stillLost.length && process.env.AREST_MIGRATE !== "allow-loss") {
     if (d) console.error("    " + d.why);
   }
   if (stillLost.length > 12) console.error("  ... and " + (stillLost.length - 12) + " more fact type(s)");
-  // NEVER RESTORE SOMETHING THAT IS NOT A STORE (2026-09-17). This path cost
-  // the first live Support Request. An earlier run had died between creating
-  // its tables and writing its stamp, leaving a half-written stump where the
-  // store was; the next run snapshotted the stump, refused, and copied the
-  // stump back, printing "RESTORED to what it was" -- true of the file and
-  // false of the data. Three refusals walked the file backwards past the point
-  // where the case existed, and no copy on disk held it afterwards. A finished
-  // store carries a composition stamp and a ledger; a snapshot without both is
-  // not the thing that was there, it is the wreck of an earlier failure, and
-  // restoring it destroys rather than preserves. Keep the build instead and say
-  // so: the build is a real store, and refusing to overwrite it with a stump is
-  // the only reading of this guard that does what its name says.
-  let snapOk = false;
-  try {
-    const s = new Database(snapp, { readonly: true });
-    const q = (n) => s.query("select count(*) c from sqlite_master where type='table' and name=?").get(n).c > 0;
-    snapOk = q("_composition") && q("_asserted");
-    s.close();
-  } catch { snapOk = false; }
-  if (!snapOk) {
-    console.error("NOT RESTORED: the prior " + dbp + " carries no composition stamp or no ledger, so it is a");
-    console.error("  half-written store from an earlier failure and not what was there. This build is kept, and it");
-    console.error("  is a complete store; the rows named above are the ones it does not reproduce.");
-    try { unlinkSync(snapp); } catch {}
-    process.exit(1);
-  }
-  copyFileSync(snapp, dbp);
-  try { unlinkSync(dbp + "-wal"); } catch {}
-  try { unlinkSync(snapp); } catch {}
-  // AND THE PROPOSAL GOES INTO THE STORE IT RESTORED. An agent may propose;
-  // only applying is gated, so what this writes is a Domain Change with no
-  // approval on it. A human approves it through the store -- `User approves
-  // Domain Change` is a fact a create can assert -- and reruns the build.
-  const back = new Database(dbp);
+  // NOTHING IS RESTORED, BECAUSE NOTHING WAS DESTROYED (2026-09-17). This is
+  // where the first live Support Request was lost, and the loss was the restore
+  // itself: an earlier run had died between creating its tables and writing its
+  // stamp, so the next run snapshotted the stump, refused, and copied the stump
+  // back over the store, printing "RESTORED to what it was" -- true of the file
+  // and false of the data. f25272da stopped a stump being copied back; building
+  // aside removes the question. The build is discarded, store.db is the file it
+  // has been all along, untouched and unopened for writing by this process, and
+  // the stump-detecting guard that stood here has nothing left to guard.
+  try { unlinkSync(buildp); } catch {}
+  // AND THE PROPOSAL GOES INTO THE STORE, WHICH IS STILL THERE. An agent may
+  // propose; only applying is gated, so what this writes is a Domain Change
+  // with no approval on it. A human approves it through the store -- `User
+  // approves Domain Change` is a fact a create can assert -- and reruns the
+  // build. The proposal is the one thing a refusal writes, so it is written the
+  // same way a build is: into a copy, which replaces the store by rename only
+  // once it is whole. A refusal killed mid-proposal must not do to the store
+  // what a build killed mid-write used to.
+  const propp = dbp + ".proposal";
+  try { unlinkSync(propp); } catch {}
+  copyFileSync(dbp, propp);
+  const back = new Database(propp);
   const w = writerFor(back);
   const wrote = [];
   const unproposed = [];
@@ -672,7 +738,7 @@ if (stillLost.length && process.env.AREST_MIGRATE !== "allow-loss") {
       if (dom) w.put("DomainChangeTargetsDomain", [[dc, dom[1]]]);
       // AND THE APPROVAL'S TABLE IS MADE HERE, EMPTY, so that approving is one
       // statement. It cannot be a `create` against this store today: the store
-      // this restored was built from the PREVIOUS carriers and loadStoreDb
+      // still on disk was built from the PREVIOUS carriers and loadStoreDb
       // refuses a database whose composition is not the module's -- correctly,
       // since the module beside it is now the one built from the CHANGED
       // readings. The row is the same row a create would write.
@@ -680,7 +746,21 @@ if (stillLost.length && process.env.AREST_MIGRATE !== "allow-loss") {
     }
   })();
   back.run("pragma wal_checkpoint(TRUNCATE)");
-  back.close();
+  back.close(true);
+  // the proposal copy becomes the store, or is thrown away: a refusal with
+  // nothing to propose leaves store.db not merely unchanged but untouched.
+  if (wrote.length) {
+    try {
+      renameSync(propp, dbp);
+      for (const stale of [dbp + "-wal", dbp + "-shm"]) { try { unlinkSync(stale); } catch {} }
+    } catch (e) {
+      console.error("the Domain Change proposals could not be written into " + dbp + " (" + (e.code || e.message) + "):");
+      console.error("  a process opened it after this run started. The store is unchanged and the copy carrying the");
+      console.error("  proposals is " + propp + ". Stop the holder and run again.");
+    }
+  } else {
+    try { unlinkSync(propp); } catch {}
+  }
   for (const p of wrote) {
     console.error("PROPOSED (unapproved) " + p.dc + ": " + p.mig + " from " + p.ft + " to " + p.target);
     console.error("    Migration Rule Text: " + p.text);
@@ -690,15 +770,17 @@ if (stillLost.length && process.env.AREST_MIGRATE !== "allow-loss") {
   }
   for (const u of unproposed) console.error("NOT PROPOSED -- " + u);
   if (wrote.length) console.error("Read the Rationale and the Migration Rule Text before approving: `User approves Domain Change` is the fact that lets this build carry those rows, and nothing else does.");
-  console.error("store.db RESTORED to what it was. Write the Migration, or rebuild with AREST_MIGRATE=allow-loss.");
+  console.error(wrote.length
+    ? "store.db KEEPS EVERY ROW IT HAD -- the build was never written into it, and the proposals above were added to it. Write the Migration, or rebuild with AREST_MIGRATE=allow-loss."
+    : "store.db UNTOUCHED -- the build was never written into it. Write the Migration, or rebuild with AREST_MIGRATE=allow-loss.");
   process.exit(1);
 }
 
-// THE APPROVED MIGRATIONS, RUN. Only reached when nothing is owed, so the store
-// this writes into is the one that stays.
+// THE APPROVED MIGRATIONS, RUN. Only reached when nothing is owed, so the build
+// this writes into is the one that becomes the store.
 let migRows = 0;
 if (applied.length) {
-  const mdb = new Database(dbp);
+  const mdb = new Database(buildp);
   const w = writerFor(mdb);
   const t0 = Date.now();
   let n = 0;
@@ -725,7 +807,7 @@ if (applied.length) {
     }
   })();
   mdb.run("pragma wal_checkpoint(TRUNCATE)");
-  mdb.close();
+  mdb.close(true);
   for (const a of applied) {
     console.error("MIGRATED " + a.src.length + " row(s) from " + a.ft + " to " + a.target +
       " by " + a.mig + " (" + JSON.stringify(a.recipe) + "), approved by " + a.user +
@@ -734,11 +816,11 @@ if (applied.length) {
 }
 
 // NOTHING IS OWED, SO CARRY THE SURVIVORS BACK. Only reached when the build
-// loses nothing it cannot account for -- a refusal restores the snapshot above
-// and never gets here.
+// loses nothing it cannot account for -- a refusal discards the build above and
+// never gets here.
 let carried2 = 0;
 if (carry.length) {
-  const back = new Database(dbp);
+  const back = new Database(buildp);
   back.transaction(() => {
     for (const c of carry) {
       // a fact type the readings declare and this build gave no row: its table
@@ -763,13 +845,40 @@ if (carry.length) {
     }
   })();
   back.run("pragma wal_checkpoint(TRUNCATE)");
-  back.close();
+  back.close(true);
   console.error("CARRIED " + carried2 + " runtime row(s) across " + carry.length +
     " fact type(s) the carriers do not produce: " +
     carry.slice(0, 8).map((c) => c.ft + " x" + c.rows.length).join(", ") +
     (carry.length > 8 ? ", ... and " + (carry.length - 8) + " more" : ""));
 }
-try { unlinkSync(snapp); } catch {}
+
+// AND ONLY NOW IS THE STORE REPLACED. Everything owed has been carried, every
+// approved Migration applied, and the file about to move carries its tables,
+// its stamp, its ledger and the rows the runtime wrote. This rename is the one
+// instant at which the store changes, and it is atomic: there is no moment at
+// which store.db is half of anything.
+//
+// A -wal beside the build here would be a committed transaction the rename
+// would leave behind, so it is a refusal and not a shrug: every close above is
+// close(true) after a TRUNCATE checkpoint, which leaves none, and if one is
+// here then one of them stopped doing that.
+if (existsSync(buildp + "-wal") && statSync(buildp + "-wal").size > 0) {
+  console.error("REFUSING to move " + buildp + " into place: a non-empty write-ahead log is beside it, so the");
+  console.error("  build is not entirely in the file. store.db is unchanged. (Every Database here must be closed");
+  console.error("  with close(true) after `pragma wal_checkpoint(TRUNCATE)`; one of them was not.)");
+  process.exit(1);
+}
+try {
+  renameSync(buildp, dbp);
+} catch (e) {
+  console.error("the build is complete but " + dbp + " could not be replaced (" + (e.code || e.message) + ").");
+  console.error("  A process opened it after this run started, and a sqlite handle is held until that process exits.");
+  console.error("  Nothing is lost: the store is unchanged and the new one is " + buildp + ". Stop the holder and run again.");
+  process.exit(1);
+}
+// a journal beside the file that was just replaced belongs to a database that
+// no longer exists; the one that moved in is checkpointed and needs none
+for (const stale of [dbp + "-wal", dbp + "-shm"]) { try { unlinkSync(stale); } catch {} }
 
 const fcount = Object.keys(funcCol).length;
 const carried = [...priorRows.values()].reduce((a, s) => a + s.size, 0);
@@ -779,3 +888,15 @@ console.error("store.db: " + (statSync(dbp).size / 1024).toFixed(0) + " KB (" + 
     (carried2 ? ", " + carried2 + " carried" : "") +
     (migRows ? ", " + migRows + " migrated by " + applied.length + " approved Migration(s)" : "") +
     (stillLost.length ? ", " + stillLost.reduce((a, l) => a + l.gone.length, 0) + " DROPPED by AREST_MIGRATE=allow-loss" : "") + "]" : ""));
+
+// AND THE OLD MACHINERY'S COPIES ARE NAMED RATHER THAN DELETED. A .prior or a
+// .check on disk was written by the snapshot-and-restore this replaces; nothing
+// writes them now, and on a store an old run stumped one of them may be the
+// only complete copy there is. Deleting them unasked is the move that lost the
+// case, so say they are there and let a human decide.
+const orphans = [dbp + ".prior", dbp + ".check"].filter((p) => existsSync(p));
+if (orphans.length) {
+  console.error("  left over from the snapshot machinery this replaced, and no longer written by anything: " +
+    orphans.map((p) => p.slice(p.lastIndexOf("store.db")) + " (" + (statSync(p).size / 1024).toFixed(0) + " KB)").join(", ") +
+    " -- delete them once you are satisfied the store above is right.");
+}
