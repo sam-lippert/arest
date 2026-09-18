@@ -2738,6 +2738,50 @@ function run_mcp() {
   // the admitted methods are canon's too -- http:method_kinds, not a constant
   const METHODS = Ev("http:method_kinds", []).map((m) => String(m[0]));
 
+  // SOME OPERATIONS ARE JUDGEMENTS, AND AN LLM IS ALREADY ATTACHED (Samuel,
+  // 2026-09-17: "what the MCP needs is a way of asking you to do something").
+  // resolution.md derives `Operation awaits a driver` for the seams no host has
+  // filled and says in as many words that they "have to be driven manually by an
+  // llm or a person at those points". Every caller of this server IS an llm, and
+  // MCP has the request for exactly this: sampling/createMessage, which a SERVER
+  // sends to the CLIENT. The client declares `sampling` in the capabilities it
+  // sends at initialize, and this file discarded that object entirely until now.
+  //
+  // NOTHING BECOMES ASYNC INSIDE THE EVALUATOR. Ev stays synchronous: canon
+  // composes the question before the ask (drive:request) and reads the answer
+  // after it (drive), and the await sits between them out here, where the
+  // transport already lives.
+  //
+  // THE TWO DIRECTIONS MUST NOT SHARE AN ID SPACE. A client numbers its requests
+  // from 1 and so would we; ours carry a string id, which JSON-RPC admits and no
+  // client generates, so a reply is unambiguously to a question this server asked.
+  let SAMPLING = false;                   // does this connection's client offer it
+  let AGENT = "agent-unnamed";             // the Agent this connection is, named at initialize
+  const ASKED = new Map();                // our request id -> the promise waiting on it
+  let askSeq = 0;
+  function askClient(method, params) {
+    const id = "arest-ask-" + (++askSeq);
+    return new Promise((resolve, reject) => {
+      ASKED.set(id, { resolve, reject });
+      process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+    });
+  }
+  // a reply to one of ours, or not ours at all; a notification carries no id
+  function answeredOurs(msg) {
+    if (msg.method !== undefined || msg.id === undefined) return false;
+    const p = ASKED.get(msg.id);
+    if (!p) return false;
+    ASKED.delete(msg.id);
+    if (msg.error) p.reject(new Error(msg.error.message || JSON.stringify(msg.error)));
+    else p.resolve(msg.result);
+    return true;
+  }
+
+  // A VERB WHOSE OPERAND IS A COMPLETION IS A VERB THAT NEEDS ONE FETCHED, and
+  // the MODEL says which those are: the accepts row in the resolution catalog,
+  // read here off mcp:verbs like every other verb's shape. No name in this file.
+  const SAMPLED = new Set(VERBS.filter((v) => String(v[1]) === "completion-and-cells").map((v) => String(v[0])));
+
   function entityFields(e) {
     return Array.isArray(e[2]) ? e[2].map((f) => String(f[0])) : [];
   }
@@ -2899,6 +2943,110 @@ function run_mcp() {
     return out;
   }
 
+  // THREE STEPS OVER MACHINERY THAT EXISTS: read what awaits, ask the client for
+  // it, write the answer back as facts -- and then the store evaluates, because
+  // the rows went in through the same POST every fact-type tool takes and were
+  // held to the same constraints. The store already knows what it is missing:
+  // `Operation awaits a driver` and `Constraint awaits a decider` are derived
+  // populations, so the request list is data sitting there, not a list here.
+  //
+  // RECORDING IS THE HALF THAT MATTERS. A judgement a model made and nobody wrote
+  // down cannot be disputed, audited or re-derived; three claim extractions
+  // happened on support.auto.dev on 2026-09-17 and not one of them is a fact
+  // anywhere. So the completion lands as facts beside what it decided, and WHICH
+  // provenance fact types land is the store's business (drive:keep), because the
+  // vocabulary is spread across three apps' readings and no closure has all of it.
+  let completions = 0;
+  async function drive(args) {
+    const a = args || {};
+    const given = Array.isArray(a.args) && a.args.length ? a.args[0] : null;
+    const row = (given && typeof given === "object" && !Array.isArray(given)) ? { ...given } : {};
+    const operation = String(row.operation || "");
+    const subject = String(row.subject || "");
+    const awaiting = Ev("drive:awaiting", CELLS).map((r) => "  " + String(r[1]) + " -- " + String(r[0]));
+    // BE HONEST WHERE IT IS HONEST. With no sampling offered, the seam is exactly
+    // what the model says it is -- registrable, unregistered, awaiting a driver --
+    // and this says so and writes nothing. That is the case the derivation exists
+    // to name, and it has to keep working.
+    if (!SAMPLING) {
+      return ["this client offered no `sampling` capability at initialize, so there is nobody to ask and nothing was written."
+        + "\nOperation '" + operation + "' stays unregistered. Awaiting a judgement in this store:\n" + awaiting.join("\n"), 424];
+    }
+    if (!operation || !subject) {
+      return ["drive takes one object argument, {operation, subject}. Awaiting a judgement in this store:\n" + awaiting.join("\n"), 400];
+    }
+    const input = String(Ev("drive:request", [fromJson(row), CELLS]));
+    // the standing prompt is the Agent Definition's, the request is this call's
+    // input Text: one is what the driver always is, the other is what it was
+    // asked this time, and agents.md declares them as two different fact types
+    const prompt = "You are the driver for '" + operation + "', an operation this AREST store declares registrable that no host has registered."
+      + " Answer only with what the store can hold, and nothing else.";
+    // the request and the result are the protocol's own shapes; the client runs
+    // the completion and a human may edit or refuse it, which is the point
+    const res = await askClient("sampling/createMessage", {
+      messages: [{ role: "user", content: { type: "text", text: input } }],
+      systemPrompt: prompt,
+      includeContext: "none",
+      maxTokens: 4096,
+      modelPreferences: { hints: [{ name: "claude" }], intelligencePriority: 0.9, speedPriority: 0.3 },
+    });
+    const output = res && res.content && res.content.type === "text" ? String(res.content.text) : "";
+    // the bytes are read into the mu here, where every other body is read: an
+    // array is a sequence and an object is its <name, value> pairs (fromJson),
+    // so canon never parses text and Stage-1's boundary stays where it is
+    let facts = [];
+    const lb = output.indexOf("["), rb = output.lastIndexOf("]");
+    if (lb >= 0 && rb > lb) { try { facts = JSON.parse(output.slice(lb, rb + 1)); } catch (e) { facts = []; } }
+    if (!Array.isArray(facts)) facts = [];
+    const at = String(Ev("clock", []));
+    const completion = "cmp-" + Ev("slug", at) + "-" + (++completions);
+    row.operation = operation; row.subject = subject;
+    row.at = at;
+    row.model = String((res && res.model) || "unknown");
+    row.definition = "agentdef-" + Ev("slug", operation);
+    row.agent = AGENT;
+    row.completion = completion;
+    row.claim = "claim-" + completion;
+    row.prompt = prompt;
+    row.input = input;
+    row.output = output;
+    row.facts = facts;
+    const pairs = Ev("drive", [fromJson(row), CELLS]);
+    // AN ENTITY IS A COMPLEX SENTENCE AND IT GOES IN AS ONE. A Completion has
+    // four mandatory roles and an Agent Definition three, so asserting them a
+    // fact at a time is refused by Theorem 1's gate at every step -- measured
+    // 2026-09-17: nine refusals in a row, each naming the roles the next writes
+    // were about to fill. mcp:entities already says which fact types are the
+    // columns of which table, so canon's pairs are gathered onto their tables
+    // here and posted whole, through the same entity door a caller uses. A fact
+    // type that is nobody's column -- the spanning ones, `Message asks about
+    // Fact Type` among them -- is its own write, as it was.
+    const tableOf = new Map();
+    for (const e of ENTITIES) for (const f of entityFields(e)) if (!tableOf.has(f)) tableOf.set(f, e);
+    const batches = new Map();
+    const order = [];
+    for (const p of pairs) {
+      const ft = String(p[0]), fact = (Array.isArray(p[1]) ? p[1] : [p[1]]).map(String);
+      const e = tableOf.get(ft);
+      const key = e ? String(e[0]) + "/" + fact[0] : ft + "/" + order.length;
+      if (!batches.has(key)) { batches.set(key, e ? { name: String(e[0]), args: { method: "POST", id: fact[0] }, facts: [] } : { name: ft, args: { method: "POST", fact }, facts: [] }); order.push(key); }
+      const b = batches.get(key);
+      b.facts.push(ft + " " + JSON.stringify(fact));
+      if (e) b.args[ft] = fact.length > 1 ? fact[1] : fact[0];
+    }
+    const wrote = [], refused = [];
+    for (const key of order) {
+      const b = batches.get(key);
+      const out = call(b.name, b.args);
+      const status = Number(out && out[1]) || 500;
+      for (const f of b.facts) (status < 400 ? wrote : refused).push(f + (status < 400 ? "" : " -- " + status + " " + String(out && out[0]).slice(0, 240)));
+    }
+    return ["asked the client for '" + operation + "' over " + subject + " (" + input.length + " characters of request, model " + row.model + ")"
+      + "\n\nthe completion:\n" + output
+      + "\n\nwrote " + wrote.length + " facts:\n  " + wrote.join("\n  ")
+      + (refused.length ? "\n\nrefused " + refused.length + ":\n  " + refused.join("\n  ") : ""), refused.length ? 409 : 200];
+  }
+
   function reply(id, result) { return { jsonrpc: "2.0", id, result }; }
   function fail(id, message) {
     return { jsonrpc: "2.0", id, error: { code: -32603, message } };
@@ -2914,6 +3062,26 @@ function run_mcp() {
       // without instructions rather than not at all.
       let instructions;
       try { instructions = String(Ev("mcp:instructions", CELLS)); } catch (e) { instructions = undefined; }
+      // THE CAPABILITIES THE CLIENT SENDS ARE NOT SPARE BYTES. This read the
+      // params and kept nothing from them, so a client that offers to run
+      // completions for us was indistinguishable from one that does not, and
+      // the seams the store derives as awaiting a driver stayed awaiting with
+      // the driver sitting on the other end of the pipe.
+      const caps = (msg.params && msg.params.capabilities) || {};
+      SAMPLING = !!caps.sampling;
+      const who = (msg.params && msg.params.clientInfo && msg.params.clientInfo.name) || "client";
+      AGENT = "agent-" + Ev("slug", String(who)) + "-" + Ev("slug", String(Ev("clock", [])));
+      // A HOST ASSERTS WHAT IT FILLED, and only for as long as it is filling it.
+      // `Operation is registered` is resolution.md's own fact for a seam a host
+      // really does answer; a client offering sampling is what makes this host
+      // able to answer csdp:elementarize, so the fact is asserted here and NOT
+      // emitted to store.db -- it is true of this connection and of nothing else.
+      if (SAMPLING) {
+        for (const d of Ev("drive:driven", CELLS)) {
+          const out = Ev("mcp:call", ["POST", "OperationIsRegistered", "", [String(d)], CELLS]);
+          if (out.length > 2 && Number(out[1]) < 400) adoptStore(out[2]);
+        }
+      }
       const result = {
         protocolVersion: "2024-11-05",
         capabilities: { tools: {}, prompts: {} },
@@ -2947,6 +3115,13 @@ function run_mcp() {
     }
     if (msg.method === "tools/call") {
       const p = msg.params || {};
+      // the one call that cannot be answered without going and asking; it is the
+      // same <text, status> answer, arriving later
+      if (SAMPLED.has(String(p.name))) {
+        return drive(p.arguments).then(
+          (out) => reply(msg.id, { content: [{ type: "text", text: String(out[0]) }], isError: Number(out[1]) >= 400 }),
+          (e) => reply(msg.id, { content: [{ type: "text", text: String(e && e.message) }], isError: true }));
+      }
       try {
         // main:api answers <text, status>; the status is canon's decision, and a
         // 4xx is an answer about the model rather than a transport fault
@@ -2975,11 +3150,20 @@ function run_mcp() {
       if (!line) continue;
       let out;
       try {
-        out = handle(JSON.parse(line));
+        const msg = JSON.parse(line);
+        // a reply to a question THIS server asked comes back down the same pipe
+        // and is not a call to answer; answeredOurs settles its promise instead
+        if (answeredOurs(msg)) continue;
+        out = handle(msg);
       } catch (e) {
         out = fail(null, String(e.message));
       }
-      if (out) process.stdout.write(JSON.stringify(out) + "\n");
+      // an answer that had to go and ask arrives later; the line loop does not
+      // wait for it, so a slow judgement is not a stall on every other call
+      if (out && typeof out.then === "function") {
+        out.then((o) => { if (o) process.stdout.write(JSON.stringify(o) + "\n"); },
+                 (e) => process.stdout.write(JSON.stringify(fail(null, String(e && e.message))) + "\n"));
+      } else if (out) process.stdout.write(JSON.stringify(out) + "\n");
     }
   });
 

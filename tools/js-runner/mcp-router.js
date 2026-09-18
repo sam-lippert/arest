@@ -53,6 +53,28 @@ function loadArestEnv() {
 }
 loadArestEnv();
 
+// THE ROUTER IS IN THE MIDDLE OF THE SAMPLING ROUND TRIP TOO, and this is the
+// half most easily missed. A child server that wants a completion sends
+// sampling/createMessage -- a request from a SERVER to a CLIENT -- and the only
+// client here is on the other side of this process. So the request goes UP with
+// an id of the router's own, the client's reply comes back and is routed DOWN to
+// the child that asked, under the id THAT child used. The pattern is request()
+// below, inverted: a pending map keyed by id, a promise settled on the matching
+// reply. The two id spaces must not meet, so the upward ones are strings.
+//
+// AND THE CAPABILITY IS AGGREGATED, NOT ASSUMED. A child may only be told
+// sampling is available if the real client offered it, or it would ask into a
+// pipe where nothing answers and every drive would hang instead of refusing
+// honestly. The children's processes still spawn at load -- that is the slow
+// part -- but their initialize handshake waits for the client's, which is the
+// only moment this process learns what the client can do.
+let clientCaps = null;
+let sawClient;
+const capsSeen = new Promise((r) => { sawClient = r; });
+const childCaps = () => (clientCaps && clientCaps.sampling ? { sampling: clientCaps.sampling } : {});
+const UP = new Map();                     // router id -> <resident, the child's own id>
+let upSeq = 0;
+
 function parseApps(spec) {
   const apps = [];
   for (const part of String(spec || "").split(";")) {
@@ -176,12 +198,28 @@ class Resident {
       if (!line) continue;
       let msg;
       try { msg = JSON.parse(line); } catch { continue; }
+      // A CHILD MAY ASK, TOO. A line carrying a method is not an answer to
+      // anything this router sent: it is the child's own request, and the only
+      // thing that can answer it is the client above. Forwarded under an id of
+      // the router's own so the client's reply is unambiguously ours to route
+      // back, and the child's id is kept so the reply reaches it as its own.
+      if (msg.method !== undefined) {
+        if (msg.id === undefined) continue;             // a child notification wants nobody
+        const up = "router-up-" + (++upSeq);
+        UP.set(up, { resident: this, childId: msg.id });
+        process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: up, method: msg.method, params: msg.params }) + NL);
+        continue;
+      }
       const p = this.pending.get(msg.id);
       if (!p) continue;
       this.pending.delete(msg.id);
       if (msg.error) p.reject(new Error(msg.error.message || String(msg.error)));
       else p.resolve(msg.result);
     }
+  }
+  // the client's answer, back down to the child that asked, under the child's id
+  answer(childId, payload) {
+    if (this.child) this.child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: childId, ...payload }) + NL);
   }
   request(method, params) {
     if (!this.child) return Promise.reject(new Error(this.name + ": " + (this.busy || this.state)));
@@ -202,7 +240,8 @@ class Resident {
     if (this.ready) return this.ready;
     this.ready = (async () => {
       try {
-        const init = await this.request("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "arest-router", version: "1.0.0" } });
+        await capsSeen;                    // only the real client's offer may be passed on
+        const init = await this.request("initialize", { protocolVersion: "2024-11-05", capabilities: childCaps(), clientInfo: { name: "arest-router", version: "1.0.0" } });
         this.instructions = String((init && init.instructions) || "");
         this.notify("notifications/initialized", {});
         const list = await this.request("tools/list", {});
@@ -296,6 +335,10 @@ const text = (id, s, isError) => reply(id, { content: [{ type: "text", text: s }
 
 async function handle(msg) {
   if (msg.method === "initialize") {
+    // learned before `await booting`, because that is what the children's own
+    // initialize is waiting on; the other way round is a deadlock
+    clientCaps = (msg.params && msg.params.capabilities) || {};
+    sawClient();
     await booting;
     const lines = [];
     for (const r of residents.values()) lines.push(r.name + (r.error ? " (not serving: " + r.error + ")" : ": " + r.instructions));
@@ -358,6 +401,13 @@ process.stdin.on("data", (chunk) => {
     if (!line) continue;
     let msg;
     try { msg = JSON.parse(line); } catch (e) { process.stdout.write(JSON.stringify(fail(null, String(e.message))) + NL); continue; }
+    // the client answering a question a CHILD asked: not a call, a reply to route
+    if (msg.method === undefined && msg.id !== undefined && UP.has(msg.id)) {
+      const { resident, childId } = UP.get(msg.id);
+      UP.delete(msg.id);
+      resident.answer(childId, msg.error ? { error: msg.error } : { result: msg.result });
+      continue;
+    }
     handle(msg).then((out) => { if (out) process.stdout.write(JSON.stringify(out) + NL); },
       (e) => { process.stdout.write(JSON.stringify(fail(msg.id === undefined ? null : msg.id, String(e && e.message))) + NL); });
   }
