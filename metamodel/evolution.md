@@ -221,18 +221,55 @@ It is obligatory that each Domain Change has exactly one Rationale.
      row for it, so the gate that this whole comment is about was enforced
      NOWHERE. `User approves Domain Change` is the fact, and `User` is what
      plays its first role, so that is the type the cardinality is about.
-     It is spelled in the `For each X, exactly one Y ...` form the
-     metamodel already uses for a cardinality (core.md:555), because that
-     is the form whose body restates the reading and therefore the one
-     both readers resolve. KNOWN AND STATED: the for-each head's `applied`
+     It is spelled in the `For each X, ... that X` form the metamodel
+     already uses (core.md:555), because that is the form whose body
+     restates the reading and therefore the one both readers resolve.
+     KNOWN AND STATED: the for-each head's `applied`
      qualifier is not carried - the rows say it of every Domain Change,
      which is stronger than the sentence and never weaker, and narrowing
      it to the applied ones is a join the deontic row shape has no legs
      for.
-     `exactly one` is unchanged and is still the ruling - a committee is not
-     a throat - and the reader now carries it: DEO:m on the Domain Change
-     role (every applied change has an approval) and DEO:u on it (no second
-     approver), which is the pair an `exactly one` deontic reads as.
+     AND `exactly one` IS NOT A UNIQUENESS ON THIS FACT TYPE (measured
+     2026-09-17, the same day, and against the oracle rather than canon's
+     reader alone). `exactly one User approves that Domain Change` builds an
+     internal uniqueness over the DOMAIN CHANGE ROLE ALONE, and that span is
+     narrower than the spanning uniqueness declared above, so the reader that
+     carries the narrower one deletes the wider - the oracle's AddInternalUC
+     removes a wider UC the new span implies, because NORMA reports an implied
+     internal UC as a model error - and the sentence deleted the very
+     uniqueness `User approves Domain Change` is OBJECTIFIED over. MEASURED on metamodel/: `uniqueness narrowed
+     (implied wider UC removed)` x1, and the model's only blocking error,
+     FactTypeRequiresInternalUniquenessConstraintError x1, "fact type
+     'UserApprovesDomainChange' requires an internal uniqueness constraint
+     with alethic modality" - because the only uniqueness left on it was a
+     deontic one. Stating that narrower uniqueness ALETHICALLY instead (`For
+     each Domain Change, at most one User approves that Domain Change.`)
+     clears the error and takes the objectification with it: OBJECTIFICATION
+     REFUSED (Halpin 2020, no spanning UC), nestings 38 -> 37, and the
+     deontic row rekeys from DomainChangeIsInvolvedInUserApprovesDomainChange
+     to the bare fact type - UserApprovesDomainChange stops being the
+     Function the supersession ring and the deontic legs name. The pair
+     uniqueness above is not boilerplate: it is what the objectification
+     stands on.
+     SO THE OBLIGATION IS THE `some` FORM, which is what this metamodel
+     already uses for an obligation over an objectified fact type -
+     core.md:1701, `It is obligatory that each Migration produces some Fact
+     Type as target.`, beside that fact type's own pair uniqueness. It
+     carries DEO:m on the Domain Change role (every applied change has an
+     approval), which is the half a store can actually violate and therefore
+     the half a deontic is for: state:deontics is 13 rows where the `exactly
+     one` form made 14, and the row given up is
+     DEO:u:DomainChangeIsInvolvedInUserApprovesDomainChange#1.
+     WHAT IS NOT CARRIED, said rather than lost: `no second approver`. A
+     committee is still not a throat, but that is not a cardinality on an m:n
+     fact type - a deontic uniqueness beside an alethic spanning one is legal
+     ORM, since the modalities differ and neither implies the other, and the
+     oracle cannot build the pair: AddInternalUC compares role spans and
+     never modality, so whichever arrives second erases the first. Until it
+     can, the second approver is refused where it can be refused - canon's
+     migrate:plan answers nothing when two Users approve one Domain Change
+     (engine/shared/scenarios.canon, case:a-second-approver-is-not-a-throat)
+     and compile-store declines the Migration.
      WHAT THIS GIVES UP, said rather than lost: `Human` also said an Agent
      may not sign off its own rewrite, and User being a role over the mixin
      means an Agent may be a User. That half was never enforced either, and
@@ -240,7 +277,7 @@ It is obligatory that each Domain Change has exactly one Rationale.
      is - a join through `User is a role of Object Type Instance` - not
      about how many there are. It belongs in its own sentence, against a
      fact type that carries it, and is not smuggled into a cardinality. -->
-It is obligatory that for each applied Domain Change, exactly one User approves that Domain Change.
+It is obligatory that for each applied Domain Change, some User approves that Domain Change.
 
 ## Ring Constraints
 
