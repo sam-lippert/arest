@@ -1288,6 +1288,22 @@ const FASTPRIMS = new Map(Object.entries({
       if (c === "\r") { i++; continue; }
       line.push(c); i++; }
     out.push(line); return out; },
+  // read:spoken, one pass. The DEF is
+  //   COMP(apply, CONS(COMP(apply, CONS(K("theta:Filter"), K(not . eq . <id, K"-">))), id))
+  // -- it applies theta:Filter to the predicate to BUILD a filter, then applies
+  // that to the argument, so the closure is rebuilt on every call. Measured on
+  // the base metamodel's reader path (16 files, 1809 rows, 2026-09-18): 411,268
+  // calls, 6,475 ms self, 18% of a 35.6 s run, the largest named cost there and
+  // the same "rebuild per call and dominate the profile" shape recorded above
+  // for cn:keypath. Twelve DEFs call it -- read:row, read:pop_cand, read:pop_ctx,
+  // read:type_row_of, the five read:uc_*_at, read:strip_ref, read:deo_unary_at,
+  // read:order_rowsubs -- so it is on every sentence.
+  // Same contract, probed against the compiled DEF before it was written: drop
+  // the elements of the top level that ARE the atom "-", keep everything else
+  // untouched. A nested <"-"> is kept because it is not the atom; "--", "-x",
+  // "" and " " are kept because they are not it either. The DEF is the meaning
+  // and the suite holds this against its compiled form.
+  "read:spoken": x => seq(x).filter((e) => e !== "-"),
   "theta:nth": x => { const l = seq(at(x, 0)); const n = at(x, 1);
     const k = n === 0 ? 0 : (n < 0 ? l.length : Math.min(l.length, n));
     if (k >= l.length) throw new Error("selector 1 out of range 0");

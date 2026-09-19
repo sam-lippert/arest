@@ -1113,6 +1113,25 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     expect(twin.map((l) => l.join(""))).toEqual(["a b  ", "d", "  g", "", "h"]);   // the close adds one space and the source has its own
   });
 
+  // read:spoken has a fast twin too. Its DEF applies theta:Filter to a
+  // predicate to BUILD a filter and then applies that, so the closure is
+  // rebuilt on each of the 411,268 calls the base metamodel's reader path
+  // makes -- 6,475 ms self, 18% of that run (2026-09-18). The DEF is the
+  // meaning either way, and its compiled form is evaluated here beside the
+  // twin on every branch that distinguishes them: the atom dropped, a NESTED
+  // <"-"> which is not the atom and stays, the near-misses "--" and "-x",
+  // the empty string and a space, and an all-dashes list that empties.
+  test("the read:spoken twin is its DEF", () => {
+    const def = DEFS.get("read:spoken");
+    for (const input of [[], ["a"], ["-"], ["-", "-", "-"], ["a", "-", "b"],
+                         ["Each", "-", "Function", "-", "belongs"],
+                         [["a", "b"], "-", "c"], ["-", ["-"], "-"],
+                         ["", "-", " "], ["--", "-", "-x"]])
+      expect(JSON.stringify(Ev("read:spoken", input))).toBe(JSON.stringify(Ev(def, input)));
+    expect(Ev("read:spoken", ["-", ["-"], "-"])).toEqual([["-"]]);   // the nested one is not the atom
+    expect(Ev("read:spoken", ["--", "-", "-x"])).toEqual(["--", "-x"]);
+  });
+
   test("read:sentences reads the oracle's sentences", () => {
     // the rules ExtractSentences enforces, each on one line
     const text = [
