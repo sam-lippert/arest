@@ -134,12 +134,27 @@ const tRead = Date.now() - t0;
 // the chain calling it again at each step, so a population that reflects over
 // the rows pays O(rows) per ancestor per row. It is absent from the table
 // because that sorts by SELF time and all of its cost is in its children.
-// #109 (f) named read:super_of and the base-metamodel reader path showed it
-// costing nothing, so it was left alone with the caveat that two callers could
-// still dominate an app-sized store. This is that store. The fix is an index
-// rather than a scan -- a twin keyed on the rows by WeakMap, the way CATPROV
-// and DEDUPKEYS already key on an array -- which takes the per-call O(rows)
-// to O(1) amortised and the whole build from quadratic to linear.
+// AND THAT IS NOT WHERE THE TIME IS. The counts above are real and the shape
+// is real, but a count is not a cost, and naming the term from counts alone was
+// wrong. Built the index anyway -- a twin keyed on the rows by WeakMap, correct
+// against the compiled DEF on 17 shapes including all five that raise, 888
+// tests green, and an 85% cache hit rate -- and the build did not move:
+// 1200 sentences 11,298 -> 12,288 ms, 2400 sentences 48,251 -> 48,382, both
+// inside the 2.5% run-to-run spread. In isolation the DEF answers 600 lookups
+// over 600 rows in UNDER A MILLISECOND, the same as the twin.
+// THE REASON IS IN THE CORPUS AND IT INVALIDATES THE IDENTIFICATION: the
+// generated corpus declares NO SUBTYPES AT ALL (grep 'is a subtype of' finds 0,
+// against 66 in metamodel/core.md). read:super_of scans, matches nothing, and
+// answers "" every time. Its 15.7M calls to read:player_head are each
+// first-element-of-a-two-element-list -- quadratic in NUMBER and negligible in
+// WORK. So the n^2 TIME measured on this corpus cannot be read:super_of, and
+// whatever it is is still unnamed. The twin was reverted rather than kept: no
+// measured benefit is not a reason to carry host complexity.
+// WHAT TO DO INSTEAD: the counts also put CONS at 23.3M -> 90.7M and CONST at
+// 19.1M -> 77.2M, quadratic, and those ARE allocation, which ties to the GC
+// pressure cases.test.js records. Find the caller that allocates n per call n
+// times -- the ALPHA-over-distr shape is the suspect family, not this one DEF --
+// and measure it by TIME, in isolation, before building anything.
 // PARAGRAPHS ARE WHY AN EARLIER VERSION OF THIS NOTE SAID OTHERWISE, and the
 // trap is worth recording. read:sentences is COMP(read:markers_forward,
 // flatten, ALPHA(read:split_sentences), read:paragraphs, ..., read:lines,
