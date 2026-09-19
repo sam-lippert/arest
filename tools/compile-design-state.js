@@ -51,9 +51,33 @@ const rows = [];
 let files = 0, sentences = 0;
 const t0 = Date.now();
 for (const dir of dirs) {
-  for (const f of readdirSync(dir).filter((f) => f.endsWith(".md")).sort(order)) {
+  const names = readdirSync(dir);
+  for (const f of names.filter((f) => f.endsWith(".md")).sort(order)) {
     files++;
     for (const s of Ev("read:sentences", readFileSync(join(dir, f), "utf8"))) { sentences++; rows.push(Ev("read:row_of", s)); }
+  }
+  // .env IS A CARRIER, NOT AN ENVIRONMENT FILE (2026-09-19, #109 (h)).
+  // apps/support.auto.dev/.env holds twelve AREST sentences and NOT ONE
+  // KEY=VALUE line: six `Domain connects to External System` and the six
+  // `DomainConnectsToExternalSystem carries Secret Reference` beside them.
+  // readings/feature-requests.md:207 says so outright -- the connection fact
+  // and the reference it carries live together in that gitignored file. The
+  // oracle is handed the app directory (support's check passes `..`) and reads
+  // it: DomainConnectsToExternalSystem appears 20 times in the carrier it
+  // wrote. This reader took `*.md` only, so the seat canon is taking from the
+  // oracle would have dropped all six connections silently.
+  // A SECRET REFERENCE IS A NAME, NOT A SECRET, and the value half is what
+  // compile-store.js encrypts out of process.env at build time. So only
+  // SENTENCES are read here: a KEY=VALUE line cannot become a fact, which is
+  // what keeps a future .env that does carry values out of the carrier. The
+  // `#` lines go the same way -- support's end in a period and would otherwise
+  // read as sentences.
+  if (names.includes(".env")) {
+    const keep = readFileSync(join(dir, ".env"), "utf8").split("\n")
+      .filter((l) => !/^\s*#/.test(l) && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(l));
+    let n = 0;
+    for (const s of Ev("read:sentences", keep.join("\n"))) { sentences++; n++; rows.push(Ev("read:row_of", s)); }
+    if (n) files++;
   }
 }
 const tRead = Date.now() - t0;

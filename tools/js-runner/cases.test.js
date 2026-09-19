@@ -2459,3 +2459,50 @@ describe("canon's reader reads a value type's kind and the rows that need it", (
       .toEqual(["joinon", "A", "B", [], [1, 2, 3, 4]]);
   });
 });
+
+// .env IS A CARRIER AND compile-design-state MUST READ IT (2026-09-19, #109 (h)).
+// apps/support.auto.dev/.env holds twelve AREST sentences and no KEY=VALUE line at
+// all: six `Domain connects to External System` and the six carries-Secret-Reference
+// beside them, which readings/feature-requests.md:207 says live there because the
+// file is gitignored. The oracle is handed the app directory and reads it -- of the
+// 19 quoted names in those sentences, 13 appear in NO .md file of the app, and all
+// 13 are in the carrier the oracle wrote. This reader filtered `*.md`, so the seat
+// canon is taking from the oracle dropped all six connections silently.
+// The fixture below is the whole contract in one run: the .env sentence lands, and
+// a KEY=VALUE line, its value, and a `#` comment that ENDS IN A PERIOD (support's do)
+// all stay out -- which is what keeps a future .env carrying real values from
+// putting them in a build artifact.
+test("compile-design-state reads .env as a carrier, and only its sentences", () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-dsenv-"));
+  const src = join(dir, "src");
+  require("node:fs").mkdirSync(src);
+  writeFileSync(join(src, "core.md"), [
+    "Domain is an entity type.",
+    "  Reference Scheme: Domain has Domain Name.",
+    "Domain Name is a value type.",
+    "  The data type of Domain Name is text.",
+    "External System is an entity type.",
+    "  Reference Scheme: External System has System Name.",
+    "System Name is a value type.",
+    "  The data type of System Name is text.",
+    "Domain connects to External System.",
+    "  Each Domain, External System combination occurs at most once in the population of Domain connects to External System.",
+  ].join(String.fromCharCode(10)));
+  writeFileSync(join(src, ".env"), [
+    "# a comment that ends in a period.",
+    "SOME_SECRET=must-never-become-a-fact",
+    "Domain 'widgets' connects to External System 'probeSystem'.",
+  ].join(String.fromCharCode(10)));
+  try {
+    const tool = join(import.meta.dir, "..", "compile-design-state.js");
+    const p = Bun.spawnSync(["bun", tool, src], { env: { ...process.env, AREST_OUT_DIR: dir }, stdout: "pipe", stderr: "pipe" });
+    const said = p.stdout.toString() + p.stderr.toString();
+    expect(said).toContain("from 2 files");          // the .md AND the .env
+    const carrier = readFileSync(join(dir, "design-state"), "utf8");
+    expect(carrier).toContain("probeSystem");        // the sentence became a fact
+    expect(carrier).toContain("widgets");
+    expect(carrier).not.toContain("SOME_SECRET");    // the key did not
+    expect(carrier).not.toContain("must-never-become-a-fact");   // nor its value
+    expect(carrier).not.toContain("a comment that ends");        // nor the # line
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}, 120_000);
