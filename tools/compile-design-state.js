@@ -183,8 +183,27 @@ const tRead = Date.now() - t0;
 // read:reflect first makes it pay cold (22,719 ms) and leaves read:state_fts
 // warm (15,446 ms, below its own cold 18,670 ms). The cold figure is the real
 // one; a bisection that reuses a value must say which laps were warm.
-// STILL NOT FIXED and no cause claimed. What these three DO is the next
-// question, and it is a question for the clock.
+// INSIDE read:reflect, which is a cat of ten <name, sub-DEF> pairs over one x,
+// so each reflection times alone as well:
+//
+//   sub-DEF                     1200 sent.   2400 sent.    exp
+//   read:refl_instances            4060 ms     14212 ms   1.81
+//   read:refl_refs                 1040 ms      2648 ms   1.35
+//   read:refl_declorder              20 ms      1690 ms   6.4 (tiny base)
+//   the other six                   <=2 ms       <=3 ms   flat
+//
+// read:refl_instances is the LARGEST SINGLE STAGE IN THE WHOLE BUILD. Six of
+// the ten reflections never exceed 3 ms at either size. read:refl_declorder's
+// ratio is 84x off a 20 ms base, which is a shape worth its own measurement and
+// not worth a conclusion yet.
+// A CONVERGENCE, offered as the next thing to TIME and not as a finding: both
+// costly cells reach read:up_rows. read:refl_instances is the stage the earlier
+// stack samples showed as read:reflect > read:refl_instances > read:up_rows >
+// read:ancestors_of > read:super_of, and read:otpops_pairs -- the costly stage
+// of the OTHER cell -- has read:up_rows in its body too. If one DEF is behind
+// both, that is it. Time it on captured arguments before believing it: this
+// file has already recorded two suspects that a body or a count named and a
+// clock acquitted.
 // PARAGRAPHS ARE WHY AN EARLIER VERSION OF THIS NOTE SAID OTHERWISE, and the
 // trap is worth recording. read:sentences is COMP(read:markers_forward,
 // flatten, ALPHA(read:split_sentences), read:paragraphs, ..., read:lines,
