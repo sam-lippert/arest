@@ -97,31 +97,35 @@ const tRead = Date.now() - t0;
 // cubic one taking over at application scale -- which is why this is fine on
 // the metamodel the suite exercises and ruinous on an app.
 // THOSE THREE CLOSURES DIFFER IN CONTENT AS WELL AS SIZE, so their exponents
-// are indicative only. The controlled run says something worse. A generated
-// corpus, one block of twelve sentences declaring two entity types, two value
-// types and two fact types, all uniquely named, NO BLOCK REFERRING TO ANOTHER,
-// repeated K times -- identical structure, only the count varying:
+// are indicative only. The controlled answer, from a generated corpus -- one
+// block of twelve sentences declaring two entity types, two value types and two
+// fact types, uniquely named, NO BLOCK REFERRING TO ANOTHER, plus padding
+// sentences that are bare instances of block 0 so sentences and DECLARATIONS
+// move independently. Declarations held at 60, paragraphs normal:
 //
-//   K   sentences    read ms    state ms   read exp   state exp
-//    25       300       1986         848          -           -
-//    50       600       6475        3567       1.70        2.07
-//   100      1200      24447       29824       1.92        3.06
-//   200      2400     194547      545298       2.99        4.19
+//   sentences    read ms    state ms   read exp   state exp
+//         120        188         191          -           -
+//         360        505         917       0.90        1.43
+//         600        670        2762       0.56        2.16
+//        1200       1470       11298       1.13        2.03
+//        2400       4090       48251       1.48        2.09
 //
-// THE EXPONENT DOES NOT SETTLE, IT RISES, on both halves and at every doubling.
-// A measured cost whose apparent exponent keeps climbing is worse than any
-// fixed power law, and the reading is not quadratic and not cubic: it is an
-// already superlinear algorithm compounded by the allocation pressure that
-// cases.test.js records above its case block -- collection time grows with the
-// live heap, and this builds an enormous one. At 2400 sentences the pair is
-// already 12.3 minutes, on blocks that reference nothing.
-// AND SENTENCES ARE NOT THE VARIABLE. These 2400 generated sentences cost more
-// state than support's 7762 real ones (545,298 against 1,028,704 for 3.2x the
-// sentences), because a block is six declared types per twelve sentences where
-// a real corpus is mostly prose and instances. Whatever drives this counts
-// DECLARATIONS, not lines, and the next measurement should hold sentences fixed
-// and vary the type density to say which. Naming the term still needs the
-// profile, read for its COUNTS and not its inflated times.
+// THE STATE IS QUADRATIC IN SENTENCES and the exponent SETTLES at ~2.05 over
+// the last two doublings. The reading is roughly linear. A second sweep holding
+// sentences at 1200 and varying declarations 60 -> 600 moves the state 12,434
+// -> 28,159 ms, so there is a declaration term on top, but sentences are the
+// dominant axis and n^2 is the shape.
+// PARAGRAPHS ARE WHY AN EARLIER VERSION OF THIS NOTE SAID OTHERWISE, and the
+// trap is worth recording. read:sentences is COMP(read:markers_forward,
+// flatten, ALPHA(read:split_sentences), read:paragraphs, ..., read:lines,
+// chars), so the split is per PARAGRAPH and quadratic in a paragraph's length.
+// The generator wrote no blank lines, making one 1200-line paragraph, and the
+// reading alone took 23,555 ms; the same 1200 sentences with a blank line every
+// twelve take 1,399 ms. SEVENTEEN TIMES, from layout. Real readings are
+// paragraphed, so that cost is not theirs -- but a generated corpus without
+// blank lines measures the reader's worst case and not its normal one, and the
+// numbers it gave were an artifact. The state is untouched by the layout
+// (12,434 against 11,975), which is how the two were told apart.
 const cells = Ev("read:design_state_of", rows);
 const tState = Date.now() - t0 - tRead;
 
