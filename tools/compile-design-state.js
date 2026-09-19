@@ -216,6 +216,32 @@ const tRead = Date.now() - t0;
 // inflate what it measures. It does not appear to: the wrapped whole-stage
 // times (2855, 15298) bracket the unwrapped ones (4060, 14212), so the memo was
 // not saving much here anyway.
+// AND ONE LEVEL FURTHER IT IS read:super_of AFTER ALL, which contradicts the
+// acquittal recorded above. Accumulators on all three, inside read:refl_instances:
+//
+//   corpus                ms     calls   share   per call
+//    1200  up_rows       2595      2160     91%   1.201 ms
+//          ancestors_of  2589      2160     91%   1.199 ms
+//          super_of      2582      2160     90%   1.195 ms
+//    2400  up_rows      10165      4560     64%   2.229 ms
+//          ancestors_of 10150      4560     64%   2.226 ms
+//          super_of     10130      4560     64%   2.221 ms
+//
+// The three are the same number: up_rows' whole cost is ancestors_of's, whose
+// whole cost is super_of's, called ONCE per up_rows call -- the chain is one
+// step deep because this corpus has no subtypes, so super_of scans, finds
+// nothing and returns. The scan is the cost, and it doubles with the corpus.
+// WHY THE EARLIER ACQUITTAL WAS WRONG, because the mistake is the reusable part:
+// bench-superof.mjs SYNTHESISED its argument -- [name, rows] built from
+// read:row_of -- instead of capturing what up_rows actually passes. On that
+// invented argument 600 lookups over 600 rows took under a millisecond; on the
+// real one a single call costs 1.2 ms. "Time it in isolation" is not enough.
+// TIME IT ON A CAPTURED ARGUMENT: a synthetic one can be a different problem.
+// STILL UNRESOLVED, and not to be papered over: the twin built at that acquittal
+// indexed the parents by rows-array and measured an 85% cache hit, and the build
+// did not move. If super_of is 64-90% of this stage, that twin should have shown
+// it. One of the two measurements is wrong and the next tick's job is to find
+// out which, by restoring the twin and re-running these accumulators.
 // PARAGRAPHS ARE WHY AN EARLIER VERSION OF THIS NOTE SAID OTHERWISE, and the
 // trap is worth recording. read:sentences is COMP(read:markers_forward,
 // flatten, ALPHA(read:split_sentences), read:paragraphs, ..., read:lines,
