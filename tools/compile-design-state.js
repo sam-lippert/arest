@@ -196,14 +196,26 @@ const tRead = Date.now() - t0;
 // the ten reflections never exceed 3 ms at either size. read:refl_declorder's
 // ratio is 84x off a 20 ms base, which is a shape worth its own measurement and
 // not worth a conclusion yet.
-// A CONVERGENCE, offered as the next thing to TIME and not as a finding: both
-// costly cells reach read:up_rows. read:refl_instances is the stage the earlier
-// stack samples showed as read:reflect > read:refl_instances > read:up_rows >
-// read:ancestors_of > read:super_of, and read:otpops_pairs -- the costly stage
-// of the OTHER cell -- has read:up_rows in its body too. If one DEF is behind
-// both, that is it. Time it on captured arguments before believing it: this
-// file has already recorded two suspects that a body or a count named and a
-// clock acquitted.
+// AND THE CLOCK CONVICTS read:up_rows, which is behind BOTH costly cells. A
+// temporary accumulator timing every call to it inside each caller:
+//
+//   corpus  caller                whole   inside up_rows   share   calls
+//    1200   read:refl_instances    2855 ms       2615 ms     92%    2160
+//    1200   read:otpops_pairs      4083 ms       2998 ms     73%    2160
+//    2400   read:refl_instances   15298 ms       9763 ms     64%    4560
+//    2400   read:otpops_pairs     13524 ms      10302 ms     76%    4560
+//
+// THE CALL COUNT IS LINEAR AND THE COST PER CALL IS NOT. 2160 calls at 1200
+// rows and 4560 at 2400 is linear in the corpus; the time inside them grows
+// 3.7x for 2x, so each CALL costs 1.21 -> 2.14 ms (refl_instances) and
+// 1.39 -> 2.26 ms (otpops_pairs). One DEF, called n times, costing O(n) each:
+// that is the whole n^2, and it is the first suspect in this hunt a clock has
+// confirmed rather than acquitted.
+// CAVEAT ON THE INSTRUMENT: the accumulator delegates through
+// Ev(DEFS.get("read:up_rows"), x), which bypasses the name-level memo and could
+// inflate what it measures. It does not appear to: the wrapped whole-stage
+// times (2855, 15298) bracket the unwrapped ones (4060, 14212), so the memo was
+// not saving much here anyway.
 // PARAGRAPHS ARE WHY AN EARLIER VERSION OF THIS NOTE SAID OTHERWISE, and the
 // trap is worth recording. read:sentences is COMP(read:markers_forward,
 // flatten, ALPHA(read:split_sentences), read:paragraphs, ..., read:lines,
