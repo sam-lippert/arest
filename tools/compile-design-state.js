@@ -162,19 +162,29 @@ const tRead = Date.now() - t0;
 // Two cells are the whole of it and the other eighteen are noise. This is the
 // measurement that should have come before any twin: it is TIME, on the real
 // argument, with no profiler in the way.
-// AND THE SHAPE IS THE ONE PREDICTED. read:state_fts is
-//   COMP(ALPHA(read:merge_at),
-//        COMP(distr, CONS(COMP(ALPHA(read:collapse_at), COMP(distr, ...)),
-//                         read:reflect)))
-// -- TWO NESTED ALPHA-over-distr. distr pairs every element of a list with one
-// value, so the outer ALPHA runs once per collapsed element and is handed the
-// WHOLE read:reflect result each time: |collapsed| x |reflect| is the n^2.
-// read:otpops_state is read:otpops_of . read:otpops_pairs and superlinear too,
-// at a lower exponent.
-// NOT FIXED HERE, and not predicted to be fixable by a twin until the inner
-// cost is measured the same way: time read:merge_at and read:collapse_at alone
-// at two sizes first. The rule this file learned the hard way is that a call
-// count names a suspect and only a clock convicts one.
+// AND THE ALPHA-over-distr SHAPE IS NOT IT EITHER, which I predicted from
+// read:state_fts's body and the clock refused. Timing the stages of both cells:
+//
+//   stage                       1200 sent.   2400 sent.    exp
+//   read:reflect                   3403 ms     22719 ms   2.74
+//   read:otpops_pairs              3481 ms     15054 ms   2.11
+//   read:otpops_of                  362 ms      6502 ms   4.17
+//   distr + BOTH ALPHAs               9 ms        11 ms   flat
+//
+// The two nested ALPHA-over-distr that looked like the n^2 -- outer ALPHA per
+// collapsed element, each handed the whole reflect result -- cost NINE
+// MILLISECONDS. read:reflect alone is 86% of read:state_fts. So the structure
+// read off the body was a plausible story and a wrong one, for the second time
+// in this file: read the body to form a hypothesis, then make the clock settle
+// it.
+// THE THREE THAT ARE SUPERLINEAR IN TIME are read:reflect, read:otpops_pairs
+// and read:otpops_of, and nothing else in the twenty cells or their stages.
+// CAUTION ON THESE NUMBERS: the evaluator memoises, so lap ORDER matters. Taking
+// read:reflect first makes it pay cold (22,719 ms) and leaves read:state_fts
+// warm (15,446 ms, below its own cold 18,670 ms). The cold figure is the real
+// one; a bisection that reuses a value must say which laps were warm.
+// STILL NOT FIXED and no cause claimed. What these three DO is the next
+// question, and it is a question for the clock.
 // PARAGRAPHS ARE WHY AN EARLIER VERSION OF THIS NOTE SAID OTHERWISE, and the
 // trap is worth recording. read:sentences is COMP(read:markers_forward,
 // flatten, ALPHA(read:split_sentences), read:paragraphs, ..., read:lines,
