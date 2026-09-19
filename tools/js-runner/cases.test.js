@@ -1989,6 +1989,70 @@ describe("canon's reader reads a numeral, a scheme's order and a marker", () => 
 });
 
 // ================================================================================
+// THE REFERENCE-MODE KIND, against apps/support.auto.dev/.check/design-state and
+// apps/auto.dev/.check/design-state (state:refmodes, state:schemereadings). ORM
+// reference modes have KINDS -- popular, unit-based, general -- and canon wrote
+// K("popular") into every row and derived every value type as `{Entity}_{mode}`,
+// while stripping the spaces out of a multi-word mode on the way in. Measured
+// 2026-09-18: 108 of support's 298 rows and 86 of auto.dev's 272 are general in
+// the witness, and every one of them disagreed on kind, on mode name, or on both.
+//
+// The witness decides it in Verifier.cs (state:refmodes) off
+// IReferenceModePattern.ReferenceModeType, which ObjectType.GetReferenceMode
+// resolves from the preferred identifier's VALUE TYPE NAME: a mode named by one
+// of NORMA's intrinsic popular modes (Id id ID UUID Uuid Name name Code code
+// Title title Nr nr #, ReferenceMode.cs:336-349) that is NOT already a declared
+// type mints `{Entity}_{mode}` and is popular; anything else keeps the mode name
+// as the value type and is general. `Name` and `Title` are declared in core.md
+// and `Code` in auto.dev/api-errors.md, which is why `Make(.Name)` is general in
+// every corpus while `Item(.Code)` is popular in `order` and general in auto.dev.
+// Measured across 34 witness corpora, 6183 rows, zero exceptions.
+describe("canon's reader reads a reference mode's kind and its name", () => {
+  const stateOf = (cell, text) =>
+    Ev(cell, Ev("read:x_full", Ev("read:x_of", Ev("read:sentences", text).map((s) => Ev("read:row_of", s)))));
+
+  const KINDS = [
+    "Name is a value type.",
+    "Path Pattern is a value type.", "",
+    "Agent(.id) is an entity type.",
+    "API Endpoint(.Path Pattern) is an entity type.",
+    "Account(.Account Id) is an entity type.",
+    "Make(.Name) is an entity type.",
+    "Item(.Code) is an entity type.", "",
+  ].join("\n");
+
+  test("a multi-word reference mode keeps its spaces", () => {
+    // read:type_row_of used to rejoin the parenthesised tokens with no separator
+    expect(stateOf("read:all_types", KINDS).filter((r) => r[1] === "entity").map((r) => [r[0], r[2]]))
+      .toEqual([["Agent", ".id"], ["API Endpoint", ".Path Pattern"], ["Account", ".Account Id"],
+                ["Make", ".Name"], ["Item", ".Code"]]);
+    expect(Ev("read:mode_name", ".Account Id")).toBe("Account Id");
+  }, 300_000);
+
+  test("the kind is popular only for an intrinsic mode that is not a declared type", () => {
+    // sorted by entity name: state:refmodes is a sorted surface
+    expect(stateOf("read:state_refmodes", KINDS)).toEqual([
+      ["API Endpoint", "Path Pattern", "general", "Path Pattern"],
+      ["Account", "Account Id", "general", "Account Id"],
+      ["Agent", "id", "popular", "Agent_id"],
+      ["Item", "Code", "popular", "Item_Code"],
+      ["Make", "Name", "general", "Name"],
+    ]);
+  }, 300_000);
+
+  test("a general scheme fact is named for its value type, not for {Entity}_{mode}", () => {
+    const R = [["{0}", "has", "{1}"]];
+    expect(stateOf("read:state_schemereadings", KINDS)).toEqual([
+      ["AgentHasAgentId", ["Agent", "Agent_id"], R],
+      ["APIEndpointHasPathPattern", ["API Endpoint", "Path Pattern"], R],
+      ["AccountHasAccountId", ["Account", "Account Id"], R],
+      ["MakeHasName", ["Make", "Name"], R],
+      ["ItemHasItemCode", ["Item", "Item_Code"], R],
+    ]);
+  }, 300_000);
+});
+
+// ================================================================================
 describe("canon's reader reads a value type's kind and the rows that need it", () => {
   const J = (x) => JSON.stringify(x);
   const META = join(import.meta.dir, "..", "..", "metamodel");
