@@ -1196,12 +1196,26 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     // full -> stored -- and stateUcs stays 630, because its uniqueness was in
     // state:ucs before the head was in state:fts.
 
+    // AND A VALUE OF A VALUE TYPE IS NO LONGER RESOLVED TO A NAME (2026-09-18).
+    // `read:lit_value` replaced a quoted literal by its pascal-cased form
+    // whenever that form was a declared name -- right for a REFERENCE, wrong for
+    // a VALUE, so `Pattern Example`'s seven well-formed FORML sentences came back
+    // as EntityTypeIsASubtypeOfObjectType and the like. The role now decides:
+    // read:parse carries the kind in its WHILE state and drops it before the
+    // answer exists, so the declared entry stays three slots and the six
+    // case:read-* goldens are untouched. THIS RAISES THE FLOOR, which is why the
+    // pin moves: rows 251 -> 252 and stateRows 259 -> 262. stateRows now EQUALS
+    // witness/canon/both/all at 262 -- every state row canon writes is
+    // byte-identical to the carrier's, the first time the distance has been zero
+    // on that field. `canon's state:otpops carries the witness's populations`
+    // goes green with it; it was the same defect read through the populations.
+
     // the pinned distance (2026-09-17); every number is a floor, and a change
     // in either direction is a finding, not noise
     expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
       .toEqual({ witness: 262, canon: 262, both: 262, canonOnly: 0, oracleOnly: 0,
-                 players: 262, ucs: 262, mands: 262, all: 262, rows: 251, rejected: 0, derived: [37, 37, 37], stateRows: 259, stateUcs: 630 });
+                 players: 262, ucs: 262, mands: 262, all: 262, rows: 252, rejected: 0, derived: [37, 37, 37], stateRows: 262, stateUcs: 630 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
