@@ -877,6 +877,16 @@ function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.starts
 // without both takes the full path exactly as before.
 const CATPROV = new WeakMap();
 const DEDUPKEYS = new WeakMap();
+// read:super_of asks one rows-array for one name's supertype, and its callers
+// ask it per sentence: read:ancestors_of, read:ancestors and read:pop_ctx all
+// enter through it. Measured on the reader path, 600/1200/2400 rows: 3130,
+// 6730 and 13930 calls over 481, 1081 and 2281 DISTINCT rows arrays -- about
+// six questions per array, and nothing about the array changes between them.
+// Keyed by that array's identity, so a rebuilt rows array indexes afresh and a
+// carried one answers from its own index. The array is rebuilt once per landed
+// sentence, which is why this is a constant factor and not a fix for the n^2 --
+// tools/compile-design-state.js carries the whole measurement beside its call.
+const SUPEROF = new WeakMap();
 // AREST_NOTWIN=name,name disables those twins for one run, so a twin can be
 // held against its DEF on the same inputs: the law report is the only gate
 // that exercises most of them, and a twin that is not the DEF fails it
@@ -1304,6 +1314,42 @@ const FASTPRIMS = new Map(Object.entries({
   // "" and " " are kept because they are not it either. The DEF is the meaning
   // and the suite holds this against its compiled form.
   "read:spoken": x => seq(x).filter((e) => e !== "-"),
+  // read:super_of, one native pass with an index. The DEF is a COND over
+  // theta:flatten(ALPHA(guard)(distr<rows, name>)): it pairs the name with
+  // EVERY row, interprets the guard per pair -- read:player_head on the
+  // players, read:is_subtyping on slot 5, a length check -- and answers with
+  // the SECOND PLAYER OF THE FIRST ROW that passes, or the empty atom when
+  // none does. First-wins is the meaning and not an accident of the scan, so
+  // the index keeps the first parent it sees for a name and no later row
+  // displaces it. read:is_subtyping is reproduced exactly: slot 5 head
+  // "subtype", or head "derived" with "subtype" behind it; anything else is
+  // not a subtyping. Every shape the DEF RAISES on defers back to it rather
+  // than inventing an answer -- a row too short for slot 2 or slot 5, an
+  // empty slot 5, a non-sequence where the DEF would index -- as cn:ordlt and
+  // rmap:member_pairs do, and the whole rows array is checked BEFORE any
+  // index is kept so a later bad row cannot be masked by an earlier good one.
+  // The DEF is the meaning and the suite holds this against its compiled form.
+  "read:super_of": x => { const rows = at(x, 1), name = at(x, 0);
+    const def = () => Ev(DEFS.get("read:super_of"), x);
+    if (!Array.isArray(rows)) return def();
+    let idx = SUPEROF.get(rows);
+    if (idx === undefined) {
+      for (const row of rows) {
+        if (!Array.isArray(row) || row.length < 5) return def();
+        if (!Array.isArray(row[1]) || !Array.isArray(row[4]) || row[4].length < 1) return def();
+        if (row[4][0] === "derived" && row[4].length < 2) return def();
+      }
+      idx = new Map();
+      for (const row of rows) {
+        const players = row[1], f5 = row[4];
+        const sub = f5[0] === "subtype" || (f5[0] === "derived" && f5[1] === "subtype");
+        if (!sub || players.length !== 2) continue;
+        if (!idx.has(players[0])) idx.set(players[0], players[1]);
+      }
+      SUPEROF.set(rows, idx);
+    }
+    const v = idx.get(name);
+    return v === undefined ? "" : v; },
   // read:put_row, one native pass. The DEF is COMP(ALPHA(read:row_at), distr):
   // distr pairs EVERY row with the item and read:row_at is interpreted once per
   // pair, so a put costs a full interpreted scan. Measured on the base

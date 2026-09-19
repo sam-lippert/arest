@@ -1163,6 +1163,54 @@ describe("canon's reader against the witness, on the base metamodel", () => {
   // The scan is inherent; interpreting it is not. The twin hands any shape the
   // DEF would RAISE on back to the DEF, so the five throwing shapes below are
   // part of the contract and not this twin's to reproduce.
+  test("the read:super_of twin is its DEF", () => {
+    const def = DEFS.get("read:super_of");
+    const row = (n, players, f5) => [n, players, [], [], f5, ["t"], ["{0}"]];
+    const sub = (n, a, b) => row(n, [a, b], ["subtype"]);
+    const der = (n, a, b, second) => row(n, [a, b], ["derived", second]);
+    const plain = row("Plain", ["A", "B"], [[]]);   // as a real corpus row has it
+    const inputs = [
+      [["A", []]],                                          // no rows at all
+      [["A", [sub("S", "A", "Super")]]],                    // the one subtyping matches
+      [["Z", [sub("S", "A", "Super")]]],                    // nothing matches -> ""
+      [["A", [sub("S1", "A", "First"), sub("S2", "A", "Second")]]],  // FIRST wins
+      [["A", [plain, sub("S", "A", "Super"), plain]]],      // found past plain rows
+      [["A", [der("D", "A", "Super", "subtype")]]],         // derived+subtype counts
+      [["A", [der("D", "A", "Super", "other")]]],           // derived+other does not
+      [["A", [row("R", ["A", "B", "C"], ["subtype"])]]],    // three players, skipped
+      [["A", [row("R", ["A"], ["subtype"])]]],              // one player, skipped
+      [["", [sub("S", "", "Super")]]],                      // the empty name has a head too
+      [["A", [sub("S", "A", "")]]],                         // the supertype IS the empty atom
+      [["A", [plain]]],                                     // only plain rows
+    ];
+    for (const [input] of inputs)
+      expect(JSON.stringify(Ev("read:super_of", input))).toBe(JSON.stringify(Ev(def, input)));
+    // the twin indexes the rows array by IDENTITY and keeps that index, so ask
+    // ONE array for several names -- a cached index that answered the first
+    // name and not the rest, or that leaked one name onto another, passes
+    // every case above and fails here.
+    const shared = [sub("S1", "A", "Super"), sub("S2", "B", "Other"), plain,
+                    sub("S3", "A", "Later"), der("D", "C", "Third", "subtype")];
+    for (const name of ["A", "B", "C", "Plain", "Z", "", "A"])
+      expect(JSON.stringify(Ev("read:super_of", [name, shared])))
+        .toBe(JSON.stringify(Ev(def, [name, shared])));
+    // and the shapes the DEF raises on: the twin must raise the same words
+    for (const input of [
+      [["A", [row("R", ["A", "B"], [])]]],                  // slot 5 empty
+      [["A", [["short", ["A", "B"]]]]],                     // a row of two
+      [["A", ["atomrow"]]],                                 // an atom where a row goes
+      [["A", [row("R", "notalist", ["subtype"])]]],         // the players are an atom
+      [["A", [row("R", ["A", "B"], ["derived"])]]],         // derived with nothing behind it
+      [["A", [sub("S", "A", "Super"), row("R", ["A", "B"], [])]]],  // the BAD row is second
+    ]) {
+      const [x] = input;
+      let tw = "", dw = "";
+      try { Ev("read:super_of", x); } catch (e) { tw = e.message; }
+      try { Ev(def, x); } catch (e) { dw = e.message; }
+      expect(dw).not.toBe("");        // the DEF really does raise on this shape
+      expect(tw).toBe(dw);
+    }
+  });
   test("the read:put_row twin is its DEF", () => {
     const def = DEFS.get("read:put_row");
     const row = (name, chunks, t = ["p", "q"]) => [name, "b", "c", "d", chunks, t[0], t[1]];

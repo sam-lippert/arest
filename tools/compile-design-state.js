@@ -270,17 +270,40 @@ const tRead = Date.now() - t0;
 // captured argument, by form, take 10 ms: 0.005 ms each, flat. The 1.195 ->
 // 2.221 ms a call the accumulators charged to it is 240x that and cannot be its
 // body.
-// SO THE COST IS IN THE DISPATCH AND I CANNOT YET NAME IT. Ruled out by
-// measurement, not by argument: the memo's 400,000-entry clear (instrumented,
-// ZERO clears at either size), read:super_of being memoised at all (memoable()
-// is MEMOCN plus the rmap: and state: prefixes and it is in none), and the body
-// itself (0.005 ms, constant). Ev and subName both compile the form once and
-// should converge on the same closure; they demonstrably do not cost the same.
-// THREE VERDICTS ON THIS ONE DEF IN ONE NIGHT -- named from counts, acquitted
-// from a synthetic argument, convicted from accumulators -- and the fourth
-// measurement says the body is innocent and the dispatch is not. Whoever picks
-// this up should trust the end-to-end numbers, which have been stable, and
-// distrust every attribution to a NAME until the dispatch gap is explained.
+// AND THE ANSWER IS THAT THE ARGUMENT GROWS, so both of the readings above are
+// wrong and there is no dispatch gap to explain. `forty rows, constant' was
+// read off ONE captured argument -- the first. Instrumenting the twin's index
+// to record the rows-array length at every build, over the whole run, gives the
+// lengths 40, 41, 42 ... n-80, EACH EXACTLY ONCE, every one of them in this
+// phase (the read phase builds none). The rows array gains one row and a NEW
+// IDENTITY per landed sentence, so read:super_of is handed a different and
+// one-longer array each time and scans all of it. Mean length is about n/2, not
+// forty, which is why a 0.005 ms figure taken at length 40 could not be
+// reconciled with the 1.2-2.2 ms the accumulators charged.
+// SO THE BODY WAS THE COST ALL ALONG, and the three earlier verdicts on this
+// one DEF -- named from counts, acquitted from a SYNTHETIC argument, convicted
+// from accumulators -- end with the first one right. What made it hard was that
+// every attempt to time the body used an argument that was not the one the
+// caller passes: invented in bench-superof.mjs, and a single early capture
+// here. A captured argument is only as good as WHEN it was captured.
+// THE TWIN SHIPS AND THE EXPONENT SURVIVES IT. Door FASTPRIMS, gate NOTWIN,
+// station tools/js-runner/reader.g.js (which this file runs, NOT the suite's
+// cases.g.js), wall the state phase below, resource CPU time. One module, the
+// gate the only difference: 1200 sentences 16,933 -> 9,724 ms (-43%), 2400
+// 66,807 -> 34,930 ms (-48%), exponent 1.98 -> 1.85. A constant factor.
+// THE EXPONENT IS THE REBUILD ITSELF: n distinct arrays, each indexed in one
+// O(len) pass, sum of lengths 134,680 / 626,980 / 2,691,580 at 600 / 1200 /
+// 2400 rows -- ratios 4.65 and 4.29, which is the n^2. The calls are exactly
+// linear (6*rows - 470) and the builds exactly rows - 119, at all three sizes.
+// TRIED AND MEASURED AND IT DOES NOT WORK: carrying the index through the
+// read:put_row twin. It is SOUND -- a put keeps row[1] by reference and only
+// rewrites slot 5 when its head is a list, so no row's players or subtyping
+// verdict can change across it -- and it leaves the builds at exactly 481 /
+// 1081 / 2281. The growth is an APPEND elsewhere, not put_row's copy. To remove
+// the exponent the index has to be EXTENDED across that append rather than
+// rebuilt; the array only ever grows at the tail, and apndr already keeps the
+// provenance CATPROV keeps for cat. That is a second twin, with its own probe,
+// its own test and its own suite run.
 // PARAGRAPHS ARE WHY AN EARLIER VERSION OF THIS NOTE SAID OTHERWISE, and the
 // trap is worth recording. read:sentences is COMP(read:markers_forward,
 // flatten, ALPHA(read:split_sentences), read:paragraphs, ..., read:lines,
