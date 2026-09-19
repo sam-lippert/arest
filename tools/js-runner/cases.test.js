@@ -1196,12 +1196,26 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     // full -> stored -- and stateUcs stays 630, because its uniqueness was in
     // state:ucs before the head was in state:fts.
 
+    // AND A VALUE OF A VALUE TYPE IS NO LONGER RESOLVED TO A NAME (2026-09-18).
+    // `read:lit_value` replaced a quoted literal by its pascal-cased form
+    // whenever that form was a declared name -- right for a REFERENCE, wrong for
+    // a VALUE, so `Pattern Example`'s seven well-formed FORML sentences came back
+    // as EntityTypeIsASubtypeOfObjectType and the like. The role now decides:
+    // read:parse carries the kind in its WHILE state and drops it before the
+    // answer exists, so the declared entry stays three slots and the six
+    // case:read-* goldens are untouched. THIS RAISES THE FLOOR, which is why the
+    // pin moves: rows 251 -> 252 and stateRows 259 -> 262. stateRows now EQUALS
+    // witness/canon/both/all at 262 -- every state row canon writes is
+    // byte-identical to the carrier's, the first time the distance has been zero
+    // on that field. `canon's state:otpops carries the witness's populations`
+    // goes green with it; it was the same defect read through the populations.
+
     // the pinned distance (2026-09-17); every number is a floor, and a change
     // in either direction is a finding, not noise
     expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
       .toEqual({ witness: 262, canon: 262, both: 262, canonOnly: 0, oracleOnly: 0,
-                 players: 262, ucs: 262, mands: 262, all: 262, rows: 251, rejected: 0, derived: [37, 37, 37], stateRows: 259, stateUcs: 630 });
+                 players: 262, ucs: 262, mands: 262, all: 262, rows: 252, rejected: 0, derived: [37, 37, 37], stateRows: 262, stateUcs: 630 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
@@ -1413,21 +1427,20 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
   // the witness is regenerated (it was 36 against carriers of 2026-09-15, which
   // predated metamodel/verbalization.md).
   //
-  // KNOWN RED, AND LEFT RED ON PURPOSE (2026-09-17). This is the only failing
-  // test in the file and it fails on ONE defect, in its own right and not in
-  // this branch's: read:otpops_state CAMEL-CASES seven `Pattern Example`
-  // VALUES into identifiers. `Pattern Example` is a value type
-  // (metamodel/verbalization.md:19), so the oracle keeps `'Predicate is
-  // bound.'` verbatim while canon emits `PredicateIsBound`; the seven that
-  // disagree are exactly the examples that are themselves well-formed FORML2
-  // sentences, which is what makes the reader mistake them for fact-type
-  // readings. So `same` is 40 where it should be 41, `grew` names Pattern
-  // Example where it should be empty, and `contained` is false where it should
-  // be true. The expectation below states what a correct reader answers --
-  // recording `contained: false` would make the defect the specification, and
-  // the sentence a value type carries is not an identifier. Its fix is its own
-  // commit; this branch's work unit (the self-modification gate's uniqueness)
-  // names it as out of scope and leaves it failing so it stays visible.
+  // WAS KNOWN RED UNTIL 2026-09-18, ON ONE DEFECT: read:lit_value asked the
+  // TEXT and not the ROLE, so read:otpops_state camel-cased seven `Pattern
+  // Example` VALUES into identifiers -- `Pattern Example` is a value type
+  // (metamodel/verbalization.md:19) and `'Predicate is bound.'` came out
+  // `PredicateIsBound`, the seven that disagreed being exactly the examples
+  // that are themselves well-formed FORML2 sentences. `same` was 40 where it
+  // should be 41, `grew` named Pattern Example, `contained` was false. The
+  // expectation below always stated what a correct reader answers, and the
+  // reader now answers it: read:pop_values zips the row's literals against the
+  // matched fact type's players and a literal filling a value type's role is
+  // kept verbatim, while `Transition 'advance-to-step2' is triggered by Event
+  // Type 'Schema Design notes elementary facts'` still enters Event Type's
+  // population as SchemaDesignNotesElementaryFacts, because Event Type is an
+  // entity type.
   test("canon's state:otpops carries the witness's populations", () => {
     const W = new Map(witness("state:otpops").map((r) => [String(r[0]), r[1].flat(1).map(String)]));
     const C = new Map(Ev("read:otpops_state", F).map((r) => [String(r[0]), r[1].flat(1).map(String)]));
@@ -1899,8 +1912,34 @@ describe("canon's reader reads a numeral, a scheme's order and a marker", () => 
     expect(Ev("read:is_numword", "125000")).toBe("T");
     expect(Ev("read:is_numword", ".")).toBe("F");
     expect(Ev("read:is_numword", "2026-02")).toBe("F");
-    expect(Ev("read:pop_values", [[], [], row])).toEqual(["Fly.io/2026-02", "642.95"]);
+    expect(Ev("read:pop_values", [[], [], row, ["Invoice", "Amount"], ["Amount"]])).toEqual(["Fly.io/2026-02", "642.95"]);
     expect(Ev("read:nonlit_pairs", [[], [], row]).map((p) => p[0])).toEqual(["Invoice", "has", "Amount"]);
+  }, 300_000);
+
+  // AND THE ROLE'S PLAYER DECIDES WHETHER A LITERAL IS A NAME. read:pop_values
+  // takes the matched fact type's players as its fourth operand and the value
+  // types' names as its fifth, and zips the players against the row's literals,
+  // so read:lit_value is asked of the ROLE and not of the text: the same literal
+  // resolves to the declared name where an entity type plays the role and is
+  // kept verbatim where a value type does. The names come from the ROWS, by the
+  // read:type_row_of that read:object_types already asks -- NOT from a tag on
+  // the declared entry, whose three slots are read:parse's own answer and are
+  // pinned by six case:read-*. Where the players and the literals do not line
+  // up, and for a sentence that matched no reading, no player is known and the
+  // resolution stands as before.
+  test("a literal filling a value type's role is text, not a declared name", () => {
+    const decls = ["Invoice(.Id) is an entity type.", "Note Text is a value type."]
+      .map((s) => Ev("read:row_of", s));
+    const vals = Ev("read:value_names", decls);
+    expect(vals).toEqual(["Note Text"]);
+    const row = Ev("read:row_of", "Invoice 'i1' has Note Text 'Invoice has Amount'.");
+    const recs = [["InvoiceHasAmount"]];  // one record, and that is its name
+    expect(Ev("read:pop_values", [[], recs, row, ["Invoice", "Note Text"], []]))
+      .toEqual(["i1", "InvoiceHasAmount"]);
+    expect(Ev("read:pop_values", [[], recs, row, ["Invoice", "Note Text"], vals]))
+      .toEqual(["i1", "Invoice has Amount"]);
+    expect(Ev("read:pop_values", [[], recs, row, [], vals]))
+      .toEqual(["i1", "InvoiceHasAmount"]);
   }, 300_000);
 
   test("a numeral lands in the fact type's population and its value type's extent", () => {
