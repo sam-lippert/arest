@@ -245,6 +245,22 @@ const tRead = Date.now() - t0;
 // read:ancestors_of falls from 93% of the stage to 0%, 1.117 -> 0.001 ms a call.
 // A TWIN EXISTS ONLY IN A MODULE REBUILT AFTER THE EDIT, and this tool does not
 // use the one the suite uses.
+// AND THE BASELINES IT REPLACED WERE STALE, which corrects the figures above.
+// reader.g.js is gitignored and had been left behind by earlier canon: it
+// answered 14 cells where the current reader answers 22, so every
+// compile-design-state number measured before that rebuild was a DIFFERENT and
+// smaller job. Same reader on both sides, which is the only fair comparison:
+//
+//   corpus        no twin     with twin    change    
+//    1200       14,098 ms      7,075 ms      -50%
+//    2400       58,610 ms     33,713 ms      -42%
+//
+// THE EXPONENT SURVIVES AND THE TWIN DOES NOT CHANGE IT. Without the twin the
+// fresh reader gives 14,098 -> 58,610, exp 2.06, which matches the 2.03 and
+// 2.09 measured on the stale one -- each curve was internally consistent, so
+// the SHAPE was never in doubt even while the absolute numbers were wrong. With
+// the twin it is 7,075 -> 33,713, exp 2.25. Halving a quadratic leaves a
+// quadratic: this is a constant-factor win and not a fix.
 // AND THE TWIN DOES NO WORK: its counter says the index was built ZERO times
 // over 2160 and 4560 calls. The whole gain is calling
 // Ev(DEFS.get("read:super_of"), x) instead of dispatching the name.
