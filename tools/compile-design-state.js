@@ -96,10 +96,32 @@ const tRead = Date.now() - t0;
 // to the third. An exponent that rises with n is a sum of terms, with a near
 // cubic one taking over at application scale -- which is why this is fine on
 // the metamodel the suite exercises and ruinous on an app.
-// NOT A CLEAN SCALING EXPERIMENT, and it should not be quoted as one: the three
-// closures differ in content as well as size, so the exponents are indicative.
-// Holding the content fixed and growing it would settle the shape, and finding
-// WHICH term is cubic needs the profile -- counts, not its inflated times.
+// THOSE THREE CLOSURES DIFFER IN CONTENT AS WELL AS SIZE, so their exponents
+// are indicative only. The controlled run says something worse. A generated
+// corpus, one block of twelve sentences declaring two entity types, two value
+// types and two fact types, all uniquely named, NO BLOCK REFERRING TO ANOTHER,
+// repeated K times -- identical structure, only the count varying:
+//
+//   K   sentences    read ms    state ms   read exp   state exp
+//    25       300       1986         848          -           -
+//    50       600       6475        3567       1.70        2.07
+//   100      1200      24447       29824       1.92        3.06
+//   200      2400     194547      545298       2.99        4.19
+//
+// THE EXPONENT DOES NOT SETTLE, IT RISES, on both halves and at every doubling.
+// A measured cost whose apparent exponent keeps climbing is worse than any
+// fixed power law, and the reading is not quadratic and not cubic: it is an
+// already superlinear algorithm compounded by the allocation pressure that
+// cases.test.js records above its case block -- collection time grows with the
+// live heap, and this builds an enormous one. At 2400 sentences the pair is
+// already 12.3 minutes, on blocks that reference nothing.
+// AND SENTENCES ARE NOT THE VARIABLE. These 2400 generated sentences cost more
+// state than support's 7762 real ones (545,298 against 1,028,704 for 3.2x the
+// sentences), because a block is six declared types per twelve sentences where
+// a real corpus is mostly prose and instances. Whatever drives this counts
+// DECLARATIONS, not lines, and the next measurement should hold sentences fixed
+// and vary the type density to say which. Naming the term still needs the
+// profile, read for its COUNTS and not its inflated times.
 const cells = Ev("read:design_state_of", rows);
 const tState = Date.now() - t0 - tRead;
 
