@@ -883,9 +883,12 @@ const DEDUPKEYS = new WeakMap();
 // 6730 and 13930 calls over 481, 1081 and 2281 DISTINCT rows arrays -- about
 // six questions per array, and nothing about the array changes between them.
 // Keyed by that array's identity, so a rebuilt rows array indexes afresh and a
-// carried one answers from its own index. The array is rebuilt once per landed
-// sentence, which is why this is a constant factor and not a fix for the n^2 --
-// tools/compile-design-state.js carries the whole measurement beside its call.
+// carried one answers from its own index. The array IS rebuilt once per landed
+// sentence, and that rebuild turns out to cost nothing worth measuring: removing
+// it entirely changed the stage by less than the run-to-run spread, in both
+// directions. This twin is a constant factor for a different reason, and what
+// is left quadratic is NOT this. tools/compile-design-state.js carries the
+// measurement and the refutation beside its call.
 const SUPEROF = new WeakMap();
 // AREST_NOTWIN=name,name disables those twins for one run, so a twin can be
 // held against its DEF on the same inputs: the law report is the only gate

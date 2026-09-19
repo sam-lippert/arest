@@ -291,19 +291,32 @@ const tRead = Date.now() - t0;
 // cases.g.js), wall the state phase below, resource CPU time. One module, the
 // gate the only difference: 1200 sentences 16,933 -> 9,724 ms (-43%), 2400
 // 66,807 -> 34,930 ms (-48%), exponent 1.98 -> 1.85. A constant factor.
-// THE EXPONENT IS THE REBUILD ITSELF: n distinct arrays, each indexed in one
-// O(len) pass, sum of lengths 134,680 / 626,980 / 2,691,580 at 600 / 1200 /
-// 2400 rows -- ratios 4.65 and 4.29, which is the n^2. The calls are exactly
-// linear (6*rows - 470) and the builds exactly rows - 119, at all three sizes.
-// TRIED AND MEASURED AND IT DOES NOT WORK: carrying the index through the
-// read:put_row twin. It is SOUND -- a put keeps row[1] by reference and only
-// rewrites slot 5 when its head is a list, so no row's players or subtyping
-// verdict can change across it -- and it leaves the builds at exactly 481 /
-// 1081 / 2281. The growth is an APPEND elsewhere, not put_row's copy. To remove
-// the exponent the index has to be EXTENDED across that append rather than
-// rebuilt; the array only ever grows at the tail, and apndr already keeps the
-// provenance CATPROV keeps for cat. That is a second twin, with its own probe,
-// its own test and its own suite run.
+// THE REBUILD IS NOT THE EXPONENT, and an earlier version of this note said it
+// was. The counts that suggested it are real: n distinct arrays, each indexed in
+// one O(len) pass, lengths summing to 134,680 / 626,980 / 2,691,580 at 600 /
+// 1200 / 2400 rows, ratios 4.65 and 4.29 -- a quadratic SHAPE. The calls are
+// exactly linear (6*rows - 470) and the builds exactly rows - 119. But 2.7M
+// native row visits is tens of milliseconds against a 36-second stage, and a
+// shape is not a magnitude.
+// REFUTED BY BUILDING IT. The rebuild is removable: cat and apndr record
+// out -> [prefix, suffix] in CATPROV, the fold appends a ONE-ELEMENT tail (480
+// of 481 builds at 600 rows, 1080 of 1081 at 1200), and the prefix becomes
+// indexed once read:put_row carries its index to its copy -- which is sound,
+// since a put keeps row[1] by reference and rewrites slot 5 only when its head
+// is a LIST, so no row's players or subtyping verdict changes. With both halves
+// in, the share of builds extending an already-indexed prefix went 0 -> 479 of
+// 481 and 0 -> 1079 of 1081, every one scanning a single row instead of the
+// whole array. THE STAGE DID NOT MOVE: alternating both readers in one session,
+// 1200 sentences 10,062 and 10,678 ms without against 9,948 and 9,558 with;
+// 2400 sentences 38,263 and 35,630 without against 40,376 and 37,910 with --
+// six percent each way, inside the spread, faster at one size and slower at the
+// other. The extension was DISCARDED, not shipped.
+// SO WHAT THE TWIN REMOVED WAS THE INTERPRETED SCAN, not the indexing: the DEF
+// walks every row per call through an interpreted guard, and the calls are
+// linear, so that product was quadratic and is gone. What is still quadratic
+// after it (exponent 1.78-1.85) is a SECOND term and this file cannot yet name
+// it. Do not attribute it to read:super_of; that account is now closed by a
+// clock in both directions.
 // PARAGRAPHS ARE WHY AN EARLIER VERSION OF THIS NOTE SAID OTHERWISE, and the
 // trap is worth recording. read:sentences is COMP(read:markers_forward,
 // flatten, ALPHA(read:split_sentences), read:paragraphs, ..., read:lines,
