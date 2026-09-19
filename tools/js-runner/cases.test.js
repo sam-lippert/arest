@@ -1132,6 +1132,48 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     expect(Ev("read:spoken", ["--", "-", "-x"])).toEqual(["--", "-x"]);
   });
 
+  // read:put_row has a fast twin as well. Its DEF is COMP(ALPHA(read:row_at),
+  // distr): distr pairs EVERY row with the item, so one put is one interpreted
+  // scan of the whole list -- 1,354 calls made 1,274,506 read:row_at calls on
+  // the base metamodel, 941 per write, which is the row count (2026-09-18).
+  // The scan is inherent; interpreting it is not. The twin hands any shape the
+  // DEF would RAISE on back to the DEF, so the five throwing shapes below are
+  // part of the contract and not this twin's to reproduce.
+  test("the read:put_row twin is its DEF", () => {
+    const def = DEFS.get("read:put_row");
+    const row = (name, chunks, t = ["p", "q"]) => [name, "b", "c", "d", chunks, t[0], t[1]];
+    const nine = (p) => Array.from({ length: 9 }, (_, i) => `${p}${i}`);
+    const inputs = [
+      [[row("A", [["x"]]), row("B", [["y"]])], ["C", "z"]],          // no match
+      [[row("A", [["x"]]), row("B", [["y"]])], ["A", "z"]],          // match, chunk short
+      [[row("A", [nine("x")])], ["A", "z"]],                        // chunk full at 9 -> a new one
+      [[row("A", [nine("x").slice(0, 8)])], ["A", "z"]],            // 8 -> appended
+      [[row("A", [["x", "z"]])], ["A", "z"]],                       // already there
+      [[row("A", [["z"], ["x"]])], ["A", "z"]],                     // already there, earlier chunk
+      [[row("A", [["x"]]), row("A", [["y"]])], ["A", "z"]],         // two rows, one name
+      [[], ["A", "z"]],                                             // no rows
+      [[["A", "b", "c", "d", ["atom"], "p", "q"]], ["A", "z"]],      // not a fact row
+      [[row("A", [["x"]])], ["A", ["z1", "z2"]]],                   // the value is a list
+      [[row("A", [[["z1", "z2"]]])], ["A", ["z1", "z2"]]],          // that list already there
+    ];
+    for (const input of inputs)
+      expect(JSON.stringify(Ev("read:put_row", input))).toBe(JSON.stringify(Ev(def, input)));
+    // and the shapes the DEF raises on: the twin must raise the same words
+    for (const input of [
+      [[["A", "b", "c", "d", [], "p", "q"]], ["A", "z"]],                       // empty 5th
+      [["atomrow", row("A", [["x"]])], ["A", "z"]],                             // an atom row
+      [[["A", "b", "c", "d", [["x"], "atomchunk"], "p", "q"]], ["A", "z"]],     // a chunk that is an atom
+      [[["A", "b", "c", "d", [["x"]]]], ["A", "z"]],                            // a row of five
+      [[row("A", [["x"]])], ["A"]],                                            // an item of one
+    ]) {
+      let tw = "", dw = "";
+      try { Ev("read:put_row", input); } catch (e) { tw = e.message; }
+      try { Ev(def, input); } catch (e) { dw = e.message; }
+      expect(dw).not.toBe("");        // the DEF really does raise on this shape
+      expect(tw).toBe(dw);
+    }
+  });
+
   test("read:sentences reads the oracle's sentences", () => {
     // the rules ExtractSentences enforces, each on one line
     const text = [

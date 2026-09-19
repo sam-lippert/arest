@@ -1304,6 +1304,43 @@ const FASTPRIMS = new Map(Object.entries({
   // "" and " " are kept because they are not it either. The DEF is the meaning
   // and the suite holds this against its compiled form.
   "read:spoken": x => seq(x).filter((e) => e !== "-"),
+  // read:put_row, one native pass. The DEF is COMP(ALPHA(read:row_at), distr):
+  // distr pairs EVERY row with the item and read:row_at is interpreted once per
+  // pair, so a put costs a full interpreted scan. Measured on the base
+  // metamodel's reader path (2026-09-18): 1,354 calls produced 1,274,506
+  // read:row_at calls -- 941 per write, which is exactly the row count -- for
+  // 5,478 ms inclusive, of which read:is_fact alone is 1,302,099 calls. The
+  // scan is inherent (the answer is the whole row list), the INTERPRETATION of
+  // it is not.
+  // Same contract: a row whose 5th field's first element is a list is a fact
+  // row; if its 1st field equals the item's, its 5th field gains the item's 2nd
+  // -- unless already present anywhere in it -- into the last chunk while that
+  // chunk holds fewer than 9, else into a new one. Every other row is itself.
+  // ANY shape the DEF would raise on is handed back to the DEF, whose selector
+  // errors are the contract and not this twin's to reproduce: an atom row, a
+  // row shorter than 5 (or than 7 once matched), an empty or non-list 5th
+  // field, a chunk that is not a list, an item without the field the match
+  // needs. cn:ordlt and rmap:member_pairs defer the same way. Probed against
+  // the compiled DEF on 21 shapes before it was written, five of which throw.
+  "read:put_row": x => { const rows = seq(at(x, 0)), item = at(x, 1);
+    const def = () => Ev(DEFS.get("read:put_row"), x);
+    if (!Array.isArray(item) || item.length < 1) return def();
+    const out = new Array(rows.length);
+    for (let i = 0; i < rows.length; i++) { const row = rows[i];
+      if (!Array.isArray(row) || row.length < 5) return def();
+      const f5 = row[4];
+      if (!Array.isArray(f5) || f5.length < 1) return def();
+      if (!Array.isArray(f5[0]) || !deepEq(row[0], item[0])) { out[i] = row; continue; }
+      if (row.length < 7 || item.length < 2) return def();
+      for (const c of f5) if (!Array.isArray(c)) return def();   // catall cats them all, so all are read
+      const val = item[1];
+      let found = false;
+      for (const c of f5) { for (const e of c) if (deepEq(e, val)) { found = true; break; } if (found) break; }
+      let nf5 = f5;
+      if (!found) { const last = f5[f5.length - 1];
+        nf5 = last.length < 9 ? [...f5.slice(0, -1), [...last, val]] : [...f5, [val]]; }
+      out[i] = [row[0], row[1], row[2], row[3], nf5, row[5], row[6]]; }
+    return out; },
   "theta:nth": x => { const l = seq(at(x, 0)); const n = at(x, 1);
     const k = n === 0 ? 0 : (n < 0 ? l.length : Math.min(l.length, n));
     if (k >= l.length) throw new Error("selector 1 out of range 0");
