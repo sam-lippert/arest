@@ -237,11 +237,34 @@ const tRead = Date.now() - t0;
 // invented argument 600 lookups over 600 rows took under a millisecond; on the
 // real one a single call costs 1.2 ms. "Time it in isolation" is not enough.
 // TIME IT ON A CAPTURED ARGUMENT: a synthetic one can be a different problem.
-// STILL UNRESOLVED, and not to be papered over: the twin built at that acquittal
-// indexed the parents by rows-array and measured an 85% cache hit, and the build
-// did not move. If super_of is 64-90% of this stage, that twin should have shown
-// it. One of the two measurements is wrong and the next tick's job is to find
-// out which, by restoring the twin and re-running these accumulators.
+// THE TWIN DID WORK AND I HAD MEASURED THE WRONG MODULE (2026-09-19).
+// compile-design-state runs on tools/js-runner/reader.g.js; the run that made me
+// revert it had rebuilt cases.g.js and scratch readers only, so the module under
+// test never contained the twin. Rebuilt properly: 1200 sentences 11,298 ->
+// 7,075 ms, 2400 48,251 -> 33,713 ms, and inside read:refl_instances
+// read:ancestors_of falls from 93% of the stage to 0%, 1.117 -> 0.001 ms a call.
+// A TWIN EXISTS ONLY IN A MODULE REBUILT AFTER THE EDIT, and this tool does not
+// use the one the suite uses.
+// AND THE TWIN DOES NO WORK: its counter says the index was built ZERO times
+// over 2160 and 4560 calls. The whole gain is calling
+// Ev(DEFS.get("read:super_of"), x) instead of dispatching the name.
+// THEN THE BODY IS NOT THE COST EITHER. Captured, the real argument is a pair
+// whose second element is a list of FORTY -- the declared fact types, constant
+// as the corpus grows, not the 1200 or 2400 rows. Two thousand calls on that
+// captured argument, by form, take 10 ms: 0.005 ms each, flat. The 1.195 ->
+// 2.221 ms a call the accumulators charged to it is 240x that and cannot be its
+// body.
+// SO THE COST IS IN THE DISPATCH AND I CANNOT YET NAME IT. Ruled out by
+// measurement, not by argument: the memo's 400,000-entry clear (instrumented,
+// ZERO clears at either size), read:super_of being memoised at all (memoable()
+// is MEMOCN plus the rmap: and state: prefixes and it is in none), and the body
+// itself (0.005 ms, constant). Ev and subName both compile the form once and
+// should converge on the same closure; they demonstrably do not cost the same.
+// THREE VERDICTS ON THIS ONE DEF IN ONE NIGHT -- named from counts, acquitted
+// from a synthetic argument, convicted from accumulators -- and the fourth
+// measurement says the body is innocent and the dispatch is not. Whoever picks
+// this up should trust the end-to-end numbers, which have been stable, and
+// distrust every attribution to a NAME until the dispatch gap is explained.
 // PARAGRAPHS ARE WHY AN EARLIER VERSION OF THIS NOTE SAID OTHERWISE, and the
 // trap is worth recording. read:sentences is COMP(read:markers_forward,
 // flatten, ALPHA(read:split_sentences), read:paragraphs, ..., read:lines,
