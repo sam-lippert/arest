@@ -81,6 +81,25 @@ for (const dir of dirs) {
   }
 }
 const tRead = Date.now() - t0;
+// THIS ONE CALL IS 95% OF THE SEAT, AND IT ACCELERATES (measured 2026-09-19).
+// Taking the oracle's place costs 17m58s on support's closure where the
+// oracle's own check reports 46,754 ms -- and the reading above is only
+// 48,814 ms of it. Three closures, same machine, nothing else running:
+//
+//   closure              files  sentences   read ms   state ms
+//   metamodel               16       1809      5658      18204
+//   + templates + connectors 24      2341      8376      27167
+//   support's whole closure  71      7762     48814    1028704
+//
+// The READ is a steady ~n^1.5 across both steps (1.52 then 1.47). The STATE is
+// not: ~n^1.5 from the first closure to the second, then ~n^3.0 from the second
+// to the third. An exponent that rises with n is a sum of terms, with a near
+// cubic one taking over at application scale -- which is why this is fine on
+// the metamodel the suite exercises and ruinous on an app.
+// NOT A CLEAN SCALING EXPERIMENT, and it should not be quoted as one: the three
+// closures differ in content as well as size, so the exponents are indicative.
+// Holding the content fixed and growing it would settle the shape, and finding
+// WHICH term is cubic needs the profile -- counts, not its inflated times.
 const cells = Ev("read:design_state_of", rows);
 const tState = Date.now() - t0 - tRead;
 
