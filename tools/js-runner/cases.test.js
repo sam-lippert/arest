@@ -56,6 +56,30 @@ function answer(name) {
 
 const cases = golden("expected-cases.tsv");
 
+// THE WANDERING RED IN THIS BLOCK IS GARBAGE COLLECTION, NOT A SLOW CASE, AND
+// THE CAP MUST NOT BE RAISED TO HIDE IT (2026-09-19). Five consecutive full
+// runs each timed out on ONE case at about ten seconds, a DIFFERENT case every
+// time -- case:an-obligation-nothing-violates-is-still-unchecked 9982 ms,
+// case:a-migration-rule-text-may-introduce-a-value-the-source-lacks 8932 ms,
+// case:the-same-bound-child-is-still-one-child 10396 ms,
+// case:create-binds-a-child-by-its-content 9943 ms -- and one run fired none.
+// It is not the case's own work: every one of those answers in 1 to 66 ms when
+// asked on its own through Ev("main", [CELLS, ["case", name]]), in either order,
+// so it is not a first-one-pays cost either. It is a collection of a heap this
+// file grows over 886 tests (one reader pass alone reaches 98 MB heap and
+// 366 MB rss), billed by the runner to whichever test was running.
+// THE EXPERIMENT THAT SAYS SO, predicted before it was run: a smaller heap
+// should make each collection smaller and the worst pause shorter, while doing
+// more collection overall. `bun --smol test cases.test.js` gives exactly that
+// -- the worst pause falls 9943 -> 6508 ms (case:entity-view-canonical, a
+// fifth distinct case) while the run rises 526 -> 729 s.
+// The lever is therefore ALLOCATION, not the cap: CONS is called 5.5M to 20M
+// times in a single reader pass and each call allocates. Every FASTPRIMS twin
+// that replaces an interpreted scan removes its allocations too, which is the
+// other half of why they are worth having. A timer cannot see the pause from
+// inside -- the evaluator never yields, so setInterval does not fire once for
+// the whole run -- which is why this is measured by its shape and not caught
+// in the act.
 describe("every case answers what the canon says it answers", () => {
   for (const [name, want] of cases) {
     test(name, () => {
