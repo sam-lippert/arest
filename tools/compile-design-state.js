@@ -150,11 +150,31 @@ const tRead = Date.now() - t0;
 // WORK. So the n^2 TIME measured on this corpus cannot be read:super_of, and
 // whatever it is is still unnamed. The twin was reverted rather than kept: no
 // measured benefit is not a reason to carry host complexity.
-// WHAT TO DO INSTEAD: the counts also put CONS at 23.3M -> 90.7M and CONST at
-// 19.1M -> 77.2M, quadratic, and those ARE allocation, which ties to the GC
-// pressure cases.test.js records. Find the caller that allocates n per call n
-// times -- the ALPHA-over-distr shape is the suspect family, not this one DEF --
-// and measure it by TIME, in isolation, before building anything.
+// WHERE IT ACTUALLY IS, FOUND BY TIME (2026-09-19). read:design_state is a CONS
+// of <name, sub-DEF> pairs over one x, so each cell can be timed alone. All
+// twenty, unprofiled, at two sizes:
+//
+//   cell                    1200 sent.   2400 sent.   ratio   exp
+//   read:state_fts             3814 ms     18670 ms    4.90   2.29
+//   read:otpops_state          6451 ms     21778 ms    3.38   1.76
+//   the other EIGHTEEN          <=13 ms       <=23 ms      -      -
+//
+// Two cells are the whole of it and the other eighteen are noise. This is the
+// measurement that should have come before any twin: it is TIME, on the real
+// argument, with no profiler in the way.
+// AND THE SHAPE IS THE ONE PREDICTED. read:state_fts is
+//   COMP(ALPHA(read:merge_at),
+//        COMP(distr, CONS(COMP(ALPHA(read:collapse_at), COMP(distr, ...)),
+//                         read:reflect)))
+// -- TWO NESTED ALPHA-over-distr. distr pairs every element of a list with one
+// value, so the outer ALPHA runs once per collapsed element and is handed the
+// WHOLE read:reflect result each time: |collapsed| x |reflect| is the n^2.
+// read:otpops_state is read:otpops_of . read:otpops_pairs and superlinear too,
+// at a lower exponent.
+// NOT FIXED HERE, and not predicted to be fixable by a twin until the inner
+// cost is measured the same way: time read:merge_at and read:collapse_at alone
+// at two sizes first. The rule this file learned the hard way is that a call
+// count names a suspect and only a clock convicts one.
 // PARAGRAPHS ARE WHY AN EARLIER VERSION OF THIS NOTE SAID OTHERWISE, and the
 // trap is worth recording. read:sentences is COMP(read:markers_forward,
 // flatten, ALPHA(read:split_sentences), read:paragraphs, ..., read:lines,
