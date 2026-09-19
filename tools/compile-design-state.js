@@ -115,6 +115,31 @@ const tRead = Date.now() - t0;
 // sentences at 1200 and varying declarations 60 -> 600 moves the state 12,434
 // -> 28,159 ms, so there is a declaration term on top, but sentences are the
 // dominant axis and n^2 is the shape.
+// THE TERM IS read:super_of, NAMED BY CALL COUNT (2026-09-19). Profiled on the
+// generated corpus at 1200 and 2400 sentences, every DEF's count is either
+// ~2.1x (linear) or ~4.3x (quadratic) with nothing between:
+//
+//   read:player_head     3,559,880 -> 15,723,080   x4.42   exp 2.14
+//   read:is_subtyping    2,949,700 -> 13,066,300   x4.43   exp 2.15
+//   read:pop_cand          625,860 ->  2,689,260   x4.30   exp 2.10
+//   CONST               19,112,266 -> 77,200,169   x4.04   exp 2.01
+//   CONS                23,293,247 -> 90,681,280   x3.89   exp 1.96
+//   everything else                                x~2.1   exp ~1.06
+//
+// The first two are exactly the pair inside read:super_of's ALPHA, and 628 of
+// 793 stack samples read
+//   read:design_state_of > read:design_state > read:otpops_state >
+//   read:otpops_pairs > read:up_rows > read:ancestors_of > read:super_of
+// read:super_of scans EVERY row to find ONE parent, and read:ancestors walks
+// the chain calling it again at each step, so a population that reflects over
+// the rows pays O(rows) per ancestor per row. It is absent from the table
+// because that sorts by SELF time and all of its cost is in its children.
+// #109 (f) named read:super_of and the base-metamodel reader path showed it
+// costing nothing, so it was left alone with the caveat that two callers could
+// still dominate an app-sized store. This is that store. The fix is an index
+// rather than a scan -- a twin keyed on the rows by WeakMap, the way CATPROV
+// and DEDUPKEYS already key on an array -- which takes the per-call O(rows)
+// to O(1) amortised and the whole build from quadratic to linear.
 // PARAGRAPHS ARE WHY AN EARLIER VERSION OF THIS NOTE SAID OTHERWISE, and the
 // trap is worth recording. read:sentences is COMP(read:markers_forward,
 // flatten, ALPHA(read:split_sentences), read:paragraphs, ..., read:lines,
