@@ -35,7 +35,9 @@
 // never the compiler.
 //
 //   AREST_DB=<path> bun tools/js-runner/compile.js <readings dir>...
-import { readdirSync, readFileSync, rmSync, existsSync, renameSync } from "node:fs";
+//   AREST_OUT_DIR=<dir> bun tools/js-runner/compile.js <readings dir>...
+import { readdirSync, readFileSync, writeFileSync, rmSync, existsSync, renameSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Database } from "bun:sqlite";
@@ -81,15 +83,118 @@ const state = Ev("read:design_state_of", rows);
 for (let i = state.length - 1; i >= 0; i--) CELLS.unshift(["CELL", String(state[i][0]), state[i][1]]);
 const tState = Date.now() - t1;
 
-const t2 = Date.now();
-const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
-const ddl = flat(Ev("rmap:ddl", CELLS));
-const tDdl = Date.now() - t2;
+// ---- THE CARRIER, WRITTEN BY CANON --------------------------------------
+// It is the design state as intersection source, the form host.js's CANONTEXT
+// already reads -- and writing it here is NOT the renderer coming back. The
+// old one chunked every sequence nine wide because build.js spliced the
+// carrier as JavaScript CODE and S9 is a nine-parameter function; a carrier is
+// spliced as TEXT now (build.js's AS_TEXT, 2026-09-07), and CANONTEXT accepts
+// the bare `S` at any arity. So no host restates canon's S1..S9 ceiling and
+// this is twelve lines: A an atom, N a number, PHI the empty sequence, DEF a
+// <name, body> entry, and the escapes CANONTEXT's own reader undoes.
+//
+// WHY IT EXISTS AT ALL, since #109 is about removing exactly this kind of
+// intermediate: build.js composes the design state INTO the module, and the
+// alternative -- the module booting its design state from the store -- is the
+// half of the flip that canon cannot yet answer. Measured on the metamodel
+// (2026-09-20): rmap:ddl gives 11 tables and 344 columns, but each column
+// carries a PATH of 1 to 7 steps (32 are one hop; 100 are two; 82 are four),
+// and 4 populated fact types -- ObjectTypeIsSubtypeOfObjectType,
+// ObjectTypeInstanceIsInstanceOfObjectType, FunctionIsSupersededByFunction,
+// GuardReferencesFactType, 1,543 of the store's 3,540 rows -- are named by no
+// path at all, because subtyping and instance-of are realised as table
+// MEMBERSHIP rather than as a column. Canon emits the schema and has no
+// projection into it and no inverse, so until it does, the store cannot carry
+// the design state and the carrier does.
+const outDir = process.env.AREST_OUT_DIR;
+if (outDir) {
+  const esc = (s) => {
+    let o = "";
+    for (const ch of String(s)) {
+      const c = ch.codePointAt(0);
+      o += ch === "\\" ? "\\\\" : ch === '"' ? '\\"' : c === 10 ? "\\n" : c === 13 ? "\\r" : c === 9 ? "\\t" : ch;
+    }
+    return o;
+  };
+  const src = (v) => Array.isArray(v)
+    ? (v.length === 0 ? "PHI()" : "S(" + v.map(src).join(",") + ")")
+    : typeof v === "number" ? "N(" + v + ")" : 'A("' + esc(v) + '")';
+  // AND IT IS CHUNKED NINE WIDE, BECAUSE CANON READS IT THAT WAY. Measured
+  // 2026-09-20: 48 canon DEFs compose an UNGUARDED theta:flatten with an
+  // ast:fetch of a state: cell -- rules:model, solve:rules, ui:otpops,
+  // rmap:readrows, main:declared_names and forty-three more -- so each of them
+  // flattens exactly one level and a carrier chunked any other way is a
+  // different value. The nine came from S9 being a nine-parameter JavaScript
+  // function; it has been load-bearing canon ever since, undeclared. So this
+  // does not restate it: read:chunk9 IS canon's chunker, 43 ms for all 22
+  // cells, and the width lives where the readers live.
+  //
+  // reflect:surface was the exception that proved it. It flattened
+  // unconditionally too, and canon's own flat design state made four
+  // reflections raise `selector 2 on atom: DomainHasDescription` while the
+  // oracle's chunked one passed; it now unfolds with rmap:unfold4 and both
+  // shapes answer 781/400/781/781. The other forty-seven are recorded, not
+  // fixed: they are a canon change with a suite behind it, not a compiler one.
+  const body = state.map((c) => 'DEF("' + esc(String(c[0])) + '", ' + src(Ev("read:chunk9", c[1])) + ")").join(",\n");
+  const carrier = "(\n" + body + "\n)\n";
+  const tmp = join(outDir, "design-state.build");
+  writeFileSync(tmp, carrier);
+  renameSync(tmp, join(outDir, "design-state"));
+  console.log("carrier: " + carrier.length + " bytes at " + join(outDir, "design-state"));
 
+  // ---- AND THE RELATIONAL MAP, WHICH IS THE SAME COMPILATION ----------------
+  // tools/compile-rmap.js (161 lines, deleted) wrote these; they are canon's
+  // own answers cached, one DEF per rmap artifact, and canon reads each through
+  // a COND that derives only when the cell is absent. Without them the map is
+  // rederived at every boot -- `canon's DDL is a database SQLite will accept`
+  // went from passing to a 12.5 s timeout against a 5 s cap the moment the
+  // carriers were deleted, and slowness is a defect, not a budget.
+  //
+  // Each artifact is INSTALLED as it is computed, so the next one reads it
+  // instead of rederiving it; that is the whole reason the set is cheap in one
+  // pass and ruinous in thirty-three. Flat, not chunked: the COND hands the
+  // stored cell back AS the value of rmap:X, so it must be the shape
+  // rmap:X:derive returns.
+  const ARTIFACTS = ("assim cands7 cexp childrenN colnames colpaths colpathsP coltabs ctab cts djrows "
+    + "evident fkrows g2 gmi narows ncp3 ncprows ncrows nirows nmrows nreadings nrrows ntabs ntnames "
+    + "nurows pidchains pidfacts pkrows s1p tablects tables ucrows2 uniqs").split(" ");
+  const t3 = Date.now();
+  const defs = [];
+  const skipped = [];
+  for (const a of ARTIFACTS) {
+    let v;
+    try { v = Ev("rmap:" + a, CELLS); } catch (e) { skipped.push(a + " (" + e.message.slice(0, 60) + ")"); continue; }
+    CELLS.unshift(["CELL", "stored:rmap:" + a, v]);
+    defs.push('DEF("stored:rmap:' + a + '", ' + src(v) + ")");
+  }
+  // THE STAMP IS WHAT LETS build.js REFUSE IT. The carrier is derived FROM the
+  // design state, so a design state regenerated since leaves it describing
+  // tables that no longer exist; build.js hashes design-state and declines a
+  // `compiled` that names another.
+  const stamp = createHash("sha256").update(readFileSync(join(outDir, "design-state"))).digest("hex").slice(0, 16);
+  const compiled = '(\n"AREST_COMPILED_FROM=' + stamp + '",\n\n' + defs.join(",\n") + "\n)\n";
+  const ctmp = join(outDir, "compiled.build");
+  writeFileSync(ctmp, compiled);
+  renameSync(ctmp, join(outDir, "compiled"));
+  console.log("relational map: " + defs.length + " of " + ARTIFACTS.length + " artifacts, "
+    + compiled.length + " bytes, stamped " + stamp + " (" + (Date.now() - t3) + " ms)"
+    + (skipped.length ? "\n  DERIVED AT BOOT INSTEAD: " + skipped.join("; ") : ""));
+}
+
+// THE SCHEMA IS ASKED FOR ONLY WHEN IT IS WANTED. rmap:ddl is 23 s on the
+// metamodel against the reader's 1.6, so a check that only needs the carrier
+// does not pay for a schema nobody reads.
 const out = process.env.AREST_DB;
-if (!out) {
+let ddl = "", tDdl = 0;
+if (out || !outDir) {
+  const t2 = Date.now();
+  const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
+  ddl = flat(Ev("rmap:ddl", CELLS));
+  tDdl = Date.now() - t2;
+}
+if (!out && !outDir) {
   process.stdout.write(ddl);
-} else {
+} else if (out) {
   // THE LAST COMPLETE STORE IS NEVER DESTROYED UNTIL A NEW COMPLETE ONE EXISTS
   // -- compile-store.js's one-sentence invariant (#108), and it costs five
   // lines, so it is kept even though Sam has said the store this once guarded

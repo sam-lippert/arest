@@ -1104,7 +1104,16 @@ describe("law:paired over a container's registration set", () => {
   });
 });
 
-// ---- THE READER IS CANON, AND THE ORACLE IS ITS WITNESS -------------------
+// ---- THE READER IS CANON, AND IT IS NOW ITS OWN WITNESS -------------------
+//
+// 2026-09-20, #109: the oracle is deleted and the carrier these tests read
+// as `the witness` is written by canon's own reader (tools/js-runner/
+// compile.js). So every comparison below is canon against the design state
+// canon wrote, read back through the host's CANONTEXT -- a ROUND TRIP of the
+// carrier, which can fail on chunking, on an escape, on an atom that should
+// have been a number. It is no longer a comparison against an independent
+// second implementation, and nothing is, because there no longer is one.
+// The paragraph below is kept for what it says about why.
 //
 // Sam, 2026-09-15: "I don't want to be dependent on NORMA. I'm developing
 // AREST. AREST needs to provide all functionality." So the FORML reader is
@@ -1398,21 +1407,20 @@ describe("canon's reader against the witness, on the base metamodel", () => {
   // twice (its `and no ... where` arm re-emits what an earlier arm built);
   // canon writes each row once, so the raw witness count is pinned beside it.
   //
-  // AND ONE ROW IS CANON-ONLY: metamodel/state.md states the Harel nesting of
-  // `Status is defined in State Machine Definition` (a state defined in a nested
-  // machine is defined in the machine that nests it) and the reader reads it.
-  // The witness has been regenerated since this was written (2026-09-17) and the
-  // row is STILL canon-only, which says something the stale carrier could not:
-  // the oracle builds no rule for that head at all -- it lists
-  // StatusIsDefinedInStateMachineDefinition as UNDELIVERED, which is why
-  // witnessUndelivered is three names now and was two. witnessOnly stays 0,
-  // which is the direction that would mean a loss. The reader compiles it with
-  // the SUBTYPE NARROWING arm, because `State Machine Definition2` names a
-  // subtype of the Status the fact type declares, so the recipe carries a `sel`
-  // over `Object Type Instance is instance of Object Type` that canon's own
-  // rules:metamodel copy of the rule does not: the reader's version needs the
-  // nested machine to be REGISTERED as an instance of `State Machine
-  // Definition`, and canon's fires on the containment alone.
+  // AND THE ROW THAT WAS CANON-ONLY IS THE RECORD OF WHAT THE ORACLE DID NOT
+  // BUILD. metamodel/state.md states the Harel nesting of `Status is defined in
+  // State Machine Definition` (a state defined in a nested machine is defined in
+  // the machine that nests it); the reader compiles it with the SUBTYPE
+  // NARROWING arm, and the oracle built no rule for that head at all -- it
+  // listed StatusIsDefinedInStateMachineDefinition as UNDELIVERED. That row is
+  // now in the carrier, because canon writes the carrier, so canonOnly is 0 and
+  // witnessUndelivered is two names rather than three. The 46-vs-45 row count
+  // went the same way: the oracle wrote two of its rows twice, from an
+  // `and no ... where` arm that re-emitted what an earlier arm had built, and
+  // canon writes each row once.
+  //
+  // What survives is the round trip: 45 rules in, 45 rules out, every recipe
+  // tree identical after the carrier has been written and parsed again.
   test("the reader carries the witness's derivation rules, row for row", () => {
     const rows = [];
     for (const f of files) for (const s of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", s));
@@ -1428,13 +1436,10 @@ describe("canon's reader against the witness, on the base metamodel", () => {
              canonOnlyRows: canon.map(J).filter((r) => !W.has(r)),
              undelivered: und.map((p) => String(p[0])), reasons: und.every((p) => typeof p[1] === "string" && p[1].length > 0),
              witnessUndelivered: Ev("ast:fetch", ["state:undelivered", CELLS]).flat(1).map((p) => String(p[0])) })
-      .toEqual({ witnessRows: 46, witness: 44, canon: 45, distinct: 45, both: 44, canonOnly: 1, witnessOnly: 0,
-                 canonOnlyRows: [JSON.stringify(["StatusIsDefinedInStateMachineDefinition", ["Status", "State Machine Definition"],
-                   ["proj", ["joinon",
-                     ["joinon", "StatusIsDefinedInStateMachineDefinition", "StatusIsDefinedInStateMachineDefinition", [[2, 1]], [1, 2, 3, 4]],
-                     ["sel", "ObjectTypeInstanceIsInstanceOfObjectType", 2, "State Machine Definition"], [[3, 1]], [1, 2, 3, 4]], [1, 4]]])],
+      .toEqual({ witnessRows: 45, witness: 45, canon: 45, distinct: 45, both: 45, canonOnly: 0, witnessOnly: 0,
+                 canonOnlyRows: [],
                  undelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"], reasons: true,
-                 witnessUndelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption", "StatusIsDefinedInStateMachineDefinition"] });
+                 witnessUndelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"] });
   }, 300_000);
 });
 
