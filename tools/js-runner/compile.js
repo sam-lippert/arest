@@ -185,10 +185,10 @@ if (outDir) {
 // metamodel against the reader's 1.6, so a check that only needs the carrier
 // does not pay for a schema nobody reads.
 const out = process.env.AREST_DB;
+const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
 let ddl = "", tDdl = 0;
 if (out || !outDir) {
   const t2 = Date.now();
-  const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
   ddl = flat(Ev("rmap:ddl", CELLS));
   tDdl = Date.now() - t2;
 }
@@ -209,9 +209,36 @@ if (!out && !outDir) {
   const db = new Database(build, { create: true });
   db.exec(ddl);
   const n = db.query("SELECT count(*) c FROM sqlite_master WHERE type='table'").get().c;
+  // AND THE ROWS ARE CANON'S TOO. rmap:proj_rows answers a table's rows -- the
+  // key, then one value per column in the order rmap:colnames gives them -- so
+  // this binds and executes and decides nothing. # is canon's absent value and
+  // becomes SQL NULL; everything else goes in as text, because a column's type
+  // is the schema's business and sqlite's affinity applies it.
+  const t3 = Date.now();
+  let inserted = 0, refused = 0;
+  const first = [];
+  for (const [table] of Ev("rmap:coltabs", CELLS)) {
+    const name = String(table);
+    // THE NAMES COME FROM THE SAME PLACE THE VALUES DO. rmap:coltabs answers a
+    // table's columns in a DIFFERENT ORDER than rmap:ctab, which is what
+    // rmap:proj_row fills; zipping one against the other put every value in the
+    // wrong column and sqlite accepted all of it.
+    const cn = Ev("rmap:proj_colnames", [name, CELLS]).map(String);
+    const sql = 'insert into "' + name + '" ("' + cn.join('","') + '") values ('
+      + cn.map(() => "?").join(",") + ")";
+    const ins = db.prepare(sql);
+    for (const row of Ev("rmap:proj_rows", [name, CELLS])) {
+      const vals = cn.map((_, i) => { const v = row[i + 1]; return v === "#" || v === undefined ? null : flat(v); });
+      try { ins.run(...vals); inserted++; }
+      catch (e) { refused++; if (first.length < 3) first.push(name + ": " + e.message.slice(0, 90)); }
+    }
+  }
+  const tRows = Date.now() - t3;
   db.close(true);
   renameSync(build, out);
-  console.log("store: " + n + " tables at " + out);
+  console.log("store: " + n + " tables, " + inserted + " rows at " + out
+    + (refused ? ", " + refused + " REFUSED BY SQLITE" : "") + " (" + tRows + " ms)");
+  for (const f of first) console.log("  " + f);
 }
 console.log("compiled " + sentences + " sentences from " + files + " files: "
   + state.length + " cells, " + ddl.length + " bytes of DDL"
