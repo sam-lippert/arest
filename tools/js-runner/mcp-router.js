@@ -327,10 +327,19 @@ class Resident {
     });
     return "checking " + this.name + ": bun run check in " + this.pkg + "; `apps` reports the result";
   }
-  // apps_compile: the module from the carriers, then the store from the
-  // module (compile-store's durability gate decides what a readings change
-  // may do to it), then this app's server again over the new store. The
-  // server is stopped first because it holds store.db open.
+  // apps_compile: the module from the carriers, then this app's server again.
+  // The server is stopped first because it holds store.db open.
+  //
+  // THE STORE IS NOT REBUILT, AND NOTHING CAN REBUILD IT (2026-09-20, #109).
+  // This ran tools/compile-store.js here, which projected the booted
+  // populations into store.db; it is deleted, and what would replace it does
+  // not exist yet: canon emits the SCHEMA (rmap:ddl, 11 tables and 344 columns
+  // on the metamodel) and has no projection of the populations into it and no
+  // inverse, so the host cannot write the tables canon describes and must not
+  // invent its own again. Until it can, a compiled app serves from its carriers
+  // and loadStoreDb refuses its store.db on the composition stamp, which is the
+  // stamp doing its job: the store was projected by a module that no longer
+  // exists. The rows are still in the file and nothing here deletes them.
   compile() {
     if (this.busy) return null;
     this.busy = "compiling";
@@ -339,16 +348,9 @@ class Resident {
     const env = { AREST_CARRIERS: this.dir, AREST_OUT_DIR: this.dir };
     (async () => {
       const b = await run([join(here, "build.js"), "test"], this.pkg, env);
-      if (b.code !== 0) {
-        this.note = "module build FAILED (exit " + b.code + "): " + lastLines(b.tail, 6);
-      } else {
-        const s = await run([join(here, "..", "compile-store.js")], this.pkg, env);
-        // "store unchanged", not "store restored": compile-store builds beside
-        // the store and renames into place, so a failed compile never wrote to
-        // it and there is nothing to restore. Saying "restored" named the act
-        // that lost the first live Support Request.
-        this.note = (s.code === 0 ? "compiled: " : "compile-store FAILED (exit " + s.code + ", store unchanged): ") + lastLines(s.tail, s.code === 0 ? 1 : 8);
-      }
+      this.note = b.code !== 0
+        ? "module build FAILED (exit " + b.code + "): " + lastLines(b.tail, 6)
+        : "compiled (module only; the store is not rebuilt, #109): " + lastLines(b.tail, 1);
       this.busy = null;
       this.spawn();
       await this.boot();
@@ -357,7 +359,7 @@ class Resident {
       // initialize.
       announceTools();
     })();
-    return "compiling " + this.name + ": its server is stopped, build.js test then compile-store.js run in " + this.pkg + ", then it serves again; `apps` reports the result";
+    return "compiling " + this.name + ": its server is stopped, build.js test runs in " + this.pkg + ", then it serves the new module; the store is NOT rebuilt (#109)";
   }
 }
 
@@ -384,7 +386,7 @@ function tools() {
   return [
     { name: "apps", description: "the resident apps: whether each is serving, and its last check or compile result", inputSchema: { type: "object", properties: {} } },
     { name: "apps_check", description: "run the app's own check in its package (bun run check: the design state from its readings); the app keeps serving its previous build meanwhile, and `apps` reports the result. After a readings change: apps_check, then apps_compile.", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
-    { name: "apps_compile", description: "rebuild the app's module and store from its carriers (build.js test, then compile-store.js, whose durability gate decides what a readings change may do to the store) and start its server again; the app is not served meanwhile, and `apps` reports the result", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
+    { name: "apps_compile", description: "rebuild the app's module from its carriers (build.js test) and start its server again; the app is not served meanwhile, and `apps` reports the result. The STORE is not rebuilt: canon emits the schema but has no projection of the populations into it yet (arest #109), so a compiled app serves from its carriers and its store.db is refused on the composition stamp", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
   ].concat(withApp);
 }
 
