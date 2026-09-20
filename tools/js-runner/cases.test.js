@@ -154,6 +154,50 @@ test("canon's DDL is a database SQLite will accept", () => {
   expect(tables.length).toBeGreaterThan(0);
 });
 
+// ---- DOES EVERY FACT THE STORE HOLDS HAVE A PLACE IN THE SCHEMA? ----------
+//
+// Halpin's Rmap step 1 maps each fact type with a compound UC to a table of its
+// own, and Information Modeling and Relational Databases says twice -- at the
+// end of 10.3's Mapping Subtypes and again in 10.4 -- that absorbing a subtype
+// does NOT take that away from a non-functional role the subtype plays.
+// canon's rmap:absorbed took it away anyway, so 38 fact types of the base
+// metamodel had nowhere in the schema to be written: 1,538 of its 3,540 rows,
+// among them ObjectTypeInstanceIsInstanceOfObjectType's 1,426 and
+// ObjectTypeIsSubtypeOfObjectType's 111. The compiler dropped every one of them
+// in silence, because a column that does not exist refuses nothing.
+//
+// AND THE SUITE COULD NOT SEE IT. Fixing it moved the metamodel from 11 tables
+// to 49 and from 344 columns to 466, and every one of the 886 tests still
+// passed, because nothing here read the schema's SHAPE -- only that SQLite
+// accepted whatever shape it was. So this asks a property rather than a count,
+// which is also why it does not need re-pinning when a reading is added: every
+// POPULATED fact type is either a table of its own or is carried by some column
+// of one.
+//
+// Proven to fail before it was trusted: at b9efb2b5, the commit before the fix,
+// it reports 38 fact types and 1,538 rows with no home.
+test("every populated fact type has a place in the schema", () => {
+  const ctab = Ev("rmap:ctab", CELLS);
+  const tables = new Set(ctab.map((t) => String(t[0])));
+  const carried = new Set();
+  for (const t of ctab) {
+    for (const col of t[2]) {
+      const ft = String(Ev("rmap:proj_carried", Array.isArray(col[2]) ? col[2] : []));
+      if (ft !== "#") carried.add(ft);
+    }
+  }
+  const homeless = [];
+  let rows = 0;
+  for (const desc of Ev("store:fts", CELLS)) {
+    const name = String(desc[0]);
+    const pop = Array.isArray(desc[4]) ? desc[4] : [];
+    if (!pop.length || tables.has(name) || carried.has(name)) continue;
+    homeless.push(name);
+    rows += pop.length;
+  }
+  expect({ factTypes: homeless.sort(), rows }).toEqual({ factTypes: [], rows: 0 });
+}, 120_000);
+
 // ---- DOES orient ANSWER THE FACTS OF A DOMAIN? -----------------------------
 //
 // `orient` was named in system:session_verbs and had NO definition -- no cell
