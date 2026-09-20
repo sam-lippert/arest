@@ -1,4 +1,0 @@
-errors 0
-*Processor is compliant with Art. 28 if and only if
-that Processor makes available information necessary to demonstrate compliance with Art. 28 to some Controller.
-

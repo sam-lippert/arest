@@ -1,3 +1,0 @@
-errors 0
-REFUSED (unterminated sentence would mint a fact type): Widget is packed in Crate
-REFUSED (unterminated sentence would mint a fact type): Widget pricing is handled by the pricing service

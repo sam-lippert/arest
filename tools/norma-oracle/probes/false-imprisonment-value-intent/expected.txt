@@ -1,6 +1,0 @@
-errors 0
-*Defendant is liable for false imprisonment if and only if
-that Defendant acts with some Intent
-and some Plaintiff is confined within some Boundaries fixed by that Defendant
-and  is aware of some Confinement or harmed by it.
-

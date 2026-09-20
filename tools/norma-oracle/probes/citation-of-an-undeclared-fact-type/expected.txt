@@ -1,3 +1,0 @@
-errors 0
-REFUSED (names no declared fact type): 'Person drinks' in 'Fact Type 'Person drinks' cites Citation 'C-4'.'
-FILED BY THE FILLER'S KIND: 'Party' is an Object Type, not a Fact Type, in 'Fact Type 'Party' cites Citation 'C-5'.'

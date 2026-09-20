@@ -1,6 +1,0 @@
-errors 0
-*System is compliant if and only if
-that System has some Plan that is continuous
-and that Plan is iterative
-and  is updated throughout that System lifecycle.
-

@@ -1,3 +1,0 @@
-errors 0
-REFUSED (reference scheme on a value type; the kind conflict kept the value type): 'Fetcher' (.Fetcher Name)
-KIND CONFLICT: 'Fetcher' declared as an entity type but already declared a value type - the first kept

@@ -1,4 +1,0 @@
-errors 0
-+Request has Category if
-that Request is some Submission that has some Issue Type that is that Category.
-

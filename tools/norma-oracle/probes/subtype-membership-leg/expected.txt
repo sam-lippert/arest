@@ -1,4 +1,0 @@
-errors 0
-*Estate is defeasible if and only if
-some Fee Simple is that Estate that is subject to some Condition.
-
