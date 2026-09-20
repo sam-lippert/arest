@@ -228,7 +228,7 @@ if (!out && !outDir) {
       + cn.map(() => "?").join(",") + ")";
     const ins = db.prepare(sql);
     for (const row of Ev("rmap:proj_rows", [name, CELLS])) {
-      const vals = cn.map((_, i) => { const v = row[i + 1]; return v === "#" || v === undefined ? null : flat(v); });
+      const vals = cn.map((_, i) => { const v = row[i]; return v === "#" || v === undefined ? null : flat(v); });
       try { ins.run(...vals); inserted++; }
       catch (e) { refused++; if (first.length < 3) first.push(name + ": " + e.message.slice(0, 90)); }
     }
