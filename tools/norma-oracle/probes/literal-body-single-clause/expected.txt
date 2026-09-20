@@ -1,4 +1,0 @@
-errors 0
-*Bankruptcy Case is under Chapter 11 if and only if
-that Bankruptcy Case is filed under some Chapter Number where Equals(Chapter Number, 11).
-

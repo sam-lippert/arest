@@ -1,5 +1,0 @@
-errors 0
-*Head is delivered if and only if
-some Rule produces that Head
-and  has some Recipe.
-

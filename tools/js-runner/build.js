@@ -26,7 +26,7 @@ const root = join(here, "..", "..");
 // which carriers to compose in. The oracle's are the default; an app's own
 // design-state and norma-answer are the same two files elsewhere,
 // so a per-app build is this one pointed at a different directory.
-const oracle = process.env.AREST_CARRIERS || join(here, "..", "norma-oracle");
+const oracle = process.env.AREST_CARRIERS || join(here, "..", "carriers", "base");
 
 // canon, the case table, then the carriers. The case table rides in the same
 // module as the laws rather than a second composition, because the case cells
@@ -82,7 +82,7 @@ if (!slim) try {
     // is slower and correct. Splicing it is neither.
     console.error("compiled carrier is stale (built from " + (stamped || "?") +
       ", design-state is now " + now + "); deriving instead. Regenerate with:");
-    console.error("  AREST_CARRIERS=" + oracle + " bun tools/compile-rmap.js");
+    console.error("  (compile-rmap.js is gone: compilation is moving into canon, #109)");
   }
 } catch {
   /* uncompiled schema: canon derives instead */

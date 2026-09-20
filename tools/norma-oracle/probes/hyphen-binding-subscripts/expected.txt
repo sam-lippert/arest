@@ -1,6 +1,0 @@
-errors 0
-*Node1 has hop Edge to Node2 with Label if and only if
-that Edge is that from Node1
-and  is that to Node2
-and  has that Label.
-

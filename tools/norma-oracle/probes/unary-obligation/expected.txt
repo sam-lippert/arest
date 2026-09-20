@@ -1,2 +1,0 @@
-errors 0
-DEONTICS DEF("state:deontics", S1(S2(S3(A("DEO:m:PostIsApproved#1"), A("mandatory"), S1(S2(A("PostIsApproved"), N(1)))), S3(A("DEO:m:PostIsInvolvedInPostIsWrittenByAuthor#1"), A("mandatory"), S1(S2(A("PostIsInvolvedInPostIsWrittenByAuthor"), N(1))))))),

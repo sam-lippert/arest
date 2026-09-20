@@ -1,6 +1,0 @@
-errors 0
-+User is authorized for Operation on Protected Resource if
-that User is some Admin that has some Role
-where Operation = create
-where Protected Resource = Support Request.
-

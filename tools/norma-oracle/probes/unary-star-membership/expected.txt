@@ -1,4 +1,0 @@
-errors 0
-*Interest violates the rule if and only if
-some Contingent Interest is that Interest that might not vest in time.
-

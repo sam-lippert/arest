@@ -1,4 +1,0 @@
-errors 0
-UNBUILT (head resolves, no arm matched the body) [legs resolving 1/2; chain arm: clause names no fact type: that Age >= 65]: * Person is senior iff Person has Age and that Age >= 65.
-UNDELIVERED (marked derived, no rule written): PersonIsAdult
-UNDELIVERED (no arm emitted a recipe): PersonIsSenior

@@ -1,2 +1,0 @@
-errors 0
-DEONTICS DEF("state:deontics", S1(S1(S3(A("DEO:p:WidgetIsPackedInCrate"), A("prohibited"), S2(A("WidgetIsPackedInCrate"), S3(A("minus"), S5(A("joinon"), A("WidgetIsPackedInCrate"), S4(A("sel"), A("ObjectTypeInstanceIsInstanceOfObjectType"), N(2), A("Gadget")), S1(S2(N(1), N(1))), S2(N(1), N(2))), S5(A("joinon"), S5(A("joinon"), A("WidgetIsPackedInCrate"), S4(A("sel"), A("ObjectTypeInstanceIsInstanceOfObjectType"), N(2), A("Gadget")), S1(S2(N(1), N(1))), S2(N(1), N(2))), A("WidgetHasStampCode"), S1(S2(N(1), N(1))), S2(N(1), N(2))))))))),

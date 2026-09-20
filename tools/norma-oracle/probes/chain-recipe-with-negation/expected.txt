@@ -1,5 +1,0 @@
-errors 0
-*Authority is currently in force if and only if
-that Authority has some Effective Date that is in the past
-and it is not true that (that Authority has some Supersession Date).
-

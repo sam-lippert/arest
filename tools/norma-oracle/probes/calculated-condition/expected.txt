@@ -1,7 +1,0 @@
-errors 0
-*State1 leads toward State2 if and only if
-that State1 steps to that State2 by some Operator that costs some Count1
-and that State1 shortest to goal at some Count2
-and that State2 shortest to goal at some Count3
-where Equals(Add(Count1, Count3), Count2).
-

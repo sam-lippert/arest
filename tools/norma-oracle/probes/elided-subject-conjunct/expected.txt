@@ -1,2 +1,0 @@
-errors 0
-DEONTICS DEF("state:deontics", S1(S1(S3(A("DEO:p:WidgetIsPackedInCrate"), A("prohibited"), S2(A("WidgetIsPackedInCrate"), S5(A("joinon"), S5(A("joinon"), A("WidgetIsPackedInCrate"), A("PartIsStampedByPress"), S1(S2(N(1), N(1))), S4(N(1), N(2), N(3), N(4))), S4(A("sel"), A("ObjectTypeInstanceIsInstanceOfObjectType"), N(2), A("Widget")), S1(S2(N(3), N(1))), S4(N(1), N(2), N(3), N(4)))))))),

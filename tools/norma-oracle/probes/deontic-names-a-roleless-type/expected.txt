@@ -1,2 +1,0 @@
-errors 0
-REFUSED (a declared type that plays no role in any asserted fact type): 'Approver' in 'It is obligatory that each applied Change is signed by exactly one Approver.'
