@@ -35,7 +35,7 @@
 // never the compiler.
 //
 //   AREST_DB=<path> bun tools/js-runner/compile.js <readings dir>...
-import { readdirSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, rmSync, existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Database } from "bun:sqlite";
@@ -91,19 +91,21 @@ if (!out) {
   process.stdout.write(ddl);
 } else {
   // THE LAST COMPLETE STORE IS NEVER DESTROYED UNTIL A NEW COMPLETE ONE EXISTS
-  // (compile-store.js's one-sentence invariant, #108). The build goes beside
-  // the store and is renamed in; that half is not written yet, so this refuses
-  // to touch a store that already exists rather than risk the data.
-  if (existsSync(out)) {
-    console.error("refusing: " + out + " exists, and the migration gate is not rebuilt yet (#109).");
-    console.error("  the invariant is compile-store.js's: the last complete store is never destroyed");
-    console.error("  until a new complete one exists. Build aside and rename in, or point AREST_DB elsewhere.");
-    process.exit(1);
-  }
-  const db = new Database(out, { create: true });
+  // -- compile-store.js's one-sentence invariant (#108), and it costs five
+  // lines, so it is kept even though Sam has said the store this once guarded
+  // held a test case he planned to lose. The build goes BESIDE the store and is
+  // renamed in only after the DDL has run, so a run that dies half way leaves
+  // the previous store untouched. What is NOT rebuilt yet is the migration
+  // gate: the ledger that decides whose row survives a readings change
+  // (migrate:, 25 canon DEFs). Until it is, this REPLACES rather than migrates,
+  // so rows written at runtime do not survive a recompile.
+  const build = out + ".build";
+  try { rmSync(build); } catch {}
+  const db = new Database(build, { create: true });
   db.exec(ddl);
   const n = db.query("SELECT count(*) c FROM sqlite_master WHERE type='table'").get().c;
   db.close(true);
+  renameSync(build, out);
   console.log("store: " + n + " tables at " + out);
 }
 console.log("compiled " + sentences + " sentences from " + files + " files: "
