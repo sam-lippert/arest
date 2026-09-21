@@ -640,6 +640,45 @@ const PRIMS = new Map(Object.entries({
     appendFileSync(path, sep + NAME + "=" + key + "\n", "utf8");
     return createHash("sha256").update(key).digest("hex").slice(0, 12);
   },
+  // ---- THE COMPILER'S I/O, REGISTERED (#109) -------------------------------
+  // Sam, 2026-09-20: "the full framework must be canon with registered DEFS".
+  // compile.js read its directories and files, wrote the carrier and executed
+  // the DDL in JavaScript -- the last host decisions left in the compile path
+  // once read:file_order took the reading order (3360a782). They are REGISTERED
+  // functions now, by the rule resolution.md:396 states: a host name canon does
+  // NOT define is registered; a host name canon DOES define is a native twin
+  // and stays compiled. Canon defines no fs: or sql: cell and must not -- a
+  // directory listing and a file's bytes are outside D -- which is exactly what
+  // arest:10434 rules for store:append: "a registered definition enters DEFS in
+  // the host that registers it, at runtime".
+  //
+  // AND THE ROW IS ONLY TRUE BECAUSE THIS FILE EXISTS. store:append stood as a
+  // FALSE entry in the enumerable boundary for months -- declared registered,
+  // implemented by nobody -- and Cor 6 is meant to be the honest list of where
+  // unverified computation enters. So these four are declared in
+  // resolution.md only because they are registered HERE: delete
+  // tools/js-runner and the binding goes with it, never the compiler.
+  //
+  // THEY ANSWER MU VALUES, NOT HANDLES. sql:exec takes <path, sql> and opens
+  // the database itself, because the mu has atoms and sequences and no third
+  // thing a handle could be; it runs DDL only, the one db.exec compile.js
+  // makes. The row inserts stay prepared statements with bound parameters --
+  // #96 was an apostrophe silently truncating a value, and rendering 2,657
+  // rows into SQL text to pass them through here would earn that back.
+  "fs:dir": x => {
+    if (Array.isArray(x)) throw new Error("fs:dir on a sequence");
+    return require("node:fs").readdirSync(String(x));
+  },
+  "fs:read": x => {
+    if (Array.isArray(x)) throw new Error("fs:read on a sequence");
+    return require("node:fs").readFileSync(String(x), "utf8");
+  },
+  "sql:exec": x => {
+    const { Database } = require("bun:sqlite");
+    const db = new Database(String(at(x, 0)), { create: true });
+    try { db.exec(String(at(x, 1))); } finally { db.close(true); }
+    return String(at(x, 0));
+  },
 }));
 
 // ---- the mu: atoms resolve through DEFS then the primitives, numbers are

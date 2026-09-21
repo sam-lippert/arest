@@ -317,8 +317,23 @@ Operation 'validate' is registrable.
      production), which is registration-edge work by the Stage-1 doctrine:
      text enters the system only at the boundary. law:catalog holds every
      catalogued operation to a canon DEF or a registered row; these two
-     resolve here. -->
-Operation 'compile' is registrable.
+     resolve here.
+
+     AND COMPILE LEAVES THIS LIST (Sam, 2026-09-21: "Compile should have a
+     canon implementation with registrations for the db engine. Having
+     compile be an empty slot is wrong"). It was an empty slot exactly as
+     the derivation above describes one: registrable, never registered, and
+     therefore awaiting a driver -- a reference implementation that no host
+     supplied and canon did not carry. DEF(compile) carries it now, so
+     law:catalog resolves compile against a canon DEF like csdp and rmap,
+     and the registration-edge work the note names is no longer the whole
+     verb: it is the three calls declared at the end of this file, which are
+     a directory listing, a file's bytes and a database engine. Stage-1 is
+     unchanged -- text still enters only at the boundary -- but the boundary
+     is those three and not the compiler standing on them.
+
+     apps_compile stays: it is compile over a named app's directories, and
+     nothing yet answers which directories those are from the store. -->
 Operation 'apps_compile' is registrable.
 
 <!-- The CSDP boundary class (Samuel's ruling, 2026-07-15): the canon
@@ -384,6 +399,31 @@ Function 'slug' yields Type Expression 'identifier'.
 Function 'strip_prefix' has Definition Origin 'compiled'.
 Function 'strip_prefix' accepts Type Expression 'prefix-and-text'.
 Function 'strip_prefix' yields Type Expression 'text'.
+
+<!-- THE COMPILER'S I/O (#109, 2026-09-21). DEF(compile) reads a directory,
+     reads each reading in it and answers the design state; DEF(compile:schema)
+     runs the DDL. Everything between those is canon. These three are what is
+     left, and they are registered because they are outside D: a directory
+     listing and a file's bytes are not a function of the population, and a
+     database engine is not a function at all. The rule below decides it --
+     canon defines no fs: or sql: cell and must not.
+
+     THEY ARE TRUE ROWS, which store:append was not. It stood here declared
+     registered and implemented by nobody until it was deleted; these three
+     are in tools/js-runner/host.js's PRIMS beside clock and the crypt pair,
+     and if that directory goes the binding goes with it and the compiler
+     does not. Measured the same day: DEF(compile) over metamodel answers all
+     22 design-state cells identical to the carrier compile.js used to write
+     with its own readdir and readFile. -->
+Function 'fs:dir' has Definition Origin 'registered'.
+Function 'fs:dir' accepts Type Expression 'path'.
+Function 'fs:dir' yields Type Expression 'name-list'.
+Function 'fs:read' has Definition Origin 'registered'.
+Function 'fs:read' accepts Type Expression 'path'.
+Function 'fs:read' yields Type Expression 'text'.
+Function 'sql:exec' has Definition Origin 'registered'.
+Function 'sql:exec' accepts Type Expression 'path-and-sql'.
+Function 'sql:exec' yields Type Expression 'path'.
 
 <!-- The boundary is only a query over P if every registered function has an
      origin fact. Enumerating the runners' registration tables against canon's

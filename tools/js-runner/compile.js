@@ -7,9 +7,9 @@
 // makes no decision: it reads bytes, hands them to canon, and executes the SQL
 // canon answers.
 //
-//   readdir / readFile   ->  canon reads the sentences
-//   CELLS.unshift        ->  canon's answer installed as cells
-//   db.exec              ->  canon's DDL run
+//   fs:dir / fs:read      ->  REGISTERED: a directory listing, a file's bytes
+//   sql:exec              ->  REGISTERED: the database engine
+//   CELLS.unshift         ->  canon's answer installed as cells
 //
 // EVERY DECISION IS A DEF. Which sentences a file holds (read:sentences), what
 // a sentence declares (read:row_of), the design state (read:design_state_of),
@@ -23,20 +23,25 @@
 // renderer too -- src()/chunked(), whose 9-wide chunking restated canon's
 // S1..S9 arity ceiling in JavaScript for a second host to get wrong.
 //
-// STILL OWED, AND IT IS THE POINT OF THE TICKET: these four calls should be
-// REGISTERED PREDICATES, not JavaScript. metamodel/imports.md:81-85 declares
-// `Predicate has Module Path` and `has Symbol Name`; readings/templates/
-// vercel-ai.md:30 is the live example; main:performed walks
-// PredicateIsPerformedDuringTransition and host.js's performDeclared "chooses
-// NOTHING. Canon says what the call is." Compile then stops being a script and
-// becomes a process in the readings, the shape #116 gave the temporal
-// derivations. The module paths below are JavaScript, so the BINDING belongs in
-// a per-host reading: delete tools/js-runner and you should lose the binding,
-// never the compiler.
+// AND THE CALLS THEMSELVES ARE REGISTERED (#109, 2026-09-21). Sam: "Compile
+// should have a canon implementation with registrations for the db engine.
+// Having compile be an empty slot is wrong." It was an empty slot: resolution.md
+// declared `Operation compile is registrable` with no registration, so the
+// model's own `Operation awaits a driver` named compile a seam to be driven by
+// hand. DEF(compile) is the implementation, and fs:dir, fs:read and sql:exec are
+// the registrations -- a directory listing, a file's bytes and a database engine,
+// the three things outside D. They live in host.js's PRIMS beside clock and the
+// crypt pair, so deleting tools/js-runner loses the binding and never the
+// compiler.
+//
+// WHAT IS STILL THIS FILE'S: the carrier's renderer (src/esc below) and the row
+// inserts. The inserts stay here deliberately -- #96 was an apostrophe silently
+// truncating a value, and rendering 2,657 rows into SQL text to pass them
+// through sql:exec would earn that back.
 //
 //   AREST_DB=<path> bun tools/js-runner/compile.js <readings dir>...
 //   AREST_OUT_DIR=<dir> bun tools/js-runner/compile.js <readings dir>...
-import { readdirSync, readFileSync, writeFileSync, rmSync, existsSync, renameSync } from "node:fs";
+import { readFileSync, writeFileSync, rmSync, existsSync, renameSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -63,22 +68,23 @@ const { Ev, CELLS } = globalThis.AREST;
 // last decision in the read phase -- core.md first, then alphabetical -- and
 // read:file_order answers it from a directory listing.
 
+// THE READ PHASE IS DEF(compile). compile:files is the reading files of every
+// directory in reading order, compile:rows their sentences as rows, and
+// DEF(compile) is read:design_state_of over those -- the whole pipeline this
+// file used to run as a loop. The two file calls inside it are REGISTERED:
+// fs:dir and fs:read are host prims with no canon cell, which is what puts
+// them in the enumerable boundary instead of in this file.
 const t0 = Date.now();
-const rows = [];
-let files = 0, sentences = 0;
-for (const dir of dirs) {
-  for (const f of Ev("read:file_order", readdirSync(dir))) {
-    files++;
-    for (const s of Ev("read:sentences", readFileSync(join(dir, f), "utf8"))) {
-      sentences++;
-      rows.push(Ev("read:row_of", s));
-    }
-  }
-}
+const files = Ev("compile:files", dirs).length;
+const sentences = Ev("compile:rows", dirs).length;
 const tRead = Date.now() - t0;
 
+// AND THE DESIGN STATE IS DEF(compile) ITSELF, not read:design_state_of over
+// rows this file gathered. The counts above come from the same two cells the
+// pipeline walks, on the same `dirs` array, so the evaluator answers them from
+// its memo rather than reading the directory twice.
 const t1 = Date.now();
-const state = Ev("read:design_state_of", rows);
+const state = Ev("compile", dirs);
 for (let i = state.length - 1; i >= 0; i--) CELLS.unshift(["CELL", String(state[i][0]), state[i][1]]);
 const tState = Date.now() - t1;
 
@@ -185,8 +191,22 @@ if (outDir) {
 // does not pay for a schema nobody reads.
 const out = process.env.AREST_DB;
 const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
+// ONE EVALUATION OF rmap:ddl, NOT TWO. compile:schema executes the DDL and
+// ANSWERS it, so making the schema and reporting its size are the same call;
+// asking rmap:ddl here as well cost 6.1 s of the metamodel's 68 (2026-09-21).
+// The build goes BESIDE the store -- compile-store.js's one-sentence invariant
+// (#108) -- and is renamed in only once the rows are there, so a run that dies
+// half way leaves the previous store untouched. What is NOT rebuilt yet is the
+// migration gate (migrate:, 25 canon DEFs); until it is, this REPLACES rather
+// than migrates, so rows written at runtime do not survive a recompile.
+const build = out ? out + ".build" : "";
 let ddl = "", tDdl = 0;
-if (out || !outDir) {
+if (out) {
+  try { rmSync(build); } catch {}
+  const t2 = Date.now();
+  ddl = String(Ev("compile:schema", [build, CELLS]));
+  tDdl = Date.now() - t2;
+} else if (!outDir) {
   const t2 = Date.now();
   ddl = flat(Ev("rmap:ddl", CELLS));
   tDdl = Date.now() - t2;
@@ -194,19 +214,7 @@ if (out || !outDir) {
 if (!out && !outDir) {
   process.stdout.write(ddl);
 } else if (out) {
-  // THE LAST COMPLETE STORE IS NEVER DESTROYED UNTIL A NEW COMPLETE ONE EXISTS
-  // -- compile-store.js's one-sentence invariant (#108), and it costs five
-  // lines, so it is kept even though Sam has said the store this once guarded
-  // held a test case he planned to lose. The build goes BESIDE the store and is
-  // renamed in only after the DDL has run, so a run that dies half way leaves
-  // the previous store untouched. What is NOT rebuilt yet is the migration
-  // gate: the ledger that decides whose row survives a readings change
-  // (migrate:, 25 canon DEFs). Until it is, this REPLACES rather than migrates,
-  // so rows written at runtime do not survive a recompile.
-  const build = out + ".build";
-  try { rmSync(build); } catch {}
   const db = new Database(build, { create: true });
-  db.exec(ddl);
   // AND IT CARRIES THE COMPOSITION IT IS A PROJECTION OF. build.js stamps a
   // module with sha256 of canon and the carriers -- IDENTITY, which is
   // deliberately not the host source, because a comment in host.js does not move
