@@ -264,10 +264,109 @@ if (!out && !outDir) {
     }
   }
   const tRows = Date.now() - t3;
+  // ---- AND THE PRIOR STORE IS NOT THROWN AWAY ------------------------------
+  // #108 asked that a readings change MIGRATE rather than replace, and since
+  // compile-store.js was deleted this file has replaced: every row written at
+  // runtime -- a Support Request someone created, a status a transition moved --
+  // was lost on the next compile without a word. The ledger that told an asserted
+  // row from a runtime one is gone too, and it is not needed: THE BUILD BESIDE US
+  // IS EXACTLY WHAT THE READINGS ASSERT, so anything the prior store holds that
+  // the build does not is, by construction, what the runtime wrote.
+  //
+  // A TABLE THE BUILD STILL HAS carries those rows forward -- a key it lacks is
+  // inserted, a column it left NULL where the prior store has a value is filled.
+  // Filling rather than replacing is the point: the build's own value is what the
+  // readings say now and wins, and the runtime's value survives only where the
+  // readings say nothing.
+  //
+  // A TABLE THE BUILD NO LONGER HAS is the other half, and it needs the PRIOR
+  // schema to say which fact type those rows were -- which is exactly what a
+  // store cannot yet tell us, because its schema is spliced into the module
+  // rather than carried in the database. So this counts and names those tables
+  // and REFUSES; it does not guess. AREST_MIGRATE=allow-loss says drop them.
+  let carried = 0, filled = 0;
+  const orphaned = [];
+  if (existsSync(out)) {
+    const prior = new Database(out, { readonly: true });
+    const shapeOf = (d) => {
+      const m = new Map();
+      for (const t of d.prepare("select name from sqlite_master where type='table'").all()) {
+        if (String(t.name).startsWith("_")) continue;
+        m.set(t.name, d.prepare('pragma table_info("' + t.name + '")').all());
+      }
+      return m;
+    };
+    const was = shapeOf(prior), now = shapeOf(db);
+    for (const [table, oldCols] of was) {
+      const newCols = now.get(table);
+      if (!newCols) {
+        const n = prior.prepare('select count(*) c from "' + table + '"').get().c;
+        if (n) orphaned.push({ table, rows: n, why: 'the build declares no such table' });
+        continue;
+      }
+      const keep = newCols.map((c2) => c2.name).filter((n2) => oldCols.some((o) => o.name === n2));
+      const dropped = oldCols.map((o) => o.name).filter((n2) => !keep.includes(n2));
+      for (const d2 of dropped) {
+        const n = prior.prepare('select count(*) c from "' + table + '" where "' + d2 + '" is not null').get().c;
+        if (n) orphaned.push({ table, column: d2, rows: n, why: 'the build declares no such column' });
+      }
+      // THE DECLARED KEY, WHEN THE ROW ACTUALLY HAS ONE. An objectified
+      // association's identifier column is its primary key and is NULL in every
+      // row of it, so a row is matched on its key only where that key is present;
+      // otherwise the row IS its identity and is matched whole, with IS rather
+      // than = so that NULL compares to NULL.
+      const pk = newCols.filter((c2) => c2.pk).map((c2) => c2.name).filter((n2) => keep.includes(n2));
+      const cols = keep.map((k) => '"' + k + '"').join(",");
+      const add = db.prepare('insert into "' + table + '" (' + cols + ') values ('
+        + keep.map(() => "?").join(",") + ')');
+      const whereAll = keep.map((k) => '"' + k + '" is ?').join(" and ");
+      const findAll = db.prepare('select 1 from "' + table + '" where ' + whereAll);
+      const wherePk = pk.length ? pk.map((k) => '"' + k + '" is ?').join(" and ") : "";
+      const vals = keep.filter((n2) => !pk.includes(n2));
+      const findPk = pk.length && vals.length
+        ? db.prepare('select ' + vals.map((v) => '"' + v + '"').join(",") + ' from "' + table + '" where ' + wherePk)
+        : null;
+      for (const row of prior.prepare('select ' + cols + ' from "' + table + '"').all()) {
+        const k = pk.map((n2) => row[n2]);
+        const keyed = pk.length && k.every((v) => v !== null && v !== undefined);
+        if (!keyed) {
+          if (findAll.get(...keep.map((n2) => row[n2]))) continue;   // the build already says it
+          try { add.run(...keep.map((n2) => row[n2])); carried++; } catch { /* the build refuses it */ }
+          continue;
+        }
+        const here = findPk ? findPk.get(...k) : null;
+        if (!here) { try { add.run(...keep.map((n2) => row[n2])); carried++; } catch { /* the build refuses it */ } continue; }
+        for (const v of vals) {
+          if (here[v] !== null && here[v] !== undefined) continue;   // the readings say something: they win
+          if (row[v] === null || row[v] === undefined) continue;     // the runtime said nothing either
+          try { db.prepare('update "' + table + '" set "' + v + '"=? where ' + wherePk).run(row[v], ...k); filled++; }
+          catch { /* the build refuses it */ }
+        }
+      }
+    }
+    prior.close(true);
+  }
   db.close(true);
+  // NOTHING WAS DESTROYED, SO NOTHING NEEDS RESTORING. The build is beside the
+  // store; discarding it leaves store.db the file it has been all along.
+  if (orphaned.length && process.env.AREST_MIGRATE !== "allow-loss") {
+    const n = orphaned.reduce((a, o) => a + o.rows, 0);
+    console.error("REFUSING: this build would drop " + n + " row(s) the prior store holds,");
+    console.error("  and no Migration says how to carry them.");
+    for (const o of orphaned.slice(0, 12)) {
+      console.error("  " + o.table + (o.column ? "." + o.column : "") + " -- " + o.rows + " row(s): " + o.why);
+    }
+    if (orphaned.length > 12) console.error("  ... and " + (orphaned.length - 12) + " more");
+    console.error("  " + out + " is UNTOUCHED -- the build was never written into it.");
+    console.error("  Write the Migration, or rebuild with AREST_MIGRATE=allow-loss.");
+    try { rmSync(build); } catch {}
+    process.exit(1);
+  }
   renameSync(build, out);
   console.log("store: " + n + " tables, " + inserted + " rows at " + out
-    + (refused ? ", " + refused + " REFUSED BY SQLITE" : "") + " (" + tRows + " ms)");
+    + (refused ? ", " + refused + " REFUSED BY SQLITE" : "")
+    + (carried || filled ? " [" + carried + " runtime row(s) carried, " + filled + " value(s) filled]" : "")
+    + " (" + tRows + " ms)");
   for (const f of first) console.log("  " + f);
 }
 console.log("compiled " + sentences + " sentences from " + files + " files: "
