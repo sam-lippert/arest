@@ -263,6 +263,57 @@ test("every populated fact type's rows land in the schema", () => {
   expect({ factTypes: short.sort(), rows: lost }).toEqual({ factTypes: [], rows: 0 });
 }, 120_000);
 
+// ---- AND DOES THE SCHEMA STILL SAY WHAT THE READINGS SAID? -----------------
+//
+// The two tests above ask whether the rows reach the schema. This asks whether
+// the schema still MEANS them: every table projected with rmap:proj_rows and
+// read straight back with rmap:unproj, compared against the population the
+// readings declare. It needs no database -- canon is held against itself -- and
+// it is the same question a boot asks when it loads a store instead of a
+// carrier, which is what rmap:unproj exists for.
+//
+// The five rules run backwards. A relation table's role columns are its fact
+// type's tuple in order; an entity table's key is rmap:ddl_pkof, the columns the
+// DDL makes primary; a unary column is presence; and the tuple order follows the
+// role the table plays, so a separated 1:1 carried the other way round -- Email
+// .userId holding UserHasEmail, whose players are <Function, Email> -- puts the
+// cell first and the key second.
+//
+// WHAT IT CATCHES, measured while it was being written rather than after: at
+// 0e36f877 the same comparison against claude's written store answered 116 of
+// 117, the missing one being UserHasEmail, because Email's PRIMARY KEY was
+// written NULL in every row and sqlite took it without a word. f9fbc72a fixed
+// that and both stores now answer whole -- the metamodel 52 of 52, claude 117 of
+// 117 -- and this corpus 49 of 49.
+test("the schema still means what the readings said", () => {
+  const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
+  const got = new Map();
+  for (const t of Ev("rmap:coltabs", CELLS)) {
+    const table = String(t[0]);
+    const rows = Ev("rmap:proj_rows", [table, CELLS]);
+    if (!rows.length) continue;
+    for (const p of Ev("rmap:unproj", [table, rows, CELLS])) {
+      const ft = String(p[0]);
+      if (!got.has(ft)) got.set(ft, []);
+      got.get(ft).push((Array.isArray(p[1]) ? p[1] : [p[1]]).map(flat));
+    }
+  }
+  const key = (rows) => rows.map((t) => JSON.stringify(t)).sort().join("|");
+  const differ = [];
+  let lost = 0;
+  for (const d of Ev("store:fts", CELLS)) {
+    const ft = String(d[0]);
+    const pop = Array.isArray(d[4]) ? d[4] : [];
+    if (!pop.length) continue;
+    const want = pop.map((r) => (Array.isArray(r) ? r.map(flat) : [flat(r)]));
+    const have = got.get(ft) || [];
+    if (key(want) === key(have)) continue;
+    differ.push(ft);
+    lost += Math.abs(want.length - have.length) || want.length;
+  }
+  expect({ factTypes: differ.sort(), rows: lost }).toEqual({ factTypes: [], rows: 0 });
+}, 120_000);
+
 // ---- DOES orient ANSWER THE FACTS OF A DOMAIN? -----------------------------
 //
 // `orient` was named in system:session_verbs and had NO definition -- no cell
@@ -472,6 +523,18 @@ test("a store.db from another composition is refused rather than loaded", () => 
 // silently stopped writing.
 //
 // The database is BUILT here rather than read from disk: an artifact-shaped
+// A STORE'S TABLES ARE THE SCHEMA THE READINGS DESCRIBE, so a fixture builds
+// them the way compile.js does and emitToDb writes into them. What stood here
+// was `create table _meta (ft, kind, tbl, arity)` and nothing else: the old
+// writer invented a table per fact type on first write, named `r` and a hash of
+// the name, with an arity guessed from the first row. rmap:ddl has every table
+// the readings imply, populated or not, so there is no first write to invent
+// for.
+const makeTables = (db) => {
+  const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
+  for (const stmt of flat(Ev("rmap:ddl", CELLS)).split(";")) if (stmt.trim()) db.run(stmt + ";");
+};
+
 // test skips when the artifact is missing, and an empty _meta also exercises
 // the path a fact type takes when it is populated for the first time since the
 // tables were built.
@@ -484,7 +547,7 @@ test("a write reaches the tables, and a store with no tables keeps it in memory"
   const fresh = (name) => {
     const p = join(dir, name);
     const db = new Database(p);
-    db.run("create table _meta (ft text, kind text, tbl text, arity int)");
+    makeTables(db);
     db.run("create table _composition (hash text)");
     db.prepare("insert into _composition values(?)").run(stamp);
     db.run("pragma wal_checkpoint(TRUNCATE)");
@@ -571,7 +634,7 @@ test("a write reaches the tables, and a store with no tables keeps it in memory"
 // in store.db.
 //
 // THE LEDGER IS SEEDED HERE THE WAY compile-store.js SEEDS IT: a fixture whose
-// _asserted holds every row the tables had BEFORE the write under test is a
+// The tables hold the whole population now, so the fixture is simply a store
 // fixture where exactly that write is the runtime one, which is what the loader
 // has to be able to tell. An empty ledger would test the same path with every
 // row of every population looking new.
@@ -585,10 +648,9 @@ test("an instance created at runtime is listed after a boot from the tables", ()
 
   const path = join(dir, "inst.db");
   const db0 = new Database(path);
-  db0.run("create table _meta (ft text, kind text, tbl text, arity int)");
+  makeTables(db0);
   db0.run("create table _composition (hash text)");
   db0.prepare("insert into _composition values(?)").run(stamp);
-  db0.run("create table _asserted (ft text, row text, primary key (ft, row)) without rowid");
   db0.run("pragma wal_checkpoint(TRUNCATE)");
   db0.close();
 
@@ -622,16 +684,10 @@ test("an instance created at runtime is listed after a boot from the tables", ()
   try {
     // the fixture's own build: one write, then every row it left is the ledger's
     expect(run(PRIME)).toMatch(/status 20[01]/);
-    const db1 = new Database(path);
-    const ains = db1.prepare("insert or ignore into _asserted values(?,?)");
-    db1.transaction(() => {
-      for (const m of db1.query("select ft, kind, tbl from _meta").all()) {
-        if (m.kind !== "rel") continue;
-        for (const r of db1.query("select * from " + m.tbl).all()) ains.run(m.ft, JSON.stringify(Object.values(r)));
-      }
-    })();
-    db1.run("pragma wal_checkpoint(TRUNCATE)");
-    db1.close();
+    // NO LEDGER IS FILLED. It held the rows the tables had BEFORE this write, so
+    // the loader could tell the runtime's rows from the build's and carry only
+    // those into the source. The tables now hold the whole population and are
+    // adopted whole, so there is nothing to tell apart and nothing to record.
 
     // and now the write under test, in its own process, read back in a third
     expect(run(KEY)).toMatch(/status 20[01]/);
@@ -652,7 +708,7 @@ test("an instance created at runtime is listed after a boot from the tables", ()
 // write emits it -- reflection runs at LOAD, so main:api's successor store does
 // not carry it and there is nothing for emitToDb to diff. tools/compile-store.js
 // cannot write it either: it boots with AREST_STORE_DB deleted, on purpose, so
-// that its _asserted ledger is what the READINGS say, and it carries the
+// that the tables are what the READINGS say, and it carries the
 // runtime's rows back into the tables only afterwards, with nothing re-derived
 // over them. So the machine of an entity created through the API existed in
 // every server's memory and in no store on disk.
@@ -690,10 +746,9 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
 
   const path = join(dir, "closure.db");
   const db0 = new Database(path);
-  db0.run("create table _meta (ft text, kind text, tbl text, arity int)");
+  makeTables(db0);
   db0.run("create table _composition (hash text)");
   db0.prepare("insert into _composition values(?)").run(stamp);
-  db0.run("create table _asserted (ft text, row text, primary key (ft, row)) without rowid");
   db0.run("pragma wal_checkpoint(TRUNCATE)");
   db0.close();
 
@@ -720,13 +775,32 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
     return p.stdout.toString() + p.stderr.toString();
   };
 
-  // the tables as a reader with no canon sees them
+  // WHERE A FACT LIVES IS THE SCHEMA'S ANSWER. This read the tables with no
+  // canon at all, which it could while every fact type had a table of its own
+  // named `r` and a hash of it. Neither of these two has a table: State Machine
+  // is a subtype of Function and both are carried as COLUMNS of it, so which
+  // table and which column is rmap:ctab's answer and nobody else's.
+  const carriers = (ft) => {
+    const out = [];
+    for (const t of Ev("rmap:ctab", CELLS)) {
+      const cn = Ev("rmap:proj_colnames", [String(t[1]), CELLS]).map(String);
+      t[2].forEach((col, i) => {
+        if (String(Ev("rmap:proj_carried", Array.isArray(col[2]) ? col[2] : [])) === ft) out.push([String(t[1]), cn[i]]);
+      });
+    }
+    return out;
+  };
   const stored = (ft) => {
     const db = new Database(path, { readonly: true });
+    const out = [];
     try {
-      const m = db.query("select tbl, arity from _meta where ft = ? and kind = 'rel'").get(ft);
-      if (!m) return [];
-      return db.query("select * from " + m.tbl).all().map((r) => Object.values(r).map((v) => JSON.parse(v)));
+      for (const [table, col] of carriers(ft)) {
+        const keys = Ev("rmap:ddl_pkof", [table, CELLS]).map(String);
+        const cols = keys.concat([col]);
+        for (const r of db.query("select " + cols.map((c) => '"' + c + '"').join(",")
+              + ' from "' + table + '" where "' + col + '" is not null').values()) out.push(r.map(String));
+      }
+      return out;
     } catch { return []; } finally { db.close(); }
   };
   // AND THIS IS WHAT A REBUILD LEAVES. tools/compile-store.js writes the rows
@@ -739,10 +813,11 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
     const db = new Database(path);
     try {
       for (const ft of [MACH, STAT]) {
-        const m = db.query("select tbl from _meta where ft = ? and kind = 'rel'").get(ft);
-        if (!m) continue;
-        for (const c of ["c0", "c1"]) db.run("delete from " + m.tbl + " where " + c + " like ?", ["%" + needle + "%"]);
-        db.run("delete from _asserted where ft = ? and row like ?", [ft, "%" + needle + "%"]);
+        // and taking the machine away is clearing the column that carries it
+        for (const [table, col] of carriers(ft)) {
+          try { db.run('update "' + table + '" set "' + col + '" = null where "' + col + '" like ?', ["%" + needle + "%"]); }
+          catch { /* a table this database does not have */ }
+        }
       }
       db.run("pragma wal_checkpoint(TRUNCATE)");
     } finally { db.close(); }
@@ -751,16 +826,10 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
   try {
     // the fixture's own build: one write, then every row it left is the ledger's
     expect(run(PRIME)).toMatch(/status 20[01]/);
-    const db1 = new Database(path);
-    const ains = db1.prepare("insert or ignore into _asserted values(?,?)");
-    db1.transaction(() => {
-      for (const m of db1.query("select ft, kind, tbl from _meta").all()) {
-        if (m.kind !== "rel") continue;
-        for (const r of db1.query("select * from " + m.tbl).all()) ains.run(m.ft, JSON.stringify(Object.values(r)));
-      }
-    })();
-    db1.run("pragma wal_checkpoint(TRUNCATE)");
-    db1.close();
+    // NO LEDGER IS FILLED. It held the rows the tables had BEFORE this write, so
+    // the loader could tell the runtime's rows from the build's and carry only
+    // those into the source. The tables now hold the whole population and are
+    // adopted whole, so there is nothing to tell apart and nothing to record.
 
     // the write under test, and then the store a rebuild would leave: the
     // request's facts, and no machine for it
