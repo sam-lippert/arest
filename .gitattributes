@@ -12,3 +12,13 @@ engine/shared/expected-cases.tsv -text
 engine/shared/expected-laws.txt -text
 engine/shared/expected-root.txt -text
 engine/shared/scenarios.canon -text
+
+# AND THE CARRIERS ARE BYTE-IDENTIFIED TOO. build.js stamps `compiled` with the
+# sha256 of `design-state`, and declines it when they disagree. A checkout was
+# rewriting 24 LF to CRLF -- 622,558 bytes became 622,582 and the hash went from
+# d26dd73401db1e66 to a703deeaffbbf231 -- so the stamp stopped matching and the
+# suite SILENTLY COMPOSED FIVE INPUTS INSTEAD OF SIX, dropping the 34 stored
+# relational-map artifacts and 38 assertions with them. One line on stderr was
+# the whole of the notice. Measured 2026-09-20.
+tools/carriers/base/design-state -text
+tools/carriers/base/compiled -text
