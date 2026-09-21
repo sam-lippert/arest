@@ -46,6 +46,10 @@ import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Database } from "bun:sqlite";
+// a name between double quotes doubles the double quotes it carries -- a column
+// named from prose on support carried one and the carry's prepare failed after
+// the whole build was written (2026-09-21)
+const qi = (n) => '"' + String(n).replace(/"/g, '""') + '"';
 
 const dirs = process.argv.slice(2);
 if (dirs.length === 0) {
@@ -310,7 +314,7 @@ if (!out && !outDir) {
     for (const [table, oldCols] of was) {
       const newCols = now.get(table);
       if (!newCols) {
-        const n = prior.prepare('select count(*) c from "' + table + '"').get().c;
+        const n = prior.prepare('select count(*) c from ' + qi(table)).get().c;
         if (n) orphaned.push({ table, rows: n, why: 'the build declares no such table' });
         continue;
       }
@@ -319,13 +323,13 @@ if (!out && !outDir) {
       // layout of the same name (compile-store.js's k + fact-type-name columns
       // against canon's role-named ones), and its rows are orphaned whole.
       if (!keep.length) {
-        const n = prior.prepare('select count(*) c from "' + table + '"').get().c;
+        const n = prior.prepare('select count(*) c from ' + qi(table)).get().c;
         if (n) orphaned.push({ table, rows: n, why: 'no column of the prior table survives in the build' });
         continue;
       }
       const dropped = oldCols.map((o) => o.name).filter((n2) => !keep.includes(n2));
       for (const d2 of dropped) {
-        const n = prior.prepare('select count(*) c from "' + table + '" where "' + d2 + '" is not null').get().c;
+        const n = prior.prepare('select count(*) c from ' + qi(table) + ' where ' + qi(d2) + ' is not null').get().c;
         if (n) orphaned.push({ table, column: d2, rows: n, why: 'the build declares no such column' });
       }
       // THE DECLARED KEY, WHEN THE ROW ACTUALLY HAS ONE. An objectified
@@ -334,17 +338,17 @@ if (!out && !outDir) {
       // otherwise the row IS its identity and is matched whole, with IS rather
       // than = so that NULL compares to NULL.
       const pk = newCols.filter((c2) => c2.pk).map((c2) => c2.name).filter((n2) => keep.includes(n2));
-      const cols = keep.map((k) => '"' + k + '"').join(",");
-      const add = db.prepare('insert into "' + table + '" (' + cols + ') values ('
+      const cols = keep.map(qi).join(",");
+      const add = db.prepare('insert into ' + qi(table) + ' (' + cols + ') values ('
         + keep.map(() => "?").join(",") + ')');
-      const whereAll = keep.map((k) => '"' + k + '" is ?').join(" and ");
-      const findAll = db.prepare('select 1 from "' + table + '" where ' + whereAll);
-      const wherePk = pk.length ? pk.map((k) => '"' + k + '" is ?').join(" and ") : "";
+      const whereAll = keep.map((k) => qi(k) + ' is ?').join(" and ");
+      const findAll = db.prepare('select 1 from ' + qi(table) + ' where ' + whereAll);
+      const wherePk = pk.length ? pk.map((k) => qi(k) + ' is ?').join(" and ") : "";
       const vals = keep.filter((n2) => !pk.includes(n2));
       const findPk = pk.length && vals.length
-        ? db.prepare('select ' + vals.map((v) => '"' + v + '"').join(",") + ' from "' + table + '" where ' + wherePk)
+        ? db.prepare('select ' + vals.map(qi).join(",") + ' from ' + qi(table) + ' where ' + wherePk)
         : null;
-      for (const row of prior.prepare('select ' + cols + ' from "' + table + '"').all()) {
+      for (const row of prior.prepare('select ' + cols + ' from ' + qi(table)).all()) {
         const k = pk.map((n2) => row[n2]);
         const keyed = pk.length && k.every((v) => v !== null && v !== undefined);
         if (!keyed) {
@@ -357,7 +361,7 @@ if (!out && !outDir) {
         for (const v of vals) {
           if (here[v] !== null && here[v] !== undefined) continue;   // the readings say something: they win
           if (row[v] === null || row[v] === undefined) continue;     // the runtime said nothing either
-          try { db.prepare('update "' + table + '" set "' + v + '"=? where ' + wherePk).run(row[v], ...k); filled++; }
+          try { db.prepare('update ' + qi(table) + ' set ' + qi(v) + '=? where ' + wherePk).run(row[v], ...k); filled++; }
           catch { /* the build refuses it */ }
         }
       }
