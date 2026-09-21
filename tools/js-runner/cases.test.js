@@ -198,6 +198,71 @@ test("every populated fact type has a place in the schema", () => {
   expect({ factTypes: homeless.sort(), rows }).toEqual({ factTypes: [], rows: 0 });
 }, 120_000);
 
+// ---- AND DO ITS ROWS LAND THERE? ------------------------------------------
+//
+// Having a PLACE in the schema is weaker than the rows arriving in it, and the
+// gap is not hypothetical: at 0e36f877 the test above answered 0 rows with no
+// home on claude while four of its tables stood empty. rmap:ctab's row is
+// <object type name, TABLE NAME, columns> -- "CSDP Step" beside "CSDPStep" --
+// and rmap:proj_cols looked a table up by the FIRST while compile.js, rmap:ddl,
+// rmap:colnames and rmap:coltabs all name it by the SECOND. Sixteen of claude's
+// tables were created by the DDL and filled by nobody.
+//
+// So this asks each table for its rows BY THE NAME THE SCHEMA GIVES IT, which
+// is the name compile.js asks with, and sets them beside the population the
+// readings declare: a fact type with a table of its own wants that many rows in
+// it, and one carried by a column wants that many non-# cells in that column.
+// It needs no database, so the projection is held to the store's standard
+// without one being built.
+//
+// PROVEN TO FAIL BEFORE IT WAS TRUSTED. On THIS corpus at e922de7c, the commit
+// before b9efb2b5 gave relation tables their rows: 13 populated fact types
+// whole and 36 SHORT BY 3,209 ROWS, among them FactTypeHasDeclarationOrder's
+// 262 and SubtypeFactProvidesPreferredIdentifier's 110. On claude at 0e36f877:
+// 113 whole, 4 short by 90 -- ActionClassHasActionKind 13,
+// SourceMappingMapsAgentLayer 35, SourceMappingMapsSourceLayer 35,
+// CSDPStepHasStepName 7.
+test("every populated fact type's rows land in the schema", () => {
+  const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
+  const tabs = new Set(Ev("rmap:coltabs", CELLS).map((t) => String(t[0])));
+  const own = new Map();
+  const carried = new Map();
+  for (const t of Ev("rmap:ctab", CELLS)) {
+    own.set(String(t[0]), String(t[1]));
+    t[2].forEach((col, i) => {
+      const ft = String(Ev("rmap:proj_carried", Array.isArray(col[2]) ? col[2] : []));
+      if (ft === "#") return;
+      if (!carried.has(ft)) carried.set(ft, []);
+      carried.get(ft).push([String(t[1]), i]);
+    });
+  }
+  const cache = new Map();
+  const rowsOf = (t) => {
+    if (!cache.has(t)) cache.set(t, Ev("rmap:proj_rows", [t, CELLS]));
+    return cache.get(t);
+  };
+  const short = [];
+  let lost = 0;
+  for (const desc of Ev("store:fts", CELLS)) {
+    const name = String(desc[0]);
+    const want = Array.isArray(desc[4]) ? desc[4].length : 0;
+    if (!want) continue;
+    const table = own.get(name);
+    let got = 0;
+    if (table && tabs.has(table)) got = rowsOf(table).length;
+    else {
+      for (const [t, i] of carried.get(name) || []) {
+        const n = rowsOf(t).filter((r) => r[i] !== undefined && flat(r[i]) !== "#").length;
+        if (n > got) got = n;
+      }
+    }
+    if (got >= want) continue;
+    short.push(name);
+    lost += want - got;
+  }
+  expect({ factTypes: short.sort(), rows: lost }).toEqual({ factTypes: [], rows: 0 });
+}, 120_000);
+
 // ---- DOES orient ANSWER THE FACTS OF A DOMAIN? -----------------------------
 //
 // `orient` was named in system:session_verbs and had NO definition -- no cell
