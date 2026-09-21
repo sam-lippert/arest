@@ -28,12 +28,40 @@
 // the first app whose canon carries the patterns, since they are the
 // metamodel's, not an app's.
 import { spawn, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, appendFileSync, statSync } from "node:fs";
+import { createServer, connect } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const NL = "\n";
+// ONE ROUTER FOR EVERY SESSION (Sam, 2026-09-21: "The MCP should be able to
+// host all apps at the same time and be non-blocking"). This file runs in two
+// modes. `--daemon` is the router as it was -- the six app servers as its own
+// children, the verbs forwarded, the session verbs -- listening on a local
+// port instead of stdio, every connected client answered on its own line
+// stream. The default mode, the one ~/.claude.json launches, is a shim: it
+// connects to the daemon, starting one if none listens, and pipes its stdio
+// to the socket. Measured before this: two sessions meant two routers, each
+// owning its own children under "one server per app directory", so every
+// apps_compile from one reaped the other's app -- six down at a time.
+// The daemon's stderr is a log file beside it, because a detached process
+// has no terminal and the reason a child exited was otherwise lost.
+const DAEMON = process.argv.includes("--daemon");
+const PORT = Number(process.env.AREST_ROUTER_PORT || 41817);
+const LOG = join(here, ".router.log");
+function log(line) {
+  const s = String(line).endsWith(NL) ? String(line) : String(line) + NL;
+  if (DAEMON) { try { appendFileSync(LOG, new Date().toISOString().slice(11, 19) + " " + s); } catch {} }
+  else process.stderr.write(s);
+}
+// the connected clients: each speaks JSON-RPC on its own stream; a reply goes
+// to the client that asked, a notification to all, and a child's own request
+// (sampling) to the client whose capabilities the children were told
+const clients = new Set();
+let primary = null;
+const broadcast = (line) => { for (const c of clients) { try { c.write(line + NL); } catch {} } };
+const upWrite = (line) => { const c = primary && clients.has(primary) ? primary : [...clients][0]; if (c) { try { c.write(line + NL); } catch {} } };
 
 // THE MASTER KEY REACHES THE CHILDREN FROM arest/.env AND NOWHERE ELSE. A store
 // whose closure marks a value type `is stored through Function 'crypt:encrypt'`
@@ -174,8 +202,8 @@ class Resident {
         else process.kill(p, "SIGKILL");
       } catch { /* already gone */ }
     }
-    if (pids.length) process.stderr.write("[" + this.name + "] reaped " + pids.length +
-      " orphaned server process(es) still holding " + this.dir + NL);
+    if (pids.length) log("[" + this.name + "] reaped " + pids.length +
+      " orphaned server process(es) still holding " + this.dir);
     return pids.length;
   }
 
@@ -202,7 +230,7 @@ class Resident {
     child.stderr.on("data", (chunk) => {
       for (const line of String(chunk).split(NL)) {
         if (!line.trim()) continue;
-        process.stderr.write("[" + this.name + "] " + line + NL);
+        log("[" + this.name + "] " + line);
         if (this.child === child && /error:/i.test(line) && !this.error) this.error = line.trim();
       }
     });
@@ -257,7 +285,7 @@ class Resident {
         if (msg.id === undefined) continue;             // a child notification wants nobody
         const up = "router-up-" + (++upSeq);
         UP.set(up, { resident: this, childId: msg.id });
-        process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: up, method: msg.method, params: msg.params }) + NL);
+        upWrite(JSON.stringify({ jsonrpc: "2.0", id: up, method: msg.method, params: msg.params }));
         continue;
       }
       const p = this.pending.get(msg.id);
@@ -381,18 +409,13 @@ class Resident {
 }
 
 const apps = parseApps(process.env.AREST_APPS);
-const residents = new Map(apps.map((a) => [a.name, new Resident(a)]));
-// ONE APP AT A TIME, EACH ANNOUNCED AS IT LANDS (2026-09-21). Six children
-// spawned at load boot six stores at once, and a store rebuilt against new
-// canon boots fresh -- the closure written back over minutes and gigabytes;
-// five of them together took a 15.7 GB machine to 0.3 GB free and killed the
-// router serving this session. OOM is a failed check and jobs are sequential
-// (Sam), so the apps come up in AREST_APPS order, one boot at a time, and the
-// client hears tools/list_changed for each. A resident that fails stays
-// "not serving" with its error and the next one is spawned regardless.
-const booting = (async () => {
-  for (const r of residents.values()) { r.spawn(); await r.boot(); announceTools(); }
-})();
+const residents = new Map(DAEMON ? apps.map((a) => [a.name, new Resident(a)]) : []);
+// EVERY APP AT ONCE, EACH ANNOUNCED AS IT LANDS (2026-09-21). The daemon
+// boots its residents in parallel -- there is one daemon for every session,
+// so a store's first boot after a rebuild happens once, not once per session
+// -- and the client hears tools/list_changed for each as it comes up. A
+// resident that fails stays "not serving" with its error; the others serve.
+const booting = DAEMON ? Promise.all([...residents.values()].map((r) => { r.spawn(); return r.boot().then(announceTools); })) : Promise.resolve();
 
 const isVerb = (t) => t.inputSchema && t.inputSchema.properties && t.inputSchema.properties.args && !t.inputSchema.properties.method;
 const names = () => [...residents.keys()];
@@ -428,7 +451,7 @@ function tools() {
 // notification that goes with it: a server that says listChanged and never
 // sends one is the same silence with a promise attached.
 function announceTools() {
-  process.stdout.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/tools/list_changed" }) + NL);
+  broadcast(JSON.stringify({ jsonrpc: "2.0", method: "notifications/tools/list_changed" }));
 }
 
 function reply(id, result) { return { jsonrpc: "2.0", id, result }; }
@@ -492,28 +515,94 @@ async function handle(msg) {
 // THE LOOP DOES NOT SERIALISE: each line is handled on its own promise, and
 // the answer goes out when it is ready, so a slow query in one app is not a
 // wait in another. Answers to one client id are single lines, so interleaving
-// is safe.
-let buf = "";
-process.stdin.setEncoding("utf8");
-process.stdin.on("data", (chunk) => {
-  buf += chunk;
-  for (;;) {
-    const nl = buf.indexOf(NL);
-    if (nl < 0) break;
-    const line = buf.slice(0, nl).trim();
-    buf = buf.slice(nl + 1);
-    if (!line) continue;
-    let msg;
-    try { msg = JSON.parse(line); } catch (e) { process.stdout.write(JSON.stringify(fail(null, String(e.message))) + NL); continue; }
-    // the client answering a question a CHILD asked: not a call, a reply to route
-    if (msg.method === undefined && msg.id !== undefined && UP.has(msg.id)) {
-      const { resident, childId } = UP.get(msg.id);
-      UP.delete(msg.id);
-      resident.answer(childId, msg.error ? { error: msg.error } : { result: msg.result });
-      continue;
+// is safe. One loop per connected client; ids are the client's own, so two
+// clients using the same id never meet.
+function attach(socket) {
+  clients.add(socket);
+  socket.setEncoding("utf8");
+  let buf = "";
+  socket.on("data", (chunk) => {
+    buf += chunk;
+    for (;;) {
+      const nl = buf.indexOf(NL);
+      if (nl < 0) break;
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      let msg;
+      try { msg = JSON.parse(line); } catch (e) { socket.write(JSON.stringify(fail(null, String(e.message))) + NL); continue; }
+      // the client answering a question a CHILD asked: not a call, a reply to route
+      if (msg.method === undefined && msg.id !== undefined && UP.has(msg.id)) {
+        const { resident, childId } = UP.get(msg.id);
+        UP.delete(msg.id);
+        resident.answer(childId, msg.error ? { error: msg.error } : { result: msg.result });
+        continue;
+      }
+      if (msg.method === "initialize" && (!primary || !clients.has(primary))) primary = socket;
+      handle(msg).then((out) => { if (out) { try { socket.write(JSON.stringify(out) + NL); } catch {} } },
+        (e) => { try { socket.write(JSON.stringify(fail(msg.id === undefined ? null : msg.id, String(e && e.message))) + NL); } catch {} });
     }
-    handle(msg).then((out) => { if (out) process.stdout.write(JSON.stringify(out) + NL); },
-      (e) => { process.stdout.write(JSON.stringify(fail(msg.id === undefined ? null : msg.id, String(e && e.message))) + NL); });
-  }
-});
-process.stdin.on("end", () => { for (const r of residents.values()) r.stop("router closed"); process.exit(0); });
+  });
+  const gone = () => { clients.delete(socket); if (primary === socket) primary = null; idle(); };
+  socket.on("close", gone);
+  socket.on("error", gone);
+}
+
+// THE DAEMON OUTLIVES A SESSION AND NOT THE DAY: with no client for ten
+// minutes it stops its children and exits, so a reconnect inside that window
+// finds every app already up, and nothing is left running overnight.
+let idleTimer = null;
+function idle() {
+  if (clients.size) { if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; } return; }
+  if (idleTimer) return;
+  idleTimer = setTimeout(() => {
+    if (clients.size) return;
+    log("no client for ten minutes; stopping the apps and exiting");
+    for (const r of residents.values()) r.stop("router idle");
+    process.exit(0);
+  }, 10 * 60 * 1000);
+}
+
+function daemon() {
+  const server = createServer((socket) => { attach(socket); idle(); });
+  server.on("error", (e) => { log("cannot listen on 127.0.0.1:" + PORT + ": " + e.message); process.exit(1); });
+  server.listen(PORT, "127.0.0.1", () => log("router daemon listening on 127.0.0.1:" + PORT + " for " + names().join(", ")));
+  process.on("exit", () => { for (const r of residents.values()) r.stop("daemon exit"); });
+  idle();
+}
+
+// THE SHIM: what the client launches. Connect to the daemon; if none listens,
+// start one detached and connect when it answers. Stdio is piped to the
+// socket line for line, and the client's own end closes only this shim: the
+// daemon and the apps stay up for the other sessions.
+function shim() {
+  let spawned = false;
+  const started = Date.now();
+  const attempt = () => {
+    const sock = connect(PORT, "127.0.0.1");
+    sock.on("connect", () => {
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", (chunk) => sock.write(chunk));
+      process.stdin.on("end", () => sock.end());
+      sock.setEncoding("utf8");
+      sock.on("data", (chunk) => process.stdout.write(chunk));
+      sock.on("close", () => process.exit(0));
+      sock.on("error", () => process.exit(0));
+    });
+    sock.on("error", (e) => {
+      if (e && e.code !== "ECONNREFUSED") { process.stderr.write("router: " + e.message + NL); process.exit(1); }
+      if (!spawned) {
+        spawned = true;
+        const d = spawn("bun", [fileURLToPath(import.meta.url), "--daemon"], { env: process.env, detached: true, stdio: "ignore", windowsHide: true });
+        d.unref();
+        process.stderr.write("router: started the daemon (pid " + d.pid + ") on 127.0.0.1:" + PORT + "; its log is " + LOG + NL);
+      }
+      if (Date.now() - started > 30000) { process.stderr.write("router: no daemon answered on 127.0.0.1:" + PORT + " in 30 s" + NL); process.exit(1); }
+      setTimeout(attempt, 250);
+    });
+  };
+  attempt();
+}
+
+if (DAEMON) daemon();
+else shim();
