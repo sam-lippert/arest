@@ -268,7 +268,13 @@ if (!out && !outDir) {
     // rmap:proj_row fills; zipping one against the other put every value in the
     // wrong column and sqlite accepted all of it.
     const cn = Ev("rmap:proj_colnames", [name, CELLS]).map(String);
-    const sql = 'insert into ' + qi(name) + ' (' + cn.map(qi).join(",") + ') values ('
+    // AND THEY ARE SPELLED FOR SQL ALREADY: rmap:proj_colnames answers the
+    // DDL's own spelling of a name, a quote inside it doubled (rmap:ddl_q), so
+    // this splices them between quotes and escapes nothing -- qi here doubled
+    // the doubling and MonoView's prose-named column was not found (2026-09-21).
+    // The carry below reads names from pragma table_info, which answers them
+    // raw, and those go through qi.
+    const sql = 'insert into "' + name + '" ("' + cn.join('","') + '") values ('
       + cn.map(() => "?").join(",") + ")";
     const ins = db.prepare(sql);
     for (const row of Ev("rmap:proj_rows", [name, CELLS])) {
