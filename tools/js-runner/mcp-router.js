@@ -308,7 +308,7 @@ class Resident {
   }
   status() {
     const s = this.busy
-      ? this.busy + (this.child ? " (the previous build still serves)" : "")
+      ? this.busy + " (not served until apps_compile)"
       : this.state === "serving" ? "serving" : "not serving: " + (this.error || this.state);
     return this.note ? s + " -- " + this.note : s;
   }
@@ -321,6 +321,17 @@ class Resident {
     if (this.busy) return null;
     this.busy = "checking";
     this.note = "";
+    // AND THE SERVER IS STOPPED FIRST, BECAUSE THE STORE THE CHECK WRITES IS THE
+    // ONE IT HOLDS OPEN (2026-09-21). Measured on support: the check ran to its
+    // last line and failed there, renaming store.db.build over store.db --
+    // EPERM, errno -4048, compile.js:383 -- because the serving child held
+    // store.db (stop() above: bun releases a sqlite handle at exit, not
+    // before). compile() stops the child for that reason; a check that said
+    // "the previous build still serves" was the sentence that failed it, and
+    // one that had succeeded would have left the child serving the OLD
+    // projections over the NEW tables and writing them back. Not served from
+    // here until apps_compile spawns it again over the store this writes.
+    this.stop("checking");
     // AND THE STORE IS BUILT WITH THE CARRIERS (#109). The app's check names its
     // own readings directories -- the router does not know them and should not --
     // so AREST_DB beside AREST_OUT_DIR is the whole change: compile.js writes the
@@ -332,7 +343,7 @@ class Resident {
       this.note = (code === 0 ? "check ok: " : "check FAILED (exit " + code + "): ") + lastLines(tail, code === 0 ? 1 : 6);
       this.busy = null;
     });
-    return "checking " + this.name + ": bun run check in " + this.pkg + "; `apps` reports the result";
+    return "checking " + this.name + ": bun run check in " + this.pkg + "; not served until apps_compile; `apps` reports the result";
   }
   // apps_compile: the module from the carriers, then this app's server again.
   // The server is stopped first because it holds store.db open.
@@ -392,7 +403,7 @@ function tools() {
   }));
   return [
     { name: "apps", description: "the resident apps: whether each is serving, and its last check or compile result", inputSchema: { type: "object", properties: {} } },
-    { name: "apps_check", description: "run the app's own check in its package (bun run check: the design state from its readings); the app keeps serving its previous build meanwhile, and `apps` reports the result. After a readings change: apps_check, then apps_compile.", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
+    { name: "apps_check", description: "run the app's own check in its package (bun run check: the design state from its readings, and its store); the app is stopped first, because it holds the store the check writes, and `apps` reports the result. After a readings change: apps_check, then apps_compile.", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
     { name: "apps_compile", description: "rebuild the app's module from its carriers (build.js test) and start its server again; the app is not served meanwhile, and `apps` reports the result. The store is written by apps_check, stamped to match this module, so run apps_check first and the app serves from its database", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
   ].concat(withApp);
 }
