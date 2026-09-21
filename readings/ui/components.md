@@ -248,6 +248,7 @@ Component emits Event with Event Payload Type.
 ### Component slots
 
 Component has Slot.
+  Each Component, Slot combination occurs at most once in the population of Component has Slot.
   <!-- Many-per-Component, M:N over Slot Name (a single Component
        can expose `children` + `leading` + `trailing` + ...). The
        runtime (#489) projects content into each slot through the
@@ -256,6 +257,7 @@ Component has Slot.
 ### Component traits (binary, M:N)
 
 Component has Trait.
+  Each Component, Trait combination occurs at most once in the population of Component has Trait.
   <!-- Many-per-Component over Component Trait. Selection rules
        score implementations by counting trait matches against the
        MonoView constraints. Traits are declared on the abstract
@@ -265,6 +267,7 @@ Component has Trait.
        the next fact type. -->
 
 ImplementationBinding has Trait.
+  Each ImplementationBinding, Trait combination occurs at most once in the population of ImplementationBinding has Trait.
   <!-- Per-binding trait override. When a single toolkit's
        implementation diverges from the abstract Component's trait
        set (e.g. GtkButton has `screen_reader_aware` but the
