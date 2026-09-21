@@ -336,48 +336,56 @@ function popSnapshot(cells) {
   }
   return snap;
 }
-// the tables as compile-store.js lays them out: _meta(ft, kind, tbl, arity);
-// a 'rel' fact type its own table of c0..cn, JSON values; a 'func' fact type a
-// JSON column named by the fact type in its entity's table, keyed by k. A fact
-// type populated for the first time since the tables were built gets a
-// relation table of its own, which loadStoreDb reads like any other.
-function relTableName(ft) { return "r" + Math.abs([...ft].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7)); }
+// A POPULATION THAT MOVED MEANS ITS TABLES ARE RE-PROJECTED. What emitToDb
+// wrote back before was the _meta shape and only ever that shape: a functional
+// fact type into a JSON column keyed by k, a non-functional one into a table of
+// c0..cn named `r` plus a hash of the fact type, and a fact type populated for
+// the FIRST time got a table invented on the spot with an arity guessed from its
+// first row. The readings describe none of it. rmap:proj_rows answers a table's
+// rows from the cells and rmap:proj_colnames names its columns -- the two the
+// DDL and compile.js already use -- so writing back is projecting again, over
+// the tables that carry a fact type whose population moved, and nothing here
+// decides which those are either: rmap:ctab says which table carries what.
 function emitToDb(before, cells) {
   const db = storeDb();
   if (!db) return 0;
   const after = popSnapshot(cells);
-  const meta = new Map(db.query("select ft, kind, tbl, arity from _meta").all().map((m) => [m.ft, m]));
-  const tableOfCol = new Map();
-  for (const t of db.query("select name from sqlite_master where type='table'").all().map((r) => r.name)) {
-    if (t[0] === "_") continue;                       // _meta, _composition
-    for (const c of db.query("select name from pragma_table_info('" + t.replace(/'/g, "''") + "')").all()) if (c.name !== "k") tableOfCol.set(c.name, t);
+  const changed = new Set();
+  for (const [ft, text] of after) if (before.get(ft) !== text) changed.add(ft);
+  if (!changed.size) return 0;
+  // THE SOURCE TAKES THE ROWS FIRST, because the projection reads it. A row
+  // derived at boot or written through main:api lives in a per-fact-type cell,
+  // and rmap:proj_rows answers from the DESCRIPTORS -- store:fts slot 5 -- so
+  // re-projecting without adopting would write the tables back exactly as they
+  // were and call it a store. store:src_all is how a row joins the source, and
+  // it is the same call the API path already makes before it emits.
+  const carried = [...changed].map((ft) => [ft, JSON.parse(after.get(ft))]);
+  adoptStore(Ev("store:src_all", [carried, cells]));
+  const touched = new Set();
+  for (const t of Ev("rmap:ctab", cells)) {
+    const table = String(t[1]);
+    if (changed.has(String(t[0]))) { touched.add(table); continue; }
+    for (const col of t[2]) {
+      const carried = String(Ev("rmap:proj_carried", Array.isArray(col[2]) ? col[2] : []));
+      if (changed.has(carried)) { touched.add(table); break; }
+    }
   }
+  const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
   let written = 0;
   db.transaction(() => {
-    for (const [ft, text] of after) {
-      if (before.get(ft) === text) continue;
-      const rows = JSON.parse(text).map((r) => (Array.isArray(r) ? r : [r]));
-      let m = meta.get(ft);
-      if (m && m.kind === "func") {
-        const T = tableOfCol.get(m.tbl) || "Function";
-        db.run('update "' + T + '" set "' + m.tbl + '" = null');
-        const upd = db.prepare('update "' + T + '" set "' + m.tbl + '" = ? where k = ?');
-        const ins = db.prepare('insert into "' + T + '" (k, "' + m.tbl + '") values (?, ?)');
-        for (const r of rows) { const k = JSON.stringify(r[0]), v = JSON.stringify(r[1]); if (upd.run(v, k).changes === 0) ins.run(k, v); }
-      } else {
-        if (!m) {
-          const ar = rows.length ? rows[0].length : 1;
-          const tbl = relTableName(ft);
-          db.run("create table if not exists " + tbl + " (" + Array.from({ length: ar }, (_, i) => '"c' + i + '" text').join(",") + ")");
-          db.run("insert into _meta values(?,?,?,?)", [ft, "rel", tbl, ar]);
-          m = { ft, kind: "rel", tbl, arity: ar };
-          meta.set(ft, m);
-        }
-        db.run("delete from " + m.tbl);
-        const ins = db.prepare("insert into " + m.tbl + " values(" + Array.from({ length: m.arity }, () => "?").join(",") + ")");
-        for (const r of rows) ins.run(...Array.from({ length: m.arity }, (_, i) => JSON.stringify(r[i])));
+    for (const table of touched) {
+      const cols = Ev("rmap:proj_colnames", [table, cells]).map(String);
+      if (!cols.length) continue;
+      let ins;
+      try {
+        db.run('delete from "' + table + '"');
+        ins = db.prepare('insert into "' + table + '" ("' + cols.join('","') + '") values ('
+          + cols.map(() => "?").join(",") + ")");
+      } catch { continue; }          // a table the schema has and this database does not
+      for (const row of Ev("rmap:proj_rows", [table, cells])) {
+        const vals = cols.map((_, i) => { const v = row[i]; return v === "#" || v === undefined ? null : flat(v); });
+        try { ins.run(...vals); written++; } catch { /* refused: the row is not this table's */ }
       }
-      written++;
     }
   })();
   return written;
@@ -3357,75 +3365,55 @@ function loadStoreDb(path) {
       ", this module is " + (COMPOSITION || "(unstamped)") + " -- " + path +
       "\n  rebuild it: AREST_OUT_DIR=" + path.replace(/[\\/][^\\/]*$/, "") + " bun tools/compile-store.js");
   }
-  const meta = db.query("select ft, kind, tbl, arity from _meta").all();
-  // entity tables = every table that is not _meta and not a relation table;
-  // a functional column name is unique to one entity table (one keyplayer per
-  // fact type), so map each column to the table that holds it. On the base
-  // every column maps to "Function", so this reads the committed DB unchanged.
-  const relTbls = new Set(meta.filter((m) => m.kind === "rel").map((m) => m.tbl));
-  const entTbls = db.query("select name from sqlite_master where type='table'").all()
-    .map((r) => r.name).filter((n) => n[0] !== "_" && !relTbls.has(n));
-  const tableOfCol = new Map();
-  for (const t of entTbls) for (const c of db.query("select name from pragma_table_info('" + t.replace(/'/g, "''") + "')").all()) if (c.name !== "k") tableOfCol.set(c.name, t);
-  // AND A ROW WRITTEN AT RUNTIME IS NOT THE ROW THE BUILD ASSERTED (2026-09-17).
-  // Two of the store's homes are spliced into the module at BUILD time and are
-  // not projections of these tables: state:fts, the source every reader that
-  // goes through a DESCRIPTOR consults (store:fts, and so rmap:keyvals and
-  // main:table_rows), and state:otpops, the design-state cell ui:ids answers
-  // from. The reconstruction below fills neither, so a restart put the store
-  // back as the readings left it for both: sr-alpha-1's four facts read back
-  // through system:pop_rows while `get sr-alpha-1` answered # and GET /Request
-  // listed no rows.
+  // WHAT THE ROWS MEAN IS CANON'S, NOT THIS FILE'S. rmap:coltabs names the
+  // tables and rmap:proj_colnames their columns -- the same two the DDL and the
+  // store writer use -- so the host selects those columns from those tables and
+  // hands the rows to rmap:unproj, which answers <fact type, tuple> and decides
+  // everything: that a relation table's role columns are its tuple in order,
+  // that an entity table's key is the DECLARED primary key, that a unary column
+  // is presence, and that the tuple order follows which role the table plays.
   //
-  // WHICH rows the store added is this loader's question and compile-store's
-  // _asserted ledger answers it: every row that build wrote is in it, so a
-  // stored row the ledger lacks was written at runtime and is exactly what the
-  // carriers cannot know. A fact type with such a row is carried into the
-  // source whole (store:src_all, through main:cf_store -- the writer a commit
-  // uses); one the build asserted and nothing has touched since is left exactly
-  // as the carriers have it, so a store with no runtime rows loads byte for byte
-  // as it did. What either write MEANS is canon's: nothing here builds a
-  // descriptor or a population cell itself.
-  const OTPOPS_FT = "ObjectTypeInstanceIsInstanceOfObjectType";
-  let ledger = null;
-  try {
-    ledger = new Map();
-    for (const r of db.query("select ft, row from _asserted").all()) {
-      if (!ledger.has(r.ft)) ledger.set(r.ft, new Set());
-      ledger.get(r.ft).add(r.row);
+  // WHAT THIS REPLACES was seventy lines that inferred all of it from a _meta
+  // table: entity tables by subtracting the relation ones, a column's home by
+  // assuming a functional column name is unique to one table, and a tuple by
+  // unpacking c0..cN to a recorded arity. `_meta` occurs ZERO times in canon and
+  // never did -- it was a shape this file invented so that it could read back
+  // what it had written. The schema the readings actually describe is the one
+  // rmap:ddl emits, and now it is the one that is read.
+  const byFt = new Map();
+  for (const t of Ev("rmap:coltabs", CELLS)) {
+    const table = String(t[0]);
+    const cols = Ev("rmap:proj_colnames", [table, CELLS]).map(String);
+    if (!cols.length) continue;
+    let rows;
+    try { rows = db.query("select " + cols.map((c) => '"' + c + '"').join(",") + ' from "' + table + '"').values(); }
+    catch { continue; }                       // a table the schema has and this database does not
+    if (!rows.length) continue;
+    const clean = rows.map((r) => r.map((v) => (v === null ? "#" : String(v))));
+    for (const p of Ev("rmap:unproj", [table, clean, CELLS])) {
+      const ft = String(p[0]);
+      if (!byFt.has(ft)) byFt.set(ft, []);
+      byFt.get(ft).push(p[1]);
     }
-  } catch { ledger = null; }
-  // A DATABASE WITH NO LEDGER SAYS NOTHING, so nothing is carried and the boot
-  // is the one before this change. compile-store reads the same absence the
-  // other way -- every row is runtime, which is the safe reading when the
-  // question is what would be LOST -- and here the safe reading is the opposite:
-  // rewriting every source population from the tables would reorder rows no one
-  // has touched. Only a database written between the composition stamp and the
-  // ledger can be in this state, and the stamp refuses every older one.
-  const moved = [];                                    // <ft, rows> for every fact type the runtime wrote
-  const runtimeInst = [];                              // the instance rows the runtime wrote
-  const recon = [];
-  for (const m of meta) {
-    let raw, rows;
-    if (m.kind === "func") {
-      const T = tableOfCol.get(m.tbl) || "Function";   // m.tbl is the column name (= ft)
-      raw = db.query('select k, "' + m.tbl + '" v from "' + T + '" where "' + m.tbl + '" is not null order by rowid').all();
-      rows = raw.map((r) => [JSON.parse(r.k), JSON.parse(r.v)]);
-    } else {
-      raw = db.query("select * from " + m.tbl + " order by rowid").all();
-      rows = raw.map((r) => { const t = []; for (let i = 0; i < m.arity; i++) t.push(JSON.parse(r["c" + i])); return t; });
-    }
-    recon.push(["CELL", m.ft, rows]);
-    if (!ledger) continue;
-    const built = ledger.get(m.ft) || new Set();
-    let runtime = 0;
-    for (let i = 0; i < raw.length; i++) {
-      if (built.has(JSON.stringify(Object.values(raw[i])))) continue;
-      runtime++;
-      if (m.ft === OTPOPS_FT) runtimeInst.push(rows[i]);
-    }
-    if (runtime) moved.push([m.ft, rows]);
   }
+  const recon = [];
+  for (const [ft, rows] of byFt) recon.push(["CELL", ft, rows]);
+  // AND THE SOURCE IS ADOPTED WHOLE, because the tables now hold all of it.
+  // What stood here read an _asserted ledger to find the rows the RUNTIME wrote
+  // and carried only those into the source, since state:fts is spliced at build
+  // time and is not a projection of these tables -- so a restart put the store
+  // back as the readings left it and `get sr-alpha-1` answered # beside four
+  // facts that read back fine through system:pop_rows. The inverse takes the
+  // reason away: every populated fact type's rows land in the schema and come
+  // back exactly (52 of 52 on the metamodel, 117 of 117 on claude, 49 of 49 on
+  // the base corpus), so there is nothing for a ledger to tell apart and the
+  // record is simply adopted. What that costs is ORDER: 17 of 49 populations
+  // return in the table's key order rather than the readings'. A population is
+  // a SET, the DDL stores no order, and FactTypeHasDeclarationOrder is how
+  // order is a fact where it is one.
+  const OTPOPS_FT = "ObjectTypeInstanceIsInstanceOfObjectType";
+  const moved = recon.map((c) => [c[1], c[2]]);
+  const runtimeInst = byFt.get(OTPOPS_FT) || [];
   db.close();
   // WHAT THE TABLES THEMSELVES HOLD, in the encoding popSnapshot compares. The
   // cells below are the same rows, but only until something recomputes one --

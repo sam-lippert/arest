@@ -208,6 +208,21 @@ if (!out && !outDir) {
   try { rmSync(build); } catch {}
   const db = new Database(build, { create: true });
   db.exec(ddl);
+  // AND IT CARRIES THE COMPOSITION IT IS A PROJECTION OF. build.js stamps a
+  // module with sha256 of canon and the carriers -- IDENTITY, which is
+  // deliberately not the host source, because a comment in host.js does not move
+  // a population -- and loadStoreDb refuses a database stamped with anything
+  // else. compile.js wrote no stamp, so every store it has written has been
+  // refused on sight and the six app stores have been unreadable since. The same
+  // three buffers in the same order give the same sixteen hex digits.
+  if (outDir) {
+    const identity = createHash("sha256");
+    for (const p of [join(import.meta.dir, "..", "..", "arest"),
+                     join(import.meta.dir, "..", "..", "engine", "shared", "scenarios.canon"),
+                     join(outDir, "design-state")]) identity.update(readFileSync(p));
+    db.exec('create table if not exists "_composition" (hash text)');
+    db.query('insert into "_composition" (hash) values (?)').run(identity.digest("hex").slice(0, 16));
+  }
   const n = db.query("SELECT count(*) c FROM sqlite_master WHERE type='table'").get().c;
   // AND THE ROWS ARE CANON'S TOO. rmap:proj_rows answers a table's rows -- the
   // key, then one value per column in the order rmap:colnames gives them -- so
