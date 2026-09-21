@@ -636,6 +636,73 @@ Function 'render:blocktext' has Definition Origin 'registered'.
 Function 'render:blocktext' accepts Type Expression 'placed-row'.
 Function 'render:blocktext' yields Type Expression 'widget'.
 
+<!-- AND THE SURFACE IS THE WHOLE PAIRING TABLE, NOT EIGHT OF IT (#124,
+     2026-09-21). Canon emits NINETEEN control kinds. ui:ctl_entry is the
+     value-type-to-control table -- each of the 31 Conceptual Data Types is
+     paired to textbox, textarea, numericfield, label, datepicker,
+     timepicker, switch, imagepicker, selectlist or navigationfield -- and
+     ui:render applies render:<control> to every placed row a screen
+     produces, the nine layout kinds above among them. This file declared
+     ten registered and gave eight a signature, so the enumerable boundary
+     was short by nine names that canon can emit on any screen.
+
+     THAT SHORTFALL IS WHAT THE PAIRING ASKS OVER. law:ctl_declared reads
+     THIS population and law:paired asks a container whether it registers
+     every name in it, so a container was asked about ten kinds and told it
+     was total. Measured on this very store, not supposed: ui:screen on the
+     address `new Function` places 175 rows over canvas, headerbar,
+     titletext, textbox, NAVIGATIONFIELD and button, and render:navigation-
+     field was not a name any container had ever been asked to have. The
+     eleven signatures and nine origins below are added, none moved: the
+     same accepts 'placed-row' / yields 'widget' the eight already carry,
+     because a control kind is a control kind.
+
+     AND THE LAYOUT ENGINE IS REGISTERED BESIDE THE WIDGETS. A platform is
+     its paired controls plus the engine that lays them out (iFactr):
+     render:html is the html engine, the function from a screen's placed
+     rows to a document -- the canvas with the paired widgets inside it.
+     readings/ui/render-target-instances.md already declares Render Target
+     'html' has Platform Function Name 'render:html' and no host bound that
+     name; the html container binds it now, which is why it is declared here
+     with a Definition Origin at all. Registered for the same reason every
+     render: name is registered: canon defines no cell of that name, so the
+     body comes from the container that serves the platform, and the name
+     falls on the boundary side of Eq 5's restriction. -->
+Function 'render:textbox' accepts Type Expression 'placed-row'.
+Function 'render:textbox' yields Type Expression 'widget'.
+Function 'render:button' accepts Type Expression 'placed-row'.
+Function 'render:button' yields Type Expression 'widget'.
+Function 'render:selectlist' has Definition Origin 'registered'.
+Function 'render:selectlist' accepts Type Expression 'placed-row'.
+Function 'render:selectlist' yields Type Expression 'widget'.
+Function 'render:navigationfield' has Definition Origin 'registered'.
+Function 'render:navigationfield' accepts Type Expression 'placed-row'.
+Function 'render:navigationfield' yields Type Expression 'widget'.
+Function 'render:numericfield' has Definition Origin 'registered'.
+Function 'render:numericfield' accepts Type Expression 'placed-row'.
+Function 'render:numericfield' yields Type Expression 'widget'.
+Function 'render:datepicker' has Definition Origin 'registered'.
+Function 'render:datepicker' accepts Type Expression 'placed-row'.
+Function 'render:datepicker' yields Type Expression 'widget'.
+Function 'render:timepicker' has Definition Origin 'registered'.
+Function 'render:timepicker' accepts Type Expression 'placed-row'.
+Function 'render:timepicker' yields Type Expression 'widget'.
+Function 'render:switch' has Definition Origin 'registered'.
+Function 'render:switch' accepts Type Expression 'placed-row'.
+Function 'render:switch' yields Type Expression 'widget'.
+Function 'render:textarea' has Definition Origin 'registered'.
+Function 'render:textarea' accepts Type Expression 'placed-row'.
+Function 'render:textarea' yields Type Expression 'widget'.
+Function 'render:imagepicker' has Definition Origin 'registered'.
+Function 'render:imagepicker' accepts Type Expression 'placed-row'.
+Function 'render:imagepicker' yields Type Expression 'widget'.
+Function 'render:label' has Definition Origin 'registered'.
+Function 'render:label' accepts Type Expression 'placed-row'.
+Function 'render:label' yields Type Expression 'widget'.
+Function 'render:html' has Definition Origin 'registered'.
+Function 'render:html' accepts Type Expression 'placed-rows'.
+Function 'render:html' yields Type Expression 'document'.
+
 <!-- The storage surface (2026-07-20, the emit ruling: recording is
      storage registration; the byte form is canon, so a worthy driver
      holds nothing but the platform's one durable write). ntoa and

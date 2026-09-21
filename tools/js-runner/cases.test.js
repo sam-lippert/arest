@@ -1245,40 +1245,104 @@ describe("crypt:genkey", () => {
   });
 });
 
-// THE PAIRING HALF, MADE TO FAIL (#108). law:origin_boundary took <store,
-// registered-names> so a container could be asked whether it has a native
-// control for every abstract kind the store declares registered -- and then
-// law:report and law:app_report passed PHI, which the law reads as "not a
-// platform, owes no pairing" and answers T. So the pairing half shipped
-// without ever having run over a real set anywhere the suite could see it.
-// The java container asks (Gui.java:439) and the two js containers now do too
-// (host.js pairing_gate), and this is where the law is shown to FAIL: it is
-// handed a set with one kind removed and has to name that kind. A law that
-// only ever answers T over PHI is not a law, it is a row.
-describe("law:paired over a container's registration set", () => {
-  // the HTML container's own list, verbatim from host.js run_ui
-  const HTML = ["canvas", "headerbar", "titletext", "backbtn", "sectionheader",
-                "itemrow", "sep", "blocktext", "textbox", "button",
-                "selectlist", "navigationfield", "numericfield", "datepicker",
-                "timepicker", "switch", "textarea", "imagepicker", "label"]
-                .map((c) => "render:" + c);
+// THE PAIRING HALF, MADE TO FAIL (#108), OVER THE CONTAINER'S OWN TABLE (#124).
+// law:origin_boundary took <store, registered-names> so a container could be
+// asked whether it has a native control for every abstract kind the store
+// declares registered -- and then law:report and law:app_report passed PHI,
+// which the law reads as "not a platform, owes no pairing" and answers T. So
+// the pairing half shipped without ever having run over a real set anywhere
+// the suite could see it, and this is where it is shown to FAIL: it is handed
+// a set with one kind removed and has to name that kind. A law that only ever
+// answers T over PHI is not a law, it is a row.
+//
+// AND THE SET IS A CONTAINER'S, NOT A COPY OF ONE (2026-09-21). This block held
+// nineteen names with the comment "verbatim from host.js run_ui" -- verbatim
+// from a function 3321421a had deleted, so the suite was certifying the pairing
+// of a container that did not exist against a list no host read. Sam, the same
+// day: "The web UI should be React." The container is therefore
+// apps/ui.do/src/render (package @arest/ui.do), its table is RENDER_REGISTRY,
+// and REGISTERED_NAMES is the list that table is built from and asserted
+// against at module load. That file imports nothing, which is what lets this
+// one read it without React, a bundler, or that package's node_modules.
+let REACT_CONTAINER = null;
+let REACT_CONTAINER_ERROR = "";
+try {
+  REACT_CONTAINER = await import("../../../apps/ui.do/src/render/registry.ts");
+} catch (e) {
+  REACT_CONTAINER_ERROR = e instanceof Error ? e.message : String(e);
+}
 
-  test("the container that serves HTML pairs every declared control kind", () => {
+describe("law:paired over the React container's registration table", () => {
+  const container = () => {
+    expect(REACT_CONTAINER_ERROR).toBe("");
+    expect(REACT_CONTAINER).not.toBeNull();
+    return REACT_CONTAINER;
+  };
+
+  test("the container's table is reachable, and is the table it renders from", () => {
+    const c = container();
+    expect(c.TOOLKIT).toBe("react");
+    expect(c.CONTROL_KINDS.length).toBe(19);
+    expect(c.LAYOUT_ENGINE).toBe("render:html");
+    // the widgets, then the layout engine -- a platform is its paired controls
+    // AND the engine that lays them out
+    expect(c.REGISTERED_NAMES).toEqual([
+      ...c.CONTROL_KINDS.map((k) => "render:" + k), c.LAYOUT_ENGINE,
+    ]);
+    // every control carries the Toolkit Symbol the reading binds it at
+    for (const kind of c.CONTROL_KINDS) expect(typeof c.TOOLKIT_SYMBOL[kind]).toBe("string");
+  });
+
+  test("the container pairs every declared control kind, and the store declares every pair", () => {
+    const HTML = container().REGISTERED_NAMES.map(String);
     const declared = Ev("law:ctl_declared", CELLS).map(String);
     expect(declared.length).toBeGreaterThan(0);        // an empty set pairs vacuously
     expect(Ev("law:unpaired", [CELLS, HTML])).toEqual([]);
     expect(Ev("law:paired", [CELLS, HTML])).toBe("T");
+    // BOTH WAYS ROUND, which is what #124 added: law:unpaired above says the
+    // container registers everything the store declares, and this says the
+    // store declares everything the container registers. One direction alone
+    // let the metamodel declare ten kinds while canon emitted nineteen --
+    // ui:screen on `new Function` places a navigationfield over this very
+    // store, and no container was ever asked whether it had one.
+    expect(declared.slice().sort()).toEqual(HTML.slice().sort());
   });
 
   test("a container missing one native control is refused, by name", () => {
+    const HTML = container().REGISTERED_NAMES.map(String);
     const short = HTML.filter((n) => n !== "render:itemrow");
     expect(Ev("law:paired", [CELLS, short])).toBe("F");
     expect(Ev("law:unpaired", [CELLS, short]).map(String)).toEqual(["render:itemrow"]);
   });
 
+  test("a container missing the layout engine is refused too", () => {
+    // a platform is its paired controls AND the engine that lays them out, so
+    // an unregistered render:html is as fatal as an unregistered widget
+    const HTML = container().REGISTERED_NAMES.map(String);
+    const short = HTML.filter((n) => n !== "render:html");
+    expect(Ev("law:paired", [CELLS, short])).toBe("F");
+    expect(Ev("law:unpaired", [CELLS, short]).map(String)).toEqual(["render:html"]);
+  });
+
   test("a caller that is not a platform owes no pairing", () => {
     // what law:report and law:app_report pass; the verdict is the store half
     expect(Ev("law:paired", [CELLS, []])).toBe("T");
+  });
+
+  test("the reading binds the same controls the container registers", () => {
+    // readings/ui/components.md declares Toolkit 'react' and one
+    // ImplementationBinding per idealized control. The binding rows and the
+    // module's table are two statements of one pairing; if they disagree, the
+    // model describes a container nobody wrote.
+    const c = container();
+    const reading = readFileSync(join(import.meta.dir, "..", "..", "readings", "ui", "components.md"), "utf8");
+    const bound = new Map();
+    for (const line of reading.split(/\r?\n/)) {
+      const m = line.match(/^Component '([^']+)' is implemented by Toolkit 'react' at Toolkit Symbol '([^']+)'\.$/);
+      if (m) bound.set(m[1], m[2]);
+    }
+    expect([...bound.keys()].sort()).toEqual([...c.CONTROL_KINDS].sort());
+    for (const kind of c.CONTROL_KINDS) expect(bound.get(kind)).toBe(c.TOOLKIT_SYMBOL[kind]);
   });
 });
 
