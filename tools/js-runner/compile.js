@@ -268,7 +268,7 @@ if (!out && !outDir) {
     // rmap:proj_row fills; zipping one against the other put every value in the
     // wrong column and sqlite accepted all of it.
     const cn = Ev("rmap:proj_colnames", [name, CELLS]).map(String);
-    const sql = 'insert into "' + name + '" ("' + cn.join('","') + '") values ('
+    const sql = 'insert into ' + qi(name) + ' (' + cn.map(qi).join(",") + ') values ('
       + cn.map(() => "?").join(",") + ")";
     const ins = db.prepare(sql);
     for (const row of Ev("rmap:proj_rows", [name, CELLS])) {
@@ -306,7 +306,7 @@ if (!out && !outDir) {
       const m = new Map();
       for (const t of d.prepare("select name from sqlite_master where type='table'").all()) {
         if (String(t.name).startsWith("_")) continue;
-        m.set(t.name, d.prepare('pragma table_info("' + t.name + '")').all());
+        m.set(t.name, d.prepare('pragma table_info(' + qi(t.name) + ')').all());
       }
       return m;
     };
