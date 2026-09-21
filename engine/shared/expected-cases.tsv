@@ -753,3 +753,4 @@ case:replace-says-why-it-refuses-an-unmatched-key	"('\"replace refused: the uniq
 case:a-retraction-refuses-where-a-replacement-commits	"(409, 201)"
 case:the-replacement-leaves-one-row-and-it-is-the-new-one	"(('n1', 'T2'))"
 case:replace-states-one-fact-and-says-so	"('\"replace refused: a replace states one fact, so the row carries the collection's id and exactly one fact type\"', 400)"
+case:entity-machine-prefers-the-more-specific-type	"'Support Request'"
