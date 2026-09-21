@@ -128,7 +128,6 @@ class Resident {
     this.state = "booting";                 // booting | serving | failed | stopped
     this.busy = null;                       // null | checking | compiling
     this.note = "";                         // the last check or compile result
-    this.spawn();
   }
   // ONE SERVER PER APP DIRECTORY, ENFORCED AT SPAWN (2026-09-18). stop() kills
   // its own child's tree correctly (c6efdb97), and that is not enough, because
@@ -383,7 +382,17 @@ class Resident {
 
 const apps = parseApps(process.env.AREST_APPS);
 const residents = new Map(apps.map((a) => [a.name, new Resident(a)]));
-const booting = Promise.all([...residents.values()].map((r) => r.boot()));
+// ONE APP AT A TIME, EACH ANNOUNCED AS IT LANDS (2026-09-21). Six children
+// spawned at load boot six stores at once, and a store rebuilt against new
+// canon boots fresh -- the closure written back over minutes and gigabytes;
+// five of them together took a 15.7 GB machine to 0.3 GB free and killed the
+// router serving this session. OOM is a failed check and jobs are sequential
+// (Sam), so the apps come up in AREST_APPS order, one boot at a time, and the
+// client hears tools/list_changed for each. A resident that fails stays
+// "not serving" with its error and the next one is spawned regardless.
+const booting = (async () => {
+  for (const r of residents.values()) { r.spawn(); await r.boot(); announceTools(); }
+})();
 
 const isVerb = (t) => t.inputSchema && t.inputSchema.properties && t.inputSchema.properties.args && !t.inputSchema.properties.method;
 const names = () => [...residents.keys()];
@@ -428,13 +437,17 @@ const text = (id, s, isError) => reply(id, { content: [{ type: "text", text: s }
 
 async function handle(msg) {
   if (msg.method === "initialize") {
-    // learned before `await booting`, because that is what the children's own
-    // initialize is waiting on; the other way round is a deadlock
+    // learned first, because that is what the children's own initialize is
+    // waiting on. AND THE HANDSHAKE DOES NOT WAIT FOR THE APPS (2026-09-21):
+    // it awaited every boot, a store rebuilt against new canon boots fresh for
+    // minutes, and the client gave up at 30 s -- "Starting mcp failed" -- with
+    // every app it wanted a minute from serving. The answer is what is known
+    // now; each app announces itself through tools/list_changed as it lands,
+    // and `apps` says where each one is.
     clientCaps = (msg.params && msg.params.capabilities) || {};
     sawClient();
-    await booting;
     const lines = [];
-    for (const r of residents.values()) lines.push(r.name + (r.error ? " (not serving: " + r.error + ")" : ": " + r.instructions));
+    for (const r of residents.values()) lines.push(r.name + (r.state === "serving" ? ": " + r.instructions : " (" + r.status() + ")"));
     return reply(msg.id, {
       protocolVersion: "2024-11-05",
       capabilities: { tools: { listChanged: true }, prompts: {} },
@@ -443,20 +456,17 @@ async function handle(msg) {
         ". A readings change is apps_check then apps_compile on that app; `apps` reports each. " + lines.join(" ||| "),
     });
   }
-  if (msg.method === "tools/list") { await booting; return reply(msg.id, { tools: tools() }); }
+  if (msg.method === "tools/list") { return reply(msg.id, { tools: tools() }); }
   if (msg.method === "prompts/list") {
-    await booting;
     const r = [...residents.values()].find((x) => x.prompts && x.prompts.length);
     return reply(msg.id, { prompts: r ? r.prompts : [] });
   }
   if (msg.method === "prompts/get") {
-    await booting;
     const r = [...residents.values()].find((x) => x.prompts && x.prompts.length);
     if (!r) return fail(msg.id, "no resident app carries the verbalization patterns");
     try { return reply(msg.id, await r.request("prompts/get", msg.params || {})); } catch (e) { return fail(msg.id, String(e.message)); }
   }
   if (msg.method === "tools/call") {
-    await booting;
     const p = msg.params || {};
     if (p.name === "apps") {
       const rows = [...residents.values()].map((r) => [r.name, r.status(), r.dir]);
@@ -471,6 +481,7 @@ async function handle(msg) {
       const started = p.name === "apps_check" ? r.check() : r.compile();
       return started ? text(msg.id, started) : text(msg.id, r.name + " is " + r.status() + "; wait for `apps` to report it", true);
     }
+    if (r.ready) await r.ready;              // this app's boot, not every app's
     try { return reply(msg.id, await r.request("tools/call", { name: p.name, arguments: args })); }
     catch (e) { return text(msg.id, String(e.message), true); }
   }
