@@ -369,6 +369,17 @@ if (!out && !outDir) {
     + " (" + tRows + " ms)");
   for (const f of first) console.log("  " + f);
 }
+// WHAT THE STORE CANNOT HOLD IS SAID, NOT SKIPPED. rmap:unkeyed is every fact
+// type the map gives a table with no columns -- an entity-type player with no
+// reference scheme canon can map, so nothing that needs its key has a column to
+// carry -- and rmap:coltabs leaves them out so the DDL is one sqlite accepts.
+// This prints them because a silent omission is the defect state:undelivered
+// exists to prevent; the composite key for a compound scheme is what fixes it.
+const unkeyed = Ev("rmap:unkeyed", CELLS);
+if (unkeyed.length) {
+  console.error("UNSTORED: " + unkeyed.length + " fact type(s) have no key column and get no table -- an entity type in each declares a compound reference scheme, which canon does not yet map to a composite key:");
+  for (const u of unkeyed) console.error("  " + u[0]);
+}
 console.log("compiled " + sentences + " sentences from " + files + " files: "
   + state.length + " cells, " + ddl.length + " bytes of DDL"
   + " (read " + tRead + " ms, state " + tState + " ms, ddl " + tDdl + " ms)");

@@ -321,7 +321,14 @@ class Resident {
     if (this.busy) return null;
     this.busy = "checking";
     this.note = "";
-    run(["run", "--silent", "check"], this.pkg).then(({ code, tail }) => {
+    // AND THE STORE IS BUILT WITH THE CARRIERS (#109). The app's check names its
+    // own readings directories -- the router does not know them and should not --
+    // so AREST_DB beside AREST_OUT_DIR is the whole change: compile.js writes the
+    // tables rmap:ddl emits and the rows rmap:proj_rows answers, carries forward
+    // what the runtime wrote into the prior store, and stamps it with the same
+    // composition build.js stamps the module with. A compiled app then serves from
+    // its database instead of from its carriers.
+    run(["run", "--silent", "check"], this.pkg, { AREST_DB: join(this.dir, "store.db") }).then(({ code, tail }) => {
       this.note = (code === 0 ? "check ok: " : "check FAILED (exit " + code + "): ") + lastLines(tail, code === 0 ? 1 : 6);
       this.busy = null;
     });
@@ -330,16 +337,16 @@ class Resident {
   // apps_compile: the module from the carriers, then this app's server again.
   // The server is stopped first because it holds store.db open.
   //
-  // THE STORE IS NOT REBUILT, AND NOTHING CAN REBUILD IT (2026-09-20, #109).
-  // This ran tools/compile-store.js here, which projected the booted
-  // populations into store.db; it is deleted, and what would replace it does
-  // not exist yet: canon emits the SCHEMA (rmap:ddl, 11 tables and 344 columns
-  // on the metamodel) and has no projection of the populations into it and no
-  // inverse, so the host cannot write the tables canon describes and must not
-  // invent its own again. Until it can, a compiled app serves from its carriers
-  // and loadStoreDb refuses its store.db on the composition stamp, which is the
-  // stamp doing its job: the store was projected by a module that no longer
-  // exists. The rows are still in the file and nothing here deletes them.
+  // THE STORE IS REBUILT BY THE CHECK, AND THIS BUILDS THE MODULE THAT READS IT
+  // (2026-09-21, #109 closed). What stood here said the store could not be
+  // rebuilt at all: compile-store.js was deleted and canon emitted the SCHEMA
+  // with no projection of the populations into it and no inverse, so a compiled
+  // app served from its carriers while loadStoreDb refused its store.db on the
+  // composition stamp. Canon has the projection (rmap:proj_rows) and the inverse
+  // (rmap:unproj) now, compile.js writes and stamps the store, and apps_check
+  // passes it AREST_DB. So the order is the order it always was -- apps_check,
+  // then apps_compile -- and the module this builds is stamped to match the store
+  // that check just wrote.
   compile() {
     if (this.busy) return null;
     this.busy = "compiling";
@@ -350,7 +357,7 @@ class Resident {
       const b = await run([join(here, "build.js"), "test"], this.pkg, env);
       this.note = b.code !== 0
         ? "module build FAILED (exit " + b.code + "): " + lastLines(b.tail, 6)
-        : "compiled (module only; the store is not rebuilt, #109): " + lastLines(b.tail, 1);
+        : "compiled: " + lastLines(b.tail, 1);
       this.busy = null;
       this.spawn();
       await this.boot();
@@ -359,7 +366,7 @@ class Resident {
       // initialize.
       announceTools();
     })();
-    return "compiling " + this.name + ": its server is stopped, build.js test runs in " + this.pkg + ", then it serves the new module; the store is NOT rebuilt (#109)";
+    return "compiling " + this.name + ": its server is stopped, build.js test runs in " + this.pkg + ", then it serves the new module over the store apps_check wrote";
   }
 }
 
@@ -386,7 +393,7 @@ function tools() {
   return [
     { name: "apps", description: "the resident apps: whether each is serving, and its last check or compile result", inputSchema: { type: "object", properties: {} } },
     { name: "apps_check", description: "run the app's own check in its package (bun run check: the design state from its readings); the app keeps serving its previous build meanwhile, and `apps` reports the result. After a readings change: apps_check, then apps_compile.", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
-    { name: "apps_compile", description: "rebuild the app's module from its carriers (build.js test) and start its server again; the app is not served meanwhile, and `apps` reports the result. The STORE is not rebuilt: canon emits the schema but has no projection of the populations into it yet (arest #109), so a compiled app serves from its carriers and its store.db is refused on the composition stamp", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
+    { name: "apps_compile", description: "rebuild the app's module from its carriers (build.js test) and start its server again; the app is not served meanwhile, and `apps` reports the result. The store is written by apps_check, stamped to match this module, so run apps_check first and the app serves from its database", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
   ].concat(withApp);
 }
 
