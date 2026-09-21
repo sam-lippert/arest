@@ -1343,6 +1343,26 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     expect(Ev("read:spoken", ["--", "-", "-x"])).toEqual(["--", "-x"]);
   });
 
+  // strdown has a fast twin too. Its DEF folds each character through
+  // chardown -- charisup, then charmap:pick over the 26 pairs -- and
+  // e33971ab's case-fold in cn:number calls it for both sides of every
+  // column-name comparison: 109,544 calls on the base metamodel, 18.2 s
+  // inclusive instrumented, the ddl phase 4.3-6.2 s -> 16.1 s uninstrumented
+  // (2026-09-21). The DEF is the meaning either way, and its compiled form is
+  // evaluated here beside the twin on every branch: the empty string, each end
+  // of A-Z and the neighbour outside it, digits and punctuation, letters above
+  // ASCII (charisup compares code units, so they are not upper), and an astral
+  // code point; a non-string is refused in chars's words by both.
+  test("the strdown twin is its DEF", () => {
+    const def = DEFS.get("strdown");
+    for (const input of ["", "A", "Z", "@", "[", "a", "z", "Zebra", "URL2", "url1", "meterEndpoint",
+                         "\u00dcn\u00efcode", "\u00c9", "\u00df", "A\u{1F600}B", "9-_ x", "A\u{1F600}B-\u00c9z9"])
+      expect(JSON.stringify(Ev("strdown", input))).toBe(JSON.stringify(Ev(def, input)));
+    expect(Ev("strdown", "A\u{1F600}B-\u00c9z9")).toBe("a\u{1F600}b-\u00c9z9");
+    expect(() => Ev("strdown", ["A"])).toThrow("chars on non-string");
+    expect(() => Ev(def, ["A"])).toThrow("chars on non-string");
+  });
+
   // read:put_row has a fast twin as well. Its DEF is COMP(ALPHA(read:row_at),
   // distr): distr pairs EVERY row with the item, so one put is one interpreted
   // scan of the whole list -- 1,354 calls made 1,274,506 read:row_at calls on

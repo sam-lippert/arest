@@ -1340,6 +1340,17 @@ const FASTPRIMS = new Map(Object.entries({
   // closes it with one space; `<!--` opens one; a newline ends a line; a
   // carriage return is nothing; the last line is pushed even when empty. The
   // DEF is the meaning and the suite holds this against its compiled form.
+  // strdown folds ASCII upper to lower and nothing else. The DEF maps every
+  // character through chardown -- charisup, a code-unit comparison against
+  // "A" and "Z", so a letter above ASCII is not upper -- and then charmap:pick
+  // over the 26 pairs. cn:number folds both sides of every column-name
+  // comparison (e33971ab): 109,544 calls and 2.24M chardown calls on the base
+  // metamodel, 18.2 s inclusive instrumented, and the ddl phase 4.3-6.2 s ->
+  // 16.1 s uninstrumented (2026-09-21). The DEF is the meaning either way and
+  // the suite evaluates it beside this (the strdown twin is its DEF). A
+  // non-string is chars's refusal, in chars's words.
+  "strdown": x => { if (typeof x !== "string") throw new Error("chars on non-string");
+    return x.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32)); },
   "read:lines": x => { const cs = seq(x); const out = []; let line = [], inc = false;
     for (let i = 0; i < cs.length; ) { const c = cs[i];
       if (inc) { if (c === "-" && cs[i + 1] === "-" && cs[i + 2] === ">") { line.push(" "); inc = false; i += 3; } else i++; continue; }
