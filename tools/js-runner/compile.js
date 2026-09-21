@@ -236,6 +236,16 @@ if (!out && !outDir) {
   identity.update(readFileSync(join(import.meta.dir, "..", "..", "arest")));
   identity.update(readFileSync(join(import.meta.dir, "..", "..", "engine", "shared", "scenarios.canon")));
   identity.update(carrierBytes);
+  // AND norma-answer WHEN THE APP HAS ONE, because build.js splices it and hashes
+  // it (build.js:54,64) even while its own note says the witness's answer is not
+  // a build input. support.auto.dev keeps one from the oracle era, the metamodel
+  // has none, and that is exactly the difference between a store the module
+  // accepted (metamodel) and one it refused on the stamp (support, 2026-09-21:
+  // store 972fca99d81b9a6a, module 3ffe2da55596553e). The same bytes in the
+  // same order, or the stamp is two identities. Retiring the file from the
+  // identity is build.js's change to make, and the stores would restamp with it.
+  const witness = outDir ? join(outDir, "norma-answer") : "";
+  if (witness && existsSync(witness)) identity.update(readFileSync(witness));
   db.exec('create table if not exists "_composition" (hash text)');
   db.query('insert into "_composition" (hash) values (?)').run(identity.digest("hex").slice(0, 16));
   const n = db.query("SELECT count(*) c FROM sqlite_master WHERE type='table'").get().c;
@@ -305,6 +315,14 @@ if (!out && !outDir) {
         continue;
       }
       const keep = newCols.map((c2) => c2.name).filter((n2) => oldCols.some((o) => o.name === n2));
+      // NO SHARED COLUMN, NOTHING TO MATCH ON: the prior table is a different
+      // layout of the same name (compile-store.js's k + fact-type-name columns
+      // against canon's role-named ones), and its rows are orphaned whole.
+      if (!keep.length) {
+        const n = prior.prepare('select count(*) c from "' + table + '"').get().c;
+        if (n) orphaned.push({ table, rows: n, why: 'no column of the prior table survives in the build' });
+        continue;
+      }
       const dropped = oldCols.map((o) => o.name).filter((n2) => !keep.includes(n2));
       for (const d2 of dropped) {
         const n = prior.prepare('select count(*) c from "' + table + '" where "' + d2 + '" is not null').get().c;
