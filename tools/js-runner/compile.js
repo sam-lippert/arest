@@ -59,16 +59,15 @@ if (!existsSync(host)) {
 await import(pathToFileURL(host).href);
 const { Ev, CELLS } = globalThis.AREST;
 
-// core.md first, then alphabetical -- the order the readings are meant to be
-// read in. THIS IS THE LAST DECISION LEFT IN THE HOST and it belongs in canon
-// with the rest of the enumeration.
-const order = (a, b) => (a === "core.md" ? "0" : a).localeCompare(b === "core.md" ? "0" : b);
+// WHICH FILES ARE READINGS AND IN WHAT ORDER IS CANON'S. It was this file's
+// last decision in the read phase -- core.md first, then alphabetical -- and
+// read:file_order answers it from a directory listing.
 
 const t0 = Date.now();
 const rows = [];
 let files = 0, sentences = 0;
 for (const dir of dirs) {
-  for (const f of readdirSync(dir).filter((f) => f.endsWith(".md")).sort(order)) {
+  for (const f of Ev("read:file_order", readdirSync(dir))) {
     files++;
     for (const s of Ev("read:sentences", readFileSync(join(dir, f), "utf8"))) {
       sentences++;
