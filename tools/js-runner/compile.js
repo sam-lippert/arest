@@ -112,36 +112,43 @@ const tState = Date.now() - t1;
 // projection into it and no inverse, so until it does, the store cannot carry
 // the design state and the carrier does.
 const outDir = process.env.AREST_OUT_DIR;
-if (outDir) {
-  const esc = (s) => {
+// THE DESIGN STATE IS A VALUE; THE CARRIER IS ONE RENDERING OF IT, and the
+// store's identity is the value, not the file. This rendering used to live
+// inside `if (outDir)` together with the stamp that hashes it, so a compile
+// asked only for a database -- which is how a store is made -- wrote one with
+// NO STAMP, and loadStoreDb refused it on sight. Rendering always and writing
+// only when a carrier was asked for costs the render and nothing else.
+const esc = (s) => {
     let o = "";
     for (const ch of String(s)) {
       const c = ch.codePointAt(0);
       o += ch === "\\" ? "\\\\" : ch === '"' ? '\\"' : c === 10 ? "\\n" : c === 13 ? "\\r" : c === 9 ? "\\t" : ch;
     }
     return o;
-  };
-  const src = (v) => Array.isArray(v)
+};
+const src = (v) => Array.isArray(v)
     ? (v.length === 0 ? "PHI()" : "S(" + v.map(src).join(",") + ")")
     : typeof v === "number" ? "N(" + v + ")" : 'A("' + esc(v) + '")';
-  // AND IT IS CHUNKED NINE WIDE, BECAUSE CANON READS IT THAT WAY. Measured
-  // 2026-09-20: 48 canon DEFs compose an UNGUARDED theta:flatten with an
-  // ast:fetch of a state: cell -- rules:model, solve:rules, ui:otpops,
-  // rmap:readrows, main:declared_names and forty-three more -- so each of them
-  // flattens exactly one level and a carrier chunked any other way is a
-  // different value. The nine came from S9 being a nine-parameter JavaScript
-  // function; it has been load-bearing canon ever since, undeclared. So this
-  // does not restate it: read:chunk9 IS canon's chunker, 43 ms for all 22
-  // cells, and the width lives where the readers live.
-  //
-  // reflect:surface was the exception that proved it. It flattened
-  // unconditionally too, and canon's own flat design state made four
-  // reflections raise `selector 2 on atom: DomainHasDescription` while the
-  // oracle's chunked one passed; it now unfolds with rmap:unfold4 and both
-  // shapes answer 781/400/781/781. The other forty-seven are recorded, not
-  // fixed: they are a canon change with a suite behind it, not a compiler one.
-  const body = state.map((c) => 'DEF("' + esc(String(c[0])) + '", ' + src(Ev("read:chunk9", c[1])) + ")").join(",\n");
-  const carrier = "(\n" + body + "\n)\n";
+// AND IT IS CHUNKED NINE WIDE, BECAUSE CANON READS IT THAT WAY. Measured
+// 2026-09-20: 48 canon DEFs compose an UNGUARDED theta:flatten with an
+// ast:fetch of a state: cell -- rules:model, solve:rules, ui:otpops,
+// rmap:readrows, main:declared_names and forty-three more -- so each of them
+// flattens exactly one level and a carrier chunked any other way is a
+// different value. The nine came from S9 being a nine-parameter JavaScript
+// function; it has been load-bearing canon ever since, undeclared. So this
+// does not restate it: read:chunk9 IS canon's chunker, 43 ms for all 22
+// cells, and the width lives where the readers live.
+//
+// reflect:surface was the exception that proved it. It flattened
+// unconditionally too, and canon's own flat design state made four
+// reflections raise `selector 2 on atom: DomainHasDescription` while the
+// oracle's chunked one passed; it now unfolds with rmap:unfold4 and both
+// shapes answer 781/400/781/781. The other forty-seven are recorded, not
+// fixed: they are a canon change with a suite behind it, not a compiler one.
+const body = state.map((c) => 'DEF("' + esc(String(c[0])) + '", ' + src(Ev("read:chunk9", c[1])) + ")").join(",\n");
+const carrier = "(\n" + body + "\n)\n";
+const carrierBytes = Buffer.from(carrier, "utf8");
+if (outDir) {
   const tmp = join(outDir, "design-state.build");
   writeFileSync(tmp, carrier);
   renameSync(tmp, join(outDir, "design-state"));
@@ -176,7 +183,7 @@ if (outDir) {
   // design state, so a design state regenerated since leaves it describing
   // tables that no longer exist; build.js hashes design-state and declines a
   // `compiled` that names another.
-  const stamp = createHash("sha256").update(readFileSync(join(outDir, "design-state"))).digest("hex").slice(0, 16);
+  const stamp = createHash("sha256").update(carrierBytes).digest("hex").slice(0, 16);
   const compiled = '(\n"AREST_COMPILED_FROM=' + stamp + '",\n\n' + defs.join(",\n") + "\n)\n";
   const ctmp = join(outDir, "compiled.build");
   writeFileSync(ctmp, compiled);
@@ -222,14 +229,15 @@ if (!out && !outDir) {
   // else. compile.js wrote no stamp, so every store it has written has been
   // refused on sight and the six app stores have been unreadable since. The same
   // three buffers in the same order give the same sixteen hex digits.
-  if (outDir) {
-    const identity = createHash("sha256");
-    for (const p of [join(import.meta.dir, "..", "..", "arest"),
-                     join(import.meta.dir, "..", "..", "engine", "shared", "scenarios.canon"),
-                     join(outDir, "design-state")]) identity.update(readFileSync(p));
-    db.exec('create table if not exists "_composition" (hash text)');
-    db.query('insert into "_composition" (hash) values (?)').run(identity.digest("hex").slice(0, 16));
-  }
+  // THE SAME THREE BUFFERS IN THE SAME ORDER build.js hashes, and the third is
+  // the carrier's BYTES rather than a path, so a store is stamped whether or not
+  // a carrier was written beside it.
+  const identity = createHash("sha256");
+  identity.update(readFileSync(join(import.meta.dir, "..", "..", "arest")));
+  identity.update(readFileSync(join(import.meta.dir, "..", "..", "engine", "shared", "scenarios.canon")));
+  identity.update(carrierBytes);
+  db.exec('create table if not exists "_composition" (hash text)');
+  db.query('insert into "_composition" (hash) values (?)').run(identity.digest("hex").slice(0, 16));
   const n = db.query("SELECT count(*) c FROM sqlite_master WHERE type='table'").get().c;
   // AND THE ROWS ARE CANON'S TOO. rmap:proj_rows answers a table's rows -- the
   // key, then one value per column in the order rmap:colnames gives them -- so
