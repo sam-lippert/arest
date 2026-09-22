@@ -439,7 +439,8 @@ if (!out && !outDir) {
   // store cannot yet tell us, because its schema is spliced into the module
   // rather than carried in the database. So this counts and names those tables
   // and REFUSES; it does not guess. AREST_MIGRATE=allow-loss says drop them.
-  let carried = 0, filled = 0, reflectedSkipped = 0, tCarry = 0, tCarryReflect = 0, tCarryRows = 0;
+  let carried = 0, filled = 0, reflectedSkipped = 0, moved = 0, tCarry = 0, tCarryReflect = 0, tCarryRows = 0;
+  const movedFts = new Map();
   const orphaned = [];
   if (existsSync(out)) {
     const tCarryStart = Date.now();
@@ -527,12 +528,31 @@ if (!out && !outDir) {
       // this zip ctabEntry's column paths against them by position, exactly
       // as the durability suite's own `carriers()` helper does.
       const reflectedCols = new Set();
+      // AND WHICH ROLES THE COLUMN'S TWO ENDS PLAY, from the same path, in the
+      // same walk -- the placement test below needs it and it costs nothing
+      // extra. A column path is <table, flag, steps> and exactly one step is
+      // the `rel`: ["rel", from-player, to-player, ..., [fact type], dir]. So
+      // the path SAYS which role the row plays and which the value plays:
+      //   stateMachineDefinitionStatusId
+      //     rel State Machine Definition -> Status
+      //     (StatusIsInitialInStateMachineDefinition)
+      // A path with no rel step is an identifier or an assimilation and binds
+      // no second player; a path with more than one is a join through two fact
+      // types and its two ends are not one fact's two roles. Neither is a
+      // placement this test can read, so neither is recorded.
+      const colFact = new Map();
       if (ctabEntry) {
         try {
           const cn = Ev("rmap:proj_colnames", [table, CELLS]).map(String);
           ctabEntry[2].forEach((col, i) => {
             const carriedFt = String(Ev("rmap:proj_carried", Array.isArray(col[2]) ? col[2] : []));
             if (cn[i] && REFLECTED_NAMES.has(carriedFt)) reflectedCols.add(cn[i]);
+            if (!cn[i]) return;
+            const steps = Array.isArray(col[2]) ? col[2] : [];
+            const rels = steps.filter((st) => Array.isArray(st) && String(st[0]) === "rel");
+            if (rels.length !== 1) return;
+            const a = String(rels[0][1]), b = String(rels[0][2]);
+            colFact.set(cn[i], { ft: carriedFt, a, b, rev: null });
           });
         } catch (e) { /* this table's carried columns could not be determined -- carry it as before */ }
       }
@@ -603,6 +623,37 @@ if (!out && !outDir) {
         for (const v of vals) {
           if (here[v] !== null && here[v] !== undefined) continue;   // the readings say something: they win
           if (row[v] === null || row[v] === undefined) continue;     // the runtime said nothing either
+          // AND THE BUILD MAY ALREADY SAY IT, ON ANOTHER ROW. An empty cell is
+          // not an absent fact: when a fact type's key role moves from one
+          // player to the other, the column keeps its name and its table and
+          // only the row changes, so the prior value lands in a cell the build
+          // left empty while the build asserts the SAME FACT on the row the
+          // other player keys. Filling it asserts the fact twice, columns
+          // swapped, and the store then answers both ways round: measured on
+          // claude 2026-09-22, StatusIsInitialInStateMachineDefinition eight
+          // rows where the readings declare four, and the Harel descent read
+          // it as a cycle (b72a7b35).
+          //
+          // So the fill asks what the unkeyed branch above already asks --
+          // does the build already say this? -- of the FACT rather than the
+          // row: is the reversed pair in this same column of the build. Only
+          // where the two ends play DIFFERENT object types, because a ring
+          // fact type's (a,b) and (b,a) are two facts and not one placement:
+          // DerivationRuleDependsOnDerivationRule is the case in the
+          // metamodel. A ring column carries as before; it is counted, so the
+          // exposure is named rather than silent.
+          const cf = colFact.get(v);
+          if (cf && cf.a !== cf.b && pk.length === 1) {
+            if (!cf.rev) {
+              cf.rev = new Set(db.prepare('select ' + qi(pk[0]) + ', ' + qi(v) + ' from ' + qi(table)
+                + ' where ' + qi(v) + ' is not null').values().map((r) => JSON.stringify([r[0], r[1]])));
+            }
+            if (cf.rev.has(JSON.stringify([row[v], k[0]]))) {
+              moved++;
+              movedFts.set(cf.ft, (movedFts.get(cf.ft) || 0) + 1);
+              continue;
+            }
+          }
           try { fill(v).run(row[v], ...k); filled++; }
           catch { /* the build refuses it */ }
         }
@@ -658,6 +709,8 @@ if (!out && !outDir) {
     + (refused ? ", " + refused + " REFUSED BY SQLITE" : "")
     + (carried || filled ? " [" + carried + " runtime row(s) carried, " + filled + " value(s) filled]" : "")
     + (reflectedSkipped ? " [" + reflectedSkipped + " reflected row(s) left to the closure]" : "")
+    + (moved ? " [" + moved + " value(s) NOT carried: the build already asserts the same fact with the"
+        + " roles the other way -- " + [...movedFts].map((e) => e[0] + " " + e[1]).join(", ") + "]" : "")
     + " (" + tRows + " ms" + (tCarry ? ", " + tCarry + " ms carry: reflected columns " + tCarryReflect + " ms, rows " + tCarryRows + " ms" : "") + ")");
   for (const f of first) console.log("  " + f);
 }

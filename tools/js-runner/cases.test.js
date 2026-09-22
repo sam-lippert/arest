@@ -1184,6 +1184,86 @@ test("the carry leaves a reflected row to the closure instead of keeping it", ()
   }
 }, 300_000);
 
+// ---- AND DOES IT REFUSE TO SAY THE SAME FACT TWICE WHEN A PLACEMENT MOVED? -
+//
+// The carry's two branches did not ask the same question. The unkeyed one asks
+// `seen(row)` -- does the build already say this? -- and the keyed one asked
+// only whether the cell was empty. An empty cell is not an absent fact: when a
+// fact type's key role moves from one player to the other, the column keeps
+// its name and its table and only the ROW changes, so the prior value lands in
+// a cell the build left empty while the build asserts the SAME FACT on the row
+// the other player keys. Nothing about the shape says the placement moved --
+// the schema hash is over table and column names and is identical either way,
+// which is why engineering.auto.dev's store held one with a schema hash and
+// still contradicted itself.
+//
+// MEASURED (2026-09-22): claude's own store, checked at the tip, came out with
+// StatusIsInitialInStateMachineDefinition holding EIGHT rows where its readings
+// declare four -- each fact twice, columns swapped -- and the Harel descent
+// reads that as a cycle (b72a7b35, which stopped the spin and said this was
+// the repair still owed). qa's, pm's and memory's stores are in the same prior
+// placement and engineering.auto.dev's already holds both.
+//
+// So this seeds exactly that: the build's own rows, re-keyed by the other
+// player. A ring fact type is NOT this case -- (a,b) and (b,a) over one object
+// type are two facts, not one placement -- and the carry leaves those alone.
+test("a fact the build asserts on another row is not carried back under its old placement", () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-carry-placement-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  const metamodel = join(import.meta.dir, "..", "..", "metamodel");
+  const templates = join(import.meta.dir, "..", "..", "readings", "templates");
+  const path = join(dir, "store.db");
+  // Function.stateMachineDefinitionStatusId carries
+  // StatusIsInitialInStateMachineDefinition, whose rel step reads
+  // `State Machine Definition -> Status`: the row plays the machine and the
+  // value plays the status, and before 8f1ef6ea it was the other way round.
+  const COL = "stateMachineDefinitionStatusId";
+  const build = () => {
+    const p = Bun.spawnSync(["bun", compiler, metamodel, templates],
+      { env: { ...process.env, AREST_DB: path }, stdout: "pipe", stderr: "pipe" });
+    return p.stdout.toString() + p.stderr.toString();
+  };
+  const read = () => {
+    const d = new Database(path, { readonly: true });
+    const r = d.prepare('select "functionId" k, ' + JSON.stringify(COL) + ' v from "Function" where '
+      + JSON.stringify(COL) + " is not null").all().map((x) => x.k + " -> " + x.v).sort();
+    d.close(true);
+    return r;
+  };
+
+  try {
+    const first = build();
+    expect(first).toContain("store:");
+    expect(first).not.toContain("runtime row(s) carried");
+    const declared = read();
+    expect(declared.length).toBeGreaterThan(0);
+
+    // the store as a build before 8f1ef6ea left it: the same facts, keyed by
+    // the OTHER player. Every clear happens before every set, so a status
+    // sharing a name with a machine cannot undo its own row.
+    const pairs = declared.map((x) => x.split(" -> "));
+    const seed = new Database(path);
+    for (const [machine] of pairs) seed.run('update "Function" set ' + JSON.stringify(COL) + "=null where \"functionId\"=?", [machine]);
+    for (const [machine, status] of pairs) seed.run('update "Function" set ' + JSON.stringify(COL) + "=? where \"functionId\"=?", [machine, status]);
+    seed.run("pragma wal_checkpoint(TRUNCATE)");
+    seed.close(true);
+    const seeded = read();
+    expect(seeded.length).toBe(declared.length);
+    expect(seeded).not.toEqual(declared);
+
+    // the carry, over the SAME readings: the build asserts every one of those
+    // facts already, on the row the machine keys, so not one of them is a
+    // runtime fact and the store comes out saying each exactly once
+    const second = build();
+    expect(second).toContain("store:");
+    expect(second).toContain("roles the other way");
+    expect(second).toContain("StatusIsInitialInStateMachineDefinition");
+    expect(read()).toEqual(declared);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 300_000);
+
 // ---- DOES THE READER SAY WHICH PLAYER NO DECLARATION OPENS, AND REFUSE IT WHEN ASKED?
 //
 // Sam, 2026-09-22: "There should be a strict mode defined that refuses
