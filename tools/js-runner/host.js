@@ -898,7 +898,13 @@ function matchRowsAt(n, key, rows) {
 // That walk is a pure function of <name, cells>, name ranges over the model's
 // fact-type names and cells is the frozen store, so the distinct-input count is
 // the schema's size and every ask after the first is a lookup.
-const MEMOCN = new Set(["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
+// system:cellrows is one design-state cell's rows, unfolded, and the empty
+// arm of system:pop_rows asks for three of them (state:ucs, state:declared,
+// state:refmodes) on every fact type whose population is empty -- 201 of the
+// base's 262 descriptors. A fresh list per ask is a fresh solve:assoc index
+// per ask, which is the ui:otpops case exactly: the walk over those 262 cost
+// 106 ms unmemoised against 4 ms at HEAD, and 4 ms memoised (2026-09-21).
+const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
   "cn:sfx", "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts",
   "cn:chrank", "lex:lw", "induce:sig_of", "system:pop_in", "store:fts",
   // ui:otpops is the object-type populations of a store, and mcp:tools the

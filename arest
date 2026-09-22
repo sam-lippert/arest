@@ -3414,14 +3414,25 @@ DEF("system:pop_in",
              S3(A("CONS"), S2(A("CONST"), A("ast:FetchPop")), N(1))),
           N(2)))),
 
+"A REFERENCE SCHEME HAS A POPULATION, AND IT IS THE DIAGONAL OF ITS ENTITY (2026-09-21, task #122 item 1d). support.auto.dev refused every write with FontFamilyHasName mandatory for 'Inter' and 'JetBrains Mono', its two font families: readings/ui/design.md declared FontFamily(.Name) and, a hundred lines later, FontFamily has Name with Each FontFamily has exactly one Name, the reader held the two as ONE fact type (95faff7a), and the explicit mandatory then read a population that is EMPTY and cannot be filled. It cannot be filled because a reference scheme is ABSORBED: the identifier IS the reference, so rmap writes it as the entity table`s key column and projects no row for the fact type, which is why FunctionHasFunctionId has stood at zero rows on every store ever built (arest:16917) and why every other entity with a reference mode escapes only by never declaring the mandatory as a sentence. The readings were corrected; this is the other half, because the model says the scheme HOLDS between each instance and its identifier and canon said it held between nothing. Its population is that pairing -- the entity`s instances, each with its own id, read through ui:ids, which is the very extent the mandatory check measures against, so the check has no residue and the implied mandatory needs no special case. WHICH FACT TYPE IS A SCHEME IS NOT GUESSED FROM ITS PLAYERS. A second fact type between the same entity and the same value type is a fact about it and not its identity, so the test is the PREFERRED IDENTIFIER, and state:ucs already carries it under a name it mints rather than stores: read:uc_row writes UC:ip: before read:uc_key, and read:uc_key writes one span as <fact type>#<position>, so the preferred uniqueness over the second role alone is the one constraint named UC:ip:<fact type>#2 and the test is an assoc on that name. An objectification`s preferred identifier spans its link roles and is keyed #1+#1, which is how it is not this. THE PLAYERS COME FROM TWO CELLS BECAUSE ONE IS NEVER ENOUGH: read:state_schemereadings drops a scheme whose name a fact record already holds, so a REDECLARED scheme is in state:declared and nowhere else, and a scheme no reading declares is in state:schemereadings and nowhere else -- the base carries two of the second kind and support carried five of the first. Not mcp:tools, which is state:declared flattened but reads ui:groups with it and raises on a store carrying no design state, which is every fixture in the case table. MEASURED on the base test module: system:pop_rows answers 334 rows for FunctionHasFunctionId and 22 for VerbalizationPatternHasVerbalizationPatternName where it answered none, an explicit mandatory over the first reports 0 violations where it reported 334, ui:violations stays at 152, rmap:tables stays at 49 and rmap:ddl at 20433 bytes, and get, orient, nav, actions, schema and cells answer byte-identically -- a reference scheme is in neither ui:groups nor orient`s nine populations. What moves on the served surface is a GET addressed at the scheme fact type itself: rows and no violations where there were no rows and two violations.",
+
+DEF("system:cellrows",
+    S3(A("COMP"), S4(A("COND"), A("atom"), K(PHI()), S3(A("WHILE"), S4(A("COND"), S3(A("COMP"), A("null"), A("id")), K(A("F")), S3(A("COMP"), A("not"), S3(A("COMP"), A("atom"), S3(A("COMP"), N(1), N(1))))), A("theta:flatten"))), A("ast:fetch"))),
+
+DEF("system:ft_players",
+    S4(A("COND"), S3(A("COMP"), A("not"), S3(A("COMP"), A("null"), S3(A("COMP"), A("solve:assoc"), S3(A("CONS"), N(1), S3(A("COMP"), A("system:cellrows"), S3(A("CONS"), K(A("state:declared")), N(2))))))), S3(A("COMP"), A("solve:assoc"), S3(A("CONS"), N(1), S3(A("COMP"), A("system:cellrows"), S3(A("CONS"), K(A("state:declared")), N(2))))), S3(A("COMP"), A("solve:assoc"), S3(A("CONS"), N(1), S3(A("COMP"), A("system:cellrows"), S3(A("CONS"), K(A("state:schemereadings")), N(2))))))),
+
+DEF("system:pid_over",
+    S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("solve:assoc"), S3(A("CONS"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S4(A("CONS"), K(A("UC:ip:")), N(1), K(A("#2"))))), S3(A("COMP"), A("system:cellrows"), S3(A("CONS"), K(A("state:ucs")), N(2)))))), K(A("F")), K(A("T")))),
+
+DEF("system:refscheme_ent",
+    S4(A("COND"), S3(A("COMP"), A("not"), A("system:pid_over")), K(A("")), S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("not"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("length"), N(1)), K(N(2))))), K(A("")), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("cn:rmvt"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), A("system:cellrows"), S3(A("CONS"), K(A("state:refmodes")), S3(A("COMP"), N(2), N(2)))))), S3(A("COMP"), N(2), N(1)))), S3(A("COMP"), N(1), N(1)), K(A("")))), S3(A("CONS"), A("system:ft_players"), A("id"))))),
+
+DEF("system:refscheme_pop",
+    S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("")))), K(PHI()), S4(A("COMP"), S2(A("ALPHA"), S3(A("CONS"), A("id"), A("id"))), A("ui:ids"), S3(A("CONS"), S3(A("COMP"), N(2), N(2)), N(1)))), S3(A("CONS"), A("system:refscheme_ent"), A("id")))),
+
 DEF("system:pop_rows",
-    S3(A("COMP"),
-       S4(A("COND"),
-          S3(A("COMP"), A("eq"),
-             S3(A("CONS"), A("id"), S2(A("CONST"), A("#")))),
-          S2(A("CONST"), PHI()),
-          A("id")),
-       A("system:pop_in"))),
+    S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("#")))), S3(A("COMP"), A("system:refscheme_pop"), N(2)), S4(A("COND"), S3(A("COMP"), A("null"), N(1)), S3(A("COMP"), A("system:refscheme_pop"), N(2)), N(1))), S3(A("CONS"), A("system:pop_in"), A("id")))),
 
 DEF("system:keep_first",
     S4(A("COMP"), A("reverse"), A("theta:dedup"), A("reverse"))),
