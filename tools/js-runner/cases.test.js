@@ -561,52 +561,99 @@ test("orient's three legs each do something: reach, restriction, terminal", () =
   expect(orientRows(SYNTHETIC, "no-such-domain")).toEqual([]);
 });
 
-// ---- IS A store.db A PROJECTION OF *THIS* MODULE? --------------------------
+// ---- DOES A store.db HOLD THE SCHEMA IT IS READ THROUGH? -------------------
 //
-// tools/compile-store.js projects the booted populations into store.db and the
-// host boots serve and mcp from it, so the database is a projection of ONE
-// composition's canon and carriers. Nothing said which. Measured 2026-09-11:
-// the base store.db of 09-08 booted into the current module and `schema` threw
-// `selector 2 out of range 1` from inside the answer; a database rebuilt from
-// the same module answered byte-identically to a carriers boot. The stale one
-// differed only in lacking four fact types that had since become populated, so
-// no comparison of _meta against the module's own descriptors could have caught
-// it -- most declared fact types are unpopulated and have no table either.
+// compile.js projects the booted populations into store.db and the host boots
+// serve and mcp from it, so a database that lacks a table the host selects from
+// is the wrong store. Measured 2026-09-11: the base store.db of 09-08 booted
+// into the current module and `schema` threw `selector 2 out of range 1` from
+// inside the answer; it differed from a rebuilt one only in lacking four fact
+// types' tables, and loadStoreDb's read loop skipped each one in silence.
 //
-// The test writes its own three databases rather than reading whatever store.db
-// is on disk: an artifact-shaped test skips when the artifact is missing, which
-// is a pass that answers nothing. These three are the whole rule.
-test("a store.db from another composition is refused rather than loaded", () => {
+// WHAT STOOD HERE HELD THE STORE TO THE COMPOSITION STAMP instead -- sixteen hex
+// digits over the whole canon file and the carriers -- and measured 2026-09-21
+// that is both too strong and too weak. TOO STRONG: three canon commits that
+// moved no table (reflect:src_*, rmap:unproj_owner deleted from the read side,
+// the judge's DEFs) invalidated every app's store, five were down at once, and
+// support's re-read is ten minutes. TOO WEAK: a database carrying THIS module's
+// stamp and NO TABLES AT ALL loaded in 23 ms without a word -- the 09-11 failure
+// exactly, which the stamp was introduced to catch and never did.
+//
+// The four databases below are the whole rule, and the test writes them rather
+// than reading whatever store.db is on disk: an artifact-shaped test skips when
+// the artifact is missing, which is a pass that answers nothing. makeTables is
+// the fixture the durability tests use, a few lines down, and it is rmap:ddl --
+// so a store built with it holds exactly the schema the module reads.
+test("a store.db is held to the schema it is read through, not to the composition it was built from", () => {
   const stamp = globalThis.AREST.composition;
   expect(stamp).toMatch(/^[0-9a-f]{16}$/);
+  const dir = mkdtempSync(join(tmpdir(), "arest-fit-"));
 
-  const make = (hash) => {
-    const p = join(tmpdir(), "arest-stamp-" + Math.random().toString(36).slice(2) + ".db");
+  // THE COLUMN IS TAKEN FROM THE SCHEMA, NOT NAMED HERE: what must be missed is
+  // a column the module is about to select. Not every column can be missed --
+  // sqlite refuses to drop a primary key or an indexed one -- so the drop is
+  // tried here, on a database that is thrown away, and the first that works is
+  // the one the fixture below leaves out.
+  let table = "", col = "";
+  {
+    const db = new Database(join(dir, "pick.db"));
+    makeTables(db);
+    for (const t of Ev("rmap:coltabs", CELLS)) {
+      const name = String(t[0]);
+      const named = new Set(Ev("rmap:proj_colnames", [name, CELLS]).map(String));
+      for (const c of db.query('pragma table_info("' + name + '")').all().reverse()) {
+        if (c.pk || !named.has(String(c.name))) continue;
+        try { db.run('alter table "' + name + '" drop column "' + String(c.name) + '"'); }
+        catch { continue; }                     // keyed, indexed or constrained: some other column
+        table = name; col = String(c.name);
+        break;
+      }
+      if (col) break;
+    }
+    db.close();
+  }
+  expect(col).not.toBe("");
+
+  const make = (name, hash, how) => {
+    const p = join(dir, name + ".db");
     const db = new Database(p);
-    db.run("create table _meta (ft text, kind text, tbl text, arity int)");
+    if (how === "bare") db.run("create table _meta (ft text, kind text, tbl text, arity int)");
+    else makeTables(db);
+    if (how === "short") db.run('alter table "' + table + '" drop column "' + col + '"');
     if (hash !== null) {
-      db.run("create table _composition (hash text)");
-      db.prepare("insert into _composition values(?)").run(hash);
+      db.run("create table _composition (hash text, schema text)");
+      db.prepare("insert into _composition values(?,?)").run(hash, "0000000000000000");
     }
     db.run("pragma wal_checkpoint(TRUNCATE)");
     db.close();
     return p;
   };
 
-  const mine = make(stamp), other = make("0000deadbeef0000"), unstamped = make(null);
   try {
-    // this module's own stamp loads; _meta is empty, so it reconstructs no cell
-    // and the store it was asked about is unchanged
+    // THE SCHEMA FITS, SO THE STORE LOADS -- whatever composition wrote it, and
+    // whether or not it says which. Both are empty, so they reconstruct no cell
+    // and the store they were asked about is unchanged.
     const before = CELLS.length;
-    globalThis.AREST.loadStoreDb(mine);
+    globalThis.AREST.loadStoreDb(make("other", "0000deadbeef0000"));
+    globalThis.AREST.loadStoreDb(make("unstamped", null));
     expect(CELLS.length).toBe(before);
-    // any other answer is a refusal, and the ABSENCE of an answer is one too:
-    // a database written before the stamp existed cannot be shown to match, and
-    // falling back to the carriers would silently drop every write living in it
-    expect(() => globalThis.AREST.loadStoreDb(other)).toThrow(/was built from composition 0000deadbeef0000/);
-    expect(() => globalThis.AREST.loadStoreDb(unstamped)).toThrow(/predates the stamp/);
+
+    // ONE COLUMN SHORT IS A REFUSAL, AND IT NAMES THE COLUMN. This module's own
+    // stamp is on it, which at HEAD was enough to load it and read that table
+    // as empty.
+    let short = "";
+    try { globalThis.AREST.loadStoreDb(make("short", stamp, "short")); } catch (e) { short = e.message; }
+    expect(short).toContain(table);
+    expect(short).toContain(col);
+    expect(short).toContain("apps_check");
+
+    // AND NO TABLES AT ALL IS THE 09-11 STORE, named table by table.
+    let bare = "";
+    try { globalThis.AREST.loadStoreDb(make("bare", stamp, "bare")); } catch (e) { bare = e.message; }
+    expect(bare).toContain("no such table");
+    expect(bare).toContain("apps_check");
   } finally {
-    for (const p of [mine, other, unstamped]) try { unlinkSync(p); } catch { /* left behind */ }
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
   }
 });
 
