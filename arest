@@ -12711,7 +12711,8 @@ DEF("solve:rulenames",
     S3(A("COMP"), A("cat"), S3(A("CONS"), S2(A("ALPHA"), N(1)), S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), A("atom"), S2(A("CONS"), A("id")), A("id"))), N(3))))))),
 
 DEF("solve:declared",
-    S4(A("COMP"), A("theta:flatten"), A("solve:cell"), S3(A("CONS"), K(A("state:declared")), A("id")))),
+    S4(A("COMP"), A("rmap:unfold4"), A("solve:cell"), S3(A("CONS"), K(A("state:declared")), A("id")))),
+"solve:declared UNFOLDS BY SHAPE (2026-09-21). It flattened exactly once, which is the carrier`s nine-wide chunking restated: a module holds state:declared as chunks of rows and one flatten is the rows, but the compiler holds the same cell flat, and one flatten of the base`s 262 rows is 524 elements, 262 of them bare fact type names -- so the first time rmap:proj_rows was asked inside compile.js (6f29871f`s projection, with AREST_DB set) rmap:proj_declared`s solve:assoc threw `selector 1 on atom: DomainHasDescription`. rmap:unfold4 flattens while the first element`s first is a sequence, answers the 262 rows over both shapes (measured equal to system:cellrows over the flat cell and to the old single flatten over the chunked one), and is what reflect:surface already unfolds with. compile.js`s note counts forty-seven single-flatten readers of the design state: this was the one on the store`s path.",
 
 DEF("solve:apptypes",
     S6(A("COMP"), A("theta:dedup"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("read:memberw"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), N(1))), S3(A("COMP"), N(2), N(2)), K(PHI()))), A("distl"), S3(A("CONS"), S3(A("COMP"), A("solve:rulenames"), A("solve:rules")), A("solve:declared")))),
