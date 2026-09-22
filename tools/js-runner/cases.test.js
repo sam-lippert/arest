@@ -1340,7 +1340,10 @@ test("a retract keyed by the entity's id alone removes every fact of it; a full-
   // the body says what went, as <fact type, rows> pairs
   const body = JSON.parse(String(gone[0]));
   expect(body[0]).toBe("committed");
-  expect(body[1].map((p) => p[0]).sort()).toEqual(["FunctionHasDefinitionOrigin", "ObjectTypeInstanceHasReference", "ObjectTypeInstanceIsInstanceOfObjectType"]);
+  // FunctionBelongsToDomain is the fourth since the reflection files an
+  // instance under its most specific type's domain: the entity carries a
+  // membership row, and retracting the entity takes it with the rest.
+  expect(body[1].map((p) => p[0]).sort()).toEqual(["FunctionBelongsToDomain", "FunctionHasDefinitionOrigin", "ObjectTypeInstanceHasReference", "ObjectTypeInstanceIsInstanceOfObjectType"]);
   // every other row of the population is kept
   expect(Ev("system:pop_rows", ["FunctionHasDefinitionOrigin", S2]).length).toBe(Ev("system:pop_rows", ["FunctionHasDefinitionOrigin", S1]).length - 1);
   // and the served route is the same operation: main answers a claim and the store
@@ -3539,4 +3542,61 @@ test("every fact type and role a reflected link names is an instance of its obje
   // the cell is still the union, so what the build filed and the reflection
   // does not answer is still there
   expect(rows("ObjectTypeInstanceIsInstanceOfObjectType").some(([, ot]) => ot === "Subtype Fact")).toBe(true);
+}, 120_000);
+
+// ---- AN INSTANCE BELONGS TO THE DOMAIN ITS TYPE BELONGS TO -----------------
+//
+// (task #122 item 15, 2026-09-22.) Sam: "Why would we have anything being
+// created without a domain, though? Is core missing a domain?" -- and, on what
+// belongs, "Both? Nouns and fact types may define tables and columns." Every
+// create of a Function-typed entity answered 200 committed_with_violations
+// with the deontic `Each Function belongs to some Domain` naming the new id
+// unless the row carried a Domain, which most rows in most apps never do. The
+// type had a domain all along (Stream is state.md's); the reflection that
+// answers `Function belongs to Domain` gave an instance a domain only through
+// a type with no subtypes, gave a role none at all, and was not consulted by
+// the create, which validated over a trial store carrying the boot's cell.
+// Measured at 8f1ef6ea over the carriers boot: the POST below answered 200
+// with ["FunctionBelongsToDomain","deontic",<id>] in its deontic slot, and
+// the population had no row for DomainHasDescription.1 (a role), FactJoinsFact
+// (a fact type off the served surface) or Applied (a Status, whose type has a
+// subtype). The membership is by the most specific type, a fact type's by its
+// first player, a role's by its fact type; the account is at
+// reflect:fbd_type_dom in canon.
+test("an instance created with no Domain belongs to its type's, and a reflected role to its fact type's", () => {
+  const flat = (v) => { let x = v; while (Array.isArray(x)) x = x.length ? x[0] : null; return String(x); };
+  const dom = (id, cells) => {
+    const hit = Ev("system:pop_rows", ["FunctionBelongsToDomain", cells]).find((r) => flat(r[0]) === id);
+    return hit ? flat(hit[1]) : null;
+  };
+  // the reflected extents over the carriers boot: a role takes its fact type's
+  // domain, a fact type its first player's wherever it is on the surface, an
+  // instance its most specific type's
+  expect(dom("DomainHasDescription.1", CELLS)).toBe("core");
+  expect(dom("FactJoinsFact", CELLS)).toBe("instances");
+  expect(dom("Applied", CELLS)).toBe("state");
+  // a type whose file declares a domain gives its instances that domain:
+  // resolution.md declares `resolution` first, before its twelve catalog
+  // rows, and the reader takes the first Domain sentence in file order as
+  // the file's, so its Operations are resolution's
+  expect(dom("actions", CELLS)).toBe("resolution");
+  // and a type in no file's declared list still has no domain, so the
+  // deontic still names what follows it rather than a domain guessed from an
+  // ancestor: Ring Constraint is declared only as `* Each Ring Constraint is
+  // a Constraint that ...` (core.md:166), which the reader keeps as a subtype
+  // fact marked `subtype` in state:derived while compile:rows_types lists a
+  // name from a type row or an `is a subtype of` row only -- so the subtype
+  // fact's first player resolves to nothing, and the fact is nobody's
+  expect(dom("RingConstraintIsASubtypeOfConstraint", CELLS)).toBeNull();
+  // the create: Stream is state.md's, the row carries no Domain, and the
+  // answer is committed with no warning -- from the trial store the check
+  // reads, before any host reflection -- with the membership in the store it
+  // answers
+  const KEY = "probe-domain-" + Math.random().toString(36).slice(2, 8);
+  const out = Ev("main:api", [CELLS, "POST", "StreamHasName", "", [KEY, "probe-name"]]);
+  expect(Number(out[1])).toBe(201);
+  const body = JSON.parse(String(out[0]));
+  expect(body[0]).toBe("committed");
+  expect(body[3].filter((v) => String(v[0]) === "FunctionBelongsToDomain")).toEqual([]);
+  expect(dom(KEY, out[2])).toBe("state");
 }, 120_000);
