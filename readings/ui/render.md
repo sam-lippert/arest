@@ -266,7 +266,11 @@ It is obligatory that each Frame has some Frame Index.
 
 ## Instance Facts
 
-Domain 'ui' has Description 'Render substrate — Display, Surface, and Frame as FORML 2 facts. The kernel framebuffer driver, virtio-gpu scanout, and future multi-output targets all populate the same entity types; the MonoView regions defined in #457 project content into Surfaces without restating any geometry here.'.
+<!-- This file's part of the domain: Render substrate — Display, Surface, and Frame as FORML 2 facts. The kernel framebuffer driver, virtio-gpu scanout, and future multi-output targets all populate the same entity types; the MonoView regions defined in #457 project content into Surfaces without restating any geometry here.
+     The sentence below is readings/ui/ui.md:403 repeated verbatim.
+     core.md:220 makes Description functional, so a domain carries ONE
+     text and an identical sentence is the identical fact. -->
+Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and controls. Custom renderers registered per platform via the factory pattern.'.
 
 ### Pixel Format catalog
 

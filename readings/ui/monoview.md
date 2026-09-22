@@ -236,7 +236,11 @@ It is obligatory that each Interaction Mode has some minimum Hit Target Size.
 
 ## Instance Facts
 
-Domain 'ui' has Description 'MonoView surface — the per-app render surface as FORML 2 facts. Pane mode, regions, transitions, density, interaction, surfaces, and accessibility are all readings so derivations + validation + MCP introspection apply uniformly.'.
+<!-- This file's part of the domain: MonoView surface — the per-app render surface as FORML 2 facts. Pane mode, regions, transitions, density, interaction, surfaces, and accessibility are all readings so derivations + validation + MCP introspection apply uniformly.
+     The sentence below is readings/ui/ui.md:403 repeated verbatim.
+     core.md:220 makes Description functional, so a domain carries ONE
+     text and an identical sentence is the identical fact. -->
+Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and controls. Custom renderers registered per platform via the factory pattern.'.
 
 ### Density / Interaction defaults
 

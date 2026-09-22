@@ -35,6 +35,12 @@ promoted to the framework proper 2026-06-10 (user directive).
 
 ## Instance Facts
 
+<!-- This file's part of the domain: Halpin's Conceptual Schema Design Procedure (7 steps) as an executable state machine: how a schema comes to BE, the complement of the Domain Change state machine's how it CHANGES -- the two halves of the self-modification machinery.
+     The sentence below is metamodel/evolution.md:387 repeated verbatim.
+     core.md:220 makes Description functional, so a domain carries ONE
+     text and an identical sentence is the identical fact. -->
+Domain 'evolution' has Description 'Self-modification as a Domain Change state machine. Proposing a new fact type is proposing a theorem (Curry-Howard). CSDP validation is the proof check, successful ingestion is the proof.'.
+
 Object Type 'Design Note' has Format 'text'.
   <!-- Widget opt-in (pb-zero-glue-acceptance): the §4.2 view rules
        key widgets off the value type's Format; until the CDT→Format

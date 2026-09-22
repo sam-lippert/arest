@@ -26,6 +26,14 @@
 > (command::crudl_menu_operations) projects `authorized` ∩ applies-in-context and
 > then decorates each surviving Operation with the iFactr metadata below.
 
+## Domain Metadata
+
+<!-- This file's part of the domain: The iFactr ActionType decoration over the access-control Operation: per-CRUDL-verb Action Type, Control Kind and Request Type. Decoration only -- Operation and its View Context substrate live in access.md.
+     The sentence below is readings/ui/ui.md:403 repeated verbatim.
+     core.md:220 makes Description functional, so a domain carries ONE
+     text and an identical sentence is the identical fact. -->
+Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and controls. Custom renderers registered per platform via the factory pattern.'.
+
 ## Value Types
 
 iFactr Action Type is a value type.

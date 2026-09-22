@@ -571,7 +571,11 @@ It is obligatory that each Toolkit has some Toolkit Version.
 
 ## Instance Facts
 
-Domain 'ui' has Description 'Component registry — UI widgets across Slint, Qt 6, GTK 4, and Web Components as FORML 2 facts. Apps compose by Component Role; the metamodel selects per-toolkit implementations against MonoView constraints (#457a) and design tokens (#432). Substrate for #486-#494.'.
+<!-- This file's part of the domain: Component registry — UI widgets across Slint, Qt 6, GTK 4, and Web Components as FORML 2 facts. Apps compose by Component Role; the metamodel selects per-toolkit implementations against MonoView constraints (#457a) and design tokens (#432). Substrate for #486-#494.
+     The sentence below is readings/ui/ui.md:403 repeated verbatim.
+     core.md:220 makes Description functional, so a domain carries ONE
+     text and an identical sentence is the identical fact. -->
+Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and controls. Custom renderers registered per platform via the factory pattern.'.
 
 ### Toolkits
 

@@ -164,7 +164,11 @@ It is obligatory that each Material List Item Size has some Dp as row height.
 
 ## Instance Facts
 
-Domain 'ui' has Description 'iFactr.Android + Material Design layout grammar — view-type to widget mappings, Roboto type scale, spacing grid, elevation ladder, touch targets, list-item heights, and pane weights as instance facts so no renderer hard-codes geometry.'.
+<!-- This file's part of the domain: iFactr.Android + Material Design layout grammar — view-type to widget mappings, Roboto type scale, spacing grid, elevation ladder, touch targets, list-item heights, and pane weights as instance facts so no renderer hard-codes geometry.
+     The sentence below is readings/ui/ui.md:403 repeated verbatim.
+     core.md:220 makes Description functional, so a domain carries ONE
+     text and an identical sentence is the identical fact. -->
+Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and controls. Custom renderers registered per platform via the factory pattern.'.
 
 ### Android View Type to Widget mappings
 ### Source: DroidFactory.cs OnSetDefinitions() Register<T>(typeof(Impl))
