@@ -1,0 +1,17 @@
+{
+  "name": "arest-mcp-registry",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The MCP router's own store: which apps it serves, where each package is, and whether to start it. Compiled like any app -- compile.js over the metamodel and these readings -- and read by the daemon's start with bun:sqlite, one select over the App table. There is no `mcp` script: nothing calls a verb on the registry, so it composes no module and starts no server. The check removes store.db before rebuilding it, because nothing writes this store at runtime and a row the readings no longer assert is a deletion rather than a runtime write -- readings/apps.md says why in full.",
+  "kind": "app",
+  "scripts": {
+    "check": "mkdir -p .check && rm -f .check/store.db && AREST_OUT_DIR=$PWD/.check AREST_DB=$PWD/.check/store.db bun ../compile.js ../../../metamodel readings"
+  },
+  "keywords": [
+    "arest",
+    "forml2",
+    "mcp",
+    "registry"
+  ],
+  "license": "MIT"
+}
