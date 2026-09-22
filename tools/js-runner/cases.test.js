@@ -3118,6 +3118,74 @@ test("llm:validate_judge's verdict lands as a Violation row, stamped by the regi
     adoptStore(keep);
   }
 }, 120_000);
+// ---- A RECORDED VIOLATION IS A VERDICT (#122 item 7, the read half) ------
+//
+// The landing half writes a judge's verdict as a Violation -- is of
+// Constraint, is triggered by Object Type Instance, has Severity, has Text,
+// occurred at Timestamp -- and nothing read one back. Measured at HEAD with
+// that row in the store: ui:violations answered its 152 rows unchanged and
+// not one of them the constraint's, synth:awaiting still named the
+// constraint, and synthesize still counted it unchecked. cmd:rec_viols is
+// the violation-list's fourth arm: one row <the Constraint, the family, the
+// instance> per recorded Violation, exactly the shape cmd:dv_prohib emits,
+// so a consumer cannot tell a judged verdict from a computed one except by
+// what stands in slot 1. The family is judge:severity read backwards --
+// warning is deontic, anything else alethic, which is the word the commit
+// gate refuses on.
+test("a recorded Violation is a verdict, and its constraint is checked rather than awaiting", () => {
+  const { adoptStore } = globalThis.AREST;
+  const keep = CELLS.slice();
+  const DEO = String(Ev("system:pop_rows", ["ConstraintHasModalityOfModalityType", CELLS]).find((r) => String(r[1]) === "Deontic")[0]);
+  const INST = "msg-1";
+  const VID = "Violation:ViolationIsOfConstraint=" + DEO + "|ViolationIsTriggeredByObjectTypeInstance=" + INST;
+  const AT = "2026-09-21T00:00:00.000Z";
+  const shown = (v) => v.map((r) => (Array.isArray(r) ? r.map(String) : String(r)));
+  const put = (pairs) => adoptStore(pairs.map(([ft, r]) => ["CELL", ft, r]).concat(CELLS));
+  try {
+    // a deontic constraint of the base that awaits a decider, as support's twelve do
+    put([["ConstraintAwaitsADecider", [[DEO]]]]);
+    expect(shown(Ev("synth:awaiting", CELLS))).toEqual([DEO]);
+    const before = Ev("ui:violations", CELLS);
+    expect(before.filter((r) => String(r[0]) === DEO)).toEqual([]);
+    expect(shown(Ev("synthesize", [DEO, CELLS])[2])).toContain(DEO);
+
+    // the verdict a judge recorded: the five rows the landing half writes
+    put([["ViolationIsOfConstraint", [[VID, DEO]]],
+      ["ViolationIsTriggeredByObjectTypeInstance", [[VID, INST]]],
+      ["ViolationHasSeverity", [[VID, "warning"]]],
+      ["ViolationHasText", [[VID, "It tells the customer arbitration is mandatory."]]],
+      ["ViolationOccurredAtTimestamp", [[VID, AT]]]]);
+
+    // it is a row of the violation-list now, in a computed deontic row's shape
+    const after = Ev("ui:violations", CELLS);
+    expect(shown(after).filter((r) => r[0] === DEO)).toEqual([[DEO, "deontic", INST]]);
+    expect(after.length).toBe(before.length + 1);
+    expect(shown(Ev("cmd:rec_viols", CELLS))).toEqual([[DEO, "deontic", INST]]);
+    // a warning is deontic, so the commit gate warns and does not refuse
+    expect(shown(Ev("main:deontic_of", after)).filter((r) => r[0] === DEO)).toEqual([[DEO, "deontic", INST]]);
+    expect(Ev("main:alethic_of", after).filter((r) => String(r[0]) === DEO)).toEqual([]);
+
+    // and the constraint is CHECKED, not awaiting
+    const sy = Ev("synthesize", [DEO, CELLS]);
+    expect(shown(sy[1]).filter((r) => r[0] === DEO)).toEqual([[DEO, "deontic", INST]]);
+    expect(shown(sy[2])).not.toContain(DEO);
+    expect(Ev("synth:awaiting", CELLS)).toEqual([]);
+
+    // the Severity is the family read backwards: error is no deontic verdict,
+    // and alethic is what the gate refuses on
+    put([["ViolationHasSeverity", [[VID, "error"]]]]);
+    expect(shown(Ev("cmd:rec_viols", CELLS))).toEqual([[DEO, "alethic", INST]]);
+    expect(shown(Ev("main:alethic_of", Ev("ui:violations", CELLS))).filter((r) => r[0] === DEO)).toEqual([[DEO, "alethic", INST]]);
+
+    // a Violation naming no offender is no verdict, and neither is one of no Constraint
+    put([["ViolationHasSeverity", [[VID, "warning"]]], ["ViolationIsTriggeredByObjectTypeInstance", []]]);
+    expect(Ev("cmd:rec_viols", CELLS)).toEqual([]);
+    put([["ViolationIsTriggeredByObjectTypeInstance", [[VID, INST]]], ["ViolationIsOfConstraint", []]]);
+    expect(Ev("cmd:rec_viols", CELLS)).toEqual([]);
+  } finally {
+    adoptStore(keep);
+  }
+}, 120_000);
 // ---- A REFLECTED POPULATION KEEPS THE ROWS THE STORE ASSERTS (#122 item 1) ----
 //
 // loadReflected installs canon's reflection as the cell of that name, and the
