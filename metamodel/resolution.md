@@ -258,6 +258,50 @@ Function 'retract' yields Type Expression 'outcome-and-store'.
      canon's own compile, and design-state moved by exactly the six facts
      of that regeneration (these two and llm:validate_judge's four below),
      623,291 -> 623,715 bytes, `compiled` by its stamp alone. -->
+<!-- AND THE KEY ALONE RETRACTS THE ENTITY (2026-09-21, #122 item 9's
+     follow-up, item 8's closure). The row-and-cells shape is unchanged and
+     now admits a second row: one pair, the collection's key. It retracts the
+     entity -- every row of every declared fact type in which the id fills an
+     entity-typed role (state:declared's players against
+     ObjectTypeIsOfObjectKind, the two cells main:cr_pairs registers an
+     instance by, read the other way), the id out of state:otpops in the same
+     step, one closure and one Theorem 1 check -- and the body's rows are the
+     facts removed, as <fact type, rows> pairs. main:api0 routes DELETE at a
+     collection (a word in ui:groups, the POST arm's own test) to
+     main:retract_entity_step, so DELETE /Function/<id> and the tool call are
+     one operation, as create's POST and replace's PUT are. The one-fact row
+     is byte-for-byte what it was.
+
+     MEASURED 2026-09-21 on the base store booted by the test module, before:
+     retract {Function: id} answered 400 `a retract removes one fact` on the
+     served route and the direct one; a single-fact retract left the id
+     registered (ObjectTypeInstanceIsInstanceOfObjectType kept its row, ui:ids
+     listed it); DELETE /Function/<id>/extra answered 201 committed and
+     changed nothing. After: create <Function id, FunctionHasDefinitionOrigin
+     compiled> then retract {Function: id} answers 201 committed in 239 ms,
+     the body naming FunctionHasDefinitionOrigin,
+     ObjectTypeInstanceIsInstanceOfObjectType and ObjectTypeInstanceHasReference
+     with the one row of each, ui:ids Function shorter by one, every other row
+     kept; the same over main answers T and the store; an id that is nobody's
+     answers 201 and no rows (case:retract-absent's no-op); a row with two
+     fact types and DELETE /Function/<id>/extra answer 400; an entity whose id
+     another entity carries as a Name keeps that Name when it goes. The
+     wholesale rewrite emitToDb makes rewrites 2 tables, 2,579 rows
+     (ObjectTypeInstanceIsInstanceOfObjectType 1,446, Function 1,133) where a
+     single-fact retract rewrites Function's 1,134; no id-keyed SQL delete is
+     needed, the write is the population re-projected as every write is.
+
+     NOT A CASCADE, because the readings do not say one: instances.md says
+     what an instance is and nothing ties a bound child's life to its
+     parent's. On the Ticket store (engine/shared/scenarios.canon
+     fixture:bind-store) retracting t1 by key removes `Ticket has Note` and
+     answers 201; the Note keeps its Body and Stamp and retracts by its own
+     content-spelled key. A child whose role toward the parent an app's
+     readings make alethically mandatory is what makes Theorem 1 refuse the
+     parent's retract, naming that role. A store that does not declare the two
+     instance fact types keeps the top-level cells ui:instance_facts wrote by
+     name (the Ticket store does); the base and every app store declare them,
+     and there they go with the rest. -->
 <!-- AND THE ONE THAT ASKS (Samuel, 2026-09-17: "what the MCP needs is a way of
      asking you to do something"). The comment above `Operation awaits a driver`
      has said since 2026-09-14 that these seams "have to be driven manually by an

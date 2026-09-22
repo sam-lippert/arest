@@ -962,6 +962,105 @@ function arityMismatches(text) {
   return out;
 }
 
+// ---- A RETRACT KEYED BY THE ENTITY'S ID ALONE REMOVES THE ENTITY ------------
+//
+// A bound child's id is its content spelled (main:bd_id), so correcting a
+// Message body is a different child and the old one has to be retracted; and
+// retract took the fact WITH its current value, which the caller correcting it
+// is exactly the caller who does not have. Measured 2026-09-21 on the base
+// store before the fix: retract of {Function: id} answered 400 `a retract
+// removes one fact`, on the served route and the direct one, and a single-fact
+// retract left the id registered -- ObjectTypeInstanceIsInstanceOfObjectType
+// kept its row and ui:ids still listed it. A row carrying the key alone now
+// retracts the entity: every row of every declared fact type in which the id
+// fills an entity-typed role (state:declared's players against
+// ObjectTypeIsOfObjectKind, the two cells main:cr_pairs registers an instance
+// by), the id out of state:otpops in the same step, one closure, one Theorem 1
+// check; the body's rows are the facts removed. The single-fact retract is
+// untouched, and the two shapes are the only two.
+test("a retract keyed by the entity's id alone removes every fact of it; a full-row retract is unchanged", () => {
+  const ID = "probe:retract-by-id-" + Math.random().toString(36).slice(2, 8);
+  const row = [["Function", ID], ["FunctionHasDefinitionOrigin", "compiled"]];
+  const has = (ft, store) => Ev("system:pop_rows", [ft, store]).some((r) => String(r[0]) === ID);
+  const listed = (store) => Ev("ui:ids", [store, "Function"]).some((i) => String(i) === ID);
+  const made = Ev("create", [row, CELLS]);
+  expect(Number(made[1])).toBeLessThan(400);   // 200: the deontic FunctionBelongsToDomain, as in the write test above
+  const S1 = made[2];
+  expect(has("FunctionHasDefinitionOrigin", S1)).toBe(true);
+  expect(has("ObjectTypeInstanceIsInstanceOfObjectType", S1)).toBe(true);
+  expect(listed(S1)).toBe(true);
+  const before = Ev("ui:ids", [S1, "Function"]).length;
+
+  // by key alone: the entity's own fact, its two instance facts and its registration go
+  const gone = Ev("retract", [[["Function", ID]], S1]);
+  expect(Number(gone[1])).toBe(201);
+  const S2 = gone[2];
+  expect(has("FunctionHasDefinitionOrigin", S2)).toBe(false);
+  expect(has("ObjectTypeInstanceIsInstanceOfObjectType", S2)).toBe(false);
+  expect(has("ObjectTypeInstanceHasReference", S2)).toBe(false);
+  expect(listed(S2)).toBe(false);
+  expect(Ev("ui:ids", [S2, "Function"]).length).toBe(before - 1);
+  // the body says what went, as <fact type, rows> pairs
+  const body = JSON.parse(String(gone[0]));
+  expect(body[0]).toBe("committed");
+  expect(body[1].map((p) => p[0]).sort()).toEqual(["FunctionHasDefinitionOrigin", "ObjectTypeInstanceHasReference", "ObjectTypeInstanceIsInstanceOfObjectType"]);
+  // every other row of the population is kept
+  expect(Ev("system:pop_rows", ["FunctionHasDefinitionOrigin", S2]).length).toBe(Ev("system:pop_rows", ["FunctionHasDefinitionOrigin", S1]).length - 1);
+  // and the served route is the same operation: main answers a claim and the store
+  const served = Ev("main", [S1, ["retract", [["Function", ID]]]]);
+  expect(String(served[1])).toBe("T");
+  expect(has("FunctionHasDefinitionOrigin", served[2])).toBe(false);
+
+  // a full-row retract is what it was: 201, the one fact gone, the instance still registered
+  const one = Ev("retract", [row, S1]);
+  expect(Number(one[1])).toBe(201);
+  expect(has("FunctionHasDefinitionOrigin", one[2])).toBe(false);
+  expect(has("ObjectTypeInstanceIsInstanceOfObjectType", one[2])).toBe(true);
+  expect(listed(one[2])).toBe(true);
+  // an id that is nobody's is case:retract-absent's no-op, and the two shapes are the only two
+  const nobody = Ev("retract", [[["Function", "probe:nobody"]], S1]);
+  expect(Number(nobody[1])).toBe(201);
+  expect(JSON.parse(String(nobody[0]))[1]).toEqual([]);
+  expect(Number(Ev("retract", [[["Function", ID], ["FunctionHasDefinitionOrigin", "compiled"], ["FunctionHasName", "x"]], S1])[1])).toBe(400);
+  expect(Number(Ev("main:api", [S1, "DELETE", "Function", "", [ID, "extra"]])[1])).toBe(400);
+}, 60_000);
+
+// AND A VALUE THAT SPELLS THE SAME ATOM IS NOT THE ENTITY. Function(.id) is one
+// id space, so an atom in an entity-typed role IS the entity; the same atom in
+// a value-typed role is a value. Retracting the entity leaves the value alone.
+test("a retract by key leaves a value-typed role that spells the same atom alone", () => {
+  const V = "probe:samename-" + Math.random().toString(36).slice(2, 8);
+  const S1 = Ev("create", [[["Function", V], ["FunctionHasDefinitionOrigin", "compiled"]], CELLS])[2];
+  const S2 = Ev("create", [[["Function", V + "-2"], ["FunctionHasName", V]], S1])[2];
+  const gone = Ev("retract", [[["Function", V]], S2]);
+  expect(Number(gone[1])).toBe(201);
+  expect(Ev("system:pop_rows", ["FunctionHasName", gone[2]]).some((r) => String(r[0]) === V + "-2" && String(r[1]) === V)).toBe(true);
+  expect(Ev("system:pop_rows", ["FunctionHasDefinitionOrigin", gone[2]]).some((r) => String(r[0]) === V)).toBe(false);
+  expect(Ev("ui:ids", [gone[2], "Function"]).some((i) => String(i) === V)).toBe(false);
+}, 60_000);
+
+// AND THE PARENT'S RETRACT DOES NOT CASCADE TO ITS BOUND CHILD: the readings
+// (metamodel/instances.md) say what an instance is and nothing ties a child's
+// life to its parent's. `Ticket has Note` is the Ticket's fact and goes; the
+// Note's own facts are the Note's and stay, and the Note retracts by its own
+// key -- the content-spelled id -- like any entity.
+test("retracting a parent by key removes its facts and not its bound child's", () => {
+  const F0 = Ev("fixture:bind-store", []);
+  const F1 = Ev("main:api", [F0, "POST", "Ticket", "", [["Ticket", "t1"], ["TicketHasNote", [[["NoteHasBody", "hi"], ["NoteHasStamp", "T1"]]]]]])[2];
+  const CHILD = "Note:NoteHasBody=hi|NoteHasStamp=T1";
+  const parent = Ev("retract", [[["Ticket", "t1"]], F1]);
+  expect(Number(parent[1])).toBe(201);
+  expect(JSON.parse(String(parent[0]))[1]).toEqual([["TicketHasNote", [["t1", CHILD]]]]);
+  const F2 = parent[2];
+  expect(Ev("system:pop_rows", ["NoteHasBody", F2])).toEqual([[CHILD, "hi"]]);
+  expect(Ev("ui:ids", [F2, "Ticket"])).toEqual([]);
+  expect(Ev("ui:ids", [F2, "Note"])).toEqual([CHILD]);
+  const child = Ev("retract", [[["Note", CHILD]], F2]);
+  expect(Number(child[1])).toBe(201);
+  expect(Ev("system:pop_rows", ["NoteHasBody", child[2]])).toEqual([]);
+  expect(Ev("ui:ids", [child[2], "Note"])).toEqual([]);
+});
+
 describe("every constructor holds what it was given", () => {
   for (const file of CANON_FILES) {
     const name = file.split(/[\/]/).pop();
