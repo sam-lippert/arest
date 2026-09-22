@@ -3036,3 +3036,50 @@ test("a reflected population keeps the rows the store asserts on a key the refle
     adoptStore(keep);
   }
 }, 120_000);
+
+// THE STATE PHASE INDEXES ITS RECORDS; IT DOES NOT SCAN THEM PER FACT TYPE
+// (#123, 2026-09-21). read:x_of computes read:nest_names once and carries it as
+// the parse state's 7th component (after the rows apndr appends), where
+// read:nested_names, read:implied_nests, read:types_named and read:type_rows
+// used to recompute it -- three to six full scans of the records per fact
+// record through read:fact_row. read:derived_mode and read:deontic_ucs_of
+// answer `the records named n` through csdp:matches over the one records list
+// (indexed once by the host) instead of a flatten of every record per call.
+// Pinned on a text with a nesting, a fully-derived reading, a deontic
+// uniqueness and a population row; the module built from HEAD answers the same
+// (probe.mjs, both modules), and the metamodel's and the templates' design
+// states are byte-identical.
+describe("the reader's state phase indexes its records instead of scanning them per fact type", () => {
+  const TEXT = [
+    "Name is a value type.",
+    "Person(.Name) is an entity type.",
+    "Company(.Name) is an entity type.",
+    "Person works for Company.",
+    "It is obligatory that each Person works for at most one Company.",
+    "Person leads Company. *",
+    "Employment objectifies \"Person works for Company\".",
+    "Person 'Ann' works for Company 'Acme'.",
+  ].join("\n");
+  const rows = () => Ev("read:sentences", TEXT).map((s) => Ev("read:row_of", s));
+
+  test("read:x_of carries the nest names once, equal to read:nest_names over the state", () => {
+    const X = Ev("read:x_of", rows());
+    expect(X[0].length).toBe(7);
+    expect(X[0][6]).toEqual(["Employment"]);
+    expect(X[0][6]).toEqual(Ev("read:nest_names", X));
+  }, 300_000);
+
+  test("read:derived_mode and read:deontic_ucs_of answer the records named n", () => {
+    const X = Ev("read:x_of", rows());
+    const recs = X[0][3];
+    expect(Ev("read:derived_mode", ["PersonLeadsCompany", X])).toBe("full");
+    expect(Ev("read:derived_mode", ["Employment", X])).toBe("");
+    expect(Ev("read:derived_mode", ["NoSuchFactType", X])).toBe("");
+    expect(Ev("read:deontic_ucs_of", ["PersonWorksForCompany", recs])).toEqual([[1]]);
+    expect(Ev("read:deontic_ucs_of", ["Employment", recs])).toEqual([]);
+    const F = Ev("read:x_full", X);
+    expect(Ev("read:state_derived", F)).toEqual([["PersonLeadsCompany", "full"]]);
+    expect(Ev("read:state_nestings", F)).toEqual([["Employment", "Employment"]]);
+    expect(Ev("read:state_fts", F).map((r) => r[0])).toEqual(["Employment"]);
+  }, 300_000);
+});
