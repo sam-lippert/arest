@@ -89,7 +89,20 @@ const tRead = Date.now() - t0;
 // its memo rather than reading the directory twice.
 const t1 = Date.now();
 const state = Ev("compile", dirs);
-for (let i = state.length - 1; i >= 0; i--) CELLS.unshift(["CELL", String(state[i][0]), state[i][1]]);
+// ONE CELL, ONE SHAPE (2026-09-21). A module holds a design-state cell as the
+// carrier rendered it -- read:chunk9's nine-wide chunks (the note below) --
+// and until now this file held the same cell FLAT, as DEF(compile) answers
+// it, so a reader that flattens exactly once answered the module and threw
+// in the compiler: solve:declared under rmap:proj_rows the first time a store
+// was written through the projection (64732aa4), then main:cf_entry under
+// store:src_all the first time the closure ran here. The forty-seven
+// single-flatten readers are canon's convention, not a defect each; the
+// compiler now holds what the module holds and every reader answers both.
+// The relational map's artifacts are computed over the chunked cells too,
+// which is how a module without a compiled carrier computes them, and they
+// come out byte-identical (gated).
+const chunked = state.map((c) => Ev("read:chunk9", c[1]));
+for (let i = state.length - 1; i >= 0; i--) CELLS.unshift(["CELL", String(state[i][0]), chunked[i]]);
 const tState = Date.now() - t1;
 
 // ---- THE CARRIER, WRITTEN BY CANON --------------------------------------
@@ -143,13 +156,18 @@ const src = (v) => Array.isArray(v)
 // does not restate it: read:chunk9 IS canon's chunker, 43 ms for all 22
 // cells, and the width lives where the readers live.
 //
+// Since 2026-09-21 the cells this file holds in CELLS are the same chunked
+// values (ONE CELL, ONE SHAPE above), so the forty-seven answer here as they
+// answer in a module; rmap:unfold4 remains right for a reader that must
+// answer either shape.
+//
 // reflect:surface was the exception that proved it. It flattened
 // unconditionally too, and canon's own flat design state made four
 // reflections raise `selector 2 on atom: DomainHasDescription` while the
 // oracle's chunked one passed; it now unfolds with rmap:unfold4 and both
 // shapes answer 781/400/781/781. The other forty-seven are recorded, not
 // fixed: they are a canon change with a suite behind it, not a compiler one.
-const body = state.map((c) => 'DEF("' + esc(String(c[0])) + '", ' + src(Ev("read:chunk9", c[1])) + ")").join(",\n");
+const body = state.map((c, i) => 'DEF("' + esc(String(c[0])) + '", ' + src(chunked[i]) + ")").join(",\n");
 const carrier = "(\n" + body + "\n)\n";
 const carrierBytes = Buffer.from(carrier, "utf8");
 if (outDir) {
