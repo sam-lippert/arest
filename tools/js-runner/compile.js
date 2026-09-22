@@ -66,7 +66,23 @@ if (!existsSync(host)) {
   if (r.status !== 0) process.exit(r.status || 1);
 }
 await import(pathToFileURL(host).href);
-const { Ev, CELLS, loadStoreDb, popSnapshot, closeStore, emitToDb, storeDb } = globalThis.AREST;
+const { Ev, CELLS, DEFS, loadStoreDb, popSnapshot, closeStore, emitToDb, storeDb } = globalThis.AREST;
+
+// ---- THE MODE IS A CELL, AND THE ENVIRONMENT INSTALLS IT ------------------
+// canon's read:strict answers F: the AREST default is not strict (Sam,
+// 2026-09-22). A person who wants strictness sets AREST_STRICT=1 where their
+// checks are spawned -- mcp-router's apps_check runs `bun run check` with
+// process.env, so the env of the router's own entry in ~/.claude.json is one
+// person's default and nobody else's. The strict cell is installed the way
+// DEF installs one -- in DEFS, which every application of the name reads, and
+// in CELLS, which ast:fetch reads -- before the first evaluation, so nothing
+// was compiled against the default first. This file decides nothing: what
+// strictness refuses is written in canon beside the arm that refuses it.
+const strict = process.env.AREST_STRICT === "1";
+if (strict) {
+  DEFS.set("read:strict", ["CONST", "T"]);
+  CELLS.unshift(["CELL", "read:strict", ["CONST", "T"]]);
+}
 
 // WHICH FILES ARE READINGS AND IN WHAT ORDER IS CANON'S. It was this file's
 // last decision in the read phase -- core.md first, then alphabetical -- and
@@ -88,7 +104,12 @@ const tRead = Date.now() - t0;
 // pipeline walks, on the same `dirs` array, so the evaluator answers them from
 // its memo rather than reading the directory twice.
 const t1 = Date.now();
-const state = Ev("compile", dirs);
+// compile:check is DEF(compile) beside its findings, from the one parse: the
+// cells are its first element, the findings -- readings over an undeclared
+// object type, files under no single domain -- its second (reported below).
+const checked = Ev("compile:check", dirs);
+const state = checked[0];
+const findings = checked[1];
 // ONE CELL, ONE SHAPE (2026-09-21). A module holds a design-state cell as the
 // carrier rendered it -- read:chunk9's nine-wide chunks (the note below) --
 // and until now this file held the same cell FLAT, as DEF(compile) answers
@@ -104,6 +125,35 @@ const state = Ev("compile", dirs);
 const chunked = state.map((c) => Ev("read:chunk9", c[1]));
 for (let i = state.length - 1; i >= 0; i--) CELLS.unshift(["CELL", String(state[i][0]), chunked[i]]);
 const tState = Date.now() - t1;
+
+// ---- WHAT THE READER REPORTED, AND WHAT IT REFUSED -----------------------
+// compile:check's second answer, one row per finding: <undeclared, fact type
+// name, status, object types, reading text> for a reading that names an
+// object type no declaration opens, and <domain, path, status, domains,
+// fault> for a file that declares elements and no Domain (a file's domain
+// is the first Domain sentence it writes; later ones are catalog entries).
+// Under the default every row is `reported`, one summary line per kind goes
+// to stderr and the check goes on -- nothing is silent. Under AREST_STRICT=1
+// the reader refused the reading and the rule refused the file, the row says
+// `refused`, and a check that refuses is a failed check: it says so, writes
+// nothing, and exits 1. The line names the count and each subject once: an
+// object type with the first reading that names it, a file by its path.
+const undeclared = findings.filter((r) => String(r[0]) === "undeclared");
+const domainless = findings.filter((r) => String(r[0]) === "domain");
+const refused = findings.some((r) => String(r[2]) === "refused");
+const verdict = refused ? " -- REFUSED (AREST_STRICT=1)" : "";
+if (undeclared.length) {
+  const first = new Map();
+  for (const r of undeclared) for (const t of r[3]) if (!first.has(String(t))) first.set(String(t), String(r[4]));
+  console.error("UNDECLARED: " + undeclared.length + " reading(s) name " + first.size
+    + " object type(s) no declaration opens" + verdict + ": "
+    + [...first].map(([t, text]) => t + " (" + text + ")").join("; "));
+}
+if (domainless.length) {
+  console.error("FILE DOMAINS: " + domainless.length + " file(s) declare elements and no Domain" + verdict + ": "
+    + domainless.map((r) => String(r[1])).join(", "));
+}
+if (refused) process.exit(1);
 
 // ---- THE CARRIER, WRITTEN BY CANON --------------------------------------
 // It is the design state as intersection source, the form host.js's CANONTEXT

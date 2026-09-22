@@ -1184,6 +1184,83 @@ test("the carry leaves a reflected row to the closure instead of keeping it", ()
   }
 }, 300_000);
 
+// ---- DOES THE READER SAY WHICH PLAYER NO DECLARATION OPENS, AND REFUSE IT WHEN ASKED?
+//
+// Sam, 2026-09-22: "There should be a strict mode defined that refuses
+// readings with undeclared object types. The AREST default should not be
+// strict, but I personally want my default configured to strict." And, the
+// same day, "A file should only ever be part of one domain." Both are the
+// check's to say, so both are measured by running compile.js the way the carry
+// test above runs it. The fixture is four files, blank lines between
+// paragraphs (read:sentences splits per paragraph): a-gadget.md declares its
+// Domain, then Gadget, then reads `Gadget has Knob` over a Knob declared
+// nowhere; b-no-domain.md declares an element and no Domain; c-catalog.md
+// declares its own Domain first, an element, then a catalog entry about
+// another domain; d-footer.md declares its element and then its Domain, the
+// footer every corpus writes. A file's domain is the FIRST Domain sentence it
+// writes, wherever it sits, so c files Sprocket under gamma and d files Cog
+// under cogs, and the one file-domain fault is b's. Under the default the check
+// reads everything, REPORTS the reading and the domainless file on stderr, and
+// exits 0; under AREST_STRICT=1 it REFUSES both, says so, writes nothing, and
+// exits 1. The default run clears AREST_STRICT itself, because the person
+// running this suite may have it set.
+test("the reader reports a reading over an undeclared object type and a file with no Domain, and refuses both under AREST_STRICT=1", () => {
+  const { mkdirSync } = require("node:fs");
+  const NL = String.fromCharCode(10);
+  const dir = mkdtempSync(join(tmpdir(), "arest-strict-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  const corpus = join(dir, "readings");
+  mkdirSync(corpus);
+  writeFileSync(join(corpus, "a-gadget.md"), [
+    "Domain 'gadgets' has Description 'the fixture'.", "",
+    "Gadget(.Name) is an entity type.", "",
+    "Gadget has Knob.", "",
+    "Gadget 'g1' has Knob 'k1'.", ""].join(NL));
+  writeFileSync(join(corpus, "b-no-domain.md"), [
+    "Widget(.Name) is an entity type.", ""].join(NL));
+  writeFileSync(join(corpus, "c-catalog.md"), [
+    "Domain 'gamma' has Description 'this file is part of gamma'.", "",
+    "Sprocket(.Name) is an entity type.", "",
+    "Domain 'delta' has Description 'a catalog entry about another domain'.", ""].join(NL));
+  writeFileSync(join(corpus, "d-footer.md"), [
+    "Cog(.Name) is an entity type.", "",
+    "Domain 'cogs' has Access 'public'.", "",
+    "Domain 'cogs' has Description 'the footer every corpus writes'.", ""].join(NL));
+  const run = (label, strict) => {
+    const out = join(dir, label);
+    mkdirSync(out);
+    const p = Bun.spawnSync(["bun", compiler, corpus],
+      { env: { ...process.env, AREST_OUT_DIR: out, AREST_STRICT: strict }, stdout: "pipe", stderr: "pipe" });
+    return { code: p.exitCode, text: p.stdout.toString() + p.stderr.toString(), out };
+  };
+  try {
+    const lax = run("default", "");
+    expect(lax.text).toContain("UNDECLARED: 1 reading(s) name 1 object type(s) no declaration opens: Knob (Gadget has Knob)");
+    expect(lax.text).toContain("FILE DOMAINS: 1 file(s) declare elements and no Domain: ");
+    expect(lax.text).toContain("b-no-domain.md");
+    expect(lax.text).not.toContain("a-gadget.md");
+    expect(lax.text).not.toContain("c-catalog.md");
+    expect(lax.text).not.toContain("d-footer.md");
+    expect(lax.text).not.toContain("REFUSED");
+    expect(lax.code).toBe(0);
+    const carrier = readFileSync(join(lax.out, "design-state"), "utf8");
+    expect(carrier).toContain('A("GadgetHasKnob")');
+    // the whole cell, in file order: Gadget under gadgets, Widget under nothing,
+    // Sprocket under gamma (the first Domain, not the catalog entry), Cog under
+    // its footer
+    expect(carrier).toContain('DEF("state:eldomain", S(S(S(A("Gadget"),A("gadgets")),S(A("Sprocket"),A("gamma")),S(A("Cog"),A("cogs")))))');
+
+    const strict = run("strict", "1");
+    expect(strict.text).toContain("UNDECLARED: 1 reading(s) name 1 object type(s) no declaration opens -- REFUSED (AREST_STRICT=1): Knob (Gadget has Knob)");
+    expect(strict.text).toContain("FILE DOMAINS: 1 file(s) declare elements and no Domain -- REFUSED (AREST_STRICT=1): ");
+    expect(strict.text).toContain("b-no-domain.md");
+    expect(strict.code).toBe(1);
+    expect(readdirSync(strict.out)).toEqual([]);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 120_000);
+
 // ---- IS EACH CANON FILE STILL INTERSECTION SOURCE? -------------------------
 //
 // The discipline: one tuple literal per file, every element either a
