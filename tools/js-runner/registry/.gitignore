@@ -1,0 +1,3 @@
+# The compiled registry -- design-state, compiled and store.db, written by
+# `bun run check` here. Build output, like every app's .check directory.
+.check/

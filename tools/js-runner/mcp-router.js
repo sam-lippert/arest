@@ -13,11 +13,28 @@
 // on one app are answered in that app's order. The router decides nothing
 // about the model: every answer is canon's, from the app's own server.
 //
-//   AREST_APPS="claude=C:/.../apps/claude/.check;support=C:/.../apps/support.auto.dev/.check"
+//   AREST_REGISTRY="C:/Users/lippe/Repos/arest/tools/js-runner/registry"
 //   bun tools/js-runner/mcp-router.js
 //
-// Each entry names an app and its .check directory (carriers and store.db);
-// the directory above .check is the app's package, where its own scripts run.
+// THE APP LIST IS A STORE, NOT A STRING (Sam, 2026-09-21: "Is there a way for
+// the mcp to have its own db for app listing and config?"). AREST_REGISTRY
+// names the registry PACKAGE. Its readings say which apps there are, where
+// each package is and whether to start it; `bun run check` there compiles them
+// the way every app's check compiles its own; and this daemon reads the App
+// table of <registry>/.check/store.db at start with bun:sqlite -- one select,
+// the columns taken BY NAME, the handle closed before anything else runs,
+// because a check renames a build over that file and an open handle is the
+// EPERM stop() below exists for. An app's .check directory follows from its
+// package directory, and the package is where its own scripts run.
+//
+// A MISSING OR UNREADABLE REGISTRY IS A REFUSAL NAMING THE CHECK COMMAND, and
+// never an empty list: a router that serves nothing and says nothing cannot be
+// told apart from one whose apps are all still booting.
+//
+// AREST_APPS -- the semicolon-separated string this read until 2026-09-22 --
+// is still read when AREST_REGISTRY is not set, so a launch configuration that
+// has not been changed yet keeps working; `apps` says which of the two the
+// list came from.
 // The surface: the verbs (get, ask, query, orient, tutor, ...) with an `app`
 // argument; `apps`, which lists the residents; and the two session verbs canon
 // names in system:session_verbs for what a readings change needs, apps_check
@@ -28,7 +45,8 @@
 // the first app whose canon carries the patterns, since they are the
 // metamodel's, not an app's.
 import { spawn, spawnSync } from "node:child_process";
-import { readFileSync, appendFileSync, statSync, existsSync } from "node:fs";
+import { readFileSync, appendFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { Database } from "bun:sqlite";
 import { createServer, connect } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -116,6 +134,142 @@ function parseApps(spec) {
   return apps;
 }
 
+// ---- THE REGISTRY: THE ROUTER'S OWN STORE ---------------------------------
+// A row is <slug, package directory, serving status>, and those three column
+// names are canon's relational map over the registry's readings -- App(.Slug),
+// `App has Package Directory`, `App has Serving Status`. They are read BY NAME:
+// the map orders a table's columns by its own rules, and reading by position
+// would silently swap a name for a path the first time it reordered them.
+//
+// THE HANDLE IS NEVER HELD. compile.js writes store.db.build beside the store
+// and renames it in; on Windows a rename over an open file is EPERM, which is
+// exactly the failure the stop() note below records. So the database is opened,
+// read and closed inside read(), and nothing in this process keeps a handle on
+// it between calls.
+const REGISTRY_NAME = "registry";
+class Registry {
+  constructor() {
+    this.pkg = String(process.env.AREST_REGISTRY || "").trim().replace(/\\/g, "/").replace(/\/+$/, "");
+    this.spec = String(process.env.AREST_APPS || "");
+    this.fromEnv = !this.pkg && this.spec.trim() !== "";
+    this.dir = this.pkg ? this.pkg + "/.check" : "";
+    this.db = this.dir ? this.dir + "/store.db" : "";
+    this.error = "";                        // why there is no list at all
+    this.note = "";                         // the last check's result, or refused rows
+    this.busy = null;                       // null | checking
+    this.readMs = 0;
+    this.count = 0;
+  }
+  // WHAT TO RUN, SAID IN FULL, wherever there is no store to read.
+  howToBuild() {
+    return "run `bun run check` in " + this.pkg + " (or apps_check on '" + REGISTRY_NAME
+      + "' and then apps_compile on it), which compiles readings/apps.md into its App table";
+  }
+  source() { return this.fromEnv ? "AREST_APPS (a string: no AREST_REGISTRY is set)" : this.db; }
+  // AND A STORE OLDER THAN ITS READINGS IS SAID, NOT GUESSED AT. Its rows are
+  // still served -- refusing on an mtime would take the router down for an edit
+  // in progress -- but the list is the previous check's, and nothing else in
+  // this process would ever say so. Recomputed wherever it is reported, not
+  // cached at read(): an edit to the readings calls nothing, and two statSyncs
+  // over a directory of markdown are nothing beside the answer they qualify.
+  staleness() {
+    if (this.fromEnv || !this.pkg || !existsSync(this.db)) return "";
+    try {
+      const at = statSync(this.db).mtimeMs;
+      let newest = 0, which = "";
+      for (const f of readdirSync(join(this.pkg, "readings"))) {
+        const m = statSync(join(this.pkg, "readings", f)).mtimeMs;
+        if (m > newest) { newest = m; which = f; }
+      }
+      if (newest > at) return "STALE: readings/" + which + " is newer than the store, so this list is the previous check's -- " + this.howToBuild();
+    } catch { /* no readings directory beside the store: nothing to compare */ }
+    return "";
+  }
+  read() {
+    const t0 = Date.now();
+    this.error = "";
+    const done = (v) => { this.readMs = Date.now() - t0; this.count = v.length; return v; };
+    if (this.fromEnv) {
+      try { return done(parseApps(this.spec).map((a) => ({ name: a.name, dir: a.dir, suspended: false }))); }
+      catch (e) { this.error = String(e.message); return done([]); }
+    }
+    if (!this.pkg) {
+      this.error = "no app list: set AREST_REGISTRY to the registry package directory"
+        + " (arest/tools/js-runner/registry), whose readings say which apps there are."
+        + " AREST_APPS is read instead only when AREST_REGISTRY is unset.";
+      return done([]);
+    }
+    if (!existsSync(this.db)) {
+      this.error = "the registry store is not compiled: there is no " + this.db + ". To build it, " + this.howToBuild() + ".";
+      return done([]);
+    }
+    let rows = [];
+    try {
+      const db = new Database(this.db, { readonly: true });
+      try {
+        const cols = db.query('pragma table_info("App")').all().map((c) => String(c.name));
+        if (!cols.length) {
+          this.error = "the registry store " + this.db + " has no App table: its readings declare no App. " + this.howToBuild() + ".";
+          return done([]);
+        }
+        for (const need of ["slug", "packageDirectory"]) {
+          if (cols.includes(need)) continue;
+          this.error = "the registry store " + this.db + " has an App table with no `" + need + "` column (it has "
+            + cols.join(", ") + "): its readings declare no `App has Package Directory`. " + this.howToBuild() + ".";
+          return done([]);
+        }
+        // THE OPTIONAL COLUMN IS ASKED FOR ONLY WHERE IT EXISTS: a registry
+        // whose readings carry no Serving Status is one where every app serves.
+        const want = ["slug", "packageDirectory"].concat(cols.includes("servingStatus") ? ["servingStatus"] : []);
+        // NO ORDER BY. The natural order is the order the readings assert the
+        // apps in, which is the order they boot in and the order `apps` lists.
+        rows = db.query("select " + want.map((c) => '"' + c + '"').join(", ") + ' from "App"').all();
+      } finally { db.close(true); }
+    } catch (e) {
+      this.error = "the registry store " + this.db + " could not be read: " + String(e.message) + ". " + this.howToBuild() + ".";
+      return done([]);
+    }
+    const apps = [];
+    const refused = [];
+    for (const row of rows) {
+      const name = String(row.slug === null || row.slug === undefined ? "" : row.slug).trim();
+      const pkg = String(row.packageDirectory === null || row.packageDirectory === undefined ? "" : row.packageDirectory)
+        .trim().replace(/\\/g, "/").replace(/\/+$/, "");
+      // ABSENCE READS AS SERVING: the smallest row the readings can carry is a
+      // package directory, and it serves. 'suspended' is the opt-out.
+      const serving = row.servingStatus === null || row.servingStatus === undefined ? "serving" : String(row.servingStatus);
+      if (!name) { refused.push("a row with no slug"); continue; }
+      if (!pkg) { refused.push("App '" + name + "' has no Package Directory"); continue; }
+      if (name === REGISTRY_NAME) { refused.push("App '" + name + "' is the name this router uses for the registry itself"); continue; }
+      apps.push({ name, dir: pkg + "/.check", suspended: serving === "suspended" });
+    }
+    this.note = refused.length ? refused.length + " row(s) REFUSED: " + refused.join("; ") : "";
+    return done(apps);
+  }
+  // apps_check on the registry: its own check, in its own package, the same
+  // call an app's check is. Nothing is stopped first, because nothing here
+  // holds the store open.
+  check() {
+    if (this.busy) return null;
+    this.busy = "checking";
+    this.note = "";
+    run(["run", "--silent", "check"], this.pkg, { AREST_DB: join(this.dir, "store.db") }).then(({ code, tail }) => {
+      this.note = (code === 0 ? "check ok: " : "check FAILED (exit " + code + "): ") + lastLines(tail, code === 0 ? 1 : 6);
+      this.busy = null;
+    });
+    return "checking the registry: bun run check in " + this.pkg + "; `apps` reports the result, and apps_compile on '"
+      + REGISTRY_NAME + "' then reads the App table again and reconciles the residents against it";
+  }
+  status() {
+    if (this.busy) return this.busy + " (the residents are reconciled by apps_compile on '" + REGISTRY_NAME + "')"
+      + (this.note ? " -- " + this.note : "");
+    const head = this.error
+      ? "NO APP IS SERVED: " + this.error
+      : this.count + " app(s) from " + this.source() + ", read in " + this.readMs + " ms";
+    return [head, this.staleness(), this.note].filter(Boolean).join(" -- ");
+  }
+}
+
 // A BUILD STEP IS A CHILD PROCESS WHOSE LAST LINES ARE ITS REPORT. The tools
 // say what they did on stderr (design-state: ..., store.db: ..., REFUSING ...),
 // so the tail, colours stripped, is what `apps` shows afterwards.
@@ -153,7 +307,7 @@ class Resident {
     this.instructions = "";
     this.tools = [];
     this.prompts = null;
-    this.state = "booting";                 // booting | serving | failed | stopped
+    this.state = "booting";                 // booting | serving | failed | stopped | suspended
     this.busy = null;                       // null | checking | compiling
     this.note = "";                         // the last check or compile result
   }
@@ -259,6 +413,18 @@ class Resident {
       this.pending.clear();
     });
   }
+  // AND A SUSPENDED APP IS NOT STARTED AT ALL. Serving Status is the one piece
+  // of per-app config the router can act on: the row keeps its package
+  // directory, `apps` lists it, the per-verb enum leaves it out, and no server
+  // is spawned. Absence of the value reads as serving, so this is only ever
+  // reached because the registry's readings say 'suspended'.
+  suspend() {
+    this.child = null;
+    this.state = "suspended";
+    this.error = "suspended in the registry: App '" + this.name
+      + "' has Serving Status 'suspended', so no server is started for it";
+    this.ready = Promise.resolve();
+  }
   // stop the server: a rebuild needs store.db, which a serving process holds
   // open (bun releases a sqlite handle at process exit, not before)
   // KILL THE TREE, NOT THE CHILD (2026-09-17). `bun` here is a shim that
@@ -317,7 +483,11 @@ class Resident {
     if (this.child) this.child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: childId, ...payload }) + NL);
   }
   request(method, params) {
-    if (!this.child) return Promise.reject(new Error(this.name + ": " + (this.busy || this.state)));
+    // THE REASON, NOT THE STATE NAME. A resident with no child has one in
+    // `error` -- "not compiled: no mcp.g.js in ...", "server exited with code
+    // 1", "suspended in the registry: ..." -- and answering `qa: failed` threw
+    // that away at the one moment a caller was asking.
+    if (!this.child) return Promise.reject(new Error(this.name + ": " + (this.busy || this.error || this.state)));
     if (this.error) return Promise.reject(new Error(this.name + ": " + this.error));
     const id = this.nextId++;
     const child = this.child;
@@ -425,18 +595,64 @@ class Resident {
   }
 }
 
-const apps = parseApps(process.env.AREST_APPS);
-const residents = new Map(DAEMON ? apps.map((a) => [a.name, new Resident(a)]) : []);
-// EVERY APP AT ONCE, EACH ANNOUNCED AS IT LANDS (2026-09-21). The daemon
-// boots its residents in parallel -- there is one daemon for every session,
-// so a store's first boot after a rebuild happens once, not once per session
-// -- and the client hears tools/list_changed for each as it comes up. A
-// resident that fails stays "not serving" with its error; the others serve.
-const booting = DAEMON ? Promise.all([...residents.values()].map((r) => { r.spawn(); return r.boot().then(announceTools); })) : Promise.resolve();
+const registry = new Registry();
+const residents = new Map();
+// RECONCILE, DO NOT REBUILD. A resident already serving the directory the table
+// still names is left alone -- its server is the expensive thing here, fifteen
+// seconds and half a gigabyte on the smallest app -- so only the difference
+// moves: a row that is new is spawned, a row that is gone or newly suspended is
+// stopped, and a row whose package directory changed is stopped and spawned
+// again at the new one. This is what apps_compile on the registry runs, and it
+// is what the daemon's own start runs over an empty residents map.
+//
+// EVERY APP AT ONCE, EACH ANNOUNCED AS IT LANDS (2026-09-21). The daemon boots
+// its residents in parallel -- there is one daemon for every session, so a
+// store's first boot after a rebuild happens once, not once per session -- and
+// the client hears tools/list_changed for each as it comes up. A resident that
+// fails stays "not serving" with its error; the others serve.
+function reconcile() {
+  const wanted = registry.read();
+  const byName = new Map(wanted.map((a) => [a.name, a]));
+  const started = [], stopped = [], parked = [];
+  for (const [name, r] of [...residents]) {
+    const a = byName.get(name);
+    const why = !a ? "removed from the registry"
+      : a.dir !== r.dir ? "its package directory changed to " + a.dir
+      : a.suspended && r.state !== "suspended" ? "suspended in the registry"
+      : !a.suspended && r.state === "suspended" ? "no longer suspended in the registry"
+      : "";
+    if (!why) continue;
+    r.stop(why);
+    residents.delete(name);
+    stopped.push(name + " (" + why + ")");
+  }
+  for (const a of wanted) {
+    if (residents.has(a.name)) continue;
+    const r = new Resident(a);
+    residents.set(a.name, r);
+    if (a.suspended) { r.suspend(); parked.push(a.name); continue; }
+    r.spawn();
+    r.boot().then(announceTools);
+    started.push(a.name);
+  }
+  announceTools();
+  return { wanted, started, stopped, parked };
+}
+// The shim reads no registry and spawns nothing: it connects to the daemon and
+// pipes its stdio. Only the daemon has residents, so only the daemon reads the
+// table, and a session's launch pays neither the open nor the select.
+if (DAEMON) reconcile();
 
 const isVerb = (t) => t.inputSchema && t.inputSchema.properties && t.inputSchema.properties.args && !t.inputSchema.properties.method;
 const names = () => [...residents.keys()];
 const appArg = () => ({ type: "string", enum: names(), description: "the resident app this call is for" });
+// AND THE TWO SESSION VERBS TAKE THE REGISTRY TOO, because apps_check and
+// apps_compile on it are how the app LIST is changed: the check recompiles its
+// readings, the compile reads the App table again and reconciles the residents.
+// A client that validates against the enum could not name it otherwise.
+const sessionArg = () => ({ type: "string", enum: names().concat([REGISTRY_NAME]),
+  description: "the resident app this call is for, or '" + REGISTRY_NAME
+    + "' -- the router's own store, whose App table says which apps there are" });
 
 function tools() {
   // the verbs are canon's and the same in every app: take the first resident
@@ -451,9 +667,9 @@ function tools() {
       required: ["app"] },
   }));
   return [
-    { name: "apps", description: "the resident apps: whether each is serving, and its last check or compile result", inputSchema: { type: "object", properties: {} } },
-    { name: "apps_check", description: "run the app's own check in its package (bun run check: the design state from its readings, and its store); the app is stopped first, because it holds the store the check writes, and `apps` reports the result. After a readings change: apps_check, then apps_compile.", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
-    { name: "apps_compile", description: "rebuild the app's module from its carriers (build.js mcp) and start its server again; the app is not served meanwhile, and `apps` reports the result. The store is written by apps_check, stamped to match this module, so run apps_check first and the app serves from its database", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
+    { name: "apps", description: "the registry and the resident apps: where the app list was read from, whether each app is serving, and its last check or compile result", inputSchema: { type: "object", properties: {} } },
+    { name: "apps_check", description: "run the app's own check in its package (bun run check: the design state from its readings, and its store); the app is stopped first, because it holds the store the check writes, and `apps` reports the result. After a readings change: apps_check, then apps_compile. On '" + REGISTRY_NAME + "' it recompiles the router's own readings -- which apps there are -- instead.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
+    { name: "apps_compile", description: "rebuild the app's module from its carriers (build.js mcp) and start its server again; the app is not served meanwhile, and `apps` reports the result. The store is written by apps_check, stamped to match this module, so run apps_check first and the app serves from its database. On '" + REGISTRY_NAME + "' it reads the App table again and reconciles the residents instead: a new app is spawned, a removed or suspended one is stopped.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
   ].concat(withApp);
 }
 
@@ -488,12 +704,19 @@ async function handle(msg) {
     sawClient();
     const lines = [];
     for (const r of residents.values()) lines.push(r.name + (r.state === "serving" ? ": " + r.instructions : " (" + r.status() + ")"));
+    // AND THE REGISTRY'S OWN STATE IS THE FIRST THING SAID WHEN IT REFUSES. A
+    // client told that AREST serves 0 apps, and nothing else, has no way to
+    // find out why; this is the one place every session reads.
+    const head = registry.error
+      ? "AREST serves NO app: " + registry.error
+      : "AREST serves " + residents.size + " resident apps, each its own store; every verb takes `app`: " + names().join(", ");
     return reply(msg.id, {
       protocolVersion: "2024-11-05",
       capabilities: { tools: { listChanged: true }, prompts: {} },
       serverInfo: { name: "arest", version: "1.0.0" },
-      instructions: "AREST serves " + residents.size + " resident apps, each its own store; every verb takes `app`: " + names().join(", ") +
-        ". A readings change is apps_check then apps_compile on that app; `apps` reports each. " + lines.join(" ||| "),
+      instructions: head + ". The app list is the App table of " + registry.source() +
+        "; a readings change is apps_check then apps_compile on that app, and on '" + REGISTRY_NAME +
+        "' for the list itself. `apps` reports each. " + (registry.staleness() ? registry.staleness() + " ||| " : "") + lines.join(" ||| "),
     });
   }
   if (msg.method === "tools/list") { return reply(msg.id, { tools: tools() }); }
@@ -509,14 +732,52 @@ async function handle(msg) {
   if (msg.method === "tools/call") {
     const p = msg.params || {};
     if (p.name === "apps") {
-      const rows = [...residents.values()].map((r) => [r.name, r.status(), r.dir]);
-      return text(msg.id, JSON.stringify(rows));
+      // THE REGISTRY IS THE FIRST ROW: where the list came from, how long it
+      // took to read, and -- where there is no store to read -- the refusal and
+      // the command that builds one. An empty list with no first row was the
+      // silence this replaced, and it is reported as an error so that a client
+      // cannot mistake it for six apps that are merely slow.
+      const rows = [[REGISTRY_NAME, registry.status(), registry.dir || registry.source()]];
+      for (const r2 of residents.values()) rows.push([r2.name, r2.status(), r2.dir]);
+      return text(msg.id, JSON.stringify(rows), !!registry.error);
     }
     const args = { ...(p.arguments || {}) };
     const app = args.app;
     delete args.app;
+    // THE REGISTRY IS NOT A RESIDENT. It has no server and no verbs; the two
+    // session verbs are what it takes, and they change the LIST rather than an
+    // app: apps_check recompiles its readings, apps_compile reads the App table
+    // again and reconciles.
+    if (app === REGISTRY_NAME) {
+      if (p.name !== "apps_check" && p.name !== "apps_compile") {
+        return text(msg.id, "'" + REGISTRY_NAME + "' is the router's own store, not a served app: only apps_check and apps_compile take it."
+          + " The apps are " + (names().join(", ") || "none"), true);
+      }
+      if (registry.fromEnv) {
+        return text(msg.id, "there is no registry store: this router's app list comes from AREST_APPS, a string."
+          + " Set AREST_REGISTRY to the registry package directory (arest/tools/js-runner/registry) and the list becomes its App table.", true);
+      }
+      if (!registry.pkg) return text(msg.id, registry.error || "no registry package is named: set AREST_REGISTRY", true);
+      if (p.name === "apps_check") {
+        const started = registry.check();
+        return started ? text(msg.id, started) : text(msg.id, "the registry is " + registry.status() + "; wait for `apps` to report it", true);
+      }
+      const was = names().join(", ") || "none";
+      const out = reconcile();
+      if (registry.error) return text(msg.id, "the registry was read again and REFUSES: " + registry.error, true);
+      return text(msg.id, "the registry was read again: " + out.wanted.length + " app(s) from " + registry.db
+        + " in " + registry.readMs + " ms"
+        + (out.started.length ? "; started " + out.started.join(", ") : "")
+        + (out.parked.length ? "; suspended, not started: " + out.parked.join(", ") : "")
+        + (out.stopped.length ? "; stopped " + out.stopped.join(", ") : "")
+        + (out.started.length || out.stopped.length || out.parked.length ? "" : "; nothing changed")
+        + ". The residents are now " + (names().join(", ") || "none") + " (they were " + was + ")"
+        + (registry.note ? ". " + registry.note : "")
+        + (registry.staleness() ? ". " + registry.staleness() : ""));
+    }
     const r = residents.get(app);
-    if (!r) return text(msg.id, "no resident app named " + JSON.stringify(app) + "; the apps are " + names().join(", "), true);
+    if (!r) return text(msg.id, "no resident app named " + JSON.stringify(app) + "; "
+      + (registry.error ? registry.error : "the apps are " + (names().join(", ") || "none")), true);
     if (p.name === "apps_check" || p.name === "apps_compile") {
       const started = p.name === "apps_check" ? r.check() : r.compile();
       return started ? text(msg.id, started) : text(msg.id, r.name + " is " + r.status() + "; wait for `apps` to report it", true);
@@ -583,7 +844,8 @@ function idle() {
 function daemon() {
   const server = createServer((socket) => { attach(socket); idle(); });
   server.on("error", (e) => { log("cannot listen on 127.0.0.1:" + PORT + ": " + e.message); process.exit(1); });
-  server.listen(PORT, "127.0.0.1", () => log("router daemon listening on 127.0.0.1:" + PORT + " for " + names().join(", ")));
+  server.listen(PORT, "127.0.0.1", () => log("router daemon listening on 127.0.0.1:" + PORT
+    + " for " + (names().join(", ") || "NO app") + " -- registry: " + registry.status()));
   process.on("exit", () => { for (const r of residents.values()) r.stop("daemon exit"); });
   idle();
 }
