@@ -1028,6 +1028,25 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
 // the host's own; the fixture is the tables the readings describe, empty, so
 // that a changed population has somewhere to land -- the reordered store
 // writes nothing because it is not a change, not because there is no table.
+// THE COMPILER HOLDS A DESIGN-STATE CELL FLAT AND A MODULE HOLDS IT IN THE
+// CARRIER'S NINE-WIDE CHUNKS, and a definition that reads one answers the same
+// rows over both. solve:declared flattened exactly once: over the flat shape it
+// answered 524 elements, 262 of them bare fact type names, and rmap:proj_rows
+// threw `selector 1 on atom: DomainHasDescription` the first time compile.js
+// wrote a store through the projection (2026-09-21). Failing at a22a756e.
+test("solve:declared answers the same rows over the flat design state as over the chunked one", () => {
+  const chunked = Ev("solve:declared", CELLS);
+  expect(chunked.length).toBeGreaterThan(0);
+  expect(chunked.every(Array.isArray)).toBe(true);
+  const flat = Ev("rmap:unfold4", Ev("ast:fetch", ["state:declared", CELLS]));
+  expect(flat.every(Array.isArray)).toBe(true);
+  const cells = CELLS.filter((c) => !(Array.isArray(c) && c[0] === "CELL" && c[1] === "state:declared"));
+  expect(cells.length).toBe(CELLS.length - 1);
+  cells.unshift(["CELL", "state:declared", flat]);
+  const over = Ev("solve:declared", cells);
+  expect(over.filter((r) => !Array.isArray(r)).length).toBe(0);
+  expect(JSON.stringify(over)).toBe(JSON.stringify(chunked));
+});
 test("a population in another order is not a change; one row fewer is", () => {
   const stamp = globalThis.AREST.composition;
   const dir = mkdtempSync(join(tmpdir(), "arest-asset-"));
