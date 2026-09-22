@@ -50,8 +50,6 @@ Tool Call is for Chat Message.
   Each Tool Call is for exactly one Chat Message.
 Tool Call invokes Predicate.
   Each Tool Call invokes exactly one Predicate.
-Tool Call has Tool Call Id.
-  Each Tool Call has exactly one Tool Call Id.
 Tool Call has Result.
   Each Tool Call has at most one Result.
 
