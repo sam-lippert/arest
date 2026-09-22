@@ -2991,3 +2991,48 @@ test("llm:validate_judge's verdict lands as a Violation row, stamped by the regi
     adoptStore(keep);
   }
 }, 120_000);
+// ---- A REFLECTED POPULATION KEEPS THE ROWS THE STORE ASSERTS (#122 item 1) ----
+//
+// loadReflected installs canon's reflection as the cell of that name, and the
+// cell shadowed the rows the store ASSERTS for the same fact type: support's
+// twelve state-law Constraints lost their modality, type and span at every
+// boot, and emitToDb then wrote the tables without them (measured 2026-09-21:
+// the fresh build carries 12 Deontic Function rows and 12 spans, the same
+// build booted once 21 and 5,183, none of them the twelve). reflect:cells is
+// now the union: the reflection, then the source's rows on a key the
+// reflection does not answer.
+test("a reflected population keeps the rows the store asserts on a key the reflection does not answer", () => {
+  const { adoptStore } = globalThis.AREST;
+  const keep = CELLS.slice();
+  const MOD = "ConstraintHasModalityOfModalityType", TYPE = "ConstraintIsOfConstraintType", SPAN = "ConstraintSpan";
+  const rows = (ft) => Ev("system:pop_rows", [ft, CELLS]).map((r) => r.map(String));
+  const ROLE = String(Ev("system:pop_rows", ["FactTypeHasRole", CELLS])[0][1]);
+  const DEO = String(rows(MOD).find((r) => r[1] === "Deontic")[0]);
+  const before = { c: Ev("reflect:constraints", CELLS).length, s: Ev("reflect:spans", CELLS).length, mod: rows(MOD).length, type: rows(TYPE).length, span: rows(SPAN).length };
+  try {
+    // a Constraint the readings assert, as support's twelve are, adopted the
+    // way loadStoreDb adopts a table's rows; adoptStore reflects again
+    adoptStore(Ev("store:src_all", [[[MOD, [["x-asserted", "Deontic"]]], [TYPE, [["x-asserted", "DF_owa"]]], [SPAN, [["x-asserted", ROLE]]]], CELLS]));
+    expect(rows(MOD)).toContainEqual(["x-asserted", "Deontic"]);
+    expect(rows(TYPE)).toContainEqual(["x-asserted", "DF_owa"]);
+    expect(rows(SPAN)).toContainEqual(["x-asserted", ROLE]);
+    // the reflection itself is what it was, and each cell is it plus the one row
+    expect(Ev("reflect:constraints", CELLS).length).toBe(before.c);
+    expect(Ev("reflect:spans", CELLS).length).toBe(before.s);
+    expect([rows(MOD).length, rows(TYPE).length, rows(SPAN).length]).toEqual([before.mod + 1, before.type + 1, before.span + 1]);
+    // the write-back projects it: emitToDb adopts the cells into the source and reads rmap:proj_rows
+    adoptStore(Ev("store:src_all", [[MOD, TYPE, SPAN].map((ft) => [ft, Ev("system:pop_rows", [ft, CELLS])]), CELLS]));
+    const names = Ev("rmap:proj_colnames", ["Function", CELLS]).map(String);
+    const row = Ev("rmap:proj_rows", ["Function", CELLS]).find((r) => String(r[0]) === "x-asserted");
+    expect(row).toBeDefined();
+    expect(String(row[names.indexOf("constraintModalityType")])).toBe("Deontic");
+    expect(String(row[names.indexOf("constraintTypeId")])).toBe("DF_owa");
+    expect(Ev("rmap:proj_rows", [SPAN, CELLS]).some((r) => r.map(String).includes("x-asserted"))).toBe(true);
+    // and the reflection answers the keys it has: a source row on a reflected key does not override it
+    adoptStore(Ev("store:src_all", [[[MOD, [[DEO, "Alethic"], ["x-asserted", "Deontic"]]]], CELLS]));
+    expect(rows(MOD).filter((r) => r[0] === DEO)).toEqual([[DEO, "Deontic"]]);
+    expect(rows(MOD)).toContainEqual(["x-asserted", "Deontic"]);
+  } finally {
+    adoptStore(keep);
+  }
+}, 120_000);
