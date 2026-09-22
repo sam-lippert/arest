@@ -960,6 +960,68 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
   }
 }, 180_000);
 
+// ---- AND IS A POPULATION IN ANOTHER ORDER A CHANGE? ------------------------
+//
+// The test above is that the closure's rows reach the tables. This is what
+// "changed" means when the boot decides to write them. The write-back is the
+// write's three lines over the closure -- snapshot, close, emit what changed --
+// and a snapshot was the JSON text of a population's rows AS ORDERED. The two
+// sides of the boot's diff never agree on an order: the tables answer in their
+// key order (loadStoreDb's own note, 17 of 49 on the base corpus) and the
+// closure answers in the readings', so the same rows compared unequal and the
+// boot deleted and re-inserted them. Measured 2026-09-21 on a copy of
+// qa.auto.dev's store, written back once already: FactTypeHasReading (513
+// rows) and FunctionBelongsToDomain (737) were called changed at every boot
+// and were the same set each time. A population is a SET, the DDL stores no
+// order, and the diff now compares it as one: the rows' JSON texts sorted and
+// made unique, on both sides.
+//
+// The store on the other side of the diff is made the way loadStoreDb makes
+// it, store:src_all over the same rows in another order, and its snapshot is
+// the host's own; the fixture is the tables the readings describe, empty, so
+// that a changed population has somewhere to land -- the reordered store
+// writes nothing because it is not a change, not because there is no table.
+test("a population in another order is not a change; one row fewer is", () => {
+  const stamp = globalThis.AREST.composition;
+  const dir = mkdtempSync(join(tmpdir(), "arest-asset-"));
+  const mod = join(import.meta.dir, "cases.g.js");
+  const path = join(dir, "asset.db");
+  const db0 = new Database(path);
+  makeTables(db0);
+  db0.run("create table _composition (hash text)");
+  db0.prepare("insert into _composition values(?)").run(stamp);
+  db0.run("pragma wal_checkpoint(TRUNCATE)");
+  db0.close();
+
+  const driver = join(dir, "drive.mjs");
+  writeFileSync(driver, [
+    "await import(process.env.MODULE);",
+    "const { Ev, CELLS, popSnapshot, emitToDb } = globalThis.AREST;",
+    "// a fact type a table carries, with rows enough to have an order",
+    "const carried = new Set(Ev('rmap:ctab', CELLS).map((t) => String(t[0])));",
+    "const snap = popSnapshot(CELLS);",
+    "const ft = [...snap.keys()].find((k) => carried.has(k) && JSON.parse(snap.get(k)).length > 1);",
+    "const rows = JSON.parse(snap.get(ft));",
+    "const reordered = Ev('store:src_all', [[[ft, rows.slice().reverse()]], CELLS]);",
+    "const fewer = Ev('store:src_all', [[[ft, rows.slice(1)]], CELLS]);",
+    "console.log('ft ' + ft + ' rows ' + rows.length);",
+    "console.log('same ' + emitToDb(snap, CELLS));",
+    "console.log('reordered ' + emitToDb(popSnapshot(reordered), CELLS));",
+    "console.log('fewer ' + emitToDb(popSnapshot(fewer), CELLS));",
+  ].join("\n"));
+  const p = Bun.spawnSync(["bun", driver], {
+    env: { ...process.env, MODULE: pathToFileURL(mod).href, AREST_STORE_DB: path }, stdout: "pipe", stderr: "pipe" });
+  const out = p.stdout.toString() + p.stderr.toString();
+  try {
+    expect(out).toMatch(/ft \S+ rows (?:[2-9]|\d{2,})\b/);
+    expect(out).toContain("same 0");             // the same rows in the same order never were a change
+    expect(out).toContain("reordered 0");        // the same rows in another order are not one either
+    expect(out).toMatch(/\bfewer [1-9]/);        // a row the tables lack is
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 120_000);
+
 // ---- IS EACH CANON FILE STILL INTERSECTION SOURCE? -------------------------
 //
 // The discipline: one tuple literal per file, every element either a

@@ -323,6 +323,30 @@ function storeDb() {
   STORE_DB = new Database(path);
   return STORE_DB;
 }
+// A POPULATION IS A SET, SO ITS TEXT IS ORDER-INSENSITIVE (2026-09-21). The
+// rows' JSON texts, sorted and made unique, as one JSON array: JSON.parse of
+// it is the rows, and two texts are equal exactly when the populations hold
+// the same rows. What compared before was JSON.stringify of the rows AS
+// ORDERED, and the two sides of the boot's diff do not agree on an order:
+// the tables answer in their key order (loadStoreDb's own note, 17 of 49 on
+// the base corpus) and the closure answers in the readings'. Measured on a
+// copy of qa.auto.dev's store, written back once already: of the 6 fact
+// types a boot called changed, FactTypeHasReading (513 rows) and
+// FunctionBelongsToDomain (737) were the same set in another order. The
+// other four are rows the tables genuinely lack and the projection cannot
+// land (FactTypeHasRole and ObjectTypePlaysRole are keyed by their FIRST
+// player, so one role per fact type or object type; a ConstraintSpan row
+// carries no span id for its position and sequence number to join), which
+// is rmap's business and not this diff's: they are re-derived and re-written
+// at every boot until the projection holds them.
+function popText(rows) {
+  const texts = rows.map((r) => JSON.stringify(r));
+  texts.sort();
+  let n = 0;
+  for (let i = 0; i < texts.length; i++) if (i === 0 || texts[i] !== texts[i - 1]) texts[n++] = texts[i];
+  texts.length = n;
+  return "[" + texts.join(",") + "]";
+}
 // every declared population as text, so a write's diff is its changed fact
 // types: 247 fact types and 4,457 rows in a millisecond on the base store
 function popSnapshot(cells) {
@@ -332,7 +356,7 @@ function popSnapshot(cells) {
     if (typeof ft !== "string") continue;
     let p;
     try { p = Ev("system:pop_rows", [ft, cells]); } catch (e) { p = []; }
-    snap.set(ft, JSON.stringify(Array.isArray(p) ? p : []));
+    snap.set(ft, popText(Array.isArray(p) ? p : []));
   }
   return snap;
 }
@@ -3470,7 +3494,7 @@ function loadStoreDb(path) {
   // and a reflection is recomputed at every load (loadReflected), so by the
   // time the closure has run the cell no longer says what is on disk. boot()
   // diffs against THIS to find out what the tables are missing.
-  STORE_TABLES = new Map(recon.map((c) => [c[1], JSON.stringify(c[2])]));
+  STORE_TABLES = new Map(recon.map((c) => [c[1], popText(c[2])]));
   const names = new Set(recon.map((c) => c[1]));
   for (let i = CELLS.length - 1; i >= 0; i--) if (Array.isArray(CELLS[i]) && names.has(CELLS[i][1])) CELLS.splice(i, 1);
   for (let i = recon.length - 1; i >= 0; i--) CELLS.unshift(recon[i]);
@@ -3761,7 +3785,7 @@ function boot(mode) {
     let closed = 0;
     try { closed = emitToDb(beforeClosure, CELLS); }
     catch (e) { console.error("the closure was computed but not stored in " + fromDb + ": " + e.message); }
-    lap("store-db" + (closed ? ", closure stored into " + closed + " fact type(s)" : ""));
+    lap("store-db" + (closed ? ", closure stored: " + closed + " row(s) written" : ""));
   }
   else if (!schemaless) {
     loadFile(); lap("file");
