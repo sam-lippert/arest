@@ -6,7 +6,7 @@
 // you to be able to use claude while support uses support.auto.dev."
 //
 // This is the router (#117's recommendation A): it speaks MCP on stdio, and
-// behind it runs the unchanged single-store server (build.js mcp --run) once
+// behind it runs the unchanged single-store server (the app's compiled mcp.g.js) once
 // per resident app, each in its own process over its own store. A call names
 // its app; the router forwards it to that app's process and answers when it
 // answers, so two agents on two apps never wait on each other, and two calls
@@ -28,7 +28,7 @@
 // the first app whose canon carries the patterns, since they are the
 // metamodel's, not an app's.
 import { spawn, spawnSync } from "node:child_process";
-import { readFileSync, appendFileSync, statSync } from "node:fs";
+import { readFileSync, appendFileSync, statSync, existsSync } from "node:fs";
 import { createServer, connect } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -215,7 +215,24 @@ class Resident {
     this.ready = null;
     this.error = null;
     this.state = "booting";
-    const child = spawn("bun", [join(here, "build.js"), "mcp", "--run"], {
+    // THE SERVER IS THE MODULE apps_compile BUILT, OVER THE STORE apps_check
+    // WROTE (Sam, 2026-09-21: "it should just use the existing store"). This
+    // ran build.js mcp --run, which composes the module from the working tree
+    // at every spawn and stamps it there. Measured at the 18:39 reboot: the
+    // daemon rewrote all six mcp.g.js from a tree carrying an uncommitted canon
+    // patch, five stores no longer matched their module's stamp, and five apps
+    // died at boot with their stores intact. Composing is apps_compile's move
+    // alone; a spawn runs what was compiled, and an app never compiled says so
+    // instead of building one.
+    const module = join(this.dir, "mcp.g.js");
+    if (!existsSync(module)) {
+      this.child = null;
+      this.error = "not compiled: no mcp.g.js in " + this.dir + " (apps_check, then apps_compile)";
+      this.state = "failed";
+      this.ready = Promise.resolve();
+      return;
+    }
+    const child = spawn("bun", [module], {
       env: { ...process.env, AREST_CARRIERS: this.dir, AREST_OUT_DIR: this.dir, AREST_STORE_DB: this.dir + "/store.db" },
       stdio: ["pipe", "pipe", "pipe"],
       // its own process group where a group can be signalled, so stop() below
@@ -392,7 +409,7 @@ class Resident {
     this.stop("compiling");
     const env = { AREST_CARRIERS: this.dir, AREST_OUT_DIR: this.dir };
     (async () => {
-      const b = await run([join(here, "build.js"), "test"], this.pkg, env);
+      const b = await run([join(here, "build.js"), "mcp"], this.pkg, env);
       this.note = b.code !== 0
         ? "module build FAILED (exit " + b.code + "): " + lastLines(b.tail, 6)
         : "compiled: " + lastLines(b.tail, 1);
@@ -404,7 +421,7 @@ class Resident {
       // initialize.
       announceTools();
     })();
-    return "compiling " + this.name + ": its server is stopped, build.js test runs in " + this.pkg + ", then it serves the new module over the store apps_check wrote";
+    return "compiling " + this.name + ": its server is stopped, build.js mcp runs in " + this.pkg + ", then it serves the new module over the store apps_check wrote";
   }
 }
 
@@ -436,7 +453,7 @@ function tools() {
   return [
     { name: "apps", description: "the resident apps: whether each is serving, and its last check or compile result", inputSchema: { type: "object", properties: {} } },
     { name: "apps_check", description: "run the app's own check in its package (bun run check: the design state from its readings, and its store); the app is stopped first, because it holds the store the check writes, and `apps` reports the result. After a readings change: apps_check, then apps_compile.", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
-    { name: "apps_compile", description: "rebuild the app's module from its carriers (build.js test) and start its server again; the app is not served meanwhile, and `apps` reports the result. The store is written by apps_check, stamped to match this module, so run apps_check first and the app serves from its database", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
+    { name: "apps_compile", description: "rebuild the app's module from its carriers (build.js mcp) and start its server again; the app is not served meanwhile, and `apps` reports the result. The store is written by apps_check, stamped to match this module, so run apps_check first and the app serves from its database", inputSchema: { type: "object", properties: { app: appArg() }, required: ["app"] } },
   ].concat(withApp);
 }
 
