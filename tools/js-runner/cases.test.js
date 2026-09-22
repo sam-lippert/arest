@@ -711,8 +711,10 @@ test("a write reaches the tables, and a store with no tables keeps it in memory"
   const driver = join(dir, "drive.mjs");
   writeFileSync(driver, [
     "await import(process.env.MODULE);",
-    "const { Ev, CELLS, popSnapshot, adoptStore, emitToDb } = globalThis.AREST;",
-    "if (process.env.WRITE) {",
+    "const { Ev, CELLS, popSnapshot, adoptStore, emitToDb, closeStore } = globalThis.AREST;",
+    "if (process.env.MAKE) {",
+    "  const b = popSnapshot(CELLS); closeStore(); console.log('made ' + emitToDb(b, CELLS));",
+    "} else if (process.env.WRITE) {",
     "  const before = popSnapshot(CELLS);",
     "  const out = Ev('main:api', [CELLS, 'POST', process.env.FT, '', [process.env.KEY, 'probe-name']]);",
     "  if (out.length > 2) { adoptStore(out[2]); if (Number(out[1]) < 400) console.log('emitted ' + emitToDb(before, CELLS)); }",
@@ -726,7 +728,7 @@ test("a write reaches the tables, and a store with no tables keeps it in memory"
   const run = (db, write) => {
     const env = { ...process.env, MODULE: pathToFileURL(mod).href, FT, KEY };
     if (db) env.AREST_STORE_DB = db; else delete env.AREST_STORE_DB;
-    if (write) env.WRITE = "1"; else delete env.WRITE;
+    if (write === "MAKE") env.MAKE = "1"; else if (write) env.WRITE = "1"; else delete env.WRITE;
     const p = Bun.spawnSync(["bun", driver], { env, stdout: "pipe", stderr: "pipe" });
     return p.stdout.toString() + p.stderr.toString();
   };
@@ -755,6 +757,12 @@ test("a write reaches the tables, and a store with no tables keeps it in memory"
     // full base store.db this write emits 1 and against this empty _meta it
     // emits 2, because a carriers boot has more to diff. The claim is that
     // SOMETHING reached the tables, and that the row is there on the next boot.
+    // THE FIXTURE IS MADE THE WAY THE CHECK MAKES A STORE (2026-09-21): its
+    // tables, then the closure written into them once. A start computes
+    // nothing now, so a store whose tables were never closed is not a store
+    // the check would have left, and a create over it is refused on what the
+    // closure would have supplied.
+    expect(run(withDb, "MAKE")).toMatch(/made \d+/);
     const wrote = run(withDb, true);
     expect(wrote).toMatch(/status 20[01]/);
     expect(wrote).toMatch(/emitted [1-9]/);
@@ -811,8 +819,10 @@ test("an instance created at runtime is listed after a boot from the tables", ()
   const driver = join(dir, "drive.mjs");
   writeFileSync(driver, [
     "await import(process.env.MODULE);",
-    "const { Ev, CELLS, popSnapshot, adoptStore, emitToDb } = globalThis.AREST;",
-    "if (process.env.WRITE) {",
+    "const { Ev, CELLS, popSnapshot, adoptStore, emitToDb, closeStore } = globalThis.AREST;",
+    "if (process.env.MAKE) {",
+    "  const b = popSnapshot(CELLS); closeStore(); console.log('made ' + emitToDb(b, CELLS));",
+    "} else if (process.env.WRITE) {",
     "  const before = popSnapshot(CELLS);",
     "  const out = Ev('main:api', [CELLS, 'POST', process.env.FT, '', [process.env.WRITE, 'probe-name']]);",
     "  if (out.length > 2) { adoptStore(out[2]); if (Number(out[1]) < 400) emitToDb(before, CELLS); }",
@@ -830,13 +840,15 @@ test("an instance created at runtime is listed after a boot from the tables", ()
 
   const run = (write) => {
     const env = { ...process.env, MODULE: pathToFileURL(mod).href, FT, KEY, AREST_STORE_DB: path };
-    if (write) env.WRITE = write; else delete env.WRITE;
+    if (write === "MAKE") env.MAKE = "1"; else if (write) env.WRITE = write; else delete env.WRITE;
     const p = Bun.spawnSync(["bun", driver], { env, stdout: "pipe", stderr: "pipe" });
     return p.stdout.toString() + p.stderr.toString();
   };
 
   try {
-    // the fixture's own build: one write, then every row it left is the ledger's
+    // the fixture's own build: the closure written once as the check writes
+    // it, then one write; every row it leaves is the ledger's
+    expect(run("MAKE")).toMatch(/made \d+/);
     expect(run(PRIME)).toMatch(/status 20[01]/);
     // NO LEDGER IS FILLED. It held the rows the tables had BEFORE this write, so
     // the loader could tell the runtime's rows from the build's and carry only
@@ -909,9 +921,11 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
   const driver = join(dir, "drive.mjs");
   writeFileSync(driver, [
     "await import(process.env.MODULE);",
-    "const { Ev, CELLS, popSnapshot, adoptStore, emitToDb } = globalThis.AREST;",
+    "const { Ev, CELLS, popSnapshot, adoptStore, emitToDb, closeStore } = globalThis.AREST;",
     "const flat = (v) => { let x = v; while (Array.isArray(x)) x = x.length ? x[0] : null; return x; };",
-    "if (process.env.WRITE) {",
+    "if (process.env.MAKE) {",
+    "  const b = popSnapshot(CELLS); closeStore(); console.log('made ' + emitToDb(b, CELLS));",
+    "} else if (process.env.WRITE) {",
     "  const before = popSnapshot(CELLS);",
     "  const out = Ev('main:api', [CELLS, 'POST', process.env.FT, '', [process.env.WRITE, 'probe note']]);",
     "  if (out.length > 2) { adoptStore(out[2]); if (Number(out[1]) < 400) emitToDb(before, CELLS); }",
@@ -924,7 +938,7 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
 
   const run = (write) => {
     const env = { ...process.env, MODULE: pathToFileURL(mod).href, FT, KEY, AREST_STORE_DB: path };
-    if (write) env.WRITE = write; else delete env.WRITE;
+    if (write === "MAKE") env.MAKE = "1"; else if (write) env.WRITE = write; else delete env.WRITE;
     const p = Bun.spawnSync(["bun", driver], { env, stdout: "pipe", stderr: "pipe" });
     return p.stdout.toString() + p.stderr.toString();
   };
@@ -978,7 +992,9 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
   };
 
   try {
-    // the fixture's own build: one write, then every row it left is the ledger's
+    // the fixture's own build: the closure written once as the check writes
+    // it, then one write; every row it leaves is the ledger's
+    expect(run("MAKE")).toMatch(/made \d+/);
     expect(run(PRIME)).toMatch(/status 20[01]/);
     // NO LEDGER IS FILLED. It held the rows the tables had BEFORE this write, so
     // the loader could tell the runtime's rows from the build's and carry only
@@ -991,7 +1007,11 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
     rebuild(KEY);
     expect(stored(MACH).some((r) => r.includes(KEY))).toBe(false);
 
-    // and now a boot over those tables: it derives the machine, and stores it
+    // and now the CHECK's closure over those tables (compile.js adopts its
+    // build, closes it under the reflection and the rules, and writes what that
+    // adds; 2026-09-21): it derives the machine and stores it, and a start
+    // reads it from the tables and computes nothing
+    expect(run("MAKE")).toMatch(/made [1-9]/);
     expect(run(null)).toContain("memory true");
     const J = JSON.stringify;
     // THE MACHINE IS THE INSTANCE'S COLUMN (2026-09-21). The column that
@@ -1097,9 +1117,11 @@ test("a population in another order is not a change; one row fewer is", () => {
 // and Function.constraintModalityType are the metamodel's own case: canon's
 // reflect:computed pairs ConstraintSpan with reflect:spans and
 // ConstraintHasModalityOfModalityType with reflect:modalities (both #122 item
-// 1's reflect:cells union), so a fresh compile.js build -- which reads the
-// readings and never canon's reflection -- leaves ConstraintSpan empty and
-// every Function.constraintModalityType null. A row written straight into the
+// 1's reflect:cells union). Since the check writes the closure into the build
+// (2026-09-21) a fresh compile.js build holds the reflection's own rows in
+// both; what an OLDER design state's write-back would have left there is a
+// row and a value this design state's reflection does not produce, and the
+// carry over the next build must not keep them. A row written straight into the
 // store between two builds stands in for what a BOOT's write-back would have
 // left there from an older design state (host.js's loadReflected + emitToDb,
 // the durability tests above); the carry must not mistake it for a runtime
@@ -1122,15 +1144,19 @@ test("the carry leaves a reflected row to the closure instead of keeping it", ()
   };
 
   try {
-    // the fresh build: no prior store, nothing carried, and neither reflected
-    // shape populated -- compile.js reads the readings and never reflects
+    // the fresh build: no prior store, nothing carried; the check writes the
+    // closure into it, so the reflected shapes ARE populated -- by canon's
+    // reflection over this design state, and by nothing else
     const first = build();
     expect(first).toContain("store:");
     expect(first).not.toContain("runtime row(s) carried");
     const before = new Database(path, { readonly: true });
-    expect(before.prepare('select count(*) c from "ConstraintSpan"').get().c).toBe(0);
-    expect(before.prepare('select count(*) c from "Function" where "constraintModalityType" is not null').get().c).toBe(0);
-    const fnKey = before.prepare('select "functionId" k from "Function" limit 1').get().k;
+    expect(before.prepare('select count(*) c from "ConstraintSpan"').get().c).toBeGreaterThan(0);
+    expect(before.prepare('select count(*) c from "ConstraintSpan" where "constraintSpanId"=?').get("x-probe-span").c).toBe(0);
+    // a Function the reflection gives no modality, so the value injected below
+    // is one this design state's own closure would not produce
+    const fnKey = before.prepare('select "functionId" k from "Function" where "constraintModalityType" is null limit 1').get().k;
+    expect(fnKey).toBeTruthy();
     before.close(true);
 
     // what a boot's write-back would have left behind from an older design
