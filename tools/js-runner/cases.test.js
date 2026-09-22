@@ -2873,3 +2873,73 @@ describe("canon's reader reads a value type's kind and the rows that need it", (
       .toEqual(["joinon", "A", "B", [], [1, 2, 3, 4]]);
   });
 });
+// ---- THE JUDGE'S VERDICT LANDS AS A VIOLATION ROW (#122 item 7) ----------
+//
+// llm:validate_judge is the fourth driven seam and yields validate's own
+// violation-list; the three CSDP seams land their answers as <fact type,
+// players> claims, and a violation row is not a claim, so `drive` answered
+// [] for a judged verdict and nothing was ever written (measured at HEAD,
+// 2026-09-21). A judged rule's violation is RECORDED (support's
+// state-law-wiring.md): the row lands as a Violation whose id is minted from
+// its content the way a bound child's is, whose Timestamp is the clock when
+// `Operation 'clock' is registered` and the request's own time otherwise, and
+// whose Text is the judge's reason or, for a 3-slot row, the Constraint's own
+// Text. The rows go through the entity door, so the mandatory gate holds them.
+const fromJsonRow = (x) => Array.isArray(x) ? x.map(fromJsonRow)
+  : (x !== null && typeof x === "object") ? Object.keys(x).map((k) => [k, fromJsonRow(x[k])])
+  : (typeof x === "number" ? x : String(x));
+
+test("llm:validate_judge's verdict lands as a Violation row, stamped by the registered clock", () => {
+  const { adoptStore } = globalThis.AREST;
+  const keep = CELLS.slice();
+  const DEO = String(Ev("system:pop_rows", ["ConstraintHasModalityOfModalityType", CELLS]).find((r) => String(r[1]) === "Deontic")[0]);
+  const RULE = "A Support Response must not misrepresent the customer's rights under state law.";
+  const AT = "2026-09-21T00:00:00.000Z";
+  const VID = "Violation:ViolationIsOfConstraint=" + DEO + "|ViolationIsTriggeredByObjectTypeInstance=msg-1";
+  const judged = (facts) => fromJsonRow({ operation: "llm:validate_judge", subject: DEO, at: AT, model: "m",
+    definition: "agentdef-llm-validate-judge", agent: "agent-test", completion: "cmp-test-1", claim: "claim-cmp-test-1",
+    prompt: "p", input: "i", output: JSON.stringify(facts), facts });
+  const of = (pairs, ft) => pairs.filter((p) => String(p[0]) === ft).map((p) => p[1].map(String));
+  try {
+    // a deontic constraint of the base, given a Text, as support's twelve have
+    adoptStore([["CELL", "ConstraintHasText", [[DEO, RULE]]]].concat(CELLS));
+
+    // the verdict, in validate's shape plus the judge's reason
+    const pairs = Ev("drive", [judged([[DEO, "deontic", "msg-1", "It tells the customer arbitration is mandatory."]]), CELLS]);
+    expect(of(pairs, "ViolationIsOfConstraint")).toEqual([[VID, DEO]]);
+    expect(of(pairs, "ViolationHasText")).toEqual([[VID, "It tells the customer arbitration is mandatory."]]);
+    expect(of(pairs, "ViolationHasSeverity")).toEqual([[VID, "warning"]]);
+    expect(of(pairs, "ViolationIsTriggeredByObjectTypeInstance")).toEqual([[VID, "msg-1"]]);
+    // clock is registered on the base (resolution.md), so the stamp is the
+    // clock's and not the request's
+    const [[, at]] = of(pairs, "ViolationOccurredAtTimestamp");
+    expect(at).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d/);
+    expect(at).not.toBe(AT);
+
+    // validate's row verbatim, three slots: the Text is the Constraint's own
+    const three = Ev("drive", [judged([[DEO, "deontic", "msg-2"]]), CELLS]);
+    expect(of(three, "ViolationHasText")).toEqual([["Violation:ViolationIsOfConstraint=" + DEO + "|ViolationIsTriggeredByObjectTypeInstance=msg-2", RULE]]);
+
+    // the CSDP seams still land claims
+    const claims = Ev("drive", [judged([{ factType: "FunctionBelongsToDomain", players: ["f-test", "d-test"] }]).map((p) => (String(p[0]) === "operation" ? ["operation", "csdp:elementarize"] : p)), CELLS]);
+    expect(of(claims, "FunctionBelongsToDomain")).toEqual([["f-test", "d-test"]]);
+
+    // and the rows go in through the entity door mcp:entities names for them
+    const ents = Ev("mcp:entities", CELLS);
+    const table = ents.find((e) => (e[2] || []).some((f) => String(f[0]) === "ViolationIsOfConstraint"));
+    expect(table).toBeDefined();
+    const fact = [VID];
+    for (const p of pairs.filter((p) => /^Violation/.test(String(p[0])))) fact.push(String(p[0]), String(p[1][1]));
+    const out = Ev("mcp:call", ["POST", String(table[1]), "", fact, CELLS]);
+    expect(Number(out[1])).toBeLessThan(400);
+    adoptStore(out[2]);
+    expect(Ev("system:pop_rows", ["ViolationIsOfConstraint", CELLS]).map((r) => r.map(String))).toEqual([[VID, DEO]]);
+
+    // when no host registers a clock, the time the request provides is used
+    const reg = Ev("system:pop_rows", ["OperationIsRegistered", CELLS]).filter((r) => String(r[0]) !== "clock");
+    adoptStore([["CELL", "OperationIsRegistered", reg]].concat(CELLS));
+    expect(String(Ev("drive:stamp", [judged([]), CELLS]))).toBe(AT);
+  } finally {
+    adoptStore(keep);
+  }
+}, 120_000);
