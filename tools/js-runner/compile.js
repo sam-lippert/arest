@@ -165,19 +165,56 @@ if (refused) process.exit(1);
 // this is twelve lines: A an atom, N a number, PHI the empty sequence, DEF a
 // <name, body> entry, and the escapes CANONTEXT's own reader undoes.
 //
-// WHY IT EXISTS AT ALL, since #109 is about removing exactly this kind of
+// WHY IT STILL EXISTS, since #109 is about removing exactly this kind of
 // intermediate: build.js composes the design state INTO the module, and the
-// alternative -- the module booting its design state from the store -- is the
-// half of the flip that canon cannot yet answer. Measured on the metamodel
-// (2026-09-20): rmap:ddl gives 11 tables and 344 columns, but each column
-// carries a PATH of 1 to 7 steps (32 are one hop; 100 are two; 82 are four),
-// and 4 populated fact types -- ObjectTypeIsSubtypeOfObjectType,
-// ObjectTypeInstanceIsInstanceOfObjectType, FunctionIsSupersededByFunction,
-// GuardReferencesFactType, 1,543 of the store's 3,540 rows -- are named by no
-// path at all, because subtyping and instance-of are realised as table
-// MEMBERSHIP rather than as a column. Canon emits the schema and has no
-// projection into it and no inverse, so until it does, the store cannot carry
-// the design state and the carrier does.
+// alternative -- the module reading its design state out of the store -- is
+// the half of the flip canon cannot yet answer. WHAT STOOD HERE NAMED THE
+// WRONG OBSTACLE and is corrected rather than deleted. It said four populated
+// fact types were named by no path and that canon emits the schema and has no
+// projection into it and no inverse. Measured at b72a7b35 on the base
+// metamodel: rmap:unkeyed is 0, the 289 fact types give 65 tables and 427
+// column paths, 69 fact types are populated, and POPULATED-BUT-HOMELESS is 0.
+// The inverse is here and it is EXACT: loadStoreDb hands every table's rows to
+// rmap:unproj -- operand <table, rows, store>, three components, which is
+// declared nowhere although rmap:unproj is on law:entry_hosts -- and
+// re-projecting what it answers gives the tables back row for row: 65 tables,
+// 15,452 rows, 0 differing.
+//
+// THE OBSTACLE IS THAT THE SCHEMA IS ONLY PART OF ITS OWN POPULATION. The
+// schema is a population of the metamodel -- Fact Type, Role, Reading,
+// Constraint and Object Type are entity types the metamodel declares -- and
+// the store holds that population wherever something writes it: read:reflect
+// writes ten fact types at read time, reflect:cells sixteen at boot, 17,477
+// rows on the base. WHAT NOTHING WRITES, measured on the store this file
+// makes: ReadingHasText 0 rows of 541 readings, which is state:readings;
+// Derivation Rule and the six fact types that carry a rule -- text, produces,
+// antecedent, join path, role sequence, role projection -- 0 rows, which is
+// state:rules and state:undelivered after it; ObjectTypeIsIndependent 0 of the
+// 22 the cell holds, which is state:otmeta; EntityTypeHasReferenceMode 2 of
+// 112, which is state:refmodes and state:schemereadings after it;
+// FactTypeHasDerivationMode 31 of 37, which is state:derived;
+// FactTypeHasDeclarationOrder 262 of 541 and under another numbering, which is
+// state:factorder; no Constraint of Constraint Type XC or XO, which is
+// state:exclusions; and 10 of the 13 deontic Constraints, the three DEO:p
+// being outside reflect:con_all, which is state:deontics. TWO CELLS HAVE NO
+// FACT TYPE IN THE METAMODEL AT ALL, so the metamodel is short by two:
+// state:autoid and state:qualifiers.
+//
+// THE READING TEXT IS THE SHARPEST OF THEM and stands for the rest. A fact
+// type's name is minted from its reading, so re-imploding the reading from the
+// name and the players looks like an inverse; measured on the base it recovers
+// 280 of 289 and loses exactly the nine whose design carries a separate name
+// or a qualified word -- ConstraintSpan, RoleInstance, API,
+// EventCausedTransition, and the four readings state:qualifiers records. A
+// name is a lossy encoding of the reading it came from, so the text is not
+// derivable and has to be stored.
+//
+// AND THE SCHEMA IS WHAT READS THE TABLES, so none of this is recoverable by
+// reading harder. Measured on a module composed with an empty carrier over the
+// same store: ast:fetch of state:fts answers #, and store:fts, rmap:coltabs,
+// rmap:colpaths, rmap:ddl and loadStoreDb every one throw selector 1 on atom:
+// #. Until those populations are written the store cannot carry the design
+// state and the carrier does.
 const outDir = process.env.AREST_OUT_DIR;
 // THE DESIGN STATE IS A VALUE; THE CARRIER IS ONE RENDERING OF IT, and the
 // store's identity is the value, not the file. This rendering used to live
