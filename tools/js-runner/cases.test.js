@@ -3729,3 +3729,129 @@ test("an instance created with no Domain belongs to its type's, and a reflected 
   expect(body[3].filter((v) => String(v[0]) === "FunctionBelongsToDomain")).toEqual([]);
   expect(dom(KEY, out[2])).toBe("state");
 }, 120_000);
+
+// ---- AND DOES THE DESCENT END WHERE THE STORE CONTRADICTS ITSELF? --------
+//
+// `Status is initial in State Machine Definition` is a fact about the
+// DEFINITION, and main:leaf_initial walks it to the leaf, because entering a
+// composite Status enters its initial substate (Harel; main:enter reads the
+// same walk). The walk kept no record of the statuses it had entered, so a
+// population holding both <s, m> and <m, s> sent it round for ever: the
+// predicate answers non-null at every step and nothing ends it. That is not a
+// slow answer, it is no answer -- the closure never returns.
+//
+// A population holds both when a store is PROJECTED under one placement and
+// READ under another. apps/claude/.check/store.db (2026-09-21 13:58) and
+// apps/qa.auto.dev/.check/store.db (2026-09-22 09:55) both carry the marking
+// as Function['step1-elementary-facts'].stateMachineDefinitionStatusId =
+// 'CSDP', keyed by the STATUS; a store this tip projects carries it as
+// Function['CSDP'].stateMachineDefinitionStatusId = 'step1-elementary-facts',
+// keyed by the MACHINE. compile.js keeps the prior row, because its key is
+// not one the build wrote, and loadStoreDb reconstructs it with the current
+// placement -- which is the pair the other way round. MEASURED 2026-09-22:
+// qa.auto.dev's check over a copy of its own prior store does not finish the
+// closure in 180 s, where the same check over a fresh store closes in 5.5 s;
+// with the walk guarded it closes in 6.5 s and writes 15,570 rows.
+//
+// The store here is one statement away from that one: made the check's way,
+// two Schema Designs in it -- CSDP is the machine Schema Design has, and
+// Schema Design is a subtype of Object Type Instance -- and the one column
+// that carries the marking rewritten into the other placement.
+//
+// THE CLOSURE RUNS IN A CHILD THAT ANSWERS INTO A FILE. At e70a60dd it does
+// not return, and a bun child inside a synchronous loop survives p.kill(9)
+// on win32 while the parent's read of its stdout never ends (measured
+// 2026-09-22), so a case written the way the durability cases above are
+// written would HANG the suite instead of failing it. A file needs no pipe,
+// and the platform ends the process.
+test("a store naming a machine's initial both ways round still seats its instances", async () => {
+  const stamp = globalThis.AREST.composition;
+  const dir = mkdtempSync(join(tmpdir(), "arest-descent-"));
+  const mod = join(import.meta.dir, "cases.g.js");
+  const path = join(dir, "descent.db");
+  const answered = join(dir, "answer.json");
+  const L = String.fromCharCode(10);
+  try {
+    const db0 = new Database(path);
+    makeTables(db0);
+    db0.run("create table _composition (hash text)");
+    db0.prepare("insert into _composition values(?)").run(stamp);
+    db0.run("pragma wal_checkpoint(TRUNCATE)");
+    db0.close();
+
+    const driver = join(dir, "drive.mjs");
+    writeFileSync(driver, [
+      "import { writeFileSync, renameSync } from 'node:fs';",
+      "await import(process.env.MODULE);",
+      "const { Ev, CELLS, popSnapshot, emitToDb, closeStore } = globalThis.AREST;",
+      "const say = (v) => { writeFileSync(process.env.ANSWER + '.part', JSON.stringify(v));",
+      "  renameSync(process.env.ANSWER + '.part', process.env.ANSWER); };",
+      "if (process.env.MAKE) { const b = popSnapshot(CELLS); closeStore();",
+      "  say(['made', emitToDb(b, CELLS)]); }",
+      "else { closeStore();",
+      "  say([Ev('reflect:machines', CELLS), Ev('reflect:otistatus', CELLS)]); }",
+    ].join(L));
+
+    const readAnswer = () => {
+      try { return JSON.parse(readFileSync(answered, "utf8")); } catch { return null; }
+    };
+    const run = async (make) => {
+      try { rmSync(answered, { force: true }); } catch { /* not there */ }
+      const env = { ...process.env, MODULE: pathToFileURL(mod).href,
+        AREST_STORE_DB: path, ANSWER: answered };
+      if (make) env.MAKE = "1"; else delete env.MAKE;
+      const p = Bun.spawn(["bun", driver], { env, stdout: "ignore", stderr: "ignore" });
+      const deadline = Date.now() + 120_000;
+      let got = null;
+      while (Date.now() < deadline && (got = readAnswer()) === null) {
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      if (process.platform === "win32") {
+        Bun.spawnSync(["taskkill", "/F", "/T", "/PID", String(p.pid)],
+          { stdout: "ignore", stderr: "ignore" });
+      } else { try { p.kill(9); } catch { /* already gone */ } }
+      return got;
+    };
+
+    // the check's own build first: the marking is a derived head with a table
+    // of its own since 36774b07, and it has to be in the tables to be flipped
+    const made = await run(true);
+    expect(made && made[0]).toBe("made");
+
+    const db1 = new Database(path);
+    for (const k of ["sd-alpha", "sd-beta"]) {
+      db1.run('insert or replace into "Function" ("functionId", "belongsToDomainId",'
+        + ' "objectTypeInstanceReference", "objectTypeInstanceDomainId", "schemaDesignNote")'
+        + " values (?, ?, ?, ?, ?)", [k, "evolution", k, "evolution", "probe note"]);
+      db1.run('insert or replace into "ObjectTypeInstanceIsInstanceOfObjectType"'
+        + ' ("objectTypeInstanceIsInstanceOfObjectTypeId", "objectTypeId", "objectTypeInstanceId")'
+        + " values (?, ?, ?)", [k + ".Schema Design", "Schema Design", k]);
+    }
+    // and the marking keyed by the STATUS, which is the placement every store
+    // built before 2026-09-21 23:45 carries
+    const marks = db1.query('select "functionId", "stateMachineDefinitionStatusId"'
+      + ' from "Function" where "stateMachineDefinitionStatusId" is not null')
+      .values().map((r) => r.map(String));
+    expect(marks.length).toBeGreaterThan(0);
+    db1.run('update "Function" set "stateMachineDefinitionStatusId" = null');
+    for (const [machine, status] of marks) {
+      db1.run('update "Function" set "stateMachineDefinitionStatusId" = ?'
+        + ' where "functionId" = ?', [machine, status]);
+    }
+    db1.run("pragma wal_checkpoint(TRUNCATE)");
+    db1.close();
+
+    const out = await run(false);
+    expect(out).not.toBeNull();   // at e70a60dd the child never answers
+    const J = JSON.stringify;
+    const [machines, statuses] = out;
+    expect(machines.some((r) => J(r) === J(["sm.sd-alpha", "sd-alpha"]))).toBe(true);
+    expect(machines.some((r) => J(r) === J(["sm.sd-beta", "sd-beta"]))).toBe(true);
+    // and each one seated at CSDP's initial: the walk stops at the last status
+    // it legitimately entered, which is the machine's own initial
+    expect(statuses.some((r) => J(r) === J(["sd-alpha", "step1-elementary-facts"]))).toBe(true);
+    expect(statuses.some((r) => J(r) === J(["sd-beta", "step1-elementary-facts"]))).toBe(true);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 300_000);
