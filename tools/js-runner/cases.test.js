@@ -3344,3 +3344,65 @@ describe("the reader's state phase indexes its records instead of scanning them 
     expect(Ev("read:state_fts", F).map((r) => r[0])).toEqual(["Employment"]);
   }, 300_000);
 });
+// ---- THE META-TYPES HAVE EXTENTS, NOT ONLY LINKS (#122 item 2) ----
+//
+// The reflection answered the LINKS between the meta-types -- a fact type has
+// a role, a role is played by an object type and used in a reading -- and the
+// meta-types those links run between had no population of their own. Measured
+// on the base design state before this: ObjectTypeInstanceIsInstanceOfObjectType
+// claimed 142 of the 506 fact types and not one of the 993 roles, so every role
+// id in FactTypeHasRole, in ObjectTypePlaysRole and in all 997 ConstraintSpan
+// rows was nobody's instance and `Each Fact Type has some Role` was satisfied by
+// link rows over ids no object type claimed. The extents are the same reflection
+// one meta-type up, with the ids the links already use.
+test("every fact type and role a reflected link names is an instance of its object type", () => {
+  const rows = (ft) => Ev("system:pop_rows", [ft, CELLS]).map((r) => r.map(String));
+  const claims = new Map();
+  for (const [id, ot] of rows("ObjectTypeInstanceIsInstanceOfObjectType")) {
+    if (!claims.has(id)) claims.set(id, new Set());
+    claims.get(id).add(ot);
+  }
+  const isA = (id, ot) => claims.has(id) && claims.get(id).has(ot);
+  const unclaimed = (pairs) => pairs.filter(([id, ot]) => !isA(id, ot)).slice(0, 3);
+  // every id a link population names is an instance of the type that link says it is
+  expect(unclaimed(rows("FactTypeHasRole").map(([ft]) => [ft, "Fact Type"]))).toEqual([]);
+  expect(unclaimed(rows("FactTypeHasRole").map(([, role]) => [role, "Role"]))).toEqual([]);
+  expect(unclaimed(rows("FactTypeHasReading").map(([ft]) => [ft, "Fact Type"]))).toEqual([]);
+  expect(unclaimed(rows("ObjectTypePlaysRole").map(([, role]) => [role, "Role"]))).toEqual([]);
+  expect(unclaimed(rows("RoleIsUsedInReading").map(([role]) => [role, "Role"]))).toEqual([]);
+  expect(unclaimed(rows("ConstraintSpan").map(([, role]) => [role, "Role"]))).toEqual([]);
+  // the ids are the ones the links already use, and membership is transitive
+  // the way read:up_rows files a build-produced instance -- under its type and
+  // every ancestor
+  const FT = rows("FactTypeHasRole")[0][0];
+  expect(["Fact Type", "Event Type", "Function"].filter((t) => !isA(FT, t))).toEqual([]);
+  const roles = rows("FactTypeHasRole").filter(([ft]) => ft === FT).map(([, role]) => role);
+  expect(roles).toEqual(roles.map((unused, i) => FT + "." + (i + 1)));
+  // every reflected instance has its reference, which is its id
+  const refs = new Map(rows("ObjectTypeInstanceHasReference"));
+  expect([...claims.keys()].filter((id) => refs.get(id) !== id).slice(0, 3)).toEqual([]);
+  // EVERY REFLECTED ROW IS FLAT. The write-back adopts the cells into the
+  // source and store:fix_desc unfolds a descriptor's rows (theta:unfold_rows),
+  // so a column holding a tuple is a population the store cannot hold at all:
+  // it throws `expected sequence, got atom` out of theta:flatten and the
+  // closure is computed but not stored, which is every durability test.
+  for (const cell of Ev("reflect:cells", CELLS)) {
+    const nested = cell[1].filter((r) => r.some((c) => Array.isArray(c))).length;
+    expect([String(cell[0]), nested]).toEqual([String(cell[0]), 0]);
+  }
+  // AND A READING IS NOT YET A POPULATION, because being one has a price the
+  // design state cannot pay: loadStoreDb files the instance rows a write-back
+  // leaves into state:otpops, which is what ui:ids reads, so `Each Reading has
+  // exactly one Text` and `Each Reading is used by exactly one Predicate` bind
+  // from the second boot on -- measured 104 and 506 alethic mandatory
+  // violations, and the create then answers 409. This is the price, stated:
+  // reflect Reading only when both can be answered.
+  const readings = new Set(rows("FactTypeHasReading").map(([, rd]) => rd));
+  if (rows("ObjectTypeInstanceIsInstanceOfObjectType").some(([, ot]) => ot === "Reading")) {
+    expect([rows("ReadingHasText").length, rows("ReadingIsUsedByPredicate").length])
+      .toEqual([readings.size, readings.size]);
+  }
+  // the cell is still the union, so what the build filed and the reflection
+  // does not answer is still there
+  expect(rows("ObjectTypeInstanceIsInstanceOfObjectType").some(([, ot]) => ot === "Subtype Fact")).toBe(true);
+}, 120_000);
