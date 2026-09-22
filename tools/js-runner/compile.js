@@ -327,9 +327,10 @@ if (!out && !outDir) {
   // store cannot yet tell us, because its schema is spliced into the module
   // rather than carried in the database. So this counts and names those tables
   // and REFUSES; it does not guess. AREST_MIGRATE=allow-loss says drop them.
-  let carried = 0, filled = 0;
+  let carried = 0, filled = 0, reflectedSkipped = 0, tCarry = 0;
   const orphaned = [];
   if (existsSync(out)) {
+    const tCarryStart = Date.now();
     const prior = new Database(out, { readonly: true });
     const shapeOf = (d) => {
       const m = new Map();
@@ -340,6 +341,51 @@ if (!out && !outDir) {
       return m;
     };
     const was = shapeOf(prior), now = shapeOf(db);
+    // A REFLECTED NAME NEVER CARRIES (b6e16927, #122 item 1 continued). A boot
+    // writes the REFLECTED populations back into these same tables too --
+    // host.js's loadReflected installs canon's own reflect:cells answer as the
+    // cell of a reflected fact type's name, and emitToDb (~349) projects that
+    // cell the same way any other one is projected. So a row the prior store
+    // holds for a reflected name is the CLOSURE's computation over whatever
+    // design state that boot had, not a runtime fact, and carrying it forward
+    // is carrying a STALE closure answer into a build the closure has not run
+    // over yet -- a constraint the readings no longer declare surviving
+    // because the carry could not tell a reflected row from a written one.
+    // Skipped here, nothing is lost: the next boot's loadReflected + emitToDb
+    // recomputes it fresh and writes it back.
+    //
+    // WHICH NAMES ARE REFLECTED IS CANON'S ANSWER, the same one loadReflected
+    // itself reads -- reflect:cells' <name, population> pairs -- but READING
+    // IT COSTS THE POPULATIONS, and MEASURED on the metamodel (with and
+    // without readings/templates beside it) Ev("reflect:cells", CELLS) does
+    // not just cost, it THROWS: `selector 1 on atom: Abstract SQL Type`.
+    // reflect:cells' sub-computations read cells a live boot's derivation
+    // closure installs (loadDerived, alternated with loadReflected itself,
+    // host.js ~3687); compile.js runs no closure at all -- it is the read
+    // phase, on purpose (this file's own header) -- so the union it would
+    // need is never there to read. There is no names-only DEF either
+    // (grepped reflect:*, 2026-09-21: reflect:computed pairs a name with the
+    // DEF that computes it and nothing answers the names alone). So this
+    // copies reflect:computed's OWN pairs (arest:14286-14287) as data, the
+    // way this file's ARTIFACTS list two hundred lines up (~176) copies
+    // rmap's -- both go stale on the same canon edit and neither one
+    // evaluates a population to get the names.
+    const REFLECTED_NAMES = new Set(("FactTypeHasRole FactTypeHasReading ObjectTypePlaysRole "
+      + "RoleIsUsedInReading StateMachineIsForObjectTypeInstance StateMachineIsInstanceOfStateMachineDefinition "
+      + "StateMachineIsCurrentlyInStatus ObjectTypeInstanceIsCurrentlyInStatus ConstraintIsOfConstraintType "
+      + "ConstraintHasModalityOfModalityType ConstraintSpan ConstraintSpanHasSequenceNumber "
+      + "ConstraintSpanHasPosition FunctionBelongsToDomain").split(" "));
+    // WHICH TABLES AND COLUMNS A NAME CARRIES IS rmap:ctab's TO ANSWER, NOT
+    // HARDCODED -- <fact type, table, columns> rows, a column's path
+    // resolved to the ONE fact type it carries by rmap:proj_carried, the
+    // same pair emitToDb walks (~365) to decide which tables a write
+    // touched. Measured OK on the metamodel alone and with templates (49 and
+    // 71 tables); still guarded, the way a RMAP ARTIFACT compile.js cannot
+    // compute is skipped rather than refused (~182), so a build that used to
+    // succeed keeps succeeding even where this cannot be read.
+    let ctabByTable = new Map();
+    try { ctabByTable = new Map(Ev("rmap:ctab", CELLS).map((ct) => [String(ct[1]), ct])); }
+    catch (e) { console.error("  (rmap:ctab could not be read -- " + e.message + " -- carrying every table as before)"); }
     for (const [table, oldCols] of was) {
       const newCols = now.get(table);
       if (!newCols) {
@@ -347,7 +393,41 @@ if (!out && !outDir) {
         if (n) orphaned.push({ table, rows: n, why: 'the build declares no such table' });
         continue;
       }
-      const keep = newCols.map((c2) => c2.name).filter((n2) => oldCols.some((o) => o.name === n2));
+      // A RELATION TABLE NAMED FOR A REFLECTED FACT TYPE IS NOT CARRIED AT
+      // ALL -- ConstraintSpan is the case (reflect:computed pairs it with
+      // reflect:spans): every row in it is the reflection's own row, so a row
+      // the prior store has and this build does not is an older design
+      // state's answer and not this table's to keep.
+      const ctabEntry = ctabByTable.get(table);
+      if (ctabEntry && REFLECTED_NAMES.has(String(ctabEntry[0]))) {
+        reflectedSkipped += prior.prepare('select count(*) c from ' + qi(table)).get().c;
+        continue;
+      }
+      // AND A COLUMN CARRYING A REFLECTED FACT TYPE IS NOT CARRIED AND NOT
+      // FILLED, on a table that is not itself reflected whole -- Function
+      // holds its own written attributes beside reflected columns like
+      // constraintModalityType, and only the second kind is the closure's to
+      // answer. rmap:proj_colnames names a table's columns in the order
+      // rmap:ctab fills them (its own comment, ~17084), which is what lets
+      // this zip ctabEntry's column paths against them by position, exactly
+      // as the durability suite's own `carriers()` helper does.
+      const reflectedCols = new Set();
+      if (ctabEntry) {
+        try {
+          const cn = Ev("rmap:proj_colnames", [table, CELLS]).map(String);
+          ctabEntry[2].forEach((col, i) => {
+            const carriedFt = String(Ev("rmap:proj_carried", Array.isArray(col[2]) ? col[2] : []));
+            if (cn[i] && REFLECTED_NAMES.has(carriedFt)) reflectedCols.add(cn[i]);
+          });
+        } catch (e) { /* this table's carried columns could not be determined -- carry it as before */ }
+      }
+      if (reflectedCols.size) {
+        const cond = [...reflectedCols].map((c2) => qi(c2) + " is not null").join(" or ");
+        reflectedSkipped += prior.prepare('select count(*) c from ' + qi(table) + ' where ' + cond).get().c;
+      }
+      const oldColsK = oldCols.filter((o) => !reflectedCols.has(o.name));
+      const newColsK = newCols.filter((c2) => !reflectedCols.has(c2.name));
+      const keep = newColsK.map((c2) => c2.name).filter((n2) => oldColsK.some((o) => o.name === n2));
       // NO SHARED COLUMN, NOTHING TO MATCH ON: the prior table is a different
       // layout of the same name (compile-store.js's k + fact-type-name columns
       // against canon's role-named ones), and its rows are orphaned whole.
@@ -356,7 +436,7 @@ if (!out && !outDir) {
         if (n) orphaned.push({ table, rows: n, why: 'no column of the prior table survives in the build' });
         continue;
       }
-      const dropped = oldCols.map((o) => o.name).filter((n2) => !keep.includes(n2));
+      const dropped = oldColsK.map((o) => o.name).filter((n2) => !keep.includes(n2));
       for (const d2 of dropped) {
         const n = prior.prepare('select count(*) c from ' + qi(table) + ' where ' + qi(d2) + ' is not null').get().c;
         if (n) orphaned.push({ table, column: d2, rows: n, why: 'the build declares no such column' });
@@ -366,7 +446,7 @@ if (!out && !outDir) {
       // row of it, so a row is matched on its key only where that key is present;
       // otherwise the row IS its identity and is matched whole, with IS rather
       // than = so that NULL compares to NULL.
-      const pk = newCols.filter((c2) => c2.pk).map((c2) => c2.name).filter((n2) => keep.includes(n2));
+      const pk = newColsK.filter((c2) => c2.pk).map((c2) => c2.name).filter((n2) => keep.includes(n2));
       const cols = keep.map(qi).join(",");
       const add = db.prepare('insert into ' + qi(table) + ' (' + cols + ') values ('
         + keep.map(() => "?").join(",") + ')');
@@ -395,6 +475,7 @@ if (!out && !outDir) {
         }
       }
     }
+    tCarry = Date.now() - tCarryStart;
     prior.close(true);
   }
   db.close(true);
@@ -418,7 +499,8 @@ if (!out && !outDir) {
     + ", schema " + schemaHash
     + (refused ? ", " + refused + " REFUSED BY SQLITE" : "")
     + (carried || filled ? " [" + carried + " runtime row(s) carried, " + filled + " value(s) filled]" : "")
-    + " (" + tRows + " ms)");
+    + (reflectedSkipped ? " [" + reflectedSkipped + " reflected row(s) left to the closure]" : "")
+    + " (" + tRows + " ms" + (tCarry ? ", " + tCarry + " ms carry" : "") + ")");
   for (const f of first) console.log("  " + f);
 }
 // WHAT THE STORE CANNOT HOLD IS SAID, NOT SKIPPED. rmap:unkeyed is every fact

@@ -3889,7 +3889,18 @@ function boot(mode) {
   if (SAMPLE && process.env.AREST_SAMPLE_AFTER_BOOT) sreset(); // @instrument
   BOOTED = true;
   if (mode === "test") return run_test();
-  if (mode === "serve") return run_serve();
+  // "UI" IS A SERVE TAIL, NOT A CLI ONE (build.js OUT, 2026-09-21). build.js
+  // composes `ui` byte-for-byte the way it composes `serve` -- same host, same
+  // canon, same carriers, the mode string is the only thing that differs --
+  // and arest-dev's and tasks' package.json both run it as
+  // `build.js ui --run -- --serve`, expecting a bound port. With no arm here it
+  // fell to run_cli, which reads process.argv as a verb for canon's `main`
+  // instead: `--serve` answered "unknown mode: --serve" on stdout and exit 1,
+  // never binding anything, which is the "ran with no address" build.js's own
+  // comment on --run records. run_serve reads no argv (only AREST_PORT), so
+  // this is the whole fix -- not a new run_ui, which would just be run_serve
+  // again under another name.
+  if (mode === "serve" || mode === "ui") return run_serve();
   if (mode === "mcp") return run_mcp();
   if (mode === "sql") return run_sql();
   return run_cli();
