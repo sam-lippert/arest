@@ -34,6 +34,15 @@ Component(.Name) is an entity type.
        widget category — buttons vs date pickers vs lists — so apps
        and selection rules query by what the widget is for, not by
        which toolkit happens to provide it. -->
+Property(.Property Name) is an entity type.
+  <!-- A property a Component has, identified by its Property Name and
+       shared across components ('text', 'enabled', 'value'); its type and
+       default are per component, on the fact type below. Undeclared until
+       2026-09-21: `Component has Property of ...` then read over an
+       undeclared player, the (Component, Property Name) uniqueness named a
+       Property Name that plays no role in it, and support's store came out
+       with the property table keyed by the name alone and no component
+       column -- 18 of the 30 properties refused as duplicates. -->
 
 Toolkit(.Name) is an entity type.
   <!-- Toolkit-as-a-noun: Slint, Qt 6, GTK 4, Web Components. Each
@@ -211,10 +220,10 @@ ImplementationBinding pivots Component is implemented by Toolkit at Toolkit Symb
 ### Component properties (ternary with composite role)
 
 Component has Property of Property Type with Property Default.
-  Each Component, Property Name combination occurs at most once in the
+  Each Component, Property combination occurs at most once in the
     population of Component has Property of Property Type with Property Default.
   <!-- Ternary fact type with composite-role uniqueness over
-       (Component, Property Name). The Type role pins the value-
+       (Component, Property). The Type role pins the value-
        shape category; the Default role carries the as-declared
        literal. The (Component, Property) uniqueness mirrors how
        widget toolkits actually behave — a single property name
@@ -298,7 +307,7 @@ No two Toolkits share the same Toolkit Slug.
 Each Component, Toolkit combination occurs at most once in the
   population of Component is implemented by Toolkit at Toolkit Symbol.
 
-Each Component, Property Name combination occurs at most once in the
+Each Component, Property combination occurs at most once in the
   population of Component has Property of Property Type with Property Default.
 
 Each Component, Event Name combination occurs at most once in the
