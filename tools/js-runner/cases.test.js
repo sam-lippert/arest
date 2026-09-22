@@ -1088,6 +1088,76 @@ test("a population in another order is not a change; one row fewer is", () => {
   }
 }, 120_000);
 
+// ---- AND DOES THE CARRY LEAVE A REFLECTED ROW TO THE CLOSURE? --------------
+//
+// compile.js's carry (the comment beside "AND THE PRIOR STORE IS NOT THROWN
+// AWAY", ~296) is not this host's code -- it is compile.js's own, run as a CLI
+// over a readings directory -- so testing it means running it, the way the
+// test above runs a driver rather than reimplementing emitToDb. ConstraintSpan
+// and Function.constraintModalityType are the metamodel's own case: canon's
+// reflect:computed pairs ConstraintSpan with reflect:spans and
+// ConstraintHasModalityOfModalityType with reflect:modalities (both #122 item
+// 1's reflect:cells union), so a fresh compile.js build -- which reads the
+// readings and never canon's reflection -- leaves ConstraintSpan empty and
+// every Function.constraintModalityType null. A row written straight into the
+// store between two builds stands in for what a BOOT's write-back would have
+// left there from an older design state (host.js's loadReflected + emitToDb,
+// the durability tests above); the carry must not mistake it for a runtime
+// fact the way it does at HEAD (b6e16927).
+test("the carry leaves a reflected row to the closure instead of keeping it", () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-carry-reflected-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  // metamodel ALONE throws inside reflect:cells (a CSDP reflection gap, see
+  // compile.js's own note beside the try/catch this fix adds): every shipped
+  // app's check/compile script reads templates beside it too, and this does
+  // the same, so the carry under test is the one a real build exercises.
+  const metamodel = join(import.meta.dir, "..", "..", "metamodel");
+  const templates = join(import.meta.dir, "..", "..", "readings", "templates");
+  const path = join(dir, "store.db");
+
+  const build = () => {
+    const p = Bun.spawnSync(["bun", compiler, metamodel, templates],
+      { env: { ...process.env, AREST_DB: path }, stdout: "pipe", stderr: "pipe" });
+    return p.stdout.toString() + p.stderr.toString();
+  };
+
+  try {
+    // the fresh build: no prior store, nothing carried, and neither reflected
+    // shape populated -- compile.js reads the readings and never reflects
+    const first = build();
+    expect(first).toContain("store:");
+    expect(first).not.toContain("runtime row(s) carried");
+    const before = new Database(path, { readonly: true });
+    expect(before.prepare('select count(*) c from "ConstraintSpan"').get().c).toBe(0);
+    expect(before.prepare('select count(*) c from "Function" where "constraintModalityType" is not null').get().c).toBe(0);
+    const fnKey = before.prepare('select "functionId" k from "Function" limit 1').get().k;
+    before.close(true);
+
+    // what a boot's write-back would have left behind from an older design
+    // state: a ConstraintSpan row and a Function constraint-modality value
+    // this design state's own reflection would not produce
+    const seed = new Database(path);
+    seed.run('insert into "ConstraintSpan" ("constraintSpanId","constraintId","position","roleId","sequenceNumber") values (?,?,?,?,?)',
+      ["x-probe-span", "x-probe-constraint", "9", "x-probe-role", "9"]);
+    seed.run('update "Function" set "constraintModalityType"=?, "constraintTypeId"=? where "functionId"=?',
+      ["x-probe-modality", "x-probe-type", fnKey]);
+    seed.run("pragma wal_checkpoint(TRUNCATE)");
+    seed.close(true);
+
+    // the carry, over the SAME readings: the stale reflected row and value are
+    // not runtime facts, and must not survive it
+    const second = build();
+    expect(second).toContain("store:");
+    const after = new Database(path, { readonly: true });
+    expect(after.prepare('select count(*) c from "ConstraintSpan" where "constraintSpanId"=?').get("x-probe-span").c).toBe(0);
+    expect(after.prepare('select "constraintModalityType" v from "Function" where "functionId"=?').get(fnKey).v).toBe(null);
+    after.close(true);
+    expect(second).toContain("reflected row(s) left to the closure");
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 300_000);
+
 // ---- IS EACH CANON FILE STILL INTERSECTION SOURCE? -------------------------
 //
 // The discipline: one tuple literal per file, every element either a
