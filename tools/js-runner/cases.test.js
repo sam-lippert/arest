@@ -314,6 +314,54 @@ test("the schema still means what the readings said", () => {
   expect({ factTypes: differ.sort(), rows: lost }).toEqual({ factTypes: [], rows: 0 });
 }, 120_000);
 
+// ---- AND A SUBTYPE'S OWN TABLE READS ITS ROWS KEY FIRST -------------------
+//
+// support.auto.dev's APIProduct table as rmap:ctab, rmap:colnames and
+// rmap:pkrows name it, with the four functional fact types it carries: each is
+// declared <API Product, X> and carried by store:fts as <Function, X>, because
+// API Product is a subtype of API and every FFP entity player is named by the
+// type that holds its reference. API(.Endpoint Slug) keys on its slug, so the
+// subtype keeps a table of its own, keyed on a minted APIProductId -- a shape
+// the base has none of, its subtypes being absorbed into Function, whose owner
+// IS the carried player. At 758d23cb rmap:unproj answered <Free, vin> for
+// APIProductRequiresPlanTier -- the value before the key -- because it decided
+// the tuple order by comparing the carried first player, Function, with the
+// table's owner, API Product, and read every disagreement as a column carried
+// the other way round; the uniqueness over role 1 then saw Free three times and
+// reported a violation on each of the three (task #122 item 1). The rows below
+// are what sqlite hands back, null as #, and the projection's own answer.
+test("a functional fact type in a subtype's own table reads back key first", () => {
+  const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
+  const store = [
+  ["CELL","stored:rmap:ctab",[["API Product", "APIProduct", [["APIProduct", "F", [["info", "API Product", "API Product_id", "API Product_id", ["APIProductHasAPIProductId"], "T"]]], ["APIProduct", "F", [["info", "API Product", "Cache Strategy", "Cache Strategy", ["APIProductHasCacheStrategy"], "F"]]], ["APIProduct", "F", [["info", "API Product", "TTL", "TTL", ["APIProductHasTTL"], "F"]]], ["APIProduct", "F", [["rel", "API Product", "Plan Tier", "API Product", ["APIProductRequiresPlanTier"], "F"], ["info", "Plan Tier", "Plan Tier", "", [], "T"]]], ["APIProduct", "F", [["info", "API Product", "Equipment Scope", "Equipment Scope", ["APIProductReturnsEquipmentScope"], "F"]]]]]]],
+  ["CELL","stored:rmap:colnames",[["APIProduct", "APIProductId", "F"], ["APIProduct", "cacheStrategy", "F"], ["APIProduct", "TTL", "F"], ["APIProduct", "planTier", "F"], ["APIProduct", "equipmentScope", "F"]]],
+  ["CELL","stored:rmap:pkrows",[["pk", "APIProduct", "APIProduct_PK", ["APIProductId"]]]],
+  ["CELL","state:fts",[[["APIProductHasCacheStrategy", ["Function", "Cache Strategy"], [[1]], [], [[["listings", "stale-while-revalidate"], ["recalls", "network-first"]]]], ["APIProductHasTTL", ["Function", "TTL"], [[1]], [], [[["listings", "1 hour"], ["recalls", "1 day"]]]], ["APIProductRequiresPlanTier", ["Function", "Plan Tier"], [[1]], [], [[["vin", "Free"], ["listings", "Free"], ["recalls", "Growth"]]]], ["APIProductReturnsEquipmentScope", ["Function", "Equipment Scope"], [[1]], [], []]]]],
+  ["CELL","state:declared",[[["APIProductHasCacheStrategy", ["API Product", "Cache Strategy"]], ["APIProductHasTTL", ["API Product", "TTL"]], ["APIProductRequiresPlanTier", ["API Product", "Plan Tier"]], ["APIProductReturnsEquipmentScope", ["API Product", "Equipment Scope"]]]]]
+  ];
+  const cols = ["APIProductId", "cacheStrategy", "TTL", "planTier", "equipmentScope"];
+  const rows = [
+    ["vin", "#", "#", "Free", "#"],
+    ["listings", "stale-while-revalidate", "1 hour", "Free", "#"],
+    ["recalls", "network-first", "1 day", "Growth", "#"],
+  ];
+  expect(Ev("rmap:proj_colnames", ["APIProduct", store]).map(String)).toEqual(cols);
+  // the projection writes the key first: rule 6 fills the identifying column with it
+  const byKey = (a, b) => a[0].localeCompare(b[0]);
+  expect(Ev("rmap:proj_rows", ["APIProduct", store]).map((r) => r.map(flat)).sort(byKey)).toEqual(rows.slice().sort(byKey));
+  // and the inverse reads it back the same way, row by row, column by column
+  const back = Ev("rmap:unproj", ["APIProduct", rows, store]).map((p) => [String(p[0]), (Array.isArray(p[1]) ? p[1] : [p[1]]).map(flat)]);
+  expect(back).toEqual([
+    ["APIProductRequiresPlanTier", ["vin", "Free"]],
+    ["APIProductHasCacheStrategy", ["listings", "stale-while-revalidate"]],
+    ["APIProductHasTTL", ["listings", "1 hour"]],
+    ["APIProductRequiresPlanTier", ["listings", "Free"]],
+    ["APIProductHasCacheStrategy", ["recalls", "network-first"]],
+    ["APIProductHasTTL", ["recalls", "1 day"]],
+    ["APIProductRequiresPlanTier", ["recalls", "Growth"]],
+  ]);
+});
+
 // ---- DOES orient ANSWER THE FACTS OF A DOMAIN? -----------------------------
 //
 // `orient` was named in system:session_verbs and had NO definition -- no cell
