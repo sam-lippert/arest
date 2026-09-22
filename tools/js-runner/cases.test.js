@@ -362,6 +362,65 @@ test("a functional fact type in a subtype's own table reads back key first", () 
   ]);
 });
 
+// ---- AND A COLUMN KEYED BY ITS SECOND PLAYER LANDS EVERY ROW ---------------
+//
+// qa.auto.dev's Function.functionId and Function.roleFactTypeId columns and its
+// ConstraintSpan table as rmap:ctab, rmap:colnames and rmap:pkrows name them,
+// over a store of one fact type with two roles and one constraint spanning both.
+// FactTypeHasRole is declared <Fact Type, Role> with the uniqueness on the Role,
+// so its column sits in Role's row, a Function row, and its path enters the fact
+// type through the SECOND role; the projection keyed the row by the FIRST player
+// and matched element 1, so it wrote DomainHasDescription.1 into the fact type's
+// row and dropped DomainHasDescription.2 -- one role per fact type (FactTypeHasRole
+// 506 of 993 on the base, ObjectTypePlaysRole 218 of 993), and no Role row at
+// all. ConstraintSpan keeps its table with its own identifier column ahead of the
+// roles and its position and sequence number after them; the role layout wrote #
+// into all three, so the span's 997 positions and 997 sequence numbers had no row
+// to land in. Every boot over the tables found the four lacking, re-projected
+// Function and ConstraintSpan and landed no more of them than before (2026-09-21).
+// The rows below are the projection's own answer and what the inverse reads back
+// from them: the key at the role the path enters through, the tuple in the
+// declared order, and the span identified as reflect:span_rec mints it.
+test("an absorbed column keyed by its second player lands every row, and an objectified span carries its id and attributes", () => {
+  const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
+  const store = [
+  ["CELL","stored:rmap:ctab",[["Function", "Function", [["Function", "F", [["info", "Function", "Function_id", "Function_id", ["FunctionHasFunctionId"], "T"]]], ["Function", "F", [["assim", "Function", "Role", "Function", [], "F", "T"], ["rel", "Role", "Fact Type", "Role", ["FactTypeHasRole"], "F"], ["assim", "Event Type", "Fact Type", "Event Type", [], "T", "T"], ["assim", "Function", "Event Type", "Function", [], "T", "T"], ["info", "Function", "Function_id", "Function_id", ["FunctionHasFunctionId"], "T"]]]]], ["ConstraintSpan", "ConstraintSpan", [["ConstraintSpan", "F", [["assim", "Function", "ConstraintSpan", "Function", [], "T", "T"], ["info", "Function", "Function_id", "Function_id", ["FunctionHasFunctionId"], "T"]]], ["ConstraintSpan", "F", [["rel", "ConstraintSpan", "Constraint", "ConstraintSpan", ["ConstraintIsInvolvedInConstraintSpan"], "F"], ["assim", "Function", "Constraint", "Function", [], "T", "T"], ["info", "Function", "Function_id", "Function_id", ["FunctionHasFunctionId"], "T"]]], ["ConstraintSpan", "F", [["info", "ConstraintSpan", "Position", "Position", ["ConstraintSpanHasPosition"], "F"]]], ["ConstraintSpan", "F", [["info", "ConstraintSpan", "Sequence Number", "Sequence Number", ["ConstraintSpanHasSequenceNumber"], "F"]]], ["ConstraintSpan", "F", [["rel", "ConstraintSpan", "Role", "ConstraintSpan", ["RoleIsInvolvedInConstraintSpan"], "F"], ["assim", "Function", "Role", "Function", [], "T", "T"], ["info", "Function", "Function_id", "Function_id", ["FunctionHasFunctionId"], "T"]]]]]]],
+  ["CELL","stored:rmap:colnames",[["Function", "functionId", "F"], ["Function", "roleFactTypeId", "F"], ["ConstraintSpan", "constraintSpanId", "F"], ["ConstraintSpan", "constraintId", "F"], ["ConstraintSpan", "position", "F"], ["ConstraintSpan", "sequenceNumber", "F"], ["ConstraintSpan", "roleId", "F"]]],
+  ["CELL","stored:rmap:pkrows",[["pk", "ConstraintSpan", "ConstraintSpan_PK", ["constraintSpanId"]], ["pk", "Function", "Function_PK", ["functionId"]]]],
+  ["CELL","state:fts",[[["FactTypeHasRole", ["Function", "Function"], [[2]], [1, 2], [["DomainHasDescription", "DomainHasDescription.1"], ["DomainHasDescription", "DomainHasDescription.2"]]], ["ConstraintSpan", ["Function", "Function"], [[1, 2]], [1], [["UC:en:DomainHasDescription#1", "DomainHasDescription.1"], ["UC:en:DomainHasDescription#1", "DomainHasDescription.2"]]], ["ConstraintSpanHasPosition", ["Function", "Position"], [[1]], [1], [["UC:en:DomainHasDescription#1.DomainHasDescription.1", "1"], ["UC:en:DomainHasDescription#1.DomainHasDescription.2", "2"]]], ["ConstraintSpanHasSequenceNumber", ["Function", "Sequence Number"], [[1]], [1], [["UC:en:DomainHasDescription#1.DomainHasDescription.1", "1"], ["UC:en:DomainHasDescription#1.DomainHasDescription.2", "1"]]]]]],
+  ["CELL","state:declared",[[["FactTypeHasRole", ["Fact Type", "Role"]], ["ConstraintSpan", ["Constraint", "Role"]], ["ConstraintSpanHasPosition", ["ConstraintSpan", "Position"]], ["ConstraintSpanHasSequenceNumber", ["ConstraintSpan", "Sequence Number"]]]]]
+  ];
+  const byKey = (a, b) => a[0].localeCompare(b[0]);
+  const pairs = (table, rows) => Ev("rmap:unproj", [table, rows, store]).map((p) => [String(p[0]), (Array.isArray(p[1]) ? p[1] : [p[1]]).map(flat)]);
+  // Function: one row per Role, keyed by the role, holding its fact type
+  expect(Ev("rmap:proj_colnames", ["Function", store]).map(String)).toEqual(["functionId", "roleFactTypeId"]);
+  const roles = Ev("rmap:proj_rows", ["Function", store]).map((r) => r.map(flat)).sort(byKey);
+  expect(roles).toEqual([
+    ["DomainHasDescription.1", "DomainHasDescription"],
+    ["DomainHasDescription.2", "DomainHasDescription"],
+  ]);
+  // and the inverse reads the tuple in the declared order, fact type first
+  expect(pairs("Function", roles)).toEqual([
+    ["FactTypeHasRole", ["DomainHasDescription", "DomainHasDescription.1"]],
+    ["FactTypeHasRole", ["DomainHasDescription", "DomainHasDescription.2"]],
+  ]);
+  // ConstraintSpan: the span id, the roles, and the span's own two attributes
+  expect(Ev("rmap:proj_colnames", ["ConstraintSpan", store]).map(String)).toEqual(["constraintSpanId", "constraintId", "position", "sequenceNumber", "roleId"]);
+  const spans = Ev("rmap:proj_rows", ["ConstraintSpan", store]).map((r) => r.map(flat)).sort(byKey);
+  expect(spans).toEqual([
+    ["UC:en:DomainHasDescription#1.DomainHasDescription.1", "UC:en:DomainHasDescription#1", "1", "1", "DomainHasDescription.1"],
+    ["UC:en:DomainHasDescription#1.DomainHasDescription.2", "UC:en:DomainHasDescription#1", "2", "1", "DomainHasDescription.2"],
+  ]);
+  expect(pairs("ConstraintSpan", spans)).toEqual([
+    ["ConstraintSpan", ["UC:en:DomainHasDescription#1", "DomainHasDescription.1"]],
+    ["ConstraintSpanHasPosition", ["UC:en:DomainHasDescription#1.DomainHasDescription.1", "1"]],
+    ["ConstraintSpanHasSequenceNumber", ["UC:en:DomainHasDescription#1.DomainHasDescription.1", "1"]],
+    ["ConstraintSpan", ["UC:en:DomainHasDescription#1", "DomainHasDescription.2"]],
+    ["ConstraintSpanHasPosition", ["UC:en:DomainHasDescription#1.DomainHasDescription.2", "2"]],
+    ["ConstraintSpanHasSequenceNumber", ["UC:en:DomainHasDescription#1.DomainHasDescription.2", "1"]],
+  ]);
+});
+
 // ---- DOES orient ANSWER THE FACTS OF A DOMAIN? -----------------------------
 //
 // `orient` was named in system:session_verbs and had NO definition -- no cell
@@ -888,7 +947,13 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
     // and now a boot over those tables: it derives the machine, and stores it
     expect(run(null)).toContain("memory true");
     const J = JSON.stringify;
-    expect(stored(MACH).some((r) => J(r) === J(["sm." + KEY, KEY]))).toBe(true);
+    // THE MACHINE IS THE INSTANCE'S COLUMN (2026-09-21). The column that
+    // carries StateMachineIsForObjectTypeInstance is Function.objectTypeInstanceStateMachineId,
+    // reached through the Object Type Instance -- the second declared player --
+    // so the row is the instance's and the value the machine's id. The
+    // projection put it in the machine's row until today (the path's role was
+    // not honoured), and this line pinned that placement.
+    expect(stored(MACH).some((r) => J(r) === J([KEY, "sm." + KEY]))).toBe(true);
     expect(stored(STAT).some((r) => J(r) === J(["sm." + KEY, "step1-elementary-facts"]))).toBe(true);
   } finally {
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
