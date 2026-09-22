@@ -46,13 +46,13 @@ CRUDL Request Type is a value type.
 > — the view-context applicability is substrate, not iFactr decoration.
 
 Operation has iFactr Action Type.
-  Each Operation has exactly one iFactr Action Type.
+  Each Operation has at most one iFactr Action Type.
 
 Operation has CRUDL Request Type.
-  Each Operation has exactly one CRUDL Request Type.
+  Each Operation has at most one CRUDL Request Type.
 
 Operation has Control Kind.
-  Each Operation has exactly one Control Kind.
+  Each Operation has at most one Control Kind.
 
 Operation requires Confirmation.
 

@@ -232,9 +232,9 @@ Component property has Property Name.
 
 ### Component events (ternary with composite role)
 
-Component emits Event with Event Payload Type.
+Component emits Event Name with Event Payload Type.
   Each Component, Event Name combination occurs at most once in the
-    population of Component emits Event with Event Payload Type.
+    population of Component emits Event Name with Event Payload Type.
   <!-- Ternary fact type with composite-role uniqueness over
        (Component, Event Name). The Payload role pins the value
        carried with the signal. The (Component, Event) uniqueness
@@ -247,8 +247,8 @@ Component emits Event with Event Payload Type.
 
 ### Component slots
 
-Component has Slot.
-  Each Component, Slot combination occurs at most once in the population of Component has Slot.
+Component has Slot Name.
+  Each Component, Slot Name combination occurs at most once in the population of Component has Slot Name.
   <!-- Many-per-Component, M:N over Slot Name (a single Component
        can expose `children` + `leading` + `trailing` + ...). The
        runtime (#489) projects content into each slot through the
@@ -256,8 +256,8 @@ Component has Slot.
 
 ### Component traits (binary, M:N)
 
-Component has Trait.
-  Each Component, Trait combination occurs at most once in the population of Component has Trait.
+Component has Component Trait.
+  Each Component, Component Trait combination occurs at most once in the population of Component has Component Trait.
   <!-- Many-per-Component over Component Trait. Selection rules
        score implementations by counting trait matches against the
        MonoView constraints. Traits are declared on the abstract
@@ -266,8 +266,8 @@ Component has Trait.
        overrides attach to the ImplementationBinding instead via
        the next fact type. -->
 
-ImplementationBinding has Trait.
-  Each ImplementationBinding, Trait combination occurs at most once in the population of ImplementationBinding has Trait.
+ImplementationBinding has Component Trait.
+  Each ImplementationBinding, Component Trait combination occurs at most once in the population of ImplementationBinding has Component Trait.
   <!-- Per-binding trait override. When a single toolkit's
        implementation diverges from the abstract Component's trait
        set (e.g. GtkButton has `screen_reader_aware` but the
@@ -302,7 +302,7 @@ Each Component, Property Name combination occurs at most once in the
   population of Component has Property of Property Type with Property Default.
 
 Each Component, Event Name combination occurs at most once in the
-  population of Component emits Event with Event Payload Type.
+  population of Component emits Event Name with Event Payload Type.
 
 ## Deontic Constraints
 
@@ -318,7 +318,7 @@ It is obligatory that each Toolkit has some Toolkit Version.
 + ImplementationBinding is preferred for MonoView
     if MonoView has default Interaction Mode 'touch'
     and ImplementationBinding pivots Component is implemented by Toolkit
-    and Component has Trait 'touch_optimized'.
+    and Component has Component Trait 'touch_optimized'.
   <!-- Touch-first MonoViews score implementations whose Component
        declares the touch_optimized trait above un-tagged peers.
        The MMM #457a reading already derives `default Density Scale
@@ -332,7 +332,7 @@ It is obligatory that each Toolkit has some Toolkit Version.
     if MonoView has default A11y Profile 'screen-reader-aware'
     and ImplementationBinding pivots Component is implemented by Toolkit
     and Toolkit has Toolkit Slug 'gtk4'
-    and ImplementationBinding has Trait 'screen_reader_aware'.
+    and ImplementationBinding has Component Trait 'screen_reader_aware'.
   <!-- GTK 4's AT-SPI integration is the most mature in the
        supported set; Qt's accessibility bridge works but requires
        the QAccessible plumbing to be wired per-widget; Slint's
@@ -359,7 +359,7 @@ It is obligatory that each Toolkit has some Toolkit Version.
 + ImplementationBinding is preferred for MonoView
     if MonoView has default Interaction Mode 'pointer'
     and ImplementationBinding pivots Component is implemented by Toolkit
-    and Component has Trait 'keyboard_navigable'.
+    and Component has Component Trait 'keyboard_navigable'.
   <!-- Pointer-driven MonoViews still benefit from keyboard-navigable
        widgets — mouse + keyboard share enough surface that focus
        rings and tab-order matter for any non-touch user. Keyboard-
@@ -373,7 +373,7 @@ It is obligatory that each Toolkit has some Toolkit Version.
 + ImplementationBinding is preferred for MonoView
     if MonoView has default Interaction Mode 'keyboard'
     and ImplementationBinding pivots Component is implemented by Toolkit
-    and Component has Trait 'keyboard_navigable'.
+    and Component has Component Trait 'keyboard_navigable'.
   <!-- Keyboard-only MonoViews (REPLs, terminal-host surfaces) require
        full keyboard navigation. The trait is mandatory for the
        binding to be considered, not just preferred — but FORML 2
@@ -383,7 +383,7 @@ It is obligatory that each Toolkit has some Toolkit Version.
 + ImplementationBinding is preferred for MonoView
     if MonoView has default Interaction Mode 'keyboard'
     and ImplementationBinding pivots Component is implemented by Toolkit
-    and ImplementationBinding has Trait 'compact_native'.
+    and ImplementationBinding has Component Trait 'compact_native'.
   <!-- Keyboard MonoViews additionally favour compact_native bindings:
        keyboard-driven workflows pack more surface per pixel than
        touch and rarely need 44px hit targets. The two rules compose
@@ -396,7 +396,7 @@ It is obligatory that each Toolkit has some Toolkit Version.
 + ImplementationBinding is preferred for MonoView
     if MonoView has default Density Scale 'compact'
     and ImplementationBinding pivots Component is implemented by Toolkit
-    and ImplementationBinding has Trait 'compact_native'.
+    and ImplementationBinding has Component Trait 'compact_native'.
   <!-- Compact density requests bindings whose declared trait set
        confirms a compact native variant (Qt's desktop defaults, GTK's
        legacy widget classes). Bindings without compact_native may
@@ -409,7 +409,7 @@ It is obligatory that each Toolkit has some Toolkit Version.
 + ImplementationBinding is preferred for MonoView
     if MonoView has default Density Scale 'spacious'
     and ImplementationBinding pivots Component is implemented by Toolkit
-    and Component has Trait 'touch_optimized'.
+    and Component has Component Trait 'touch_optimized'.
   <!-- Spacious density and touch optimisation correlate per the
        MonoView reading (#457a) — `default Density Scale 'spacious'`
        is itself derived from `default Interaction Mode 'touch'`.
@@ -423,7 +423,7 @@ It is obligatory that each Toolkit has some Toolkit Version.
 + ImplementationBinding is preferred for MonoView
     if MonoView has default A11y Profile 'high-contrast'
     and ImplementationBinding pivots Component is implemented by Toolkit
-    and Component has Trait 'theming_consumer'.
+    and Component has Component Trait 'theming_consumer'.
   <!-- High-contrast MonoViews require bindings that honour the
        active theme's design tokens (#432) — a hardcoded-color binding
        cannot react to a contrast-boosted ColorToken substitution.
@@ -466,7 +466,7 @@ It is obligatory that each Toolkit has some Toolkit Version.
 + ImplementationBinding is preferred for MonoView
     if ImplementationBinding pivots Component is implemented by Toolkit
     and Toolkit has Toolkit Slug 'slint'
-    and ImplementationBinding has Trait 'kernel_native'.
+    and ImplementationBinding has Component Trait 'kernel_native'.
   <!-- The kernel ships Slint in-image (#486 wired the adapter at
        boot — commit 28e1961). Every other toolkit pays a heap +
        process + IPC cost the Slint binding does not. When a Component
@@ -519,7 +519,7 @@ It is obligatory that each Toolkit has some Toolkit Version.
     if Region belongs to MonoView
     and Region has Surface Tier 'panel'
     and ImplementationBinding pivots Component is implemented by Toolkit
-    and Component has Trait 'theming_consumer'.
+    and Component has Component Trait 'theming_consumer'.
   <!-- Panel-tier surfaces (sidebars, footers, command bars) carry
        the bulk of the design-token surface area; theming-consumer
        bindings let token edits propagate without per-binding adapter
@@ -533,7 +533,7 @@ It is obligatory that each Toolkit has some Toolkit Version.
     if Theme has Theme Mode 'dark'
     and Theme is the default Theme
     and ImplementationBinding pivots Component is implemented by Toolkit
-    and ImplementationBinding has Trait 'dark_mode_native'.
+    and ImplementationBinding has Component Trait 'dark_mode_native'.
   <!-- Honours the design system's default Theme (#432, currently the
        dark Theme). Dark-mode-native bindings follow the host's color
        scheme without an app-side bridge — GTK 4's whole-application
@@ -605,37 +605,37 @@ Component 'button' has Property 'text' of Property Type 'string' with Property D
 Component 'button' has Property 'enabled' of Property Type 'bool' with Property Default 'true'.
 Component 'button' has Property 'primary' of Property Type 'bool' with Property Default 'false'.
 
-Component 'button' emits Event 'clicked' with Event Payload Type 'none'.
+Component 'button' emits Event Name 'clicked' with Event Payload Type 'none'.
 
-Component 'button' has Slot 'leading'.
-Component 'button' has Slot 'trailing'.
+Component 'button' has Slot Name 'leading'.
+Component 'button' has Slot Name 'trailing'.
 
-Component 'button' has Trait 'keyboard_navigable'.
-Component 'button' has Trait 'theming_consumer'.
+Component 'button' has Component Trait 'keyboard_navigable'.
+Component 'button' has Component Trait 'theming_consumer'.
 
 Component 'button' is implemented by Toolkit 'slint' at Toolkit Symbol 'Button'.
 ImplementationBinding 'button.slint' pivots Component 'button' is implemented by Toolkit 'slint'.
-ImplementationBinding 'button.slint' has Trait 'kernel_native'.
-ImplementationBinding 'button.slint' has Trait 'hidpi_native'.
-ImplementationBinding 'button.slint' has Trait 'dark_mode_native'.
+ImplementationBinding 'button.slint' has Component Trait 'kernel_native'.
+ImplementationBinding 'button.slint' has Component Trait 'hidpi_native'.
+ImplementationBinding 'button.slint' has Component Trait 'dark_mode_native'.
 
 Component 'button' is implemented by Toolkit 'qt6' at Toolkit Symbol 'QPushButton'.
 ImplementationBinding 'button.qt6' pivots Component 'button' is implemented by Toolkit 'qt6'.
-ImplementationBinding 'button.qt6' has Trait 'screen_reader_aware'.
-ImplementationBinding 'button.qt6' has Trait 'hidpi_native'.
-ImplementationBinding 'button.qt6' has Trait 'compact_native'.
+ImplementationBinding 'button.qt6' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'button.qt6' has Component Trait 'hidpi_native'.
+ImplementationBinding 'button.qt6' has Component Trait 'compact_native'.
 
 Component 'button' is implemented by Toolkit 'gtk4' at Toolkit Symbol 'GtkButton'.
 ImplementationBinding 'button.gtk4' pivots Component 'button' is implemented by Toolkit 'gtk4'.
-ImplementationBinding 'button.gtk4' has Trait 'screen_reader_aware'.
-ImplementationBinding 'button.gtk4' has Trait 'hidpi_native'.
-ImplementationBinding 'button.gtk4' has Trait 'dark_mode_native'.
+ImplementationBinding 'button.gtk4' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'button.gtk4' has Component Trait 'hidpi_native'.
+ImplementationBinding 'button.gtk4' has Component Trait 'dark_mode_native'.
 
 Component 'button' is implemented by Toolkit 'web-components' at Toolkit Symbol '<button>'.
 ImplementationBinding 'button.web' pivots Component 'button' is implemented by Toolkit 'web-components'.
-ImplementationBinding 'button.web' has Trait 'screen_reader_aware'.
-ImplementationBinding 'button.web' has Trait 'hidpi_native'.
-ImplementationBinding 'button.web' has Trait 'touch_optimized'.
+ImplementationBinding 'button.web' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'button.web' has Component Trait 'hidpi_native'.
+ImplementationBinding 'button.web' has Component Trait 'touch_optimized'.
 
 ### Component: TextInput
 
@@ -648,34 +648,34 @@ Component 'text-input' has Property 'placeholder' of Property Type 'string' with
 Component 'text-input' has Property 'enabled' of Property Type 'bool' with Property Default 'true'.
 Component 'text-input' has Property 'maxlength' of Property Type 'int' with Property Default '0'.
 
-Component 'text-input' emits Event 'changed' with Event Payload Type 'string'.
-Component 'text-input' emits Event 'submitted' with Event Payload Type 'string'.
+Component 'text-input' emits Event Name 'changed' with Event Payload Type 'string'.
+Component 'text-input' emits Event Name 'submitted' with Event Payload Type 'string'.
 
-Component 'text-input' has Slot 'leading'.
-Component 'text-input' has Slot 'trailing'.
+Component 'text-input' has Slot Name 'leading'.
+Component 'text-input' has Slot Name 'trailing'.
 
-Component 'text-input' has Trait 'keyboard_navigable'.
-Component 'text-input' has Trait 'theming_consumer'.
+Component 'text-input' has Component Trait 'keyboard_navigable'.
+Component 'text-input' has Component Trait 'theming_consumer'.
 
 Component 'text-input' is implemented by Toolkit 'slint' at Toolkit Symbol 'Input'.
 ImplementationBinding 'text-input.slint' pivots Component 'text-input' is implemented by Toolkit 'slint'.
-ImplementationBinding 'text-input.slint' has Trait 'kernel_native'.
-ImplementationBinding 'text-input.slint' has Trait 'dark_mode_native'.
+ImplementationBinding 'text-input.slint' has Component Trait 'kernel_native'.
+ImplementationBinding 'text-input.slint' has Component Trait 'dark_mode_native'.
 
 Component 'text-input' is implemented by Toolkit 'qt6' at Toolkit Symbol 'QLineEdit'.
 ImplementationBinding 'text-input.qt6' pivots Component 'text-input' is implemented by Toolkit 'qt6'.
-ImplementationBinding 'text-input.qt6' has Trait 'screen_reader_aware'.
-ImplementationBinding 'text-input.qt6' has Trait 'compact_native'.
+ImplementationBinding 'text-input.qt6' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'text-input.qt6' has Component Trait 'compact_native'.
 
 Component 'text-input' is implemented by Toolkit 'gtk4' at Toolkit Symbol 'GtkEntry'.
 ImplementationBinding 'text-input.gtk4' pivots Component 'text-input' is implemented by Toolkit 'gtk4'.
-ImplementationBinding 'text-input.gtk4' has Trait 'screen_reader_aware'.
-ImplementationBinding 'text-input.gtk4' has Trait 'dark_mode_native'.
+ImplementationBinding 'text-input.gtk4' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'text-input.gtk4' has Component Trait 'dark_mode_native'.
 
 Component 'text-input' is implemented by Toolkit 'web-components' at Toolkit Symbol '<input type=text>'.
 ImplementationBinding 'text-input.web' pivots Component 'text-input' is implemented by Toolkit 'web-components'.
-ImplementationBinding 'text-input.web' has Trait 'screen_reader_aware'.
-ImplementationBinding 'text-input.web' has Trait 'touch_optimized'.
+ImplementationBinding 'text-input.web' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'text-input.web' has Component Trait 'touch_optimized'.
 
 ### Component: ListView
 
@@ -686,29 +686,29 @@ Component 'list' has Description 'Vertically-scrolling list of homogeneous items
 Component 'list' has Property 'items' of Property Type 'string' with Property Default ''.
 Component 'list' has Property 'selected' of Property Type 'int' with Property Default '-1'.
 
-Component 'list' emits Event 'selection-changed' with Event Payload Type 'int'.
+Component 'list' emits Event Name 'selection-changed' with Event Payload Type 'int'.
 
-Component 'list' has Slot 'children'.
-Component 'list' has Slot 'header'.
-Component 'list' has Slot 'footer'.
+Component 'list' has Slot Name 'children'.
+Component 'list' has Slot Name 'header'.
+Component 'list' has Slot Name 'footer'.
 
-Component 'list' has Trait 'keyboard_navigable'.
-Component 'list' has Trait 'theming_consumer'.
+Component 'list' has Component Trait 'keyboard_navigable'.
+Component 'list' has Component Trait 'theming_consumer'.
 
 Component 'list' is implemented by Toolkit 'slint' at Toolkit Symbol 'List'.
 ImplementationBinding 'list.slint' pivots Component 'list' is implemented by Toolkit 'slint'.
-ImplementationBinding 'list.slint' has Trait 'kernel_native'.
-ImplementationBinding 'list.slint' has Trait 'dark_mode_native'.
+ImplementationBinding 'list.slint' has Component Trait 'kernel_native'.
+ImplementationBinding 'list.slint' has Component Trait 'dark_mode_native'.
 
 Component 'list' is implemented by Toolkit 'qt6' at Toolkit Symbol 'QListView'.
 ImplementationBinding 'list.qt6' pivots Component 'list' is implemented by Toolkit 'qt6'.
-ImplementationBinding 'list.qt6' has Trait 'screen_reader_aware'.
-ImplementationBinding 'list.qt6' has Trait 'compact_native'.
+ImplementationBinding 'list.qt6' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'list.qt6' has Component Trait 'compact_native'.
 
 Component 'list' is implemented by Toolkit 'gtk4' at Toolkit Symbol 'GtkListView'.
 ImplementationBinding 'list.gtk4' pivots Component 'list' is implemented by Toolkit 'gtk4'.
-ImplementationBinding 'list.gtk4' has Trait 'screen_reader_aware'.
-ImplementationBinding 'list.gtk4' has Trait 'dark_mode_native'.
+ImplementationBinding 'list.gtk4' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'list.gtk4' has Component Trait 'dark_mode_native'.
 
 ### Component: DatePicker
 
@@ -719,24 +719,24 @@ Component 'date-picker' has Description 'Calendar-driven date selection. No Slin
 Component 'date-picker' has Property 'value' of Property Type 'string' with Property Default ''.
 Component 'date-picker' has Property 'enabled' of Property Type 'bool' with Property Default 'true'.
 
-Component 'date-picker' emits Event 'changed' with Event Payload Type 'string'.
+Component 'date-picker' emits Event Name 'changed' with Event Payload Type 'string'.
 
-Component 'date-picker' has Trait 'keyboard_navigable'.
+Component 'date-picker' has Component Trait 'keyboard_navigable'.
 
 Component 'date-picker' is implemented by Toolkit 'qt6' at Toolkit Symbol 'QDateEdit'.
 ImplementationBinding 'date-picker.qt6' pivots Component 'date-picker' is implemented by Toolkit 'qt6'.
-ImplementationBinding 'date-picker.qt6' has Trait 'screen_reader_aware'.
-ImplementationBinding 'date-picker.qt6' has Trait 'compact_native'.
+ImplementationBinding 'date-picker.qt6' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'date-picker.qt6' has Component Trait 'compact_native'.
 
 Component 'date-picker' is implemented by Toolkit 'gtk4' at Toolkit Symbol 'GtkCalendar'.
 ImplementationBinding 'date-picker.gtk4' pivots Component 'date-picker' is implemented by Toolkit 'gtk4'.
-ImplementationBinding 'date-picker.gtk4' has Trait 'screen_reader_aware'.
-ImplementationBinding 'date-picker.gtk4' has Trait 'dark_mode_native'.
+ImplementationBinding 'date-picker.gtk4' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'date-picker.gtk4' has Component Trait 'dark_mode_native'.
 
 Component 'date-picker' is implemented by Toolkit 'web-components' at Toolkit Symbol '<input type=date>'.
 ImplementationBinding 'date-picker.web' pivots Component 'date-picker' is implemented by Toolkit 'web-components'.
-ImplementationBinding 'date-picker.web' has Trait 'touch_optimized'.
-ImplementationBinding 'date-picker.web' has Trait 'screen_reader_aware'.
+ImplementationBinding 'date-picker.web' has Component Trait 'touch_optimized'.
+ImplementationBinding 'date-picker.web' has Component Trait 'screen_reader_aware'.
 
 ### Component: Card
 
@@ -747,20 +747,20 @@ Component 'card' has Description 'Surfaced container with optional header / foot
 Component 'card' has Property 'elevation' of Property Type 'int' with Property Default '1'.
 Component 'card' has Property 'padding' of Property Type 'length' with Property Default '16'.
 
-Component 'card' has Slot 'children'.
-Component 'card' has Slot 'header'.
-Component 'card' has Slot 'footer'.
+Component 'card' has Slot Name 'children'.
+Component 'card' has Slot Name 'header'.
+Component 'card' has Slot Name 'footer'.
 
-Component 'card' has Trait 'theming_consumer'.
+Component 'card' has Component Trait 'theming_consumer'.
 
 Component 'card' is implemented by Toolkit 'slint' at Toolkit Symbol 'Card'.
 ImplementationBinding 'card.slint' pivots Component 'card' is implemented by Toolkit 'slint'.
-ImplementationBinding 'card.slint' has Trait 'kernel_native'.
-ImplementationBinding 'card.slint' has Trait 'hidpi_native'.
+ImplementationBinding 'card.slint' has Component Trait 'kernel_native'.
+ImplementationBinding 'card.slint' has Component Trait 'hidpi_native'.
 
 Component 'card' is implemented by Toolkit 'gtk4' at Toolkit Symbol 'GtkBox'.
 ImplementationBinding 'card.gtk4' pivots Component 'card' is implemented by Toolkit 'gtk4'.
-ImplementationBinding 'card.gtk4' has Trait 'dark_mode_native'.
+ImplementationBinding 'card.gtk4' has Component Trait 'dark_mode_native'.
 
 ### Component: Dialog
 
@@ -771,32 +771,32 @@ Component 'dialog' has Description 'Modal overlay window for transient interacti
 Component 'dialog' has Property 'title' of Property Type 'string' with Property Default ''.
 Component 'dialog' has Property 'open' of Property Type 'bool' with Property Default 'false'.
 
-Component 'dialog' emits Event 'closed' with Event Payload Type 'none'.
-Component 'dialog' emits Event 'confirmed' with Event Payload Type 'none'.
+Component 'dialog' emits Event Name 'closed' with Event Payload Type 'none'.
+Component 'dialog' emits Event Name 'confirmed' with Event Payload Type 'none'.
 
-Component 'dialog' has Slot 'children'.
-Component 'dialog' has Slot 'footer'.
+Component 'dialog' has Slot Name 'children'.
+Component 'dialog' has Slot Name 'footer'.
 
-Component 'dialog' has Trait 'keyboard_navigable'.
-Component 'dialog' has Trait 'theming_consumer'.
+Component 'dialog' has Component Trait 'keyboard_navigable'.
+Component 'dialog' has Component Trait 'theming_consumer'.
 
 Component 'dialog' is implemented by Toolkit 'slint' at Toolkit Symbol 'Dialog'.
 ImplementationBinding 'dialog.slint' pivots Component 'dialog' is implemented by Toolkit 'slint'.
-ImplementationBinding 'dialog.slint' has Trait 'kernel_native'.
+ImplementationBinding 'dialog.slint' has Component Trait 'kernel_native'.
 
 Component 'dialog' is implemented by Toolkit 'qt6' at Toolkit Symbol 'QDialog'.
 ImplementationBinding 'dialog.qt6' pivots Component 'dialog' is implemented by Toolkit 'qt6'.
-ImplementationBinding 'dialog.qt6' has Trait 'screen_reader_aware'.
+ImplementationBinding 'dialog.qt6' has Component Trait 'screen_reader_aware'.
 
 Component 'dialog' is implemented by Toolkit 'gtk4' at Toolkit Symbol 'GtkDialog'.
 ImplementationBinding 'dialog.gtk4' pivots Component 'dialog' is implemented by Toolkit 'gtk4'.
-ImplementationBinding 'dialog.gtk4' has Trait 'screen_reader_aware'.
-ImplementationBinding 'dialog.gtk4' has Trait 'dark_mode_native'.
+ImplementationBinding 'dialog.gtk4' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'dialog.gtk4' has Component Trait 'dark_mode_native'.
 
 Component 'dialog' is implemented by Toolkit 'web-components' at Toolkit Symbol '<dialog>'.
 ImplementationBinding 'dialog.web' pivots Component 'dialog' is implemented by Toolkit 'web-components'.
-ImplementationBinding 'dialog.web' has Trait 'screen_reader_aware'.
-ImplementationBinding 'dialog.web' has Trait 'hidpi_native'.
+ImplementationBinding 'dialog.web' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'dialog.web' has Component Trait 'hidpi_native'.
 
 ### Component: Image
 
@@ -807,23 +807,23 @@ Component 'image' has Description 'Static raster or vector image. Qt 6 reuses QL
 Component 'image' has Property 'source' of Property Type 'image' with Property Default ''.
 Component 'image' has Property 'fit' of Property Type 'enum' with Property Default 'contain'.
 
-Component 'image' has Trait 'theming_consumer'.
+Component 'image' has Component Trait 'theming_consumer'.
 
 Component 'image' is implemented by Toolkit 'slint' at Toolkit Symbol 'Image'.
 ImplementationBinding 'image.slint' pivots Component 'image' is implemented by Toolkit 'slint'.
-ImplementationBinding 'image.slint' has Trait 'kernel_native'.
-ImplementationBinding 'image.slint' has Trait 'hidpi_native'.
+ImplementationBinding 'image.slint' has Component Trait 'kernel_native'.
+ImplementationBinding 'image.slint' has Component Trait 'hidpi_native'.
 
 Component 'image' is implemented by Toolkit 'qt6' at Toolkit Symbol 'QLabel'.
 ImplementationBinding 'image.qt6' pivots Component 'image' is implemented by Toolkit 'qt6'.
 
 Component 'image' is implemented by Toolkit 'gtk4' at Toolkit Symbol 'GtkPicture'.
 ImplementationBinding 'image.gtk4' pivots Component 'image' is implemented by Toolkit 'gtk4'.
-ImplementationBinding 'image.gtk4' has Trait 'hidpi_native'.
+ImplementationBinding 'image.gtk4' has Component Trait 'hidpi_native'.
 
 Component 'image' is implemented by Toolkit 'web-components' at Toolkit Symbol '<img>'.
 ImplementationBinding 'image.web' pivots Component 'image' is implemented by Toolkit 'web-components'.
-ImplementationBinding 'image.web' has Trait 'hidpi_native'.
+ImplementationBinding 'image.web' has Component Trait 'hidpi_native'.
 
 ### Component: Slider
 
@@ -835,27 +835,27 @@ Component 'slider' has Property 'value' of Property Type 'int' with Property Def
 Component 'slider' has Property 'minimum' of Property Type 'int' with Property Default '0'.
 Component 'slider' has Property 'maximum' of Property Type 'int' with Property Default '100'.
 
-Component 'slider' emits Event 'changed' with Event Payload Type 'int'.
+Component 'slider' emits Event Name 'changed' with Event Payload Type 'int'.
 
-Component 'slider' has Trait 'keyboard_navigable'.
-Component 'slider' has Trait 'theming_consumer'.
+Component 'slider' has Component Trait 'keyboard_navigable'.
+Component 'slider' has Component Trait 'theming_consumer'.
 
 Component 'slider' is implemented by Toolkit 'slint' at Toolkit Symbol 'Slider'.
 ImplementationBinding 'slider.slint' pivots Component 'slider' is implemented by Toolkit 'slint'.
-ImplementationBinding 'slider.slint' has Trait 'kernel_native'.
+ImplementationBinding 'slider.slint' has Component Trait 'kernel_native'.
 
 Component 'slider' is implemented by Toolkit 'qt6' at Toolkit Symbol 'QSlider'.
 ImplementationBinding 'slider.qt6' pivots Component 'slider' is implemented by Toolkit 'qt6'.
-ImplementationBinding 'slider.qt6' has Trait 'screen_reader_aware'.
+ImplementationBinding 'slider.qt6' has Component Trait 'screen_reader_aware'.
 
 Component 'slider' is implemented by Toolkit 'gtk4' at Toolkit Symbol 'GtkScale'.
 ImplementationBinding 'slider.gtk4' pivots Component 'slider' is implemented by Toolkit 'gtk4'.
-ImplementationBinding 'slider.gtk4' has Trait 'screen_reader_aware'.
-ImplementationBinding 'slider.gtk4' has Trait 'dark_mode_native'.
+ImplementationBinding 'slider.gtk4' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'slider.gtk4' has Component Trait 'dark_mode_native'.
 
 Component 'slider' is implemented by Toolkit 'web-components' at Toolkit Symbol '<input type=range>'.
 ImplementationBinding 'slider.web' pivots Component 'slider' is implemented by Toolkit 'web-components'.
-ImplementationBinding 'slider.web' has Trait 'touch_optimized'.
+ImplementationBinding 'slider.web' has Component Trait 'touch_optimized'.
 
 ### Component: ComboBox
 
@@ -866,25 +866,25 @@ Component 'combo-box' has Description 'Dropdown selection from a closed list. No
 Component 'combo-box' has Property 'items' of Property Type 'string' with Property Default ''.
 Component 'combo-box' has Property 'selected' of Property Type 'int' with Property Default '-1'.
 
-Component 'combo-box' emits Event 'selection-changed' with Event Payload Type 'int'.
+Component 'combo-box' emits Event Name 'selection-changed' with Event Payload Type 'int'.
 
-Component 'combo-box' has Trait 'keyboard_navigable'.
-Component 'combo-box' has Trait 'theming_consumer'.
+Component 'combo-box' has Component Trait 'keyboard_navigable'.
+Component 'combo-box' has Component Trait 'theming_consumer'.
 
 Component 'combo-box' is implemented by Toolkit 'qt6' at Toolkit Symbol 'QComboBox'.
 ImplementationBinding 'combo-box.qt6' pivots Component 'combo-box' is implemented by Toolkit 'qt6'.
-ImplementationBinding 'combo-box.qt6' has Trait 'screen_reader_aware'.
-ImplementationBinding 'combo-box.qt6' has Trait 'compact_native'.
+ImplementationBinding 'combo-box.qt6' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'combo-box.qt6' has Component Trait 'compact_native'.
 
 Component 'combo-box' is implemented by Toolkit 'gtk4' at Toolkit Symbol 'GtkDropDown'.
 ImplementationBinding 'combo-box.gtk4' pivots Component 'combo-box' is implemented by Toolkit 'gtk4'.
-ImplementationBinding 'combo-box.gtk4' has Trait 'screen_reader_aware'.
-ImplementationBinding 'combo-box.gtk4' has Trait 'dark_mode_native'.
+ImplementationBinding 'combo-box.gtk4' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'combo-box.gtk4' has Component Trait 'dark_mode_native'.
 
 Component 'combo-box' is implemented by Toolkit 'web-components' at Toolkit Symbol '<select>'.
 ImplementationBinding 'combo-box.web' pivots Component 'combo-box' is implemented by Toolkit 'web-components'.
-ImplementationBinding 'combo-box.web' has Trait 'screen_reader_aware'.
-ImplementationBinding 'combo-box.web' has Trait 'touch_optimized'.
+ImplementationBinding 'combo-box.web' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'combo-box.web' has Component Trait 'touch_optimized'.
 
 ### Component: ProgressBar
 
@@ -896,24 +896,24 @@ Component 'progress-bar' has Property 'value' of Property Type 'int' with Proper
 Component 'progress-bar' has Property 'maximum' of Property Type 'int' with Property Default '100'.
 Component 'progress-bar' has Property 'indeterminate' of Property Type 'bool' with Property Default 'false'.
 
-Component 'progress-bar' has Trait 'theming_consumer'.
+Component 'progress-bar' has Component Trait 'theming_consumer'.
 
 Component 'progress-bar' is implemented by Toolkit 'slint' at Toolkit Symbol 'ProgressIndicator'.
 ImplementationBinding 'progress-bar.slint' pivots Component 'progress-bar' is implemented by Toolkit 'slint'.
-ImplementationBinding 'progress-bar.slint' has Trait 'kernel_native'.
-ImplementationBinding 'progress-bar.slint' has Trait 'dark_mode_native'.
+ImplementationBinding 'progress-bar.slint' has Component Trait 'kernel_native'.
+ImplementationBinding 'progress-bar.slint' has Component Trait 'dark_mode_native'.
 
 Component 'progress-bar' is implemented by Toolkit 'qt6' at Toolkit Symbol 'QProgressBar'.
 ImplementationBinding 'progress-bar.qt6' pivots Component 'progress-bar' is implemented by Toolkit 'qt6'.
-ImplementationBinding 'progress-bar.qt6' has Trait 'compact_native'.
+ImplementationBinding 'progress-bar.qt6' has Component Trait 'compact_native'.
 
 Component 'progress-bar' is implemented by Toolkit 'gtk4' at Toolkit Symbol 'GtkProgressBar'.
 ImplementationBinding 'progress-bar.gtk4' pivots Component 'progress-bar' is implemented by Toolkit 'gtk4'.
-ImplementationBinding 'progress-bar.gtk4' has Trait 'dark_mode_native'.
+ImplementationBinding 'progress-bar.gtk4' has Component Trait 'dark_mode_native'.
 
 Component 'progress-bar' is implemented by Toolkit 'web-components' at Toolkit Symbol '<progress>'.
 ImplementationBinding 'progress-bar.web' pivots Component 'progress-bar' is implemented by Toolkit 'web-components'.
-ImplementationBinding 'progress-bar.web' has Trait 'screen_reader_aware'.
+ImplementationBinding 'progress-bar.web' has Component Trait 'screen_reader_aware'.
 
 ### Component: CheckBox
 
@@ -925,30 +925,30 @@ Component 'checkbox' has Property 'checked' of Property Type 'bool' with Propert
 Component 'checkbox' has Property 'label' of Property Type 'string' with Property Default ''.
 Component 'checkbox' has Property 'enabled' of Property Type 'bool' with Property Default 'true'.
 
-Component 'checkbox' emits Event 'toggled' with Event Payload Type 'bool'.
+Component 'checkbox' emits Event Name 'toggled' with Event Payload Type 'bool'.
 
-Component 'checkbox' has Trait 'keyboard_navigable'.
-Component 'checkbox' has Trait 'theming_consumer'.
+Component 'checkbox' has Component Trait 'keyboard_navigable'.
+Component 'checkbox' has Component Trait 'theming_consumer'.
 
 Component 'checkbox' is implemented by Toolkit 'slint' at Toolkit Symbol 'CheckBox'.
 ImplementationBinding 'checkbox.slint' pivots Component 'checkbox' is implemented by Toolkit 'slint'.
-ImplementationBinding 'checkbox.slint' has Trait 'kernel_native'.
-ImplementationBinding 'checkbox.slint' has Trait 'dark_mode_native'.
+ImplementationBinding 'checkbox.slint' has Component Trait 'kernel_native'.
+ImplementationBinding 'checkbox.slint' has Component Trait 'dark_mode_native'.
 
 Component 'checkbox' is implemented by Toolkit 'qt6' at Toolkit Symbol 'QCheckBox'.
 ImplementationBinding 'checkbox.qt6' pivots Component 'checkbox' is implemented by Toolkit 'qt6'.
-ImplementationBinding 'checkbox.qt6' has Trait 'screen_reader_aware'.
-ImplementationBinding 'checkbox.qt6' has Trait 'compact_native'.
+ImplementationBinding 'checkbox.qt6' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'checkbox.qt6' has Component Trait 'compact_native'.
 
 Component 'checkbox' is implemented by Toolkit 'gtk4' at Toolkit Symbol 'GtkCheckButton'.
 ImplementationBinding 'checkbox.gtk4' pivots Component 'checkbox' is implemented by Toolkit 'gtk4'.
-ImplementationBinding 'checkbox.gtk4' has Trait 'screen_reader_aware'.
-ImplementationBinding 'checkbox.gtk4' has Trait 'dark_mode_native'.
+ImplementationBinding 'checkbox.gtk4' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'checkbox.gtk4' has Component Trait 'dark_mode_native'.
 
 Component 'checkbox' is implemented by Toolkit 'web-components' at Toolkit Symbol '<input type=checkbox>'.
 ImplementationBinding 'checkbox.web' pivots Component 'checkbox' is implemented by Toolkit 'web-components'.
-ImplementationBinding 'checkbox.web' has Trait 'screen_reader_aware'.
-ImplementationBinding 'checkbox.web' has Trait 'touch_optimized'.
+ImplementationBinding 'checkbox.web' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'checkbox.web' has Component Trait 'touch_optimized'.
 
 ### Component: Tab
 
@@ -959,21 +959,21 @@ Component 'tab' has Description 'Horizontal tab strip selecting one of N child s
 Component 'tab' has Property 'selected' of Property Type 'int' with Property Default '0'.
 Component 'tab' has Property 'tabs' of Property Type 'string' with Property Default ''.
 
-Component 'tab' emits Event 'selection-changed' with Event Payload Type 'int'.
+Component 'tab' emits Event Name 'selection-changed' with Event Payload Type 'int'.
 
-Component 'tab' has Slot 'children'.
+Component 'tab' has Slot Name 'children'.
 
-Component 'tab' has Trait 'keyboard_navigable'.
-Component 'tab' has Trait 'theming_consumer'.
+Component 'tab' has Component Trait 'keyboard_navigable'.
+Component 'tab' has Component Trait 'theming_consumer'.
 
 Component 'tab' is implemented by Toolkit 'qt6' at Toolkit Symbol 'QTabBar'.
 ImplementationBinding 'tab.qt6' pivots Component 'tab' is implemented by Toolkit 'qt6'.
-ImplementationBinding 'tab.qt6' has Trait 'screen_reader_aware'.
+ImplementationBinding 'tab.qt6' has Component Trait 'screen_reader_aware'.
 
 Component 'tab' is implemented by Toolkit 'gtk4' at Toolkit Symbol 'GtkNotebook'.
 ImplementationBinding 'tab.gtk4' pivots Component 'tab' is implemented by Toolkit 'gtk4'.
-ImplementationBinding 'tab.gtk4' has Trait 'screen_reader_aware'.
-ImplementationBinding 'tab.gtk4' has Trait 'dark_mode_native'.
+ImplementationBinding 'tab.gtk4' has Component Trait 'screen_reader_aware'.
+ImplementationBinding 'tab.gtk4' has Component Trait 'dark_mode_native'.
 ### The idealized controls canon emits, paired to React (#124)
 
 <!-- WHICH SET IS THE IDEALIZED ONE, AND WHY. Two vocabularies meet here and

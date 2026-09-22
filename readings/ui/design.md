@@ -132,9 +132,6 @@ TypographyScale has Pixels as letter spacing.
 
 ### FontFamily
 
-FontFamily has Name.
-  Each FontFamily has exactly one Name.
-
 FontFamily has fallback- Name.
 
 ### SpacingToken
