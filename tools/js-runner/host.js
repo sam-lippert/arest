@@ -61,9 +61,10 @@ function S9(a,b,c,d,e,f,g,h,i){return [a,b,c,d,e,f,g,h,i];}
 function CANON() { return arguments; }
 // THE COMPOSITION'S IDENTITY, stamped by build.js from canon and the carriers
 // it spliced -- not from this file, because a host edit does not move a
-// population. tools/compile-store.js writes this value into the store.db it
-// projects and loadStoreDb refuses a database carrying any other, which is the
-// same move build.js makes for a stale `compiled` carrier.
+// population. compile.js writes this value into the store.db it projects,
+// beside the hash of the SCHEMA it wrote there. loadStoreDb does not refuse a
+// database carrying another: what a store is read through is its schema, and
+// that is what it is held to; this says which build wrote it.
 let COMPOSITION = null;
 function COMPOSED(h) { COMPOSITION = h; }
 // A CARRIER IS READ BY THE HOST, NOT PARSED AS CODE. design-state,
@@ -3415,29 +3416,114 @@ function run_sql() {
 function loadStoreDb(path) {
   const { Database } = require("bun:sqlite");
   const db = new Database(path, { readonly: true });
-  // AND IT MUST BE A PROJECTION OF THIS COMPOSITION. The tables ARE the durable
-  // store (#108), so a database built from an older canon or older carriers is
-  // not a slow path to fall back from -- it is the wrong store, and every write
-  // made since lives only in it. Measured 2026-09-11: the base store.db of
-  // 09-08 booted into the current module and `schema` threw `selector 2 out of
-  // range 1` from somewhere inside the answer, naming a selector rather than a
-  // database. It differed from a rebuilt one only in lacking four fact types
-  // that had since become populated (EntityTypeHasReferenceMode,
-  // ObjectTypeIsSubtypeOfObjectType, FactTypeHasDerivationMode,
-  // SubtypeFactProvidesPreferredIdentifier) -- no kind, arity or column count
-  // had moved, so nothing recoverable from _meta alone could have caught it.
-  // Hence the stamp. A database written before the stamp existed carries none
-  // and is refused for the same reason: it cannot be shown to match.
+  // AND IT MUST HOLD THE SCHEMA IT IS READ THROUGH. The tables ARE the durable
+  // store (#108), so a database without the tables and columns the loop below
+  // selects is not a slow path to fall back from -- it is the wrong store, and
+  // every write made since lives only in it. Measured 2026-09-11: the base
+  // store.db of 09-08 booted into the current module and `schema` threw
+  // `selector 2 out of range 1` from somewhere inside the answer, naming a
+  // selector rather than a database. It lacked four fact types' tables
+  // (EntityTypeHasReferenceMode, ObjectTypeIsSubtypeOfObjectType,
+  // FactTypeHasDerivationMode, SubtypeFactProvidesPreferredIdentifier) and the
+  // loop below skipped each one without a word.
+  //
+  // WHAT STOOD HERE WAS THE COMPOSITION STAMP, and it answered a different
+  // question. build.js hashes the whole canon file, scenarios.canon and the
+  // carriers into sixteen hex digits (IDENTITY), compile.js writes them into
+  // _composition, and any other value was refused. Measured 2026-09-21, that is
+  // both too strong and too weak. TOO STRONG: three canon commits that moved no
+  // table and no column -- reflect:src_* on the reflection, rmap:unproj_owner
+  // deleted from the READ side, the judge's fifteen DEFs -- invalidated every
+  // app's store, five were down at once, and support's re-read from its
+  // readings is ten minutes and 6-7 GB. TOO WEAK: a database carrying THIS
+  // module's stamp and NO TABLES AT ALL loaded in 23 ms without a word, because
+  // the stamp was the only thing asked and the read loop skipped every table in
+  // silence -- the 09-11 failure exactly, still open.
+  //
+  // So the SCHEMA is what is checked, which is what the stamp was protecting:
+  // every table rmap:coltabs names, with every column rmap:proj_colnames gives
+  // it -- the same two the DDL, compile.js and the loop below use -- must be in
+  // the database, by name.
+  //
+  // A TABLE OR COLUMN THE STORE HAS AND THE MODULE DOES NOT NAME IS KEPT, not
+  // refused: the loop below selects named columns from named tables, so an
+  // extra one cannot reach an answer, and nothing is lost by reading past it.
+  // What becomes of its rows is the next compile's question, where the carry
+  // already refuses to drop a non-empty orphan without a Migration (compile.js,
+  // AREST_MIGRATE=allow-loss). A store written by a LATER canon therefore still
+  // loads here, with the rows this module knows how to read.
+  //
+  // WHAT THIS DOES NOT CATCH is a column whose MEANING moved while its name
+  // stood still: the same column now holding another value type or another
+  // reference mode. Column ORDER is not such a case -- the rows are read BY
+  // NAME in the order rmap:proj_colnames gives now, and rmap:unproj takes the
+  // tuple from that same order, so a permutation reads back as itself. Nor does
+  // it catch a store whose ROWS are stale; rows are the compile's business, and
+  // compile.js supersedes what a build asserted while carrying what the runtime
+  // wrote.
   // An ABSENT database is a different answer and not this check's: the readonly
   // open above refuses it with sqlite's own `unable to open database file`, and
   // a store asked for no database at all never reaches here.
-  let stamped = null;
-  try { stamped = (db.query("select hash from _composition").get() || {}).hash; } catch { /* predates the stamp */ }
-  if (stamped !== COMPOSITION) {
+  const raw = (n) => String(n).replace(/""/g, '"');   // the DDL's spelling of a name; sqlite answers it unquoted
+  const want = new Map();
+  for (const t of Ev("rmap:coltabs", CELLS)) {
+    const table = String(t[0]);
+    const cols = Ev("rmap:proj_colnames", [table, CELLS]).map(String);
+    if (cols.length) want.set(table, cols);
+  }
+  // ONE STATEMENT, NOT ONE PER TABLE. `pragma table_info` prepared per table is
+  // 7 ms over the base's 49 tables and 77 ms over 562 of them (support's count,
+  // on a database built to that shape); joining sqlite_master to the pragma
+  // table-valued function answers exactly the same names in 0.6 ms and 7 ms
+  // (2026-09-21). The base module takes 2.5 s to load and support's 13.8.
+  const have = new Map();
+  for (const r of db.query("select m.name t, c.name c from sqlite_master m join pragma_table_info(m.name) c where m.type = 'table'").values()) {
+    let cols = have.get(String(r[0]));
+    if (!cols) have.set(String(r[0]), (cols = new Set()));
+    cols.add(String(r[1]));
+  }
+  const missing = [];
+  for (const [table, cols] of want) {
+    const there = have.get(raw(table));
+    if (!there) { missing.push(raw(table) + " -- no such table"); continue; }
+    const gone = cols.filter((c) => !there.has(raw(c)));
+    if (gone.length) missing.push(raw(table) + " -- no column " + gone.map(raw).join(", "));
+  }
+  // AND WHICH BUILD WROTE IT IS STILL WORTH KNOWING -- read for the message,
+  // never to decide. (`builtFrom` rather than `stamped`, which is the
+  // evaluator's own function two thousand lines up and was shadowed here.)
+  let builtFrom = null;
+  try { builtFrom = (db.query("select hash from _composition").get() || {}).hash; } catch { /* predates the stamp */ }
+  if (missing.length) {
+    const { createHash } = require("node:crypto");
+    const schemaHash = (m) => {
+      const h = createHash("sha256");
+      for (const t of [...m.keys()].sort()) h.update(raw(t) + "\u0000" + m.get(t).map(raw).sort().join("\u0000") + "\n");
+      return h.digest("hex").slice(0, 16);
+    };
+    let held = null;
+    try { held = (db.query("select schema from _composition").get() || {}).schema; } catch { /* predates the schema column */ }
     db.close();
-    throw new Error("store.db was built from composition " + (stamped || "(none: it predates the stamp)") +
-      ", this module is " + (COMPOSITION || "(unstamped)") + " -- " + path +
-      "\n  rebuild it: AREST_OUT_DIR=" + path.replace(/[\\/][^\\/]*$/, "") + " bun tools/compile-store.js");
+    throw new Error("this store does not hold the schema the module reads: " + missing.length +
+      " of " + want.size + " table(s) it selects from -- " + path +
+      missing.slice(0, 12).map((m) => "\n  " + m).join("") +
+      (missing.length > 12 ? "\n  ... and " + (missing.length - 12) + " more" : "") +
+      "\n  the store's schema is " + (held || "(not recorded)") + ", this module's is " + schemaHash(want) +
+      "; it was built from composition " + (builtFrom || "(none: it predates the stamp)") +
+      ", this module is " + (COMPOSITION || "(unstamped)") +
+      "\n  rebuild it: apps_check then apps_compile on this app" +
+      " -- AREST_DB=" + path + " bun tools/js-runner/compile.js <readings dir>");
+  }
+  // AND WHERE THE SCHEMA FITS BUT THE STAMP DIFFERS, SAY SO ONCE. The tables
+  // are read, because their shape is what reading them needs; but the ROWS in
+  // them were asserted by another build's readings, and until the next
+  // apps_check that build is what the store answers where the tables speak.
+  // Refusing this is what put five apps down for three canon commits that moved
+  // no table; saying nothing at all is the other error.
+  if (builtFrom !== COMPOSITION) {
+    console.error("store " + path + ": built from composition " + (builtFrom || "(none: it predates the stamp)") +
+      ", this module is " + (COMPOSITION || "(unstamped)") +
+      " -- the schema fits, so the tables are read; their rows are that build's until the next apps_check");
   }
   // WHAT THE ROWS MEAN IS CANON'S, NOT THIS FILE'S. rmap:coltabs names the
   // tables and rmap:proj_colnames their columns -- the same two the DDL and the
@@ -3454,14 +3540,17 @@ function loadStoreDb(path) {
   // never did -- it was a shape this file invented so that it could read back
   // what it had written. The schema the readings actually describe is the one
   // rmap:ddl emits, and now it is the one that is read.
+  // AND IT READS THE MAP THE CHECK ABOVE ALREADY BUILT: `want` IS rmap:coltabs
+  // paired with rmap:proj_colnames, so the check costs no evaluation of its own
+  // (5 ms for the base's 49 tables and 382 columns, paid once either way).
   const byFt = new Map();
-  for (const t of Ev("rmap:coltabs", CELLS)) {
-    const table = String(t[0]);
-    const cols = Ev("rmap:proj_colnames", [table, CELLS]).map(String);
-    if (!cols.length) continue;
-    let rows;
-    try { rows = db.query("select " + cols.map((c) => '"' + c + '"').join(",") + ' from "' + table + '"').values(); }
-    catch { continue; }                       // a table the schema has and this database does not
+  for (const [table, cols] of want) {
+    // NOT IN A try. `catch { continue; }` stood here -- "a table the schema has
+    // and this database does not" -- and that silence IS the 09-11 defect: four
+    // fact types read as empty and the store answering a selector out of range
+    // somewhere else entirely. The check above is what makes the select safe,
+    // and anything else it throws is a defect to see, not to skip.
+    const rows = db.query("select " + cols.map((c) => '"' + c + '"').join(",") + ' from "' + table + '"').values();
     if (!rows.length) continue;
     const clean = rows.map((r) => r.map((v) => (v === null ? "#" : String(v))));
     for (const p of Ev("rmap:unproj", [table, clean, CELLS])) {

@@ -250,8 +250,31 @@ if (!out && !outDir) {
   // identity is build.js's change to make, and the stores would restamp with it.
   const witness = outDir ? join(outDir, "norma-answer") : "";
   if (witness && existsSync(witness)) identity.update(readFileSync(witness));
-  db.exec('create table if not exists "_composition" (hash text)');
-  db.query('insert into "_composition" (hash) values (?)').run(identity.digest("hex").slice(0, 16));
+  // AND THE SCHEMA IT IS, BESIDE THE COMPOSITION IT CAME FROM. loadStoreDb no
+  // longer reads the stamp to decide -- it compares the tables and columns it is
+  // about to select against the ones that are here -- so both of these are the
+  // RECORD: which build wrote the store, and what shape it wrote, readable with
+  // sqlite alone and needing no module. The schema hash is taken from THE
+  // DATABASE ITSELF, the tables compile:schema just executed, and not from
+  // rmap:coltabs, so that the host computing the same digits from rmap:coltabs
+  // is a measurement rather than a tautology: a3290a48c72db8c7 both ways on the
+  // base, 49 tables and 382 columns (2026-09-21). Underscore tables are left out
+  // because _composition is written one line below and is not part of the shape.
+  const schema = createHash("sha256");
+  {
+    const cols = new Map();
+    for (const r of db.query("select m.name t, c.name c from sqlite_master m join pragma_table_info(m.name) c where m.type = 'table'").values()) {
+      const t = String(r[0]);
+      if (t.startsWith("_") || t.startsWith("sqlite_")) continue;
+      let cs = cols.get(t);
+      if (!cs) cols.set(t, (cs = []));
+      cs.push(String(r[1]));
+    }
+    for (const t of [...cols.keys()].sort()) schema.update(t + "\u0000" + cols.get(t).sort().join("\u0000") + "\n");
+  }
+  const schemaHash = schema.digest("hex").slice(0, 16);
+  db.exec('create table if not exists "_composition" (hash text, schema text)');
+  db.query('insert into "_composition" (hash, schema) values (?, ?)').run(identity.digest("hex").slice(0, 16), schemaHash);
   const n = db.query("SELECT count(*) c FROM sqlite_master WHERE type='table'").get().c;
   // AND THE ROWS ARE CANON'S TOO. rmap:proj_rows answers a table's rows -- the
   // key, then one value per column in the order rmap:colnames gives them -- so
@@ -392,6 +415,7 @@ if (!out && !outDir) {
   }
   renameSync(build, out);
   console.log("store: " + n + " tables, " + inserted + " rows at " + out
+    + ", schema " + schemaHash
     + (refused ? ", " + refused + " REFUSED BY SQLITE" : "")
     + (carried || filled ? " [" + carried + " runtime row(s) carried, " + filled + " value(s) filled]" : "")
     + " (" + tRows + " ms)");
