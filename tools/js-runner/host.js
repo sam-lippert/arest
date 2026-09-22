@@ -3702,7 +3702,7 @@ function loadDerived() {
   let owned;
   try {
     owned = new Set(Ev("derive:sm_marks", CELLS)
-      .filter((r) => String(r[1]) === "full" || String(r[1]) === "stored")
+      .filter((r) => String(r[1]) === "full" || String(r[1]) === "derived-and-stored")
       .map((r) => String(r[0])).filter((n) => STORE_TABLES.has(n)));
   } catch { owned = new Set(); }
 

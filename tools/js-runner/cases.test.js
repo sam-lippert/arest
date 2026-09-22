@@ -2024,12 +2024,30 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     // on that field. `canon's state:otpops carries the witness's populations`
     // goes green with it; it was the same defect read through the populations.
 
-    // the pinned distance (2026-09-17); every number is a floor, and a change
-    // in either direction is a finding, not noise
+    // AND A FULLY-DERIVED HEAD IS STORED LIKE ANY OTHER (Sam, 2026-09-21: an
+    // app is a sqlite db with an interface, and reads come from the table).
+    // The oracle drops a `*` head from state:fts (Codd 1970 1.5, Verifier.cs)
+    // and read:stored_only did the same in both slots of read:parse; the
+    // descriptor slot now keeps every fact record, with a `*` head's asserted
+    // population blanked (read:rule_owned), so the closure's answer is what its
+    // table holds. The 27 fully-derived heads of the base enter the stored
+    // schema and every count that ranges over it moves by exactly 27:
+    // witness/canon/both 262 -> 289, ucs and mands 262 -> 289 (the carrier and
+    // the reader agree on their uniqueness and mandatory fields), rows 252 ->
+    // 279 (their populations are [[]] on both sides; the same ten differ as
+    // before), stateRows 262 -> 289. players and all STAY at 262: D is
+    // state:declared, the ASSERTABLE schema, which still goes through
+    // read:stored_only -- a fully-derived head cannot be asserted, so it has no
+    // players there and is counted in neither. stateUcs 630 -> 665: the 16
+    // binary heads whose only uniqueness spans both roles are objectified as
+    // any asserted many-to-many is (NORMA binarizes), so their 16 spanning
+    // UC:in rows become 35 single-role uniquenesses on the involvement fact
+    // types plus 16 spanning UC:ip rows over involvement roles (+51, -16).
+    // derived stays [37, 37, 37]: the markings never moved, only the storage.
     expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
-      .toEqual({ witness: 262, canon: 262, both: 262, canonOnly: 0, oracleOnly: 0,
-                 players: 262, ucs: 262, mands: 262, all: 262, rows: 252, rejected: 0, derived: [37, 37, 37], stateRows: 262, stateUcs: 630 });
+      .toEqual({ witness: 289, canon: 289, both: 289, canonOnly: 0, oracleOnly: 0,
+                 players: 262, ucs: 289, mands: 289, all: 262, rows: 279, rejected: 0, derived: [37, 37, 37], stateRows: 289, stateUcs: 665 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
@@ -2284,7 +2302,13 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
              sequence: J(kept.map((r) => String(r[0]))) === J(w),
              renumbered: J(kept.map((r, i) => [String(r[0]), i + 1])) === J(witness("state:factorder").map((r) => [String(r[0]), r[1]])),
              canonOnly: c.filter((r) => !WN.has(String(r[0]))).map((r) => String(r[0])) })
-      .toEqual({ canon: 506, witness: 506, kept: 506, sequence: true, renumbered: true, canonOnly: [] });
+      // 506 -> 541 (2026-09-21): a fully-derived head is stored, so the 16
+      // binary `*` heads with a spanning uniqueness are objectified as any
+      // asserted many-to-many is, and their 35 involvement fact types (two per
+      // binary, three for Status reaches Status in State Machine Definition,
+      // four for Status has effective Transition to Status on Event Type) take
+      // a place in the sequence; the heads themselves were in it already.
+      .toEqual({ canon: 541, witness: 541, kept: 541, sequence: true, renumbered: true, canonOnly: [] });
   }, 300_000);
 
   // and the assembler carries them: the design state canon writes holds every
@@ -2472,11 +2496,21 @@ describe("canon's state:setcmp against the witness, on the base metamodel", () =
   test("members are binarized and recipes are not", () => {
     const c = Ev("read:setcmp_state", F);
     const members = c.flatMap((r) => [...r[2], ...r[3]]).map((m) => String(m[0]));
+    // AND FIVE MORE SINCE A FULLY-DERIVED HEAD IS STORED (2026-09-21). Three of
+    // the nine subset constraints have a `*` head as their superset -- `Failure
+    // succeeds Violation` once, `Status is defined in State Machine Definition`
+    // twice (initial is a subset of defined; a machine's definition is one the
+    // status is defined in) -- and a stored many-to-many head is objectified
+    // like any other, so those superset members are spelled over its
+    // involvement links: 8 -> 13. Every recipe still names the fact types.
     expect(members.filter((n) => n.includes("IsInvolvedIn")).sort()).toEqual([
       "EventIsInvolvedInEventCausedTransition", "FactIsInvolvedInGuardRunReferencesFact",
-      "FactIsInvolvedInRoleInstance", "GuardIsInvolvedInGuardReferencesFactType",
-      "PredicateIsInvolvedInFactIsReferencedByPredicate", "RoleIsInvolvedInRoleInstance",
-      "RoleIsInvolvedInRoleIsUsedInReading", "TransitionIsInvolvedInEventCausedTransition"]);
+      "FactIsInvolvedInRoleInstance", "FailureIsInvolvedInFailureSucceedsViolation",
+      "GuardIsInvolvedInGuardReferencesFactType", "PredicateIsInvolvedInFactIsReferencedByPredicate",
+      "RoleIsInvolvedInRoleInstance", "RoleIsInvolvedInRoleIsUsedInReading",
+      "StateMachineDefinitionIsInvolvedInStatusIsDefinedInStateMachineDefinition",
+      "StatusIsInvolvedInStatusIsDefinedInStateMachineDefinition", "StatusIsInvolvedInStatusIsDefinedInStateMachineDefinition",
+      "TransitionIsInvolvedInEventCausedTransition", "ViolationIsInvolvedInFailureSucceedsViolation"]);
     expect(J(c.flatMap((r) => r[4]).map(J).filter((s) => s.includes("IsInvolvedIn")))).toBe(J([]));
   }, 300_000);
 
@@ -3410,8 +3444,12 @@ describe("the reader's state phase indexes its records instead of scanning them 
     expect(Ev("read:deontic_ucs_of", ["Employment", recs])).toEqual([]);
     const F = Ev("read:x_full", X);
     expect(Ev("read:state_derived", F)).toEqual([["PersonLeadsCompany", "full"]]);
-    expect(Ev("read:state_nestings", F)).toEqual([["Employment", "Employment"]]);
-    expect(Ev("read:state_fts", F).map((r) => r[0])).toEqual(["Employment"]);
+    // `Person leads Company. *` is stored now (2026-09-21): a fully-derived
+    // binary with the spanning uniqueness nests as any many-to-many does, and
+    // its descriptor stands in state:fts with an empty population; the
+    // objectification Employment is still read first.
+    expect(Ev("read:state_nestings", F)).toEqual([["Employment", "Employment"], ["PersonLeadsCompany", "PersonLeadsCompany"]]);
+    expect(Ev("read:state_fts", F).map((r) => r[0])).toEqual(["Employment", "PersonLeadsCompany"]);
   }, 300_000);
 });
 // ---- THE META-TYPES HAVE EXTENTS, NOT ONLY LINKS (#122 item 2) ----
