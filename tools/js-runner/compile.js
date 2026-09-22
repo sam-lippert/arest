@@ -66,7 +66,7 @@ if (!existsSync(host)) {
   if (r.status !== 0) process.exit(r.status || 1);
 }
 await import(pathToFileURL(host).href);
-const { Ev, CELLS } = globalThis.AREST;
+const { Ev, CELLS, loadStoreDb, popSnapshot, closeStore, emitToDb, storeDb } = globalThis.AREST;
 
 // WHICH FILES ARE READINGS AND IN WHAT ORDER IS CANON'S. It was this file's
 // last decision in the read phase -- core.md first, then alphabetical -- and
@@ -512,6 +512,23 @@ if (!out && !outDir) {
     try { rmSync(build); } catch {}
     process.exit(1);
   }
+  // THE CLOSURE IS WRITTEN HERE, ONCE (Sam, 2026-09-21: "An app doesn't need
+  // to be booted"). The build holds what the readings assert and what the
+  // runtime wrote (carried above); the tables the server reads must also hold
+  // what the reflection and the rules derive from them, which every start
+  // used to recompute and re-project (task #123). So the build is adopted as
+  // a start adopts a store, closed under the reflection and the rules, and
+  // what that adds is projected into its tables -- the same three lines a
+  // write takes: snapshot, evaluate, emit what changed.
+  const t4 = Date.now();
+  process.env.AREST_STORE_DB = build;
+  loadStoreDb(build);
+  const beforeClosure = popSnapshot(CELLS);
+  closeStore();
+  const closed = emitToDb(beforeClosure, CELLS);
+  const sdb = storeDb();
+  if (sdb) sdb.close(true);
+  console.log("closure: " + closed + " row(s) written into the build (" + (Date.now() - t4) + " ms)");
   renameSync(build, out);
   console.log("store: " + n + " tables, " + inserted + " rows at " + out
     + ", schema " + schemaHash

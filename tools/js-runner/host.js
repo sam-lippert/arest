@@ -2397,6 +2397,7 @@ function run_test() {
   // that could drift from them: snapshot, evaluate, emit what changed.
   globalThis.AREST = { Ev: Ev, CELLS: CELLS, DEFS: DEFS, composition: COMPOSITION,
     loadStoreDb: loadStoreDb, popSnapshot: popSnapshot, adoptStore: adoptStore, emitToDb: emitToDb,
+    closeStore: closeStore, storeDb: storeDb,
     performDeclared: performDeclared };
 }
 // AND run_test CLOSES HERE, WHICH IS THE WHOLE BUG (2026-09-12). The performer
@@ -3874,13 +3875,15 @@ function boot(mode) {
     // table is a relation or a column of an entity table, is the relational map
     // compile-store lays out, and a boot inventing one would give a functional
     // fact type a relation table of its own.
-    const beforeClosure = popSnapshot(CELLS);
-    for (const [ft, text] of STORE_TABLES) if (beforeClosure.has(ft)) beforeClosure.set(ft, text);
-    closeStore();
-    let closed = 0;
-    try { closed = emitToDb(beforeClosure, CELLS); }
-    catch (e) { console.error("the closure was computed but not stored in " + fromDb + ": " + e.message); }
-    lap("store-db" + (closed ? ", closure stored: " + closed + " row(s) written" : ""));
+    // A START READS THE TABLES AND COMPUTES NOTHING (Sam, 2026-09-21: "An app
+    // doesn't need to be booted. It's just a sqlite db with an interface").
+    // What stood here reflected and derived the whole closure at every start
+    // and re-projected what the tables lacked -- support: 15,504 rows, four to
+    // five minutes of one core at ~3 GB, at EVERY boot, because the projection
+    // never landed four populations (task #123). The closure is written once,
+    // by the check that builds the store (compile.js), and again only by the
+    // write that changes it; the tables ARE the state.
+    lap("store-db");
   }
   else if (!schemaless) {
     loadFile(); lap("file");
