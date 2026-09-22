@@ -3462,6 +3462,58 @@ test("a recorded Violation is a verdict, and its constraint is checked rather th
     adoptStore(keep);
   }
 }, 120_000);
+// ---- AND A MANDATORY WHOSE FACT TYPE THE TOOL LIST CANNOT REACH ----------
+//
+// cmd:mv_pos reads the object type PLAYING the mandatory position by applying
+// that position to solve:assoc of the fact type name against mcp:tools, and
+// solve:assoc answers PHI for a name it does not hold: the position is then a
+// selector over an empty player list. Measured at HEAD on support.auto.dev's
+// store, walking all 1,479 descriptors: EXACTLY ONE threw -- the fully derived
+// MeterUsageReportHasIdempotencyKey, whose reading declares `Each Meter Usage
+// Report has exactly one Idempotency Key.` and whose starred fact type is no
+// part of the stored schema -- and cmd:mand_viols, and with it every arm of
+// ui:violations, died as `selector 1 out of range 0`, so the app could not say
+// what a row violates and no create could be judged. The base metamodel never
+// reaches it: all 88 of its descriptors carrying a mandatory are names
+// mcp:tools answers, which is the last two assertions here and is why the
+// carrier cannot move. The fixture is the defect's own shape and not the
+// store: the player extent is NOT empty, so a guard that read the population
+// instead of the player would pass this and still throw there. Failing at
+// d99bf996.
+test("a mandatory whose fact type the tool list cannot reach is no violation, and one it can reach is unchanged", () => {
+  // the descriptor support throws on, byte for byte
+  const DERIVED = ["MeterUsageReportHasIdempotencyKey", ["Meter Usage Report", "Idempotency Key"], [[1]], [1], []];
+  const VIOLATES = ["WidgetHasColor", ["Widget", "Color"], [[1]], [1], [["w1", "red"]]];
+  const HELD = ["GadgetHasSize", ["Gadget", "Size"], [[1]], [1], [["g1", "big"]]];
+  const cells = [
+    ["CELL", "state:fts", [[DERIVED, VIOLATES, HELD]]],
+    ["CELL", "state:declared", [[["WidgetHasColor", ["Widget", "Color"]], ["GadgetHasSize", ["Gadget", "Size"]]]]],
+    ["CELL", "state:otpops", [[["Meter Usage Report", [["mur1", "mur2"]]],
+      ["Widget", [["w1", "w2"]]], ["Gadget", [["g1"]]]]]],
+    ["CELL", "WidgetHasColor", [["w1", "red"]]],
+    ["CELL", "GadgetHasSize", [["g1", "big"]]],
+  ].concat(CELLS);
+  const shown = (v) => v.map((r) => (Array.isArray(r) ? r.map(String) : String(r)));
+
+  // the shape: no player list to be had, an empty population, and two instances
+  // of the player type that a reachable fact type would report as violations
+  expect(Ev("solve:assoc", ["MeterUsageReportHasIdempotencyKey", Ev("mcp:tools", cells)])).toEqual([]);
+  expect(shown(Ev("ui:ids", [cells, "Meter Usage Report"]))).toEqual(["mur1", "mur2"]);
+  expect(Ev("system:pop_rows", ["MeterUsageReportHasIdempotencyKey", cells])).toEqual([]);
+
+  // it is no violation, and the two the tool list reaches answer as they did
+  expect(Ev("cmd:mv_desc", [DERIVED, cells])).toEqual([]);
+  expect(shown(Ev("cmd:mv_desc", [VIOLATES, cells]))).toEqual([["WidgetHasColor", "mandatory", "w2"]]);
+  expect(Ev("cmd:mv_desc", [HELD, cells])).toEqual([]);
+  expect(shown(Ev("cmd:mand_viols", cells))).toEqual([["WidgetHasColor", "mandatory", "w2"]]);
+
+  // and the guard fires nowhere on the base, so the carrier cannot move
+  const reach = new Set(Ev("mcp:tools", CELLS).map((r) => String(r[0])));
+  const mand = Ev("store:fts", CELLS).filter((d) => Array.isArray(d[3]) && d[3].length > 0);
+  expect(mand.length).toBeGreaterThan(0);
+  expect(mand.filter((d) => !reach.has(String(d[0]))).map((d) => String(d[0]))).toEqual([]);
+  expect(Ev("cmd:mand_viols", CELLS)).toEqual([]);
+}, 120_000);
 // ---- A REFLECTED POPULATION KEEPS THE ROWS THE STORE ASSERTS (#122 item 1) ----
 //
 // loadReflected installs canon's reflection as the cell of that name, and the
