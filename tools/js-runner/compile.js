@@ -302,6 +302,12 @@ if (!out && !outDir) {
   const t3 = Date.now();
   let inserted = 0, refused = 0;
   const first = [];
+  // ONE TRANSACTION FOR THE ROWS. Each insert was its own autocommit
+  // transaction with its own disk sync: 6.5 ms a row on Windows, 83 s for
+  // support's 12,742 rows (2026-09-21). The build is a fresh file nobody
+  // reads until it is renamed in; a refused row is a statement-level error
+  // inside the transaction and is caught as before.
+  db.exec("begin");
   for (const [table] of Ev("rmap:coltabs", CELLS)) {
     const name = String(table);
     // THE NAMES COME FROM THE SAME PLACE THE VALUES DO. rmap:coltabs answers a
@@ -324,6 +330,7 @@ if (!out && !outDir) {
       catch (e) { refused++; if (first.length < 3) first.push(name + ": " + e.message.slice(0, 90)); }
     }
   }
+  db.exec("commit");
   const tRows = Date.now() - t3;
   // ---- AND THE PRIOR STORE IS NOT THROWN AWAY ------------------------------
   // #108 asked that a readings change MIGRATE rather than replace, and since
@@ -345,7 +352,7 @@ if (!out && !outDir) {
   // store cannot yet tell us, because its schema is spliced into the module
   // rather than carried in the database. So this counts and names those tables
   // and REFUSES; it does not guess. AREST_MIGRATE=allow-loss says drop them.
-  let carried = 0, filled = 0, reflectedSkipped = 0, tCarry = 0;
+  let carried = 0, filled = 0, reflectedSkipped = 0, tCarry = 0, tCarryReflect = 0, tCarryRows = 0;
   const orphaned = [];
   if (existsSync(out)) {
     const tCarryStart = Date.now();
@@ -359,6 +366,7 @@ if (!out && !outDir) {
       return m;
     };
     const was = shapeOf(prior), now = shapeOf(db);
+    db.exec("begin");   // and one for the carry: claude's check spent 9 s on Function and 17 s on the instance table, a sync per carried row
     // A REFLECTED NAME NEVER CARRIES (b6e16927, #122 item 1 continued). A boot
     // writes the REFLECTED populations back into these same tables too --
     // host.js's loadReflected installs canon's own reflect:cells answer as the
@@ -416,6 +424,8 @@ if (!out && !outDir) {
       // reflect:spans): every row in it is the reflection's own row, so a row
       // the prior store has and this build does not is an older design
       // state's answer and not this table's to keep.
+      const tTable = Date.now();
+      if (process.env.AREST_CARRY_TRACE) console.error("  carry " + table + ": " + oldCols.length + " prior column(s), " + prior.prepare('select count(*) c from ' + qi(table)).get().c + " prior row(s) ...");
       const ctabEntry = ctabByTable.get(table);
       if (ctabEntry && REFLECTED_NAMES.has(String(ctabEntry[0]))) {
         reflectedSkipped += prior.prepare('select count(*) c from ' + qi(table)).get().c;
@@ -443,6 +453,9 @@ if (!out && !outDir) {
         const cond = [...reflectedCols].map((c2) => qi(c2) + " is not null").join(" or ");
         reflectedSkipped += prior.prepare('select count(*) c from ' + qi(table) + ' where ' + cond).get().c;
       }
+      const tReflect = Date.now() - tTable;
+      tCarryReflect += tReflect;
+      if (process.env.AREST_CARRY_TRACE) console.error("  carry " + table + ": reflected columns " + tReflect + " ms, now its rows ...");
       const oldColsK = oldCols.filter((o) => !reflectedCols.has(o.name));
       const newColsK = newCols.filter((c2) => !reflectedCols.has(c2.name));
       const keep = newColsK.map((c2) => c2.name).filter((n2) => oldColsK.some((o) => o.name === n2));
@@ -468,19 +481,34 @@ if (!out && !outDir) {
       const cols = keep.map(qi).join(",");
       const add = db.prepare('insert into ' + qi(table) + ' (' + cols + ') values ('
         + keep.map(() => "?").join(",") + ')');
-      const whereAll = keep.map((k) => qi(k) + ' is ?').join(" and ");
-      const findAll = db.prepare('select 1 from ' + qi(table) + ' where ' + whereAll);
+      // THE BUILD'S ROWS, READ ONCE. `select 1 ... where c1 is ? and c2 is ?`
+      // per unkeyed prior row was a full scan of the build's table per row --
+      // no index serves it -- so a table with n build rows and m prior rows
+      // cost n*m visits: claude's check spent 2.4 hours of CPU here on
+      // 2026-09-22 and support's carry took 86-94 s. The kept values of the
+      // build's rows are read once, when the first unkeyed row asks, into a
+      // set keyed by their JSON (null is null, a text '2' is not the number
+      // 2, the same distinctions `is` makes), and a carried row joins it.
+      let present = null;
+      const keyOf = (r) => JSON.stringify(keep.map((n2) => r[n2] === undefined ? null : r[n2]));
+      const seen = (r) => {
+        if (!present) present = new Set(db.prepare('select ' + cols + ' from ' + qi(table)).all().map(keyOf));
+        return present.has(keyOf(r));
+      };
       const wherePk = pk.length ? pk.map((k) => qi(k) + ' is ?').join(" and ") : "";
       const vals = keep.filter((n2) => !pk.includes(n2));
       const findPk = pk.length && vals.length
         ? db.prepare('select ' + vals.map(qi).join(",") + ' from ' + qi(table) + ' where ' + wherePk)
         : null;
+      // one UPDATE per column, prepared once, not once per filled value
+      const fills = new Map();
+      const fill = (v) => { let s = fills.get(v); if (!s) { s = db.prepare('update ' + qi(table) + ' set ' + qi(v) + '=? where ' + wherePk); fills.set(v, s); } return s; };
       for (const row of prior.prepare('select ' + cols + ' from ' + qi(table)).all()) {
         const k = pk.map((n2) => row[n2]);
         const keyed = pk.length && k.every((v) => v !== null && v !== undefined);
         if (!keyed) {
-          if (findAll.get(...keep.map((n2) => row[n2]))) continue;   // the build already says it
-          try { add.run(...keep.map((n2) => row[n2])); carried++; } catch { /* the build refuses it */ }
+          if (seen(row)) continue;   // the build already says it
+          try { add.run(...keep.map((n2) => row[n2])); carried++; present.add(keyOf(row)); } catch { /* the build refuses it */ }
           continue;
         }
         const here = findPk ? findPk.get(...k) : null;
@@ -488,11 +516,19 @@ if (!out && !outDir) {
         for (const v of vals) {
           if (here[v] !== null && here[v] !== undefined) continue;   // the readings say something: they win
           if (row[v] === null || row[v] === undefined) continue;     // the runtime said nothing either
-          try { db.prepare('update ' + qi(table) + ' set ' + qi(v) + '=? where ' + wherePk).run(row[v], ...k); filled++; }
+          try { fill(v).run(row[v], ...k); filled++; }
           catch { /* the build refuses it */ }
         }
       }
+      // A TABLE THAT COSTS A SECOND IS NAMED as it finishes, with the split:
+      // the detection of its reflected columns (canon, per table and column)
+      // against its row loop (sqlite). Slowness is a defect, and a summary
+      // that only says "carry N ms" hides which one this is.
+      const tTableRows = Date.now() - tTable - tReflect;
+      tCarryRows += tTableRows;
+      if (tReflect + tTableRows > 1000) console.error("  carry " + table + ": reflected columns " + tReflect + " ms, rows " + tTableRows + " ms");
     }
+    db.exec("commit");
     tCarry = Date.now() - tCarryStart;
     prior.close(true);
   }
@@ -535,7 +571,7 @@ if (!out && !outDir) {
     + (refused ? ", " + refused + " REFUSED BY SQLITE" : "")
     + (carried || filled ? " [" + carried + " runtime row(s) carried, " + filled + " value(s) filled]" : "")
     + (reflectedSkipped ? " [" + reflectedSkipped + " reflected row(s) left to the closure]" : "")
-    + " (" + tRows + " ms" + (tCarry ? ", " + tCarry + " ms carry" : "") + ")");
+    + " (" + tRows + " ms" + (tCarry ? ", " + tCarry + " ms carry: reflected columns " + tCarryReflect + " ms, rows " + tCarryRows + " ms" : "") + ")");
   for (const f of first) console.log("  " + f);
 }
 // WHAT THE STORE CANNOT HOLD IS SAID, NOT SKIPPED. rmap:unkeyed is every fact
