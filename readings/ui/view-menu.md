@@ -6,6 +6,14 @@
 > of them were verifiable. They are removed rather than restated. What the
 > reading now asserts is the model, which stands on its own.
 
+## Domain Metadata
+
+<!-- This file's part of the domain: Menu-view derivation: one ViewElement per Transition legal from an entity's current status -- Theorem 4's affordance set as a view.
+     The sentence below is readings/ui/ui.md:403 repeated verbatim.
+     core.md:220 makes Description functional, so a domain carries ONE
+     text and an identical sentence is the identical fact. -->
+Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and controls. Custom renderers registered per platform via the factory pattern.'.
+
 ## Overview
 
 An Object Type's action menu is a DERIVED view. Each menu item is a `ViewElement`

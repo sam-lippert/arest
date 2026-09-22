@@ -10,6 +10,10 @@
      generate from it. The override bindings themselves are per-platform
      code, never canon data. -->
 
+## Domain Metadata
+
+Domain 'resolution' has Description 'The Resolution Registry (docs ch. 15) as canon data: which named Operation admits a certified per-platform override, which Operation is registrable, which one a host has registered, and the Definition Origin and Type Expression catalog every Function name resolves through. The twelve canon prefix families declared below are tenants of the base store, catalog rows rather than this file's own domain.'.
+
 ## Entity Types
 
 Operation is an entity type.

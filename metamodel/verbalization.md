@@ -8,6 +8,14 @@
      speaks. A, B, C stand for object types, R and S for predicates, N for a
      name. The tutor verb reads these rows and nothing else. -->
 
+## Domain Metadata
+
+<!-- This file's part of the domain: The forms an author writes FORML 2 in (Halpin ORM 2 Technical Report 2, sections 2-3): Verbalization Pattern, Pattern Family, Pattern Form, Pattern Example -- read by the tutor verb, nothing else.
+     The sentence below is metamodel/core.md:2320 repeated verbatim.
+     core.md:220 makes Description functional, so a domain carries ONE
+     text and an identical sentence is the identical fact. -->
+Domain 'core' has Description 'Extracted from NORMA ORM2 model (design/html/). The canonical FORML 2 metamodel against which every user domain is a subtype binding.'.
+
 Verbalization Pattern(.name) is an entity type.
 Verbalization Pattern is a subtype of Function.
 

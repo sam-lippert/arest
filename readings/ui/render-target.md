@@ -21,6 +21,14 @@ widget vocabulary a render function consumes is the closed `Component
 Role` catalog from `readings/ui/components.md`, resolved per value
 type by the Format-else-CDT layer in `readings/ui/view-projection.md`.
 
+## Domain Metadata
+
+<!-- This file's part of the domain: Render Target -- registered render functions in DEFS (whitepaper Section 5.2) that turn a ViewProjection plus a population into a target-native widget tree.
+     The sentence below is readings/ui/ui.md:403 repeated verbatim.
+     core.md:220 makes Description functional, so a domain carries ONE
+     text and an identical sentence is the identical fact. -->
+Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and controls. Custom renderers registered per platform via the factory pattern.'.
+
 ## Entity Types
 
 Render Target(.Name) is an entity type.

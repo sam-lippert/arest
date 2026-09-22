@@ -20,6 +20,12 @@ noun, `Render Target has Platform Function Name`, `… emits MimeType`,
 
 ## Instance Facts
 
+<!-- This file's part of the domain: The installed Render Target instance population that render_via_targets dispatches against -- split out of render-target.md as a per-app overlay.
+     The sentence below is readings/ui/ui.md:403 repeated verbatim.
+     core.md:220 makes Description functional, so a domain carries ONE
+     text and an identical sentence is the identical fact. -->
+Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and controls. Custom renderers registered per platform via the factory pattern.'.
+
 ### Render Target: the reference HTML renderer
 
 Render Target 'html' has Platform Function Name 'render:html'.

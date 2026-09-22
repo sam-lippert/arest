@@ -202,7 +202,11 @@ It is obligatory that each Theme has some ColorToken with Color Role 'info'.
 
 ## Instance Facts
 
-Domain 'ui' has Description 'Design system tokens (colors, typography, spacing, motion, icons) shared across Slint kernel UI and ui.do React frontend.'.
+<!-- This file's part of the domain: Design system tokens (colors, typography, spacing, motion, icons) shared across Slint kernel UI and ui.do React frontend.
+     The sentence below is readings/ui/ui.md:403 repeated verbatim.
+     core.md:220 makes Description functional, so a domain carries ONE
+     text and an identical sentence is the identical fact. -->
+Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and controls. Custom renderers registered per platform via the factory pattern.'.
 
 ### Font families
 

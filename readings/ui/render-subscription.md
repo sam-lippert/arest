@@ -18,6 +18,14 @@ binding.
 Population is runtime-shaped: subscriptions are created and deleted by
 `apply`, not authored here — this reading declares only the model.
 
+## Domain Metadata
+
+<!-- This file's part of the domain: Standing render subscriptions (whitepaper Section 5.2): what a client watches, which Render Target renders it, and where the callback URI delivers it.
+     The sentence below is readings/ui/ui.md:403 repeated verbatim.
+     core.md:220 makes Description functional, so a domain carries ONE
+     text and an identical sentence is the identical fact. -->
+Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and controls. Custom renderers registered per platform via the factory pattern.'.
+
 ## Entity Types
 
 Render Subscription(.Name) is an entity type.

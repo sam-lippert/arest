@@ -5,6 +5,14 @@
 > layout absent from this repository, so none of it was verifiable. It is
 > removed rather than restated. What the reading asserts is the model.
 
+## Domain Metadata
+
+<!-- This file's part of the domain: Instance-detail (form) view derivation: one ViewElement per Fact Type an Object Type participates in, resolved lazily at fetch time.
+     The sentence below is readings/ui/ui.md:403 repeated verbatim.
+     core.md:220 makes Description functional, so a domain carries ONE
+     text and an identical sentence is the identical fact. -->
+Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and controls. Custom renderers registered per platform via the factory pattern.'.
+
 ## Overview
 
 An instance/detail view-projection.View of an Object Type projects its Fact Types into a form
