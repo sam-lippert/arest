@@ -1461,6 +1461,75 @@ test("the reader reports a reading over an undeclared object type and a file wit
   }
 }, 120_000);
 
+// ---- DOES AN OBJECTIFICATION DECLARE ITS OWN NESTED OBJECT TYPE? ----------
+//
+// Halpin and Morgan 2008, section 10.3: an objectified association IS a
+// compositely identified object type, and Rmap unpacks it into its component
+// columns. The book's worked example objectifies CompactDisc x Month as
+// Listing, gives Listing two functional fact types, and maps the lot to ONE
+// table, Sales(cdNr, monthCode, qtySold, revenue), keyed on the composite.
+//
+// The reader folded objectifications LAST, because renaming the objectified
+// fact type needs its reading to exist. So `Listing sold in Quantity` was
+// folded while Listing was still undeclared, lost its Listing role, and came
+// out a unary on Quantity: measured at 393ed88f, UNDECLARED Listing, and two
+// tables keyed on the VALUE, Quantity(value, listingSoldIn) and
+// MoneyAmount(value, listingEarnedProfitOf), with no Listing table at all.
+// The metamodel never showed it because every one of its 38 objectifications
+// is also declared a subtype of Function, and that line is what declared the
+// type. Written the way Halpin writes it, with the objectification sentence
+// and nothing else, it has to come out as the book's table.
+test("an objectification declares its own nested object type, and Halpin's Listing maps to his Sales table", () => {
+  const { mkdirSync } = require("node:fs");
+  const NL = String.fromCharCode(10);
+  const dir = mkdtempSync(join(tmpdir(), "arest-objectify-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  const corpus = join(dir, "readings");
+  const out = join(dir, "out");
+  mkdirSync(corpus);
+  mkdirSync(out);
+  writeFileSync(join(corpus, "listing.md"), [
+    "Domain 'listing' has Description 'Halpin and Morgan 2008 section 10.3'.", "",
+    "Compact Disc(.Nr) is an entity type.", "",
+    "Month(.Code) is an entity type.", "",
+    "Quantity is a value type.", "",
+    "Money Amount is a value type.", "",
+    "Compact Disc was listed in Month.",
+    "  Each Compact Disc, Month combination occurs at most once in the population of Compact Disc was listed in Month.", "",
+    'Listing objectifies "Compact Disc was listed in Month".', "",
+    "Listing sold in Quantity.",
+    "  Each Listing sold in at most one Quantity.", "",
+    "Listing earned profit of Money Amount.",
+    "  Each Listing earned profit of at most one Money Amount.", ""].join(NL));
+  try {
+    const p = Bun.spawnSync(["bun", compiler, corpus],
+      { env: { ...process.env, AREST_OUT_DIR: out, AREST_DB: join(out, "store.db"), AREST_STRICT: "" }, stdout: "pipe", stderr: "pipe" });
+    const text = p.stdout.toString() + p.stderr.toString();
+    expect(p.exitCode).toBe(0);
+    // the objectification declared Listing before any reading played it
+    expect(text).not.toContain("UNDECLARED");
+
+    // and the reading kept its Listing role rather than collapsing to a unary
+    const carrier = readFileSync(join(out, "design-state"), "utf8");
+    expect(carrier).toContain('S(A("ListingSoldInQuantity"),S(A("Listing"),A("Quantity"))');
+    expect(carrier).toContain('S(A("ListingEarnedProfitOfMoneyAmount"),S(A("Listing"),A("Money Amount"))');
+
+    // THE BOOK'S TABLE: one table for the objectification and both of its
+    // functional fact types, keyed on the composite of its component roles.
+    const db = new Database(join(out, "store.db"), { readonly: true });
+    const cols = db.prepare('pragma table_info("Listing")').all();
+    const tables = db.prepare("select name from sqlite_master where type = 'table'").all().map((r) => r.name).filter((n) => !n.startsWith("_")).sort();
+    db.close(true);
+    expect(cols.map((c) => c.name).sort()).toEqual(["compactDiscNr", "moneyAmount", "monthCode", "quantity"]);
+    expect(cols.filter((c) => c.pk).sort((a, b) => a.pk - b.pk).map((c) => c.name)).toEqual(["compactDiscNr", "monthCode"]);
+    // and none of the value-keyed tables the undeclared fold produced
+    expect(tables).not.toContain("Quantity");
+    expect(tables).not.toContain("MoneyAmount");
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 120_000);
+
 // ---- IS EACH CANON FILE STILL INTERSECTION SOURCE? -------------------------
 //
 // The discipline: one tuple literal per file, every element either a
