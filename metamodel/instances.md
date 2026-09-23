@@ -137,8 +137,6 @@ Event Type publishes to Stream.
 Event Type can be created by Predicate.
   It is possible that some Event Type can be created by more than one Predicate and that some Predicate can create more than one Event Type.
   For each combination of Event Type and Predicate, that Event Type can be created by that Predicate at most once.
-EventTypeCanBeCreatedByPredicate objectifies "Event Type can be created by Predicate".
-EventTypeCanBeCreatedByPredicate is a subtype of Function.
 
 ### Citing an Authority
 ### ONE DOOR, ON THE SUPERTYPE (Sam, 2026-09-10: "shouldn't we get Citation
@@ -181,15 +179,11 @@ Function cites Citation.
   For each combination of Function and Citation, that Function cites that Citation at most once.
   It is possible that some Function cites more than one Citation.
   It is possible that more than one Function cites the same Citation.
-FunctionCitesCitation objectifies "Function cites Citation".
-FunctionCitesCitation is a subtype of Function.
 
 ### Object Type Instance
 Object Type Instance is instance of Object Type.
   Each Object Type Instance, Object Type combination occurs at most once in the population of Object Type Instance is instance of Object Type.
   Each Object Type Instance is instance of some Object Type.
-ObjectTypeInstanceIsInstanceOfObjectType objectifies "Object Type Instance is instance of Object Type".
-ObjectTypeInstanceIsInstanceOfObjectType is a subtype of Function.
 <!-- 'exactly one Noun' was NON-CANONICAL (challenged 2026-07-09, verified
      against Halpin, "Subtyping Revisited", NORMA): in ORM subtyping is
      population inclusion — "all instances of one type are also instances
@@ -285,8 +279,6 @@ State Machine is instance of State Machine Definition. *
 State Machine is instance of Object Type.
   Each State Machine, Object Type combination occurs at most once in the population of State Machine is instance of Object Type.
   Each State Machine is instance of some Object Type.
-StateMachineIsInstanceOfObjectType objectifies "State Machine is instance of Object Type".
-StateMachineIsInstanceOfObjectType is a subtype of Function.
 <!-- 'exactly one Noun' relaxed 2026-07-09 (Samuel: fix the SM readings),
      the SAME non-canonical case as Object Type Instance (see the Object Type Instance note). This
      ft is a REFLECTION cell (protocol.py REFLECTION set) like
@@ -425,14 +417,15 @@ State Machine is currently in Status. +
        rows for one request, `Draft` and `Open`, against an at-most-one
        uniqueness. -->
 
-### Event Caused Transition (objectification of "Event caused Transition in State Machine")
+### Event caused Transition in State Machine
 Event caused Transition in State Machine.
   In each population of Event caused Transition in State Machine, each Event, Transition, State Machine combination occurs at most once.
-Event Caused Transition objectifies "Event caused Transition in State Machine".
-Event Caused Transition is a subtype of Function.
-  <!-- objectification legal per Halpin, "Objectification and Atomicity"
-       (2020-04-28): the UC above spans all three roles. one-table wave
-       (2026-07-16): identity through the one id space. -->
+  <!-- NOT OBJECTIFIED (2026-09-23). It was, as `Event Caused Transition`, and it
+       played no role outside its own link fact types -- asked of SYSTEM,
+       `sel ObjectTypePlaysRole 1 EventCausedTransition` -- so it was never used
+       as a noun, and an objectified fact type exists only to be one (Sam,
+       2026-09-23). The UC above spans all three roles, so Halpin 2008 10.3
+       step 1 keys it on them; its name is its own reading's now. -->
 
 ## Subset Constraints
 
@@ -445,8 +438,6 @@ Guard Run is for Guard.
 Guard Run references Fact.
   It is possible that some Guard Run references more than one Fact and that some Fact is referenced by more than one Guard Run.
   For each combination of Guard Run and Fact, that Guard Run references that Fact at most once.
-GuardRunReferencesFact objectifies "Guard Run references Fact".
-GuardRunReferencesFact is a subtype of Function.
 Guard Run has Result.
   Each Guard Run has at most one Result.
 

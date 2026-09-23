@@ -162,8 +162,6 @@ Status has effective Transition to Status on Event Type. *
 Guard references Fact Type.
   It is possible that some Guard references more than one Fact Type and that for some Fact Type, more than one Guard references that Fact Type.
   For each combination of Guard and Fact Type, that Guard references that Fact Type at most once.
-GuardReferencesFactType objectifies "Guard references Fact Type".
-GuardReferencesFactType is a subtype of Function.
 Guard guards Transition.
   Each Guard guards at most one Transition.
   It is possible that more than one Guard guards the same Transition.

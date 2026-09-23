@@ -1530,6 +1530,50 @@ test("an objectification declares its own nested object type, and Halpin's Listi
   }
 }, 120_000);
 
+// ---- IS EVERY OBJECTIFICATION A NOUN? --------------------------------------
+//
+// Sam, 2026-09-23: "an objectified fact type should only exist if it must be
+// used as a noun in some way, like `Inspector inspects Vehicle` objectifying an
+// `Inspection` that may have a check list, a materials list, and more". The
+// one-table wave objectified every compound-key fact type (4c5abe9f: `Halpin:
+// every asserted compound-key fact type objectifies`), and 32 of the 38 it left
+// in the metamodel play no role but the link fact types their own
+// objectification implies and the subtype link to Function. Asked of SYSTEM one
+// at a time -- `sel ObjectTypePlaysRole 1 <name>` -- the six that do are
+// RoleIsUsedInReading (has Position), ConstraintSpan (has Position, has Sequence
+// Number), API (accepts Object Type as parameter), DomainConnectsToExternalSystem
+// (carries Secret Reference, has Send Mode), RoleSequenceHasPosition (holds
+// Role) and RoleInstance (uses Object Type Instance). This reads the nestings
+// the design state carries and asks the same question of every one.
+test("every objectification the metamodel declares is used as a noun", () => {
+  // WHICH NESTS ARE OBJECTIFICATIONS IS NOT CARRIED. state:nestings holds every
+  // nest -- the declared objectifications AND the implicit ones NORMA makes of
+  // every many-to-many and n-ary fact type (read:is_implied_nest, IsImplied in
+  // ORMCore), each of which is declared an object type too -- so nothing in the
+  // design state tells the two apart; that is the catalog gap `Object Type
+  // objectifies Fact Type` closes. The reader's own state does: its first
+  // element's seventh slot is the declared nest names, the list read:implied_nests
+  // subtracts. So the metamodel is read here the way the witness cases read it.
+  const META = join(import.meta.dir, "..", "..", "metamodel");
+  const files = readdirSync(META).filter((f) => f.endsWith(".md"))
+    .sort((a, b) => (a === "core.md" ? "0" : a).localeCompare(b === "core.md" ? "0" : b));
+  const rows = [];
+  for (const f of files) for (const t of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", t));
+  const nestings = Ev("read:x_of", rows)[0][6].map(String);
+  const plays = Ev("system:pop_rows", ["ObjectTypePlaysRole", CELLS]).map((r) => [String(r[0]), String(r[1])]);
+  const factOf = (role) => role.slice(0, role.lastIndexOf("."));
+  // what every objectification plays by construction: the link fact types its
+  // own objectification implies, and (until the one-table wave is undone) its
+  // subtype link -- neither is a use of the noun
+  const structural = (x, ft) => ft.startsWith(x + "IsASubtypeOf")
+    || (/IsInvolved(First|Second)?In/.test(ft) && ft.endsWith("In" + x));
+  const nouns = nestings.filter((x) => plays.some(([ot, role]) => ot === x && !structural(x, factOf(role))));
+  expect(nestings.length).toBeGreaterThan(0);
+  expect(nestings.filter((x) => !nouns.includes(x)).sort()).toEqual([]);
+  expect(nouns.sort()).toEqual(["API", "ConstraintSpan", "DomainConnectsToExternalSystem",
+    "RoleInstance", "RoleIsUsedInReading", "RoleSequenceHasPosition"]);
+}, 120_000);
+
 // ---- IS A RETIRED SURROGATE A LOST FACT? ----------------------------------
 //
 // Taking an objectification off a fact type keys its table on its spanning
@@ -2520,10 +2564,16 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     // ReadingHasText with its 402 rows, so rows 279 -> 278 and nothing else in
     // this expectation moves. stateRows STAYS 289: read:state_fts is the path
     // that merges the reflection, and it agrees with the carrier row for row.
+
+    // AND AN OBJECTIFICATION THAT IS NO NOUN IS NO OBJECTIFICATION (2026-09-23).
+    // 32 of the metamodel's 38 lose `X objectifies` and `X is a subtype of
+    // Function`; the subtype link is one-to-one, a uniqueness on each role, so
+    // the 32 subtype facts take 64 uniquenesses with them: stateUcs 665 -> 601.
+    // It is still the whole agreement -- canon and the carrier are one compile's.
     expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
       .toEqual({ witness: 289, canon: 289, both: 289, canonOnly: 0, oracleOnly: 0,
-                 players: 262, ucs: 289, mands: 289, all: 262, rows: 278, rejected: 0, derived: [37, 37, 37], stateRows: 289, stateUcs: 665 });
+                 players: 262, ucs: 289, mands: 289, all: 262, rows: 278, rejected: 0, derived: [37, 37, 37], stateRows: 289, stateUcs: 601 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
@@ -2792,7 +2842,10 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
       // binary, three for Status reaches Status in State Machine Definition,
       // four for Status has effective Transition to Status on Event Type) take
       // a place in the sequence; the heads themselves were in it already.
-      .toEqual({ canon: 541, witness: 541, kept: 541, sequence: true, renumbered: true, canonOnly: [] });
+      // 541 -> 509 (2026-09-23): the 32 objectifications that are no noun lose
+      // `X is a subtype of Function`, one subtype fact each, and the sequence and
+      // its renumbering still agree with the carrier's.
+      .toEqual({ canon: 509, witness: 509, kept: 509, sequence: true, renumbered: true, canonOnly: [] });
   }, 300_000);
 
   // and the assembler carries them: the design state canon writes holds every
@@ -2969,7 +3022,9 @@ describe("canon's state:setcmp against the witness, on the base metamodel", () =
                             [["ObjectTypeHasWorldAssumption", 1]],
                             [["proj", "ObjectTypeIsBackedByExternalSystem", [1]],
                              ["proj", ["sel", "ObjectTypeHasWorldAssumption", 2, "open"], [1]]]]));
-    expect(J(c[1][4])).toBe(J([["proj", "EventCausedTransition", [1, 2]],
+    // `Event caused Transition in State Machine` is no longer objectified as
+    // `Event Caused Transition` (2026-09-23), so the fact type is its reading's name
+    expect(J(c[1][4])).toBe(J([["proj", "EventCausedTransitionInStateMachine", [1, 2]],
                                ["joinon", "EventIsOfEventType", "TransitionIsTriggeredByEventType", [[2, 2]], [1, 3]]]));
     expect(c.filter((r) => String(r[4][0][0]) === "joinon" || String(r[4][1][0]) === "joinon").length).toBe(6);
   }, 300_000);
@@ -2988,13 +3043,13 @@ describe("canon's state:setcmp against the witness, on the base metamodel", () =
     // like any other, so those superset members are spelled over its
     // involvement links: 8 -> 13. Every recipe still names the fact types.
     expect(members.filter((n) => n.includes("IsInvolvedIn")).sort()).toEqual([
-      "EventIsInvolvedInEventCausedTransition", "FactIsInvolvedInGuardRunReferencesFact",
+      "EventIsInvolvedInEventCausedTransitionInStateMachine", "FactIsInvolvedInGuardRunReferencesFact",
       "FactIsInvolvedInRoleInstance", "FailureIsInvolvedInFailureSucceedsViolation",
       "GuardIsInvolvedInGuardReferencesFactType", "PredicateIsInvolvedInFactIsReferencedByPredicate",
       "RoleIsInvolvedInRoleInstance", "RoleIsInvolvedInRoleIsUsedInReading",
       "StateMachineDefinitionIsInvolvedInStatusIsDefinedInStateMachineDefinition",
       "StatusIsInvolvedInStatusIsDefinedInStateMachineDefinition", "StatusIsInvolvedInStatusIsDefinedInStateMachineDefinition",
-      "TransitionIsInvolvedInEventCausedTransition", "ViolationIsInvolvedInFailureSucceedsViolation"]);
+      "TransitionIsInvolvedInEventCausedTransitionInStateMachine", "ViolationIsInvolvedInFailureSucceedsViolation"]);
     expect(J(c.flatMap((r) => r[4]).map(J).filter((s) => s.includes("IsInvolvedIn")))).toBe(J([]));
   }, 300_000);
 
@@ -4082,9 +4137,11 @@ test("every fact type and role a reflected link names is an instance of its obje
 // of one. It is not, and this measures exactly where it leaks rather than
 // asserting that it does: put the players back where the placeholders are, drop
 // the spaces, and a name that spells its reading comes back character for
-// character. 281 of the 289 declared fact types do. The eight below do not --
-// four whose design carries a separate name (ConstraintSpan, API, RoleInstance,
-// EventCausedTransition, where the name is not the sentence at all) and four
+// character. 282 of the 289 declared fact types do. The seven below do not --
+// three whose design carries a separate name (ConstraintSpan, API, RoleInstance,
+// where the name is not the sentence at all; EventCausedTransition was the
+// fourth until its objectification came off on 2026-09-23, and its name is its
+// reading's now) and four
 // whose reading carries the qualifier hyphen a name cannot hold. Their text was
 // unrecoverable from anything any store held.
 //
@@ -4098,13 +4155,12 @@ test("every fact type and role a reflected link names is an instance of its obje
 // column is asked of rmap rather than named here, the way the schema-fit case
 // above picks its column, and the last third of this emits a store and selects
 // the text back out of it with sqlite alone.
-test("a reading's spoken text is in the store, and the eight its name cannot spell come back exactly", () => {
+test("a reading's spoken text is in the store, and the seven its name cannot spell come back exactly", () => {
   // the exact texts, which is the whole point: none of these is derivable
   const EXACT = [
     ["ConstraintSpan", "{0} spans {1}"],
     ["API", "{0} is activated by {1}"],
     ["RoleInstance", "{0} fills {1}"],
-    ["EventCausedTransition", "{0} caused {1} in {2}"],
     ["ConstraintIsMachineDecidable", "{0} is machine- decidable"],
     ["HypothesisCandidateHasHiddenFact", "{0} has hidden- {1}"],
     ["TransitionIsFromStatus", "{0} is from- {1}"],
@@ -4148,7 +4204,7 @@ test("a reading's spoken text is in the store, and the eight its name cannot spe
   const lost = declared.filter((e) => spell(e).toLowerCase() !== String(e[0]).toLowerCase())
     .map((e) => String(e[0])).sort();
   expect(lost).toEqual(EXACT.map((p) => p[0]).sort());
-  expect(declared.length - lost.length).toBe(281);
+  expect(declared.length - lost.length).toBe(282);
   for (const [name, t] of EXACT) expect([name, text.get("r" + name)]).toEqual([name, t]);
 
   // ---- and it is in the tables --------------------------------------------
@@ -4478,9 +4534,11 @@ test("a store naming a machine's initial both ways round still seats its instanc
       db1.run('insert or replace into "Function" ("functionId", "belongsToDomainId",'
         + ' "objectTypeInstanceReference", "objectTypeInstanceDomainId", "schemaDesignNote")'
         + " values (?, ?, ?, ?, ?)", [k, "evolution", k, "evolution", "probe note"]);
+      // keyed on the pair since the objectification came off (2026-09-23): the
+      // surrogate this wrote, k + ".Schema Design", was the pair joined on a dot
       db1.run('insert or replace into "ObjectTypeInstanceIsInstanceOfObjectType"'
-        + ' ("objectTypeInstanceIsInstanceOfObjectTypeId", "objectTypeId", "objectTypeInstanceId")'
-        + " values (?, ?, ?)", [k + ".Schema Design", "Schema Design", k]);
+        + ' ("objectTypeId", "objectTypeInstanceId")'
+        + " values (?, ?)", ["Schema Design", k]);
     }
     // and the marking keyed by the STATUS, which is the placement every store
     // built before 2026-09-21 23:45 carries
