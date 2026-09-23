@@ -62,7 +62,26 @@ if (dirs.length === 0) {
 const host = join(import.meta.dir, "reader.g.js");
 if (!existsSync(host)) {
   const { spawnSync } = await import("node:child_process");
-  const r = spawnSync("bun", ["build.js", "reader"], { cwd: import.meta.dir, stdio: "inherit" });
+  // AND IT IS BUILT WITH THIS FILE'S ENVIRONMENT, NOT THE CHECK'S. build.js
+  // reads AREST_OUT_DIR to decide where a module lands (build.js ~205) and
+  // AREST_CARRIERS to decide which carriers compose into it (~29), and every
+  // shipped `bun run check` sets AREST_OUT_DIR=$PWD/.check. Inheriting it sent
+  // reader.g.js into the app's .check directory and the import one line below
+  // then threw `Cannot find module` -- which is every app's FIRST check after a
+  // fresh clone, the one moment reader.g.js is absent, and invisible in any tree
+  // where it is already on disk. Reproduced 2026-09-22 by moving it aside.
+  //
+  // AREST_CARRIERS goes too, and for a reason of meaning rather than a measured
+  // failure: `reader` is build.js's slim mode and slim is CANON ALONE, which is
+  // what lets a compiler exist before any store does. The design-state and
+  // compiled carriers are already withheld from it, but the `outcome` and
+  // `expected` carriers are pushed without asking whether the build is slim
+  // (build.js ~101), so a carriers directory holding either would compose into
+  // the reader. No shipped check sets AREST_CARRIERS, so nothing has hit it.
+  const env = { ...process.env };
+  delete env.AREST_OUT_DIR;
+  delete env.AREST_CARRIERS;
+  const r = spawnSync("bun", ["build.js", "reader"], { cwd: import.meta.dir, stdio: "inherit", env });
   if (r.status !== 0) process.exit(r.status || 1);
 }
 await import(pathToFileURL(host).href);
