@@ -4116,6 +4116,62 @@ test("one predicate carries two readings of a fact type, and both roles are used
   expect(rows("RoleIsUsedInReadingHasPosition")).toEqual([]);
 });
 
+// ---- WHICH ROLE DOES A CREATED PAIR FILL? ---------------------------------
+//
+// Samuel, 2026-09-23: "role order really shouldn't matter. Having the reading
+// be correct for the direction is a nice-to-have, but you need to look at the
+// uniqueness constraints to determine which role is the subject, not the role
+// order."
+//
+// rmap:keypos already answers it, from the uniqueness on the descriptor, and
+// the PROJECTION already obeys it: Function.readingFactTypeId sits on the
+// READING's row because FactTypeHasReading keys on role 2. ui:addfact did not:
+// it built <id, value> positionally, so a create naming FactTypeHasReading
+// filed the new id as the FACT TYPE and the value as the Reading, and then
+// Fact Type's own obligations for Role, Arity and Reading landed on an id that
+// was never meant to be one. Measured on the base before the fix: eight
+// alethic violations for the row below, including ReadingHasText against
+// RoleIsUsedInReading. After: one.
+test("a created pair fills the role the uniqueness keys, not role one", () => {
+  const desc = (n) => Ev("theta:find_desc", [n, Ev("store:fts", CELLS)]);
+  const keypos = (n) => Number(Ev("rmap:keypos", desc(n)));
+
+  // THE TWO DIRECTIONS, from the uniqueness and not from the sentence.
+  // `For each Reading, exactly one Fact Type has that Reading` keys role 2;
+  // `Each Reading has exactly one Text` keys role 1.
+  expect([keypos("FactTypeHasReading"), keypos("ReadingHasText")]).toEqual([2, 1]);
+
+  // A ROW THAT USES BOTH. rProbeAlt is a Reading: it carries its own text and
+  // predicate through role-1 fact types and names its fact type through a
+  // role-2 one. Every pair has to land on the right side for this to refuse
+  // ONLY the obligation it genuinely cannot meet.
+  const row = [["Function", "rProbeAlt"], ["ReadingHasText", "{0} probes {1}"],
+               ["FactTypeHasReading", "RoleIsUsedInReading"],
+               ["ReadingIsUsedByPredicate", "RoleUsage"]];
+  const out = Ev("create", [row, CELLS]);
+  const answer = JSON.parse(String(out[0]));
+  expect(answer[0]).toBe("refused");
+  expect(answer[1]).toEqual([["Function", "rProbeAlt"]]);
+
+  // AND THE ONE IT CANNOT MEET IS THE MANY-TO-MANY. `Role is used in Reading`
+  // has a spanning uniqueness over both roles, so it is a relation and no
+  // collection's column, and a create row cannot assert it at all. That is a
+  // different gap and it is named here rather than left as a bare count.
+  expect(answer[2]).toEqual([["RoleIsUsedInReading", "mandatory", "rProbeAlt"]]);
+  expect(Ev("rmap:functionalp", desc("RoleIsUsedInReading"))).toBe("F");
+
+  // WHAT WOULD HAVE FAILED BEFORE, asserted by absence: with the subject in
+  // role 1, RoleIsUsedInReading was filed as the Reading and rProbeAlt as the
+  // Fact Type, so these four were in the list.
+  const flat = answer[2].map((v) => v.join(" "));
+  for (const gone of ["ReadingHasText mandatory RoleIsUsedInReading",
+                      "FactTypeHasReading mandatory rProbeAlt",
+                      "FactTypeHasRole mandatory rProbeAlt",
+                      "FactTypeHasArity mandatory rProbeAlt"]) {
+    expect(flat).not.toContain(gone);
+  }
+}, 300_000);
+
 // ---- AN INSTANCE BELONGS TO THE DOMAIN ITS TYPE BELONGS TO -----------------
 //
 // (task #122 item 15, 2026-09-22.) Sam: "Why would we have anything being
