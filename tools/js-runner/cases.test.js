@@ -125,6 +125,55 @@ test("the root screen holds, byte for byte", () => {
   expect(got).toBe(want);
 }, 60_000);
 
+// A MEMOISED NAME THAT IS NEVER GIVEN AN ANSWER BACK IS APPLIED BARE, AND ANSWERS
+// AS BEFORE (2026-09-23). The memo is evaluator quality, so the cases above hold
+// it byte for byte whatever it does; what they cannot show is that the judgement
+// happens at all, and the judgement is the whole of the saving -- arest-dev's
+// server peaked at 1,761 MB booting and settled at 1,212 while rmap:unproj_cell's
+// 2.1 million never-repeated operands filled the memo, and at 793 and 585 once
+// they stopped. Three probe names, registered for this test alone: one is never
+// asked the same thing twice and must go bare; one is asked everything twice and
+// must stay memoised, holding only a bounded share of what it stored; and one
+// holding a few answers must still hold them after the other two have run, since
+// a name's bound drops its own entries and never the memo's.
+test("a memoised name that is never given an answer back is applied bare, and answers as before", () => {
+  const { DEFS, memoStat } = globalThis.AREST;
+  const once = "state:memo_probe_once", twice = "state:memo_probe_twice", kept = "state:memo_probe_kept";
+  DEFS.set(once, "id");
+  DEFS.set(twice, "id");
+  DEFS.set(kept, "id");
+  try {
+    for (let i = 0; i < 16; i++) Ev(kept, ["k" + i]);
+    const wrong = [];
+    for (let i = 0; i < 8192; i++) {
+      const got = Ev(once, ["o" + i]);
+      if (JSON.stringify(got) !== JSON.stringify(["o" + i])) wrong.push(i);
+    }
+    for (let i = 0; i < 8192; i++) {
+      const got = Ev(twice, ["t" + i]), again = Ev(twice, ["t" + i]);
+      if (JSON.stringify(got) !== JSON.stringify(["t" + i]) || JSON.stringify(again) !== JSON.stringify(got)) wrong.push(-i);
+    }
+    expect(wrong).toEqual([]);
+    const o = memoStat(once), t = memoStat(twice);
+    expect(o.bare).toBe(true);
+    expect(o.givenBack).toBe(0);
+    expect(o.stored).toBeLessThan(8192);
+    expect(t.bare).toBe(false);
+    expect(t.givenBack * 8).toBeGreaterThanOrEqual(t.stored);
+    expect(t.held).toBeLessThan(t.stored);
+    // its own entries went, not the memo: the name beside it answers from it still
+    const k = memoStat(kept).givenBack;
+    for (let i = 0; i < 16; i++) Ev(kept, ["k" + i]);
+    expect(memoStat(kept).givenBack).toBe(k + 16);
+    // and a name applied bare still answers what it answered
+    expect(Ev(once, ["o7"])).toEqual(["o7"]);
+  } finally {
+    DEFS.delete(once);
+    DEFS.delete(twice);
+    DEFS.delete(kept);
+  }
+});
+
 // ---- DOES CANON'S RELATIONAL MAPPING PROJECT TO A REAL DATABASE? -----------
 //
 // rmap:ddl renders the mapping as CREATE TABLE. Asserting the text against a
