@@ -1975,6 +1975,73 @@ Format has Pattern.
 
 ## Instance Facts
 
+### The two readings of Role is used in Reading
+
+<!-- Samuel, 2026-09-22: "Create an alternate reading of the predicate for
+     Reading uses Role. Readings are their own entity, a predicate can have
+     multiple readings with different role orders."
+
+     A SECOND READING IS A POPULATION, NOT A SECOND SENTENCE. Writing
+     `Reading uses Role.` beside `Role is used in Reading.` declares a
+     SECOND FACT TYPE: measured on a copy of this file, the store went from
+     67 tables to 68, the new one being ReadingUsesRole with its own
+     readingId and roleId and no constraint tying its population to this
+     one's. The same happens to the `Customer purchases Product.` /
+     `Product is bought by Customer.` pair that docs/02-writing-readings.md
+     offers as the way to write an alternate reading: two entries in
+     state:readings with reversed player lists, two fact types, two tables.
+     The reader has no form that attaches a reading to a fact type already
+     declared.
+
+     IT NEEDS NO SUCH FORM. Reading is an entity type of this metamodel and
+     `Fact Type has Reading`, `Reading has Text`, `Reading is used by
+     Predicate` and `Role is used in Reading` are its fact types, so a
+     second reading is an INSTANCE of them, written the way this file writes
+     every other instance. `For each Reading, exactly one Fact Type has that
+     Reading` still holds -- each reading names one fact type -- and `It is
+     possible that some Fact Type has more than one Reading` (:1999) is
+     exercised here for the first time in this model.
+
+     ONE PREDICATE, TWO READINGS, which is Samuel's sentence exactly.
+     `Each Reading is used by exactly one Predicate` and `It is possible
+     that some Predicate is used by more than one Reading` already say a
+     predicate carries several verbalizations; this is the first predicate
+     that does. The Predicate population was the seven HTTP methods and
+     nothing else, which is why no reading had one: registering a reading as
+     an Object Type Instance is what makes that mandatory bind, and without
+     a predicate to name it fires. Measured: the block without the Predicate
+     lines takes cmd:mand_viols from 0 to 1, naming rReadingUsesRole; with
+     them it is 0, and ui:violations stays at the base's 30, all deontic
+     FunctionBelongsToDomain. The name RoleUsage is this predicate's alone
+     and is not a fact type id, because Predicate and Fact Type are both
+     subtypes of Function and share one id space.
+
+     THE ROLE ORDER IS THE ONE PART NOT HERE. `Role is used in Reading has
+     Position` is what says which role is {0} in each reading, and it is 0
+     rows in every store. Writing it as an instance fact reaches the
+     deadlock reflect:roles_of already records from the other side:
+     `expected sequence, got atom: RoleIsUsedInReading.2.rReadingUsesRole`,
+     the objectified pair imploded the way rmap:proj_objkey keys it, met by
+     a rule that wants <role, reading, position> flat. Until that is
+     reconciled the second reading is IN the model and cannot be RENDERED
+     from it, because rendering needs the order. The rows below are true
+     without it: this fact type has two readings, one predicate carries
+     both, and both roles are used in both. -->
+
+Predicate 'RoleUsage' has Name 'role usage'.
+
+Reading 'rRoleIsUsedInReading' is used by Predicate 'RoleUsage'.
+
+Fact Type 'RoleIsUsedInReading' has Reading 'rReadingUsesRole'.
+
+Reading 'rReadingUsesRole' has Text '{0} uses {1}'.
+
+Reading 'rReadingUsesRole' is used by Predicate 'RoleUsage'.
+
+Role 'RoleIsUsedInReading.2' is used in Reading 'rReadingUsesRole'.
+
+Role 'RoleIsUsedInReading.1' is used in Reading 'rReadingUsesRole'.
+
 ### Ciphers
 
 <!-- The one value type that is ciphertext at rest. A DomainConnectsToExternal

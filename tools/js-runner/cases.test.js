@@ -2599,7 +2599,15 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
              grew: grew.map(([k]) => k),
              contained: grew.every(([k, v]) => v.every((x) => C.get(k).includes(x))),
              newTypes: [...C.keys()].filter((k) => !W.has(k)) })
-      .toEqual({ witness: 41, canon: 41, missing: [], same: 41,
+    // 41 UNTIL 2026-09-22, when core.md's alternate reading of
+    // Role is used in Reading gave Reading, Role and Text an instance
+    // population they had not had: read:otpops_state files the subjects and
+    // objects of INSTANCE FACTS, and those seven sentences name a Reading, two
+    // Roles and a Text literally where before every one of them reached the
+    // store only as a reflected link. The witness and canon still answer the
+    // same 44 keys with the same values, which is what missing, grew and
+    // newTypes being empty says; only the count moved.
+      .toEqual({ witness: 44, canon: 44, missing: [], same: 44,
                  grew: [], contained: true, newTypes: [] });
   }, 300_000);
 
@@ -3878,10 +3886,30 @@ test("every fact type and role a reflected link names is an instance of its obje
   // violations, and the create then answers 409. This is the price, stated:
   // reflect Reading only when both can be answered.
   const readings = new Set(rows("FactTypeHasReading").map(([, rd]) => rd));
-  if (rows("ObjectTypeInstanceIsInstanceOfObjectType").some(([, ot]) => ot === "Reading")) {
-    expect([rows("ReadingHasText").length, rows("ReadingIsUsedByPredicate").length])
-      .toEqual([readings.size, readings.size]);
-  }
+  // AND THE PRICE IS PER INSTANCE, WHICH IS WHAT THE TWO MANDATORIES SAY.
+  // `Each Reading has exactly one Text` and `Each Reading is used by exactly
+  // one Predicate` bind on a Reading that IS an Object Type Instance; a
+  // reading reached only as a link target is nobody's instance and neither
+  // binds on it. What stood here demanded that if ANY Reading were an
+  // instance then ALL readings carry a text and a predicate, which was the
+  // right warning while the REFLECTION was the only thing that could file
+  // one -- it would have filed all 541 at once, and the measurement behind
+  // the warning was 104 and 506 alethic violations on the second boot.
+  // core.md's alternate reading (2026-09-22) files exactly ONE, by instance
+  // fact, and gives it both: two checks into the same store answer
+  // cmd:mand_viols 0 and 0, and ui:violations 30 then 29, all deontic. So the
+  // demand is made of the instances, where it bites, and it still fails the
+  // moment a reading is registered without a text or without a predicate.
+  const asInstance = new Set(rows("ObjectTypeInstanceIsInstanceOfObjectType")
+    .filter(([, ot]) => ot === "Reading").map(([id]) => id));
+  const hasText = new Set(rows("ReadingHasText").map(([rd]) => rd));
+  const hasPredicate = new Set(rows("ReadingIsUsedByPredicate").map(([rd]) => rd));
+  expect([...asInstance].filter((rd) => !hasText.has(rd) || !hasPredicate.has(rd)).sort()).toEqual([]);
+  // and the extent is still SHORT of the readings, which is the price still
+  // unpaid: one of 542 is an instance and the rest are nobody's, the same gap
+  // Role and Fact Type had before they were given extents. When this line
+  // fails, Reading has become an extent and the warning above is spent.
+  expect(asInstance.size).toBeLessThan(readings.size);
   // the cell is still the union, so what the build filed and the reflection
   // does not answer is still there
   expect(rows("ObjectTypeInstanceIsInstanceOfObjectType").some(([, ot]) => ot === "Subtype Fact")).toBe(true);
@@ -3936,7 +3964,17 @@ test("a reading's spoken text is in the store, and the eight its name cannot spe
   const said = surface.filter(spoken), mute = surface.filter((e) => !spoken(e));
   expect(said.length).toBeGreaterThan(0);
   expect(mute.length).toBeGreaterThan(0);         // the link fact types
-  expect(rows.length).toBe(said.length);
+  // A TEXT THAT BELONGS TO NO SURFACE ENTRY IS A READING DECLARED RATHER THAN
+  // REFLECTED. reflect:surface is the reader's pass over the sentences, so a
+  // reading written as an instance fact -- core.md's alternate reading of
+  // Role is used in Reading, 2026-09-22 -- has a text and no surface entry.
+  // Naming it is stronger than counting it: the count alone would not say
+  // WHICH reading is off the surface, and a reflected text going missing
+  // would cancel against a declared one appearing.
+  const onSurface = new Set(surface.map((e) => "r" + String(e[0])));
+  const declaredOnly = [...text.keys()].filter((id) => !onSurface.has(id)).sort();
+  expect(declaredOnly).toEqual(["rReadingUsesRole"]);
+  expect(rows.length).toBe(said.length + declaredOnly.length);
   expect(said.filter((e) => !text.has("r" + String(e[0]))).map((e) => String(e[0]))).toEqual([]);
   expect(mute.filter((e) => text.has("r" + String(e[0]))).map((e) => String(e[0]))).toEqual([]);
   // and every id with a text is a Reading the schema already knows
@@ -4014,6 +4052,69 @@ test("a reading's spoken text is in the store, and the eight its name cannot spe
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
   }
 }, 300_000);
+
+// ---- AND CAN ONE PREDICATE CARRY TWO READINGS OF DIFFERENT ROLE ORDER? ----
+//
+// Samuel, 2026-09-22: "Create an alternate reading of the predicate for
+// Reading uses Role. Readings are their own entity, a predicate can have
+// multiple readings with different role orders." And, when told the reader
+// had no form for it: "You should be able to populate the metamodel facts of
+// which readings are used with which fact types." He was right and the first
+// answer was wrong: no new form is needed, because Reading is an entity type
+// of this metamodel and a second reading is a POPULATION of its fact types,
+// written as instance facts in core.md the way every other instance is.
+//
+// WHAT WOULD HAPPEN WITHOUT THAT. Writing `Reading uses Role.` as a sentence
+// beside `Role is used in Reading.` declares a SECOND FACT TYPE: measured on
+// a copy, 67 tables became 68 and the new one was ReadingUsesRole with its
+// own two columns and no constraint tying its population to this one's.
+// This case exists so that a reader who tries that sees why it is wrong.
+test("one predicate carries two readings of a fact type, and both roles are used in each", () => {
+  const FT = "RoleIsUsedInReading";
+  const rows = (ft) => Ev("system:pop_rows", [ft, CELLS]).map((r) => r.map(String));
+
+  // TWO READINGS, ONE FACT TYPE. `It is possible that some Fact Type has more
+  // than one Reading` (core.md) is exercised here for the first time in this
+  // model, and `For each Reading, exactly one Fact Type has that Reading`
+  // still holds: each of the two names this one fact type and no other.
+  const mine = rows("FactTypeHasReading").filter((r) => r[0] === FT).map((r) => r[1]).sort();
+  expect(mine).toEqual(["rReadingUsesRole", "rRoleIsUsedInReading"]);
+  const owners = rows("FactTypeHasReading").filter((r) => mine.includes(r[1])).map((r) => r[0]);
+  expect(new Set(owners)).toEqual(new Set([FT]));
+
+  // EACH HAS ITS OWN SPOKEN TEXT, and the two differ -- which is the whole
+  // point of an alternate reading and is not derivable from either name.
+  const text = new Map(rows("ReadingHasText"));
+  expect(text.get("rRoleIsUsedInReading")).toBe("{0} is used in {1}");
+  expect(text.get("rReadingUsesRole")).toBe("{0} uses {1}");
+
+  // ONE PREDICATE CARRIES BOTH, which is Samuel's sentence exactly.
+  // `It is possible that some Predicate is used by more than one Reading`
+  // had no witness before this: ReadingIsUsedByPredicate was 0 rows, because
+  // the Predicate population was the seven HTTP methods and nothing else.
+  const pred = new Map(rows("ReadingIsUsedByPredicate"));
+  expect(pred.get("rRoleIsUsedInReading")).toBe("RoleUsage");
+  expect(pred.get("rReadingUsesRole")).toBe("RoleUsage");
+  expect(new Map(rows("PredicateHasName")).get("RoleUsage")).toBe("role usage");
+
+  // AND BOTH ROLES ARE USED IN BOTH. Role is used in Reading is <role,
+  // reading>, and a reading that used only one role would verbalize only
+  // half the fact.
+  const used = rows("RoleIsUsedInReading");
+  for (const rd of mine) {
+    expect(used.filter((r) => r[1] === rd).map((r) => r[0]).sort()).toEqual([FT + ".1", FT + ".2"]);
+  }
+
+  // WHAT IS STILL MISSING, asserted so it is a measurement and not a silence:
+  // which role is {0} in each reading. `Role is used in Reading has Position`
+  // is 0 rows in every store, and writing it as an instance fact reaches the
+  // deadlock reflect:roles_of records -- `expected sequence, got atom:
+  // RoleIsUsedInReading.2.rReadingUsesRole`, the objectified pair imploded the
+  // way rmap:proj_objkey keys it, met by a rule that wants the triple flat.
+  // Until that is reconciled the second reading is in the model and cannot be
+  // rendered from it. When the position lands this expectation is what fails.
+  expect(rows("RoleIsUsedInReadingHasPosition")).toEqual([]);
+});
 
 // ---- AN INSTANCE BELONGS TO THE DOMAIN ITS TYPE BELONGS TO -----------------
 //
