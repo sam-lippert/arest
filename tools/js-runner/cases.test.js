@@ -801,6 +801,9 @@ test("a store carries the metaschema table it was written through, and a module 
 // the name, with an arity guessed from the first row. rmap:ddl has every table
 // the readings imply, populated or not, so there is no first write to invent
 // for.
+// A NAME FROM THE SCHEMA GOES BETWEEN DOUBLE QUOTES AND DOUBLES THE ONES IT
+// CARRIES -- compile.js's qi, which a column named from prose earned.
+const quo = (n) => '"' + String(n).split('"').join('""') + '"';
 const makeTables = (db) => {
   const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
   for (const stmt of flat(Ev("rmap:ddl", CELLS)).split(";")) if (stmt.trim()) db.run(stmt + ";");
@@ -2347,10 +2350,24 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     // UC:in rows become 35 single-role uniquenesses on the involvement fact
     // types plus 16 spanning UC:ip rows over involvement roles (+51, -16).
     // derived stays [37, 37, 37]: the markings never moved, only the storage.
+
+    // AND A READING CARRIES ITS TEXT (2026-09-22). read:reflect writes an
+    // ELEVENTH population at read time, ReadingHasText, and `rows` is the
+    // field that counts it: read:parse is the parse alone and merges no
+    // reflected row, so the ten pairs read:reflect wrote were exactly the ten
+    // descriptors whose rows differed -- EntityTypeHasReferenceMode,
+    // FactTypeHasDeclarationOrder, FactTypeHasDerivationMode,
+    // ObjectTypeHasConceptualDataType, ObjectTypeHasEnumValues,
+    // ObjectTypeInstanceHasReference, ObjectTypeInstanceIsInstanceOfObjectType,
+    // ObjectTypeIsOfObjectKind, ObjectTypeIsSubtypeOfObjectType and
+    // SubtypeFactProvidesPreferredIdentifier, measured by name. The eleventh is
+    // ReadingHasText with its 402 rows, so rows 279 -> 278 and nothing else in
+    // this expectation moves. stateRows STAYS 289: read:state_fts is the path
+    // that merges the reflection, and it agrees with the carrier row for row.
     expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
       .toEqual({ witness: 289, canon: 289, both: 289, canonOnly: 0, oracleOnly: 0,
-                 players: 262, ucs: 289, mands: 289, all: 262, rows: 279, rejected: 0, derived: [37, 37, 37], stateRows: 289, stateUcs: 665 });
+                 players: 262, ucs: 289, mands: 289, all: 262, rows: 278, rejected: 0, derived: [37, 37, 37], stateRows: 289, stateUcs: 665 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
@@ -3869,6 +3886,134 @@ test("every fact type and role a reflected link names is an instance of its obje
   // does not answer is still there
   expect(rows("ObjectTypeInstanceIsInstanceOfObjectType").some(([, ot]) => ot === "Subtype Fact")).toBe(true);
 }, 120_000);
+
+// ---- IS A READING'S OWN TEXT IN THE STORE, OR ONLY ITS NAME? --------------
+//
+// Sam, 2026-09-22, on the note one commit below this one: `Readings have no
+// stored text` -- `Oof that's bad, we need to store that under Reading has
+// Text`. It was 0 rows of 541 readings in every store ever built, so a reading
+// survived as a fact type NAME and nothing else.
+//
+// A NAME IS MINTED FROM A READING, which makes it look like a lossless encoding
+// of one. It is not, and this measures exactly where it leaks rather than
+// asserting that it does: put the players back where the placeholders are, drop
+// the spaces, and a name that spells its reading comes back character for
+// character. 281 of the 289 declared fact types do. The eight below do not --
+// four whose design carries a separate name (ConstraintSpan, API, RoleInstance,
+// EventCausedTransition, where the name is not the sentence at all) and four
+// whose reading carries the qualifier hyphen a name cannot hold. Their text was
+// unrecoverable from anything any store held.
+//
+// THE POPULATION IS THE THREE ARMS THAT CARRY TOKENS AND NOT THE FOURTH, which
+// is asserted here and not merely tolerated: the link fact types state:mapinputs
+// adds have no sentence, so they get no row, and the count is 402 of 541. A
+// change that invented a sentence for them would fail this case.
+//
+// AND IT IS IN THE TABLES, not only in the cells. Reading is a subtype of
+// Function, so the text absorbs into Function's table; which table and which
+// column is asked of rmap rather than named here, the way the schema-fit case
+// above picks its column, and the last third of this emits a store and selects
+// the text back out of it with sqlite alone.
+test("a reading's spoken text is in the store, and the eight its name cannot spell come back exactly", () => {
+  // the exact texts, which is the whole point: none of these is derivable
+  const EXACT = [
+    ["ConstraintSpan", "{0} spans {1}"],
+    ["API", "{0} is activated by {1}"],
+    ["RoleInstance", "{0} fills {1}"],
+    ["EventCausedTransition", "{0} caused {1} in {2}"],
+    ["ConstraintIsMachineDecidable", "{0} is machine- decidable"],
+    ["HypothesisCandidateHasHiddenFact", "{0} has hidden- {1}"],
+    ["TransitionIsFromStatus", "{0} is from- {1}"],
+    ["TransitionIsToStatus", "{0} is to- {1}"],
+  ];
+
+  // ---- the population -----------------------------------------------------
+  const rows = Ev("system:pop_rows", ["ReadingHasText", CELLS]).map((r) => r.map(String));
+  const text = new Map(rows);
+  expect(text.size).toBe(rows.length);            // Each Reading has one Text
+  const spoken = (e) => e.length > 2 && Array.isArray(e[2]) && e[2].length > 0;
+  const surface = Ev("reflect:surface", CELLS);
+  const said = surface.filter(spoken), mute = surface.filter((e) => !spoken(e));
+  expect(said.length).toBeGreaterThan(0);
+  expect(mute.length).toBeGreaterThan(0);         // the link fact types
+  expect(rows.length).toBe(said.length);
+  expect(said.filter((e) => !text.has("r" + String(e[0]))).map((e) => String(e[0]))).toEqual([]);
+  expect(mute.filter((e) => text.has("r" + String(e[0]))).map((e) => String(e[0]))).toEqual([]);
+  // and every id with a text is a Reading the schema already knows
+  const readings = new Set(Ev("system:pop_rows", ["FactTypeHasReading", CELLS]).map((r) => String(r[1])));
+  expect([...text.keys()].filter((id) => !readings.has(id))).toEqual([]);
+
+  // ---- what the name loses ------------------------------------------------
+  const spell = (e) => {
+    const players = (e[1] || []).map(String);
+    return e[2].flat().map(String)
+      .map((w) => (w.length > 2 && w[0] === "{" && w[w.length - 1] === "}" ? String(players[Number(w.slice(1, -1))]) : w))
+      .join("").split(" ").join("");
+  };
+  const declared = Ev("reflect:rd_arm", CELLS);   // state:readings: the declared fact types
+  const lost = declared.filter((e) => spell(e).toLowerCase() !== String(e[0]).toLowerCase())
+    .map((e) => String(e[0])).sort();
+  expect(lost).toEqual(EXACT.map((p) => p[0]).sort());
+  expect(declared.length - lost.length).toBe(281);
+  for (const [name, t] of EXACT) expect([name, text.get("r" + name)]).toEqual([name, t]);
+
+  // ---- and it is in the tables --------------------------------------------
+  // WHICH TABLE AND WHICH COLUMN IS THE SCHEMA'S TO SAY. rmap:ctab pairs a fact
+  // type with the table carrying it and rmap:proj_carried says which fact type a
+  // column path carries, in the order rmap:proj_colnames names the columns.
+  let table = "", idx = -1;
+  for (const t of Ev("rmap:ctab", CELLS)) {
+    let i = 0;
+    for (const c of (Array.isArray(t[2]) ? t[2] : [])) {
+      if (String(Ev("rmap:proj_carried", Array.isArray(c[2]) ? c[2] : [])) === "ReadingHasText") { table = String(t[1]); idx = i; break; }
+      i++;
+    }
+    if (table) break;
+  }
+  expect([table === "", idx]).not.toEqual([true, -1]);
+  const names = Ev("rmap:proj_colnames", [table, CELLS]).map(String);
+  const col = names[idx], key = names[0];
+
+  const dir = mkdtempSync(join(tmpdir(), "arest-rdtext-"));
+  try {
+    const path = join(dir, "s.db");
+    const db = new Database(path);
+    makeTables(db);
+    db.run("create table _composition (hash text)");
+    db.prepare("insert into _composition values(?)").run(globalThis.AREST.composition);
+    db.run("pragma wal_checkpoint(TRUNCATE)");
+    db.close();
+
+    // ONE POPULATION IS THE ONE THAT MOVED, so only the table carrying it is
+    // re-projected: emitToDb writes a fact type whose text differs from the
+    // snapshot it is given, and the snapshot handed over is this store's own
+    // with that one entry dropped.
+    const NL = String.fromCharCode(10);
+    const driver = join(dir, "drive.mjs");
+    writeFileSync(driver, [
+      "await import(process.env.MODULE);",
+      "const { CELLS, popSnapshot, emitToDb } = globalThis.AREST;",
+      "const before = popSnapshot(CELLS); before.delete(process.env.FT);",
+      "console.log('emitted ' + emitToDb(before, CELLS));",
+    ].join(NL));
+    const out = Bun.spawnSync(["bun", driver], {
+      env: { ...process.env, MODULE: pathToFileURL(join(import.meta.dir, "cases.g.js")).href,
+             FT: "ReadingHasText", AREST_STORE_DB: path },
+      stdout: "pipe", stderr: "pipe" });
+    const told = out.stdout.toString() + out.stderr.toString();
+    expect(told).toContain("emitted ");
+    expect(told).not.toContain("emitted 0");
+
+    const back = new Database(path, { readonly: true });
+    const got = new Map(back.query("select " + quo(key) + ", " + quo(col) + " from " + quo(table)
+      + " where " + quo(col) + " is not null").values().map((r) => [String(r[0]), String(r[1])]));
+    back.close();
+    expect(got.size).toBe(rows.length);
+    for (const [name, t] of EXACT) expect([name, got.get("r" + name)]).toEqual([name, t]);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 300_000);
 
 // ---- AN INSTANCE BELONGS TO THE DOMAIN ITS TYPE BELONGS TO -----------------
 //
