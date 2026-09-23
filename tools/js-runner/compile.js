@@ -66,7 +66,7 @@ if (!existsSync(host)) {
   if (r.status !== 0) process.exit(r.status || 1);
 }
 await import(pathToFileURL(host).href);
-const { Ev, CELLS, DEFS, loadStoreDb, popSnapshot, closeStore, emitToDb, storeDb } = globalThis.AREST;
+const { Ev, CELLS, DEFS, loadStoreDb, popSnapshot, closeStore, emitToDb, storeDb, writeMetaschema } = globalThis.AREST;
 
 // ---- THE MODE IS A CELL, AND THE ENVIRONMENT INSTALLS IT ------------------
 // canon's read:strict answers F: the AREST default is not strict (Sam,
@@ -380,6 +380,19 @@ if (!out && !outDir) {
   const schemaHash = schema.digest("hex").slice(0, 16);
   db.exec('create table if not exists "_composition" (hash text, schema text)');
   db.query('insert into "_composition" (hash, schema) values (?, ?)').run(identity.digest("hex").slice(0, 16), schemaHash);
+  // ---- AND THE MAP IT WAS WRITTEN THROUGH, SO IT CAN BE READ BACK ---------
+  // Sam, 2026-09-22: "The metaschema should be prebuilt by us into a table.
+  // That's how the bootstrap works." The two lines above record WHICH build
+  // wrote this store and WHAT SHAPE it wrote; this records the shape itself --
+  // table, column order and the fact type each column carries -- so that a
+  // module which has not been handed the schema can still open it. Everything
+  // it needs has been evaluated already: rmap:coltabs and rmap:proj_colnames are
+  // the insert loop's own two calls twenty lines down, and rmap:ctab is an input
+  // to rmap:coltabs and comes back from the memo. The layout and the writer are
+  // declared in host.js beside loadStoreDb, which is the reader of them.
+  const tMeta = Date.now();
+  const metarows = writeMetaschema(db);
+  const tMetaMs = Date.now() - tMeta;
   const n = db.query("SELECT count(*) c FROM sqlite_master WHERE type='table'").get().c;
   // AND THE ROWS ARE CANON'S TOO. rmap:proj_rows answers a table's rows -- the
   // key, then one value per column in the order rmap:colnames gives them -- so
@@ -706,6 +719,7 @@ if (!out && !outDir) {
   renameSync(build, out);
   console.log("store: " + n + " tables, " + inserted + " rows at " + out
     + ", schema " + schemaHash
+    + ", metaschema " + metarows + " column(s) (" + tMetaMs + " ms)"
     + (refused ? ", " + refused + " REFUSED BY SQLITE" : "")
     + (carried || filled ? " [" + carried + " runtime row(s) carried, " + filled + " value(s) filled]" : "")
     + (reflectedSkipped ? " [" + reflectedSkipped + " reflected row(s) left to the closure]" : "")

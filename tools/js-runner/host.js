@@ -316,6 +316,12 @@ function decAlign(am, as, bm, bs) {
 // 2026-07-20 and nowhere in AREST.tex -- is retired.
 let STORE_DB = null;
 let STORE_TABLES = new Map();            // ft -> the rows the tables held at load
+// AND WHAT A STORE READ WITHOUT A SCHEMA LEAVES BEHIND: table -> <columns,
+// rows>, the bytes as sqlite answered them. A module carrying no schema can
+// open a store through its metaschema table (below) but cannot yet say what
+// a row MEANS -- rmap:unproj reads state:fts to decide that -- so the rows
+// are kept as rows and the decoding is the next step's.
+let STORE_RAW = new Map();
 function storeDb() {
   if (STORE_DB !== null) return STORE_DB;
   const path = process.env.AREST_STORE_DB;
@@ -2395,9 +2401,15 @@ function run_test() {
   // three real callers compose (the serve POST, ui:navpe and the MCP call), so
   // the durability test runs the same three lines they do rather than a wrapper
   // that could drift from them: snapshot, evaluate, emit what changed.
+  // writeMetaschema rides here for loadStoreDb's reason and compile.js's: the
+  // compiler is the reader module (build.js reader -> run_test), and the host's
+  // unit test writes its fixture with the same function rather than restating
+  // the layout. storeRaw is what a schemaless load leaves behind.
   globalThis.AREST = { Ev: Ev, CELLS: CELLS, DEFS: DEFS, composition: COMPOSITION,
     loadStoreDb: loadStoreDb, popSnapshot: popSnapshot, adoptStore: adoptStore, emitToDb: emitToDb,
     closeStore: closeStore, storeDb: storeDb,
+    writeMetaschema: writeMetaschema, readMetaschema: readMetaschema,
+    storeRaw: () => STORE_RAW,
     performDeclared: performDeclared };
 }
 // AND run_test CLOSES HERE, WHICH IS THE WHOLE BUG (2026-09-12). The performer
@@ -3420,6 +3432,114 @@ function run_sql() {
 // runs none of loadFile/loadReflected/loadDerived. Held byte-identical to a
 // text-carrier boot by the case suite and the reports. The host stays thin:
 // it runs the projection the build recorded, deciding no schema itself.
+// ---- THE METASCHEMA TABLE: WHAT A STORE SAYS ABOUT ITS OWN SHAPE ---------
+//
+// Sam, 2026-09-22: "The metaschema should be prebuilt by us into a table.
+// That's how the bootstrap works. The metamodel doesn't change, and it's used
+// to bootstrap other apps."
+//
+// THE CIRCLE IT BREAKS. loadStoreDb below opens a store by asking canon which
+// tables to select from (rmap:coltabs) and which columns (rmap:proj_colnames),
+// and both are functions of state:fts -- the schema. Measured 2026-09-22 on a
+// module composed from canon alone over the base store (build.js reader: no
+// design-state, no compiled map): ast:fetch of state:fts answers #, and
+// rmap:coltabs and loadStoreDb both throw `selector 1 on atom: #` in 2 ms. The
+// schema is what reads the tables and the schema is in the tables, so nothing
+// starts. A carrier file breaks that circle today by handing the module the
+// schema before it opens the store; this is the store breaking it itself.
+//
+// THE LAYOUT IS THE ONE THING KNOWN BEFORE ANYTHING IS READ, as a system
+// catalogue's is: four columns, named here, read with one SELECT and no
+// evaluation at all.
+//   tab  the table, spelled as the DDL spells it
+//   ord  the column's position in rmap:proj_colnames order -- the order the
+//        read loop selects in and the order rmap:unproj takes a tuple in
+//   col  the column, in the DDL's spelling too (a quote doubled), because that
+//        is the spelling `want` holds and the SELECT splices between quotes
+//   ft   the fact type rmap:proj_carried says the column carries, NULL where it
+//        carries none -- a key column, or a path that only resolves a referent
+//
+// SO IT IS NOT A CATALOGUE OF ITS OWN. Grouped by tab it is the table list and
+// the column order, which is what opening a store needs; grouped by ft it is
+// "for each fact type, the table that holds it and the columns that carry it",
+// which is the relational map written down. The metamodel's own rows are the
+// ones whose ft is a metamodel fact type, and the metamodel does not change, so
+// those are the seed: they are what lets a module read the metamodel-shaped
+// tables of an app's store, which are where that app's schema is a population.
+//
+// IT IS NOT ONE ARTIFACT SHARED BY EVERY APP, and that is worth saying where
+// the table is declared, because it is the correction the measurement forced.
+// The metamodel's map is NOT the same in two stores (2026-09-22): of the base's
+// 66 tables support.auto.dev's store has all 66, 9 with different columns;
+// claude's has 50, 5 differing; qa's 50, 2 differing. Function -- the FFP root
+// every metamodel entity type is absorbed into -- is 243 columns on the base and
+// a different 243 in every other store, and DomainConnectsToExternalSystem
+// carries domainId here and domain on support, because an app may declare its
+// own reference mode for a metamodel object type. What is fixed is this table's
+// LAYOUT and the metamodel's fact types; WHERE they land is per store, so each
+// store carries its own row set and is opened through it.
+const METASCHEMA = "_metaschema";
+
+// THE MAP AS THE STORE WILL RECORD IT. compile.js calls this on the build it
+// is about to rename in, and the host's own unit test calls the same function
+// on a fixture rather than restating the layout -- one declaration, one writer,
+// one reader, all three here.
+//
+// ONE TRANSACTION. An insert of its own is an autocommit with its own disk sync
+// -- 6.5 ms a row on Windows (compile.js's own measurement) -- and this writes a
+// row per column: 400-odd on the base, thousands on support.
+//
+// A COLUMN WHOSE FACT TYPE CANNOT BE READ IS STILL A COLUMN. rmap:ctab is what
+// pairs a table's columns with the paths rmap:proj_carried resolves, and a build
+// that cannot read it (compile.js guards the same call in its carry, ~505) still
+// knows its tables and its column order. So ft goes in as NULL and the table is
+// written: what loadStoreDb needs to OPEN a store is tab, ord and col.
+function writeMetaschema(db) {
+  let ctab = new Map();
+  try { ctab = new Map(Ev("rmap:ctab", CELLS).map((ct) => [String(ct[1]), ct[2]])); }
+  catch (e) { console.error("  (rmap:ctab could not be read -- " + e.message + " -- the metaschema names no fact types)"); }
+  db.exec('create table if not exists "' + METASCHEMA + '" ("tab" text, "ord" integer, "col" text, "ft" text)');
+  // AND IT IS THE MAP, NOT A LOG OF MAPS. compile.js writes into a build that is
+  // a fresh file, so this is empty there; anywhere else a second call would
+  // otherwise leave two answers in one table and no way to tell them apart.
+  db.exec('delete from "' + METASCHEMA + '"');
+  const ins = db.prepare('insert into "' + METASCHEMA + '" ("tab", "ord", "col", "ft") values (?, ?, ?, ?)');
+  let n = 0;
+  db.exec("begin");
+  for (const t of Ev("rmap:coltabs", CELLS)) {
+    const table = String(t[0]);
+    const cols = Ev("rmap:proj_colnames", [table, CELLS]).map(String);
+    const paths = ctab.get(table) || [];
+    for (let i = 0; i < cols.length; i++) {
+      const p = paths[i];
+      let ft = "#";
+      if (p) { try { ft = String(Ev("rmap:proj_carried", Array.isArray(p[2]) ? p[2] : [])); } catch { ft = "#"; } }
+      ins.run(table, i + 1, cols[i], ft === "#" ? null : ft);
+      n++;
+    }
+  }
+  db.exec("commit");
+  return n;
+}
+
+// AND THE READ IS ONE SELECT AND NO EVALUATION, which is the whole point: a
+// module that cannot evaluate rmap:coltabs can still run this. An ABSENT table
+// is not caught, it is asked about -- every store written before this commit has
+// none, and a catch around the select would hide a real error in the same
+// breath as reporting an expected absence.
+function readMetaschema(db) {
+  const there = db.query("select name from sqlite_master where type = 'table' and name = ?").get(METASCHEMA);
+  if (!there) return null;
+  const m = new Map();
+  for (const r of db.query('select "tab", "col" from "' + METASCHEMA + '" order by "tab", "ord"').values()) {
+    const t = String(r[0]);
+    let cols = m.get(t);
+    if (!cols) m.set(t, (cols = []));
+    cols.push(String(r[1]));
+  }
+  return m.size ? m : null;
+}
+
 function loadStoreDb(path) {
   const { Database } = require("bun:sqlite");
   const db = new Database(path, { readonly: true });
@@ -3472,11 +3592,32 @@ function loadStoreDb(path) {
   // open above refuses it with sqlite's own `unable to open database file`, and
   // a store asked for no database at all never reaches here.
   const raw = (n) => String(n).replace(/""/g, '"');   // the DDL's spelling of a name; sqlite answers it unquoted
+  // AND WHERE THE MAP COMES FROM IS THE BOOTSTRAP. A module that CARRIES a
+  // schema reads the map out of it, exactly as it always has, and the check below
+  // is then what it has always been: does this store hold the tables and columns
+  // THIS module is about to select from. A module that carries NONE has nothing
+  // to ask -- rmap:coltabs is a function of state:fts -- and reads the map out of
+  // the store's own metaschema table instead. The check still runs and still
+  // means something: it holds the store to its own record, which is the 09-11
+  // failure (tables named and not there) caught without a schema to name them.
+  const schemaless = Ev("ast:fetch", ["state:fts", CELLS]) === "#";
   const want = new Map();
-  for (const t of Ev("rmap:coltabs", CELLS)) {
-    const table = String(t[0]);
-    const cols = Ev("rmap:proj_colnames", [table, CELLS]).map(String);
-    if (cols.length) want.set(table, cols);
+  if (!schemaless) {
+    for (const t of Ev("rmap:coltabs", CELLS)) {
+      const table = String(t[0]);
+      const cols = Ev("rmap:proj_colnames", [table, CELLS]).map(String);
+      if (cols.length) want.set(table, cols);
+    }
+  } else {
+    const stored = readMetaschema(db);
+    if (!stored) {
+      db.close();
+      throw new Error("this module carries no schema, and " + path + " holds no " + METASCHEMA +
+        " table to be read through: nothing says which tables it has" +
+        "\n  compose a carrier, or rebuild the store with a compile.js that writes one" +
+        " -- AREST_DB=" + path + " bun tools/js-runner/compile.js <readings dir>");
+    }
+    for (const [table, cols] of stored) if (cols.length) want.set(table, cols);
   }
   // ONE STATEMENT, NOT ONE PER TABLE. `pragma table_info` prepared per table is
   // 7 ms over the base's 49 tables and 77 ms over 562 of them (support's count,
@@ -3550,6 +3691,32 @@ function loadStoreDb(path) {
   // AND IT READS THE MAP THE CHECK ABOVE ALREADY BUILT: `want` IS rmap:coltabs
   // paired with rmap:proj_colnames, so the check costs no evaluation of its own
   // (5 ms for the base's 49 tables and 382 columns, paid once either way).
+  // ---- AND WITH NO SCHEMA THE ROWS ARE ROWS, NOT YET POPULATIONS ----------
+  // rmap:unproj is what says what a row MEANS, and it reads state:fts twice over
+  // -- rmap:unproj_isrel asks whether the table is named by a fact type, and
+  // rmap:unproj_cell asks rmap:proj_hits how many columns the carried fact type
+  // has -- so a module with no schema cannot decode a tuple however many tables
+  // it can open. That is the SECOND bootstrap and not this one: the metaschema
+  // reads the schema, the schema reads the data. What this leaves is the first
+  // half done and visible -- every table's columns and rows, as sqlite answered
+  // them -- for the step that reconstructs the schema from the metamodel-shaped
+  // tables among them. Nothing is installed as a cell, because a cell is a
+  // population and these are not populations yet.
+  if (schemaless) {
+    const rawTables = new Map();
+    let rows = 0;
+    for (const [table, cols] of want) {
+      const got = db.query("select " + cols.map((c) => '"' + c + '"').join(",") + ' from "' + table + '"').values();
+      rows += got.length;
+      rawTables.set(raw(table), { columns: cols.map(raw), rows: got.map((r) => r.map((v) => (v === null ? "#" : String(v)))) });
+    }
+    db.close();
+    STORE_RAW = rawTables;
+    console.error("store " + path + ": opened through its own " + METASCHEMA + " table -- " + want.size +
+      " table(s), " + rows + " row(s) read. They are ROWS AND NOT YET POPULATIONS:" +
+      " rmap:unproj needs state:fts to say which fact type a column carries, and this module carries none.");
+    return;
+  }
   const byFt = new Map();
   for (const [table, cols] of want) {
     // NOT IN A try. `catch { continue; }` stood here -- "a table the schema has

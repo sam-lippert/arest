@@ -12,7 +12,7 @@
 //
 //   bun run build:test && bun test
 import { expect, test, describe } from "bun:test";
-import { readFileSync, readdirSync, unlinkSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, readdirSync, unlinkSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
@@ -656,6 +656,123 @@ test("a store.db is held to the schema it is read through, not to the compositio
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
   }
 });
+
+// ---- DOES THE STORE CARRY THE MAP IT WAS WRITTEN THROUGH? ------------------
+//
+// Sam, 2026-09-22: "The metaschema should be prebuilt by us into a table.
+// That's how the bootstrap works. The metamodel doesn't change, and it's used
+// to bootstrap other apps."
+//
+// THE CIRCLE. loadStoreDb asks canon which tables to select from and which
+// columns, and both answers are functions of state:fts. Measured at 7194e39f on
+// a module composed from canon alone (build.js reader -- the empty carrier):
+// ast:fetch of state:fts answers #, rmap:coltabs throws `selector 1 on atom: #`
+// in 3 ms and loadStoreDb throws the same before it has opened anything. The
+// schema is what reads the tables and the schema is in the tables.
+//
+// SO THE STORE CARRIES ITS OWN MAP, in a table whose layout is known before
+// anything is read, and that is what this holds: the map is WRITTEN (the same
+// function compile.js calls, on a fixture built the way the durability tests
+// build one), it is FAITHFUL (table for table and column for column against
+// canon's own two answers, in canon's own order), and it is READ -- by a module
+// with no readings at all, which is the only module that proves anything here,
+// so it is composed and spawned rather than simulated in this one.
+//
+// AND ITS ABSENCE IS A DIFFERENT ANSWER, not a quiet one: the same module over
+// the same store with the table dropped refuses and names the table that would
+// have said what is in it.
+test("a store carries the metaschema table it was written through, and a module with no readings opens it through that", () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-meta-"));
+  try {
+    // ---- WRITTEN -----------------------------------------------------------
+    const p = join(dir, "store.db");
+    {
+      const db = new Database(p);
+      makeTables(db);
+      const n = globalThis.AREST.writeMetaschema(db);
+      expect(n).toBeGreaterThan(0);
+      db.run("create table _composition (hash text, schema text)");
+      db.prepare("insert into _composition values(?,?)").run(globalThis.AREST.composition, "0000000000000000");
+      // one row, so the read below answers rows and not only tables
+      db.prepare('insert into "Function" ("functionId") values (?)').run("probe-meta-fn");
+      db.run("pragma wal_checkpoint(TRUNCATE)");
+      db.close();
+    }
+
+    // ---- FAITHFUL: CANON'S OWN TWO ANSWERS, IN CANON'S OWN ORDER -----------
+    // rmap:coltabs names the tables and rmap:proj_colnames their columns IN THE
+    // ORDER THE PROJECTION FILLS THEM (its own note, arest ~17189) -- the order
+    // the read loop selects in and rmap:unproj takes a tuple in. An unordered
+    // comparison would pass on the permutation that put 218 values in the wrong
+    // column the last time these two were zipped wrong.
+    const want = new Map();
+    for (const t of Ev("rmap:coltabs", CELLS)) {
+      const table = String(t[0]);
+      const cols = Ev("rmap:proj_colnames", [table, CELLS]).map(String);
+      if (cols.length) want.set(table, cols);
+    }
+    {
+      const db = new Database(p, { readonly: true });
+      const got = globalThis.AREST.readMetaschema(db);
+      expect(got).not.toBe(null);
+      expect([...got.keys()].sort()).toEqual([...want.keys()].sort());
+      for (const [table, cols] of want) expect(got.get(table)).toEqual(cols);
+      // AND EVERY COLUMN'S FACT TYPE IS THE ONE THE MAP CARRIES THERE. A relation
+      // table is named BY its fact type and its role columns carry the IsInvolved
+      // links, which is the shape the inverse reads a tuple from.
+      const spans = db.query('select "col", "ft" from "_metaschema" where "tab" = ? order by "ord"').values("ConstraintSpan");
+      expect(spans.length).toBeGreaterThan(0);
+      expect(spans.map((r) => String(r[1]))).toContain("ConstraintIsInvolvedInConstraintSpan");
+      expect(spans.map((r) => String(r[1]))).toContain("RoleIsInvolvedInConstraintSpan");
+      db.close();
+    }
+
+    // ---- READ, BY A MODULE THAT CARRIES NO READINGS ------------------------
+    // build.js reader splices canon and nothing else, which is exactly the
+    // empty-carrier module the note above measures. AREST_OUT_DIR keeps it in the
+    // scratch directory rather than over this directory's modules.
+    const readerDir = join(dir, "mod");
+    mkdirSync(readerDir, { recursive: true });
+    const built = Bun.spawnSync(["bun", "build.js", "reader"],
+      { cwd: import.meta.dir, env: { ...process.env, AREST_OUT_DIR: readerDir }, stdout: "pipe", stderr: "pipe" });
+    expect(built.stdout.toString() + built.stderr.toString()).toContain("reader.g.js");
+
+    const driver = join(dir, "open.mjs");
+    writeFileSync(driver, [
+      "await import(process.env.MODULE);",
+      "const { Ev, CELLS, loadStoreDb, storeRaw } = globalThis.AREST;",
+      "console.log('state:fts ' + Ev('ast:fetch', ['state:fts', CELLS]));",
+      "try {",
+      "  loadStoreDb(process.env.DB);",
+      "  const raw = storeRaw();",
+      "  let rows = 0; for (const t of raw.values()) rows += t.rows.length;",
+      "  console.log('OPENED tables ' + raw.size + ' rows ' + rows);",
+      "} catch (e) { console.log('REFUSED ' + e.message); }",
+    ].join(String.fromCharCode(10)));
+    const open = (db) => {
+      const env = { ...process.env, MODULE: pathToFileURL(join(readerDir, "reader.g.js")).href, DB: db };
+      delete env.AREST_STORE_DB;
+      const r = Bun.spawnSync(["bun", driver], { env, stdout: "pipe", stderr: "pipe" });
+      return r.stdout.toString() + r.stderr.toString();
+    };
+
+    // the module really does carry no schema, and it really does open the store
+    const out = open(p);
+    expect(out).toContain("state:fts #");
+    expect(out).toContain("OPENED tables " + want.size + " rows 1");
+
+    // AND WITHOUT THE TABLE IT IS THE STORE AT 7194e39f: nothing says what is in
+    // it, and the refusal names the table that would have.
+    const bare = join(dir, "bare.db");
+    writeFileSync(bare, readFileSync(p));
+    { const db = new Database(bare); db.run('drop table "_metaschema"'); db.run("pragma wal_checkpoint(TRUNCATE)"); db.close(); }
+    const refused = open(bare);
+    expect(refused).toContain("REFUSED");
+    expect(refused).toContain("_metaschema");
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 120_000);
 
 // ---- DOES A WRITE REACH THE TABLES, AND ONLY WHEN THERE ARE TABLES? --------
 //
