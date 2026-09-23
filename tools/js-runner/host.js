@@ -2183,9 +2183,55 @@ function sub(f) {
 // THE MEMO, shared by Ev's name path and the compiled name: the small-argument
 // chain of maps, a hit returned before any instrumentation, a miss evaluated
 // by `run` (already stamped or profiled as the name) and stored
+//
+// A NAME THAT IS NEVER ASKED THE SAME THING TWICE IS NOT MEMOISED (2026-09-23).
+// memoable() admits every rmap: and state: definition, and the projection's
+// per-row and per-cell names are among them. On arest-dev's compile rmap:proj_val
+// stored 1,213,363 answers and was given back none, rmap:proj_carry 1,121,593 and
+// none, and loading the store rmap:unproj_cell stored 2,140,079 and none. Each
+// entry is a chain of Maps holding its argument alive, so those names filled
+// the memo to its bound 31 times in one compile, and every time the bound
+// emptied it, it emptied rmap:unproj_ft (2.15M answers given back) and rmap:mat
+// (111k) with them -- the carry's first table then spent 8 s recomputing what
+// had just been thrown away. So each name counts what it stored and what it
+// was given back, and once it has stored MEMO_JUDGED answers and been given back
+// fewer than one in MEMO_EARNS it is applied bare for the rest of the process
+// and its entries go. The names that earn the memo answer from it 55 to 99
+// percent of the time (rmap:proj_step, rmap:unproj_cells, rmap:unproj_ft,
+// rmap:mat) and the ones that do not answer 0 to 3 percent, so the line sits in
+// an empty gap; a name asked only a few thousand times is never judged at all.
+// The counts outlive memoClear and the bound: they describe how a name is
+// CALLED, which a mutation of the store does not change, not what it answered.
+//
+// AND NO ONE NAME HOLDS MORE THAN MEMO_HELD ANSWERS. Taking the never-asked names
+// out took the bound's emptying out with them, and on support.auto.dev that
+// emptying had been the only thing letting go of rmap:unproj_cells: a row's
+// cells, zipped, asked for twice while that row is read and never again, 80,383
+// of them held alive to the end of the load. So a name that has stored
+// MEMO_HELD answers since its entries last went loses them -- its own, not the
+// memo's, so rmap:mat keeps every answer it earns while rmap:unproj_cells keeps
+// the rows it is still reading. The count rides on the name's own map, which
+// memoClear and the size bound drop with everything else. Measured booting
+// support from a copy of its store, twice each: the module the router ran
+// peaked at 1,638 and 1,687 MB private and settled at 980 and 967; the same
+// carriers composed with both rules peaked at 1,280 and 1,266 and settled at
+// 861 and 848, the boot 24.3-24.9 s to 21.9-22.6. A bound of 1,024 measured
+// the same as 4,096, and 16,384 gave back most of the saving.
+//
+// The memo is evaluator quality and never meaning, so none of this moves an
+// answer: the compile's two carriers came out byte-identical and its store row
+// for row.
+const MEMO_JUDGED = 4096;
+const MEMO_EARNS = 8;
+const MEMO_HELD = 4096;
+const MEMOSTAT = new Map();   // name -> [stored, given back, applied bare]
 function memoCall(f, x, run) {
+  let st = MEMOSTAT.get(f);
+  if (st === undefined) { st = [0, 0, false]; MEMOSTAT.set(f, st); }
+  if (st[2]) return run(x);
   let node = EVMEMO.get(f);
-  if (node === undefined) { node = new Map(); EVMEMO.set(f, node); }
+  if (node === undefined) { node = new Map(); node.held = 0; EVMEMO.set(f, node); }
+  const root = node;
   const chain = (Array.isArray(x) && x.length <= 4) ? [x.length, ...x] : [-1, x];
   for (let i = 0; i < chain.length - 1; i++) {
     let nn = node.get(chain[i]);
@@ -2193,9 +2239,11 @@ function memoCall(f, x, run) {
     node = nn;
   }
   const last = chain[chain.length - 1];
-  if (node.has(last)) return node.get(last);
+  if (node.has(last)) { st[1]++; return node.get(last); }
   const v = run(x);
   node.set(last, v);
+  if (++st[0] % MEMO_JUDGED === 0 && st[1] * MEMO_EARNS < st[0]) { st[2] = true; EVMEMO.delete(f); }
+  else if (++root.held >= MEMO_HELD) EVMEMO.delete(f);
   // THE SIZE BOUND TRIMS THE MEMO, NOT THE INDEXES. The bound existed to
   // keep the memo's maps from growing without limit, and it emptied every
   // identity-keyed index with them; those are WeakMaps on immutable canon
@@ -2404,12 +2452,16 @@ function run_test() {
   // writeMetaschema rides here for loadStoreDb's reason and compile.js's: the
   // compiler is the reader module (build.js reader -> run_test), and the host's
   // unit test writes its fixture with the same function rather than restating
-  // the layout. storeRaw is what a schemaless load leaves behind.
+  // the layout. storeRaw is what a schemaless load leaves behind. memoStat is
+  // how the suite sees the memo judge a name: an answer applied bare is the same
+  // answer, so nothing else can show that the judgement happened.
   globalThis.AREST = { Ev: Ev, CELLS: CELLS, DEFS: DEFS, composition: COMPOSITION,
     loadStoreDb: loadStoreDb, popSnapshot: popSnapshot, adoptStore: adoptStore, emitToDb: emitToDb,
     closeStore: closeStore, storeDb: storeDb,
     writeMetaschema: writeMetaschema, readMetaschema: readMetaschema,
     storeRaw: () => STORE_RAW,
+    memoStat: (f) => { const st = MEMOSTAT.get(f); const root = EVMEMO.get(f);
+      return st ? { stored: st[0], givenBack: st[1], bare: st[2], held: root ? root.held : 0 } : null; },
     performDeclared: performDeclared };
 }
 // AND run_test CLOSES HERE, WHICH IS THE WHOLE BUG (2026-09-12). The performer
@@ -3996,6 +4048,12 @@ function boot(mode) {
   const lap = (what) => {
     if (mode === "mcp" || mode === "serve" || process.env.AREST_BOOT_TIMING) console.error("boot: " + what + " " + (Date.now() - t0) + " ms");
     if (PROFILE) profReport(what); // @instrument
+    // AND WHERE ITS MEMORY WENT (2026-09-23): a server of a 1,825-sentence app held
+    // 514 MB private and five of them with a check beside took the machine to
+    // its floor, so the lap that says the time says the resident size too.
+    if (process.env.AREST_BOOT_MEMORY) { const m = process.memoryUsage();
+      console.error("boot memory: " + what + " rss " + (m.rss >> 20) + " MB, heap " + (m.heapUsed >> 20) + "/" + (m.heapTotal >> 20)
+        + " MB, external " + (m.external >> 20) + " MB, cells " + CELLS.length + ", memo " + EVMEMO.size); }
   };
   // A STORE WITH NO SCHEMA SURFACE has no FILE to build, nothing to reflect and
   // nothing to close under rules: the regress composition is canon with a run's
@@ -4058,6 +4116,20 @@ function boot(mode) {
   }
   if (SAMPLE && process.env.AREST_SAMPLE_AFTER_BOOT) sreset(); // @instrument
   BOOTED = true;
+  if (process.env.AREST_BOOT_MEMORY) {
+    // what the resident heap is made of, after a collection, by object type
+    Bun.gc(true);
+    const hs = require("bun:jsc").heapStats();
+    const top = Object.entries(hs.objectTypeCounts).sort((a, b) => b[1] - a[1]).slice(0, 12);
+    console.error("boot memory: after gc rss " + (process.memoryUsage().rss >> 20) + " MB, heap " + (hs.heapSize >> 20) + " MB in " + hs.objectCount + " objects; "
+      + top.map(([k, v]) => k + " " + v).join(", "));
+    const cellBytes = CELLS.map((c) => [String(c[1]), JSON.stringify(c[2] === undefined ? null : c[2]).length])
+      .sort((a, b) => b[1] - a[1]).slice(0, 12);
+    console.error("boot memory: largest cells as JSON: " + cellBytes.map(([n, b]) => n + " " + (b >> 10) + " KB").join(", "));
+    // and once the allocator has had time to hand freed pages back (a server only)
+    setTimeout(() => { const m2 = process.memoryUsage();
+      console.error("boot memory: 5 s later rss " + (m2.rss >> 20) + " MB, heap " + (m2.heapUsed >> 20) + "/" + (m2.heapTotal >> 20) + " MB"); }, 5000).unref();
+  }
   if (mode === "test") return run_test();
   // "UI" IS A SERVE TAIL, NOT A CLI ONE (build.js OUT, 2026-09-21). build.js
   // composes `ui` byte-for-byte the way it composes `serve` -- same host, same

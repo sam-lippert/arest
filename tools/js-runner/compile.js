@@ -51,6 +51,29 @@ import { Database } from "bun:sqlite";
 // the whole build was written (2026-09-21)
 const qi = (n) => '"' + String(n).replace(/"/g, '""') + '"';
 
+// WHERE THE MEMORY WENT (2026-09-23): five resident servers and one check took the
+// machine to its floor, so a compile can be asked to stamp each line it prints.
+if (process.env.AREST_COMPILE_MEMORY) {
+  for (const k of ["log", "error"]) {
+    const f = console[k].bind(console);
+    console[k] = (...a) => { const m = process.memoryUsage();
+      f(...a, "[rss " + (m.rss >> 20) + " MB, heap " + (m.heapUsed >> 20) + "/" + (m.heapTotal >> 20) + " MB]"); };
+  }
+}
+
+// EACH PHASE'S GARBAGE IS COLLECTED BEFORE THE NEXT ONE ALLOCATES (2026-09-23).
+// A compile is five phases in one process -- read, relational map, rows, carry,
+// closure -- and what each builds is dead the moment the next begins. The
+// collector cannot know that: it sizes the heap by what it last saw live, so
+// one phase's garbage raises the ceiling the next grows under. Measured on
+// arest-dev the committed heap only ever grew across the phases, 194 -> 525 ->
+// 610 -> 674 MB, with 71 MB of it live when the closure began. A full collection
+// at each boundary costs a fraction of a second and starts the next phase from
+// what is actually live: with host.js's memo rules in place, arest-dev's compile
+// peaked at 926 and 971 MB private without these five and at 690 and 697 with
+// them, in the same 81-89 s.
+const collect = () => Bun.gc(true);
+
 const dirs = process.argv.slice(2);
 if (dirs.length === 0) {
   console.error("usage: AREST_DB=<path> bun tools/js-runner/compile.js <readings dir>...");
@@ -321,6 +344,7 @@ if (outDir) {
     + (skipped.length ? "\n  DERIVED AT BOOT INSTEAD: " + skipped.join("; ") : ""));
 }
 
+collect();
 // THE SCHEMA IS ASKED FOR ONLY WHEN IT IS WANTED. rmap:ddl is 23 s on the
 // metamodel against the reader's 1.6, so a check that only needs the carrier
 // does not pay for a schema nobody reads.
@@ -451,6 +475,7 @@ if (!out && !outDir) {
   }
   db.exec("commit");
   const tRows = Date.now() - t3;
+  collect();
   // ---- AND THE PRIOR STORE IS NOT THROWN AWAY ------------------------------
   // #108 asked that a readings change MIGRATE rather than replace, and since
   // compile-store.js was deleted this file has replaced: every row written at
@@ -741,6 +766,7 @@ if (!out && !outDir) {
     prior.close(true);
   }
   db.close(true);
+  collect();
   for (const r of rekeyed) {
     console.error('  re-keyed ' + r.table + ' on (' + r.key.join(', ') + '): ' + r.column + ' held only <'
       + r.order.join('>.<') + '> in its ' + r.rows + ' row(s), so it is retired and no fact goes with it');
@@ -771,8 +797,10 @@ if (!out && !outDir) {
   const t4 = Date.now();
   process.env.AREST_STORE_DB = build;
   loadStoreDb(build);
+  collect();
   const beforeClosure = popSnapshot(CELLS);
   closeStore();
+  collect();
   const closed = emitToDb(beforeClosure, CELLS);
   const sdb = storeDb();
   if (sdb) sdb.close(true);
