@@ -13429,7 +13429,7 @@ DEF("ui:entryscreen",
 DEF("ui:addfact",
     S3(A("COMP"),
        S3(A("COMP"), N(2), S3(A("COMP"), A("main:create_ids"), S3(A("CONS"), A("main:assert0"), A("id")))),
-       S4(A("CONS"), N(1), S3(A("COMP"), N(1), N(2)), S3(A("CONS"), S3(A("COMP"), N(2), N(2)), S3(A("COMP"), N(3), N(2)))))),
+       S4(A("CONS"), N(1), S3(A("COMP"), N(1), N(2)), S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("theta:find_desc"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), S3(A("COMP"), A("store:fts"), N(1))))), S3(A("CONS"), S3(A("COMP"), N(2), N(2)), S3(A("COMP"), N(3), N(2))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("rmap:keypos"), S3(A("COMP"), A("theta:find_desc"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), S3(A("COMP"), A("store:fts"), N(1))))), K(N(2)))), S3(A("CONS"), S3(A("COMP"), N(3), N(2)), S3(A("COMP"), N(2), N(2))), S3(A("CONS"), S3(A("COMP"), N(2), N(2)), S3(A("COMP"), N(3), N(2)))))))),
 
 DEF("ui:factfold",
     S3(A("COMP"), N(1), S3(A("WHILE"), S3(A("COMP"), A("gt"), S3(A("CONS"), S3(A("COMP"), A("length"), N(2)), K(N(1)))), S4(A("CONS"), S3(A("COMP"), A("ui:addfact"), S3(A("CONS"), N(1), S4(A("CONS"), S3(A("COMP"), N(1), N(2)), N(3), S3(A("COMP"), N(2), N(2))))), S3(A("COMP"), A("tl"), S3(A("COMP"), A("tl"), N(2))), N(3))))),
