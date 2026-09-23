@@ -1530,6 +1530,93 @@ test("an objectification declares its own nested object type, and Halpin's Listi
   }
 }, 120_000);
 
+// ---- IS A RETIRED SURROGATE A LOST FACT? ----------------------------------
+//
+// Taking an objectification off a fact type keys its table on its spanning
+// uniqueness (Halpin 2008 10.3 step 1) and retires the Function surrogate the
+// one-table wave gave it (566a1043). The carry counted that column's values as
+// dropped facts and refused -- 24,154 of them on a copy of support's store,
+// 23,966 in the instance registry alone. An objectification's id in that form
+// is its pair joined on a dot ('cd1.jan', 'API.Function'), recomputable from
+// the row, so nothing is lost when it goes. But a sole key is not always a
+// surrogate: an Email retired by a move to a name pair is a fact. So the
+// carry retires the column only when every value it holds is the build's key
+// joined on a dot, and refuses an opaque value or a NULL key column as it
+// refuses any dropped fact.
+test("a retired surrogate is not a lost fact, and a value the new key cannot recompute still refuses", () => {
+  const { mkdirSync, copyFileSync } = require("node:fs");
+  const NL = String.fromCharCode(10);
+  const dir = mkdtempSync(join(tmpdir(), "arest-rekey-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  const base = [
+    "Domain 'listing' has Description 'a surrogate-keyed objectification, then the same fact type without it'.", "",
+    "Function(.Id) is an entity type.", "",
+    "Compact Disc(.Nr) is an entity type.", "",
+    "Month(.Code) is an entity type.", "",
+    "Compact Disc was listed in Month.",
+    "  Each Compact Disc, Month combination occurs at most once in the population of Compact Disc was listed in Month.", ""];
+  const facts = ["Compact Disc 'cd1' was listed in Month 'jan'.", "", "Compact Disc 'cd2' was listed in Month 'feb'.", ""];
+  const nest = ['CompactDiscWasListedInMonth objectifies "Compact Disc was listed in Month".', "",
+    "CompactDiscWasListedInMonth is a subtype of Function.", ""];
+  const corpus = (name, lines) => {
+    const d = join(dir, name);
+    mkdirSync(d);
+    writeFileSync(join(d, "listing.md"), lines.join(NL));
+    return d;
+  };
+  const prior = corpus("prior", [...base, ...nest, ...facts]);
+  const next = corpus("next", [...base, ...facts]);
+  const compile = (readings, out) => {
+    const p = Bun.spawnSync(["bun", compiler, readings],
+      { env: { ...process.env, AREST_OUT_DIR: out, AREST_DB: join(out, "store.db"), AREST_STRICT: "" }, stdout: "pipe", stderr: "pipe" });
+    return { code: p.exitCode, text: p.stdout.toString() + p.stderr.toString() };
+  };
+  const store = (name, edit) => {
+    const out = join(dir, name);
+    mkdirSync(out);
+    copyFileSync(join(dir, "built", "store.db"), join(out, "store.db"));
+    if (edit) { const db = new Database(join(out, "store.db")); db.run(edit); db.close(true); }
+    return out;
+  };
+  try {
+    mkdirSync(join(dir, "built"));
+    expect(compile(prior, join(dir, "built")).code).toBe(0);
+    // the one-table form: keyed on the surrogate, and the surrogate is the pair
+    const was = new Database(join(dir, "built", "store.db"), { readonly: true });
+    const wasRows = was.prepare('select * from "CompactDiscWasListedInMonth" order by 2').values();
+    was.close(true);
+    expect(wasRows).toEqual([["cd1.jan", "cd1", "jan"], ["cd2.feb", "cd2", "feb"]]);
+
+    // RETIRED: every value is the new key joined on a dot, so the column goes
+    // and every row is keyed on the pair it always named
+    const ok = store("ok");
+    const r1 = compile(next, ok);
+    expect(r1.code).toBe(0);
+    expect(r1.text).toContain("re-keyed CompactDiscWasListedInMonth on (compactDiscNr, monthCode)");
+    const now = new Database(join(ok, "store.db"), { readonly: true });
+    const cols = now.prepare('pragma table_info("CompactDiscWasListedInMonth")').all();
+    const rows = now.prepare('select compactDiscNr, monthCode from "CompactDiscWasListedInMonth" order by 1').values();
+    now.close(true);
+    expect(cols.map((c) => c.name).sort()).toEqual(["compactDiscNr", "monthCode"]);
+    expect(cols.filter((c) => c.pk).map((c) => c.name).sort()).toEqual(["compactDiscNr", "monthCode"]);
+    expect(rows).toEqual([["cd1", "jan"], ["cd2", "feb"]]);
+
+    // REFUSED: an opaque value is a fact the new key cannot recompute
+    const opaque = store("opaque", "update CompactDiscWasListedInMonth set compactDiscWasListedInMonthId = 'x-' || compactDiscNr");
+    const r2 = compile(next, opaque);
+    expect(r2.code).toBe(1);
+    expect(r2.text).toContain("are facts, not a surrogate");
+
+    // REFUSED: a NULL key column is not the text `null`
+    const nul = store("nul", "update CompactDiscWasListedInMonth set compactDiscNr = NULL, compactDiscWasListedInMonthId = 'null.feb' where monthCode = 'feb'");
+    const r3 = compile(next, nul);
+    expect(r3.code).toBe(1);
+    expect(r3.text).toContain("are facts, not a surrogate");
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 120_000);
+
 // ---- IS EACH CANON FILE STILL INTERSECTION SOURCE? -------------------------
 //
 // The discipline: one tuple literal per file, every element either a

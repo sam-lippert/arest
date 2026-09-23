@@ -474,6 +474,7 @@ if (!out && !outDir) {
   let carried = 0, filled = 0, reflectedSkipped = 0, moved = 0, tCarry = 0, tCarryReflect = 0, tCarryRows = 0;
   const movedFts = new Map();
   const orphaned = [];
+  const rekeyed = [];
   if (existsSync(out)) {
     const tCarryStart = Date.now();
     const prior = new Database(out, { readonly: true });
@@ -607,9 +608,46 @@ if (!out && !outDir) {
         continue;
       }
       const dropped = oldColsK.map((o) => o.name).filter((n2) => !keep.includes(n2));
+      // A RETIRED SURROGATE IS NOT A LOST FACT (2026-09-23). A column the build
+      // no longer declares was, until now, always a dropped fact. It is not when
+      // every value it holds is RECOMPUTABLE from the row the build keeps: taking
+      // the objectification off a fact type (Halpin 2008 10.3 step 1 keys it on
+      // its spanning uniqueness) retires the Function surrogate the one-table
+      // wave gave it (566a1043), and in that form an objectification's id is its
+      // pair joined on a dot (arest: `the id is <constraint>.<role>, derivable
+      // from the pair the way APIIsASubtypeOfFunction is derivable from <API,
+      // Function>`) -- measured on the base store, '$.Pluralization Pattern',
+      // 'API.Function', 'valid-domain-change.DomainChangeIsValid'.
+      //
+      // So the carry does not assume a sole key is a surrogate; it would then
+      // retire a real natural key, an Email, the day a reference scheme moved to
+      // a name pair. The column is retired only when it was the prior table's
+      // sole key, every column of the build's key is a prior column, no other
+      // prior table names it, and some order of the build's key columns, joined
+      // on a dot, gives back EVERY value it holds from a row whose key columns are
+      // all present. A value that is not recomputable is a fact, and refuses.
+      const priorPk = oldColsK.filter((o) => o.pk).map((o) => o.name);
+      const buildPk = newColsK.filter((c2) => c2.pk).map((c2) => c2.name);
+      const orders = (cs) => cs.length <= 1 ? [cs]
+        : cs.flatMap((c2, i) => orders(cs.filter((_, j) => j !== i)).map((rest) => [c2, ...rest]));
       for (const d2 of dropped) {
         const n = prior.prepare('select count(*) c from ' + qi(table) + ' where ' + qi(d2) + ' is not null').get().c;
-        if (n) orphaned.push({ table, column: d2, rows: n, why: 'the build declares no such column' });
+        if (!n) continue;
+        const candidate = priorPk.length === 1 && priorPk[0] === d2
+          && buildPk.length > 0 && buildPk.length <= 4 && buildPk.every((c2) => keep.includes(c2))
+          && ![...was].some(([t2, cs]) => t2 !== table && cs.some((c3) => c3.name === d2));
+        if (candidate) {
+          const vals = prior.prepare('select ' + [d2, ...buildPk].map(qi).join(', ') + ' from ' + qi(table)
+            + ' where ' + qi(d2) + ' is not null').all();
+          const whole = vals.every((r) => buildPk.every((c2) => r[c2] !== null && r[c2] !== undefined));
+          const order = whole && orders(buildPk).find((ord) =>
+            vals.every((r) => String(r[d2]) === ord.map((c2) => String(r[c2])).join('.')));
+          if (order) { rekeyed.push({ table, column: d2, rows: n, key: buildPk, order }); continue; }
+          orphaned.push({ table, column: d2, rows: n, why: 'the build declares no such column, and its values are not '
+            + 'the build key joined on a dot, so they are facts, not a surrogate' });
+          continue;
+        }
+        orphaned.push({ table, column: d2, rows: n, why: 'the build declares no such column' });
       }
       // THE DECLARED KEY, WHEN THE ROW ACTUALLY HAS ONE. An objectified
       // association's identifier column is its primary key and is NULL in every
@@ -703,6 +741,10 @@ if (!out && !outDir) {
     prior.close(true);
   }
   db.close(true);
+  for (const r of rekeyed) {
+    console.error('  re-keyed ' + r.table + ' on (' + r.key.join(', ') + '): ' + r.column + ' held only <'
+      + r.order.join('>.<') + '> in its ' + r.rows + ' row(s), so it is retired and no fact goes with it');
+  }
   // NOTHING WAS DESTROYED, SO NOTHING NEEDS RESTORING. The build is beside the
   // store; discarding it leaves store.db the file it has been all along.
   if (orphaned.length && process.env.AREST_MIGRATE !== "allow-loss") {
