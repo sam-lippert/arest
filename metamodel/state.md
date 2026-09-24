@@ -68,9 +68,21 @@ Transition is to- Status.
   Each Transition is to exactly one Status.
 Transition is triggered by Event Type.
   Each Transition is triggered by exactly one Event Type.
+<!-- Sam, 2026-09-24: "there shouldn't be an internal uniqueness constraint
+     on predicates being performed on transitions. The same predicate just
+     can't be on two transitions from the same status." `Each Predicate is
+     performed during at most one Transition` stood here and contradicted the
+     Moore rule below (ruling 5): a state action is performed during EVERY
+     transition into its status, so support.auto.dev's draftSupportResponse,
+     performed in Draft, which accept, resolve-escalation and redraft-sent all
+     enter, broke it by construction, and every create that closed the
+     machine's facts again -- a Subscription -- was refused on it. What a
+     machine cannot mean is one predicate on two transitions LEAVING the same
+     status, which is the external uniqueness below. The per-transition
+     uniqueness stays: it is the one ruling 5 keeps as the conflict detector. -->
 Predicate is performed during Transition. +
-  Each Predicate is performed during at most one Transition.
   For each Transition, at most one Predicate is performed during that Transition.
+  For each Status and Predicate, at most one Transition is from that Status and that Predicate is performed during that Transition.
 
 ### Status
 Status is initial in State Machine Definition.
