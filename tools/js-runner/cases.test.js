@@ -462,7 +462,11 @@ test("an absorbed column keyed by its second player lands every row, and an obje
   ["CELL","stored:rmap:colnames",[["Function", "functionId", "F"], ["Function", "roleFactTypeId", "F"], ["ConstraintSpan", "constraintSpanId", "F"], ["ConstraintSpan", "constraintId", "F"], ["ConstraintSpan", "position", "F"], ["ConstraintSpan", "sequenceNumber", "F"], ["ConstraintSpan", "roleId", "F"]]],
   ["CELL","stored:rmap:pkrows",[["pk", "ConstraintSpan", "ConstraintSpan_PK", ["constraintSpanId"]], ["pk", "Function", "Function_PK", ["functionId"]]]],
   ["CELL","state:fts",[[["FactTypeHasRole", ["Function", "Function"], [[2]], [1, 2], [["DomainHasDescription", "DomainHasDescription.1"], ["DomainHasDescription", "DomainHasDescription.2"]]], ["ConstraintSpan", ["Function", "Function"], [[1, 2]], [1], [["UC:en:DomainHasDescription#1", "DomainHasDescription.1"], ["UC:en:DomainHasDescription#1", "DomainHasDescription.2"]]], ["ConstraintSpanHasPosition", ["Function", "Position"], [[1]], [1], [["UC:en:DomainHasDescription#1.DomainHasDescription.1", "1"], ["UC:en:DomainHasDescription#1.DomainHasDescription.2", "2"]]], ["ConstraintSpanHasSequenceNumber", ["Function", "Sequence Number"], [[1]], [1], [["UC:en:DomainHasDescription#1.DomainHasDescription.1", "1"], ["UC:en:DomainHasDescription#1.DomainHasDescription.2", "1"]]]]]],
-  ["CELL","state:declared",[[["FactTypeHasRole", ["Fact Type", "Role"]], ["ConstraintSpan", ["Constraint", "Role"]], ["ConstraintSpanHasPosition", ["ConstraintSpan", "Position"]], ["ConstraintSpanHasSequenceNumber", ["ConstraintSpan", "Sequence Number"]]]]]
+  ["CELL","state:declared",[[["FactTypeHasRole", ["Fact Type", "Role"]], ["ConstraintSpan", ["Constraint", "Role"]], ["ConstraintSpanHasPosition", ["ConstraintSpan", "Position"]], ["ConstraintSpanHasSequenceNumber", ["ConstraintSpan", "Sequence Number"]]]]],
+  // the players each fact type declares, in role order, which is where the relation
+  // projection reads a role column`s role from (2026-09-24): ConstraintSpan`s columns
+  // carry ConstraintIsInvolvedInConstraintSpan and RoleIsInvolvedInConstraintSpan
+  ["CELL","state:readings",[[["FactTypeHasRole", ["Fact Type", "Role"], [["{0}", "has", "{1}"]]], ["ConstraintSpan", ["Constraint", "Role"], [["{0}", "spans", "{1}"]]], ["ConstraintSpanHasPosition", ["ConstraintSpan", "Position"], [["{0}", "has", "{1}"]]], ["ConstraintSpanHasSequenceNumber", ["ConstraintSpan", "Sequence Number"], [["{0}", "has", "{1}"]]]]]]
   ];
   const byKey = (a, b) => a[0].localeCompare(b[0]);
   const pairs = (table, rows) => Ev("rmap:unproj", [table, rows, store]).map((p) => [String(p[0]), (Array.isArray(p[1]) ? p[1] : [p[1]]).map(flat)]);
@@ -1595,6 +1599,76 @@ test("a rebuild supersedes what the last build asserted and carries only what th
     expect(third.out).toMatch(/\[1 runtime row\(s\) carried/);
     expect(third.out).not.toContain("superseded");
     expect(widgets()).toBe(JSON.stringify([["w-rt", "L"], ["w1", "S"]]));
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 300_000);
+
+// ---- AND A ROLE COLUMN HOLDS THE PLAYER OF THE ROLE ITS LINK NAMES ---------
+//
+// rmap:ctab lays a relation table out key-first, so a table whose columns are not
+// in declared role order exists wherever a uniqueness skips a role -- and in the
+// metamodel itself: RoleIsUsedInReading is laid out reading first beside its
+// alternate reading `Reading uses Role`. The projection took the players in
+// turn, so readingId held role ids and roleId reading ids, in every app; the
+// inverse read them back in the same order, so the round trip held and saw
+// nothing. Failing at dc98eb9c: each stored pair is the declared pair reversed.
+test("a relation table's role column holds the player of the role its link names", () => {
+  const table = "RoleIsUsedInReading";
+  const cols = Ev("rmap:proj_colnames", [table, CELLS]).map(String);
+  const rows = Ev("rmap:proj_rows", [table, CELLS]);
+  const pop = Ev("rmap:proj_pop", [table, CELLS]).map((p) => p.map(String));
+  expect(rows.length).toBeGreaterThan(0);
+  const role = cols.indexOf("roleId"), reading = cols.indexOf("readingId");
+  expect(role).toBeGreaterThanOrEqual(0);
+  expect(reading).toBeGreaterThanOrEqual(0);
+  const stored = rows.map((r) => JSON.stringify([String(r[role]), String(r[reading])])).sort();
+  expect(stored).toEqual(pop.map((p) => JSON.stringify(p)).sort());
+  const back = Ev("rmap:unproj", [table, rows.map((r) => r.map(String)), CELLS])
+    .filter((p) => String(p[0]) === table).map((p) => JSON.stringify(p[1].map(String))).sort();
+  expect(back).toEqual(pop.map((p) => JSON.stringify(p)).sort());
+});
+
+// ---- AND A FACT TYPE WHOSE UNIQUENESS SKIPS A ROLE IS STORED BY ROLE -------
+//
+// `Endpoint has Priority for Backend`, unique over Endpoint and Backend, is laid
+// out endpoint, backend, priority, and `Endpoint /build has Priority 2 for Backend
+// mopar` was stored backend 2, priority mopar. The primary key the DDL puts on
+// (endpoint, backend) then held (endpoint, priority), so two facts giving one
+// priority to two backends collided in it. pm.auto.dev reported the shape on
+// 2026-09-24; support.auto.dev has four such tables holding rows. Failing at
+// dc98eb9c: backend holds the priorities.
+test("a fact type whose uniqueness skips a role is stored by role, and two facts sharing the skipped role both land", () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-tern-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  const metamodel = join(import.meta.dir, "..", "..", "metamodel");
+  const templates = join(import.meta.dir, "..", "..", "readings", "templates");
+  const app = join(dir, "app");
+  mkdirSync(app);
+  const path = join(dir, "store.db");
+  try {
+    writeFileSync(join(app, "tern.md"), [
+      "# Ternary", "",
+      "A probe domain for the projection: a ternary whose uniqueness skips its middle role.", "",
+      "## Entity Types", "", "Endpoint(.Path) is an entity type.", "", "Backend(.Name) is an entity type.", "",
+      "## Value Types", "", "Priority is a value type.", "",
+      "## Fact Types", "",
+      "Endpoint has Priority for Backend.",
+      "  For each Endpoint and Backend, that Endpoint has at most one Priority for that Backend.", "",
+      "## Instance Facts", "",
+      "Endpoint '/build' has Priority '2' for Backend 'mopar'.", "",
+      "Endpoint '/build' has Priority '2' for Backend 'kbb'.", "",
+      "Endpoint '/vin' has Priority '1' for Backend 'mopar'.", "",
+      "Domain 'tern' has Description 'A probe domain for the projection.'.", "",
+    ].join("\n"));
+    const p = Bun.spawnSync(["bun", compiler, metamodel, templates, app],
+      { env: { ...process.env, AREST_DB: path }, stdout: "pipe", stderr: "pipe" });
+    const out = p.stdout.toString() + p.stderr.toString();
+    expect(p.exitCode, out).toBe(0);
+    const db = new Database(path, { readonly: true });
+    const rows = db.query('select "endpoint", "backend", "priority" from "EndpointHasPriorityForBackend" order by 1, 2').values();
+    db.close(true);
+    expect(rows).toEqual([["/build", "kbb", "2"], ["/build", "mopar", "2"], ["/vin", "mopar", "1"]]);
   } finally {
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
   }
