@@ -357,6 +357,7 @@ function popText(rows) {
 // every declared population as text, so a write's diff is its changed fact
 // types: 247 fact types and 4,457 rows in a millisecond on the base store
 function popSnapshot(cells) {
+  if (LAZY_STORE) LAZY_STORE.readAll();   // every population, each table read once, not one fact type at a time
   const snap = new Map();
   for (const d of Ev("store:fts", cells)) {
     const ft = d[0];
@@ -419,6 +420,7 @@ function emitToDb(before, cells) {
       }
     }
   })();
+  if (LAZY_STORE) LAZY_STORE.invalidate(touched);
   return written;
 }
 const PRIMS = new Map(Object.entries({
@@ -997,15 +999,19 @@ const FASTPRIMS = new Map(Object.entries({
   // us-law's store (2026-09-04). Indexed once per store array, keyed by name,
   // cleared with the memo at every mutation as the other indexes are; a cell is
   // any sequence of length 3 whose second element is the name (ast:named), the
-  // answer its third element, "#" for none.
+  // answer its third element, "#" for none. The index holds the CELL and reads
+  // its contents on the hit alone: a store read from its tables on demand keeps
+  // each population in a cell whose contents are read the first time anything
+  // reaches into them, and indexing every contents up front read every table
+  // (2026-09-24).
   "ast:fetch": x => { const name = at(x, 0), cells = seq(at(x, 1));
     let idx = FETCHIDX.get(cells);
     if (idx === undefined) { idx = new Map();
       for (const c of cells) { if (!Array.isArray(c) || c.length !== 3) continue;
-        const k = JSON.stringify(c[1]); if (!idx.has(k)) idx.set(k, c[2]); }
+        const k = JSON.stringify(c[1]); if (!idx.has(k)) idx.set(k, c); }
       FETCHIDX.set(cells, idx); }
     const hit = idx.get(JSON.stringify(name));
-    return hit === undefined ? "#" : hit; },
+    return hit === undefined ? "#" : hit[2]; },
   // theta:member over a long list is answered by a set keyed on the list: the
   // law walk asks it once per atom of every form against the store's cell names
   // (43,156 asks over the same list, 13 of the base report's 89 seconds,
@@ -1251,6 +1257,24 @@ const FASTPRIMS = new Map(Object.entries({
   // boot sampled at apndl 34% and apndr 17% of self inside ui:replay (the
   // profile-and-fix loop, 2026-09-08). The VALUE is one pass; the selector on
   // a cell without a name throws where the fold's predicate threw at it.
+  // store:fix_desc is a descriptor with its fifth slot unfolded -- CONS 1..4 and
+  // theta:unfold_rows o 5 -- and a walk over the descriptors for names, players
+  // and keys never looks at that slot: ui:groups under mcp:tools, at every
+  // start, is one. The DEF unfolded every descriptor's rows as it passed, so over
+  // a store read from its tables on demand the tool list read every population
+  // in the store before a server answered anything -- 1,432 of support's, 22 s
+  // (2026-09-24). This is the same value with the fifth slot unfolded when it is
+  // first read; AREST_NOTWIN=store:fix_desc gives the DEF's own. Only where the
+  // store is read on demand: in a compile, the suite or the law report every slot
+  // is read anyway, and there the slot is unfolded at once, as the DEF does.
+  "store:fix_desc": d => {
+    if (!Array.isArray(d) || d.length < 5) return Ev(DEFS.get("store:fix_desc"), d);
+    if (!LAZY_STORE) return [d[0], d[1], d[2], d[3], Ev("theta:unfold_rows", d[4])];
+    const out = [d[0], d[1], d[2], d[3], null];
+    let v, done = false;
+    Object.defineProperty(out, 4, { get() { if (!done) { v = Ev("theta:unfold_rows", d[4]); done = true; } return v; },
+      enumerable: true, configurable: true });
+    return out; },
   // store:otpops <rows, store> folds the instance-of rows into state:otpops, the
   // index ui:ids reads (the mandatory check, the entry screen, the machines'
   // seeding). The DEF is INSERT ui:otpops_cell over the rows swapped to
@@ -2498,7 +2522,10 @@ function run_test() {
   // writeMetaschema rides here for loadStoreDb's reason and compile.js's: the
   // compiler is the reader module (build.js reader -> run_test), and the host's
   // unit test writes its fixture with the same function rather than restating
-  // the layout. storeRaw is what a schemaless load leaves behind. memoStat is
+  // the layout. storeRaw is what a schemaless load leaves behind, and storeRead
+  // what a store read on demand has read so far (null when it was read whole at
+  // start): the selects it issued, the tables it read whole and the most times
+  // it read any one of them, which only a count can show. memoStat is
   // how the suite sees the memo judge a name: an answer applied bare is the same
   // answer, so nothing else can show that the judgement happened.
   globalThis.AREST = { Ev: Ev, CELLS: CELLS, DEFS: DEFS, composition: COMPOSITION,
@@ -2506,6 +2533,7 @@ function run_test() {
     closeStore: closeStore, storeDb: storeDb,
     writeMetaschema: writeMetaschema, readMetaschema: readMetaschema,
     storeRaw: () => STORE_RAW,
+    storeRead: () => (LAZY_STORE ? LAZY_STORE.stats() : null),
     memoStat: (f) => { const st = MEMOSTAT.get(f); const root = EVMEMO.get(f);
       return st ? { stored: st[0], givenBack: st[1], bare: st[2], held: root ? root.held : 0 } : null; },
     performDeclared: performDeclared };
@@ -3638,7 +3666,225 @@ function readMetaschema(db) {
   return m.size ? m : null;
 }
 
-function loadStoreDb(path) {
+// ---- A STORE IS READ FROM ITS TABLES WHEN ASKED, NOT WHOLE AT START -------------
+// Sam, 2026-09-24: "it shouldn't read the whole db into memory? It should just
+// read from db. That's the point of a database." A server's start read every
+// table and unprojected every row back into canon's populations before it
+// answered anything -- support: 596 tables, 80,685 rows, 5.9 million cells, and
+// the database itself was a quarter of a second of it. So a server's load reads
+// NO rows. Each stored fact type is a cell whose contents are its rows, read
+// from the tables the first time anything reaches into them: only the rows
+// where a column carrying it is filled, unprojected by canon's own rmap:unproj
+// and nothing else. The source (state:fts) is the carriers' descriptors,
+// copied, each fifth slot read the same way when first read, and FILE is
+// those descriptors nested one at a time, each when its cell is read.
+//
+// WHICH TABLES HOLD WHICH FACT TYPE is the store's own _metaschema -- the fact
+// type each column carries, which the compile writes from rmap -- plus each
+// relation table's own fact type. A fact type whose tables yield no row keeps
+// the carriers' cell and rows, exactly as the whole load keeps them: it moves
+// only fact types with rows.
+//
+// AND A FACT TYPE WITH NOTHING STORED IS NO CELL AT ALL, as in the whole load,
+// which makes a cell only of what it read rows for. Which ones hold anything is
+// one count per table -- the rows, and each carrying column's filled values --
+// and no row. A cell standing for an empty population is a different store:
+// loadDerived adds a derived fact type only when it is not `already its own
+// cell`, and a boot that closed the base store over such cells wrote 9,914
+// rows where the whole load's wrote 14,493, ObjectTypeInstanceIsOfFunction
+// (4,493) and six Status tables empty, and the store it left refused every
+// write (409) that the other committed (201).
+//
+// MEASURED 2026-09-24 over copies of the six resident apps' stores, this read
+// against the whole load (AREST_EAGER_STORE=1) in the same module. The answers
+// are byte-identical: on support cells (34.2 million characters), schema, the
+// fact-type GETs, get, actions, nav, orient, a POST and the reads after it, and
+// the store the POST left; on the other five cells, schema and nav; and a create
+// on tasks commits, writes the same store and reads back the same after a
+// restart either way. On support the load is 0.8-1.3 s where the whole load is
+// 4.2-5.7 (5.6-6.7 before today), but the FIRST ANSWER is not much sooner --
+// 5.5-7.8 s against 5.8-7.8 -- because the tool list and the instructions read
+// the Function table, 19,080 rows, and the load is no longer what it waits on.
+// What is held is less: after the first answer 396-449 MB resident once
+// collected, against 568, and after a GET, actions, orient or nav 359-410
+// against 560, each of them reading 4 to 7 tables. NOT `get`: it reads 165
+// tables and builds some 600 MB that the memo keeps -- 744 MB live against
+// 758, the same in both -- and since here those reads happen inside the
+// request, its peak is 1,661-1,666 MB against 1,326.
+//
+// A WRITE STILL SNAPSHOTS EVERY POPULATION to see what it changed (popSnapshot),
+// so before it the tables are read once, whole, into the populations -- the
+// work the old start did, done at the first write instead of at every start --
+// and after it the rows cached for the tables it rewrote are dropped. Writing
+// rows rather than rewriting tables is the next change, and it retires that.
+let LAZY_STORE = null;
+function lazyStore(db, want) {
+  let meta;
+  try { meta = db.query('select "tab", "col", "ft" from "' + METASCHEMA + '"').all(); } catch { return null; }
+  if (!meta.length) return null;
+  const SCHEMA = CELLS.slice();
+  const colsOf = new Map(), carried = new Map(), tablesOf = new Map(), relTables = new Set();
+  for (const r of meta) {
+    if (r.ft === null || r.ft === undefined || String(r.ft) === "#") continue;
+    const tab = String(r.tab), ft = String(r.ft), k = tab + "\u0000" + ft;
+    let set = carried.get(tab); if (!set) carried.set(tab, (set = new Set()));
+    set.add(ft);
+    if (!colsOf.has(k)) colsOf.set(k, []);
+    colsOf.get(k).push(String(r.col));
+  }
+  const addFt = (ft, table) => { let l = tablesOf.get(ft); if (!l) tablesOf.set(ft, (l = [])); if (!l.includes(table)) l.push(table); };
+  for (const [table] of want) {
+    for (const ft of carried.get(table) || []) addFt(ft, table);
+    let rel = "F"; try { rel = Ev("rmap:unproj_isrel", [table, SCHEMA]); } catch { rel = "F"; }
+    if (rel === "T") { addFt(table, table); relTables.add(table); }
+  }
+  // which fact types each table holds anything for, counted and not read, and
+  // counted again for a table a write rewrote
+  const presentIn = new Map(), filled = new Map(), rowsIn = new Map();
+  const count = (table) => {
+    const fts = [...(carried.get(table) || [])];
+    const cols = [...new Set(fts.flatMap((ft) => colsOf.get(table + "\u0000" + ft) || []))];
+    const n = db.query("select count(*)" + cols.map((c) => ', count("' + c + '")').join("") + ' from "' + table + '"').values()[0];
+    const got = new Set();
+    rowsIn.set(table, n[0]);
+    if (n[0] > 0) {
+      if (relTables.has(table)) got.add(table);
+      for (const ft of fts) {
+        const k = table + "\u0000" + ft, fill = (colsOf.get(k) || []).reduce((a, c) => a + n[1 + cols.indexOf(c)], 0);
+        filled.set(k, fill);
+        if (fill > 0) got.add(ft);
+      }
+    }
+    presentIn.set(table, got);
+  };
+  for (const [table] of want) if (carried.has(table) || relTables.has(table)) count(table);
+  const present = (ft) => (tablesOf.get(ft) || []).some((t) => { const p = presentIn.get(t); return p !== undefined && p.has(ft); });
+  let selects = 0;
+  const select = (table, where) => {
+    selects++;
+    const cols = want.get(table);
+    const rows = db.query("select " + cols.map((c) => '"' + c + '"').join(",") + ' from "' + table + '"' + (where || "")).values();
+    const clean = rows.map((r) => r.map((v) => (v === null ? "#" : String(v))));
+    const out = clean.length ? Ev("rmap:unproj", [table, clean, SCHEMA]) : [];
+    // AND THE READ LEAVES NOTHING IN THE MEMO. The whole load clears the memo
+    // when it is done; a store read on demand is never done, so rmap:unproj --
+    // keyed on this read's rows, which nothing asks twice -- and the names under
+    // it that take a row or a cell held every read's rows and pairs for the life
+    // of the server. The inverse's definitions are all rmap:unproj*, and the few
+    // of them that take a table are recomputed once a read.
+    for (const k of [...EVMEMO.keys()]) if (typeof k === "string" && k.startsWith("rmap:unproj")) EVMEMO.delete(k);
+    return out;
+  };
+  const ftRows = new Map();
+  // A TABLE READ WHOLE IS KEPT, BY TABLE, and serves every fact type in it. Canon
+  // unprojects a row at a price set by the table's width and not by what the row
+  // holds -- support's Function table is 19,080 rows across 301 columns, 3.2 s
+  // whole, and its identifier's fact type alone, which every row fills, 3.1 s
+  // (blanking the columns it does not carry: 2.7; all three measured before
+  // rmap:unproj_filled) -- so a request that walks every
+  // population read that table once per fact type, 27.9 s where the whole load
+  // took 5.5, and the MCP server's first answer read it twice, once for the tools
+  // and again when FILE adopted the store. So once ONE_AT_A_TIME of a table's fact
+  // types have been read on their own the table is read whole, and a table read
+  // whole -- by that, by a write's snapshot or by FILE -- is never read again
+  // until a write rewrites it. A fact type spread over several tables takes its
+  // rows table by table in the order the whole load reads them.
+  const ONE_AT_A_TIME = 4;
+  const byTable = new Map(), asked = new Map(), wholeReads = new Map();
+  const readTable = (table) => {
+    let got = byTable.get(table);
+    if (got) return got;
+    wholeReads.set(table, (wholeReads.get(table) || 0) + 1);
+    got = new Map();
+    for (const p of select(table, "")) { const ft = String(p[0]); let l = got.get(ft); if (!l) got.set(ft, (l = [])); l.push(p[1]); }
+    byTable.set(table, got);
+    return got;
+  };
+  // one fact type's rows in one table: only the rows a column carrying it fills --
+  // unless the table is a relation table, or has been asked often enough, or the
+  // fact type fills more than a quarter of its rows (read alone it would cost
+  // nearly the whole table, and then the whole table again), and is read whole
+  // and kept
+  const rowsOf = (ft) => {
+    let r = ftRows.get(ft); if (r) return r;
+    if (!present(ft)) return [];
+    const ts = tablesOf.get(ft) || [];
+    const parts = ts.map((t) => {
+      let got = byTable.get(t);
+      const cols = colsOf.get(t + "\u0000" + ft);
+      if (!got) { const n = (asked.get(t) || 0) + 1; asked.set(t, n);
+        if (n > ONE_AT_A_TIME || relTables.has(t) || !cols || !cols.length
+          || 4 * (filled.get(t + "\u0000" + ft) || 0) > (rowsIn.get(t) || 0)) got = readTable(t); }
+      if (got) return got.get(ft) || [];
+      const one = [];
+      for (const p of select(t, " where " + cols.map((c) => '"' + c + '" is not null').join(" or "))) if (String(p[0]) === ft) one.push(p[1]);
+      return one;
+    });
+    r = parts.length === 1 ? parts[0] : [].concat(...parts);
+    ftRows.set(ft, r);
+    return r;
+  };
+  // every population at once, each table read a single time -- what a write's
+  // snapshot needs -- and only the tables holding a fact type not already read
+  const readAll = () => {
+    const tables = new Set();
+    for (const [ft, ts] of tablesOf) if (!ftRows.has(ft) && present(ft)) for (const t of ts) tables.add(t);
+    for (const [table] of want) if (tables.has(table)) readTable(table);
+    for (const ft of tablesOf.keys()) rowsOf(ft);
+  };
+  const pick = (cells, name) => { for (const c of cells) if (Array.isArray(c) && c[1] === name) return c[2]; return "#"; };
+  const later = (name, get) => {
+    const c = ["CELL", name, null];
+    let v, done = false;
+    Object.defineProperty(c, 2, { get() { if (!done) { v = get(); done = true; } return v; }, enumerable: true, configurable: true });
+    return c;
+  };
+  // the carriers' descriptors, copied, each fifth slot that fact type's rows when read
+  const descs = (raw) => {
+    const isDesc = (d) => Array.isArray(d) && d.length === 5 && !Array.isArray(d[0]);
+    const copy = (v) => {
+      if (isDesc(v)) {
+        const ft = String(v[0]);
+        const d = [v[0], v[1], v[2], v[3], null];
+        let got, done = false;
+        Object.defineProperty(d, 4, { get() { if (!done) { const r = rowsOf(ft); got = r.length ? r : v[4]; done = true; } return got; },
+          enumerable: true, configurable: true });
+        return d;
+      }
+      return Array.isArray(v) ? v.map(copy) : v;
+    };
+    return copy(raw);
+  };
+  const stored = [...tablesOf.keys()].filter(present);
+  const cells = stored.map((ft) => later(ft, () => { const r = rowsOf(ft); return r.length ? r : pick(SCHEMA, ft); }));
+  cells.push(later("state:fts", () => descs(pick(SCHEMA, "state:fts"))));
+  // FILE IS NESTED A CELL AT A TIME. ast:File is one cell per descriptor, each
+  // rmap:rel_cell of it -- the descriptor's rows nested -- and ast:FetchPop reads
+  // FILE for every fact type whose own cell is #, which on support is every stored
+  // fact type without a row: the MCP server's instructions ask DomainReachesDomain
+  // before anything else, and FILE was adopted from every population to answer it
+  // with nothing -- every table read, then store:src_all over all of them, 5.5 to
+  // 6.5 s. Here FILE's cells are the descriptors' names, each nested when read, so
+  // that lookup reads the one fact type it names. Measured on support over a copy
+  // of its store: all 1,479 cells built this way are byte-identical to FILE as the
+  // whole load and the adoption build it (d9511894db402fa2).
+  cells.push(later("FILE", () => Ev("store:fts", CELLS).map((d) => later(d[0], () => Ev("rmap:rel_cell", d)[2]))));
+  const replaced = new Set([...stored, "state:fts", "FILE"]);
+  // a write rewrote these tables: what was read from them is read again when asked
+  const invalidate = (tables) => {
+    for (const t of tables) {
+      byTable.delete(t); asked.delete(t);
+      if (presentIn.has(t)) count(t);
+      for (const ft of carried.get(t) || []) ftRows.delete(ft);
+      if (relTables.has(t)) ftRows.delete(t);
+    }
+  };
+  return { db, tablesOf, rowsOf, readAll, invalidate, cells, replaced,
+    hasRows: (n) => present(n) && rowsOf(n).length > 0,
+    stats: () => ({ selects, tables: byTable.size, most: Math.max(0, ...wholeReads.values()) }) };
+}
+
+function loadStoreDb(path, opts) {
   const { Database } = require("bun:sqlite");
   const db = new Database(path, { readonly: true });
   // AND IT MUST HOLD THE SCHEMA IT IS READ THROUGH. The tables ARE the durable
@@ -3815,6 +4061,26 @@ function loadStoreDb(path) {
       " rmap:unproj needs state:fts to say which fact type a column carries, and this module carries none.");
     return;
   }
+  // A SERVER READS NOTHING HERE (see lazyStore above); a compile, whose closure
+  // reads every population anyway, and a store with no metaschema read it whole.
+  if (opts && opts.lazy && !process.env.AREST_EAGER_STORE) {
+    const lazy = lazyStore(db, want);
+    if (lazy) {
+      LAZY_STORE = lazy;
+      STORE_TABLES = { has: (n) => lazy.hasRows(n) };
+      for (let i = CELLS.length - 1; i >= 0; i--) if (Array.isArray(CELLS[i]) && lazy.replaced.has(CELLS[i][1])) CELLS.splice(i, 1);
+      for (let i = lazy.cells.length - 1; i >= 0; i--) CELLS.unshift(lazy.cells[i]);
+      memoClear();
+      const inst = lazy.tablesOf.has("ObjectTypeInstanceIsInstanceOfObjectType") ? lazy.rowsOf("ObjectTypeInstanceIsInstanceOfObjectType") : [];
+      if (inst.length) {
+        const cell = Ev("store:otpops", [inst, CELLS]);
+        for (let i = CELLS.length - 1; i >= 0; i--) if (Array.isArray(CELLS[i]) && CELLS[i][1] === "state:otpops") CELLS.splice(i, 1);
+        CELLS.unshift(["CELL", "state:otpops", cell]);
+        memoClear();
+      }
+      return;
+    }
+  }
   const byFt = new Map();
   for (const [table, cols] of want) {
     // NOT IN A try. `catch { continue; }` stood here -- "a table the schema has
@@ -3870,7 +4136,10 @@ function loadStoreDb(path) {
 }
 
 function loadFile() {
-  if (Ev("ast:fetch", ["FILE", CELLS]) !== "#") return;   // already carried
+  // carried or not is asked of the cell's NAME: a store read on demand keeps FILE
+  // in a cell whose contents are the whole source, and fetching them to see
+  // whether they are there read every table at start (2026-09-24)
+  if (CELLS.some((c) => Array.isArray(c) && c.length === 3 && c[1] === "FILE")) return;   // already carried
   const built = Ev("ast:File", Ev("store:state", CELLS));
   for (const cell of built) CELLS.unshift(cell);
   memoClear();
@@ -4136,7 +4405,7 @@ function boot(mode) {
   // boot: the answer in memory is unaffected and only durability is lost, so
   // the refusal is reported and the boot goes on.
   if (fromDb) {
-    loadStoreDb(fromDb); loadFile();
+    loadStoreDb(fromDb, { lazy: true }); loadFile();
     // AND THE BASELINE IS THE TABLES, NOT THE MEMORY BEFORE THE CLOSURE. A
     // reflected population is a function of the store, so it answers the same
     // before and after the reflection wherever its inputs are already loaded --

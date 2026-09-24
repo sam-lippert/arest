@@ -1302,6 +1302,129 @@ test("a population in another order is not a change; one row fewer is", () => {
   }
 }, 120_000);
 
+// ---- A STORE IS READ WHEN ASKED, AND READ ONCE -----------------------------
+//
+// A server over a store reads no rows at start (host.js, lazyStore): each
+// stored fact type is a cell read from its tables the first time anything
+// reaches into it. Three things have to hold, and each is a count or a
+// comparison only a test like this can make. ONE POPULATION READS ITS OWN
+// TABLE: a relation table's fact type costs one select and nothing else, and
+// so does FILE's cell for another -- ast:FetchPop reads FILE for every fact
+// type whose own cell is #, and FILE was adopted from every population to
+// answer one, every table read and store:src_all over all of them (support,
+// 2026-09-24: 5.5-6.5 s of the MCP server's first answer, spent on
+// DomainReachesDomain, which is empty). NO TABLE IS READ TWICE before a write:
+// the instance-of table was read at start for state:otpops and again by the
+// first whole-store read, and support's Function table, 19,080 rows, once for
+// the tools and again for FILE. AND EVERY ANSWER IS THE WHOLE LOAD'S: every
+// stored fact type's rows, FILE and the descriptors, digested, the same read
+// on demand as read whole at start (AREST_EAGER_STORE=1), before a write and
+// after one -- and the row a write over a store read on demand made is there
+// after a restart.
+test("a store is read when asked: a population reads its own table, none is read twice, and every answer is the whole load's", () => {
+  const stamp = globalThis.AREST.composition;
+  const dir = mkdtempSync(join(tmpdir(), "arest-lazy-"));
+  const mod = join(import.meta.dir, "cases.g.js");
+  const path = join(dir, "store.db");
+  {
+    const db = new Database(path);
+    makeTables(db);
+    expect(globalThis.AREST.writeMetaschema(db)).toBeGreaterThan(0);
+    db.run("create table _composition (hash text)");
+    db.prepare("insert into _composition values(?)").run(stamp);
+    db.run("pragma wal_checkpoint(TRUNCATE)");
+    db.close();
+  }
+  const driver = join(dir, "drive.mjs");
+  writeFileSync(driver, [
+    "import { Database } from 'bun:sqlite';",
+    "import { createHash } from 'node:crypto';",
+    "await import(process.env.MODULE);",
+    "const { Ev, CELLS, popSnapshot, adoptStore, emitToDb, closeStore, storeRead } = globalThis.AREST;",
+    "const say = (k, v) => console.log(k + '=' + JSON.stringify(v));",
+    "if (process.env.MAKE) { const b = popSnapshot(CELLS); closeStore(); say('made', emitToDb(b, CELLS)); process.exit(0); }",
+    "if (process.env.WRITE) {",
+    "  const before = popSnapshot(CELLS);",
+    "  const out = Ev('main:api', [CELLS, 'POST', 'StreamHasName', '', ['probe-lazy-stream', 'probe-name']]);",
+    "  if (out.length > 2 && Number(out[1]) < 400) { adoptStore(out[2]); say('emitted', emitToDb(before, CELLS)); }",
+    "  say('status', Number(out[1]));",
+    "  process.exit(0);",
+    "}",
+    "say('start', storeRead());",
+    "// two relation tables with rows, beside the one the start reads, chosen from the store",
+    "const db = new Database(process.env.AREST_STORE_DB, { readonly: true });",
+    "const rel = Ev('rmap:coltabs', CELLS).map((t) => String(t[0])).filter((t) => t !== 'ObjectTypeInstanceIsInstanceOfObjectType'",
+    "  && Ev('rmap:unproj_isrel', [t, CELLS]) === 'T' && db.query('select count(*) n from \"' + t + '\"').get().n > 0);",
+    "say('relations', rel.length);",
+    "say('one', Ev('system:pop_rows', [rel[0], CELLS]).length);",
+    "say('after one', storeRead());",
+    "const file = Ev('ast:fetch', ['FILE', CELLS]);",
+    "say('file cell', Array.isArray(Ev('ast:fetch', [rel[1], file])));",
+    "say('after file', storeRead());",
+    "popSnapshot(CELLS);",
+    "say('after all', storeRead());",
+    "const fts = [...new Set(db.query('select ft from _metaschema').values().map((r) => r[0])",
+    "  .filter((ft) => ft !== null && ft !== '#').map(String).concat(rel))].sort();",
+    "const h = createHash('sha256');",
+    "for (const ft of fts) h.update(ft + ' ' + JSON.stringify(Ev('system:pop_rows', [ft, CELLS])) + ' ');",
+    "h.update(JSON.stringify(Ev('ast:fetch', ['FILE', CELLS])));",
+    "h.update(JSON.stringify(Ev('store:fts', CELLS)));",
+    "say('fact types', fts.length);",
+    "say('digest', h.digest('hex'));",
+    "say('probe', Ev('system:pop_rows', ['StreamHasName', CELLS]).some((r) => String(r[0]) === 'probe-lazy-stream'));",
+  ].join("\n"));
+  const run = (extra) => {
+    const env = { ...process.env, MODULE: pathToFileURL(mod).href, AREST_STORE_DB: path, ...extra };
+    if (!extra.AREST_EAGER_STORE) delete env.AREST_EAGER_STORE;
+    const p = Bun.spawnSync(["bun", driver], { env, stdout: "pipe", stderr: "pipe" });
+    const got = { out: p.stdout.toString() + p.stderr.toString() };
+    for (const line of p.stdout.toString().split("\n")) {
+      const i = line.indexOf("=");
+      if (i > 0) try { got[line.slice(0, i)] = JSON.parse(line.slice(i + 1)); } catch { /* not a line of ours */ }
+    }
+    return got;
+  };
+  try {
+    // THE FIXTURE IS MADE THE WAY THE CHECK MAKES A STORE: its tables, the
+    // metaschema it is read through, then the closure written into them once
+    const made = run({ MAKE: "1" });
+    expect(made.made, made.out).toBeGreaterThan(0);
+
+    const lazy = run({}), eager = run({ AREST_EAGER_STORE: "1" });
+    expect(eager.start, eager.out).toBe(null);          // read whole at start: nothing to count
+    expect(lazy.start, lazy.out).not.toBe(null);
+    expect(lazy.start.tables).toBeLessThanOrEqual(1);   // the instance-of table, for state:otpops
+    expect(lazy.relations).toBeGreaterThanOrEqual(2);
+    expect(lazy.one).toBeGreaterThan(0);
+    // one population: one select, one table
+    expect(lazy["after one"].selects).toBe(lazy.start.selects + 1);
+    expect(lazy["after one"].tables).toBe(lazy.start.tables + 1);
+    // FILE's cell for another: one select, one table, and not the store
+    expect(lazy["file cell"]).toBe(true);
+    expect(lazy["after file"].selects).toBe(lazy["after one"].selects + 1);
+    expect(lazy["after file"].tables).toBe(lazy["after one"].tables + 1);
+    // every population, and no table read twice
+    expect(lazy["after all"].tables).toBeGreaterThan(lazy["after file"].tables);
+    expect(lazy["after all"].most).toBe(1);
+    expect(lazy["fact types"]).toBeGreaterThan(100);
+    expect(lazy.digest).toBe(eager.digest);
+    expect(lazy.probe).toBe(false);
+
+    // a write over the store read on demand, and a restart each way
+    const wrote = run({ WRITE: "1" });
+    expect(wrote.status, wrote.out).toBeGreaterThanOrEqual(200);
+    expect(wrote.status).toBeLessThan(400);
+    expect(wrote.emitted).toBeGreaterThan(0);
+    const lazy2 = run({}), eager2 = run({ AREST_EAGER_STORE: "1" });
+    expect(lazy2.probe, lazy2.out).toBe(true);
+    expect(eager2.probe, eager2.out).toBe(true);
+    expect(lazy2.digest).toBe(eager2.digest);
+    expect(lazy2.digest).not.toBe(lazy.digest);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 240_000);
+
 // ---- AND DOES THE CARRY LEAVE A REFLECTED ROW TO THE CLOSURE? --------------
 //
 // compile.js's carry (the comment beside "AND THE PRIOR STORE IS NOT THROWN
