@@ -84,6 +84,8 @@ const NL = "\n";
 // has no terminal and the reason a child exited was otherwise lost.
 const DAEMON = process.argv.includes("--daemon");
 const PORT = Number(process.env.AREST_ROUTER_PORT || 41817);
+// the largest answer handed to a session; see the tools/call path
+const MAX_ANSWER = Number(process.env.AREST_ROUTER_MAX_ANSWER || 2000000);
 const LOG = join(here, ".router.log");
 function log(line) {
   const s = String(line).endsWith(NL) ? String(line) : String(line) + NL;
@@ -565,11 +567,22 @@ class Resident {
     // what the runtime wrote into the prior store, and stamps it with the same
     // composition build.js stamps the module with. A compiled app then serves from
     // its database instead of from its carriers.
-    run(["run", "--silent", "check"], this.pkg, { AREST_DB: join(this.dir, "store.db") }).then(({ code, tail }) => {
+    run(["run", "--silent", "check"], this.pkg, { AREST_DB: join(this.dir, "store.db") }).then(async ({ code, tail }) => {
       this.note = (code === 0 ? "check ok: " : "check FAILED (exit " + code + "): ") + lastLines(tail, code === 0 ? 1 : 6);
       this.busy = null;
+      // AND A FAILED CHECK DOES NOT LEAVE THE APP DOWN (2026-09-24). compile.js
+      // writes its build beside the store and removes it when it refuses ("is
+      // UNTOUCHED -- the build was never written into it"), so the store is the
+      // one the app was serving and its module still reads it. pm.auto.dev's
+      // rebuild of support refused on a renamed fact type and the app answered
+      // `not serving: stopped` for 25 minutes, with nothing to wait for.
+      if (code !== 0) {
+        this.spawn();
+        await this.boot();
+        this.note += this.state === "serving" ? " -- serving again on the store as it was" : "";
+      }
     });
-    return "checking " + this.name + ": bun run check in " + this.pkg + "; not served until apps_compile; `apps` reports the result";
+    return "checking " + this.name + ": bun run check in " + this.pkg + "; not served until apps_compile (or again at once if the check fails); `apps` reports the result";
   }
   // apps_compile: the module from the carriers, then this app's server again.
   // The server is stopped first because it holds store.db open.
@@ -682,6 +695,22 @@ function tools() {
     { name: "apps", description: "the registry and the resident apps: where the app list was read from, whether each app is serving, and its last check or compile result", inputSchema: { type: "object", properties: {} } },
     { name: "apps_check", description: "run the app's own check in its package (bun run check: the design state from its readings, and its store); the app is stopped first, because it holds the store the check writes, and `apps` reports the result. After a readings change: apps_check, then apps_compile. On '" + REGISTRY_NAME + "' it recompiles the router's own readings -- which apps there are -- instead.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
     { name: "apps_compile", description: "rebuild the app's module from its carriers (build.js mcp) and start its server again; the app is not served meanwhile, and `apps` reports the result. The store is written by apps_check, stamped to match this module, so run apps_check first and the app serves from its database. On '" + REGISTRY_NAME + "' it reads the App table again and reconciles the residents instead: a new app is spawned, a removed or suspended one is stopped.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
+    // A FACT TYPE'S OWN RESOURCE, ONE TOOL FOR ALL OF THEM (2026-09-24). Every module
+    // serves a tool per fact type -- GET, POST, DELETE, PUT on it -- and this list
+    // offered only the verbs, because support alone has 1,520 of those tools. So a
+    // session could create an entity row and could not assert a fact between two
+    // entities, which is exactly what fires a transition: `actions` names the
+    // button (AdminAcceptsSupportRequest -> Draft) and nothing here could press it.
+    // support.auto.dev asked for this on a live case, trying `create` with Admin as
+    // the collection and being refused, rightly, for naming none.
+    { name: "fact", description: "one fact type's own resource in the app named by `app`: GET reads its population and its links, POST asserts one fact -- which is how a transition fires: `actions` names the fact type to assert (a button like AdminAcceptsSupportRequest -> Draft) -- DELETE retracts one and PUT replaces one. `factType` is the resource name `actions`, `schema` and the fact types' GETs give; `fact` is the role players in role order.",
+      inputSchema: { type: "object", properties: {
+        app: appArg(),
+        factType: { type: "string", description: "the fact type's resource name, as `actions` names it: AdminAcceptsSupportRequest" },
+        method: { type: "string", enum: ["GET", "POST", "DELETE", "PUT"], description: "GET reads, POST asserts, DELETE retracts, PUT replaces" },
+        fact: { type: "array", description: "the role players, in role order" },
+        caller: { type: "string", description: "who is calling; gates which controls are shown" } },
+      required: ["app", "factType", "method"] } },
   ].concat(withApp);
 }
 
@@ -790,8 +819,31 @@ async function handle(msg) {
       return started ? text(msg.id, started) : text(msg.id, r.name + " is " + r.status() + "; wait for `apps` to report it", true);
     }
     if (r.ready) await r.ready;              // this app's boot, not every app's
-    try { return reply(msg.id, await r.request("tools/call", { name: p.name, arguments: args })); }
+    let name = p.name;
+    if (name === "fact") {
+      name = String(args.factType || "");
+      delete args.factType;
+      if (!r.tools.some((t) => t.name === name && !isVerb(t))) {
+        return text(msg.id, "no fact type named " + JSON.stringify(name) + " in " + r.name
+          + ": `actions` on an entity names the fact types its transitions take, and `schema` names them all", true);
+      }
+    }
+    let out;
+    try { out = await r.request("tools/call", { name, arguments: args }); }
     catch (e) { return text(msg.id, String(e.message), true); }
+    // AN ANSWER THE CONNECTION CANNOT CARRY IS REFUSED WITH ITS SIZE (2026-09-24).
+    // schema on support is 35.7 million characters, cells 34.2 million, and rmap
+    // as much: each one closed the SESSION's connection -- every tool gone from
+    // it until /mcp -- while the daemon and the apps went on (pm.auto.dev and
+    // support.auto.dev, the same day). A session reads a small part of such an
+    // answer at best, so it is told what the answer was and to ask for a part.
+    const size = out && Array.isArray(out.content) ? out.content.reduce((n, c) => n + String((c && c.text) || "").length, 0) : 0;
+    if (size > MAX_ANSWER) {
+      return text(msg.id, p.name + " on " + r.name + " answered " + size.toLocaleString("en-US")
+        + " characters, more than one message to a session carries (" + MAX_ANSWER.toLocaleString("en-US")
+        + "): ask for a part -- `get` one entity, `actions` on it, one fact type through `fact` with GET", true);
+    }
+    return reply(msg.id, out);
   }
   if (msg.id === undefined) return null;
   return fail(msg.id, "unknown method: " + msg.method);
