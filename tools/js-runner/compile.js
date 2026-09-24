@@ -496,13 +496,61 @@ if (!out && !outDir) {
   // store cannot yet tell us, because its schema is spliced into the module
   // rather than carried in the database. So this counts and names those tables
   // and REFUSES; it does not guess. AREST_MIGRATE=allow-loss says drop them.
+  //
+  // AND THE LEDGER IS BACK, BECAUSE THE PREMISE ABOVE IS FALSE (2026-09-24). The
+  // build beside us is what the readings assert NOW; what the prior store holds
+  // and it does not is what the runtime wrote OR what the readings asserted
+  // BEFORE, and the carry could not tell them apart. It runs before the closure,
+  // too, so every build carried the previous closure's whole answer forward as
+  // runtime rows -- 55,012 on support's rebuild today -- and when a reading went,
+  // its rows stayed: support's store kept the roles, the Event Type and Fact
+  // Type instances and the subtype links of fact types its readings no longer
+  // declare (894 rows, one runtime case among 86,902), and every create was
+  // refused on 355 alethic violations the closure raised over them. So the
+  // build records, in `_asserted`, every row it and its closure asserted -- all
+  // of them but the ones this carry brought back -- and the next build asks it:
+  // a prior row the ledger holds is the READINGS', and is superseded when this
+  // build does not assert it; a prior row it does not hold is the RUNTIME's, and
+  // is carried, or refused for a Migration if it would be lost. A store with no
+  // ledger is read as before, every row the runtime's -- which is why a store
+  // that already carries such rows is made honest ONCE, by a build over a prior
+  // that holds only its runtime rows (227c4422's own finding, the first time).
   let carried = 0, filled = 0, reflectedSkipped = 0, moved = 0, tCarry = 0, tCarryReflect = 0, tCarryRows = 0;
+  let superseded = 0, priorLedger = null;
+  // A ROW AS THE LEDGER SPELLS IT: its filled columns by name, in the table's
+  // column order. A Function row is 301 columns of which three or four hold
+  // anything, so the empty ones are left out rather than written as null.
+  const ledgerRow = (names, row) => { const o = {}; for (const nm of names) { const v = row[nm]; if (v !== null && v !== undefined) o[nm] = v; } return JSON.stringify(o); };
+  // what this carry brought back, by table: by key where the row had one, whole
+  // where it did not -- the rows the ledger written below leaves out
+  const carriedKeys = new Map(), carriedRows = new Map();
   const movedFts = new Map();
   const orphaned = [];
   const rekeyed = [];
   if (existsSync(out)) {
     const tCarryStart = Date.now();
     const prior = new Database(out, { readonly: true });
+    priorLedger = null;
+    try {
+      if (prior.prepare("select 1 from sqlite_master where type = 'table' and name = '_asserted'").get()) {
+        priorLedger = new Map();
+        for (const r of prior.prepare('select "tbl", "row" from "_asserted"').values()) {
+          let set = priorLedger.get(r[0]); if (!set) priorLedger.set(r[0], (set = new Set()));
+          set.add(r[1]);
+        }
+      }
+    } catch (e) { console.error("  (the prior store's ledger could not be read -- " + e.message + " -- every prior row is the runtime's, as before)"); priorLedger = null; }
+    // the rows of a prior table (under `where`) that the ledger does not hold --
+    // all of them when there is no ledger -- and those it does are superseded
+    const runtimeCount = (table, cols, where) => {
+      const names = cols.map((o) => o.name);
+      const all = prior.prepare('select ' + names.map(qi).join(',') + ' from ' + qi(table) + (where ? ' where ' + where : '')).all();
+      const held = priorLedger && priorLedger.get(table);
+      if (!held) return all.length;
+      let n = 0;
+      for (const r of all) if (!held.has(ledgerRow(names, r))) n++;
+      return n;
+    };
     const shapeOf = (d) => {
       const m = new Map();
       for (const t of d.prepare("select name from sqlite_master where type='table'").all()) {
@@ -561,7 +609,8 @@ if (!out && !outDir) {
     for (const [table, oldCols] of was) {
       const newCols = now.get(table);
       if (!newCols) {
-        const n = prior.prepare('select count(*) c from ' + qi(table)).get().c;
+        const all = prior.prepare('select count(*) c from ' + qi(table)).get().c;
+        const n = all ? runtimeCount(table, oldCols) : 0;
         if (n) orphaned.push({ table, rows: n, why: 'the build declares no such table' });
         continue;
       }
@@ -628,7 +677,8 @@ if (!out && !outDir) {
       // layout of the same name (compile-store.js's k + fact-type-name columns
       // against canon's role-named ones), and its rows are orphaned whole.
       if (!keep.length) {
-        const n = prior.prepare('select count(*) c from ' + qi(table)).get().c;
+        const all = prior.prepare('select count(*) c from ' + qi(table)).get().c;
+        const n = all ? runtimeCount(table, oldCols) : 0;
         if (n) orphaned.push({ table, rows: n, why: 'no column of the prior table survives in the build' });
         continue;
       }
@@ -656,7 +706,8 @@ if (!out && !outDir) {
       const orders = (cs) => cs.length <= 1 ? [cs]
         : cs.flatMap((c2, i) => orders(cs.filter((_, j) => j !== i)).map((rest) => [c2, ...rest]));
       for (const d2 of dropped) {
-        const n = prior.prepare('select count(*) c from ' + qi(table) + ' where ' + qi(d2) + ' is not null').get().c;
+        const all = prior.prepare('select count(*) c from ' + qi(table) + ' where ' + qi(d2) + ' is not null').get().c;
+        const n = all ? runtimeCount(table, oldCols, qi(d2) + ' is not null') : 0;
         if (!n) continue;
         const candidate = priorPk.length === 1 && priorPk[0] === d2
           && buildPk.length > 0 && buildPk.length <= 4 && buildPk.every((c2) => keep.includes(c2))
@@ -705,16 +756,30 @@ if (!out && !outDir) {
       // one UPDATE per column, prepared once, not once per filled value
       const fills = new Map();
       const fill = (v) => { let s = fills.get(v); if (!s) { s = db.prepare('update ' + qi(table) + ' set ' + qi(v) + '=? where ' + wherePk); fills.set(v, s); } return s; };
-      for (const row of prior.prepare('select ' + cols + ' from ' + qi(table)).all()) {
+      const priorNames = oldCols.map((o) => o.name);
+      const held = priorLedger && priorLedger.get(table);
+      let ck = carriedKeys.get(table), cr = carriedRows.get(table);
+      if (!ck) carriedKeys.set(table, (ck = { pk, keys: new Set() }));
+      if (!cr) carriedRows.set(table, (cr = { cols: keep, rows: new Set() }));
+      for (const row of prior.prepare('select ' + priorNames.map(qi).join(',') + ' from ' + qi(table)).all()) {
+        // the readings' own row: superseded when this build does not say it, and
+        // never a source of values for cells this build left empty
+        const isHeld = held ? held.has(ledgerRow(priorNames, row)) : false;
         const k = pk.map((n2) => row[n2]);
         const keyed = pk.length && k.every((v) => v !== null && v !== undefined);
         if (!keyed) {
           if (seen(row)) continue;   // the build already says it
-          try { add.run(...keep.map((n2) => row[n2])); carried++; present.add(keyOf(row)); } catch { /* the build refuses it */ }
+          if (isHeld) continue;
+          try { add.run(...keep.map((n2) => row[n2])); carried++; present.add(keyOf(row)); cr.rows.add(keyOf(row)); } catch { /* the build refuses it */ }
           continue;
         }
         const here = findPk ? findPk.get(...k) : null;
-        if (!here) { try { add.run(...keep.map((n2) => row[n2])); carried++; } catch { /* the build refuses it */ } continue; }
+        if (!here) {
+          if (isHeld) continue;
+          try { add.run(...keep.map((n2) => row[n2])); carried++; ck.keys.add(JSON.stringify(k)); } catch { /* the build refuses it */ }
+          continue;
+        }
+        if (isHeld) continue;
         for (const v of vals) {
           if (here[v] !== null && here[v] !== undefined) continue;   // the readings say something: they win
           if (row[v] === null || row[v] === undefined) continue;     // the runtime said nothing either
@@ -749,7 +814,7 @@ if (!out && !outDir) {
               continue;
             }
           }
-          try { fill(v).run(row[v], ...k); filled++; }
+          try { fill(v).run(row[v], ...k); filled++; ck.keys.add(JSON.stringify(k)); }
           catch { /* the build refuses it */ }
         }
       }
@@ -805,12 +870,45 @@ if (!out && !outDir) {
   const sdb = storeDb();
   if (sdb) sdb.close(true);
   console.log("closure: " + closed + " row(s) written into the build (" + (Date.now() - t4) + " ms)");
+  // THE LEDGER: every row of the build but the ones the carry brought back
+  // (by key, or whole where a row had no key) -- the readings' rows and the
+  // closure's, which the next build supersedes when it no longer asserts them.
+  const tLedger = Date.now();
+  let ledgered = 0;
+  {
+    const ldb = new Database(build);
+    ldb.exec('create table if not exists "_asserted" ("tbl" text not null, "row" text not null, primary key ("tbl", "row")) without rowid');
+    ldb.exec("begin");
+    const put = ldb.prepare('insert or ignore into "_asserted" ("tbl", "row") values (?, ?)');
+    for (const t of ldb.prepare("select name from sqlite_master where type = 'table'").values()) {
+      const table = String(t[0]);
+      if (table.startsWith("_")) continue;
+      const names = ldb.prepare('pragma table_info(' + qi(table) + ')').all().map((c) => c.name);
+      const ck = carriedKeys.get(table), cr = carriedRows.get(table);
+      const was = priorLedger && priorLedger.get(table);
+      for (const row of ldb.prepare('select ' + names.map(qi).join(',') + ' from ' + qi(table)).all()) {
+        const spelled = ledgerRow(names, row);
+        if (was) was.delete(spelled);   // still asserted, or still here: not superseded
+        if (ck && ck.keys.size && ck.keys.has(JSON.stringify(ck.pk.map((c) => (row[c] === undefined ? null : row[c]))))) continue;
+        if (cr && cr.rows.size && cr.rows.has(JSON.stringify(cr.cols.map((c) => (row[c] === undefined ? null : row[c]))))) continue;
+        put.run(table, spelled);
+        ledgered++;
+      }
+    }
+    // what the last ledger held and the finished build does not hold at all --
+    // including every row of a table the build no longer has
+    if (priorLedger) for (const set of priorLedger.values()) superseded += set.size;
+    ldb.exec("commit");
+    ldb.close(true);
+  }
+  console.log("ledger: " + ledgered + " row(s) the readings and the closure assert (" + (Date.now() - tLedger) + " ms)");
   renameSync(build, out);
   console.log("store: " + n + " tables, " + inserted + " rows at " + out
     + ", schema " + schemaHash
     + ", metaschema " + metarows + " column(s) (" + tMetaMs + " ms)"
     + (refused ? ", " + refused + " REFUSED BY SQLITE" : "")
     + (carried || filled ? " [" + carried + " runtime row(s) carried, " + filled + " value(s) filled]" : "")
+    + (superseded ? " [" + superseded + " row(s) superseded: the last build asserted them and this one does not]" : "")
     + (reflectedSkipped ? " [" + reflectedSkipped + " reflected row(s) left to the closure]" : "")
     + (moved ? " [" + moved + " value(s) NOT carried: the build already asserts the same fact with the"
         + " roles the other way -- " + [...movedFts].map((e) => e[0] + " " + e[1]).join(", ") + "]" : "")

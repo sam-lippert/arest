@@ -1501,6 +1501,105 @@ test("the carry leaves a reflected row to the closure instead of keeping it", ()
   }
 }, 300_000);
 
+// ---- AND WHAT THE READINGS STOP SAYING GOES, WHAT THE RUNTIME WROTE STAYS -----
+//
+// The carry read every row the prior store holds and the build does not as a
+// runtime row, and it runs before the closure, so every build carried the last
+// closure's whole answer forward as well. When a reading went, its rows stayed:
+// support.auto.dev's store (2026-09-24) kept the roles, Event Type and Fact Type
+// instances and subtype links of fact types its readings no longer declare, and
+// every create was refused on the 355 violations the closure raised over them;
+// and a fact type whose column went refused the rebuild outright, calling the
+// readings' own value a runtime fact about to be lost. The build now records
+// what it and its closure asserted (`_asserted`) and the next one reads it. So:
+// a probe domain built once; a row written into its store as the runtime would;
+// the readings then drop a fact type -- its column, its instance fact and every
+// metamodel row about it -- and the rebuild must neither refuse nor keep them,
+// must keep the runtime row, and a rebuild with nothing changed must carry that
+// row alone. Failing at 7d192bbc: `REFUSING ... Widget.color`, and the 27 rows
+// naming WidgetHasColor still there.
+test("a rebuild supersedes what the last build asserted and carries only what the runtime wrote", () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-ledger-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  const metamodel = join(import.meta.dir, "..", "..", "metamodel");
+  const templates = join(import.meta.dir, "..", "..", "readings", "templates");
+  const app = join(dir, "app");
+  mkdirSync(app);
+  const path = join(dir, "store.db");
+  const readings = (withColor) => [
+    "# Widgets", "",
+    "A probe domain for the carry: one entity type, two functional fact types.", "",
+    "## Entity Types", "", "Widget(.id) is an entity type.", "",
+    "## Value Types", "", ...(withColor ? ["Color is a value type."] : []), "Size is a value type.", "",
+    "## Fact Types", "",
+    ...(withColor ? ["Widget has Color.", "  Each Widget has at most one Color."] : []),
+    "Widget has Size.", "  Each Widget has at most one Size.", "",
+    "## Instance Facts", "",
+    ...(withColor ? ["Widget 'w1' has Color 'red'."] : []),
+    "Widget 'w1' has Size 'S'.", "",
+    "Domain 'widgets' has Description 'A probe domain for the carry.'.", "",
+  ].join("\n");
+  const build = () => {
+    const p = Bun.spawnSync(["bun", compiler, metamodel, templates, app],
+      { env: { ...process.env, AREST_DB: path }, stdout: "pipe", stderr: "pipe" });
+    return { code: p.exitCode, out: p.stdout.toString() + p.stderr.toString() };
+  };
+  const naming = (needle) => {
+    const db = new Database(path, { readonly: true });
+    let n = 0;
+    for (const [t] of db.query("select name from sqlite_master where type = 'table'").values()) {
+      if (String(t).startsWith("_")) continue;
+      const cols = db.query("select name from pragma_table_info(?)").values(t).map((r) => String(r[0]));
+      if (!cols.length) continue;
+      n += db.query("select count(*) n from " + quo(t) + " where " + cols.map((c) => quo(c) + " like ?").join(" or "))
+        .get(...cols.map(() => "%" + needle + "%")).n;
+    }
+    db.close(true);
+    return n;
+  };
+  const widgets = () => {
+    const db = new Database(path, { readonly: true });
+    const rows = db.query('select * from "Widget" order by "widgetId"').values();
+    db.close(true);
+    return JSON.stringify(rows);
+  };
+  try {
+    writeFileSync(join(app, "widgets.md"), readings(true));
+    const first = build();
+    expect(first.code, first.out).toBe(0);
+    expect(first.out).toMatch(/ledger: [1-9]\d* row\(s\)/);
+    expect(naming("WidgetHasColor")).toBeGreaterThan(0);
+    expect(widgets()).toBe(JSON.stringify([["w1", "red", "S"]]));
+
+    // what the runtime wrote: a widget of its own, with a size
+    {
+      const db = new Database(path);
+      db.run('insert into "Widget" ("widgetId", "size") values (?, ?)', ["w-rt", "L"]);
+      db.run("pragma wal_checkpoint(TRUNCATE)");
+      db.close(true);
+    }
+
+    // the readings stop saying anything about color
+    writeFileSync(join(app, "widgets.md"), readings(false));
+    const second = build();
+    expect(second.code, second.out).toBe(0);
+    expect(second.out).not.toContain("REFUSING");
+    expect(second.out).toMatch(/\[1 runtime row\(s\) carried/);
+    expect(second.out).toMatch(/\[[1-9]\d* row\(s\) superseded/);
+    expect(naming("WidgetHasColor")).toBe(0);
+    expect(widgets()).toBe(JSON.stringify([["w-rt", "L"], ["w1", "S"]]));
+
+    // and nothing changed: the runtime row alone is carried, nothing superseded
+    const third = build();
+    expect(third.code, third.out).toBe(0);
+    expect(third.out).toMatch(/\[1 runtime row\(s\) carried/);
+    expect(third.out).not.toContain("superseded");
+    expect(widgets()).toBe(JSON.stringify([["w-rt", "L"], ["w1", "S"]]));
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 300_000);
+
 // ---- AND DOES IT REFUSE TO SAY THE SAME FACT TWICE WHEN A PLACEMENT MOVED? -
 //
 // The carry's two branches did not ask the same question. The unkeyed one asks
@@ -1829,18 +1928,32 @@ test("a retired surrogate is not a lost fact, and a value the new key cannot rec
     expect(wasRows).toEqual([["cd1.jan", "cd1", "jan"], ["cd2.feb", "cd2", "feb"]]);
 
     // RETIRED: every value is the new key joined on a dot, so the column goes
-    // and every row is keyed on the pair it always named
-    const ok = store("ok");
+    // and every row is keyed on the pair it always named. A store the build
+    // wrote before the ledger (2026-09-24) holds no `_asserted`, and every
+    // store in use is one until it is rebuilt once, so this is that store: it
+    // is the carry's own test of the surrogate that has to decide it.
+    const ok = store("ok", 'drop table "_asserted"');
     const r1 = compile(next, ok);
     expect(r1.code).toBe(0);
     expect(r1.text).toContain("re-keyed CompactDiscWasListedInMonth on (compactDiscNr, monthCode)");
-    const now = new Database(join(ok, "store.db"), { readonly: true });
-    const cols = now.prepare('pragma table_info("CompactDiscWasListedInMonth")').all();
-    const rows = now.prepare('select compactDiscNr, monthCode from "CompactDiscWasListedInMonth" order by 1').values();
-    now.close(true);
-    expect(cols.map((c) => c.name).sort()).toEqual(["compactDiscNr", "monthCode"]);
-    expect(cols.filter((c) => c.pk).map((c) => c.name).sort()).toEqual(["compactDiscNr", "monthCode"]);
-    expect(rows).toEqual([["cd1", "jan"], ["cd2", "feb"]]);
+    const keyed = (out) => {
+      const now = new Database(join(out, "store.db"), { readonly: true });
+      const cols = now.prepare('pragma table_info("CompactDiscWasListedInMonth")').all();
+      const rows = now.prepare('select compactDiscNr, monthCode from "CompactDiscWasListedInMonth" order by 1').values();
+      now.close(true);
+      expect(cols.map((c) => c.name).sort()).toEqual(["compactDiscNr", "monthCode"]);
+      expect(cols.filter((c) => c.pk).map((c) => c.name).sort()).toEqual(["compactDiscNr", "monthCode"]);
+      expect(rows).toEqual([["cd1", "jan"], ["cd2", "feb"]]);
+    };
+    keyed(ok);
+
+    // AND A LEDGERED STORE NEEDS NO SUCH TEST: the last build asserted every
+    // surrogate value, so they are superseded, and the table comes out the same
+    const ledgered = store("ledgered");
+    const r0 = compile(next, ledgered);
+    expect(r0.code).toBe(0);
+    expect(r0.text).toMatch(/row\(s\) superseded/);
+    keyed(ledgered);
 
     // REFUSED: an opaque value is a fact the new key cannot recompute
     const opaque = store("opaque", "update CompactDiscWasListedInMonth set compactDiscWasListedInMonthId = 'x-' || compactDiscNr");
