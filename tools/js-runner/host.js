@@ -1967,7 +1967,9 @@ function profReport(label) {
   // into a task, once per session; `Function has Runtime of Milliseconds in JS
   // Package` (apps/arest-dev/readings/build-surface.md) is where they belong, so
   // "what is slow, and does it scale" becomes a query over corpora rather than a
-  // measurement repeated by hand. AREST_PROFILE_FACTS names the file and
+  // measurement repeated by hand. That vocabulary went to apps/archive with
+  // arest-dev on 2026-09-23, so no served corpus reads these facts until an app
+  // composes it again. AREST_PROFILE_FACTS names the file and
   // AREST_PROFILE_PACKAGE the store's package; absent, nothing is written and
   // this stays exactly the debug aid it has always been.
   const factPath = process.env.AREST_PROFILE_FACTS;
