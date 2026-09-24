@@ -174,6 +174,31 @@ test("a memoised name that is never given an answer back is applied bare, and an
   }
 });
 
+
+// THE INSTANCE-OF INDEX IN ONE PASS IS THE INDEX THE FOLD BUILDS (2026-09-24).
+// store:otpops was 17.7 s of support's 22.7 s start -- a right fold whose every
+// step flattened, searched and copied a type's whole instance list -- and its
+// twin builds the same value in one pass: 27 ms and byte-identical on support's
+// 24,050 rows. The DEF's body evaluated as a FORM never reaches the twin, which
+// is looked up by the name, so the two can be held against each other here on
+// every shape the fold treats differently: a new instance of a known type, one
+// already there (the entry keeps its own shape), a type met for the first time
+// (a new chunk at the end), the same type on entries in two chunks, an entry
+// whose instances are flat and one whose are wrapped, and the rows' own order,
+// which the fold reads last-first.
+test("the instance-of index built in one pass is the index the fold builds", () => {
+  const { DEFS } = globalThis.AREST;
+  const prior = [[["Person", ["p1", "p2"]], ["Car", ["c1"]]], [["Person", [["p9"]]]], [["Dog", [["d1", "d2"]]]]];
+  const cells = [["CELL", "state:otpops", prior]];
+  const rows = [["p3", "Person"], ["c1", "Car"], ["b1", "Boat"], ["p1", "Person"], ["b2", "Boat"],
+    ["d3", "Dog"], ["b1", "Boat"], ["p9", "Person"], ["x1", "Cat"], ["p3", "Person"]];
+  const twin = Ev("store:otpops", [rows, cells]);
+  const def = Ev(DEFS.get("store:otpops"), [rows, cells]);
+  expect(JSON.stringify(twin)).toBe(JSON.stringify(def));
+  // and nothing at all to fold is the prior index itself
+  expect(JSON.stringify(Ev("store:otpops", [[], cells]))).toBe(JSON.stringify(Ev(DEFS.get("store:otpops"), [[], cells])));
+});
+
 // ---- DOES CANON'S RELATIONAL MAPPING PROJECT TO A REAL DATABASE? -----------
 //
 // rmap:ddl renders the mapping as CREATE TABLE. Asserting the text against a
