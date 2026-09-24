@@ -58,6 +58,17 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
+// THE REAL BUN, AND NO WINDOW (Sam, 2026-09-24: "a shell pops up when I start the
+// mcp"). `bun` on this machine is chocolatey's launcher, which starts the real
+// bun.exe as ITS child, and a flag given to the launcher does not reach that child.
+// The daemon was spawned detached through it, so the launcher had no console, the
+// real bun it started got a new one, and Windows handed that console to Windows
+// Terminal: measured at the MCP's start (conhost for the daemon's bun, then
+// OpenConsole under svchost, 08:14:52) and again for a scratch router on another
+// port (08:23:02). So every bun this file starts is process.execPath -- the bun
+// running it, the real one -- and every child is started with windowsHide, since
+// a detached daemon has no console of its own for them to inherit.
+const BUN = process.execPath;
 const NL = "\n";
 // ONE ROUTER FOR EVERY SESSION (Sam, 2026-09-21: "The MCP should be able to
 // host all apps at the same time and be non-blocking"). This file runs in two
@@ -187,7 +198,7 @@ class Registry {
     const had = existsSync(this.db);
     if (had && !this.staleness()) return;
     const why = had ? "its readings are newer than the store" : "there was no store";
-    const r = spawnSync("bun", ["run", "--silent", "check"], { cwd: this.pkg, env: { ...process.env, AREST_DB: this.db }, encoding: "utf8" });
+    const r = spawnSync(BUN, ["run", "--silent", "check"], { cwd: this.pkg, env: { ...process.env, AREST_DB: this.db }, encoding: "utf8", windowsHide: true });
     const out = String(r.stderr || "") + NL + String(r.stdout || "") + (r.error ? NL + String(r.error.message) : "");
     this.built = r.status === 0
       ? "built at start because " + why + ": " + (lastLines(String(r.stdout || ""), 1) || lastLines(out, 1))
@@ -279,7 +290,7 @@ function run(args, cwd, extraEnv) {
     const keep = (chunk) => { tail = (tail + String(chunk)).slice(-6000); };
     let p;
     try {
-      p = spawn("bun", args, { cwd, env: { ...process.env, ...(extraEnv || {}) }, stdio: ["ignore", "pipe", "pipe"] });
+      p = spawn(BUN, args, { cwd, env: { ...process.env, ...(extraEnv || {}) }, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     } catch (e) { resolve({ code: -1, tail: String(e.message) }); return; }
     p.stdout.on("data", keep);
     p.stderr.on("data", keep);
@@ -342,7 +353,7 @@ class Resident {
       if (process.platform === "win32") {
         const ps = spawnSync("powershell", ["-NoProfile", "-NonInteractive", "-Command",
           "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine.Replace('/','\\').Contains($env:AREST_REAP_MARKER) } | ForEach-Object { $_.ProcessId }"],
-          { env: { ...process.env, AREST_REAP_MARKER: marker }, encoding: "utf8", timeout: 20000 });
+          { env: { ...process.env, AREST_REAP_MARKER: marker }, encoding: "utf8", timeout: 20000, windowsHide: true });
         pids = String(ps.stdout || "").split(/\s+/).filter((s) => /^\d+$/.test(s)).map(Number);
       } else {
         const pg = spawnSync("pgrep", ["-f", marker], { encoding: "utf8", timeout: 20000 });
@@ -352,7 +363,7 @@ class Resident {
     pids = pids.filter((p) => p !== process.pid);
     for (const p of pids) {
       try {
-        if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(p), "/T", "/F"], { stdio: "ignore" });
+        if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(p), "/T", "/F"], { stdio: "ignore", windowsHide: true });
         else process.kill(p, "SIGKILL");
       } catch { /* already gone */ }
     }
@@ -386,13 +397,14 @@ class Resident {
       this.ready = Promise.resolve();
       return;
     }
-    const child = spawn("bun", [module], {
+    const child = spawn(BUN, [module], {
       env: { ...process.env, AREST_CARRIERS: this.dir, AREST_OUT_DIR: this.dir, AREST_STORE_DB: this.dir + "/store.db" },
       stdio: ["pipe", "pipe", "pipe"],
       // its own process group where a group can be signalled, so stop() below
       // can reach the whole tree; on Windows detached would open a console, and
       // taskkill /T walks the tree instead.
       detached: process.platform !== "win32",
+      windowsHide: true,
     });
     this.child = child;
     child.stdout.setEncoding("utf8");
@@ -444,7 +456,7 @@ class Resident {
     this.pending.clear();
     if (!child) return;
     try {
-      if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+      if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
       else process.kill(-child.pid, "SIGKILL");         // the group spawn() detached it into
     } catch { /* already gone, or never started */ }
     try { child.kill(); } catch {}
@@ -867,7 +879,7 @@ function shim() {
       if (e && e.code !== "ECONNREFUSED") { process.stderr.write("router: " + e.message + NL); process.exit(1); }
       if (!spawned) {
         spawned = true;
-        const d = spawn("bun", [fileURLToPath(import.meta.url), "--daemon"], { env: process.env, detached: true, stdio: "ignore", windowsHide: true });
+        const d = spawn(BUN, [fileURLToPath(import.meta.url), "--daemon"], { env: process.env, detached: true, stdio: "ignore", windowsHide: true });
         d.unref();
         process.stderr.write("router: started the daemon (pid " + d.pid + ") on 127.0.0.1:" + PORT + "; its log is " + LOG + NL);
       }
