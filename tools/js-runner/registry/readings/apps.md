@@ -84,11 +84,18 @@ App has Serving Status.
 
 <!-- The six residents AREST_APPS named on 2026-09-22, in the order it named
      them. claude, memory and lyr-1: apps/claude IS the composition; memory and
-     lyr-1 are libraries with no App of their own, so neither appears here. -->
+     lyr-1 are libraries with no App of their own, so neither appears here.
+     On 2026-09-23 arest-dev went to apps/archive with paper and engine, the two
+     libraries only it composed: no session but one had asked it anything since
+     the router began, and its store held nothing the runtime wrote. The one live
+     thing it served was the punchlist, so tasks takes its place as an App of its
+     own, parallel to claude rather than inside it: a punchlist edit then checks
+     28 tasks in 32 s instead of claude's whole corpus, and a bad sentence in it
+     cannot stop the memory store from building. -->
 
 App 'claude' has Package Directory 'C:/Users/me/Repos/apps/claude'.
 
-App 'arest-dev' has Package Directory 'C:/Users/me/Repos/apps/arest-dev'.
+App 'tasks' has Package Directory 'C:/Users/me/Repos/apps/tasks'.
 
 App 'support' has Package Directory 'C:/Users/me/Repos/apps/support.example.dev'.
 
