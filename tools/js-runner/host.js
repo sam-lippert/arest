@@ -1251,6 +1251,50 @@ const FASTPRIMS = new Map(Object.entries({
   // boot sampled at apndl 34% and apndr 17% of self inside ui:replay (the
   // profile-and-fix loop, 2026-09-08). The VALUE is one pass; the selector on
   // a cell without a name throws where the fold's predicate threw at it.
+  // store:otpops <rows, store> folds the instance-of rows into state:otpops, the
+  // index ui:ids reads (the mandatory check, the entry screen, the machines'
+  // seeding). The DEF is INSERT ui:otpops_cell over the rows swapped to
+  // <type, instance> with the prior index last, so the LAST row goes in first;
+  // for each, a type the index has puts the instance on every entry of that type
+  // that lacks it -- the entry becoming <type, <atoms of its instances, then
+  // it>>, while an entry that already holds it, or is of another type, is
+  // itself -- and a type it has not gets a new chunk <<type, <<instance>>>> at
+  // the end. Each step flattened, searched and copied the entry's whole list, so
+  // a type with n instances cost n squared: support's 24,050 rows were 17.7 s of
+  // a 22.7 s start (2026-09-24). This is the same value in one pass -- each
+  // entry unfolded once when first reached, a set for membership, the list
+  // appended in place -- and AREST_NOTWIN=store:otpops gives the DEF's own.
+  "store:otpops": x => { const rows = seq(at(x, 0)), cells = at(x, 1);
+    const prior = Ev("solve:cell", ["state:otpops", cells]);
+    const key = (v) => JSON.stringify(v);
+    const byType = new Map();
+    const chunks = seq(prior).map((ch) => seq(ch).map((e) => {
+      const rec = { entry: e, type: at(e, 0), atoms: null, set: null, grown: false };
+      const k = key(rec.type);
+      if (!byType.has(k)) byType.set(k, []);
+      byType.get(k).push(rec);
+      return rec; }));
+    for (let n = rows.length - 1; n >= 0; n--) {
+      const type = at(rows[n], 1), inst = at(rows[n], 0), ik = key(inst);
+      const recs = byType.get(key(type));
+      if (recs === undefined) {
+        const rec = { entry: null, type, atoms: [inst], set: new Set([ik]), grown: true };
+        chunks.push([rec]);
+        byType.set(key(type), [rec]);
+        continue;
+      }
+      for (const rec of recs) {
+        if (rec.atoms === null) {
+          rec.atoms = seq(Ev("theta:unfold_atoms", at(rec.entry, 1))).slice();
+          rec.set = new Set(rec.atoms.map(key));
+        }
+        if (rec.set.has(ik)) continue;
+        rec.atoms.push(inst);
+        rec.set.add(ik);
+        rec.grown = true;
+      }
+    }
+    return chunks.map((ch) => ch.map((rec) => rec.grown ? [rec.entry === null ? rec.type : at(rec.entry, 0), [rec.atoms]] : rec.entry)); },
   "store:drop_cell": x => { const name = at(x, 0), cells = seq(at(x, 1));
     const out = [];
     for (let i = 0; i < cells.length; i++) {
