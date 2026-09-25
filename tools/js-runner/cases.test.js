@@ -1402,6 +1402,49 @@ test("get over a store read from its tables reads the rows that name the id, and
   }
 }, 240_000);
 
+// ---- A SEMI-DERIVED HEAD WITH ONE RUNTIME ROW STILL GETS THE REST --------------
+//
+// support.auto.dev, 2026-09-25: its rebuild carried ONE World Assumption row as runtime
+// (Integration's: a runtime write had moved its domain, so the row no longer matched
+// the ledger and was carried whole), the closure then found the head already
+// holding a cell and skipped it, and the build asserted 1 world
+// assumption where 1,549 are true -- every create was refused on the mandatory. So:
+// compile the metamodel to a store, turn one object type's row into a runtime row (its
+// ledger entry gone, every other world assumption cleared, as a prior store holding
+// only that one would have them), and compile again over it. Every object type must
+// have its world assumption back, and the runtime row keeps its own value. Failing at
+// 09b7bad0: only the runtime row's object type has one.
+test("a semi-derived head with one runtime row still has the rest derived at compile", () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-semi-"));
+  const store = join(dir, "store.db");
+  const compile = () => Bun.spawnSync(["bun", join(import.meta.dir, "compile.js"), join(import.meta.dir, "..", "..", "metamodel")], {
+    env: { ...process.env, AREST_DB: store, AREST_OUT_DIR: dir }, stdout: "pipe", stderr: "pipe" });
+  const count = () => { const db = new Database(store, { readonly: true });
+    try { return db.query("select count(objectTypeWorldAssumption) n from Function").get().n; } finally { db.close(true); } };
+  try {
+    const first = compile();
+    expect(first.exitCode, first.stdout.toString() + first.stderr.toString()).toBe(0);
+    const all = count();
+    expect(all).toBeGreaterThan(100);
+    const db = new Database(store);
+    const keep = db.query("select functionId, objectTypeWorldAssumption from Function where objectTypeWorldAssumption is not null order by functionId limit 1").get();
+    db.prepare("update Function set objectTypeWorldAssumption = null where functionId <> ?").run(keep.functionId);
+    const gone = db.prepare("delete from _asserted where tbl = 'Function' and row like ?").run('{"functionId":"' + keep.functionId + '",%').changes;
+    db.close(true);
+    expect(gone).toBe(1);
+    expect(count()).toBe(1);
+    const second = compile();
+    expect(second.exitCode, second.stdout.toString() + second.stderr.toString()).toBe(0);
+    expect(count()).toBe(all);
+    const back = new Database(store, { readonly: true });
+    try {
+      expect(back.query("select objectTypeWorldAssumption w from Function where functionId = ?").get(keep.functionId).w).toBe(keep.objectTypeWorldAssumption);
+    } finally { back.close(true); }
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 240_000);
+
 // ---- A STORE IS READ WHEN ASKED, AND READ ONCE -----------------------------
 //
 // A server over a store reads no rows at start (host.js, lazyStore): each

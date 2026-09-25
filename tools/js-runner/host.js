@@ -4450,6 +4450,26 @@ function loadDerived() {
       .filter((r) => String(r[1]) === "full" || String(r[1]) === "derived-and-stored")
       .map((r) => String(r[0])).filter((n) => STORE_TABLES.has(n)));
   } catch { owned = new Set(); }
+  // AND A SEMI-DERIVED HEAD WITH A CELL TAKES THE MERGE, IT IS NOT SKIPPED (2026-09-25,
+  // #122 item 4). `seen` below is presence, and for a `+` head presence is exactly the
+  // wrong test: derive:closed already answers the head MERGED -- every row the cell
+  // holds keeps its key, and a derived row fills each key no row claims (lambda's own
+  // note, "a semi-derived head merges, it does not choose") -- so a cell holding SOME
+  // rows was skipped with all of the rest thrown away. It took support.auto.dev's
+  // store down on 2026-09-25: its rebuild carried ONE World Assumption row as runtime --
+  // Integration's, whose domain a runtime write had moved, so the row no longer matched
+  // the ledger and was carried whole, derived columns and all -- the head then had a
+  // cell, the closure skipped it, and the ledger superseded the 1,533 rows the
+  // old build had asserted. 1 row of 1,549 was left, and every create was refused on
+  // `Each Object Type has some World Assumption` for 23 object types. So a semi head
+  // whose merge holds more than its cell takes the merge; one that holds no more is
+  // left alone.
+  let semi;
+  try {
+    semi = new Set(Ev("derive:sm_marks", CELLS)
+      .filter((r) => String(r[1]) === "semi" || String(r[1]) === "semi-derived")
+      .map((r) => String(r[0])));
+  } catch { semi = new Set(); }
 
   let added = 0;
   for (const entry of Ev("derive:closed", CELLS)) {
@@ -4476,8 +4496,14 @@ function loadDerived() {
         CELLS.splice(at, 1);
       }
     } else {
-      if (seen.has(name)) continue;                  // already its own cell
-      if ((carried.get(name) || 0) >= entry[1].length) continue;
+      if (seen.has(name)) {
+        if (!semi.has(name)) continue;               // already its own cell
+        const at = CELLS.findIndex((c) => Array.isArray(c) && String(c[0]) === "CELL" && String(c[1]) === name);
+        if (at < 0) continue;
+        const cur = CELLS[at][2];
+        if (Array.isArray(cur) && cur.length >= entry[1].length) continue;   // the merge adds nothing
+        CELLS.splice(at, 1);
+      } else if ((carried.get(name) || 0) >= entry[1].length) continue;
     }
     CELLS.unshift(["CELL", name, entry[1]]);
     DERIVED_NAMES.add(name);
