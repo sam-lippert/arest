@@ -2313,6 +2313,128 @@ test("a transition fired through the MCP server performs what it declares, dry, 
   }
 }, 300_000);
 
+// ---- AND A SOURCE IS FETCHED BY THE SERVER THAT SERVES IT -----------------------------
+//
+// `sync` handed only a Source answers the request its Connector declares; the MCP server makes it,
+// page by page, with the system's headers and only over a connection whose Send Mode is live, and
+// hands each page back to the same verb. So: a fake API on a local port answering two pages of
+// widgets, a probe domain declaring a Source over it (live) and a second Source over a system
+// armed 'dry', compiled, served by its own MCP module and synced as a session would. Failing at
+// ed60ff64: the server hands sync the Source alone, which answers the request and fetches nothing.
+test("sync through the MCP server fetches every page of a live Source, and a dry one fetches nothing", async () => {
+  const hits = [];
+  const api = Bun.serve({ port: 0, fetch(req) {
+    const u = new URL(req.url);
+    hits.push(u.pathname + u.search + " x-probe=" + (req.headers.get("x-probe") || ""));
+    const after = u.searchParams.get("starting_after");
+    return Response.json(!after
+      ? { object: "list", has_more: true, data: [{ id: "w_1", owner: { email: "A@X.com" } }, { id: "w_2", owner: { email: "b@y.com" } }] }
+      : { object: "list", has_more: false, data: [{ id: "w_3", owner: { email: "C@Z.com" } }] });
+  } });
+  const base = "http://127.0.0.1:" + api.port + "/v1";
+  const dir = mkdtempSync(join(tmpdir(), "arest-sync-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  const metamodel = join(import.meta.dir, "..", "..", "metamodel");
+  const app = join(dir, "app");
+  mkdirSync(app);
+  const path = join(dir, "store.db");
+  let server = null;
+  try {
+    writeFileSync(join(app, "widgets.md"), [
+      "# Widgets", "",
+      "A probe domain for the fetch: a Source whose Connector reads pages of widgets.", "",
+      "## Entity Types", "", "Widget(.id) is an entity type.", "",
+      "## Value Types", "", "Owner Email is a value type.", "",
+      "## Fact Types", "",
+      "Widget has Owner Email.", "  Each Widget has at most one Owner Email.", "",
+      "## The connections", "",
+      "External System 'fake' has URL '" + base + "'.", "",
+      "External System 'fake' has Header 'x-probe' with Header Value 'yes'.", "",
+      "Domain 'widgets' connects to External System 'fake'.", "",
+      "DomainConnectsToExternalSystem 'widgets/fake' has Send Mode 'live'.", "",
+      "External System 'dryfake' has URL '" + base + "'.", "",
+      "Domain 'widgets' connects to External System 'dryfake'.", "",
+      "DomainConnectsToExternalSystem 'widgets/dryfake' has Send Mode 'dry'.", "",
+      "## The Sources", "",
+      "Source 'widgets-src' uses Connector 'listWidgets'.", "",
+      "Function 'listWidgets' is backed by External System 'fake'.", "",
+      "Function 'listWidgets' has callback URI '/widgets'.", "",
+      "Function 'listWidgets' is called with HTTP Method 'GET'.", "",
+      "Function 'listWidgets' has Query Parameter 'limit' with Parameter Value '2'.", "",
+      "Function 'listWidgets' reads rows at JSON Path '$.data'.", "",
+      "Function 'listWidgets' pages while JSON Path '$.has_more'.", "",
+      "Function 'listWidgets' pages by Query Parameter 'starting_after'.", "",
+      "Function 'listWidgets' pages from JSON Path '$.id'.", "",
+      "Function 'listWidgets' yields Fact Type 'Widget has Owner Email' with Role 'WidgetHasOwnerEmail.1' from JSON Path '$.id'.", "",
+      "Function 'listWidgets' yields Fact Type 'Widget has Owner Email' with Role 'WidgetHasOwnerEmail.2' from JSON Path '$.owner.email|lower'.", "",
+      "Source 'dry-src' uses Connector 'listDry'.", "",
+      "Function 'listDry' is backed by External System 'dryfake'.", "",
+      "Function 'listDry' has callback URI '/widgets'.", "",
+      "Function 'listDry' is called with HTTP Method 'GET'.", "",
+      "Function 'listDry' reads rows at JSON Path '$.data'.", "",
+      "Function 'listDry' yields Fact Type 'Widget has Owner Email' with Role 'WidgetHasOwnerEmail.1' from JSON Path '$.id'.", "",
+      "Function 'listDry' yields Fact Type 'Widget has Owner Email' with Role 'WidgetHasOwnerEmail.2' from JSON Path '$.owner.email'.", "",
+      "## Instance Facts", "",
+      "Domain 'widgets' has Description 'A probe domain for the fetch.'.", "",
+    ].join("\n"));
+    const c = Bun.spawnSync(["bun", compiler, metamodel, app],
+      { env: { ...process.env, AREST_DB: path, AREST_OUT_DIR: dir }, stdout: "pipe", stderr: "pipe" });
+    expect(c.exitCode, c.stdout.toString() + c.stderr.toString()).toBe(0);
+    const env = { ...process.env, AREST_CARRIERS: dir, AREST_OUT_DIR: dir };
+    delete env.AREST_INSTRUMENTED;
+    const b = Bun.spawnSync(["bun", "build.js", "mcp"], { cwd: import.meta.dir, env, stdout: "pipe", stderr: "pipe" });
+    expect(b.exitCode, b.stdout.toString() + b.stderr.toString()).toBe(0);
+    server = Bun.spawn(["bun", join(dir, "mcp.g.js")], {
+      env: { ...process.env, AREST_STORE_DB: path }, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
+    let err = "";
+    (async () => { for await (const chunk of server.stderr) err += new TextDecoder().decode(chunk); })();
+    const pending = new Map();
+    (async () => {
+      let buf = "";
+      for await (const chunk of server.stdout) {
+        buf += new TextDecoder().decode(chunk);
+        let i;
+        while ((i = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, i).trim();
+          buf = buf.slice(i + 1);
+          if (!line.startsWith("{")) continue;
+          try { const m = JSON.parse(line); if (m.id !== undefined && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } } catch { /* not a reply */ }
+        }
+      }
+    })();
+    let next = 0;
+    const send = (method, params) => new Promise((resolve) => {
+      const id = ++next;
+      pending.set(id, resolve);
+      server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+      server.stdin.flush();
+    });
+    const call = async (name, args) => {
+      const r = await send("tools/call", { name, arguments: args });
+      return (r.result && r.result.content || []).map((x) => x.text).join("");
+    };
+    await send("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "cases", version: "1" } });
+    // live: both pages, the second at the cursor the first answered, the system's header on each
+    const live = await call("sync", { args: ["widgets-src"] });
+    expect(live, err.slice(-2000)).toContain("page 2");
+    expect(hits).toEqual(["/v1/widgets?limit=2 x-probe=yes", "/v1/widgets?limit=2&starting_after=w_2 x-probe=yes"]);
+    const rows = await call("WidgetHasOwnerEmail", { method: "GET" });
+    for (const r of ['["w_1","a@x.com"]', '["w_2","b@y.com"]', '["w_3","c@z.com"]']) expect(rows).toContain(r);
+    // the same Source again: the service is asked again, and nothing new is asserted
+    const again = await call("sync", { args: ["widgets-src"] });
+    expect(again).toContain('["new",0]');
+    expect(hits.length).toBe(4);
+    // dry: the request is said, and nothing leaves
+    const dry = await call("sync", { args: ["dry-src"] });
+    expect(dry).toContain("dry -- would GET " + base + "/widgets");
+    expect(hits.length).toBe(4);
+  } finally {
+    if (server) server.kill();
+    api.stop(true);
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 300_000);
+
 // ---- AND A SERVER GIVES ITS MEMO BACK WHEN IT GOES IDLE --------------------
 //
 // The memo held most of a server's memory after a burst of calls and nothing

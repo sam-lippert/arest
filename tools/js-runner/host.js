@@ -3349,6 +3349,75 @@ function run_mcp() {
   // read here off mcp:verbs like every other verb's shape. No name in this file.
   const SAMPLED = new Set(VERBS.filter((v) => String(v[1]) === "completion-and-cells").map((v) => String(v[0])));
 
+  // AND A VERB WHOSE OPERAND IS A RESPONSE NEEDS ONE FETCHED (2026-09-25), which the model says the
+  // same way: the accepts row `response-and-cells`. `sync` handed a page is an ordinary verb call;
+  // handed only a Source it answers the REQUEST, and this makes it. The split is performDeclared's:
+  // lambda says what the call IS (the request through the verb, perform:headers_of,
+  // perform:auth_header_of), the connection says whether it may go out (its Send Mode, absent
+  // meaning not at all, 'dry' meaning say what would go) and carries its credential
+  // (perform:secret_of, decrypted here and nowhere else), and each page the service answers goes
+  // back through the same verb -- asserted in one step, emitted like any other write -- until the
+  // answer says there is no more or the cursor stops moving.
+  const FETCHED = new Set(VERBS.filter((v) => String(v[1]) === "response-and-cells").map((v) => String(v[0])));
+  async function fetchPages(name, args) {
+    const list = Array.isArray(args && args.args) ? args.args : [];
+    const x = list.length ? fromJson(list[0]) : [];
+    // a page passed with the call is the answer already in hand, as drive takes a passed completion
+    if (Array.isArray(x) && x.length > 3 && !(Array.isArray(x[3]) && x[3].length === 0)) return call(name, args);
+    const source = Array.isArray(x) ? (x.length ? x[0] : "") : x;
+    const bindings = Array.isArray(x) && x.length > 1 ? x[1] : [];
+    const fn = Ev("fed:connector", [source, CELLS]);
+    if (Array.isArray(fn)) return call(name, args);             // lambda refuses it, and says why
+    const modeRaw = Ev("perform:send_mode_of", [fn, CELLS]);
+    const mode = Array.isArray(modeRaw) ? "" : String(modeRaw);
+    const headers = {};
+    for (const hv of Ev("perform:headers_of", [fn, CELLS])) headers[String(hv[0])] = String(hv[1]);
+    const auth = Ev("perform:auth_header_of", [fn, CELLS]);
+    if (!Array.isArray(auth)) {
+      const cipher = Ev("perform:secret_of", [fn, CELLS]);
+      if (!Array.isArray(cipher)) {
+        const plain = Ev("hook:read", [String(process.env.AREST_MASTER_KEY || ""), "Secret Reference", String(cipher), CELLS]);
+        const secret = Array.isArray(plain) ? "" : String(plain);
+        if (secret) headers[String(auth)] = (headers[String(auth)] ? headers[String(auth)] + " " : "") + secret;
+      }
+    }
+    const lines = [];
+    let cursor = [], pages = 0, status = 200;
+    for (;;) {
+      const q = call(name, { args: [[source, bindings, cursor]] });
+      let req;
+      try { req = JSON.parse(String(q[0])); } catch (e) { req = null; }
+      if (!Array.isArray(req) || req[0] !== "request") return [String(q[0]), Number(q[1]) >= 400 ? Number(q[1]) : 400];
+      const method = String(req[1]), address = String(req[2]);
+      const qs = new URLSearchParams();
+      for (const pr of (Array.isArray(req[3]) ? req[3] : [])) qs.append(String(pr[0]), String(pr[1]));
+      const url = address + (qs.toString() ? "?" + qs.toString() : "");
+      if (mode !== "live") {
+        lines.push((mode ? mode + " -- would " : "not performed: this connection declares no Send Mode -- would ") + method + " " + url);
+        break;
+      }
+      let res, text;
+      try { res = await fetch(url, { method, headers }); text = await res.text(); }
+      catch (e) { lines.push(method + " " + url + " failed: " + String(e && e.message)); status = 502; break; }
+      if (res.status >= 400) { lines.push(method + " " + url + " answered " + res.status + ": " + text.slice(0, 300)); status = 502; break; }
+      let body;
+      try { body = JSON.parse(text); } catch (e) { lines.push(method + " " + url + " answered a body that is not JSON"); status = 502; break; }
+      const out = call(name, { args: [[source, bindings, cursor, body]] });
+      pages++;
+      lines.push("page " + pages + " (" + method + " " + url + "): " + String(out[0]).slice(0, 400));
+      let ans;
+      try { ans = JSON.parse(String(out[0])); } catch (e) { ans = null; }
+      if (Number(out[1]) >= 400 || !Array.isArray(ans)) { status = Number(out[1]) || 500; break; }
+      const more = ans.find((pr) => Array.isArray(pr) && pr[0] === "more");
+      const nx = ans.find((pr) => Array.isArray(pr) && pr[0] === "next");
+      const nextCursor = nx && Array.isArray(nx[1]) ? nx[1] : [];
+      if (!more || more[1] !== "T" || nextCursor.length < 2) break;
+      if (JSON.stringify(nextCursor) === JSON.stringify(cursor)) { lines.push("the cursor did not move; stopped"); status = 508; break; }
+      cursor = nextCursor;
+    }
+    return [lines.join("\n"), status];
+  }
+
   // AND THE SEAM ITSELF IS A VERB, under the name the model gives it. mcp:verb_row
   // blanks the accepts of any verb solve:cell cannot find and mcp:verb_keep drops
   // it, so `csdp:elementarize` -- registrable, with accepts and yields rows of its
@@ -3519,7 +3588,7 @@ function run_mcp() {
       // A VERB THAT WRITES ANSWERS THE STORE IT MADE, and adopting it is the
       // same pair the resource branch below composes -- snapshot, evaluate,
       // emit what changed. A read verb answers two parts and none of this runs;
-      // lambda decides which is which (main:verb_answer reads the accepts row),
+      // lambda decides which is which (main:verb_answer reads the yields row),
       // not the name and not this file. The snapshot is taken AFTER the
       // evaluation on purpose: lambda is pure, so CELLS is still the store the
       // verb was handed until adoptStore replaces it, and a read then pays
@@ -3842,6 +3911,12 @@ function run_mcp() {
       // a seam tool is offered to every client now, so a client that calls one
       // must reach the driver, or it would be offered a door that answers
       // "unknown tool" and the offer would be the lie.
+      // a verb whose operand is a response goes out for it (fetchPages), and says what came back
+      if (FETCHED.has(String(p.name))) {
+        return Promise.resolve(fetchPages(String(p.name), p.arguments)).then(
+          (out) => reply(msg.id, { content: [{ type: "text", text: String(out[0]) }], isError: Number(out[1]) >= 400 }),
+          (e) => reply(msg.id, { content: [{ type: "text", text: String(e && e.message) }], isError: true }));
+      }
       const driving = SAMPLED.has(String(p.name)) ? p.arguments
         : (DRIVEN_OF.has(String(p.name))
             ? { args: [{ operation: DRIVEN_OF.get(String(p.name)),
