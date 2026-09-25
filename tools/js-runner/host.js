@@ -744,6 +744,36 @@ let PAIRIDX = new WeakMap();
 let SOLVEIDX = new WeakMap();
 let MPIDX = new WeakMap();
 let SLOTIDX = new WeakMap();
+// A SERVER GIVES ITS MEMO BACK WHEN IT GOES IDLE (2026-09-24; Sam: "low memory
+// footprint is a requirement"). The memo earns its keep inside a burst of calls and
+// holds most of a server's memory after one: on support.auto.dev a `get` left 19,245
+// answers under 44 names (rmap:unnest, rmap:keep_nonkey, rmap:rel_cell and the rest
+// of the relational map a GET walks), each name under MEMO_HELD and MEMO_JUDGED, so
+// neither bound ever let them go, and the live heap after a full collection was 744
+// MB where the same calls without the memo left 130. So every answer written schedules
+// a release AREST_MEMO_IDLE_MS (5 s) later, a later answer pushes it back, and the
+// release clears the memo -- not the identity-keyed indexes, which stay true while
+// their values live and cost most of a report's first ten seconds to rebuild -- and
+// collects. MEASURED over a copy of support's store, one server at a time, the same
+// five calls (actions, get, a fact GET, get, actions), twice each, alternated, then
+// 9 s idle:
+//   memo kept           resident 930-976 MB, private 1,307-1,327; second get 254-433 ms
+//   released per call   resident 370-392,    private 913-954;     second get 1,257-1,584
+//   released when idle  resident 388-473,    private 930-968;     second get 276-410
+// so a burst keeps its speed and an idle server gives back about half a gigabyte.
+let MEMO_IDLE = null;
+function memoReleaseWhenIdle(say) {
+  if (MEMO_IDLE) clearTimeout(MEMO_IDLE);
+  MEMO_IDLE = setTimeout(() => {
+    MEMO_IDLE = null;
+    let names = 0, held = 0;
+    for (const node of EVMEMO.values()) { names++; held += (node && node.held) || 0; }
+    EVMEMO.clear(); EVMEMON = 0;
+    if (typeof Bun !== "undefined" && Bun.gc) Bun.gc(true);
+    if (say && names) say("memo released: " + held + " answer(s) under " + names + " name(s)");
+  }, Number(process.env.AREST_MEMO_IDLE_MS || 5000));
+  if (MEMO_IDLE.unref) MEMO_IDLE.unref();
+}
 function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); }
 // the rows of `rows` whose first column equals `key`, in source order -- the value
 // of csdp:matches (INSERT csdp:keep_keyed . theta:append_phi . distl). The fold
@@ -2825,6 +2855,7 @@ function run_serve() {
         if (before && Number(out[1]) < 400) emitToDb(before, CELLS);   // a refusal made no successor
         if (prior && Number(out[1]) < 400) maybePerform(prior, CELLS);
       }
+      memoReleaseWhenIdle(console.log);
       return new Response(String(out[0]), {
         status: Number(out[1]) || 500,
         headers: { "content-type": "application/json" },
@@ -3511,9 +3542,9 @@ function run_mcp() {
       // an answer that had to go and ask arrives later; the line loop does not
       // wait for it, so a slow judgement is not a stall on every other call
       if (out && typeof out.then === "function") {
-        out.then((o) => { if (o) process.stdout.write(JSON.stringify(o) + "\n"); },
-                 (e) => process.stdout.write(JSON.stringify(fail(null, String(e && e.message))) + "\n"));
-      } else if (out) process.stdout.write(JSON.stringify(out) + "\n");
+        out.then((o) => { if (o) process.stdout.write(JSON.stringify(o) + "\n"); memoReleaseWhenIdle(console.error); },
+                 (e) => { process.stdout.write(JSON.stringify(fail(null, String(e && e.message))) + "\n"); memoReleaseWhenIdle(console.error); });
+      } else { if (out) process.stdout.write(JSON.stringify(out) + "\n"); memoReleaseWhenIdle(console.error); }
     }
   });
 

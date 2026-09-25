@@ -1788,6 +1788,70 @@ test("a transition fired through the MCP server performs what it declares, dry, 
   }
 }, 300_000);
 
+// ---- AND A SERVER GIVES ITS MEMO BACK WHEN IT GOES IDLE --------------------
+//
+// The memo held most of a server's memory after a burst of calls and nothing
+// ever let it go: on support.auto.dev a `get` left 19,245 answers under 44 names,
+// each under both bounds, and the live heap after a full collection was 744 MB
+// where the same calls without the memo left 130. Now every answer schedules a
+// release AREST_MEMO_IDLE_MS later and the release says what it gave back. So: an
+// MCP module over the base carriers (no store, no compile), the delay set to
+// 200 ms, one fact type read, a pause, and the line. Failing at 80523ee5: no
+// server ever releases, so the line never comes.
+test("an MCP server gives its memo back when it goes idle, and says how much", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-memo-"));
+  let server = null;
+  try {
+    const env = { ...process.env, AREST_CARRIERS: join(import.meta.dir, "..", "carriers", "base"), AREST_OUT_DIR: dir };
+    delete env.AREST_INSTRUMENTED;
+    const b = Bun.spawnSync(["bun", "build.js", "mcp"], { cwd: import.meta.dir, env, stdout: "pipe", stderr: "pipe" });
+    expect(b.exitCode, b.stdout.toString() + b.stderr.toString()).toBe(0);
+    const run = { ...process.env, AREST_MEMO_IDLE_MS: "200" };
+    delete run.AREST_STORE_DB;
+    server = Bun.spawn(["bun", join(dir, "mcp.g.js")], { env: run, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
+    let err = "";
+    (async () => { for await (const chunk of server.stderr) err += new TextDecoder().decode(chunk); })();
+    const pending = new Map();
+    (async () => {
+      let buf = "";
+      for await (const chunk of server.stdout) {
+        buf += new TextDecoder().decode(chunk);
+        let i;
+        while ((i = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, i).trim();
+          buf = buf.slice(i + 1);
+          if (!line.startsWith("{")) continue;
+          try { const m = JSON.parse(line); if (m.id !== undefined && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } } catch { /* not a reply */ }
+        }
+      }
+    })();
+    let next = 0;
+    const send = (method, params) => new Promise((resolve) => {
+      const id = ++next;
+      pending.set(id, resolve);
+      server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+      server.stdin.flush();
+    });
+    await send("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "cases", version: "1" } });
+    const tools = await send("tools/list", {});
+    const names = (tools.result && tools.result.tools || []).map((t) => t.name);
+    const ft = names.includes("FactTypeHasRole") ? "FactTypeHasRole" : "ObjectTypePlaysRole";
+    expect(names).toContain(ft);
+    const r = await send("tools/call", { name: ft, arguments: { method: "GET" } });
+    expect((r.result && r.result.content || []).map((x) => x.text).join("")).toContain('"rows"');
+    let released = null;
+    for (let i = 0; i < 50 && !released; i++) {
+      await Bun.sleep(100);
+      released = err.match(/memo released: (\d+) answer\(s\) under (\d+) name\(s\)/);
+    }
+    expect(released, err.slice(-400)).not.toBeNull();
+    expect(Number(released[2])).toBeGreaterThan(0);
+  } finally {
+    if (server) server.kill();
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 120_000);
+
 // ---- AND DOES IT REFUSE TO SAY THE SAME FACT TWICE WHEN A PLACEMENT MOVED? -
 //
 // The carry's two branches did not ask the same question. The unkeyed one asks
