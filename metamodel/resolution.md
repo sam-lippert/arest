@@ -86,6 +86,7 @@ Operation 'create' is overridable.
 Operation 'replace' is overridable.
 Operation 'apply' is overridable.
 Operation 'retract' is overridable.
+Operation 'assert' is overridable.
 Operation 'get' is overridable.
 Operation 'actions' is overridable.
 Operation 'schema' is overridable.
@@ -178,6 +179,13 @@ Function 'replace' accepts Type Expression 'row-and-cells'.
 Function 'replace' yields Type Expression 'outcome-and-store'.
 Function 'retract' accepts Type Expression 'row-and-cells'.
 Function 'retract' yields Type Expression 'outcome-and-store'.
+Function 'assert' accepts Type Expression 'row-and-cells'.
+Function 'assert' yields Type Expression 'outcome-and-store'.
+<!-- AND A PAGE IS ONE WRITE (2026-09-25). `assert` takes a list of facts -- each a fact type and
+     its role values -- and asserts every one not already held in ONE step, validated once and
+     closed once, so a federation's page lands whole or not at all and a second sync of the same
+     page asserts nothing. The argument beside the cells is the list, so `row-and-cells` carries
+     it and the route needs no new arm. -->
 <!-- AND THE ONE THAT CORRECTS. `create` is additive and a functional fact
      type refuses a second value for the same key, so a typo taken at intake
      was permanent: over the MCP the store was append-only, and nothing could
