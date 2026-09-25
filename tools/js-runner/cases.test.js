@@ -1674,6 +1674,120 @@ test("a fact type whose uniqueness skips a role is stored by role, and two facts
   }
 }, 300_000);
 
+// ---- AND A TRANSITION FIRED THROUGH THE MCP SERVER PERFORMS WHAT IT DECLARES --
+//
+// Only the serving tail called maybePerform. The MCP server's two write paths --
+// a verb, and a fact type's own tool, which is how a session fires a transition
+// through the router -- committed the write and performed nothing: support.auto.dev
+// drove a response to Approved on 2026-09-24, `approve` declares sendSupportEmail,
+// and not even the dry run ran. So: a probe domain whose approval performs a
+// predicate over a connection armed 'dry', compiled into a store, served by its own
+// MCP module, and the approval POSTed as a session would. The dry run answers the
+// id `dry-run-not-sent`, which the performer writes back as the yielded fact, and
+// its report goes to stderr because stdout is the protocol. Failing at 93c88af5:
+// the POST commits and Widget has Echo Id stays empty.
+test("a transition fired through the MCP server performs what it declares, dry, and writes back what it yields", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-perform-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  const metamodel = join(import.meta.dir, "..", "..", "metamodel");
+  const app = join(dir, "app");
+  mkdirSync(app);
+  const path = join(dir, "store.db");
+  let server = null;
+  try {
+    writeFileSync(join(app, "widgets.md"), [
+      "# Widgets", "",
+      "A probe domain for the performer: approving a Widget performs a predicate whose connection is dry.", "",
+      "## Entity Types", "", "Widget(.id) is an entity type.", "", "Reviewer(.Name) is an entity type.", "",
+      "## Value Types", "", "Title is a value type.", "", "Echo Id is a value type.", "", "Email is a value type.", "",
+      "## Fact Types", "",
+      "Widget has Title.", "  Each Widget has at most one Title.", "",
+      "Widget has Echo Id.", "  Each Widget has at most one Echo Id.", "",
+      "Reviewer has Email.", "  Each Reviewer has at most one Email.", "",
+      "Reviewer approves Widget.",
+      "  Each Reviewer, Widget combination occurs at most once in the population of Reviewer approves Widget.", "",
+      "## State Machine", "",
+      "State Machine Definition 'Widget' is for Object Type 'Widget'.", "",
+      "Status 'Draft' is defined in State Machine Definition 'Widget'.", "",
+      "Status 'Approved' is defined in State Machine Definition 'Widget'.", "",
+      "Status 'Draft' is initial in State Machine Definition 'Widget'.", "",
+      "Transition 'approve' is defined in State Machine Definition 'Widget'.",
+      "  Transition 'approve' is from Status 'Draft'.",
+      "  Transition 'approve' is to Status 'Approved'.",
+      "  Transition 'approve' is triggered by Fact Type 'Reviewer approves Widget'.", "",
+      "## The connection and the predicate", "",
+      "External System 'echo' has URL 'https://echo.invalid'.", "",
+      "Domain 'widgets' connects to External System 'echo'.", "",
+      "DomainConnectsToExternalSystem 'widgets/echo' has Send Mode 'dry'.", "",
+      "Predicate 'sendWidget' has Name 'sendWidget'.", "",
+      "Predicate 'sendWidget' is backed by External System 'echo'.", "",
+      "Predicate 'sendWidget' has callback URI '/widgets'.", "",
+      "Function 'sendWidget' is called with HTTP Method 'POST'.", "",
+      "Function 'sendWidget' sends Fact Type 'Widget has Title' with Role 'WidgetHasTitle.2' to JSON Path 'title'.", "",
+      "Function 'sendWidget' yields Fact Type 'Widget has Echo Id' with Role 'WidgetHasEchoId.2' from JSON Path 'id'.", "",
+      "Event Type 'Widget has Echo Id' can be created by Predicate 'sendWidget'.", "",
+      "Predicate 'sendWidget' is performed during Transition 'approve'.", "",
+      "## Instance Facts", "",
+      "Widget 'w1' has Title 'hello'.", "",
+      "Reviewer 'sam' has Email 'sam@example.com'.", "",
+      "Domain 'widgets' has Description 'A probe domain for the performer.'.", "",
+    ].join("\n"));
+    const c = Bun.spawnSync(["bun", compiler, metamodel, app],
+      { env: { ...process.env, AREST_DB: path, AREST_OUT_DIR: dir }, stdout: "pipe", stderr: "pipe" });
+    expect(c.exitCode, c.stdout.toString() + c.stderr.toString()).toBe(0);
+    const env = { ...process.env, AREST_CARRIERS: dir, AREST_OUT_DIR: dir };
+    delete env.AREST_INSTRUMENTED;
+    const b = Bun.spawnSync(["bun", "build.js", "mcp"], { cwd: import.meta.dir, env, stdout: "pipe", stderr: "pipe" });
+    expect(b.exitCode, b.stdout.toString() + b.stderr.toString()).toBe(0);
+
+    server = Bun.spawn(["bun", join(dir, "mcp.g.js")], {
+      env: { ...process.env, AREST_STORE_DB: path }, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
+    let err = "";
+    (async () => { for await (const chunk of server.stderr) err += new TextDecoder().decode(chunk); })();
+    const pending = new Map();
+    (async () => {
+      let buf = "";
+      for await (const chunk of server.stdout) {
+        buf += new TextDecoder().decode(chunk);
+        let i;
+        while ((i = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, i).trim();
+          buf = buf.slice(i + 1);
+          if (!line.startsWith("{")) continue;
+          try { const m = JSON.parse(line); if (m.id !== undefined && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } } catch { /* not a reply */ }
+        }
+      }
+    })();
+    let next = 0;
+    const send = (method, params) => new Promise((resolve) => {
+      const id = ++next;
+      pending.set(id, resolve);
+      server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+      server.stdin.flush();
+    });
+    const call = async (name, args) => {
+      const r = await send("tools/call", { name, arguments: args });
+      return (r.result && r.result.content || []).map((x) => x.text).join("");
+    };
+    await send("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "cases", version: "1" } });
+
+    expect(await call("WidgetHasEchoId", { method: "GET" })).toContain('["rows",[]]');
+    expect(await call("ReviewerApprovesWidget", { method: "POST", fact: ["sam", "w1"] })).toContain('"committed"');
+    let rows = "";
+    for (let i = 0; i < 40; i++) {
+      rows = await call("WidgetHasEchoId", { method: "GET" });
+      if (!rows.includes('["rows",[]]')) break;
+      await Bun.sleep(100);
+    }
+    expect(rows).toContain('["rows",[["w1","dry-run-not-sent"]]]');
+    expect(err).toContain('"sent":{"title":"hello"}');
+    expect(err).toContain("wrote back");
+  } finally {
+    if (server) server.kill();
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 300_000);
+
 // ---- AND DOES IT REFUSE TO SAY THE SAME FACT TWICE WHEN A PLACEMENT MOVED? -
 //
 // The carry's two branches did not ask the same question. The unkeyed one asks

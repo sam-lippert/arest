@@ -2671,8 +2671,9 @@ async function performDeclared(before, after, opts) {
 // have gone on describing it. Nothing is asserted back either way: the answer
 // and its may-create ceiling are reported, and the assertion belongs where the
 // store is written and can refuse.
-function maybePerform(prior, after) {
+function maybePerform(prior, after, log) {
   if (!prior || prior === after) return;
+  const say = log || console.log;
   // THE ARMING IS A FACT, NOT AN ENVIRONMENT KEY (2026-09-14). AREST_PERFORM and
   // AREST_PERFORM_SECRET are gone: `DomainConnectsToExternalSystem has Send Mode`
   // says whether a connection is live, and the connection carries its own
@@ -2686,10 +2687,10 @@ function maybePerform(prior, after) {
   // passed in, which is the shape hook:read already had before it had a caller.
   performDeclared(prior, after, { master: process.env.AREST_MASTER_KEY })
     .then((r) => {
-      for (const one of r) console.log("performed " + JSON.stringify(one));
-      writeBack(r);
+      for (const one of r) say("performed " + JSON.stringify(one));
+      writeBack(r, say);
     })
-    .catch((e) => console.log("performer failed: " + String(e)));
+    .catch((e) => say("performer failed: " + String(e)));
 }
 
 // AND THE ANSWER COMES BACK AS FACTS (2026-09-14). performDeclared computed
@@ -2705,7 +2706,8 @@ function maybePerform(prior, after) {
 // reported instead of being pushed past. emitToDb then persists it, which is
 // what makes the id survive a restart -- the store.db is the durable copy, and
 // adoptStore keeps CELLS' array identity so the next read sees it.
-function writeBack(done) {
+function writeBack(done, log) {
+  const say = log || console.log;
   for (const one of done) {
     for (const a of one.asserts || []) {
       if (!Array.isArray(a) || a.length < 2) continue;
@@ -2714,13 +2716,13 @@ function writeBack(done) {
       const before = popSnapshot(CELLS);
       let out;
       try { out = Ev("main:api", [CELLS, "POST", ft, "", args]); }
-      catch (e) { console.log("write-back threw on " + ft + ": " + String(e)); continue; }
+      catch (e) { say("write-back threw on " + ft + ": " + String(e)); continue; }
       if (out.length > 2 && Number(out[1]) < 400) {
         adoptStore(out[2]);
         emitToDb(before, CELLS);
-        console.log("wrote back " + JSON.stringify([ft].concat(args)));
+        say("wrote back " + JSON.stringify([ft].concat(args)));
       } else {
-        console.log("write-back REFUSED " + ft + ": " + String(out[0]).slice(0, 200));
+        say("write-back REFUSED " + ft + ": " + String(out[0]).slice(0, 200));
       }
     }
   }
@@ -3139,12 +3141,23 @@ function run_mcp() {
       // evaluation on purpose: canon is pure, so CELLS is still the store the
       // verb was handed until adoptStore replaces it, and a read then pays
       // nothing for a snapshot it would never use.
+      // AND A VERB THAT FIRES A TRANSITION PERFORMS WHAT THE TRANSITION DECLARES, the
+      // same as a POST to the serving tail (2026-09-24). This path and the resource
+      // path below committed the write and performed nothing: support.auto.dev drove
+      // a response to Approved through the router, `approve` declares sendSupportEmail,
+      // and nothing ran -- not the send, not even the dry run that records what it
+      // would send -- because only the serving tail ever called maybePerform. The
+      // arming is still the connection's Send Mode, so this sends nothing that the
+      // serving tail would not. The store is copied BEFORE the evaluation, because
+      // adoptStore replaces CELLS in place and main:performed compares the two; and
+      // the report goes to stderr, because stdout here is the protocol.
+      const prior = CELLS.slice();
       const out = Ev("main", [CELLS, [String(name)].concat(rest)]);
       const held = String(out[1]) === "T";
       if (out.length > 2) {
         const was = popSnapshot(CELLS);
         adoptStore(out[2]);
-        if (held) emitToDb(was, CELLS);
+        if (held) { emitToDb(was, CELLS); maybePerform(prior, CELLS, console.error); }
       }
       return [out[0], held ? 200 : 500];
     }
@@ -3170,6 +3183,7 @@ function run_mcp() {
       }
     }
     // no dispatch: the resource IS the fact type and the method IS the operation
+    const prior = method === "GET" ? null : CELLS.slice();
     const out = Ev("mcp:call", [
       method,
       resource,
@@ -3186,6 +3200,7 @@ function run_mcp() {
       // once recorded refusals replayed 22 of them at boot for six minutes and
       // left the store as it was (engineering.auto.dev, 2026-09-04).
       if (before && Number(out[1]) < 400) emitToDb(before, CELLS);
+      if (prior && Number(out[1]) < 400) maybePerform(prior, CELLS, console.error);
       return [out[0], out[1]];
     }
     return out;
