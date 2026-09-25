@@ -2936,7 +2936,9 @@ test("a retract keyed by the entity's id alone removes every fact of it; a full-
 // whole store. `assert` takes a list of facts and makes them one step: every fact not already held
 // goes into one trial, validated once and committed only when V holds no alethic violation, or the
 // store it was given comes back unchanged. A second run of the same page asserts nothing. Failing
-// at bbaa4186: assert is not a verb.
+// at bbaa4186: assert is not a verb. And the page is grouped by fact type, so each population it
+// touches is written once rather than once per fact: support.auto.dev's first backfill page, 386
+// facts, went from never answering to 7.1 s.
 test("assert writes a list of facts as one step: new ones land, held ones are counted, a violation refuses the list", () => {
   const S0 = CELLS;
   const names = (S) => Ev("system:pop_rows", ["StreamHasName", S]).filter((r) => String(r[0]).startsWith("pg-"))
@@ -2946,11 +2948,25 @@ test("assert writes a list of facts as one step: new ones land, held ones are co
   expect(Number(first[1])).toBe(201);
   expect(JSON.parse(String(first[0]))).toEqual(["committed", ["new", 2], ["held", 0], ["violations", []]]);
   expect(names(first[2])).toEqual(["pg-1=one", "pg-2=two"]);
-  // the same page again: nothing new, nothing lost
+  // the entities the page introduces are registered with it, an instance and a reference each
+  const pg = (ft, S) => Ev("system:pop_rows", [ft, S]).filter((r) => String(r[0]).startsWith("pg-"))
+    .map((r) => r.map(String).join("=")).sort();
+  expect(pg("ObjectTypeInstanceIsInstanceOfObjectType", first[2])).toEqual(["pg-1=Stream", "pg-2=Stream"]);
+  expect(pg("ObjectTypeInstanceHasReference", first[2])).toEqual(["pg-1=pg-1", "pg-2=pg-2"]);
+  // the same page again: nothing new, nothing lost -- and nothing written, so the store comes back
+  // as it was, neither validated nor closed again (failing at d8c16f5c, which closed it anew)
   const again = Ev("assert", [page, first[2]]);
   expect(Number(again[1])).toBe(201);
   expect(JSON.parse(String(again[0])).slice(0, 3)).toEqual(["committed", ["new", 0], ["held", 2]]);
   expect(names(again[2])).toEqual(["pg-1=one", "pg-2=two"]);
+  expect(again[2]).toBe(first[2]);
+  // a hundred facts are one write per population they touch, and all of them land
+  const hundred = [];
+  for (let i = 0; i < 100; i++) hundred.push(["StreamHasName", "pg-h" + i, "h" + i]);
+  const big = Ev("assert", [hundred, first[2]]);
+  expect(JSON.parse(String(big[0])).slice(0, 3)).toEqual(["committed", ["new", 100], ["held", 0]]);
+  expect(names(big[2]).length).toBe(102);
+  expect(pg("ObjectTypeInstanceIsInstanceOfObjectType", big[2]).length).toBe(102);
   // a page that breaks a uniqueness is refused whole: pg-3 does not land either
   const bad = Ev("assert", [[["StreamHasName", "pg-3", "three"], ["StreamHasName", "pg-1", "uno"]], first[2]]);
   expect(Number(bad[1])).toBe(409);
