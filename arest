@@ -17224,8 +17224,12 @@ DEF("rmap:unproj_filled",
     S3(A("COMP"), A("theta:flatten"),
        S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(3), K(A("#")))), K(PHI()), S2(A("CONS"), A("id")))))),
 
+"THE CELLS OF A ROW THAT HOLD A VALUE, NAMED SO A HOST CAN BUILD ONLY THOSE (2026-09-24; Sam: `low memory footprint is a requirement`). rmap:unproj_live is rmap:unproj_filled over rmap:unproj_cells and nothing else, so rmap:unproj_entpairs answers what it answered when it composed the two itself. The name is what lets a host twin it: rmap:unproj_cells zips every column of a row with its path and builds a <path head, path second, value> triple for each, and rmap:unproj_filled then drops the ones whose value is #, so a wide sparse table pays two arrays per column per row for cells it throws away. MEASURED on support.auto.dev: the Function table is 19,767 rows by 302 columns holding about three values a row, and one whole read of it built some twelve million such arrays -- rmap:unproj 2,638 ms, the resident size 567 -> 1,144 MB, for 63,992 pairs -- which the MCP server paid at every start, and a server woken from idle pays again. rmap:unproj_key did the same to find each row`s key, a triple for every column to keep the one in functionId, and host.js twins both. With the two twins the same read is 700 ms and 545 -> 645 MB, and the server`s start and first answers peak at 607 MB private and 445 resident where they peaked at 1,068 and 1,008, with the same answers byte for byte. Operand <row, ctx>, as rmap:unproj_cells.",
+DEF("rmap:unproj_live",
+    S3(A("COMP"), A("rmap:unproj_filled"), A("rmap:unproj_cells"))),
+
 DEF("rmap:unproj_entpairs",
-    S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("rmap:unproj_cell")), A("distr"), S3(A("CONS"), S3(A("COMP"), A("rmap:unproj_filled"), A("rmap:unproj_cells")), S4(A("CONS"), A("rmap:unproj_key"), S3(A("COMP"), N(3), N(2)), S3(A("COMP"), N(5), N(2)))))),
+    S5(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("rmap:unproj_cell")), A("distr"), S3(A("CONS"), A("rmap:unproj_live"), S4(A("CONS"), A("rmap:unproj_key"), S3(A("COMP"), N(3), N(2)), S3(A("COMP"), N(5), N(2)))))),
 
 DEF("rmap:unproj_rowpairs",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(4), N(2)), K(A("T")))), S3(A("COMP"), A("cat"), S3(A("CONS"), A("rmap:unproj_relpairs"), A("rmap:unproj_entpairs"))), A("rmap:unproj_entpairs"))),

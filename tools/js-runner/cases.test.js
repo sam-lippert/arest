@@ -2960,6 +2960,76 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
       expect(tw).toBe(dw);
     }
   });
+  // rmap:unproj_live has a fast twin, and it is the one a store read runs through for
+  // every row of every table: the DEF builds a triple for EVERY column and drops the
+  // empty ones after, the twin builds only the ones it keeps. Held to its DEF on a real
+  // table's ctx -- the widest the test store has, where a triple per column is the whole
+  // cost -- over rows empty, full, sparse, short, long, carrying numbers and the empty
+  // string, and on the shapes the DEF raises on, which the twin must hand back to it.
+  test("the rmap:unproj_live twin is its DEF", () => {
+    const def = DEFS.get("rmap:unproj_live");
+    const tables = Ev("rmap:coltabs", CELLS).map((t) => String(t[0]));
+    const widest = tables.map((t) => [t, Ev("rmap:unproj_ctx", [t, CELLS])])
+      .filter(([, c]) => Array.isArray(c) && Array.isArray(c[1]))
+      .sort((a, b) => b[1][1].length - a[1][1].length)[0];
+    expect(widest).toBeDefined();
+    const ctx = widest[1], w = ctx[1].length;
+    expect(w).toBeGreaterThan(20);
+    const at = (f) => Array.from({ length: w }, (_, i) => f(i));
+    const rows = [
+      at(() => "#"),                                    // nothing held
+      at((i) => "v" + i),                               // every column held
+      at((i) => (i % 7 === 0 ? "v" + i : "#")),         // sparse, as a wide table is
+      at((i) => (i === w - 1 ? "last" : "#")),          // only the last column
+      at((i) => (i % 3 === 0 ? i : "#")),               // numbers where values go
+      at((i) => (i % 5 === 0 ? "" : "#")),              // the empty string is a value
+      at((i) => "v" + i).slice(0, 3),                   // shorter than the paths: zip stops
+      at((i) => "v" + i).concat(["extra", "#", "x"]),   // longer: the paths stop it
+      [],
+    ];
+    for (const row of rows)
+      expect(JSON.stringify(Ev("rmap:unproj_live", [row, ctx]))).toBe(JSON.stringify(Ev(def, [row, ctx])));
+    // the shapes the DEF raises on: the twin must raise the same words
+    const badPath = [ctx[0], ctx[1].slice(0, 2).concat(["atom"], ctx[1].slice(3))].concat(ctx.slice(2));
+    for (const x of [
+      [at(() => "#"), badPath],                         // a path that is an atom, under an EMPTY cell
+      [at((i) => [i]), ctx],                            // a value that is a sequence
+      ["row", ctx],                                     // an atom where the row goes
+      [at(() => "#"), "ctx"],                           // an atom where the ctx goes
+    ]) {
+      let tw = "", dw = "";
+      try { Ev("rmap:unproj_live", x); } catch (e) { tw = e.message; }
+      try { Ev(def, x); } catch (e) { dw = e.message; }
+      if (dw === "") expect(JSON.stringify(Ev("rmap:unproj_live", x))).toBe(JSON.stringify(Ev(def, x)));
+      else expect(tw).toBe(dw);
+    }
+  });
+  // and rmap:unproj_key beside it: the key's values of a row, by the same ctx, over the
+  // same rows plus one whose key column is empty, which the DEF keeps as #.
+  test("the rmap:unproj_key twin is its DEF", () => {
+    const def = DEFS.get("rmap:unproj_key");
+    const tables = Ev("rmap:coltabs", CELLS).map((t) => String(t[0]));
+    const keyed = tables.map((t) => [t, Ev("rmap:unproj_ctx", [t, CELLS])])
+      .filter(([, c]) => Array.isArray(c) && Array.isArray(c[1]) && Array.isArray(c[2]) && c[2].length > 0)
+      .sort((a, b) => b[1][1].length - a[1][1].length);
+    expect(keyed.length).toBeGreaterThan(0);
+    for (const [, ctx] of keyed.slice(0, 3)) {
+      const w = ctx[1].length;
+      const at = (f) => Array.from({ length: w }, (_, i) => f(i));
+      for (const row of [at(() => "#"), at((i) => "v" + i), at((i) => (i % 7 === 0 ? "v" + i : "#")),
+                         at((i) => (i % 3 === 0 ? i : "#")), at((i) => "v" + i).slice(0, 2), []])
+        expect(JSON.stringify(Ev("rmap:unproj_key", [row, ctx]))).toBe(JSON.stringify(Ev(def, [row, ctx])));
+    }
+    const ctx = keyed[0][1], w = ctx[1].length;
+    const badPath = [ctx[0], ctx[1].slice(0, 2).concat(["atom"], ctx[1].slice(3))].concat(ctx.slice(2));
+    for (const x of [[Array.from({ length: w }, () => "#"), badPath], ["row", ctx]]) {
+      let tw = "", dw = "";
+      try { Ev("rmap:unproj_key", x); } catch (e) { tw = e.message; }
+      try { Ev(def, x); } catch (e) { dw = e.message; }
+      if (dw === "") expect(JSON.stringify(Ev("rmap:unproj_key", x))).toBe(JSON.stringify(Ev(def, x)));
+      else expect(tw).toBe(dw);
+    }
+  });
   test("the read:put_row twin is its DEF", () => {
     const def = DEFS.get("read:put_row");
     const row = (name, chunks, t = ["p", "q"]) => [name, "b", "c", "d", chunks, t[0], t[1]];

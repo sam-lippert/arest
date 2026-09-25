@@ -1006,6 +1006,8 @@ const DEDUPKEYS = new WeakMap();
 // is left quadratic is NOT this. tools/compile-design-state.js carries the
 // measurement and the refutation beside its call.
 const SUPEROF = new WeakMap();
+// the paths arrays rmap:unproj_live has checked, by identity (its twin, below)
+const LIVEPATHS = new WeakSet();
 // AREST_NOTWIN=name,name disables those twins for one run, so a twin can be
 // held against its DEF on the same inputs: the law report is the only gate
 // that exercises most of them, and a twin that is not the DEF fails it
@@ -1525,6 +1527,61 @@ const FASTPRIMS = new Map(Object.entries({
   // rmap:member_pairs do, and the whole rows array is checked BEFORE any
   // index is kept so a later bad row cannot be masked by an earlier good one.
   // The DEF is the meaning and the suite holds this against its compiled form.
+  // rmap:unproj_live is rmap:unproj_filled over rmap:unproj_cells: for each column of the
+  // row that holds a value, <path head, path second, value>, in column order. The DEF zips
+  // every column with its path and builds a triple for each before the empty ones are
+  // dropped -- two arrays per column per row, some twelve million for one read of
+  // support's Function table -- and this builds the triples it keeps and no others. Every
+  // shape the DEF would RAISE on is handed back to it: a path that is not a sequence of
+  // two or more, checked for EVERY column since the DEF selects into each path before it
+  // filters, and a value that is not an atom, since eq decides those. A paths array that
+  // passed is remembered by identity, and a table's ctx keeps one for the whole read.
+  // rmap:unproj_key is the row's values in its primary key's columns, in column order,
+  // and its DEF gets there through rmap:unproj_cells too: a triple for EVERY column, a
+  // pair of each with the key's columns, a list per column for the answer -- some twelve
+  // hundred arrays a row on support's Function table, to find the one value in
+  // functionId. It keeps the # of an empty key column, since it tests the column and not
+  // the value. The same shapes defer to the DEF as rmap:unproj_live's do, and a column
+  // head or key column that is not a string does too, since theta:member compares
+  // those deeply.
+  "rmap:unproj_key": x => {
+    const def = () => Ev(DEFS.get("rmap:unproj_key"), x);
+    if (!Array.isArray(x) || x.length < 2) return def();
+    const row = x[0], ctx = x[1];
+    if (!Array.isArray(row) || !Array.isArray(ctx) || ctx.length < 3 || !Array.isArray(ctx[1]) || !Array.isArray(ctx[2])) return def();
+    const paths = ctx[1], pk = ctx[2], n = Math.min(row.length, paths.length);
+    if (!LIVEPATHS.has(paths)) {
+      for (const p of paths) if (!Array.isArray(p) || p.length < 2) return def();
+      LIVEPATHS.add(paths);
+    }
+    for (const k of pk) if (typeof k !== "string") return def();
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const h = paths[i][0];
+      if (typeof h !== "string") return def();
+      if (pk.includes(h)) out.push(row[i]);
+    }
+    return out;
+  },
+  "rmap:unproj_live": x => {
+    const def = () => Ev(DEFS.get("rmap:unproj_live"), x);
+    if (!Array.isArray(x) || x.length < 2) return def();
+    const row = x[0], ctx = x[1];
+    if (!Array.isArray(row) || !Array.isArray(ctx) || ctx.length < 2 || !Array.isArray(ctx[1])) return def();
+    const paths = ctx[1], n = Math.min(row.length, paths.length);
+    if (!LIVEPATHS.has(paths)) {
+      for (const p of paths) if (!Array.isArray(p) || p.length < 2) return def();
+      LIVEPATHS.add(paths);
+    }
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const v = row[i];
+      if (typeof v !== "string" && typeof v !== "number") return def();
+      if (v === "#") continue;
+      out.push([paths[i][0], paths[i][1], v]);
+    }
+    return out;
+  },
   "read:super_of": x => { const rows = at(x, 1), name = at(x, 0);
     const def = () => Ev(DEFS.get("read:super_of"), x);
     if (!Array.isArray(rows)) return def();
