@@ -3130,6 +3130,8 @@ test("sync answers a Source's request, and asserts what a page of its rows yield
     ["FunctionHasQueryParameterWithParameterValue", F, "owner", "{who}"],
     ["FunctionYieldsFactTypeWithRoleFromJSONPath", F, "StreamHasName", "StreamHasName.2", "$.owner.email|lower"],
     ["FunctionYieldsFactTypeWithRoleFromJSONPath", F, "StreamHasName", "StreamHasName.1", "$.id"],
+    ["FunctionReadsRowsWhereJSONPathEqualsConditionValue", F, "$.owner.email|present", "T"],
+    ["FunctionReadsRowsWhereJSONPathEqualsConditionValue", F, "$.kind", "live"],
   ];
   const declared = Ev("assert", [decl, CELLS]);
   expect(Number(declared[1])).toBeLessThan(400);
@@ -3145,17 +3147,20 @@ test("sync answers a Source's request, and asserts what a page of its rows yield
   expect(req[3].map((p) => p.join("=")).sort()).toEqual(["limit=2", "owner=sam"]);
   expect(q[2]).toBe(S0);
   // a page: role 1 from $.id and role 2 from the owner's email, lowered, in the fact type's own
-  // order though declared the other way round; a row with no owner yields nothing
+  // order though declared the other way round. A row is read only where every condition holds:
+  // st_3 has no owner and st_4 is not live, so both are skipped and counted, and the cursor is
+  // still the page's last row (failing at ed60ff64, where st_4 lands)
   const page = fromJson({ object: "list", has_more: true, data: [
-    { id: "st_1", owner: { email: "One@X.com" } },
-    { id: "st_2", owner: { email: "two@y.com" } },
-    { id: "st_3", owner: null },
+    { id: "st_1", kind: "live", owner: { email: "One@X.com" } },
+    { id: "st_2", kind: "live", owner: { email: "two@y.com" } },
+    { id: "st_3", kind: "live", owner: null },
+    { id: "st_4", kind: "archived", owner: { email: "d@w.com" } },
   ] });
   const one = Ev("sync", [[S, [], [], page], S0]);
   const body = JSON.parse(String(one[0]));
   expect(body[0]).not.toBe("refused");
   expect(body.slice(1, 3)).toEqual([["new", 2], ["held", 0]]);
-  expect(body.slice(4)).toEqual([["facts", 2], ["unread", []], ["more", "T"], ["next", ["starting_after", "st_3"]]]);
+  expect(body.slice(4)).toEqual([["facts", 2], ["unread", []], ["more", "T"], ["next", ["starting_after", "st_4"]], ["skipped", 2]]);
   const st = (S1) => Ev("system:pop_rows", ["StreamHasName", S1]).filter((r) => String(r[0]).startsWith("st_"))
     .map((r) => r.map(String).join("=")).sort();
   expect(st(one[2])).toEqual(["st_1=one@x.com", "st_2=two@y.com"]);
@@ -3988,10 +3993,14 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     // that first reproduced the committed carrier byte for byte. Five fact types enter and both
     // readers read them alike: witness/lambda/both/ucs/mands/stateRows 290 -> 295, players/all
     // 263 -> 268, rows 279 -> 284, stateUcs 605 -> 615, derived unmoved.
+    // AND A ROW IS READ ONLY WHERE ITS CONDITIONS HOLD (2026-09-25): Condition Value and
+    // `Function reads rows where JSON Path equals Condition Value`, unique over Function and JSON
+    // Path, and both readers read it alike: 295 -> 296, players/all 268 -> 269, rows 284 -> 285,
+    // stateUcs 615 -> 619, derived unmoved.
     expect({ witness: O.size, lambda: C.size, both, lambdaOnly: lambdaOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
-      .toEqual({ witness: 295, lambda: 295, both: 295, lambdaOnly: 0, oracleOnly: 0,
-                 players: 268, ucs: 295, mands: 295, all: 268, rows: 284, rejected: 0, derived: [37, 37, 37], stateRows: 295, stateUcs: 615 });
+      .toEqual({ witness: 296, lambda: 296, both: 296, lambdaOnly: 0, oracleOnly: 0,
+                 players: 269, ucs: 296, mands: 296, all: 269, rows: 285, rejected: 0, derived: [37, 37, 37], stateRows: 296, stateUcs: 619 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
@@ -4268,7 +4277,8 @@ describe("lambda's constraint cells against the witness, on the base metamodel",
       // renumbering still agree with the carrier's.
       // 513 -> 523 (2026-09-25): Query Parameter, Parameter Value and the five fact types a
       // Connector pages with enter federation.md, and the sequence moves alike in both readers.
-      .toEqual({ lambda: 523, witness: 523, kept: 523, sequence: true, renumbered: true, lambdaOnly: [] });
+      // 523 -> 527 (2026-09-25): Condition Value and the row condition, alike in both.
+      .toEqual({ lambda: 527, witness: 527, kept: 527, sequence: true, renumbered: true, lambdaOnly: [] });
   }, 300_000);
 
   // and the assembler carries them: the schema lambda writes holds every
@@ -5631,7 +5641,8 @@ test("a reading's spoken text is in the store, and the seven its name cannot spe
   // its name spells its reading
   // 283 -> 288 (2026-09-25): the five fact types a Connector pages with enter federation.md,
   // and each name spells its reading
-  expect(declared.length - lost.length).toBe(288);
+  // 288 -> 289 (2026-09-25): `Function reads rows where JSON Path equals Condition Value`
+  expect(declared.length - lost.length).toBe(289);
   for (const [name, t] of EXACT) expect([name, text.get("r" + name)]).toEqual([name, t]);
 
   // ---- and it is in the tables --------------------------------------------

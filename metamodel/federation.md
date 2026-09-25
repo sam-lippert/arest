@@ -48,6 +48,7 @@ Url is a value type.
 Translator is a value type.
 Query Parameter is a value type.
 Parameter Value is a value type.
+Condition Value is a value type.
 
 ## Fact Types
 
@@ -99,6 +100,17 @@ Function pages by Query Parameter.
 
 Function pages from JSON Path.
   Each Function pages from at most one JSON Path.
+
+<!-- AND A ROW IS READ ONLY WHEN IT SAYS WHAT THE SOURCE MEANS (2026-09-25). pm.auto.dev, over all
+     2,651 Stripe subscriptions: a hole yields no fact of that TYPE, but ten subscriptions belong to
+     deleted customers with no email and still yield their Plan, so the Customer role a mandatory
+     constraint needs is missing and the whole page is refused. A condition is on the ROW: every one
+     a Function declares must hold, or none of the row is read. The path takes the filters a value
+     does, so `is present` is the path with |present equal to 'T', and an event Source keeps its
+     kind with $.type equal to 'customer.subscription.deleted'. Several conditions are all of them;
+     an either-or is two Sources. -->
+Function reads rows where JSON Path equals Condition Value.
+  Each Function, JSON Path combination occurs at most once in the population of Function reads rows where JSON Path equals Condition Value.
 
 ## Instance Facts
 
