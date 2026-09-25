@@ -1306,6 +1306,102 @@ test("a population in another order is not a change; one row fewer is", () => {
   }
 }, 120_000);
 
+// ---- AND `get` READS THE ROWS THAT NAME THE ID, NOT THE WHOLE STORE -----------
+//
+// Sam, 2026-09-25: "rmap is supposed to be done on compile, not every time you call
+// a column?" The DEF of `get` projects the whole store again -- rmap over every group
+// and relation, then one cell taken -- and on support.auto.dev the first `get` cost
+// 2.2 s and a gigabyte for one entity's row, which the tables already hold. Its twin
+// is the DEF over the store cut to the facts that name the id. So, over a store built
+// the way the check builds one: for ids from every keyed table (up to twenty of each), a
+// value that is no entity and an id that is nothing, the twin answers what the DEF
+// answers; the twin reads no table whole for an id that names no fact type, where
+// the DEF reads them (an id that NAMES one reads that one, whose relation cell is in
+// the answer: the base's StatusIsTerminalInStateMachineDefinition); and the served
+// route, which applies the verb cell's body rather than calling the name, reaches
+// the twin -- `main` answering `get` reads no table whole either. Failing with
+// AREST_NOTWIN=get (the whole-read assertions) and with the twin found only by name
+// (the route's).
+test("get over a store read from its tables reads the rows that name the id, and answers what the DEF answers", () => {
+  const stamp = globalThis.AREST.composition;
+  const dir = mkdtempSync(join(tmpdir(), "arest-get-"));
+  const mod = join(import.meta.dir, "cases.g.js");
+  const path = join(dir, "store.db");
+  {
+    const db = new Database(path);
+    makeTables(db);
+    expect(globalThis.AREST.writeMetaschema(db)).toBeGreaterThan(0);
+    db.run("create table _composition (hash text)");
+    db.prepare("insert into _composition values(?)").run(stamp);
+    db.run("pragma wal_checkpoint(TRUNCATE)");
+    db.close();
+  }
+  const driver = join(dir, "drive.mjs");
+  writeFileSync(driver, [
+    "import { Database } from 'bun:sqlite';",
+    "await import(process.env.MODULE);",
+    "const { Ev, CELLS, DEFS, popSnapshot, emitToDb, closeStore, storeRead } = globalThis.AREST;",
+    "const say = (k, v) => console.log(k + '=' + JSON.stringify(v));",
+    "if (process.env.MAKE) { const b = popSnapshot(CELLS); closeStore(); say('made', emitToDb(b, CELLS)); process.exit(0); }",
+    "const db = new Database(process.env.AREST_STORE_DB, { readonly: true });",
+    "const ids = [];",
+    "for (const t of db.query(\"select name from sqlite_master where type = 'table' and substr(name, 1, 1) <> '_'\").values().map((r) => String(r[0]))) {",
+    "  const pk = db.query('select name from pragma_table_info(?) where pk > 0').values(t).map((r) => String(r[0]));",
+    "  if (pk.length !== 1) continue;",
+    "  const vals = db.query('select \"' + pk[0] + '\" from \"' + t + '\" where \"' + pk[0] + '\" is not null').values().map((r) => String(r[0]));",
+    "  const step = Math.max(1, Math.floor(vals.length / 20));",
+    "  for (let i = 0; i < vals.length; i += step) ids.push(vals[i]);",
+    "}",
+    "ids.push('no-such-id-anywhere');",
+    "say('ids', ids.length);",
+    "const st = Ev('store:state', CELLS);",
+    "// an id that names a fact type reads that fact type whole, since its relation cell is in the answer",
+    "const named = new Set(st[0].map((d) => String(d[0])));",
+    "say('named', ids.filter((id) => named.has(id)).length);",
+    "const before = storeRead();",
+    "const twin = new Map();",
+    "for (const id of ids) if (!named.has(id)) twin.set(id, JSON.stringify(Ev('get', [id, st])));",
+    "say('twin reads', { tables: storeRead().tables - before.tables, scans: storeRead().scans - before.scans });",
+    "for (const id of ids) if (named.has(id)) twin.set(id, JSON.stringify(Ev('get', [id, st])));",
+    "const plain = ids.find((id) => !named.has(id));",
+    "const was = storeRead().tables;",
+    "const served = Ev('main', [CELLS, ['get', plain]]);",
+    "say('served reads', storeRead().tables - was);",
+    "const def = DEFS.get('get');",
+    "const same = ids.filter((id) => JSON.stringify(Ev(def, [id, st])) === twin.get(id)).length;",
+    "say('same', same);",
+    "say('def reads', storeRead().tables - before.tables);",
+    "say('served same', JSON.stringify(Ev('main', [CELLS, ['get', plain]])) === JSON.stringify(served));",
+  ].join("\n"));
+  const run = (extra) => {
+    const env = { ...process.env, MODULE: pathToFileURL(mod).href, AREST_STORE_DB: path, ...extra };
+    delete env.AREST_EAGER_STORE;
+    if (!extra.AREST_NOTWIN) delete env.AREST_NOTWIN;
+    const p = Bun.spawnSync(["bun", driver], { env, stdout: "pipe", stderr: "pipe" });
+    const got = { out: p.stdout.toString() + p.stderr.toString() };
+    for (const line of p.stdout.toString().split("\n")) {
+      const i = line.indexOf("=");
+      if (i > 0) try { got[line.slice(0, i)] = JSON.parse(line.slice(i + 1)); } catch { /* not a line of ours */ }
+    }
+    return got;
+  };
+  try {
+    const made = run({ MAKE: "1" });
+    expect(made.made, made.out).toBeGreaterThan(0);
+    const got = run({});
+    expect(got.ids, got.out).toBeGreaterThan(50);
+    expect(got.named).toBeGreaterThan(0);                // some ids name fact types, which read that one whole
+    expect(got["twin reads"].tables).toBe(0);          // and no other id reads a table whole
+    expect(got["twin reads"].scans).toBeGreaterThan(0);
+    expect(got["served reads"]).toBe(0);                // the served route took the twin
+    expect(got.same).toBe(got.ids);                     // and every answer is the DEF's
+    expect(got["def reads"]).toBeGreaterThan(0);        // which reads the tables whole
+    expect(got["served same"]).toBe(true);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 240_000);
+
 // ---- A STORE IS READ WHEN ASKED, AND READ ONCE -----------------------------
 //
 // A server over a store reads no rows at start (host.js, lazyStore): each

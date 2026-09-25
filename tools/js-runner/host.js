@@ -515,7 +515,15 @@ const PRIMS = new Map(Object.entries({
     const rem = m % pow;
     if (rem < 0n ? -rem * 2n >= pow : rem * 2n >= pow) q += m < 0n ? -1n : 1n;
     return s >= 0 ? decNum("round", q, s) : decNum("round", q * 10n ** BigInt(-s), 0); },
-  "apply": x => Ev(at(x,0), at(x,1)),
+  // AND A TWIN SERVES THE DEF WHEREVER THE DEF IS APPLIED (2026-09-25). The verb route
+  // resolves a verb to its cell's CONTENTS -- main:verb_value is apply over solve:cell,
+  // and solve:cell answers the body -- so a twin, which is found by NAME, was never
+  // reached from a served verb: with the get twin in place, support's served `get`
+  // still took 2,067 ms and peaked at 1,297 MB resident, because apply evaluated the
+  // body it was handed. A twin is its DEF certified, so applying the DEF's own body is
+  // applying the DEF, and the twin is the same answer by the same route. Found by the
+  // body's identity: DEF puts one body in DEFS and in its cell.
+  "apply": x => { const f = at(x, 0); if (Array.isArray(f)) { const tw = twinOfBody(f); if (tw) return tw(at(x, 1)); } return Ev(f, at(x, 1)); },
   // lex yields TOKEN-RECORDS, ten fields per token, exactly as
   // metamodel/resolution.md types it. This head answered a flat word list, as
   // did the java, cs and rust hosts, so lambda's system: family — sqlname
@@ -1013,6 +1021,16 @@ const LIVEPATHS = new WeakSet();
 // that exercises most of them, and a twin that is not the DEF fails it
 // with no word about where (cn:nlexlt, 2026-09-06)
 const NOTWIN = new Set(String(process.env.AREST_NOTWIN || "").split(",").filter(Boolean));
+// the twin of a DEF by the DEF's own body, for `apply` (below); rebuilt when DEFS changes
+let TWINBODY = null, TWINBODYVER = -1;
+function twinOfBody(f) {
+  if (TWINBODYVER !== DEFSVER) {
+    TWINBODY = new WeakMap();
+    for (const [name, fn] of FASTPRIMS) { if (NOTWIN.has(name)) continue; const b = DEFS.get(name); if (Array.isArray(b)) TWINBODY.set(b, fn); }
+    TWINBODYVER = DEFSVER;
+  }
+  return TWINBODY.get(f);
+}
 const FASTPRIMS = new Map(Object.entries({
   // CONS and CONST are lambda (Backus 13.3.2, reached through tau clause (c)) and
   // stay so; these are their fast paths, the same value in one pass.
@@ -1299,6 +1317,57 @@ const FASTPRIMS = new Map(Object.entries({
   // first read; AREST_NOTWIN=store:fix_desc gives the DEF's own. Only where the
   // store is read on demand: in a compile, the suite or the law report every slot
   // is read anyway, and there the slot is unfolded at once, as the DEF does.
+  // `get` <id, store> OVER A STORE READ FROM ITS TABLES READS THE ROWS THAT NAME THE ID
+  // (2026-09-25; Sam: "rmap is supposed to be done on compile, not every time you call a
+  // column?"). The DEF answers <the id's cell among rmap's, the fact types nav:peers
+  // keeps>: rmap over the store builds a cell for every entity of every group and every
+  // relation's rows, and ast:fetch then takes one; ast:File nests every population and
+  // nav:peers keeps the ones that hold the id. On support.auto.dev that was the whole
+  // store projected again at every first `get` -- rmap 2,228 ms and 344 -> 1,417 MB
+  // resident, ast:File 74 ms, nav:peers 225 ms -- for one entity's row, which the tables
+  // already hold because the check wrote them. Everything either half reads about the
+  // id is a fact that names it: the entity's own cell is its facts, and a peer is a
+  // fact type with a row that holds it. So this is the DEF itself, evaluated over the
+  // store with every population cut to the facts that name the id -- the tables' from
+  // one scan per table (lazyStore's mentioning), the carriers' filtered -- and it
+  // answers what the DEF answers over the whole store, only without building the rest.
+  // A fact type the tables carry but yield nothing for falls back to the carriers' rows
+  // in a descriptor, and so it does here: support's SourceServiceHasProxyConcurrencyCap
+  // is read back from its column as a unary while its fact holds a value, so the
+  // store serves it from the carrier -- asked only where the carrier names the id and
+  // the tables do not. And the one fact type the id may NAME keeps every row, since its
+  // relation cell merges into the answer under that name. Any other shape, a store not
+  // read from its tables, and
+  // AREST_NOTWIN=get give the DEF's own route.
+  "get": x => {
+    const def = () => Ev(DEFS.get("get"), x);
+    if (!LAZY_STORE || !Array.isArray(x) || x.length !== 2) return def();
+    const id = x[0], st = x[1];
+    if (typeof id !== "string" || !Array.isArray(st) || st.length !== 2 || !Array.isArray(st[0])) return def();
+    const has = (f) => Array.isArray(f) && f.some((v) => v === id);
+    const byFt = LAZY_STORE.mentioning(id);
+    const fts = [];
+    for (const d of st[0]) {
+      if (!Array.isArray(d) || d.length < 5) return def();
+      const name = String(d[0]);
+      let rows;
+      // the fact type the id NAMES keeps its whole population: rmap merges cells of one
+      // name, so `get` of a fact type's name answers its entity row with the relation's
+      // own cell, every row of it, merged in (the base's StatusIsTerminalInStateMachine-
+      // Definition, whose rows name statuses and machines and never the fact type)
+      if (name === id) { const all = d[4]; if (!Array.isArray(all)) return def(); fts.push([d[0], d[1], d[2], d[3], all]); continue; }
+      if (LAZY_STORE.present(name)) {
+        rows = byFt.get(name) || [];
+        if (!rows.length) { const c = LAZY_STORE.carrier(name).filter(has); if (c.length && !LAZY_STORE.rowsOf(name).length) rows = c; }
+      } else {
+        const all = d[4];
+        if (!Array.isArray(all)) return def();
+        rows = all.filter(has);
+      }
+      fts.push([d[0], d[1], d[2], d[3], rows]);
+    }
+    return Ev(DEFS.get("get"), [id, [fts, st[1]]]);
+  },
   "store:fix_desc": d => {
     if (!Array.isArray(d) || d.length < 5) return Ev(DEFS.get("store:fix_desc"), d);
     if (!LAZY_STORE) return [d[0], d[1], d[2], d[3], Ev("theta:unfold_rows", d[4])];
@@ -3982,9 +4051,47 @@ function lazyStore(db, want) {
       if (relTables.has(t)) ftRows.delete(t);
     }
   };
-  return { db, tablesOf, rowsOf, readAll, invalidate, cells, replaced,
+  // EVERY FACT THAT NAMES ONE ID, per fact type, for `get` (its twin, among the
+  // FASTPRIMS). The id's own row and every row that refers to it hold it in some
+  // column, so a scan per table for the rows where any column is the id finds them all;
+  // they are unprojected as any read is, and a fact is kept only when the id is one of
+  // its values. The fact types each table carries are read the same way a population
+  // is read, in the same table order, so a fact type's facts arrive in the order its
+  // population has them.
+  let scans = 0;
+  const mentioning = (id) => {
+    const byFt = new Map();
+    for (const [table, cols] of want) {
+      if (!carried.has(table) && !relTables.has(table)) continue;
+      scans++;
+      const rows = db.query("select " + cols.map((c) => '"' + c + '"').join(",") + ' from "' + table + '" where '
+        + cols.map((c) => '"' + c + '" = ?1').join(" or ")).values(id);
+      if (!rows.length) continue;
+      const clean = rows.map((r) => r.map((v) => (v === null ? "#" : String(v))));
+      for (const pr of Ev("rmap:unproj", [table, clean, SCHEMA])) {
+        const ft = String(pr[0]), fact = pr[1];
+        if (!Array.isArray(fact) || !fact.some((v) => v === id)) continue;
+        let l = byFt.get(ft); if (!l) byFt.set(ft, (l = [])); l.push(fact);
+      }
+    }
+    for (const k of [...EVMEMO.keys()]) if (typeof k === "string" && k.startsWith("rmap:unproj")) EVMEMO.delete(k);
+    return byFt;
+  };
+  // the carriers' rows for a fact type, unfolded: what a descriptor's fifth slot answers
+  // when the tables yield that fact type nothing
+  let rawDescs = null;
+  const carrier = (ft) => {
+    if (!rawDescs) {
+      rawDescs = new Map();
+      const walk = (v) => { if (Array.isArray(v) && v.length === 5 && !Array.isArray(v[0])) rawDescs.set(String(v[0]), v); else if (Array.isArray(v)) v.forEach(walk); };
+      walk(pick(SCHEMA, "state:fts"));
+    }
+    const d = rawDescs.get(ft);
+    return d ? Ev("theta:unfold_rows", d[4]) : [];
+  };
+  return { db, tablesOf, rowsOf, readAll, invalidate, cells, replaced, mentioning, carrier, present,
     hasRows: (n) => present(n) && rowsOf(n).length > 0,
-    stats: () => ({ selects, tables: byTable.size, most: Math.max(0, ...wholeReads.values()) }) };
+    stats: () => ({ selects, tables: byTable.size, most: Math.max(0, ...wholeReads.values()), scans }) };
 }
 
 function loadStoreDb(path, opts) {
