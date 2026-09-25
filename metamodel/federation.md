@@ -49,6 +49,7 @@ Translator is a value type.
 Query Parameter is a value type.
 Parameter Value is a value type.
 Condition Value is a value type.
+Query Text is a value type.
 
 ## Fact Types
 
@@ -111,6 +112,13 @@ Function pages from JSON Path.
      an either-or is two Sources. -->
 Function reads rows where JSON Path equals Condition Value.
   Each Function, JSON Path combination occurs at most once in the population of Function reads rows where JSON Path equals Condition Value.
+
+<!-- AND A QUERY IS SENT AS THE BODY (2026-09-25). ClickHouse answers SQL posted to its HTTP interface
+     and binds a placeholder like {email:String} from the query parameter param_email on the server,
+     so the text goes out exactly as written and nothing here fills it: a customer and a window are
+     bindings the caller passes, and a cap is a bound LIMIT like any other value. -->
+Function sends Query Text.
+  Each Function sends at most one Query Text.
 
 ## Instance Facts
 

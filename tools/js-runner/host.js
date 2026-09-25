@@ -3401,15 +3401,18 @@ function run_mcp() {
       try { req = JSON.parse(String(q[0])); } catch (e) { req = null; }
       if (!Array.isArray(req) || req[0] !== "request") return [String(q[0]), Number(q[1]) >= 400 ? Number(q[1]) : 400];
       const method = String(req[1]), address = String(req[2]);
+      // a declared Query Text is the body, sent as written; the service binds its placeholders
+      const sendBody = req.length > 4 && !Array.isArray(req[4]) && String(req[4]) !== "" ? String(req[4]) : undefined;
       const qs = new URLSearchParams();
       for (const pr of (Array.isArray(req[3]) ? req[3] : [])) qs.append(String(pr[0]), String(pr[1]));
       const url = address + (qs.toString() ? "?" + qs.toString() : "");
       if (mode !== "live") {
-        lines.push((mode ? mode + " -- would " : "not performed: this connection declares no Send Mode -- would ") + method + " " + url);
+        lines.push((mode ? mode + " -- would " : "not performed: this connection declares no Send Mode -- would ") + method + " " + url
+          + (sendBody === undefined ? "" : " with a body of " + sendBody.length + " characters"));
         break;
       }
       let res, text;
-      try { res = await fetch(url, { method, headers }); text = await res.text(); }
+      try { res = await fetch(url, sendBody === undefined ? { method, headers } : { method, headers, body: sendBody }); text = await res.text(); }
       catch (e) { lines.push(method + " " + url + " failed: " + String(e && e.message)); status = 502; break; }
       if (res.status >= 400) { lines.push(method + " " + url + " answered " + res.status + ": " + text.slice(0, 300)); status = 502; break; }
       let body;

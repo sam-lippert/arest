@@ -2321,10 +2321,18 @@ test("a transition fired through the MCP server performs what it declares, dry, 
 // widgets, a probe domain declaring a Source over it (live) and a second Source over a system
 // armed 'dry', compiled, served by its own MCP module and synced as a session would. Failing at
 // ed60ff64: the server hands sync the Source alone, which answers the request and fetches nothing.
+// AND A QUERY IS POSTED AS WRITTEN (2026-09-25): a third Source sends a ClickHouse-style Query Text
+// with param_ bindings; failing at 8cf843de, where the fetch sends no body.
 test("sync through the MCP server fetches every page of a live Source, and a dry one fetches nothing", async () => {
   const hits = [];
-  const api = Bun.serve({ port: 0, fetch(req) {
+  const api = Bun.serve({ port: 0, async fetch(req) {
     const u = new URL(req.url);
+    if (u.pathname === "/v1/ch") {
+      const sql = await req.text();
+      hits.push(req.method + " " + u.pathname + u.search + " body=" + sql);
+      return Response.json({ meta: [{ name: "rayId", type: "String" }, { name: "email", type: "String" }],
+        data: [{ rayId: "r_1", email: u.searchParams.get("param_email") === "e@x.com" ? "E@X.com" : "wrong@binding" }], rows: 1 });
+    }
     hits.push(u.pathname + u.search + " x-probe=" + (req.headers.get("x-probe") || ""));
     const after = u.searchParams.get("starting_after");
     return Response.json(!after
@@ -2374,6 +2382,17 @@ test("sync through the MCP server fetches every page of a live Source, and a dry
       "Function 'listDry' reads rows at JSON Path '$.data'.", "",
       "Function 'listDry' yields Fact Type 'Widget has Owner Email' with Role 'WidgetHasOwnerEmail.1' from JSON Path '$.id'.", "",
       "Function 'listDry' yields Fact Type 'Widget has Owner Email' with Role 'WidgetHasOwnerEmail.2' from JSON Path '$.owner.email'.", "",
+      "Source 'logs-src' uses Connector 'queryLogs'.", "",
+      "Function 'queryLogs' is backed by External System 'fake'.", "",
+      "Function 'queryLogs' has callback URI '/ch'.", "",
+      "Function 'queryLogs' is called with HTTP Method 'POST'.", "",
+      "Function 'queryLogs' sends Query Text 'SELECT rayId, email FROM logs WHERE email = {email:String} LIMIT {cap:UInt32}'.", "",
+      "Function 'queryLogs' has Query Parameter 'param_email' with Parameter Value '{email}'.", "",
+      "Function 'queryLogs' has Query Parameter 'param_cap' with Parameter Value '100'.", "",
+      "Function 'queryLogs' has Query Parameter 'default_format' with Parameter Value 'JSON'.", "",
+      "Function 'queryLogs' reads rows at JSON Path '$.data'.", "",
+      "Function 'queryLogs' yields Fact Type 'Widget has Owner Email' with Role 'WidgetHasOwnerEmail.1' from JSON Path '$.rayId'.", "",
+      "Function 'queryLogs' yields Fact Type 'Widget has Owner Email' with Role 'WidgetHasOwnerEmail.2' from JSON Path '$.email|lower'.", "",
       "## Instance Facts", "",
       "Domain 'widgets' has Description 'A probe domain for the fetch.'.", "",
     ].join("\n"));
@@ -2428,6 +2447,19 @@ test("sync through the MCP server fetches every page of a live Source, and a dry
     const dry = await call("sync", { args: ["dry-src"] });
     expect(dry).toContain("dry -- would GET " + base + "/widgets");
     expect(hits.length).toBe(4);
+    // a query: the Query Text POSTed as written, the customer bound on the service's side through
+    // param_email from the bindings the call passed, the rows it answers written like any other
+    const logs = await call("sync", { args: [["logs-src", { email: "e@x.com" }]] });
+    expect(logs, err.slice(-2000)).toContain("page 1");
+    expect(hits.length).toBe(5);
+    const q = hits[4];
+    expect(q.startsWith("POST /v1/ch?")).toBe(true);
+    for (const part of ["param_email=e%40x.com", "param_cap=100", "default_format=JSON",
+                        " body=SELECT rayId, email FROM logs WHERE email = {email:String} LIMIT {cap:UInt32}"]) expect(q).toContain(part);
+    expect(await call("WidgetHasOwnerEmail", { method: "GET" })).toContain('["r_1","e@x.com"]');
+    // and a query whose binding is missing is refused before anything leaves
+    expect(await call("sync", { args: ["logs-src"] })).toContain("param_email");
+    expect(hits.length).toBe(5);
   } finally {
     if (server) server.kill();
     api.stop(true);
@@ -3163,6 +3195,7 @@ test("sync answers a Source's request, and asserts what a page of its rows yield
   const req = JSON.parse(String(q[0]));
   expect(req.slice(0, 3)).toEqual(["request", "GET", "http://127.0.0.1:9/v1/streams"]);
   expect(req[3].map((p) => p.join("=")).sort()).toEqual(["limit=2", "owner=sam"]);
+  expect(req[4]).toEqual([]);                        // no Query Text declared, so no body
   expect(q[2]).toBe(S0);
   // a page: role 1 from $.id and role 2 from the owner's email, lowered, in the fact type's own
   // order though declared the other way round. A row is read only where every condition holds:
@@ -4015,10 +4048,13 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     // `Function reads rows where JSON Path equals Condition Value`, unique over Function and JSON
     // Path, and both readers read it alike: 295 -> 296, players/all 268 -> 269, rows 284 -> 285,
     // stateUcs 615 -> 619, derived unmoved.
+    // AND A QUERY IS SENT AS THE BODY (2026-09-25): Query Text and `Function sends Query Text`,
+    // at most one per Function, read alike: 296 -> 297, players/all 269 -> 270, rows 285 -> 286,
+    // stateUcs 619 -> 620, derived unmoved.
     expect({ witness: O.size, lambda: C.size, both, lambdaOnly: lambdaOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
-      .toEqual({ witness: 296, lambda: 296, both: 296, lambdaOnly: 0, oracleOnly: 0,
-                 players: 269, ucs: 296, mands: 296, all: 269, rows: 285, rejected: 0, derived: [37, 37, 37], stateRows: 296, stateUcs: 619 });
+      .toEqual({ witness: 297, lambda: 297, both: 297, lambdaOnly: 0, oracleOnly: 0,
+                 players: 270, ucs: 297, mands: 297, all: 270, rows: 286, rejected: 0, derived: [37, 37, 37], stateRows: 297, stateUcs: 620 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
@@ -4296,7 +4332,8 @@ describe("lambda's constraint cells against the witness, on the base metamodel",
       // 513 -> 523 (2026-09-25): Query Parameter, Parameter Value and the five fact types a
       // Connector pages with enter federation.md, and the sequence moves alike in both readers.
       // 523 -> 527 (2026-09-25): Condition Value and the row condition, alike in both.
-      .toEqual({ lambda: 527, witness: 527, kept: 527, sequence: true, renumbered: true, lambdaOnly: [] });
+      // 527 -> 528 (2026-09-25): Query Text and `Function sends Query Text`, alike in both.
+      .toEqual({ lambda: 528, witness: 528, kept: 528, sequence: true, renumbered: true, lambdaOnly: [] });
   }, 300_000);
 
   // and the assembler carries them: the schema lambda writes holds every
@@ -5660,7 +5697,8 @@ test("a reading's spoken text is in the store, and the seven its name cannot spe
   // 283 -> 288 (2026-09-25): the five fact types a Connector pages with enter federation.md,
   // and each name spells its reading
   // 288 -> 289 (2026-09-25): `Function reads rows where JSON Path equals Condition Value`
-  expect(declared.length - lost.length).toBe(289);
+  // 289 -> 290 (2026-09-25): `Function sends Query Text`
+  expect(declared.length - lost.length).toBe(290);
   for (const [name, t] of EXACT) expect([name, text.get("r" + name)]).toEqual([name, t]);
 
   // ---- and it is in the tables --------------------------------------------
