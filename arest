@@ -15679,7 +15679,8 @@ DEF("compile:files",
     S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("compile:dir_files")))),
 
 DEF("compile:file_rows",
-    S5(A("COMP"), S2(A("ALPHA"), A("read:row_of")), A("read:sentences"), A("fs:read"), A("compile:path"))),
+    S5(A("COMP"), S2(A("ALPHA"), A("read:row_of")), A("read:sentences"), A("read:env_filter"),
+       S3(A("CONS"), N(2), S3(A("COMP"), A("fs:read"), A("compile:path"))))),
 
 "A DOMAIN IS A PROPERTY OF THE FILE, AND THE FILE IS GONE BY THE STATE PHASE (2026-09-21, task #122 item 14). Function belongs to Domain held ZERO rows in every store ever built -- 0 on the metamodel carrier and 0 on support.auto.dev, whose Function table has a belongsToDomain column and 4,339 rows with nothing in it -- while DomainHasDescription carried 67 and AppHasNavigableDomain 1. Nothing was wrong with the readings: each file declares its Domain in a Domain X has Access or Domain X has Description sentence, 63 of the 84 files support composes do so, and NO cell anywhere records which file a declaration came from. compile:file_rows consumes the path through fs:read and answers bare rows, compile:rows flattens them across files, and read:schema_of is handed one list with no seam in it. compile:pairs keeps the per-file value instead -- domain, declared names, rows -- and compile:rows is the same flatten over its third field, so the rows are walked once and the row list is unchanged. MEASURED on support: 84 files, 9,809 rows, 1,192 declared names, 1,090 of them in a file that declares a domain, 53 domains, and 146 re-declarations of a name another file already declared, which is why the reader of this cell takes the first entry per name. THE POPULATION IS REFLECTED AND NOT STORED, because the deontic that reads it binds over runtime instances: cmd:dv_mem into cmd:mv_one is setminus of ui:ids over the player type against column 1 of system:pop_rows on the fact type ITSELF, so the derived twins Object Type Instance belongs to Domain and Fact belongs to Domain -- separate cells -- do not satisfy it, and a Support Request created after a build would keep violating until the next rebuild. That is the State Machine silence of 2026-09-17 through the same door, and reflection is its remedy: loadReflected recomputes at boot and again after every write. The three arms single-source the domain the way instances.md already does -- a declared element takes its file's, a fact type takes its role-1 player's, an instance takes the domain of the type it is filed under that has no subtypes, since read:up_rows files it under every ancestor too and an ancestor must not claim it -- and the fold keeps the first row per subject so Each Function belongs to at most one Domain holds. WHAT THIS DOES NOT CLOSE, measured on support's 970 Function ids: 618 get a domain, 107 are filed under two unrelated leaf types whose domains differ, and 245 remain because the type that would name their domain is declared in one of the 21 files that declare none -- 33 Operations and 21 Verbalization Patterns among them, from metamodel/resolution.md, which names twelve Domains because they are lambda's prefix families and so names none of its own. Those 21 files are a readings decision and not a lambda one.",
 DEF("compile:row_words",
@@ -15797,12 +15798,93 @@ DEF("read:name_sorted",
              S4(A("CONS"), N(1), S3(A("COMP"), A("read:name_ins"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), N(2))), S3(A("COMP"), A("tl"), N(3)))),
           S4(A("CONS"), A("id"), K(PHI()), A("id"))))),
 
-DEF("read:file_order",
+DEF("read:md_order",
     S4(A("COMP"), A("cat"),
        S3(A("CONS"),
           S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("core.md")))), S2(A("CONS"), A("id")), K(PHI())))),
           S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("core.md")))), K(PHI()), S2(A("CONS"), A("id")))))),
        S3(A("COMP"), A("read:name_sorted"), A("read:md_only")))),
+
+"A .env IS A READINGS FILE, READ AFTER ITS DIRECTORY`S .md FILES (2026-09-25). Sam, 2026-09-14: `.env should be read into the system to make it all work in the live db. .env is compile-time, and a db must be portable to another environment.` The C# oracle read it (b995ade4), and read:file_order dropped it when it took the order into lambda (3360a782): read:md_only keeps .md names alone. So support.auto.dev`s Resend connection -- asserted only in its .env, because a secret is never put in a .md (Sam, 2026-09-12) -- had no row, perform:conn_of had nothing to key, and the first live send through the MCP was refused `this connection declares no Send Mode` (pm.auto.dev, 2026-09-25). It lands after the .md files because it carries instance facts only, and the declarations are in hand when they arrive. read:md_order is the order read:file_order answered until now.",
+DEF("read:env_only",
+    S3(A("COMP"), A("theta:flatten"),
+       S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A(".env")))), S2(A("CONS"), A("id")), K(PHI()))))),
+
+DEF("read:file_order",
+    S3(A("COMP"), A("cat"), S3(A("CONS"), A("read:md_order"), A("read:env_only")))),
+
+"AND A .env MAY ALSO BE A DOTENV, so its assignment lines never reach the reader. `NAME=value`, optionally after `export`, is a shell assignment and the value on its right is a plaintext secret, and a quoted value may run over several lines. Every such line is dropped here, before read:sentences, so no value of one is ever a sentence, a finding or a row. The rule is b995ade4`s -- an identifier, [A-Za-z_][A-Za-z0-9_]*, then `=` -- plus the lines of a quoted value it leaves open, which that rule let through: the body of a PEM key would have been read as sentences, and a sentence naming nothing declared is printed. Only a file named .env is filtered; every .md is read byte for byte. Operand of read:env_filter <name, text>; read:env_asg answers a line`s value after its `=`, or F for a line that assigns nothing.",
+DEF("read:env_ws",
+    S3(A("COMP"), A("theta:member"), S3(A("CONS"), A("id"), K(S2(A(" "), A("\t")))))),
+
+DEF("read:env_skipws",
+    S3(A("WHILE"), S4(A("COND"), A("null"), K(A("F")), S3(A("COMP"), A("read:env_ws"), N(1))), A("tl"))),
+
+DEF("read:env_between",
+    S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("le"), S3(A("CONS"), N(2), N(1))), S3(A("COMP"), A("le"), S3(A("CONS"), N(1), N(3)))))),
+
+DEF("read:env_idh",
+    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("_")))), K(A("T")),
+       S4(A("COND"), S3(A("COMP"), A("read:env_between"), S4(A("CONS"), A("id"), K(A("a")), K(A("z")))), K(A("T")),
+          S3(A("COMP"), A("read:env_between"), S4(A("CONS"), A("id"), K(A("A")), K(A("Z"))))))),
+
+DEF("read:env_idc",
+    S4(A("COND"), A("read:env_idh"), K(A("T")), S3(A("COMP"), A("read:env_between"), S4(A("CONS"), A("id"), K(A("0")), K(A("9")))))),
+
+DEF("read:env_isexport",
+    S4(A("COND"), S3(A("COMP"), A("lt"), S3(A("CONS"), A("length"), K(N(7)))), K(A("F")),
+       S3(A("COMP"), A("and"), S3(A("CONS"),
+          S3(A("COMP"), A("eq"), S3(A("CONS"), S7(A("CONS"), N(1), N(2), N(3), N(4), N(5), N(6)), K(S6(A("e"), A("x"), A("p"), A("o"), A("r"), A("t"))))),
+          S3(A("COMP"), A("read:env_ws"), N(7)))))),
+
+DEF("read:env_export",
+    S4(A("COND"), A("read:env_isexport"), S8(A("COMP"), A("read:env_skipws"), A("tl"), A("tl"), A("tl"), A("tl"), A("tl"), A("tl")), A("id"))),
+
+DEF("read:env_idskip",
+    S4(A("COND"), A("null"), K(A("F")),
+       S4(A("COND"), S3(A("COMP"), A("read:env_idh"), N(1)),
+          S3(A("COMP"), S3(A("WHILE"), S4(A("COND"), A("null"), K(A("F")), S3(A("COMP"), A("read:env_idc"), N(1))), A("tl")), A("tl")),
+          K(A("F"))))),
+
+DEF("read:env_asg_eq",
+    S4(A("COND"), A("atom"), K(A("F")),
+       S3(A("COMP"),
+          S4(A("COND"), A("null"), K(A("F")),
+             S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("=")))),
+                S3(A("COMP"), A("read:env_skipws"), A("tl")),
+                K(A("F")))),
+          A("read:env_skipws")))),
+
+DEF("read:env_asg",
+    S5(A("COMP"), A("read:env_asg_eq"), A("read:env_idskip"), A("read:env_export"), A("read:env_skipws"))),
+
+DEF("read:env_opens",
+    S4(A("COND"), A("atom"), K(A("")),
+       S4(A("COND"), A("null"), K(A("")),
+          S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), N(1), K(S3(A("\""), A("'"), A("`"))))),
+             S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), N(1), A("tl"))), K(A("")), N(1)),
+             K(A("")))))),
+
+DEF("read:env_step",
+    S4(A("COND"), S4(A("COMP"), A("not"), A("eq"), S3(A("CONS"), N(3), K(A("")))),
+       S4(A("CONS"), N(1), S3(A("COMP"), A("tl"), N(2)),
+          S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), N(3), S3(A("COMP"), N(1), N(2)))), K(A("")), N(3))),
+       S4(A("COND"), S4(A("COMP"), A("atom"), A("read:env_asg"), S3(A("COMP"), N(1), N(2))),
+          S4(A("CONS"), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(2)))), S3(A("COMP"), A("tl"), N(2)), K(A(""))),
+          S4(A("CONS"), N(1), S3(A("COMP"), A("tl"), N(2)), S4(A("COMP"), A("read:env_opens"), A("read:env_asg"), S3(A("COMP"), N(1), N(2))))))),
+
+DEF("read:env_keep",
+    S4(A("COMP"), N(1),
+       S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(2)), A("read:env_step")),
+       S4(A("CONS"), K(PHI()), A("id"), K(A(""))))),
+
+DEF("read:env_text",
+    S3(A("COMP"), A("implode"),
+       S3(A("CONS"), K(A("\n")),
+          S5(A("COMP"), S2(A("ALPHA"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), A("id")))), A("read:env_keep"), A("read:lines"), A("chars"))))),
+
+DEF("read:env_filter",
+    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A(".env")))), S3(A("COMP"), A("read:env_text"), N(2)), N(2))),
 
 DEF("read:sentences",
     S8(A("COMP"), A("read:markers_forward"), A("theta:flatten"), S2(A("ALPHA"), A("read:split_sentences")), A("read:paragraphs"), S2(A("ALPHA"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), A("read:marker_home"), A("read:trim_sp"))))), A("read:lines"), A("chars"))),

@@ -12,7 +12,7 @@
 //
 //   bun run build:test && bun test
 import { expect, test, describe } from "bun:test";
-import { readFileSync, readdirSync, unlinkSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, copyFileSync } from "node:fs";
+import { readFileSync, readdirSync, unlinkSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, copyFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
@@ -1567,6 +1567,96 @@ test("a store is read when asked: a population reads its own table, none is read
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
   }
 }, 240_000);
+
+// ---- A .env IS READ, AND WHAT IT MUST NOT GIVE AWAY IS NOT ----------------
+//
+// support.auto.dev asserts its Resend connection and its secret in a .env, because a
+// secret is never put in a .md (Sam, 2026-09-12), and ".env should be read into the system
+// to make it all work in the live db" (Sam, 2026-09-14). read:file_order kept .md names
+// alone, so the connection had no row and the first live send through the MCP was refused
+// `this connection declares no Send Mode` (2026-09-25). A probe domain here carries in its
+// .env a connection, a Secret Reference, dotenv assignments -- one exported, one quoted,
+// two quoted over several lines -- and a sentence naming nothing declared, every value a
+// fake. Compiled with a throwaway AREST_MASTER_KEY: the connection lands; the Secret
+// Reference is sealed before anything is written, so no fake value is in the output, the
+// carriers or the store, and what IS in the store opens to the secret through lambda's own
+// hook:read; the dotenv values are never read at all. Compiled with no key: the check
+// refuses, prints no value, and writes no store. Failing at ee9f65ab: no connection row.
+test("a .env is read: its connection lands, its dotenv lines are never read, and a stored-through value is sealed first", () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-env-"));
+  const probe = join(dir, "probe");
+  mkdirSync(probe);
+  const FAKES = ["NOT-A-REAL-DOTENV-1", "NOT-A-REAL-DOTENV-2", "NOT-A-REAL-DOTENV-3", "NOT-A-REAL-MULTILINE-4",
+    "NOT-A-REAL-MULTILINE-5", "NOT-A-REAL-SECRET-6", "NOT-A-REAL-QUOTED-7"];
+  const SECRET = "NOT-A-REAL-SECRET-6";
+  const NL = String.fromCharCode(10), Q = String.fromCharCode(34);
+  writeFileSync(join(probe, "probe.md"), [
+    "# Probe", "",
+    "Domain 'probe' has Description 'A probe domain whose connection lives in its .env.'.", "",
+    "DomainConnectsToExternalSystem 'probe/probe-system' has Send Mode 'dry'.", ""].join(NL));
+  writeFileSync(join(probe, ".env"), [
+    "# every value in this file is a fake", "## Instance Facts", "",
+    "Domain 'probe' connects to External System 'probe-system'.",
+    "FAKE_TOKEN=NOT-A-REAL-DOTENV-1",
+    "  export OTHER_TOKEN = 'NOT-A-REAL-DOTENV-2'",
+    "_QUOTED=" + Q + "NOT-A-REAL-DOTENV-3" + Q,
+    "MULTI=" + Q + "-----BEGIN FAKE KEY-----",
+    "NOT-A-REAL-MULTILINE-4 with spaces in it",
+    "-----END FAKE KEY-----" + Q,
+    "SINGLE='first NOT-A-REAL-MULTILINE-5",
+    "last'",
+    "DomainConnectsToExternalSystem 'probe/probe-system' carries Secret Reference '" + SECRET + "'.",
+    "Gizmo 'NOT-A-REAL-QUOTED-7' has Label 'a sentence naming nothing declared'.", ""].join(NL));
+  const compile = (out, key) => {
+    mkdirSync(out, { recursive: true });
+    const env = { ...process.env, AREST_DB: join(out, "store.db"), AREST_OUT_DIR: out };
+    delete env.AREST_MASTER_KEY;
+    if (key) env.AREST_MASTER_KEY = key;
+    const p = Bun.spawnSync(["bun", join(import.meta.dir, "compile.js"), join(import.meta.dir, "..", "..", "metamodel"), probe],
+      { env, stdout: "pipe", stderr: "pipe" });
+    return { code: p.exitCode, text: p.stdout.toString() + p.stderr.toString() };
+  };
+  const leaked = (text) => FAKES.filter((f) => text.includes(f));
+  const open = (key, text) => {
+    try {
+      const { createHash, createDecipheriv } = require("node:crypto");
+      const all = Buffer.from(String(text), "base64");
+      if (all.length < 29) return null;
+      const d = createDecipheriv("aes-256-gcm", createHash("sha256").update(key).digest(), all.subarray(0, 12));
+      d.setAuthTag(all.subarray(12, 28));
+      return Buffer.concat([d.update(all.subarray(28)), d.final()]).toString("utf8");
+    } catch { return null; }
+  };
+  try {
+    const key = "throwaway-" + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    const sealed = join(dir, "sealed");
+    const a = compile(sealed, key);
+    expect(a.code, a.text).toBe(0);
+    expect(a.text).toContain("stored through: 1 value(s) of 'Secret Reference'");
+    expect(leaked(a.text)).toEqual([]);
+    for (const f of ["design-state", "compiled", "store.db"]) expect(leaked(readFileSync(join(sealed, f)).toString("latin1")), f).toEqual([]);
+    const db = new Database(join(sealed, "store.db"), { readonly: true });
+    let cipher = null;
+    try {
+      expect(db.query("select count(*) n from DomainConnectsToExternalSystem").get().n).toBe(1);
+      for (const t of db.query("select name from sqlite_master where type = 'table'").values().map((r) => String(r[0]))) {
+        for (const row of db.query('select * from "' + t + '"').values()) for (const v of row) if (!cipher && typeof v === "string" && open(key, v) === SECRET) cipher = v;
+      }
+    } finally { db.close(true); }
+    expect(cipher).not.toBe(null);
+    const { Ev, CELLS } = globalThis.AREST;
+    expect(Ev("hook:read", [key, "Secret Reference", cipher, CELLS])).toBe(SECRET);
+
+    const bare = join(dir, "bare");
+    const b = compile(bare, null);
+    expect(b.code, b.text).toBe(1);
+    expect(b.text).toContain("AREST_MASTER_KEY");
+    expect(leaked(b.text)).toEqual([]);
+    expect(existsSync(join(bare, "store.db"))).toBe(false);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 300_000);
 
 // ---- A WRITE REWRITES THE ROWS IT MOVED -------------------------------------
 //

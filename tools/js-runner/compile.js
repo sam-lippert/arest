@@ -108,7 +108,7 @@ if (!existsSync(host)) {
   if (r.status !== 0) process.exit(r.status || 1);
 }
 await import(pathToFileURL(host).href);
-const { Ev, CELLS, DEFS, loadStoreDb, popSnapshot, closeStore, emitToDb, storeDb, writeMetaschema } = globalThis.AREST;
+const { Ev, CELLS, DEFS, loadStoreDb, popSnapshot, closeStore, emitToDb, storeDb, writeMetaschema, adoptStore } = globalThis.AREST;
 
 // ---- THE MODE IS A CELL, AND THE ENVIRONMENT INSTALLS IT ------------------
 // lambda's read:strict answers F: the AREST default is not strict (Sam,
@@ -167,6 +167,94 @@ const findings = checked[1];
 const chunked = state.map((c) => Ev("read:chunk9", c[1]));
 for (let i = state.length - 1; i >= 0; i--) CELLS.unshift(["CELL", String(state[i][0]), chunked[i]]);
 const tState = Date.now() - t1;
+// ---- A VALUE STORED THROUGH A FUNCTION IS STORED THROUGH IT, BEFORE ANYTHING IS WRITTEN
+// (2026-09-25). core.md: `Object Type 'Secret Reference' is stored through Function
+// 'crypt:encrypt'`, and Sam, 2026-09-12: ".env contains compile-time plaintext secrets.
+// They are never put in a .md. ... The fact types are in the .md and specify whether the
+// field is encrypted." hook:write is lambda's definition that applies the declared
+// Function, and until now nothing called it. It is applied HERE, to the design state
+// lambda just read, because everything this file writes is made from that state: the
+// carrier the served module embeds, the build's rows, the closure's, the ledger. Applied
+// at the store alone the plaintext would still have been in the carrier, which a `cells`
+// answer prints, and in the instance-of rows, where a value is an entity id and no column
+// is a Secret Reference. So every value a population holds in a role such a type plays is
+// swapped for what hook:write makes of it, wherever it occurs in the state. The key is
+// AREST_MASTER_KEY, which the router loads from arest/.env and nothing else holds. No key
+// refuses the check, and so does a plaintext still anywhere in the state afterwards, even
+// inside a longer atom; a check that refuses writes nothing, and neither message carries a
+// value.
+const sealed = new Set();
+{
+  // the marking as the readings assert it, from its descriptor: system:pop_rows reads a
+  // population through FILE, which this file never installs, so there it answers nothing --
+  // and hook:write, which finds its Function the same way, is given a store holding exactly
+  // that marking as a cell of its own, the shape lambda's own hook:write cases use
+  const descs = Ev("store:fts", CELLS);
+  const through = [];
+  for (const d of descs) if (Array.isArray(d) && String(d[0]) === "ObjectTypeIsStoredThroughFunction" && Array.isArray(d[4])) through.push(...d[4]);
+  const marking = [["CELL", "ObjectTypeIsStoredThroughFunction", through]];
+  const marked = new Map();
+  for (const r of through) if (Array.isArray(r) && r.length >= 2) marked.set(String(r[0]), String(r[1]));
+  const plain = new Map();
+  if (marked.size) {
+    for (const d of descs) {
+      const players = Array.isArray(d) && Array.isArray(d[1]) ? d[1].map(String) : [];
+      const at = players.map((p, i) => (marked.has(p) ? i : -1)).filter((i) => i >= 0);
+      if (!at.length) continue;
+      for (const row of Array.isArray(d[4]) ? d[4] : []) for (const i of at) {
+        const v = Array.isArray(row) ? row[i] : undefined;
+        if (typeof v === "string" && v !== "" && v !== "#") plain.set(v, players[i]);
+      }
+    }
+  }
+  if (plain.size) {
+    const types = [...new Set(plain.values())].map((t) => "'" + t + "'").join(", ");
+    const key = process.env.AREST_MASTER_KEY;
+    if (!key) {
+      console.error("REFUSED: " + plain.size + " value(s) of " + types + ", which the readings store through a Function, "
+        + "and no AREST_MASTER_KEY to store them with. Nothing was written.");
+      process.exit(1);
+    }
+    const sealedOf = new Map();
+    for (const [v, type] of plain) {
+      const c = String(Ev("hook:write", [key, type, v, marking]));
+      if (c === v) { console.error("REFUSED: hook:write left a value of '" + type + "' as it was. Nothing was written."); process.exit(1); }
+      sealedOf.set(v, c);
+    }
+    const swap = (x) => (Array.isArray(x) ? x.map(swap) : typeof x === "string" && sealedOf.has(x) ? sealedOf.get(x) : x);
+    for (let i = 0; i < state.length; i++) { state[i] = [state[i][0], swap(state[i][1])]; chunked[i] = swap(chunked[i]); }
+    const vals = [...plain.keys()];
+    const holds = (x) => (Array.isArray(x) ? x.some(holds) : typeof x === "string" && vals.some((v) => x.includes(v)));
+    const where = state.filter((c, i) => holds(c[1]) || holds(chunked[i])).map((c) => String(c[0]));
+    if (where.length) {
+      console.error("REFUSED: a value the readings store through a Function is still in " + where.join(", ")
+        + " as written. Nothing was written.");
+      process.exit(1);
+    }
+    for (let i = 0; i < state.length; i++) {
+      if (!(Array.isArray(CELLS[i]) && String(CELLS[i][1]) === String(state[i][0]))) throw new Error("the design state is not where it was installed");
+    }
+    adoptStore(CELLS.map((c, i) => (i < state.length ? ["CELL", String(state[i][0]), chunked[i]] : c)));
+    for (const v of vals) sealed.add(v);
+    console.log("stored through: " + plain.size + " value(s) of " + types + ", sealed before anything is written");
+  }
+}
+// AND NO QUOTED VALUE OF A .env IS PRINTED. A finding quotes its reading, and a reading
+// from a .env may carry a secret, so every quoted value a .env gives -- and every value
+// sealed above -- is blanked in what this file prints.
+const unprinted = new Set(sealed);
+for (const dir of dirs) {
+  let names = [];
+  try { names = Ev("fs:dir", dir); } catch { names = []; }
+  if (!Array.isArray(names) || !names.map(String).includes(".env")) continue;
+  for (const row of Ev("compile:file_rows", [dir, ".env"])) {
+    for (const tok of Array.isArray(row) && Array.isArray(row[1]) ? row[1] : []) {
+      const t = String(Array.isArray(tok) ? tok[0] : tok);
+      if (t.length > 2 && t.startsWith("'") && t.endsWith("'")) unprinted.add(t.slice(1, -1));
+    }
+  }
+}
+const redact = (text) => { let t = String(text); for (const v of unprinted) if (v) t = t.split(v).join("(not printed)"); return t; };
 
 // ---- WHAT THE READER REPORTED, AND WHAT IT REFUSED -----------------------
 // compile:check's second answer, one row per finding: <undeclared, fact type
@@ -186,7 +274,7 @@ const refused = findings.some((r) => String(r[2]) === "refused");
 const verdict = refused ? " -- REFUSED (AREST_STRICT=1)" : "";
 if (undeclared.length) {
   const first = new Map();
-  for (const r of undeclared) for (const t of r[3]) if (!first.has(String(t))) first.set(String(t), String(r[4]));
+  for (const r of undeclared) for (const t of r[3]) if (!first.has(String(t))) first.set(String(t), redact(r[4]));
   console.error("UNDECLARED: " + undeclared.length + " reading(s) name " + first.size
     + " object type(s) no declaration opens" + verdict + ": "
     + [...first].map(([t, text]) => t + " (" + text + ")").join("; "));
