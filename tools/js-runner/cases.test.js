@@ -2929,6 +2929,43 @@ test("a retract keyed by the entity's id alone removes every fact of it; a full-
   expect(Number(Ev("main:api", [S1, "DELETE", "Function", "", [ID, "extra"]])[1])).toBe(400);
 }, 60_000);
 
+// ---- A PAGE IS ONE WRITE ------------------------------------------------------------------
+//
+// The federations read pages of rows -- a hundred Stripe subscriptions, a capped window of one
+// customer's requests -- and a create on support.auto.dev costs seconds, most of it validating the
+// whole store. `assert` takes a list of facts and makes them one step: every fact not already held
+// goes into one trial, validated once and committed only when V holds no alethic violation, or the
+// store it was given comes back unchanged. A second run of the same page asserts nothing. Failing
+// at bbaa4186: assert is not a verb.
+test("assert writes a list of facts as one step: new ones land, held ones are counted, a violation refuses the list", () => {
+  const S0 = CELLS;
+  const names = (S) => Ev("system:pop_rows", ["StreamHasName", S]).filter((r) => String(r[0]).startsWith("pg-"))
+    .map((r) => r.map(String).join("=")).sort();
+  const page = [["StreamHasName", "pg-1", "one"], ["StreamHasName", "pg-2", "two"]];
+  const first = Ev("assert", [page, S0]);
+  expect(Number(first[1])).toBe(201);
+  expect(JSON.parse(String(first[0]))).toEqual(["committed", ["new", 2], ["held", 0], ["violations", []]]);
+  expect(names(first[2])).toEqual(["pg-1=one", "pg-2=two"]);
+  // the same page again: nothing new, nothing lost
+  const again = Ev("assert", [page, first[2]]);
+  expect(Number(again[1])).toBe(201);
+  expect(JSON.parse(String(again[0])).slice(0, 3)).toEqual(["committed", ["new", 0], ["held", 2]]);
+  expect(names(again[2])).toEqual(["pg-1=one", "pg-2=two"]);
+  // a page that breaks a uniqueness is refused whole: pg-3 does not land either
+  const bad = Ev("assert", [[["StreamHasName", "pg-3", "three"], ["StreamHasName", "pg-1", "uno"]], first[2]]);
+  expect(Number(bad[1])).toBe(409);
+  expect(JSON.parse(String(bad[0]))[0]).toBe("refused");
+  expect(names(bad[2])).toEqual(["pg-1=one", "pg-2=two"]);
+  // what is not a list of facts is refused before anything is tried
+  expect(Number(Ev("assert", ["x", S0])[1])).toBe(400);
+  expect(Number(Ev("assert", [[["NoSuchFactType", "a", "b"]], S0])[1])).toBe(400);
+  expect(Number(Ev("assert", [[[]], S0])[1])).toBe(400);
+  // and the served route is the same operation
+  const served = Ev("main", [S0, ["assert", page]]);
+  expect(String(served[1])).toBe("T");
+  expect(names(served[2])).toEqual(["pg-1=one", "pg-2=two"]);
+}, 120_000);
+
 // AND A VALUE THAT SPELLS THE SAME ATOM IS NOT THE ENTITY. Function(.id) is one
 // id space, so an atom in an entity-typed role IS the entity; the same atom in
 // a value-typed role is a value. Retracting the entity leaves the value alone.
