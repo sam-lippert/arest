@@ -1175,6 +1175,34 @@ Function sends Fact Type with Role to JSON Path.
        the Email Address role of Support Request has Email Address and the
        Support Request role is the subject being sent, not a field. Copying the
        inbound constraint here would refuse every real request body. -->
+Body Template is a value type.
+  The data type of Body Template is text.
+Function fills JSON Path with Body Template.
+  Each Function, JSON Path combination occurs at most once in the population of Function fills JSON Path with Body Template.
+  <!-- A FIELD COMPOSED FROM THE OTHERS, WORDED BY THE APP (Sam, 2026-09-25: "I don't want
+       the llm to format the email with the original message body, I do want the resend call
+       to be able to format the email to contain the original message"). `Function sends Fact
+       Type with Role to JSON Path` carries one role's value to each path, so a reply that
+       quotes the message it answers had no declared shape, and the quote could only be pasted
+       into the draft -- where the approved text and the text on the wire stop being the same
+       reply. A template names how one path is composed from the values the Function sends to
+       the others; the draft stays the reply alone and the call carries the quote.
+
+       THE PLACEHOLDERS: {name} is the value sent to JSON Path 'name'; {name|quoted} prefixes
+       each of its lines with '> '; {name|date} and {name|time} are the date and the HH:MM of
+       an ISO 8601 instant in UTC, and an instant at another offset is refused rather than
+       printed beside the word UTC; {?name}...{/name} is kept only when 'name' has a value,
+       which is how a reply to nothing goes out alone; a backslash escapes the next character,
+       and a backslash followed by n is a line break, which a value in a reading cannot hold.
+       A JSON Path a template names is consumed by it and is not sent as a field of its own,
+       except the path the template fills. A value is never read as a template: what a
+       placeholder inserts is inserted as written.
+
+       A HOLE IS STILL A REFUSAL, as it is for every declared path: a placeholder that must be
+       filled and cannot be refuses the call naming that path, and a malformed template
+       refuses naming the path it fills. validation.md's Violation Template is the precedent
+       for {name}; its resolver lived in the deleted compile.rs, and lambda's tpl:fill is the
+       one filler now. -->
 
 Object Type has URI.
   Each Object Type has at most one URI.
