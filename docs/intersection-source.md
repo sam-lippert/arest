@@ -17,7 +17,7 @@ bound:
 If the four hosts do not take the same bytes, that is a divergence and a
 failure to implement the spec: these are all languages with value types and
 parenthesized functions, so the intersection grammar is native to each. A
-host is a reducer (mu) over the canon it executes; performance comes from
+host is a reducer (mu) over the lambda it executes; performance comes from
 registered DEFS overrides, never a JSON intermediate.
 
 Each authoring platform defines a tiny vocabulary; the lambda bound
@@ -32,15 +32,15 @@ syntaxes do not intersect), and double-quoted strings only, since a multi-charac
 single-quoted string is a broken char literal to the C-family tokenizers.
 
 Because the comment syntaxes do not intersect, a **description string IS the comment
-mechanism** — it is the only way to carry commentary inside a canon file. A string
+mechanism** — it is the only way to carry commentary inside a lambda file. A string
 element is legal in every host: a tuple element in Python and Rust (the latter under
 `#[allow(path_statements)]`), a varargs argument in C# and Java, an operand of JS's
 comma operator. (This paragraph previously said only the FIRST element may be a
-string. That predated the merge of the several `shared/*.canon` files into one canon
+string. That predated the merge of the several `shared/*.canon` files into one lambda
 at the repo root, which necessarily carried each merged file's own docstring inline:
-canon is 1206 top-level elements = 1152 DEF + 54 string + 0 other, and the strings are
+lambda is 1206 top-level elements = 1152 DEF + 54 string + 0 other, and the strings are
 those docstrings plus dated design notes. `engine/tests/test_intersection_shape.py`
-holds every canon file to the invariant as stated here.) No trailing comma before the file's closing
+holds every lambda file to the invariant as stated here.) No trailing comma before the file's closing
 paren: the C# and Java hosts consume the same bytes as a varargs method call (a
 generated `T` + file + `;` wrap, their include!), and neither language accepts a
 trailing comma in an argument list. Python and Rust accept both forms, so the
@@ -84,7 +84,7 @@ with the encoded parameter and demand the absolute result (a reference-bearing o
 equality-only check can pass vacuously). The cross-kernel differential ships
 name-atom cases so each kernel resolves the same bytes through its own loading. A
 red cargo build voids the differential's green: include! bakes the shared files at
-compile time, so a stale binary tests yesterday's canon.
+compile time, so a stale binary tests yesterday's lambda.
 
 ## The rule for hosts
 
@@ -95,15 +95,15 @@ the vocabulary, consuming the same files, and passing the differential.
 
 ## The twin gate
 
-A per-host optimization is legitimate only while it stays byte-equal to the canon
+A per-host optimization is legitimate only while it stays byte-equal to the lambda
 name it overrides, and that equality is now a RUNTIME fact on real app compiles,
 not a synthetic-input claim. Each fast twin (the theta join/dedup arms, vb_fetch,
 entity_view, ...) is a `prim` arm that returns `Some` to win and defers to the
-canon DEF by returning `None`. One kill-switch convention bypasses any registered
-override by its canon name — `AREST_NO_OVERRIDE=<name>[,...]`, or `*` for the pure
+lambda DEF by returning `None`. One kill-switch convention bypasses any registered
+override by its lambda name — `AREST_NO_OVERRIDE=<name>[,...]`, or `*` for the pure
 reference oracle — so the very same compile runs through the shared lambda instead:
 slower, identical. (Per-name aliases such as `AREST_NO_THETA_ARMS` remain honored
-during the migration.) The canon side carries the catalog of override-eligible
+during the migration.) The lambda side carries the catalog of override-eligible
 names (`shared/base/resolution.md`, `Operation is overridable`); a host's
 registered names must be a subset of it, and the Rust host asserts exactly that in
 its test suite. Two standing harnesses hold the line from opposite directions:
@@ -112,13 +112,13 @@ its test suite. Two standing harnesses hold the line from opposite directions:
   over real readings through the real flow: the CROSS-HOST axis, both hosts must
   agree. Needs Python present; Python IS the reference of record.
 * `tools/twin_equality.py` — native with the twins ON vs the twins flipped to their
-  canon DEFs: the INTRA-HOST override axis, the fast path must equal the slow canon
+  lambda DEFs: the INTRA-HOST override axis, the fast path must equal the slow lambda
   reference. Needs only the Rust binary and shared/*.canon — no Python in the loop.
   It also times both runs; twins-off must be measurably slower, else the arm never
   fired and EQUAL is vacuous.
 
-Run the twin gate after any change to a `prim` twin arm or a theta canon DEF: a
-cross-host parity run alone cannot catch a twin that has drifted from its canon
+Run the twin gate after any change to a `prim` twin arm or a theta lambda DEF: a
+cross-host parity run alone cannot catch a twin that has drifted from its lambda
 meaning, because both hosts could carry the same fast twin and the same drift.
 
 ## The fourth host, recorded ahead of need
@@ -126,7 +126,7 @@ meaning, because both hosts could carry the same fast twin and the same drift.
 C# consumes the files as written: the tuple literal is a valid C# expression of
 nested static calls, and a source generator wraps the bytes in a method at build
 time. Java has no tuple expressions, so when a JVM host approaches, the files wrap
-their elements in a single CANON(...) call instead of the bare tuple — one more
+their elements in a single LAMBDA(...) call instead of the bare tuple — one more
 vocabulary name, valid in Python, Rust, C#, and Java alike, and a mechanical
 one-line change per file. The intersection was defined carefully once and gets
 defined slightly more carefully when the fourth host shows up; nothing else moves.

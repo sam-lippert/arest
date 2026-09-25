@@ -58,11 +58,11 @@ For each Fact Type and Recipe Text, at most one Hypothesis Candidate targets tha
        the one-reference-scheme ruling (Halpin 6.7 — subtypes inherit
        the root's identification), so the id space stores while the
        external UC guarantees no two candidates share content. The
-       canon's induce:facts emits both identity facts (the recipe rides
+       lambda's induce:facts emits both identity facts (the recipe rides
        extensionally; Recipe Text's serialization is the registration
        boundary's business, like every surrogate). Def 4's fact
        identity (fact type, tuple) is the same doctrine at instance
-       level, held by the canon — a variable-arity tuple is beyond a
+       level, held by the lambda — a variable-arity tuple is beyond a
        fixed role pair. -->
 
 Scoring Rule applies to Hypothesis Candidate.

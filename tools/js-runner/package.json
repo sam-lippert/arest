@@ -2,7 +2,7 @@
   "name": "arest-js-runner",
   "private": true,
   "version": "0.0.0",
-  "description": "One host file plus canon. host.js is the whole host -- a strict mu, the Backus base, the registration vocabulary and the four ways in (cli, test, serve, mcp); build.js splices canon and the carriers into it by byte concatenation and appends the boot call. Composed, exec'd by bun, never eval'd.",
+  "description": "One host file plus lambda. host.js is the whole host -- a strict mu, the Backus base, the registration vocabulary and the four ways in (cli, test, serve, mcp); build.js splices lambda and the carriers into it by byte concatenation and appends the boot call. Composed, exec'd by bun, never eval'd.",
   "scripts": {
     "build": "bun build.js cli",
     "build:test": "bun build.js test",

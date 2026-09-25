@@ -94,7 +94,7 @@ Failure succeeds Violation. *
        caused by ... or ... Timestamp is before ...") is this UNION relation
        reified: a Failure succeeds a Violation when it is caused by it or
        when it temporally follows it. Fully derived (rules below; recipes in
-       the canon's rules:metamodel — the union is two rules on one target,
+       the lambda's rules:metamodel — the union is two rules on one target,
        the temporal leg riding the cmp recipe form), so the subset sentence
        below becomes a plain one-clause subset NORMA holds as a real
        element. -->

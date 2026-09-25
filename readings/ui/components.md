@@ -987,7 +987,7 @@ Component 'tab' is implemented by Toolkit 'gtk4' at Toolkit Symbol 'GtkNotebook'
 ImplementationBinding 'tab.gtk4' pivots Component 'tab' is implemented by Toolkit 'gtk4'.
 ImplementationBinding 'tab.gtk4' has Component Trait 'screen_reader_aware'.
 ImplementationBinding 'tab.gtk4' has Component Trait 'dark_mode_native'.
-### The idealized controls canon emits, paired to React (#124)
+### The idealized controls lambda emits, paired to React (#124)
 
 <!-- WHICH SET IS THE IDEALIZED ONE, AND WHY. Two vocabularies meet here and
      only one of them is what a renderer is dispatched on.
@@ -998,13 +998,13 @@ ImplementationBinding 'tab.gtk4' has Component Trait 'dark_mode_native'.
      picker for compact density on touch", scored against MonoView constraints
      and design tokens. Nothing dispatches on it.
 
-     Canon's control kinds are a different set and a different question. ui:place
+     Lambda's control kinds are a different set and a different question. ui:place
      answers rows <control, x, y, w, h, payload...>; ui:render applies
      render:<control> to every row; ui:ctl_entry pairs each of the metamodel's
      31 Conceptual Data Types to one of ten typed kinds, and a screen's layout
      places nine more. law:ctl_declared reads the render: names out of the
      Function population and law:paired asks a container whether it registers
-     every one of them. So the IDEALIZED SET IS CANON'S NINETEEN: they are the
+     every one of them. So the IDEALIZED SET IS LAMBDA'S NINETEEN: they are the
      names a renderer is actually handed, and a container that pairs anything
      else is never called. Measured on the metamodel store: the address
      `new Function` places 175 rows over canvas, headerbar, titletext, textbox,
@@ -1015,7 +1015,7 @@ ImplementationBinding 'tab.gtk4' has Component Trait 'dark_mode_native'.
      selectlist a 'combo-box', datepicker a 'date-picker', switch a 'checkbox'
      -- so they take that Role rather than a new one, and backbtn takes
      'button'. Thirteen roles are new because the catalogue had no word for a
-     canvas, a separator or a list item. Each Component's NAME is canon's own
+     canvas, a separator or a list item. Each Component's NAME is lambda's own
      control kind, unchanged, because the name is what render:<kind> is built
      from: a Component named 'text-input' could never be found from a row that
      says 'textbox' without a second table to consult, and a renderer that has
