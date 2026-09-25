@@ -2982,6 +2982,78 @@ test("assert writes a list of facts as one step: new ones land, held ones are co
   expect(names(served[2])).toEqual(["pg-1=one", "pg-2=two"]);
 }, 120_000);
 
+// ---- A FEDERATION IS A READ ---------------------------------------------------------------
+//
+// A Source uses a Connector, a Connector is a Function addressed as the performer addresses one,
+// and what its answer yields is `Function yields Fact Type with Role from JSON Path`, read once per
+// row with every role from its own path. `sync` handed no page answers the request the model
+// declares and writes nothing; handed a page, it asserts what the page yields in one step. Failing
+// at 8f31455d: sync is not a verb.
+test("sync answers a Source's request, and asserts what a page of its rows yields, once", () => {
+  const fromJson = (x) => Array.isArray(x) ? x.map(fromJson)
+    : (x !== null && typeof x === "object") ? Object.keys(x).map((k) => [k, fromJson(x[k])])
+    : typeof x === "number" ? x : String(x);
+  const F = "listStreams", S = "streams-src";
+  const decl = [
+    ["SourceUsesConnector", S, F],
+    ["FunctionIsBackedByExternalSystem", F, "fake"],
+    ["ExternalSystemHasURL", "fake", "http://127.0.0.1:9/v1"],
+    ["FunctionHasCallbackURI", F, "/streams"],
+    ["FunctionIsCalledWithHTTPMethod", F, "GET"],
+    ["FunctionReadsRowsAtJSONPath", F, "$.data"],
+    ["FunctionPagesWhileJSONPath", F, "$.has_more"],
+    ["FunctionPagesByQueryParameter", F, "starting_after"],
+    ["FunctionPagesFromJSONPath", F, "$.id"],
+    ["FunctionHasQueryParameterWithParameterValue", F, "limit", "2"],
+    ["FunctionHasQueryParameterWithParameterValue", F, "owner", "{who}"],
+    ["FunctionYieldsFactTypeWithRoleFromJSONPath", F, "StreamHasName", "StreamHasName.2", "$.owner.email|lower"],
+    ["FunctionYieldsFactTypeWithRoleFromJSONPath", F, "StreamHasName", "StreamHasName.1", "$.id"],
+  ];
+  const declared = Ev("assert", [decl, CELLS]);
+  expect(Number(declared[1])).toBeLessThan(400);
+  const S0 = declared[2];
+  // no page: the request, and nothing written; a templated parameter with nothing to bind refuses
+  const unbound = Ev("sync", [S, S0]);
+  expect(Number(unbound[1])).toBe(400);
+  expect(String(unbound[0])).toContain("owner");
+  const q = Ev("sync", [[S, fromJson({ who: "sam" })], S0]);
+  expect(Number(q[1])).toBe(200);
+  const req = JSON.parse(String(q[0]));
+  expect(req.slice(0, 3)).toEqual(["request", "GET", "http://127.0.0.1:9/v1/streams"]);
+  expect(req[3].map((p) => p.join("=")).sort()).toEqual(["limit=2", "owner=sam"]);
+  expect(q[2]).toBe(S0);
+  // a page: role 1 from $.id and role 2 from the owner's email, lowered, in the fact type's own
+  // order though declared the other way round; a row with no owner yields nothing
+  const page = fromJson({ object: "list", has_more: true, data: [
+    { id: "st_1", owner: { email: "One@X.com" } },
+    { id: "st_2", owner: { email: "two@y.com" } },
+    { id: "st_3", owner: null },
+  ] });
+  const one = Ev("sync", [[S, [], [], page], S0]);
+  const body = JSON.parse(String(one[0]));
+  expect(body[0]).not.toBe("refused");
+  expect(body.slice(1, 3)).toEqual([["new", 2], ["held", 0]]);
+  expect(body.slice(4)).toEqual([["facts", 2], ["unread", []], ["more", "T"], ["next", ["starting_after", "st_3"]]]);
+  const st = (S1) => Ev("system:pop_rows", ["StreamHasName", S1]).filter((r) => String(r[0]).startsWith("st_"))
+    .map((r) => r.map(String).join("=")).sort();
+  expect(st(one[2])).toEqual(["st_1=one@x.com", "st_2=two@y.com"]);
+  // the same page again asserts nothing and hands back the store it was given
+  const again = Ev("sync", [[S, [], [], page], one[2]]);
+  expect(JSON.parse(String(again[0])).slice(1, 3)).toEqual([["new", 0], ["held", 2]]);
+  expect(again[2]).toBe(one[2]);
+  // a Source nothing declares is not a request anyone can make
+  expect(Number(Ev("sync", ["nowhere", S0])[1])).toBe(404);
+  // and the served route is the same operation
+  const served = Ev("main", [S0, ["sync", [S, fromJson({ who: "sam" })]]]);
+  expect(String(served[1])).toBe("T");
+  // the filters a path takes: a Unix time as UTC ISO-8601, an email lowered
+  expect(Ev("tpl:filter", ["iso", 1758800000])).toBe("2025-09-25T11:33:20Z");
+  expect(Ev("tpl:filter", ["iso", "951782400"])).toBe("2000-02-29T00:00:00Z");
+  expect(Ev("tpl:filter", ["iso", "4102444800"])).toBe("2100-01-01T00:00:00Z");
+  expect(Ev("tpl:filter", ["iso", "12a"])).toEqual([]);
+  expect(Ev("tpl:filter", ["lower", "Mixed@Case.COM"])).toBe("mixed@case.com");
+}, 120_000);
+
 // AND A VALUE THAT SPELLS THE SAME ATOM IS NOT THE ENTITY. Function(.id) is one
 // id space, so an atom in an entity-typed role IS the entity; the same atom in
 // a value-typed role is a value. Retracting the entity leaves the value alone.
@@ -3787,10 +3859,17 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     // committed one byte for byte. One fact type enters and both readers read it the same
     // way: witness/lambda/both/ucs/mands/stateRows 289 -> 290, players/all 262 -> 263, rows
     // 278 -> 279, stateUcs 601 -> 605, derived unmoved. Still the whole agreement.
+
+    // AND A CONNECTOR SAYS HOW ITS ANSWER PAGES (2026-09-25). federation.md declares Query
+    // Parameter and Parameter Value and five fact types -- the query parameters, where the rows
+    // are, the path that says there is more, and the cursor as two binaries -- with the recipe
+    // that first reproduced the committed carrier byte for byte. Five fact types enter and both
+    // readers read them alike: witness/lambda/both/ucs/mands/stateRows 290 -> 295, players/all
+    // 263 -> 268, rows 279 -> 284, stateUcs 605 -> 615, derived unmoved.
     expect({ witness: O.size, lambda: C.size, both, lambdaOnly: lambdaOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
-      .toEqual({ witness: 290, lambda: 290, both: 290, lambdaOnly: 0, oracleOnly: 0,
-                 players: 263, ucs: 290, mands: 290, all: 263, rows: 279, rejected: 0, derived: [37, 37, 37], stateRows: 290, stateUcs: 605 });
+      .toEqual({ witness: 295, lambda: 295, both: 295, lambdaOnly: 0, oracleOnly: 0,
+                 players: 268, ucs: 295, mands: 295, all: 268, rows: 284, rejected: 0, derived: [37, 37, 37], stateRows: 295, stateUcs: 615 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
@@ -4065,7 +4144,9 @@ describe("lambda's constraint cells against the witness, on the base metamodel",
       // 509 -> 513 (2026-09-25): Body Template and `Function fills JSON Path with Body
       // Template` enter core.md, the sequence moves by four in both readers, and it and its
       // renumbering still agree with the carrier's.
-      .toEqual({ lambda: 513, witness: 513, kept: 513, sequence: true, renumbered: true, lambdaOnly: [] });
+      // 513 -> 523 (2026-09-25): Query Parameter, Parameter Value and the five fact types a
+      // Connector pages with enter federation.md, and the sequence moves alike in both readers.
+      .toEqual({ lambda: 523, witness: 523, kept: 523, sequence: true, renumbered: true, lambdaOnly: [] });
   }, 300_000);
 
   // and the assembler carries them: the schema lambda writes holds every
@@ -5426,7 +5507,9 @@ test("a reading's spoken text is in the store, and the seven its name cannot spe
   expect(lost).toEqual(EXACT.map((p) => p[0]).sort());
   // 282 -> 283 (2026-09-25): `Function fills JSON Path with Body Template` enters core.md, and
   // its name spells its reading
-  expect(declared.length - lost.length).toBe(283);
+  // 283 -> 288 (2026-09-25): the five fact types a Connector pages with enter federation.md,
+  // and each name spells its reading
+  expect(declared.length - lost.length).toBe(288);
   for (const [name, t] of EXACT) expect([name, text.get("r" + name)]).toEqual([name, t]);
 
   // ---- and it is in the tables --------------------------------------------

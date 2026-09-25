@@ -46,6 +46,8 @@ Fetcher is a subtype of Function.
 
 Url is a value type.
 Translator is a value type.
+Query Parameter is a value type.
+Parameter Value is a value type.
 
 ## Fact Types
 
@@ -69,6 +71,34 @@ Connector fetches with Fetcher.
 Connector translates with Translator.
   Each Connector translates with at most one Translator.
   It is obligatory that each Connector translates with some Translator.
+
+### Reading rows
+
+<!-- A FEDERATION IS A READ, AND WHAT IT READS IS DECLARED (2026-09-25). Sam: "modeling and
+     running the requested federations is the main deliverable". A Connector is a Function, so it
+     is addressed as any Function is -- backed by an External System, called with an HTTP Method
+     at its Callback URI, with the system`s headers and the connection`s credential (core.md) --
+     and what its answer yields is `Function yields Fact Type with Role from JSON Path`, the
+     declaration a webhook payload and a performed call`s receipt already use, read here once per
+     ROW with every role taken from its own path. These say what the call carries and how its
+     answer pages: its query parameters, where in the answer the rows are, which path says there
+     is more, and which query parameter carries the cursor and from which path of the last row.
+     The cursor is two facts and not one ternary: a Function has one of each, and a ternary unique
+     on one role is two binaries that were never elementary together. -->
+Function has Query Parameter with Parameter Value.
+  Each Function, Query Parameter, Parameter Value combination occurs at most once in the population of Function has Query Parameter with Parameter Value.
+
+Function reads rows at JSON Path.
+  Each Function reads rows at at most one JSON Path.
+
+Function pages while JSON Path.
+  Each Function pages while at most one JSON Path.
+
+Function pages by Query Parameter.
+  Each Function pages by at most one Query Parameter.
+
+Function pages from JSON Path.
+  Each Function pages from at most one JSON Path.
 
 ## Instance Facts
 

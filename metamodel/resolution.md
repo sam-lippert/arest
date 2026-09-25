@@ -337,6 +337,18 @@ Function 'assert' yields Type Expression 'outcome-and-store'.
 Operation 'drive' is overridable.
 Function 'drive' accepts Type Expression 'completion-and-cells'.
 Function 'drive' yields Type Expression 'fact-list'.
+<!-- AND THE ONE THAT READS A SOURCE (2026-09-25). `sync` takes a Source -- or the list
+     <Source, bindings, cursor, page> -- and answers what the Source`s Connector yields. Handed no
+     page it answers the REQUEST, the method, the address and the query parameters the model
+     declares, and writes nothing; handed a page, the answer as the host reads any JSON body
+     (fromJson), it asserts the facts the page yields in one step (`assert`), and answers the new
+     and the held, the violations, whether there is more, and the cursor for the next page.
+     `response-and-cells` is to a fetch what `completion-and-cells` is to a completion: the same
+     argument beside the cells, and the fact that tells a host this verb`s operand is fetched
+     before lambda can be handed it. -->
+Operation 'sync' is overridable.
+Function 'sync' accepts Type Expression 'response-and-cells'.
+Function 'sync' yields Type Expression 'outcome-and-store'.
 <!-- MEASURED 2026-09-11, which is the condition the note these replace set.
      It said derive "reads its first element as a sequence, so it answers to
      <[], populations> and throws on the empty argument an address of one
