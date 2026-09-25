@@ -1970,6 +1970,100 @@ test("a rebuild supersedes what the last build asserted and carries only what th
   }
 }, 300_000);
 
+// ---- A VALUE THE CLOSURE DERIVES IS NOT THE RUNTIME'S, AND A DROPPED ENTITY'S ROW GOES --
+//
+// support.auto.dev, 2026-09-25 (pm.auto.dev): accept, resolve-escalation and redraft-sent
+// were in no ledger. A build leaves every derived column empty until its closure runs, so
+// the carry filled their Moore-to-Mealy transitionPredicateId back from the prior store,
+// counted each row as the runtime's and left it out of the ledger -- and the next build did
+// the same, for ever. When cd64286 dropped redraft-sent its row was carried back whole and
+// Sent was never terminal. Here the same rule plays it: `announce` is performed in Done, so it
+// is performed during `finish`, which enters Done. The finish row is taken out of the ledger
+// with that value kept, which is the state those rows were in, and a readings Widget whose
+// row is not in the ledger either is then dropped from the readings. Failing at 2063421b:
+// the finish row stays out of the ledger, and w9 is carried back as a runtime row.
+test("a value the closure derives is the closure's in the ledger, and an entity the readings drop takes its row with it", () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-ghost-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  const metamodel = join(import.meta.dir, "..", "..", "metamodel");
+  const app = join(dir, "app");
+  mkdirSync(app);
+  const path = join(dir, "store.db");
+  const readings = (withW9) => [
+    "# Widgets", "",
+    "A probe domain for the carry: one entity type, one functional fact type, one machine.", "",
+    "## Entity Types", "", "Widget(.id) is an entity type.", "",
+    "## Value Types", "", "Size is a value type.", "",
+    "## Fact Types", "", "Widget has Size.", "  Each Widget has at most one Size.", "Widget is finished.", "",
+    "## State Machine", "",
+    "State Machine Definition 'Widget' is for Object Type 'Widget'.",
+    "Status 'Open' is initial in State Machine Definition 'Widget'.",
+    "Transition 'finish' is defined in State Machine Definition 'Widget'.",
+    "  Transition 'finish' is from Status 'Open'.",
+    "  Transition 'finish' is to Status 'Done'.",
+    "  Transition 'finish' is triggered by Fact Type 'Widget is finished'.",
+    "Predicate 'announce' is performed in Status 'Done'.", "",
+    "## Instance Facts", "",
+    "Widget 'w1' has Size 'S'.",
+    ...(withW9 ? ["Widget 'w9' has Size 'M'."] : []), "",
+    "Domain 'widgets' has Description 'A probe domain for the carry.'.", "",
+  ].join("\n");
+  const build = () => {
+    const p = Bun.spawnSync(["bun", compiler, metamodel, app],
+      { env: { ...process.env, AREST_DB: path }, stdout: "pipe", stderr: "pipe" });
+    return { code: p.exitCode, out: p.stdout.toString() + p.stderr.toString() };
+  };
+  const read = (sql, ...args) => {
+    const db = new Database(path, { readonly: true });
+    try { return db.query(sql).all(...args); } finally { db.close(true); }
+  };
+  const widgets = () => JSON.stringify(read('select "widgetId" w from "Widget" order by "widgetId"').map((r) => r.w));
+  // a row's spelling by its exact prefix, since LIKE folds case
+  const ledgered = (tbl, prefix) => read("select count(*) n from _asserted where tbl = ? and substr(row, 1, ?) = ?", tbl, prefix.length, prefix)[0].n;
+  try {
+    writeFileSync(join(app, "widgets.md"), readings(true));
+    const first = build();
+    expect(first.code, first.out).toBe(0);
+    expect(widgets()).toBe(JSON.stringify(["w1", "w9"]));
+    const performed = () => read("select transitionPredicateId p from Function where functionId = 'finish'")[0].p;
+    expect(performed()).toBe("announce");
+    expect(ledgered("Function", '{"functionId":"finish",')).toBe(1);
+
+    // the state support's rows were in: out of the ledger, values kept; and a runtime widget
+    {
+      const db = new Database(path);
+      const drop = (tbl, prefix) => db.prepare("delete from _asserted where tbl = ? and substr(row, 1, ?) = ?").run(tbl, prefix.length, prefix).changes;
+      expect(drop("Function", '{"functionId":"finish",')).toBe(1);
+      expect(drop("Widget", '{"widgetId":"w9",')).toBe(1);
+      db.run('insert into "Widget" ("widgetId", "size") values (?, ?)', ["w-rt", "L"]);
+      db.run("pragma wal_checkpoint(TRUNCATE)");
+      db.close(true);
+    }
+
+    // the readings drop w9
+    writeFileSync(join(app, "widgets.md"), readings(false));
+    const second = build();
+    expect(second.code, second.out).toBe(0);
+    expect(second.out).not.toContain("REFUSING");
+    expect(second.out).toMatch(/\[1 filled row\(s\) ledgered: the closure derives every value filled into them/);
+    expect(second.out).toMatch(/\[1 row\(s\) superseded with their entity, which the readings typed and this build does not: Widget 'w9'\]/);
+    expect(second.out).toMatch(/\[1 runtime row\(s\) carried/);
+    expect(widgets()).toBe(JSON.stringify(["w-rt", "w1"]));
+    expect(ledgered("Function", '{"functionId":"finish",')).toBe(1);
+    expect(performed()).toBe("announce");
+
+    // and it holds: nothing left to re-ledger or supersede, and the runtime widget still carried
+    const third = build();
+    expect(third.code, third.out).toBe(0);
+    expect(third.out).not.toContain("filled row(s) ledgered");
+    expect(third.out).not.toContain("superseded with their entity");
+    expect(third.out).toMatch(/\[1 runtime row\(s\) carried/);
+    expect(widgets()).toBe(JSON.stringify(["w-rt", "w1"]));
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 300_000);
+
 // ---- AND A ROLE COLUMN HOLDS THE PLAYER OF THE ROLE ITS LINK NAMES ---------
 //
 // rmap:ctab lays a relation table out key-first, so a table whose columns are not

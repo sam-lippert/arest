@@ -612,6 +612,11 @@ if (!out && !outDir) {
   // what this carry brought back, by table: by key where the row had one, whole
   // where it did not -- the rows the ledger written below leaves out
   const carriedKeys = new Map(), carriedRows = new Map();
+  // WHAT THE CARRY FILLED, by table and key: the column, its value and the fact type the
+  // column carries, so the closure can be asked afterwards whether it derives the value itself
+  const filledCells = new Map();
+  let withEntity = 0, rederived = 0;
+  const withEntityRows = [];
   const movedFts = new Map();
   const orphaned = [];
   const rekeyed = [];
@@ -630,6 +635,26 @@ if (!out && !outDir) {
     } catch (e) { console.error("  (the prior store's ledger could not be read -- " + e.message + " -- every prior row is the runtime's, as before)"); priorLedger = null; }
     // the rows of a prior table (under `where`) that the ledger does not hold --
     // all of them when there is no ledger -- and those it does are superseded
+    // AN ENTITY THE READINGS INTRODUCED AND NO LONGER INTRODUCE TAKES ITS OWN ROW WITH IT
+    // (2026-09-25). The reader types every instance a reading names -- read:reflect writes
+    // `Object Type Instance is instance of Object Type` -- so the build knows, before this
+    // carry runs, which entities the readings still introduce, and the last build's ledger
+    // knows which they introduced then. A row keyed by an entity in the second set and not
+    // the first is the readings' row of an entity they have dropped: support.auto.dev's
+    // `redraft-sent` after cd64286, whose typing rows the ledger held and the batch build
+    // superseded, while its Function row -- never ledgered, for the reason the fill note
+    // below gives -- was carried back as runtime and kept Sent from being terminal. A runtime
+    // entity is never typed by the ledger, so its rows carry exactly as before.
+    const TYPING = "ObjectTypeInstanceIsInstanceOfObjectType";
+    const priorTyped = new Set(), buildTyped = new Set();
+    if (priorLedger && priorLedger.has(TYPING)) {
+      for (const spelled of priorLedger.get(TYPING)) {
+        try { const o = JSON.parse(spelled); if (o.objectTypeInstanceId !== undefined) priorTyped.add(String(o.objectTypeInstanceId)); }
+        catch { /* not a row this spells */ }
+      }
+      try { for (const r of db.prepare('select "objectTypeInstanceId" from ' + qi(TYPING)).values()) buildTyped.add(String(r[0])); }
+      catch { priorTyped.clear(); }   // no typing in the build: nothing can be said, so nothing is
+    }
     const runtimeCount = (table, cols, where) => {
       const names = cols.map((o) => o.name);
       const all = prior.prepare('select ' + names.map(qi).join(',') + ' from ' + qi(table) + (where ? ' where ' + where : '')).all();
@@ -864,6 +889,11 @@ if (!out && !outDir) {
         const here = findPk ? findPk.get(...k) : null;
         if (!here) {
           if (isHeld) continue;
+          if (pk.length === 1 && priorTyped.has(String(k[0])) && !buildTyped.has(String(k[0]))) {
+            withEntity++;
+            if (withEntityRows.length < 12) withEntityRows.push(table + " '" + String(k[0]) + "'");
+            continue;
+          }
           try { add.run(...keep.map((n2) => row[n2])); carried++; ck.keys.add(JSON.stringify(k)); } catch { /* the build refuses it */ }
           continue;
         }
@@ -902,7 +932,13 @@ if (!out && !outDir) {
               continue;
             }
           }
-          try { fill(v).run(row[v], ...k); filled++; ck.keys.add(JSON.stringify(k)); }
+          try {
+            fill(v).run(row[v], ...k); filled++; ck.keys.add(JSON.stringify(k));
+            let byKey = filledCells.get(table); if (!byKey) filledCells.set(table, (byKey = new Map()));
+            const kk = JSON.stringify(k); let cells = byKey.get(kk); if (!cells) byKey.set(kk, (cells = []));
+            cells.push({ col: v, value: row[v], ft: cf ? cf.ft : null, ring: cf ? cf.a === cf.b : true, key: k });
+            if (process.env.AREST_CARRY_TRACE) console.error("  fill " + table + " " + kk + " " + v + " (" + (cf ? cf.ft : "no single fact type") + ")");
+          }
           catch { /* the build refuses it */ }
         }
       }
@@ -955,6 +991,56 @@ if (!out && !outDir) {
   closeStore();
   collect();
   const closed = emitToDb(beforeClosure, CELLS);
+  // A FILL THE CLOSURE DERIVES IS THE CLOSURE'S, NOT THE RUNTIME'S (2026-09-25). The carry
+  // fills a cell the build left empty from the prior store, and a filled row is the runtime's,
+  // so the ledger leaves it out. But a build leaves EVERY derived column empty -- the closure
+  // has not run yet -- so a value the last closure derived was filled back as though the
+  // runtime had written it, its row kept out of the ledger, and the next build read the row as
+  // runtime again, for ever: support.auto.dev's accept, resolve-escalation and redraft-sent,
+  // whose transitionPredicateId `draftSupportResponse` is the Moore-to-Mealy rule's, were in
+  // no ledger since the first rebuild after it was seeded (pm.auto.dev, 2026-09-25), and when
+  // cd64286 dropped redraft-sent it was carried back whole. So the head's own rules are asked,
+  // over this build with the head's rows emptied, whether they derive each filled fact; a row
+  // whose every fill they derive is the readings' and the closure's, and is ledgered. A fill
+  // they do not derive -- a fact type with no rule, a unary, a ring, a composite key -- stays the
+  // runtime's, which is the old reading and the safe one.
+  const tRederive = Date.now();
+  if (filledCells.size) {
+    try {
+      const fts = new Set();
+      for (const byKey of filledCells.values()) for (const cells of byKey.values())
+        for (const c of cells) if (c.ft && !c.ring && c.key.length === 1) fts.add(c.ft);
+      const rules = fts.size ? Ev("law:all_rules", CELLS) : [];
+      const pairs = fts.size ? Ev("derive:store_pairs", CELLS) : [];
+      const derivedRows = new Map();
+      for (const ft of fts) {
+        const mine = rules.filter((r) => Array.isArray(r) && String(r[0]) === ft);
+        if (!mine.length) continue;
+        const without = pairs.map((p) => (String(p[0]) === ft ? [p[0], []] : p));
+        const rows = Ev("derive:pop", [ft, Ev("derive", [mine, without])]);
+        derivedRows.set(ft, new Set((Array.isArray(rows) ? rows : []).map((r) => JSON.stringify((Array.isArray(r) ? r : [r]).map(String)))));
+      }
+      for (const [table, byKey] of filledCells) {
+        const ck = carriedKeys.get(table);
+        for (const [kk, cells] of byKey) {
+          const theirs = cells.every((c) => {
+            const set = c.ft && !c.ring && c.key.length === 1 ? derivedRows.get(c.ft) : null;
+            if (!set) return false;
+            const k0 = String(c.key[0]), v = String(c.value);
+            return set.has(JSON.stringify([k0, v])) || set.has(JSON.stringify([v, k0]));
+          });
+          if (theirs && ck && ck.keys.delete(kk)) {
+            rederived++;
+            if (process.env.AREST_CARRY_TRACE) console.error("  rederived " + table + " " + kk + ": " + cells.map((c) => c.col).join(", "));
+          }
+        }
+      }
+    } catch (e) {
+      console.error("  (whether the closure derives the filled values could not be read -- " + String(e.message).slice(0, 160)
+        + " -- every fill stays the runtime's, as before)");
+    }
+  }
+  const rederiveMs = Date.now() - tRederive;
   const sdb = storeDb();
   if (sdb) sdb.close(true);
   console.log("closure: " + closed + " row(s) written into the build (" + (Date.now() - t4) + " ms)");
@@ -997,6 +1083,10 @@ if (!out && !outDir) {
     + (refused ? ", " + refused + " REFUSED BY SQLITE" : "")
     + (carried || filled ? " [" + carried + " runtime row(s) carried, " + filled + " value(s) filled]" : "")
     + (superseded ? " [" + superseded + " row(s) superseded: the last build asserted them and this one does not]" : "")
+    + (withEntity ? " [" + withEntity + " row(s) superseded with their entity, which the readings typed and this build does not: "
+        + withEntityRows.join(", ") + (withEntity > withEntityRows.length ? ", ..." : "") + "]" : "")
+    + (rederived ? " [" + rederived + " filled row(s) ledgered: the closure derives every value filled into them ("
+        + rederiveMs + " ms to ask)]" : "")
     + (reflectedSkipped ? " [" + reflectedSkipped + " reflected row(s) left to the closure]" : "")
     + (moved ? " [" + moved + " value(s) NOT carried: the build already asserts the same fact with the"
         + " roles the other way -- " + [...movedFts].map((e) => e[0] + " " + e[1]).join(", ") + "]" : "")
