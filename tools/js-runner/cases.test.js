@@ -2064,6 +2064,71 @@ test("a value the closure derives is the closure's in the ledger, and an entity 
   }
 }, 300_000);
 
+// ---- A COLUMN THE MAP RENAMES IS FOLLOWED BY THE FACT TYPE IT CARRIES --------------------
+//
+// support.auto.dev, 2026-09-25 (pm.auto.dev): declaring `Email Message quotes Message Body`
+// beside `Email Message has Message Body` gives Email Message a second role played by Message
+// Body, the relational map disambiguates the two columns, and the rebuild over a copy of the
+// live store refused: EmailMessage.messageBody, 4 runtime rows, "the build declares no such
+// column". Here `Widget allows Size` does the same to `Widget has Size`: size becomes hasSize
+// beside allowsSize (measured). A runtime widget's size must land in hasSize, with no refusal
+// and no allow-loss. Failing at 019254ef: the second build refuses on Widget.size.
+test("a column the map renames is followed by the fact type it carries, and its runtime values land under the new name", () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-rename-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  const metamodel = join(import.meta.dir, "..", "..", "metamodel");
+  const app = join(dir, "app");
+  mkdirSync(app);
+  const path = join(dir, "store.db");
+  const readings = (allows) => [
+    "# Widgets", "", "A probe for a renamed column.", "",
+    "## Entity Types", "", "Widget(.id) is an entity type.", "",
+    "## Value Types", "", "Size is a value type.", "",
+    "## Fact Types", "", "Widget has Size.", "  Each Widget has at most one Size.",
+    ...(allows ? ["Widget allows Size.", "  Each Widget allows at most one Size."] : []), "",
+    "## Instance Facts", "", "Widget 'w1' has Size 'S'.", "",
+    "Domain 'widgets' has Description 'A probe for a renamed column.'.", "",
+  ].join("\n");
+  const build = () => {
+    const p = Bun.spawnSync(["bun", compiler, metamodel, app],
+      { env: { ...process.env, AREST_DB: path }, stdout: "pipe", stderr: "pipe" });
+    return { code: p.exitCode, out: p.stdout.toString() + p.stderr.toString() };
+  };
+  const rows = (col) => {
+    const db = new Database(path, { readonly: true });
+    try { return JSON.stringify(db.query('select "widgetId" w, "' + col + '" s from "Widget" order by "widgetId"').all().map((r) => [r.w, r.s])); }
+    finally { db.close(true); }
+  };
+  try {
+    writeFileSync(join(app, "widgets.md"), readings(false));
+    const first = build();
+    expect(first.code, first.out).toBe(0);
+    expect(rows("size")).toBe(JSON.stringify([["w1", "S"]]));
+    {
+      const db = new Database(path);
+      db.run('insert into "Widget" ("widgetId", "size") values (?, ?)', ["w-rt", "L"]);
+      db.run("pragma wal_checkpoint(TRUNCATE)");
+      db.close(true);
+    }
+
+    writeFileSync(join(app, "widgets.md"), readings(true));
+    const second = build();
+    expect(second.code, second.out).toBe(0);
+    expect(second.out).not.toContain("REFUSING");
+    expect(second.out).toMatch(/\[1 column\(s\) followed by the fact type they carry: Widget\.size -> hasSize\]/);
+    expect(second.out).toMatch(/\[1 runtime row\(s\) carried/);
+    expect(rows("hasSize")).toBe(JSON.stringify([["w-rt", "L"], ["w1", "S"]]));
+
+    // and the next build finds the column under its own name: nothing to follow
+    const third = build();
+    expect(third.code, third.out).toBe(0);
+    expect(third.out).not.toContain("followed by the fact type");
+    expect(rows("hasSize")).toBe(JSON.stringify([["w-rt", "L"], ["w1", "S"]]));
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 300_000);
+
 // ---- AND A ROLE COLUMN HOLDS THE PLAYER OF THE ROLE ITS LINK NAMES ---------
 //
 // rmap:ctab lays a relation table out key-first, so a table whose columns are not

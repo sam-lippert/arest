@@ -617,6 +617,7 @@ if (!out && !outDir) {
   const filledCells = new Map();
   let withEntity = 0, rederived = 0;
   const withEntityRows = [];
+  const followed = [];
   const movedFts = new Map();
   const orphaned = [];
   const rekeyed = [];
@@ -673,6 +674,20 @@ if (!out && !outDir) {
       return m;
     };
     const was = shapeOf(prior), now = shapeOf(db);
+    // WHICH FACT TYPE EACH COLUMN CARRIES, on both sides: the prior store's metaschema is the
+    // map it was written through, and the build's was written before this carry runs (~525)
+    const metaOf = (d) => {
+      const m = new Map();
+      try {
+        for (const r of d.prepare('select "tab", "col", "ft" from "_metaschema"').values()) {
+          if (r[2] === null || r[2] === undefined) continue;
+          let t = m.get(String(r[0])); if (!t) m.set(String(r[0]), (t = new Map()));
+          t.set(String(r[1]), String(r[2]));
+        }
+      } catch { /* a store written before the metaschema: nothing is followed, as before */ }
+      return m;
+    };
+    const priorMeta = metaOf(prior), buildMeta = metaOf(db);
     db.exec("begin");   // and one for the carry: claude's check spent 9 s on Function and 17 s on the instance table, a sync per carried row
     // A REFLECTED NAME NEVER CARRIES (b6e16927, #122 item 1 continued). A boot
     // writes the REFLECTED populations back into these same tables too --
@@ -786,6 +801,38 @@ if (!out && !outDir) {
       const oldColsK = oldCols.filter((o) => !reflectedCols.has(o.name));
       const newColsK = newCols.filter((c2) => !reflectedCols.has(c2.name));
       const keep = newColsK.map((c2) => c2.name).filter((n2) => oldColsK.some((o) => o.name === n2));
+      // A COLUMN THE MAP RENAMED IS FOLLOWED BY THE FACT TYPE IT CARRIES (2026-09-25). The carry
+      // matched a prior column to the build's by NAME, and a name is not a fact: when an entity
+      // gains a second role played by the same type, the relational map disambiguates and the
+      // first role's column is named anew. pm.auto.dev's dry run of support's quoted reply
+      // (`Email Message quotes Message Body` beside `Email Message has Message Body`) was refused
+      // on EmailMessage.messageBody -- the 4 runtime bodies of the emails sent or drafted that day
+      // -- although the build carries the same fact type in a column of another name. So a prior
+      // column the build lacks is followed to the build column that carries the SAME fact type,
+      // when exactly one prior column and exactly one new build column carry it and neither is a
+      // key. Anything else -- two columns on one fact type, a ring, a key -- is not guessed at, and
+      // stays an orphan that refuses, as before.
+      const renamed = new Map();   // build column -> the prior column its values come from
+      {
+        const pm = priorMeta.get(table), bm = buildMeta.get(table);
+        if (pm && bm) {
+          const byFt = (m) => { const o = new Map(); for (const [c, ft] of m) { let l = o.get(ft); if (!l) o.set(ft, (l = [])); l.push(c); } return o; };
+          const priorByFt = byFt(pm), buildByFt = byFt(bm);
+          for (const o of oldColsK) {
+            if (o.pk || keep.includes(o.name)) continue;
+            const ft = pm.get(o.name);
+            if (!ft) continue;
+            const olds = priorByFt.get(ft) || [];
+            const news = (buildByFt.get(ft) || []).filter((c) => !oldColsK.some((x) => x.name === c));
+            if (olds.length !== 1 || news.length !== 1) continue;
+            const nc = newColsK.find((c2) => c2.name === news[0]);
+            if (!nc || nc.pk || renamed.has(news[0])) continue;
+            renamed.set(news[0], o.name);
+          }
+          for (const [nn, on] of renamed) { keep.push(nn); followed.push(table + "." + on + " -> " + nn); }
+        }
+      }
+      const src = (n2) => renamed.get(n2) || n2;
       // NO SHARED COLUMN, NOTHING TO MATCH ON: the prior table is a different
       // layout of the same name (compile-store.js's k + fact-type-name columns
       // against lambda's role-named ones), and its rows are orphaned whole.
@@ -795,7 +842,8 @@ if (!out && !outDir) {
         if (n) orphaned.push({ table, rows: n, why: 'no column of the prior table survives in the build' });
         continue;
       }
-      const dropped = oldColsK.map((o) => o.name).filter((n2) => !keep.includes(n2));
+      const followedFrom = new Set(renamed.values());
+      const dropped = oldColsK.map((o) => o.name).filter((n2) => !keep.includes(n2) && !followedFrom.has(n2));
       // A RETIRED SURROGATE IS NOT A LOST FACT (2026-09-23). A column the build
       // no longer declares was, until now, always a dropped fact. It is not when
       // every value it holds is RECOMPUTABLE from the row the build keeps: taking
@@ -857,9 +905,11 @@ if (!out && !outDir) {
       // 2, the same distinctions `is` makes), and a carried row joins it.
       let present = null;
       const keyOf = (r) => JSON.stringify(keep.map((n2) => r[n2] === undefined ? null : r[n2]));
+      // a PRIOR row's key reads each build column's value where the prior store wrote it
+      const keyOfPrior = (r) => JSON.stringify(keep.map((n2) => r[src(n2)] === undefined ? null : r[src(n2)]));
       const seen = (r) => {
         if (!present) present = new Set(db.prepare('select ' + cols + ' from ' + qi(table)).all().map(keyOf));
-        return present.has(keyOf(r));
+        return present.has(keyOfPrior(r));
       };
       const wherePk = pk.length ? pk.map((k) => qi(k) + ' is ?').join(" and ") : "";
       const vals = keep.filter((n2) => !pk.includes(n2));
@@ -883,7 +933,7 @@ if (!out && !outDir) {
         if (!keyed) {
           if (seen(row)) continue;   // the build already says it
           if (isHeld) continue;
-          try { add.run(...keep.map((n2) => row[n2])); carried++; present.add(keyOf(row)); cr.rows.add(keyOf(row)); } catch { /* the build refuses it */ }
+          try { add.run(...keep.map((n2) => row[src(n2)])); carried++; present.add(keyOfPrior(row)); cr.rows.add(keyOfPrior(row)); } catch { /* the build refuses it */ }
           continue;
         }
         const here = findPk ? findPk.get(...k) : null;
@@ -894,13 +944,14 @@ if (!out && !outDir) {
             if (withEntityRows.length < 12) withEntityRows.push(table + " '" + String(k[0]) + "'");
             continue;
           }
-          try { add.run(...keep.map((n2) => row[n2])); carried++; ck.keys.add(JSON.stringify(k)); } catch { /* the build refuses it */ }
+          try { add.run(...keep.map((n2) => row[src(n2)])); carried++; ck.keys.add(JSON.stringify(k)); } catch { /* the build refuses it */ }
           continue;
         }
         if (isHeld) continue;
         for (const v of vals) {
           if (here[v] !== null && here[v] !== undefined) continue;   // the readings say something: they win
-          if (row[v] === null || row[v] === undefined) continue;     // the runtime said nothing either
+          const pv = row[src(v)];
+          if (pv === null || pv === undefined) continue;     // the runtime said nothing either
           // AND THE BUILD MAY ALREADY SAY IT, ON ANOTHER ROW. An empty cell is
           // not an absent fact: when a fact type's key role moves from one
           // player to the other, the column keeps its name and its table and
@@ -926,17 +977,17 @@ if (!out && !outDir) {
               cf.rev = new Set(db.prepare('select ' + qi(pk[0]) + ', ' + qi(v) + ' from ' + qi(table)
                 + ' where ' + qi(v) + ' is not null').values().map((r) => JSON.stringify([r[0], r[1]])));
             }
-            if (cf.rev.has(JSON.stringify([row[v], k[0]]))) {
+            if (cf.rev.has(JSON.stringify([pv, k[0]]))) {
               moved++;
               movedFts.set(cf.ft, (movedFts.get(cf.ft) || 0) + 1);
               continue;
             }
           }
           try {
-            fill(v).run(row[v], ...k); filled++; ck.keys.add(JSON.stringify(k));
+            fill(v).run(pv, ...k); filled++; ck.keys.add(JSON.stringify(k));
             let byKey = filledCells.get(table); if (!byKey) filledCells.set(table, (byKey = new Map()));
             const kk = JSON.stringify(k); let cells = byKey.get(kk); if (!cells) byKey.set(kk, (cells = []));
-            cells.push({ col: v, value: row[v], ft: cf ? cf.ft : null, ring: cf ? cf.a === cf.b : true, key: k });
+            cells.push({ col: v, value: pv, ft: cf ? cf.ft : null, ring: cf ? cf.a === cf.b : true, key: k });
             if (process.env.AREST_CARRY_TRACE) console.error("  fill " + table + " " + kk + " " + v + " (" + (cf ? cf.ft : "no single fact type") + ")");
           }
           catch { /* the build refuses it */ }
@@ -1083,6 +1134,7 @@ if (!out && !outDir) {
     + (refused ? ", " + refused + " REFUSED BY SQLITE" : "")
     + (carried || filled ? " [" + carried + " runtime row(s) carried, " + filled + " value(s) filled]" : "")
     + (superseded ? " [" + superseded + " row(s) superseded: the last build asserted them and this one does not]" : "")
+    + (followed.length ? " [" + followed.length + " column(s) followed by the fact type they carry: " + followed.join(", ") + "]" : "")
     + (withEntity ? " [" + withEntity + " row(s) superseded with their entity, which the readings typed and this build does not: "
         + withEntityRows.join(", ") + (withEntity > withEntityRows.length ? ", ..." : "") + "]" : "")
     + (rederived ? " [" + rederived + " filled row(s) ledgered: the closure derives every value filled into them ("
