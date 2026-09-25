@@ -2916,6 +2916,7 @@ function run_test() {
     writeMetaschema: writeMetaschema, readMetaschema: readMetaschema,
     storeRaw: () => STORE_RAW,
     storeRead: () => (LAZY_STORE ? LAZY_STORE.stats() : null),
+    memoHeld: () => { let held = 0; for (const node of EVMEMO.values()) held += (node && node.held) || 0; return held; },
     memoStat: (f) => { const st = MEMOSTAT.get(f); const root = EVMEMO.get(f);
       return st ? { stored: st[0], givenBack: st[1], bare: st[2], held: root ? root.held : 0 } : null; },
     performDeclared: performDeclared };
@@ -3124,8 +3125,19 @@ let BOOTED = false;
 function adoptStore(next) {
   if (!Array.isArray(next) || next.length === 0) return false;
   // next may BE CELLS -- lambda answers the same array when a step changes nothing,
-  // and clearing in place would empty the thing we are about to copy from
-  if (next === CELLS) return true;
+  // and clearing in place would empty the thing we are about to copy from.
+  //
+  // AND A WRITE THAT MADE NO SUCCESSOR STILL BUILT ONE (2026-09-25). A refused write, or one
+  // that changed nothing, hands back the store it was given, so nothing is adopted -- and the
+  // memo, which only a new store cleared, kept everything the evaluation computed over its
+  // TRIAL store, a store nothing can reach again. pm.auto.dev measured it through the MCP verb
+  // route: 170 refused `assert`s of about 380 facts took the module from 521 MB to 10.2 GB
+  // private, some 76 MB a call, where the same pages committed peaked at 1.7 GB. Measured
+  // in-process over a copy of support's store, eight refused asserts of 394 facts: the heap
+  // after a forced collection climbed 159 -> 357 MB with the memo kept and stayed at 120 MB
+  // with it dropped, every call as fast either way (2.4-3.1 s). So the memo goes here, as it
+  // goes when a server idles; the identity-keyed indexes are weak and stay true for CELLS.
+  if (next === CELLS) { EVMEMO.clear(); EVMEMON = 0; return true; }
   const copy = next.slice();
   CELLS.length = 0;
   for (const c of copy) CELLS.push(c);

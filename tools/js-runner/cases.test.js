@@ -3104,6 +3104,24 @@ test("assert writes a list of facts as one step: new ones land, held ones are co
   expect(names(served[2])).toEqual(["pg-1=one", "pg-2=two"]);
 }, 120_000);
 
+// ---- A WRITE THAT MAKES NO SUCCESSOR GIVES ITS MEMO BACK ----------------------------------
+//
+// A refused write hands back the store it was given, so adoptStore adopted nothing and the memo,
+// which only a new store cleared, kept what the evaluation computed over a trial store nothing can
+// reach again: 170 refused asserts through the MCP verb route grew one module to 10.2 GB. So a
+// refused page's memo is gone once its answer is taken. Failing at 8cf843de: adoptStore returns
+// before touching the memo, and what the trial held is still held.
+test("a refused write gives back the memo its trial built", () => {
+  const A = globalThis.AREST;
+  const bad = [["StreamHasName", "mm-1", "one"], ["StreamHasName", "mm-1", "uno"]];
+  const out = Ev("assert", [bad, CELLS]);
+  expect(Number(out[1])).toBe(409);
+  expect(out[2]).toBe(CELLS);
+  expect(A.memoHeld()).toBeGreaterThan(0);
+  expect(A.adoptStore(out[2])).toBe(true);
+  expect(A.memoHeld()).toBe(0);
+}, 120_000);
+
 // ---- A FEDERATION IS A READ ---------------------------------------------------------------
 //
 // A Source uses a Connector, a Connector is a Function addressed as the performer addresses one,
