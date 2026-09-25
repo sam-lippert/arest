@@ -11,12 +11,12 @@ import java.util.function.Function;
 // head.part.js, which mirrors the same source). A selector on an atom
 // throws, a duplicate DEF throws, a comparison across atom kinds throws, an
 // out-of-range selection throws. Booleans are the atoms "T" and "F". No law
-// semantics live here — the laws are canon DEFs, and if a guard or a name
+// semantics live here — the laws are lambda DEFs, and if a guard or a name
 // list ever appears in this file, delete it: accretion is how the first two
 // js runners died.
 //
-// The canon and the carriers appear AS SOURCE in the generated
-// Composed.g.java (class Composed extends Arest, so the canon's unqualified
+// The lambda and the carriers appear AS SOURCE in the generated
+// Composed.g.java (class Composed extends Arest, so the lambda's unqualified
 // DEF/A/N/K/PHI/S1..S9 resolve by inheritance — Java's version of the "one
 // extra name" join), are COMPILED by javac, and the class files are then
 // just exec'd. Nothing is read, eval'd, or interpreted at runtime.
@@ -74,7 +74,7 @@ public class Arest {
         ENTIDX = new java.util.WeakHashMap<Object, Map<String, List<Object>>>();
     }
 
-    // ---- FASTPRIMS: compiled forms of hot canon list cells, mirroring
+    // ---- FASTPRIMS: compiled forms of hot lambda list cells, mirroring
     // head.part.js. The DEF stays the meaning; the head evaluates its
     // EXTENSIONAL EQUAL, and the wall certifies identity. Only consulted
     // when the DEF exists, and each mirrors its DEF's edges exactly —
@@ -84,7 +84,7 @@ public class Arest {
     // `iota` on a non-number throws, and flatten's per-element seq() keeps
     // cat's "a non-sequence element is an error".
     //
-    // Measured necessity (js station, same canon bytes): with the memo but
+    // Measured necessity (js station, same lambda bytes): with the memo but
     // FASTPRIMS stubbed out, the base report printed ZERO laws in 300s; with
     // both, 53 laws in 49.7s. The memo alone is NOT sufficient.
     // Python str.strip(chars) / str.rstrip(chars), which lex needs verbatim.
@@ -272,7 +272,7 @@ public class Arest {
     public static Object S8(Object a, Object b, Object c, Object d, Object e, Object f, Object g, Object h) { return new Object[] { a, b, c, d, e, f, g, h }; }
     public static Object S9(Object a, Object b, Object c, Object d, Object e, Object f, Object g, Object h, Object i) { return new Object[] { a, b, c, d, e, f, g, h, i }; }
 
-    public static Object[] CANON(Object... xs) { return xs; }
+    public static Object[] LAMBDA(Object... xs) { return xs; }
 
     // ---- the mu ------------------------------------------------------------
 
@@ -298,7 +298,7 @@ public class Arest {
 
     // both numbers -> numeric; both strings -> UTF-16 code-unit lexicographic
     // (String.compareTo == C# CompareOrdinal == js <); anything else THROWS
-    // Does NOT coerce a numeric-looking string: canon's eq does not coerce
+    // Does NOT coerce a numeric-looking string: lambda's eq does not coerce
     // (eq<1,"1"> = F), and a coercing <= would give le<1,"1"> = le<"1",1> = T
     // with eq<1,"1"> = F — antisymmetry violated, so <= would not be an order.
     // The engine kernels coerce and are the ones carrying the drift; mixed
@@ -335,7 +335,7 @@ public class Arest {
         PRIMS.put("length", x -> Integer.valueOf(seq(x).length));
         // lt completes the comparison quartet; reverse and trans are Backus
         // 11.2.3 base functions. All three were registered by the python host
-        // and referenced by canon (lt <- constraints:vr_lo, constraints:fq_lo,
+        // and referenced by lambda (lt <- constraints:vr_lo, constraints:fq_lo,
         // system:rp_match, law:setalgebra; reverse <- system:keep_first,
         // system:partition; trans <- system:ftid, system:ft_rows) but absent
         // here, so those DEFs answered bottom on every station.
@@ -363,7 +363,7 @@ public class Arest {
         PRIMS.put("apply", x -> { Object[] p = seq(x); return Ev(p[0], p[1]); });
         // lex yields TOKEN-RECORDS, ten fields per token, as
         // metamodel/resolution.md types it. This station answered a flat word
-        // list, so canon's system: family — sqlname reads field 5 of token 1,
+        // list, so lambda's system: family — sqlname reads field 5 of token 1,
         // rp_step field 8, cf_dropw field 1 — read CHARACTERS here and FIELDS
         // in the engine kernels: one name, two functions, split by lineage.
         // Fields: tok, nopunct, base, ordinal-suffix, lower, quoted-text,
@@ -410,25 +410,25 @@ public class Arest {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < parts.length; i++) { if (i > 0) sb.append(sep); sb.append(String.valueOf(parts[i])); }
             return sb.toString(); });
-        // slug yields an IDENTIFIER (resolution.md). Canon defines the same
+        // slug yields an IDENTIFIER (resolution.md). Lambda defines the same
         // function as sl:slug; this stays until both carriers regenerate.
-        // slug is CANON -- DEF("slug"). Deleted here.
+        // slug is LAMBDA -- DEF("slug"). Deleted here.
         // char-level lex boundary (invariant ASCII on every station)
         PRIMS.put("chars", x -> { String s = (String) x; Object[] out = new Object[s.length()];
             for (int i = 0; i < s.length(); i++) out[i] = String.valueOf(s.charAt(i)); return out; });
         // the EMPTY atom passes through and answers "F" — js, python and all
         // three engine kernels do that; charAt(0) alone refused it here.
-        // charup is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
-        // chardown is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
-        // charisup is CANON -- range test over 1 . chars. Deleted here.
-        // charislow is CANON -- range test over 1 . chars. Deleted here.
-        // charisdigit is CANON -- range test over 1 . chars. Deleted here.
-        // escape_html is CANON -- char fold over chars/implode. Deleted here.
+        // charup is LAMBDA -- literal alphabet relation (Codd 2.3.5). Deleted here.
+        // chardown is LAMBDA -- literal alphabet relation (Codd 2.3.5). Deleted here.
+        // charisup is LAMBDA -- range test over 1 . chars. Deleted here.
+        // charislow is LAMBDA -- range test over 1 . chars. Deleted here.
+        // charisdigit is LAMBDA -- range test over 1 . chars. Deleted here.
+        // escape_html is LAMBDA -- char fold over chars/implode. Deleted here.
         // policy-free: <prefix, s> -> tail-or-s (parity-ledger 2026-07-08). At
         // pre.equals(t) the answer is "", not t — no strictly-longer guard.
-        // strip_prefix is CANON -- DEF("strip_prefix"). Deleted here.
-        // ntoa is CANON -- DEF("ntoa"). Deleted here.
-        // quote_str is CANON -- DEF("quote_str"). Deleted here.
+        // strip_prefix is LAMBDA -- DEF("strip_prefix"). Deleted here.
+        // ntoa is LAMBDA -- DEF("ntoa"). Deleted here.
+        // quote_str is LAMBDA -- DEF("quote_str"). Deleted here.
         PRIMS.put("1r", x -> { Object[] a = seq(x); return a[a.length - 1]; });
         PRIMS.put("tlr", x -> { Object[] a = seq(x); Object[] r = new Object[a.length - 1];
             System.arraycopy(a, 0, r, 0, r.length); return r; });
@@ -487,7 +487,7 @@ public class Arest {
         // "permits the definition of new functional forms, in effect, merely by
         // defining new functions" (13.3.2) -- the mechanism the paper calls
         // "the only mechanism in the paper". The chain below is now the
-        // PRIMITIVE ARM of this rule, reached only when canon does not define
+        // PRIMITIVE ARM of this rule, reached only when lambda does not define
         // the form, exactly as an atom in operator position already resolves
         // DEFS-then-prim a few lines above. A non-string head (a computed form)
         // takes the general path, which the chain could never express at all.
@@ -497,7 +497,7 @@ public class Arest {
             for (int i = form.length - 1; i >= 1; i--) v = Ev(form[i], v);
             return v;
         }
-        // CONS and CONST are CANON now (Backus 13.3.2 verbatim) and reach this
+        // CONS and CONST are LAMBDA now (Backus 13.3.2 verbatim) and reach this
         // host through tau clause (c) above. See the note in head.part.js.
         if ("COND".equals(head)) return "T".equals(Ev(form[1], x)) ? Ev(form[2], x) : Ev(form[3], x);
         if ("ALPHA".equals(head)) {

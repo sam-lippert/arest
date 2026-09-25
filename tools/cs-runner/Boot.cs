@@ -9,7 +9,7 @@ using System.Linq;
 // of. That is the whole of "the law golden is js-only": the two hosts were not
 // disagreeing about an answer, they were answering over different stores.
 //
-// Every step here is the same canon call the js host makes, in the same order,
+// Every step here is the same lambda call the js host makes, in the same order,
 // under the same rule about the memo: CELLS is mutated, so MemoClear runs at
 // each mutation point, because Ev keys on the store's identity and a store
 // whose contents changed under the same reference would keep answering from
@@ -49,9 +49,9 @@ public static partial class Arest
         MemoClear();
     }
 
-    // canon says WHICH meta-types are reflected: reflect:cells answers
+    // lambda says WHICH meta-types are reflected: reflect:cells answers
     // <name, population> pairs computed from the schema, so adding one is a
-    // canon edit and never a host edit. This function names nothing.
+    // lambda edit and never a host edit. This function names nothing.
     static int LoadReflected()
     {
         int added = 0;
@@ -112,7 +112,7 @@ public static partial class Arest
     // NO JOURNAL FOLD. The journal is gone (Samuel, 2026-09-11): boot is FILE,
     // the reflected meta-types and the closure, and durability is the write into
     // the tables. ui:replay and the journal: cell prefix this recognised are not
-    // in canon any more, so LoadJournal and IsJournalCell went with them.
+    // in lambda any more, so LoadJournal and IsJournalCell went with them.
 
     static void AdoptStore(object next)
     {

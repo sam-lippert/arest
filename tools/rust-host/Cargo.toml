@@ -10,7 +10,7 @@ edition = "2021"
 # DIFFERENT artifact (the procedural projection, which uses rayon), not a mu.
 [dependencies]
 
-# THE MU IS A LIBRARY as well as a binary. engine/os asks the same canon
+# THE MU IS A LIBRARY as well as a binary. engine/os asks the same lambda
 # through the same evaluator, and a second copy of a mu is how the first two
 # js runners died -- so there is one, with two callers. src/main.rs is the
 # CLI over it and nothing more; the six-line contract lives in the lib.
@@ -28,12 +28,12 @@ opt-level = 3
 # The host is compared against three JIT'd hosts (bun, the JVM, .NET), so an
 # unoptimized build is not a fair or useful comparison — but full release never
 # finishes: LLVM cannot chew one ~1.7 MB include!d expression in reasonable
-# time. opt-level 1 optimizes the mu and the base while leaving the giant canon
+# time. opt-level 1 optimizes the mu and the base while leaving the giant lambda
 # body cheap to codegen; the whole point is that DEF calls are executed once at
 # load, so nothing is lost by not optimizing them.
 [profile.dev]
 opt-level = 1
-# CANON IS EXECUTED ONCE AT LOAD AND NEVER STEPPED THROUGH, so full debug info
+# LAMBDA IS EXECUTED ONCE AT LOAD AND NEVER STEPPED THROUGH, so full debug info
 # over ~450 generated fns holding 1.7 MB of nested constructor calls buys
 # nothing and costs codegen time. Incremental is off for the same reason: build.rs
 # regenerates canon.rs whenever a carrier changes, so the cache rarely hits and

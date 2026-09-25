@@ -1,6 +1,6 @@
 // rust-host — the fourth thin mu, mirroring tools/js-runner/head.part.js
 // point for point (as tools/java-runner/Arest.java and tools/cs-runner/Mu.cs
-// already do). No law semantics live here: the laws are canon DEFs, and if a
+// already do). No law semantics live here: the laws are lambda DEFs, and if a
 // guard or a mode name ever appears in this file, delete it — accretion is how
 // the first two js runners died.
 //
@@ -16,12 +16,12 @@
 // different machines: engine/rust implements true FFP metacomposition
 // (<f1..fn>:x = f1:<<f1..fn>,x>, so COMP/CONS resolve as NAMES), while the js
 // head — which java and cs mirror — dispatches the seven forms directly and
-// throws on anything else. They agree on canon, which only uses the seven, but
+// throws on anything else. They agree on lambda, which only uses the seven, but
 // only the js shape is certified byte-identical, so that is the shape copied.
 // engine/rust's prims also ride a richer Leaf (F, AppTag) and a resolve_def
 // override table a host must not have.
 //
-// The canon and carriers are include!d AS SOURCE and compiled: each file is
+// The lambda and carriers are include!d AS SOURCE and compiled: each file is
 // ONE tuple literal (include! takes a single expression) whose DEF side effects
 // populate DEFS and CELLS in registration order. rustc tokenizes the same bytes
 // bun executes and javac compiles — no JSON store artifact, no bespoke reader.
@@ -77,7 +77,7 @@ fn deep_eq(x: &V, y: &V) -> bool {
 }
 
 // both numbers -> numeric; both strings -> ordinal; anything else THROWS
-// Does NOT coerce a numeric-looking string: canon's eq does not coerce
+// Does NOT coerce a numeric-looking string: lambda's eq does not coerce
 // (eq<1,"1"> = F), and a coercing <= would give le<1,"1"> = le<"1",1> = T with
 // eq<1,"1"> = F — antisymmetry violated, so <= would not be an order relation.
 // Mixed int/lexical atoms are a READING-BOUNDARY defect (#31).
@@ -182,7 +182,7 @@ thread_local! {
         RefCell::new(HashMap::new());
     // The join / lookup indexes. Each mirrors a js host WeakMap (matchRows'
     // MATCHIDX, ast:fetch's FETCHIDX, ...). Same retention discipline as ENTIDX:
-    // keyed by the Rc address of a frozen canon list, with that list held
+    // keyed by the Rc address of a frozen lambda list, with that list held
     // alongside so the address cannot be reused. NOT cleared by the memo's size
     // cap (that trims EVMEMO only) -- these are true for as long as the value
     // lives, exactly as the js WeakMaps are, and only a store mutation would
@@ -232,10 +232,10 @@ fn DEF(name: &str, body: V) -> V {
     a(name)
 }
 
-// The canon's vocabulary, bound as this platform's lambda. The canon file uses
+// The lambda's vocabulary, bound as this platform's lambda. The lambda file uses
 // exactly these names and no others — that is what makes one file readable by
 // four hosts.
-// The canon vocabulary -- A, N, K, PHI, S1..S9, Sv -- used to be bound here as
+// The lambda vocabulary -- A, N, K, PHI, S1..S9, Sv -- used to be bound here as
 // this platform lambda so that compose.py output could call it. The READER is
 // that binding now: it turns the same names into the same values, from the file
 // rather than from generated source, so the functions had no callers left. A
@@ -269,7 +269,7 @@ fn prim(name: &str, x: &V) -> Option<V> {
         "and" => { let p = seq(x); boolv(is_t(&p[0]) && is_t(&p[1])) }
         "length" => V::I(seq(x).len() as i64),
         // lt completes the comparison quartet; reverse and trans are Backus
-        // 11.2.3 base functions. All three were referenced by canon and
+        // 11.2.3 base functions. All three were referenced by lambda and
         // registered only by the python host, so the DEFs using them
         // (constraints:vr_lo, system:keep_first, system:ftid, ...) answered
         // bottom on every host.
@@ -291,7 +291,7 @@ fn prim(name: &str, x: &V) -> Option<V> {
         "apply" => { let p = seq(x); ev(&p[0], &p[1]) }
         // lex yields TOKEN-RECORDS, ten fields per token, as
         // metamodel/resolution.md types it. This host answered a flat word
-        // list, so canon's system: family (sqlname field 5 of token 1,
+        // list, so lambda's system: family (sqlname field 5 of token 1,
         // rp_step field 8, cf_dropw field 1) read CHARACTERS here and FIELDS
         // in the engine kernels. Fields: tok, nopunct, base, ordinal-suffix,
         // lower, quoted-text, initial-cap, hyphen-template, is-quoted,
@@ -346,13 +346,13 @@ fn prim(name: &str, x: &V) -> Option<V> {
             q(rows) }
         "implode" => { let p = seq(x); let sep = text_of(&p[0]); let parts = seq(&p[1]);
             astr(parts.iter().map(join_text).collect::<Vec<_>>().join(&sep)) }
-        // slug yields an IDENTIFIER (resolution.md). Canon defines the same
+        // slug yields an IDENTIFIER (resolution.md). Lambda defines the same
         // function as sl:slug; this stays until both carriers regenerate.
-        // slug is CANON -- DEF("slug"). Deleted here.
+        // slug is LAMBDA -- DEF("slug"). Deleted here.
         "chars" => q(text_of(x).chars().map(|c| astr(c.to_string())).collect()),
-        // charup is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
-        // chardown is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
-        // charisup / charislow / charisdigit are CANON -- range tests over
+        // charup is LAMBDA -- literal alphabet relation (Codd 2.3.5). Deleted here.
+        // chardown is LAMBDA -- literal alphabet relation (Codd 2.3.5). Deleted here.
+        // charisup / charislow / charisdigit are LAMBDA -- range tests over
         // 1 . chars. Deleted here.
         // 1r was COLLATERAL of that deletion (the brace walk ran on to tlr).
         // It is Backus 11.2.3 base, the right selector, and it stays.
@@ -403,11 +403,11 @@ fn text_of(x: &V) -> String {
 // pass it through and answer "F" for the tests. NUL is in none of the ranges,
 // so charup/chardown return the atom unchanged and charisup/charislow/
 // charisdigit answer F — the same five answers, from one place.
-// first_char deleted: charup/chardown are CANON, this had no callers.
+// first_char deleted: charup/chardown are LAMBDA, this had no callers.
 
 // ============================ join / lookup indexes ==========================
 // The shared machinery the FASTPRIMS below stand on. Each builds an index over
-// a frozen canon list ONCE, keyed by the list's Rc address, then answers O(1).
+// a frozen lambda list ONCE, keyed by the list's Rc address, then answers O(1).
 // The index is built in locals and only then stored under a short borrow, so a
 // selector evaluated while building (ev) never re-enters the same cache.
 
@@ -736,9 +736,9 @@ fn is_fastprim_name(s: &str) -> bool {
 }
 
 // ============================ FASTPRIMS ======================================
-// Compiled forms of hot canon list cells. The DEF stays the meaning; the head
+// Compiled forms of hot lambda list cells. The DEF stays the meaning; the head
 // evaluates its EXTENSIONAL EQUAL and the unit tests certify identity. Measured
-// necessity on the js host with the same canon bytes: memo off -> ZERO laws
+// necessity on the js host with the same lambda bytes: memo off -> ZERO laws
 // in 120s; FASTPRIMS off -> ZERO laws in 300s; both on -> 53 laws in 49.7s.
 // Neither alone suffices, which is exactly why java and cs would not finish.
 fn fastprim(name: &str, x: &V) -> Option<V> {
@@ -1108,11 +1108,11 @@ fn ev(f: &V, x: &V) -> V {
             //     (rho <x1..xn>):y = (rho x1):<<x1..xn>, y>
             // FETCH the head, do not MATCH it -- see the note in Arest.java.
             // The match below is the PRIMITIVE ARM of this rule, taken only
-            // when canon does not define the form. Note this file's own header
+            // when lambda does not define the form. Note this file's own header
             // recorded the omission ("engine/rust implements true FFP
             // metacomposition ... while the js head ... dispatches the seven
-            // forms directly") and justified it by "they agree on canon, which
-            // only uses the seven" -- but canon only used the seven BECAUSE the
+            // forms directly") and justified it by "they agree on lambda, which
+            // only uses the seven" -- but lambda only used the seven BECAUSE the
             // hosts only offered seven, so the consequence was the warrant.
             if head.is_empty() || DEFS.with(|d| d.borrow().contains_key(&head)) {
                 return ev(&form[0], &q(vec![f.clone(), x.clone()]));
@@ -1142,7 +1142,7 @@ fn ev(f: &V, x: &V) -> V {
                     for i in (1..form.len()).rev() { v = ev(&form[i], &v); }
                     v
                 }
-                // CONS and CONST are CANON now (Backus 13.3.2 verbatim) and
+                // CONS and CONST are LAMBDA now (Backus 13.3.2 verbatim) and
                 // reach this host through tau clause (c) above. See
                 // head.part.js for why removal, not equivalence, is the proof.
                 "COND" => if is_t(&ev(&form[1], x)) { ev(&form[2], x) } else { ev(&form[3], x) },
@@ -1189,24 +1189,24 @@ fn ev(f: &V, x: &V) -> V {
     }
 }
 
-// ============================ the canon and carriers =========================
-// THE canon, at the repo root — not a curated copy. Each carrier is likewise
+// ============================ the lambda and carriers =========================
+// THE lambda, at the repo root — not a curated copy. Each carrier is likewise
 // one tuple literal, appearing AS SOURCE exactly as the js host concatenates
 // it and the cs csproj copy /b's it.
-// compose.py's chunked projection of the canon: the same bytes, split at the
+// compose.py's chunked projection of the lambda: the same bytes, split at the
 // tuple's top-level commas into fn bodies so LLVM sees many small functions
 // instead of one 1.7 MB expression it cannot finish optimizing.
-// ============================ the canon VOCABULARY ============================
-// Canon is intersection source: ONE file that is simultaneously valid in every
+// ============================ the lambda VOCABULARY ============================
+// Lambda is intersection source: ONE file that is simultaneously valid in every
 // host language, so that each host's OWN COMPILER reads it. These constructors
 // are what make that true here, and they mirror js head.part.js exactly -- A is
 // the atom itself, N the selector, K a CONST pair, PHI the empty sequence,
 // S1..S9 the sequence family (Backus 13.2 rule 4, chunked at nine because a
 // host carries no variadics).
 //
-// THIS REPLACES A RUNTIME PARSER, and that is the point. Reading canon at run
-// time with a hand-written reader throws away the entire reason canon is shaped
-// the way it is: it makes the host the canon parser instead of the host's
+// THIS REPLACES A RUNTIME PARSER, and that is the point. Reading lambda at run
+// time with a hand-written reader throws away the entire reason lambda is shaped
+// the way it is: it makes the host the lambda parser instead of the host's
 // compiler, and it means a second implementation of the grammar that can drift.
 // The reader was adopted to escape a fifty-minute rebuild; build.rs answers
 // that at ~4 minutes by chunking, which is where the cost actually lived.
@@ -1230,14 +1230,14 @@ fn ev(f: &V, x: &V) -> V {
 #[allow(non_snake_case)] fn S8(a1: V, a2: V, a3: V, a4: V, a5: V, a6: V, a7: V, a8: V) -> V { q(vec![a1, a2, a3, a4, a5, a6, a7, a8]) }
 #[allow(non_snake_case)] fn S9(a1: V, a2: V, a3: V, a4: V, a5: V, a6: V, a7: V, a8: V, a9: V) -> V { q(vec![a1, a2, a3, a4, a5, a6, a7, a8, a9]) }
 
-// canon, the case table and the carriers, compiled as rust source. build.rs
+// lambda, the case table and the carriers, compiled as rust source. build.rs
 // emits this: the same bytes, split only at the tuple's top-level commas so
 // rustc sees many small fn bodies instead of one it cannot finish.
 include!(concat!(env!("OUT_DIR"), "/canon.rs"));
 
 // The cross-host case table rides in the same composed binary here for the
 // same reason it does on the other three hosts (js midcases.part.js, java
-// compose.py's 6th arg -> SC inside loadCarriers, cs midcases.part): canon
+// compose.py's 6th arg -> SC inside loadCarriers, cs midcases.part): lambda
 // `main`'s `case <name>` mode resolves the row by solve:cell over CELLS, so a
 // host whose CELLS carry no case: cells refuses every row.
 //
@@ -1247,26 +1247,26 @@ include!(concat!(env!("OUT_DIR"), "/canon.rs"));
 // finished at 3/4. Turning rust on printed "rust: 102 refused, 0 answered" --
 // not disagreement, total silence, which is the signature of a host that
 // cannot see the questions rather than one that answers them differently.
-// Loading it AFTER canon and BEFORE the carriers matches the js concatenation
+// Loading it AFTER lambda and BEFORE the carriers matches the js concatenation
 // order exactly, so the composed store stays byte-equal.
-fn load_canon() {
-    load_compiled_canon();
+fn load_lambda() {
+    load_compiled_lambda();
 }
 
 // The carriers are chunked the same way and for the same reason (the base
 // design-state alone is 560 KB). The base journal is empty, and an empty
-// CANON("journal") registers nothing, so there is no third carrier here — the
+// LAMBDA("journal") registers nothing, so there is no third carrier here — the
 // composed store is byte-equal to the js host's on these carriers.
 fn load_carriers() {
-    // the carriers are compiled in with canon, in the js concatenation order
+    // the carriers are compiled in with lambda, in the js concatenation order
 }
 
 
 // ============================ the host contract ==============================
-// SIX LINES, and now a FUNCTION rather than a main: load canon, hand canon the
+// SIX LINES, and now a FUNCTION rather than a main: load lambda, hand lambda the
 // address, take back the text and the flag. No modes, no rendering, forever --
-// all dispatch and all text live in canon `main`, and a new operation is a
-// canon edit, never a host edit. Adding a branch here is how runners die.
+// all dispatch and all text live in lambda `main`, and a new operation is a
+// lambda edit, never a host edit. Adding a branch here is how runners die.
 //
 // IT BECAME A LIBRARY THE DAY engine/os NEEDED IT. The OS was carrying a SECOND
 // engine -- `arest::worker::arest_call(verb, json)` out of engine/rust, a verb
@@ -1281,7 +1281,7 @@ thread_local! {
 
 // ============================ the store boot =================================
 // A STORE IS NOT THE FILE IT WAS READ FROM (cs-runner/Boot.cs, ported here). The
-// carriers give canon plus the composed populations; the STORE js and the C#
+// carriers give lambda plus the composed populations; the STORE js and the C#
 // host answer over is three steps further on -- FILE is a projection of
 // state:fts, the reflected meta-types are computed from the schema, and the
 // derived populations are the closure under the program's own rules. Skipping
@@ -1290,7 +1290,7 @@ thread_local! {
 // origin-boundary-match / store-closed / unreachable-set / nothing-owed /
 // writable / file-is-projection are the family that reads exactly that state.
 //
-// Every step is the same canon call the js and C# hosts make, in the same order
+// Every step is the same lambda call the js and C# hosts make, in the same order
 // and under the same memo rule: CELLS is mutated, so the memo and the identity
 // indexes are cleared at each mutation point, because ev keys on the store's
 // identity and a store whose contents changed under the same reference would
@@ -1347,7 +1347,7 @@ fn load_file() {
     memo_clear_all();
 }
 
-// canon says WHICH meta-types are reflected: reflect:cells answers
+// lambda says WHICH meta-types are reflected: reflect:cells answers
 // <name, population> pairs computed from the schema. Prepend each new one.
 fn load_reflected() {
     let cells = store_cells();
@@ -1403,7 +1403,7 @@ fn load_derived() -> bool {
 }
 
 // ui:replay folds the journal:<n> cells on their verbs and answers the store
-// they produce; canon returns the SAME operand when nothing folds. Returns
+// they produce; lambda returns the SAME operand when nothing folds. Returns
 // whether there were journal entries at all (the count, not the cell delta).
 fn load_journal() -> bool {
     let before = store_cells();
@@ -1425,7 +1425,7 @@ fn adopt_store(next: &V) {
     }
 }
 
-// The boot, mirroring Boot.cs / js boot() for the canon+carriers path (no
+// The boot, mirroring Boot.cs / js boot() for the lambda+carriers path (no
 // store-db). A store with no schema surface has no FILE to build, nothing to
 // reflect and no rules to close under, and asking anyway throws -- so it is left
 // as the carriers gave it.
@@ -1440,13 +1440,13 @@ fn build_store() {
     }
 }
 
-/// Load canon and the carriers, once per thread. Every entry below calls it so
+/// Load lambda and the carriers, once per thread. Every entry below calls it so
 /// a caller cannot forget, and the flag is why: DEF registration order is the
 /// contract, and loading twice would double CELLS rather than fail loudly.
 pub fn boot() {
     BOOTED.with(|b| {
         if !b.get() {
-            load_canon();
+            load_lambda();
             load_carriers();
             build_store();
             b.set(true);
@@ -1454,7 +1454,7 @@ pub fn boot() {
     });
 }
 
-/// Ask canon `main` an address -- the CLI contract, verbatim: <text, ok>.
+/// Ask lambda `main` an address -- the CLI contract, verbatim: <text, ok>.
 pub fn ask(argv: &[&str]) -> (String, bool) {
     boot();
     let cells = CELLS.with(|c| q(c.borrow().clone()));
@@ -1464,10 +1464,10 @@ pub fn ask(argv: &[&str]) -> (String, bool) {
     (join_text(&o[0]), is_t(&o[1]))
 }
 
-/// Ask canon `main:api` a REST step: Eq 2's addressed operation, the one the
-/// HTTP and MCP surfaces both enter by. A method is not a verb here -- canon's
-/// http:method_kinds says which KIND of step each one is, and canon decides
-/// whether the caller may take it. The rendering is canon's own `system:show`:
+/// Ask lambda `main:api` a REST step: Eq 2's addressed operation, the one the
+/// HTTP and MCP surfaces both enter by. A method is not a verb here -- lambda's
+/// http:method_kinds says which KIND of step each one is, and lambda decides
+/// whether the caller may take it. The rendering is lambda's own `system:show`:
 /// a host that formats has started to mean something.
 pub fn api(method: &str, resource: &str, caller: &str, fact: &[&str]) -> String {
     boot();
@@ -1481,7 +1481,7 @@ pub fn api(method: &str, resource: &str, caller: &str, fact: &[&str]) -> String 
 }
 
 /// How many cells the load registered. The boot receipt, derived rather than
-/// announced -- a host may report what it did, never what canon means.
+/// announced -- a host may report what it did, never what lambda means.
 pub fn cell_count() -> usize {
     boot();
     CELLS.with(|c| c.borrow().len())
@@ -1491,8 +1491,8 @@ pub fn cell_count() -> usize {
 // The same six-line contract over linear memory, for a caller that has no
 // thread to spawn and no argv to pass: a bun script, a browser, a Worker.
 // `arest_ask` takes the address as UTF-8 arguments joined by 0x1F (the unit
-// separator) and answers one buffer -- a little-endian u32 length, canon's
-// flag as `T` or `F`, then canon's text. No wasm-bindgen: a host carries no
+// separator) and answers one buffer -- a little-endian u32 length, lambda's
+// flag as `T` or `F`, then lambda's text. No wasm-bindgen: a host carries no
 // dependencies, and the loader is twenty lines (wasm.js beside Cargo.toml).
 // The stack budget main.rs spawns a thread for is a LINK flag on this target
 // (.cargo/config.toml); the build is
@@ -1517,7 +1517,7 @@ mod wasm_boundary {
         drop(Vec::from_raw_parts(p, 0, n.max(1)));
     }
 
-    /// Load canon and the carriers without asking anything; answers the cell
+    /// Load lambda and the carriers without asking anything; answers the cell
     /// count, the boot receipt, so a caller can time the load apart from
     /// `main`.
     #[no_mangle]
@@ -1525,7 +1525,7 @@ mod wasm_boundary {
         super::cell_count()
     }
 
-    /// Ask canon `main` an address: arguments joined by 0x1F in; out, a
+    /// Ask lambda `main` an address: arguments joined by 0x1F in; out, a
     /// buffer of [len: u32 LE][`T` | `F`][text], `len` counting the flag and
     /// the text, to be freed with `arest_free(ptr, 4 + len)`.
     #[no_mangle]
@@ -1547,7 +1547,7 @@ mod wasm_boundary {
 // ---------------------------------------------------------------------------
 // The rust host's own unit tests. `cargo test` -- no python, no second host.
 //
-// Every host runs the same canon over the same carriers, so "the hosts agree"
+// Every host runs the same lambda over the same carriers, so "the hosts agree"
 // does not need one host to drive the others: each asserts its own answers
 // against engine/shared/expected-cases.tsv and agreement follows because they
 // all match the same file. Verifying this host needs cargo and nothing else.
@@ -1559,7 +1559,7 @@ mod wasm_boundary {
 mod host_tests {
     use super::*;
 
-    // The canon is one deeply nested expression: building it recurses past a
+    // The lambda is one deeply nested expression: building it recurses past a
     // test thread's 2 MB default, which is STATUS_STACK_OVERFLOW rather than a
     // failure. main() spawns at 512 MB for exactly this, so the tests do too --
     // and doing it here rather than through RUST_MIN_STACK keeps the budget
@@ -1629,9 +1629,9 @@ mod host_tests {
             .collect()
     }
 
-    // THE BOTTOM ROWS ARE THE POINT. canon's note above main:case_text says one
+    // THE BOTTOM ROWS ARE THE POINT. lambda's note above main:case_text says one
     // case per invocation is deliberate: the table holds rows that BOTTOM, no
-    // canon def can branch on bottom, and a fold would die at the first one.
+    // lambda def can branch on bottom, and a fold would die at the first one.
     // The CLI makes a bottom visible by dying and the driver recorded
     // <refused>. In-process the boundary is catch_unwind, and it has to be
     // here or the deliberate refusals read as broken tests.
@@ -1649,7 +1649,7 @@ mod host_tests {
     }
 
     #[test]
-    fn every_case_answers_what_the_canon_says() {
+    fn every_case_answers_what_the_lambda_says() {
         with_stack(|| {
             boot();
             // expected panics are the deliberate bottoms; do not print 17 of them

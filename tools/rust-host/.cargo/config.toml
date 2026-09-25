@@ -1,5 +1,5 @@
 # THE STACK BUDGET, AS A LINK FLAG. main.rs spawns a 512 MB thread because
-# canon is one deeply nested expression and mu recurses deeper still; a wasm
+# lambda is one deeply nested expression and mu recurses deeper still; a wasm
 # module has no thread to spawn, so the same budget is the linker's stack
 # size, and the same reduction forces the same figure on every host. The
 # build for this target is

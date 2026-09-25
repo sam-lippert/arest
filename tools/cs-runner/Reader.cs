@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-// ============================ the canon READER ================================
-// The canon, the case table and the carriers READ AT RUNTIME, replacing the
+// ============================ the lambda READER ================================
+// The lambda, the case table and the carriers READ AT RUNTIME, replacing the
 // csproj's copy /b of head.part + arest + mid1.part + design-state + ... into
 // Composed.g.cs.
 //
 // That concatenation is the cheapest of the four compose steps -- byte
-// concatenation, the linker's job -- but it still puts the whole canon through
-// the C# compiler on every canon edit, and it means this station holds the
+// concatenation, the linker's job -- but it still puts the whole lambda through
+// the C# compiler on every lambda edit, and it means this station holds the
 // program as object code where js, java and rust-station now read it. The
 // intersection source's claim is that ONE file is read by every host; a host
 // that compiles it in cannot be handed a different D.
@@ -192,7 +192,7 @@ public static class Reader
         try { src = File.ReadAllBytes(path); }
         catch (Exception e)
         {
-            throw new Exception("canon reader: cannot read " + path + ": " + e.Message);
+            throw new Exception("lambda reader: cannot read " + path + ": " + e.Message);
         }
         Parse(src, path);
     }
@@ -210,14 +210,14 @@ public static class Reader
             if (p.Eat("DEF("))
             {
                 var name = p.Str();
-                if (!p.Eat(",")) throw new Exception("canon reader: " + path + " bad DEF");
+                if (!p.Eat(",")) throw new Exception("lambda reader: " + path + " bad DEF");
                 var body = p.Expr();
                 p.Eat(")");
                 p.Eat(",");
                 Arest.DEF(name, body);
                 continue;
             }
-            throw new Exception("canon reader: " + path + " is not the DEF grammar");
+            throw new Exception("lambda reader: " + path + " is not the DEF grammar");
         }
     }
 

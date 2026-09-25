@@ -1,8 +1,8 @@
 // The wasm host's loader: the six-line contract over linear memory, no
 // wasm-bindgen. `load(bytes)` instantiates the module built by
 //   cargo rustc --lib --target wasm32-unknown-unknown --crate-type cdylib
-// and `ask(argv)` hands canon `main` an address exactly as the CLI does:
-// the arguments go in joined by 0x1F, canon's flag and text come back.
+// and `ask(argv)` hands lambda `main` an address exactly as the CLI does:
+// the arguments go in joined by 0x1F, lambda's flag and text come back.
 // Run directly, it is the CLI over the module:
 //   bun tools/rust-host/wasm.js <address...>
 // AREST_TIMING=1 reports the load, the boot and the ask on stderr.
@@ -22,7 +22,7 @@ export async function load(bytes) {
   const { memory, arest_alloc, arest_free, arest_ask, arest_boot } = instance.exports;
   const enc = new TextEncoder(), dec = new TextDecoder();
   return {
-    // load canon and the carriers; answers the cell count, the boot receipt
+    // load lambda and the carriers; answers the cell count, the boot receipt
     boot() {
       const n = arest_boot();
       mark("boot");

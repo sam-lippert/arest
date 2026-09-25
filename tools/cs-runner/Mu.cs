@@ -42,7 +42,7 @@ public static partial class Arest
         return s.Substring(0, b);
     }
 
-    // Does NOT coerce a numeric-looking string: canon's eq does not coerce
+    // Does NOT coerce a numeric-looking string: lambda's eq does not coerce
     // (eq<1,"1"> = F), and a coercing <= would give le<1,"1"> = le<"1",1> = T
     // with eq<1,"1"> = F — antisymmetry violated. Mixed int/lexical atoms are
     // a READING-BOUNDARY defect (#31), not a licence to break the order.
@@ -79,7 +79,7 @@ public static partial class Arest
         { "and", x => { var p = Seq(x); return Bool((p[0] as string) == "T" && (p[1] as string) == "T"); } },
         { "length", x => Seq(x).Length },
         // lt completes the comparison quartet; reverse and trans are Backus
-        // 11.2.3 base functions. Referenced by canon, registered only by the
+        // 11.2.3 base functions. Referenced by lambda, registered only by the
         // python host, so constraints:vr_lo / system:keep_first / system:ftid
         // and friends answered bottom on every station.
         { "lt", x => { var p = Seq(x); return Bool(CompareAtoms(p[0], p[1]) < 0); } },
@@ -105,7 +105,7 @@ public static partial class Arest
         { "apply", x => { var p = Seq(x); return Ev(p[0], p[1]); } },
         // lex yields TOKEN-RECORDS, ten fields per token, as
         // metamodel/resolution.md types it. This station answered a flat word
-        // list, so canon's system: family — sqlname reads field 5 of token 1,
+        // list, so lambda's system: family — sqlname reads field 5 of token 1,
         // rp_step field 8, cf_dropw field 1 — read CHARACTERS here and FIELDS
         // in the engine kernels. Fields: tok, nopunct, base, ordinal-suffix,
         // lower, quoted-text, initial-cap, hyphen-template, is-quoted,
@@ -146,7 +146,7 @@ public static partial class Arest
             return rows.ToArray(); } },
         // ATOMS stringify, numbers included — matching Arest.java, the rust
         // station and all three engine kernels. A Cast<string> here refused
-        // numbers, and canon's renderer needs one operation total over the
+        // numbers, and lambda's renderer needs one operation total over the
         // atom domain (system:isnum is not eq<x, implode<empty,<x>>>).
         { "implode", x => { var p = Seq(x); var ws = Seq(p[1]);
             var ss = new string[ws.Length];
@@ -154,24 +154,24 @@ public static partial class Arest
                 if (ws[i] is object[]) throw new InvalidOperationException("implode on sequence");
                 ss[i] = ws[i].ToString(); }
             return string.Join((string)p[0], ss); } },
-        // slug yields an IDENTIFIER (resolution.md). Canon defines the same
+        // slug yields an IDENTIFIER (resolution.md). Lambda defines the same
         // function as sl:slug; this stays until both carriers regenerate.
-        // slug is CANON -- DEF("slug"). Deleted here.
+        // slug is LAMBDA -- DEF("slug"). Deleted here.
         // char-level lex boundary (invariant ASCII on every station)
         { "chars", x => ((string)x).Select(c => (object)c.ToString()).ToArray() },
         // the EMPTY atom passes through and answers "F" — js, python and all
         // three engine kernels do that; indexing [0] alone refused it here.
-        // charup is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
-        // chardown is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
-        // charisup is CANON -- range test over 1 . chars. Deleted here.
-        // charislow is CANON -- range test over 1 . chars. Deleted here.
-        // charisdigit is CANON -- range test over 1 . chars. Deleted here.
-        // escape_html is CANON -- char fold over chars/implode. Deleted here.
+        // charup is LAMBDA -- literal alphabet relation (Codd 2.3.5). Deleted here.
+        // chardown is LAMBDA -- literal alphabet relation (Codd 2.3.5). Deleted here.
+        // charisup is LAMBDA -- range test over 1 . chars. Deleted here.
+        // charislow is LAMBDA -- range test over 1 . chars. Deleted here.
+        // charisdigit is LAMBDA -- range test over 1 . chars. Deleted here.
+        // escape_html is LAMBDA -- char fold over chars/implode. Deleted here.
         // policy-free: <prefix, s> -> tail-or-s (parity-ledger 2026-07-08). At
         // pre == t the answer is "", not t — no strictly-longer guard.
-        // strip_prefix is CANON -- DEF("strip_prefix"). Deleted here.
-        // ntoa is CANON -- DEF("ntoa"). Deleted here.
-        // quote_str is CANON -- DEF("quote_str"). Deleted here.
+        // strip_prefix is LAMBDA -- DEF("strip_prefix"). Deleted here.
+        // ntoa is LAMBDA -- DEF("ntoa"). Deleted here.
+        // quote_str is LAMBDA -- DEF("quote_str"). Deleted here.
         { "1r", x => Seq(x)[Seq(x).Length - 1] },
         { "tlr", x => { var a = Seq(x); if (a.Length == 0) throw new InvalidOperationException("tlr on empty"); return a.Take(a.Length - 1).ToArray(); } },
     };
@@ -225,7 +225,7 @@ public static partial class Arest
         PAIRID = new System.Runtime.CompilerServices.ConditionalWeakTable<object, object>();
     }
 
-    // ---- FASTPRIMS: compiled forms of hot canon list cells, mirroring
+    // ---- FASTPRIMS: compiled forms of hot lambda list cells, mirroring
     // head.part.js. The DEF stays the meaning; the head evaluates its
     // EXTENSIONAL EQUAL, and the wall certifies identity. Only consulted when
     // the DEF exists, and each mirrors its DEF's edges exactly — negative
@@ -235,7 +235,7 @@ public static partial class Arest
     // non-number throws, and flatten's per-element Seq keeps cat's "a
     // non-sequence element is an error".
     //
-    // Measured necessity (js station, same canon bytes): with the memo but
+    // Measured necessity (js station, same lambda bytes): with the memo but
     // FASTPRIMS stubbed out the base report printed ZERO laws in 300s; with
     // both, 53 laws in 49.7s. The memo alone is NOT sufficient — the Java
     // station went from >20min (never finishing) to 29.7s once both landed.
@@ -331,10 +331,10 @@ public static partial class Arest
     static readonly Dictionary<string, Func<object, object>> FASTPRIMS =
         new Dictionary<string, Func<object, object>>(StringComparer.Ordinal)
     {
-        // CONS and CONST are canon (Backus 13.3.2, reached through tau clause
+        // CONS and CONST are lambda (Backus 13.3.2, reached through tau clause
         // (c)) and stay so; these are their fast paths, the same value in one
         // pass. Metacomposition hands CONS <<CONS f1..fn>, y> and the answer is
-        // <f1:y .. fn:y>; the canon form allocates distr, tl and an ALPHA over
+        // <f1:y .. fn:y>; the lambda form allocates distr, tl and an ALPHA over
         // apply per application, and the js host measured 18.6 million CONS
         // applications over us-law, 30 of its 35 seconds.
         { "CONS", x => {
@@ -628,7 +628,7 @@ public static partial class Arest
         // tau clause (c): METACOMPOSITION (Backus 13.3.2, 13.4).
         //     (rho <x1..xn>):y = (rho x1):<<x1..xn>, y>
         // FETCH the head, do not MATCH it -- see the note in Arest.java. The
-        // switch below is the PRIMITIVE ARM of this rule, taken only when canon
+        // switch below is the PRIMITIVE ARM of this rule, taken only when lambda
         // does not define the form.
         if (head == null || DEFS.ContainsKey(head)) return Ev(form[0], new object[] { f, x });
         switch (head)
@@ -639,7 +639,7 @@ public static partial class Arest
                 for (int i = form.Length - 1; i >= 1; i--) v = Ev(form[i], v);
                 return v;
             }
-            // CONS and CONST are CANON now (Backus 13.3.2 verbatim) and reach
+            // CONS and CONST are LAMBDA now (Backus 13.3.2 verbatim) and reach
             // this host through tau clause (c) above. See head.part.js.
             case "COND": return (Ev(form[1], x) as string) == "T" ? Ev(form[2], x) : Ev(form[3], x);
             case "ALPHA": return Seq(x).Select(e => Ev(form[1], e)).ToArray();

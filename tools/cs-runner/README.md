@@ -1,14 +1,14 @@
 # cs-runner — the composed checker, C# station
 
-The laws are canon DEFs (the `law:` family in `arest`), never host code.
+The laws are lambda DEFs (the `law:` family in `arest`), never host code.
 Two js runners died of accretion; this host is built to make accretion
 structurally awkward: the compose step is `copy /b` inside the csproj
 (byte concatenation, the linker's job — no compose tool exists), the
-canon and the carriers appear AS SOURCE in the generated Composed.g.cs
+lambda and the carriers appear AS SOURCE in the generated Composed.g.cs
 and are COMPILED, and the exe is then just exec'd — nothing is read,
 evaled, or interpreted by host code at runtime. Compilation is the
-strictest reader the canon has met: on its first run the C# mu exposed
-two latent canon defects the lenient js mu had masked by coercion
+strictest reader the lambda has met: on its first run the C# mu exposed
+two latent lambda defects the lenient js mu had masked by coercion
 (a selector into an atom answering the character "F", and ins_asc
 "sorting" stringified arrays) — cross-host parity as a standing
 property of having a second, stricter station.
@@ -19,8 +19,8 @@ property of having a second, stricter station.
 
 The host is exactly what the doctrine allows and will not grow: the
 registration vocabulary (DEF — a duplicate name throws by collection
-semantics; law:one_name is the law — plus A/N/K/PHI/S1..S9 and CANON,
-the varargs wrap that turns the canon's tuple literal into a compiled
+semantics; law:one_name is the law — plus A/N/K/PHI/S1..S9 and LAMBDA,
+the varargs wrap that turns the lambda's tuple literal into a compiled
 call), the mu (atoms through DEFS then the primitives, numbers as
 selectors — STRICT: a selector on an atom throws, out-of-domain
 application is a defect, never a character — and the seven forms), the

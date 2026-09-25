@@ -18,8 +18,8 @@ import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 
 // The GUI CONTAINER, the placer. The defaults and the layout algorithms
-// live in canon (ui:style is the Style slots as data; ui:arrange is
-// PerformLayout as canon): this host asks for the PLACED LIST — every
+// live in lambda (ui:style is the Style slots as data; ui:arrange is
+// PerformLayout as lambda): this host asks for the PLACED LIST — every
 // concrete control with the rectangle it is TOLD (SetLocation) — reads
 // its colors and font sizes from ui:style, navigates by the addresses on
 // backbtn and itemrow rows, and decides nothing. One piece of platform
@@ -57,7 +57,7 @@ public class Gui {
 
     static void navigate(Object addr) {
         new Thread(() -> {
-            // one canon evaluation per navigation over the registered
+            // one lambda evaluation per navigation over the registered
             // stack population; then each pane renders its own view
             Object[] od = (Object[]) Arest.Ev("ui:navpe", new Object[] { store, stacks, addr });
             store = (Object[]) od[0];
@@ -86,7 +86,7 @@ public class Gui {
 
     static void rebuild(Object[] placed) {
         canvas.removeAll();
-        // the render pass is canon (ui:render = alpha(apply(render:<name>)));
+        // the render pass is lambda (ui:render = alpha(apply(render:<name>)));
         // the host keeps only the SetLocation seam. Later placed rows paint
         // ABOVE earlier ones; Swing paints lower child indices on top, so
         // add in reverse.
@@ -167,7 +167,7 @@ public class Gui {
         return new String(b.toByteArray(), "UTF-8");
     }
 
-    // the fact as canon reads it: <id, fact type, value, fact type, value...>,
+    // the fact as lambda reads it: <id, fact type, value, fact type, value...>,
     // ui:create0's own address with the two words that named the screen dropped
     static String json(java.util.List<String> words) {
         StringBuilder s = new StringBuilder("[");
@@ -251,7 +251,7 @@ public class Gui {
             p.setBackground(color("itemBg"));
             int h = num2(r[4]);
             int w = num2(r[3]);
-            // cell-internal rectangles are canon's (ui:iteminner), not ours
+            // cell-internal rectangles are lambda's (ui:iteminner), not ours
             Object[] inner = (Object[]) Arest.Ev("ui:iteminner",
                 new Object[] { Integer.valueOf(w), Integer.valueOf(h), sub ? "T" : "F" });
             Object[] tr = (Object[]) inner[0], sr = (Object[]) inner[1], cr = (Object[]) inner[2];
@@ -297,13 +297,13 @@ public class Gui {
     public static void main(String[] args) {
         // READ, not compiled in — the move Program.java already made and this
         // container did not. Composed.g.java was 2.16 MB of generated source
-        // that python compose.py produced and javac chewed on every canon edit;
-        // a parser has no such cap, and canon stays STATE (AREST.tex:59) rather
+        // that python compose.py produced and javac chewed on every lambda edit;
+        // a parser has no such cap, and lambda stays STATE (AREST.tex:59) rather
         // than object code a station cannot be handed a different D of.
-        // Order matches the js concatenation: canon, then the carriers.
+        // Order matches the js concatenation: lambda, then the carriers.
         // Composed.loadCarriers() loaded DS/NA/J, so scenarios is not among them
         // and the journal is legitimately empty until a transition fires.
-        Reader.load(Reader.path("AREST_CANON", "../../arest"));
+        Reader.load(Reader.path("AREST_LAMBDA", "../../arest"));
         Reader.load(Reader.path("AREST_DESIGN_STATE", "../norma-oracle/design-state"));
         Reader.load(Reader.path("AREST_NORMA_ANSWER", "../norma-oracle/norma-answer"));
         // no journal here: it is not a carrier of this container any more, and
@@ -317,7 +317,7 @@ public class Gui {
         }
         registerComponents();
         // the storage surface: the one durable write, and nothing else -
-        // the byte form, the timing, and the sequence are all canon's
+        // the byte form, the timing, and the sequence are all lambda's
         Arest.register("clock", x -> String.valueOf(System.currentTimeMillis()));
         // the entry controls: fields register their inputs by fact type,
         // the button submits <submit, group, id, ft, v...> - values from
@@ -373,7 +373,7 @@ public class Gui {
         // ../norma-oracle/journal -- two different files, so whatever it wrote
         // its own boot could never read. NEITHER EXISTS, and both are fatal:
         //
-        //   Reader.load throws `canon reader: cannot read` on a missing file,
+        //   Reader.load throws `lambda reader: cannot read` on a missing file,
         //   so the container died in main() on the journal load, before a
         //   window was ever shown;
         //   and had it got past that, this write throws too -- measured today
@@ -426,7 +426,7 @@ public class Gui {
         // old law verbatim -- answers F over this container's store, and it is
         // not the pairing: thirteen names the store declares registered
         // (the ten control kinds, store:append, crypt:encrypt, crypt:decrypt)
-        // are in no canon cell's atoms, so manifest:origins cannot compute
+        // are in no lambda cell's atoms, so manifest:origins cannot compute
         // them. They are in the js host's computed surface only because that
         // host BOOTS -- FILE projected, the meta-types reflected, the closure
         // taken -- and those cells carry the names as DATA. This container

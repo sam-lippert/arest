@@ -14,7 +14,7 @@ def rustr(v):
     out = out.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
     return '"' + out + '"'
 
-CANON = r"C:\Users\lippe\Repos\arest\arest"
+LAMBDA = r"C:\Users\lippe\Repos\arest\arest"
 APP = sys.argv[1] if len(sys.argv) > 1 else "sherlock"
 BASE = r"C:\Users\lippe\Repos\arest"
 DS = BASE + (r"\tools\norma-oracle\design-state" if APP == "base" else r"\apps\%s\design-state" % APP)
@@ -24,14 +24,14 @@ OUTDIR = BASE + r"\tools\rust-runner"
 
 env = {}
 exec(io.open("mu_bench_head.py", encoding="utf-8").read(), env)
-eval(compile(io.open(CANON, encoding="utf-8").read(), CANON, "eval"), env)
-CANON_DEFS = dict(env["DEFS"])  # forms only - carriers below are DATA
+eval(compile(io.open(LAMBDA, encoding="utf-8").read(), LAMBDA, "eval"), env)
+LAMBDA_DEFS = dict(env["DEFS"])  # forms only - carriers below are DATA
 for p in (DS, NA):
     eval(compile(io.open(p, encoding="utf-8").read(), p, "eval"), env)
 jr = io.open(JR, encoding="utf-8").read().strip()
 if jr:
     eval(compile("(\"journal\"" + jr + ")", JR, "eval"), env)
-DEFS = CANON_DEFS
+DEFS = LAMBDA_DEFS
 CELLS = env["CELLS"]
 
 names = sorted(DEFS.keys())
