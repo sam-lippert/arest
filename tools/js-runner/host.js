@@ -368,6 +368,192 @@ function popSnapshot(cells) {
   }
   return snap;
 }
+// AND THE NUMBER 1 AND THE TEXT "1" ARE ONE VALUE IN A TABLE (2026-09-25). A
+// table cell is text -- emitToDb writes flat(v) -- so a population the closure
+// answers with numbers and the tables give back as text read as MOVED at every
+// write: `Fact Type has Arity`, all 2,986 rows on support.auto.dev, every create,
+// and the Function table re-projected for it. Two texts that differ are compared
+// once more as the tables would hold them; the rows adopted are still the
+// population's own.
+function storedText(text) {
+  // a text with no number in it is already the text a table would hold: a JSON number
+  // follows `[` or `,` and nothing else does
+  if (!/[[,]-?[0-9]/.test(text)) return text;
+  const asStored = (v) => (Array.isArray(v) ? v.map(asStored) : typeof v === "number" ? String(v) : v);
+  return popText(JSON.parse(text).map(asStored));
+}
+// A WRITE REWRITES THE ROWS IT MOVED, NOT THE TABLES THEY SIT IN (2026-09-25; Sam:
+// "low memory footprint is a requirement"). emitToDb re-projected every table a
+// changed fact type touched, whole, and a create on support.auto.dev touches
+// Function -- every instance is a Function, with its domain and its type -- so
+// every create re-projected 20,159 rows by 301 columns to land two of them:
+// rmap:proj_rows 29.8 s and 70,892 rows written, of a 51 s create.
+// A ROW IS STILL LAMBDA'S. rmap:proj_rows maps rmap:proj_row <key, table, store>
+// over an entity table's keys and rmap:proj_relrow <fact, table, store, relcols>
+// over a relation table's facts, and those two write every row here too. What
+// this decides is only WHICH rows can have moved, and it reads that off the walks
+// the projection takes: a column's value is a walk from the row's source -- its
+// key, or a role of its fact -- through the column path's steps, each a lookup of
+// the running value at the step's key position in the step's population
+// (rmap:proj_carry, rmap:proj_step, rmap:proj_lookup). So a fact that came or went
+// at a column's first step moves exactly the row whose key it holds at that
+// step's key position, and for a relation, the row of the fact itself. Those rows
+// are deleted by their primary key and written again from lambda; no other row is
+// touched.
+// ONLY THE FIRST STEP, BECAUSE NO STORE HOLDS A FACT PAST IT. The steps after the
+// first read a referenced entity's own identifying facts, and in every store
+// measured those fact types are EMPTY -- 0 of 1,004 on support.auto.dev, 0 of 205
+// on the base -- so every walk passes through them (a step over an empty
+// population passes its value on). A fact that moved past the first step would
+// move every row whose walk crosses it, and that table is rewritten whole.
+// WHERE IT IS NOT EXACT, THE TABLE IS REWRITTEN WHOLE, as before: a fact type past
+// a walk's first step moved; a population turned empty or stopped being, which
+// changes how every walk through it behaves (except at a column's first step when
+// that column is not the identifier: rmap:proj_carry answers # for an empty
+// population, and the lookup answers # for a key with no fact, so there only the
+// facts that came or went move); an entity table whose key is not one column; a
+// row whose key column does not carry its key. And the whole table is what a
+// caller with no store-before gets, which is compile.js.
+function rowPlanner(cells, prior, changed) {
+  const asStored = (v) => (Array.isArray(v) ? v.map(asStored) : typeof v === "number" ? String(v) : v);
+  const keyOf = (v) => JSON.stringify(asStored(v));
+  const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
+  const cellOf = (v) => (v === "#" || v === undefined ? null : flat(v));
+  const pops = new Map(), deltas = new Map(), walks = new Map(), keysets = new Map();
+  const popOf = (ft, side) => {
+    const k = side + "\u0000" + ft;
+    let p = pops.get(k);
+    if (!p) {
+      let r;
+      try { r = Ev("rmap:proj_pop", [ft, side === "after" ? cells : prior]); } catch { r = []; }
+      p = Array.isArray(r) ? r : [];
+      pops.set(k, p);
+    }
+    return p;
+  };
+  const deltaOf = (ft) => {
+    let d = deltas.get(ft);
+    if (d) return d;
+    const b = popOf(ft, "prior"), a = popOf(ft, "after");
+    const bk = new Map(), ak = new Map();
+    if (b !== a) { for (const r of b) bk.set(keyOf(r), r); for (const r of a) ak.set(keyOf(r), r); }
+    const moved = [];
+    for (const [k, r] of bk) if (!ak.has(k)) moved.push(r);
+    for (const [k, r] of ak) if (!bk.has(k)) moved.push(r);
+    d = { moved, flip: (b.length === 0) !== (a.length === 0) };
+    deltas.set(ft, d);
+    return d;
+  };
+  const stepOf = (st) => {
+    const ft = Array.isArray(st) && Array.isArray(st[4]) && st[4].length ? String(st[4][0]) : null;
+    let kp = 1;
+    if (ft) { try { kp = Number(Ev("rmap:proj_keypos", [st, cells])); } catch { kp = 1; } }
+    return { ft, kp, id: Array.isArray(st) && String(st[5]) === "T" };
+  };
+  const walkOf = (path) => {
+    const k = keyOf(path);
+    let w = walks.get(k);
+    if (!w) {
+      let na;
+      try { na = Ev("rmap:proj_nonassim", Array.isArray(path) ? path : []); } catch { na = []; }
+      w = (Array.isArray(na) ? na : []).map(stepOf);
+      walks.set(k, w);
+    }
+    return w;
+  };
+  // the values arriving at a walk's first step whose row a moved fact can change, or
+  // null when that cannot be said exactly; `carried` is a column whose first step is
+  // rmap:proj_carry's, and not a relation's role walked on from its fact
+  const sources = (walk, carried) => {
+    const out = new Map();
+    for (let j = 0; j < walk.length; j++) {
+      if (!walk[j].ft || !changed.has(walk[j].ft)) continue;
+      if (j > 0 || !carried) return null;
+      const d = deltaOf(walk[0].ft);
+      if (d.flip && walk[0].id) return null;
+      for (const g of d.moved) { const v = Array.isArray(g) ? g[walk[0].kp - 1] : undefined; if (v !== undefined) out.set(keyOf(v), v); }
+    }
+    return out;
+  };
+  // an entity table's keys on one side: every column's first-step population at its key
+  // position, which is rmap:proj_keys
+  const hasKey = (cols, side, v) => {
+    const k = keyOf(v);
+    for (const c of cols) {
+      const w = walkOf(c[2]);
+      if (!w.length || !w[0].ft) continue;
+      const id = side + "\u0000" + w[0].ft + "\u0000" + w[0].kp;
+      let set = keysets.get(id);
+      if (!set) {
+        set = new Set();
+        for (const g of popOf(w[0].ft, side)) if (Array.isArray(g) && g[w[0].kp - 1] !== undefined) set.add(keyOf(g[w[0].kp - 1]));
+        keysets.set(id, set);
+      }
+      if (set.has(k)) return true;
+    }
+    return false;
+  };
+  return (table, colnames, pk) => {
+    let cols;
+    try { cols = Ev("rmap:proj_cols", [table, cells]); } catch { return null; }
+    if (!Array.isArray(cols)) return null;
+    const at = pk.map((n) => colnames.indexOf(n));
+    if (!pk.length || at.some((i) => i < 0)) return null;
+    const dels = [], ins = [];
+    let rel = false;
+    try { rel = Ev("rmap:proj_hits", [table, Ev("store:fts", cells)]).length > 0; } catch { rel = false; }
+    if (!rel) {
+      if (pk.length !== 1) return null;
+      const dirty = new Map();
+      for (const c of cols) {
+        const src = sources(walkOf(c[2]), true);
+        if (src === null) return null;
+        for (const [k, v] of src) dirty.set(k, v);
+      }
+      for (const [, k] of dirty) {
+        if (hasKey(cols, "prior", k) || hasKey(cols, "after", k)) dels.push([flat(k)]);
+        if (!hasKey(cols, "after", k)) continue;
+        const row = Ev("rmap:proj_row", [k, table, cells]);
+        const vals = colnames.map((_, i) => cellOf(row[i]));
+        if (vals[at[0]] !== flat(k)) return null;
+        ins.push(vals);
+      }
+      return { dels, ins };
+    }
+    // a relation table: a row per fact of its own fact type, the role columns walked from
+    // the fact's roles and the others read from its objectified key
+    let relcols;
+    try { relcols = Ev("rmap:proj_relcols", [table, cells]); } catch { return null; }
+    const dirty = new Map();
+    if (changed.has(table)) for (const g of deltaOf(table).moved) dirty.set(keyOf(g), g);
+    const b = popOf(table, "prior"), a = popOf(table, "after");
+    for (let ci = 0; ci < relcols.length; ci++) {
+      const pos = Number(relcols[ci][0]);
+      const src = pos === 0 ? sources(walkOf(cols[ci] ? cols[ci][2] : []), true)
+        : sources((Array.isArray(relcols[ci][1]) ? relcols[ci][1] : []).map(stepOf), false);
+      if (src === null) return null;
+      if (!src.size) continue;
+      for (const pop of b === a ? [a] : [b, a]) for (const g of pop) {
+        const v = !Array.isArray(g) ? undefined : pos === 0 ? Ev("rmap:proj_objkey", g) : g[pos - 1];
+        if (v !== undefined && src.has(keyOf(v))) dirty.set(keyOf(g), g);
+      }
+    }
+    const was = new Set(b.map(keyOf)), is = new Set(a.map(keyOf));
+    let before = null;
+    for (const [k, g] of dirty) {
+      if (was.has(k)) {
+        if (!before) before = Ev("rmap:proj_relcols", [table, prior]);
+        const old = Ev("rmap:proj_relrow", [g, table, prior, before]);
+        dels.push(at.map((i) => cellOf(old[i])));
+      }
+      if (is.has(k)) {
+        const row = Ev("rmap:proj_relrow", [g, table, cells, relcols]);
+        ins.push(colnames.map((_, i) => cellOf(row[i])));
+      }
+    }
+    return { dels, ins };
+  };
+}
 // A POPULATION THAT MOVED MEANS ITS TABLES ARE RE-PROJECTED. What emitToDb
 // wrote back before was the _meta shape and only ever that shape: a functional
 // fact type into a JSON column keyed by k, a non-functional one into a table of
@@ -378,12 +564,16 @@ function popSnapshot(cells) {
 // DDL and compile.js already use -- so writing back is projecting again, over
 // the tables that carry a fact type whose population moved, and nothing here
 // decides which those are either: rmap:ctab says which table carries what.
-function emitToDb(before, cells) {
+function emitToDb(before, cells, prior) {
   const db = storeDb();
   if (!db) return 0;
   const after = popSnapshot(cells);
   const changed = new Set();
-  for (const [ft, text] of after) if (before.get(ft) !== text) changed.add(ft);
+  for (const [ft, text] of after) {
+    const was = before.get(ft);
+    if (was === text || (was !== undefined && storedText(was) === storedText(text))) continue;
+    changed.add(ft);
+  }
   if (!changed.size) return 0;
   // THE SOURCE TAKES THE ROWS FIRST, because the projection reads it. A row
   // derived at boot or written through main:api lives in a per-fact-type cell,
@@ -393,21 +583,42 @@ function emitToDb(before, cells) {
   // it is the same call the API path already makes before it emits.
   const carried = [...changed].map((ft) => [ft, JSON.parse(after.get(ft))]);
   adoptStore(Ev("store:src_all", [carried, cells]));
+  // A TABLE IS TOUCHED BY WHAT ANY STEP OF ITS WALKS READS (2026-09-25), not only
+  // the first: a column naming another entity walks to it and reads its identifier
+  // there, so a fact that moved at the second step moves this table's column. This
+  // tested rmap:proj_carried, the first step's fact type, alone.
+  const reads = (path) => {
+    let na;
+    try { na = Ev("rmap:proj_nonassim", Array.isArray(path) ? path : []); } catch { return false; }
+    return Array.isArray(na) && na.some((st) => Array.isArray(st) && Array.isArray(st[4]) && st[4].length > 0 && changed.has(String(st[4][0])));
+  };
   const touched = new Set();
   for (const t of Ev("rmap:ctab", cells)) {
     const table = String(t[1]);
     if (changed.has(String(t[0]))) { touched.add(table); continue; }
-    for (const col of t[2]) {
-      const carried = String(Ev("rmap:proj_carried", Array.isArray(col[2]) ? col[2] : []));
-      if (changed.has(carried)) { touched.add(table); break; }
-    }
+    for (const col of t[2]) if (reads(col[2])) { touched.add(table); break; }
   }
+  const plan = prior ? rowPlanner(cells, prior, changed) : null;
+  const byRow = new Set();
   const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
   let written = 0;
   db.transaction(() => {
     for (const table of touched) {
       const cols = Ev("rmap:proj_colnames", [table, cells]).map(String);
       if (!cols.length) continue;
+      const pk = plan ? db.query("select name from pragma_table_info(?) where pk > 0 order by pk").values(table).map((r) => String(r[0])) : [];
+      const rows = plan && pk.length ? plan(table, cols, pk) : null;
+      if (rows) {
+        let del, put;
+        try {
+          del = db.prepare('delete from "' + table + '" where ' + pk.map((c) => '"' + c + '" is ?').join(" and "));
+          put = db.prepare('insert into "' + table + '" ("' + cols.join('","') + '") values (' + cols.map(() => "?").join(",") + ")");
+        } catch { continue; }
+        for (const v of rows.dels) written += del.run(...v).changes;
+        for (const v of rows.ins) { try { put.run(...v); written++; } catch { /* refused: the row is not this table's */ } }
+        byRow.add(table);
+        continue;
+      }
       let ins;
       try {
         db.run('delete from "' + table + '"');
@@ -420,7 +631,22 @@ function emitToDb(before, cells) {
       }
     }
   })();
-  if (LAZY_STORE) LAZY_STORE.invalidate(touched);
+  // AND WHAT A TABLE WRITTEN ROW BY ROW HELD FOR THE REST IS STILL TRUE. Dropping
+  // everything read from a touched table made the NEXT write's snapshot read it all
+  // back -- Function whole, 1.7 s and some 190 MB on support.auto.dev, at every write
+  // after the first -- though no fact type but the moved ones has a different row in
+  // it. So the lazy store keeps those, and takes the moved populations from the write
+  // that stored them; a table rewritten whole is read again, as before.
+  if (LAZY_STORE) {
+    LAZY_STORE.wrote(byRow, new Map(carried));
+    LAZY_STORE.invalidate([...touched].filter((t) => !byRow.has(t)));
+  }
+  // AND WHAT THE ROWS WERE WORKED OUT FROM IS LET GO. The planner asks lambda about
+  // the store before the write, and an answer memoised on it holds that whole store
+  // -- its FILE and every cell the write replaced -- until the next write clears the
+  // memo; measured on support.auto.dev, two creates back to back peaked some 150 MB
+  // above the whole-table rewrite for it.
+  if (plan) memoClear();
   return written;
 }
 const PRIMS = new Map(Object.entries({
@@ -2869,13 +3095,13 @@ function writeBack(done, log) {
       if (!Array.isArray(a) || a.length < 2) continue;
       const ft = String(a[0]);
       const args = a.slice(1).map(String);
-      const before = popSnapshot(CELLS);
+      const before = popSnapshot(CELLS), prior = CELLS.slice();
       let out;
       try { out = Ev("main:api", [CELLS, "POST", ft, "", args]); }
       catch (e) { say("write-back threw on " + ft + ": " + String(e)); continue; }
       if (out.length > 2 && Number(out[1]) < 400) {
         adoptStore(out[2]);
-        emitToDb(before, CELLS);
+        emitToDb(before, CELLS, prior);
         say("wrote back " + JSON.stringify([ft].concat(args)));
       } else {
         say("write-back REFUSED " + ft + ": " + String(out[0]).slice(0, 200));
@@ -2978,7 +3204,7 @@ function run_serve() {
       const out = Ev("main:api", [CELLS, req.method, resource, caller, fact]);
       if (out.length > 2) {
         adoptStore(out[2]);
-        if (before && Number(out[1]) < 400) emitToDb(before, CELLS);   // a refusal made no successor
+        if (before && Number(out[1]) < 400) emitToDb(before, CELLS, prior);   // a refusal made no successor
         if (prior && Number(out[1]) < 400) maybePerform(prior, CELLS);
       }
       memoReleaseWhenIdle(console.log);
@@ -3314,7 +3540,7 @@ function run_mcp() {
       if (out.length > 2) {
         const was = popSnapshot(CELLS);
         adoptStore(out[2]);
-        if (held) { emitToDb(was, CELLS); maybePerform(prior, CELLS, console.error); }
+        if (held) { emitToDb(was, CELLS, prior); maybePerform(prior, CELLS, console.error); }
       }
       return [out[0], held ? 200 : 500];
     }
@@ -3356,7 +3582,7 @@ function run_mcp() {
       // made no successor, so the tables stay as they were; the journal that
       // once recorded refusals replayed 22 of them at boot for six minutes and
       // left the store as it was (engineering.auto.dev, 2026-09-04).
-      if (before && Number(out[1]) < 400) emitToDb(before, CELLS);
+      if (before && Number(out[1]) < 400) emitToDb(before, CELLS, prior);
       if (prior && Number(out[1]) < 400) maybePerform(prior, CELLS, console.error);
       return [out[0], out[1]];
     }
@@ -3887,8 +4113,8 @@ function readMetaschema(db) {
 // A WRITE STILL SNAPSHOTS EVERY POPULATION to see what it changed (popSnapshot),
 // so before it the tables are read once, whole, into the populations -- the
 // work the old start did, done at the first write instead of at every start --
-// and after it the rows cached for the tables it rewrote are dropped. Writing
-// rows rather than rewriting tables is the next change, and it retires that.
+// and after it the rows cached for the tables it wrote are dropped. It writes
+// the rows it moved now, not the tables (rowPlanner, 2026-09-25).
 let LAZY_STORE = null;
 function lazyStore(db, want) {
   let meta;
@@ -4051,6 +4277,16 @@ function lazyStore(db, want) {
       if (relTables.has(t)) ftRows.delete(t);
     }
   };
+  // a table emitToDb wrote row by row: the fact types that moved are what the write
+  // stored, and every other one it carries holds the rows it held
+  const wrote = (tables, moved) => {
+    for (const t of tables) {
+      byTable.delete(t); asked.delete(t);
+      if (presentIn.has(t)) count(t);
+      for (const ft of carried.get(t) || []) if (moved.has(ft)) ftRows.set(ft, moved.get(ft));
+      if (relTables.has(t) && moved.has(t)) ftRows.set(t, moved.get(t));
+    }
+  };
   // EVERY FACT THAT NAMES ONE ID, per fact type, for `get` (its twin, among the
   // FASTPRIMS). The id's own row and every row that refers to it hold it in some
   // column, so a scan per table for the rows where any column is the id finds them all;
@@ -4089,7 +4325,7 @@ function lazyStore(db, want) {
     const d = rawDescs.get(ft);
     return d ? Ev("theta:unfold_rows", d[4]) : [];
   };
-  return { db, tablesOf, rowsOf, readAll, invalidate, cells, replaced, mentioning, carrier, present,
+  return { db, tablesOf, rowsOf, readAll, invalidate, wrote, cells, replaced, mentioning, carrier, present,
     hasRows: (n) => present(n) && rowsOf(n).length > 0,
     stats: () => ({ selects, tables: byTable.size, most: Math.max(0, ...wholeReads.values()), scans }) };
 }

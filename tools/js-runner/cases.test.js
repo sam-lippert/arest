@@ -12,7 +12,7 @@
 //
 //   bun run build:test && bun test
 import { expect, test, describe } from "bun:test";
-import { readFileSync, readdirSync, unlinkSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, readdirSync, unlinkSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
@@ -913,9 +913,9 @@ test("a write reaches the tables, and a store with no tables keeps it in memory"
     "if (process.env.MAKE) {",
     "  const b = popSnapshot(CELLS); closeStore(); console.log('made ' + emitToDb(b, CELLS));",
     "} else if (process.env.WRITE) {",
-    "  const before = popSnapshot(CELLS);",
+    "  const before = popSnapshot(CELLS), prior = CELLS.slice();",
     "  const out = Ev('main:api', [CELLS, 'POST', process.env.FT, '', [process.env.KEY, 'probe-name']]);",
-    "  if (out.length > 2) { adoptStore(out[2]); if (Number(out[1]) < 400) console.log('emitted ' + emitToDb(before, CELLS)); }",
+    "  if (out.length > 2) { adoptStore(out[2]); if (Number(out[1]) < 400) console.log('emitted ' + emitToDb(before, CELLS, prior)); }",
     "  console.log('status ' + out[1]);",
     "} else {",
     "  const rows = Ev('system:pop_rows', [process.env.FT, CELLS]);",
@@ -1021,9 +1021,9 @@ test("an instance created at runtime is listed after a boot from the tables", ()
     "if (process.env.MAKE) {",
     "  const b = popSnapshot(CELLS); closeStore(); console.log('made ' + emitToDb(b, CELLS));",
     "} else if (process.env.WRITE) {",
-    "  const before = popSnapshot(CELLS);",
+    "  const before = popSnapshot(CELLS), prior = CELLS.slice();",
     "  const out = Ev('main:api', [CELLS, 'POST', process.env.FT, '', [process.env.WRITE, 'probe-name']]);",
-    "  if (out.length > 2) { adoptStore(out[2]); if (Number(out[1]) < 400) emitToDb(before, CELLS); }",
+    "  if (out.length > 2) { adoptStore(out[2]); if (Number(out[1]) < 400) emitToDb(before, CELLS, prior); }",
     "  console.log('status ' + out[1]);",
     "} else {",
     "  const flat = (v) => { let x = v; while (Array.isArray(x)) x = x.length ? x[0] : null; return x; };",
@@ -1124,9 +1124,9 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
     "if (process.env.MAKE) {",
     "  const b = popSnapshot(CELLS); closeStore(); console.log('made ' + emitToDb(b, CELLS));",
     "} else if (process.env.WRITE) {",
-    "  const before = popSnapshot(CELLS);",
+    "  const before = popSnapshot(CELLS), prior = CELLS.slice();",
     "  const out = Ev('main:api', [CELLS, 'POST', process.env.FT, '', [process.env.WRITE, 'probe note']]);",
-    "  if (out.length > 2) { adoptStore(out[2]); if (Number(out[1]) < 400) emitToDb(before, CELLS); }",
+    "  if (out.length > 2) { adoptStore(out[2]); if (Number(out[1]) < 400) emitToDb(before, CELLS, prior); }",
     "  console.log('status ' + out[1]);",
     "} else {",
     "  const m = Ev('system:pop_rows', ['StateMachineIsForObjectTypeInstance', CELLS]);",
@@ -1487,9 +1487,9 @@ test("a store is read when asked: a population reads its own table, none is read
     "const say = (k, v) => console.log(k + '=' + JSON.stringify(v));",
     "if (process.env.MAKE) { const b = popSnapshot(CELLS); closeStore(); say('made', emitToDb(b, CELLS)); process.exit(0); }",
     "if (process.env.WRITE) {",
-    "  const before = popSnapshot(CELLS);",
+    "  const before = popSnapshot(CELLS), prior = CELLS.slice();",
     "  const out = Ev('main:api', [CELLS, 'POST', 'StreamHasName', '', ['probe-lazy-stream', 'probe-name']]);",
-    "  if (out.length > 2 && Number(out[1]) < 400) { adoptStore(out[2]); say('emitted', emitToDb(before, CELLS)); }",
+    "  if (out.length > 2 && Number(out[1]) < 400) { adoptStore(out[2]); say('emitted', emitToDb(before, CELLS, prior)); }",
     "  say('status', Number(out[1]));",
     "  process.exit(0);",
     "}",
@@ -1567,6 +1567,143 @@ test("a store is read when asked: a population reads its own table, none is read
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
   }
 }, 240_000);
+
+// ---- A WRITE REWRITES THE ROWS IT MOVED -------------------------------------
+//
+// emitToDb re-projected every table a write touched, whole, and a create on
+// support.auto.dev touches Function: 20,159 rows by 301 columns re-projected to
+// land two, 29.8 s and 70,892 rows written of a 51 s create (2026-09-25). Now
+// the rows the moved facts name are deleted and written again from lambda
+// (host.js, rowPlanner), and no other row is touched. What has to hold is that
+// nothing the whole rewrite would have written is missed. So the same six
+// writes run twice over one store -- once handed the store as it was, as the
+// servers now hand it, and once without, which rewrites the tables whole as
+// compile.js does -- and after EVERY write the two stores hold the same rows in
+// every table. The writes are the ones a store takes: an entity created, one
+// with a state machine, a value replaced, a fact deleted, a relation's row
+// added and removed. And lambda's projection is the witness over both: no table
+// ends further from it than it began. Three base tables are not their
+// projection even as the store is made -- FunctionIsSupersededByFunction,
+// GuardReferencesFactType and ObjectTypeIsSubtypeOfObjectType read back as other
+// rows, which is rmap's round trip and not a write's -- so the claim is that the
+// writes add nothing to it. The whole rewrite writes hundreds of times the rows.
+// And handed the WRONG store as it was -- the store after, so nothing looks moved
+// -- the stores must part at the first write, or the comparison is not one.
+test("a write rewrites the rows it moved, and leaves every table as the whole rewrite would", () => {
+  const stamp = globalThis.AREST.composition;
+  const dir = mkdtempSync(join(tmpdir(), "arest-rows-"));
+  const mod = join(import.meta.dir, "cases.g.js");
+  const made = join(dir, "made.db");
+  {
+    const db = new Database(made);
+    makeTables(db);
+    globalThis.AREST.writeMetaschema(db);
+    db.run("create table _composition (hash text)");
+    db.prepare("insert into _composition values(?)").run(stamp);
+    db.run("pragma wal_checkpoint(TRUNCATE)");
+    db.close();
+  }
+  const driver = join(dir, "drive.mjs");
+  writeFileSync(driver, [
+    "import { createHash } from 'node:crypto';",
+    "await import(process.env.MODULE);",
+    "const { Ev, CELLS, popSnapshot, adoptStore, emitToDb, closeStore, storeDb } = globalThis.AREST;",
+    "const say = (k, v) => console.log(k + '=' + JSON.stringify(v));",
+    "if (process.env.MAKE) { const b = popSnapshot(CELLS); closeStore(); say('made', emitToDb(b, CELLS)); process.exit(0); }",
+    "const flat = (v) => (Array.isArray(v) ? v.map(flat).join('') : String(v));",
+    "const cell = (v) => (v === '#' || v === undefined ? null : flat(v));",
+    "const db = storeDb(), Q = String.fromCharCode(34);",
+    "const tables = [...new Set(Ev('rmap:ctab', CELLS).map((t) => String(t[1])))].sort();",
+    "// every table's rows, sorted, as one digest",
+    "const digest = () => {",
+    "  const h = createHash('sha256');",
+    "  for (const t of tables) { let rows = []; try { rows = db.query('select * from [' + t + ']').values().map((r) => JSON.stringify(r)).sort(); } catch {} h.update(t + ' ' + rows.join(' ') + ' '); }",
+    "  return h.digest('hex');",
+    "};",
+    "// each table against lambda's projection of the store, written into a temp table of the",
+    "// same DDL the way emitToDb writes: how many rows either has that the other has not",
+    "const apart = () => {",
+    "  const out = {};",
+    "  for (const table of tables) {",
+    "    const ddl = db.query('select sql from sqlite_master where type = ? and name = ?').values('table', table)[0];",
+    "    const cols = Ev('rmap:proj_colnames', [table, CELLS]).map(String);",
+    "    if (!ddl || !cols.length) continue;",
+    "    const text = String(ddl[0]);",
+    "    db.run('drop table if exists temp.want');",
+    "    db.run('create temp table want' + text.slice(text.indexOf(Q, text.indexOf(Q) + 1) + 1));",
+    "    const list = cols.map((c) => '[' + c + ']').join(',');",
+    "    const put = db.prepare('insert into temp.want (' + list + ') values (' + cols.map(() => '?').join(',') + ')');",
+    "    for (const row of Ev('rmap:proj_rows', [table, CELLS])) { try { put.run(...cols.map((_, i) => cell(row[i]))); } catch {} }",
+    "    const n = db.query('select (select count(*) from (select ' + list + ' from [' + table + '] except select ' + list + ' from temp.want))'",
+    "      + ' + (select count(*) from (select ' + list + ' from temp.want except select ' + list + ' from [' + table + ']))').values()[0][0];",
+    "    if (n) out[table] = n;",
+    "  }",
+    "  db.run('drop table if exists temp.want');",
+    "  return out;",
+    "};",
+    "if (process.env.APART) say('began', apart());",
+    "for (const [method, ft, fact] of JSON.parse(process.env.WRITES)) {",
+    "  const before = popSnapshot(CELLS), prior = CELLS.slice();",
+    "  const out = Ev('main:api', [CELLS, method, ft, '', fact]);",
+    "  if (!(out.length > 2 && Number(out[1]) < 400)) { say('refused', [method, ft, String(out[0]).slice(0, 300)]); continue; }",
+    "  adoptStore(out[2]);",
+    "  const mode = process.env.MODE;",
+    "  const n = emitToDb(before, CELLS, mode === 'rows' ? prior : mode === 'wrong' ? CELLS.slice() : undefined);",
+    "  say('write', { method, ft, written: n, digest: digest() });",
+    "}",
+    "if (process.env.APART) say('ended', apart());",
+  ].join("\n"));
+  const WRITES = [
+    ["POST", "StreamHasName", ["probe-rows-stream", "probe name"]],
+    ["POST", "SchemaDesignHasDesignNote", ["probe-rows-design", "a note"]],
+    ["PUT", "StreamHasName", ["probe-rows-stream", "renamed"]],
+    ["DELETE", "SchemaDesignHasDesignNote", ["probe-rows-design", "a note"]],
+    ["POST", "FactTypeHasAlias", ["StreamHasName", "probe alias"]],
+    ["DELETE", "FactTypeHasAlias", ["StreamHasName", "probe alias"]],
+  ];
+  const run = (name, extra) => {
+    const path = join(dir, name + ".db");
+    if (name !== "made") copyFileSync(made, path);
+    const env = { ...process.env, MODULE: pathToFileURL(mod).href, AREST_STORE_DB: path, WRITES: JSON.stringify(WRITES), ...extra };
+    delete env.AREST_EAGER_STORE;
+    const p = Bun.spawnSync(["bun", driver], { env, stdout: "pipe", stderr: "pipe" });
+    const got = { out: p.stdout.toString() + p.stderr.toString(), writes: [], refused: [] };
+    for (const line of p.stdout.toString().split("\n")) {
+      const i = line.indexOf("=");
+      if (i < 0) continue;
+      let v; try { v = JSON.parse(line.slice(i + 1)); } catch { continue; }
+      const k = line.slice(0, i);
+      if (k === "write") got.writes.push(v); else if (k === "refused") got.refused.push(v); else got[k] = v;
+    }
+    return got;
+  };
+  const sum = (r) => r.writes.reduce((a, w) => a + w.written, 0);
+  try {
+    const m = run("made", { MAKE: "1" });
+    expect(m.made, m.out).toBeGreaterThan(0);
+    { const d = new Database(made); d.run("pragma wal_checkpoint(TRUNCATE)"); d.close(); }
+
+    const rows = run("rows", { MODE: "rows", APART: "1" });
+    const whole = run("whole", { MODE: "whole" });
+    expect(rows.refused, rows.out).toEqual([]);
+    expect(whole.refused, whole.out).toEqual([]);
+    expect(rows.writes.length).toBe(WRITES.length);
+    expect(whole.writes.length).toBe(WRITES.length);
+    // the same rows in every table, after every write
+    for (let i = 0; i < WRITES.length; i++) expect(rows.writes[i].digest, JSON.stringify(WRITES[i])).toBe(whole.writes[i].digest);
+    // and no table further from lambda's projection than it began
+    for (const [t, n] of Object.entries(rows.ended)) expect(n, t).toBeLessThanOrEqual(rows.began[t] || 0);
+    // for a sliver of the rows
+    expect(sum(rows), rows.out).toBeGreaterThan(0);
+    expect(sum(rows) * 100).toBeLessThan(sum(whole));
+
+    const wrong = run("wrong", { MODE: "wrong", WRITES: JSON.stringify(WRITES.slice(0, 1)) });
+    expect(wrong.refused, wrong.out).toEqual([]);
+    expect(wrong.writes[0].digest).not.toBe(whole.writes[0].digest);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 300_000);
 
 // ---- AND DOES THE CARRY LEAVE A REFLECTED ROW TO THE CLOSURE? --------------
 //
