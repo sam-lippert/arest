@@ -7,10 +7,10 @@ everywhere. That is the DI/IoC seam at the **I/O** level: a target *provides* th
 side-effecting functions the model names.
 
 This chapter is its companion at the **operation** level. It answers a different
-question: when a canon operation is *correct but slow* — the reference reduction of
+question: when a lambda operation is *correct but slow* — the reference reduction of
 `system:entity_view` is minutes at fleet scale, an identity compile is 23M native-twin
 primitive calls dominated by interpreter overhead — how does a platform register a
-**fast override** for it *without moving the meaning out of the canon*, and how does
+**fast override** for it *without moving the meaning out of the lambda*, and how does
 the runtime *resolve* the override versus the reference by interface? That is the
 "code to an interface, register fast overrides per platform" pattern (iFactr's
 cross-platform trick), applied to AREST's certified-twin discipline. The seam exists
@@ -20,7 +20,7 @@ edits to the reducer.
 
 ## The pattern: a certified twin *is* an interface implementation
 
-Every operation in AREST has exactly one **meaning**, and it lives in the shared canon
+Every operation in AREST has exactly one **meaning**, and it lives in the shared lambda
 as a `system:*` DEF (the reference implementation — portable, runs wherever the
 reducer `mu` runs, in any host language). A platform may *additionally* carry a **fast
 override**: a native function that computes the *same answer* by a faster route. The
@@ -32,13 +32,13 @@ Mapped onto the DI/IoC vocabulary the standing direction uses:
 
 | DI/IoC term            | AREST realization                                            |
 |------------------------|--------------------------------------------------------------|
-| interface              | a canon operation name (`system:entity_view`, the `compile` verb) |
-| reference implementation | the canon DEF's body, reduced by `mu` (portable, slow)     |
+| interface              | a lambda operation name (`system:entity_view`, the `compile` verb) |
+| reference implementation | the lambda DEF's body, reduced by `mu` (portable, slow)     |
 | registered override    | a per-platform native function keyed by that name (fast)      |
 | resolve-by-interface   | the reducer/dispatch looks the name up and picks override-or-reference |
 | the DI container       | the **Resolution Registry** (this chapter) — one table, one resolver |
 
-The meaning never leaves the canon. The override is *only* speed, and it is *only*
+The meaning never leaves the lambda. The override is *only* speed, and it is *only*
 trusted because the kill switch certifies it equal to the meaning. This is why the
 pattern is safe to apply everywhere: an override can never change behavior — at worst
 it is a slower or faster route to the same bytes, and the differential proves which.
@@ -56,12 +56,12 @@ name but structured as scattered `match` arms rather than a registry.
 ```
 prim(name, x)                    -- native base primitives AND certified-equal overrides
   ↳ None → process list          -- the app's own compiled-in DEFs (main.rs:1654)
-      ↳ miss → NCANON            -- the binary's compiled-in canon DEFs (main.rs:1688)
-          ↳ miss → ⊥            -- name is neither prim, process, nor canon
+      ↳ miss → NCANON            -- the binary's compiled-in lambda DEFs (main.rs:1688)
+          ↳ miss → ⊥            -- name is neither prim, process, nor lambda
 ```
 
 The **fast overrides live inside `prim`** (`main.rs:1729`+): alongside the BFP base
-primitives (`id`, `tl`, `atom`, `eq`, `cat`, …) sit canon-*named* arms —
+primitives (`id`, `tl`, `atom`, `eq`, `cat`, …) sit lambda-*named* arms —
 `system:ev_cols` (`:1993`), and the documented `system:vb_fetch` / `system:entity_view`
 twins (`:1972`–`:1989`) — each annotated *"CERTIFIED-EQUAL OVERRIDE of DEF(…)"* and
 each twinned by a parity pin in `tests/derive.rs`. When `prim` returns `None`, the same
@@ -71,7 +71,7 @@ choice is real and correct — but it is expressed as hand-placed arms in a 250-
 
 The `_h_*` translator cooks (`src/compile.rs`, dispatched through `native_cook`,
 `main.rs:5394`) are the same shape one level up: a native translator fires when a
-translator name *carries no canon DEF*, else the canon body reduces.
+translator name *carries no lambda DEF*, else the lambda body reduces.
 
 ### Layer 2 — op-level, inside the MCP dispatch
 
@@ -93,10 +93,10 @@ bypasses them all (the pure-reference oracle). The pre-registry per-name switche
 (`AREST_NO_THETA_ARMS`, `AREST_QUERY_INTERPRETED`, `AREST_SYNTH_SCOTT`,
 `AREST_DELEGATE_READS`, `AREST_PYTHON_COMPILE`) remain honored as aliases that fold into
 the same killed-name set (`parse_no_override`). `HOST_OVERRIDES` enumerates every name the
-Rust host registers, and a standing test asserts that enumeration is a subset of the canon
+Rust host registers, and a standing test asserts that enumeration is a subset of the lambda
 catalog.
 
-`compile` is the proof the seam works: its meaning is entirely in the canon (chapter 06),
+`compile` is the proof the seam works: its meaning is entirely in the lambda (chapter 06),
 `op_compile_model` drives the whole pipeline natively (classify → translate → fold → rekey →
 derive → status → replay → machine_fold → layout → scheduler → generator → create_handlers →
 save), and `native_apps_compile` composes an app's `readings/` atop the base and runs it —
@@ -110,10 +110,10 @@ treatment.
 The refactor is behavior-identical by construction — it *relocates* the existing arms,
 it does not rewrite them.
 
-### 1. The interface catalog (canon side — theory-driven)
+### 1. The interface catalog (lambda side — theory-driven)
 
 The set of override-eligible operations is not host trivia; it is a fact about the
-system, so it belongs in the canon as self-described data. Model it the same way
+system, so it belongs in the lambda as self-described data. Model it the same way
 everything else is modeled:
 
 ```
@@ -126,9 +126,9 @@ Today this catalog is *implicit* — every `system:*` DEF is its own reference i
 "is overridable" is encoded only by whether a `prim` arm happens to exist. Making it an
 explicit fact type means the catalog is queryable (`query Operation_may_be_overridden`),
 the parity pins can be generated from it, and a target can *enumerate* which operations
-it is expected to twin. The reference impls stay in the canon; only the *override
+it is expected to twin. The reference impls stay in the lambda; only the *override
 bindings* are per-platform (they must be — they are native functions), so they cannot
-live in canon data. The canon carries the **catalog**; each host carries a **bag of
+live in lambda data. The lambda carries the **catalog**; each host carries a **bag of
 overrides keyed to catalog names**; the resolver composes them. That is precisely
 "register implementations keyed by the interface, request by interface type."
 
@@ -138,7 +138,7 @@ Replace the scattered arms with a single registration point per platform:
 
 ```rust
 // one table, the DI container. Every certified-equal override is registered here,
-// keyed by its canon interface name. Absence ⇒ the reference reduction runs.
+// keyed by its lambda interface name. Absence ⇒ the reference reduction runs.
 type Override = fn(&N, &Srv) -> Option<N>;     // Some(answer) = handled; None = defer to reference
 static OVERRIDES: &[(&str, Override)] = &[
     ("system:ev_cols",      ev_cols_override),
@@ -180,12 +180,12 @@ convention:
 
 ```
 AREST_NO_OVERRIDE=<name>[,<name>…]      -- bypass these overrides; run the reference
-AREST_NO_OVERRIDE=*                     -- bypass ALL overrides (the pure-canon oracle)
+AREST_NO_OVERRIDE=*                     -- bypass ALL overrides (the pure-lambda oracle)
 ```
 
 `AREST_NO_OVERRIDE=*` is then the single "run everything through the portable reference
 reducer" mode — the differential oracle every parity pin certifies against, and the exact
-mode a minimal `no_std` target runs in (no overrides, no Python, just `mu` over the canon).
+mode a minimal `no_std` target runs in (no overrides, no Python, just `mu` over the lambda).
 The existing switches become documented aliases during migration, then retire.
 
 ## Compile through the seam — off Python
@@ -196,7 +196,7 @@ The existing switches become documented aliases during migration, then retire.
    base and drives `op_compile_model`, the complete native pipeline (classify → translate
    → fold → rekey → derive → status → replay → machine_fold → layout → scheduler →
    generator → create_handlers → save). This is the default.
-2. **canon reference** — `mu` reducing the compile's canon DEFs directly. Slow, but it
+2. **lambda reference** — `mu` reducing the compile's lambda DEFs directly. Slow, but it
    runs **wherever the reducer runs**, with no Python and no native override — the bare
    target's row in chapter 11's map, and what makes compile *portable* rather than
    *Python-specific*.
@@ -213,16 +213,16 @@ to the oracle over real apps through the real flow.
 
 1. **Unify the switches** — done: `AREST_NO_OVERRIDE` with the old vars as aliases, one
    `overrides_killed(name)` consulted at every seam.
-2. **Register the catalog in canon** — done: `shared/base/resolution.md` declares
+2. **Register the catalog in lambda** — done: `shared/base/resolution.md` declares
    `Operation is overridable` and enumerates the catalog; the host's `HOST_OVERRIDES`
    is asserted a subset of it by test.
-3. **Lift, don't rewrite** — DONE (2026-07-13, the canon-first rebuild): the eight
+3. **Lift, don't rewrite** — DONE (2026-07-13, the lambda-first rebuild): the eight
    name-keyed `prim` arms live in the `DEF_OVERRIDES` table behind `resolve_def`
    (theta:NatJoin documented at the table as the one SHAPE-keyed override at the
    application seam), and the five guarded verb bindings live in `VERB_OVERRIDES`
    behind `resolve_verb`, with `mcp_call_inner`'s match reduced to the reference
    bindings. A new override is a table row plus a catalog row plus a parity pin.
-   The coverage gate audits both tables: every DEF row must name an existing canon
+   The coverage gate audits both tables: every DEF row must name an existing lambda
    DEF, every verb row a catalog row, and the DELEGATED drain queue may only
    shrink (explain drained the same day; sql stays delegated by design under the
    zero-dep host rule, its materialization being a sqlite artifact on the
@@ -238,21 +238,21 @@ Through the seam, chapter 11's `compile` cell reads:
 
 | Primitive | Local (CLI)                                             | bare / `no_std` |
 |-----------|--------------------------------------------------------|-----------------|
-| `compile` | native override → canon reference → Python oracle | canon reference (`AREST_NO_OVERRIDE=*`) |
+| `compile` | native override → lambda reference → Python oracle | lambda reference (`AREST_NO_OVERRIDE=*`) |
 
 ## Relation to the rest of the docs
 
 - **Chapter 11** is the I/O half of the same idea (`Platform`/`Native` traits); this
   chapter is the operation half (the `OVERRIDES` table). Together they are AREST's whole
-  DI/IoC story: *meaning in the canon, side effects and speed injected per platform,
-  everything certified equal to the canon reference.*
+  DI/IoC story: *meaning in the lambda, side effects and speed injected per platform,
+  everything certified equal to the lambda reference.*
 - **`2026-07-10-rust-native-compile.md`** is the design record behind the compile
   override's native pipeline.
 - **`2026-07-12-incremental-aggregate-spec.md`** is another registry citizen: a fast
   override of the fixpoint aggregate pass, gated by (today) `AREST_NO_INCR_AGG` — which
   step 2 folds into `AREST_NO_OVERRIDE`.
 - **The `system:nav` family (chapter 25)** is the current cautionary tale for why the
-  differential matters: a canon fix that is correct under the reference reducer can still
+  differential matters: a lambda fix that is correct under the reference reducer can still
   read wrong through an override whose twin has drifted — which is precisely what the kill
   switch exists to catch.
 
@@ -264,7 +264,7 @@ oracle run is also how the host-specific sqlite `.db` projection the `sql` verb 
 regenerated — itself a Python-bound op the registry should absorb. `verify` and `validate`
 resolve natively when their switch is set (`AREST_NATIVE_VERIFY` / `AREST_NATIVE_VALIDATE`)
 or when no Python CLI is resolvable; both reduce constraint and rule meaning on the N
-carrier through the canon. `retract`, `sql`, and `explain` still reach Python through
+carrier through the lambda. `retract`, `sql`, and `explain` still reach Python through
 hardcoded arms — they are the remaining candidates for registration.
 
 The parity harnesses (`tools/apps_compile_parity.py`, `tools/twin_equality.py`) are the

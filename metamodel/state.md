@@ -279,7 +279,7 @@ It is obligatory that if some Predicate1 is performed in some Status1 and that S
 
      The containment is transitive and this says so, in the shape `Status
      reaches Status in State Machine Definition` below already uses. It is
-     also carried in canon's rules:metamodel, which is a store-independent
+     also carried in lambda's rules:metamodel, which is a store-independent
      constant: an app's compiled recipes come from ITS carrier, and a carrier
      written before this line refuses writes the moment the machines appear,
      which is every app until it re-checks. When a regenerated carrier
@@ -291,7 +291,7 @@ It is obligatory that if some Predicate1 is performed in some Status1 and that S
 <!-- residue fix (2026-07-16): the effective-initial rules, which never
      existed (the marker's named debt): the declared initial when present,
      else the graph-derived root — the Pass-4 source-never-target fold the
-     comment below documents. Recipes in the canon's rules:metamodel: the
+     comment below documents. Recipes in the lambda's rules:metamodel: the
      second rule is minus over a joinon (rooted rows in SMDs that declare
      no initial), stratified. -->
 

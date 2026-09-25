@@ -1,6 +1,6 @@
 """Write the expected answers every host asserts against.
 
-Each host runs the same canon over the same carriers, so "the hosts agree" can
+Each host runs the same lambda over the same carriers, so "the hosts agree" can
 be checked WITHOUT one host driving the others: each asserts its own output
 against a checked-in expectation, and agreement follows transitively. That is
 what removes python from the loop -- verifying the js host should need bun and

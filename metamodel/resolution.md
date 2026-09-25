@@ -1,18 +1,18 @@
 # Resolution Registry Catalog
 
-<!-- The canon side of the Resolution Registry (docs ch. 15): which named
+<!-- The lambda side of the Resolution Registry (docs ch. 15): which named
      operations admit a certified per-platform override. An operation's
-     reference implementation is the canon DEF carrying its name (or, for a
-     verb, the canon pipeline the verb reduces); a platform's fast override
+     reference implementation is the lambda DEF carrying its name (or, for a
+     verb, the lambda pipeline the verb reduces); a platform's fast override
      is held byte-equal to that reference by a parity pin behind the one
      kill switch (AREST_NO_OVERRIDE). The catalog is data so a target can
      enumerate what it is expected to twin and the parity-pin list can
      generate from it. The override bindings themselves are per-platform
-     code, never canon data. -->
+     code, never lambda data. -->
 
 ## Domain Metadata
 
-Domain 'resolution' has Description 'The Resolution Registry (docs ch. 15) as canon data: which named Operation admits a certified per-platform override, which Operation is registrable, which one a host has registered, and the Definition Origin and Type Expression catalog every Function name resolves through. The twelve canon prefix families declared below are tenants of the base store, catalog rows rather than this file's own domain.'.
+Domain 'resolution' has Description 'The Resolution Registry (docs ch. 15) as lambda data: which named Operation admits a certified per-platform override, which Operation is registrable, which one a host has registered, and the Definition Origin and Type Expression catalog every Function name resolves through. The twelve lambda prefix families declared below are tenants of the base store, catalog rows rather than this file's own domain.'.
 
 ## Entity Types
 
@@ -48,7 +48,7 @@ Operation awaits a driver. **
      (core.md's marker ruling, Samuel 2026-08-04: the four are orthogonal, `*` derive,
      `**` derive and store, `+` derive or assert, `++` both). A `*` head therefore LEAVES
      THE STORED SCHEMA in both directions: the oracle drops it from state:fts citing Codd
-     1970 1.5, a stored derivable relation is strong redundancy, and canon's rmap:gate
+     1970 1.5, a stored derivable relation is strong redundancy, and lambda's rmap:gate
      drops it from the relational map, which is NORMA's own GATE:187-188. So this head had
      no table AT ALL -- absent, not empty -- while both of its inputs were stored and
      correct, and the list this derivation exists to give was readable only by booting the
@@ -62,7 +62,7 @@ Operation awaits a driver. **
 
 ## The catalog
 
-<!-- DEF-level: the operation name is the canon DEF the override twins. -->
+<!-- DEF-level: the operation name is the lambda DEF the override twins. -->
 Operation 'system:ev_cols' is overridable.
 Operation 'system:entity_view' is overridable.
 Operation 'system:vb_fetch' is overridable.
@@ -75,7 +75,7 @@ Operation 'theta:dedup' is overridable.
 Operation 'csdp' is overridable.
 Operation 'rmap' is overridable.
 
-<!-- Verb-level: the operation is a verb whose reference is the canon
+<!-- Verb-level: the operation is a verb whose reference is the lambda
      pipeline it reduces; the override is the host's native route. -->
 Operation 'query' is overridable.
 Operation 'synthesize' is overridable.
@@ -161,8 +161,8 @@ Function 'tutor' yields Type Expression 'tutorial-text'.
      has three mandatory roles and is therefore only sayable as a whole ROW,
      and the only address that took one was an HTTP POST to its collection.
      `apply` cannot be that verb -- it is the mu's own apply combinator,
-     registered below with the shape it has always had, and a canon cell of
-     that name would shadow the combinator everywhere in canon. `create` is
+     registered below with the shape it has always had, and a lambda cell of
+     that name would shadow the combinator everywhere in lambda. `create` is
      the name the model itself uses for the write (an app's authorization
      readings say `Operation 'create' on Protected Resource 'Support
      Request'`), so that is the Operation declared here. It takes ONE
@@ -195,13 +195,13 @@ Function 'retract' yields Type Expression 'outcome-and-store'.
 
      THE THREE ROWS THAT SERVE IT ARE HELD, and this is the whole of the
      hold: mcp:verbs lists an Operation that carries an accepts row and
-     resolves to a cell, the cell is in canon now, and these are the rows --
+     resolves to a cell, the cell is in lambda now, and these are the rows --
 
        Operation 'replace' is overridable.
        Function 'replace' accepts Type Expression 'row-and-cells'.
        Function 'replace' yields Type Expression 'outcome-and-store'.
 
-     Measured 2026-09-18 with them in: canon's reader compiles them, mcp:verbs
+     Measured 2026-09-18 with them in: lambda's reader compiles them, mcp:verbs
      answers 18 verbs where it answered 17, and the new row is
      ('replace', 'row-and-cells', 'outcome-and-store'). Measured with them in
      AND the witness carrier left as it stands: `the reader reproduces the
@@ -214,7 +214,7 @@ Function 'retract' yields Type Expression 'outcome-and-store'.
      the commit that does it.
 
      WHAT THIS DOES NOT SERVE is DELETE: the name `retract` is already a
-     canon cell, Backus's population-level one
+     lambda cell, Backus's population-level one
      that answers rows and no store, and solve:cell would serve THAT cell to
      a caller who asked for a retraction. The address argument the note
      below gives is stale -- create answered it by taking the row whole --
@@ -244,7 +244,7 @@ Function 'retract' yields Type Expression 'outcome-and-store'.
        Function 'retract' yields Type Expression 'outcome-and-store'.
 
      MEASURED 2026-09-21 with them in, on the base carriers booted by the
-     test module: canon's reader compiles these rows, mcp:verbs answers 19
+     test module: lambda's reader compiles these rows, mcp:verbs answers 19
      verbs where it answered 18, and the new row is ('retract',
      'row-and-cells', 'outcome-and-store'). law:verbs holds over
      cmd:retract; law:one_name, law:catalog and law:origins_match hold. A
@@ -259,7 +259,7 @@ Function 'retract' yields Type Expression 'outcome-and-store'.
      main:write_answer's for a committed write, the one replace answers.
      The witness distance the 2026-09-18 paragraph measured is not a
      measurement any more: since #109 the base carriers are regenerated by
-     canon's own compile, and design-state moved by exactly the six facts
+     lambda's own compile, and design-state moved by exactly the six facts
      of that regeneration (these two and llm:validate_judge's four below),
      623,291 -> 623,715 bytes, `compiled` by its stamp alone. -->
 <!-- AND THE KEY ALONE RETRACTS THE ENTITY (2026-09-21, #122 item 9's
@@ -321,10 +321,10 @@ Function 'retract' yields Type Expression 'outcome-and-store'.
      `completion-and-cells` IS THE POINT OF THE NEW TYPE EXPRESSION, and it is
      not a shape: main:verb_shapes maps it onto the argument-beside-the-cells
      construction row-and-cells already uses. It is what tells a HOST that this
-     verb's operand has to be FETCHED before canon can be handed it -- the host
+     verb's operand has to be FETCHED before lambda can be handed it -- the host
      reads the accepts row off mcp:verbs and knows to go and ask -- so which verb
      needs a completion is a fact of the model and not a name in a host. `drive`
-     is NOT declared registrable: it is canon's own pipeline, and what awaits a
+     is NOT declared registrable: it is lambda's own pipeline, and what awaits a
      driver is the seam it drives, never the driving. -->
 Operation 'drive' is overridable.
 Function 'drive' accepts Type Expression 'completion-and-cells'.
@@ -344,7 +344,7 @@ Function 'drive' yields Type Expression 'fact-list'.
 
      So derive wants what 'arguments-and-populations' already builds, <args,
      derive:store_pairs>, which is the operand law:all_rules is handed at the
-     one call site canon has. No rules in the argument means no round runs and
+     one call site lambda has. No rules in the argument means no round runs and
      the populations come back as they went in: an answer, not a failure.
      validate wants the fact type DESCRIPTORS that store:fts holds, a shape
      the table did not have and now does. Through the route both used to throw
@@ -355,7 +355,7 @@ Function 'drive' yields Type Expression 'fact-list'.
      built as declared; what it does with an empty recipe is a separate
      question this did not settle. -->
 <!-- AND THE THREE STILL UNDECLARED ARE UNDECLARED FOR A MEASURED REASON,
-     2026-09-11. explain, induce and retract have canon DEFs and are not on
+     2026-09-11. explain, induce and retract have lambda DEFs and are not on
      the served surface, and the missing declaration is not what keeps them
      off it. Each was asked on the base store for every operand the route
      can build, with an empty argument and with a fact type's name:
@@ -419,7 +419,7 @@ Operation 'validate' is registrable.
      Whether the judge's operand also needs widening to carry
      `Constraint has Text` is open (#122 item 7, sub-question a) and not
      decided by this row. Definition Origin 'registered' is ALSO given,
-     which synthesize/validate do not carry -- they have a canon DEF and
+     which synthesize/validate do not carry -- they have a lambda DEF and
      this seam deliberately does not (it is filled only by being named
      in drive:seams, arest ~13654), so its true structural precedent is
      the csdp: triplet below (resolution.md:467-475), not synthesize or
@@ -435,16 +435,16 @@ Function 'llm:validate_judge' yields Type Expression 'violation-list'.
      (NORMA carries it today as the oracle; a host carries it in
      production), which is registration-edge work by the Stage-1 doctrine:
      text enters the system only at the boundary. law:catalog holds every
-     catalogued operation to a canon DEF or a registered row; these two
+     catalogued operation to a lambda DEF or a registered row; these two
      resolve here.
 
      AND COMPILE LEAVES THIS LIST (Sam, 2026-09-21: "Compile should have a
-     canon implementation with registrations for the db engine. Having
+     lambda implementation with registrations for the db engine. Having
      compile be an empty slot is wrong"). It was an empty slot exactly as
      the derivation above describes one: registrable, never registered, and
      therefore awaiting a driver -- a reference implementation that no host
-     supplied and canon did not carry. DEF(compile) carries it now, so
-     law:catalog resolves compile against a canon DEF like csdp and rmap,
+     supplied and lambda did not carry. DEF(compile) carries it now, so
+     law:catalog resolves compile against a lambda DEF like csdp and rmap,
      and the registration-edge work the note names is no longer the whole
      verb: it is the three calls declared at the end of this file, which are
      a directory listing, a file's bytes and a database engine. Stage-1 is
@@ -455,9 +455,9 @@ Function 'llm:validate_judge' yields Type Expression 'violation-list'.
      nothing yet answers which directories those are from the store. -->
 Operation 'apps_compile' is registrable.
 
-<!-- The CSDP boundary class (Samuel's ruling, 2026-07-15): the canon
+<!-- The CSDP boundary class (Samuel's ruling, 2026-07-15): the lambda
      defines csdp and rmap symbolically (alpha/fold over the design
-     state — see the CSDP AS CANON / RMAP AS CANON sections of `arest`),
+     state — see the CSDP AS LAMBDA / RMAP AS LAMBDA sections of `arest`),
      and the three names below are the REGISTERED seams those defs apply
      through DEFS: elementarize is world->facts, the one non-computable
      step (Stage-1 doctrine: text->atom stays at the boundary);
@@ -465,7 +465,7 @@ Operation 'apps_compile' is registrable.
      combination; acceptance of computed subtype candidates). Everything
      else in the procedure — the population gate, uniqueness induction
      from example populations, mandatory derivation, the n-1
-     elementarity gate, and both RMAP grouping rules — is canon. -->
+     elementarity gate, and both RMAP grouping rules — is lambda. -->
 Operation 'csdp:elementarize' is registrable.
 Operation 'csdp:combine_judgment' is registrable.
 Operation 'csdp:accept_judgment' is registrable.
@@ -492,11 +492,11 @@ Operation 'crypt:genkey' is registered.
 
 <!-- exec ruling 4b (2026-07-15): the registered surface as instance-fact
      verbalizations — Cor 5's enumerable boundary stated as readings. The
-     canon's manifest:origins computes the same boundary from the store by
+     lambda's manifest:origins computes the same boundary from the store by
      set arithmetic (form-aware functional-position walk); the checker mu
      holds the two against each other, and the delta report is the honest
      surface. The five SALVAGE primitives carry dom/cod transcribed from
-     the quarry implementations (system:registered in the canon is the
+     the quarry implementations (system:registered in the lambda is the
      same manifest as data); the base primitives carry dom/cod from
      Backus 11.2.3's own signatures. Functional FORMS (COMP, CONS, CONST,
      COND, ALPHA, INSERT, WHILE) are the mu's grammar per H1, not DEFS
@@ -520,12 +520,12 @@ Function 'strip_prefix' accepts Type Expression 'prefix-and-text'.
 Function 'strip_prefix' yields Type Expression 'text'.
 
 <!-- THE COMPILER'S I/O (#109, 2026-09-21). DEF(compile) reads a directory,
-     reads each reading in it and answers the design state; DEF(compile:schema)
-     runs the DDL. Everything between those is canon. These three are what is
+     reads each reading in it and answers the schema; DEF(compile:schema)
+     runs the DDL. Everything between those is lambda. These three are what is
      left, and they are registered because they are outside D: a directory
      listing and a file's bytes are not a function of the population, and a
      database engine is not a function at all. The rule below decides it --
-     canon defines no fs: or sql: cell and must not.
+     lambda defines no fs: or sql: cell and must not.
 
      THEY ARE TRUE ROWS, which store:append was not. It stood here declared
      registered and implemented by nobody until it was deleted; these three
@@ -545,18 +545,18 @@ Function 'sql:exec' accepts Type Expression 'path-and-sql'.
 Function 'sql:exec' yields Type Expression 'path'.
 
 <!-- The boundary is only a query over P if every registered function has an
-     origin fact. Enumerating the runners' registration tables against canon's
+     origin fact. Enumerating the runners' registration tables against lambda's
      own DEF names found six that had none: three js-host primitives (chars,
      reverse, trans), two controls the web and wpf hosts register beyond the
      eight ui:renderers names (render:button, render:textbox), and the durable
      write itself. Origin-only, since at-most-one is the constraint and the
      signature facts follow when the manifest lands.
 
-     The rule that decides which side a name falls on: a host name canon does
-     NOT define is registered; a host name canon DOES define is a native twin
+     The rule that decides which side a name falls on: a host name lambda does
+     NOT define is registered; a host name lambda DOES define is a native twin
      (an acceleration, like the js host's FASTPRIMS for theta:member and
      friends) and stays compiled. Getting that backwards would make Eq 5's
-     restriction meaningless by marking half of canon as boundary. -->
+     restriction meaningless by marking half of lambda as boundary. -->
 
 Function 'chars' has Definition Origin 'registered'.
 Function 'reverse' has Definition Origin 'registered'.
@@ -565,22 +565,22 @@ Function 'store:append' has Definition Origin 'registered'.
 Function 'render:button' has Definition Origin 'registered'.
 Function 'render:textbox' has Definition Origin 'registered'.
 
-<!-- exec ruling (2026-07-16): the canon prefix families declared as
+<!-- exec ruling (2026-07-16): the lambda prefix families declared as
      Domains — TENANTS of the base store (namespacing is tenancy:
      Backus 14.7, a cell whose contents is another entire store). Each
      family's definitions are cells within its tenant sub-store; the
      colon in theta:dedup denotes the fetch path, not a flat prefix. -->
-Domain 'theta' has Description 'The adequate relational algebra of Codd 2.2 as canon: projection, natural join, tie, restriction, and the set helpers they ride on.'.
-Domain 'system' has Description 'The AST system layer as canon: cell reflection, state machine rows, compiled-rule builders, scheduler classification, views, and render.'.
+Domain 'theta' has Description 'The adequate relational algebra of Codd 2.2 as lambda: projection, natural join, tie, restriction, and the set helpers they ride on.'.
+Domain 'system' has Description 'The AST system layer as lambda: cell reflection, state machine rows, compiled-rule builders, scheduler classification, views, and render.'.
 Domain 'ast' has Description 'Cells, fetch, store, and DefineIn per Backus 13.3.4 and 13.3.5.'.
 Domain 'constraints' has Description 'The constraint family builders: uniqueness, mandatory, subset, equality, exclusion, value, frequency.'.
-Domain 'csdp' has Description 'The Conceptual Schema Design Procedure as canon: seven steps composed, three registered seams.'.
-Domain 'rmap' has Description 'Relational mapping as canon: the store form, absorption and separation.'.
+Domain 'csdp' has Description 'The Conceptual Schema Design Procedure as lambda: seven steps composed, three registered seams.'.
+Domain 'rmap' has Description 'Relational mapping as lambda: the store form, absorption and separation.'.
 Domain 'manifest' has Description 'Def 9 origins computed from the store: the enumerable boundary as set arithmetic.'.
-Domain 'law' has Description 'The standing laws as canon: carrier unfolding, set algebra, and the checks law:report names — gates are definitions the mu applies, never host code, and a law that executes needs no restatement.'.
+Domain 'law' has Description 'The standing laws as lambda: carrier unfolding, set algebra, and the checks law:report names — gates are definitions the mu applies, never host code, and a law that executes needs no restatement.'.
 Domain 'nav' has Description 'The navigation map as emitted view: patterns generated from rmap per Thm 2 — an entity group answers collection and item patterns, a separated fact type one pattern per curry prefix, links(e) = nav(e) union transitions — one map serving browser, console, and server by varying registered render functions.'.
-Domain 'derive' has Description 'The fixpoint as canon, semi-naive and stratified from birth: seven recipe forms (proj, join, joinon, sel, cmp, minus, count), each round bounded to the deltas, layers ordered so settled-required reads and positive feeders precede their readers, rule scope fixed by the sources the recipe names — never the whole population.'.
-Domain 'induce' has Description 'Codd 2.3 as canon: attempts to induce the redundancies, fallible by construction — candidate recipes generated under declared-signature filtering, gated by coverage and exactness, ranked by the standing judge; adoption stays a modeling judgment at the boundary.'.
+Domain 'derive' has Description 'The fixpoint as lambda, semi-naive and stratified from birth: seven recipe forms (proj, join, joinon, sel, cmp, minus, count), each round bounded to the deltas, layers ordered so settled-required reads and positive feeders precede their readers, rule scope fixed by the sources the recipe names — never the whole population.'.
+Domain 'induce' has Description 'Codd 2.3 as lambda: attempts to induce the redundancies, fallible by construction — candidate recipes generated under declared-signature filtering, gated by coverage and exactness, ranked by the standing judge; adoption stays a modeling judgment at the boundary.'.
 Domain 'rules' has Description 'The metamodel star rules as executable data, complete: the defined/terminal/rooted/effective-initial family, both Mealy edges, all three reaches closures, the dependency graph, the bridge casts and belongs-to family, arity by count, Domain Change blocking and validity, Failure succeeds Violation, Transition occurred at Timestamp — held to ten known answers by law and to Cor 6 by stratification.'.
 
 Function 'csdp:elementarize' has Definition Origin 'registered'.
@@ -657,7 +657,7 @@ Function 'tlr' yields Type Expression 'sequence'.
 <!-- The render surface (2026-07-19, the registration ruling: components
      register INTO DEFS, never a side table): each abstract control's
      realization is a registered definition a container supplies at its
-     OnSetDefinitions moment; the canon's ui:renderers names the surface,
+     OnSetDefinitions moment; the lambda's ui:renderers names the surface,
      so the manifest's total walk computes these rows. -->
 Function 'render:canvas' has Definition Origin 'registered'.
 Function 'render:canvas' accepts Type Expression 'placed-row'.
@@ -685,14 +685,14 @@ Function 'render:blocktext' accepts Type Expression 'placed-row'.
 Function 'render:blocktext' yields Type Expression 'widget'.
 
 <!-- AND THE SURFACE IS THE WHOLE PAIRING TABLE, NOT EIGHT OF IT (#124,
-     2026-09-21). Canon emits NINETEEN control kinds. ui:ctl_entry is the
+     2026-09-21). Lambda emits NINETEEN control kinds. ui:ctl_entry is the
      value-type-to-control table -- each of the 31 Conceptual Data Types is
      paired to textbox, textarea, numericfield, label, datepicker,
      timepicker, switch, imagepicker, selectlist or navigationfield -- and
      ui:render applies render:<control> to every placed row a screen
      produces, the nine layout kinds above among them. This file declared
      ten registered and gave eight a signature, so the enumerable boundary
-     was short by nine names that canon can emit on any screen.
+     was short by nine names that lambda can emit on any screen.
 
      THAT SHORTFALL IS WHAT THE PAIRING ASKS OVER. law:ctl_declared reads
      THIS population and law:paired asks a container whether it registers
@@ -713,7 +713,7 @@ Function 'render:blocktext' yields Type Expression 'widget'.
      'html' has Platform Function Name 'render:html' and no host bound that
      name; the html container binds it now, which is why it is declared here
      with a Definition Origin at all. Registered for the same reason every
-     render: name is registered: canon defines no cell of that name, so the
+     render: name is registered: lambda defines no cell of that name, so the
      body comes from the container that serves the platform, and the name
      falls on the boundary side of Eq 5's restriction. -->
 Function 'render:textbox' accepts Type Expression 'placed-row'.
@@ -752,18 +752,18 @@ Function 'render:html' accepts Type Expression 'placed-rows'.
 Function 'render:html' yields Type Expression 'document'.
 
 <!-- The storage surface (2026-07-20, the emit ruling: recording is
-     storage registration; the byte form is canon, so a worthy driver
+     storage registration; the byte form is lambda, so a worthy driver
      holds nothing but the platform's one durable write). ntoa and
      quote_str sit at the registered boundary beside lex and
      escape_html. (store:append WAS listed here as the effect verb and is
      gone 2026-08-12: Backus 13.3.4 defines store in the ALGEBRA --
      down-arrow-n = pair -> (push n).[1, (pop n).2] over apndl/tl/eq/length --
-     and canon already carries it as ast:Store/ast:Pop/ast:Purge. No host ever
+     and lambda already carries it as ast:Store/ast:Pop/ast:Purge. No host ever
      implemented store:append and nothing but the now-deleted store:effects
      named it, so it was a false row in the enumerable boundary: Cor 6 is
      meant to be the honest list of where unverified computation enters, and
      it claimed a host capability that did not exist.) Enumerable through
-     the canon's store:effects the way render:* is through
+     the lambda's store:effects the way render:* is through
      ui:renderers. -->
 Function '*' has Definition Origin 'registered'.
 Function '*' accepts Type Expression 'number-pair'.
@@ -810,7 +810,7 @@ Function 'clock' yields Type Expression 'text'.
      encryption is just there - the core carries the named seam, a host
      registers real platform crypto only when a domain's data types
      demand it, and an unregistered hook refuses loudly through the mu).
-     Enumerable via the canon's crypt:effects, the store:effects
+     Enumerable via the lambda's crypt:effects, the store:effects
      pattern. -->
 Function 'crypt:encrypt' has Definition Origin 'registered'.
 Function 'crypt:encrypt' accepts Type Expression 'key-and-text'.
@@ -823,7 +823,7 @@ Function 'crypt:decrypt' is inverted by Function 'crypt:encrypt'.
 
 <!-- AND THE KEY THOSE TWO TAKE HAS TO COME FROM SOMEWHERE (Samuel, 2026-09-15:
      "Would it make sense to have a canon method to generate a key?" / "and
-     invoke via mcp?"). Not canon: Def 3 admits only a deterministic,
+     invoke via mcp?"). Not lambda: Def 3 admits only a deterministic,
      side-effect-free total function, and a key consumes entropy and answers
      differently every call. Registered, then, in the boundary Cor 8 enumerates
      -- and the host already HAS the entropy, since randomBytes makes

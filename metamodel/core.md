@@ -19,7 +19,7 @@
      the departure is from his figure label, not from his model.
 
      (2) The note's last clause was backwards and is removed. It claimed
-     canon cell names still carried the old vocabulary. In fact the canon
+     lambda cell names still carried the old vocabulary. In fact the lambda
      held three legacy strings total (`State_Machine_Definition_is_for_Noun`
      and two copies of the reading fragment "is for Noun"), while `Noun`
      survived in 91 live places across the READINGS. Both are now clean;
@@ -769,11 +769,11 @@ Function has Definition Origin.
        origin = 'registered', Cor 5 identifies that restriction with the
        decidability frontier, and Cor 1 reads rule bodies as data. Without
        an origin fact the boundary is not a query over P — it lived only in
-       host kernels (the 17 boundary atoms were undeclared in-canon; the
+       host kernels (the 17 boundary atoms were undeclared in-lambda; the
        rebuild's manifest DEF is the ready salvage). At-most-one rather
        than exactly-one: Function's population includes runtime Object Type Instances
        (instances.md) that carry no definition; origin is mandatory exactly
-       for DEFS entries. Signature (dom/cod) facts follow when the canon
+       for DEFS entries. Signature (dom/cod) facts follow when the lambda
        manifest lands. -->
 
 Type Expression is a value type.
@@ -786,7 +786,7 @@ Function yields Type Expression.
        yields is cod. Values are lexical type expressions: an Object Type
        name where the signature is simple, an FFP shape expression where
        structured. Carried exactly for DEFS entries, like Definition
-       Origin; population arrives with the canon manifest (the rebuild's
+       Origin; population arrives with the lambda manifest (the rebuild's
        SALVAGE transcribed dom/cod for the five boundary primitives). -->
 
 Function is inverted by Function.
@@ -801,7 +801,7 @@ Function is inverted by Function.
        accepts `key-and-ciphertext`, and NO Function in the model accepts
        `ciphertext`; `key-and-` occurs on 2 of the 112 accepts/yields rows,
        which is two functions agreeing, not a convention. Matching them
-       would mean canon taking a prefix off an identifier to discover a
+       would mean lambda taking a prefix off an identifier to discover a
        fact -- grepping a name for something the model should say.
 
        NO RING CONSTRAINT, and both are deliberate. Irreflexive would be
@@ -818,7 +818,7 @@ Function has Implementation.
        function definitions in Backus's functional forms (1978 Turing
        lecture, 11.2.4) — composition, construction, condition, constant,
        insert (fold), apply-to-all (alpha), selectors — serialized the way
-       the canon's intersection vocabulary writes them (DEF/A/N/K/PHI()/
+       the lambda's intersection vocabulary writes them (DEF/A/N/K/PHI()/
        S1..S9 over double-quoted atoms). The paper's Lem 1 claim "the
        bodies are data" gets its home here: a compiled definition's
        Implementation is rho(o) in symbolic form. Registration and
@@ -829,7 +829,7 @@ Function has Implementation.
        the alpha/fold-class combinators through FFP/AST so that fact
        types, facts, objects, CSDP, and RMAP are themselves DEFINED
        symbolically at the arest-arest level: the algebra of programs
-       over the fact algebra. Population arrives with the canon
+       over the fact algebra. Population arrives with the lambda
        manifest. -->
 
 ### Constraint
@@ -961,7 +961,7 @@ It is obligatory that each Object Type Instance that some RoleInstance uses is i
        the flat ternary for link-machinery-only access — Halpin's own
        prescription). Implied link readings are not A-declared
        vocabulary, so the sentence stays deontic prose by construction,
-       not by limitation; the canon's population-consistency and
+       not by limitation; the lambda's population-consistency and
        instance-attribution machinery carry the semantics. -->
 <!-- the resource-typing leg correlates through the objectified pair, which
      Definition Fragment excludes (nested objectification lies outside R):

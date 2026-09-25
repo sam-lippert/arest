@@ -1,21 +1,21 @@
-// Compose a runnable module by byte concatenation: the host, then canon and
+// Compose a runnable module by byte concatenation: the host, then lambda and
 // the carriers, then the call that starts it.
 //
-// Canon is intersection source -- one file that is simultaneously valid in
+// Lambda is intersection source -- one file that is simultaneously valid in
 // every host language -- so the JS parser is what reads it here, and no host
-// carries a canon parser of its own. Canon is ONE tuple literal, so writing the
-// bare token CANON immediately before it makes those parens an argument list:
-// `function CANON(){ return arguments; }` catches it and the DEF side effects
+// carries a lambda parser of its own. Lambda is ONE tuple literal, so writing the
+// bare token LAMBDA immediately before it makes those parens an argument list:
+// `function LAMBDA(){ return arguments; }` catches it and the DEF side effects
 // populate CELLS in registration order.
 //
 // THAT SPLICE IS THIS FILE'S JOB, NOT THE HOST'S. It used to live in seven
 // `.part.js` files -- a head, five mids and a tail -- of which about twenty
-// lines were semicolons and CANON tokens. There is one host file now, host.js,
+// lines were semicolons and LAMBDA tokens. There is one host file now, host.js,
 // and the punctuation is emitted here where it belongs.
 //
 // In bun rather than `copy /b` because the shell-specific build is not portable
 // and does not fail loudly: the cmd form silently produced a 38KB file with
-// every large input missing, which would have run an empty canon and passed. So
+// every large input missing, which would have run an empty lambda and passed. So
 // each input is checked for existence and the result is checked for size.
 import { readFileSync, writeFileSync, statSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -28,7 +28,7 @@ const root = join(here, "..", "..");
 // so a per-app build is this one pointed at a different directory.
 const oracle = process.env.AREST_CARRIERS || join(here, "..", "carriers", "base");
 
-// canon, the case table, then the carriers. The case table rides in the same
+// lambda, the case table, then the carriers. The case table rides in the same
 // module as the laws rather than a second composition, because the case cells
 // do not disturb law:report -- the base report is byte-identical with and
 // without them -- and one module then answers both `law:report` and `case`.
@@ -37,15 +37,15 @@ const oracle = process.env.AREST_CARRIERS || join(here, "..", "carriers", "base"
 // carrier) and the record (`expected`), nothing else; composing us-law's
 // 15 MB design-state beside them cost the host two minutes to load the
 // module and minutes more in the derivation closure before the three rows
-// could be answered (2026-09-04). Canon, the outcome and the record boot in
+// could be answered (2026-09-04). Lambda, the outcome and the record boot in
 // seconds on any store.
-// THE READER MODE COMPOSES CANON ALONE AND BOOTS NOTHING. It is the host of
-// tools/compile-design-state.js: canon's reader needs no carrier, and the
+// THE READER MODE COMPOSES LAMBDA ALONE AND BOOTS NOTHING. It is the host of
+// tools/compile-design-state.js: lambda's reader needs no carrier, and the
 // carrier it writes is the one every other mode composes.
 const slim = process.argv[2] === "regress" || process.argv[2] === "reader";
 // THE WITNESS'S ANSWER IS NOT A BUILD INPUT. norma-answer is NORMA's own
 // relational answer, composed so the rmap-vs-NORMA laws can compare; a
-// carriers directory canon wrote (tools/compile-design-state.js) has none,
+// carriers directory lambda wrote (tools/compile-design-state.js) has none,
 // and the build is the same build without it.
 const SPLICED = slim ? [join(root, "arest")] : [
   join(root, "arest"),
@@ -78,14 +78,14 @@ if (!slim) try {
   } else {
     // STALE, SO DECLINE IT. The carrier is derived FROM design-state, and a
     // schema regenerated since leaves it describing tables that no longer
-    // exist. Not splicing is the safe direction: canon derives instead, which
+    // exist. Not splicing is the safe direction: lambda derives instead, which
     // is slower and correct. Splicing it is neither.
     console.error("compiled carrier is stale (built from " + (stamped || "?") +
       ", design-state is now " + now + "); deriving instead. Regenerate with:");
-    console.error("  (compile-rmap.js is gone: compilation is moving into canon, #109)");
+    console.error("  (compile-rmap.js is gone: compilation is moving into lambda, #109)");
   }
 } catch {
-  /* uncompiled schema: canon derives instead */
+  /* uncompiled schema: lambda derives instead */
 }
 
 // THE RECORDED EXPECTATION IS OPTIONAL TOO. The oracle writes every run's
@@ -130,12 +130,12 @@ function must(p) {
 // nested constructor calls, three quarters of them the three carriers
 // (2026-09-07). A carrier is data: design-state, norma-answer and the compiled
 // map are spliced as ONE literal each, in their own intersection source, and
-// the host reads the literal at load (CANONTEXT in host.js) into the value the
+// the host reads the literal at load (LAMBDATEXT in host.js) into the value the
 // constructors would have built -- the same DEF registrations, the prose
-// dropped as CANON dropped it. The carrier stays the carrier, inside the
+// dropped as LAMBDA dropped it. The carrier stays the carrier, inside the
 // composition, and nothing is read from a path beside the module: a JSON
 // sidecar stood here for an hour and Sam's answer was "Codd says no". The
-// canon and the scenarios stay spliced as source: they are code, and small.
+// lambda and the scenarios stay spliced as source: they are code, and small.
 // The rust build reads the carrier files themselves and is unaffected. The
 // literal is a template string, so only its three delimiters are escaped.
 const AS_TEXT = new Set([join(oracle, "design-state"), join(oracle, "norma-answer"), join(oracle, "compiled")]);
@@ -166,7 +166,7 @@ function hostSource() {
   return Buffer.from(out.join("\n"));
 }
 
-// AND THE COMPOSITION'S IDENTITY IS ITS CANON AND ITS CARRIERS, NOT ITS HOST.
+// AND THE COMPOSITION'S IDENTITY IS ITS LAMBDA AND ITS CARRIERS, NOT ITS HOST.
 // tools/compile-store.js projects the booted populations into <dir>/store.db
 // and the host boots serve and mcp from it; the database is therefore a
 // projection of IDENTITY above and goes stale when any of it changes. The host
@@ -182,8 +182,8 @@ const parts = [hostSource()];
 for (const p of SPLICED) {
   const buf = must(p);
   if (IDENTITY.includes(p)) composition.update(buf);
-  if (AS_TEXT.has(p)) { parts.push(Buffer.from("\n;\nCANONTEXT(" + asLiteral(buf.toString("utf8")) + ");\n")); continue; }
-  parts.push(Buffer.from("\n;\nCANON"), buf);
+  if (AS_TEXT.has(p)) { parts.push(Buffer.from("\n;\nLAMBDATEXT(" + asLiteral(buf.toString("utf8")) + ");\n")); continue; }
+  parts.push(Buffer.from("\n;\nLAMBDA"), buf);
 }
 // STAMP THE CARRIERS THIS COMPOSITION WAS MADE FROM. tools/compile-rmap.js
 // writes beside AREST_CARRIERS but reads whatever composition is on disk, so
@@ -195,7 +195,7 @@ parts.push(Buffer.from("\n;\nboot(" + JSON.stringify(mode) + ");\n"));
 
 const out = Buffer.concat(parts);
 if (out.length < 1_000_000) {
-  console.error("composition is " + out.length + " bytes; canon alone is over 1MB");
+  console.error("composition is " + out.length + " bytes; lambda alone is over 1MB");
   process.exit(1);
 }
 const name = OUT[mode] + ".g.js";

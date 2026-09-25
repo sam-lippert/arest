@@ -126,7 +126,7 @@ Transition occurred at Timestamp. *
        this fact type without a declaration anywhere — the silent-Replacement
        defect class. A Transition (a definition-level edge) has no clock of
        its own: it occurred at every Timestamp at which some Event caused it,
-       so the fact type is fully derived (rule below; recipe in the canon's
+       so the fact type is fully derived (rule below; recipe in the lambda's
        rules:metamodel), leaves the stored schema per Codd 1.5, and carries
        the roles the value-comparison constraint's join path grounds on. -->
 
@@ -313,7 +313,7 @@ State Machine is for Object Type Instance.
      An application whose purpose is a workflow had no worklist, and a human
      noticed instead.
 
-     The deriver is canon's, not a rule's, and it is an EVALUATOR-PHASE
+     The deriver is lambda's, not a rule's, and it is an EVALUATOR-PHASE
      OBLIGATION of exactly the standing `Status is effective initial in State
      Machine Definition` already has (state.md): reflect:machines, in
      reflect:cells, which the host materialises at load and again whenever the
@@ -397,7 +397,7 @@ State Machine is currently in Status. +
        initial occupancy; runtime transitions assert the moves. -->
   <!-- AND NOTHING EVER ASSERTED A MOVE, because nothing ever had a machine
        to move (2026-09-17). A fire in this repo asserts the TRIGGER FACT and
-       nothing else (canon ui:apply, "a fire is an event fact asserted"), and
+       nothing else (lambda ui:apply, "a fire is an event fact asserted"), and
        the status is the fold over those facts — so the population is a
        function of rows that are already durable, and a restart recomputes it
        rather than reading back a copy. reflect:mstatus is that fold, the same

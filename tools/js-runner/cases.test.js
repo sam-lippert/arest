@@ -1,13 +1,13 @@
 // The js host's own unit tests. `bun test` -- no python, no other host.
 //
-// Every host runs the same canon over the same carriers, so "the hosts agree"
+// Every host runs the same lambda over the same carriers, so "the hosts agree"
 // does not need one host to drive the others: each asserts its own answers
 // against engine/shared/expected-cases.tsv, and agreement follows because they
 // all match the same file. Verifying this host needs bun and nothing else.
 //
 // Each case is one test, so a failure names the case rather than printing a
 // diff of 566 lines. The evaluator is entered exactly as the CLI enters it --
-// Ev("main", [CELLS, ["case", name]]) -- so this tests canon, not a test-only
+// Ev("main", [CELLS, ["case", name]]) -- so this tests lambda, not a test-only
 // path through the runner.
 //
 //   bun run build:test && bun test
@@ -38,9 +38,9 @@ function golden(file) {
 // perfectly, which is why the refusal COUNT is the signal and not the pass
 // line: a def the hosts cannot reduce would otherwise look verified.
 function answer(name) {
-  // THE BOTTOM ROWS ARE THE POINT. canon's note above main:case_text says one
+  // THE BOTTOM ROWS ARE THE POINT. lambda's note above main:case_text says one
   // case per invocation is deliberate: the table holds rows that BOTTOM, no
-  // canon def can branch on bottom, and a fold would die at the first one. The
+  // lambda def can branch on bottom, and a fold would die at the first one. The
   // CLI makes a bottom visible by dying, and the driver records <refused>.
   // In-process the boundary is a catch, and it has to be here or 17 deliberate
   // refusals read as 17 broken tests.
@@ -80,7 +80,7 @@ const cases = golden("expected-cases.tsv");
 // inside -- the evaluator never yields, so setInterval does not fire once for
 // the whole run -- which is why this is measured by its shape and not caught
 // in the act.
-describe("every case answers what the canon says it answers", () => {
+describe("every case answers what the lambda says it answers", () => {
   for (const [name, want] of cases) {
     test(name, () => {
       expect(answer(name)).toBe(want);
@@ -114,7 +114,7 @@ test("law:report holds, byte for byte", () => {
   expect(got).toBe(want);
 }, 900_000);
 
-// THE FIRST SCREEN IS A GOLDEN TOO. The laws never read the panes, so a canon
+// THE FIRST SCREEN IS A GOLDEN TOO. The laws never read the panes, so a lambda
 // change to ui:groups that emptied the root screen passed every gate above and
 // was caught by running a container (2026-09-07). The root layer of the base
 // store, as the ui container routes it, is recorded here and compared as the
@@ -199,7 +199,7 @@ test("the instance-of index built in one pass is the index the fold builds", () 
   expect(JSON.stringify(Ev("store:otpops", [[], cells]))).toBe(JSON.stringify(Ev(DEFS.get("store:otpops"), [[], cells])));
 });
 
-// ---- DOES CANON'S RELATIONAL MAPPING PROJECT TO A REAL DATABASE? -----------
+// ---- DOES LAMBDA'S RELATIONAL MAPPING PROJECT TO A REAL DATABASE? -----------
 //
 // rmap:ddl renders the mapping as CREATE TABLE. Asserting the text against a
 // golden would only pin the text; what matters is whether SQLite ACCEPTS it,
@@ -207,10 +207,10 @@ test("the instance-of index built in one pass is the index the fold builds", () 
 //
 // This is the leg that went out with the fat hosts (engine/python's
 // ddl.project(D, con) and the rust resident's `sql` verb) and it was never
-// fat-host work -- canon derives the schema, the host only opens a file. The
+// fat-host work -- lambda derives the schema, the host only opens a file. The
 // pieces were always here: rmap:ddl_table and rmap:ddl_order existed with NO
 // caller, so nothing walked the schema and nothing noticed.
-test("canon's DDL is a database SQLite will accept", () => {
+test("lambda's DDL is a database SQLite will accept", () => {
   const sql = String(Ev("rmap:ddl", CELLS));
   expect(sql).toContain("CREATE TABLE IF NOT EXISTS");
 
@@ -221,7 +221,7 @@ test("canon's DDL is a database SQLite will accept", () => {
     .all("table")
     .map((r) => r.name);
 
-  // every table canon names must exist in the database it just described
+  // every table lambda names must exist in the database it just described
   for (const name of Ev("rmap:tables", CELLS)) {
     expect(tables).toContain(String(name));
   }
@@ -234,7 +234,7 @@ test("canon's DDL is a database SQLite will accept", () => {
 // own, and Information Modeling and Relational Databases says twice -- at the
 // end of 10.3's Mapping Subtypes and again in 10.4 -- that absorbing a subtype
 // does NOT take that away from a non-functional role the subtype plays.
-// canon's rmap:absorbed took it away anyway, so 38 fact types of the base
+// lambda's rmap:absorbed took it away anyway, so 38 fact types of the base
 // metamodel had nowhere in the schema to be written: 1,538 of its 3,540 rows,
 // among them ObjectTypeInstanceIsInstanceOfObjectType's 1,426 and
 // ObjectTypeIsSubtypeOfObjectType's 111. The compiler dropped every one of them
@@ -342,7 +342,7 @@ test("every populated fact type's rows land in the schema", () => {
 // The two tests above ask whether the rows reach the schema. This asks whether
 // the schema still MEANS them: every table projected with rmap:proj_rows and
 // read straight back with rmap:unproj, compared against the population the
-// readings declare. It needs no database -- canon is held against itself -- and
+// readings declare. It needs no database -- lambda is held against itself -- and
 // it is the same question a boot asks when it loads a store instead of a
 // carrier, which is what rmap:unproj exists for.
 //
@@ -517,7 +517,7 @@ test("an absorbed column keyed by its second player lands every row, and an obje
 //
 // The Domain role sits at position 2 in every `belongs to Domain` fact type and
 // at position 1 in `Domain has Description`; that is the model's shape, not a
-// convention -- see system:domain_belongings in canon.
+// convention -- see system:domain_belongings in lambda.
 const ORIENT_SOURCES = [
   ["DomainHasDescription", 0, 1],
   ["FunctionBelongsToDomain", 1, 0],
@@ -649,8 +649,8 @@ test("orient's three legs each do something: reach, restriction, terminal", () =
 // types' tables, and loadStoreDb's read loop skipped each one in silence.
 //
 // WHAT STOOD HERE HELD THE STORE TO THE COMPOSITION STAMP instead -- sixteen hex
-// digits over the whole canon file and the carriers -- and measured 2026-09-21
-// that is both too strong and too weak. TOO STRONG: three canon commits that
+// digits over the whole lambda file and the carriers -- and measured 2026-09-21
+// that is both too strong and too weak. TOO STRONG: three lambda commits that
 // moved no table (reflect:src_*, rmap:unproj_owner deleted from the read side,
 // the judge's DEFs) invalidated every app's store, five were down at once, and
 // support's re-read is ten minutes. TOO WEAK: a database carrying THIS module's
@@ -741,9 +741,9 @@ test("a store.db is held to the schema it is read through, not to the compositio
 // That's how the bootstrap works. The metamodel doesn't change, and it's used
 // to bootstrap other apps."
 //
-// THE CIRCLE. loadStoreDb asks canon which tables to select from and which
+// THE CIRCLE. loadStoreDb asks lambda which tables to select from and which
 // columns, and both answers are functions of state:fts. Measured at 7194e39f on
-// a module composed from canon alone (build.js reader -- the empty carrier):
+// a module composed from lambda alone (build.js reader -- the empty carrier):
 // ast:fetch of state:fts answers #, rmap:coltabs throws `selector 1 on atom: #`
 // in 3 ms and loadStoreDb throws the same before it has opened anything. The
 // schema is what reads the tables and the schema is in the tables.
@@ -752,7 +752,7 @@ test("a store.db is held to the schema it is read through, not to the compositio
 // anything is read, and that is what this holds: the map is WRITTEN (the same
 // function compile.js calls, on a fixture built the way the durability tests
 // build one), it is FAITHFUL (table for table and column for column against
-// canon's own two answers, in canon's own order), and it is READ -- by a module
+// lambda's own two answers, in lambda's own order), and it is READ -- by a module
 // with no readings at all, which is the only module that proves anything here,
 // so it is composed and spawned rather than simulated in this one.
 //
@@ -777,7 +777,7 @@ test("a store carries the metaschema table it was written through, and a module 
       db.close();
     }
 
-    // ---- FAITHFUL: CANON'S OWN TWO ANSWERS, IN CANON'S OWN ORDER -----------
+    // ---- FAITHFUL: LAMBDA'S OWN TWO ANSWERS, IN LAMBDA'S OWN ORDER -----------
     // rmap:coltabs names the tables and rmap:proj_colnames their columns IN THE
     // ORDER THE PROJECTION FILLS THEM (its own note, arest ~17189) -- the order
     // the read loop selects in and rmap:unproj takes a tuple in. An unordered
@@ -806,7 +806,7 @@ test("a store carries the metaschema table it was written through, and a module 
     }
 
     // ---- READ, BY A MODULE THAT CARRIES NO READINGS ------------------------
-    // build.js reader splices canon and nothing else, which is exactly the
+    // build.js reader splices lambda and nothing else, which is exactly the
     // empty-carrier module the note above measures. AREST_OUT_DIR keeps it in the
     // scratch directory rather than over this directory's modules.
     const readerDir = join(dir, "mod");
@@ -1095,8 +1095,8 @@ test("an instance created at runtime is listed after a boot from the tables", ()
 //
 // Here the base's own CSDP machine stands in for support's: Schema Design is
 // what it is for, a created one seeds at step1-elementary-facts, and the tables
-// are read with sqlite alone -- no canon, no closure -- because a check that
-// asked canon would be asking the very computation whose answer was never
+// are read with sqlite alone -- no lambda, no closure -- because a check that
+// asked lambda would be asking the very computation whose answer was never
 // stored.
 test("the machine a boot derives over a runtime row is in the tables", () => {
   const stamp = globalThis.AREST.composition;
@@ -1142,7 +1142,7 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
   };
 
   // WHERE A FACT LIVES IS THE SCHEMA'S ANSWER. This read the tables with no
-  // canon at all, which it could while every fact type had a table of its own
+  // lambda at all, which it could while every fact type had a table of its own
   // named `r` and a hash of it. Neither of these two has a table: State Machine
   // is a subtype of Function and both are carried as COLUMNS of it, so which
   // table and which column is rmap:ctab's answer and nobody else's.
@@ -1252,7 +1252,7 @@ test("the machine a boot derives over a runtime row is in the tables", () => {
 // answered 524 elements, 262 of them bare fact type names, and rmap:proj_rows
 // threw `selector 1 on atom: DomainHasDescription` the first time compile.js
 // wrote a store through the projection (2026-09-21). Failing at a22a756e.
-test("solve:declared answers the same rows over the flat design state as over the chunked one", () => {
+test("solve:declared answers the same rows over the flat schema as over the chunked one", () => {
   const chunked = Ev("solve:declared", CELLS);
   expect(chunked.length).toBeGreaterThan(0);
   expect(chunked.every(Array.isArray)).toBe(true);
@@ -1435,16 +1435,16 @@ test("a store is read when asked: a population reads its own table, none is read
 // AWAY", ~296) is not this host's code -- it is compile.js's own, run as a CLI
 // over a readings directory -- so testing it means running it, the way the
 // test above runs a driver rather than reimplementing emitToDb. ConstraintSpan
-// and Function.constraintModalityType are the metamodel's own case: canon's
+// and Function.constraintModalityType are the metamodel's own case: lambda's
 // reflect:computed pairs ConstraintSpan with reflect:spans and
 // ConstraintHasModalityOfModalityType with reflect:modalities (both #122 item
 // 1's reflect:cells union). Since the check writes the closure into the build
 // (2026-09-21) a fresh compile.js build holds the reflection's own rows in
-// both; what an OLDER design state's write-back would have left there is a
-// row and a value this design state's reflection does not produce, and the
+// both; what an OLDER schema's write-back would have left there is a
+// row and a value this schema's reflection does not produce, and the
 // carry over the next build must not keep them. A row written straight into the
 // store between two builds stands in for what a BOOT's write-back would have
-// left there from an older design state (host.js's loadReflected + emitToDb,
+// left there from an older schema (host.js's loadReflected + emitToDb,
 // the durability tests above); the carry must not mistake it for a runtime
 // fact the way it does at HEAD (b6e16927).
 test("the carry leaves a reflected row to the closure instead of keeping it", () => {
@@ -1466,8 +1466,8 @@ test("the carry leaves a reflected row to the closure instead of keeping it", ()
 
   try {
     // the fresh build: no prior store, nothing carried; the check writes the
-    // closure into it, so the reflected shapes ARE populated -- by canon's
-    // reflection over this design state, and by nothing else
+    // closure into it, so the reflected shapes ARE populated -- by lambda's
+    // reflection over this schema, and by nothing else
     const first = build();
     expect(first).toContain("store:");
     expect(first).not.toContain("runtime row(s) carried");
@@ -1475,14 +1475,14 @@ test("the carry leaves a reflected row to the closure instead of keeping it", ()
     expect(before.prepare('select count(*) c from "ConstraintSpan"').get().c).toBeGreaterThan(0);
     expect(before.prepare('select count(*) c from "ConstraintSpan" where "constraintSpanId"=?').get("x-probe-span").c).toBe(0);
     // a Function the reflection gives no modality, so the value injected below
-    // is one this design state's own closure would not produce
+    // is one this schema's own closure would not produce
     const fnKey = before.prepare('select "functionId" k from "Function" where "constraintModalityType" is null limit 1').get().k;
     expect(fnKey).toBeTruthy();
     before.close(true);
 
     // what a boot's write-back would have left behind from an older design
     // state: a ConstraintSpan row and a Function constraint-modality value
-    // this design state's own reflection would not produce
+    // this schema's own reflection would not produce
     const seed = new Database(path);
     seed.run('insert into "ConstraintSpan" ("constraintSpanId","constraintId","position","roleId","sequenceNumber") values (?,?,?,?,?)',
       ["x-probe-span", "x-probe-constraint", "9", "x-probe-role", "9"]);
@@ -2092,13 +2092,13 @@ test("an objectification declares its own nested object type, and Halpin's Listi
 // Number), API (accepts Object Type as parameter), DomainConnectsToExternalSystem
 // (carries Secret Reference, has Send Mode), RoleSequenceHasPosition (holds
 // Role) and RoleInstance (uses Object Type Instance). This reads the nestings
-// the design state carries and asks the same question of every one.
+// the schema carries and asks the same question of every one.
 test("every objectification the metamodel declares is used as a noun", () => {
   // WHICH NESTS ARE OBJECTIFICATIONS IS NOT CARRIED. state:nestings holds every
   // nest -- the declared objectifications AND the implicit ones NORMA makes of
   // every many-to-many and n-ary fact type (read:is_implied_nest, IsImplied in
   // ORMCore), each of which is declared an object type too -- so nothing in the
-  // design state tells the two apart; that is the catalog gap `Object Type
+  // schema tells the two apart; that is the catalog gap `Object Type
   // objectifies Fact Type` closes. The reader's own state does: its first
   // element's seventh slot is the declared nest names, the list read:implied_nests
   // subtracts. So the metamodel is read here the way the witness cases read it.
@@ -2223,7 +2223,7 @@ test("a retired surrogate is not a lost fact, and a value the new key cannot rec
   }
 }, 120_000);
 
-// ---- IS EACH CANON FILE STILL INTERSECTION SOURCE? -------------------------
+// ---- IS EACH LAMBDA FILE STILL INTERSECTION SOURCE? -------------------------
 //
 // The discipline: one tuple literal per file, every element either a
 // DEF(name, tree) call or a double-quoted description string, no comments (the
@@ -2234,19 +2234,19 @@ test("a retired surrogate is not a lost fact, and a value the new key cannot rec
 // test_intersection_shape.py -- approached the property directly, of the bytes,
 // and its docstring records why that matters: "a file that four of the five
 // hosts accept passes everything, because the fifth host is never pointed at
-// it. That is exactly what happened: the ROOT canon accumulated eight `//`
+// it. That is exactly what happened: the ROOT lambda accumulated eight `//`
 // comment lines -- legal Rust, C#, Java and JS, invalid Python -- while only
 // the curated engine/shared/arest.canon was fed to CPython."
 //
 // It used Python's parser as the strictest reader. With python gone no host
 // rejects a `//`, so the rule needs asserting rather than inheriting -- and it
-// was already broken: this session's canon carried the forbidden trailing comma
+// was already broken: this session's lambda carried the forbidden trailing comma
 // until the byte check went looking for it.
 //
 // These are BYTE rules, not a parser. Whether the file PARSES is already proven
 // by bun exec'ing the composition; what a parse cannot tell you is whether it
 // would still parse somewhere else.
-const CANON_FILES = [
+const LAMBDA_FILES = [
   join(import.meta.dir, "..", "..", "arest"),
   join(SHARED, "scenarios.canon"),
 ];
@@ -2273,7 +2273,7 @@ function outsideStrings(text) {
 // ---- DOES EVERY CONSTRUCTOR HOLD WHAT IT WAS GIVEN? ------------------------
 //
 // Sn is fixed-arity JS -- S2(a, b) { return [a, b]; } -- so S2(a, b, c) returns
-// [a, b] and the c is GONE, with no error. This is not a property canon can
+// [a, b] and the c is GONE, with no error. This is not a property lambda can
 // check about itself: by the time a cell exists the constructor has already
 // been applied, and the evidence that a fourth argument was written is
 // destroyed at load. Only the SOURCE knows, which is why this sits beside the
@@ -2441,11 +2441,11 @@ test("retracting a parent by key removes its facts and not its bound child's", (
 });
 
 describe("every constructor holds what it was given", () => {
-  for (const file of CANON_FILES) {
+  for (const file of LAMBDA_FILES) {
     const name = file.split(/[\/]/).pop();
     // THE BUDGET IS THE FILE'S, NOT THE DEFAULT'S. This walks every character of
-    // canon -- two megabytes, and one more cell of the reader's is nine kilobytes
-    // of it -- so bun's 5-second default was a ceiling canon was already touching
+    // lambda -- two megabytes, and one more cell of the reader's is nine kilobytes
+    // of it -- so bun's 5-second default was a ceiling lambda was already touching
     // (5.4 s on 2026-09-17, on a scan that had not changed). A lint over a growing
     // file that fails on the growth says nothing about the file, so it is given
     // room to finish and still fails on what it is for: a constructor holding
@@ -2497,7 +2497,7 @@ describe("explain justifies every conclusion", () => {
 });
 
 describe("intersection source", () => {
-  for (const file of CANON_FILES) {
+  for (const file of LAMBDA_FILES) {
     const name = file.split(/[\/]/).pop();
     const text = readFileSync(file, "utf8");
     const bare = outsideStrings(text);
@@ -2540,7 +2540,7 @@ describe("intersection source", () => {
 // tools/rust-host/src/lib.rs:1214 is `fn N(n: i64) -> V`,
 // tools/cs-runner/Reader.cs:113 is int.Parse, tools/java-runner/Reader.java:106
 // is Integer.parseInt. A decimal case there would make three hosts refuse a row
-// this one answers, which is not disagreement about canon but a question canon
+// this one answers, which is not disagreement about lambda but a question lambda
 // cannot ask them. So these are the js mu's OWN properties, beside the store.db
 // and emitToDb tests, and the shared table keeps saying only what all four hosts
 // can say.
@@ -2780,7 +2780,7 @@ describe("law:paired over the React container's registration table", () => {
     // BOTH WAYS ROUND, which is what #124 added: law:unpaired above says the
     // container registers everything the store declares, and this says the
     // store declares everything the container registers. One direction alone
-    // let the metamodel declare ten kinds while canon emitted nineteen --
+    // let the metamodel declare ten kinds while lambda emitted nineteen --
     // ui:screen on `new Function` places a navigationfield over this very
     // store, and no container was ever asked whether it had one.
     expect(declared.slice().sort()).toEqual(HTML.slice().sort());
@@ -2824,12 +2824,12 @@ describe("law:paired over the React container's registration table", () => {
   });
 });
 
-// ---- THE READER IS CANON, AND IT IS NOW ITS OWN WITNESS -------------------
+// ---- THE READER IS LAMBDA, AND IT IS NOW ITS OWN WITNESS -------------------
 //
 // 2026-09-20, #109: the oracle is deleted and the carrier these tests read
-// as `the witness` is written by canon's own reader (tools/js-runner/
-// compile.js). So every comparison below is canon against the design state
-// canon wrote, read back through the host's CANONTEXT -- a ROUND TRIP of the
+// as `the witness` is written by lambda's own reader (tools/js-runner/
+// compile.js). So every comparison below is lambda against the schema
+// lambda wrote, read back through the host's LAMBDATEXT -- a ROUND TRIP of the
 // carrier, which can fail on chunking, on an escape, on an atom that should
 // have been a number. It is no longer a comparison against an independent
 // second implementation, and nothing is, because there no longer is one.
@@ -2837,7 +2837,7 @@ describe("law:paired over the React container's registration table", () => {
 //
 // Sam, 2026-09-15: "I don't want to be dependent on NORMA. I'm developing
 // AREST. AREST needs to provide all functionality." So the FORML reader is
-// canon end to end -- text in, sentences (read:sentences), tokens
+// lambda end to end -- text in, sentences (read:sentences), tokens
 // (read:row_of), the populated conceptual schema (read:parse) -- and the C#
 // oracle is consulted only as the witness it is named for: its cells are
 // already composed into this module, so the comparison is Ev against Ev, and
@@ -2845,7 +2845,7 @@ describe("law:paired over the React container's registration table", () => {
 // they are pinned as a RATCHET, so this test fails on every improvement until
 // it is re-pinned, which is the only way a golden can be honest about a
 // reader that is still closing a distance.
-describe("canon's reader against the witness, on the base metamodel", () => {
+describe("lambda's reader against the witness, on the base metamodel", () => {
   const { DEFS } = globalThis.AREST;
   const META = join(import.meta.dir, "..", "..", "metamodel");
   const files = readdirSync(META).filter((f) => f.endsWith(".md"))
@@ -3027,32 +3027,32 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     for (const [n, c] of C) { const o = O.get(n); if (!o) continue; both++;
       const p = D.has(n) && J(c[1]) === J(D.get(n)[1]), u = J(c[2]) === J(o[2]), m = J(c[3]) === J(o[3]);
       players += p; ucs += u; mands += m; all += p && u && m; }
-    const canonOnly = [...C.keys()].filter((n) => !O.has(n)), oracleOnly = [...O.keys()].filter((n) => !C.has(n));
+    const lambdaOnly = [...C.keys()].filter((n) => !O.has(n)), oracleOnly = [...O.keys()].filter((n) => !C.has(n));
     const derBoth = [...derC].filter((n) => derO.has(n)).length;
     // the rows as the carrier holds them (state:fts, chunked by nine), in its order; store:fts unfolds them
     const R = new Map(Ev("ast:fetch", ["state:fts", CELLS]).flat(1).map((d) => [String(d[0]), d]));
     const rowsEq = [...C.values()].filter((d) => R.has(String(d[0])) && J(d[4]) === J(R.get(String(d[0]))[4])).length;
     const rejected = out[2].filter((r) => Array.isArray(r[2]) && String(r[2][0]) === "rejected").length;
-    // the state canon writes (the ten synthesized populations included) and its uniqueness rows, against the carrier's
+    // the state lambda writes (the ten synthesized populations included) and its uniqueness rows, against the carrier's
     const X = Ev("read:x_of", rows); const S = Ev("read:state_fts", X);
     const stateRows = S.filter((d) => R.has(String(d[0])) && J(d) === J(R.get(String(d[0])))).length;
     const U = new Set(Ev("ast:fetch", ["state:ucs", CELLS]).flat(1).map(J)); const stateUcs = Ev("read:state_ucs", X).filter((r) => U.has(J(r))).length;
     // THE WITNESS IS REGENERATED AND THE DISTANCE IS ZERO (2026-09-17). It was
     // recorded against carriers of 2026-09-15 19:14 and had drifted two days:
-    // canon read four descriptors the witness lacked (Verbalization Pattern's
+    // lambda read four descriptors the witness lacked (Verbalization Pattern's
     // fact types, from metamodel/verbalization.md and the orient and tutor
     // operations) and the rows of three operation fact types and of the
     // reflected populations they touch (kinds, instances, references, data
     // type, declaration order, subtype, reference mode, enum values) moved
     // with them. Regenerating tools/norma-oracle over metamodel/ closes all of
-    // it: witness 257 -> 261, canonOnly 4 -> 0, rows 244 -> 250, stateRows 245
+    // it: witness 257 -> 261, lambdaOnly 4 -> 0, rows 244 -> 250, stateRows 245
     // -> 257, stateUcs 624 -> 631, and every descriptor field agrees.
     // AND THE LAST ONE IS THIS BRANCH'S FIX. With the witness fresh but the
     // metamodel unchanged, ucs/all/stateRows each stayed ONE short, on
     // UserApprovesDomainChange alone: the self-modification gate's `exactly one
     // User approves that Domain Change` built a deontic uniqueness over the
     // Domain Change role, which is NARROWER than the fact type's spanning one,
-    // so the oracle deleted the spanning UC ([[1,2]] -> [[2]]) while canon's
+    // so the oracle deleted the spanning UC ([[1,2]] -> [[2]]) while lambda's
     // reader kept both ([[1,2],[2]]) -- and NORMA then refused the model,
     // FactTypeRequiresInternalUniquenessConstraintError, because the only
     // uniqueness left on it was deontic. The gate now reads `some User`
@@ -3064,11 +3064,11 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     // no longer carries AgentIsASubtypeOfObjectTypeInstance and its two
     // internal uniqueness constraints go with it: stateUcs 632 -> 630. Every
     // other field is unmoved -- the subtype fact is not a table, so witness,
-    // canon, players, ucs, mands, all and stateRows all stay where they were.
+    // lambda, players, ucs, mands, all and stateRows all stay where they were.
     // AND `Operation awaits a driver` IS STORED NOW (2026-09-18). Declaring it
     // `**` rather than `*` in metamodel/resolution.md puts it in the STORED
     // schema -- the oracle drops a `*` head from state:fts (Codd 1970 1.5,
-    // Verifier.cs) and canon's rmap:gate drops it from the map (NORMA
+    // Verifier.cs) and lambda's rmap:gate drops it from the map (NORMA
     // GATE:187-188), so a fully derived head has no table at all, which is why
     // this one had none while both of its inputs did. One fact type enters,
     // both readers read it the same way, and every count that ranges over the
@@ -3087,9 +3087,9 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     // answer exists, so the declared entry stays three slots and the six
     // case:read-* goldens are untouched. THIS RAISES THE FLOOR, which is why the
     // pin moves: rows 251 -> 252 and stateRows 259 -> 262. stateRows now EQUALS
-    // witness/canon/both/all at 262 -- every state row canon writes is
+    // witness/canon/both/all at 262 -- every state row lambda writes is
     // byte-identical to the carrier's, the first time the distance has been zero
-    // on that field. `canon's state:otpops carries the witness's populations`
+    // on that field. `lambda's state:otpops carries the witness's populations`
     // goes green with it; it was the same defect read through the populations.
 
     // AND A FULLY-DERIVED HEAD IS STORED LIKE ANY OTHER (Sam, 2026-09-21: an
@@ -3131,16 +3131,16 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     // 32 of the metamodel's 38 lose `X objectifies` and `X is a subtype of
     // Function`; the subtype link is one-to-one, a uniqueness on each role, so
     // the 32 subtype facts take 64 uniquenesses with them: stateUcs 665 -> 601.
-    // It is still the whole agreement -- canon and the carrier are one compile's.
-    expect({ witness: O.size, canon: C.size, both, canonOnly: canonOnly.length, oracleOnly: oracleOnly.length,
+    // It is still the whole agreement -- lambda and the carrier are one compile's.
+    expect({ witness: O.size, lambda: C.size, both, lambdaOnly: lambdaOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
-      .toEqual({ witness: 289, canon: 289, both: 289, canonOnly: 0, oracleOnly: 0,
+      .toEqual({ witness: 289, lambda: 289, both: 289, lambdaOnly: 0, oracleOnly: 0,
                  players: 262, ucs: 289, mands: 289, all: 262, rows: 278, rejected: 0, derived: [37, 37, 37], stateRows: 289, stateUcs: 601 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
   // the base metamodel's 37 deontic sentences -- 9 mandatory, 1 uniqueness, 3
-  // prohibited -- and the carrier canon writes must hold the same 13 rows, key,
+  // prohibited -- and the carrier lambda writes must hold the same 13 rows, key,
   // kind and legs, in both directions; the rows are listed by name on a miss.
   // AND ONE MORE SINCE THE SELF-MODIFICATION GATE WAS RESTATED (2026-09-17,
   // #108), re-recorded here against a regenerated witness. `It is obligatory
@@ -3159,43 +3159,43 @@ describe("canon's reader against the witness, on the base metamodel", () => {
   // beside the sentence: a deontic uniqueness beside the alethic spanning one
   // is legal ORM and the oracle's AddInternalUC, which compares role spans and
   // never modality, cannot build the pair.
-  test("canon's state:deontics is the witness's, row for row", () => {
+  test("lambda's state:deontics is the witness's, row for row", () => {
     const rows = [];
     for (const f of files) for (const s of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", s));
     const J = (x) => JSON.stringify(x);
-    const cells = new Map(Ev("read:design_state_of", rows).map((c) => [String(c[0]), c[1]]));
-    const canon = (cells.get("state:deontics") || []).map(J);
+    const cells = new Map(Ev("read:schema_of", rows).map((c) => [String(c[0]), c[1]]));
+    const lambda = (cells.get("state:deontics") || []).map(J);
     const witness = Ev("ast:fetch", ["state:deontics", CELLS]).flat(1).map(J);
-    const W = new Set(witness), C = new Set(canon);
-    expect({ witness: witness.length, canon: canon.length,
-             oracleOnly: witness.filter((r) => !C.has(r)), canonOnly: canon.filter((r) => !W.has(r)) })
-      .toEqual({ witness: 13, canon: 13, oracleOnly: [], canonOnly: [] });
+    const W = new Set(witness), C = new Set(lambda);
+    expect({ witness: witness.length, lambda: lambda.length,
+             oracleOnly: witness.filter((r) => !C.has(r)), lambdaOnly: lambda.filter((r) => !W.has(r)) })
+      .toEqual({ witness: 13, lambda: 13, oracleOnly: [], lambdaOnly: [] });
   }, 300_000);
 
   // THE RULES THE READER CARRIES (#109). state:rules was written EMPTY until
   // 2026-09-16: the reader recognised a derivation sentence and kept its
   // clauses, and nothing compiled them into the recipe derive runs, so every
-  // carrier canon wrote had its heads marked and no deliverer. The compiler is
+  // carrier lambda wrote had its heads marked and no deliverer. The compiler is
   // the read:rule_* family -- the oracle's arm sequence, read from the reader's
   // own records -- and this pins its answer against the witness's rows compared
   // as SETS of recipe trees in both directions (the trees are what derive
   // evaluates), and the heads the witness lists undelivered against the ones
-  // canon lists with a reason of its own naming. Pinned before the compiler
-  // existed it failed at canon 0 of 44. The witness writes two of its 46 rows
+  // lambda lists with a reason of its own naming. Pinned before the compiler
+  // existed it failed at lambda 0 of 44. The witness writes two of its 46 rows
   // twice (its `and no ... where` arm re-emits what an earlier arm built);
-  // canon writes each row once, so the raw witness count is pinned beside it.
+  // lambda writes each row once, so the raw witness count is pinned beside it.
   //
-  // AND THE ROW THAT WAS CANON-ONLY IS THE RECORD OF WHAT THE ORACLE DID NOT
+  // AND THE ROW THAT WAS LAMBDA-ONLY IS THE RECORD OF WHAT THE ORACLE DID NOT
   // BUILD. metamodel/state.md states the Harel nesting of `Status is defined in
   // State Machine Definition` (a state defined in a nested machine is defined in
   // the machine that nests it); the reader compiles it with the SUBTYPE
   // NARROWING arm, and the oracle built no rule for that head at all -- it
   // listed StatusIsDefinedInStateMachineDefinition as UNDELIVERED. That row is
-  // now in the carrier, because canon writes the carrier, so canonOnly is 0 and
+  // now in the carrier, because lambda writes the carrier, so lambdaOnly is 0 and
   // witnessUndelivered is two names rather than three. The 46-vs-45 row count
   // went the same way: the oracle wrote two of its rows twice, from an
   // `and no ... where` arm that re-emitted what an earlier arm had built, and
-  // canon writes each row once.
+  // lambda writes each row once.
   //
   // What survives is the round trip: 45 rules in, 45 rules out, every recipe
   // tree identical after the carrier has been written and parsed again.
@@ -3206,16 +3206,16 @@ describe("canon's reader against the witness, on the base metamodel", () => {
     const J = (x) => JSON.stringify(x);
     const witness = Ev("ast:fetch", ["state:rules", CELLS]).flat(1);
     const W = new Set(witness.map(J));
-    const canon = Ev("read:state_rules", F);
-    const C = new Set(canon.map(J));
+    const lambda = Ev("read:state_rules", F);
+    const C = new Set(lambda.map(J));
     const both = [...C].filter((r) => W.has(r)).length;
     const und = Ev("read:state_undelivered", F);
-    expect({ witnessRows: witness.length, witness: W.size, canon: canon.length, distinct: C.size, both, canonOnly: C.size - both, witnessOnly: W.size - both,
-             canonOnlyRows: canon.map(J).filter((r) => !W.has(r)),
+    expect({ witnessRows: witness.length, witness: W.size, lambda: lambda.length, distinct: C.size, both, lambdaOnly: C.size - both, witnessOnly: W.size - both,
+             lambdaOnlyRows: lambda.map(J).filter((r) => !W.has(r)),
              undelivered: und.map((p) => String(p[0])), reasons: und.every((p) => typeof p[1] === "string" && p[1].length > 0),
              witnessUndelivered: Ev("ast:fetch", ["state:undelivered", CELLS]).flat(1).map((p) => String(p[0])) })
-      .toEqual({ witnessRows: 45, witness: 45, canon: 45, distinct: 45, both: 45, canonOnly: 0, witnessOnly: 0,
-                 canonOnlyRows: [],
+      .toEqual({ witnessRows: 45, witness: 45, lambda: 45, distinct: 45, both: 45, lambdaOnly: 0, witnessOnly: 0,
+                 lambdaOnlyRows: [],
                  undelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"], reasons: true,
                  witnessUndelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"] });
   }, 300_000);
@@ -3235,7 +3235,7 @@ describe("canon's reader against the witness, on the base metamodel", () => {
 // below are the witness's own, copied from the served apps' carriers
 // (.check/design-state): the three chains and the membership leg from
 // arest-dev, the anti-join from its `Fact Type is inert`.
-describe("canon's reader carries the witness's general chain", () => {
+describe("lambda's reader carries the witness's general chain", () => {
   const META = join(import.meta.dir, "..", "..", "metamodel");
   const TEMPLATES = join(import.meta.dir, "..", "..", "readings", "templates");
   const order = (a, b) => (a === "core.md" ? "0" : a).localeCompare(b === "core.md" ? "0" : b);
@@ -3297,7 +3297,7 @@ describe("canon's reader carries the witness's general chain", () => {
 
 // ---- THE CONSTRAINT CELLS THE STORE CONSUMES, AND THE ORDERING CELL --------
 //
-// Canon's reader wrote 17 of the 29 design-state cells the witness writes, and
+// Lambda's reader wrote 17 of the 29 design-state cells the witness writes, and
 // five of the twelve it did not write are the ones a STORE reads: state:otpops
 // is ui:ids, so every mandatory verdict ranged over an empty population and 16
 // laws bottomed on `#`; state:exclusions is law:exclusion and cmd:excl_viols;
@@ -3309,11 +3309,11 @@ describe("canon's reader carries the witness's general chain", () => {
 //
 // THE WITNESS IS REGENERATED (2026-09-17), exactly as the schema test above
 // records. It used to predate metamodel/verbalization.md and the orient and
-// tutor operations, so canon read six fact types and six object types it had
-// never seen and the distance was stated as "every witness row, and canon's own
+// tutor operations, so lambda read six fact types and six object types it had
+// never seen and the distance was stated as "every witness row, and lambda's own
 // newer ones named"; the two sides now hold the same sets and the pins below say
 // so. A change in either direction is a finding, not noise.
-describe("canon's constraint cells against the witness, on the base metamodel", () => {
+describe("lambda's constraint cells against the witness, on the base metamodel", () => {
   const META = join(import.meta.dir, "..", "..", "metamodel");
   const files = readdirSync(META).filter((f) => f.endsWith(".md"))
     .sort((a, b) => (a === "core.md" ? "0" : a).localeCompare(b === "core.md" ? "0" : b));
@@ -3329,12 +3329,12 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
   for (const [cell, name, n] of [["read:ring_state", "state:rings", 6],
                                  ["read:qual_state", "state:qualifiers", 3],
                                  ["read:excl_state", "state:exclusions", 2]]) {
-    test("canon's " + name + " is the witness's, row for row", () => {
+    test("lambda's " + name + " is the witness's, row for row", () => {
       const w = witness(name).map(J), c = Ev(cell, F).map(J);
       const W = new Set(w), C = new Set(c);
-      expect({ witness: w.length, canon: c.length, order: J(w) === J(c),
-               oracleOnly: w.filter((r) => !C.has(r)), canonOnly: c.filter((r) => !W.has(r)) })
-        .toEqual({ witness: n, canon: n, order: true, oracleOnly: [], canonOnly: [] });
+      expect({ witness: w.length, lambda: c.length, order: J(w) === J(c),
+               oracleOnly: w.filter((r) => !C.has(r)), lambdaOnly: c.filter((r) => !W.has(r)) })
+        .toEqual({ witness: n, lambda: n, order: true, oracleOnly: [], lambdaOnly: [] });
     }, 300_000);
   }
 
@@ -3357,13 +3357,13 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
   // Type 'Schema Design notes elementary facts'` still enters Event Type's
   // population as SchemaDesignNotesElementaryFacts, because Event Type is an
   // entity type.
-  test("canon's state:otpops carries the witness's populations", () => {
+  test("lambda's state:otpops carries the witness's populations", () => {
     const W = new Map(witness("state:otpops").map((r) => [String(r[0]), r[1].flat(1).map(String)]));
     const C = new Map(Ev("read:otpops_state", F).map((r) => [String(r[0]), r[1].flat(1).map(String)]));
     const missing = [...W.keys()].filter((k) => !C.has(k));
     const same = [...W].filter(([k, v]) => C.has(k) && J(v) === J(C.get(k))).length;
     const grew = [...W].filter(([k, v]) => C.has(k) && J(v) !== J(C.get(k)));
-    expect({ witness: W.size, canon: C.size, missing, same,
+    expect({ witness: W.size, lambda: C.size, missing, same,
              grew: grew.map(([k]) => k),
              contained: grew.every(([k, v]) => v.every((x) => C.get(k).includes(x))),
              newTypes: [...C.keys()].filter((k) => !W.has(k)) })
@@ -3372,32 +3372,32 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
     // population they had not had: read:otpops_state files the subjects and
     // objects of INSTANCE FACTS, and those seven sentences name a Reading, two
     // Roles and a Text literally where before every one of them reached the
-    // store only as a reflected link. The witness and canon still answer the
+    // store only as a reflected link. The witness and lambda still answer the
     // same 44 keys with the same values, which is what missing, grew and
     // newTypes being empty says; only the count moved.
-      .toEqual({ witness: 44, canon: 44, missing: [], same: 44,
+      .toEqual({ witness: 44, lambda: 44, missing: [], same: 44,
                  grew: [], contained: true, newTypes: [] });
   }, 300_000);
 
   // THE ORDER IS THE ROW, so the ordinal is only meaningful against the same
-  // set of fact types: canon's sequence restricted to the ones the witness has
+  // set of fact types: lambda's sequence restricted to the ones the witness has
   // is the witness's sequence. The six Verbalization Pattern fact types that
-  // used to be canon-only are in the regenerated witness (2026-09-17), so the
-  // two sequences are now the same rows and canonOnly is empty. Agent left
+  // used to be lambda-only are in the regenerated witness (2026-09-17), so the
+  // two sequences are now the same rows and lambdaOnly is empty. Agent left
   // core on 2026-09-18 (its declaration moved to readings/templates), so
   // AgentIsASubtypeOfObjectTypeInstance is no longer in the base metamodel's
   // declaration order and the count is 506 where it was 507. Ordinals after
   // it renumber, which is why `renumbered` is the field that proves nothing
   // else moved.
-  test("canon's state:factorder is the witness's sequence", () => {
+  test("lambda's state:factorder is the witness's sequence", () => {
     const w = witness("state:factorder").map((r) => String(r[0]));
     const c = Ev("read:order_state", F);
     const WN = new Set(w);
     const kept = c.filter((r) => WN.has(String(r[0])));
-    expect({ canon: c.length, witness: w.length, kept: kept.length,
+    expect({ lambda: c.length, witness: w.length, kept: kept.length,
              sequence: J(kept.map((r) => String(r[0]))) === J(w),
              renumbered: J(kept.map((r, i) => [String(r[0]), i + 1])) === J(witness("state:factorder").map((r) => [String(r[0]), r[1]])),
-             canonOnly: c.filter((r) => !WN.has(String(r[0]))).map((r) => String(r[0])) })
+             lambdaOnly: c.filter((r) => !WN.has(String(r[0]))).map((r) => String(r[0])) })
       // 506 -> 541 (2026-09-21): a fully-derived head is stored, so the 16
       // binary `*` heads with a spanning uniqueness are objectified as any
       // asserted many-to-many is, and their 35 involvement fact types (two per
@@ -3407,13 +3407,13 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
       // 541 -> 509 (2026-09-23): the 32 objectifications that are no noun lose
       // `X is a subtype of Function`, one subtype fact each, and the sequence and
       // its renumbering still agree with the carrier's.
-      .toEqual({ canon: 509, witness: 509, kept: 509, sequence: true, renumbered: true, canonOnly: [] });
+      .toEqual({ lambda: 509, witness: 509, kept: 509, sequence: true, renumbered: true, lambdaOnly: [] });
   }, 300_000);
 
-  // and the assembler carries them: the design state canon writes holds every
+  // and the assembler carries them: the schema lambda writes holds every
   // cell it used to hold and these beside them
-  test("read:design_state names the new cells", () => {
-    const names = Ev("read:design_state_of", rows).map((c) => String(c[0]));
+  test("read:schema names the new cells", () => {
+    const names = Ev("read:schema_of", rows).map((c) => String(c[0]));
     expect(names.filter((n) => ["state:otpops", "state:rings", "state:qualifiers", "state:exclusions", "state:factorder"].includes(n)))
       .toEqual(["state:otpops", "state:rings", "state:qualifiers", "state:exclusions", "state:factorder"]);
   }, 600_000);
@@ -3436,7 +3436,7 @@ describe("canon's constraint cells against the witness, on the base metamodel", 
 // readings, the same rule sentences, the same recipe. A rule sentence is fed to
 // the reader whole -- read:sentences, read:row_of, read:x_of, read:x_full,
 // read:state_rules -- so this exercises the arm through the door an app uses.
-describe("canon's reader reads an alias and a leg's own value", () => {
+describe("lambda's reader reads an alias and a leg's own value", () => {
   const J = (x) => JSON.stringify(x);
   const rulesOf = (text) => {
     const rows = [];
@@ -3558,7 +3558,7 @@ describe("canon's reader reads an alias and a leg's own value", () => {
 // here too, each with why, because a decline is a claim: `Derivation Rule2` is a
 // subscript and not an object type, so the leg has no root to lay, and the
 // oracle's BuildPathForSequence refuses it in the same place.
-describe("canon's state:setcmp against the witness, on the base metamodel", () => {
+describe("lambda's state:setcmp against the witness, on the base metamodel", () => {
   const META = join(import.meta.dir, "..", "..", "metamodel");
   const files = readdirSync(META).filter((f) => f.endsWith(".md"))
     .sort((a, b) => (a === "core.md" ? "0" : a).localeCompare(b === "core.md" ? "0" : b));
@@ -3567,13 +3567,13 @@ describe("canon's state:setcmp against the witness, on the base metamodel", () =
   const F = Ev("read:x_full", Ev("read:x_of", rows));
   const J = (x) => JSON.stringify(x);
 
-  test("canon's state:setcmp is the witness's, row for row and recipe for recipe", () => {
+  test("lambda's state:setcmp is the witness's, row for row and recipe for recipe", () => {
     const w = Ev("ast:fetch", ["state:setcmp", CELLS]).flat(1).map(J);
     const c = Ev("read:setcmp_state", F).map(J);
     const W = new Set(w), C = new Set(c);
-    expect({ witness: w.length, canon: c.length, order: J(w) === J(c),
-             oracleOnly: w.filter((r) => !C.has(r)), canonOnly: c.filter((r) => !W.has(r)) })
-      .toEqual({ witness: 9, canon: 9, order: true, oracleOnly: [], canonOnly: [] });
+    expect({ witness: w.length, lambda: c.length, order: J(w) === J(c),
+             oracleOnly: w.filter((r) => !C.has(r)), lambdaOnly: c.filter((r) => !W.has(r)) })
+      .toEqual({ witness: 9, lambda: 9, order: true, oracleOnly: [], lambdaOnly: [] });
   }, 300_000);
 
   // the value condition the step triples could never say: the superset leg is
@@ -3642,8 +3642,8 @@ describe("canon's state:setcmp against the witness, on the base metamodel", () =
   }, 300_000);
 
   // and the assembler carries it, at the end, where the oracle's carrier has it
-  test("read:design_state names state:setcmp", () => {
-    const names = Ev("read:design_state_of", rows).map((c) => String(c[0]));
+  test("read:schema names state:setcmp", () => {
+    const names = Ev("read:schema_of", rows).map((c) => String(c[0]));
     expect(names.includes("state:setcmp")).toBe(true);
     expect(names[names.length - 1]).toBe("state:setcmp");
   }, 600_000);
@@ -3657,7 +3657,7 @@ describe("canon's state:setcmp against the witness, on the base metamodel", () =
 // copied tree for tree rather than restated. A fixture is a corpus, not a unit:
 // what is being tested is that the whole reader answers the sentence, so a shape
 // that moves to another arm keeps its test.
-describe("canon's reader carries the chain's named shapes", () => {
+describe("lambda's reader carries the chain's named shapes", () => {
   const J = (x) => JSON.stringify(x);
   const rulesOf = (text) => {
     const rows = [];
@@ -3743,7 +3743,7 @@ describe("canon's reader carries the chain's named shapes", () => {
   // A CLAUSE KEEPS ITS ARTICLES WHERE THE READING DROPS THEM. `that Customer
   // exceeds the Concurrency Ceiling of some API` is the declared `Customer exceeds
   // Concurrency Ceiling of API`, and ResolveClause drops `a`, `an` and `the` from
-  // both sides before comparing; canon keyed on the words as written and the
+  // both sides before comparing; lambda keyed on the words as written and the
   // clause named no fact type, so the whole rule declined.
   // (apps/auto.dev/api-use-cases.md:108)
   test("a clause resolves with its articles dropped", () => {
@@ -3823,14 +3823,14 @@ describe("canon's reader carries the chain's named shapes", () => {
 // against the witness carriers (apps/*/.check/design-state, written by
 // tools/norma-oracle) on 2026-09-17, each pinned here on the smallest fixture
 // that shows it. Every case below fails on the parent commit.
-describe("canon's reader reads a numeral, a scheme's order and a marker", () => {
+describe("lambda's reader reads a numeral, a scheme's order and a marker", () => {
   const J = (x) => JSON.stringify(x);
   const stateOf = (cell, text) =>
     Ev(cell, Ev("read:x_full", Ev("read:x_of", Ev("read:sentences", text).map((s) => Ev("read:row_of", s)))));
 
   // apps/auto.dev/cost-attribution.md and listings.md, against
   // apps/support.auto.dev/.check/design-state: the witness's state:otpops
-  // carries Amount, Max Mileage, Year and twenty more, canon carried none of
+  // carries Amount, Max Mileage, Year and twenty more, lambda carried none of
   // them -- a numeral was not a value, so the sentence was rejected and its
   // digits were tiled into the fact type's name (InvoiceHasAmount642.95).
   const NUMS = [
@@ -3902,7 +3902,7 @@ describe("canon's reader reads a numeral, a scheme's order and a marker", () => 
   // apps/support.auto.dev/.check/design-state, state:factorder: the oracle's
   // order is the declaration order and its scheme facts come first, so its
   // first row is the first entity's. read:scheme_rows read its entities
-  // through read:entity_names, which sorts, so canon's began at the
+  // through read:entity_names, which sorts, so lambda's began at the
   // alphabetically first one and diverged at position 0.
   const SCHEMES = [
     "Zebra(.id) is an entity type.",
@@ -3975,7 +3975,7 @@ describe("canon's reader reads a numeral, a scheme's order and a marker", () => 
 // ================================================================================
 // THE REFERENCE-MODE KIND, against apps/support.auto.dev/.check/design-state and
 // apps/auto.dev/.check/design-state (state:refmodes, state:schemereadings). ORM
-// reference modes have KINDS -- popular, unit-based, general -- and canon wrote
+// reference modes have KINDS -- popular, unit-based, general -- and lambda wrote
 // K("popular") into every row and derived every value type as `{Entity}_{mode}`,
 // while stripping the spaces out of a multi-word mode on the way in. Measured
 // 2026-09-18: 108 of support's 298 rows and 86 of auto.dev's 272 are general in
@@ -3991,7 +3991,7 @@ describe("canon's reader reads a numeral, a scheme's order and a marker", () => 
 // and `Code` in auto.dev/api-errors.md, which is why `Make(.Name)` is general in
 // every corpus while `Item(.Code)` is popular in `order` and general in auto.dev.
 // Measured across 34 witness corpora, 6183 rows, zero exceptions.
-describe("canon's reader reads a reference mode's kind and its name", () => {
+describe("lambda's reader reads a reference mode's kind and its name", () => {
   const stateOf = (cell, text) =>
     Ev(cell, Ev("read:x_full", Ev("read:x_of", Ev("read:sentences", text).map((s) => Ev("read:row_of", s)))));
 
@@ -4037,7 +4037,7 @@ describe("canon's reader reads a reference mode's kind and its name", () => {
 });
 
 // ================================================================================
-describe("canon's reader reads a value type's kind and the rows that need it", () => {
+describe("lambda's reader reads a value type's kind and the rows that need it", () => {
   const J = (x) => JSON.stringify(x);
   const META = join(import.meta.dir, "..", "..", "metamodel");
   const order = (a, b) => (a === "core.md" ? "0" : a).localeCompare(b === "core.md" ? "0" : b);
@@ -4511,7 +4511,7 @@ test("a mandatory whose fact type the tool list cannot reach is no violation, an
 }, 120_000);
 // ---- A REFLECTED POPULATION KEEPS THE ROWS THE STORE ASSERTS (#122 item 1) ----
 //
-// loadReflected installs canon's reflection as the cell of that name, and the
+// loadReflected installs lambda's reflection as the cell of that name, and the
 // cell shadowed the rows the store ASSERTS for the same fact type: support's
 // twelve state-law Constraints lost their modality, type and span at every
 // boot, and emitToDb then wrote the tables without them (measured 2026-09-21:
@@ -4610,7 +4610,7 @@ describe("the reader's state phase indexes its records instead of scanning them 
 // The reflection answered the LINKS between the meta-types -- a fact type has
 // a role, a role is played by an object type and used in a reading -- and the
 // meta-types those links run between had no population of their own. Measured
-// on the base design state before this: ObjectTypeInstanceIsInstanceOfObjectType
+// on the base schema before this: ObjectTypeInstanceIsInstanceOfObjectType
 // claimed 142 of the 506 fact types and not one of the 993 roles, so every role
 // id in FactTypeHasRole, in ObjectTypePlaysRole and in all 997 ConstraintSpan
 // rows was nobody's instance and `Each Fact Type has some Role` was satisfied by
@@ -4652,7 +4652,7 @@ test("every fact type and role a reflected link names is an instance of its obje
     expect([String(cell[0]), nested]).toEqual([String(cell[0]), 0]);
   }
   // AND A READING IS NOT YET A POPULATION, because being one has a price the
-  // design state cannot pay: loadStoreDb files the instance rows a write-back
+  // schema cannot pay: loadStoreDb files the instance rows a write-back
   // leaves into state:otpops, which is what ui:ids reads, so `Each Reading has
   // exactly one Text` and `Each Reading is used by exactly one Predicate` bind
   // from the second boot on -- measured 104 and 506 alethic mandatory
@@ -4964,7 +4964,7 @@ test("a created pair fills the role the uniqueness keys, not role one", () => {
 // (a fact type off the served surface) or Applied (a Status, whose type has a
 // subtype). The membership is by the most specific type, a fact type's by its
 // first player, a role's by its fact type; the account is at
-// reflect:fbd_type_dom in canon.
+// reflect:fbd_type_dom in lambda.
 test("an instance created with no Domain belongs to its type's, and a reflected role to its fact type's", () => {
   const flat = (v) => { let x = v; while (Array.isArray(x)) x = x.length ? x[0] : null; return String(x); };
   const dom = (id, cells) => {

@@ -10,7 +10,7 @@ A user interface, and an ORM diagram, need the **global** structure the star is 
 slice of: which noun is a root, what drills into what, what sits beside what. That
 structure is the **Entity Navigation Graph**, and AREST derives it — like
 everything else — from the model itself, with no hand-authored menu and no
-separate cardinality annotation. It lives in the shared canon as the
+separate cardinality annotation. It lives in the shared lambda as the
 `system:nav_*` family (`engine/shared/arest.canon:4255`–`4396`); this chapter is
 its specification.
 
@@ -31,7 +31,7 @@ fact type's cardinality **is** its uniqueness-constraint pattern:
 - **no** uniqueness constraint makes it **many-to-many** (m:n).
 
 So the classifier only has to look at the fact type's uniqueness constraints and
-its arity. The canon does exactly that:
+its arity. The lambda does exactly that:
 
 - `system:ev_roles` (`arest.canon:4057`) — the fact type's roles (from the
   `role` population), hence its **arity** via `system:nav_arity` = `length ∘
@@ -189,7 +189,7 @@ The absorbed functional fts are exactly the `child`/`peer` edges, so they never 
 (An earlier note here claimed the excluder was "downstream" and that an `ev_allfts`
 substitution was a real-store no-op — both were **measurement errors**: the Python
 oracle double-wrapped the store (`load_sqlite` already returns a lam D), and the Rust
-resident reading was a host-twin divergence, not the canon's behavior. Corrected.)
+resident reading was a host-twin divergence, not the lambda's behavior. Corrected.)
 
 **The fix (applied, `arest.canon:4389`):** swap `system:nav`'s pool from `ev_ownfts` to
 the full `factType` fetch. Absorption is a *storage* decision (own table vs. column); it
@@ -209,28 +209,28 @@ a bug.)
 - **Sidecar-staleness fix DONE + certed end-to-end (2026-07-13).** The durable fix is
   implemented at every write/read site and proven on the real store. *Python writer*
   (`Registry._sidecar`, protocol.py:1901): the frozen process keeps a `"compiled"` def only
-  when its name has no `:` — dropping the 325 namespaced engine-canon defs, keeping the 8
+  when its name has no `:` — dropping the 325 namespaced engine-lambda defs, keeping the 8
   bare app defs. *Rust ingest + grammar-scratch + native-compile writer* (main.rs:3043,
-  6544, 10188): the same `':'`-filter, so existing stale sidecars load engine canon from
+  6544, 10188): the same `':'`-filter, so existing stale sidecars load engine lambda from
   live `NCANON`, and `op_compile_model` can never re-freeze it. **Certs:** a scratch compile
-  writes a sidecar of exactly 8 bare defs (0 engine-canon); 30 Python tests across
+  writes a sidecar of exactly 8 bare defs (0 engine-lambda); 30 Python tests across
   sidecar/ingest/defs/differential/CLI/app-compile stay green; a 123-app + grammar + base
   corpus scan confirms the filter drops nothing app-own; and the **release resident, over
   the un-recompiled stale `tasks` sidecar, now returns nav = 30 {collection 22, child 8}
-  (was 7 all-collection)** with `query`/`schema` intact. So every canon fix now reaches
+  (was 7 all-collection)** with `query`/`schema` intact. So every lambda fix now reaches
   already-compiled apps live, and the native compile inherits clean sidecars by
   construction. This resolves the nav divergence end-to-end.
-- **Canon fix applied + Python-verified** — `system:nav` now navigates absorbed 1:n
+- **Lambda fix applied + Python-verified** — `system:nav` now navigates absorbed 1:n
   relations; real-store `tasks` gives 30 edges / 8 `child` through the reference reducer,
   fixture unchanged.
-- **Resident `nav` verb wired** — `arest.exe` resolves `system:nav` canon-first.
+- **Resident `nav` verb wired** — `arest.exe` resolves `system:nav` lambda-first.
 - **RESOLVED — it was NOT a native-mu twin bug; it is stale-sidecar shadowing (diagnosed
   2026-07-12).** After the fix + clean rebuild the resident still returned 7 `collection`,
   and an earlier note here (and the ledger) wrongly called this an `NCANON`/native-`mu`
   twin bug. Instrumented tracing on the real store disproved that: the native carrier is
   faithful (native `ast:FetchPop` and the fresh-`NCANON` reduction both give the correct
   30). The resident returned 7 because it resolved `system:nav` from the **app's persisted
-  process** — a *frozen copy of the entire engine canon* that every sidecar carries — and
+  process** — a *frozen copy of the entire engine lambda* that every sidecar carries — and
   that copy predates the `4389` fix. `NEval::mu` resolves a name `process`-before-`NCANON`
   (main.rs:1654 then 1688), so the stale `system:nav` in the sidecar shadowed the corrected
   `NCANON` and the fix at 1688 was never reached. The Scott `make_mu` resolves in the same
@@ -238,25 +238,25 @@ a bug.)
   **Root of the freeze:** `Registry._sidecar` (protocol.py:1901-1903) freezes every
   `"compiled"` def (which is all of `theta:`/`ast:`/`system:`/`constraints:`,
   kernel.py:229) into each app's process — defeating `NCANON`, whose whole purpose
-  (main.rs:296-303) is to supply engine canon to stores that *don't* carry it. So **any**
-  canon fix is silently shadowed for every already-compiled app, and this touches the
+  (main.rs:296-303) is to supply engine lambda to stores that *don't* carry it. So **any**
+  lambda fix is silently shadowed for every already-compiled app, and this touches the
   native compile/derive path (`eval_full`/`eval_delta` over `srv.nprocess`) too, not just
   nav. This is a concrete instance of the chapter-15 thesis: an app must carry only its
-  *own* defs and defer engine-canon names to the shared live reference; freezing a copy of
+  *own* defs and defer engine-lambda names to the shared live reference; freezing a copy of
   the reference is the anti-pattern.
 - **The fix (systemic).** *Immediate, zero-code:* recompile the app (`apps_compile tasks`)
   — the sidecar's frozen `system:nav` refreshes to the corrected def and the resident
   returns 30. *Durable (fixes existing stale sidecars without recompile):* at the
   sidecar-process ingest (main.rs:3043-3056, which feeds **both** the Scott `PROCESS` and
-  native `srv.nprocess`, keeping the twins aligned) **skip names in an engine-canon
-  namespace** so they always resolve from live `CANON`/`NCANON`; apply the same filter at
+  native `srv.nprocess`, keeping the twins aligned) **skip names in an engine-lambda
+  namespace** so they always resolve from live `LAMBDA`/`NCANON`; apply the same filter at
   `load_grammar_scratch` (main.rs:6544) and in the writers (`Registry._sidecar`
   protocol.py:1901-1903, Rust `sidecar_payload` main.rs:~11552) so sidecars stop freezing
-  engine canon at all. Do **not** reorder only the native mu to NCANON-before-process — the
+  engine lambda at all. Do **not** reorder only the native mu to NCANON-before-process — the
   Scott mu has the same order, so a native-only reorder would create a *new* native-vs-Scott
   divergence; the ingest/write filter feeds both mus the same list and preserves equivalence.
   - **The exact discriminator (verified 2026-07-12, correcting the diagnosis list).** Engine
-    canon uses **five** namespaces — `system:` (221 defs), `constraints:` (43), `ast:` (37),
+    lambda uses **five** namespaces — `system:` (221 defs), `constraints:` (43), `ast:` (37),
     `theta:` (22), and **`monad:` (2)**; the original recommendation named only the first
     four, so `monad:` would stay frozen. App-own defs are **bare-named** (no colon): a real
     `claude.store.json` process is exactly 325 namespaced engine defs + 8 bare app defs

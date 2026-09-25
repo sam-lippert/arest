@@ -11,7 +11,7 @@
 // its app; the router forwards it to that app's process and answers when it
 // answers, so two agents on two apps never wait on each other, and two calls
 // on one app are answered in that app's order. The router decides nothing
-// about the model: every answer is canon's, from the app's own server.
+// about the model: every answer is lambda's, from the app's own server.
 //
 //   bun tools/js-runner/mcp-router.js
 //
@@ -42,13 +42,13 @@
 // the apps in until 2026-09-23 -- is not read. Where a launch still sets it,
 // `apps` says so, and the line can be deleted.
 // The surface: the verbs (get, ask, query, orient, tutor, ...) with an `app`
-// argument; `apps`, which lists the residents; and the two session verbs canon
+// argument; `apps`, which lists the residents; and the two session verbs lambda
 // names in system:session_verbs for what a readings change needs, apps_check
-// (the app's own check: the design state from its readings) and apps_compile
+// (the app's own check: the schema from its readings) and apps_compile
 // (the module and the store from the carriers, then that app's server again).
 // The per-fact-type tools of one app are not the tools of another, so the
 // router serves none (#117 (5)). prompts/list and prompts/get are answered by
-// the first app whose canon carries the patterns, since they are the
+// the first app whose lambda carries the patterns, since they are the
 // metamodel's, not an app's.
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, appendFileSync, readdirSync, statSync, existsSync } from "node:fs";
@@ -144,7 +144,7 @@ let upSeq = 0;
 
 // ---- THE REGISTRY: THE ROUTER'S OWN STORE ---------------------------------
 // A row is <slug, package directory, serving status>, and those three column
-// names are canon's relational map over the registry's readings -- App(.Slug),
+// names are lambda's relational map over the registry's readings -- App(.Slug),
 // `App has Package Directory`, `App has Serving Status`. They are read BY NAME:
 // the map orders a table's columns by its own rules, and reading by position
 // would silently swap a name for a path the first time it reordered them.
@@ -334,7 +334,7 @@ class Resident {
   // its own child's tree correctly (c6efdb97), and that is not enough, because
   // a router only ever reaches the children IT spawned. Anything that ends a
   // router's life without it reaping first -- a /mcp reconnect, which starts a
-  // new router beside the old one, or a canon merge, which moves every
+  // new router beside the old one, or a lambda merge, which moves every
   // composition stamp and takes all six app servers down at once -- leaves
   // servers no later router has a handle on, and they hold store.db. The next
   // compile then fails EBUSY and the app cannot be rebuilt until a human kills
@@ -396,7 +396,7 @@ class Resident {
     // WROTE (Sam, 2026-09-21: "it should just use the existing store"). This
     // ran build.js mcp --run, which composes the module from the working tree
     // at every spawn and stamps it there. Measured at the 18:39 reboot: the
-    // daemon rewrote all six mcp.g.js from a tree carrying an uncommitted canon
+    // daemon rewrote all six mcp.g.js from a tree carrying an uncommitted lambda
     // patch, five stores no longer matched their module's stamp, and five apps
     // died at boot with their stores intact. Composing is apps_compile's move
     // alone; a spawn runs what was compiled, and an app never compiled says so
@@ -582,8 +582,8 @@ class Resident {
       : this.state === "serving" ? "serving" : "not serving: " + (this.error || this.state);
     return this.note ? s + " -- " + this.note : s;
   }
-  // apps_check: the app's own check, in its package -- the design state from
-  // its readings, by whichever writer the package names (canon's
+  // apps_check: the app's own check, in its package -- the schema from
+  // its readings, by whichever writer the package names (lambda's
   // compile-design-state.js or the oracle). The server keeps serving the
   // previous build; the carriers are spliced into a module at build time, so
   // nothing running holds them.
@@ -631,10 +631,10 @@ class Resident {
   //
   // THE STORE IS REBUILT BY THE CHECK, AND THIS BUILDS THE MODULE THAT READS IT
   // (2026-09-21, #109 closed). What stood here said the store could not be
-  // rebuilt at all: compile-store.js was deleted and canon emitted the SCHEMA
+  // rebuilt at all: compile-store.js was deleted and lambda emitted the SCHEMA
   // with no projection of the populations into it and no inverse, so a compiled
   // app served from its carriers while loadStoreDb refused its store.db on the
-  // composition stamp. Canon has the projection (rmap:proj_rows) and the inverse
+  // composition stamp. Lambda has the projection (rmap:proj_rows) and the inverse
   // (rmap:unproj) now, compile.js writes and stamps the store, and apps_check
   // passes it AREST_DB. So the order is the order it always was -- apps_check,
   // then apps_compile -- and the module this builds is stamped to match the store
@@ -751,7 +751,7 @@ const sessionArg = () => ({ type: "string", enum: names().concat([REGISTRY_NAME]
     + "' -- the router's own store, whose App table says which apps there are" });
 
 function tools() {
-  // the verbs are canon's and the same in every app: take the first resident
+  // the verbs are lambda's and the same in every app: take the first resident
   // that booted, add the app argument, and offer the router's own
   const first = [...residents.values()].find((r) => !r.error && r.tools.length);
   const verbs = first ? first.tools.filter(isVerb) : [];
@@ -764,7 +764,7 @@ function tools() {
   }));
   return [
     { name: "apps", description: "the registry and the resident apps: where the app list was read from, whether each app is serving, and its last check or compile result", inputSchema: { type: "object", properties: {} } },
-    { name: "apps_check", description: "run the app's own check in its package (bun run check: the design state from its readings, and its store); the app is stopped first, because it holds the store the check writes, and `apps` reports the result. After a readings change: apps_check, then apps_compile. On '" + REGISTRY_NAME + "' it recompiles the router's own readings -- which apps there are -- instead.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
+    { name: "apps_check", description: "run the app's own check in its package (bun run check: the schema from its readings, and its store); the app is stopped first, because it holds the store the check writes, and `apps` reports the result. After a readings change: apps_check, then apps_compile. On '" + REGISTRY_NAME + "' it recompiles the router's own readings -- which apps there are -- instead.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
     { name: "apps_compile", description: "rebuild the app's module from its carriers (build.js mcp) and start its server again; the app is not served meanwhile, and `apps` reports the result. The store is written by apps_check, stamped to match this module, so run apps_check first and the app serves from its database. On '" + REGISTRY_NAME + "' it reads the App table again and reconciles the residents instead: a new app is spawned, a removed or suspended one is stopped.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
     // A FACT TYPE'S OWN RESOURCE, ONE TOOL FOR ALL OF THEM (2026-09-24). Every module
     // serves a tool per fact type -- GET, POST, DELETE, PUT on it -- and this list
@@ -790,7 +790,7 @@ function tools() {
 // `names()`, a function -- so the router always KNOWS the current surface. But
 // a client reads tools/list once at initialize and caches it, and the router
 // advertised no `listChanged`, so after apps_compile changed an app's verb
-// surface (any canon commit does) a running session kept calling the old list
+// surface (any lambda commit does) a running session kept calling the old list
 // and a newly registered app was not addressable without reconnecting. That
 // was one of support's seven. The capability is now declared and this is the
 // notification that goes with it: a server that says listChanged and never
@@ -807,7 +807,7 @@ async function handle(msg) {
   if (msg.method === "initialize") {
     // learned first, because that is what the children's own initialize is
     // waiting on. AND THE HANDSHAKE DOES NOT WAIT FOR THE APPS (2026-09-21):
-    // it awaited every boot, a store rebuilt against new canon boots fresh for
+    // it awaited every boot, a store rebuilt against new lambda boots fresh for
     // minutes, and the client gave up at 30 s -- "Starting mcp failed" -- with
     // every app it wanted a minute from serving. The answer is what is known
     // now; each app announces itself through tools/list_changed as it lands,

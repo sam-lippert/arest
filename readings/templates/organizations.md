@@ -73,7 +73,7 @@ App uses Generator.
      but if an app has no auth context, then all operations are permitted.
      Permission is inherent to users." An app that asserts this fact names
      the fact type whose population answers whether a caller may follow a
-     link; canon (auth:designation) reads it, and an app that asserts none
+     link; lambda (auth:designation) reads it, and an app that asserts none
      offers every link to every caller. The named fact type's first role is
      the user; a unary one (`User is authorized`) permits the login every
      operation on every resource, a wider one narrows by operation and by
@@ -161,7 +161,7 @@ If some User authenticates and that User has some Email and that User does not o
      whether a caller may reach a domain has both bound and reads both
      populations: membership here, openness in `Domain has Access`.
      `Fact Type has Derivation Storage Type` (core.md) is where a
-     derived-on-query marking would live, but nothing in canon, the hosts or
+     derived-on-query marking would live, but nothing in lambda, the hosts or
      the oracle populates or reads it, so asserting it here would be a fact
      with no reader. -->
 

@@ -12,19 +12,19 @@
 //
 // This is a PARITY ORACLE, not a runner to iterate on. Both predecessors died
 // of accretion (fallback name lists, guards, app-mode logic, comparison logic
-// leaking in beside the canon). NOTHING in this file holds law semantics. If
+// leaking in beside the lambda). NOTHING in this file holds law semantics. If
 // you ever add a guard or a name list here, delete it — that is precisely how
-// the last two died. The canon and carriers arrive AS SOURCE (the one tuple
-// literal reads as a CANON(...) call, the rest-parameter wrap) and node just
+// the last two died. The lambda and carriers arrive AS SOURCE (the one tuple
+// literal reads as a LAMBDA(...) call, the rest-parameter wrap) and node just
 // EXECs the composed file: nothing is read, eval'd, or interpreted at runtime.
 // ============================================================================
 
-// ---- the registration vocabulary: DEF, A, N, K, PHI, S1..S9, CANON --------
+// ---- the registration vocabulary: DEF, A, N, K, PHI, S1..S9, LAMBDA --------
 // DEF accumulates the composed store (one CELL per registered name) so the
 // store reads itself; a duplicate throws by collection semantics, exactly as
 // the C# Dictionary.Add does — law:one_name is the law.
 // the clock at this line is the time bun spent starting and PARSING the whole
-// module (host, canon and carriers) before running any of it; on the support
+// module (host, lambda and carriers) before running any of it; on the support
 // store's 50 MB module that is most of an eleven-second load (2026-09-07)
 if (process.env.AREST_BOOT_TIMING) console.error("boot: parsed " + Math.round(performance.now()) + " ms");
 const DEFS = new Map();
@@ -58,8 +58,8 @@ function S6(a,b,c,d,e,f){return [a,b,c,d,e,f];}
 function S7(a,b,c,d,e,f,g){return [a,b,c,d,e,f,g];}
 function S8(a,b,c,d,e,f,g,h){return [a,b,c,d,e,f,g,h];}
 function S9(a,b,c,d,e,f,g,h,i){return [a,b,c,d,e,f,g,h,i];}
-function CANON() { return arguments; }
-// THE COMPOSITION'S IDENTITY, stamped by build.js from canon and the carriers
+function LAMBDA() { return arguments; }
+// THE COMPOSITION'S IDENTITY, stamped by build.js from lambda and the carriers
 // it spliced -- not from this file, because a host edit does not move a
 // population. compile.js writes this value into the store.db it projects,
 // beside the hash of the SCHEMA it wrote there. loadStoreDb does not refuse a
@@ -74,11 +74,11 @@ function COMPOSED(h) { COMPOSITION = h; }
 // 13.8-second load parsing 45 MB of them as nested JavaScript calls
 // (2026-09-07). build.js now splices each carrier's text as ONE literal and
 // this reads it: the same value the constructors would have built, registered
-// with DEF exactly as the spliced calls were, prose dropped as CANON dropped
+// with DEF exactly as the spliced calls were, prose dropped as LAMBDA dropped
 // it. The carrier stays the carrier, inside the composition, and nothing is
 // read from a path beside the module (Sam, on a JSON sidecar that was here
 // for an hour: "Codd says no").
-function CANONTEXT(text) {
+function LAMBDATEXT(text) {
   let i = 0;
   const n = text.length;
   const fail = (what) => { throw new Error("carrier: " + what + " at " + i + ": " + JSON.stringify(text.slice(i, i + 40))); };
@@ -186,7 +186,7 @@ function deepEq(a, b) {
 // the lenient js mu lacked.
 //
 // It does NOT coerce a numeric-looking string, and that is mathematics, not
-// pedantry: canon's eq does not coerce either (eq<1,"1"> = F, case:eq-nateq),
+// pedantry: lambda's eq does not coerce either (eq<1,"1"> = F, case:eq-nateq),
 // and a coercing <= gives le<1,"1"> = T with le<"1",1> = T while eq<1,"1"> is
 // F — antisymmetry violated, so <= would not be an order at all. The engine
 // kernels DO coerce here and are the ones carrying the drift; the store's
@@ -215,7 +215,7 @@ function cmp(a, b) {
 // m * 10^-s with |m| < 10^p, and 6875.000000000001 is outside every one of them.
 //
 // THE FIX IS NOT A NEW VALUE REPRESENTATION, and that is the whole reason it
-// can be this small. Canon already says what a number IS: system:isnum is
+// can be this small. Lambda already says what a number IS: system:isnum is
 // not.eq<id, implode.<K(''), <id>>> -- an atom is a number exactly when it
 // differs from its own string spelling -- and ntoa/system:numtext spell it with
 // that same implode. So the mu's number is ALREADY its shortest decimal
@@ -261,7 +261,7 @@ function cmp(a, b) {
 function decOf(op, x) {
   if (typeof x !== "number") throw new Error(op + " on non-number");
   if (!Number.isFinite(x)) throw new Error(op + " on a non-finite number: " + show(x));
-  // the operand's OWN spelling, the one implode and ntoa give canon
+  // the operand's OWN spelling, the one implode and ntoa give lambda
   const t = "" + x;
   const e = t.indexOf("e") < 0 ? t.indexOf("E") : t.indexOf("e");
   let digits = t, exp = 0;
@@ -518,7 +518,7 @@ const PRIMS = new Map(Object.entries({
   "apply": x => Ev(at(x,0), at(x,1)),
   // lex yields TOKEN-RECORDS, ten fields per token, exactly as
   // metamodel/resolution.md types it. This head answered a flat word list, as
-  // did the java, cs and rust hosts, so canon's system: family — sqlname
+  // did the java, cs and rust hosts, so lambda's system: family — sqlname
   // (5 . 1 . lex . slug, the 5th FIELD of token 1), rp_step (field 8, the
   // hyphen template), cf_dropw (filters on field 1) — was reading characters
   // here and fields in the engine kernels. One name, two functions, split by
@@ -561,18 +561,18 @@ const PRIMS = new Map(Object.entries({
   // already documents as "js Array.join semantics", what Mu.cs and the rust
   // host do, and what all three engine kernels do. This head was the one
   // that threw, contradicting the sibling it was transliterated into. It has
-  // to stringify for canon to own a renderer at all: system:isnum is
+  // to stringify for lambda to own a renderer at all: system:isnum is
   // not eq<x, implode<empty,<x>>>, and a base with NO operation total over
-  // the atom domain leaves canon unable to tell 42 from the text 42.
+  // the atom domain leaves lambda unable to tell 42 from the text 42.
   // Sequences still refuse — only atoms are words.
   "implode": x => seq(at(x,1)).map(w => {
     if (Array.isArray(w)) throw new Error("implode on sequence");
     return "" + w; }).join(at(x,0)),
   // slug yields an IDENTIFIER (resolution.md): every run of non-alphanumerics
-  // becomes ONE underscore and the ends are trimmed. Canon defines the same
+  // becomes ONE underscore and the ends are trimmed. Lambda defines the same
   // function as sl:slug; this registration stays only until both carriers are
   // regenerated and slug can leave the boundary manifest.
-  // slug is CANON -- DEF("slug") with slug:alnum/step/trimlead. Deleted here.
+  // slug is LAMBDA -- DEF("slug") with slug:alnum/step/trimlead. Deleted here.
   // char-level lex boundary (invariant ASCII on every host, so the
   // naming lex is byte-identical regardless of host culture)
   "chars": x => { if (typeof x !== "string") throw new Error("chars on non-string");
@@ -582,8 +582,8 @@ const PRIMS = new Map(Object.entries({
   // otherwise: charup("zebra") answered "zebra" here and "Z" on the other
   // seven hosts, since python and the java/cs/rust hosts all take the
   // leading char. One operation, one meaning; this head was the outlier.
-  // charup is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
-  // chardown is CANON -- literal alphabet relation (Codd 2.3.5). Deleted here.
+  // charup is LAMBDA -- literal alphabet relation (Codd 2.3.5). Deleted here.
+  // chardown is LAMBDA -- literal alphabet relation (Codd 2.3.5). Deleted here.
   "1r": x => { const a = seq(x); if (a.length === 0) throw new Error("1r on empty"); return a[a.length - 1]; },
   "tlr": x => { const a = seq(x); if (a.length === 0) throw new Error("tlr on empty"); return a.slice(0, a.length - 1); },
   // clock is REGISTERED (resolution.md: accepts sequence, yields text). The
@@ -599,7 +599,7 @@ const PRIMS = new Map(Object.entries({
   // exact defect the 08-12 note six lines above them diagnoses for
   // store:append: "it claimed a host capability that did not exist", and Cor 6
   // is meant to be the honest list of where unverified computation enters.
-  // store:append was deleted because canon already carried ast:Store and
+  // store:append was deleted because lambda already carried ast:Store and
   // nothing needed it. These are the other resolution: Samuel, 2026-09-11, the
   // value type for a secret declares the encrypt/decrypt function it uses, so
   // a domain's data types now demand it and the claim becomes true.
@@ -630,10 +630,10 @@ const PRIMS = new Map(Object.entries({
     return Buffer.concat([d.update(all.subarray(28)), d.final()]).toString("utf8");
   },
   // crypt:genkey MINTS THE KEY THE OTHER TWO USE, and it is REGISTERED rather
-  // than canon for the reason Def. 3 gives: canon admits only a deterministic,
+  // than lambda for the reason Def. 3 gives: lambda admits only a deterministic,
   // side-effect-free total function, and a key is neither -- it consumes
   // entropy and answers differently every call. Samuel, 2026-09-15, asked
-  // whether this should be a canon method; the system already has the category
+  // whether this should be a lambda method; the system already has the category
   // for it, which is the boundary Cor 8 enumerates. The host also already HAS
   // the entropy: randomBytes is four lines up, generating the iv. This only
   // names it, so that HOW A KEY IS MADE becomes a row in the boundary instead
@@ -678,9 +678,9 @@ const PRIMS = new Map(Object.entries({
   // compile.js read its directories and files, wrote the carrier and executed
   // the DDL in JavaScript -- the last host decisions left in the compile path
   // once read:file_order took the reading order (3360a782). They are REGISTERED
-  // functions now, by the rule resolution.md:396 states: a host name canon does
-  // NOT define is registered; a host name canon DOES define is a native twin
-  // and stays compiled. Canon defines no fs: or sql: cell and must not -- a
+  // functions now, by the rule resolution.md:396 states: a host name lambda does
+  // NOT define is registered; a host name lambda DOES define is a native twin
+  // and stays compiled. Lambda defines no fs: or sql: cell and must not -- a
   // directory listing and a file's bytes are outside D -- which is exactly what
   // arest:10434 rules for store:append: "a registered definition enters DEFS in
   // the host that registers it, at runtime".
@@ -727,7 +727,7 @@ const PRIMS = new Map(Object.entries({
 // past the cap; the identity-keyed indexes below outlive it (memoCall).
 const EVMEMO = new Map();
 let EVMEMON = 0;
-// Backus 13.3.4 defines fetch as a linear walk (`↑n∘tl:x`), and canon's
+// Backus 13.3.4 defines fetch as a linear walk (`↑n∘tl:x`), and lambda's
 // law:find_desc is that walk: filter the descriptors by name, take the
 // first. The MEANING is "the first descriptor named n" — a lookup. The
 // walk is the evaluator's business, so the head indexes it: one pass per
@@ -835,7 +835,7 @@ function popSub(contents) {
   for (let i = 0; i < c.length; i++) out[i] = Array.isArray(c[i]) ? c[i] : [c[i]];
   return out;
 }
-// canon's JSON text (render:json, quote_str), one pass -- see the twins
+// lambda's JSON text (render:json, quote_str), one pass -- see the twins
 function jsonQuote(s) {
   let out = '"';
   for (const c of s) out += c === "\\" ? "\\\\" : c === '"' ? '\\"' : c === "\n" ? "\\n" : c === "\r" ? "\\r" : c;
@@ -869,7 +869,7 @@ function matchRows(key, rows) {
 // column 1, which is why the joins that cost the most were invisible to it:
 // rmap:uniqs:derive scans rmap:childrenN once per rmap:ucrows row keeping the
 // children whose SECOND column matches, 3784 x 2255 pairs on eu-law, and that
-// one scan is the whole 44 s the definition costs. Fourteen sites in canon key
+// one scan is the whole 44 s the definition costs. Fourteen sites in lambda key
 // on column 2; forty-six key on column 1 but inside a filter carrying further
 // conjuncts, so the bare csdp:matches node never matched them either. Both are
 // this shape: index the equality, test the remaining conjuncts only on what the
@@ -910,7 +910,7 @@ function matchRowsAt(n, key, rows) {
 //   lex:lw lowercases a word (implode . ALPHA chardown . chars) and ran 544,712
 //   times for 7.55M chardown calls — ~13.9 characters per word, i.e. essentially
 //   every chardown in the profile.
-// Both are memoised, not rewritten: canon keeps the meaning, the head stops
+// Both are memoised, not rewritten: lambda keeps the meaning, the head stops
 // recomputing it. Correctness needs nothing beyond purity, which is what
 // Backus 14.6 already guarantees while D is frozen.
 // induce:sig_of is the same case one level up, and it is the single biggest one
@@ -968,17 +968,17 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   // loop, 2026-09-08)
   "lex:subruns", "lex:camel",
   // read:state_rules is the rules compiler over a carrier's facts, and
-  // read:design_state asks for it TWICE: once as the cell `state:rules`, and
+  // read:schema asks for it TWICE: once as the cell `state:rules`, and
   // once inside `state:undelivered`, which subtracts the heads it delivered
   // from the heads state:derived marks. The two are the same call on the same
-  // value -- read:design_state applies every cell to one x -- so the second
+  // value -- read:schema applies every cell to one x -- so the second
   // was the first recomputed, arm for arm (the base metamodel, 2026-09-16:
   // read:rule_rows entered under state:rules and again under
   // state:undelivered). Memoised on that argument's identity, the rows are
-  // the same rows: canon is pure and the two cells are unchanged.
+  // the same rows: lambda is pure and the two cells are unchanged.
   "read:state_rules"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
-// Compiled forms of hot canon list cells (the lex-primitive precedent:
+// Compiled forms of hot lambda list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
 // the unit tests certify identity). Only consulted when the DEF exists.
 // DEDUP LESS, WITHOUT CHANGING WHAT DEDUP MEANS. cn:dinner rebuilds its
@@ -1012,10 +1012,10 @@ const SUPEROF = new WeakMap();
 // with no word about where (cn:nlexlt, 2026-09-06)
 const NOTWIN = new Set(String(process.env.AREST_NOTWIN || "").split(",").filter(Boolean));
 const FASTPRIMS = new Map(Object.entries({
-  // CONS and CONST are canon (Backus 13.3.2, reached through tau clause (c)) and
+  // CONS and CONST are lambda (Backus 13.3.2, reached through tau clause (c)) and
   // stay so; these are their fast paths, the same value in one pass.
   // Metacomposition hands CONS <<CONS f1..fn>, y> and the answer is
-  // <f1:y .. fn:y>; the canon form allocates distr, tl and an ALPHA over apply
+  // <f1:y .. fn:y>; the lambda form allocates distr, tl and an ALPHA over apply
   // per application, and the derivation closure over us-law applied CONS 18.6
   // million times for 30 of its 35 seconds (2026-09-04). An atom where the form
   // should be throws as seq does, and a one-element form answers PHI as tl does.
@@ -1104,7 +1104,7 @@ const FASTPRIMS = new Map(Object.entries({
   // argument, the same object across the calls, so the index is built once.
   "cn:fokey": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? 999999 : at(hits[0], 1); },
-  // the same first-match lookup, three more times, each written in canon as
+  // the same first-match lookup, three more times, each written in lambda as
   // distr and ALPHA over the whole table: cn:rmvt answers the first match's
   // fourth column or "" (2,874 calls), cn:owner its second column as a
   // singleton or PHI (1,632), cn:gmpl the first elements of its second and
@@ -1154,7 +1154,7 @@ const FASTPRIMS = new Map(Object.entries({
   // cn:strlt orders two words by the ranks of their lowercased characters in
   // the fixed 37-character alphabet (cn:chrank; a character outside it ranks
   // 37, so all such characters are equal), shorter-on-prefix first, equal is
-  // F. The lowering and the ranking stay CANON -- lex:lw and cn:chrank are
+  // F. The lowering and the ranking stay LAMBDA -- lex:lw and cn:chrank are
   // memoised and evaluated here by name, so the twin cannot mean anything
   // the DEF does not -- and only the per-character WHILE is native: 136,110
   // calls from cn:ordlt on the eu-law report (2026-09-06).
@@ -1164,7 +1164,7 @@ const FASTPRIMS = new Map(Object.entries({
       if (ra === rb) continue; return bool(rb > ra); }
     return bool(la.length < lb.length); },
   // cn:ordlt orders <rank, name> pairs: equal ranks by cn:strlt on the names,
-  // otherwise "a's rank is below b's", which canon writes as `not null
+  // otherwise "a's rank is below b's", which lambda writes as `not null
   // (theta:drop [theta:iota b, a])` -- a list of b integers built and cut per
   // comparison. The support report's column sort made 379k comparisons a
   // minute and iota's 190k lists were 18.7 of its 60 s (2026-09-07). The
@@ -1172,7 +1172,7 @@ const FASTPRIMS = new Map(Object.entries({
   // keeps them all past a (0 keeps all, a negative drops all, as the twins
   // above read the count), so the list is non-empty iff that remainder is.
   // Ranks that are not integers, where the list's length would be a rounding
-  // question, are asked of the DEF; the names stay canon's through cn:strlt.
+  // question, are asked of the DEF; the names stay lambda's through cn:strlt.
   "cn:ordlt": x => { const a = seq(at(x, 0)), b = seq(at(x, 1)); const a1 = at(a, 0), b1 = at(b, 0);
     if (deepEq(a1, b1)) return Ev("cn:strlt", [at(a, 1), at(b, 1)]);
     if (!Number.isInteger(a1) || !Number.isInteger(b1)) return Ev(DEFS.get("cn:ordlt"), x);
@@ -1199,14 +1199,14 @@ const FASTPRIMS = new Map(Object.entries({
   // store, each rebuilding the same pairs, 17% of the compiled report's
   // self time in the sample (2026-09-07). The memo of small arguments cannot
   // hold a row, so this remembers the answer against the row itself -- a
-  // canon value is never mutated, so the identity is the value -- and
+  // lambda value is never mutated, so the identity is the value -- and
   // evaluates the DEF once per row. Reset with the other indexes.
   "rmap:member_pairs": x => {
     if (!Array.isArray(x)) return Ev(DEFS.get("rmap:member_pairs"), x);
     let v = MPIDX.get(x);
     if (v === undefined) { v = Ev(DEFS.get("rmap:member_pairs"), x); MPIDX.set(x, v); }
     return v; },
-  // theta:natjoin <(theta:natjoin keys), <A, B>> is the natural join canon's
+  // theta:natjoin <(theta:natjoin keys), <A, B>> is the natural join lambda's
   // theta:NatJoin builds: for each a of A in order, for each b of B in order,
   // a followed by the tail of b where keys:a equals the first field of b.
   // Written as distr, distl and a Filter it is the nested loop over both
@@ -1245,10 +1245,10 @@ const FASTPRIMS = new Map(Object.entries({
       }
     }
     return out; },
-  // render:json is canon's renderer of a value as JSON text: the empty
+  // render:json is lambda's renderer of a value as JSON text: the empty
   // sequence is [], a sequence is its elements rendered and joined by a comma
   // between brackets, a number is its text (implode of the atom, "" + n), and
-  // a string is quoted with canon's four escapes -- backslash, quote, newline
+  // a string is quoted with lambda's four escapes -- backslash, quote, newline
   // and return -- every other character as it is. Written as ALPHA over
   // chars per atom, it was 55% of a GET on the support store's API (a
   // 3,000-row collection, 341 ms; the profile-and-fix loop, 2026-09-07). The
@@ -1596,7 +1596,7 @@ const FASTPRIMS = new Map(Object.entries({
     for (let i = 0; i < n; i++) out[i] = [a[i], b[i]]; return out; },
   // theta:dedup is 55 s of eu-law's report, and it is NOT re-keying sequences
   // it has already keyed: remembering each element's JSON against the element
-  // (a WeakMap, sound because canon values are immutable) was byte-identical
+  // (a WeakMap, sound because lambda values are immutable) was byte-identical
   // and bought nothing, 284 -> 294 s, because rmap:pidchains rebuilds its
   // chains every round rather than carrying the same objects forward. The cost
   // is real stringify work over genuinely new sequences, so reaching it means
@@ -1758,7 +1758,7 @@ const FASTPRIMS = new Map(Object.entries({
   // rmap:nest curries an extension into levels: at each level the rows group by
   // their first column and each group nests again with that column dropped, a
   // group of pairs ending in its second columns and a level of single columns
-  // in its values. Canon writes the grouping as one filter over every row PER
+  // in its values. Lambda writes the grouping as one filter over every row PER
   // KEY (rmap:rows_for = INSERT keep_row_of . append_phi . distl), quadratic at
   // every level, and the profile charged it 97 million CONS and 162 of the 165
   // seconds the host took to load us-law's FILE (2026-09-04). The VALUE is one
@@ -1784,7 +1784,7 @@ const FASTPRIMS = new Map(Object.entries({
     return out; },
   // derive:count_rows is the count form: <selector, rows> to <key, n> for each
   // distinct selector value, keys in theta:dedup's order (last occurrences).
-  // Canon takes the keys, then for EACH key scans every row again
+  // Lambda takes the keys, then for EACH key scans every row again
   // (derive:count_for = length . derive:filter_sel), quadratic; four count
   // rules of us-law cost the closure 262 seconds in 11,332 scans (2026-09-04).
   // The VALUE is one pass: the selector once per row, a Map of counts, then the
@@ -1819,7 +1819,7 @@ const FASTPRIMS = new Map(Object.entries({
     return hit === undefined ? [] : hit; },
 }));
 // ---- INSERT filter fast path ---------------------------------------------
-// Canon filters with a right fold that prepends every survivor:
+// Lambda filters with a right fold that prepends every survivor:
 //   INSERT (COND p apndl @2)   or   INSERT (COND p (apndl . CONS v @2) @2)
 // apndl copies its tail, so each survivor recopies the whole accumulator and
 // the fold is quadratic in survivors — measured at 40.8e9 element copies in
@@ -1844,14 +1844,14 @@ function framePure(f) {
 // ---- the filter-join fast path -------------------------------------------
 // COMP(theta:flatten, ALPHA(COND(eq[a,b], emit, PHI)), distr) applied to
 // <list, carrier> distributes the carrier over the list and keeps the pairs
-// whose keys agree — a HASH JOIN WRITTEN AS A NESTED LOOP. canon does this at
+// whose keys agree — a HASH JOIN WRITTEN AS A NESTED LOOP. lambda does this at
 // 23 sites over rmap:gmi; on auto.dev the s1p x gmi pair is 1344 x 1344 =
 // 1,806,336 iterations, and rmap:childrenN0 re-evaluates a 1085-node COND on
 // every one of them.
 //   Backus 12.2 I.7: distl o [f, [g1..gn]] == [[f,g1]..[f,gn]], "the analogous
 //   law holds for distr" — distr's result is determined by its two arguments,
 //   so an equal-keys filter over it may be answered by an index. Meaning is
-//   canon's; this is only strategy.
+//   lambda's; this is only strategy.
 // SAFETY: the two sides of the eq must be ROOTED at different frame slots —
 // one reading only the element, one only the carrier. Otherwise the key is not
 // a function of the element alone and no index is valid.
@@ -1865,7 +1865,7 @@ function joinPat(form) {
   if (JOINPAT.has(form)) return JOINPAT.get(form);
   let pat = null;
   // length 4: the <list, carrier> pair arrives as x.
-  // length 5: the pair is built by form[4] — canon usually writes the operand
+  // length 5: the pair is built by form[4] — lambda usually writes the operand
   // inline, e.g. COMP(flatten, ALPHA(..), distr, CONS(rmap:gmi, ..)), and
   // missing that spelling is why the first cut of this path never fired on
   // rmap:childrenN0, which is the whole 1344x1344 case.
@@ -1982,7 +1982,7 @@ const PROFILE = !!process.env.AREST_PROFILE;
 // report" beside "the first 90 s of eu-law's" -- where the minute cadence
 // gives whichever snapshot the kill happened to leave (Sam, 2026-09-07).
 const PROFEVERY = parseInt(process.env.AREST_PROFILE_EVERY, 10) > 0 ? parseInt(process.env.AREST_PROFILE_EVERY, 10) : 60000;
-// AREST_STACK=1 keeps the canon frame stack without the timing: the stack at
+// AREST_STACK=1 keeps the lambda frame stack without the timing: the stack at
 // an uncaught throw costs a push and a pop per call, the profile costs two
 // clock reads and a table update, and a report that takes twenty minutes to
 // die takes forty under the profile (support, 2026-09-06)
@@ -1997,11 +1997,11 @@ let PROFLAST = 0;
 let PROFN = 0;
 // WHERE IT THREW, NOT JUST WHAT IT SAID. A throw inside the evaluator reaches
 // the top as a stack of Ev frames, which names nothing; the profiler's stack
-// is the canon's, so under AREST_PROFILE an uncaught throw prints it,
+// is the lambda's, so under AREST_PROFILE an uncaught throw prints it,
 // outermost first (support's law report died with "INSERT on empty" and no
 // law printed, 2026-09-06).
 if (STACKS) process.on("uncaughtException", (e) => {
-  console.error("canon stack at throw: " + ((e && e.canonStack) || "(no canon frame)"));
+  console.error("lambda stack at throw: " + ((e && e.lambdaStack) || "(no lambda frame)"));
   console.error(String(e && e.stack || e));
   process.exit(2);
 });
@@ -2024,7 +2024,7 @@ function profEnter(name) {
 // `finally` has popped its own), so the stack is attached to the error at the
 // innermost frame it passes through, and the top prints that
 function profThrow(e) {
-  if (e && typeof e === "object" && e.canonStack === undefined) e.canonStack = PROFSTACK.map((f) => f[0]).join(" > ");
+  if (e && typeof e === "object" && e.lambdaStack === undefined) e.lambdaStack = PROFSTACK.map((f) => f[0]).join(" > ");
   throw e;
 }
 // AREST_PROFILE_TRACE=<prefix,...> prints each exit of a definition whose name
@@ -2054,7 +2054,7 @@ function profReport(label) {
   // WHAT IS RUNNING NOW, because the table cannot say: a definition's time is
   // recorded when it EXITS, so the law that has been running since the last
   // report is absent from the table that is supposed to name the cost. The
-  // canon stack at the report, outermost first, is the answer (support's
+  // lambda stack at the report, outermost first, is the answer (support's
   // report over its compiled carrier, 2026-09-07: no row over 14 s, and the
   // minutes were in a law that had not returned).
   console.error("profile (" + label + ") running: " + PROFSTACK.filter((f) => String(f[0]).indexOf(":") >= 0).map((f) => f[0]).slice(0, 14).join(" > "));
@@ -2225,7 +2225,7 @@ function Ev(f, x) {
   // ---- tau clause (c): METACOMPOSITION (Backus 13.3.2, 13.4) --------------
   //     (rho <x1..xn>):y = (rho x1):<<x1..xn>, y>
   // This head used to be MATCHED by the switch below and never FETCHED, which
-  // meant the combining forms were host code by construction: a canon
+  // meant the combining forms were host code by construction: a lambda
   // DEF("CONS", ...) was unreachable, because the switch intercepted before
   // any lookup. That is the difference between an FP system, whose set of
   // forms "is fixed once and for all, and this set determines the power of
@@ -2239,7 +2239,7 @@ function Ev(f, x) {
   // Fetching the head restores it, and it is the SAME rule already obeyed for
   // atoms in operator position a few lines above: consult DEFS, then fall to
   // the host. The switch below is now the primitive arm of that rule -- the
-  // fast path taken only when the form atom is NOT shadowed by canon -- so it
+  // fast path taken only when the form atom is NOT shadowed by lambda -- so it
   // is an optimization of the general case, not a separate dispatch. A
   // sequence head (a computed form) goes the general way, which the switch
   // could never express at all.
@@ -2250,7 +2250,7 @@ function Ev(f, x) {
 // Sam, 2026-09-07, on the sample that put COMP and CONS at 55 to 65 percent of
 // self time on every store: "so a better eval strategy will squeeze out the
 // performance?" -- for the constant, yes. Applying a form resolved it every
-// time: seq the node, read the head, ask DEFS whether canon shadows it, pick
+// time: seq the node, read the head, ask DEFS whether lambda shadows it, pick
 // the switch arm, look the join pattern up, and for CONS go through the name
 // dispatch (four map lookups) into the twin. A form node is now compiled ONCE
 // into a closure with all of that resolved, its children compiled the same
@@ -2258,7 +2258,7 @@ function Ev(f, x) {
 // untouched: each arm is the interpreter's arm with its decisions hoisted,
 // a name still goes through Ev (twins, memo, profiler and stamp as before), a
 // selector is the selector, CONS and CONST compile to what their twins
-// answered, a head canon defines is fetched as tau clause (c) says, and a
+// answered, a head lambda defines is fetched as tau clause (c) says, and a
 // definition registered after a node was compiled recompiles it (DEFSVER).
 // The 700 cases and the report hashes hold it byte for byte.
 const COMPILED = new WeakMap();
@@ -2346,7 +2346,7 @@ function memoCall(f, x, run) {
   else if (++root.held >= MEMO_HELD) EVMEMO.delete(f);
   // THE SIZE BOUND TRIMS THE MEMO, NOT THE INDEXES. The bound existed to
   // keep the memo's maps from growing without limit, and it emptied every
-  // identity-keyed index with them; those are WeakMaps on immutable canon
+  // identity-keyed index with them; those are WeakMaps on immutable lambda
   // values and stay true for as long as the value lives, so wiping them only
   // rebuilt them -- the support report's first ten seconds were rmap:wide_row
   // at 82% of self, most of it re-indexing relations it had indexed before
@@ -2398,7 +2398,7 @@ function compileForm(f) {
   const head = form[0];
   // tau clause (c): a head that is not an atom is fetched (a computed form)
   if (typeof head !== "string") return (x) => Ev(head, [f, x]);
-  // a head canon defines is fetched too; CONS and CONST are canon's, and when
+  // a head lambda defines is fetched too; CONS and CONST are lambda's, and when
   // their twins stand (not NOTWIN) their value is built here directly: CONS is
   // <f1:y .. fn:y> (the twin: seq the form, apply each part), CONST is the
   // form's second element (COMP(2, 1): selector 2 of the form, which raises
@@ -2506,16 +2506,16 @@ function compileForm(f) {
 
 // ---- THE FOUR WAYS IN ---------------------------------------------------
 // One host file. Each of these is transport only: it reads a request, applies
-// canon, writes the answer. None of them may branch on a verb, a method or a
-// status -- what those MEAN is canon's business (ui:route routes, render:json
+// lambda, writes the answer. None of them may branch on a verb, a method or a
+// status -- what those MEAN is lambda's business (ui:route routes, render:json
 // renders, http:status_of decides the code, auth:links decides which controls
 // a caller is shown). If you are about to add such a branch here, that is how
 // a thin host stops being thin.
 function run_cli() {
 
   // THE HOST CONTRACT, FINAL — six lines, no modes, no rendering, forever.
-  // All dispatch and all text live in canon `main`; a new operation is a
-  // canon edit, never a host edit. Adding a branch here is how runners die.
+  // All dispatch and all text live in lambda `main`; a new operation is a
+  // lambda edit, never a host edit. Adding a branch here is how runners die.
   const out = Ev("main", [CELLS, process.argv.slice(2)]);
   if (PROFILE) profReport("main"); // @instrument
   console.log(out[0]);
@@ -2529,13 +2529,13 @@ function run_test() {
   // makes it unusable from a test file: it runs on import and then exits.
   //
   // This variant is the same composition with the last step removed. It exposes
-  // the evaluator and the cells and runs nothing, so a test can drive canon's
+  // the evaluator and the cells and runs nothing, so a test can drive lambda's
   // own `main` the way the CLI does -- Ev("main", [CELLS, ["case", name]]) -- and
   // assert the answer, without a process per case.
   //
   // Nothing is added: no dispatch, no rendering, no branch. A test that needed
-  // either would be testing the runner instead of the canon.
-  // DEFS is exported so a throw can be bisected from outside: the canon
+  // either would be testing the runner instead of the lambda.
+  // DEFS is exported so a throw can be bisected from outside: the lambda
   // stack names the DEFs a throw passed through and nothing finer (the
   // forms inside a DEF are anonymous), so finding WHICH selector met an
   // empty list means re-evaluating the DEF's form piece by piece on the
@@ -2577,14 +2577,14 @@ function run_test() {
 // was the one that could not tell me it was unreachable from anywhere else.
 // Function declarations hoist, so the line above still binds it.
 
-// THE PERFORMER, and it chooses NOTHING. Canon says what the call is --
+// THE PERFORMER, and it chooses NOTHING. Lambda says what the call is --
 // perform:call_for the method and the address, perform:headers_of the headers
 // the backing External System declares with their values, perform:auth_header_of
 // which of them carries the credential, perform:body_of the JSON paths joined
 // from the entity's own facts -- and this makes it. No method, no path, no
 // header name and no field is decided here. If the model does not say it, it
 // does not go on the wire. That is the whole reason the last four commits were
-// metamodel and canon rather than a fetch with a hardcoded URL.
+// metamodel and lambda rather than a fetch with a hardcoded URL.
 //
 // A HOLE IS A REFUSAL, NOT A BLANK. main:performed answers <predicate, entity,
 // may-create>; if a declared JSON Path has no fact to fill it for that entity,
@@ -2623,7 +2623,7 @@ async function performDeclared(before, after, opts) {
     const headers = {};
     for (const h of Ev("perform:headers_of", [predicate, after])) headers[String(h[0])] = String(h[1]);
     // THE CREDENTIAL COMES FROM THE CONNECTION, DECRYPTED HERE AND NOWHERE ELSE.
-    // perform:secret_of answers the ciphertext exactly as stored -- canon never
+    // perform:secret_of answers the ciphertext exactly as stored -- lambda never
     // sees the plaintext -- and hook:read applies whatever Function the Object
     // Type is stored through in reverse, given the master key the boundary holds.
     // An unmarked type passes through unchanged, so a store that keeps its
@@ -2761,7 +2761,7 @@ function writeBack(done, log) {
 // A create ANSWERS a store. main:api returns <body, status, D-prime> for a
 // transition and <body, status> for a read, because following a nav link makes
 // no new store. Adopting it is transport's business -- D is what this file
-// holds -- but WHAT the new store contains is canon's: main:create_closed put
+// holds -- but WHAT the new store contains is lambda's: main:create_closed put
 // the fact where the derive path reads and closed the store under its rules.
 // Mutated in place so the array identity survives, then the memo is dropped:
 // Ev keys on the store REFERENCE, so a store whose contents changed under the
@@ -2771,7 +2771,7 @@ let BOOTED = false;
 
 function adoptStore(next) {
   if (!Array.isArray(next) || next.length === 0) return false;
-  // next may BE CELLS -- canon answers the same array when a step changes nothing,
+  // next may BE CELLS -- lambda answers the same array when a step changes nothing,
   // and clearing in place would empty the thing we are about to copy from
   if (next === CELLS) return true;
   const copy = next.slice();
@@ -2799,10 +2799,10 @@ function adoptStore(next) {
 // a number (the mu has N(i) and A(x), and a recipe's projection positions are
 // numbers), anything scalar is an atom -- and an OBJECT is the sequence of its
 // <name, value> pairs, which is the one case that was missing. A JS object is
-// neither of the mu's two things, so canon raised `expected sequence, got atom`
+// neither of the mu's two things, so lambda raised `expected sequence, got atom`
 // on the first selector that touched one: POST of a JSON object to a collection
 // answered 500 from inside main:api before any routing happened (2026-09-16).
-// What a pair list MEANS is canon's (main:row reads the entry screen's own
+// What a pair list MEANS is lambda's (main:row reads the entry screen's own
 // convention off the names); this only says what a JSON object IS.
 function fromJson(x) {
   if (Array.isArray(x)) return x.map(fromJson);
@@ -2914,16 +2914,16 @@ function run_mcp() {
   // THERE IS NO VERB TABLE HERE, and two earlier versions of this file had one.
   // A verb is a PREDICATE VERBALIZATION -- doing one is creating a fact that uses
   // that verb in its predicate -- so a tool is a FACT TYPE and its parameters are
-  // that predicate's roles. Both come from the store: canon's mcp:tools derives
+  // that predicate's roles. Both come from the store: lambda's mcp:tools derives
   // the list the same way links(e) is derived, so a fact type added to a model is
-  // served without touching canon or this file.
+  // served without touching lambda or this file.
   //
-  // The first version listed eighteen canon FUNCTION names and dispatched them by
+  // The first version listed eighteen lambda FUNCTION names and dispatched them by
   // apply. They resolve, and eight of eight answered operand errors, because a
   // function wants an operand of its own shape and a predicate wants role
   // players. The second cut to five verbs main dispatches by argv: that works and
   // says nothing about the model. Both were host verb tables; one of them was
-  // just living in canon.
+  // just living in lambda.
   //
   // RBAC IS NOT A FEATURE HERE. The caller is transport-level identity; which
   // controls that caller may use is auth:links' business, decided by the
@@ -2950,7 +2950,7 @@ function run_mcp() {
   // are the model's and not a shape invented at this boundary.
   const ENTITIES = Ev("mcp:entities", CELLS);
   const ENTITY_OF = new Map(ENTITIES.map((e) => [String(e[0]), e]));
-  // the admitted methods are canon's too -- http:method_kinds, not a constant
+  // the admitted methods are lambda's too -- http:method_kinds, not a constant
   const METHODS = Ev("http:method_kinds", []).map((m) => String(m[0]));
 
   // SOME OPERATIONS ARE JUDGEMENTS, AND AN LLM IS ALREADY ATTACHED (Samuel,
@@ -2962,7 +2962,7 @@ function run_mcp() {
   // sends to the CLIENT. The client declares `sampling` in the capabilities it
   // sends at initialize, and this file discarded that object entirely until now.
   //
-  // NOTHING BECOMES ASYNC INSIDE THE EVALUATOR. Ev stays synchronous: canon
+  // NOTHING BECOMES ASYNC INSIDE THE EVALUATOR. Ev stays synchronous: lambda
   // composes the question before the ask (drive:request) and reads the answer
   // after it (drive), and the await sits between them out here, where the
   // transport already lives.
@@ -3000,11 +3000,11 @@ function run_mcp() {
   // AND THE SEAM ITSELF IS A VERB, under the name the model gives it. mcp:verb_row
   // blanks the accepts of any verb solve:cell cannot find and mcp:verb_keep drops
   // it, so `csdp:elementarize` -- registrable, with accepts and yields rows of its
-  // own and deliberately no canon cell, because it is filled by a driver -- had no
+  // own and deliberately no lambda cell, because it is filled by a driver -- had no
   // door on this surface at all: the only way to reach it was the generic `drive`
   // with its name passed as a string, which is not the operation being called.
   // drive:tools answers <tool name, operation, accepts, yields> for exactly the
-  // seams this driver answers, so the names are canon's (drive:driven) and none is
+  // seams this driver answers, so the names are lambda's (drive:driven) and none is
   // written here. The tool name is SLUG of the operation and the operation rides
   // beside it, the same two columns mcp:entity_row carries for the same reason: an
   // MCP name admits no colon any more than it admits a space, and `csdp:elementarize`
@@ -3110,7 +3110,7 @@ function run_mcp() {
       // reading and the signature were the same row; `Message, Plan` is not
       // `Message recommends Plan`, and the reading is what the paper's
       // verbalization answers. mcp:tools carries it now as the row's third
-      // element, rendered in canon from state:readings. The NAME stays the id
+      // element, rendered in lambda from state:readings. The NAME stays the id
       // because MCP names admit no spaces and the id is what main:api
       // addresses.
       const players = Array.isArray(t[1]) ? t[1].map(String) : [];
@@ -3137,7 +3137,7 @@ function run_mcp() {
   function call(name, args) {
     const a = args || {};
     // A VERB IS THE OTHER HALF OF THE SURFACE, and it is dispatched by the
-    // same canon that dispatches the CLI: main looks the name up in the store
+    // same lambda that dispatches the CLI: main looks the name up in the store
     // (the paper's SYSTEM:x) and main:verb_pair builds the operand the model
     // says the verb takes. The answer is <text, T|F>, a claim rather than a
     // status, so a false answer is an error to the client and nothing is
@@ -3167,9 +3167,9 @@ function run_mcp() {
       // A VERB THAT WRITES ANSWERS THE STORE IT MADE, and adopting it is the
       // same pair the resource branch below composes -- snapshot, evaluate,
       // emit what changed. A read verb answers two parts and none of this runs;
-      // canon decides which is which (main:verb_answer reads the accepts row),
+      // lambda decides which is which (main:verb_answer reads the accepts row),
       // not the name and not this file. The snapshot is taken AFTER the
-      // evaluation on purpose: canon is pure, so CELLS is still the store the
+      // evaluation on purpose: lambda is pure, so CELLS is still the store the
       // verb was handed until adoptStore replaces it, and a read then pays
       // nothing for a snapshot it would never use.
       // AND A VERB THAT FIRES A TRANSITION PERFORMS WHAT THE TRANSITION DECLARES, the
@@ -3198,7 +3198,7 @@ function run_mcp() {
     // main:api takes for a word in ui:groups is <id, fact type, value, fact
     // type, value...> -- ui:create0's own, the one the screen's submit carries
     // -- so the only work here is reading the named parameters back into that
-    // order. Canon decides the order (ui:formfields), canon decides the
+    // order. Lambda decides the order (ui:formfields), lambda decides the
     // resource (the row's second element, the table's real name with its
     // spaces), and a field the caller omitted is simply absent: the mandatory
     // ones it left out come back as the refusal's violations rather than as an
@@ -3226,7 +3226,7 @@ function run_mcp() {
     // makes a tool call persist. It is not part of the reply.
     if (out.length > 2) {
       adoptStore(out[2]);
-      // A REFUSED WRITE IS NOT EMITTED. A refusal (status 4xx, canon's decision)
+      // A REFUSED WRITE IS NOT EMITTED. A refusal (status 4xx, lambda's decision)
       // made no successor, so the tables stay as they were; the journal that
       // once recorded refusals replayed 22 of them at boot for six minutes and
       // left the store as it was (engineering.auto.dev, 2026-09-04).
@@ -3256,7 +3256,7 @@ function run_mcp() {
   // row nothing sampled -- operation, subject, at, model, definition, agent,
   // completion, claim, prompt, input, output, facts, all supplied -- it answered
   // the same twelve <fact type, fact> pairs it answers after a sampling round
-  // trip, ten provenance and two claims. So the CANON END ALREADY EXISTED: the
+  // trip, ten provenance and two claims. So the LAMBDA END ALREADY EXISTED: the
   // seam's own note, "drive already accepts completion-and-cells, so only the
   // door is missing", is the same diagnosis that was right about the seam
   // itself, and everything below this line is host. The three ways in are one
@@ -3333,7 +3333,7 @@ function run_mcp() {
     }
     // the bytes are read into the mu here, where every other body is read: an
     // array is a sequence and an object is its <name, value> pairs (fromJson),
-    // so canon never parses text and Stage-1's boundary stays where it is
+    // so lambda never parses text and Stage-1's boundary stays where it is
     let facts = [];
     if (answered && Array.isArray(passed)) facts = passed;
     else {
@@ -3369,7 +3369,7 @@ function run_mcp() {
     // fact at a time is refused by Theorem 1's gate at every step -- measured
     // 2026-09-17: nine refusals in a row, each naming the roles the next writes
     // were about to fill. mcp:entities already says which fact types are the
-    // columns of which table, so canon's pairs are gathered onto their tables
+    // columns of which table, so lambda's pairs are gathered onto their tables
     // here and posted whole, through the same entity door a caller uses. A fact
     // type that is nobody's column -- the spanning ones, `Message asks about
     // Fact Type` among them -- is its own write, as it was.
@@ -3408,7 +3408,7 @@ function run_mcp() {
   function handle(msg) {
     if (msg.method === "initialize") {
       // THE INSTRUCTIONS ORIENT THE MODEL AT SESSION START (Sam, 2026-09-16):
-      // the client shows this text to the model on connect, and canon
+      // the client shows this text to the model on connect, and lambda
       // composes it from the store -- the Apps with their navigable Domains,
       // each App's orientation rows, and where the tutoring and the memory
       // live (mcp:instructions). A store that cannot compose it connects
@@ -3459,7 +3459,7 @@ function run_mcp() {
     if (msg.method === "tools/list") return reply(msg.id, { tools: tools() });
     // THE PROMPTS ARE THE VERBALIZATION PATTERNS (Sam, 2026-09-16: the MCP
     // must "provide help and tutoring (prompts) for verbalization patterns
-    // in FORML2"). Both answers are canon's: mcp:prompts lists the
+    // in FORML2"). Both answers are lambda's: mcp:prompts lists the
     // Verbalization Pattern rows of metamodel/verbalization.md as
     // <name, description>, and mcp:prompt is the tutor verb, one line per
     // pattern -- its form, the model's own example, and the note -- or the
@@ -3504,7 +3504,7 @@ function run_mcp() {
           (e) => reply(msg.id, { content: [{ type: "text", text: String(e && e.message) }], isError: true }));
       }
       try {
-        // main:api answers <text, status>; the status is canon's decision, and a
+        // main:api answers <text, status>; the status is lambda's decision, and a
         // 4xx is an answer about the model rather than a transport fault
         const out = call(p.name, p.arguments);
         const status = Number(out && out[1]) || 500;
@@ -3553,11 +3553,11 @@ function run_mcp() {
 }
 
 // ---- SQL ---------------------------------------------------------------
-// A host that supports sql needs no schema knowledge of its own. Canon derives
+// A host that supports sql needs no schema knowledge of its own. Lambda derives
 // the relational mapping -- 297 rmap defs, checked against NORMA's own answer
 // by 13 laws -- and rmap:ddl renders it as the CREATE TABLE script. All this
 // does is open a database, run that script, and execute the caller's query.
-// Deciding what the tables ARE would be this file taking canon's job.
+// Deciding what the tables ARE would be this file taking lambda's job.
 //
 // This used to live in engine/python (ddl.project(D, con)) and the rust
 // resident's `sql` verb, which is why it went out with the fat hosts. It was
@@ -3592,7 +3592,7 @@ function run_sql() {
 // that ever had a state machine.
 //
 // This is the load step, and it belongs beside loading the carriers: the host
-// composes the store, and a store without FILE is not one. Canon decides what
+// composes the store, and a store without FILE is not one. Lambda decides what
 // FILE IS; this only puts it there, before the first evaluation, and clears the
 // memo at the mutation point as the note above requires.
 // THE POPULATIONS AS A NORMALIZED DATABASE. Codd, not a blob: the RMAP 3NF
@@ -3610,10 +3610,10 @@ function run_sql() {
 // That's how the bootstrap works. The metamodel doesn't change, and it's used
 // to bootstrap other apps."
 //
-// THE CIRCLE IT BREAKS. loadStoreDb below opens a store by asking canon which
+// THE CIRCLE IT BREAKS. loadStoreDb below opens a store by asking lambda which
 // tables to select from (rmap:coltabs) and which columns (rmap:proj_colnames),
 // and both are functions of state:fts -- the schema. Measured 2026-09-22 on a
-// module composed from canon alone over the base store (build.js reader: no
+// module composed from lambda alone over the base store (build.js reader: no
 // design-state, no compiled map): ast:fetch of state:fts answers #, and
 // rmap:coltabs and loadStoreDb both throw `selector 1 on atom: #` in 2 ms. The
 // schema is what reads the tables and the schema is in the tables, so nothing
@@ -3715,12 +3715,12 @@ function readMetaschema(db) {
 // ---- A STORE IS READ FROM ITS TABLES WHEN ASKED, NOT WHOLE AT START -------------
 // Sam, 2026-09-24: "it shouldn't read the whole db into memory? It should just
 // read from db. That's the point of a database." A server's start read every
-// table and unprojected every row back into canon's populations before it
+// table and unprojected every row back into lambda's populations before it
 // answered anything -- support: 596 tables, 80,685 rows, 5.9 million cells, and
 // the database itself was a quarter of a second of it. So a server's load reads
 // NO rows. Each stored fact type is a cell whose contents are its rows, read
 // from the tables the first time anything reaches into them: only the rows
-// where a column carrying it is filled, unprojected by canon's own rmap:unproj
+// where a column carrying it is filled, unprojected by lambda's own rmap:unproj
 // and nothing else. The source (state:fts) is the carriers' descriptors,
 // copied, each fifth slot read the same way when first read, and FILE is
 // those descriptors nested one at a time, each when its cell is read.
@@ -3822,7 +3822,7 @@ function lazyStore(db, want) {
     return out;
   };
   const ftRows = new Map();
-  // A TABLE READ WHOLE IS KEPT, BY TABLE, and serves every fact type in it. Canon
+  // A TABLE READ WHOLE IS KEPT, BY TABLE, and serves every fact type in it. Lambda
   // unprojects a row at a price set by the table's width and not by what the row
   // holds -- support's Function table is 19,080 rows across 301 columns, 3.2 s
   // whole, and its identifier's fact type alone, which every row fills, 3.1 s
@@ -3945,10 +3945,10 @@ function loadStoreDb(path, opts) {
   // loop below skipped each one without a word.
   //
   // WHAT STOOD HERE WAS THE COMPOSITION STAMP, and it answered a different
-  // question. build.js hashes the whole canon file, scenarios.canon and the
+  // question. build.js hashes the whole lambda file, scenarios.canon and the
   // carriers into sixteen hex digits (IDENTITY), compile.js writes them into
   // _composition, and any other value was refused. Measured 2026-09-21, that is
-  // both too strong and too weak. TOO STRONG: three canon commits that moved no
+  // both too strong and too weak. TOO STRONG: three lambda commits that moved no
   // table and no column -- reflect:src_* on the reflection, rmap:unproj_owner
   // deleted from the READ side, the judge's fifteen DEFs -- invalidated every
   // app's store, five were down at once, and support's re-read from its
@@ -3967,7 +3967,7 @@ function loadStoreDb(path, opts) {
   // extra one cannot reach an answer, and nothing is lost by reading past it.
   // What becomes of its rows is the next compile's question, where the carry
   // already refuses to drop a non-empty orphan without a Migration (compile.js,
-  // AREST_MIGRATE=allow-loss). A store written by a LATER canon therefore still
+  // AREST_MIGRATE=allow-loss). A store written by a LATER lambda therefore still
   // loads here, with the rows this module knows how to read.
   //
   // WHAT THIS DOES NOT CATCH is a column whose MEANING moved while its name
@@ -4056,14 +4056,14 @@ function loadStoreDb(path, opts) {
   // are read, because their shape is what reading them needs; but the ROWS in
   // them were asserted by another build's readings, and until the next
   // apps_check that build is what the store answers where the tables speak.
-  // Refusing this is what put five apps down for three canon commits that moved
+  // Refusing this is what put five apps down for three lambda commits that moved
   // no table; saying nothing at all is the other error.
   if (builtFrom !== COMPOSITION) {
     console.error("store " + path + ": built from composition " + (builtFrom || "(none: it predates the stamp)") +
       ", this module is " + (COMPOSITION || "(unstamped)") +
       " -- the schema fits, so the tables are read; their rows are that build's until the next apps_check");
   }
-  // WHAT THE ROWS MEAN IS CANON'S, NOT THIS FILE'S. rmap:coltabs names the
+  // WHAT THE ROWS MEAN IS LAMBDA'S, NOT THIS FILE'S. rmap:coltabs names the
   // tables and rmap:proj_colnames their columns -- the same two the DDL and the
   // store writer use -- so the host selects those columns from those tables and
   // hands the rows to rmap:unproj, which answers <fact type, tuple> and decides
@@ -4074,7 +4074,7 @@ function loadStoreDb(path, opts) {
   // WHAT THIS REPLACES was seventy lines that inferred all of it from a _meta
   // table: entity tables by subtracting the relation ones, a column's home by
   // assuming a functional column name is unique to one table, and a tuple by
-  // unpacking c0..cN to a recorded arity. `_meta` occurs ZERO times in canon and
+  // unpacking c0..cN to a recorded arity. `_meta` occurs ZERO times in lambda and
   // never did -- it was a shape this file invented so that it could read back
   // what it had written. The schema the readings actually describe is the one
   // rmap:ddl emits, and now it is the one that is read.
@@ -4212,7 +4212,7 @@ function loadFile() {
 
 // AND WHICH POPULATIONS THIS PROCESS COMPUTED, which is what lets either
 // phase correct itself on a later pass without ever disturbing a cell the
-// carriers or the tables supplied. The two are kept apart because canon's
+// carriers or the tables supplied. The two are kept apart because lambda's
 // REFLECTION is the answer where it speaks: a reflected head may also be a
 // rule head, and then the rule is the readings' statement of what the
 // population means and the reflection is what computes it -- exactly the
@@ -4294,7 +4294,7 @@ function loadDerived() {
     // program derives the model's rule heads, whose inputs are empty, and
     // carrying those adds names nothing references and nothing can read
     if (!Array.isArray(entry[1]) || entry[1].length === 0) continue;
-    if (REFLECTED_NAMES.has(name)) continue;              // canon's own answer, not the closure's
+    if (REFLECTED_NAMES.has(name)) continue;              // lambda's own answer, not the closure's
     if (DERIVED_NAMES.has(name) || owned.has(name)) {
       // A CELL THIS BOOT COMPUTED IS REFRESHED, NOT KEPT (2026-09-17). The two
       // guards below are about not disturbing what the CARRIERS or the TABLES
@@ -4323,9 +4323,9 @@ function loadDerived() {
   return added;
 }
 
-// THE META-TYPES ARE REFLECTED AT LOAD, and canon says which. reflect:cells
+// THE META-TYPES ARE REFLECTED AT LOAD, and lambda says which. reflect:cells
 // answers <name, population> pairs computed from the schema itself, so adding a
-// reflected meta-type later is a canon edit and never a host edit -- this
+// reflected meta-type later is a lambda edit and never a host edit -- this
 // function names nothing and decides nothing, exactly as loadDerived does not.
 //
 // Role was the case that forced it: a declared entity type of this metamodel
@@ -4398,7 +4398,7 @@ function closeStore() {
 }
 
 function boot(mode) {
-  // the reader's host: canon alone, no store to load, nothing to run; the
+  // the reader's host: lambda alone, no store to load, nothing to run; the
   // importer (tools/compile-design-state.js) evaluates read:* cells itself,
   // through the same published surface the test tail exposes
   if (mode === "reader") return run_test();
@@ -4417,7 +4417,7 @@ function boot(mode) {
         + " MB, external " + (m.external >> 20) + " MB, cells " + CELLS.length + ", memo " + EVMEMO.size); }
   };
   // A STORE WITH NO SCHEMA SURFACE has no FILE to build, nothing to reflect and
-  // nothing to close under rules: the regress composition is canon with a run's
+  // nothing to close under rules: the regress composition is lambda with a run's
   // outcome and its record, and store:state over it has no state:fts to read.
   // Not a decision about the store, only the absence of its schema.
   const fromDb = process.env.AREST_STORE_DB;
@@ -4494,10 +4494,10 @@ function boot(mode) {
   if (mode === "test") return run_test();
   // "UI" IS A SERVE TAIL, NOT A CLI ONE (build.js OUT, 2026-09-21). build.js
   // composes `ui` byte-for-byte the way it composes `serve` -- same host, same
-  // canon, same carriers, the mode string is the only thing that differs --
+  // lambda, same carriers, the mode string is the only thing that differs --
   // and arest-dev's and tasks' package.json both run it as
   // `build.js ui --run -- --serve`, expecting a bound port. With no arm here it
-  // fell to run_cli, which reads process.argv as a verb for canon's `main`
+  // fell to run_cli, which reads process.argv as a verb for lambda's `main`
   // instead: `--serve` answered "unknown mode: --serve" on stdout and exit 1,
   // never binding anything, which is the "ran with no address" build.js's own
   // comment on --run records. run_serve reads no argv (only AREST_PORT), so

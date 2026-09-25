@@ -1,8 +1,8 @@
 # CI for AREST — the 0.9.0 engine.
 #
-# THE WALL IS THE GATE. A law is a canon DEF the mu applies ("THE LAWS AS
-# CANON", 2026-07-16: "a law written in a host IS the meaning-location
-# failure"), so the verification of record is canon's own law:report
+# THE WALL IS THE GATE. A law is a lambda DEF the mu applies ("THE LAWS AS
+# LAMBDA", 2026-07-16: "a law written in a host IS the meaning-location
+# failure"), so the verification of record is lambda's own law:report
 # evaluated over the composed store — not host test code.
 #
 # EACH HOST VERIFIES ITSELF, with its own toolchain and nothing else. They
@@ -37,8 +37,8 @@
 # THE RUST STATION IS OWED, not quietly dropped. tools/rust-host is
 # tools/rust-station's successor and carries the tests
 # (every_case_answers_what_the_canon_says, the 19-refusal golden,
-# law_report_holds_byte_for_byte), but canon is compiled INTO it as rust
-# source and is 87% of the build: after a canon edit `cargo test --no-run` did
+# law_report_holds_byte_for_byte), but lambda is compiled INTO it as rust
+# source and is 87% of the build: after a lambda edit `cargo test --no-run` did
 # not finish in 560 s here (2026-09-11), and law_report_holds_byte_for_byte is
 # the open subject of the rust mu having none of the js host's strategies. A
 # leg that cannot be run is not a gate, so it returns when that build and that
@@ -60,7 +60,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # canon judges, the harness only drives. Every verdict printed is a law's
+  # lambda judges, the harness only drives. Every verdict printed is a law's
   # own atom, and the runner exits nonzero iff some law answered F
   # (tail.part.js: `process.exit(out[1] === "T" ? 0 : 1)`).
   wall:

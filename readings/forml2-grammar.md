@@ -288,7 +288,7 @@ Classification 'Deontic Constraint' is a Classification.
      Each is now a fact type with one instance fact per row, and each
      value type above declares only its distinct values. Nothing
      consumed the columns (zero references in compiler.py, the Rust
-     sources, or the canon), so the restructuring is behaviour-neutral. -->
+     sources, or the lambda), so the restructuring is behaviour-neutral. -->
 
 ### Derivation Marker
 Derivation Marker has Symbol.

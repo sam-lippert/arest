@@ -1,30 +1,30 @@
-// THE COMPILER IS CANON. THIS IS THE I/O.
+// THE COMPILER IS LAMBDA. THIS IS THE I/O.
 //
 // Sam, 2026-09-20: "compile moving from a c# host to a js host is wrong", "the
-// full framework must be canon with registered DEFS". The C# oracle (17,967
+// full framework must be lambda with registered DEFS". The C# oracle (17,967
 // lines) and the JS compiler (compile-store 902, compile-design-state 361,
 // compile-rmap 161) are both deleted. What replaced them is this file, and it
-// makes no decision: it reads bytes, hands them to canon, and executes the SQL
-// canon answers.
+// makes no decision: it reads bytes, hands them to lambda, and executes the SQL
+// lambda answers.
 //
 //   fs:dir / fs:read      ->  REGISTERED: a directory listing, a file's bytes
 //   sql:exec              ->  REGISTERED: the database engine
-//   CELLS.unshift         ->  canon's answer installed as cells
+//   CELLS.unshift         ->  lambda's answer installed as cells
 //
 // EVERY DECISION IS A DEF. Which sentences a file holds (read:sentences), what
-// a sentence declares (read:row_of), the design state (read:design_state_of),
+// a sentence declares (read:row_of), the schema (read:schema_of),
 // the relational map (rmap:*, 324 DEFs) and the schema itself (rmap:ddl and its
-// eleven helpers, which have been canon all along) -- none of it is here.
+// eleven helpers, which have been lambda all along) -- none of it is here.
 //
 // THE CARRIER IS GONE, NOT MOVED. design-state was a FILE because the oracle
 // was a separate PROCESS and had to hand its answer across a process boundary.
-// In-process the design state is a value, installed with CELLS.unshift the way
+// In-process the schema is a value, installed with CELLS.unshift the way
 // host.js already installs the store (:3444, :3452, :3580). That deletes the
-// renderer too -- src()/chunked(), whose 9-wide chunking restated canon's
+// renderer too -- src()/chunked(), whose 9-wide chunking restated lambda's
 // S1..S9 arity ceiling in JavaScript for a second host to get wrong.
 //
 // AND THE CALLS THEMSELVES ARE REGISTERED (#109, 2026-09-21). Sam: "Compile
-// should have a canon implementation with registrations for the db engine.
+// should have a lambda implementation with registrations for the db engine.
 // Having compile be an empty slot is wrong." It was an empty slot: resolution.md
 // declared `Operation compile is registrable` with no registration, so the
 // model's own `Operation awaits a driver` named compile a seam to be driven by
@@ -80,7 +80,7 @@ if (dirs.length === 0) {
   process.exit(1);
 }
 
-// The reader is canon alone -- build.js `slim` composes no carrier and boots
+// The reader is lambda alone -- build.js `slim` composes no carrier and boots
 // nothing, which is what lets a compiler exist before any store does.
 const host = join(import.meta.dir, "reader.g.js");
 if (!existsSync(host)) {
@@ -95,7 +95,7 @@ if (!existsSync(host)) {
   // where it is already on disk. Reproduced 2026-09-22 by moving it aside.
   //
   // AREST_CARRIERS goes too, and for a reason of meaning rather than a measured
-  // failure: `reader` is build.js's slim mode and slim is CANON ALONE, which is
+  // failure: `reader` is build.js's slim mode and slim is LAMBDA ALONE, which is
   // what lets a compiler exist before any store does. The design-state and
   // compiled carriers are already withheld from it, but the `outcome` and
   // `expected` carriers are pushed without asking whether the build is slim
@@ -111,7 +111,7 @@ await import(pathToFileURL(host).href);
 const { Ev, CELLS, DEFS, loadStoreDb, popSnapshot, closeStore, emitToDb, storeDb, writeMetaschema } = globalThis.AREST;
 
 // ---- THE MODE IS A CELL, AND THE ENVIRONMENT INSTALLS IT ------------------
-// canon's read:strict answers F: the AREST default is not strict (Sam,
+// lambda's read:strict answers F: the AREST default is not strict (Sam,
 // 2026-09-22). A person who wants strictness sets AREST_STRICT=1 where their
 // checks are spawned -- mcp-router's apps_check runs `bun run check` with
 // process.env, so the env of the router's own entry in ~/.claude.json is one
@@ -119,29 +119,29 @@ const { Ev, CELLS, DEFS, loadStoreDb, popSnapshot, closeStore, emitToDb, storeDb
 // DEF installs one -- in DEFS, which every application of the name reads, and
 // in CELLS, which ast:fetch reads -- before the first evaluation, so nothing
 // was compiled against the default first. This file decides nothing: what
-// strictness refuses is written in canon beside the arm that refuses it.
+// strictness refuses is written in lambda beside the arm that refuses it.
 const strict = process.env.AREST_STRICT === "1";
 if (strict) {
   DEFS.set("read:strict", ["CONST", "T"]);
   CELLS.unshift(["CELL", "read:strict", ["CONST", "T"]]);
 }
 
-// WHICH FILES ARE READINGS AND IN WHAT ORDER IS CANON'S. It was this file's
+// WHICH FILES ARE READINGS AND IN WHAT ORDER IS LAMBDA'S. It was this file's
 // last decision in the read phase -- core.md first, then alphabetical -- and
 // read:file_order answers it from a directory listing.
 
 // THE READ PHASE IS DEF(compile). compile:files is the reading files of every
 // directory in reading order, compile:rows their sentences as rows, and
-// DEF(compile) is read:design_state_of over those -- the whole pipeline this
+// DEF(compile) is read:schema_of over those -- the whole pipeline this
 // file used to run as a loop. The two file calls inside it are REGISTERED:
-// fs:dir and fs:read are host prims with no canon cell, which is what puts
+// fs:dir and fs:read are host prims with no lambda cell, which is what puts
 // them in the enumerable boundary instead of in this file.
 const t0 = Date.now();
 const files = Ev("compile:files", dirs).length;
 const sentences = Ev("compile:rows", dirs).length;
 const tRead = Date.now() - t0;
 
-// AND THE DESIGN STATE IS DEF(compile) ITSELF, not read:design_state_of over
+// AND THE SCHEMA IS DEF(compile) ITSELF, not read:schema_of over
 // rows this file gathered. The counts above come from the same two cells the
 // pipeline walks, on the same `dirs` array, so the evaluator answers them from
 // its memo rather than reading the directory twice.
@@ -159,7 +159,7 @@ const findings = checked[1];
 // in the compiler: solve:declared under rmap:proj_rows the first time a store
 // was written through the projection (64732aa4), then main:cf_entry under
 // store:src_all the first time the closure ran here. The forty-seven
-// single-flatten readers are canon's convention, not a defect each; the
+// single-flatten readers are lambda's convention, not a defect each; the
 // compiler now holds what the module holds and every reader answers both.
 // The relational map's artifacts are computed over the chunked cells too,
 // which is how a module without a compiled carrier computes them, and they
@@ -197,22 +197,22 @@ if (domainless.length) {
 }
 if (refused) process.exit(1);
 
-// ---- THE CARRIER, WRITTEN BY CANON --------------------------------------
-// It is the design state as intersection source, the form host.js's CANONTEXT
+// ---- THE CARRIER, WRITTEN BY LAMBDA --------------------------------------
+// It is the schema as intersection source, the form host.js's LAMBDATEXT
 // already reads -- and writing it here is NOT the renderer coming back. The
 // old one chunked every sequence nine wide because build.js spliced the
 // carrier as JavaScript CODE and S9 is a nine-parameter function; a carrier is
-// spliced as TEXT now (build.js's AS_TEXT, 2026-09-07), and CANONTEXT accepts
-// the bare `S` at any arity. So no host restates canon's S1..S9 ceiling and
+// spliced as TEXT now (build.js's AS_TEXT, 2026-09-07), and LAMBDATEXT accepts
+// the bare `S` at any arity. So no host restates lambda's S1..S9 ceiling and
 // this is twelve lines: A an atom, N a number, PHI the empty sequence, DEF a
-// <name, body> entry, and the escapes CANONTEXT's own reader undoes.
+// <name, body> entry, and the escapes LAMBDATEXT's own reader undoes.
 //
 // WHY IT STILL EXISTS, since #109 is about removing exactly this kind of
-// intermediate: build.js composes the design state INTO the module, and the
-// alternative -- the module reading its design state out of the store -- is
-// the half of the flip canon cannot yet answer. WHAT STOOD HERE NAMED THE
+// intermediate: build.js composes the schema INTO the module, and the
+// alternative -- the module reading its schema out of the store -- is
+// the half of the flip lambda cannot yet answer. WHAT STOOD HERE NAMED THE
 // WRONG OBSTACLE and is corrected rather than deleted. It said four populated
-// fact types were named by no path and that canon emits the schema and has no
+// fact types were named by no path and that lambda emits the schema and has no
 // projection into it and no inverse. Measured at b72a7b35 on the base
 // metamodel: rmap:unkeyed is 0, the 289 fact types give 65 tables and 427
 // column paths, 69 fact types are populated, and POPULATED-BUT-HOMELESS is 0.
@@ -258,7 +258,7 @@ if (refused) process.exit(1);
 // #. Until those populations are written the store cannot carry the design
 // state and the carrier does.
 const outDir = process.env.AREST_OUT_DIR;
-// THE DESIGN STATE IS A VALUE; THE CARRIER IS ONE RENDERING OF IT, and the
+// THE SCHEMA IS A VALUE; THE CARRIER IS ONE RENDERING OF IT, and the
 // store's identity is the value, not the file. This rendering used to live
 // inside `if (outDir)` together with the stamp that hashes it, so a compile
 // asked only for a database -- which is how a store is made -- wrote one with
@@ -275,14 +275,14 @@ const esc = (s) => {
 const src = (v) => Array.isArray(v)
     ? (v.length === 0 ? "PHI()" : "S(" + v.map(src).join(",") + ")")
     : typeof v === "number" ? "N(" + v + ")" : 'A("' + esc(v) + '")';
-// AND IT IS CHUNKED NINE WIDE, BECAUSE CANON READS IT THAT WAY. Measured
-// 2026-09-20: 48 canon DEFs compose an UNGUARDED theta:flatten with an
+// AND IT IS CHUNKED NINE WIDE, BECAUSE LAMBDA READS IT THAT WAY. Measured
+// 2026-09-20: 48 lambda DEFs compose an UNGUARDED theta:flatten with an
 // ast:fetch of a state: cell -- rules:model, solve:rules, ui:otpops,
 // rmap:readrows, main:declared_names and forty-three more -- so each of them
 // flattens exactly one level and a carrier chunked any other way is a
 // different value. The nine came from S9 being a nine-parameter JavaScript
-// function; it has been load-bearing canon ever since, undeclared. So this
-// does not restate it: read:chunk9 IS canon's chunker, 43 ms for all 22
+// function; it has been load-bearing lambda ever since, undeclared. So this
+// does not restate it: read:chunk9 IS lambda's chunker, 43 ms for all 22
 // cells, and the width lives where the readers live.
 //
 // Since 2026-09-21 the cells this file holds in CELLS are the same chunked
@@ -291,11 +291,11 @@ const src = (v) => Array.isArray(v)
 // answer either shape.
 //
 // reflect:surface was the exception that proved it. It flattened
-// unconditionally too, and canon's own flat design state made four
+// unconditionally too, and lambda's own flat schema made four
 // reflections raise `selector 2 on atom: DomainHasDescription` while the
 // oracle's chunked one passed; it now unfolds with rmap:unfold4 and both
 // shapes answer 781/400/781/781. The other forty-seven are recorded, not
-// fixed: they are a canon change with a suite behind it, not a compiler one.
+// fixed: they are a lambda change with a suite behind it, not a compiler one.
 const body = state.map((c, i) => 'DEF("' + esc(String(c[0])) + '", ' + src(chunked[i]) + ")").join(",\n");
 const carrier = "(\n" + body + "\n)\n";
 const carrierBytes = Buffer.from(carrier, "utf8");
@@ -306,10 +306,10 @@ if (outDir) {
   console.log("carrier: " + carrier.length + " bytes at " + join(outDir, "design-state"));
 
   // ---- AND THE RELATIONAL MAP, WHICH IS THE SAME COMPILATION ----------------
-  // tools/compile-rmap.js (161 lines, deleted) wrote these; they are canon's
-  // own answers cached, one DEF per rmap artifact, and canon reads each through
+  // tools/compile-rmap.js (161 lines, deleted) wrote these; they are lambda's
+  // own answers cached, one DEF per rmap artifact, and lambda reads each through
   // a COND that derives only when the cell is absent. Without them the map is
-  // rederived at every boot -- `canon's DDL is a database SQLite will accept`
+  // rederived at every boot -- `lambda's DDL is a database SQLite will accept`
   // went from passing to a 12.5 s timeout against a 5 s cap the moment the
   // carriers were deleted, and slowness is a defect, not a budget.
   //
@@ -331,7 +331,7 @@ if (outDir) {
     defs.push('DEF("stored:rmap:' + a + '", ' + src(v) + ")");
   }
   // THE STAMP IS WHAT LETS build.js REFUSE IT. The carrier is derived FROM the
-  // design state, so a design state regenerated since leaves it describing
+  // schema, so a schema regenerated since leaves it describing
   // tables that no longer exist; build.js hashes design-state and declines a
   // `compiled` that names another.
   const stamp = createHash("sha256").update(carrierBytes).digest("hex").slice(0, 16);
@@ -356,7 +356,7 @@ const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
 // The build goes BESIDE the store -- compile-store.js's one-sentence invariant
 // (#108) -- and is renamed in only once the rows are there, so a run that dies
 // half way leaves the previous store untouched. What is NOT rebuilt yet is the
-// migration gate (migrate:, 25 canon DEFs); until it is, this REPLACES rather
+// migration gate (migrate:, 25 lambda DEFs); until it is, this REPLACES rather
 // than migrates, so rows written at runtime do not survive a recompile.
 const build = out ? out + ".build" : "";
 let ddl = "", tDdl = 0;
@@ -375,7 +375,7 @@ if (!out && !outDir) {
 } else if (out) {
   const db = new Database(build, { create: true });
   // AND IT CARRIES THE COMPOSITION IT IS A PROJECTION OF. build.js stamps a
-  // module with sha256 of canon and the carriers -- IDENTITY, which is
+  // module with sha256 of lambda and the carriers -- IDENTITY, which is
   // deliberately not the host source, because a comment in host.js does not move
   // a population -- and loadStoreDb refuses a database stamped with anything
   // else. compile.js wrote no stamp, so every store it has written has been
@@ -437,9 +437,9 @@ if (!out && !outDir) {
   const metarows = writeMetaschema(db);
   const tMetaMs = Date.now() - tMeta;
   const n = db.query("SELECT count(*) c FROM sqlite_master WHERE type='table'").get().c;
-  // AND THE ROWS ARE CANON'S TOO. rmap:proj_rows answers a table's rows -- the
+  // AND THE ROWS ARE LAMBDA'S TOO. rmap:proj_rows answers a table's rows -- the
   // key, then one value per column in the order rmap:colnames gives them -- so
-  // this binds and executes and decides nothing. # is canon's absent value and
+  // this binds and executes and decides nothing. # is lambda's absent value and
   // becomes SQL NULL; everything else goes in as text, because a column's type
   // is the schema's business and sqlite's affinity applies it.
   const t3 = Date.now();
@@ -563,18 +563,18 @@ if (!out && !outDir) {
     db.exec("begin");   // and one for the carry: claude's check spent 9 s on Function and 17 s on the instance table, a sync per carried row
     // A REFLECTED NAME NEVER CARRIES (b6e16927, #122 item 1 continued). A boot
     // writes the REFLECTED populations back into these same tables too --
-    // host.js's loadReflected installs canon's own reflect:cells answer as the
+    // host.js's loadReflected installs lambda's own reflect:cells answer as the
     // cell of a reflected fact type's name, and emitToDb (~349) projects that
     // cell the same way any other one is projected. So a row the prior store
     // holds for a reflected name is the CLOSURE's computation over whatever
-    // design state that boot had, not a runtime fact, and carrying it forward
+    // schema that boot had, not a runtime fact, and carrying it forward
     // is carrying a STALE closure answer into a build the closure has not run
     // over yet -- a constraint the readings no longer declare surviving
     // because the carry could not tell a reflected row from a written one.
     // Skipped here, nothing is lost: the next boot's loadReflected + emitToDb
     // recomputes it fresh and writes it back.
     //
-    // WHICH NAMES ARE REFLECTED IS CANON'S ANSWER, the same one loadReflected
+    // WHICH NAMES ARE REFLECTED IS LAMBDA'S ANSWER, the same one loadReflected
     // itself reads -- reflect:cells' <name, population> pairs -- but READING
     // IT COSTS THE POPULATIONS, and MEASURED on the metamodel (with and
     // without readings/templates beside it) Ev("reflect:cells", CELLS) does
@@ -588,7 +588,7 @@ if (!out && !outDir) {
     // DEF that computes it and nothing answers the names alone). So this
     // copies reflect:computed's OWN pairs (arest:14286-14287) as data, the
     // way this file's ARTIFACTS list two hundred lines up (~176) copies
-    // rmap's -- both go stale on the same canon edit and neither one
+    // rmap's -- both go stale on the same lambda edit and neither one
     // evaluates a population to get the names.
     const REFLECTED_NAMES = new Set(("FactTypeHasRole FactTypeHasReading ObjectTypePlaysRole "
       + "RoleIsUsedInReading StateMachineIsForObjectTypeInstance StateMachineIsInstanceOfStateMachineDefinition "
@@ -675,7 +675,7 @@ if (!out && !outDir) {
       const keep = newColsK.map((c2) => c2.name).filter((n2) => oldColsK.some((o) => o.name === n2));
       // NO SHARED COLUMN, NOTHING TO MATCH ON: the prior table is a different
       // layout of the same name (compile-store.js's k + fact-type-name columns
-      // against canon's role-named ones), and its rows are orphaned whole.
+      // against lambda's role-named ones), and its rows are orphaned whole.
       if (!keep.length) {
         const all = prior.prepare('select count(*) c from ' + qi(table)).get().c;
         const n = all ? runtimeCount(table, oldCols) : 0;
@@ -819,7 +819,7 @@ if (!out && !outDir) {
         }
       }
       // A TABLE THAT COSTS A SECOND IS NAMED as it finishes, with the split:
-      // the detection of its reflected columns (canon, per table and column)
+      // the detection of its reflected columns (lambda, per table and column)
       // against its row loop (sqlite). Slowness is a defect, and a summary
       // that only says "carry N ms" hides which one this is.
       const tTableRows = Date.now() - tTable - tReflect;
@@ -917,13 +917,13 @@ if (!out && !outDir) {
 }
 // WHAT THE STORE CANNOT HOLD IS SAID, NOT SKIPPED. rmap:unkeyed is every fact
 // type the map gives a table with no columns -- an entity-type player with no
-// reference scheme canon can map, so nothing that needs its key has a column to
+// reference scheme lambda can map, so nothing that needs its key has a column to
 // carry -- and rmap:coltabs leaves them out so the DDL is one sqlite accepts.
 // This prints them because a silent omission is the defect state:undelivered
 // exists to prevent; the composite key for a compound scheme is what fixes it.
 const unkeyed = Ev("rmap:unkeyed", CELLS);
 if (unkeyed.length) {
-  console.error("UNSTORED: " + unkeyed.length + " fact type(s) have no key column and get no table -- an entity type in each declares a compound reference scheme, which canon does not yet map to a composite key:");
+  console.error("UNSTORED: " + unkeyed.length + " fact type(s) have no key column and get no table -- an entity type in each declares a compound reference scheme, which lambda does not yet map to a composite key:");
   for (const u of unkeyed) console.error("  " + u[0]);
 }
 console.log("compiled " + sentences + " sentences from " + files + " files: "

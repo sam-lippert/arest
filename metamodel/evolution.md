@@ -225,7 +225,7 @@ It is obligatory that each Domain Change has exactly one Rationale.
      it to the applied ones is a join the deontic row shape has no legs
      for.
      AND `exactly one` IS NOT A UNIQUENESS ON THIS FACT TYPE (measured
-     2026-09-17, the same day, and against the oracle rather than canon's
+     2026-09-17, the same day, and against the oracle rather than lambda's
      reader alone). `exactly one User approves that Domain Change` builds an
      internal uniqueness over the DOMAIN CHANGE ROLE ALONE, and that span is
      narrower than the spanning uniqueness declared above, so the reader that
@@ -261,7 +261,7 @@ It is obligatory that each Domain Change has exactly one Rationale.
      ORM, since the modalities differ and neither implies the other, and the
      oracle cannot build the pair: AddInternalUC compares role spans and
      never modality, so whichever arrives second erases the first. Until it
-     can, the second approver is refused where it can be refused - canon's
+     can, the second approver is refused where it can be refused - lambda's
      migrate:plan answers nothing when two Users approve one Domain Change
      (engine/shared/scenarios.canon, case:a-second-approver-is-not-a-throat)
      and compile-store declines the Migration.
@@ -294,7 +294,7 @@ If Function1 is superseded by Function2, then Function2 is not superseded by Fun
      has spent the lookup it was meant to save. When a successor is
      itself replaced the fix is to retract the old row and assert the new
      one, never to grow a chain: obsolescence is a retraction. Both
-     halves are witnessed by execution over the population, in canon,
+     halves are witnessed by execution over the population, in lambda,
      under the law registered as supersession-resolves - no retired name
      resolves to a definition, and the two role sets do not meet. -->
 
@@ -378,9 +378,9 @@ Domain 'evolution' has Description 'Self-modification as a Domain Change state m
 
 <!-- SUPERSESSION, populated from what the repo can be asked rather than
      from what it says in prose. Every retired name below was checked to
-     resolve to nothing: none is a canon definition and none carries a
+     resolve to nothing: none is a lambda definition and none carries a
      Definition Origin row, which is the standing law's first half. The
-     three canon rows are this rebuild's own retirements; the two `Signal
+     three lambda rows are this rebuild's own retirements; the two `Signal
      Source` rows are this file's, and are the split witness the spanning
      uniqueness above is stated for. -->
 

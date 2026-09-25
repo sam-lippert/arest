@@ -2,10 +2,10 @@
 
 Seven stations died of the same disease at different speeds: host code.
 First it was fallback lists and guards; at the end it was mode dispatch —
-every canon operation teaching eight hosts a new argv branch. The cure is
+every lambda operation teaching eight hosts a new argv branch. The cure is
 structural. This runner is the whole fleet now, and it can never grow.
 
-**The host contract, final:** the canon's `main` takes `⟨store, args⟩`
+**The host contract, final:** the lambda's `main` takes `⟨store, args⟩`
 and answers `⟨text, ok⟩`. The tail converts argv to atoms, evaluates
 `main`, prints the text atom verbatim, and exits by the flag:
 
@@ -15,7 +15,7 @@ and answers `⟨text, ok⟩`. The tail converts argv to atoms, evaluates
 
 That is the entire host surface. All dispatch (base report, app report,
 solve, loud refusal of unknown modes) and ALL rendering (every output
-line) live in canon `main:`. A new operation is a canon edit, never a
+line) live in lambda `main:`. A new operation is a lambda edit, never a
 host edit. If you are about to add a branch to the tail, stop — that is
 precisely how the last runners died.
 
@@ -30,7 +30,7 @@ precisely how the last runners died.
 beside `design-state` every run) and a recorded expectation composed in as
 the carrier `expected` (both optional, like `compiled`;
 `AREST_OUT_DIR` puts the composed module beside them). The `regress` build
-mode composes canon with those two carriers and no schema, since the laws
+mode composes lambda with those two carriers and no schema, since the laws
 read nothing else and us-law's design-state took the host minutes to load
 and close. Three rows, then the heads lost and new. That is the corpus
 check of tools/norma-oracle-tests. The cli composition carries the two
@@ -39,7 +39,7 @@ carriers as well, so `bun composed.g.js regress` answers on the base store.
 The composed modules (`*.g.js`) are build products and are not tracked,
 so anything that starts one must compose it first. The MCP entry in the
 repository's `.mcp.json` runs `build.js mcp --run`, which composes from
-the current canon and carriers and then starts the module on the same
+the current lambda and carriers and then starts the module on the same
 stdio (the size line and the boot timings go to stderr; stdout is the
 protocol channel). A module started directly can be days old: the one the
 harness started on 2026-09-03 took two minutes to boot, past the client's
@@ -56,7 +56,7 @@ THERE IS NO FOURTH CARRIER. A JOURNAL used to be one: an append-only
 argument list of `,\n\nDEF("journal:n", address)` entries written by a
 registered `store:append`, replayed at boot by `ui:boot` through
 `ui:apply`/`ui:create` in file order, so a fired transition survived
-recomposition. It is gone (Samuel, 2026-09-11) — eleven canon DEFs,
+recomposition. It is gone (Samuel, 2026-09-11) — eleven lambda DEFs,
 the slot in `ui:navpe` that minted a `journal:<n>` cell on every write,
 and the `mid3.part.js`/`mid4.part.js` this paragraph named, which this
 station had already stopped composing. Continuity is the tables: a
