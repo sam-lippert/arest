@@ -1,8 +1,8 @@
 // rust-host's CLI, and the whole binary. The mu, the Backus base, the
-// registration vocabulary and canon itself live in lib.rs beside this file,
+// registration vocabulary and lambda itself live in lib.rs beside this file,
 // because engine/os needs the same evaluator and a second copy of a mu is how
 // the first two js runners died. What is left here is the six-line contract's
-// outermost layer: argv in, canon's text out, canon's flag as the exit code.
+// outermost layer: argv in, lambda's text out, lambda's flag as the exit code.
 
 fn run() {
     let argv: Vec<String> = std::env::args().skip(1).collect();
@@ -14,7 +14,7 @@ fn run() {
 }
 
 fn main() {
-    // The canon is ONE deeply nested expression, so merely BUILDING it recurses
+    // The lambda is ONE deeply nested expression, so merely BUILDING it recurses
     // past the main thread's default stack, and mu then recurses deeper still.
     // The same reduction forces the same budget on every host (the js host's
     // node stack flag, the wasm -zstack-size flag, and the lib's own tests).

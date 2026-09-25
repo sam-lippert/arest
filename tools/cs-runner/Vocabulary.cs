@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 
 // The registration vocabulary — exactly the intersection's fourteen names
-// (DEF, A, N, K, PHI, S1..S9) plus CANON, the varargs wrap that turns the
-// canon's one tuple literal into a compiled method call. DEF accumulates
+// (DEF, A, N, K, PHI, S1..S9) plus LAMBDA, the varargs wrap that turns the
+// lambda's one tuple literal into a compiled method call. DEF accumulates
 // the composed store (one CELL per registered name) so the store reads
 // itself. Nothing else belongs in this file, ever: a host supplies the
 // vocabulary, the mu, the base primitives, and the registered boundary
@@ -41,5 +41,5 @@ public static partial class Arest
     public static object S8(object a, object b, object c, object d, object e, object f, object g, object h) { return new[] { a, b, c, d, e, f, g, h }; }
     public static object S9(object a, object b, object c, object d, object e, object f, object g, object h, object i) { return new[] { a, b, c, d, e, f, g, h, i }; }
 
-    public static object CANON(params object[] xs) { return xs; }
+    public static object LAMBDA(params object[] xs) { return xs; }
 }

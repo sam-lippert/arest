@@ -1,13 +1,13 @@
 // The C# host's own unit tests. `dotnet test` -- no python, no second host.
 //
-// Every host runs the same canon over the same carriers, so "the hosts agree"
+// Every host runs the same lambda over the same carriers, so "the hosts agree"
 // does not need one host to drive the others: each asserts its own answers
 // against engine/shared/expected-cases.tsv and agreement follows because they
 // all match the same file. Verifying this host needs the dotnet SDK and
 // nothing else.
 //
-// The canon is loaded ONCE for the assembly, not per case: Reader.Load mutates
-// Arest.CELLS, so loading per test would stack the canon on itself 566 times.
+// The lambda is loaded ONCE for the assembly, not per case: Reader.Load mutates
+// Arest.CELLS, so loading per test would stack the lambda on itself 566 times.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,7 +15,7 @@ using System.Linq;
 using System.Text;
 using Xunit;
 
-public static class Canon
+public static class Lambda
 {
     static readonly object Gate = new object();
     static bool loaded;
@@ -63,9 +63,9 @@ public static class Canon
         }
     }
 
-    // THE BOTTOM ROWS ARE THE POINT. canon's note above main:case_text says one
+    // THE BOTTOM ROWS ARE THE POINT. lambda's note above main:case_text says one
     // case per invocation is deliberate: the table holds rows that BOTTOM, no
-    // canon def can branch on bottom, and a fold would die at the first one.
+    // lambda def can branch on bottom, and a fold would die at the first one.
     // The CLI makes a bottom visible by dying and the driver recorded
     // <refused>. In-process the boundary is a catch, and it has to be here or
     // the deliberate refusals read as broken tests.
@@ -133,15 +133,15 @@ public class CasesTest
 {
     public static IEnumerable<object[]> Cases()
     {
-        foreach (var kv in Canon.Golden()) yield return new object[] { kv.Key, kv.Value };
+        foreach (var kv in Lambda.Golden()) yield return new object[] { kv.Key, kv.Value };
     }
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public void EveryCaseAnswersWhatTheCanonSays(string name, string want)
+    public void EveryCaseAnswersWhatTheLambdaSays(string name, string want)
     {
-        Canon.Load();
-        Assert.Equal(want, Canon.Answer(name));
+        Lambda.Load();
+        Assert.Equal(want, Lambda.Answer(name));
     }
 
     // A def NO host can evaluate answers <refused> everywhere and agrees
@@ -151,14 +151,14 @@ public class CasesTest
     {
         // 19 since 4cc9f726 (2026-09-02, a nested population is one row per fact);
         // the js host has no count test, so this one lagged the golden by a day
-        Assert.Equal(19, Canon.Golden().Count(kv => kv.Value == "<refused>"));
+        Assert.Equal(19, Lambda.Golden().Count(kv => kv.Value == "<refused>"));
     }
 
     [Fact]
     public void LawReportHoldsByteForByte()
     {
-        Canon.Load();
-        var want = File.ReadAllText(Canon.Shared("expected-laws.txt")).Trim();
+        Lambda.Load();
+        var want = File.ReadAllText(Lambda.Shared("expected-laws.txt")).Trim();
         var outp = (object[])Arest.Ev("main",
             new object[] { Arest.CELLS.ToArray(), new object[] { } });
         Assert.Equal(want, ((string)outp[0]).Trim());

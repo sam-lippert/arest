@@ -1,7 +1,7 @@
 // The Java host's own unit tests. JUnit 5 via the standalone console launcher
 // -- no python, no second host, no build tool.
 //
-// Every host runs the same canon over the same carriers, so "the hosts agree"
+// Every host runs the same lambda over the same carriers, so "the hosts agree"
 // does not need one host to drive the others: each asserts its own answers
 // against engine/shared/expected-cases.tsv and agreement follows because they
 // all match the same file.
@@ -43,8 +43,8 @@ public class CasesTest {
             Paths.get(root().getPath(), "engine", "shared", name)), StandardCharsets.UTF_8);
     }
 
-    // The canon is loaded ONCE for the class: Reader.load mutates Arest.CELLS,
-    // so loading per case would stack the canon on itself 566 times.
+    // The lambda is loaded ONCE for the class: Reader.load mutates Arest.CELLS,
+    // so loading per case would stack the lambda on itself 566 times.
     static synchronized void load() {
         if (loaded) return;
         String r = root().getPath();
@@ -58,9 +58,9 @@ public class CasesTest {
         loaded = true;
     }
 
-    // THE BOTTOM ROWS ARE THE POINT. canon's note above main:case_text says one
+    // THE BOTTOM ROWS ARE THE POINT. lambda's note above main:case_text says one
     // case per invocation is deliberate: the table holds rows that BOTTOM, no
-    // canon def can branch on bottom, and a fold would die at the first one.
+    // lambda def can branch on bottom, and a fold would die at the first one.
     // The CLI makes a bottom visible by dying and the driver recorded
     // <refused>. In-process the boundary is a catch, and it has to be here or
     // the deliberate refusals read as broken tests.
@@ -120,7 +120,7 @@ public class CasesTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("cases")
-    void everyCaseAnswersWhatTheCanonSays(String name, String want) {
+    void everyCaseAnswersWhatTheLambdaSays(String name, String want) {
         load();
         assertEquals(want, answer(name));
     }

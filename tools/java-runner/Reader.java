@@ -4,15 +4,15 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-// ============================ the canon READER ================================
-// The canon, the case table and the carriers READ AT RUNTIME, replacing
+// ============================ the lambda READER ================================
+// The lambda, the case table and the carriers READ AT RUNTIME, replacing
 // compose.py's generated Composed.g.java.
 //
-// That generator exists because the JVM caps a method at 64 KB and the canon is
+// That generator exists because the JVM caps a method at 64 KB and the lambda is
 // one 1.1 MB tuple literal, so it split the tuple at top-level commas into
 // slice methods and hoisted oversized subexpressions into helpers. It is
-// syntax-only and every canon byte appears verbatim -- an honest program, and
-// 2.16 MB of generated source that javac had to compile on every canon edit.
+// syntax-only and every lambda byte appears verbatim -- an honest program, and
+// 2.16 MB of generated source that javac had to compile on every lambda edit.
 //
 // A parser has no method-size problem. This is the same reader engine/rust and
 // rust-station now carry, in this platform's terms: A is a String, N an
@@ -146,7 +146,7 @@ public final class Reader {
         try {
             src = Files.readAllBytes(Paths.get(path));
         } catch (Exception e) {
-            throw new RuntimeException("canon reader: cannot read " + path + ": " + e);
+            throw new RuntimeException("lambda reader: cannot read " + path + ": " + e);
         }
         Reader p = new Reader(src);
         p.eat("(");
@@ -157,14 +157,14 @@ public final class Reader {
             if (p.b[p.i] == '"') { p.string(); p.eat(","); continue; }
             if (p.eat("DEF(")) {
                 String name = p.string();
-                if (!p.eat(",")) throw new RuntimeException("canon reader: " + path + " bad DEF");
+                if (!p.eat(",")) throw new RuntimeException("lambda reader: " + path + " bad DEF");
                 Object body = p.expr();
                 p.eat(")");
                 p.eat(",");
                 Arest.DEF(name, body);
                 continue;
             }
-            throw new RuntimeException("canon reader: " + path + " is not the DEF grammar");
+            throw new RuntimeException("lambda reader: " + path + " is not the DEF grammar");
         }
     }
 
