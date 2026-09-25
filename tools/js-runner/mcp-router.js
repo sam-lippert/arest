@@ -86,6 +86,8 @@ const DAEMON = process.argv.includes("--daemon");
 const PORT = Number(process.env.AREST_ROUTER_PORT || 41817);
 // the largest answer handed to a session; see the tools/call path
 const MAX_ANSWER = Number(process.env.AREST_ROUTER_MAX_ANSWER || 2000000);
+// how long an app may go without a call before its server is stopped; see Resident.rest
+const APP_IDLE_MS = Number(process.env.AREST_APP_IDLE_MS || 600000);
 const LOG = join(here, ".router.log");
 function log(line) {
   const s = String(line).endsWith(NL) ? String(line) : String(line) + NL;
@@ -320,9 +322,13 @@ class Resident {
     this.instructions = "";
     this.tools = [];
     this.prompts = null;
-    this.state = "booting";                 // booting | serving | failed | stopped | suspended
+    this.state = "booting";                 // booting | serving | idle | failed | stopped | suspended
     this.busy = null;                       // null | checking | compiling
     this.note = "";                         // the last check or compile result
+    this.lastUsed = 0;                      // the last call or boot; the sweep's clock (rest)
+    this.lastCall = 0;                      // the last call alone; survey() reads it
+    this.surveyed = false;                  // survey() has started it once
+    this.rested = false;                    // stopped by rest(), so nothing of it is left
   }
   // ONE SERVER PER APP DIRECTORY, ENFORCED AT SPAWN (2026-09-18). stop() kills
   // its own child's tree correctly (c6efdb97), and that is not enough, because
@@ -375,7 +381,11 @@ class Resident {
   }
 
   spawn() {
-    this.reap();
+    // a rest killed this app's own tree before it returned, so a start after one
+    // has no orphan to find -- and the reap's query holds the router's loop for
+    // 0.4-0.5 s (measured), in which no other app answers
+    if (!this.rested) this.reap();
+    this.rested = false;
     this.pending = new Map();
     this.nextId = 1;
     this.buf = "";
@@ -426,6 +436,33 @@ class Resident {
       for (const [, p] of this.pending) p.reject(new Error(this.name + ": " + this.error));
       this.pending.clear();
     });
+  }
+  // AN APP NOBODY IS CALLING IS STOPPED, AND THE NEXT CALL STARTS IT (2026-09-24;
+  // Sam: "low memory footprint is a requirement"). Every app was spawned at the
+  // daemon's start and kept for the daemon's life: six servers holding 3.5 GB at
+  // 22:44 that day, support alone 1.2 GB, while most of them answered nothing for
+  // hours, and a validation run beside them was twice stopped by the machine's
+  // low-memory guard. Now a sweep stops an app that is serving, holds nothing
+  // pending and runs no build once AREST_APP_IDLE_MS (10 minutes) has passed
+  // without a call or a boot, and the next call starts it and waits for its boot,
+  // as a call during any boot already did. What the app said it serves -- its
+  // instructions, verbs and prompts -- is kept, so the router's surface does not
+  // move while it rests. The store is the durable thing and the server a cache
+  // over it: every write reaches store.db before its answer does, and a server
+  // runs no timer but its memo's, so stopping an idle one loses nothing.
+  rest() {
+    this.stop("idle");
+    this.state = "idle";
+    this.error = null;
+    this.ready = null;
+    this.rested = true;
+  }
+  wake() {
+    this.lastUsed = this.lastCall = Date.now();
+    if (this.state !== "idle") return;
+    const known = this.tools.length > 0;
+    this.spawn();
+    this.boot().then(() => { if (!known) announceTools(); });
   }
   // AND A SUSPENDED APP IS NOT STARTED AT ALL. Serving Status is the one piece
   // of per-app config the router can act on: the row keeps its package
@@ -527,6 +564,7 @@ class Resident {
         this.tools = (list && list.tools) || [];
         try { const pl = await this.request("prompts/list", {}); this.prompts = (pl && pl.prompts) || []; } catch { this.prompts = []; }
         if (this.child) this.state = "serving";
+        this.lastUsed = Date.now();
       } catch (e) {
         if (!this.error) this.error = String(e.message);
         this.state = "failed";
@@ -535,6 +573,10 @@ class Resident {
     return this.ready;
   }
   status() {
+    if (this.state === "idle" && !this.busy) {
+      const s = "idle: no server running; the next call starts it";
+      return this.note ? s + " -- " + this.note : s;
+    }
     const s = this.busy
       ? this.busy + " (not served until apps_compile)"
       : this.state === "serving" ? "serving" : "not serving: " + (this.error || this.state);
@@ -635,6 +677,15 @@ const residents = new Map();
 // store's first boot after a rebuild happens once, not once per session -- and
 // the client hears tools/list_changed for each as it comes up. A resident that
 // fails stays "not serving" with its error; the others serve.
+//
+// AND NOW ONE AT A TIME, EACH STOPPED AGAIN ONCE IT HAS SAID WHAT IT SERVES
+// (2026-09-24). Six servers booted together held 3.5 GB, and most of them
+// answered nothing for hours (Resident.rest). A new resident is left idle, and
+// survey() below starts the idle ones in turn, learns what each one serves --
+// its instructions, verbs and prompts, which initialize, tools/list and
+// prompts/list offer -- and stops it again unless a call reached it meanwhile.
+// So the router's surface is what it was, and its peak is the largest app
+// rather than all of them.
 function reconcile() {
   const wanted = registry.read();
   const byName = new Map(wanted.map((a) => [a.name, a]));
@@ -656,12 +707,32 @@ function reconcile() {
     const r = new Resident(a);
     residents.set(a.name, r);
     if (a.suspended) { r.suspend(); parked.push(a.name); continue; }
-    r.spawn();
-    r.boot().then(announceTools);
+    r.state = "idle";                      // survey() learns its surface; a call starts it
     started.push(a.name);
   }
+  survey();
   announceTools();
   return { wanted, started, stopped, parked };
+}
+// THE SURVEY: each idle resident not yet asked what it serves, one at a time --
+// started, asked, and stopped again unless a call reached it while it booted (a
+// call that did keeps it, and the sweep has it from there). A resident a call
+// started first is not surveyed; its boot taught the same thing.
+let surveying = false;
+async function survey() {
+  if (surveying) return;
+  surveying = true;
+  for (let r; (r = [...residents.values()].find((x) => x.state === "idle" && !x.surveyed && !x.tools.length)); ) {
+    r.surveyed = true;
+    const asked = Date.now();
+    r.spawn();
+    await r.boot();
+    announceTools();
+    if (r.state !== "serving" || r.busy || r.pending.size || r.lastCall >= asked) continue;
+    r.rest();
+    log("[" + r.name + "] surveyed (" + r.tools.length + " tools): stopped until a call");
+  }
+  surveying = false;
 }
 // The shim reads no registry and spawns nothing: it connects to the daemon and
 // pipes its stdio. Only the daemon has residents, so only the daemon builds and
@@ -744,7 +815,8 @@ async function handle(msg) {
     clientCaps = (msg.params && msg.params.capabilities) || {};
     sawClient();
     const lines = [];
-    for (const r of residents.values()) lines.push(r.name + (r.state === "serving" ? ": " + r.instructions : " (" + r.status() + ")"));
+    // an idle app is described as it described itself when it last booted
+    for (const r of residents.values()) lines.push(r.name + (r.state === "serving" || (r.state === "idle" && r.instructions) ? ": " + r.instructions : " (" + r.status() + ")"));
     // AND THE REGISTRY'S OWN STATE IS THE FIRST THING SAID WHEN IT REFUSES. A
     // client told that AREST serves 0 apps, and nothing else, has no way to
     // find out why; this is the one place every session reads.
@@ -768,6 +840,8 @@ async function handle(msg) {
   if (msg.method === "prompts/get") {
     const r = [...residents.values()].find((x) => x.prompts && x.prompts.length);
     if (!r) return fail(msg.id, "no resident app carries the verbalization patterns");
+    r.wake();
+    if (r.ready) await r.ready;
     try { return reply(msg.id, await r.request("prompts/get", msg.params || {})); } catch (e) { return fail(msg.id, String(e.message)); }
   }
   if (msg.method === "tools/call") {
@@ -818,6 +892,7 @@ async function handle(msg) {
       const started = p.name === "apps_check" ? r.check() : r.compile();
       return started ? text(msg.id, started) : text(msg.id, r.name + " is " + r.status() + "; wait for `apps` to report it", true);
     }
+    r.wake();                               // an idle app starts here
     if (r.ready) await r.ready;              // this app's boot, not every app's
     let name = p.name;
     if (name === "fact") {
@@ -887,7 +962,8 @@ function attach(socket) {
 
 // THE DAEMON OUTLIVES A SESSION AND NOT THE DAY: with no client for ten
 // minutes it stops its children and exits, so a reconnect inside that window
-// finds every app already up, and nothing is left running overnight.
+// finds what every app serves already known, and nothing is left running
+// overnight.
 let idleTimer = null;
 function idle() {
   if (clients.size) { if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; } return; }
@@ -906,6 +982,14 @@ function daemon() {
   server.listen(PORT, "127.0.0.1", () => log("router daemon listening on 127.0.0.1:" + PORT
     + " for " + (names().join(", ") || "NO app") + " -- registry: " + registry.status()));
   process.on("exit", () => { for (const r of residents.values()) r.stop("daemon exit"); });
+  const sweep = setInterval(() => {
+    for (const r of residents.values()) {
+      if (r.state !== "serving" || r.busy || r.pending.size || Date.now() - r.lastUsed < APP_IDLE_MS) continue;
+      log("[" + r.name + "] no call for " + Math.round((Date.now() - r.lastUsed) / 1000) + " s: its server is stopped, and the next call starts it");
+      r.rest();
+    }
+  }, Math.max(1000, Math.min(30000, Math.floor(APP_IDLE_MS / 4))));
+  if (sweep.unref) sweep.unref();
   idle();
 }
 
