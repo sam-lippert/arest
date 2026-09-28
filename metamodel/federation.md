@@ -84,7 +84,8 @@ Connector translates with Translator.
      declaration a webhook payload and a performed call`s receipt already use, read here once per
      ROW with every role taken from its own path. These say what the call carries and how its
      answer pages: its query parameters, where in the answer the rows are, which path says there
-     is more, and which query parameter carries the cursor and from which path of the last row.
+     is more, and which query parameter carries the cursor and from which path of the answer --
+     Stripe`s is $.data[-1].id, the last row`s id, and Gmail`s $.nextPageToken.
      The cursor is two facts and not one ternary: a Function has one of each, and a ternary unique
      on one role is two binaries that were never elementary together. -->
 Function has Query Parameter with Parameter Value.

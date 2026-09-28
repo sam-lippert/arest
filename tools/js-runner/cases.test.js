@@ -2372,7 +2372,7 @@ test("sync through the MCP server fetches every page of a live Source, and a dry
       "Function 'listWidgets' reads rows at JSON Path '$.data'.", "",
       "Function 'listWidgets' pages while JSON Path '$.has_more'.", "",
       "Function 'listWidgets' pages by Query Parameter 'starting_after'.", "",
-      "Function 'listWidgets' pages from JSON Path '$.id'.", "",
+      "Function 'listWidgets' pages from JSON Path '$.data[-1].id'.", "",
       "Function 'listWidgets' yields Fact Type 'Widget has Owner Email' with Role 'WidgetHasOwnerEmail.1' from JSON Path '$.id'.", "",
       "Function 'listWidgets' yields Fact Type 'Widget has Owner Email' with Role 'WidgetHasOwnerEmail.2' from JSON Path '$.owner.email|lower'.", "",
       "Source 'dry-src' uses Connector 'listDry'.", "",
@@ -3175,13 +3175,23 @@ test("sync answers a Source's request, and asserts what a page of its rows yield
     ["FunctionReadsRowsAtJSONPath", F, "$.data"],
     ["FunctionPagesWhileJSONPath", F, "$.has_more"],
     ["FunctionPagesByQueryParameter", F, "starting_after"],
-    ["FunctionPagesFromJSONPath", F, "$.id"],
+    ["FunctionPagesFromJSONPath", F, "$.data[-1].id"],
     ["FunctionHasQueryParameterWithParameterValue", F, "limit", "2"],
     ["FunctionHasQueryParameterWithParameterValue", F, "owner", "{who}"],
     ["FunctionYieldsFactTypeWithRoleFromJSONPath", F, "StreamHasName", "StreamHasName.2", "$.owner.email|lower"],
     ["FunctionYieldsFactTypeWithRoleFromJSONPath", F, "StreamHasName", "StreamHasName.1", "$.id"],
     ["FunctionReadsRowsWhereJSONPathEqualsConditionValue", F, "$.owner.email|present", "T"],
     ["FunctionReadsRowsWhereJSONPathEqualsConditionValue", F, "$.kind", "live"],
+    ["SourceUsesConnector", "mail-src", "listMsgs"],
+    ["FunctionIsBackedByExternalSystem", "listMsgs", "fake"],
+    ["FunctionHasCallbackURI", "listMsgs", "/messages"],
+    ["FunctionIsCalledWithHTTPMethod", "listMsgs", "GET"],
+    ["FunctionReadsRowsAtJSONPath", "listMsgs", "$.messages"],
+    ["FunctionPagesWhileJSONPath", "listMsgs", "$.nextPageToken|present"],
+    ["FunctionPagesByQueryParameter", "listMsgs", "pageToken"],
+    ["FunctionPagesFromJSONPath", "listMsgs", "$.nextPageToken"],
+    ["FunctionYieldsFactTypeWithRoleFromJSONPath", "listMsgs", "StreamHasName", "StreamHasName.1", "$.id"],
+    ["FunctionYieldsFactTypeWithRoleFromJSONPath", "listMsgs", "StreamHasName", "StreamHasName.2", "$.threadId"],
   ];
   const declared = Ev("assert", [decl, CELLS]);
   expect(Number(declared[1])).toBeLessThan(400);
@@ -3219,6 +3229,18 @@ test("sync answers a Source's request, and asserts what a page of its rows yield
   const again = Ev("sync", [[S, [], [], page], one[2]]);
   expect(JSON.parse(String(again[0])).slice(1, 3)).toEqual([["new", 0], ["held", 2]]);
   expect(again[2]).toBe(one[2]);
+  // a cursor at the top of the answer, Gmail's shape: more while the token is there, and the last
+  // page, which carries none, ends the paging (failing at ac07c425, which read the cursor from the
+  // last row and more only as the text true)
+  const mail1 = JSON.parse(String(Ev("sync", [["mail-src", [], [], fromJson({ messages: [{ id: "m_1", threadId: "t_1" }], nextPageToken: "tok2" })], S0])[0]));
+  expect(mail1.slice(6, 8)).toEqual([["more", "T"], ["next", ["pageToken", "tok2"]]]);
+  const mail2 = JSON.parse(String(Ev("sync", [["mail-src", [], ["pageToken", "tok2"], fromJson({ messages: [{ id: "m_2", threadId: "t_2" }] })], S0])[0]));
+  expect(mail2.slice(6, 8)).toEqual([["more", "F"], ["next", []]]);
+  // and a path counts from the end
+  const two = fromJson({ data: [{ id: "a" }, { id: "b" }] });
+  expect(Ev("fed:at", [two, "$.data[-1].id"])).toBe("b");
+  expect(Ev("fed:at", [two, "$.data[-2].id"])).toBe("a");
+  expect(Ev("fed:at", [two, "$.data[-3].id"])).toEqual([]);
   // a Source nothing declares is not a request anyone can make
   expect(Number(Ev("sync", ["nowhere", S0])[1])).toBe(404);
   // and the served route is the same operation
