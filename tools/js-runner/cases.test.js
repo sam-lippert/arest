@@ -2631,7 +2631,19 @@ test("a fact the build asserts on another row is not carried back under its old 
 // exits 0; under AREST_STRICT=1 it REFUSES both, says so, writes nothing, and
 // exits 1. The default run clears AREST_STRICT itself, because the person
 // running this suite may have it set.
-test("the reader reports a reading over an undeclared object type and a file with no Domain, and refuses both under AREST_STRICT=1", () => {
+//
+// #135 (2026-09-28): what the reader did not read is said the same way. e-lost.md
+// declares `Gizmo has Maker` with its uniqueness, states that uniqueness again
+// (a restatement, which loses nothing and is not reported), then a constraint
+// and a deontic constraint over `Gizmo belongs to Maker`, which nobody declares,
+// and two instance sentences under it. Both constraints used to attach to no
+// record and vanish, and the two instances were `rejected` records nobody
+// reported. The fixture composes no metamodel, so its Domain sentences are
+// instances under a reading it does not declare either, and they are rejected
+// too: the Domain descriptions are in neither carrier, and the line says so.
+// Under strict `Gadget has Knob` is refused, so its instance is rejected with
+// them. Each line says REFUSED when its own rows were.
+test("the reader reports a reading over an undeclared object type, the sentences it did not read and a file with no Domain, and refuses them under AREST_STRICT=1", () => {
   const { mkdirSync } = require("node:fs");
   const NL = String.fromCharCode(10);
   const dir = mkdtempSync(join(tmpdir(), "arest-strict-"));
@@ -2653,6 +2665,16 @@ test("the reader reports a reading over an undeclared object type and a file wit
     "Cog(.Name) is an entity type.", "",
     "Domain 'cogs' has Access 'public'.", "",
     "Domain 'cogs' has Description 'the footer every corpus writes'.", ""].join(NL));
+  writeFileSync(join(corpus, "e-lost.md"), [
+    "Domain 'lost' has Description 'what the reader did not read'.", "",
+    "Gizmo(.Name) is an entity type.", "", "Maker(.Name) is an entity type.", "",
+    "Gizmo has Maker.", "  Each Gizmo has at most one Maker.", "",
+    "Each Gizmo has at most one Maker.", "",
+    "Each Gizmo belongs to at most one Maker.", "",
+    "It is obligatory that each Gizmo belongs to some Maker.", "",
+    "Gizmo 'z1' has Maker 'm1'.", "",
+    "Gizmo 'z2' belongs to Maker 'm2'.", "",
+    "Gizmo 'z3' belongs to Maker 'm3'.", ""].join(NL));
   const run = (label, strict) => {
     const out = join(dir, label);
     mkdirSync(out);
@@ -2664,22 +2686,35 @@ test("the reader reports a reading over an undeclared object type and a file wit
     const lax = run("default", "");
     expect(lax.text).toContain("UNDECLARED: 1 reading(s) name 1 object type(s) no declaration opens: Knob (Gadget has Knob)");
     expect(lax.text).toContain("FILE DOMAINS: 1 file(s) declare elements and no Domain: ");
+    expect(lax.text).toContain("REJECTED: 8 instance sentence(s) under 3 reading(s) no fact type declares: "
+      + "Domain has Description (5); Domain has Access; Gizmo belongs to Maker (2)");
+    expect(lax.text).toContain("UNATTACHED: 2 constraint(s) attach to no reading: "
+      + "Each Gizmo belongs to at most one Maker; Each Gizmo belongs to some Maker");
     expect(lax.text).toContain("b-no-domain.md");
     expect(lax.text).not.toContain("a-gadget.md");
     expect(lax.text).not.toContain("c-catalog.md");
     expect(lax.text).not.toContain("d-footer.md");
+    expect(lax.text).not.toContain("e-lost.md");
     expect(lax.text).not.toContain("REFUSED");
     expect(lax.code).toBe(0);
     const carrier = readFileSync(join(lax.out, "design-state"), "utf8");
     expect(carrier).toContain('A("GadgetHasKnob")');
+    expect(carrier).toContain('A("GizmoHasMaker")');
+    // nothing of what was not read: no fact type, cell or constraint named for it
+    expect(carrier).not.toContain("GizmoBelongsToMaker");
+    expect(carrier).not.toContain("EachGizmo");
     // the whole cell, in file order: Gadget under gadgets, Widget under nothing,
     // Sprocket under gamma (the first Domain, not the catalog entry), Cog under
-    // its footer
-    expect(carrier).toContain('DEF("state:eldomain", S(S(S(A("Gadget"),A("gadgets")),S(A("Sprocket"),A("gamma")),S(A("Cog"),A("cogs")))))');
+    // its footer, Gizmo and Maker under lost
+    expect(carrier).toContain('DEF("state:eldomain", S(S(S(A("Gadget"),A("gadgets")),S(A("Sprocket"),A("gamma")),S(A("Cog"),A("cogs")),S(A("Gizmo"),A("lost")),S(A("Maker"),A("lost")))))');
 
     const strict = run("strict", "1");
     expect(strict.text).toContain("UNDECLARED: 1 reading(s) name 1 object type(s) no declaration opens -- REFUSED (AREST_STRICT=1): Knob (Gadget has Knob)");
     expect(strict.text).toContain("FILE DOMAINS: 1 file(s) declare elements and no Domain -- REFUSED (AREST_STRICT=1): ");
+    expect(strict.text).toContain("REJECTED: 9 instance sentence(s) under 4 reading(s) no fact type declares -- REFUSED (AREST_STRICT=1): "
+      + "Domain has Description (5); Gadget has Knob; Domain has Access; Gizmo belongs to Maker (2)");
+    expect(strict.text).toContain("UNATTACHED: 2 constraint(s) attach to no reading -- REFUSED (AREST_STRICT=1): "
+      + "Each Gizmo belongs to at most one Maker; Each Gizmo belongs to some Maker");
     expect(strict.text).toContain("b-no-domain.md");
     expect(strict.code).toBe(1);
     expect(readdirSync(strict.out)).toEqual([]);

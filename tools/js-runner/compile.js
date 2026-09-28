@@ -259,28 +259,46 @@ const redact = (text) => { let t = String(text); for (const v of unprinted) if (
 // ---- WHAT THE READER REPORTED, AND WHAT IT REFUSED -----------------------
 // compile:check's second answer, one row per finding: <undeclared, fact type
 // name, status, object types, reading text> for a reading that names an
-// object type no declaration opens, and <domain, path, status, domains,
-// fault> for a file that declares elements and no Domain (a file's domain
-// is the first Domain sentence it writes; later ones are catalog entries).
-// Under the default every row is `reported`, one summary line per kind goes
-// to stderr and the check goes on -- nothing is silent. Under AREST_STRICT=1
-// the reader refused the reading and the rule refused the file, the row says
-// `refused`, and a check that refuses is a failed check: it says so, writes
-// nothing, and exits 1. The line names the count and each subject once: an
-// object type with the first reading that names it, a file by its path.
+// object type no declaration opens; <rejected, name, status, (), reading> for
+// an instance sentence under a reading no fact type declares, its quoted
+// values taken out; <unattached, name, status, (), sentence> for a constraint
+// that attached to no reading; and <domain, path, status, domains, fault> for
+// a file that declares elements and no Domain (a file's domain is the first
+// Domain sentence it writes; later ones are catalog entries). Under the
+// default every row is `reported`, one summary line per kind goes to stderr
+// and the check goes on -- nothing is silent. Under AREST_STRICT=1 the row
+// says `refused` -- the reader refused the reading, the check the sentence it
+// did not read, the rule the file -- and a check that refuses is a failed
+// check: it says so, writes nothing, and exits 1. Each line says REFUSED when
+// its own rows were, and names the count and each subject once: an object
+// type with the first reading that names it, a rejected reading with how many
+// sentences it lost, a constraint as written, a file by its path.
 const undeclared = findings.filter((r) => String(r[0]) === "undeclared");
+const rejected = findings.filter((r) => String(r[0]) === "rejected");
+const unattached = findings.filter((r) => String(r[0]) === "unattached");
 const domainless = findings.filter((r) => String(r[0]) === "domain");
 const refused = findings.some((r) => String(r[2]) === "refused");
-const verdict = refused ? " -- REFUSED (AREST_STRICT=1)" : "";
+const verdict = (rows) => (rows.some((r) => String(r[2]) === "refused") ? " -- REFUSED (AREST_STRICT=1)" : "");
 if (undeclared.length) {
   const first = new Map();
   for (const r of undeclared) for (const t of r[3]) if (!first.has(String(t))) first.set(String(t), redact(r[4]));
   console.error("UNDECLARED: " + undeclared.length + " reading(s) name " + first.size
-    + " object type(s) no declaration opens" + verdict + ": "
+    + " object type(s) no declaration opens" + verdict(undeclared) + ": "
     + [...first].map(([t, text]) => t + " (" + text + ")").join("; "));
 }
+if (rejected.length) {
+  const lost = new Map();
+  for (const r of rejected) { const text = redact(r[4]); lost.set(text, (lost.get(text) || 0) + 1); }
+  console.error("REJECTED: " + rejected.length + " instance sentence(s) under " + lost.size
+    + " reading(s) no fact type declares" + verdict(rejected) + ": "
+    + [...lost].map(([text, n]) => (n > 1 ? text + " (" + n + ")" : text)).join("; "));
+}
+if (unattached.length) {
+  console.error("UNATTACHED: " + unattached.length + " constraint(s) attach to no reading" + verdict(unattached) + ": "
+    + unattached.map((r) => redact(r[4])).join("; "));
+}
 if (domainless.length) {
-  console.error("FILE DOMAINS: " + domainless.length + " file(s) declare elements and no Domain" + verdict + ": "
+  console.error("FILE DOMAINS: " + domainless.length + " file(s) declare elements and no Domain" + verdict(domainless) + ": "
     + domainless.map((r) => String(r[1])).join(", "));
 }
 if (refused) process.exit(1);
