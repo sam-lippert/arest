@@ -160,7 +160,7 @@ Verbalization Pattern 'deontic-obligation' has Pattern Note 'a deontic constrain
 
 Verbalization Pattern 'state-machine' is in Pattern Family 'state machine'.
 Verbalization Pattern 'state-machine' has Pattern Form 'Transition t is triggered by Fact Type f.'.
-Verbalization Pattern 'state-machine' has Pattern Note 'a machine is five kinds of population sentence over the names in single quotes: State Machine Definition m is for Noun a; Status s is initial in State Machine Definition m; Transition t is from Status s; Transition t is to Status s2; Transition t is triggered by Fact Type f'.
+Verbalization Pattern 'state-machine' has Pattern Note 'a machine is five kinds of population sentence over the names in single quotes: State Machine Definition m is for Object Type a; Status s is initial in State Machine Definition m; Transition t is from Status s; Transition t is to Status s2; Transition t is triggered by Fact Type f'.
 
 ## Populations
 

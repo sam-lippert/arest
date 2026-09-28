@@ -217,10 +217,10 @@ Object Type Instance is most specifically of Object Type. *
        MOST SPECIFICALLY of the types it is an instance of and not properly of.
        Direct subtype links are enough, because the membership already holds
        every ancestor. The bridge now reads the most specific types, which is
-       how reflect:fbd already files an instance's own Function. A value of
-       several unrelated value types is most specifically of each of them, and
-       would still take several domains if those value types had different
-       domains. None does today. -->
+       how reflect:fbd already files an instance's own Function. A spelling
+       typed by several unrelated value types -- '1' as a Pane Weight and as a
+       Priority -- is several values that share a key, since the store keys an
+       instance by its text; it is not one value whose readings conflict. -->
 
 Object Type Instance is of Function. *
   Each Object Type Instance, Function combination occurs at most once in the population of Object Type Instance is of Function.

@@ -16630,8 +16630,9 @@ DEF("compile:pair_eldomain",
 DEF("compile:pairs_rows",
     S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), N(3)))),
 
+"A NOUN DECLARED IN SEVERAL DOMAINS BELONGS TO THE MOST SPECIFIC (2026-09-28). Sam: `They should resolve by cascading from the most specific domain`. reflect:dom_of answers the first pair naming an element, and these pairs ran in read order, the metamodel first and the app last, so the LEAST specific declaration won: on support.auto.dev User was filed under the metamodel`s instances although support declares it in vendored-deps, and 54 of the 89 nouns its closure declared twice resolved the same wrong way. A check reads its directories from the least specific to the most, so the pairs are laid out from the last file read to the first and the first match is the cascade. Two declarations at one level are a readings defect, named and fixed in the readings, never chosen here.",
 DEF("compile:pairs_eldomain",
-    S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("compile:pair_eldomain")))),
+    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("compile:pair_eldomain")), A("reverse"))),
 
 "COMPILE:CHECK IS DEF(compile) BESIDE ITS FINDINGS, FROM ONE PARSE (2026-09-22). compile.js asks compile:check and takes the cells from its first element and the findings from its second -- the undeclared readings, the sentences the reader did not read (read:unread_rows) and the file-domain faults, each row <kind, subject, reported|refused, names, text> -- and exits 1 when any row is refused, before it writes anything: a check that refuses is a failed check. DEF(compile) answers the cells alone, as before, through the same compile:x, so nothing is parsed twice and no host holds an intermediate lambda does not name.",
 DEF("compile:x",

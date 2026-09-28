@@ -6,7 +6,7 @@
 > against. The thin view never sees them.
 >
 > Two halves, both proven end-to-end (compile_explicit_derivation_tests.rs):
->   * READ  — `User is authorized for Operation on Noun` derives from the user's
+>   * READ  — `User is authorized for Operation on Object Type` derives from the user's
 >     access-level discriminator joined with that level's permissions. A subtype
 >     (Admin ≤ User) is realised relationally as its joinable DISCRIMINATOR
 >     (Halpin absorption/separation: an enum / unary flag / FK), here the
@@ -14,10 +14,10 @@
 >     projects this ∩ `Operation applies in View Context`.
 >   * ENFORCE — `performs ⊆ authorized` is an ALETHIC role-SEQUENCE subset
 >     constraint (ORM2 tuple subset, per NORMA ConstraintRoleSequenceWithJoinType):
->     a `User performs Operation on Noun` tuple outside `authorized` is a Subset
+>     a `User performs Operation on Object Type` tuple outside `authorized` is a Subset
 >     violation → the mutation is rejected (D' = D).
 >
-> `User` and `Noun` are metamodel entities (readings/core). `Operation` (the CRUDL
+> `User` and `Object Type` are metamodel entities (metamodel/instances.md, metamodel/core.md). `Operation` (the CRUDL
 > verb) lives HERE — it is a server/REST concept; the iFactr ActionType *decoration*
 > (Control Kind / Request Type / Action Type) stays in readings/ui/crudl.md, which
 > references this Operation. `View Context` is the HATEOAS resource kind
@@ -38,11 +38,11 @@ Operation(.Name) is an entity type.
 
 User has Access Level.
 
-Access Level permits Operation on Noun.
+Access Level permits Operation on Object Type.
 
-User is authorized for Operation on Noun. **
+User is authorized for Operation on Object Type. **
 
-User performs Operation on Noun.
+User performs Operation on Object Type.
 
 Operation applies in View Context.
   Each Operation applies in exactly one View Context.
@@ -63,16 +63,16 @@ Operation 'cancel' applies in View Context 'edit'.
 
 ## Derivation Rules
 
-The permission predicate: a User is authorized for an Operation on a Noun when the
-User's access level permits that Operation on that Noun. A non-skolem multi-
+The permission predicate: a User is authorized for an Operation on an Object Type when the
+User's access level permits that Operation on that Object Type. A non-skolem multi-
 antecedent equi-join on the `Access Level` discriminator (the bridge variable).
 
-* User is authorized for Operation on Noun iff User has Access Level and Access Level permits Operation on Noun.
+* User is authorized for Operation on Object Type iff User has Access Level and Access Level permits Operation on Object Type.
 
 ## Subset Constraints
 
 Enforcement: every performed action must be authorized. The attempted-action tuple
-`(User, Operation, Noun)` of `performs` must be a subset of `authorized`; a tuple
+`(User, Operation, Object Type)` of `performs` must be a subset of `authorized`; a tuple
 outside it is an alethic Subset violation (the mutation rejects).
 
-If some User performs some Operation on some Noun then that User is authorized for that Operation on that Noun.
+If some User performs some Operation on some Object Type then that User is authorized for that Operation on that Object Type.

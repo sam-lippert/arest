@@ -495,11 +495,11 @@ Object Type has World Assumption. +
        A DEFAULT IS NOT DATA either: one row per Object Type would put a
        ruling in 147 places and let them drift. The derivation is closed
        unless the type is backed by an External System, which is the
-       paper's own line — §355, "A noun backed by an external system sits
-       on this line: its population is fetched by a registered function,
+       paper's own line — §355, "An object type backed by an external system
+       sits on this line: its population is fetched by a registered function,
        and its facts enter under the open-world assumption", with §309
-       pairing an alethic constraint over a closed-world noun against a
-       deontic one over an open-world noun. The predicate it turns on is
+       pairing an alethic constraint over a closed-world object type against a
+       deontic one over an open-world object type. The predicate it turns on is
        declared above: `Object Type is backed by External System`.
 
        NOT AN iff RULE, and the first two attempts are why. A literal in
@@ -1623,8 +1623,8 @@ with none. NORMA carries both, and the paper names both.
 
     The three-valued reading follows from the pairing instead of being
     stored: a ground fact is true if it is in P, false if its pair is in P,
-    unknown otherwise, and under the closed-world assumption on a noun
-    unknown collapses to false. That is a reading of the CANDIDATE fact
+    unknown otherwise, and under the closed-world assumption on an object
+    type unknown collapses to false. That is a reading of the CANDIDATE fact
     space, not a property of a Fact — every Fact in P is trivially true — so
     no `Fact has Truth Value` is declared.
 

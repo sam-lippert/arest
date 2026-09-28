@@ -2873,7 +2873,9 @@ test("the reader reports a reading over an undeclared object type, the sentences
     // the whole cell, in file order: Gadget under gadgets, Widget under nothing,
     // Sprocket under gamma (the first Domain, not the catalog entry), Cog under
     // its footer, Gizmo and Maker under lost
-    expect(carrier).toContain('DEF("state:eldomain", S(S(S(A("Gadget"),A("gadgets")),S(A("Sprocket"),A("gamma")),S(A("Cog"),A("cogs")),S(A("Gizmo"),A("lost")),S(A("Maker"),A("lost")))))');
+    // Laid out from the last file read to the first since 2026-09-28 (the cascade: the first pair naming a
+    // noun is its most specific declaration), so e-lost comes first and a-gadget last.
+    expect(carrier).toContain('DEF("state:eldomain", S(S(S(A("Gizmo"),A("lost")),S(A("Maker"),A("lost")),S(A("Cog"),A("cogs")),S(A("Sprocket"),A("gamma")),S(A("Gadget"),A("gadgets")))))');
 
     const strict = run("strict", "1");
     expect(strict.text).toContain("UNDECLARED: 1 reading(s) name 1 object type(s) no declaration opens -- REFUSED (AREST_STRICT=1): Knob (Gadget has Knob)");
@@ -6258,6 +6260,21 @@ test("a nested machine's exits count in the machine that nests it, so only what 
     expect(exits.has("pr-resolve > " + s + " > PR Support Request")).toBe(true);
   expect(exits.has("pr-finish > PR i1 > PR Outer")).toBe(true);
   expect([...exits].some((e) => e.endsWith(" > PR Closed > PR Support Request"))).toBe(false);
+});
+
+// ---- DOES A NOUN DECLARED TWICE BELONG TO THE MORE SPECIFIC DOMAIN? -------------
+//
+// Sam, 2026-09-28: `They should resolve by cascading from the most specific domain`. reflect:dom_of
+// answers the first pair naming an element, and compile:pairs_eldomain laid the pairs out in read
+// order, the metamodel first: on support.auto.dev User was filed under the metamodel's instances
+// although support's vendored-deps declares it too. Laid out from the last file read to the first,
+// the first match is the most specific. Before the change this answered 'lib'.
+test("a noun declared in a library and in the app belongs to the app's domain", () => {
+  const pairs = Ev("compile:pairs_eldomain", [["lib", ["PC Noun", "PC Other"]], ["#", ["PC Loose"]], ["app", ["PC Noun"]]])
+    .map((r) => r.map(String));
+  expect(pairs).toEqual([["PC Noun", "app"], ["PC Noun", "lib"], ["PC Other", "lib"]]);
+  expect(String(Ev("solve:assoc", ["PC Noun", pairs]))).toBe("app");
+  expect(String(Ev("solve:assoc", ["PC Other", pairs]))).toBe("lib");
 });
 
 // ---- DOES AN INSTANCE OF A SUBTYPE BELONG TO ONE DOMAIN? -------------------------
