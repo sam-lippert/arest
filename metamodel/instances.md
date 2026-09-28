@@ -199,6 +199,29 @@ Object Type Instance is instance of Object Type.
      CORRECT transitive membership, and 'Object Type Instance is inherited instance
      of Noun' is a non-canonical crutch (retire separately). -->
 
+Object Type Instance is properly of Object Type. *
+  Each Object Type Instance, Object Type combination occurs at most once in the population of Object Type Instance is properly of Object Type.
+Object Type Instance is most specifically of Object Type. *
+  Each Object Type Instance, Object Type combination occurs at most once in the population of Object Type Instance is most specifically of Object Type.
+  <!-- AN INSTANCE'S DOMAIN IS ITS MOST SPECIFIC TYPE'S (2026-09-28). The
+       membership above is transitive, and rightly so: a Customer is an
+       instance of Customer and of User, since support.auto.dev declares
+       Customer a subtype of User. The bridge below related an instance to
+       EVERY type it is an instance of, so with Customer in database-routing
+       and User in instances each customer derived two domains, against `Each
+       Object Type Instance belongs to at most one Domain`. The compiled store
+       carried one, and every runtime closure re-derived two, so the first
+       write of a session committed and every write after it was refused
+       (pm.auto.dev, 2026-09-28, on a copy of support). An instance is
+       PROPERLY of a type when it is an instance of some subtype of it, and
+       MOST SPECIFICALLY of the types it is an instance of and not properly of.
+       Direct subtype links are enough, because the membership already holds
+       every ancestor. The bridge now reads the most specific types, which is
+       how reflect:fbd already files an instance's own Function. A value of
+       several unrelated value types is most specifically of each of them, and
+       would still take several domains if those value types had different
+       domains. None does today. -->
+
 Object Type Instance is of Function. *
   Each Object Type Instance, Function combination occurs at most once in the population of Object Type Instance is of Function.
   <!-- ns-2 (ns-derive-population-domains): the single-sourcing BRIDGE for a
@@ -489,7 +512,11 @@ Guard Run has Result.
      so "some Object Type that is that Function" binds by identity.
      Evaluator-phase gate obligation: prove convergence on
      subtype-identity joins before claiming these cells. -->
-* Object Type Instance is of Function iff that Object Type Instance is instance of some Object Type that is that Function.
+* Object Type Instance is properly of Object Type1 iff that Object Type Instance is instance of some Object Type2 and that Object Type2 is subtype of that Object Type1.
+
+* Object Type Instance is most specifically of Object Type iff that Object Type Instance is instance of that Object Type and it is not true that that Object Type Instance is properly of that Object Type.
+
+* Object Type Instance is of Function iff that Object Type Instance is most specifically of some Object Type that is that Function.
 
 * Object Type Instance belongs to Domain iff that Object Type Instance is of some Function that belongs to that Domain.
 

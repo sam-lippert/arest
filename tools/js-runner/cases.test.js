@@ -4288,10 +4288,14 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     // AND A CREDENTIAL IS WRITTEN AS ITS SYSTEM SAYS (2026-09-28): `External System has Credential
     // Encoding`, at most one per system, read alike: 299 -> 300, players/all 271 -> 272, rows 288 ->
     // 289, stateUcs 627 -> 628, derived unmoved.
+    // AND AN INSTANCE'S DOMAIN IS ITS MOST SPECIFIC TYPE'S (2026-09-28): instances.md derives
+    // `Object Type Instance is properly of Object Type` and `is most specifically of`, read alike:
+    // 300 -> 302, rows 289 -> 291, stateUcs 628 -> 634 (two spanning uniquenesses objectified),
+    // derived 38 -> 40. players/all stay at 272: a fully derived head has no players to assert.
     expect({ witness: O.size, lambda: C.size, both, lambdaOnly: lambdaOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
-      .toEqual({ witness: 300, lambda: 300, both: 300, lambdaOnly: 0, oracleOnly: 0,
-                 players: 272, ucs: 300, mands: 300, all: 272, rows: 289, rejected: 0, derived: [38, 38, 38], stateRows: 300, stateUcs: 628 });
+      .toEqual({ witness: 302, lambda: 302, both: 302, lambdaOnly: 0, oracleOnly: 0,
+                 players: 272, ucs: 302, mands: 302, all: 272, rows: 291, rejected: 0, derived: [40, 40, 40], stateRows: 302, stateUcs: 634 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
@@ -4357,7 +4361,8 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
   // tree identical after the carrier has been written and parsed again. 48
   // since 2026-09-28 (#130): the three rules of `Transition exits Status in
   // State Machine Definition` enter state.md, and terminal's rule is stated
-  // again over it, one rule for one.
+  // again over it, one rule for one. 50 since 2026-09-28: an instance's domain is its most
+  // specific type's, three rules for the one bridge rule.
   test("the reader carries the witness's derivation rules, row for row", () => {
     const rows = [];
     for (const f of files) for (const s of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", s));
@@ -4373,7 +4378,7 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
              lambdaOnlyRows: lambda.map(J).filter((r) => !W.has(r)),
              undelivered: und.map((p) => String(p[0])), reasons: und.every((p) => typeof p[1] === "string" && p[1].length > 0),
              witnessUndelivered: Ev("ast:fetch", ["state:undelivered", CELLS]).flat(1).map((p) => String(p[0])) })
-      .toEqual({ witnessRows: 48, witness: 48, lambda: 48, distinct: 48, both: 48, lambdaOnly: 0, witnessOnly: 0,
+      .toEqual({ witnessRows: 50, witness: 50, lambda: 50, distinct: 50, both: 50, lambdaOnly: 0, witnessOnly: 0,
                  lambdaOnlyRows: [],
                  undelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"], reasons: true,
                  witnessUndelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"] });
@@ -4578,7 +4583,9 @@ describe("lambda's constraint cells against the witness, on the base metamodel",
       // 532 -> 535 (2026-09-28, #131): `Function asserts Fact Type on success` and the two
       // involvement fact types its spanning uniqueness objectifies, alike in both.
       // 535 -> 536 (2026-09-28): `External System has Credential Encoding`, alike in both.
-      .toEqual({ lambda: 536, witness: 536, kept: 536, sequence: true, renumbered: true, lambdaOnly: [] });
+      // 536 -> 542 (2026-09-28): `is properly of` and `is most specifically of`, and the four
+      // involvement fact types their spanning uniquenesses objectify, alike in both.
+      .toEqual({ lambda: 542, witness: 542, kept: 542, sequence: true, renumbered: true, lambdaOnly: [] });
   }, 300_000);
 
   // and the assembler carries them: the schema lambda writes holds every
@@ -5946,7 +5953,8 @@ test("a reading's spoken text is in the store, and the seven its name cannot spe
   // 290 -> 291 (2026-09-28, #130): `Transition exits Status in State Machine Definition`
   // 291 -> 292 (2026-09-28, #131): `Function asserts Fact Type on success`
   // 292 -> 293 (2026-09-28): `External System has Credential Encoding`
-  expect(declared.length - lost.length).toBe(293);
+  // 293 -> 295 (2026-09-28): `is properly of` and `is most specifically of`
+  expect(declared.length - lost.length).toBe(295);
   for (const [name, t] of EXACT) expect([name, text.get("r" + name)]).toEqual([name, t]);
 
   // ---- and it is in the tables --------------------------------------------
@@ -6250,6 +6258,41 @@ test("a nested machine's exits count in the machine that nests it, so only what 
     expect(exits.has("pr-resolve > " + s + " > PR Support Request")).toBe(true);
   expect(exits.has("pr-finish > PR i1 > PR Outer")).toBe(true);
   expect([...exits].some((e) => e.endsWith(" > PR Closed > PR Support Request"))).toBe(false);
+});
+
+// ---- DOES AN INSTANCE OF A SUBTYPE BELONG TO ONE DOMAIN? -------------------------
+//
+// pm.auto.dev, 2026-09-28, on a copy of support.auto.dev: the first write of a module session
+// committed and every write after it was refused on `Each Object Type Instance belongs to at most
+// one Domain`. Customer is a subtype of User there, so a customer is an instance of both, and the
+// bridge `Object Type Instance is of Function` related it to both. Customer is in database-routing
+// and User in instances, so every customer derived two domains. The compiled store carried one,
+// and each runtime closure re-derived two. Now an instance is of its most specific types only: an
+// Admin of Admin < Customer < User belongs to Admin's domain, and a Customer to Customer's. At
+// 6bf15817 the customer belonged to pr-cust-dom and pr-user-dom both.
+test("an instance of a subtype belongs to its most specific type's domain alone", () => {
+  const add = {
+    ObjectTypeInstanceIsInstanceOfObjectType: [["pr-c1", "PR Customer"], ["pr-c1", "PR User"],
+      ["pr-a1", "PR Admin"], ["pr-a1", "PR Customer"], ["pr-a1", "PR User"]],
+    ObjectTypeIsSubtypeOfObjectType: [["PR Customer", "PR User"], ["PR Admin", "PR Customer"]],
+    FunctionBelongsToDomain: [["PR User", "pr-user-dom"], ["PR Customer", "pr-cust-dom"], ["PR Admin", "pr-admin-dom"]],
+  };
+  const cells = CELLS.slice();
+  for (const [name, rows] of Object.entries(add)) {
+    const have = Ev("system:pop_rows", [name, CELLS]);
+    const at = cells.findIndex((c) => Array.isArray(c) && String(c[0]) === "CELL" && String(c[1]) === name);
+    const cell = ["CELL", name, [...(Array.isArray(have) ? have : []), ...rows]];
+    if (at >= 0) cells[at] = cell; else cells.unshift(cell);
+  }
+  const closed = Ev("derive:closed", cells);
+  const pop = (n) => (closed.find((e) => String(e[0]) === n) || [n, []])[1].map((r) => r.map(String));
+  const of = (ft, id) => pop(ft).filter((r) => r[0] === id).map((r) => r[1]).sort();
+  expect(of("ObjectTypeInstanceIsOfFunction", "pr-c1")).toEqual(["PR Customer"]);
+  expect(of("ObjectTypeInstanceBelongsToDomain", "pr-c1")).toEqual(["pr-cust-dom"]);
+  expect(of("ObjectTypeInstanceIsOfFunction", "pr-a1")).toEqual(["PR Admin"]);
+  expect(of("ObjectTypeInstanceBelongsToDomain", "pr-a1")).toEqual(["pr-admin-dom"]);
+  // and why: each is properly of every type above its most specific one
+  expect(of("ObjectTypeInstanceIsProperlyOfObjectType", "pr-a1")).toEqual(["PR Customer", "PR User"]);
 });
 
 // ---- AND DOES THE DESCENT END WHERE THE STORE CONTRADICTS ITSELF? --------
