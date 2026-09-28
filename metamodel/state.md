@@ -100,6 +100,9 @@ Status is terminal in State Machine Definition. *
      history note beside the rule). An asserted sink list can silently
      disagree with the transition graph; the rule cannot. -->
 
+Transition exits Status in State Machine Definition. *
+  Each Transition, Status, State Machine Definition combination occurs at most once in the population of Transition exits Status in State Machine Definition.
+
 Status is rooted in State Machine Definition. *
   Each Status, State Machine Definition combination occurs at most once in the population of Status is rooted in State Machine Definition.
 Status is effective initial in State Machine Definition. *
@@ -212,7 +215,13 @@ It is obligatory that if some Predicate1 is performed in some Status1 and that S
 
 * Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is to that Status.
 
-* Status is terminal in State Machine Definition iff that Status is defined in that State Machine Definition and no Transition is defined in that State Machine Definition where that Transition is from that Status.
+* Transition exits Status in State Machine Definition iff that Transition is defined in that State Machine Definition and that Transition is from that Status.
+
+* Transition exits Status in State Machine Definition1 iff that Transition exits that Status in some State Machine Definition2 and that State Machine Definition2 is defined in that State Machine Definition1.
+
+* Transition exits Status in State Machine Definition1 iff that Status is defined in some State Machine Definition2 and that Transition exits that State Machine Definition2 in that State Machine Definition1.
+
+* Status is terminal in State Machine Definition iff that Status is defined in that State Machine Definition and no Transition exits that Status in that State Machine Definition.
 <!-- audit-fix D: restored, mirroring `rooted`. History: the killed host's
      parser stripped the `no ... where ...` clause (AbsenceOf detection
      removed 2026-05-19, parse_forml2.rs), compiling this rule to
@@ -220,6 +229,22 @@ It is obligatory that if some Predicate1 is performed in some Status1 and that S
      response demoted the cell to asserted under a rationale the paper
      does not support. Evaluator-phase gate obligation: negated-clause
      rules compile faithfully or refuse loudly — never strip-and-fall-back. -->
+<!-- AND A NESTED MACHINE'S EXITS COUNT OUTSIDE IT (#130, 2026-09-28). The
+     Harel rule below defines a status of a nested machine in the machine that
+     nests it too, and terminal went on counting only the transitions defined
+     in that same machine. So support.auto.dev's `Support Request` read
+     Received, Draft, Responded and Escalated -- the sub-statuses of its
+     composite `Open` -- as terminal beside Closed, and its Agent Chat machine
+     the same (pm.auto.dev, 2026-09-25, live). What leaves a status is now a
+     relation of its own. A Transition exits a Status in a machine when it is
+     defined there and is from that Status. It also exits it when it exits that
+     Status in a nested machine defined there, so `accept`, inside `Open`,
+     leaves Received in `Support Request` too. And it exits it when it exits a
+     composite there that the Status is defined in, so `resolve`, which leaves
+     `Open`, leaves every sub-status of `Open`. Terminal is then what is defined
+     in the machine and exited by nothing in it: `Support Request` has Closed
+     alone. The where-less `no` compiles to the same anti-join as `rooted`'s,
+     over the one relation. -->
 
 
 <!--

@@ -4108,10 +4108,16 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     // AND A QUERY IS SENT AS THE BODY (2026-09-25): Query Text and `Function sends Query Text`,
     // at most one per Function, read alike: 296 -> 297, players/all 269 -> 270, rows 285 -> 286,
     // stateUcs 619 -> 620, derived unmoved.
+    // AND A TRANSITION EXITS A STATUS IN A MACHINE (2026-09-28, #130): state.md derives
+    // `Transition exits Status in State Machine Definition`, and terminal reads it. A fully derived
+    // head, stored like every other and read alike by both: 297 -> 298, rows 286 -> 287, stateUcs
+    // 620 -> 624 (its spanning uniqueness, objectified over three involvement fact types), derived
+    // 37 -> 38. players/all stay at 270: a fully derived head has no players in the assertable
+    // schema.
     expect({ witness: O.size, lambda: C.size, both, lambdaOnly: lambdaOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
-      .toEqual({ witness: 297, lambda: 297, both: 297, lambdaOnly: 0, oracleOnly: 0,
-                 players: 270, ucs: 297, mands: 297, all: 270, rows: 286, rejected: 0, derived: [37, 37, 37], stateRows: 297, stateUcs: 620 });
+      .toEqual({ witness: 298, lambda: 298, both: 298, lambdaOnly: 0, oracleOnly: 0,
+                 players: 270, ucs: 298, mands: 298, all: 270, rows: 287, rejected: 0, derived: [38, 38, 38], stateRows: 298, stateUcs: 624 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
@@ -4174,7 +4180,10 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
   // lambda writes each row once.
   //
   // What survives is the round trip: 45 rules in, 45 rules out, every recipe
-  // tree identical after the carrier has been written and parsed again.
+  // tree identical after the carrier has been written and parsed again. 48
+  // since 2026-09-28 (#130): the three rules of `Transition exits Status in
+  // State Machine Definition` enter state.md, and terminal's rule is stated
+  // again over it, one rule for one.
   test("the reader carries the witness's derivation rules, row for row", () => {
     const rows = [];
     for (const f of files) for (const s of Ev("read:sentences", readFileSync(join(META, f), "utf8"))) rows.push(Ev("read:row_of", s));
@@ -4190,7 +4199,7 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
              lambdaOnlyRows: lambda.map(J).filter((r) => !W.has(r)),
              undelivered: und.map((p) => String(p[0])), reasons: und.every((p) => typeof p[1] === "string" && p[1].length > 0),
              witnessUndelivered: Ev("ast:fetch", ["state:undelivered", CELLS]).flat(1).map((p) => String(p[0])) })
-      .toEqual({ witnessRows: 45, witness: 45, lambda: 45, distinct: 45, both: 45, lambdaOnly: 0, witnessOnly: 0,
+      .toEqual({ witnessRows: 48, witness: 48, lambda: 48, distinct: 48, both: 48, lambdaOnly: 0, witnessOnly: 0,
                  lambdaOnlyRows: [],
                  undelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"], reasons: true,
                  witnessUndelivered: ["FactJoinsFact", "ObjectTypeHasWorldAssumption"] });
@@ -4390,7 +4399,9 @@ describe("lambda's constraint cells against the witness, on the base metamodel",
       // Connector pages with enter federation.md, and the sequence moves alike in both readers.
       // 523 -> 527 (2026-09-25): Condition Value and the row condition, alike in both.
       // 527 -> 528 (2026-09-25): Query Text and `Function sends Query Text`, alike in both.
-      .toEqual({ lambda: 528, witness: 528, kept: 528, sequence: true, renumbered: true, lambdaOnly: [] });
+      // 528 -> 532 (2026-09-28, #130): `Transition exits Status in State Machine Definition`
+      // and the three involvement fact types its spanning uniqueness objectifies, alike in both.
+      .toEqual({ lambda: 532, witness: 532, kept: 532, sequence: true, renumbered: true, lambdaOnly: [] });
   }, 300_000);
 
   // and the assembler carries them: the schema lambda writes holds every
@@ -5755,7 +5766,8 @@ test("a reading's spoken text is in the store, and the seven its name cannot spe
   // and each name spells its reading
   // 288 -> 289 (2026-09-25): `Function reads rows where JSON Path equals Condition Value`
   // 289 -> 290 (2026-09-25): `Function sends Query Text`
-  expect(declared.length - lost.length).toBe(290);
+  // 290 -> 291 (2026-09-28, #130): `Transition exits Status in State Machine Definition`
+  expect(declared.length - lost.length).toBe(291);
   for (const [name, t] of EXACT) expect([name, text.get("r" + name)]).toEqual([name, t]);
 
   // ---- and it is in the tables --------------------------------------------
@@ -5991,6 +6003,75 @@ test("an instance created with no Domain belongs to its type's, and a reflected 
   expect(body[3].filter((v) => String(v[0]) === "FunctionBelongsToDomain")).toEqual([]);
   expect(dom(KEY, out[2])).toBe("state");
 }, 120_000);
+
+// ---- IS A SUB-STATUS OF A COMPOSITE TERMINAL IN THE MACHINE THAT NESTS IT? -----
+//
+// #130 (pm.auto.dev, 2026-09-25): support.auto.dev's
+// StatusIsTerminalInStateMachineDefinition listed Received, Draft, Responded
+// and Escalated -- the sub-statuses of its composite Open -- as terminal in
+// Support Request beside Closed, live, and its Agent Chat machine the same.
+// metamodel/state.md defines a nested machine's statuses in the machine that
+// nests it, and terminal counted only the transitions defined in that same
+// machine, so a status whose every exit is inside Open, or is Open's own, had
+// none in Support Request. Terminal now reads `Transition exits Status in State
+// Machine Definition`: defined there and from that status, or exiting it in a
+// nested machine defined there, or exiting a composite there that the status is
+// defined in. Terminal is what is defined in the machine and exited by nothing
+// in it.
+//
+// The machines are support's shape, and a three-level one, merged into the base
+// store's own populations and closed as the host closes them. At bedba10a this
+// answered Support Request {Closed, Draft, Escalated, Received, Responded}, Outer
+// {Done, Inner, i1, i2, m2} and Mid {i1, i2, m2}.
+test("a nested machine's exits count in the machine that nests it, so only what nothing leaves is terminal", () => {
+  const TR = [
+    ["pr-resolve", "PR Support Request", "PR Open", "PR Resolved"],
+    ["pr-merge", "PR Support Request", "PR Open", "PR Closed"],
+    ["pr-reopen", "PR Support Request", "PR Resolved", "PR Open"],
+    ["pr-close", "PR Support Request", "PR Resolved", "PR Closed"],
+    ["pr-accept", "PR Open", "PR Received", "PR Draft"],
+    ["pr-respond", "PR Open", "PR Draft", "PR Responded"],
+    ["pr-reply", "PR Open", "PR Responded", "PR Received"],
+    ["pr-escalate", "PR Open", "PR Draft", "PR Escalated"],
+    ["pr-release", "PR Open", "PR Escalated", "PR Draft"],
+    ["pr-finish", "PR Outer", "PR Mid", "PR Done"],
+    ["pr-go", "PR Mid", "PR Inner", "PR m2"],
+    ["pr-step", "PR Inner", "PR i1", "PR i2"],
+  ];
+  const MACHINES = ["PR Support Request", "PR Open", "PR Outer", "PR Mid", "PR Inner"];
+  const add = {
+    TransitionIsDefinedInStateMachineDefinition: TR.map((r) => [r[0], r[1]]),
+    TransitionIsFromStatus: TR.map((r) => [r[0], r[2]]),
+    TransitionIsToStatus: TR.map((r) => [r[0], r[3]]),
+    StatusIsInitialInStateMachineDefinition: [["PR Open", "PR Support Request"], ["PR Received", "PR Open"],
+      ["PR Mid", "PR Outer"], ["PR Inner", "PR Mid"], ["PR i1", "PR Inner"]],
+    ObjectTypeInstanceIsInstanceOfObjectType: MACHINES.map((m) => [m, "State Machine Definition"]),
+  };
+  const cells = CELLS.slice();
+  for (const [name, rows] of Object.entries(add)) {
+    const have = Ev("system:pop_rows", [name, CELLS]);
+    const at = cells.findIndex((c) => Array.isArray(c) && String(c[0]) === "CELL" && String(c[1]) === name);
+    const cell = ["CELL", name, [...(Array.isArray(have) ? have : []), ...rows]];
+    if (at >= 0) cells[at] = cell; else cells.unshift(cell);
+  }
+  const closed = Ev("derive:closed", cells);
+  const pop = (n) => (closed.find((e) => String(e[0]) === n) || [n, []])[1].map((r) => r.map(String));
+  const terminal = pop("StatusIsTerminalInStateMachineDefinition");
+  const terminalIn = (m) => terminal.filter((r) => r[1] === m).map((r) => r[0]).sort();
+  expect(terminalIn("PR Support Request")).toEqual(["PR Closed"]);
+  expect(terminalIn("PR Open")).toEqual([]);
+  expect(terminalIn("PR Outer")).toEqual(["PR Done"]);
+  expect(terminalIn("PR Mid")).toEqual(["PR m2"]);
+  expect(terminalIn("PR Inner")).toEqual(["PR i2"]);
+  // and the exits say why: accept, inside Open, leaves Received in Support Request too, and resolve,
+  // which leaves Open, leaves every sub-status of Open
+  const exits = new Set(pop("TransitionExitsStatusInStateMachineDefinition").map((r) => r.join(" > ")));
+  expect(exits.has("pr-accept > PR Received > PR Support Request")).toBe(true);
+  for (const s of ["PR Received", "PR Draft", "PR Responded", "PR Escalated"])
+    expect(exits.has("pr-resolve > " + s + " > PR Support Request")).toBe(true);
+  expect(exits.has("pr-finish > PR i1 > PR Outer")).toBe(true);
+  expect([...exits].some((e) => e.endsWith(" > PR Closed > PR Support Request"))).toBe(false);
+});
 
 // ---- AND DOES THE DESCENT END WHERE THE STORE CONTRADICTS ITSELF? --------
 //
