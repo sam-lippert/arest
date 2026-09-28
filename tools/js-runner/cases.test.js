@@ -2313,6 +2313,153 @@ test("a transition fired through the MCP server performs what it declares, dry, 
   }
 }, 300_000);
 
+// ---- AND A GUARDED TRANSITION WAITS FOR ITS GUARD, WHILE ITS PERFORMER RUNS ON THE ATTEMPT --
+//
+// #131, approved by Sam with support cd64286 (2026-09-25): support.auto.dev's `approve` is guarded
+// on `Support Response is sent`, the fact a successful send establishes -- "If you want retryability
+// to be a property of the state machine rather than the request, then the transition should be
+// guarded on a successful send." None of the three things that needs was true. The fold read no
+// guard, so the approval alone moved the response. The performer ran on a status MOVE, and a guarded
+// transition cannot move before its send has succeeded, so keyed on the move the send never ran.
+// And the fact the guard waits on is one Resend never returns: `Email Message is sent via Send Tool`
+// is known by the call, and had no declared home.
+//
+// So: a probe domain whose `approve` performs sendGizmo over a LIVE connection to a fake API that
+// fails the first call and succeeds after, guarded on `Gizmo is sent via Channel`, which sendGizmo
+// asserts on success. The approval is attempted, the send runs and fails, and the gizmo stays in
+// Draft with nothing written back and the success row reported as onSuccess. The approval is then
+// retracted and asserted again -- a retry is a new attempt, since re-asserting a held fact attempts
+// nothing -- and the send succeeds, the echo id and the channel are written back, the guard holds
+// and the gizmo is Sent, where no action is left (a menu button carries the transition's trigger,
+// so Draft offers ReviewerApprovesGizmo). Failing at 2fbbbfad: the approval alone moves the
+// gizmo to Sent, and the channel is never written.
+test("a guarded transition waits for its guard, and its performer runs on the attempt and records what success establishes", async () => {
+  let calls = 0;
+  const api = Bun.serve({ port: 0, async fetch(req) {
+    calls++;
+    await req.text();
+    const status = calls === 1 ? 500 : 200;
+    const body = calls === 1 ? { message: "boom" } : { id: "e" + calls };
+    return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  } });
+  const dir = mkdtempSync(join(tmpdir(), "arest-guard-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  const metamodel = join(import.meta.dir, "..", "..", "metamodel");
+  const app = join(dir, "app");
+  mkdirSync(app);
+  const path = join(dir, "store.db");
+  let server = null;
+  try {
+    writeFileSync(join(app, "gizmos.md"), [
+      "# Gizmos", "",
+      "A probe domain for the guard: approving a Gizmo sends it, and it is Sent only once the send succeeded.", "",
+      "## Entity Types", "", "Gizmo(.id) is an entity type.", "", "Reviewer(.Name) is an entity type.", "",
+      "## Value Types", "", "Title is a value type.", "", "Echo Id is a value type.", "", "Channel is a value type.", "",
+      "Email is a value type.", "",
+      "## Fact Types", "",
+      "Gizmo has Title.", "  Each Gizmo has at most one Title.", "",
+      "Gizmo has Echo Id.", "  Each Gizmo has at most one Echo Id.", "",
+      "Gizmo is sent via Channel.", "  Each Gizmo is sent via at most one Channel.", "",
+      "Reviewer has Email.", "  Each Reviewer has at most one Email.", "",
+      "Reviewer approves Gizmo.",
+      "  Each Reviewer, Gizmo combination occurs at most once in the population of Reviewer approves Gizmo.", "",
+      "## State Machine", "",
+      "State Machine Definition 'Gizmo' is for Object Type 'Gizmo'.", "",
+      "Status 'Draft' is defined in State Machine Definition 'Gizmo'.", "",
+      "Status 'Sent' is defined in State Machine Definition 'Gizmo'.", "",
+      "Status 'Draft' is initial in State Machine Definition 'Gizmo'.", "",
+      "Transition 'approve' is defined in State Machine Definition 'Gizmo'.",
+      "  Transition 'approve' is from Status 'Draft'.",
+      "  Transition 'approve' is to Status 'Sent'.",
+      "  Transition 'approve' is triggered by Fact Type 'Reviewer approves Gizmo'.", "",
+      "Guard 'sent' guards Transition 'approve'.", "",
+      "Guard 'sent' references Fact Type 'Gizmo is sent via Channel'.", "",
+      "## The connection and the predicate", "",
+      "External System 'echo' has URL 'http://127.0.0.1:" + api.port + "'.", "",
+      "Domain 'gizmos' connects to External System 'echo'.", "",
+      "DomainConnectsToExternalSystem 'gizmos/echo' has Send Mode 'live'.", "",
+      "Predicate 'sendGizmo' has Name 'sendGizmo'.", "",
+      "Predicate 'sendGizmo' is backed by External System 'echo'.", "",
+      "Predicate 'sendGizmo' has callback URI '/gizmos'.", "",
+      "Function 'sendGizmo' is called with HTTP Method 'POST'.", "",
+      "Function 'sendGizmo' sends Fact Type 'Gizmo has Title' with Role 'GizmoHasTitle.2' to JSON Path 'title'.", "",
+      "Function 'sendGizmo' yields Fact Type 'Gizmo has Echo Id' with Role 'GizmoHasEchoId.2' from JSON Path 'id'.", "",
+      "Function 'sendGizmo' asserts Fact Type 'Gizmo is sent via Channel' on success.", "",
+      "Event Type 'Gizmo has Echo Id' can be created by Predicate 'sendGizmo'.", "",
+      "Event Type 'Gizmo is sent via Channel' can be created by Predicate 'sendGizmo'.", "",
+      "Predicate 'sendGizmo' is performed during Transition 'approve'.", "",
+      "## Instance Facts", "",
+      "Gizmo 'g1' has Title 'hello'.", "",
+      "Reviewer 'sam' has Email 'sam@example.com'.", "",
+      "Domain 'gizmos' has Description 'A probe domain for the guard.'.", "",
+    ].join("\n"));
+    const c = Bun.spawnSync(["bun", compiler, metamodel, app],
+      { env: { ...process.env, AREST_DB: path, AREST_OUT_DIR: dir, AREST_STRICT: "" }, stdout: "pipe", stderr: "pipe" });
+    expect(c.exitCode, c.stdout.toString() + c.stderr.toString()).toBe(0);
+    const env = { ...process.env, AREST_CARRIERS: dir, AREST_OUT_DIR: dir };
+    delete env.AREST_INSTRUMENTED;
+    const b = Bun.spawnSync(["bun", "build.js", "mcp"], { cwd: import.meta.dir, env, stdout: "pipe", stderr: "pipe" });
+    expect(b.exitCode, b.stdout.toString() + b.stderr.toString()).toBe(0);
+
+    server = Bun.spawn(["bun", join(dir, "mcp.g.js")], {
+      env: { ...process.env, AREST_STORE_DB: path }, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
+    let err = "";
+    (async () => { for await (const chunk of server.stderr) err += new TextDecoder().decode(chunk); })();
+    const pending = new Map();
+    (async () => {
+      let buf = "";
+      for await (const chunk of server.stdout) {
+        buf += new TextDecoder().decode(chunk);
+        let i;
+        while ((i = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, i).trim();
+          buf = buf.slice(i + 1);
+          if (!line.startsWith("{")) continue;
+          try { const m = JSON.parse(line); if (m.id !== undefined && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } } catch { /* not a reply */ }
+        }
+      }
+    })();
+    let next = 0;
+    const send = (method, params) => new Promise((resolve) => {
+      const id = ++next;
+      pending.set(id, resolve);
+      server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+      server.stdin.flush();
+    });
+    const call = async (name, args) => {
+      const r = await send("tools/call", { name, arguments: args });
+      return (r.result && r.result.content || []).map((x) => x.text).join("");
+    };
+    const settle = async (done) => { for (let i = 0; i < 60 && !(await done()); i++) await Bun.sleep(100); };
+    await send("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "cases", version: "1" } });
+
+    expect(await call("actions", { args: ["g1"] })).toContain("ReviewerApprovesGizmo");
+    expect(await call("ReviewerApprovesGizmo", { method: "POST", fact: ["sam", "g1"] })).toContain('"committed"');
+    // the attempt: the send runs although the guard keeps the gizmo where it was
+    await settle(async () => calls >= 1 && err.includes("performed "));
+    expect(calls).toBe(1);
+    expect(err).toContain('"onSuccess":[["GizmoIsSentViaChannel","g1","echo"]]');
+    expect(await call("GizmoIsSentViaChannel", { method: "GET" })).toContain('["rows",[]]');
+    expect(await call("GizmoHasEchoId", { method: "GET" })).toContain('["rows",[]]');
+    expect(await call("actions", { args: ["g1"] })).toContain("ReviewerApprovesGizmo");
+
+    // a retry is a new attempt: the approval retracted and asserted again
+    await call("ReviewerApprovesGizmo", { method: "DELETE", fact: ["sam", "g1"] });
+    expect(calls).toBe(1);
+    expect(await call("ReviewerApprovesGizmo", { method: "POST", fact: ["sam", "g1"] })).toContain('"committed"');
+    let rows = "";
+    await settle(async () => !(rows = await call("GizmoIsSentViaChannel", { method: "GET" })).includes('["rows",[]]'));
+    expect(rows).toContain('["rows",[["g1","echo"]]]');
+    expect(calls).toBe(2);
+    expect(await call("GizmoHasEchoId", { method: "GET" })).toContain('["rows",[["g1","e2"]]]');
+    expect(await call("actions", { args: ["g1"] })).not.toContain("ReviewerApprovesGizmo");
+  } finally {
+    if (server) server.kill();
+    api.stop(true);
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 300_000);
+
 // ---- AND A SOURCE IS FETCHED BY THE SERVER THAT SERVES IT -----------------------------
 //
 // `sync` handed only a Source answers the request its Connector declares; the MCP server makes it,
@@ -4114,10 +4261,14 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     // 620 -> 624 (its spanning uniqueness, objectified over three involvement fact types), derived
     // 37 -> 38. players/all stay at 270: a fully derived head has no players in the assertable
     // schema.
+    // AND A SUCCESSFUL CALL ASSERTS WHAT IT ESTABLISHED (2026-09-28, #131): core.md declares
+    // `Function asserts Fact Type on success`, asserted and unique over both roles, read alike:
+    // 298 -> 299, players/all 270 -> 271, rows 287 -> 288, stateUcs 624 -> 627 (the spanning
+    // uniqueness objectified over two involvement fact types), derived unmoved.
     expect({ witness: O.size, lambda: C.size, both, lambdaOnly: lambdaOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
-      .toEqual({ witness: 298, lambda: 298, both: 298, lambdaOnly: 0, oracleOnly: 0,
-                 players: 270, ucs: 298, mands: 298, all: 270, rows: 287, rejected: 0, derived: [38, 38, 38], stateRows: 298, stateUcs: 624 });
+      .toEqual({ witness: 299, lambda: 299, both: 299, lambdaOnly: 0, oracleOnly: 0,
+                 players: 271, ucs: 299, mands: 299, all: 271, rows: 288, rejected: 0, derived: [38, 38, 38], stateRows: 299, stateUcs: 627 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
@@ -4401,7 +4552,9 @@ describe("lambda's constraint cells against the witness, on the base metamodel",
       // 527 -> 528 (2026-09-25): Query Text and `Function sends Query Text`, alike in both.
       // 528 -> 532 (2026-09-28, #130): `Transition exits Status in State Machine Definition`
       // and the three involvement fact types its spanning uniqueness objectifies, alike in both.
-      .toEqual({ lambda: 532, witness: 532, kept: 532, sequence: true, renumbered: true, lambdaOnly: [] });
+      // 532 -> 535 (2026-09-28, #131): `Function asserts Fact Type on success` and the two
+      // involvement fact types its spanning uniqueness objectifies, alike in both.
+      .toEqual({ lambda: 535, witness: 535, kept: 535, sequence: true, renumbered: true, lambdaOnly: [] });
   }, 300_000);
 
   // and the assembler carries them: the schema lambda writes holds every
@@ -5767,7 +5920,8 @@ test("a reading's spoken text is in the store, and the seven its name cannot spe
   // 288 -> 289 (2026-09-25): `Function reads rows where JSON Path equals Condition Value`
   // 289 -> 290 (2026-09-25): `Function sends Query Text`
   // 290 -> 291 (2026-09-28, #130): `Transition exits Status in State Machine Definition`
-  expect(declared.length - lost.length).toBe(291);
+  // 291 -> 292 (2026-09-28, #131): `Function asserts Fact Type on success`
+  expect(declared.length - lost.length).toBe(292);
   for (const [name, t] of EXACT) expect([name, text.get("r" + name)]).toEqual([name, t]);
 
   // ---- and it is in the tables --------------------------------------------

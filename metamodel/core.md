@@ -1158,6 +1158,20 @@ Function yields Fact Type with Role from JSON Path.
        is `Event Type can be created by Predicate`, the may-create ceiling,
        which is the Thm 1 boundary. This says WHERE a value is found in the
        answer; it never widens WHAT may be written. -->
+Function asserts Fact Type on success.
+  Each Function, Fact Type combination occurs at most once in the population of Function asserts Fact Type on success.
+  <!-- WHAT A SUCCESSFUL CALL KNOWS AND DOES NOT RETURN (#131, 2026-09-28). A yield
+       reads a value the service RETURNED. Some facts are established by the call
+       succeeding at all, and no answer states them: support.auto.dev's `Email Message
+       is sent via Send Tool` is the case, since Resend answers an id and never "this
+       went out through Resend", and the guard on its `approve` waits on exactly that
+       fact. So a Function names the fact types a successful call asserts. Success is a
+       2xx answer. The subject (`reaches its subject through`) fills the fact type's
+       first role, and for a binary the name of the External System the Function is
+       backed by fills the second -- 'resend' for sendSupportEmail, which is also the
+       Send Tool's value. A call that does not succeed asserts none of them, and a dry
+       run reports them without asserting. The may-create ceiling still decides, as it
+       does for a yield. -->
 Function sends Fact Type with Role to JSON Path.
   Each Function, Fact Type, Role combination occurs at most once.
   It is possible that some Function sends more than one Fact Type.

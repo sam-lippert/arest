@@ -3025,9 +3025,9 @@ async function performDeclared(before, after, opts) {
     const outside = [];
     let parsed = null;
     try { parsed = JSON.parse(String(answer && answer.text)); } catch (e) { parsed = null; }
+    const subject = Ev("perform:subject_of", [predicate, entity, after]);
+    const subj = Array.isArray(subject) ? entity : String(subject);
     if (parsed && typeof parsed === "object") {
-      const subject = Ev("perform:subject_of", [predicate, entity, after]);
-      const subj = Array.isArray(subject) ? entity : String(subject);
       for (const t of Ev("perform:yields_of", [predicate, after])) {
         const path = String(t[0]), ft = String(t[1]);
         if (!(path in parsed)) continue;            // the service did not return it
@@ -3035,7 +3035,18 @@ async function performDeclared(before, after, opts) {
         (ceiling.indexOf(ft) >= 0 ? asserts : outside).push(row);
       }
     }
-    done.push({ predicate, entity, method, address, sent: body, ceiling, answer, asserts, outside });
+    // AND WHAT THE CALL ESTABLISHED BY SUCCEEDING (#131). perform:success_of answers the rows a
+    // successful call asserts -- `Email Message is sent via Send Tool` on support, which Resend's
+    // answer never states -- and success is a 2xx. A call that failed, or a dry run's stub, reports
+    // them as onSuccess and asserts none, so a guard waiting on one of them keeps waiting.
+    const succeeded = answer && Number(answer.status) >= 200 && Number(answer.status) < 300;
+    const onSuccess = [];
+    for (const r of Ev("perform:success_of", [predicate, subj, after])) {
+      const row = r.map(String);
+      if (!succeeded) { onSuccess.push(row); continue; }
+      (ceiling.indexOf(row[0]) >= 0 ? asserts : outside).push(row);
+    }
+    done.push({ predicate, entity, method, address, sent: body, ceiling, answer, asserts, outside, onSuccess });
   }
   return done;
 }
