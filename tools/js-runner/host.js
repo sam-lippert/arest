@@ -2952,6 +2952,19 @@ function run_test() {
 // not assert at all: it answers what was sent and what came back, and the
 // ceiling it came with, so the assertion happens where the store is written and
 // can be refused there.
+// A CREDENTIAL IS WRITTEN AS ITS SYSTEM SAYS (2026-09-28). perform:credential_encoding_of answers the
+// encoding the Function's backing system declares, and this applies it to the decrypted secret -- the one
+// place the plaintext exists, which is why it happens here and nowhere else. 'base64' is the Basic
+// scheme's (ClickHouse's `Authorization: Basic` over user:password); absent means as stored. An encoding
+// this host does not write answers null, and the caller refuses rather than send the credential raw.
+function writtenCredential(fn, secret, store) {
+  if (!secret) return secret;
+  const enc = Ev("perform:credential_encoding_of", [fn, store]);
+  if (Array.isArray(enc)) return secret;
+  if (String(enc) === "base64") return Buffer.from(secret, "utf8").toString("base64");
+  return null;
+}
+
 async function performDeclared(before, after, opts) {
   const o = opts || {};
   const send = o.send || ((m, a, h, b) => fetch(a, { method: m, headers: h, body: JSON.stringify(b) })
@@ -2987,9 +3000,10 @@ async function performDeclared(before, after, opts) {
       const cipher = Ev("perform:secret_of", [predicate, after]);
       if (!Array.isArray(cipher)) {
         const plain = Ev("hook:read", [String(o.master || ""), "Secret Reference", String(cipher), after]);
-        secret = Array.isArray(plain) ? "" : String(plain);
+        secret = writtenCredential(predicate, Array.isArray(plain) ? "" : String(plain), after);
       }
     }
+    if (secret === null) { done.push({ predicate, entity, refused: "the credential encoding this connection declares is not one this host writes" }); continue; }
     if (!Array.isArray(auth) && secret) headers[String(auth)] = (headers[String(auth)] || "") + (headers[String(auth)] ? " " : "") + secret;
     const body = {};
     let hole = null;
@@ -3400,7 +3414,8 @@ function run_mcp() {
       const cipher = Ev("perform:secret_of", [fn, CELLS]);
       if (!Array.isArray(cipher)) {
         const plain = Ev("hook:read", [String(process.env.AREST_MASTER_KEY || ""), "Secret Reference", String(cipher), CELLS]);
-        const secret = Array.isArray(plain) ? "" : String(plain);
+        const secret = writtenCredential(fn, Array.isArray(plain) ? "" : String(plain), CELLS);
+        if (secret === null) return ["not performed: the credential encoding this connection declares is not one this host writes", 501];
         if (secret) headers[String(auth)] = (headers[String(auth)] ? headers[String(auth)] + " " : "") + secret;
       }
     }

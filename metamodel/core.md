@@ -335,6 +335,8 @@ Prefix is a value type.
 Header is a value type.
 Header Value is a value type.
   The data type of Header is text.
+Credential Encoding is a value type.
+  The possible values of Credential Encoding are 'base64'.
 Kind is a value type.
   The data type of Kind is text.
 Timestamp is a value type.
@@ -1103,6 +1105,17 @@ External System authenticates with Header.
        not something a caller should infer from the name. `with`, not `via`,
        because `Customer authenticates via Cookie Name` already exists and the
        lesson of this week is that a shared predicate steals. -->
+External System has Credential Encoding.
+  Each External System has at most one Credential Encoding.
+  <!-- THE CREDENTIAL AS ITS SCHEME WANTS IT (2026-09-28). ClickHouse's HTTP
+       interface takes `Authorization: Basic` over base64(user:password), and
+       support.auto.dev keeps that credential as user:password, the way it was
+       issued. The host sent a credential exactly as it came out of the store,
+       so a Basic header went out unencoded. This says how a system wants its
+       credential written. The host applies it to the decrypted secret, the one
+       place the plaintext exists, and lambda says whether and how
+       (perform:credential_encoding_of). Absent means as stored, which is every
+       Bearer system. -->
 External System has Prefix.
   Each External System has at most one Prefix.
 External System has Kind.

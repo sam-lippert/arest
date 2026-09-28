@@ -1344,6 +1344,9 @@ test("get over a store read from its tables reads the rows that name the id, and
     "const say = (k, v) => console.log(k + '=' + JSON.stringify(v));",
     "if (process.env.MAKE) { const b = popSnapshot(CELLS); closeStore(); say('made', emitToDb(b, CELLS)); process.exit(0); }",
     "const db = new Database(process.env.AREST_STORE_DB, { readonly: true });",
+    "const st = Ev('store:state', CELLS);",
+    "// an id that names a fact type reads that fact type whole, since its relation cell is in the answer",
+    "const named = new Set(st[0].map((d) => String(d[0])));",
     "const ids = [];",
     "for (const t of db.query(\"select name from sqlite_master where type = 'table' and substr(name, 1, 1) <> '_'\").values().map((r) => String(r[0]))) {",
     "  const pk = db.query('select name from pragma_table_info(?) where pk > 0').values(t).map((r) => String(r[0]));",
@@ -1351,12 +1354,13 @@ test("get over a store read from its tables reads the rows that name the id, and
     "  const vals = db.query('select \"' + pk[0] + '\" from \"' + t + '\" where \"' + pk[0] + '\" is not null').values().map((r) => String(r[0]));",
     "  const step = Math.max(1, Math.floor(vals.length / 20));",
     "  for (let i = 0; i < vals.length; i += step) ids.push(vals[i]);",
+    "  // the stride alone can miss every key that names a fact type: one more fact type in the base",
+    "  // (2026-09-28) moved it off all 300 of Function's. So a table also offers its first such key.",
+    "  const fn = vals.find((v) => named.has(v));",
+    "  if (fn !== undefined && !ids.includes(fn)) ids.push(fn);",
     "}",
     "ids.push('no-such-id-anywhere');",
     "say('ids', ids.length);",
-    "const st = Ev('store:state', CELLS);",
-    "// an id that names a fact type reads that fact type whole, since its relation cell is in the answer",
-    "const named = new Set(st[0].map((d) => String(d[0])));",
     "say('named', ids.filter((id) => named.has(id)).length);",
     "const before = storeRead();",
     "const twin = new Map();",
@@ -2470,13 +2474,18 @@ test("a guarded transition waits for its guard, and its performer runs on the at
 // ed60ff64: the server hands sync the Source alone, which answers the request and fetches nothing.
 // AND A QUERY IS POSTED AS WRITTEN (2026-09-25): a third Source sends a ClickHouse-style Query Text
 // with param_ bindings; failing at 8cf843de, where the fetch sends no body.
+// AND A CREDENTIAL IS WRITTEN AS ITS SYSTEM SAYS (2026-09-28): the query's system authenticates with
+// a Basic header, and ClickHouse takes Basic over base64(user:password) while support keeps the
+// credential as issued. The probe's .env carries a fake user:password, sealed at compile under a
+// throwaway key; the system declares `has Credential Encoding 'base64'`, and the fake API must receive
+// the encoded form. Failing at the guard unit's commit: the header carries the credential as stored.
 test("sync through the MCP server fetches every page of a live Source, and a dry one fetches nothing", async () => {
   const hits = [];
   const api = Bun.serve({ port: 0, async fetch(req) {
     const u = new URL(req.url);
     if (u.pathname === "/v1/ch") {
       const sql = await req.text();
-      hits.push(req.method + " " + u.pathname + u.search + " body=" + sql);
+      hits.push(req.method + " " + u.pathname + u.search + " body=" + sql + " auth=" + (req.headers.get("authorization") || ""));
       return Response.json({ meta: [{ name: "rayId", type: "String" }, { name: "email", type: "String" }],
         data: [{ rayId: "r_1", email: u.searchParams.get("param_email") === "e@x.com" ? "E@X.com" : "wrong@binding" }], rows: 1 });
     }
@@ -2510,6 +2519,12 @@ test("sync through the MCP server fetches every page of a live Source, and a dry
       "External System 'dryfake' has URL '" + base + "'.", "",
       "Domain 'widgets' connects to External System 'dryfake'.", "",
       "DomainConnectsToExternalSystem 'widgets/dryfake' has Send Mode 'dry'.", "",
+      "External System 'chfake' has URL '" + base + "'.", "",
+      "External System 'chfake' has Header 'Authorization' with Header Value 'Basic'.", "",
+      "External System 'chfake' authenticates with Header 'Authorization'.", "",
+      "External System 'chfake' has Credential Encoding 'base64'.", "",
+      "Domain 'widgets' connects to External System 'chfake'.", "",
+      "DomainConnectsToExternalSystem 'widgets/chfake' has Send Mode 'live'.", "",
       "## The Sources", "",
       "Source 'widgets-src' uses Connector 'listWidgets'.", "",
       "Function 'listWidgets' is backed by External System 'fake'.", "",
@@ -2530,7 +2545,7 @@ test("sync through the MCP server fetches every page of a live Source, and a dry
       "Function 'listDry' yields Fact Type 'Widget has Owner Email' with Role 'WidgetHasOwnerEmail.1' from JSON Path '$.id'.", "",
       "Function 'listDry' yields Fact Type 'Widget has Owner Email' with Role 'WidgetHasOwnerEmail.2' from JSON Path '$.owner.email'.", "",
       "Source 'logs-src' uses Connector 'queryLogs'.", "",
-      "Function 'queryLogs' is backed by External System 'fake'.", "",
+      "Function 'queryLogs' is backed by External System 'chfake'.", "",
       "Function 'queryLogs' has callback URI '/ch'.", "",
       "Function 'queryLogs' is called with HTTP Method 'POST'.", "",
       "Function 'queryLogs' sends Query Text 'SELECT rayId, email FROM logs WHERE email = {email:String} LIMIT {cap:UInt32}'.", "",
@@ -2543,15 +2558,19 @@ test("sync through the MCP server fetches every page of a live Source, and a dry
       "## Instance Facts", "",
       "Domain 'widgets' has Description 'A probe domain for the fetch.'.", "",
     ].join("\n"));
+    // the credential lives in the .env, never a .md, and is a fake
+    writeFileSync(join(app, ".env"), ["## Instance Facts", "",
+      "DomainConnectsToExternalSystem 'widgets/chfake' carries Secret Reference 'probe-user:probe-pass'.", ""].join("\n"));
+    const key = "throwaway-" + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
     const c = Bun.spawnSync(["bun", compiler, metamodel, app],
-      { env: { ...process.env, AREST_DB: path, AREST_OUT_DIR: dir }, stdout: "pipe", stderr: "pipe" });
+      { env: { ...process.env, AREST_DB: path, AREST_OUT_DIR: dir, AREST_MASTER_KEY: key }, stdout: "pipe", stderr: "pipe" });
     expect(c.exitCode, c.stdout.toString() + c.stderr.toString()).toBe(0);
     const env = { ...process.env, AREST_CARRIERS: dir, AREST_OUT_DIR: dir };
     delete env.AREST_INSTRUMENTED;
     const b = Bun.spawnSync(["bun", "build.js", "mcp"], { cwd: import.meta.dir, env, stdout: "pipe", stderr: "pipe" });
     expect(b.exitCode, b.stdout.toString() + b.stderr.toString()).toBe(0);
     server = Bun.spawn(["bun", join(dir, "mcp.g.js")], {
-      env: { ...process.env, AREST_STORE_DB: path }, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
+      env: { ...process.env, AREST_STORE_DB: path, AREST_MASTER_KEY: key }, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
     let err = "";
     (async () => { for await (const chunk of server.stderr) err += new TextDecoder().decode(chunk); })();
     const pending = new Map();
@@ -2602,7 +2621,8 @@ test("sync through the MCP server fetches every page of a live Source, and a dry
     const q = hits[4];
     expect(q.startsWith("POST /v1/ch?")).toBe(true);
     for (const part of ["param_email=e%40x.com", "param_cap=100", "default_format=JSON",
-                        " body=SELECT rayId, email FROM logs WHERE email = {email:String} LIMIT {cap:UInt32}"]) expect(q).toContain(part);
+                        " body=SELECT rayId, email FROM logs WHERE email = {email:String} LIMIT {cap:UInt32}",
+                        " auth=Basic " + Buffer.from("probe-user:probe-pass", "utf8").toString("base64")]) expect(q).toContain(part);
     expect(await call("WidgetHasOwnerEmail", { method: "GET" })).toContain('["r_1","e@x.com"]');
     // and a query whose binding is missing is refused before anything leaves
     expect(await call("sync", { args: ["logs-src"] })).toContain("param_email");
@@ -4265,10 +4285,13 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     // `Function asserts Fact Type on success`, asserted and unique over both roles, read alike:
     // 298 -> 299, players/all 270 -> 271, rows 287 -> 288, stateUcs 624 -> 627 (the spanning
     // uniqueness objectified over two involvement fact types), derived unmoved.
+    // AND A CREDENTIAL IS WRITTEN AS ITS SYSTEM SAYS (2026-09-28): `External System has Credential
+    // Encoding`, at most one per system, read alike: 299 -> 300, players/all 271 -> 272, rows 288 ->
+    // 289, stateUcs 627 -> 628, derived unmoved.
     expect({ witness: O.size, lambda: C.size, both, lambdaOnly: lambdaOnly.length, oracleOnly: oracleOnly.length,
              players, ucs, mands, all, rows: rowsEq, rejected, derived: [derO.size, derC.size, derBoth], stateRows, stateUcs })
-      .toEqual({ witness: 299, lambda: 299, both: 299, lambdaOnly: 0, oracleOnly: 0,
-                 players: 271, ucs: 299, mands: 299, all: 271, rows: 288, rejected: 0, derived: [38, 38, 38], stateRows: 299, stateUcs: 627 });
+      .toEqual({ witness: 300, lambda: 300, both: 300, lambdaOnly: 0, oracleOnly: 0,
+                 players: 272, ucs: 300, mands: 300, all: 272, rows: 289, rejected: 0, derived: [38, 38, 38], stateRows: 300, stateUcs: 628 });
   }, 300_000);
 
   // state:deontics, row for row (task #93, 2026-09-16). The witness builds 13 of
@@ -4554,7 +4577,8 @@ describe("lambda's constraint cells against the witness, on the base metamodel",
       // and the three involvement fact types its spanning uniqueness objectifies, alike in both.
       // 532 -> 535 (2026-09-28, #131): `Function asserts Fact Type on success` and the two
       // involvement fact types its spanning uniqueness objectifies, alike in both.
-      .toEqual({ lambda: 535, witness: 535, kept: 535, sequence: true, renumbered: true, lambdaOnly: [] });
+      // 535 -> 536 (2026-09-28): `External System has Credential Encoding`, alike in both.
+      .toEqual({ lambda: 536, witness: 536, kept: 536, sequence: true, renumbered: true, lambdaOnly: [] });
   }, 300_000);
 
   // and the assembler carries them: the schema lambda writes holds every
@@ -5921,7 +5945,8 @@ test("a reading's spoken text is in the store, and the seven its name cannot spe
   // 289 -> 290 (2026-09-25): `Function sends Query Text`
   // 290 -> 291 (2026-09-28, #130): `Transition exits Status in State Machine Definition`
   // 291 -> 292 (2026-09-28, #131): `Function asserts Fact Type on success`
-  expect(declared.length - lost.length).toBe(292);
+  // 292 -> 293 (2026-09-28): `External System has Credential Encoding`
+  expect(declared.length - lost.length).toBe(293);
   for (const [name, t] of EXACT) expect([name, text.get("r" + name)]).toEqual([name, t]);
 
   // ---- and it is in the tables --------------------------------------------
