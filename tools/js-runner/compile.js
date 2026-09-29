@@ -695,7 +695,7 @@ const spellRow = (names, vals) => {
 // AND A FACT AS THE RECORDS SPELL IT (2026-09-29): its tuple as JSON, every number as the text a
 // table cell holds, so a fact read back from the tables and the same fact as the readings state it
 // are one spelling (the 1-and-"1" note beside popSnapshot in host.js).
-const asStoredV = (v) => (Array.isArray(v) ? v.map(asStoredV) : typeof v === "number" ? String(v) : v);
+const asStoredV = (v) => (Array.isArray(v) ? (Ev("dec:is", v) === "T" ? Ev("dec:text", v) : v.map(asStoredV)) : typeof v === "number" ? String(v) : v);
 const factText = (r) => JSON.stringify(asStoredV(r));
 // and a population as the set of those, one spelling to a line, to say whether two are one
 const factSet = (rows) => {

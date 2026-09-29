@@ -6168,6 +6168,110 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     expect(span.length).toBeGreaterThan(0);
     expect(span.every((r) => typeof r[1] === "number")).toBe(true);
   }, 300_000);
+  // A DECIMAL IS HELD AS A DECIMAL (2026-09-29, the second unit of typed values). A value of a value type declared
+  // decimal or money is <decimal, m, s>, normalized, typed where every value enters and written as its text where
+  // every value leaves: a table cell, JSON, a template. A decimal column has NUMERIC affinity, so sqlite holds a REAL
+  // and a load reads back its shortest text -- 1e-7 among them -- which is why exponent notation is a lexeme here.
+  test("a decimal is held as a decimal: read, typed, written as its text and read back", () => {
+    const D = (x) => Ev("value:as_dec", x), T = (x) => Ev("value:text", x);
+    expect(D("12.340")).toEqual(["decimal", 1234, 2]);
+    expect(D("-0.5")).toEqual(["decimal", -5, 1]);
+    expect(D(7)).toEqual(["decimal", 7, 0]);
+    expect(D("0.000")).toEqual(["decimal", 0, 0]);
+    expect(D("1e-7")).toEqual(["decimal", 1, 7]);
+    expect(D("1.5e+3")).toEqual(["decimal", 1500, 0]);
+    expect(D("12.")).toBe("12.");   // a point with no digit after it spells nothing
+    expect(D("free")).toBe("free");
+    expect(D(["decimal", 5, 1])).toEqual(["decimal", 5, 1]);
+    expect(T(["decimal", 1234, 2])).toBe("12.34");
+    expect(T(["decimal", -5, 1])).toBe("-0.5");
+    expect(T(["decimal", 1, 7])).toBe("0.0000001");
+    expect(T(["decimal", 5, 3])).toBe("0.005");
+    expect(T(7)).toBe(7);
+    expect(T("x")).toBe("x");
+    // a row that is not a decimal is not read as one: the tag and two numbers make one
+    expect(Ev("dec:is", ["decimal", "2", "1"])).toBe("F");
+    // the reader
+    const text = [
+      "Widget(.name) is an entity type.",
+      "Share is a value type.",
+      "  The data type of Share is decimal.",
+      "Price is a value type.",
+      "  The data type of Price is money.", "",
+      "Widget has Share.",
+      "  Each Widget has at most one Share.",
+      "Widget has Price.",
+      "  Each Widget has at most one Price.", "",
+      "Widget 'w1' has Share 0.250.",
+      "Widget 'w1' has Price 49.00.", "",
+    ].join("\n");
+    const rows = [];
+    for (const s of Ev("read:sentences", text)) rows.push(Ev("read:row_of", s));
+    const cells = new Map(Ev("read:schema_of", rows).map((c) => [String(c[0]), c[1]]));
+    const pop = (n) => cells.get("state:fts").find((d) => d[0] === n)[4].flat(1);
+    expect(pop("WidgetHasShare")).toEqual([["w1", ["decimal", 25, 2]]]);
+    expect(pop("WidgetHasPrice")).toEqual([["w1", ["decimal", 49, 0]]]);
+    expect(cells.get("state:otpops").find((e) => e[0] === "Share")[1].flat(1)).toEqual([["decimal", 25, 2]]);
+    // what the tables answer, typed; ObjectTypeHasMinimum is the base module's decimal
+    expect(Ev("value:typed_pairs", [[["ObjectTypeHasMinimum", ["X", "0.50"]]], CELLS])).toEqual([["ObjectTypeHasMinimum", ["X", ["decimal", 5, 1]]]]);
+    // JSON prints a decimal as a number, the DEF and its twin alike; a template fills it as its text
+    const rowsD = [["w1", ["decimal", 25, 2]], ["w2", "text"]];
+    expect(Ev("render:json", rowsD)).toBe('[["w1",0.25],["w2","text"]]');
+    expect(Ev(globalThis.AREST.DEFS.get("render:json"), rowsD)).toBe('[["w1",0.25],["w2","text"]]');
+    expect(Ev("tpl:str", ["decimal", 25, 2])).toBe("0.25");
+    // the entity view says the fact with the decimal as its text, through solve:say, and does not throw
+    const posted = Ev("main:api", [CELLS, "POST", "ObjectTypeHasMinimum", "", ["Arity", "0.50"]]);
+    expect(Number(posted[1])).toBeLessThan(400);
+    const view = JSON.stringify(Ev("ui:route", [posted[2], ["Function", "Arity"], [], []]));
+    expect(view.includes("'0.5'")).toBe(true);
+    // written into a store and read back, in processes of their own, the way a server writes
+    const dir = mkdtempSync(join(tmpdir(), "arest-dec-"));
+    const mod = join(import.meta.dir, "cases.g.js");
+    const path = join(dir, "store.db");
+    try {
+      { const db = new Database(path); makeTables(db); globalThis.AREST.writeMetaschema(db);
+        db.run("create table _composition (hash text)"); db.prepare("insert into _composition values(?)").run(globalThis.AREST.composition);
+        db.run("pragma wal_checkpoint(TRUNCATE)"); db.close(); }
+      const driver = join(dir, "drive.mjs");
+      writeFileSync(driver, [
+        "await import(process.env.MODULE);",
+        "const { Ev, CELLS, popSnapshot, adoptStore, emitToDb, closeStore } = globalThis.AREST;",
+        "const say = (k, v) => console.log(k + '=' + JSON.stringify(v));",
+        "if (process.env.MAKE) { const b = popSnapshot(CELLS); closeStore(); say('made', emitToDb(b, CELLS)); process.exit(0); }",
+        "if (process.env.WRITE) {",
+        "  const before = popSnapshot(CELLS), prior = CELLS.slice();",
+        "  const out = Ev('main:api', [CELLS, 'POST', 'ObjectTypeHasMinimum', '', ['Arity', '0.50']]);",
+        "  if (out.length > 2 && Number(out[1]) < 400) { adoptStore(out[2]); say('emitted', emitToDb(before, CELLS, prior)); }",
+        "  say('status', Number(out[1])); say('body', String(out[0]).slice(0, 400));",
+        "  process.exit(0);",
+        "}",
+        "say('rows', Ev('system:pop_rows', ['ObjectTypeHasMinimum', CELLS]));",
+        "say('json', Ev('render:json', Ev('system:pop_rows', ['ObjectTypeHasMinimum', CELLS])));",
+      ].join("\n"));
+      const run = (extra) => {
+        const p = Bun.spawnSync(["bun", driver], { env: { ...process.env, MODULE: pathToFileURL(mod).href, AREST_STORE_DB: path, ...extra }, stdout: "pipe", stderr: "pipe" });
+        const got = { out: p.stdout.toString() + p.stderr.toString() };
+        for (const line of p.stdout.toString().split("\n")) { const k = line.indexOf("="); if (k > 0) try { got[line.slice(0, k)] = JSON.parse(line.slice(k + 1)); } catch { /* not ours */ } }
+        return got;
+      };
+      const made = run({ MAKE: "1" });
+      expect(made.made, made.out).toBeGreaterThan(0);
+      const wrote = run({ WRITE: "1" });
+      expect(wrote.status, wrote.out).toBeLessThan(400);
+      expect(wrote.emitted, wrote.out).toBeGreaterThan(0);
+      const read = run({});
+      expect(read.rows, read.out).toEqual([["Arity", ["decimal", 5, 1]]]);
+      expect(read.json).toBe('[["Arity",0.5]]');
+      // the cell holds the number sqlite made of the text, 0.5, and never a sequence spelled out
+      const db = new Database(path, { readonly: true });
+      const at = db.query("select tab, col from _metaschema where ft = 'ObjectTypeHasMinimum'").get();
+      const cell = db.query('select "' + at.col + '" v from "' + at.tab + '" where "' + at.col + '" is not null').all().map((r) => r.v);
+      db.close();
+      expect(cell).toEqual([0.5]);
+    } finally {
+      try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+    }
+  }, 300_000);
 });
 // ---- THE JUDGE'S VERDICT LANDS AS A VIOLATION ROW (#122 item 7) ----------
 //

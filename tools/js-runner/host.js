@@ -1092,6 +1092,7 @@ function jsonQuote(s) {
   return out + '"';
 }
 function jsonText(x) {
+  if (decShape(x)) return Ev("dec:text", x);
   if (Array.isArray(x)) {
     if (x.length === 0) return "[]";
     let out = "[";
@@ -1384,6 +1385,7 @@ function projRow(x) {
       v = hit[0].length === 1 ? "T" : hit[0][p.other];
     }
     out[i] = v === "#" ? "#" : p.rest === null ? v : Ev("rmap:proj_walk", [p.rest, v, store]);
+    if (decShape(out[i])) out[i] = Ev("dec:text", out[i]);
   }
   return out;
 }
@@ -1642,9 +1644,17 @@ function asIntValue(v) {
   for (let i = start; i < v.length; i++) { const d = v.charCodeAt(i) - 48; if (d < 0 || d > 9) return v; acc = acc * 10 + d; }
   return neg ? 0 - acc : acc;
 }
+// dec:is, as the twins ask it: three fields, the tag decimal and two numbers
+function decShape(v) {
+  return Array.isArray(v) && v.length === 3 && v[0] === "decimal" && typeof v[1] === "number" && typeof v[2] === "number";
+}
+// value:as_kind: an integer folded here as read:kind_number folds it, a decimal by lambda's own value:as_dec
+function asKindValue(kind, v) {
+  return kind === "integer" ? asIntValue(v) : kind === "decimal" ? Ev("value:as_dec", v) : v;
+}
 function typedRowValue(row, kinds) {
   if (!Array.isArray(row) || !Array.isArray(kinds) || row.length === 0 || row.length !== kinds.length) return row;
-  return row.map((v, i) => (kinds[i] === "integer" ? asIntValue(v) : v));
+  return row.map((v, i) => asKindValue(kinds[i], v));
 }
 function typedPairsValue(pairs, store) {
   const kinds = new Map();
@@ -2120,8 +2130,9 @@ const FASTPRIMS = new Map(Object.entries({
   // entry unfolded once when first reached, a set for membership, the list
   // appended in place -- and AREST_NOTWIN=store:otpops gives the DEF's own.
   "store:otpops": x => { const cells = at(x, 1);
-    const intTypes = new Set(seq(Ev("value:int_types", Ev("value:cdt_rows", cells))).map((t) => JSON.stringify(t)));
-    const rows = seq(at(x, 0)).map((r) => (intTypes.has(JSON.stringify(at(r, 1))) ? [asIntValue(at(r, 0)), at(r, 1)] : r));
+    const typedTypes = new Map();
+    for (const tk of seq(Ev("value:typed_types", Ev("value:cdt_rows", cells)))) { const k = JSON.stringify(at(tk, 0)); if (!typedTypes.has(k)) typedTypes.set(k, at(tk, 1)); }
+    const rows = seq(at(x, 0)).map((r) => { const kind = typedTypes.get(JSON.stringify(at(r, 1))); return kind === undefined ? r : [asKindValue(kind, at(r, 0)), at(r, 1)]; });
     const prior = Ev("solve:cell", ["state:otpops", cells]);
     const key = (v) => JSON.stringify(v);
     const byType = new Map();
