@@ -1599,6 +1599,36 @@ const LIVEPATHS = new WeakSet();
 // as rmap:unproj_relpairs selects them. The DEF is the meaning: a shape it would raise on or read otherwise --
 // an argument or a row that is not a sequence, a value that is not an atom, a column whose decision raises, a
 // role column that is no position in the row -- is the DEF's, the whole table.
+// THE PREFERRED UNIQUENESS THAT HOLDS A FACT, FOUND IN AN INDEX (2026-09-29). cn:ucfacts <fact, ucs> is the first
+// uniqueness in ucs that is preferred (its second field T) and holds the fact (the first field of one of its
+// fourth field's rows), answered as that uniqueness's rows' first fields, else PHI. The DEF builds every
+// uniqueness's list of facts and tests the fact against it, for every uniqueness on every ask, and cn:smeta asks
+// it per column step: on support.auto.dev's closure that was 94,620,620 theta:member calls, 93% of rmap:colnames
+// and 45 of the relational map's 50 seconds. A ucs list is indexed once, by its identity, from each fact to the
+// first preferred uniqueness holding it, keyed as theta:member's own index keys (keyOf equal iff deepEq). A list
+// the DEF raises on -- a uniqueness short of four fields, a fourth field that is not a sequence, a row of it that
+// is not a sequence with a first field -- is the DEF's.
+const UCFACTS = new WeakMap();
+function ucFacts(x) {
+  const def = () => Ev(DEFS.get("cn:ucfacts"), x);
+  if (!Array.isArray(x) || x.length < 2 || !Array.isArray(x[1])) return def();
+  const ucs = x[1];
+  let ix = UCFACTS.get(ucs);
+  if (ix === undefined) {
+    ix = new Map();
+    for (let i = 0; i < ucs.length && ix !== null; i++) {
+      const uc = ucs[i];
+      if (!Array.isArray(uc) || uc.length < 4 || !Array.isArray(uc[3])) { ix = null; break; }
+      for (const r of uc[3]) if (!Array.isArray(r) || r.length < 1) { ix = null; break; }
+      if (ix === null || uc[1] !== "T") continue;
+      for (const r of uc[3]) { const k = keyOf(r[0]); if (!ix.has(k)) ix.set(k, i); }
+    }
+    UCFACTS.set(ucs, ix);
+  }
+  if (ix === null) return def();
+  const i = ix.get(keyOf(x[0]));
+  return i === undefined ? [] : ucs[i][3].map((r) => r[0]);
+}
 const UNPROJPLAN = new WeakMap();
 function unprojAll(x) {
   const def = () => Ev(DEFS.get("rmap:unproj"), x);
@@ -2426,6 +2456,7 @@ const FASTPRIMS = new Map(Object.entries({
     return out;
   },
   "rmap:unproj": x => unprojAll(x),
+  "cn:ucfacts": x => ucFacts(x),
   "rmap:unproj_live": x => {
     const def = () => Ev(DEFS.get("rmap:unproj_live"), x);
     if (!Array.isArray(x) || x.length < 2) return def();

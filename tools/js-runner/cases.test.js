@@ -4636,6 +4636,40 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     expect(raised.filter((m) => m !== "").length).toBeGreaterThan(1);
     same([widest[0], [Array.from({ length: widest[1][1].length }, (_, i) => (i === 1 ? ["a", "b"] : "#"))], CELLS]);   // a value that is a sequence
   }, 120_000);
+  // cn:ucfacts has a twin (2026-09-29): the first preferred uniqueness holding a fact, from an index of the
+  // uniqueness list. Held to its DEF over the test store's own uniquenesses, for every fact any of them holds and
+  // for facts none does; over a list whose first preferred uniqueness is not the only one holding a fact; and on
+  // the lists the DEF raises on.
+  test("the cn:ucfacts twin is its DEF", () => {
+    const def = DEFS.get("cn:ucfacts");
+    const same = (x) => {
+      let tw = "", dw = "", a, b;
+      try { a = Ev("cn:ucfacts", x); } catch (e) { tw = e.message; }
+      try { b = Ev(def, x); } catch (e) { dw = e.message; }
+      expect(tw).toBe(dw);
+      if (dw === "") expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+      return dw === "" ? a : null;
+    };
+    const ucs = Ev("theta:flatten", Ev("ast:fetch", ["state:ucs", CELLS]));
+    expect(ucs.length).toBeGreaterThan(100);
+    const facts = [...new Set(ucs.flatMap((u) => u[3].map((r) => JSON.stringify(r[0]))))].map((f) => JSON.parse(f));
+    let held = 0;
+    for (const f of facts.concat(["NoSuchFactType", "", 1, ["a"]])) { const a = same([f, ucs]); if (Array.isArray(a) && a.length) held++; }
+    expect(held).toBeGreaterThan(20);
+    // two preferred uniquenesses holding one fact: the first is the answer; a non-preferred one before them is not
+    const two = [["u0", "F", "F", [["X", 1]]], ["u1", "T", "F", [["X", 1], ["Y", 2]]], ["u2", "T", "F", [["X", 1], ["Z", 1]]]];
+    expect(same(["X", two])).toEqual(["X", "Y"]);
+    expect(same(["Z", two])).toEqual(["Z", "X"].reverse());
+    expect(same(["W", two])).toEqual([]);
+    same(["X", []]);
+    // the lists the DEF raises on
+    const raised = [
+      same(["X", [["u", "T", "F"]]]),                        // a uniqueness short of its fourth field
+      same(["X", [["u", "T", "F", ["atom"]]]]),               // a row that is an atom
+      same(["X", [["u", "F", "F", [["Y", 1]]], "atom"]]),     // a uniqueness that is an atom
+    ];
+    expect(raised.filter((r) => r === null).length).toBe(3);
+  });
   test("the read:put_row twin is its DEF", () => {
     const def = DEFS.get("read:put_row");
     const row = (name, chunks, t = ["p", "q"]) => [name, "b", "c", "d", chunks, t[0], t[1]];
