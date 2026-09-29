@@ -751,10 +751,53 @@ function compileInPlace() {
     return m;
   };
   const was = objects(prior), now = objects(fresh), wasMeta = metaOf(prior), nowMeta = metaOf(fresh);
+  // A TABLE THAT GAINED COLUMNS IS ALTERED IN PLACE, NOT REBUILT (2026-09-29). Sam: "An alter statement will be
+  // the implementation of a schema change." A functional fact type added to an entity type is a column of its
+  // table, and the whole store was rebuilt for it. A table whose new definition is its old one with columns
+  // added -- every old column there with the same type, nullability, default and key position, each new one
+  // outside the key, nullable and with no default, neither definition carrying any constraint but its primary
+  // key, no index on the table, and every old column carrying the fact type it carried -- is re-laid in the
+  // store's copy as SQLite's generalized ALTER does it: the new layout created, the rows copied into it by
+  // column name, the old table dropped and the new one renamed into its place. Not ADD COLUMN, which puts a
+  // column last where the DDL puts it in its place, and the ledger spells a row in its table's column order:
+  // re-laid, the table is the DDL's byte for byte, as a rebuild writes it. A column that went, a key that
+  // moved or a constraint added is a rebuild, as before.
+  const colsOf = (d, t) => d.query('select "name", "type", "notnull", "dflt_value", "pk" from pragma_table_info(?)').values(t)
+    .map((r) => ({ name: String(r[0]), attrs: JSON.stringify([r[1], r[2], r[3], r[4]]), pk: Number(r[4]), notnull: Number(r[2]), dflt: r[3] }));
+  const keyOnly = (sql) => !/\b(CHECK|REFERENCES|UNIQUE|DEFAULT|COLLATE|GENERATED|NULL|WITHOUT|STRICT|AS)\b/i.test(String(sql).replace(/"(?:[^"]|"")*"/g, '""'));
+  const indexedTables = (d) => new Set(d.query("select tbl_name from sqlite_master where type = 'index' and sql is not null").values().map((r) => String(r[0])));
+  const carriesOf = (d) => {
+    const m = new Map();
+    for (const r of d.query('select "tab", "col", "ft" from "_metaschema"').values()) {
+      let c = m.get(String(r[0])); if (!c) m.set(String(r[0]), (c = new Map()));
+      c.set(String(r[1]), String(r[2]));
+    }
+    return m;
+  };
+  const wasIndexed = indexedTables(prior), nowIndexed = indexedTables(fresh);
+  const relaid = new Map();
+  const moved = [];
+  for (const [k, sql] of was) {
+    const nsql = now.get(k);
+    if (nsql === sql) continue;
+    const t = k.startsWith("table ") ? k.slice(6) : null;
+    if (t === null || nsql === undefined || wasIndexed.has(t) || nowIndexed.has(t) || !keyOnly(sql) || !keyOnly(nsql)) { moved.push(k); continue; }
+    const oc = colsOf(prior, t), nc = colsOf(fresh, t);
+    const nOf = new Map(nc.map((c) => [c.name, c]));
+    const added = nc.filter((c) => !oc.some((o) => o.name === c.name));
+    if (!oc.every((c) => nOf.has(c.name) && nOf.get(c.name).attrs === c.attrs) || !added.length || added.some((c) => c.pk || c.notnull || c.dflt !== null)) { moved.push(k); continue; }
+    relaid.set(t, { sql: nsql, cols: oc.map((c) => c.name) });
+  }
+  const wasCarries = carriesOf(prior), nowCarries = carriesOf(fresh);
   fresh.close(true);
-  const moved = [...was].filter(([k, sql]) => now.get(k) !== sql).map(([k]) => k);
   if (moved.length) { prior.close(); return no(moved.length + " table(s) or index(es) the store has are not in the new schema as they are (" + moved.slice(0, 3).join(", ") + ")"); }
-  const recarried = [...wasMeta].filter(([t, v]) => nowMeta.get(t) !== v).map(([t]) => t);
+  const recarried = [...wasMeta].filter(([t, v]) => {
+    if (nowMeta.get(t) === v) return false;
+    if (!relaid.has(t)) return true;
+    const o = wasCarries.get(t) || new Map(), n = nowCarries.get(t) || new Map();
+    for (const [c, ft] of o) if (n.get(c) !== ft) return true;
+    return false;
+  }).map(([t]) => t);
   if (recarried.length) { prior.close(); return no(recarried.length + " table(s) carry other fact types now (" + recarried.slice(0, 3).join(", ") + ")"); }
   const created = [...now].filter(([k]) => !was.has(k));
   // THE RECORDS: what the last build's readings asserted and its closure derived, fact by fact
@@ -810,6 +853,15 @@ function compileInPlace() {
   }
   const db = new Database(build);
   db.exec("begin");
+  for (const [t, r] of relaid) {
+    const head = "CREATE TABLE " + qi(t) + " (";
+    if (!r.sql.startsWith(head)) { db.exec("rollback"); db.close(true); return restart("the new definition of " + t + " does not begin as the DDL writes one"); }
+    const tmp = qi(t + "__relaid"), cl = r.cols.map(qi).join(",");
+    db.exec("CREATE TABLE " + tmp + " (" + r.sql.slice(head.length));
+    db.exec("insert into " + tmp + " (" + cl + ") select " + cl + " from " + qi(t));
+    db.exec("drop table " + qi(t));
+    db.exec("alter table " + tmp + " rename to " + qi(t));
+  }
   for (const [k, sql] of created) if (k.startsWith("table ")) db.exec(sql);
   for (const [k, sql] of created) if (!k.startsWith("table ")) db.exec(sql);
   db.exec("commit");
@@ -1063,7 +1115,7 @@ function compileInPlace() {
   const tLedger = Date.now() - t2;
   renameSync(build, out);
   console.log("store (in place): " + facts + " fact type(s) moved by the readings, " + written + " row(s) written with the closure's, "
-    + ledgered + " ledgered in the " + touched.size + " table(s) it wrote, " + created.length + " table(s) and index(es) created"
+    + ledgered + " ledgered in the " + touched.size + " table(s) it wrote, " + created.length + " table(s) and index(es) created, " + relaid.size + " table(s) re-laid with columns added"
     + " (delta " + tDelta + " ms: readings' rows " + tReadings + ", copy " + tCopy + ", load " + tLoad + ", facts " + (tDelta - tReadings - tCopy - tLoad)
     + "; closure " + tClose + " ms, ledger " + tLedger + " ms) at " + out);
   return true;

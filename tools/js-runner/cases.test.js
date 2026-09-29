@@ -1999,8 +1999,9 @@ test("a rebuild supersedes what the last build asserted and carries only what th
 // not handle it must hand to the rebuild and say so. One probe domain, built once, the runtime then
 // writing a widget of its own and a colour on a readings widget; then four changes, each compiled both
 // ways from that store: an instance changed and one added, in place; a relation fact type added, in
-// place with its new table; a functional fact type added, a new column, rebuilt; and the readings
-// dropping the widget the runtime coloured, rebuilt.
+// place with its new table; a functional fact type added, a new column, its table re-laid in place
+// with the runtime's colour kept beside the readings' aspect; and the readings dropping the widget
+// the runtime coloured, rebuilt.
 test("a readings change applied in place is the store a rebuild makes, and what it cannot apply it rebuilds", () => {
   const dir = mkdtempSync(join(tmpdir(), "arest-inplace-"));
   const compiler = join(import.meta.dir, "compile.js");
@@ -2011,16 +2012,17 @@ test("a readings change applied in place is the store a rebuild makes, and what 
   const readings = (o) => [
     "# Widgets", "", "A probe domain for the in-place compile.", "",
     "## Entity Types", "", "Widget(.id) is an entity type.", "", ...(o.gadget ? ["Gadget(.id) is an entity type.", ""] : []),
-    "## Value Types", "", "Size is a value type.", "", "Color is a value type.", "", ...(o.weight ? ["Weight is a value type.", ""] : []),
+    "## Value Types", "", "Size is a value type.", "", "Color is a value type.", "", ...(o.aspect ? ["Aspect is a value type.", ""] : []),
     "## Fact Types", "",
+    ...(o.aspect ? ["Widget has Aspect.", "  Each Widget has at most one Aspect.", ""] : []),
     "Widget has Size.", "  Each Widget has at most one Size.", "",
     "Widget has Color.", "  Each Widget has at most one Color.", "",
     ...(o.gadget ? ["Widget fits Gadget.", ""] : []),
-    ...(o.weight ? ["Widget has Weight.", "  Each Widget has at most one Weight.", ""] : []),
     "## Instance Facts", "",
     ...(o.dropW1 ? [] : ["Widget 'w1' has Size '" + (o.size || "S") + "'."]),
     ...(o.w2 ? ["Widget 'w2' has Size 'XL'."] : []),
     ...(o.gadget ? ["Widget 'w1' fits Gadget 'g1'."] : []),
+    ...(o.aspect ? ["Widget 'w1' has Aspect 'tall'."] : []),
     "", "Domain 'widgets' has Description 'A probe domain for the in-place compile.'.", "",
   ].join("\n");
   const build = (path, env) => {
@@ -2075,10 +2077,20 @@ test("a readings change applied in place is the store a rebuild makes, and what 
     const rel = both("rel", { gadget: true });
     expect(rel.out).toContain("store (in place)");
     expect(rel.out).toMatch(/[1-9]\d* table\(s\) and index\(es\) created/);
-    // a functional fact type added is a column of Widget: rebuilt, and said
-    const col = both("col", { weight: true });
-    expect(col.out).toContain("in place: no --");
-    expect(col.out).not.toContain("store (in place)");
+    // a functional fact type added is a column of Widget: the table re-laid in place (Sam: "An alter statement
+    // will be the implementation of a schema change"), the runtime's colour kept beside the readings' aspect,
+    // a column the DDL puts before the table's last
+    const col = both("col", { aspect: true });
+    expect(col.out).toContain("store (in place)");
+    expect(col.out).toMatch(/1 table\(s\) re-laid with columns added/);
+    expect(col.rows.Widget.some((r) => r.includes('"w1"') && r.includes('"red"') && r.includes('"tall"'))).toBe(true);
+    {
+      const db = new Database(join(dir, "col-rebuilt.db"), { readonly: true });
+      const cols = db.query("select name from pragma_table_info('Widget')").values().map((r) => String(r[0]));
+      db.close(true);
+      expect(cols.indexOf("aspect")).toBeGreaterThan(-1);
+      expect(cols.indexOf("aspect")).toBeLessThan(cols.length - 1);   // not last: where ADD COLUMN would not put it
+    }
     // the readings drop w1, which the runtime coloured: rebuilt, and said
     const drop = both("drop", { dropW1: true });
     expect(drop.out).toMatch(/in place: no -- the readings no longer introduce [^;]*w1[^;]* and a runtime fact of WidgetHasColor names one/);
