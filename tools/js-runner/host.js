@@ -1096,6 +1096,16 @@ function jsonText(x) {
 // an older, shorter array still answers exactly its own rows. A second append to an array that is
 // no longer the chain's newest is a branch, and indexes afresh. A row that is an atom or empty
 // raises the selector error before anything is indexed, as the full build raised it.
+// b begins with a (by code points, as read:isprefix over chars compares them) and the rest of b is all
+// digits (charisdigit on each code point, as read:rule_isdigits asks): <the rest, joined>, else PHI
+function ruleSuffix(a, b) {
+  const ac = [...a], bc = [...b];
+  if (ac.length > bc.length) return [];
+  for (let k = 0; k < ac.length; k++) if (ac[k] !== bc[k]) return [];
+  const rest = bc.slice(ac.length);
+  for (const ch of rest) if (!(ch >= "0" && ch <= "9")) return [];
+  return [rest.join("")];
+}
 let PARSEDB = null, PARSEDBPATH = null;
 function parseCacheDb() {
   const want = process.env.AREST_PARSE_CACHE || require("node:path").join(require("node:os").tmpdir(), "arest-cache", "parse.db");
@@ -1966,6 +1976,38 @@ const FASTPRIMS = new Map(Object.entries({
   "read:endswith": x => {
     if (!Array.isArray(x) || x.length < 2 || !Array.isArray(x[0]) || !Array.isArray(x[1])) return Ev(DEFS.get("read:endswith"), x);
     const w = x[0], l = x[1]; return bool(deepEq(l.length > w.length ? l.slice(l.length - w.length) : l, w)); },
+  // read:rule_match_at <P, R> and read:rule_findrun <P, C, i>, native (2026-09-28). The rules compiler's
+  // subtype narrowing tries every subtype against every clause, and each try scans the clause for the
+  // subtype's words through read:rule_findrun -- a WHILE over positions, a read:rule_slice and a
+  // read:rule_match_at at each: 17,089 narrowing tries and 18,130 scans on tasks' closure. Contracts, off
+  // the DEFs: match_at is PHI unless P and R agree on all but their last words (eq of tlr), the last word
+  // of R starts with the last word of P (read:isprefix over chars), and what follows it is all digits
+  // (read:rule_isdigits, charisdigit over each character) -- then <those digits, imploded>. findrun is
+  // the first 1-based j >= i at which C[j .. j+|P|-1] matches P, as <j, digits>, or PHI. An empty P
+  // (tlr raises), a word that is not a string (chars raises), or a start below 1 goes to the DEF.
+  "read:rule_match_at": x => {
+    if (!Array.isArray(x) || x.length < 2 || !Array.isArray(x[0]) || !Array.isArray(x[1]) || x[0].length === 0 || x[1].length === 0)
+      return Ev(DEFS.get("read:rule_match_at"), x);
+    const p = x[0], r = x[1];
+    if (!deepEq(p.slice(0, p.length - 1), r.slice(0, r.length - 1))) return [];
+    const a = p[p.length - 1], b = r[r.length - 1];
+    if (typeof a !== "string" || typeof b !== "string") return Ev(DEFS.get("read:rule_match_at"), x);
+    return ruleSuffix(a, b); },
+  "read:rule_findrun": x => {
+    if (!Array.isArray(x) || x.length < 3 || !Array.isArray(x[0]) || !Array.isArray(x[1]) || x[0].length === 0
+        || typeof x[2] !== "number" || !Number.isInteger(x[2]) || x[2] < 1) return Ev(DEFS.get("read:rule_findrun"), x);
+    const p = x[0], c = x[1], m = p.length, a = p[m - 1];
+    if (typeof a !== "string") return Ev(DEFS.get("read:rule_findrun"), x);
+    for (let j = x[2]; j + m - 1 <= c.length; j++) {
+      let same = true;
+      for (let k = 0; k < m - 1; k++) if (!deepEq(p[k], c[j - 1 + k])) { same = false; break; }
+      if (!same) continue;
+      const b = c[j - 1 + m - 1];
+      if (typeof b !== "string") return Ev(DEFS.get("read:rule_findrun"), x);
+      const hit = ruleSuffix(a, b);
+      if (hit.length) return [j, hit[0]];
+    }
+    return []; },
   "cn:pascalw": x => { if (typeof x !== "string") return Ev(DEFS.get("cn:pascalw"), x);
     const cs = [...x].filter((c) => c !== "-"); if (cs.length === 0) return "";
     const c = cs[0]; if (c >= "a" && c <= "z") cs[0] = c.toUpperCase(); return cs.join(""); },

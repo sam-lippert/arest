@@ -4055,6 +4055,25 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     expect(Ev("cn:pascalw", "customer-id")).toBe("Customerid");
   });
 
+  // read:rule_match_at and read:rule_findrun have native twins (2026-09-28): the rules compiler's subtype
+  // narrowing scanned every clause for every subtype's words, a WHILE over positions with a slice and a
+  // match at each. Held against the DEFs on every branch: a subscript of digits, none, a non-digit tail,
+  // a digit charisdigit does not count, the leading words differing, a start past the end or below 1,
+  // an empty player, words that are not strings.
+  test("the rule-scan twins are their DEFs", () => {
+    const run = (f) => { try { return JSON.stringify(f()); } catch { return "raises"; } };
+    const P1 = ["Customer"], P2 = ["Domain", "Change"];
+    const C = ["each", "Customer1", "has", "some", "Domain", "Change", "and", "Domain", "Change2", "Customer", "Customerx", "Customer\u0663"];
+    for (const m of [[P1, ["Customer"]], [P1, ["Customer12"]], [P1, ["Customerx"]], [P1, ["Custom"]], [P1, ["Customer\u0663"]],
+                     [P2, ["Domain", "Change7"]], [P2, ["Domains", "Change7"]], [[], ["x"]], [["x"], [5]], [[5], ["x"]], [["x"]]])
+      expect(run(() => Ev("read:rule_match_at", m))).toBe(run(() => Ev(DEFS.get("read:rule_match_at"), m)));
+    for (const p of [P1, P2, ["zzz"], [], [5]]) for (const i of [1, 3, 9, 13, 0, 1.5])
+      expect(run(() => Ev("read:rule_findrun", [p, C, i]))).toBe(run(() => Ev(DEFS.get("read:rule_findrun"), [p, C, i])));
+    expect(Ev("read:rule_findrun", [P1, C, 1])).toEqual([2, "1"]);
+    expect(Ev("read:rule_findrun", [P1, C, 3])).toEqual([10, ""]);
+    expect(Ev("read:rule_match_at", [P1, ["Customer\u0663"]])).toEqual([]);
+  });
+
   // strdown has a fast twin too. Its DEF folds each character through
   // chardown -- charisup, then charmap:pick over the 26 pairs -- and
   // e33971ab's case-fold in cn:number calls it for both sides of every
