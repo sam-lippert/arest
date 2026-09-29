@@ -216,6 +216,7 @@ const findings = checked[1];
 const chunked = state.map((c) => Ev("read:chunk9", c[1]));
 for (let i = state.length - 1; i >= 0; i--) CELLS.unshift(["CELL", String(state[i][0]), chunked[i]]);
 const tState = Date.now() - t1;
+const folded = globalThis.AREST.foldLast ? globalThis.AREST.foldLast() : null;   // where the parse's fold started (read:parse's kept states, host.js)
 // ---- A VALUE STORED THROUGH A FUNCTION IS STORED THROUGH IT, BEFORE ANYTHING IS WRITTEN
 // (2026-09-25). core.md: `Object Type 'Secret Reference' is stored through Function
 // 'crypt:encrypt'`, and Sam, 2026-09-12: ".env contains compile-time plaintext secrets.
@@ -1746,4 +1747,4 @@ if (unkeyed.length) {
 if (outDir) writeFileSync(join(outDir, "inputs"), JSON.stringify({ inputs: INPUTS, db: out || null, store: out ? storeMark(out) : null }));
 console.log("compiled " + sentences + " sentences from " + files + " files: "
   + state.length + " cells, " + ddl.length + " bytes of DDL"
-  + " (read " + tRead + " ms, state " + tState + " ms, ddl " + tDdl + " ms)");
+  + " (read " + tRead + " ms, state " + tState + " ms" + (folded && folded.kept > 0 ? ", the fold kept to row " + folded.kept + " of " + folded.rows : "") + ", ddl " + tDdl + " ms)");

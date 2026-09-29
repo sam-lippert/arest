@@ -4221,6 +4221,43 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     }
   });
 
+  // read:parse's fold is kept at its checkpoints by the host (2026-09-29): the DEF's WHILE run a chunk of rows at a
+  // time, the state at a few chunk boundaries kept in the parse cache under the composition, the strict cell, the
+  // initial state and every row folded to there, and a parse started from the last one it finds. A fold started
+  // from a kept state must be the DEF's answer; a row added after it must start from it; and a row changed before
+  // it must never start from it, however alike the rows after it are -- the key is the chain of every row folded
+  // to the boundary, not the rows of one chunk.
+  test("the parse's fold is kept at its checkpoints, and a fold started from one is the DEF's answer", () => {
+    const dir = mkdtempSync(join(tmpdir(), "arest-fold-kept-"));
+    const path = join(dir, "parse.db"), was = process.env.AREST_PARSE_CACHE;
+    process.env.AREST_PARSE_CACHE = path;
+    try {
+      const def = DEFS.get("read:parse");
+      const NL = String.fromCharCode(10);
+      const meta = Ev("compile:rows", [META]);
+      const probe = (noun, more) => Ev("compile:text_rows", ["probe.md",
+        [noun + "(.id) is an entity type.", "", "Domain 'fold-probe' has Description 'a kept fold'.", "", ...more, ""].join(NL)]);
+      const a = [...meta, ...probe("Fold Probe", [])];
+      const plus = [...meta, ...probe("Fold Probe", ["Domain 'fold-probe-2' has Description 'one more'."])];
+      const b = [...meta, ...probe("Fold Probe Two", [])];
+      const kept = () => globalThis.AREST.foldLast().kept;
+      const same = (rows) => expect(JSON.stringify(Ev("read:parse", rows))).toBe(JSON.stringify(Ev(def, rows)));
+      same(a);
+      expect(kept()).toBe(0);              // nothing kept yet
+      same(a);
+      expect(kept()).toBeGreaterThan(0);   // the same rows: from the last state kept
+      same(plus);
+      expect(kept()).toBeGreaterThan(0);   // an instance sentence after it: from a kept state
+      same(b);                             // a declaration changed before every kept state: from none of a's
+      const db = new Database(path, { readonly: true });
+      expect(db.query("select count(*) n from folds").get().n).toBeGreaterThan(0);
+      db.close();
+    } finally {
+      if (was === undefined) delete process.env.AREST_PARSE_CACHE; else process.env.AREST_PARSE_CACHE = was;
+      try { rmSync(dir, { recursive: true, force: true }); } catch { }
+    }
+  }, 120_000);
+
   // The per-token string tests have native twins (2026-09-28): charisdigit, charislow and charup were lambda
   // over chars with no twin, under read:numchar (220,208 calls on tasks' closure), read:is_numword,
   // read:lastn and read:endswith (106,456 each) and cn:pascalw (38,057). Each DEF's compiled form is

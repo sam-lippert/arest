@@ -1132,8 +1132,78 @@ function parseCacheDb() {
     const db = new Database(want, { create: true });
     db.exec("pragma journal_mode = wal"); db.exec("pragma busy_timeout = 5000");
     db.exec("create table if not exists rows (k text primary key, v text not null)");
+    db.exec("create table if not exists folds (k text primary key, v blob not null, t integer not null)");
     PARSEDB = db; PARSEDBPATH = want; return db;
   } catch { return null; }
+}
+// THE FOLD IS KEPT AT ITS CHECKPOINTS (2026-09-29). read:parse is COMP(post, mid, WHILE, init): init lays the rows
+// out in fold order -- the type declarations, the subtypes, the readings and constraints, the instance sentences,
+// the objectifications -- and the WHILE lands them one at a time, each step reading the row in front of it and
+// the state the rows before it left, and nothing else. So the state after the first b rows is a function of the
+// initial state and those b rows, and the WHILE run over the rows a chunk at a time IS the WHILE run over the
+// rows. This twin runs it so, and keeps the state at a few chunk boundaries, keyed by the module's composition,
+// the strict cell, the initial state and every row folded to there, in the cache the files' rows are kept in; a
+// parse starts from the last boundary it finds kept. An app's own instance sentences are the last its fold
+// lands, so a readings change that only moves them -- the everyday one -- folds a few hundred rows where it
+// folded eleven thousand. MEASURED on support.auto.dev's closure: 10,724 rows in fold order, 5,172 before the
+// first instance sentence and 457 of the 5,543 instances its own; the whole fold 4.0 s, the state at its end
+// 2.1 MB as JSON. The boundaries kept are spaced wider the further they are from the end (every one of the
+// last two, then every second, fourth, eighth ... on multiples, so they stay where they were as the rows grow),
+// and each is kept deflated. The DEF is the meaning: an unstamped module, AREST_PARSE_CACHE=off, a read:parse
+// of another shape, and a state JSON would not carry back (a value no atom or number) are all the DEF's.
+const FOLDCHUNK = 256;
+let FOLDLAST = null;
+function foldKeptAt(b, B) { const d = B - b; let s = 1; while (s * 2 <= d) s *= 2; return b > 0 && b < B && b % s === 0; }
+function jsonCarries(v) {
+  if (typeof v === "string") return true;
+  if (typeof v === "number") return Number.isFinite(v) && !Object.is(v, -0);
+  if (!Array.isArray(v)) return false;
+  for (let i = 0; i < v.length; i++) if (!jsonCarries(v[i])) return false;
+  return true;
+}
+function parseFoldKept(x) {
+  const P = DEFS.get("read:parse");
+  const def = () => Ev(P, x);
+  FOLDLAST = null;
+  if (process.env.AREST_PARSE_CACHE === "off" || !COMPOSITION) return def();
+  if (!Array.isArray(P) || P.length !== 5 || P[0] !== "COMP" || !Array.isArray(P[3]) || P[3][0] !== "WHILE") return def();
+  const db = parseCacheDb();
+  if (db === null) return def();
+  const post = P[1], mid = P[2], loop = P[3], init = P[4];
+  const s0 = Ev(init, x);
+  if (!Array.isArray(s0) || s0.length !== 5 || !Array.isArray(s0[2])) return def();
+  const rows = s0[2], B = Math.ceil(rows.length / FOLDCHUNK);
+  const crypto = require("node:crypto"), zlib = require("node:zlib");
+  const keys = [crypto.createHash("sha256").update(JSON.stringify([COMPOSITION, DEFS.get("read:strict") || null, s0[0], s0[1], s0[3], s0[4]])).digest("hex")];
+  for (let b = 1; b <= B; b++) keys.push(crypto.createHash("sha256").update(keys[b - 1]).update(JSON.stringify(rows.slice((b - 1) * FOLDCHUNK, b * FOLDCHUNK))).digest("hex"));
+  let s = [s0[0], s0[1], [], s0[3], s0[4]], from = 0;
+  try {
+    const q = db.query("select v from folds where k = ?");
+    for (let b = B - 1; b >= 1; b--) {
+      const hit = q.get(keys[b]);
+      if (!hit) continue;
+      const st = JSON.parse(zlib.inflateSync(hit.v).toString("utf8"));
+      if (Array.isArray(st) && st.length === 4) { s = [st[0], st[1], [], st[2], st[3]]; from = b; }
+      break;
+    }
+  } catch { s = [s0[0], s0[1], [], s0[3], s0[4]]; from = 0; }
+  const put = [];
+  for (let b = from + 1; b <= B; b++) {
+    s = Ev(loop, [s[0], s[1], rows.slice((b - 1) * FOLDCHUNK, b * FOLDCHUNK), s[3], s[4]]);
+    if (!Array.isArray(s) || s.length !== 5) return def();
+    if (foldKeptAt(b, B)) { const st = [s[0], s[1], s[3], s[4]]; if (jsonCarries(st)) put.push([keys[b], JSON.stringify(st)]); }
+  }
+  const out = Ev(post, Ev(mid, s));
+  FOLDLAST = { rows: rows.length, kept: Math.min(from * FOLDCHUNK, rows.length) };
+  try {
+    const now = Date.now();
+    const add = db.query("insert or ignore into folds (k, v, t) values (?, ?, ?)");
+    for (const [k, t] of put) add.run(k, zlib.deflateSync(Buffer.from(t, "utf8"), { level: 1 }), now);
+    if (from > 0) db.query("update folds set t = ? where k = ?").run(now, keys[from]);
+    db.query("delete from folds where t < ?").run(now - 30 * 86400000);   // a month unused
+    db.query("delete from folds where k not in (select k from folds order by t desc limit 256)").run();   // and the newest 256 at most
+  } catch { }
+  return out;
 }
 function parseCached(x) {
   const def = () => Ev(DEFS.get("compile:text_rows"), x);
@@ -2131,6 +2201,8 @@ const FASTPRIMS = new Map(Object.entries({
   // plaintext compile.js seals, and nothing may write that anywhere. An unstamped module keeps nothing, and
   // AREST_PARSE_CACHE=off (or a path) turns it off (or moves it). The DEF is the meaning; a miss is the DEF.
   "compile:text_rows": x => parseCached(x),
+  // and the fold that lands those rows is kept at its checkpoints (parseFoldKept, above)
+  "read:parse": x => parseFoldKept(x),
   // THE PER-TOKEN STRING TESTS, native (2026-09-28). With the files' rows kept, what was left of tasks'
   // parse was string work a character at a time: read:val_zip's read:endswith and read:lastn 106,456 calls
   // each, read:is_numword 19,549 and read:numchar 220,208, cn:pascalw 38,057, and under all of them
@@ -3308,7 +3380,7 @@ function run_test() {
   // answer, so nothing else can show that the judgement happened.
   globalThis.AREST = { Ev: Ev, CELLS: CELLS, DEFS: DEFS, composition: COMPOSITION,
     loadStoreDb: loadStoreDb, popSnapshot: popSnapshot, adoptStore: adoptStore, emitToDb: emitToDb,
-    closeStore: closeStore, storeDb: storeDb,
+    closeStore: closeStore, storeDb: storeDb, foldLast: () => FOLDLAST,
     writeMetaschema: writeMetaschema, readMetaschema: readMetaschema,
     storeRaw: () => STORE_RAW,
     storeRead: () => (LAZY_STORE ? LAZY_STORE.stats() : null),
