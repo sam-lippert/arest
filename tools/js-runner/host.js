@@ -564,7 +564,10 @@ function rowPlanner(cells, prior, changed) {
 // DDL and compile.js already use -- so writing back is projecting again, over
 // the tables that carry a fact type whose population moved, and nothing here
 // decides which those are either: rmap:ctab says which table carries what.
-function emitToDb(before, cells, prior) {
+function emitToDb(before, cells, prior, report) {
+  // AND SAYS WHICH TABLES IT WROTE, when handed a report to say it in: the in-place compile keeps its
+  // ledger for those tables alone (2026-09-29)
+  if (report) report.touched = [];
   const db = storeDb();
   if (!db) return 0;
   const after = popSnapshot(cells);
@@ -647,6 +650,7 @@ function emitToDb(before, cells, prior) {
   // memo; measured on support.auto.dev, two creates back to back peaked some 150 MB
   // above the whole-table rewrite for it.
   if (plan) memoClear();
+  if (report) report.touched = [...touched];
   return written;
 }
 const PRIMS = new Map(Object.entries({

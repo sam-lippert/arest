@@ -1990,6 +1990,99 @@ test("a rebuild supersedes what the last build asserted and carries only what th
   }
 }, 300_000);
 
+// ---- A READINGS CHANGE APPLIED IN PLACE IS THE STORE A REBUILD MAKES (2026-09-29) ------------
+//
+// AREST_INPLACE=1 applies a readings change to the store as a write -- the runtime's facts kept, the
+// readings' swapped, the closure taken again and only what moved written -- where the store records
+// what its last build's readings asserted and its closure added. It must be the store the rebuild
+// makes from the same store and the same readings, every table and record of it, and what it does
+// not handle it must hand to the rebuild and say so. One probe domain, built once, the runtime then
+// writing a widget of its own and a colour on a readings widget; then four changes, each compiled both
+// ways from that store: an instance changed and one added, in place; a relation fact type added, in
+// place with its new table; a functional fact type added, a new column, rebuilt; and the readings
+// dropping the widget the runtime coloured, rebuilt.
+test("a readings change applied in place is the store a rebuild makes, and what it cannot apply it rebuilds", () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-inplace-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  const metamodel = join(import.meta.dir, "..", "..", "metamodel");
+  const templates = join(import.meta.dir, "..", "..", "readings", "templates");
+  const app = join(dir, "app");
+  mkdirSync(app);
+  const readings = (o) => [
+    "# Widgets", "", "A probe domain for the in-place compile.", "",
+    "## Entity Types", "", "Widget(.id) is an entity type.", "", ...(o.gadget ? ["Gadget(.id) is an entity type.", ""] : []),
+    "## Value Types", "", "Size is a value type.", "", "Color is a value type.", "", ...(o.weight ? ["Weight is a value type.", ""] : []),
+    "## Fact Types", "",
+    "Widget has Size.", "  Each Widget has at most one Size.", "",
+    "Widget has Color.", "  Each Widget has at most one Color.", "",
+    ...(o.gadget ? ["Widget fits Gadget.", ""] : []),
+    ...(o.weight ? ["Widget has Weight.", "  Each Widget has at most one Weight.", ""] : []),
+    "## Instance Facts", "",
+    ...(o.dropW1 ? [] : ["Widget 'w1' has Size '" + (o.size || "S") + "'."]),
+    ...(o.w2 ? ["Widget 'w2' has Size 'XL'."] : []),
+    ...(o.gadget ? ["Widget 'w1' fits Gadget 'g1'."] : []),
+    "", "Domain 'widgets' has Description 'A probe domain for the in-place compile.'.", "",
+  ].join("\n");
+  const build = (path, env) => {
+    const p = Bun.spawnSync(["bun", compiler, metamodel, templates, app],
+      { env: { ...process.env, AREST_DB: path, AREST_INPLACE: "", ...env }, stdout: "pipe", stderr: "pipe" });
+    return { code: p.exitCode, out: p.stdout.toString() + p.stderr.toString() };
+  };
+  // every table and record, each as its sorted rows
+  const dump = (path) => {
+    const db = new Database(path, { readonly: true });
+    const out = {};
+    for (const [t] of db.query("select name from sqlite_master where type = 'table' order by name").values())
+      out[t] = db.query("select * from " + quo(t)).values().map((r) => JSON.stringify(r)).sort();
+    db.close(true);
+    return out;
+  };
+  const base = join(dir, "base.db");
+  try {
+    writeFileSync(join(app, "widgets.md"), readings({}));
+    const first = build(base, {});
+    expect(first.code, first.out).toBe(0);
+    // what the runtime wrote: a widget of its own, and a colour on the readings' w1
+    {
+      const db = new Database(base);
+      db.run('insert into "Widget" ("widgetId", "size") values (?, ?)', ["w-rt", "L"]);
+      db.run('update "Widget" set "color" = ? where "widgetId" = ?', ["red", "w1"]);
+      db.run("pragma wal_checkpoint(TRUNCATE)");
+      db.close(true);
+    }
+    const both = (label, o) => {
+      writeFileSync(join(app, "widgets.md"), readings(o));
+      const a = join(dir, label + "-rebuilt.db"), b = join(dir, label + "-inplace.db");
+      copyFileSync(base, a); copyFileSync(base, b);
+      const ra = build(a, {}), rb = build(b, { AREST_INPLACE: "1" });
+      expect(ra.code, ra.out).toBe(0);
+      expect(rb.code, rb.out).toBe(0);
+      expect(rb.out).not.toContain("REFUSING");
+      const da = dump(a), db2 = dump(b);
+      expect(Object.keys(db2)).toEqual(Object.keys(da));
+      for (const t of Object.keys(da)) expect(JSON.stringify([t, db2[t]])).toBe(JSON.stringify([t, da[t]]));
+      return { out: rb.out, rows: da };
+    };
+    // an instance changed and one added: applied in place, the runtime's widget and colour kept
+    const inst = both("inst", { size: "M", w2: true });
+    expect(inst.out).toContain("store (in place)");
+    expect(inst.rows.Widget).toEqual([JSON.stringify(["w-rt", null, "L"]), JSON.stringify(["w1", "red", "M"]), JSON.stringify(["w2", null, "XL"])].sort());
+    // a relation fact type added: in place, its table created
+    const rel = both("rel", { gadget: true });
+    expect(rel.out).toContain("store (in place)");
+    expect(rel.out).toMatch(/[1-9]\d* table\(s\) and index\(es\) created/);
+    // a functional fact type added is a column of Widget: rebuilt, and said
+    const col = both("col", { weight: true });
+    expect(col.out).toContain("in place: no --");
+    expect(col.out).not.toContain("store (in place)");
+    // the readings drop w1, which the runtime coloured: rebuilt, and said
+    const drop = both("drop", { dropW1: true });
+    expect(drop.out).toMatch(/in place: no -- the readings no longer introduce [^;]*w1[^;]* and a runtime fact of WidgetHasColor names one/);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 600_000);
+
 // ---- A VALUE THE CLOSURE DERIVES IS NOT THE RUNTIME'S, AND A DROPPED ENTITY'S ROW GOES --
 //
 // support.auto.dev, 2026-09-25 (pm.auto.dev): accept, resolve-escalation and redraft-sent

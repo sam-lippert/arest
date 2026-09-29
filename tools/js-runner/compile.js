@@ -571,9 +571,458 @@ if (out) {
   ddl = flat(Ev("rmap:ddl", CELLS));
   tDdl = Date.now() - t2;
 }
+// A REFLECTED NAME NEVER CARRIES (b6e16927, #122 item 1 continued), and has no runtime part in place (2026-09-29). A boot
+// writes the REFLECTED populations back into these same tables too --
+// host.js's loadReflected installs lambda's own reflect:cells answer as the
+// cell of a reflected fact type's name, and emitToDb (~349) projects that
+// cell the same way any other one is projected. So a row the prior store
+// holds for a reflected name is the CLOSURE's computation over whatever
+// schema that boot had, not a runtime fact, and carrying it forward
+// is carrying a STALE closure answer into a build the closure has not run
+// over yet -- a constraint the readings no longer declare surviving
+// because the carry could not tell a reflected row from a written one.
+// Skipped here, nothing is lost: the next boot's loadReflected + emitToDb
+// recomputes it fresh and writes it back.
+//
+// WHICH NAMES ARE REFLECTED IS LAMBDA'S ANSWER, the same one loadReflected
+// itself reads -- reflect:cells' <name, population> pairs -- but READING
+// IT COSTS THE POPULATIONS, and MEASURED on the metamodel (with and
+// without readings/templates beside it) Ev("reflect:cells", CELLS) does
+// not just cost, it THROWS: `selector 1 on atom: Abstract SQL Type`.
+// reflect:cells' sub-computations read cells a live boot's derivation
+// closure installs (loadDerived, alternated with loadReflected itself,
+// host.js ~3687); compile.js runs no closure at all -- it is the read
+// phase, on purpose (this file's own header) -- so the union it would
+// need is never there to read. There is no names-only DEF either
+// (grepped reflect:*, 2026-09-21: reflect:computed pairs a name with the
+// DEF that computes it and nothing answers the names alone). So this
+// copies reflect:computed's OWN pairs (arest:14286-14287) as data, the
+// way this file's ARTIFACTS list two hundred lines up (~176) copies
+// rmap's -- both go stale on the same lambda edit and neither one
+// evaluates a population to get the names.
+const REFLECTED_NAMES = new Set(("FactTypeHasRole FactTypeHasReading ObjectTypePlaysRole "
+  + "RoleIsUsedInReading StateMachineIsForObjectTypeInstance StateMachineIsInstanceOfStateMachineDefinition "
+  + "StateMachineIsCurrentlyInStatus ObjectTypeInstanceIsCurrentlyInStatus ConstraintIsOfConstraintType "
+  + "ConstraintHasModalityOfModalityType ConstraintSpan ConstraintSpanHasSequenceNumber "
+  + "ConstraintSpanHasPosition FunctionBelongsToDomain").split(" "));
+
+// ---- THE READINGS' ROWS (2026-09-29: out of the rebuild's block, so the in-place path writes the same) ----
+// rmap:proj_rows answers a table's rows -- the key, then one value per column in the order
+// rmap:proj_colnames gives them -- so this binds and executes and decides nothing. # is lambda's absent
+// value and becomes SQL NULL; everything else goes in as text, because a column's type is the schema's
+// business and sqlite's affinity applies it.
+function writeReadingsRows(db) {
+  let inserted = 0, refused = 0;
+  const first = [];
+// ONE TRANSACTION FOR THE ROWS. Each insert was its own autocommit
+// transaction with its own disk sync: 6.5 ms a row on Windows, 83 s for
+// support's 12,742 rows (2026-09-21). The build is a fresh file nobody
+// reads until it is renamed in; a refused row is a statement-level error
+// inside the transaction and is caught as before.
+db.exec("begin");
+for (const [table] of Ev("rmap:coltabs", CELLS)) {
+  const name = String(table);
+  // THE NAMES COME FROM THE SAME PLACE THE VALUES DO. rmap:coltabs answers a
+  // table's columns in a DIFFERENT ORDER than rmap:ctab, which is what
+  // rmap:proj_row fills; zipping one against the other put every value in the
+  // wrong column and sqlite accepted all of it.
+  const cn = Ev("rmap:proj_colnames", [name, CELLS]).map(String);
+  // AND THEY ARE SPELLED FOR SQL ALREADY: rmap:proj_colnames answers the
+  // DDL's own spelling of a name, a quote inside it doubled (rmap:ddl_q), so
+  // this splices them between quotes and escapes nothing -- qi here doubled
+  // the doubling and MonoView's prose-named column was not found (2026-09-21).
+  // The carry below reads names from pragma table_info, which answers them
+  // raw, and those go through qi.
+  const sql = 'insert into "' + name + '" ("' + cn.join('","') + '") values ('
+    + cn.map(() => "?").join(",") + ")";
+  const ins = db.prepare(sql);
+  for (const row of Ev("rmap:proj_rows", [name, CELLS])) {
+    const vals = cn.map((_, i) => { const v = row[i]; return v === "#" || v === undefined ? null : flat(v); });
+    try { ins.run(...vals); inserted++; }
+    catch (e) { refused++; if (first.length < 3) first.push(name + ": " + e.message.slice(0, 90)); }
+  }
+}
+  db.exec("commit");
+  return { inserted, refused, first };
+}
+// AND WHAT THOSE ROWS ARE, fact by fact, read back from the tables as loadStoreDb reads a store: every
+// table rmap:coltabs names, its columns in rmap:proj_colnames' order, handed to rmap:unproj. This, and not
+// store:fts's fifth slot, is what a build hands its closure as the readings' facts: a fact type with no
+// table (27 on support.auto.dev, the compound reference schemes lambda does not map to a composite key)
+// and a unary whose table the inverse cannot read back (ThemeIsTheDefaultTheme, PlatformAPIIsPerVIN)
+// never reach it, and a column's affinity has already given a value its stored spelling.
+function factsOfDb(db) {
+  const facts = [];
+  for (const [table] of Ev("rmap:coltabs", CELLS)) {
+    const name = String(table);
+    const cn = Ev("rmap:proj_colnames", [name, CELLS]).map(String);
+    if (!cn.length) continue;
+    const rows = db.query("select " + cn.map((c) => '"' + c + '"').join(",") + ' from "' + name + '"').values();
+    if (!rows.length) continue;
+    const clean = rows.map((r) => r.map((v) => (v === null ? "#" : String(v))));
+    for (const p of Ev("rmap:unproj", [name, clean, CELLS])) facts.push([String(p[0]), p[1]]);
+  }
+  return facts;
+}
+
+// A ROW AS THE LEDGER SPELLS IT: its filled columns by name, in the table's
+// column order. A Function row is 301 columns of which three or four hold
+// anything, so the empty ones are left out rather than written as null.
+const ledgerRow = (names, row) => { const o = {}; for (const nm of names) { const v = row[nm]; if (v !== null && v !== undefined) o[nm] = v; } return JSON.stringify(o); };
+// AND A FACT AS THE RECORDS SPELL IT (2026-09-29): its tuple as JSON, every number as the text a
+// table cell holds, so a fact read back from the tables and the same fact as the readings state it
+// are one spelling (the 1-and-"1" note beside popSnapshot in host.js).
+const asStoredV = (v) => (Array.isArray(v) ? v.map(asStoredV) : typeof v === "number" ? String(v) : v);
+const factText = (r) => JSON.stringify(asStoredV(r));
+// and a population as the set of those, one spelling to a line, to say whether two are one
+const factSet = (rows) => {
+  const t = rows.map(factText);
+  t.sort();
+  let out = "";
+  for (let i = 0; i < t.length; i++) if (i === 0 || t[i] !== t[i - 1]) out += t[i] + "\n";
+  return out;
+};
+
+// ---- A READINGS CHANGE APPLIED TO THE STORE IN PLACE (2026-09-29) ---------------------------
+// Sam, 2026-09-28: "There should be no schema recomputation unless readings changed, and even
+// then, the changes only need to be the deltas." A rebuild writes every row the readings assert
+// into a fresh file, carries across every row the runtime wrote, closes the result and ledgers it:
+// on support.auto.dev that is the whole store written again for an edit to one instance. The store
+// is already almost all of what the next one will be. So, when asked (AREST_INPLACE=1), the compile
+// copies the store beside itself and applies the readings' change there as a WRITE -- the same
+// snapshot, evaluate, emit a runtime write takes, the row planner rewriting only the rows whose
+// facts moved -- and renames the copy in, as a rebuild renames its build.
+//
+// WHAT IT NEEDS THE STORE RECORDS (_readings, _derived, beside the ledger): the facts the last
+// build's readings asserted and the facts its closure derived into a semi-derived head. The facts
+// the store holds beyond those, and beyond the reflected and fully derived populations the closure
+// recomputes whole, are the runtime's, and they stay. So a fact type's new population is the
+// runtime's facts and the new readings' facts -- the readings winning a uniqueness they share, as
+// the carry fills only what the readings leave empty -- and the closure is taken over that.
+//
+// WHAT IT DOES NOT HANDLE IS A REBUILD, AND SAYS SO: a store with no records; a table, index or
+// column the store has that the new schema does not have in the same words, or a column that now
+// carries another fact type (a new table is created in place); an entity the readings stop
+// introducing while a runtime fact still names it, which the rebuild's carry decides row by row.
+function compileInPlace() {
+  const t0 = Date.now();
+  const no = (why) => { console.log("in place: no -- " + why + "; rebuilding"); return null; };
+  if (!existsSync(out)) return no("there is no store yet");
+  // THE STORE CARRIES ITS RECORDS
+  const prior = new Database(out, { readonly: true });
+  const priorHas = (t) => !!prior.query("select 1 from sqlite_master where type = 'table' and name = ?").get(t);
+  for (const t of ["_metaschema", "_readings", "_derived", "_asserted"]) {
+    if (!priorHas(t)) { prior.close(); return no("the store carries no " + t); }
+  }
+  // THE SCHEMA IS THE STORE'S, OR THE STORE'S AND NEW TABLES: every table and index it has is in the
+  // new schema in the same words, and every column of them carries the fact type it carried
+  const fresh = new Database(build);
+  writeMetaschema(fresh);
+  const objects = (d) => {
+    const m = new Map();
+    for (const r of d.query("select type, name, tbl_name, sql from sqlite_master where sql is not null").all()) {
+      if (String(r.tbl_name).startsWith("_") || String(r.name).startsWith("sqlite_")) continue;
+      m.set(r.type + " " + r.name, String(r.sql));
+    }
+    return m;
+  };
+  const metaOf = (d) => {
+    const m = new Map();
+    for (const r of d.query('select "tab", "ord", "col", "ft" from "_metaschema" order by "tab", "ord"').values()) {
+      const k = String(r[0]);
+      m.set(k, (m.get(k) || "") + JSON.stringify(r) + "\n");
+    }
+    return m;
+  };
+  const was = objects(prior), now = objects(fresh), wasMeta = metaOf(prior), nowMeta = metaOf(fresh);
+  fresh.close(true);
+  const moved = [...was].filter(([k, sql]) => now.get(k) !== sql).map(([k]) => k);
+  if (moved.length) { prior.close(); return no(moved.length + " table(s) or index(es) the store has are not in the new schema as they are (" + moved.slice(0, 3).join(", ") + ")"); }
+  const recarried = [...wasMeta].filter(([t, v]) => nowMeta.get(t) !== v).map(([t]) => t);
+  if (recarried.length) { prior.close(); return no(recarried.length + " table(s) carry other fact types now (" + recarried.slice(0, 3).join(", ") + ")"); }
+  const created = [...now].filter(([k]) => !was.has(k));
+  // THE RECORDS: what the last build's readings asserted and its closure derived, fact by fact
+  const recordOf = (t) => {
+    const m = new Map();
+    for (const r of prior.query('select "ft", "row" from ' + qi(t)).values()) {
+      let s = m.get(String(r[0]));
+      if (!s) m.set(String(r[0]), (s = new Set()));
+      s.add(String(r[1]));
+    }
+    return m;
+  };
+  const R0 = recordOf("_readings"), D0 = recordOf("_derived");
+  prior.close();
+  // AND THE NEW READINGS', as a build hands them to its closure: their rows written into the fresh schema
+  // and read back (factsOfDb); and the uniqueness constraints each fact type declares short of its arity
+  const R1 = new Map(), R1text = new Map(), ucsOf = new Map();
+  {
+    const fdb = new Database(build);
+    writeReadingsRows(fdb);
+    for (const [ft, r] of factsOfDb(fdb)) {
+      let l = R1.get(ft); if (!l) { R1.set(ft, (l = [])); R1text.set(ft, new Set()); }
+      const t = factText(r);
+      if (R1text.get(ft).has(t)) continue;
+      l.push(r); R1text.get(ft).add(t);
+    }
+    fdb.close(true);
+  }
+  for (const d of Ev("store:fts", CELLS)) {
+    if (!Array.isArray(d) || typeof d[0] !== "string") continue;
+    const arity = Array.isArray(d[1]) ? d[1].length : 0;
+    ucsOf.set(d[0], (Array.isArray(d[2]) ? d[2] : []).filter((u) => Array.isArray(u) && u.length > 0 && u.length < arity));
+  }
+  // AND EACH DESCRIPTOR'S OWN ROWS, as the design state has them before any store is read into the cells:
+  // a build leaves a fact type whose table holds nothing with these, and so does this
+  const ownRows = new Map();
+  for (const d of Ev("store:fts", CELLS)) if (Array.isArray(d) && typeof d[0] === "string") ownRows.set(d[0], Array.isArray(d[4]) ? d[4] : []);
+  // THE COPY, beside the store, and the new tables in it
+  const saved = CELLS.slice();
+  const restart = (why) => {
+    // nothing is lost: the store is untouched, and the rebuild gets the fresh schema it expects
+    adoptStore(saved);
+    try { rmSync(build); } catch { }
+    ddl = String(Ev("compile:schema", [build, CELLS]));
+    return no(why);
+  };
+  try { rmSync(build); } catch { }
+  {
+    const p = new Database(out, { readonly: true });
+    p.exec("vacuum into '" + build.split("'").join("''") + "'");
+    p.close();
+  }
+  const db = new Database(build);
+  db.exec("begin");
+  for (const [k, sql] of created) if (k.startsWith("table ")) db.exec(sql);
+  for (const [k, sql] of created) if (!k.startsWith("table ")) db.exec(sql);
+  db.exec("commit");
+  writeMetaschema(db);
+  const identity = createHash("sha256");
+  identity.update(readFileSync(join(import.meta.dir, "..", "..", "arest")));
+  identity.update(readFileSync(join(import.meta.dir, "..", "..", "engine", "shared", "scenarios.canon")));
+  identity.update(carrierBytes);
+  const witness = outDir ? join(outDir, "norma-answer") : "";
+  if (witness && existsSync(witness)) identity.update(readFileSync(witness));
+  const schema = createHash("sha256");
+  {
+    const cols = new Map();
+    for (const r of db.query("select m.name t, c.name c from sqlite_master m join pragma_table_info(m.name) c where m.type = 'table'").values()) {
+      const t = String(r[0]);
+      if (t.startsWith("_") || t.startsWith("sqlite_")) continue;
+      let cs = cols.get(t);
+      if (!cs) cols.set(t, (cs = []));
+      cs.push(String(r[1]));
+    }
+    for (const t of [...cols.keys()].sort()) schema.update(t + "\u0000" + cols.get(t).sort().join("\u0000") + "\n");
+  }
+  const schemaHash = schema.digest("hex").slice(0, 16);
+  db.exec('delete from "_composition"');
+  db.query('insert into "_composition" (hash, schema) values (?, ?)').run(identity.digest("hex").slice(0, 16), schemaHash);
+  db.close(true);
+  // THE STORE, READ THROUGH THE NEW SCHEMA. What the snapshot below reads is what is on disk: system:pop_rows
+  // reads a fact type's top-level cell, which the load makes for every table that holds rows, and never
+  // its descriptor.
+  process.env.AREST_STORE_DB = build;
+  loadStoreDb(build);
+  collect();
+  const before = popSnapshot(CELLS);
+  // THE DELTA: each fact type's new population is the runtime's facts -- what the store holds less the
+  // last readings' facts and everything the last closure added -- and the new readings' facts, a runtime
+  // fact giving way to a readings fact that holds the same key on a uniqueness constraint. A population
+  // the closure computes whole is left with the runtime's part of it, which is none, and the closure
+  // below computes it again; one it merges with rows it was handed keeps those rows.
+  const r0typed = new Set(), r1typed = new Set();
+  const OTPOPS = "ObjectTypeInstanceIsInstanceOfObjectType";
+  for (const t of R0.get(OTPOPS) || []) { try { r0typed.add(String(JSON.parse(t)[0])); } catch { } }
+  for (const r of R1.get(OTPOPS) || []) if (Array.isArray(r)) r1typed.add(String(asStoredV(r[0])));
+  const gone = new Set([...r0typed].filter((x) => !r1typed.has(x)));
+  const pairs = [];
+  let facts = 0;
+  const runtimeOf = new Map();
+  for (const [ft, text] of before) {
+    const current = Ev("system:pop_rows", [ft, CELLS]);
+    // THE STORE MUST READ AS IT WAS WRITTEN. A fact the last build's readings put into a table reads back
+    // from it under the same schema, unless the runtime took it out; when a fact type's key role moves
+    // from one player to the other the tables, columns and fact types stay and only the direction the
+    // rows are read in changes, and the store then reads as facts it never held -- every one of which
+    // this would have kept as the runtime's. So a readings fact that no longer reads back is a rebuild.
+    {
+      const r0 = R0.get(ft);
+      if (r0 && r0.size) {
+        const here = new Set(current.map(factText));
+        let lost = 0; for (const t of r0) if (!here.has(t)) lost++;
+        if (lost) return restart(lost + " of the last build's " + r0.size + " readings fact(s) of " + ft + " no longer read back from the store");
+      }
+    }
+    let next;
+    {
+      const r0 = R0.get(ft), d0 = D0.get(ft);
+      const r1 = R1.get(ft) || [], r1t = R1text.get(ft) || new Set();
+      const ucs = ucsOf.get(ft) || [];
+      const taken = ucs.map((u) => new Set(r1.map((r) => JSON.stringify(u.map((p) => asStoredV(r[p - 1]))))));
+      const runtime = [];
+      for (const r of current) {
+        const t = factText(r);
+        if ((r0 && r0.has(t)) || (d0 && d0.has(t)) || r1t.has(t)) continue;
+        if (REFLECTED_NAMES.has(ft)) continue;   // the closure's to answer, never the runtime's: the carry keeps none either
+        if (ucs.some((u, i) => taken[i].has(JSON.stringify(u.map((p) => asStoredV(r[p - 1])))))) continue;
+        if (gone.size && (Array.isArray(r) ? r : [r]).some((v) => gone.has(String(v)))) {
+          return restart("the readings no longer introduce " + [...gone].slice(0, 3).join(", ")
+            + " and a runtime fact of " + ft + " names one");
+        }
+        runtime.push(r);
+      }
+      next = r1.concat(runtime);
+      if (runtime.length) runtimeOf.set(ft, runtime);
+    }
+    if (factSet(next) !== factSet(current)) { pairs.push([ft, next]); facts++; }
+  }
+  // A POPULATION THE DELTA EMPTIES IS LEFT AS A BUILD LEAVES ONE: no top-level cell -- loadDerived takes a
+  // cell of a head's name, even an empty one, for the head's own and skips what the closure derives, which
+  // lost support.auto.dev's nine authorizations (a head whose rules carry the '+', not its declaration) --
+  // and its descriptor holding the design state's own rows.
+  if (pairs.length) adoptStore(Ev("store:src_all", [pairs.map(([ft, rows]) => [ft, rows.length ? rows : (ownRows.get(ft) || [])]), CELLS]));
+  {
+    const emptied = new Set(pairs.filter((p) => !p[1].length).map((p) => p[0]));
+    if (emptied.size) adoptStore(CELLS.filter((c) => !(Array.isArray(c) && c[0] === "CELL" && emptied.has(c[1]))));
+  }
+  // AND THE INSTANCE TYPING IS THE READINGS' OWN, WITH THE STORE'S MERGED IN. store:otpops merges the
+  // rows it is handed into the state:otpops the cells hold, and after the load that is the store's
+  // typing already -- a task the readings dropped would stay typed. A build merges its rows into the
+  // readings' cell, the one the design state installed before any store was read; so does this.
+  if (pairs.some((p) => p[0] === OTPOPS)) {
+    const own = saved.find((c) => Array.isArray(c) && c[1] === "state:otpops");
+    const withOwn = CELLS.filter((c) => !(Array.isArray(c) && c[1] === "state:otpops"));
+    if (own) withOwn.unshift(own);
+    adoptStore(withOwn);
+    const cell = Ev("store:otpops", [pairs.find((p) => p[0] === OTPOPS)[1], CELLS]);
+    const next = CELLS.filter((c) => !(Array.isArray(c) && c[1] === "state:otpops"));
+    next.unshift(["CELL", "state:otpops", cell]);
+    adoptStore(next);
+  }
+  const tDelta = Date.now() - t0;
+  // THE CLOSURE, over the runtime's facts and the new readings', and what it moved written as rows
+  const t1 = Date.now();
+  const preClose = popSnapshot(CELLS);
+  closeStore();
+  collect();
+  // AND THE DESCRIPTORS SAY WHAT THE CELLS SAY. The closure answers in top-level cells; a table is projected
+  // from the descriptors, and emitToDb brings a descriptor up to date only for a fact type whose population
+  // moved. A reflected population the delta set to the readings' rows and the closure answered again as
+  // the store already held it has not moved -- so its descriptor kept the readings' rows, and a Function
+  // table written whole from it lost the domains. Every fact type the delta touched is brought up to date.
+  if (pairs.length) adoptStore(Ev("store:src_all", [pairs.map(([ft]) => [ft, Ev("system:pop_rows", [ft, CELLS])]), CELLS]));
+  const report = {};
+  // WRITTEN WHOLE, table by table, as a build's closure writes them: the row planner deletes a row by the
+  // key its facts project to, so a row that holds another key -- a ConstraintSpan an older schema's
+  // write-back left -- outlived the facts it held, where the rebuild's carry never keeps a reflected
+  // table's rows at all. The projection is the twin's, 97 ms for support's whole Function table.
+  const written = emitToDb(before, CELLS, undefined, report);
+  const touched = new Set(report.touched || []);
+  const derivedNow = [];
+  for (const [ft, t] of popSnapshot(CELLS)) {
+    const was = preClose.get(ft);
+    if (was === t) continue;
+    const had = new Set((was ? JSON.parse(was) : []).map(factText));
+    for (const r of JSON.parse(t)) { const x = factText(r); if (!had.has(x)) derivedNow.push([ft, x]); }
+  }
+  const sdb = storeDb();
+  if (sdb) sdb.close(true);
+  const tClose = Date.now() - t1;
+  // THE LEDGER AND THE RECORDS, for the next compile. The ledger is written for every table, each row the
+  // runtime's or the readings' and the closure's as its facts say (below); the two records change by their
+  // differences.
+  const t2 = Date.now();
+  // WHOSE A ROW IS, fact by fact: a row is the runtime's when it holds a fact the runtime wrote -- which is
+  // what the rebuild's carry comes to, a row it added or filled from the store being the runtime's unless the
+  // closure derives what it filled. Which row holds a fact is the projection's answer, as the row planner
+  // reads it: in a relation table the row IS the fact; in an entity table a column's value is walked from
+  // the row's key, which the fact holds at the key position of the column's first step (rmap:proj_keypos).
+  // Matching a key against every value a runtime fact holds took readings rows keyed 'AT' or '2' for the
+  // runtime's, and a relation table's columns carry its role links, not the relation, so a relation's
+  // runtime rows were ledgered as the readings' -- rows the next rebuild would have superseded.
+  const ctabOf = new Map();
+  try { for (const ct of Ev("rmap:ctab", CELLS)) ctabOf.set(String(ct[1]), ct); } catch { }
+  const ftsNow = Ev("store:fts", CELLS);
+  const runtimeRowsOf = (table) => {
+    let rel = false;
+    try { rel = Ev("rmap:proj_hits", [table, ftsNow]).length > 0; } catch { rel = false; }
+    const keys = new Set();
+    if (rel) {
+      for (const r of runtimeOf.get(table) || []) keys.add(JSON.stringify((Array.isArray(r) ? r : [r]).map((v) => String(v)).sort()));
+      return { rel, keys };
+    }
+    const ct = ctabOf.get(table);
+    for (const col of (ct && Array.isArray(ct[2]) ? ct[2] : [])) {
+      let na;
+      try { na = Ev("rmap:proj_nonassim", Array.isArray(col[2]) ? col[2] : []); } catch { continue; }
+      if (!Array.isArray(na) || !na.length) continue;
+      const st = na[0];
+      const ft = Array.isArray(st) && Array.isArray(st[4]) && st[4].length ? String(st[4][0]) : null;
+      if (!ft || !runtimeOf.has(ft)) continue;
+      let kp = 1;
+      try { kp = Number(Ev("rmap:proj_keypos", [st, CELLS])); } catch { kp = 1; }
+      for (const r of runtimeOf.get(ft)) { const v = Array.isArray(r) ? r[kp - 1] : r; if (v !== undefined && v !== null) keys.add(String(v)); }
+    }
+    return { rel, keys };
+  };
+  let ledgered = 0;
+  {
+    const ldb = new Database(build);
+    ldb.exec("begin");
+    const drop = ldb.prepare('delete from "_asserted" where "tbl" = ?');
+    const put = ldb.prepare('insert or ignore into "_asserted" ("tbl", "row") values (?, ?)');
+    // every table, not only those the write touched: a row the runtime changed since the last build is
+    // spelled otherwise than the ledger holds it, and a rebuild supersedes the old spelling
+    const tables = ldb.query("select name from sqlite_master where type = 'table'").values().map((r) => String(r[0]))
+      .filter((t) => !t.startsWith("_") && !t.startsWith("sqlite_"));
+    for (const table of tables) {
+      drop.run(table);
+      const names = ldb.query("select name from pragma_table_info(?)").values(table).map((c) => String(c[0]));
+      if (!names.length) continue;
+      const rt = runtimeRowsOf(table);
+      const pk = ldb.query("select name from pragma_table_info(?) where pk > 0 order by pk").values(table).map((c) => String(c[0]));
+      for (const row of ldb.query("select " + names.map(qi).join(",") + " from " + qi(table)).all()) {
+        const spelled = ledgerRow(names, row);
+        if (rt.keys.size) {
+          if (rt.rel) {
+            const vals = names.map((c) => row[c]).filter((v) => v !== null && v !== undefined).map((v) => String(v)).sort();   // the whole fact: a key may span fewer roles
+            if (rt.keys.has(JSON.stringify(vals))) continue;
+          } else if (pk.length === 1 && row[pk[0]] !== null && row[pk[0]] !== undefined && rt.keys.has(String(row[pk[0]]))) continue;
+        }
+        put.run(table, spelled);
+        ledgered++;
+      }
+    }
+    const change = (table, was, now) => {
+      const del = ldb.prepare('delete from ' + qi(table) + ' where "ft" = ? and "row" = ?');
+      const add = ldb.prepare('insert or ignore into ' + qi(table) + ' ("ft", "row") values (?, ?)');
+      let n = 0;
+      for (const [ft, set] of was) { const keep = now.get(ft); for (const t of set) if (!keep || !keep.has(t)) { del.run(ft, t); n++; } }
+      for (const [ft, set] of now) { const had = was.get(ft); for (const t of set) if (!had || !had.has(t)) { add.run(ft, t); n++; } }
+      return n;
+    };
+    const D1 = new Map();
+    for (const [ft, t] of derivedNow) { let ds = D1.get(ft); if (!ds) D1.set(ft, (ds = new Set())); ds.add(t); }
+    const movedRecords = change("_readings", R0, R1text) + change("_derived", D0, D1);
+    ldb.exec("commit");
+    ldb.close(true);
+    let nr = 0; for (const set of R1text.values()) nr += set.size;
+    console.log("record: " + nr + " fact(s) the readings assert, " + derivedNow.length + " the closure added (" + movedRecords + " record(s) moved)");
+  }
+  const tLedger = Date.now() - t2;
+  renameSync(build, out);
+  console.log("store (in place): " + facts + " fact type(s) moved by the readings, " + written + " row(s) written with the closure's, "
+    + ledgered + " ledgered in the " + touched.size + " table(s) it wrote, " + created.length + " table(s) and index(es) created"
+    + " (delta " + tDelta + " ms, closure " + tClose + " ms, ledger " + tLedger + " ms) at " + out);
+  return true;
+}
+
+const inplaced = out && process.env.AREST_INPLACE === "1" ? compileInPlace() : null;
+
 if (!out && !outDir) {
   process.stdout.write(ddl);
-} else if (out) {
+} else if (out && !inplaced) {
   const db = new Database(build, { create: true });
   // AND IT CARRIES THE COMPOSITION IT IS A PROJECTION OF. build.js stamps a
   // module with sha256 of lambda and the carriers -- IDENTITY, which is
@@ -644,37 +1093,9 @@ if (!out && !outDir) {
   // becomes SQL NULL; everything else goes in as text, because a column's type
   // is the schema's business and sqlite's affinity applies it.
   const t3 = Date.now();
-  let inserted = 0, refused = 0;
-  const first = [];
-  // ONE TRANSACTION FOR THE ROWS. Each insert was its own autocommit
-  // transaction with its own disk sync: 6.5 ms a row on Windows, 83 s for
-  // support's 12,742 rows (2026-09-21). The build is a fresh file nobody
-  // reads until it is renamed in; a refused row is a statement-level error
-  // inside the transaction and is caught as before.
-  db.exec("begin");
-  for (const [table] of Ev("rmap:coltabs", CELLS)) {
-    const name = String(table);
-    // THE NAMES COME FROM THE SAME PLACE THE VALUES DO. rmap:coltabs answers a
-    // table's columns in a DIFFERENT ORDER than rmap:ctab, which is what
-    // rmap:proj_row fills; zipping one against the other put every value in the
-    // wrong column and sqlite accepted all of it.
-    const cn = Ev("rmap:proj_colnames", [name, CELLS]).map(String);
-    // AND THEY ARE SPELLED FOR SQL ALREADY: rmap:proj_colnames answers the
-    // DDL's own spelling of a name, a quote inside it doubled (rmap:ddl_q), so
-    // this splices them between quotes and escapes nothing -- qi here doubled
-    // the doubling and MonoView's prose-named column was not found (2026-09-21).
-    // The carry below reads names from pragma table_info, which answers them
-    // raw, and those go through qi.
-    const sql = 'insert into "' + name + '" ("' + cn.join('","') + '") values ('
-      + cn.map(() => "?").join(",") + ")";
-    const ins = db.prepare(sql);
-    for (const row of Ev("rmap:proj_rows", [name, CELLS])) {
-      const vals = cn.map((_, i) => { const v = row[i]; return v === "#" || v === undefined ? null : flat(v); });
-      try { ins.run(...vals); inserted++; }
-      catch (e) { refused++; if (first.length < 3) first.push(name + ": " + e.message.slice(0, 90)); }
-    }
-  }
-  db.exec("commit");
+  const { inserted, refused, first } = writeReadingsRows(db);
+  // WHAT THE READINGS ARE, AS THE STORE READS THEM BACK (see factsOfDb)
+  const readingsFacts = factsOfDb(db);
   const tRows = Date.now() - t3;
   collect();
   // ---- AND THE PRIOR STORE IS NOT THROWN AWAY ------------------------------
@@ -718,15 +1139,6 @@ if (!out && !outDir) {
   // that holds only its runtime rows (227c4422's own finding, the first time).
   let carried = 0, filled = 0, reflectedSkipped = 0, moved = 0, tCarry = 0, tCarryReflect = 0, tCarryRows = 0;
   let superseded = 0, priorLedger = null;
-  // A ROW AS THE LEDGER SPELLS IT: its filled columns by name, in the table's
-  // column order. A Function row is 301 columns of which three or four hold
-  // anything, so the empty ones are left out rather than written as null.
-  const ledgerRow = (names, row) => { const o = {}; for (const nm of names) { const v = row[nm]; if (v !== null && v !== undefined) o[nm] = v; } return JSON.stringify(o); };
-  // AND A FACT AS THE RECORDS SPELL IT (2026-09-29): its tuple as JSON, every number as the text a
-  // table cell holds, so a fact read back from the tables and the same fact as the readings state it
-  // are one spelling (the 1-and-"1" note beside popSnapshot in host.js).
-  const asStoredV = (v) => (Array.isArray(v) ? v.map(asStoredV) : typeof v === "number" ? String(v) : v);
-  const factText = (r) => JSON.stringify(asStoredV(r));
   // what this carry brought back, by table: by key where the row had one, whole
   // where it did not -- the rows the ledger written below leaves out
   const carriedKeys = new Map(), carriedRows = new Map();
@@ -807,40 +1219,7 @@ if (!out && !outDir) {
     };
     const priorMeta = metaOf(prior), buildMeta = metaOf(db);
     db.exec("begin");   // and one for the carry: claude's check spent 9 s on Function and 17 s on the instance table, a sync per carried row
-    // A REFLECTED NAME NEVER CARRIES (b6e16927, #122 item 1 continued). A boot
-    // writes the REFLECTED populations back into these same tables too --
-    // host.js's loadReflected installs lambda's own reflect:cells answer as the
-    // cell of a reflected fact type's name, and emitToDb (~349) projects that
-    // cell the same way any other one is projected. So a row the prior store
-    // holds for a reflected name is the CLOSURE's computation over whatever
-    // schema that boot had, not a runtime fact, and carrying it forward
-    // is carrying a STALE closure answer into a build the closure has not run
-    // over yet -- a constraint the readings no longer declare surviving
-    // because the carry could not tell a reflected row from a written one.
-    // Skipped here, nothing is lost: the next boot's loadReflected + emitToDb
-    // recomputes it fresh and writes it back.
-    //
-    // WHICH NAMES ARE REFLECTED IS LAMBDA'S ANSWER, the same one loadReflected
-    // itself reads -- reflect:cells' <name, population> pairs -- but READING
-    // IT COSTS THE POPULATIONS, and MEASURED on the metamodel (with and
-    // without readings/templates beside it) Ev("reflect:cells", CELLS) does
-    // not just cost, it THROWS: `selector 1 on atom: Abstract SQL Type`.
-    // reflect:cells' sub-computations read cells a live boot's derivation
-    // closure installs (loadDerived, alternated with loadReflected itself,
-    // host.js ~3687); compile.js runs no closure at all -- it is the read
-    // phase, on purpose (this file's own header) -- so the union it would
-    // need is never there to read. There is no names-only DEF either
-    // (grepped reflect:*, 2026-09-21: reflect:computed pairs a name with the
-    // DEF that computes it and nothing answers the names alone). So this
-    // copies reflect:computed's OWN pairs (arest:14286-14287) as data, the
-    // way this file's ARTIFACTS list two hundred lines up (~176) copies
-    // rmap's -- both go stale on the same lambda edit and neither one
-    // evaluates a population to get the names.
-    const REFLECTED_NAMES = new Set(("FactTypeHasRole FactTypeHasReading ObjectTypePlaysRole "
-      + "RoleIsUsedInReading StateMachineIsForObjectTypeInstance StateMachineIsInstanceOfStateMachineDefinition "
-      + "StateMachineIsCurrentlyInStatus ObjectTypeInstanceIsCurrentlyInStatus ConstraintIsOfConstraintType "
-      + "ConstraintHasModalityOfModalityType ConstraintSpan ConstraintSpanHasSequenceNumber "
-      + "ConstraintSpanHasPosition FunctionBelongsToDomain").split(" "));
+    // A REFLECTED NAME NEVER CARRIES: REFLECTED_NAMES, at module scope, says which and why.
     // WHICH TABLES AND COLUMNS A NAME CARRIES IS rmap:ctab's TO ANSWER, NOT
     // HARDCODED -- <fact type, table, columns> rows, a column's path
     // resolved to the ONE fact type it carries by rmap:proj_carried, the
@@ -1155,10 +1534,6 @@ if (!out && !outDir) {
   // what that adds is projected into its tables -- the same three lines a
   // write takes: snapshot, evaluate, emit what changed.
   const t4 = Date.now();
-  // WHAT THE READINGS ASSERT, fact type by fact type (2026-09-29): store:fts's fifth slot is the
-  // readings' own population until a store is adopted into the cells, which the next line does.
-  const readingsFacts = [];
-  for (const d of Ev("store:fts", CELLS)) if (Array.isArray(d) && Array.isArray(d[4])) for (const r of d[4]) readingsFacts.push([String(d[0]), factText(r)]);
   process.env.AREST_STORE_DB = build;
   loadStoreDb(build);
   collect();
@@ -1166,22 +1541,25 @@ if (!out && !outDir) {
   closeStore();
   collect();
   const closed = emitToDb(beforeClosure, CELLS);
-  // AND WHAT THE CLOSURE DERIVED INTO A SEMI-DERIVED HEAD (2026-09-29). A semi-derived head holds
-  // rows the readings or the runtime asserted and rows the rules derived, and once written they are
-  // all rows of one table: this is the second kind, the head's population after the closure less the
-  // one it was handed. A head whose answer cannot be read leaves no record at all rather than a
-  // partial one, so nothing downstream can take a derived row for an asserted one.
+  // AND WHAT THE CLOSURE ADDED, TO ANY POPULATION (2026-09-29). A population the closure writes into
+  // may hold rows it did not derive as well -- a semi-derived head's asserted rows, and the rows a
+  // reflection merges with what it infers: reflect:computed names sixteen populations, and the readings
+  // type 1,773 instances into ObjectTypeInstanceIsInstanceOfObjectType before the reflection adds its
+  // own (tasks' closure). Once written they are all rows of one table, so this records the closure's
+  // part of every population: what it holds after the closure less what it was handed (on
+  // support.auto.dev 170,869 facts over 40 populations). A population whose answer cannot be read
+  // leaves no record at all rather than a partial one, so nothing downstream can take a derived
+  // fact for an asserted one.
   let derivedFacts = [];
   try {
-    for (const mk of Ev("derive:sm_marks", CELLS)) {
-      if (String(mk[1]) !== "semi" && String(mk[1]) !== "semi-derived") continue;
-      const ft = String(mk[0]);
-      const was = new Set((beforeClosure.has(ft) ? JSON.parse(beforeClosure.get(ft)) : []).map(factText));
-      const now = Ev("system:pop_rows", [ft, CELLS]);
-      for (const r of Array.isArray(now) ? now : []) { const t = factText(r); if (!was.has(t)) derivedFacts.push([ft, t]); }
+    for (const [ft, t] of popSnapshot(CELLS)) {
+      const was = beforeClosure.get(ft);
+      if (was === t) continue;
+      const had = new Set((was ? JSON.parse(was) : []).map(factText));
+      for (const r of JSON.parse(t)) { const x = factText(r); if (!had.has(x)) derivedFacts.push([ft, x]); }
     }
   } catch (e) {
-    console.error("  (what the closure derived into semi-derived heads could not be read -- " + String(e.message).slice(0, 120) + " -- no record of it is written)");
+    console.error("  (what the closure added could not be read -- " + String(e.message).slice(0, 120) + " -- no record of it is written)");
     derivedFacts = null;
   }
   // A FILL THE CLOSURE DERIVES IS THE CLOSURE'S, NOT THE RUNTIME'S (2026-09-25). The carry
@@ -1254,7 +1632,7 @@ if (!out && !outDir) {
     // store in place has to know, fact by fact.
     ldb.exec('create table if not exists "_readings" ("ft" text not null, "row" text not null, primary key ("ft", "row")) without rowid');
     const putR = ldb.prepare('insert or ignore into "_readings" ("ft", "row") values (?, ?)');
-    for (const [ft, t] of readingsFacts) putR.run(ft, t);
+    for (const [ft, r] of readingsFacts) putR.run(ft, factText(r));
     if (derivedFacts) {
       ldb.exec('create table if not exists "_derived" ("ft" text not null, "row" text not null, primary key ("ft", "row")) without rowid');
       const putD = ldb.prepare('insert or ignore into "_derived" ("ft", "row") values (?, ?)');
@@ -1284,7 +1662,7 @@ if (!out && !outDir) {
   }
   console.log("ledger: " + ledgered + " row(s) the readings and the closure assert (" + (Date.now() - tLedger) + " ms)");
   console.log("record: " + readingsFacts.length + " fact(s) the readings assert, "
-    + (derivedFacts ? derivedFacts.length + " the closure derived into semi-derived heads" : "the closure's not recorded"));
+    + (derivedFacts ? derivedFacts.length + " the closure added" : "the closure's not recorded"));
   renameSync(build, out);
   console.log("store: " + n + " tables, " + inserted + " rows at " + out
     + ", schema " + schemaHash
