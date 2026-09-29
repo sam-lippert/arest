@@ -4152,6 +4152,38 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     expect(Ev("read:rule_match_at", [P1, ["Customer\u0663"]])).toEqual([]);
   });
 
+  // rmap:proj_row has a twin (2026-09-29): an entity table's row a column at a time, each column's path
+  // resolved once -- its first step, fact type, population and key position, asked of the DEFs
+  // rmap:proj_val asks -- and a row answered by one index lookup per column. Held against the DEF on
+  // every entity table of this store (the metamodel absorbs every entity type into Function, so it is
+  // that one): keys spread over each table, keys no table holds, a key that
+  // is #, a number, a sequence, the empty string; and on the shapes the DEF raises on, which the twin
+  // hands back to it.
+  test("the rmap:proj_row twin is its DEF on every entity table", () => {
+    const def = DEFS.get("rmap:proj_row");
+    const run = (f) => { try { return JSON.stringify(f()); } catch (e) { return "raises"; } };
+    const fts = Ev("store:fts", CELLS);
+    let tables = 0, rows = 0, filled = 0;
+    for (const t of Ev("rmap:coltabs", CELLS)) {
+      const table = String(t[0]);
+      if (Ev("rmap:proj_hits", [table, fts]).length > 0) continue;   // a relation table's rows are proj_relrow's
+      tables++;
+      const keys = Ev("rmap:proj_keys", [table, CELLS]);
+      const pick = keys.filter((_, i) => i % Math.max(1, Math.floor(keys.length / 200)) === 0);
+      for (const k of [...pick, "no-such-key", "#", 7, ["a", "b"], ""]) {
+        const twin = run(() => Ev("rmap:proj_row", [k, table, CELLS]));
+        expect(twin).toBe(run(() => Ev(def, [k, table, CELLS])));
+        rows++;
+        if (twin !== "raises" && JSON.parse(twin).some((v) => v !== "#")) filled++;
+      }
+    }
+    expect(tables).toBeGreaterThan(0);
+    expect(filled).toBeGreaterThan(100);   // the rows compared hold values, not only #
+    for (const x of [["k"], ["k", "Function"], "atom", [], ["k", "NoSuchTable", CELLS], ["k", 5, CELLS]])
+      expect(run(() => Ev("rmap:proj_row", x))).toBe(run(() => Ev(def, x)));
+    expect(Ev("rmap:proj_row", ["k", "NoSuchTable", CELLS])).toEqual([]);
+  });
+
   // read:has_key <k, rows> -- some row's first element eq k -- is answered from a key index kept along the
   // parse's fold (2026-09-28): an appended record adds its key, and read:put_row, which replaces a record in
   // place and keeps its key where it was, shares the index outright. Every array of the chain must still

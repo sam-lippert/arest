@@ -978,6 +978,8 @@ let PAIRIDX = new WeakMap();
 let SOLVEIDX = new WeakMap();
 let MPIDX = new WeakMap();
 let SLOTIDX = new WeakMap();
+// rmap:proj_row's column plans, by the column list they were made for (see projRow)
+let PROJPLAN = new WeakMap();
 // A SERVER GIVES ITS MEMO BACK WHEN IT GOES IDLE (2026-09-24; Sam: "low memory
 // footprint is a requirement"). The memo earns its keep inside a burst of calls and
 // holds most of a server's memory after one: on support.auto.dev a `get` left 19,245
@@ -1008,7 +1010,7 @@ function memoReleaseWhenIdle(say) {
   }, Number(process.env.AREST_MEMO_IDLE_MS || 5000));
   if (MEMO_IDLE.unref) MEMO_IDLE.unref();
 }
-function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MATCHPROV = new WeakMap(); KEYIDX = new WeakMap(); KEYPROV = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); }
+function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MATCHPROV = new WeakMap(); KEYIDX = new WeakMap(); KEYPROV = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); PROJPLAN = new WeakMap(); }
 // the rows of `rows` whose first column equals `key`, in source order -- the value
 // of csdp:matches (INSERT csdp:keep_keyed . theta:append_phi . distl). The fold
 // visits every row, so a row that is not a sequence, or is empty, throws the
@@ -1228,6 +1230,78 @@ function matchRowsAt(n, key, rows) {
     byCol.set(n, idx); }
   const hit = idx.get(keyOf(key));
   return hit === undefined ? [] : hit;
+}
+// THE ROW OF AN ENTITY TABLE, A COLUMN AT A TIME (2026-09-29). rmap:proj_row asks rmap:proj_val of
+// every column for one key, and proj_val walks the column's path from that key: the path's first
+// non-assim step, the step's fact type, the fact type's population, the key's position in it, then
+// the lookup. All of it but the lookup is the COLUMN's, the same for every row -- and support's
+// Function table is 34,547 rows by 313 columns, 10.8 million walks for the 141,260 cells that hold
+// anything: 17.7 of the 19 seconds its closure's write-back took (2026-09-29). So a column's part is
+// asked of lambda once, of the DEFs proj_val asks it of (rmap:proj_nonassim, rmap:proj_pop,
+// rmap:proj_keypos), and kept by the column list rmap:proj_cols answered; a row is then one index
+// lookup per column (csdp:matches_at's own index), and a value found is walked on through
+// rmap:proj_walk as the DEF walks it. A column is one of: # always; the key itself (an info step
+// naming no fact type -- a value type's own column); the key unless it is # (an identifying step
+// over an empty population); or the other player of the first row holding the key at the key's
+// position, T when the row has one player, # when no row does. A shape the DEF raises on or might
+// read otherwise -- an atom where a step goes, a step shorter than the selector the DEF applies, a
+// row the index cannot key, a key position that is not a number -- is the DEF's, whole row.
+function projColPlan(path, store) {
+  const na = Ev("rmap:proj_nonassim", path);
+  if (!Array.isArray(na)) return null;
+  if (na.length === 0) return { kind: 0 };
+  const s1 = na[0];
+  if (!Array.isArray(s1) || s1.length < 5 || !Array.isArray(s1[4])) return null;
+  const rest = na.length > 1 ? na.slice(1) : null;
+  if (s1[4].length === 0) return { kind: s1[0] === "info" ? 1 : 0 };
+  const pop = Ev("rmap:proj_pop", [s1[4][0], store]);
+  if (!Array.isArray(pop)) return null;
+  if (pop.length === 0) {
+    if (s1.length < 6) return null;
+    return s1[5] === "T" ? { kind: 2, rest } : { kind: 0 };
+  }
+  const kp = Ev("rmap:proj_keypos", [s1, store]);
+  if (typeof kp !== "number") return null;
+  matchRowsAt(kp, "", pop);   // the index csdp:matches_at keeps, built here, raising where the DEF raises
+  return { kind: 3, idx: MATCHATIDX.get(pop).get(kp), other: kp === 1 ? 1 : 0, rest };
+}
+function projPlans(cols, store) {
+  const kept = PROJPLAN.get(cols);
+  if (kept !== undefined && kept.store === store) return kept.plans;
+  const plans = [];
+  for (const c of cols) {
+    if (!Array.isArray(c) || c.length < 3) return null;
+    const p = projColPlan(c[2], store);
+    if (p === null) return null;
+    plans.push(p);
+  }
+  PROJPLAN.set(cols, { store, plans });
+  return plans;
+}
+function projRow(x) {
+  const def = () => Ev(DEFS.get("rmap:proj_row"), x);
+  if (!Array.isArray(x) || x.length < 3) return def();
+  const k = x[0], store = x[2];
+  const cols = Ev("rmap:proj_cols", [x[1], store]);
+  if (!Array.isArray(cols)) return def();
+  let plans;
+  try { plans = projPlans(cols, store); } catch { plans = null; }
+  if (plans === null) return def();
+  const kk = keyOf(k);
+  const out = new Array(plans.length);
+  for (let i = 0; i < plans.length; i++) {
+    const p = plans[i];
+    if (p.kind === 0) { out[i] = "#"; continue; }
+    if (p.kind === 1) { out[i] = k; continue; }
+    let v = k;
+    if (p.kind === 3) {
+      const hit = p.idx.get(kk);
+      if (hit === undefined) { out[i] = "#"; continue; }
+      v = hit[0].length === 1 ? "T" : hit[0][p.other];
+    }
+    out[i] = v === "#" ? "#" : p.rest === null ? v : Ev("rmap:proj_walk", [p.rest, v, store]);
+  }
+  return out;
 }
 // Selective: only cells whose inputs actually repeat (store-applied
 // rmap cells and fetches keyed by the frozen CELLS reference; the
@@ -1508,6 +1582,8 @@ const FASTPRIMS = new Map(Object.entries({
   "csdp:matches": x => matchRows(at(x, 0), seq(at(x, 1))).slice(),
   // csdp:matches_at is the same filter on a named column: <n, key, rows>.
   "csdp:matches_at": x => matchRowsAt(at(x, 0), at(x, 1), seq(at(x, 2))).slice(),
+  // rmap:proj_row <key, table, store>: an entity table's row, a column plan at a time (projRow above)
+  "rmap:proj_row": x => projRow(x),
   // rmap:rows_for is the same first-column filter, <key, rows>, written as the
   // right fold INSERT keep_row_of . append_phi . distl. rmap:nest's twin above
   // took it out of the nesting, but law:l2_key still asks it once PER KEY over
