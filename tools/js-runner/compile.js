@@ -669,6 +669,21 @@ function factsOfDb(db) {
 // column order. A Function row is 301 columns of which three or four hold
 // anything, so the empty ones are left out rather than written as null.
 const ledgerRow = (names, row) => { const o = {}; for (const nm of names) { const v = row[nm]; if (v !== null && v !== undefined) o[nm] = v; } return JSON.stringify(o); };
+// and the same spelling from a row's values in its columns' order, without an object per row: JSON.stringify
+// of the object ledgerRow builds, member by member, which is the same text while no column's name is an
+// array index (an object puts those first), and then it is ledgerRow's own
+const INDEXLIKE = /^(0|[1-9][0-9]*)$/;
+const spellRow = (names, vals) => {
+  if (names.some((n) => INDEXLIKE.test(n))) { const o = {}; names.forEach((n, i) => { o[n] = vals[i]; }); return ledgerRow(names, o); }
+  let t = "{", first = true;
+  for (let i = 0; i < names.length; i++) {
+    const v = vals[i];
+    if (v === null || v === undefined) continue;
+    t += (first ? "" : ",") + JSON.stringify(names[i]) + ":" + JSON.stringify(v);
+    first = false;
+  }
+  return t + "}";
+};
 // AND A FACT AS THE RECORDS SPELL IT (2026-09-29): its tuple as JSON, every number as the text a
 // table cell holds, so a fact read back from the tables and the same fact as the readings state it
 // are one spelling (the 1-and-"1" note beside popSnapshot in host.js).
@@ -991,30 +1006,43 @@ function compileInPlace() {
   {
     const ldb = new Database(build);
     ldb.exec("begin");
-    const drop = ldb.prepare('delete from "_asserted" where "tbl" = ?');
+    // AND ONLY WHAT DIFFERS IS WRITTEN (2026-09-29): each table's entries are read, the rows spelled from
+    // their values, and an entry the table no longer has deleted and a new one inserted -- rewriting all
+    // of them, through an object per row of a 313-column table, was 3.3 of support's in-place seconds
+    const unspell = ldb.prepare('delete from "_asserted" where "tbl" = ? and "row" = ?');
     const put = ldb.prepare('insert or ignore into "_asserted" ("tbl", "row") values (?, ?)');
+    const held = new Map();
+    for (const r of ldb.query('select "tbl", "row" from "_asserted"').values()) {
+      let hs = held.get(String(r[0])); if (!hs) held.set(String(r[0]), (hs = new Set()));
+      hs.add(String(r[1]));
+    }
     // every table, not only those the write touched: a row the runtime changed since the last build is
     // spelled otherwise than the ledger holds it, and a rebuild supersedes the old spelling
     const tables = ldb.query("select name from sqlite_master where type = 'table'").values().map((r) => String(r[0]))
       .filter((t) => !t.startsWith("_") && !t.startsWith("sqlite_"));
     for (const table of tables) {
-      drop.run(table);
       const names = ldb.query("select name from pragma_table_info(?)").values(table).map((c) => String(c[0]));
-      if (!names.length) continue;
+      const was = held.get(table) || new Set();
+      held.delete(table);
+      if (!names.length) { for (const t of was) unspell.run(table, t); continue; }
       const rt = runtimeRowsOf(table);
-      const pk = ldb.query("select name from pragma_table_info(?) where pk > 0 order by pk").values(table).map((c) => String(c[0]));
-      for (const row of ldb.query("select " + names.map(qi).join(",") + " from " + qi(table)).all()) {
-        const spelled = ledgerRow(names, row);
+      const pkAt = ldb.query("select name from pragma_table_info(?) where pk > 0 order by pk").values(table).map((c) => names.indexOf(String(c[0])));
+      const now = new Set();
+      for (const vals of ldb.query("select " + names.map(qi).join(",") + " from " + qi(table)).values()) {
         if (rt.keys.size) {
           if (rt.rel) {
-            const vals = names.map((c) => row[c]).filter((v) => v !== null && v !== undefined).map((v) => String(v)).sort();   // the whole fact: a key may span fewer roles
-            if (rt.keys.has(JSON.stringify(vals))) continue;
-          } else if (pk.length === 1 && row[pk[0]] !== null && row[pk[0]] !== undefined && rt.keys.has(String(row[pk[0]]))) continue;
+            const fact = vals.filter((v) => v !== null && v !== undefined).map((v) => String(v)).sort();   // the whole fact: a key may span fewer roles
+            if (rt.keys.has(JSON.stringify(fact))) continue;
+          } else if (pkAt.length === 1 && pkAt[0] >= 0 && vals[pkAt[0]] !== null && vals[pkAt[0]] !== undefined && rt.keys.has(String(vals[pkAt[0]]))) continue;
         }
-        put.run(table, spelled);
-        ledgered++;
+        now.add(spellRow(names, vals));
       }
+      for (const t of was) if (!now.has(t)) unspell.run(table, t);
+      for (const t of now) if (!was.has(t)) put.run(table, t);
+      ledgered += now.size;
     }
+    // and a table the store no longer has leaves no entries
+    for (const [table, hs] of held) for (const t of hs) unspell.run(table, t);
     const change = (table, was, now) => {
       const del = ldb.prepare('delete from ' + qi(table) + ' where "ft" = ? and "row" = ?');
       const add = ldb.prepare('insert or ignore into ' + qi(table) + ' ("ft", "row") values (?, ?)');
