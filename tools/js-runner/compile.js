@@ -1041,17 +1041,20 @@ if (!out && !outDir) {
         // the readings' own row: superseded when this build does not say it, and
         // never a source of values for cells this build left empty
         const isHeld = held ? held.has(ledgerRow(priorNames, row)) : false;
+        // AND IT GOES BEFORE ANYTHING IS ASKED ABOUT IT (2026-09-29): every branch below ends a held
+        // row with `continue`, and the keyed one asked the build for the row's every other column
+        // first -- a select per prior row, 34,547 of them on support's Function table, 3.8 s of its
+        // carry for rows the ledger was always going to drop.
+        if (isHeld) continue;
         const k = pk.map((n2) => row[n2]);
         const keyed = pk.length && k.every((v) => v !== null && v !== undefined);
         if (!keyed) {
           if (seen(row)) continue;   // the build already says it
-          if (isHeld) continue;
           try { add.run(...keep.map((n2) => row[src(n2)])); carried++; present.add(keyOfPrior(row)); cr.rows.add(keyOfPrior(row)); } catch { /* the build refuses it */ }
           continue;
         }
         const here = findPk ? findPk.get(...k) : null;
         if (!here) {
-          if (isHeld) continue;
           if (pk.length === 1 && priorTyped.has(String(k[0])) && !buildTyped.has(String(k[0]))) {
             withEntity++;
             if (withEntityRows.length < 12) withEntityRows.push(table + " '" + String(k[0]) + "'");
@@ -1060,7 +1063,6 @@ if (!out && !outDir) {
           try { add.run(...keep.map((n2) => row[src(n2)])); carried++; ck.keys.add(JSON.stringify(k)); } catch { /* the build refuses it */ }
           continue;
         }
-        if (isHeld) continue;
         for (const v of vals) {
           if (here[v] !== null && here[v] !== undefined) continue;   // the readings say something: they win
           const pv = row[src(v)];
