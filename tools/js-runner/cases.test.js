@@ -2961,6 +2961,84 @@ test("an objectification declares its own nested object type, and Halpin's Listi
   }
 }, 120_000);
 
+// ---- A KEPT MAP IS THE MAP -------------------------------------------------
+//
+// compile.js keeps the relational map's artifacts and its DDL (2026-09-29), keyed by lambda, the
+// strict mode and the schema WITHOUT its populations, because every artifact came out identical
+// with the populations taken out. So a compile over readings that only move instances maps
+// nothing, and one whose schema moved maps afresh. Held on a corpus small enough to compile in a
+// second: a kept map is byte-identical to the one derived with the cache off, and so are the
+// store's tables and rows; an instance added keeps the map; a fact type added does not, and its
+// table then has the new column. Each compile writes into its own directory, so none is skipped
+// as unchanged; the readings are one file, rewritten between runs.
+test("the relational map is kept by the schema it maps: an instance added keeps it, a fact type added does not", () => {
+  const { mkdirSync } = require("node:fs");
+  const NL = String.fromCharCode(10);
+  const dir = mkdtempSync(join(tmpdir(), "arest-rmap-cache-"));
+  const compiler = join(import.meta.dir, "compile.js");
+  const corpus = join(dir, "readings");
+  mkdirSync(corpus);
+  const cache = join(dir, "cache.db");
+  const base = [
+    "Domain 'discs' has Description 'a kept map'.", "",
+    "Compact Disc(.Nr) is an entity type.", "",
+    "Title is a value type.", "",
+    "Compact Disc has Title.", "  Each Compact Disc has at most one Title.", "",
+    "Compact Disc 'cd1' has Title 'Blue'.", ""];
+  const withInstance = [...base, "Compact Disc 'cd2' has Title 'Kind of Blue'.", ""];
+  const withFactType = [...base, "Label is a value type.", "",
+    "Compact Disc has Label.", "  Each Compact Disc has at most one Label.", "",
+    "Compact Disc 'cd1' has Label 'Reprise'.", ""];
+  let n = 0;
+  const run = (lines, cached) => {
+    const out = join(dir, "run" + (++n));
+    mkdirSync(out);
+    writeFileSync(join(corpus, "discs.md"), lines.join(NL));
+    const p = Bun.spawnSync(["bun", compiler, corpus],
+      { env: { ...process.env, AREST_OUT_DIR: out, AREST_DB: join(out, "store.db"), AREST_PARSE_CACHE: cached ? cache : "off", AREST_STRICT: "" },
+        stdout: "pipe", stderr: "pipe" });
+    const text = p.stdout.toString() + p.stderr.toString();
+    const db = new Database(join(out, "store.db"), { readonly: true });
+    const schema = db.prepare("select name, sql from sqlite_master where type = 'table' order by name").all()
+      .filter((r) => !String(r.name).startsWith("_"));
+    const rows = db.prepare('select * from "CompactDisc" order by "compactDiscNr"').all();
+    db.close(true);
+    return { code: p.exitCode, text, kept: text.includes("(kept: the schema is the one mapped before)"),
+      compiled: readFileSync(join(out, "compiled"), "utf8"), schema: JSON.stringify(schema), rows: JSON.stringify(rows) };
+  };
+  try {
+    const ref = run(base, false);
+    expect(ref.code).toBe(0);
+    expect(ref.rows).toContain("Blue");
+    const cold = run(base, true), warm = run(base, true);
+    expect(cold.kept).toBe(false);
+    expect(warm.kept).toBe(true);
+    for (const r of [cold, warm]) {
+      expect(r.code).toBe(0);
+      expect(r.compiled).toBe(ref.compiled);
+      expect(r.schema).toBe(ref.schema);
+      expect(r.rows).toBe(ref.rows);
+    }
+    // an instance added: the schema is the one mapped before
+    const inst = run(withInstance, true), instRef = run(withInstance, false);
+    expect(inst.kept).toBe(true);
+    expect(inst.compiled).toBe(instRef.compiled);
+    expect(inst.schema).toBe(ref.schema);
+    expect(inst.rows).toBe(instRef.rows);
+    expect(inst.rows).toContain("Kind of Blue");
+    // a fact type added: mapped afresh, and the table has its column
+    const ft = run(withFactType, true), ftRef = run(withFactType, false);
+    expect(ft.kept).toBe(false);
+    expect(ft.compiled).toBe(ftRef.compiled);
+    expect(ft.schema).toBe(ftRef.schema);
+    expect(ft.schema).not.toBe(ref.schema);
+    expect(ft.rows).toBe(ftRef.rows);
+    expect(ft.rows).toContain("Reprise");
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 120_000);
+
 // ---- IS EVERY OBJECTIFICATION A NOUN? --------------------------------------
 //
 // Sam, 2026-09-23: "an objectified fact type should only exist if it must be

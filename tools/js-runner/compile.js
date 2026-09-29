@@ -479,11 +479,57 @@ if (outDir) {
   const t3 = Date.now();
   const defs = [];
   const skipped = [];
+  // THE MAP IS KEPT BY THE SCHEMA IT MAPS (2026-09-29). The relational map is a function of the
+  // schema and of nothing the readings populate: every artifact below came out identical with
+  // each fact type's population and each object type's instances taken out of the cells, on
+  // tasks' closure and on support's -- where computing them is 40 of the compile's seconds. So they
+  // are kept, keyed by lambda, the strict mode and the schema without its populations, in the
+  // cache the reader keeps a file's rows in, and a readings change that only moves instances --
+  // the everyday one -- maps nothing. AREST_PARSE_CACHE=off turns it off with the other.
+  const rmapCache = (() => {
+    if (process.env.AREST_PARSE_CACHE === "off") return null;
+    try {
+      const path = process.env.AREST_PARSE_CACHE || join(require("node:os").tmpdir(), "arest-cache", "parse.db");
+      require("node:fs").mkdirSync(require("node:path").dirname(path), { recursive: true });
+      const db = new Database(path, { create: true });
+      db.exec("pragma journal_mode = wal"); db.exec("pragma busy_timeout = 5000");
+      db.exec("create table if not exists rmap (k text primary key, v text not null, t integer not null)");
+      return db;
+    } catch { return null; }
+  })();
+  const rmapKey = createHash("sha256").update(JSON.stringify([
+    createHash("sha256").update(readFileSync(join(import.meta.dir, "..", "..", "arest"))).digest("hex"),
+    strict,
+    state.map(([n, v]) => [String(n), String(n) === "state:fts" ? v.map((d) => [d[0], d[1], d[2], d[3]])
+      : String(n) === "state:otpops" ? v.map((r) => r[0]) : v]),
+  ])).digest("hex");
+  let kept = null;
+  if (rmapCache) { try { const hit = rmapCache.query("select v from rmap where k = ?").get(rmapKey); if (hit) kept = JSON.parse(hit.v); } catch { kept = null; } }
+  const made = {};
   for (const a of ARTIFACTS) {
     let v;
-    try { v = Ev("rmap:" + a, CELLS); } catch (e) { skipped.push(a + " (" + e.message.slice(0, 60) + ")"); continue; }
+    if (kept && Object.prototype.hasOwnProperty.call(kept, a)) v = kept[a];
+    else {
+      try { v = Ev("rmap:" + a, CELLS); } catch (e) { skipped.push(a + " (" + e.message.slice(0, 60) + ")"); continue; }
+      made[a] = v;
+    }
     CELLS.unshift(["CELL", "stored:rmap:" + a, v]);
     defs.push('DEF("stored:rmap:' + a + '", ' + src(v) + ")");
+  }
+  // and the DDL, which the map's artifacts do not carry: installed as the stored:rmap:ddl cell
+  // rmap:ddl reads, for this compile only -- it is not written into `compiled`
+  let ddlKept = kept && typeof kept.ddl === "string" ? kept.ddl : null;
+  if (ddlKept === null) { try { ddlKept = String(Ev("rmap:ddl", CELLS)); made.ddl = ddlKept; } catch { ddlKept = null; } }
+  if (ddlKept !== null) CELLS.unshift(["CELL", "stored:rmap:ddl", ddlKept]);
+  // the cells above went in after ast:fetch had indexed CELLS: say so, or no rmap:X reads its stored cell
+  if (globalThis.AREST.cellsChanged) globalThis.AREST.cellsChanged();
+  if (rmapCache) {
+    try {
+      if (!kept) rmapCache.query("insert or replace into rmap (k, v, t) values (?, ?, ?)").run(rmapKey, JSON.stringify(made), Date.now());
+      else rmapCache.query("update rmap set t = ? where k = ?").run(Date.now(), rmapKey);
+      rmapCache.query("delete from rmap where t < ?").run(Date.now() - 30 * 86400000);   // a month unused
+    } catch { }
+    try { rmapCache.close(); } catch { }
   }
   // THE STAMP IS WHAT LETS build.js REFUSE IT. The carrier is derived FROM the
   // schema, so a schema regenerated since leaves it describing
@@ -494,7 +540,7 @@ if (outDir) {
   const ctmp = join(outDir, "compiled.build");
   writeFileSync(ctmp, compiled);
   renameSync(ctmp, join(outDir, "compiled"));
-  console.log("relational map: " + defs.length + " of " + ARTIFACTS.length + " artifacts, "
+  console.log("relational map: " + defs.length + " of " + ARTIFACTS.length + " artifacts" + (kept ? " (kept: the schema is the one mapped before)" : "") + ", "
     + compiled.length + " bytes, stamped " + stamp + " (" + (Date.now() - t3) + " ms)"
     + (skipped.length ? "\n  DERIVED AT BOOT INSTEAD: " + skipped.join("; ") : ""));
 }

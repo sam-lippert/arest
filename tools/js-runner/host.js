@@ -3204,7 +3204,13 @@ function run_test() {
     memoHeld: () => { let held = 0; for (const node of EVMEMO.values()) held += (node && node.held) || 0; return held; },
     memoStat: (f) => { const st = MEMOSTAT.get(f); const root = EVMEMO.get(f);
       return st ? { stored: st[0], givenBack: st[1], bare: st[2], held: root ? root.held : 0 } : null; },
-    performDeclared: performDeclared };
+    performDeclared: performDeclared,
+    // A HOST THAT PUTS A CELL INTO CELLS ITSELF SAYS SO (2026-09-29). ast:fetch answers from an index of
+    // the cells array kept by the array's identity, and CELLS.unshift keeps the identity: a cell installed
+    // after the first fetch was invisible to every fetch after it. compile.js installs the relational
+    // map's artifacts that way, and each rmap:X reads its stored:rmap:X cell through ast:fetch -- so none
+    // was ever read; what made the map cheap was the memo. This drops the fetch index, and nothing else.
+    cellsChanged: () => { FETCHIDX = new WeakMap(); } };
 }
 // AND run_test CLOSES HERE, WHICH IS THE WHOLE BUG (2026-09-12). The performer
 // was declared INSIDE run_test, so only the test entry point could see it: the
