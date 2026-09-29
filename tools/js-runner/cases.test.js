@@ -4098,6 +4098,41 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     expect(Ev("read:has_key", ["N3", put])).toBe("T");
   });
 
+  // read:super_of <name, rows> -- the supertype the first subtype row for name gives, or "" -- is answered
+  // from an index kept along the fold (2026-09-28): an appended row extends it, and read:put_row, which only
+  // ever replaces a record holding a population and never a subtype row, shares it. Every array of the chain
+  // must still answer for its own rows: the first subtype row winning over a later one, older arrays asked
+  // after the chain ran past them, a branch, a put, and rows the DEF raises on.
+  test("a name's supertype is answered for that array's rows, through appends and in-place puts", () => {
+    const def = DEFS.get("read:super_of");
+    const run = (f) => { try { return JSON.stringify(f()); } catch { return "raises"; } };
+    const same = (nm, rows) => expect(run(() => Ev("read:super_of", [nm, rows]))).toBe(run(() => Ev(def, [nm, rows])));
+    const sub = (a, b) => [a + "IsASubtypeOf" + b, [a, b], [], [], ["subtype"], [], []];
+    const fact = (name, vals) => [name, ["X", "Y"], [], [], [vals], [], []];
+    // as the fold does: the newest array is asked before the next is appended to it, so the index is
+    // one and the chain extends it; the older arrays are asked only after it has run past them
+    const chain = [[sub("Agent", "User"), fact("F", ["x"])]];
+    same("Agent", chain[0]);
+    for (const row of [fact("G", ["y"]), sub("User", "Function"), sub("Agent", "Other"), fact("H", ["z"])]) {
+      chain.push(Ev("apndr", [chain[chain.length - 1], row]));
+      same("Agent", chain[chain.length - 1]);
+    }
+    const put = Ev("read:put_row", [chain[chain.length - 1], ["F", "w"]]);
+    same("User", put);
+    const after = Ev("apndr", [put, sub("Nope", "Some")]);
+    same("Nope", after);
+    for (const nm of ["Agent", "User", "Nope", "Function"]) {
+      for (const rows of chain) same(nm, rows);
+      same(nm, put); same(nm, after);
+    }
+    const branch = Ev("apndr", [chain[1], sub("Nope", "Branch")]);
+    for (const nm of ["Nope", "User"]) { same(nm, branch); same(nm, chain[1]); }
+    same("Agent", Ev("apndr", [after, ["short"]]));
+    expect(Ev("read:super_of", ["Agent", after])).toBe("User");   // the first subtype row wins
+    expect(Ev("read:super_of", ["User", chain[1]])).toBe("");      // appended after it
+    expect(Ev("read:super_of", ["Nope", put])).toBe("");           // appended after it too
+  });
+
   // strdown has a fast twin too. Its DEF folds each character through
   // chardown -- charisup, then charmap:pick over the 26 pairs -- and
   // e33971ab's case-fold in cn:number calls it for both sides of every

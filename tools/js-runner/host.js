@@ -654,10 +654,10 @@ const PRIMS = new Map(Object.entries({
   "tl": x => { const a = seq(x); if (a.length === 0) throw new Error("tl on empty"); return a.slice(1); },
   "atom": x => bool(!Array.isArray(x)),
   "apndl": x => [at(x,0), ...seq(at(x,1))],
-  "apndr": x => { const p = seq(at(x,0)), e = at(x,1); const out = [...p, e]; if (DEDUPKEYS.has(p)) CATPROV.set(out, [p, [e]]); matchProv(out, p, 1); keyProv(out, p); return out; },
+  "apndr": x => { const p = seq(at(x,0)), e = at(x,1); const out = [...p, e]; if (DEDUPKEYS.has(p)) CATPROV.set(out, [p, [e]]); matchProv(out, p, 1); keyProv(out, p); superProv(out, p); return out; },
   "distl": x => { const h = at(x,0); return seq(at(x,1)).map(e => [h, e]); },
   "distr": x => { const t = at(x,1); return seq(at(x,0)).map(e => [e, t]); },
-  "cat": x => { const p = seq(at(x,0)), s = seq(at(x,1)); const out = [...p, ...s]; if (DEDUPKEYS.has(p)) CATPROV.set(out, [p, s]); matchProv(out, p, s.length); keyProv(out, p); return out; },
+  "cat": x => { const p = seq(at(x,0)), s = seq(at(x,1)); const out = [...p, ...s]; if (DEDUPKEYS.has(p)) CATPROV.set(out, [p, s]); matchProv(out, p, s.length); keyProv(out, p); superProv(out, p); return out; },
   "null": x => bool(Array.isArray(x) && x.length === 0),
   "eq": x => bool(deepEq(at(x,0), at(x,1))),
   "not": x => bool(!(x === "T")),
@@ -1333,7 +1333,12 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   // against the nest names: 5,933,274 theta:member calls on support's closure, 13% of its
   // parse (sampled, 2026-09-28). The parse state is one value, so its implied nests are one
   // value: memoised on that argument, as read:state_rules is.
-  "read:implied_nests"]);
+  "read:implied_nests",
+  // read:nested_names is the nest names beside the implied ones, a cat made afresh at every ask -- and
+  // read:fact_groups and read:fact_row ask it per fact record, then test membership in it, so
+  // theta:member indexed a new 456-element list 3,545 times on support's closure (2026-09-28). The same
+  // parse state has the same nested names: memoised, the list and its index are one.
+  "read:nested_names"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot lambda list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
@@ -1363,6 +1368,45 @@ const DEDUPKEYS = new WeakMap();
 // is left quadratic is NOT this. tools/compile-design-state.js carries the
 // measurement and the refutation beside its call.
 const SUPEROF = new WeakMap();
+// ...and it is kept along the fold since 2026-09-28, where the rebuild had become 8% of support's parse: each
+// name keeps its FIRST supertype and that row's position, an array answers only the positions below its
+// length, an appended array extends its chain's index (apndr and cat record SUPERPROV), and read:put_row --
+// which only ever replaces a record whose fifth field is a population, never a subtype row -- shares it.
+const SUPERPROV = new WeakMap();
+function superValid(row) {
+  return Array.isArray(row) && row.length >= 5 && Array.isArray(row[1]) && Array.isArray(row[4]) && row[4].length >= 1
+    && !(row[4][0] === "derived" && row[4].length < 2);
+}
+function superAdd(ln, rows, from) {
+  for (let i = from; i < rows.length; i++) if (!superValid(rows[i])) return false;
+  for (let i = from; i < rows.length; i++) { const row = rows[i], players = row[1], f5 = row[4];
+    const sub = f5[0] === "subtype" || (f5[0] === "derived" && f5[1] === "subtype");
+    if (!sub || players.length !== 2) continue;
+    if (!ln.map.has(players[0])) ln.map.set(players[0], [players[1], i]); }
+  ln.len = rows.length;
+  return true;
+}
+function superLine(rows) {
+  let ln = SUPEROF.get(rows);
+  if (ln !== undefined) return ln;
+  const prov = SUPERPROV.get(rows), pl = prov === undefined ? undefined : prov[0];
+  if (pl !== undefined && pl.len === prov[1] && prov[1] <= rows.length) { if (!superAdd(pl, rows, prov[1])) return undefined; ln = pl; }
+  else { ln = { map: new Map(), len: 0 }; if (!superAdd(ln, rows, 0)) return undefined; }
+  SUPEROF.set(rows, ln);
+  return ln;
+}
+function superProv(out, p) {
+  const sl = SUPEROF.get(p);
+  if (sl !== undefined) { SUPERPROV.set(out, [sl, p.length]); return; }
+  const pp = SUPERPROV.get(p);
+  if (pp !== undefined) SUPERPROV.set(out, pp);
+}
+function superSame(out, p) {
+  const sl = SUPEROF.get(p);
+  if (sl !== undefined) { SUPEROF.set(out, sl); return; }
+  const pp = SUPERPROV.get(p);
+  if (pp !== undefined) SUPERPROV.set(out, pp);
+}
 // the paths arrays rmap:unproj_live has checked, by identity (its twin, below)
 const LIVEPATHS = new WeakSet();
 // AREST_NOTWIN=name,name disables those twins for one run, so a twin can be
@@ -2133,24 +2177,10 @@ const FASTPRIMS = new Map(Object.entries({
   "read:super_of": x => { const rows = at(x, 1), name = at(x, 0);
     const def = () => Ev(DEFS.get("read:super_of"), x);
     if (!Array.isArray(rows)) return def();
-    let idx = SUPEROF.get(rows);
-    if (idx === undefined) {
-      for (const row of rows) {
-        if (!Array.isArray(row) || row.length < 5) return def();
-        if (!Array.isArray(row[1]) || !Array.isArray(row[4]) || row[4].length < 1) return def();
-        if (row[4][0] === "derived" && row[4].length < 2) return def();
-      }
-      idx = new Map();
-      for (const row of rows) {
-        const players = row[1], f5 = row[4];
-        const sub = f5[0] === "subtype" || (f5[0] === "derived" && f5[1] === "subtype");
-        if (!sub || players.length !== 2) continue;
-        if (!idx.has(players[0])) idx.set(players[0], players[1]);
-      }
-      SUPEROF.set(rows, idx);
-    }
-    const v = idx.get(name);
-    return v === undefined ? "" : v; },
+    const ln = superLine(rows);
+    if (ln === undefined) return def();
+    const e = ln.map.get(name);
+    return e !== undefined && e[1] < rows.length ? e[0] : ""; },
   // read:put_row, one native pass. The DEF is COMP(ALPHA(read:row_at), distr):
   // distr pairs EVERY row with the item and read:row_at is interpreted once per
   // pair, so a put costs a full interpreted scan. Measured on the base
@@ -2188,6 +2218,7 @@ const FASTPRIMS = new Map(Object.entries({
         nf5 = last.length < 9 ? [...f5.slice(0, -1), [...last, val]] : [...f5, [val]]; }
       out[i] = [row[0], row[1], row[2], row[3], nf5, row[5], row[6]]; }
     keySame(out, rows);   // every row keeps its key where it was: the key index is shared (read:has_key)
+    superSame(out, rows);   // and no subtype row is ever put: the supertype index is shared (read:super_of)
     return out; },
   "theta:nth": x => { const l = seq(at(x, 0)); const n = at(x, 1);
     const k = n === 0 ? 0 : (n < 0 ? l.length : Math.min(l.length, n));
