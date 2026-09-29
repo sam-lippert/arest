@@ -4074,6 +4074,30 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     expect(Ev("read:rule_match_at", [P1, ["Customer\u0663"]])).toEqual([]);
   });
 
+  // read:has_key <k, rows> -- some row's first element eq k -- is answered from a key index kept along the
+  // parse's fold (2026-09-28): an appended record adds its key, and read:put_row, which replaces a record in
+  // place and keeps its key where it was, shares the index outright. Every array of the chain must still
+  // answer only for its own rows: the tip after a put, the older arrays after the chain ran past them, a
+  // branch, rows that raise, keys that are a number beside its spelling or a sequence.
+  test("whether some row is keyed k is answered for that array's rows, through appends and in-place puts", () => {
+    const def = DEFS.get("read:has_key");
+    const run = (f) => { try { return JSON.stringify(f()); } catch { return "raises"; } };
+    const same = (k, rows) => expect(run(() => Ev("read:has_key", [k, rows]))).toBe(run(() => Ev(def, [k, rows])));
+    const rec = (name, vals) => [name, ["A", "B"], [], [], [vals], [], []];
+    const chain = [[rec("F", ["x"]), rec("G", ["y"])]];
+    same("F", chain[0]);
+    for (let i = 0; i < 4; i++) chain.push(Ev("apndr", [chain[chain.length - 1], rec("N" + i, ["v"])]));
+    const put = Ev("read:put_row", [chain[chain.length - 1], ["F", "w"]]);
+    const after = Ev("apndr", [put, rec("Z", ["q"])]);
+    for (const k of ["F", "G", "N0", "N3", "Z", "Q"]) { same(k, put); same(k, after); for (const rows of chain) same(k, rows); }
+    const branch = Ev("apndr", [chain[1], rec("B1", ["b"])]);
+    for (const k of ["B1", "N0", "F"]) { same(k, branch); same(k, chain[1]); }
+    same("F", Ev("apndr", [after, "atom"]));
+    same(1, [[1, "a"], ["1", "b"]]); same("1", [[1, "a"]]); same(["x"], [[["x"], 1]]); same("a", []);
+    expect(Ev("read:has_key", ["Z", chain[chain.length - 1]])).toBe("F");   // appended after it, so not its row
+    expect(Ev("read:has_key", ["N3", put])).toBe("T");
+  });
+
   // strdown has a fast twin too. Its DEF folds each character through
   // chardown -- charisup, then charmap:pick over the 26 pairs -- and
   // e33971ab's case-fold in cn:number calls it for both sides of every

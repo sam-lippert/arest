@@ -654,10 +654,10 @@ const PRIMS = new Map(Object.entries({
   "tl": x => { const a = seq(x); if (a.length === 0) throw new Error("tl on empty"); return a.slice(1); },
   "atom": x => bool(!Array.isArray(x)),
   "apndl": x => [at(x,0), ...seq(at(x,1))],
-  "apndr": x => { const p = seq(at(x,0)), e = at(x,1); const out = [...p, e]; if (DEDUPKEYS.has(p)) CATPROV.set(out, [p, [e]]); matchProv(out, p, 1); return out; },
+  "apndr": x => { const p = seq(at(x,0)), e = at(x,1); const out = [...p, e]; if (DEDUPKEYS.has(p)) CATPROV.set(out, [p, [e]]); matchProv(out, p, 1); keyProv(out, p); return out; },
   "distl": x => { const h = at(x,0); return seq(at(x,1)).map(e => [h, e]); },
   "distr": x => { const t = at(x,1); return seq(at(x,0)).map(e => [e, t]); },
-  "cat": x => { const p = seq(at(x,0)), s = seq(at(x,1)); const out = [...p, ...s]; if (DEDUPKEYS.has(p)) CATPROV.set(out, [p, s]); matchProv(out, p, s.length); return out; },
+  "cat": x => { const p = seq(at(x,0)), s = seq(at(x,1)); const out = [...p, ...s]; if (DEDUPKEYS.has(p)) CATPROV.set(out, [p, s]); matchProv(out, p, s.length); keyProv(out, p); return out; },
   "null": x => bool(Array.isArray(x) && x.length === 0),
   "eq": x => bool(deepEq(at(x,0), at(x,1))),
   "not": x => bool(!(x === "T")),
@@ -1008,7 +1008,7 @@ function memoReleaseWhenIdle(say) {
   }, Number(process.env.AREST_MEMO_IDLE_MS || 5000));
   if (MEMO_IDLE.unref) MEMO_IDLE.unref();
 }
-function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MATCHPROV = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); }
+function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MATCHPROV = new WeakMap(); KEYIDX = new WeakMap(); KEYPROV = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); }
 // the rows of `rows` whose first column equals `key`, in source order -- the value
 // of csdp:matches (INSERT csdp:keep_keyed . theta:append_phi . distl). The fold
 // visits every row, so a row that is not a sequence, or is empty, throws the
@@ -1152,6 +1152,41 @@ function matchProv(out, p, n) {
   if (ml !== undefined) { MATCHPROV.set(out, [ml, p.length]); return; }
   const pp = MATCHPROV.get(p);
   if (pp !== undefined) MATCHPROV.set(out, pp);
+}
+// WHETHER SOME ROW IS KEYED k, kept along the fold (read:has_key, 2026-09-28). Each key keeps its FIRST
+// position, and an array answers only positions below its own length, so an older, shorter array still
+// answers for itself. It follows what matchRows follows -- an array appended to the newest of its chain --
+// and one thing more: read:put_row's twin replaces a record in place and keeps its key where it was, so the
+// array it makes shares the index of the array it came from. A row that is an atom or empty is the DEF's.
+let KEYIDX = new WeakMap(), KEYPROV = new WeakMap();
+function keyProv(out, p) {
+  const kl = KEYIDX.get(p);
+  if (kl !== undefined) { KEYPROV.set(out, [kl, p.length]); return; }
+  const pp = KEYPROV.get(p);
+  if (pp !== undefined) KEYPROV.set(out, pp);
+}
+function keySame(out, p) {
+  const kl = KEYIDX.get(p);
+  if (kl !== undefined) { KEYIDX.set(out, kl); return; }
+  const pp = KEYPROV.get(p);
+  if (pp !== undefined) KEYPROV.set(out, pp);
+}
+function keyAdd(ln, rows, from) {
+  for (let i = from; i < rows.length; i++) { const r = rows[i]; if (!Array.isArray(r) || r.length < 1) return false; }
+  for (let i = from; i < rows.length; i++) { const k = keyOf(rows[i][0]); if (!ln.first.has(k)) ln.first.set(k, i); }
+  ln.len = rows.length;
+  return true;
+}
+function hasKey(key, rows) {
+  let ln = KEYIDX.get(rows);
+  if (ln === undefined) {
+    const prov = KEYPROV.get(rows), pl = prov === undefined ? undefined : prov[0];
+    if (pl !== undefined && pl.len === prov[1] && prov[1] <= rows.length) { if (!keyAdd(pl, rows, prov[1])) return undefined; ln = pl; }
+    else { const fresh = { first: new Map(), len: 0 }; if (!keyAdd(fresh, rows, 0)) return undefined; ln = fresh; }
+    KEYIDX.set(rows, ln);
+  }
+  const pos = ln.first.get(keyOf(key));
+  return pos !== undefined && pos < rows.length;
 }
 function matchRows(key, rows) {
   let ln = MATCHIDX.get(rows);
@@ -1985,6 +2020,11 @@ const FASTPRIMS = new Map(Object.entries({
   // (read:rule_isdigits, charisdigit over each character) -- then <those digits, imploded>. findrun is
   // the first 1-based j >= i at which C[j .. j+|P|-1] matches P, as <j, digits>, or PHI. An empty P
   // (tlr raises), a word that is not a string (chars raises), or a start below 1 goes to the DEF.
+  // read:has_key <k, rows>: T when some row's first element eq k (the DEF: not . null . csdp:matches).
+  "read:has_key": x => {
+    if (!Array.isArray(x) || x.length < 2 || !Array.isArray(x[1])) return Ev(DEFS.get("read:has_key"), x);
+    const hit = hasKey(x[0], x[1]);
+    return hit === undefined ? Ev(DEFS.get("read:has_key"), x) : bool(hit); },
   "read:rule_match_at": x => {
     if (!Array.isArray(x) || x.length < 2 || !Array.isArray(x[0]) || !Array.isArray(x[1]) || x[0].length === 0 || x[1].length === 0)
       return Ev(DEFS.get("read:rule_match_at"), x);
@@ -2147,6 +2187,7 @@ const FASTPRIMS = new Map(Object.entries({
       if (!found) { const last = f5[f5.length - 1];
         nf5 = last.length < 9 ? [...f5.slice(0, -1), [...last, val]] : [...f5, [val]]; }
       out[i] = [row[0], row[1], row[2], row[3], nf5, row[5], row[6]]; }
+    keySame(out, rows);   // every row keeps its key where it was: the key index is shared (read:has_key)
     return out; },
   "theta:nth": x => { const l = seq(at(x, 0)); const n = at(x, 1);
     const k = n === 0 ? 0 : (n < 0 ? l.length : Math.min(l.length, n));
