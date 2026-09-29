@@ -6107,6 +6107,11 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     const F = Ev("read:x_full", Ev("read:x_of", rows));
     expect(Ev("read:state_rules", F)).toEqual([]);
     expect(Ev("read:undelivered_rows", F).map(J)).toEqual([J(["undelivered", "OrganizationHasRevenueAmountPerFrequency", "reported", [], "a `where` clause no form says"])]);
+    // and through compile:findings_of_x, the path compile:check hands the host: its cat is binary, so a
+    // third sequence handed it was dropped without a word, and the first version of this finding was
+    expect(Ev("compile:findings_of_x", [F, []]).filter((r) => String(r[0]) === "undelivered").map(J)).toEqual([J(["undelivered", "OrganizationHasRevenueAmountPerFrequency", "reported", [], "a `where` clause no form says"])]);
+    // the same arity bug closed no back button: html:backbtn handed cat three sequences and lost its </a>
+    expect(String(Ev("html:backbtn", ["backbtn", 0, 0, 120, 24, ["cases"]])).endsWith("</a>")).toBe(true);
   }, 300_000);
 });
 // ---- THE JUDGE'S VERDICT LANDS AS A VIOLATION ROW (#122 item 7) ----------
