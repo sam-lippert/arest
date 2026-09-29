@@ -6224,6 +6224,41 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     expect(share.map((r) => [r[0], T(r[1]), r[2]]).sort()).toEqual([["c1", "0.2", "failed"], ["c1", "0.8", "served"], ["c2", "0.33333333333333", "served"]]);
   }, 300_000);
 
+  // FP:OR2 IS NOT A GUARD (2026-09-29). read:rule_chain_step tested `null . 11` inside an or2 whose other side took
+  // `length . 2 . 11`, so when the chain arm found no fact type for a hop the pair was built anyway and the selector
+  // threw on the empty sequence -- the whole reader, for one rule whose head lacks a role a leg quantifies. The
+  // guards are COND now; the chain arm declines the rule and the calc arm reads it.
+  test("a leg that quantifies a role the head lacks declines the chain arm instead of throwing", () => {
+    const text = [
+      "Cancel Request(.id) is an entity type.",
+      "API Endpoint(.path) is an entity type.",
+      "Call Outcome is a value type.",
+      "Call Volume is a value type.",
+      "  The data type of Call Volume is integer.",
+      "Measured Share is a value type.",
+      "  The data type of Measured Share is decimal.",
+      "",
+      "Cancel Request follows Call Volume calls to API Endpoint with Call Outcome.",
+      "  For each Cancel Request, API Endpoint and Call Outcome, that Cancel Request follows at most one Call Volume calls to that API Endpoint with that Call Outcome.",
+      "Cancel Request has counted- Call Volume.",
+      "  Each Cancel Request has at most one counted- Call Volume.",
+      "Cancel Request follows total- Call Volume calls with Call Outcome. *",
+      "  For each Cancel Request and Call Outcome, that Cancel Request follows at most one total- Call Volume calls with that Call Outcome.",
+      "Cancel Request has overall- Measured Share. *",
+      "  Each Cancel Request has at most one overall- Measured Share.",
+      "",
+      "* Cancel Request follows total- Call Volume calls with Call Outcome iff total- Call Volume is the sum of Call Volume where that Cancel Request follows that Call Volume calls to some API Endpoint with that Call Outcome.",
+      "* Cancel Request has overall- Measured Share iff that Cancel Request follows some total- Call Volume calls with some Call Outcome and that Cancel Request has some counted- Call Volume and overall- Measured Share is that total- Call Volume divided by that counted- Call Volume.",
+      "",
+    ].join("\n");
+    const rows = [];
+    for (const s of Ev("read:sentences", text)) rows.push(Ev("read:row_of", s));
+    const F = Ev("read:x_full", Ev("read:x_of", rows));
+    expect(Ev("read:state_undelivered", F)).toEqual([]);
+    const rules = Ev("read:state_rules", F).map((r) => [r[0], r[2]]);
+    expect(rules.find((r) => String(r[0]) === "CancelRequestHasOverallMeasuredShare")[1]).toEqual(["proj", ["calc", ["joinon", "CancelRequestFollowsTotalCallVolumeCallsWithCallOutcome", "CancelRequestHasCountedCallVolume", [[1, 1]], [1, 2, 3, 4, 5]], "dec:div", 2, 5], [1, 6]]);
+  }, 300_000);
+
   test("arithmetic and order by the type a value carries: a sum, a share, a comparison", () => {
     const T = (x) => Ev("value:text", x);
     expect(Ev("value:add", [2, 3])).toBe(5);
