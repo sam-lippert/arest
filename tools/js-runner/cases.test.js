@@ -6259,6 +6259,16 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     expect(rules.find((r) => String(r[0]) === "CancelRequestHasOverallMeasuredShare")[1]).toEqual(["proj", ["calc", ["joinon", "CancelRequestFollowsTotalCallVolumeCallsWithCallOutcome", "CancelRequestHasCountedCallVolume", [[1, 1]], [1, 2, 3, 4, 5]], "dec:div", 2, 5], [1, 6]]);
   }, 300_000);
 
+  // A TUPLE IS KNOWN BY ITS FIRST VALUE, AND A DECIMAL IS A VALUE (2026-09-29). rmap:unnest asked atom of a tuple's
+  // first element, so a tuple opening with a decimal read as a list of cells and unnest descended into the decimal:
+  // the served get of every paid plan on support threw `selector 1 on atom: 0` once its money was held as decimals.
+  test("a tuple whose first value is a decimal untuples, and does not unnest the decimal", () => {
+    const d = ["decimal", 100, 0];
+    expect(Ev("rmap:unnest", [d, "x"])).toEqual([[d], ["x"]]);
+    expect(Ev("rmap:unnest", [["decimal", 15, 4], ["decimal", 25, 2]])).toEqual([[["decimal", 15, 4]], [["decimal", 25, 2]]]);
+    expect(Ev("rmap:unnest", ["a", "b"])).toEqual([["a"], ["b"]]);
+  });
+
   test("arithmetic and order by the type a value carries: a sum, a share, a comparison", () => {
     const T = (x) => Ev("value:text", x);
     expect(Ev("value:add", [2, 3])).toBe(5);
