@@ -1257,6 +1257,16 @@ function twinOfBody(f) {
   }
   return TWINBODY.get(f);
 }
+// the first cell of a store named n, the cell itself: ast:fetch answers its contents and main:cell_same compares
+// cells by identity. Indexed once per store array, keyed by name, cleared with the memo as the other indexes are.
+function fetchCell(cells, name) {
+  let idx = FETCHIDX.get(cells);
+  if (idx === undefined) { idx = new Map();
+    for (const c of cells) { if (!Array.isArray(c) || c.length !== 3) continue;
+      const k = JSON.stringify(c[1]); if (!idx.has(k)) idx.set(k, c); }
+    FETCHIDX.set(cells, idx); }
+  return idx.get(JSON.stringify(name));
+}
 const FASTPRIMS = new Map(Object.entries({
   // CONS and CONST are lambda (Backus 13.3.2, reached through tau clause (c)) and
   // stay so; these are their fast paths, the same value in one pass.
@@ -1280,14 +1290,17 @@ const FASTPRIMS = new Map(Object.entries({
   // each population in a cell whose contents are read the first time anything
   // reaches into them, and indexing every contents up front read every table
   // (2026-09-24).
-  "ast:fetch": x => { const name = at(x, 0), cells = seq(at(x, 1));
-    let idx = FETCHIDX.get(cells);
-    if (idx === undefined) { idx = new Map();
-      for (const c of cells) { if (!Array.isArray(c) || c.length !== 3) continue;
-        const k = JSON.stringify(c[1]); if (!idx.has(k)) idx.set(k, c); }
-      FETCHIDX.set(cells, idx); }
-    const hit = idx.get(JSON.stringify(name));
+  "ast:fetch": x => { const hit = fetchCell(seq(at(x, 1)), at(x, 0));
     return hit === undefined ? "#" : hit[2]; },
+  // main:cell_same <name, prior, trial> is whether two stores hold the same cell of that name, eq of the two
+  // fetches. A writer gives the fact type it writes a cell of its own (main:trial_overlay), so the SAME cell in
+  // both, or none in either, is the same population, and it is answered here without reading it: a store read
+  // from its tables on demand keeps each population in a cell whose contents are read the first time anything
+  // reaches into them, and comparing contents at every write would read every table (2026-09-29). Two
+  // different cells are compared as the DEF compares them.
+  "main:cell_same": x => { const name = at(x, 0), a = seq(at(x, 1)), b = seq(at(x, 2));
+    if (a === b || fetchCell(a, name) === fetchCell(b, name)) return "T";
+    return Ev(DEFS.get("main:cell_same"), x); },
   // theta:member over a long list is answered by a set keyed on the list: the
   // law walk asks it once per atom of every form against the store's cell names
   // (43,156 asks over the same list, 13 of the base report's 89 seconds,
