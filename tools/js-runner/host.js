@@ -1338,7 +1338,14 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   // read:fact_groups and read:fact_row ask it per fact record, then test membership in it, so
   // theta:member indexed a new 456-element list 3,545 times on support's closure (2026-09-28). The same
   // parse state has the same nested names: memoised, the list and its index are one.
-  "read:nested_names"]);
+  "read:nested_names",
+  // reflect:eldomain is the design state's <element, domain> pairs unfolded, and reflect:dom_of asks it
+  // once per Function id to find that id's domain -- through solve:assoc, whose index is kept by the
+  // array's identity. rmap:unfold4 under it is memoable but is judged bare on a compile's other
+  // cells, so every ask unfolded a new list and indexed it afresh: solve:assoc was 74% of the
+  // closure's reflection on support's store, 44 of its 65 sampled seconds (2026-09-29). The cells
+  // are one value between memoClears, so their pairs are one list and its index one index.
+  "reflect:eldomain"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot lambda list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
