@@ -4556,6 +4556,74 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
       else expect(tw).toBe(dw);
     }
   });
+  // and rmap:unproj itself (2026-09-29): a table's rows read back as facts, each column's decisions asked of the
+  // DEFs once. Held to its DEF on every table the test store has, over the rows its own projection makes; on the
+  // widest table and a relation table over rows empty, full, sparse, holding T, numbers and the empty string,
+  // short and long; and on the shapes the DEF raises on, which the twin must hand back to it.
+  test("the rmap:unproj twin is its DEF", () => {
+    const def = DEFS.get("rmap:unproj");
+    const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
+    const same = (x) => {
+      let tw = "", dw = "", a, b;
+      try { a = Ev("rmap:unproj", x); } catch (e) { tw = e.message; }
+      try { b = Ev(def, x); } catch (e) { dw = e.message; }
+      expect(tw).toBe(dw);
+      if (dw === "") expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+      return dw;
+    };
+    const tables = Ev("rmap:coltabs", CELLS).map((t) => String(t[0]));
+    let facts = 0, filled = 0;
+    for (const t of tables) {
+      const rows = Ev("rmap:proj_rows", [t, CELLS]).map((r) => r.map((v) => (v === "#" ? "#" : flat(v))));
+      if (!rows.length) continue;
+      filled++;
+      same([t, rows, CELLS]);
+      facts += Ev("rmap:unproj", [t, rows, CELLS]).length;
+    }
+    expect(filled).toBeGreaterThan(4);   // the base store fills six tables
+    expect(facts).toBeGreaterThan(100);
+    const ctxs = tables.map((t) => [t, Ev("rmap:unproj_ctx", [t, CELLS])]).filter(([, c]) => Array.isArray(c) && Array.isArray(c[1]));
+    const widest = ctxs.slice().sort((a, b) => b[1][1].length - a[1][1].length)[0];
+    const relation = ctxs.find(([, c]) => c[3] === "T" && Array.isArray(c[5]) && c[5].some((rc) => rc > 0));
+    // and a table with a column whose fact type is unary, where only a T is a fact
+    const fts = Ev("store:fts", CELLS);
+    const unaryAt = (ctx) => ctx[1].findIndex((p) => { try { const ft = Ev("rmap:proj_carried", p[1]);
+      return ft !== "#" && !ctx[2].includes(p[0]) && Ev("cn:contains", [ft, "IsInvolved"]) !== "T" && Ev("length", Ev(2, Ev(1, Ev("rmap:proj_hits", [ft, fts])))) === 1; } catch { return false; } });
+    const unary = ctxs.find(([, c]) => Array.isArray(c[2]) && c[2].length > 0 && unaryAt(c) >= 0);
+    expect(widest).toBeDefined();
+    expect(relation).toBeDefined();
+    expect(unary).toBeDefined();
+    // row by row, so a row the DEF raises on does not stand in for the others
+    let answered = 0;
+    for (const [t, ctx] of [widest, relation, unary]) {
+      const w = ctx[1].length;
+      const at = (f) => Array.from({ length: w }, (_, i) => f(i));
+      for (const row of [
+        at(() => "#"), at((i) => "v" + i), at((i) => (i % 7 === 0 ? "v" + i : "#")), at((i) => (i % 2 ? "T" : "#")),
+        at((i) => (i % 3 === 0 ? i : "#")), at((i) => (i % 5 === 0 ? "" : "#")), at((i) => "v" + i).slice(0, 3),
+        at((i) => "v" + i).concat(["extra", "#", "x"]),
+      ]) if (same([t, [row], CELLS]) === "") answered++;
+      same([t, [], CELLS]);
+    }
+    expect(answered).toBeGreaterThan(6);
+    // the unary column alone beside the key: T is the fact, anything else is none
+    {
+      const [t, ctx] = unary, w = ctx[1].length, u = unaryAt(ctx);
+      const k = ctx[1].findIndex((p) => ctx[2].includes(p[0]));
+      const only = (key, v) => Array.from({ length: w }, (_, i) => (i === k ? key : i === u ? v : "#"));
+      expect(same([t, [only("k1", "T"), only("k2", "no"), only("k3", "")], CELLS])).toBe("");
+      expect(Ev("rmap:unproj", [t, [only("k1", "T"), only("k2", "no")], CELLS]).length).toBe(1);
+    }
+    // the shapes the DEF raises on
+    const [rt, rctx] = relation;
+    const raised = [
+      same([rt, [["x"]], CELLS]),                                            // a relation row short of its role columns
+      same([widest[0], ["row"], CELLS]),                                    // a row that is an atom
+      same([widest[0], "rows", CELLS]),                                     // rows that are an atom
+    ];
+    expect(raised.filter((m) => m !== "").length).toBeGreaterThan(1);
+    same([widest[0], [Array.from({ length: widest[1][1].length }, (_, i) => (i === 1 ? ["a", "b"] : "#"))], CELLS]);   // a value that is a sequence
+  }, 120_000);
   test("the read:put_row twin is its DEF", () => {
     const def = DEFS.get("read:put_row");
     const row = (name, chunks, t = ["p", "q"]) => [name, "b", "c", "d", chunks, t[0], t[1]];

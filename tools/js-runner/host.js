@@ -1586,6 +1586,81 @@ function superSame(out, p) {
 }
 // the paths arrays rmap:unproj_live has checked, by identity (its twin, below)
 const LIVEPATHS = new WeakSet();
+// A TABLE'S ROWS READ BACK AS FACTS, EACH COLUMN DECIDED ONCE (2026-09-29). rmap:unproj hands every row to
+// rmap:unproj_rowpairs and every filled cell of it to rmap:unproj_cell, whose tests -- the fact type the column
+// carries (rmap:proj_carried), whether the column is a key column, whether that fact type is a role link
+// (IsInvolved), its arity, and the key's position in it -- are all the COLUMN's and none of them the row's. On
+// support's Function table, 34,547 rows by 313 columns, lambda was asked them for each of its 141,260 filled
+// cells, and that one table was 584 of the store load's 1,256 unproj milliseconds. So a column is decided the
+// first time a row fills it, by the same DEFs in the same order, and the decision is kept with the table's ctx;
+// a row is then its key's values and, column by column, the fact its column makes of the value: none; the key
+// alone when the fact type is unary and the value is T; else the key with the value before it (the key at
+// position 2) or after it. A relation table's row is first the relation's own fact, its role columns' values
+// as rmap:unproj_relpairs selects them. The DEF is the meaning: a shape it would raise on or read otherwise --
+// an argument or a row that is not a sequence, a value that is not an atom, a column whose decision raises, a
+// role column that is no position in the row -- is the DEF's, the whole table.
+const UNPROJPLAN = new WeakMap();
+function unprojAll(x) {
+  const def = () => Ev(DEFS.get("rmap:unproj"), x);
+  if (!Array.isArray(x) || x.length < 3 || !Array.isArray(x[1])) return def();
+  const rows = x[1];
+  let ctx;
+  try { ctx = Ev("rmap:unproj_ctx", [x[0], x[2]]); } catch { return def(); }
+  if (!Array.isArray(ctx) || ctx.length < 6 || !Array.isArray(ctx[1]) || !Array.isArray(ctx[2]) || !Array.isArray(ctx[5])) return def();
+  let plan = UNPROJPLAN.get(ctx);
+  if (plan === undefined) {
+    const paths = ctx[1], pk = ctx[2], rolecols = ctx[5];
+    for (const p of paths) if (!Array.isArray(p) || p.length < 2 || typeof p[0] !== "string") return def();
+    for (const k of pk) if (typeof k !== "string") return def();
+    const rel = ctx[3] === "T";
+    if (rel) for (const rc of rolecols) if (typeof rc !== "number" || !Number.isInteger(rc) || rc < 0) return def();
+    const keyAt = [];
+    for (let i = 0; i < paths.length; i++) if (pk.includes(paths[i][0])) keyAt.push(i);
+    plan = { rel, keyAt, cols: new Array(paths.length) };
+    UNPROJPLAN.set(ctx, plan);
+  }
+  const table = ctx[0], paths = ctx[1], pk = ctx[2], store = ctx[4], rolecols = ctx[5];
+  const colOf = (i) => {
+    let c = plan.cols[i];
+    if (c !== undefined) return c;
+    const path = paths[i][1];
+    const ft = Ev("rmap:proj_carried", path);
+    if (ft === "#" || pk.includes(paths[i][0]) || Ev("cn:contains", [ft, "IsInvolved"]) === "T") c = { kind: 0 };
+    else if (Ev("length", Ev(2, Ev(1, Ev("rmap:proj_hits", [ft, Ev("store:fts", store)])))) === 1) c = { kind: 1, ft };
+    else c = { kind: Ev("eq", [Ev("rmap:proj_keypos", [Ev(1, Ev("rmap:proj_nonassim", path)), store]), 2]) === "T" ? 2 : 3, ft };
+    plan.cols[i] = c;
+    return c;
+  };
+  const out = [];
+  try {
+    for (const row of rows) {
+      if (!Array.isArray(row)) return def();
+      const n = Math.min(row.length, paths.length);
+      const key = [];
+      for (const i of plan.keyAt) { if (i >= n) break; key.push(row[i]); }
+      if (plan.rel) {
+        const vals = new Array(rolecols.length);
+        for (let j = 0; j < rolecols.length; j++) {
+          const rc = rolecols[j];
+          if (rc === 0) vals[j] = "#";
+          else if (rc > row.length) return def();
+          else vals[j] = row[rc - 1];
+        }
+        out.push([table, vals]);
+      }
+      for (let i = 0; i < n; i++) {
+        const v = row[i];
+        if (typeof v !== "string" && typeof v !== "number") return def();
+        if (v === "#") continue;
+        const c = colOf(i);
+        if (c.kind === 0) continue;
+        if (c.kind === 1) { if (v === "T") out.push([c.ft, key]); continue; }
+        out.push([c.ft, c.kind === 2 ? [v, ...key] : [...key, v]]);
+      }
+    }
+  } catch { return def(); }
+  return out;
+}
 // AREST_NOTWIN=name,name disables those twins for one run, so a twin can be
 // held against its DEF on the same inputs: the law report is the only gate
 // that exercises most of them, and a twin that is not the DEF fails it
@@ -2350,6 +2425,7 @@ const FASTPRIMS = new Map(Object.entries({
     }
     return out;
   },
+  "rmap:unproj": x => unprojAll(x),
   "rmap:unproj_live": x => {
     const def = () => Ev(DEFS.get("rmap:unproj_live"), x);
     if (!Array.isArray(x) || x.length < 2) return def();
