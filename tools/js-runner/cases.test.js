@@ -1937,6 +1937,13 @@ test("a rebuild supersedes what the last build asserted and carries only what th
     db.close(true);
     return JSON.stringify(rows);
   };
+  // the build's records as facts, <fact type, tuple> each (2026-09-29)
+  const records = (table) => {
+    const db = new Database(path, { readonly: true });
+    const rows = db.query('select "ft", "row" from ' + quo(table)).values().map((r) => r[0] + " " + r[1]);
+    db.close(true);
+    return rows;
+  };
   try {
     writeFileSync(join(app, "widgets.md"), readings(true));
     const first = build();
@@ -1944,6 +1951,11 @@ test("a rebuild supersedes what the last build asserted and carries only what th
     expect(first.out).toMatch(/ledger: [1-9]\d* row\(s\)/);
     expect(naming("WidgetHasColor")).toBeGreaterThan(0);
     expect(widgets()).toBe(JSON.stringify([["w1", "red", "S"]]));
+    // and the build records, as facts, what the readings assert and what the closure derived into
+    // a semi-derived head: a World Assumption for the object types no reading gives one
+    expect(records("_readings")).toContain('WidgetHasColor ["w1","red"]');
+    expect(records("_readings")).toContain('WidgetHasSize ["w1","S"]');
+    expect(records("_derived").filter((r) => r.startsWith("ObjectTypeHasWorldAssumption ")).length).toBeGreaterThan(0);
 
     // what the runtime wrote: a widget of its own, with a size
     {
@@ -1962,6 +1974,10 @@ test("a rebuild supersedes what the last build asserted and carries only what th
     expect(second.out).toMatch(/\[[1-9]\d* row\(s\) superseded/);
     expect(naming("WidgetHasColor")).toBe(0);
     expect(widgets()).toBe(JSON.stringify([["w-rt", "L"], ["w1", "S"]]));
+    // the records are this build's: color is no longer asserted, and the runtime's widget never was
+    expect(records("_readings").some((r) => r.startsWith("WidgetHasColor "))).toBe(false);
+    expect(records("_readings")).not.toContain('WidgetHasSize ["w-rt","L"]');
+    expect(records("_readings")).toContain('WidgetHasSize ["w1","S"]');
 
     // and nothing changed: the runtime row alone is carried, nothing superseded
     const third = build();

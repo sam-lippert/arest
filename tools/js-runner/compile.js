@@ -722,6 +722,11 @@ if (!out && !outDir) {
   // column order. A Function row is 301 columns of which three or four hold
   // anything, so the empty ones are left out rather than written as null.
   const ledgerRow = (names, row) => { const o = {}; for (const nm of names) { const v = row[nm]; if (v !== null && v !== undefined) o[nm] = v; } return JSON.stringify(o); };
+  // AND A FACT AS THE RECORDS SPELL IT (2026-09-29): its tuple as JSON, every number as the text a
+  // table cell holds, so a fact read back from the tables and the same fact as the readings state it
+  // are one spelling (the 1-and-"1" note beside popSnapshot in host.js).
+  const asStoredV = (v) => (Array.isArray(v) ? v.map(asStoredV) : typeof v === "number" ? String(v) : v);
+  const factText = (r) => JSON.stringify(asStoredV(r));
   // what this carry brought back, by table: by key where the row had one, whole
   // where it did not -- the rows the ledger written below leaves out
   const carriedKeys = new Map(), carriedRows = new Map();
@@ -1150,6 +1155,10 @@ if (!out && !outDir) {
   // what that adds is projected into its tables -- the same three lines a
   // write takes: snapshot, evaluate, emit what changed.
   const t4 = Date.now();
+  // WHAT THE READINGS ASSERT, fact type by fact type (2026-09-29): store:fts's fifth slot is the
+  // readings' own population until a store is adopted into the cells, which the next line does.
+  const readingsFacts = [];
+  for (const d of Ev("store:fts", CELLS)) if (Array.isArray(d) && Array.isArray(d[4])) for (const r of d[4]) readingsFacts.push([String(d[0]), factText(r)]);
   process.env.AREST_STORE_DB = build;
   loadStoreDb(build);
   collect();
@@ -1157,6 +1166,24 @@ if (!out && !outDir) {
   closeStore();
   collect();
   const closed = emitToDb(beforeClosure, CELLS);
+  // AND WHAT THE CLOSURE DERIVED INTO A SEMI-DERIVED HEAD (2026-09-29). A semi-derived head holds
+  // rows the readings or the runtime asserted and rows the rules derived, and once written they are
+  // all rows of one table: this is the second kind, the head's population after the closure less the
+  // one it was handed. A head whose answer cannot be read leaves no record at all rather than a
+  // partial one, so nothing downstream can take a derived row for an asserted one.
+  let derivedFacts = [];
+  try {
+    for (const mk of Ev("derive:sm_marks", CELLS)) {
+      if (String(mk[1]) !== "semi" && String(mk[1]) !== "semi-derived") continue;
+      const ft = String(mk[0]);
+      const was = new Set((beforeClosure.has(ft) ? JSON.parse(beforeClosure.get(ft)) : []).map(factText));
+      const now = Ev("system:pop_rows", [ft, CELLS]);
+      for (const r of Array.isArray(now) ? now : []) { const t = factText(r); if (!was.has(t)) derivedFacts.push([ft, t]); }
+    }
+  } catch (e) {
+    console.error("  (what the closure derived into semi-derived heads could not be read -- " + String(e.message).slice(0, 120) + " -- no record of it is written)");
+    derivedFacts = null;
+  }
   // A FILL THE CLOSURE DERIVES IS THE CLOSURE'S, NOT THE RUNTIME'S (2026-09-25). The carry
   // fills a cell the build left empty from the prior store, and a filled row is the runtime's,
   // so the ledger leaves it out. But a build leaves EVERY derived column empty -- the closure
@@ -1219,6 +1246,20 @@ if (!out && !outDir) {
     const ldb = new Database(build);
     ldb.exec('create table if not exists "_asserted" ("tbl" text not null, "row" text not null, primary key ("tbl", "row")) without rowid');
     ldb.exec("begin");
+    // THE READINGS' FACTS AND THE CLOSURE'S, AS FACTS (2026-09-29). The ledger says which ROWS a
+    // build asserted; these say which FACTS: every fact the readings assert (_readings) and every
+    // fact the closure derived into a semi-derived head (_derived). What the store holds beyond
+    // them, and beyond the reflected and fully derived populations the closure recomputes whole,
+    // is what the runtime wrote -- which is what a compile that applies a readings change to the
+    // store in place has to know, fact by fact.
+    ldb.exec('create table if not exists "_readings" ("ft" text not null, "row" text not null, primary key ("ft", "row")) without rowid');
+    const putR = ldb.prepare('insert or ignore into "_readings" ("ft", "row") values (?, ?)');
+    for (const [ft, t] of readingsFacts) putR.run(ft, t);
+    if (derivedFacts) {
+      ldb.exec('create table if not exists "_derived" ("ft" text not null, "row" text not null, primary key ("ft", "row")) without rowid');
+      const putD = ldb.prepare('insert or ignore into "_derived" ("ft", "row") values (?, ?)');
+      for (const [ft, t] of derivedFacts) putD.run(ft, t);
+    }
     const put = ldb.prepare('insert or ignore into "_asserted" ("tbl", "row") values (?, ?)');
     for (const t of ldb.prepare("select name from sqlite_master where type = 'table'").values()) {
       const table = String(t[0]);
@@ -1242,6 +1283,8 @@ if (!out && !outDir) {
     ldb.close(true);
   }
   console.log("ledger: " + ledgered + " row(s) the readings and the closure assert (" + (Date.now() - tLedger) + " ms)");
+  console.log("record: " + readingsFacts.length + " fact(s) the readings assert, "
+    + (derivedFacts ? derivedFacts.length + " the closure derived into semi-derived heads" : "the closure's not recorded"));
   renameSync(build, out);
   console.log("store: " + n + " tables, " + inserted + " rows at " + out
     + ", schema " + schemaHash
