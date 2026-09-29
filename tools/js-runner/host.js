@@ -1222,7 +1222,14 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   // work ... objects and object types first"). Keyed on the string, it is the
   // same token list: lambda is pure. lex:qparts itself is NOT memoised, because
   // read:tokens_of hands it every sentence once and none twice.
-  "read:rule_pw"]);
+  "read:rule_pw",
+  // read:implied_nests is the objectifications a parse implies, over EVERY record, and
+  // read:nested_names asks it three times per fact record -- read:fact_groups once and
+  // read:fact_row twice, all on the same parse state -- each time scanning every record
+  // against the nest names: 5,933,274 theta:member calls on support's closure, 13% of its
+  // parse (sampled, 2026-09-28). The parse state is one value, so its implied nests are one
+  // value: memoised on that argument, as read:state_rules is.
+  "read:implied_nests"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot lambda list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
