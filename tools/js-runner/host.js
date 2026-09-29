@@ -1503,7 +1503,19 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   // cells, so every ask unfolded a new list and indexed it afresh: solve:assoc was 74% of the
   // closure's reflection on support's store, 44 of its 65 sampled seconds (2026-09-29). The cells
   // are one value between memoClears, so their pairs are one list and its index one index.
-  "reflect:eldomain"]);
+  "reflect:eldomain",
+  // main:status_pop folds every machine of a noun through its fired transitions, and four reflections ask it
+  // on the same <cells, noun>: reflect:machines, reflect:msmd, reflect:mstatus and reflect:otistatus each fold
+  // every noun's machines again to read one column of the answer. Measured on support's closed store
+  // (2026-09-29), the memo cleared before each: 244, 245, 236 and 221 ms, and reflect:cells 1,534 ms cold,
+  // the four folds and not one -- and the closure takes the reflection three times. The cells are one value
+  // between memoClears, so a noun's machines are one fold.
+  "main:status_pop",
+  // and reflect:constraints is every constraint the design state declares with its roles resolved, which
+  // reflect:constraint_types and reflect:modalities each read one column of, and reflect:records under
+  // reflect:spans, reflect:span_seqs and reflect:span_positions three more: five computations of one list
+  // and three of its span records per reflection, 39 to 69 ms each alone on support's closed store.
+  "reflect:constraints", "reflect:records"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot lambda list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
