@@ -3968,6 +3968,39 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     expect(run(() => Ev("read:dropn", [6, L]))).toBe("raises");   // past the end raises, as tl does
   });
 
+  // csdp:matches, solve:assoc and every other first-column lookup share one index per APPEND CHAIN
+  // (2026-09-28): the reader's fold appends a record per landed sentence and asks the population
+  // index after each, and indexing each new array afresh keyed 1.55 million rows on tasks' closure
+  // to answer 3,344 asks. An array appended to the newest array of a chain extends the chain's
+  // index, and every array of the chain must still answer ONLY its own rows. Each ask is held
+  // against csdp:matches' own DEF: the chain's tip and its older arrays asked after it has grown
+  // past them, a branch off an array that is no longer the tip, a cat, rows that raise, and keys
+  // that are a number beside its spelling or a sequence.
+  test("a lookup over an array appended to an indexed one answers that array's rows and no others", () => {
+    const def = DEFS.get("csdp:matches");
+    const run = (f) => { try { return JSON.stringify(f()); } catch { return "raises"; } };
+    const same = (key, rows) => expect(run(() => Ev("csdp:matches", [key, rows]))).toBe(run(() => Ev(def, [key, rows])));
+    const chain = [[["a", 1], ["b", 2], ["a", 3]]];
+    same("a", chain[0]);
+    for (let i = 0; i < 6; i++) chain.push(Ev("apndr", [chain[chain.length - 1], [i % 2 ? "a" : "c", 10 + i]]));
+    for (const rows of chain) for (const key of ["a", "b", "c", "z"]) same(key, rows);
+    for (let k = chain.length - 1; k >= 0; k--) same("a", chain[k]);   // the older arrays, after the chain ran past them
+    const b1 = Ev("apndr", [chain[3], ["a", 99]]), b2 = Ev("apndr", [chain[3], ["b", 98]]);   // a branch
+    for (const key of ["a", "b", "c"]) { same(key, b1); same(key, b2); same(key, chain[3]); same(key, chain[chain.length - 1]); }
+    const c1 = Ev("cat", [chain[chain.length - 1], [["a", 50], ["d", 51]]]);
+    for (const key of ["a", "d", "c"]) same(key, c1);
+    same("a", Ev("apndr", [c1, "atom"]));   // raises, as the fold's selector does
+    same("a", Ev("apndr", [c1, []]));
+    same("a", c1);
+    const mixed = [[1, "one"], ["1", "string one"], [["x"], "nested"], [1, "one again"]];
+    for (const key of [1, "1", ["x"], ["y"]]) same(key, mixed);
+    const m2 = Ev("apndr", [mixed, [["x"], "nested 2"]]);
+    for (const key of [1, "1", ["x"]]) { same(key, m2); same(key, mixed); }
+    expect(Ev("csdp:matches", ["a", chain[0]])).toEqual([["a", 1], ["a", 3]]);   // the root, after six appends
+    expect(Ev("solve:assoc", ["c", chain[0]])).toEqual([]);
+    expect(Ev("solve:assoc", ["c", chain[1]])).toBe(10);
+  });
+
   // strdown has a fast twin too. Its DEF folds each character through
   // chardown -- charisup, then charmap:pick over the 26 pairs -- and
   // e33971ab's case-fold in cn:number calls it for both sides of every

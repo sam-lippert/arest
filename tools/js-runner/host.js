@@ -654,10 +654,10 @@ const PRIMS = new Map(Object.entries({
   "tl": x => { const a = seq(x); if (a.length === 0) throw new Error("tl on empty"); return a.slice(1); },
   "atom": x => bool(!Array.isArray(x)),
   "apndl": x => [at(x,0), ...seq(at(x,1))],
-  "apndr": x => { const p = seq(at(x,0)), e = at(x,1); const out = [...p, e]; if (DEDUPKEYS.has(p)) CATPROV.set(out, [p, [e]]); return out; },
+  "apndr": x => { const p = seq(at(x,0)), e = at(x,1); const out = [...p, e]; if (DEDUPKEYS.has(p)) CATPROV.set(out, [p, [e]]); matchProv(out, p, 1); return out; },
   "distl": x => { const h = at(x,0); return seq(at(x,1)).map(e => [h, e]); },
   "distr": x => { const t = at(x,1); return seq(at(x,0)).map(e => [e, t]); },
-  "cat": x => { const p = seq(at(x,0)), s = seq(at(x,1)); const out = [...p, ...s]; if (DEDUPKEYS.has(p)) CATPROV.set(out, [p, s]); return out; },
+  "cat": x => { const p = seq(at(x,0)), s = seq(at(x,1)); const out = [...p, ...s]; if (DEDUPKEYS.has(p)) CATPROV.set(out, [p, s]); matchProv(out, p, s.length); return out; },
   "null": x => bool(Array.isArray(x) && x.length === 0),
   "eq": x => bool(deepEq(at(x,0), at(x,1))),
   "not": x => bool(!(x === "T")),
@@ -1008,7 +1008,7 @@ function memoReleaseWhenIdle(say) {
   }, Number(process.env.AREST_MEMO_IDLE_MS || 5000));
   if (MEMO_IDLE.unref) MEMO_IDLE.unref();
 }
-function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); }
+function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MATCHPROV = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); }
 // the rows of `rows` whose first column equals `key`, in source order -- the value
 // of csdp:matches (INSERT csdp:keep_keyed . theta:append_phi . distl). The fold
 // visits every row, so a row that is not a sequence, or is empty, throws the
@@ -1086,18 +1086,49 @@ function jsonText(x) {
   if (typeof x === "string") return jsonQuote(x);
   return Ev(DEFS.get("render:json_atom"), x);
 }
+// ONE INDEX PER APPEND CHAIN, NOT PER ARRAY (2026-09-28). The reader's fold appends a record per
+// landed sentence and asks csdp:matches of the population index after each: a new array, a new
+// identity, a new index every time -- on tasks' closure 1,193 rebuilds over lists growing one entry
+// at a time from 690 to 1,908 (1,178 of 1,192 consecutive rebuilds exactly +1), 1.55 million rows
+// keyed to answer 3,344 asks. apndr and cat remember what they joined (CATPROV) when the left side
+// is indexed, so an array made by appending to the newest array of a chain extends that chain's
+// index in place, and every array of the chain answers only the positions below its own length --
+// an older, shorter array still answers exactly its own rows. A second append to an array that is
+// no longer the chain's newest is a branch, and indexes afresh. A row that is an atom or empty
+// raises the selector error before anything is indexed, as the full build raised it.
+function matchAdd(ln, rows, from) {
+  for (let i = from; i < rows.length; i++) { const r = rows[i];
+    if (!Array.isArray(r)) throw new Error("selector 1 on atom: " + show(r));
+    if (r.length < 1) throw new Error("selector 1 out of range 0"); }
+  for (let i = from; i < rows.length; i++) { const r = rows[i], k = keyOf(r[0]);
+    let a = ln.idx.get(k); if (a === undefined) { a = { rows: [], pos: [] }; ln.idx.set(k, a); }
+    a.rows.push(r); a.pos.push(i); }
+  ln.len = rows.length;
+}
+// out = p ++ (n elements): the chain out extends is p's own, or the one p was itself about to
+// extend, and what is kept is that chain and the length it had reached -- never p, so an append
+// chain does not keep every copy it made alive the way a remembered [p, s] would.
+let MATCHPROV = new WeakMap();
+function matchProv(out, p, n) {
+  const ml = MATCHIDX.get(p);
+  if (ml !== undefined) { MATCHPROV.set(out, [ml, p.length]); return; }
+  const pp = MATCHPROV.get(p);
+  if (pp !== undefined) MATCHPROV.set(out, pp);
+}
 function matchRows(key, rows) {
-  let idx = MATCHIDX.get(rows);
-  if (idx === undefined) { idx = new Map();
-    for (let i = 0; i < rows.length; i++) { const r = rows[i];
-      if (!Array.isArray(r)) throw new Error("selector 1 on atom: " + show(r));
-      if (r.length < 1) throw new Error("selector 1 out of range 0");
-      const k = keyOf(r[0]);
-      let a = idx.get(k); if (a === undefined) { a = []; idx.set(k, a); }
-      a.push(r); }
-    MATCHIDX.set(rows, idx); }
-  const hit = idx.get(keyOf(key));
-  return hit === undefined ? [] : hit;
+  let ln = MATCHIDX.get(rows);
+  if (ln === undefined) {
+    const prov = MATCHPROV.get(rows), pl = prov === undefined ? undefined : prov[0];
+    if (pl !== undefined && pl.len === prov[1] && prov[1] <= rows.length) { matchAdd(pl, rows, prov[1]); ln = pl; }
+    else { const fresh = { idx: new Map(), len: 0 }; matchAdd(fresh, rows, 0); ln = fresh; }
+    MATCHIDX.set(rows, ln);
+  }
+  const hit = ln.idx.get(keyOf(key));
+  if (hit === undefined) return [];
+  let n = hit.pos.length;
+  if (hit.pos[n - 1] < rows.length) return hit.rows;
+  while (n > 0 && hit.pos[n - 1] >= rows.length) n--;
+  return hit.rows.slice(0, n);
 }
 // the same, on an arbitrary column. csdp:matches indexes column 1 and ONLY
 // column 1, which is why the joins that cost the most were invisible to it:
