@@ -1210,7 +1210,19 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   // read:rule_rows entered under state:rules and again under
   // state:undelivered). Memoised on that argument's identity, the rows are
   // the same rows: lambda is pure and the two cells are unchanged.
-  "read:state_rules"]);
+  "read:state_rules",
+  // read:rule_pw is the rules compiler's tokenizer -- lex:qparts, whole -- and its
+  // seventeen arms call it through nineteen DEFs to tokenize an OBJECT TYPE NAME or a
+  // fixed phrase at the moment each arm tries one: read:rule_last_j alone tests every
+  // name, longest first, four ways against both clauses of every rule it is handed.
+  // Measured on tasks' closure (2,470 sentences, 2026-09-28): 56,945 calls over a few
+  // hundred distinct names, 19.3 of the 34.3 s the profiler charged to state:rules,
+  // itself 90% of read:schema. A name has one tokenization; the vocabulary is
+  // tokenized once and every later arm reads it (Sam, 2026-09-28: "parsing has to
+  // work ... objects and object types first"). Keyed on the string, it is the
+  // same token list: lambda is pure. lex:qparts itself is NOT memoised, because
+  // read:tokens_of hands it every sentence once and none twice.
+  "read:rule_pw"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot lambda list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
