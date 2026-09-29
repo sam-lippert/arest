@@ -6269,6 +6269,20 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     expect(Ev("rmap:unnest", ["a", "b"])).toEqual([["a"], ["b"]]);
   });
 
+  // A ROW THAT OPENS WITH A DECIMAL IS A ROW (2026-09-29). value:typed_rows asked atom of a row's first element, so
+  // claude's Coordinate rows <valence- Coord, arousal- Coord, Coordinate>, once typed, read as lists of rows and were
+  // typed again inside each decimal: <decimal, <decimal, -7, 0>, 1>, and the store refused the population.
+  test("a population whose rows open with a decimal types once, and typing twice is typing once", () => {
+    const kinds = ["decimal", "decimal", "text"];
+    const text = [["-0.7", "0.7", "c_n70_70"], ["0", "0.35", "c_0_35"]];
+    const once = Ev("value:typed_rows", [kinds, text]);
+    expect(once).toEqual([[["decimal", -7, 1], ["decimal", 7, 1], "c_n70_70"], [0, ["decimal", 35, 2], "c_0_35"]].map((r) => r.map((v) => (v === 0 ? Ev("value:as_dec", "0") : v))));
+    expect(Ev("value:typed_rows", [kinds, once])).toEqual(once);
+    const chunked = [text.slice(0, 1), text.slice(1)];
+    expect(Ev("value:typed_rows", [kinds, Ev("value:typed_rows", [kinds, chunked])])).toEqual([once.slice(0, 1), once.slice(1)]);
+    expect(Ev("value:kind_deep", ["decimal", [["decimal", -7, 1], "0.5"]])).toEqual([["decimal", -7, 1], ["decimal", 5, 1]]);
+  });
+
   test("arithmetic and order by the type a value carries: a sum, a share, a comparison", () => {
     const T = (x) => Ev("value:text", x);
     expect(Ev("value:add", [2, 3])).toBe(5);
