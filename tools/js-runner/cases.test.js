@@ -3939,6 +3939,35 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     expect(Ev("read:spoken", ["--", "-", "-x"])).toEqual(["--", "-x"]);
   });
 
+  // read:firstn, read:dropn and read:rule_seq_at have fast twins too (2026-09-28). The rules
+  // compiler found a word sequence in a clause by slicing the clause at every position, each
+  // slice a WHILE of tl or tlr that copies the list at every step: sampled on support's
+  // closure, rule_slice, firstn and dropn were 27%, 23% and 12% of the whole parse. Each DEF's
+  // compiled form is evaluated beside its twin on every branch its contract distinguishes and
+  // on every shape the DEF raises on, which the twin hands back to the DEF: a count below
+  // zero, past the end, fractional, not a number, NaN; an atom where a sequence goes; the empty
+  // sequence searched and searched for; a nested element; a number beside its own spelling.
+  test("the read:firstn, read:dropn and read:rule_seq_at twins are their DEFs", () => {
+    const run = (f) => { try { return JSON.stringify(f()); } catch { return "raises"; } };
+    const L = ["a", "b", "c", "d", "e"], N = [["x"], "y", 3, ["x"]];
+    const cases = {
+      "read:dropn": [[0, L], [1, L], [5, L], [6, L], [-1, L], [0.5, L], [4.5, L], [0, "atom"], [1, "atom"], [1, []],
+        ["1", L], [NaN, L], [3, N], [2, L, "extra"], "atom", [1]],
+      "read:firstn": [[0, L], [3, L], [5, L], [9, L], [-1, L], [1.5, L], [0, []], [-1, []], [2, "atom"], ["2", L],
+        [NaN, L], [2, N], "atom", [1]],
+      "read:rule_seq_at": [[["b", "c"], L], [["e"], L], [["e", "f"], L], [["x"], L], [[], L], [[], []], [["a"], []],
+        [["b", "b"], ["a", "b", "b", "c"]], [[["x"]], N], [["y", 3], N], [[3], ["3"]], [["3"], [3]], ["atom", L],
+        [["a"], "atom"], [["a"]], [["that", "Customer"], ["each", "Order", "is", "for", "that", "Customer"]]],
+    };
+    for (const [name, inputs] of Object.entries(cases)) {
+      const def = DEFS.get(name);
+      for (const x of inputs) expect(run(() => Ev(name, x))).toBe(run(() => Ev(def, x)));
+    }
+    expect(Ev("read:rule_seq_at", [["that", "Customer"], ["each", "Order", "is", "for", "that", "Customer"]])).toBe(5);
+    expect(Ev("read:rule_seq_at", [[], ["a"]])).toBe(1);   // the empty sequence is at 1
+    expect(run(() => Ev("read:dropn", [6, L]))).toBe("raises");   // past the end raises, as tl does
+  });
+
   // strdown has a fast twin too. Its DEF folds each character through
   // chardown -- charisup, then charmap:pick over the 26 pairs -- and
   // e33971ab's case-fold in cn:number calls it for both sides of every

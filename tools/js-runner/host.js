@@ -1832,6 +1832,39 @@ const FASTPRIMS = new Map(Object.entries({
   // "" and " " are kept because they are not it either. The DEF is the meaning
   // and the suite holds this against its compiled form.
   "read:spoken": x => seq(x).filter((e) => e !== "-"),
+  // read:firstn, read:dropn and read:rule_seq_at, native (2026-09-28). The rules compiler finds a
+  // word sequence in a clause with read:rule_seq_at, which slices the clause at EVERY position through
+  // read:rule_slice -- read:firstn over read:dropn, a WHILE of tlr over a WHILE of tl, each step a
+  // copy -- so one search allocated O(n^3) and fifteen rule arms run it for every name they try:
+  // sampled on support's closure, rule_slice, firstn and dropn were 27%, 23% and 12% of the whole
+  // parse. The DEFs are the meaning. Same contract, read off the DEFs and the prims they use:
+  //   read:dropn <n, L>: L itself when n <= 0; else L without its first ceil(n) -- tl raises on the
+  //     empty sequence and on an atom, and a non-number n raises in gt
+  //   read:firstn <n, L>: L when length(L) <= n; else its first floor(n) -- a negative n empties L
+  //     and then raises in tlr, and length raises on an atom
+  //   read:rule_seq_at <S, C>: the first 1-based i with C[i..i+|S|-1] eq S element by element
+  //     (deepEq, the eq prim), 0 for none; the empty S is at 1
+  // and every shape the DEF would raise on is handed to the DEF, so it raises as the DEF does.
+  "read:dropn": x => {
+    if (!Array.isArray(x) || x.length < 2 || typeof x[0] !== "number" || !Number.isFinite(x[0])) return Ev(DEFS.get("read:dropn"), x);
+    if (x[0] <= 0) return x[1];
+    const k = Math.ceil(x[0]), l = x[1];
+    if (!Array.isArray(l) || k > l.length) return Ev(DEFS.get("read:dropn"), x);
+    return l.slice(k); },
+  "read:firstn": x => {
+    if (!Array.isArray(x) || x.length < 2 || typeof x[0] !== "number" || !Number.isFinite(x[0]) || x[0] < 0 || !Array.isArray(x[1]))
+      return Ev(DEFS.get("read:firstn"), x);
+    const n = x[0], l = x[1];
+    return l.length > n ? l.slice(0, Math.floor(n)) : l; },
+  "read:rule_seq_at": x => {
+    if (!Array.isArray(x) || x.length < 2 || !Array.isArray(x[0]) || !Array.isArray(x[1])) return Ev(DEFS.get("read:rule_seq_at"), x);
+    const w = x[0], c = x[1], m = w.length;
+    for (let i = 0; i + m <= c.length; i++) {
+      let hit = true;
+      for (let k = 0; k < m; k++) if (!deepEq(c[i + k], w[k])) { hit = false; break; }
+      if (hit) return i + 1;
+    }
+    return 0; },
   // read:super_of, one native pass with an index. The DEF is a COND over
   // theta:flatten(ALPHA(guard)(distr<rows, name>)): it pairs the name with
   // EVERY row, interprets the guard per pair -- read:player_head on the
