@@ -1096,6 +1096,34 @@ function jsonText(x) {
 // an older, shorter array still answers exactly its own rows. A second append to an array that is
 // no longer the chain's newest is a branch, and indexes afresh. A row that is an atom or empty
 // raises the selector error before anything is indexed, as the full build raised it.
+let PARSEDB = null, PARSEDBPATH = null;
+function parseCacheDb() {
+  const want = process.env.AREST_PARSE_CACHE || require("node:path").join(require("node:os").tmpdir(), "arest-cache", "parse.db");
+  if (PARSEDB && PARSEDBPATH === want) return PARSEDB;
+  try {
+    require("node:fs").mkdirSync(require("node:path").dirname(want), { recursive: true });
+    const { Database } = require("bun:sqlite");
+    const db = new Database(want, { create: true });
+    db.exec("pragma journal_mode = wal"); db.exec("pragma busy_timeout = 5000");
+    db.exec("create table if not exists rows (k text primary key, v text not null)");
+    PARSEDB = db; PARSEDBPATH = want; return db;
+  } catch { return null; }
+}
+function parseCached(x) {
+  const def = () => Ev(DEFS.get("compile:text_rows"), x);
+  if (process.env.AREST_PARSE_CACHE === "off" || !COMPOSITION) return def();
+  if (!Array.isArray(x) || x.length < 2 || typeof x[0] !== "string" || typeof x[1] !== "string") return def();
+  if (x[0] === ".env" || x[0].endsWith("/.env") || x[0].endsWith(".env")) return def();
+  const db = parseCacheDb();
+  if (db === null) return def();
+  const key = require("node:crypto").createHash("sha256").update(JSON.stringify([COMPOSITION, DEFS.get("read:strict") || null, x[0], x[1]])).digest("hex");
+  let hit = null;
+  try { hit = db.query("select v from rows where k = ?").get(key); } catch { hit = null; }
+  if (hit) return JSON.parse(hit.v);
+  const v = def();
+  try { db.query("insert or replace into rows (k, v) values (?, ?)").run(key, JSON.stringify(v)); } catch { }
+  return v;
+}
 function matchAdd(ln, rows, from) {
   for (let i = from; i < rows.length; i++) { const r = rows[i];
     if (!Array.isArray(r)) throw new Error("selector 1 on atom: " + show(r));
@@ -1894,6 +1922,15 @@ const FASTPRIMS = new Map(Object.entries({
       return Ev(DEFS.get("read:firstn"), x);
     const n = x[0], l = x[1];
     return l.length > n ? l.slice(0, Math.floor(n)) : l; },
+  // compile:text_rows <name, text> is a readings file's rows -- the env filter, the sentences, a row per
+  // sentence -- and nothing else goes in: no vocabulary, no other file. So a file whose text has not changed
+  // has the rows it had, and they are KEPT ACROSS RUNS (2026-09-28): keyed by the module's composition (lambda
+  // itself, so any edit to it misses), the strict cell and the name and text, in a SQLite file under the OS
+  // temp directory that every app's check shares -- they all read the same metamodel. Sam: "Is there a way
+  // to figure out if the file changed and only compile the changes?" A .env is NEVER kept: its rows carry the
+  // plaintext compile.js seals, and nothing may write that anywhere. An unstamped module keeps nothing, and
+  // AREST_PARSE_CACHE=off (or a path) turns it off (or moves it). The DEF is the meaning; a miss is the DEF.
+  "compile:text_rows": x => parseCached(x),
   "read:rule_seq_at": x => {
     if (!Array.isArray(x) || x.length < 2 || !Array.isArray(x[0]) || !Array.isArray(x[1])) return Ev(DEFS.get("read:rule_seq_at"), x);
     const w = x[0], c = x[1], m = w.length;

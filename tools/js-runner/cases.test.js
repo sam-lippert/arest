@@ -4001,6 +4001,35 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     expect(Ev("solve:assoc", ["c", chain[1]])).toBe(10);
   });
 
+  // compile:text_rows -- a readings file's rows from its name and text -- is kept across runs by the host
+  // (2026-09-28), keyed by the composition and the text, so an unchanged file is not parsed again. The
+  // kept answer must be the DEF's, a changed text must be a new entry and never the old one's rows, and a
+  // .env must be parsed and NEVER kept: its rows carry the plaintext compile.js seals.
+  test("a readings file's rows are kept across runs by its text, and a .env's never are", () => {
+    const dir = mkdtempSync(join(tmpdir(), "arest-parse-cache-"));
+    const path = join(dir, "parse.db"), was = process.env.AREST_PARSE_CACHE;
+    process.env.AREST_PARSE_CACHE = path;
+    try {
+      const def = DEFS.get("compile:text_rows");
+      const text = "Customer(.id) is an entity type.\nEach Customer has at most one Email.\n";
+      const cold = Ev("compile:text_rows", ["a.md", text]), warm = Ev("compile:text_rows", ["a.md", text]);
+      expect(JSON.stringify(cold)).toBe(JSON.stringify(Ev(def, ["a.md", text])));
+      expect(JSON.stringify(warm)).toBe(JSON.stringify(cold));
+      const more = text + "Email is a value type.\n";
+      expect(JSON.stringify(Ev("compile:text_rows", ["a.md", more]))).toBe(JSON.stringify(Ev(def, ["a.md", more])));
+      const env = "Connection 'x' has Secret Reference 'not-a-real-secret'.\n";
+      expect(JSON.stringify(Ev("compile:text_rows", [".env", env]))).toBe(JSON.stringify(Ev(def, [".env", env])));
+      const db = new Database(path, { readonly: true });
+      const kept = db.query("select v from rows").values().map((r) => String(r[0]));
+      db.close();
+      expect(kept.length).toBe(2);
+      expect(kept.some((v) => v.includes("not-a-real-secret"))).toBe(false);
+    } finally {
+      if (was === undefined) delete process.env.AREST_PARSE_CACHE; else process.env.AREST_PARSE_CACHE = was;
+      try { rmSync(dir, { recursive: true, force: true }); } catch { }
+    }
+  });
+
   // strdown has a fast twin too. Its DEF folds each character through
   // chardown -- charisup, then charmap:pick over the 26 pairs -- and
   // e33971ab's case-fold in cn:number calls it for both sides of every
