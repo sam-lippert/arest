@@ -940,10 +940,17 @@ const PRIMS = new Map(Object.entries({
     if (Array.isArray(x)) throw new Error("fs:read on a sequence");
     return require("node:fs").readFileSync(String(x), "utf8");
   },
+  // AND THE SCRIPT IS ONE TRANSACTION (2026-09-29). db.exec runs each statement in its own, and
+  // on Windows each is a sync to disk: support's 655 CREATE TABLEs were 1.3-1.5 s of its compile.
+  // A schema script is all or nothing anyway; one that fails part way now leaves no table of it.
   "sql:exec": x => {
     const { Database } = require("bun:sqlite");
     const db = new Database(String(at(x, 0)), { create: true });
-    try { db.exec(String(at(x, 1))); } finally { db.close(true); }
+    try {
+      db.exec("begin");
+      try { db.exec(String(at(x, 1))); db.exec("commit"); }
+      catch (e) { try { db.exec("rollback"); } catch { } throw e; }
+    } finally { db.close(true); }
     return String(at(x, 0));
   },
 }));
