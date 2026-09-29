@@ -772,6 +772,7 @@ function compileInPlace() {
     const arity = Array.isArray(d[1]) ? d[1].length : 0;
     ucsOf.set(d[0], (Array.isArray(d[2]) ? d[2] : []).filter((u) => Array.isArray(u) && u.length > 0 && u.length < arity));
   }
+  const tReadings = Date.now() - t0;
   // AND EACH DESCRIPTOR'S OWN ROWS, as the design state has them before any store is read into the cells:
   // a build leaves a fact type whose table holds nothing with these, and so does this
   const ownRows = new Map();
@@ -822,10 +823,13 @@ function compileInPlace() {
   // THE STORE, READ THROUGH THE NEW SCHEMA. What the snapshot below reads is what is on disk: system:pop_rows
   // reads a fact type's top-level cell, which the load makes for every table that holds rows, and never
   // its descriptor.
+  const tCopy = Date.now() - t0 - tReadings;
   process.env.AREST_STORE_DB = build;
   loadStoreDb(build);
   collect();
   const before = popSnapshot(CELLS);
+  let priorCells = CELLS.slice();
+  const tLoad = Date.now() - t0 - tReadings - tCopy;
   // THE DELTA: each fact type's new population is the runtime's facts -- what the store holds less the
   // last readings' facts and everything the last closure added -- and the new readings' facts, a runtime
   // fact giving way to a readings fact that holds the same key on a uniqueness constraint. A population
@@ -877,6 +881,17 @@ function compileInPlace() {
     }
     if (factSet(next) !== factSet(current)) { pairs.push([ft, next]); facts++; }
   }
+  // THE STORE BEFORE, AS THE ROW PLANNER READS IT: from each fact type's descriptor, and a fact type the
+  // disk holds nothing of keeps the design state's own rows there -- so a relation added with a fact of its
+  // own read as already written, and its new table stayed empty. For every fact type the delta moves that
+  // holds nothing on disk, the planner's store before says so; the cells the closure reads are not these.
+  {
+    const bare = pairs.filter(([ft]) => before.get(ft) === "[]").map(([ft]) => ft);
+    if (bare.length) {
+      const b = new Set(bare);
+      priorCells = Ev("store:src_all", [bare.map((ft) => [ft, []]), priorCells]).filter((c) => !(Array.isArray(c) && c[0] === "CELL" && b.has(c[1])));
+    }
+  }
   // A POPULATION THE DELTA EMPTIES IS LEFT AS A BUILD LEAVES ONE: no top-level cell -- loadDerived takes a
   // cell of a head's name, even an empty one, for the head's own and skips what the closure derives, which
   // lost support.auto.dev's nine authorizations (a head whose rules carry the '+', not its declaration) --
@@ -913,11 +928,17 @@ function compileInPlace() {
   // table written whole from it lost the domains. Every fact type the delta touched is brought up to date.
   if (pairs.length) adoptStore(Ev("store:src_all", [pairs.map(([ft]) => [ft, Ev("system:pop_rows", [ft, CELLS])]), CELLS]));
   const report = {};
-  // WRITTEN WHOLE, table by table, as a build's closure writes them: the row planner deletes a row by the
-  // key its facts project to, so a row that holds another key -- a ConstraintSpan an older schema's
-  // write-back left -- outlived the facts it held, where the rebuild's carry never keeps a reflected
-  // table's rows at all. The projection is the twin's, 97 ms for support's whole Function table.
-  const written = emitToDb(before, CELLS, undefined, report);
+  // WHAT MOVED IS WRITTEN: a table row by row, the rows whose facts moved deleted by their key and
+  // projected again (emitToDb's planner, handed the store before); a reflected relation whole, as a build's
+  // closure writes it and the carry keeps none of it, because the planner deletes a row by the key its facts project to and a ConstraintSpan
+  // an older schema's write-back left, holding another key, outlived its facts -- a REFLECTED relation's,
+  const relation = new Set();
+  {
+    const ftsHere = Ev("store:fts", CELLS);
+    for (const t of Ev("rmap:coltabs", CELLS)) { try { if (Ev("rmap:proj_hits", [String(t[0]), ftsHere]).length > 0) relation.add(String(t[0])); } catch { } }
+  }
+  report.whole = (table) => relation.has(table) && REFLECTED_NAMES.has(table);   // a reflected relation's rows are wholly the closure's
+  const written = emitToDb(before, CELLS, priorCells, report);
   const touched = new Set(report.touched || []);
   const derivedNow = [];
   for (const [ft, t] of popSnapshot(CELLS)) {
@@ -1014,7 +1035,8 @@ function compileInPlace() {
   renameSync(build, out);
   console.log("store (in place): " + facts + " fact type(s) moved by the readings, " + written + " row(s) written with the closure's, "
     + ledgered + " ledgered in the " + touched.size + " table(s) it wrote, " + created.length + " table(s) and index(es) created"
-    + " (delta " + tDelta + " ms, closure " + tClose + " ms, ledger " + tLedger + " ms) at " + out);
+    + " (delta " + tDelta + " ms: readings' rows " + tReadings + ", copy " + tCopy + ", load " + tLoad + ", facts " + (tDelta - tReadings - tCopy - tLoad)
+    + "; closure " + tClose + " ms, ledger " + tLedger + " ms) at " + out);
   return true;
 }
 

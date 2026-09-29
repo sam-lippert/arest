@@ -610,7 +610,10 @@ function emitToDb(before, cells, prior, report) {
       const cols = Ev("rmap:proj_colnames", [table, cells]).map(String);
       if (!cols.length) continue;
       const pk = plan ? db.query("select name from pragma_table_info(?) where pk > 0 order by pk").values(table).map((r) => String(r[0])) : [];
-      const rows = plan && pk.length ? plan(table, cols, pk) : null;
+      // AND A CALLER MAY HAVE A TABLE WRITTEN WHOLE where the planner could say which rows moved (2026-09-29):
+      // the planner deletes a row by the key its facts project to, and a relation row an older schema's
+      // write-back left under another key outlives them
+      const rows = plan && pk.length && !(report && typeof report.whole === "function" && report.whole(table)) ? plan(table, cols, pk) : null;
       if (rows) {
         let del, put;
         try {

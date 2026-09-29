@@ -2042,11 +2042,14 @@ test("a readings change applied in place is the store a rebuild makes, and what 
     writeFileSync(join(app, "widgets.md"), readings({}));
     const first = build(base, {});
     expect(first.code, first.out).toBe(0);
-    // what the runtime wrote: a widget of its own, and a colour on the readings' w1
+    // what the runtime wrote: a widget of its own, and a colour on the readings' w1; and a stale reflected row
     {
       const db = new Database(base);
       db.run('insert into "Widget" ("widgetId", "size") values (?, ?)', ["w-rt", "L"]);
       db.run('update "Widget" set "color" = ? where "widgetId" = ?', ["red", "w1"]);
+      // and a span an older schema's write-back left, under a key its facts do not project to
+      db.run('insert into "ConstraintSpan" ("constraintSpanId","constraintId","position","roleId","sequenceNumber") values (?,?,?,?,?)',
+        ["x-probe-span", "x-probe-constraint", "9", "x-probe-role", "9"]);
       db.run("pragma wal_checkpoint(TRUNCATE)");
       db.close(true);
     }
@@ -2066,6 +2069,7 @@ test("a readings change applied in place is the store a rebuild makes, and what 
     // an instance changed and one added: applied in place, the runtime's widget and colour kept
     const inst = both("inst", { size: "M", w2: true });
     expect(inst.out).toContain("store (in place)");
+    expect(inst.rows.ConstraintSpan.some((r) => r.includes("x-probe-span"))).toBe(false);   // gone both ways
     expect(inst.rows.Widget).toEqual([JSON.stringify(["w-rt", null, "L"]), JSON.stringify(["w1", "red", "M"]), JSON.stringify(["w2", null, "XL"])].sort());
     // a relation fact type added: in place, its table created
     const rel = both("rel", { gadget: true });
