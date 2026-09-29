@@ -41,7 +41,7 @@
 //
 //   AREST_DB=<path> bun tools/js-runner/compile.js <readings dir>...
 //   AREST_OUT_DIR=<dir> bun tools/js-runner/compile.js <readings dir>...
-import { readFileSync, writeFileSync, rmSync, existsSync, renameSync } from "node:fs";
+import { readFileSync, writeFileSync, rmSync, existsSync, renameSync, readdirSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -78,6 +78,55 @@ const dirs = process.argv.slice(2);
 if (dirs.length === 0) {
   console.error("usage: AREST_DB=<path> bun tools/js-runner/compile.js <readings dir>...");
   process.exit(1);
+}
+
+// ---- A COMPILE WHOSE INPUTS HAVE NOT CHANGED MAKES NOTHING (2026-09-29) --------
+// Sam, 2026-09-28: "There should be no schema recomputation unless readings changed." What
+// a compile makes is a function of what it reads -- the readings in the directories it is
+// handed, lambda, this file, the host and build.js that compose its reader, the strict mode,
+// the master key -- and of the store it builds over, whose runtime rows it carries. So the
+// compile writes, beside its carriers, the fingerprint of those inputs and the store as it
+// left it (size and time), and a compile that finds both unchanged, and the carriers there,
+// has nothing to make. A store written since -- by the runtime, or by hand -- is a change. A
+// .env is fingerprinted by its size and time and never its bytes, the master key by a hash of
+// it. AREST_FORCE=1 compiles regardless.
+const INPUTS = (() => {
+  const h = createHash("sha256");
+  const put = (label, bytes) => { h.update(label + " " + (bytes ? bytes.length : -1) + " "); if (bytes) h.update(bytes); };
+  put("arest-compile-inputs-1");
+  for (const f of [join(import.meta.dir, "..", "..", "arest"), join(import.meta.dir, "..", "..", "engine", "shared", "scenarios.canon"),
+                   join(import.meta.dir, "compile.js"), join(import.meta.dir, "host.js"), join(import.meta.dir, "build.js")])
+    put(f, existsSync(f) ? readFileSync(f) : null);
+  for (const dir of dirs) {
+    put("dir " + dir);
+    let names = [];
+    try { names = readdirSync(dir).sort(); } catch { names = []; }
+    for (const name of names) {
+      const p = join(dir, name);
+      let st; try { st = statSync(p); } catch { continue; }
+      if (!st.isFile()) continue;
+      if (name === ".env" || name.endsWith(".env")) put("env " + name + " " + st.size + " " + st.mtimeMs);
+      else put("file " + name, readFileSync(p));
+    }
+  }
+  put("strict " + (process.env.AREST_STRICT === "1"));
+  if (process.env.AREST_MASTER_KEY) put("key " + createHash("sha256").update(process.env.AREST_MASTER_KEY).digest("hex"));
+  return h.digest("hex");
+})();
+const storeMark = (p) => { try { const st = statSync(p); return st.size + " " + st.mtimeMs; } catch { return "absent"; } };
+{
+  const od = process.env.AREST_OUT_DIR, db = process.env.AREST_DB;
+  if (od && process.env.AREST_FORCE !== "1") {
+    let was = null;
+    try { was = JSON.parse(readFileSync(join(od, "inputs"), "utf8")); } catch { was = null; }
+    const same = was && was.inputs === INPUTS && existsSync(join(od, "design-state")) && existsSync(join(od, "compiled"))
+      && (db ? was.store === storeMark(db) && was.db === db : !was.db);
+    if (same) {
+      console.log("unchanged: the readings, lambda and the compiler are what the last compile read, and the store is as it left it (inputs "
+        + INPUTS.slice(0, 16) + ") -- nothing to compile");
+      process.exit(0);
+    }
+  }
 }
 
 // The reader is lambda alone -- build.js `slim` composes no carrier and boots
@@ -1174,6 +1223,8 @@ if (unkeyed.length) {
   console.error("UNSTORED: " + unkeyed.length + " fact type(s) have no key column and get no table -- an entity type in each declares a compound reference scheme, which lambda does not yet map to a composite key:");
   for (const u of unkeyed) console.error("  " + u[0]);
 }
+// THE LAST ACT: what this compile read, and the store as it left it (see INPUTS, at the top).
+if (outDir) writeFileSync(join(outDir, "inputs"), JSON.stringify({ inputs: INPUTS, db: out || null, store: out ? storeMark(out) : null }));
 console.log("compiled " + sentences + " sentences from " + files + " files: "
   + state.length + " cells, " + ddl.length + " bytes of DDL"
   + " (read " + tRead + " ms, state " + tState + " ms, ddl " + tDdl + " ms)");
