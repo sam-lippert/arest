@@ -1830,7 +1830,7 @@ test("the carry leaves a reflected row to the closure instead of keeping it", ()
 
   const build = () => {
     const p = Bun.spawnSync(["bun", compiler, metamodel, templates],
-      { env: { ...process.env, AREST_DB: path }, stdout: "pipe", stderr: "pipe" });
+      { env: { ...process.env, AREST_DB: path, AREST_INPLACE: "0" }, stdout: "pipe", stderr: "pipe" });   // the carry's own test: the rebuild
     return p.stdout.toString() + p.stderr.toString();
   };
 
@@ -1915,7 +1915,7 @@ test("a rebuild supersedes what the last build asserted and carries only what th
   ].join("\n");
   const build = () => {
     const p = Bun.spawnSync(["bun", compiler, metamodel, templates, app],
-      { env: { ...process.env, AREST_DB: path }, stdout: "pipe", stderr: "pipe" });
+      { env: { ...process.env, AREST_DB: path, AREST_INPLACE: "0" }, stdout: "pipe", stderr: "pipe" });   // the carry's own test: the rebuild
     return { code: p.exitCode, out: p.stdout.toString() + p.stderr.toString() };
   };
   const naming = (needle) => {
@@ -1992,7 +1992,7 @@ test("a rebuild supersedes what the last build asserted and carries only what th
 
 // ---- A READINGS CHANGE APPLIED IN PLACE IS THE STORE A REBUILD MAKES (2026-09-29) ------------
 //
-// AREST_INPLACE=1 applies a readings change to the store as a write -- the runtime's facts kept, the
+// A compile applies a readings change to the store as a write (AREST_INPLACE=0 rebuilds) -- the runtime's facts kept, the
 // readings' swapped, the closure taken again and only what moved written -- where the store records
 // what its last build's readings asserted and its closure added. It must be the store the rebuild
 // makes from the same store and the same readings, every table and record of it, and what it does
@@ -2025,7 +2025,7 @@ test("a readings change applied in place is the store a rebuild makes, and what 
   ].join("\n");
   const build = (path, env) => {
     const p = Bun.spawnSync(["bun", compiler, metamodel, templates, app],
-      { env: { ...process.env, AREST_DB: path, AREST_INPLACE: "", ...env }, stdout: "pipe", stderr: "pipe" });
+      { env: { ...process.env, AREST_DB: path, AREST_INPLACE: "0", ...env }, stdout: "pipe", stderr: "pipe" });
     return { code: p.exitCode, out: p.stdout.toString() + p.stderr.toString() };
   };
   // every table and record, each as its sorted rows
@@ -2127,7 +2127,7 @@ test("a value the closure derives is the closure's in the ledger, and an entity 
   ].join("\n");
   const build = () => {
     const p = Bun.spawnSync(["bun", compiler, metamodel, app],
-      { env: { ...process.env, AREST_DB: path }, stdout: "pipe", stderr: "pipe" });
+      { env: { ...process.env, AREST_DB: path, AREST_INPLACE: "0" }, stdout: "pipe", stderr: "pipe" });   // the carry's own test: the rebuild
     return { code: p.exitCode, out: p.stdout.toString() + p.stderr.toString() };
   };
   const read = (sql, ...args) => {
@@ -2847,7 +2847,7 @@ test("a fact the build asserts on another row is not carried back under its old 
   const COL = "stateMachineDefinitionStatusId";
   const build = () => {
     const p = Bun.spawnSync(["bun", compiler, metamodel, templates],
-      { env: { ...process.env, AREST_DB: path }, stdout: "pipe", stderr: "pipe" });
+      { env: { ...process.env, AREST_DB: path, AREST_INPLACE: "0" }, stdout: "pipe", stderr: "pipe" });   // the carry's own test: the rebuild
     return p.stdout.toString() + p.stderr.toString();
   };
   const read = () => {

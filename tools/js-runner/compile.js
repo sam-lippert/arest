@@ -688,7 +688,7 @@ const factSet = (rows) => {
 // then, the changes only need to be the deltas." A rebuild writes every row the readings assert
 // into a fresh file, carries across every row the runtime wrote, closes the result and ledgers it:
 // on support.auto.dev that is the whole store written again for an edit to one instance. The store
-// is already almost all of what the next one will be. So, when asked (AREST_INPLACE=1), the compile
+// is already almost all of what the next one will be. So the compile (unless AREST_INPLACE=0)
 // copies the store beside itself and applies the readings' change there as a WRITE -- the same
 // snapshot, evaluate, emit a runtime write takes, the row planner rewriting only the rows whose
 // facts moved -- and renames the copy in, as a rebuild renames its build.
@@ -1040,7 +1040,7 @@ function compileInPlace() {
   return true;
 }
 
-const inplaced = out && process.env.AREST_INPLACE === "1" ? compileInPlace() : null;
+const inplaced = out && process.env.AREST_INPLACE !== "0" ? compileInPlace() : null;
 
 if (!out && !outDir) {
   process.stdout.write(ddl);
