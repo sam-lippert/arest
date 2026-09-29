@@ -4152,6 +4152,24 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     expect(Ev("read:rule_match_at", [P1, ["Customer\u0663"]])).toEqual([]);
   });
 
+  // cn:contains has a twin (2026-09-29): a substring test the DEF answers with a WHILE over characters.
+  // Held against the DEF on every branch its contract distinguishes -- an empty text, an empty part, a
+  // part longer than the text, at the start, the middle, the end, overlapping, repeated, absent -- on
+  // characters past ASCII and past the BMP, and on the shapes the DEF raises on.
+  test("the cn:contains twin is its DEF", () => {
+    const def = DEFS.get("cn:contains");
+    const run = (f) => { try { return JSON.stringify(f()); } catch { return "raises"; } };
+    const texts = ["", "a", "ab", "abc", "aaa", "abab", "FactTypeIsInvolvedIn", "IsInvolved", "sInvolved",
+      "café", "é", "x𝟘y", "𝟘", " ", "a b"];
+    for (const a of texts) for (const b of texts)
+      expect(run(() => Ev("cn:contains", [a, b]))).toBe(run(() => Ev(def, [a, b])));
+    for (const x of [[5, "5"], ["5", 5], [["a"], "a"], ["a"], "a", [], ["abc", "b", "extra"]])
+      expect(run(() => Ev("cn:contains", x))).toBe(run(() => Ev(def, x)));
+    expect(Ev("cn:contains", ["", ""])).toBe("F");   // an empty text contains nothing
+    expect(Ev("cn:contains", ["a", ""])).toBe("T");
+    expect(Ev("cn:contains", ["FactTypeIsInvolvedIn", "IsInvolved"])).toBe("T");
+  });
+
   // rmap:proj_row has a twin (2026-09-29): an entity table's row a column at a time, each column's path
   // resolved once -- its first step, fact type, population and key position, asked of the DEFs
   // rmap:proj_val asks -- and a row answered by one index lookup per column. Held against the DEF on

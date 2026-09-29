@@ -1589,6 +1589,20 @@ const FASTPRIMS = new Map(Object.entries({
   "csdp:matches": x => matchRows(at(x, 0), seq(at(x, 1))).slice(),
   // csdp:matches_at is the same filter on a named column: <n, key, rows>.
   "csdp:matches_at": x => matchRowsAt(at(x, 0), at(x, 1), seq(at(x, 2))).slice(),
+  // cn:contains <text, part>: T when some non-empty suffix of the text's characters begins with the
+  // part's -- so an empty text contains nothing, not even the empty part, and a non-empty one contains
+  // the empty part. The DEF slides a WHILE over chars with theta:take and eq at every position:
+  // rmap:unproj_isrole asks it of a fact type's name once per stored CELL while a store loads, 40% of
+  // support's load, and the reader asks it 70,131 times more (2026-09-29). Over two strings with no
+  // surrogate the characters are the code units, and a part found is found where the DEF finds it;
+  // anything else -- a surrogate, a number, a sequence, a short operand -- is the DEF's.
+  "cn:contains": x => {
+    if (!Array.isArray(x) || x.length < 2 || typeof x[0] !== "string" || typeof x[1] !== "string") return Ev(DEFS.get("cn:contains"), x);
+    const t = x[0], p = x[1];
+    for (let i = 0; i < t.length; i++) { const c = t.charCodeAt(i); if (c >= 0xD800 && c <= 0xDFFF) return Ev(DEFS.get("cn:contains"), x); }
+    for (let i = 0; i < p.length; i++) { const c = p.charCodeAt(i); if (c >= 0xD800 && c <= 0xDFFF) return Ev(DEFS.get("cn:contains"), x); }
+    return t.length > 0 && t.includes(p) ? "T" : "F";
+  },
   // rmap:proj_row <key, table, store>: an entity table's row, a column plan at a time (projRow above)
   "rmap:proj_row": x => projRow(x),
   // rmap:rows_for is the same first-column filter, <key, rows>, written as the
