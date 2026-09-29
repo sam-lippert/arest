@@ -6176,6 +6176,54 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
   // applies it by the type each value carries: two integers stay on the primitive, anything else is decimal. A
   // division is the exact quotient whatever its operands, so a share of two counts is 0.3 and not 0; a sum of
   // decimals is exact; an integer and a decimal compare.
+  // AN OPERAND'S `that` IS ITS ANAPHOR (2026-09-29). The calc arm looked `that total- Call Volume` up as a name no
+  // leg binds and declined pm's share as a body no form says, where the same rule without the anaphors compiled.
+  // Read as the roles the legs bound, the quotient lands over a ternary head, the Call Outcome carried through from
+  // the derived total row.
+  test("a quotient over a ternary head, its operands named as the legs bound them", () => {
+    const T = (x) => Ev("value:text", x);
+    const text = [
+      "Cancel Request(.id) is an entity type.",
+      "API Endpoint(.path) is an entity type.",
+      "Call Outcome is a value type.",
+      "Call Volume is a value type.",
+      "  The data type of Call Volume is integer.",
+      "Measured Share is a value type.",
+      "  The data type of Measured Share is decimal.",
+      "",
+      "Cancel Request follows Call Volume calls to API Endpoint with Call Outcome.",
+      "  For each Cancel Request, API Endpoint and Call Outcome, that Cancel Request follows at most one Call Volume calls to that API Endpoint with that Call Outcome.",
+      "Cancel Request has counted- Call Volume.",
+      "  Each Cancel Request has at most one counted- Call Volume.",
+      "Cancel Request follows total- Call Volume calls with Call Outcome. *",
+      "  For each Cancel Request and Call Outcome, that Cancel Request follows at most one total- Call Volume calls with that Call Outcome.",
+      "Cancel Request has observed- Measured Share of calls with Call Outcome. *",
+      "  For each Cancel Request and Call Outcome, that Cancel Request has at most one observed- Measured Share of calls with that Call Outcome.",
+      "",
+      "* Cancel Request follows total- Call Volume calls with Call Outcome iff total- Call Volume is the sum of Call Volume where that Cancel Request follows that Call Volume calls to some API Endpoint with that Call Outcome.",
+      "* Cancel Request has observed- Measured Share of calls with Call Outcome iff that Cancel Request follows some total- Call Volume calls with that Call Outcome and that Cancel Request has some counted- Call Volume and observed- Measured Share is that total- Call Volume divided by that counted- Call Volume.",
+      "",
+      "Cancel Request 'c1' follows Call Volume 3 calls to API Endpoint '/vin' with Call Outcome 'served'.",
+      "Cancel Request 'c1' follows Call Volume 1 calls to API Endpoint '/build' with Call Outcome 'served'.",
+      "Cancel Request 'c1' follows Call Volume 1 calls to API Endpoint '/vin' with Call Outcome 'failed'.",
+      "Cancel Request 'c2' follows Call Volume 1 calls to API Endpoint '/vin' with Call Outcome 'served'.",
+      "Cancel Request 'c1' has counted- Call Volume 5.",
+      "Cancel Request 'c2' has counted- Call Volume 3.",
+      "",
+    ].join("\n");
+    const rows = [];
+    for (const s of Ev("read:sentences", text)) rows.push(Ev("read:row_of", s));
+    const F = Ev("read:x_full", Ev("read:x_of", rows));
+    expect(Ev("read:state_undelivered", F)).toEqual([]);
+    const rules = Ev("read:state_rules", F).map((r) => [r[0], r[2]]);
+    const head = "CancelRequestHasObservedMeasuredShareOfCallsWithCallOutcome";
+    expect(rules.find((r) => String(r[0]) === head)[1]).toEqual(["proj", ["calc", ["joinon", "CancelRequestFollowsTotalCallVolumeCallsWithCallOutcome", "CancelRequestHasCountedCallVolume", [[1, 1]], [1, 2, 3, 4, 5]], "dec:div", 2, 5], [1, 6, 3]]);
+    const schema = Ev("read:schema_of", rows);
+    const pops = schema.find((c) => String(c[0]) === "state:fts")[1].map((d) => [d[0], d[4].flat(1).filter((r) => Array.isArray(r) && r.length)]);
+    const share = (Ev("derive", [rules, pops]).find((e) => String(e[0]) === head) || ["", []])[1];
+    expect(share.map((r) => [r[0], T(r[1]), r[2]]).sort()).toEqual([["c1", "0.2", "failed"], ["c1", "0.8", "served"], ["c2", "0.33333333333333", "served"]]);
+  }, 300_000);
+
   test("arithmetic and order by the type a value carries: a sum, a share, a comparison", () => {
     const T = (x) => Ev("value:text", x);
     expect(Ev("value:add", [2, 3])).toBe(5);
