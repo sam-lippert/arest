@@ -1931,6 +1931,44 @@ const FASTPRIMS = new Map(Object.entries({
   // plaintext compile.js seals, and nothing may write that anywhere. An unstamped module keeps nothing, and
   // AREST_PARSE_CACHE=off (or a path) turns it off (or moves it). The DEF is the meaning; a miss is the DEF.
   "compile:text_rows": x => parseCached(x),
+  // THE PER-TOKEN STRING TESTS, native (2026-09-28). With the files' rows kept, what was left of tasks'
+  // parse was string work a character at a time: read:val_zip's read:endswith and read:lastn 106,456 calls
+  // each, read:is_numword 19,549 and read:numchar 220,208, cn:pascalw 38,057, and under all of them
+  // charisdigit, charislow and charup, which were lambda over chars with no twin. The DEFs are the meaning;
+  // each contract below is read off its DEF and the prims it uses (chars raises on a non-string and yields
+  // code points; ge and le compare strings ordinally; tl raises on the empty sequence), and a shape the
+  // DEF raises on is handed to the DEF, so it raises as the DEF does.
+  //   charisdigit / charislow: the FIRST character in 0-9 / a-z; the empty string is F
+  //   charup: a first character in a-z answers that character upper-cased, ALONE; anything else answers
+  //     the whole argument unchanged
+  //   read:numchar: charisdigit, or the character is exactly "."
+  //   read:is_numword: non-empty, every character a numchar, at least one a digit
+  //   read:lastn <n, L>: L when length(L) <= n, else its last floor(n); read:endswith <S, L>: L's last
+  //     length(S) elements eq S (the whole of a shorter L)
+  //   cn:pascalw: the characters without the hyphens, the first charup'd, joined
+  "charisdigit": x => { if (typeof x !== "string") return Ev(DEFS.get("charisdigit"), x);
+    if (x.length === 0) return "F"; const c = String.fromCodePoint(x.codePointAt(0)); return bool(c >= "0" && c <= "9"); },
+  "charislow": x => { if (typeof x !== "string") return Ev(DEFS.get("charislow"), x);
+    if (x.length === 0) return "F"; const c = String.fromCodePoint(x.codePointAt(0)); return bool(c >= "a" && c <= "z"); },
+  "charup": x => { if (typeof x !== "string") return Ev(DEFS.get("charup"), x);
+    if (x.length === 0) return x; const c = String.fromCodePoint(x.codePointAt(0));
+    return c >= "a" && c <= "z" ? c.toUpperCase() : x; },
+  "read:numchar": x => { if (typeof x !== "string") return Ev(DEFS.get("read:numchar"), x);
+    if (x === ".") return "T"; if (x.length === 0) return "F"; const c = String.fromCodePoint(x.codePointAt(0)); return bool(c >= "0" && c <= "9"); },
+  "read:is_numword": x => { if (typeof x !== "string") return Ev(DEFS.get("read:is_numword"), x);
+    const cs = [...x]; if (cs.length === 0) return "F"; let digit = false;
+    for (const c of cs) { const d = c >= "0" && c <= "9"; if (!d && c !== ".") return "F"; if (d) digit = true; }
+    return bool(digit); },
+  "read:lastn": x => {
+    if (!Array.isArray(x) || x.length < 2 || typeof x[0] !== "number" || !Number.isFinite(x[0]) || x[0] < 0 || !Array.isArray(x[1]))
+      return Ev(DEFS.get("read:lastn"), x);
+    const n = x[0], l = x[1]; return l.length > n ? l.slice(l.length - Math.floor(n)) : l; },
+  "read:endswith": x => {
+    if (!Array.isArray(x) || x.length < 2 || !Array.isArray(x[0]) || !Array.isArray(x[1])) return Ev(DEFS.get("read:endswith"), x);
+    const w = x[0], l = x[1]; return bool(deepEq(l.length > w.length ? l.slice(l.length - w.length) : l, w)); },
+  "cn:pascalw": x => { if (typeof x !== "string") return Ev(DEFS.get("cn:pascalw"), x);
+    const cs = [...x].filter((c) => c !== "-"); if (cs.length === 0) return "";
+    const c = cs[0]; if (c >= "a" && c <= "z") cs[0] = c.toUpperCase(); return cs.join(""); },
   "read:rule_seq_at": x => {
     if (!Array.isArray(x) || x.length < 2 || !Array.isArray(x[0]) || !Array.isArray(x[1])) return Ev(DEFS.get("read:rule_seq_at"), x);
     const w = x[0], c = x[1], m = w.length;

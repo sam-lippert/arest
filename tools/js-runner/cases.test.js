@@ -4030,6 +4030,31 @@ describe("lambda's reader against the witness, on the base metamodel", () => {
     }
   });
 
+  // The per-token string tests have native twins (2026-09-28): charisdigit, charislow and charup were lambda
+  // over chars with no twin, under read:numchar (220,208 calls on tasks' closure), read:is_numword,
+  // read:lastn and read:endswith (106,456 each) and cn:pascalw (38,057). Each DEF's compiled form is
+  // evaluated beside its twin on every branch its contract distinguishes -- the empty string, the first
+  // character alone deciding, a character past the ASCII ranges, an astral one, a combining mark, a
+  // hyphen anywhere, a count below zero or fractional -- and on the shapes the DEF raises on.
+  test("the per-token string twins are their DEFs", () => {
+    const run = (f) => { try { return JSON.stringify(f()); } catch { return "raises"; } };
+    const strs = ["", "a", "z", "A", "Z", "0", "9", "5x", "x5", "-", "--a", "a-b", "-a-b-", "1.5", ".", "..", "1..2",
+      "zebra", "Zebra", "ábc", "ß", "\u{1D7D8}", "a\u0301", " ", "1e5", ".5", "5.", "@", "[", "`", "{", "customer-id"];
+    for (const name of ["charisdigit", "charislow", "charup", "read:numchar", "read:is_numword", "cn:pascalw"]) {
+      const def = DEFS.get(name);
+      for (const x of [...strs, 5, ["a"], []]) expect(run(() => Ev(name, x))).toBe(run(() => Ev(def, x)));
+    }
+    const L = ["a", "b", "c", "d"], N = [["x"], "y", 3];
+    for (const x of [[0, L], [1, L], [4, L], [9, L], [-1, L], [1.5, L], [2.5, L], [0, []], [2, "atom"], ["2", L], [1, N], "atom", [1]])
+      expect(run(() => Ev("read:lastn", x))).toBe(run(() => Ev(DEFS.get("read:lastn"), x)));
+    for (const x of [[["c", "d"], L], [["b"], L], [[], L], [L, L], [["z", "a", "b", "c", "d"], L], [["a"], []], [[3], N], [["3"], [3]], ["atom", L], [["a"]]])
+      expect(run(() => Ev("read:endswith", x))).toBe(run(() => Ev(DEFS.get("read:endswith"), x)));
+    expect(Ev("charup", "zebra")).toBe("Z");   // the first character alone
+    expect(Ev("charup", "a\u0301")).toBe("A");
+    expect(Ev("read:lastn", [2.5, L])).toEqual(["c", "d"]);
+    expect(Ev("cn:pascalw", "customer-id")).toBe("Customerid");
+  });
+
   // strdown has a fast twin too. Its DEF folds each character through
   // chardown -- charisup, then charmap:pick over the 26 pairs -- and
   // e33971ab's case-fold in cn:number calls it for both sides of every
