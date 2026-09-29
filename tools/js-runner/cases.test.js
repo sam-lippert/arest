@@ -6084,6 +6084,30 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     expect(Ev("read:rule_cmp_join", [["A", ["X", "Y"], [], []], ["B", ["P", "Q"], [], []]])[0])
       .toEqual(["joinon", "A", "B", [], [1, 2, 3, 4]]);
   });
+  // A RULE THAT COMPILES TO NO RECIPE IS A FINDING (2026-09-29). A sum over a value the
+  // reading left as text is one the aggregate arm declines; the check said nothing and the
+  // head derived nothing, which is how pm's measured-category rules and six auto.dev heads
+  // were lost. read:undelivered_rows names the head with lambda's reason, and a head marked
+  // derived with no rule sentence at all is the marker-closure law's debt, not a finding here.
+  test("a rule no arm compiles is a finding, with lambda's reason", () => {
+    const text = [
+      "# a sum over a value the reading left as text", "",
+      "Organization(.name) is an entity type.",
+      "Revenue Stream(.name) is an entity type.",
+      "Frequency is a value type.",
+      "Amount is a value type.", "",
+      "Organization generates Revenue Stream.",
+      "Revenue Stream has Amount per Frequency.",
+      "Organization has revenue- Amount per Frequency. +",
+      "Organization has budget- Amount per Frequency. +", "",
+      "+ Organization has revenue- Amount per Frequency if revenue- Amount is the sum of Amount where Organization generates some Revenue Stream and that Revenue Stream has some Amount per that Frequency.", "", "",
+    ].join("\n");
+    const rows = [];
+    for (const s of Ev("read:sentences", text)) rows.push(Ev("read:row_of", s));
+    const F = Ev("read:x_full", Ev("read:x_of", rows));
+    expect(Ev("read:state_rules", F)).toEqual([]);
+    expect(Ev("read:undelivered_rows", F).map(J)).toEqual([J(["undelivered", "OrganizationHasRevenueAmountPerFrequency", "reported", [], "a `where` clause no form says"])]);
+  }, 300_000);
 });
 // ---- THE JUDGE'S VERDICT LANDS AS A VIOLATION ROW (#122 item 7) ----------
 //

@@ -312,7 +312,9 @@ const redact = (text) => { let t = String(text); for (const v of unprinted) if (
 // object type no declaration opens; <rejected, name, status, (), reading> for
 // an instance sentence under a reading no fact type declares, its quoted
 // values taken out; <unattached, name, status, (), sentence> for a constraint
-// that attached to no reading; and <domain, path, status, domains, fault> for
+// that attached to no reading; <undelivered, head, status, (), reason> for a
+// derived head whose rule sentences no arm compiled into a recipe (lambda's
+// read:rule_reason says why); and <domain, path, status, domains, fault> for
 // a file that declares elements and no Domain (a file's domain is the first
 // Domain sentence it writes; later ones are catalog entries). Under the
 // default every row is `reported`, one summary line per kind goes to stderr
@@ -327,6 +329,7 @@ const undeclared = findings.filter((r) => String(r[0]) === "undeclared");
 const rejected = findings.filter((r) => String(r[0]) === "rejected");
 const unattached = findings.filter((r) => String(r[0]) === "unattached");
 const domainless = findings.filter((r) => String(r[0]) === "domain");
+const undelivered = findings.filter((r) => String(r[0]) === "undelivered");
 const refused = findings.some((r) => String(r[2]) === "refused");
 const verdict = (rows) => (rows.some((r) => String(r[2]) === "refused") ? " -- REFUSED (AREST_STRICT=1)" : "");
 if (undeclared.length) {
@@ -346,6 +349,10 @@ if (rejected.length) {
 if (unattached.length) {
   console.error("UNATTACHED: " + unattached.length + " constraint(s) attach to no reading" + verdict(unattached) + ": "
     + unattached.map((r) => redact(r[4])).join("; "));
+}
+if (undelivered.length) {
+  console.error("UNDELIVERED: " + undelivered.length + " derived head(s) have rules that compile to no recipe" + verdict(undelivered) + ": "
+    + undelivered.map((r) => String(r[1]) + " (" + redact(r[4]) + ")").join("; "));
 }
 if (domainless.length) {
   console.error("FILE DOMAINS: " + domainless.length + " file(s) declare elements and no Domain" + verdict(domainless) + ": "
