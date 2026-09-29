@@ -5858,8 +5858,8 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
   }, 300_000);
 
   // the kind is read off the catalogue id the value type declared, and a value is
-  // written in that kind in one place -- a numeral on an integer- or number-typed
-  // role is a host number, everything else is the atom the reading wrote
+  // written in that kind in one place -- a numeral on an integer role is an integer, on a
+  // number role the decimal it spells, and everything else is the atom the reading wrote
   test("a role's kind, and a value written in it", () => {
     const rows = [["Sales Tax Rate Percentage", "decimal"], ["Registration Age", "integer"], ["Tier", "text"]];
     expect(Ev("read:kind_cdt", ["Registration Age", rows])).toBe("integer");
@@ -5872,10 +5872,10 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     expect(Ev("read:kind_cell", ["integer", "-12"])).toEqual([-12]);
     expect(Ev("read:kind_cell", ["integer", "gold"])).toEqual(["gold"]);
     expect(Ev("read:kind_cell", ["text", "500"])).toEqual(["500"]);
-    expect(Ev("read:kind_cell", ["number", "100"])).toEqual([100]);
-    // the one cell this host cannot write: a fraction needs a fractional literal,
-    // and N() is an int in the cs and java readers
-    expect(Ev("read:kind_cell", ["number", "6.875"])).toEqual([]);
+    // a number is held as a decimal, whole or not, as a population of a number role holds it (2026-09-29);
+    // the fraction that had no cell here is the decimal it spells
+    expect(Ev("read:kind_cell", ["number", "100"])).toEqual([["decimal", 100, 0]]);
+    expect(Ev("read:kind_cell", ["number", "6.875"])).toEqual([["decimal", 6875, 3]]);
   });
 
   // apps/auto.dev/.check/design-state, state:rules: the two Years of a quote and a
@@ -6172,6 +6172,78 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
   // decimal or money is <decimal, m, s>, normalized, typed where every value enters and written as its text where
   // every value leaves: a table cell, JSON, a template. A decimal column has NUMERIC affinity, so sqlite holds a REAL
   // and a load reads back its shortest text -- 1e-7 among them -- which is why exponent notation is a lexeme here.
+  // ARITHMETIC AND ORDER OVER TYPED VALUES (2026-09-29, the third unit). A recipe names a primitive and the closure
+  // applies it by the type each value carries: two integers stay on the primitive, anything else is decimal. A
+  // division is the exact quotient whatever its operands, so a share of two counts is 0.3 and not 0; a sum of
+  // decimals is exact; an integer and a decimal compare.
+  test("arithmetic and order by the type a value carries: a sum, a share, a comparison", () => {
+    const T = (x) => Ev("value:text", x);
+    expect(Ev("value:add", [2, 3])).toBe(5);
+    expect(Ev("value:div", [7, 2])).toBe(3);
+    expect(T(Ev("value:add", [["decimal", 1, 1], ["decimal", 2, 1]]))).toBe("0.3");
+    expect(T(Ev("value:add", [["decimal", 1, 1], 2]))).toBe("2.1");
+    expect(T(Ev("value:sub", [1, ["decimal", 1, 3]]))).toBe("0.999");
+    expect(T(Ev("value:mul", [["decimal", 15, 1], ["decimal", -225, 2]]))).toBe("-3.375");
+    expect(T(Ev("dec:div", [2677, 5]))).toBe("535.4");
+    expect(T(Ev("dec:div", [1, 3]))).toBe("0.33333333333333");
+    expect(T(Ev("dec:div", [2, 3]))).toBe("0.66666666666667");
+    expect(T(Ev("dec:div", [-7, 2]))).toBe("-3.5");
+    expect(T(Ev("dec:div", [["decimal", 5, 1], ["decimal", 25, 2]]))).toBe("2");
+    expect(T(Ev("dec:div", [1, 7000]))).toBe("0.00014285714286");
+    expect(Ev("value:ge", [["decimal", 10, 2], ["decimal", 1, 1]])).toBe("T");
+    expect(Ev("value:ge", [5, ["decimal", 51, 1]])).toBe("F");
+    expect(Ev("value:ge", ["b", "a"])).toBe("T");
+    expect(Ev("value:op_of", "+")).toBe("value:add");
+    expect(Ev("value:op_of", "dec:div")).toBe("dec:div");
+    expect(Ev("value:kinds_meet", ["integer", "number"])).toBe("T");
+    expect(Ev("value:kinds_meet", ["integer", "text"])).toBe("F");
+    // a literal in a rule is held as its role holds it
+    expect(Ev("read:kind_cell", ["number", "0.25"])).toEqual([["decimal", 25, 2]]);
+    expect(Ev("read:kind_cell", ["number", "7"])).toEqual([["decimal", 7, 0]]);
+    // a rule: a share of two counts, and a sum of decimal amounts, compiled and closed
+    const text = [
+      "Widget(.name) is an entity type.",
+      "Hits is a value type.", "  The data type of Hits is integer.",
+      "Total is a value type.", "  The data type of Total is integer.",
+      "Share is a value type.", "  The data type of Share is decimal.", "",
+      "Widget has Hits.", "  Each Widget has at most one Hits.",
+      "Widget has Total.", "  Each Widget has at most one Total.",
+      "Widget has Share. *", "  Each Widget has at most one Share.", "",
+      "* Widget has Share iff Widget has Hits and Widget has Total and Share is Hits divided by Total.", "",
+      "Widget 'w1' has Hits 12.", "Widget 'w1' has Total 40.",
+      "Widget 'w2' has Hits 1.", "Widget 'w2' has Total 3.", "",
+    ].join("\n");
+    const rows = [];
+    for (const s of Ev("read:sentences", text)) rows.push(Ev("read:row_of", s));
+    const schema = Ev("read:schema_of", rows);
+    const rules = JSON.stringify(schema.find((c) => String(c[0]) === "state:rules")[1]);
+    expect(rules.includes('"dec:div"')).toBe(true);
+    const pops = schema.find((c) => String(c[0]) === "state:fts")[1].map((d) => [d[0], d[4].flat(1).filter((r) => Array.isArray(r) && r.length)]);
+    const derived = Ev("derive", [Ev("read:state_rules", Ev("read:x_full", Ev("read:x_of", rows))).map((r) => [r[0], r[2]]), pops]);
+    const share = (derived.find((e) => String(e[0]) === "WidgetHasShare") || ["", []])[1];
+    expect(share.map((r) => [r[0], T(r[1])]).sort()).toEqual([["w1", "0.3"], ["w2", "0.33333333333333"]]);
+    // a sum of decimal amounts, exact where binary floating point would give 0.30000000000000004
+    const sumText = [
+      "Organization(.name) is an entity type.",
+      "Revenue Stream(.name) is an entity type.",
+      "Amount is a value type.", "  The data type of Amount is decimal.", "",
+      "Organization generates Revenue Stream.",
+      "Revenue Stream has Amount.", "  Each Revenue Stream has at most one Amount.",
+      "Organization has revenue- Amount. +", "  Each Organization has at most one revenue- Amount.", "",
+      "+ Organization has revenue- Amount if revenue- Amount is the sum of Amount where Organization generates some Revenue Stream and that Revenue Stream has some Amount.", "",
+      "Organization 'o1' generates Revenue Stream 'r1'.", "Organization 'o1' generates Revenue Stream 'r2'.",
+      "Revenue Stream 'r1' has Amount 0.10.", "Revenue Stream 'r2' has Amount 0.20.", "",
+    ].join("\n");
+    const rows2 = [];
+    for (const s of Ev("read:sentences", sumText)) rows2.push(Ev("read:row_of", s));
+    const schema2 = Ev("read:schema_of", rows2);
+    const pops2 = schema2.find((c) => String(c[0]) === "state:fts")[1].map((d) => [d[0], d[4].flat(1).filter((r) => Array.isArray(r) && r.length)]);
+    const rules2 = Ev("read:state_rules", Ev("read:x_full", Ev("read:x_of", rows2))).map((r) => [r[0], r[2]]);
+    expect(rules2.length).toBe(1);
+    const revenue = (Ev("derive", [rules2, pops2]).find((e) => String(e[0]) === "OrganizationHasRevenueAmount") || ["", []])[1];
+    expect(revenue.map((r) => [r[0], T(r[1])])).toEqual([["o1", "0.3"]]);
+  }, 300_000);
+
   test("a decimal is held as a decimal: read, typed, written as its text and read back", () => {
     const D = (x) => Ev("value:as_dec", x), T = (x) => Ev("value:text", x);
     expect(D("12.340")).toEqual(["decimal", 1234, 2]);
