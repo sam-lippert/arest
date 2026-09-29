@@ -1629,6 +1629,32 @@ function ucFacts(x) {
   const i = ix.get(keyOf(x[0]));
   return i === undefined ? [] : ucs[i][3].map((r) => r[0]);
 }
+// A VALUE ENTERS IN ITS TYPE (2026-09-29): value:typed_pairs, value:typed_insts and value:as_int, for the two
+// twins below. The kinds are lambda's, asked once per fact type (value:ft_kinds) or once per call
+// (value:int_types); what is done here is only the fold read:kind_number does, digit by digit, for a lexeme
+// short enough that no step leaves the safe integers, and the DEF's own answer for any longer one.
+function asIntValue(v) {
+  if (typeof v !== "string") return v;
+  const neg = v.charCodeAt(0) === 45, start = neg ? 1 : 0;
+  if (v.length === start) return v;
+  if (v.length - start > 15) return Ev("value:as_int", v);
+  let acc = 0;
+  for (let i = start; i < v.length; i++) { const d = v.charCodeAt(i) - 48; if (d < 0 || d > 9) return v; acc = acc * 10 + d; }
+  return neg ? 0 - acc : acc;
+}
+function typedRowValue(row, kinds) {
+  if (!Array.isArray(row) || !Array.isArray(kinds) || row.length === 0 || row.length !== kinds.length) return row;
+  return row.map((v, i) => (kinds[i] === "integer" ? asIntValue(v) : v));
+}
+function typedPairsValue(pairs, store) {
+  const kinds = new Map();
+  return pairs.map((p) => {
+    const k = JSON.stringify(p[0]);
+    let ks = kinds.get(k);
+    if (ks === undefined) { ks = Ev("value:ft_kinds", [p[0], store]); kinds.set(k, ks); }
+    return [p[0], typedRowValue(p[1], ks)];
+  });
+}
 const UNPROJPLAN = new WeakMap();
 function unprojAll(x) {
   const def = () => Ev(DEFS.get("rmap:unproj"), x);
@@ -1689,7 +1715,7 @@ function unprojAll(x) {
       }
     }
   } catch { return def(); }
-  return out;
+  return typedPairsValue(out, x[2]);
 }
 // AREST_NOTWIN=name,name disables those twins for one run, so a twin can be
 // held against its DEF on the same inputs: the law report is the only gate
@@ -2093,7 +2119,9 @@ const FASTPRIMS = new Map(Object.entries({
   // a 22.7 s start (2026-09-24). This is the same value in one pass -- each
   // entry unfolded once when first reached, a set for membership, the list
   // appended in place -- and AREST_NOTWIN=store:otpops gives the DEF's own.
-  "store:otpops": x => { const rows = seq(at(x, 0)), cells = at(x, 1);
+  "store:otpops": x => { const cells = at(x, 1);
+    const intTypes = new Set(seq(Ev("value:int_types", Ev("value:cdt_rows", cells))).map((t) => JSON.stringify(t)));
+    const rows = seq(at(x, 0)).map((r) => (intTypes.has(JSON.stringify(at(r, 1))) ? [asIntValue(at(r, 0)), at(r, 1)] : r));
     const prior = Ev("solve:cell", ["state:otpops", cells]);
     const key = (v) => JSON.stringify(v);
     const byType = new Map();

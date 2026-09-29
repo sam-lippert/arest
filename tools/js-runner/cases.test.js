@@ -6113,6 +6113,61 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     // the same arity bug closed no back button: html:backbtn handed cat three sequences and lost its </a>
     expect(String(Ev("html:backbtn", ["backbtn", 0, 0, 120, 24, ["cases"]])).endsWith("</a>")).toBe(true);
   }, 300_000);
+  // AN INTEGER IS HELD AS AN INTEGER (2026-09-29, Sam: a value always in its exact type, never converted where it
+  // is used). The reader wrote `Widget 'w1' has Count 12` as the text 12 and a store boot handed rmap:unproj the
+  // text every cell held, while the counts lambda computes were numbers: on the base module FactTypeHasArity held
+  // integers and ConstraintSpanHasPosition text. A value is typed where it enters, by the kind its role's value
+  // type declares -- the reader, what the tables answer, what a writer hands main:cf_store, an assert -- and a
+  // table cell still holds the text it prints as.
+  test("an integer is held as an integer: read, loaded, written and asserted", () => {
+    const text = [
+      "Widget(.name) is an entity type.",
+      "Count is a value type.",
+      "  The data type of Count is integer.",
+      "Label is a value type.", "",
+      "Widget has Count.",
+      "  Each Widget has at most one Count.",
+      "Widget has Label.",
+      "  Each Widget has at most one Label.", "",
+      "Widget 'w1' has Count 12.",
+      "Widget 'w2' has Count 7.",
+      "Widget 'w1' has Label '12'.", "",
+    ].join("\n");
+    const rows = [];
+    for (const s of Ev("read:sentences", text)) rows.push(Ev("read:row_of", s));
+    const cells = new Map(Ev("read:schema_of", rows).map((c) => [String(c[0]), c[1]]));
+    const pop = (n) => cells.get("state:fts").find((d) => d[0] === n)[4].flat(1);
+    expect(pop("WidgetHasCount")).toEqual([["w1", 12], ["w2", 7]]);
+    expect(pop("WidgetHasLabel")).toEqual([["w1", "12"]]);
+    const otp = (n) => cells.get("state:otpops").find((e) => e[0] === n)[1].flat(1);
+    expect(otp("Count")).toEqual([12, 7]);
+    expect(otp("Label")).toEqual(["12"]);
+    // the lexeme read:kind_isint reads: a leading minus kept, anything else left as it is
+    expect(Ev("value:as_int", "-40")).toBe(-40);
+    expect(Ev("value:as_int", "007")).toBe(7);
+    expect(Ev("value:as_int", "12.5")).toBe("12.5");
+    expect(Ev("value:as_int", "-")).toBe("-");
+    expect(Ev("value:as_int", "")).toBe("");
+    expect(Ev("value:as_int", 3)).toBe(3);
+    // what the tables answer, typed by the fact type each pair is of; a text role keeps its text
+    expect(Ev("value:typed_pairs", [[["FactTypeHasArity", ["X", "2"]], ["DomainHasDescription", ["d", "2"]]], CELLS]))
+      .toEqual([["FactTypeHasArity", ["X", 2]], ["DomainHasDescription", ["d", "2"]]]);
+    // a write: the population main:cf_store is handed, typed, and a row that meets another once typed is one row
+    expect(Ev("value:cf_typed", [CELLS, ["FactTypeHasArity", [["X", "2"], ["X", 2]]]])[1]).toEqual(["FactTypeHasArity", [["X", 2]]]);
+    // an assert, typed before it is compared with anything the store holds
+    expect(Ev("value:typed_in", [CELLS, [["FactTypeHasArity", "X", "3"], ["DomainHasDescription", "d", "3"]]])[1])
+      .toEqual([["FactTypeHasArity", "X", 3], ["DomainHasDescription", "d", "3"]]);
+    // the instance rows a store rebuilds a value type's population from: an instance of an integer type is one
+    expect(Ev("value:typed_insts", [[["2", "Arity"], ["x", "Fact Type"]], CELLS])).toEqual([[2, "Arity"], ["x", "Fact Type"]]);
+    // main:api: the fact of a fact-type resource, typed by that resource's kinds, as the fact tool's PUT and DELETE compare it
+    expect(Ev("value:typed_row", [["X", "4"], Ev("value:ft_kinds", ["FactTypeHasArity", CELLS])])).toEqual(["X", 4]);
+    // the kind rows come from the schema's own descriptor, which a store read at load has before any population cell does
+    expect(Ev("value:cdt_rows", CELLS).filter((r) => r[0] === "Arity")).toEqual([["Arity", "integer"]]);
+    // and the base module's own: the reflection's span positions are integers, as its arities were
+    const span = Ev("system:pop_rows", ["ConstraintSpanHasPosition", CELLS]);
+    expect(span.length).toBeGreaterThan(0);
+    expect(span.every((r) => typeof r[1] === "number")).toBe(true);
+  }, 300_000);
 });
 // ---- THE JUDGE'S VERDICT LANDS AS A VIOLATION ROW (#122 item 7) ----------
 //
