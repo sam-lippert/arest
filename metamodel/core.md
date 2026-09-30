@@ -838,7 +838,7 @@ Function has Implementation.
 Constraint has modality of Modality Type.
 Constraint has Text.
   Each Constraint has at most one Text.
-Constraint is semantic.
+Constraint is semantic. *
 
 <!-- WHICH DECIDER OWNS THIS CONSTRAINT (2026-09-05). Sam: the deontic rules
      for messaging split into "deterministic ones that may be determined by a
@@ -857,10 +857,16 @@ Constraint is semantic.
      judged side already has, and `Constraint Type has Violation Template` is
      the corrections text a regeneration is handed.
 
-     NOT `Constraint is semantic` above, which derives as deontic AND spanning
-     a role whose object type has no instances -- that is "nothing to check
-     against yet", a neighbouring notion, and reusing it here would conflate an
-     empty population with a rule that needs judgement. -->
+     AND `Constraint is semantic` above IS the judged case (Sam, 2026-09-30:
+     "The deontic constraints are split between the deterministic ones that
+     may be calculated by function and the semantic ones requiring
+     judgement."). Alethic constraints refuse a write, so a malformed entity
+     never reaches the store; a deontic one records its violation, and since
+     facts are events a violated deontic raises an event. Until 2026-09-30 this
+     derived as a deontic spanning a role whose object type had no instances
+     -- an empty population, not a judgement -- which is why this note once
+     kept the two apart. It derives now as a deontic that has a Text and is not
+     machine-decidable (below): the Text is what the judge reads. -->
 Constraint is decided by Predicate.
   Each Constraint is decided by at most one Predicate.
 Constraint is machine-decidable. *
@@ -1332,7 +1338,7 @@ Derivation Rule depends on Derivation Rule. *
 
 
 
-Constraint is semantic iff Constraint has modality of Modality Type 'Deontic' and Constraint spans some Role and that Role is played by some Object Type and no Object Type Instance is instance of that Object Type.
+* Constraint is semantic iff Constraint has modality of Modality Type 'Deontic' and Constraint has some Text and Constraint is not machine-decidable.
 
 * Constraint is machine-decidable iff Constraint is decided by some Predicate and that Predicate is bound.
 
