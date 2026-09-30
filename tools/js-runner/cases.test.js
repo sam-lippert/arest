@@ -3029,7 +3029,9 @@ test("the reader reports a reading over an undeclared object type, the sentences
 // `each` obligation that attaches to nothing -- and all four were silent or, the
 // last, reported as `Each Gizmo belongs to some Maker`. The dual-built obligation
 // was reported unattached though DEO:p:MessageUsesDash:1 carries it; it is not
-// now. A permission states no constraint and is not reported.
+// now. A permission states no constraint and is not reported. Since the next
+// change the forbidden body over the subtype builds (the case below), so three
+// of the four are left.
 test("a deontic rule that compiles to no constraint is reported with its operator, and one that built is not", () => {
   const NL = String.fromCharCode(10);
   const dir = mkdtempSync(join(tmpdir(), "arest-deontic-"));
@@ -3054,8 +3056,8 @@ test("a deontic rule that compiles to no constraint is reported with its operato
     const p = Bun.spawnSync(["bun", join(import.meta.dir, "compile.js"), corpus],
       { env: { ...process.env, AREST_OUT_DIR: out, AREST_STRICT: "" }, stdout: "pipe", stderr: "pipe" });
     const text = p.stdout.toString() + p.stderr.toString();
-    expect(text).toContain("UNBUILT: 4 deontic rule(s) compile to no constraint: "
-      + "It is forbidden that Response uses Dash; It is forbidden that Message licenses Dash; "
+    expect(text).toContain("UNBUILT: 3 deontic rule(s) compile to no constraint: "
+      + "It is forbidden that Message licenses Dash; "
       + "It is obligatory that Message names Dash; It is obligatory that each Gizmo belongs to some Maker");
     expect(text).not.toContain("UNATTACHED");
     expect(text).not.toContain("uses some Dash has some Maker");
@@ -3063,11 +3065,30 @@ test("a deontic rule that compiles to no constraint is reported with its operato
     expect(p.exitCode).toBe(0);
     const carrier = readFileSync(join(out, "design-state"), "utf8");
     for (const key of ["DEO:m:GizmoIsInvolvedInGizmoHasMaker#1", "DEO:p:MessageUsesDash", "DEO:p:MessageUsesDash:1"]) expect(carrier).toContain('A("' + key + '")');
-    expect(carrier).not.toContain("DEO:p:MessageUsesDash:2");
+    // the prohibition written of the subtype: the reading`s rows whose Message is a Response
+    expect(carrier).toContain('S(A("DEO:p:MessageUsesDash:2"),A("prohibited"),S(A("MessageUsesDash"),S(A("joinon"),A("MessageUsesDash"),'
+      + 'S(A("sel"),A("ObjectTypeInstanceIsInstanceOfObjectType"),N(2),A("Response")),S(S(N(1),N(1))),S(N(1),N(2)))))');
+    expect(carrier).not.toContain("DEO:p:MessageUsesDash:3");
   } finally {
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
   }
 }, 120_000);
+
+// ---- A PROHIBITION WRITTEN OF A SUBTYPE JUDGES THAT SUBTYPE`S INSTANCES --------
+// (2026-09-29.) `It is forbidden that Response uses Dash` over `Message uses Dash`
+// was prose: the three single-clause shapes look a clause up exactly, and the join
+// builder, which substitutes a subtype and joins its extent, took two clauses or
+// more. It takes one now. The recipe the case above finds in the carrier, evaluated
+// over the populations a check hands it: the Message that is a Response and uses a
+// Dash is the violation, the Message that is no Response is not, and with no
+// Response among them there is none.
+test("a prohibition written of a subtype judges the subtype's instances and no other", () => {
+  const ofResponse = ["joinon", "MessageUsesDash", ["sel", "ObjectTypeInstanceIsInstanceOfObjectType", 2, "Response"], [[1, 1]], [1, 2]];
+  const uses = ["MessageUsesDash", [["r1", "emdash"], ["m1", "emdash"]]];
+  const shown = (v) => v.map((r) => r.map(String));
+  expect(shown(Ev("derive:eval", [ofResponse, [uses, ["ObjectTypeInstanceIsInstanceOfObjectType", [["r1", "Response"], ["r1", "Message"], ["m1", "Message"]]]]]))).toEqual([["r1", "emdash"]]);
+  expect(shown(Ev("derive:eval", [ofResponse, [uses, ["ObjectTypeInstanceIsInstanceOfObjectType", [["r1", "Message"], ["m1", "Message"]]]]]))).toEqual([]);
+});
 
 // ---- DOES AN OBJECTIFICATION DECLARE ITS OWN NESTED OBJECT TYPE? ----------
 //
