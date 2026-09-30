@@ -5498,6 +5498,68 @@ test("llm:validate_judge's verdict lands as a Violation row, stamped by the regi
     adoptStore(keep);
   }
 }, 120_000);
+
+// ---- AND A DRIVER'S ANSWER IS ONE WRITE (2026-09-30) -----------------------
+//
+// The seam gathered an answer's facts onto the tables mcp:entities names and posted each entity
+// whole, in the order the answer listed them, while a fact type that is nobody's column went as a
+// POST of its own. So an answer that named a new entity first in a spanning fact type posted that
+// fact before the entity had its mandatory roles, and it was refused as a partial entity: claude's
+// `Correction is given by User` for c6. Now the answer is one assert. The probe answers
+// csdp:elementarize over the base with a Domain Change that proposes a Function (a table of its
+// own) listed before the Rationale and Domain it must have, and all three land.
+test("a driver's answer is written as one step, so an entity it names first in a table of its own is not posted partial", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "arest-seam-"));
+  let server = null;
+  try {
+    const env = { ...process.env, AREST_CARRIERS: join(import.meta.dir, "..", "carriers", "base"), AREST_OUT_DIR: dir };
+    delete env.AREST_INSTRUMENTED;
+    const b = Bun.spawnSync(["bun", "build.js", "mcp"], { cwd: import.meta.dir, env, stdout: "pipe", stderr: "pipe" });
+    expect(b.exitCode, b.stdout.toString() + b.stderr.toString()).toBe(0);
+    const run = { ...process.env };
+    delete run.AREST_STORE_DB;
+    server = Bun.spawn(["bun", join(dir, "mcp.g.js")], { env: run, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
+    const pending = new Map();
+    (async () => {
+      let buf = "";
+      for await (const chunk of server.stdout) {
+        buf += new TextDecoder().decode(chunk);
+        let i;
+        while ((i = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, i).trim();
+          buf = buf.slice(i + 1);
+          if (!line.startsWith("{")) continue;
+          try { const m = JSON.parse(line); if (m.id !== undefined && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } } catch { /* not a reply */ }
+        }
+      }
+    })();
+    let next = 0;
+    const send = (method, params) => new Promise((resolve) => {
+      const id = ++next;
+      pending.set(id, resolve);
+      server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+      server.stdin.flush();
+    });
+    const text = (r) => ((r.result && r.result.content) || []).map((x) => x.text).join("") + (r.error ? r.error.message : "");
+    await send("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "cases", version: "1" } });
+    const answer = [
+      { factType: "DomainChangeProposesFunction", players: ["dc-seam", "DomainChangeHasRationale"] },
+      { factType: "DomainChangeHasRationale", players: ["dc-seam", "an answer is one write"] },
+      { factType: "DomainChangeTargetsDomain", players: ["dc-seam", "evolution"] },
+    ];
+    const r = await send("tools/call", { name: "csdp_elementarize", arguments: { args: ["dc-seam", answer] } });
+    const said = text(r);
+    expect(said).toContain("wrote the answer as one step, 3 facts");
+    const rows = async (ft) => JSON.parse(text(await send("tools/call", { name: ft, arguments: { method: "GET" } })))
+      .find((p) => p[0] === "rows")[1].filter((row) => row[0] === "dc-seam");
+    expect(await rows("DomainChangeProposesFunction")).toEqual([["dc-seam", "DomainChangeHasRationale"]]);
+    expect(await rows("DomainChangeHasRationale")).toEqual([["dc-seam", "an answer is one write"]]);
+    expect(await rows("DomainChangeTargetsDomain")).toEqual([["dc-seam", "evolution"]]);
+  } finally {
+    if (server) server.kill();
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 120_000);
 // ---- A RECORDED VIOLATION IS A VERDICT (#122 item 7, the read half) ------
 //
 // The landing half writes a judge's verdict as a Violation -- is of

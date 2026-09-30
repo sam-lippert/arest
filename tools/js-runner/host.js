@@ -4608,40 +4608,26 @@ function run_mcp() {
     row.output = output;
     row.facts = facts;
     const pairs = Ev("drive", [fromJson(row), CELLS]);
-    // AN ENTITY IS A COMPLEX SENTENCE AND IT GOES IN AS ONE. A Completion has
-    // four mandatory roles and an Agent Definition three, so asserting them a
-    // fact at a time is refused by Theorem 1's gate at every step -- measured
-    // 2026-09-17: nine refusals in a row, each naming the roles the next writes
-    // were about to fill. mcp:entities already says which fact types are the
-    // columns of which table, so lambda's pairs are gathered onto their tables
-    // here and posted whole, through the same entity door a caller uses. A fact
-    // type that is nobody's column -- the spanning ones, `Message asks about
-    // Fact Type` among them -- is its own write, as it was.
-    const tableOf = new Map();
-    for (const e of ENTITIES) for (const f of entityFields(e)) if (!tableOf.has(f)) tableOf.set(f, e);
-    const batches = new Map();
-    const order = [];
-    for (const p of pairs) {
-      const ft = String(p[0]), fact = (Array.isArray(p[1]) ? p[1] : [p[1]]).map(String);
-      const e = tableOf.get(ft);
-      const key = e ? String(e[0]) + "/" + fact[0] : ft + "/" + order.length;
-      if (!batches.has(key)) { batches.set(key, e ? { name: String(e[0]), args: { method: "POST", id: fact[0] }, facts: [] } : { name: ft, args: { method: "POST", fact }, facts: [] }); order.push(key); }
-      const b = batches.get(key);
-      b.facts.push(ft + " " + JSON.stringify(fact));
-      if (e) b.args[ft] = fact.length > 1 ? fact[1] : fact[0];
-    }
-    const wrote = [], refused = [];
-    for (const key of order) {
-      const b = batches.get(key);
-      const out = call(b.name, b.args);
-      const status = Number(out && out[1]) || 500;
-      for (const f of b.facts) (status < 400 ? wrote : refused).push(f + (status < 400 ? "" : " -- " + status + " " + String(out && out[0]).slice(0, 240)));
-    }
+    // AN ANSWER IS ONE WRITE (2026-09-30). A Completion has four mandatory roles
+    // and an Agent Definition three, so a fact at a time is refused at every step
+    // (2026-09-17). This then gathered lambda's pairs onto the tables mcp:entities
+    // names and posted each entity whole, in the order the answer listed them. But
+    // a fact type that is nobody's column went as a POST of its own: claude's
+    // `Correction is given by User`, a table of its own while its uniqueness
+    // attached to no reading, went for c6 before c6 had the Guidance Text and
+    // Timestamp its mandatory roles need, and was refused as the partial entity it
+    // was. assert takes the whole answer as one step, validated once, so every
+    // entity in it arrives whole whatever the order, and the answer lands whole or
+    // not at all. drive keeps only the fact types this store declares.
+    const page = pairs.map((p) => [String(p[0])].concat((Array.isArray(p[1]) ? p[1] : [p[1]]).map(String)));
+    const out = call("assert", { args: [page] });
+    const ok = Number(out && out[1]) < 400;
     return [(answered ? "took your answer for '" : "asked the client for '") + operation + "' over " + subject
       + " (" + input.length + " characters of request, model " + row.model + ", agent " + row.agent + ")"
       + "\n\nthe completion:\n" + output
-      + "\n\nwrote " + wrote.length + " facts:\n  " + wrote.join("\n  ")
-      + (refused.length ? "\n\nrefused " + refused.length + ":\n  " + refused.join("\n  ") : ""), refused.length ? 409 : 200];
+      + "\n\n" + (ok ? "wrote" : "refused") + " the answer as one step, " + page.length + " facts:\n  "
+      + page.map((f) => f[0] + " " + JSON.stringify(f.slice(1))).join("\n  ")
+      + "\n\n" + String(out && out[0]).slice(0, 1200), ok ? 200 : 409];
   }
 
   function reply(id, result) { return { jsonrpc: "2.0", id, result }; }
