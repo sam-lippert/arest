@@ -57,8 +57,12 @@ Agent is for Object Type Instance.
   Each Agent is for at most one Object Type Instance.
 
 ### Completion
+# A Completion is the model's interface: the text that went in, the text that
+# came out, and when. An Agent is not part of it (Sam, 2026-09-30: "If they're
+# coupled to an Agent rather than just modeling their interfaces, it's not
+# modeled right."), so a completion a running session answered has none.
 Completion belongs to Agent.
-  Each Completion belongs to exactly one Agent.
+  Each Completion belongs to at most one Agent.
 
 Completion has input Text.
   Each Completion has exactly one input Text.
