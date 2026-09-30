@@ -5417,135 +5417,26 @@ function loadFile() {
 const REFLECTED_NAMES = new Set();
 const DERIVED_NAMES = new Set();
 
-function loadDerived() {
-  const rules = Ev("law:all_rules", CELLS);
-  // READ THROUGH THE ACCESSOR THE RULES READ. induce:pairs_of takes slot 5 of
-  // each descriptor, which is a FILE projection, so every REFLECTED population
-  // -- roles, readings, cells -- arrived here empty and the rules over them
-  // derived nothing. derive:store_pairs pairs each declared name with
-  // system:pop_rows, which consults top-level cells before FILE.
-  const before = Ev("derive:store_pairs", CELLS);
-  // CARRIED MEANS HOLDING ROWS, NOT MERELY DECLARED, and the difference is the
-  // whole of what this function was doing. Every derived head IS a declared fact
-  // type, so a `seen` built from every name in store:fts contained all of them --
-  // carried as EMPTY populations -- and the loop below skipped each one as
-  // "already carried". derive was running, computing, and having its answers
-  // discarded on the way out.
-  //
-  // It was computing plenty. Over this store the fixpoint fills nine heads,
-  // including a transitive closure (StatusReachesStatusInStateMachineDefinition,
-  // 45 rows), the effective-transition and terminal/rooted status derivations,
-  // ObjectTypeInstanceIsOfFunction at 730, and the Entity Type / Value Type
-  // subtypes at 124 and 88 -- which are exactly the entity/value split emitted
-  // into ObjectTypeIsOfObjectKind by 111f1df2. Before that emit those two rules
-  // derived nothing, because their input was empty; after it they derive, and
-  // this line threw the result away.
-  //
-  // The second check stays as it was and is why the first has to be narrowed
-  // rather than deleted: loadDerived may run AGAIN after a store change, and
-  // without a guard on the cells it already added it prepends every derived
-  // population twice.
-  // AND CARRIED IS NOT THE SAME AS COMPLETE. The first narrowing here was from
-  // "declared" to "holding rows"; this is the second, and the World Assumption
-  // is what forced it. `Object Type has World Assumption` is SEMI-derived, so a
-  // model may assert some rows and let the rules supply the rest -- and holding
-  // two asserted rows made this loop skip the head entirely, discarding the 279
-  // the rules computed and leaving 277 object types with no assumption at all.
-  // The closure now merges semi heads itself (derive:closed, which keeps an
-  // asserted row over a derived one on the same uniqueness key), so what is
-  // carried can be a PREFIX of what is true. Compare lengths, not presence.
-  const carried = new Map(before.map((p) => [String(p[0]), Array.isArray(p[1]) ? p[1].length : 0]));
-  const seen = new Set();
-  for (const c of CELLS) if (Array.isArray(c) && String(c[0]) === "CELL") seen.add(String(c[1]));
-  // AND A TABLE IS NOT AN ANSWER FOR A HEAD THE RULE OWNS (2026-09-18). The
-  // `seen` line above is PRESENCE, and presence is what the `carried` line
-  // before it already had to stop trusting. On a boot from store.db
-  // loadStoreDb makes a cell for every _meta row, so the moment a fully
-  // derived head is MATERIALISED it has a cell, and `already its own cell`
-  // throws the closure away for the one kind of head whose marker says the
-  // rule owns the whole population -- the answer is then whatever the last
-  // compile-store wrote, frozen against everything the store has learned
-  // since. Measured on metamodel/resolution.md's `Operation awaits a driver`
-  // the day it was declared `**`: the MCP asserts `Operation is registered`
-  // per connection for the seams a sampling client can drive and does not
-  // emit it (initialize, above), and with no table that assertion dropped
-  // csdp:elementarize out of the awaiting list while with one it stayed in
-  // it -- which is the defect resolution.md's own note names, the seams
-  // "stayed awaiting with the driver sitting on the other end of the pipe".
-  // A `+` head is deliberately NOT here: its rows may be ASSERTED, so what
-  // the tables hold for it is a statement and not only a computation, and
-  // the merge derive:sm_one performs is the reading of that. Only `*` and
-  // `**` say the rule owns the population, and only a name the TABLES
-  // supplied is claimed -- a carrier cell is left exactly as it was.
-  let owned;
-  try {
-    owned = new Set(Ev("derive:sm_marks", CELLS)
-      .filter((r) => String(r[1]) === "full" || String(r[1]) === "derived-and-stored")
-      .map((r) => String(r[0])).filter((n) => STORE_TABLES.has(n)));
-  } catch { owned = new Set(); }
-  // AND A SEMI-DERIVED HEAD WITH A CELL TAKES THE MERGE, IT IS NOT SKIPPED (2026-09-25,
-  // #122 item 4). `seen` below is presence, and for a `+` head presence is exactly the
-  // wrong test: derive:closed already answers the head MERGED -- every row the cell
-  // holds keeps its key, and a derived row fills each key no row claims (lambda's own
-  // note, "a semi-derived head merges, it does not choose") -- so a cell holding SOME
-  // rows was skipped with all of the rest thrown away. It took support.auto.dev's
-  // store down on 2026-09-25: its rebuild carried ONE World Assumption row as runtime --
-  // Integration's, whose domain a runtime write had moved, so the row no longer matched
-  // the ledger and was carried whole, derived columns and all -- the head then had a
-  // cell, the closure skipped it, and the ledger superseded the 1,533 rows the
-  // old build had asserted. 1 row of 1,549 was left, and every create was refused on
-  // `Each Object Type has some World Assumption` for 23 object types. So a semi head
-  // whose merge holds more than its cell takes the merge; one that holds no more is
-  // left alone.
-  let semi;
-  try {
-    semi = new Set(Ev("derive:sm_marks", CELLS)
-      .filter((r) => String(r[1]) === "semi" || String(r[1]) === "semi-derived")
-      .map((r) => String(r[0])));
-  } catch { semi = new Set(); }
-
-  let added = 0;
-  for (const entry of Ev("derive:closed", CELLS)) {
-    const name = String(entry[0]);
-    // an EMPTY derived population is not worth a cell: closing under the whole
-    // program derives the model's rule heads, whose inputs are empty, and
-    // carrying those adds names nothing references and nothing can read
-    if (!Array.isArray(entry[1]) || entry[1].length === 0) continue;
-    if (REFLECTED_NAMES.has(name)) continue;              // lambda's own answer, not the closure's
-    if (DERIVED_NAMES.has(name) || owned.has(name)) {
-      // A CELL THIS BOOT COMPUTED IS REFRESHED, NOT KEPT (2026-09-17). The two
-      // guards below are about not disturbing what the CARRIERS or the TABLES
-      // say; they were also stopping the closure from correcting its own
-      // earlier answer. The state machines are the case: the first pass closed
-      // over a store whose machines the reflection had not seeded yet, so
-      // `State Machine is instance of State Machine Definition` was derived for
-      // one instance out of six and then frozen there while the reflection went
-      // on to name all six. Only a name this process computed is replaced, and
-      // only when the answer moved, so a carrier cell and a stored population
-      // are as untouched as they were.
-      const at = CELLS.findIndex((c) => Array.isArray(c) && String(c[0]) === "CELL" && String(c[1]) === name);
-      if (at >= 0) {
-        if (JSON.stringify(CELLS[at][2]) === JSON.stringify(entry[1])) continue;
-        CELLS.splice(at, 1);
-      }
-    } else {
-      if (seen.has(name)) {
-        if (!semi.has(name)) continue;               // already its own cell
-        const at = CELLS.findIndex((c) => Array.isArray(c) && String(c[0]) === "CELL" && String(c[1]) === name);
-        if (at < 0) continue;
-        const cur = CELLS[at][2];
-        if (Array.isArray(cur) && cur.length >= entry[1].length) continue;   // the merge adds nothing
-        CELLS.splice(at, 1);
-      } else if ((carried.get(name) || 0) >= entry[1].length) continue;
-    }
-    CELLS.unshift(["CELL", name, entry[1]]);
-    DERIVED_NAMES.add(name);
-    added++;
-  }
-  if (added) memoClear();
-  return added;
+// THE CLOSURE IS LAMBDA'S, AND THIS ONLY ASKS FOR IT (2026-09-30). loadDerived carried
+// the install policy here in JS -- which derived population replaces a cell, which is
+// merged, which is left -- and lambda's store:derive_pass is that policy now, with the
+// reason for each of its rules in the note above store:cell_rows. What the host still
+// knows that lambda cannot is which fact types held rows when the store was READ:
+// STORE_TABLES is the storage's answer, and store:dv_ctx asks it of the marked heads.
+function storedNames() {
+  let marks = [];
+  try { marks = Ev("derive:sm_marks", CELLS); } catch { return []; }
+  const out = [];
+  for (const r of marks) { const n = String(r[0]); if (STORE_TABLES.has(n)) out.push(n); }
+  return out;
 }
-
+function adoptClosed(next) {
+  if (next === CELLS) return;
+  const copy = seq(next).slice();
+  CELLS.length = 0;
+  for (const c of copy) CELLS.push(c);
+  memoClear();
+}
 // THE META-TYPES ARE REFLECTED AT LOAD, and lambda says which. reflect:cells
 // answers <name, population> pairs computed from the schema itself, so adding a
 // reflected meta-type later is a lambda edit and never a host edit -- this
@@ -5572,20 +5463,12 @@ function loadDerived() {
 // asserts these names, and a cell that already equals the reflection is left
 // exactly where it is, so a store with nothing to recompute loads as before.
 function loadReflected() {
-  let added = 0;
-  for (const entry of Ev("reflect:cells", CELLS)) {
-    const name = String(entry[0]);
-    if (!Array.isArray(entry[1]) || entry[1].length === 0) continue;
-    const at = CELLS.findIndex((c) => Array.isArray(c) && String(c[0]) === "CELL" && String(c[1]) === name);
-    if (at >= 0) {
-      if (JSON.stringify(CELLS[at][2]) === JSON.stringify(entry[1])) continue;
-      CELLS.splice(at, 1);
-    }
-    CELLS.unshift(["CELL", name, entry[1]]);
-    REFLECTED_NAMES.add(name);
-    added++;
+  const r = Ev("store:reflect_pass", [CELLS, [...REFLECTED_NAMES], [...DERIVED_NAMES], []]);
+  const added = Number(r[1]);
+  if (added) {
+    adoptClosed(r[0][0]);
+    for (const n of seq(r[0][1])) REFLECTED_NAMES.add(String(n));
   }
-  if (added) memoClear();
   return added;
 }
 
@@ -5608,16 +5491,10 @@ function loadReflected() {
 // one this process itself computed, over a store that is otherwise fixed, so it
 // settles on the second reflection and the bound has never been reached.
 function closeStore() {
-  const pass = (r) => {
-    const d = loadDerived();
-    if (process.env.AREST_BOOT_TIMING) console.error("boot: pass " + r + " reflected, " + d + " derived");
-  };
-  pass(loadReflected());
-  for (let n = 0; n < 8; n++) {
-    const r = loadReflected();
-    if (!r) return;
-    pass(r);
-  }
+  const r = Ev("store:close", [CELLS, storedNames(), [...REFLECTED_NAMES], [...DERIVED_NAMES]]);
+  adoptClosed(r[0]);
+  for (const n of seq(r[1])) REFLECTED_NAMES.add(String(n));
+  for (const n of seq(r[2])) DERIVED_NAMES.add(String(n));
 }
 
 function boot(mode) {
