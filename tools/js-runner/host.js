@@ -5178,8 +5178,8 @@ function loadStoreDb(path, opts) {
       db.close();
       throw new Error("this module carries no schema, and " + path + " holds no " + METASCHEMA +
         " table to be read through: nothing says which tables it has" +
-        "\n  compose a carrier, or rebuild the store with a compile.js that writes one" +
-        " -- AREST_DB=" + path + " bun tools/js-runner/compile.js <readings dir>");
+        "\n  compose a carrier: no compiler here rebuilds a store" +
+        " (compile.js was deleted 2026-09-29)");
     }
     for (const [table, cols] of stored) if (cols.length) want.set(table, cols);
   }
@@ -5223,8 +5223,8 @@ function loadStoreDb(path, opts) {
       "\n  the store's schema is " + (held || "(not recorded)") + ", this module's is " + schemaHash(want) +
       "; it was built from composition " + (builtFrom || "(none: it predates the stamp)") +
       ", this module is " + (COMPOSITION || "(unstamped)") +
-      "\n  rebuild it: apps_check then apps_compile on this app" +
-      " -- AREST_DB=" + path + " bun tools/js-runner/compile.js <readings dir>");
+      "\n  no compiler here rebuilds a store (compile.js was deleted 2026-09-29):" +
+      " serve it with the module its own build wrote");
   }
   // AND WHERE THE SCHEMA FITS BUT THE STAMP DIFFERS, SAY SO ONCE. The tables
   // are read, because their shape is what reading them needs; but the ROWS in
