@@ -4162,7 +4162,6 @@ function run_mcp() {
   // from 1 and so would we; ours carry a string id, which JSON-RPC admits and no
   // client generates, so a reply is unambiguously to a question this server asked.
   let SAMPLING = false;                   // does this connection's client offer it
-  let AGENT = "agent-unnamed";             // the Agent this connection is, named at initialize
   const ASKED = new Map();                // our request id -> the promise waiting on it
   let askSeq = 0;
   function askClient(method, params) {
@@ -4609,27 +4608,28 @@ function run_mcp() {
     const completion = "cmp-" + Ev("slug", at) + "-" + (++completions);
     row.operation = operation; row.subject = subject;
     row.at = at;
-    // AND THE ONE THING A PASSED ANSWER CANNOT SAY IS WHICH MODEL SAID IT. The
-    // sampled path learns it from the client's result; MCP gives a server no way
-    // to learn it from a tool call, and a caller naming itself is a claim, not a
-    // measurement. So it is `unknown` unless the caller put a `model` in the
-    // operand -- which is the same atom the sampled path already writes when the
-    // client returns no model -- and it is abstention, not a guess. The AGENT is
-    // not affected and is in fact MORE certain here than under sampling: the
-    // party that answered is the party that called, named at initialize, where a
-    // sampling client may route the ask anywhere.
-    row.model = res ? String(res.model || "unknown") : String(row.model || "unknown");
-    row.definition = "agentdef-" + Ev("slug", operation);
-    row.agent = AGENT;
+    // A COMPLETION IS ITS INTERFACE, AND NOTHING IS MINTED BESIDE IT (Sam,
+    // 2026-09-30: "I'd rather you skipped initializing an Agent entity, because
+    // this session is an initialized agent, and the purpose of the Agent
+    // definitions is to power an LLM over api", and "If they're coupled to an
+    // Agent rather than just modeling their interfaces, it's not modeled
+    // right."). This named the client an Agent at initialize, minted an Agent
+    // Definition per operation and an AI Model per answer -- `unknown` whenever
+    // the answer was passed, since MCP gives a server no way to learn the model
+    // from a tool call -- and tied the Completion to all three. Neither path here
+    // is an Agent Definition powering a model over an API: the client answers,
+    // by sampling or by passing its answer. So the Completion is written as what
+    // went in, what came out and when (drive:prov), and the model is only said
+    // in this answer's text.
+    const model = res ? String(res.model || "unknown") : String(row.model || "unknown");
     row.completion = completion;
     row.claim = "claim-" + completion;
-    row.prompt = prompt;
     row.input = input;
     row.output = output;
     row.facts = facts;
     const pairs = Ev("drive", [fromJson(row), CELLS]);
-    // AN ANSWER IS ONE WRITE (2026-09-30). A Completion has four mandatory roles
-    // and an Agent Definition three, so a fact at a time is refused at every step
+    // AN ANSWER IS ONE WRITE (2026-09-30). A Completion has mandatory roles and
+    // so do the answer's own entities, so a fact at a time is refused at every step
     // (2026-09-17). This then gathered lambda's pairs onto the tables mcp:entities
     // names and posted each entity whole, in the order the answer listed them. But
     // a fact type that is nobody's column went as a POST of its own: claude's
@@ -4643,7 +4643,7 @@ function run_mcp() {
     const out = call("assert", { args: [page] });
     const ok = Number(out && out[1]) < 400;
     return [(answered ? "took your answer for '" : "asked the client for '") + operation + "' over " + subject
-      + " (" + input.length + " characters of request, model " + row.model + ", agent " + row.agent + ")"
+      + " (" + input.length + " characters of request, model " + model + ")"
       + "\n\nthe completion:\n" + output
       + "\n\n" + (ok ? "wrote" : "refused") + " the answer as one step, " + page.length + " facts:\n  "
       + page.map((f) => f[0] + " " + JSON.stringify(f.slice(1))).join("\n  ")
@@ -4672,8 +4672,6 @@ function run_mcp() {
       // the driver sitting on the other end of the pipe.
       const caps = (msg.params && msg.params.capabilities) || {};
       SAMPLING = !!caps.sampling;
-      const who = (msg.params && msg.params.clientInfo && msg.params.clientInfo.name) || "client";
-      AGENT = "agent-" + Ev("slug", String(who)) + "-" + Ev("slug", String(Ev("clock", [])));
       // A HOST ASSERTS WHAT IT FILLED, and only for as long as it is filling it.
       // `Operation is registered` is resolution.md's own fact for a seam a host
       // really does answer; a client offering sampling is what makes this host
