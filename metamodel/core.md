@@ -698,7 +698,7 @@ Function is called with HTTP Method.
        'resend' at https://api.resend.com, and the method was the only piece of
        the line the model could not supply. -->
 Function sends Header.
-  Each Function sends each Header at most once.
+  Each Function, Header combination occurs at most once in the population of Function sends Header.
   <!-- `has`, HERE, STOLE FROM External System. MEASURED 2026-09-12 on
        support's corpus: FunctionHasHeader carried 16 rows and every subject
        was an External System -- cornell-lii, congress-gov, auto.dev and the
@@ -1074,7 +1074,7 @@ It is impossible that some Derivation Rule introduces values and that Derivation
 External System has URL.
   Each External System has exactly one URL.
 External System has Header.
-  Each External System has each Header at most once.
+  Each External System, Header combination occurs at most once in the population of External System has Header.
 External System has Header with Header Value.
   Each External System, Header combination occurs at most once in the population of External System has Header with Header Value.
   <!-- A TERNARY, NOT AN OBJECTIFIED BINARY PLUS AN ATTRIBUTE, because the
