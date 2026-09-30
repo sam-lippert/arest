@@ -562,6 +562,15 @@ Function 'fs:dir' yields Type Expression 'name-list'.
 Function 'fs:read' has Definition Origin 'registered'.
 Function 'fs:read' accepts Type Expression 'path'.
 Function 'fs:read' yields Type Expression 'text'.
+<!-- AND A CARRIER IS READ AS CELLS (2026-09-30). The in-place compile reads a
+     store through the schema that wrote it, which is the last compile's
+     carriers beside it. The host's reader of intersection source registers
+     what it reads, so reading them that way would replace the schema the
+     module holds; carrier:cells reads a carrier's text into its cells and
+     registers nothing. -->
+Function 'carrier:cells' has Definition Origin 'registered'.
+Function 'carrier:cells' accepts Type Expression 'text'.
+Function 'carrier:cells' yields Type Expression 'cell-list'.
 <!-- AND WHAT THE COMPILE WRITES, AND THE ENGINE IT WRITES THROUGH (2026-09-29).
      compile.js is deleted and the compile is lambda's address (compile:run),
      so writing its carriers is two more registered calls: fs:write, a text

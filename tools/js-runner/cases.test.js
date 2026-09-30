@@ -5117,7 +5117,9 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
       expect(read(empty, 'select "widgetId", "colour" from "Widget"')).toEqual([["w1", "red"]]);
       const f = compile(filled, v2);
       expect(f.code, f.text).not.toBe(0);
-      expect(f.text).toContain("column(s) that hold values carry another fact type now: Widget." + col);
+      // the owner the runtime wrote is a fact of a fact type the new readings do not declare, and the refusal names it
+      expect(f.text).toContain("fact(s) the runtime wrote are of fact types the readings no longer declare");
+      expect(f.text).toContain("WidgetIsWithOwner");
       expect(carried(filled)).toEqual(["WidgetIsWithOwner"]);
       expect(read(filled, 'select "' + col + '" from "Widget" where "widgetId" = \'w1\'')).toEqual([["o1"]]);
     } finally {

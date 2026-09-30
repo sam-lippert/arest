@@ -80,7 +80,7 @@ function ROOTED(p) { MODULE_ROOT = p; }
 // it. The carrier stays the carrier, inside the composition, and nothing is
 // read from a path beside the module (Sam, on a JSON sidecar that was here
 // for an hour: "Codd says no").
-function LAMBDATEXT(text) {
+function LAMBDATEXT(text, onDef = DEF) {
   let i = 0;
   const n = text.length;
   const fail = (what) => { throw new Error("carrier: " + what + " at " + i + ": " + JSON.stringify(text.slice(i, i + 40))); };
@@ -149,7 +149,7 @@ function LAMBDATEXT(text) {
   if (text.charCodeAt(i) === 41) { i++; return; }
   for (;;) {
     const e = expr();
-    if (e !== null && typeof e === "object" && !Array.isArray(e) && e.def !== undefined) DEF(e.def, e.body);
+    if (e !== null && typeof e === "object" && !Array.isArray(e) && e.def !== undefined) onDef(e.def, e.body);
     ws();
     const d = text.charCodeAt(i);
     if (d === 44) { i++; continue; }
@@ -961,6 +961,18 @@ const PRIMS = new Map(Object.entries({
   "fs:read": x => {
     if (Array.isArray(x)) throw new Error("fs:read on a sequence");
     return require("node:fs").readFileSync(String(x), "utf8");
+  },
+  // A CARRIER READ AS CELLS AND REGISTERED NOWHERE (2026-09-30). LAMBDATEXT is
+  // the host's reader of intersection source, and it registers every entry it
+  // reads, so reading the last compile's carriers with it would put the old
+  // schema over the one this module holds. carrier:cells reads the same text
+  // into the <CELL, name, body> list DEF would have pushed, and registers
+  // nothing: the in-place compile reads a store through the schema that wrote it.
+  "carrier:cells": x => {
+    if (Array.isArray(x)) throw new Error("carrier:cells on a sequence");
+    const cells = [];
+    LAMBDATEXT(String(x), (name, body) => { cells.push(["CELL", name, body]); });
+    return cells;
   },
   // AND THE SCRIPT IS ONE TRANSACTION (2026-09-29). db.exec runs each statement in its own, and
   // on Windows each is a sync to disk: support's 655 CREATE TABLEs were 1.3-1.5 s of its compile.
