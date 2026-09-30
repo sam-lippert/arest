@@ -2062,6 +2062,13 @@ test("assert writes a list of facts as one step: new ones land, held ones are co
   expect(Number(Ev("assert", ["x", S0])[1])).toBe(400);
   expect(Number(Ev("assert", [[["NoSuchFactType", "a", "b"]], S0])[1])).toBe(400);
   expect(Number(Ev("assert", [[[]], S0])[1])).toBe(400);
+  // and a fact names one value for each role of its fact type: claude took a text for a one-role
+  // fact type, lost it at the next boot, and refused every write after (2026-09-30)
+  const extra = Ev("assert", [[["StreamHasName", "pg-9", "nine", "more"]], S0]);
+  expect(Number(extra[1])).toBe(400);
+  expect(String(extra[0])).toContain("one value for each of its roles");
+  expect(Number(Ev("assert", [[["StreamHasName", "pg-9"]], S0])[1])).toBe(400);
+  expect(Number(Ev("assert", [[["StreamHasName", "pg-9", "nine"], ["StreamHasName", "pg-10"]], S0])[1])).toBe(400);
   // and the served route is the same operation
   const served = Ev("main", [S0, ["assert", page]]);
   expect(String(served[1])).toBe("T");
