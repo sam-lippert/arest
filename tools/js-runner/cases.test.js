@@ -4870,6 +4870,62 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     }
   });
 
+  // AND A WRITE CLOSES THE MEMBERSHIP IT FILES, ON THE STORE A SERVER READS (2026-09-29). A start computes
+  // nothing, so over a store.db the closure arrives with the first write's reflection and reaches the tables
+  // with its write-back. Served support was the case: rebuilt on 034a5772, its reply resp-test-beau-20260925
+  // was still no Response, because nothing had written since. This writes a Stream -- `Stream is a subtype
+  // of Function` -- through main:api over a closed base store, and the next boot reads the new instance
+  // under Function as well as under Stream, from the tables.
+  test("a write closes the membership it files, and the next boot reads it from the tables", () => {
+    const dir = mkdtempSync(join(tmpdir(), "arest-closure-"));
+    const mod = join(import.meta.dir, "cases.g.js");
+    const KEY = "probe-stream-" + Math.random().toString(36).slice(2, 8);
+    const p = join(dir, "store.db");
+    {
+      const db = new Database(p);
+      makeTables(db);
+      db.run("create table _composition (hash text)");
+      db.prepare("insert into _composition values(?)").run(globalThis.AREST.composition);
+      db.run("pragma wal_checkpoint(TRUNCATE)");
+      db.close();
+    }
+    const driver = join(dir, "drive.mjs");
+    writeFileSync(driver, [
+      "await import(process.env.MODULE);",
+      "const { Ev, CELLS, popSnapshot, adoptStore, emitToDb, closeStore } = globalThis.AREST;",
+      "if (process.env.MAKE) {",
+      "  const b = popSnapshot(CELLS); closeStore(); console.log('made ' + emitToDb(b, CELLS));",
+      "} else if (process.env.WRITE) {",
+      "  const before = popSnapshot(CELLS), prior = CELLS.slice();",
+      "  const out = Ev('main:api', [CELLS, 'POST', 'StreamHasName', '', [process.env.KEY, 'probe-name']]);",
+      "  if (out.length > 2) { adoptStore(out[2]); if (Number(out[1]) < 400) console.log('emitted ' + emitToDb(before, CELLS, prior)); }",
+      "  console.log('status ' + out[1]);",
+      "} else {",
+      "  const rows = Ev('system:pop_rows', ['ObjectTypeInstanceIsInstanceOfObjectType', CELLS]);",
+      "  console.log('types ' + JSON.stringify(rows.filter((r) => String(r[0]) === process.env.KEY).map((r) => String(r[1])).sort()));",
+      "}",
+    ].join(String.fromCharCode(10)));
+    const run = (mode) => {
+      const env = { ...process.env, MODULE: pathToFileURL(mod).href, AREST_STORE_DB: p, KEY };
+      delete env.MAKE; delete env.WRITE; delete env.AREST_EAGER_STORE;
+      if (mode) env[mode] = "1";
+      const r = Bun.spawnSync(["bun", driver], { env, stdout: "pipe", stderr: "pipe" });
+      return r.stdout.toString() + r.stderr.toString();
+    };
+    try {
+      expect(run("MAKE")).toMatch(/made \d+/);
+      expect(run("WRITE")).toMatch(/status 20[01]/);
+      const read = run(null);
+      const m = read.match(/types (\[.*\])/);
+      expect(m, read).not.toBe(null);
+      const types = JSON.parse(m[1]);
+      expect(types, read).toContain("Stream");
+      expect(types, read).toContain("Function");
+    } finally {
+      try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+    }
+  }, 120_000);
+
   test("arithmetic and order by the type a value carries: a sum, a share, a comparison", () => {
     const T = (x) => Ev("value:text", x);
     expect(Ev("value:add", [2, 3])).toBe(5);
