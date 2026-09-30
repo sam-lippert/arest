@@ -123,18 +123,27 @@ It is obligatory that each Constraint of Constraint Type 'VC' spans Roles that a
 
 ### Singular Naming
 
-It is forbidden that Object Type has Name that ends in 's' when that Name is a plural form.
+Constraint 'singular-naming' has Text 'It is forbidden that an object type has a name that ends in the letter s when that name is a plural form'.
+Constraint 'singular-naming' has modality of Modality Type 'Deontic'.
+Constraint 'singular-naming' is of Constraint Type 'DF_owa'.
+Constraint 'singular-naming' spans Role 'FunctionHasName.1'.
 <!-- audit-fix C: one home. core.md's cruder syntactic 'ies' rule is
      retired into this one — the plural-form qualifier is what keeps
      Series and Species legal. -->
 
 ### Alethic Before Deontic
 
-It is forbidden that a Constraint has Modality Type 'Deontic' when that Constraint could be enforced as Modality Type 'Alethic'.
+Constraint 'alethic-before-deontic' has Text 'It is forbidden that a constraint has deontic modality when that constraint could be enforced with alethic modality'.
+Constraint 'alethic-before-deontic' has modality of Modality Type 'Deontic'.
+Constraint 'alethic-before-deontic' is of Constraint Type 'DF_owa'.
+Constraint 'alethic-before-deontic' spans Role 'ConstraintHasModalityOfModalityType.1'.
 
 ### Derivation Over Storage
 
-It is forbidden that a Role stores a value that is derivable from existing Fact instances and Constraint spans.
+Constraint 'derivation-over-storage' has Text 'It is forbidden that a role stores a value that is derivable from existing fact instances and constraint spans'.
+Constraint 'derivation-over-storage' has modality of Modality Type 'Deontic'.
+Constraint 'derivation-over-storage' is of Constraint Type 'DF_owa'.
+Constraint 'derivation-over-storage' spans Role 'FactTypeHasRole.2'.
 
 ### Subtype Constraint Declaration
 
@@ -206,11 +215,17 @@ It is forbidden that a Reading restates the Reference Mode of an Object Type as 
 
 ### Elementary Fact Decomposition
 
-It is forbidden that a Reading conjoins two independent assertions using 'and' when they can be expressed as separate Readings.
+Constraint 'elementary-fact-decomposition' has Text 'It is forbidden that a reading conjoins two independent assertions with the word and when they can be expressed as separate readings'.
+Constraint 'elementary-fact-decomposition' has modality of Modality Type 'Deontic'.
+Constraint 'elementary-fact-decomposition' is of Constraint Type 'DF_owa'.
+Constraint 'elementary-fact-decomposition' spans Role 'ReadingHasText.1'.
 
 ### Constraint Invertibility
 
-It is obligatory that each Reading of a Constraint states the same restriction in positive form and in negative form.
+Constraint 'constraint-invertibility' has Text 'It is forbidden that the verbalization of a constraint states its restriction in only one of positive form and negative form'.
+Constraint 'constraint-invertibility' has modality of Modality Type 'Deontic'.
+Constraint 'constraint-invertibility' is of Constraint Type 'DF_owa'.
+Constraint 'constraint-invertibility' spans Role 'ConstraintHasText.1'.
 <!-- Ruling 2026-07-24: "all constraint verbalizations should be
      invertable." This is NORMA's own POSITIVE/NEGATIVE FORM pairing
      (Halpin & Curland, Automated Verbalization for ORM 2, 2): every
