@@ -586,6 +586,27 @@ Function 'storage:engine' yields Type Expression 'identifier'.
 Function 'sqlite:exec' has Definition Origin 'registered'.
 Function 'sqlite:exec' accepts Type Expression 'path-and-sql'.
 Function 'sqlite:exec' yields Type Expression 'path'.
+<!-- AND THE STORE A COMPILE WRITES (2026-09-30). `compile-store` writes
+     out/store.db through storage:fresh, storage:schema, storage:meta,
+     storage:put and storage:install, and the sqlite engine's definitions of
+     them are lambda over three more of its calls: sqlite:run, one prepared
+     statement run over a list of rows in one transaction, with # bound as
+     NULL; sqlite:fresh, a build file cleared; sqlite:install, the build
+     renamed into place, refused over an existing store. module:root is where
+     the composition's lambda came from, which build.js stamps, so the store
+     can record the identity of the module that will read it. -->
+Function 'sqlite:run' has Definition Origin 'registered'.
+Function 'sqlite:run' accepts Type Expression 'path-and-sql-and-rows'.
+Function 'sqlite:run' yields Type Expression 'number'.
+Function 'sqlite:fresh' has Definition Origin 'registered'.
+Function 'sqlite:fresh' accepts Type Expression 'path'.
+Function 'sqlite:fresh' yields Type Expression 'path'.
+Function 'sqlite:install' has Definition Origin 'registered'.
+Function 'sqlite:install' accepts Type Expression 'path-pair'.
+Function 'sqlite:install' yields Type Expression 'path'.
+Function 'module:root' has Definition Origin 'registered'.
+Function 'module:root' accepts Type Expression 'object'.
+Function 'module:root' yields Type Expression 'path'.
 
 <!-- The boundary is only a query over P if every registered function has an
      origin fact. Enumerating the runners' registration tables against lambda's

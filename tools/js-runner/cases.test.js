@@ -4937,6 +4937,70 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     expect(Ev("compile:src", [text, 3, [], ""])).toBe(want);
   });
 
+  // AND THE STORE IT WRITES IS THE CLOSED STORE (2026-09-30). `compile-store` writes out/store.db beside the
+  // carriers: the compiled cells closed by store:close, adopted as their own source, projected table by table.
+  // A start reads the tables and computes nothing, so the store is right exactly when a module started from it
+  // holds what a module that closes the carriers itself holds -- every fact type the store has a home for,
+  // fact for fact, compared as sorted texts with each value spelled as it is stored.
+  test("a store lambda's compile writes is the closed store a carriers boot computes", () => {
+    const dir = mkdtempSync(join(tmpdir(), "arest-cstore-"));
+    try {
+      const b = Bun.spawnSync(["bun", "build.js", "compile"],
+        { cwd: import.meta.dir, env: { ...process.env, AREST_OUT_DIR: dir }, stdout: "pipe", stderr: "pipe" });
+      expect(b.exitCode, b.stdout.toString() + b.stderr.toString()).toBe(0);
+      const out = join(dir, "carriers");
+      mkdirSync(out);
+      const env = { ...process.env, AREST_PARSE_CACHE: "off" };
+      delete env.AREST_STORE_DB; delete env.AREST_STRICT;
+      const r = Bun.spawnSync(["bun", join(dir, "compile.g.js"), "compile-store", out, "metamodel"],
+        { cwd: join(import.meta.dir, "..", ".."), env, stdout: "pipe", stderr: "pipe" });
+      const text = r.stdout.toString() + r.stderr.toString();
+      expect(r.exitCode, text).toBe(0);
+      expect(text).toMatch(/store: \d+ rows in its tables/);
+      const db = new Database(join(out, "store.db"), { readonly: true });
+      const homed = new Set(db.query('select distinct "ft" from "_metaschema" where "ft" is not null').values().map((v) => String(v[0])));
+      const tables = new Set(db.query("select name from sqlite_master where type = 'table'").values().map((v) => String(v[0])));
+      db.close();
+      const driver = join(dir, "pops.mjs");
+      writeFileSync(driver, [
+        "await import(process.env.MODULE);",
+        "const { Ev, CELLS } = globalThis.AREST;",
+        "const norm = (v) => (Array.isArray(v) ? (Ev('dec:is', v) === 'T' ? Ev('dec:text', v) : v.map(norm)) : String(v));",
+        "const out = {};",
+        "for (const p of Ev('derive:store_pairs', CELLS)) {",
+        "  const rows = Array.isArray(p[1]) ? p[1] : [];",
+        "  out[String(p[0])] = rows.map((r) => JSON.stringify(norm(r))).sort();",
+        "}",
+        "console.log('POPS ' + JSON.stringify(out));",
+      ].join(String.fromCharCode(10)));
+      const pops = (store) => {
+        const e = { ...process.env, MODULE: pathToFileURL(join(import.meta.dir, "cases.g.js")).href };
+        delete e.AREST_EAGER_STORE;
+        if (store) e.AREST_STORE_DB = store; else delete e.AREST_STORE_DB;
+        const p = Bun.spawnSync(["bun", driver], { env: e, stdout: "pipe", stderr: "pipe" });
+        const s = p.stdout.toString();
+        const at = s.indexOf("POPS ");
+        expect(at, s + p.stderr.toString()).toBeGreaterThan(-1);
+        return JSON.parse(s.slice(at + 5).split(String.fromCharCode(10))[0]);
+      };
+      const fromCarriers = pops(null), fromStore = pops(join(out, "store.db"));
+      const differ = [];
+      let compared = 0, facts = 0;
+      for (const ft of Object.keys(fromCarriers)) {
+        if (!homed.has(ft) && !tables.has(ft)) continue;
+        const a = fromCarriers[ft] || [], s = fromStore[ft] || [];
+        compared++; facts += a.length;
+        if (JSON.stringify(a) !== JSON.stringify(s)) differ.push(ft + " carriers " + a.length + " store " + s.length);
+      }
+      expect(differ).toEqual([]);
+      // and not vacuously: the metamodel's store homes hundreds of fact types and thousands of their facts
+      expect(compared).toBeGreaterThan(100);
+      expect(facts).toBeGreaterThan(5000);
+    } finally {
+      try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+    }
+  }, 240_000);
+
   test("the base carriers regenerate byte for byte through lambda's compile address", () => {
     const dir = mkdtempSync(join(tmpdir(), "arest-compile-"));
     try {

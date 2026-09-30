@@ -195,6 +195,9 @@ for (const p of SPLICED) {
 // another's directory. That happened twice today. This is what lets it refuse.
 parts.push(Buffer.from([""," // AREST_CARRIERS_DIR=" + oracle, ""].join(String.fromCharCode(10))));
 parts.push(Buffer.from("\n;\nCOMPOSED(" + JSON.stringify(composition.digest("hex").slice(0, 16)) + ");\n"));
+// AND WHERE ITS LAMBDA CAME FROM (2026-09-30): module:root answers it, so a compile can stamp a store
+// with the identity of the module that will read it, which is these same files hashed.
+parts.push(Buffer.from("\n;\nROOTED(" + JSON.stringify(root.split(String.fromCharCode(92)).join("/")) + ");\n"));
 parts.push(Buffer.from("\n;\nboot(" + JSON.stringify(mode) + ");\n"));
 
 const out = Buffer.concat(parts);

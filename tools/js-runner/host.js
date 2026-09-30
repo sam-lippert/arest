@@ -67,6 +67,8 @@ function LAMBDA() { return arguments; }
 // that is what it is held to; this says which build wrote it.
 let COMPOSITION = null;
 function COMPOSED(h) { COMPOSITION = h; }
+let MODULE_ROOT = null;
+function ROOTED(p) { MODULE_ROOT = p; }
 // A CARRIER IS READ BY THE HOST, NOT PARSED AS CODE. design-state,
 // norma-answer and the compiled map are intersection source -- S* a sequence,
 // A an atom, N a number, PHI the empty sequence, K a CONST form, DEF a <name,
@@ -982,6 +984,53 @@ const PRIMS = new Map(Object.entries({
   "crypt:digest": x => {
     if (Array.isArray(x)) throw new Error("crypt:digest on a sequence");
     return require("node:crypto").createHash("sha256").update(String(x), "utf8").digest("hex");
+  },
+  // AND THE STORE A COMPILE BUILDS (2026-09-30). storage:put, storage:meta, storage:fresh and
+  // storage:install are lambda's interface, resolved to the sqlite engine's definitions, and these
+  // are that engine's calls under them. sqlite:run executes one prepared statement per row in one
+  // transaction -- bound parameters, never SQL text built from values (#96) -- with the mu's absence
+  // marker # bound as NULL. sqlite:fresh clears the build file a failed compile left; sqlite:install
+  // renames the build into place and refuses over an existing store, because until the in-place
+  // change is lambda's a compile only ever creates a store and never replaces one.
+  "sqlite:run": x => {
+    const { Database } = require("bun:sqlite");
+    const path = String(at(x, 0)), sql = String(at(x, 1)), rows = seq(at(x, 2));
+    const db = new Database(path, { create: true });
+    let n = 0;
+    try {
+      const st = db.prepare(sql);
+      db.exec("begin");
+      try {
+        for (const r of rows) {
+          st.run(...seq(r).map((v) => {
+            if (v === "#") return null;
+            if (Array.isArray(v)) throw new Error("sqlite:run: a sequence where a value belongs in " + sql);
+            return v;
+          }));
+          n++;
+        }
+        db.exec("commit");
+      } catch (e) { try { db.exec("rollback"); } catch { } throw e; }
+    } finally { db.close(true); }
+    return n;
+  },
+  "sqlite:fresh": x => {
+    const fs = require("node:fs"), path = String(x);
+    for (const p of [path, path + "-wal", path + "-shm", path + "-journal"]) { try { fs.rmSync(p, { force: true }); } catch { } }
+    return path;
+  },
+  "sqlite:install": x => {
+    const fs = require("node:fs"), build = String(at(x, 0)), path = String(at(x, 1));
+    if (fs.existsSync(path)) throw new Error("sqlite:install refuses: " + path + " exists, and a compile only ever creates a store until its in-place change is lambda's");
+    fs.renameSync(build, path);
+    return path;
+  },
+  // WHERE THIS COMPOSITION'S LAMBDA CAME FROM, which build.js stamps (ROOTED below): a store records
+  // the identity of the module that will read it -- its lambda, its scenarios and its carriers, the
+  // bytes build.js hashes -- and the compile finds the first two here.
+  "module:root": () => {
+    if (MODULE_ROOT === null) throw new Error("module:root: this composition was made without its root");
+    return MODULE_ROOT;
   },
 }));
 
