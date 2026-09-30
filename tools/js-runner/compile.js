@@ -326,7 +326,7 @@ const redact = (text) => { let t = String(text); for (const v of unprinted) if (
 // did not read, the rule the file -- and a check that refuses is a failed
 // check: it says so, writes nothing, and exits 1. Each line says REFUSED when
 // its own rows were, and names the count and each subject once: an object
-// type with the first reading that names it, a rejected reading with how many
+// type with every reading that names it, a rejected reading with how many
 // sentences it lost, a constraint as written, a file by its path.
 const undeclared = findings.filter((r) => String(r[0]) === "undeclared");
 const rejected = findings.filter((r) => String(r[0]) === "rejected");
@@ -337,11 +337,18 @@ const undelivered = findings.filter((r) => String(r[0]) === "undelivered");
 const refused = findings.some((r) => String(r[2]) === "refused");
 const verdict = (rows) => (rows.some((r) => String(r[2]) === "refused") ? " -- REFUSED (AREST_STRICT=1)" : "");
 if (undeclared.length) {
-  const first = new Map();
-  for (const r of undeclared) for (const t of r[3]) if (!first.has(String(t))) first.set(String(t), redact(r[4]));
-  console.error("UNDECLARED: " + undeclared.length + " reading(s) name " + first.size
+  // every reading under the object type it names, not only the first: a reading shown under no type is a
+  // reading nobody can find (pm, 2026-09-29: `API Product requires Plan Tier` was counted and never shown,
+  // because `Plan Tier has Request Limit` named Tier first)
+  const named = new Map();
+  for (const r of undeclared) for (const t of r[3]) {
+    const k = String(t), text = redact(r[4]);
+    let l = named.get(k); if (!l) named.set(k, (l = []));
+    if (!l.includes(text)) l.push(text);
+  }
+  console.error("UNDECLARED: " + undeclared.length + " reading(s) name " + named.size
     + " object type(s) no declaration opens" + verdict(undeclared) + ": "
-    + [...first].map(([t, text]) => t + " (" + text + ")").join("; "));
+    + [...named].map(([t, texts]) => t + " (" + texts.join(", ") + ")").join("; "));
 }
 if (rejected.length) {
   const lost = new Map();

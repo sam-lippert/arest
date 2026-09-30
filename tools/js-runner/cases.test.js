@@ -3146,6 +3146,35 @@ test("a prohibition written of a subtype judges the subtype's instances and no o
   expect(shown(Ev("derive:eval", [ofResponse, [uses, ["ObjectTypeInstanceIsInstanceOfObjectType", [["r1", "Message"], ["m1", "Message"]]]]]))).toEqual([]);
 });
 
+// ---- AN UNDECLARED OBJECT TYPE IS SHOWN WITH EVERY READING THAT NAMES IT ---------
+// (2026-09-29.) The UNDECLARED line named each object type once, with the first reading that named it, so a
+// second reading over the same missing noun was counted and never shown: pm removed Plan Tier`s declaration
+// and `API Product requires Plan Tier` sat behind `Plan Tier has Request Limit`, found by neither. With `API
+// Product requires Plan` declared the first reads as Plan and a trailing Tier -- which the reader does report --
+// and the line now shows both readings under Tier.
+test("an undeclared object type is shown with every reading that names it", () => {
+  const NL = String.fromCharCode(10);
+  const dir = mkdtempSync(join(tmpdir(), "arest-undecl-"));
+  const corpus = join(dir, "readings");
+  mkdirSync(corpus);
+  writeFileSync(join(corpus, "a-shop.md"), [
+    "Domain 'shop' has Description 'the fixture'.", "",
+    "API Product(.Name) is an entity type.", "", "Plan(.Name) is an entity type.", "", "Request Limit is a value type.", "",
+    "API Product requires Plan.", "", "API Product requires Plan Tier.", "", "Plan Tier has Request Limit.", ""].join(NL));
+  const out = join(dir, "out");
+  mkdirSync(out);
+  try {
+    const p = Bun.spawnSync(["bun", join(import.meta.dir, "compile.js"), corpus],
+      { env: { ...process.env, AREST_OUT_DIR: out, AREST_STRICT: "" }, stdout: "pipe", stderr: "pipe" });
+    const text = p.stdout.toString() + p.stderr.toString();
+    expect(text).toContain("UNDECLARED: 2 reading(s) name 1 object type(s) no declaration opens: "
+      + "Tier (API Product requires Plan Tier, Plan Tier has Request Limit)");
+    expect(p.exitCode).toBe(0);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 120_000);
+
 // ---- DOES AN OBJECTIFICATION DECLARE ITS OWN NESTED OBJECT TYPE? ----------
 //
 // Halpin and Morgan 2008, section 10.3: an objectified association IS a
