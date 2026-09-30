@@ -5063,6 +5063,60 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     }
   }, 240_000);
 
+  // AND A VALUE THE READINGS STORE THROUGH A FUNCTION IS SEALED BEFORE ANYTHING IS WRITTEN (2026-09-30). A probe's
+  // .env gives a connection a Secret Reference, which core.md stores through crypt:encrypt. With a key the compile
+  // writes it nowhere in plaintext -- not the answer, the carriers or the store -- and the store's column decrypts
+  // back to it under that key. With no key it refuses by name, names no value and writes nothing. Bun loads a .env
+  // from the working directory, and arest's own holds the real master key, so the keyed compile is given a test key
+  // explicitly and the keyless one runs from a directory with no .env at all.
+  test("a secret a .env gives is sealed before the compile writes anything, and with no key nothing is written", () => {
+    const dir = mkdtempSync(join(tmpdir(), "arest-seal-"));
+    const NL = String.fromCharCode(10), secret = "not-a-real-secret-4c1d", key = "test-key-not-real";
+    try {
+      const b = Bun.spawnSync(["bun", "build.js", "compile"],
+        { cwd: import.meta.dir, env: { ...process.env, AREST_OUT_DIR: dir }, stdout: "pipe", stderr: "pipe" });
+      expect(b.exitCode, b.stdout.toString() + b.stderr.toString()).toBe(0);
+      const probe = join(dir, "probe"), keyed = join(dir, "keyed"), keyless = join(dir, "keyless"), bare = join(dir, "bare");
+      for (const d of [probe, keyed, keyless, bare]) mkdirSync(d);
+      writeFileSync(join(probe, "probe.md"), ["Domain 'seal-probe' has Description 'a sealing probe'.", ""].join(NL));
+      writeFileSync(join(probe, ".env"), ["Domain 'seal-probe' connects to External System 'probe-sys'.",
+        "DomainConnectsToExternalSystem 'seal-probe.probe-sys' carries Secret Reference '" + secret + "'.", ""].join(NL));
+      const metamodel = join(import.meta.dir, "..", "..", "metamodel");
+      const run = (out, cwd, withKey) => {
+        const env = { ...process.env, AREST_PARSE_CACHE: "off" };
+        delete env.AREST_STORE_DB; delete env.AREST_STRICT; delete env.AREST_MASTER_KEY;
+        if (withKey) env.AREST_MASTER_KEY = key;
+        const r = Bun.spawnSync(["bun", join(dir, "compile.g.js"), "compile-store", out, metamodel, probe],
+          { cwd, env, stdout: "pipe", stderr: "pipe" });
+        return { code: r.exitCode, text: r.stdout.toString() + r.stderr.toString() };
+      };
+      const k = run(keyed, join(import.meta.dir, "..", ".."), true);
+      expect(k.code, k.text).toBe(0);
+      expect(k.text.includes(secret)).toBe(false);
+      for (const f of ["design-state", "compiled", "store.db"]) expect(readFileSync(join(keyed, f)).includes(secret), f).toBe(false);
+      const db = new Database(join(keyed, "store.db"), { readonly: true });
+      const row = db.query('select "secretReference" from "DomainConnectsToExternalSystem" where "domainConnectsToExternalSystemId" = ?').get("seal-probe.probe-sys");
+      db.close();
+      expect(row && typeof row.secretReference === "string" && row.secretReference !== secret).toBe(true);
+      expect(Ev("crypt:decrypt", [key, row.secretReference])).toBe(secret);
+      const n = run(keyless, bare, false);
+      expect(n.code, n.text).toBe(1);
+      expect(n.text).toContain("no AREST_MASTER_KEY to store them with");
+      expect(n.text.includes(secret)).toBe(false);
+      expect(readdirSync(keyless)).toEqual([]);
+    } finally {
+      try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+    }
+  }, 240_000);
+
+  test("what the compile prints blanks every value a .env quotes, and cn:contains's twin is its DEF", () => {
+    expect(Ev("compile:redact", ["key k-123 and k-123 again, not k-12", ["k-123"]])).toBe("key (not printed) and (not printed) again, not k-12");
+    expect(Ev("compile:redact", ["nothing to hide", ["absent", ""]])).toBe("nothing to hide");
+    const def = globalThis.AREST.DEFS.get("cn:contains");
+    const pairs = [["", ""], ["", "a"], ["a", ""], ["abc", "bc"], ["abc", "cd"], ["abc", "abcd"], ["a\u{1F600}b", "\u{1F600}b"], ["\u{1F600}", "\uDE00"]];
+    for (const p of pairs) expect(Ev("cn:contains", p), JSON.stringify(p)).toBe(Ev(def, p));
+  });
+
   test("the base carriers regenerate byte for byte through lambda's compile address", () => {
     const dir = mkdtempSync(join(tmpdir(), "arest-compile-"));
     try {

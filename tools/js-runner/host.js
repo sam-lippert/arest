@@ -916,6 +916,19 @@ const PRIMS = new Map(Object.entries({
     appendFileSync(path, sep + NAME + "=" + key + "\n", "utf8");
     return createHash("sha256").update(key).digest("hex").slice(0, 12);
   },
+  // AND THE KEY IS APPLIED HERE, NEVER HANDED OVER (2026-09-30). The compile seals every value the
+  // readings store through a Function before it writes anything (compile:sealed), and sealing is
+  // lambda's hook:write under the master key. The key is the platform's to hold -- core.md: it
+  // "cannot live in the store it protects" -- so this registration applies hook:write with it and
+  // answers only what hook:write made of the value, as the served path applies hook:read; lambda
+  // never holds the key as a value it could print. crypt:keyed says whether there is a key at all,
+  // which is what a compile needs to refuse by name instead of throwing.
+  "hook:seal": x => {
+    const key = process.env.AREST_MASTER_KEY;
+    if (!key) throw new Error("hook:seal: there is no AREST_MASTER_KEY to store a value through a Function with");
+    return Ev("hook:write", [key, at(x, 0), at(x, 1), at(x, 2)]);
+  },
+  "crypt:keyed": () => (process.env.AREST_MASTER_KEY ? "T" : "F"),
   // ---- THE COMPILER'S I/O, REGISTERED (#109) -------------------------------
   // Sam, 2026-09-20: "the full framework must be canon with registered DEFS".
   // compile.js read its directories and files, wrote the carrier and executed
@@ -1905,6 +1918,20 @@ const FASTPRIMS = new Map(Object.entries({
   // law walk asks it once per atom of every form against the store's cell names
   // (43,156 asks over the same list, 13 of the base report's 89 seconds,
   // 2026-09-04). A short list is scanned as the DEF scans it.
+  // cn:contains <haystack, needle> is whether the needle's characters occur, in order and together,
+  // in the haystack's -- lambda walks the haystack a character at a time and takes the needle's
+  // length at each step, which is fine for a name and not for a design state rendered whole, where
+  // the compile asks it once per value it sealed (compile:seal_left). Code points, as `chars` splits
+  // them: on well-formed text a code-unit search answers the same, and on text holding a lone
+  // surrogate this searches the code points themselves. An empty haystack holds nothing, not even
+  // the empty needle, because the DEF's walk never starts on one.
+  "cn:contains": x => { const h = at(x, 0), n = at(x, 1);
+    if (typeof h !== "string" || typeof n !== "string") throw new Error("chars on non-string");
+    if (h.length === 0) return "F";
+    if (typeof h.isWellFormed === "function" && h.isWellFormed() && n.isWellFormed()) return bool(h.includes(n));
+    const hs = [...h], ns = [...n];
+    for (let i = 0; i < hs.length; i++) { let j = 0; while (j < ns.length && hs[i + j] === ns[j]) j++; if (j === ns.length) return "T"; }
+    return "F"; },
   "theta:member": x => { const l = seq(at(x, 1)), e = at(x, 0);
     if (l.length < 16) return bool(l.some(m => deepEq(e, m)));
     let s = MEMBIDX.get(l);

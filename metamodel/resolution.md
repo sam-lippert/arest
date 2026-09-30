@@ -625,6 +625,19 @@ Function 'sqlite:copy' yields Type Expression 'path'.
 Function 'sqlite:replace' has Definition Origin 'registered'.
 Function 'sqlite:replace' accepts Type Expression 'path-pair'.
 Function 'sqlite:replace' yields Type Expression 'path'.
+<!-- AND A VALUE THE READINGS STORE THROUGH A FUNCTION (2026-09-30). The
+     compile seals such values before it writes anything (compile:sealed), and
+     the master key is the platform's to hold, never a value lambda holds:
+     hook:seal is the host applying lambda's own hook:write under that key,
+     answering only what hook:write made of the value, as the served path
+     applies hook:read. crypt:keyed says whether the platform holds a key at
+     all, so a compile with values to seal and no key refuses by name. -->
+Function 'hook:seal' has Definition Origin 'registered'.
+Function 'hook:seal' accepts Type Expression 'type-and-value-and-store'.
+Function 'hook:seal' yields Type Expression 'text'.
+Function 'crypt:keyed' has Definition Origin 'registered'.
+Function 'crypt:keyed' accepts Type Expression 'object'.
+Function 'crypt:keyed' yields Type Expression 'boolean'.
 
 <!-- The boundary is only a query over P if every registered function has an
      origin fact. Enumerating the runners' registration tables against lambda's
