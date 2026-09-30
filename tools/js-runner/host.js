@@ -86,10 +86,11 @@ function LAMBDATEXT(text, onDef = DEF) {
   const fail = (what) => { throw new Error("carrier: " + what + " at " + i + ": " + JSON.stringify(text.slice(i, i + 40))); };
   const ws = () => { for (;;) { const c = text.charCodeAt(i); if (c === 32 || c === 10 || c === 13 || c === 9) i++; else return; } };
   const str = () => {
-    // a double-quoted literal as the oracle and compile-rmap.js write it: a
+    // a double-quoted literal as the oracle and quote_str write it: a
     // backslash escapes the next character (\" and \\), and the JS escapes
-    // for a newline, return and tab read as bun read them; the backslash is
-    // sought only within the span before the next quote
+    // for a newline, return, tab, backspace, form feed and \u with four hex
+    // digits read as bun read them; the backslash is sought only within the
+    // span before the next quote
     i++;
     let out = "";
     for (;;) {
@@ -100,7 +101,8 @@ function LAMBDATEXT(text, onDef = DEF) {
       if (b < 0) { out += seg; i = q + 1; return out; }
       out += seg.slice(0, b);
       const d = text[i + b + 1];
-      out += d === "n" ? "\n" : d === "r" ? "\r" : d === "t" ? "\t" : d;
+      if (d === "u") { out += String.fromCharCode(parseInt(text.slice(i + b + 2, i + b + 6), 16)); i = i + b + 6; continue; }
+      out += d === "n" ? "\n" : d === "r" ? "\r" : d === "t" ? "\t" : d === "b" ? "\b" : d === "f" ? "\f" : d;
       i = i + b + 2;
     }
   };
@@ -1226,8 +1228,13 @@ function popSub(contents) {
 // lambda's JSON text (render:json, quote_str), one pass -- see the twins
 function jsonQuote(s) {
   let out = '"';
-  for (const c of s) out += c === "\\" ? "\\\\" : c === '"' ? '\\"' : c === "\n" ? "\\n" : c === "\r" ? "\\r" : c;
+  for (const c of s) out += c === "\\" ? "\\\\" : c === '"' ? '\\"' : c === "\n" ? "\\n" : c === "\r" ? "\\r" : c < " " ? jsonCtl(c) : c;
   return out + '"';
+}
+// quote_str:ctl's table: a tab, backspace and form feed by their letters, any
+// other control character as \u and four lowercase hex digits
+function jsonCtl(c) {
+  return c === "\t" ? "\\t" : c === "\b" ? "\\b" : c === "\f" ? "\\f" : "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0");
 }
 function jsonText(x) {
   if (decShape(x)) return Ev("dec:text", x);
@@ -2162,8 +2169,9 @@ const FASTPRIMS = new Map(Object.entries({
   // render:json is lambda's renderer of a value as JSON text: the empty
   // sequence is [], a sequence is its elements rendered and joined by a comma
   // between brackets, a number is its text (implode of the atom, "" + n), and
-  // a string is quoted with lambda's four escapes -- backslash, quote, newline
-  // and return -- every other character as it is. Written as ALPHA over
+  // a string is quoted with lambda's escapes -- backslash, quote, newline,
+  // return and every other control character as JSON writes it (quote_str:ctl)
+  // -- every other character as it is. Written as ALPHA over
   // chars per atom, it was 55% of a GET on the support store's API (a
   // 3,000-row collection, 341 ms; the profile-and-fix loop, 2026-09-07). The
   // same text, one pass; quote_str is the same quoting on its own.
