@@ -4839,6 +4839,37 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     expect(Ev("system:show", ["decimal", "4", 3])).toBe("('decimal', '4', 3)");
   });
 
+  // MEMBERSHIP IS CLOSED OVER SUBTYPING, WHOEVER MADE THE INSTANCE (2026-09-29, Sam: `Support Response should be a
+  // subtype of Response, and Response should be a subtype of Message.`). An instance the runtime created was an
+  // instance of the noun it was created as and of the nouns whose roles it plays: support's Support Responses were
+  // Support Responses and Messages and never Responses. The extent now pairs the instances of each type that has a
+  // supertype with that type's upward cone, once per type; a type with none adds nothing, its rows being the store's
+  // own, which the cell keeps. The closure adds memberships, never an instance, so no reference.
+  test("membership is closed over subtyping: each subtype's instances with its upward cone, the store's own rows kept, and no new reference", () => {
+    const { adoptStore } = globalThis.AREST;
+    const keep = CELLS.slice();
+    try {
+      adoptStore(Ev("store:src_all", [[
+        ["ObjectTypeIsSubtypeOfObjectType", [["Support Response", "Response"], ["Response", "Message"], ["Chat Response", "Response"]]],
+        ["ObjectTypeInstanceIsInstanceOfObjectType", [["r1", "Support Response"], ["r1", "Message"], ["c1", "Chat Response"], ["m1", "Message"]]],
+      ], CELLS]));
+      const of = (rows, id) => rows.filter((r) => String(r[0]) === id).map((r) => String(r[1])).sort();
+      const up = Ev("reflect:inst_up", CELLS);
+      expect(of(up, "r1")).toEqual(["Message", "Response", "Support Response"]);
+      expect(of(up, "c1")).toEqual(["Chat Response", "Message", "Response"]);
+      expect(of(up, "m1")).toEqual([]);
+      const cell = Ev("reflect:cells", CELLS).find((c) => String(c[0]) === "ObjectTypeInstanceIsInstanceOfObjectType")[1];
+      expect(of(cell, "r1")).toEqual(["Message", "Response", "Support Response"]);
+      expect(of(cell, "c1")).toEqual(["Chat Response", "Message", "Response"]);
+      expect(of(cell, "m1")).toEqual(["Message"]);
+      expect(new Set(cell.map((r) => JSON.stringify(r))).size).toBe(cell.length);
+      const refs = Ev("reflect:inst_refs", CELLS).map((r) => String(r[0]));
+      for (const id of ["r1", "c1", "m1"]) expect(refs).not.toContain(id);
+    } finally {
+      adoptStore(keep);
+    }
+  });
+
   test("arithmetic and order by the type a value carries: a sum, a share, a comparison", () => {
     const T = (x) => Ev("value:text", x);
     expect(Ev("value:add", [2, 3])).toBe(5);

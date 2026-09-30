@@ -9876,46 +9876,46 @@ DEF("assert",
 
 "A FEDERATION IS A READ, AND LAMBDA SAYS WHAT IT READS (2026-09-25). Sam: `modeling and running the requested federations is the main deliverable`. A Source uses a Connector, a Connector is a Function, and a Function is addressed as the performer addresses one (perform:call_for, the system`s headers, the connection`s credential). What its answer yields is `Function yields Fact Type with Role from JSON Path` -- perform:yields_of, the declaration a webhook payload and a performed receipt already use -- read here once per ROW, every role from its own path. ROLE ORDER IS ASKED, NOT PARSED: a fact type`s roles are its FactTypeHasRole rows, and the role at position i is the id reflect:role_one mints for i, so the declared role ids are matched against the minted ones in order and a fact type any of whose roles has no path is reported unread rather than half-filled. A PATH is JSONPath as the webhook declarations spell it: a leading $, dotted keys, bracket indexes, and a filter after a bar; a template in braces reads the row`s own keys. A row with a hole in any role yields no fact of that type, since an optional field is not a violation. A PAGE is the rows at `Function reads rows at JSON Path`; there is more while the path `Function pages while` names answers true, and the next request carries `Function pages by Query Parameter` taken from `Function pages from JSON Path` of the last row. The query parameters are declared too, and a templated one is filled from the bindings the caller passes, or the request is refused naming it, as a send with a hole is. `sync` handed no page answers that REQUEST and writes nothing; handed a page it asserts what the page yields in ONE step through main:assert_all and answers the new and the held, the violations, the fact types left unread, whether there is more and the next cursor. The first `sync` against the base store asserted a page, then asserted the same page again as new 0 and handed back the same store.",
 DEF("fed:connector",
-    S3(A("COMP"), A("main:pf_of"), S4(A("CONS"), N(1), N(2), K(A("SourceUsesConnector"))))),
-
+    S3(A("COMP"), A("main:pf_of"), S4(A("CONS"), N(1), N(2), K(A("SourceUsesConnector"))))),
+
 DEF("fed:rows_path",
-    S3(A("COMP"), A("main:pf_of"), S4(A("CONS"), N(1), N(2), K(A("FunctionReadsRowsAtJSONPath"))))),
-
+    S3(A("COMP"), A("main:pf_of"), S4(A("CONS"), N(1), N(2), K(A("FunctionReadsRowsAtJSONPath"))))),
+
 DEF("fed:more_path",
-    S3(A("COMP"), A("main:pf_of"), S4(A("CONS"), N(1), N(2), K(A("FunctionPagesWhileJSONPath"))))),
-
+    S3(A("COMP"), A("main:pf_of"), S4(A("CONS"), N(1), N(2), K(A("FunctionPagesWhileJSONPath"))))),
+
 DEF("fed:params",
     S5(A("COMP"), S2(A("INSERT"), A("perform:hdr_keep")), A("theta:append_phi"), A("distr"),
        S3(A("CONS"),
           S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("FunctionHasQueryParameterWithParameterValue")), N(2))),
-          N(1)))),
-
+          N(1)))),
+
 DEF("fed:cursor_decl",
     S4(A("COND"),
        S3(A("COMP"), A("null"), S3(A("COMP"), A("main:pf_of"), S4(A("CONS"), N(1), N(2), K(A("FunctionPagesByQueryParameter"))))),
        K(PHI()),
        S3(A("CONS"),
           S3(A("COMP"), A("main:pf_of"), S4(A("CONS"), N(1), N(2), K(A("FunctionPagesByQueryParameter")))),
-          S3(A("COMP"), A("main:pf_of"), S4(A("CONS"), N(1), N(2), K(A("FunctionPagesFromJSONPath"))))))),
-
+          S3(A("COMP"), A("main:pf_of"), S4(A("CONS"), N(1), N(2), K(A("FunctionPagesFromJSONPath"))))))),
+
 DEF("fed:splitstep",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), N(4))),
        S5(A("CONS"),
           S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), N(2))))),
           K(PHI()), S3(A("COMP"), A("tl"), N(3)), N(4)),
-       S5(A("CONS"), N(1), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(3)))), S3(A("COMP"), A("tl"), N(3)), N(4)))),
-
+       S5(A("CONS"), N(1), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(3)))), S3(A("COMP"), A("tl"), N(3)), N(4)))),
+
 DEF("fed:split",
     S3(A("COMP"),
        S3(A("COMP"), A("apndr"), S3(A("CONS"), N(1), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), N(2))))),
        S3(A("COMP"),
           S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(3)), A("fed:splitstep")),
-          S5(A("CONS"), K(PHI()), K(PHI()), S3(A("COMP"), A("chars"), N(2)), N(1))))),
-
+          S5(A("CONS"), K(PHI()), K(PHI()), S3(A("COMP"), A("chars"), N(2)), N(1))))),
+
 DEF("fed:brch",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("[")))), K(A(".")),
-       S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("]")))), K(A("")), A("id")))),
-
+       S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("]")))), K(A("")), A("id")))),
+
 DEF("fed:segs",
     S3(A("COMP"),
        S4(A("COND"), A("null"), A("id"),
@@ -9924,13 +9924,13 @@ DEF("fed:segs",
           S3(A("COMP"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("")))), K(PHI()), S2(A("CONS"), A("id")))),
              S3(A("COMP"), A("fed:split"),
                 S3(A("CONS"), K(A(".")),
-                   S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), S2(A("ALPHA"), A("fed:brch")), A("chars")))))))))),
-
+                   S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), S2(A("ALPHA"), A("fed:brch")), A("chars")))))))))),
+
 DEF("fed:pick",
     S3(A("COMP"),
        S4(A("COND"), A("null"), K(PHI()), N(1)),
-       S3(A("COMP"), A("read:dropn"), S3(A("CONS"), S3(A("COMP"), A("cn:atoi"), N(2)), N(1))))),
-
+       S3(A("COMP"), A("read:dropn"), S3(A("CONS"), S3(A("COMP"), A("cn:atoi"), N(2)), N(1))))),
+
 DEF("fed:negidx",
     S4(A("COND"), S3(A("COMP"), A("null"), A("chars")), K(A("F")),
        S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), A("chars")), K(A("-")))),
@@ -9955,29 +9955,29 @@ DEF("fed:stepat",
           S3(A("CONS"), S3(A("COMP"), A("fed:pick"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(2)))), S3(A("COMP"), A("tl"), N(2))),
           S4(A("COND"), S3(A("COMP"), A("fed:negidx"), S3(A("COMP"), N(1), N(2))),
              S3(A("CONS"), S3(A("COMP"), A("fed:pickr"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(2)))), S3(A("COMP"), A("tl"), N(2))),
-             S3(A("CONS"), S3(A("COMP"), A("solve:assoc"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), N(1))), S3(A("COMP"), A("tl"), N(2))))))),
-
+             S3(A("CONS"), S3(A("COMP"), A("solve:assoc"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), N(1))), S3(A("COMP"), A("tl"), N(2))))))),
+
 DEF("fed:at",
     S3(A("COMP"), N(1),
        S3(A("COMP"),
           S3(A("WHILE"),
              S4(A("COND"), S3(A("COMP"), A("null"), N(2)), K(A("F")), S4(A("COMP"), A("not"), A("null"), N(1))),
              A("fed:stepat")),
-          S3(A("CONS"), N(1), S3(A("COMP"), A("fed:segs"), N(2)))))),
-
+          S3(A("CONS"), N(1), S3(A("COMP"), A("fed:segs"), N(2)))))),
+
 DEF("fed:bar",
     S3(A("COMP"),
        S3(A("CONS"),
           S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), N(1))),
           S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), N(2)))),
-       S3(A("COMP"), A("tpl:bar"), A("chars")))),
-
+       S3(A("COMP"), A("tpl:bar"), A("chars")))),
+
 DEF("fed:istpl",
-    S3(A("COMP"), A("theta:member"), S3(A("CONS"), K(A("{")), A("chars")))),
-
+    S3(A("COMP"), A("theta:member"), S3(A("CONS"), K(A("{")), A("chars")))),
+
 DEF("fed:scalar",
-    S4(A("COND"), S3(A("COMP"), A("atom"), N(1)), S3(A("COMP"), A("tpl:str"), N(1)), K(PHI()))),
-
+    S4(A("COND"), S3(A("COMP"), A("atom"), N(1)), S3(A("COMP"), A("tpl:str"), N(1)), K(PHI()))),
+
 DEF("fed:val",
     S4(A("COND"), S3(A("COMP"), A("fed:istpl"), N(2)),
        S3(A("COMP"), A("tpl:fill"), S3(A("CONS"), N(2), N(1))),
@@ -9991,40 +9991,40 @@ DEF("fed:val",
                       S4(A("COND"), S3(A("COMP"), A("atom"), N(1)), S3(A("COMP"), A("tpl:filter"), S3(A("CONS"), N(2), N(1))), K(PHI())))))),
           S3(A("CONS"),
              S3(A("COMP"), A("fed:at"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), S3(A("COMP"), A("fed:bar"), N(2))))),
-             S3(A("COMP"), N(2), S3(A("COMP"), A("fed:bar"), N(2))))))),
-
+             S3(A("COMP"), N(2), S3(A("COMP"), A("fed:bar"), N(2))))))),
+
 DEF("fed:roleids",
     S4(A("COMP"), S2(A("ALPHA"), S3(A("COMP"), N(2), A("reflect:role_one"))), A("distl"),
-       S3(A("CONS"), S2(A("CONS"), N(1)), S3(A("COMP"), A("theta:iota"), N(2))))),
-
+       S3(A("CONS"), S2(A("CONS"), N(1)), S3(A("COMP"), A("theta:iota"), N(2))))),
+
 DEF("fed:nroles",
-    S5(A("COMP"), A("length"), A("theta:filter_eq"), A("distl"), S3(A("CONS"), N(1), N(2)))),
-
+    S5(A("COMP"), A("length"), A("theta:filter_eq"), A("distl"), S3(A("CONS"), N(1), N(2)))),
+
 DEF("fed:entry",
     S3(A("CONS"), N(1),
        S4(A("COMP"), S2(A("ALPHA"), A("solve:assoc")), A("distr"),
           S3(A("CONS"),
              S3(A("COMP"), A("fed:roleids"), S3(A("CONS"), N(1), S3(A("COMP"), A("fed:nroles"), S3(A("CONS"), N(1), N(2))))),
-             N(3))))),
-
+             N(3))))),
+
 DEF("fed:plan",
     S4(A("COMP"), S2(A("ALPHA"), S3(A("COMP"), A("fed:entry"), A("apndl"))), A("distr"),
        S3(A("CONS"),
           S4(A("COMP"), A("theta:dedup"), S2(A("ALPHA"), N(2)), A("perform:yields_of")),
           S3(A("CONS"),
              S4(A("COMP"), S2(A("ALPHA"), N(1)), A("system:pop_rows"), S3(A("CONS"), K(A("FactTypeHasRole")), N(2))),
-             S3(A("COMP"), S2(A("ALPHA"), S3(A("CONS"), N(3), N(1))), A("perform:yields_of")))))),
-
+             S3(A("COMP"), S2(A("ALPHA"), S3(A("CONS"), N(3), N(1))), A("perform:yields_of")))))),
+
 DEF("fed:complete",
     S4(A("COND"), S3(A("COMP"), A("null"), N(2)), K(A("F")),
-       S4(A("COMP"), A("not"), A("fp:or_all"), S3(A("COMP"), S2(A("ALPHA"), A("null")), N(2))))),
-
+       S4(A("COMP"), A("not"), A("fp:or_all"), S3(A("COMP"), S2(A("ALPHA"), A("null")), N(2))))),
+
 DEF("fed:good",
-    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), A("fed:complete"), S2(A("CONS"), A("id")), K(PHI()))), A("fed:plan"))),
-
+    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), A("fed:complete"), S2(A("CONS"), A("id")), K(PHI()))), A("fed:plan"))),
+
 DEF("fed:unread",
-    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), A("fed:complete"), K(PHI()), S2(A("CONS"), N(1)))), A("fed:plan"))),
-
+    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), A("fed:complete"), K(PHI()), S2(A("CONS"), N(1)))), A("fed:plan"))),
+
 DEF("fed:fact",
     S3(A("COMP"),
        S4(A("COND"), S4(A("COMP"), A("fp:or_all"), S2(A("ALPHA"), S3(A("COMP"), A("not"), A("atom"))), N(2)),
@@ -10032,18 +10032,18 @@ DEF("fed:fact",
           S2(A("CONS"), S3(A("COMP"), A("apndl"), S3(A("CONS"), N(1), N(2))))),
        S3(A("CONS"), S3(A("COMP"), N(1), N(2)),
           S3(A("COMP"), S2(A("ALPHA"), A("fed:val")),
-             S3(A("COMP"), A("distl"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)))))))),
-
+             S3(A("COMP"), A("distl"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2)))))))),
+
 DEF("fed:row_facts",
-    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("fed:fact")), A("distl"))),
-
+    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), A("fed:fact")), A("distl"))),
+
 DEF("fed:rows_of",
     S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("fed:rows_path"), S3(A("CONS"), N(1), N(3)))),
        S2(A("CONS"), N(2)),
        S3(A("COMP"),
           S4(A("COND"), A("atom"), K(PHI()), A("id")),
-          S3(A("COMP"), A("fed:at"), S3(A("CONS"), N(2), S3(A("COMP"), A("fed:rows_path"), S3(A("CONS"), N(1), N(3)))))))),
-
+          S3(A("COMP"), A("fed:at"), S3(A("CONS"), N(2), S3(A("COMP"), A("fed:rows_path"), S3(A("CONS"), N(1), N(3)))))))),
+
 "AND THE CURSOR IS READ FROM THE ANSWER (2026-09-25). It was read from the page`s last row, which is Stripe`s shape and nobody else`s: Gmail answers nextPageToken, Slack response_metadata.next_cursor and auth.vin`s Payload nextPage at the top of the answer, beside the rows and not in them. So every path a Function reads -- its rows, whether there is more, its cursor -- reads the ANSWER, and a path may index from the end: Stripe`s cursor is $.data[-1].id, the last row`s id. A cursor with no value ends the paging, as a last page without a token does. `Function pages while` reads through the filters, so $.nextPageToken|present answers T where there is more, as $.has_more answers true.",
 DEF("fed:next",
     S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("fed:cursor_decl"), S3(A("CONS"), N(1), N(3)))),
@@ -10056,8 +10056,8 @@ DEF("fed:next",
                 S3(A("CONS"),
                    S3(A("COMP"), A("fed:at"),
                       S3(A("CONS"), N(2), S4(A("COMP"), N(2), A("fed:cursor_decl"), S3(A("CONS"), N(1), N(3))))),
-                   K(A("")))))))),
-
+                   K(A("")))))))),
+
 "AND A ROW IS READ ONLY WHEN IT SAYS WHAT THE SOURCE MEANS (2026-09-25). pm.auto.dev measured over all 2,651 Stripe subscriptions that a hole per fact TYPE is not enough: ten subscriptions of deleted customers carry no email and still yield their Plan, so the Customer a mandatory constraint needs is missing and the whole page is refused. `Function reads rows where JSON Path equals Condition Value` is a condition on the ROW, and every one a Function declares must hold (fp:and_all, true of none) or no fact of the row is read. The path is read as any value is, filters and all, so presence is |present equal to T. The cursor is still the last row of the PAGE, kept or not, since the service pages by what it sent. The skipped are counted, never silent.",
 DEF("fed:conds",
     S5(A("COMP"), S2(A("INSERT"), A("perform:hdr_keep")), A("theta:append_phi"), A("distr"),
@@ -10092,14 +10092,14 @@ DEF("fed:page",
              K(S2(A("true"), A("T")))))),
        A("fed:next"),
        S3(A("COMP"), A("-"),
-          S3(A("CONS"), S3(A("COMP"), A("length"), A("fed:rows_of")), S3(A("COMP"), A("length"), A("fed:kept")))))),
-
+          S3(A("CONS"), S3(A("COMP"), A("length"), A("fed:rows_of")), S3(A("COMP"), A("length"), A("fed:kept")))))),
+
 DEF("fed:bindp",
     S3(A("CONS"), S3(A("COMP"), N(1), N(1)),
        S4(A("COND"), S4(A("COMP"), A("fed:istpl"), N(2), N(1)),
           S3(A("COMP"), A("tpl:fill"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2))),
-          S3(A("COMP"), N(2), N(1))))),
-
+          S3(A("COMP"), N(2), N(1))))),
+
 "AND A REQUEST MAY CARRY A BODY (2026-09-25). A Function that sends a Query Text -- ClickHouse SQL, whose placeholders the server binds from the param_ query parameters -- answers it as the request`s fifth part, and the host posts it as written. Nothing here fills it: filling it would be a second binder beside the one the service already runs, and the one that can inject.",
 DEF("fed:request1",
     S5(A("CONS"),
@@ -10110,24 +10110,24 @@ DEF("fed:request1",
              S4(A("COMP"), S2(A("ALPHA"), A("fed:bindp")), A("distr"),
                 S3(A("CONS"), S3(A("COMP"), A("fed:params"), S3(A("CONS"), N(1), N(4))), N(2))),
              S4(A("COND"), S3(A("COMP"), A("null"), N(3)), K(PHI()), S2(A("CONS"), N(3))))),
-       S3(A("COMP"), A("main:pf_of"), S4(A("CONS"), N(1), N(4), K(A("FunctionSendsQueryText")))))),
-
+       S3(A("COMP"), A("main:pf_of"), S4(A("CONS"), N(1), N(4), K(A("FunctionSendsQueryText")))))),
+
 DEF("fed:request",
     S3(A("COMP"), A("fed:request1"),
-       S5(A("CONS"), S3(A("COMP"), A("fed:connector"), S3(A("CONS"), N(1), N(4))), N(2), N(3), N(4)))),
-
+       S5(A("CONS"), S3(A("COMP"), A("fed:connector"), S3(A("CONS"), N(1), N(4))), N(2), N(3), N(4)))),
+
 DEF("fed:nth",
     S4(A("COND"), S3(A("COMP"), A("lt"), S3(A("CONS"), S3(A("COMP"), A("length"), N(1)), N(2))), K(PHI()),
-       S3(A("COMP"), A("1r"), S3(A("COMP"), A("read:firstn"), S3(A("CONS"), N(2), N(1)))))),
-
+       S3(A("COMP"), A("1r"), S3(A("COMP"), A("read:firstn"), S3(A("CONS"), N(2), N(1)))))),
+
 DEF("fed:arg",
     S4(A("COND"), A("atom"), S5(A("CONS"), A("id"), K(PHI()), K(PHI()), K(PHI())),
        S5(A("CONS"),
           S3(A("COMP"), A("fed:nth"), S3(A("CONS"), A("id"), K(N(1)))),
           S3(A("COMP"), A("fed:nth"), S3(A("CONS"), A("id"), K(N(2)))),
           S3(A("COMP"), A("fed:nth"), S3(A("CONS"), A("id"), K(N(3)))),
-          S3(A("COMP"), A("fed:nth"), S3(A("CONS"), A("id"), K(N(4))))))),
-
+          S3(A("COMP"), A("fed:nth"), S3(A("CONS"), A("id"), K(N(4))))))),
+
 DEF("fed:sync4",
     S4(A("CONS"),
        S3(A("COMP"), A("render:json"),
@@ -10147,14 +10147,14 @@ DEF("fed:sync4",
              S3(A("CONS"), K(A("next")), S3(A("COMP"), N(3), N(1)))),
           S2(A("CONS"), S3(A("CONS"), K(A("skipped")), S3(A("COMP"), N(4), N(1))))))),
        S4(A("COMP"), A("http:status_of"), N(1), N(2)),
-       S3(A("COMP"), N(3), N(2)))),
-
+       S3(A("COMP"), N(3), N(2)))),
+
 DEF("fed:sync3",
     S3(A("COMP"), A("fed:sync4"),
        S4(A("CONS"), N(1),
           S3(A("COMP"), A("main:assert_all"), S3(A("CONS"), S3(A("COMP"), N(2), N(2)), S3(A("COMP"), N(1), N(1)))),
-          N(2)))),
-
+          N(2)))),
+
 DEF("fed:sync2",
     S3(A("COMP"), A("fed:sync3"),
        S3(A("CONS"),
@@ -10163,8 +10163,8 @@ DEF("fed:sync2",
                 S3(A("COMP"), A("fed:connector"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))),
                 S3(A("COMP"), N(4), N(1)),
                 N(2))),
-          A("id")))),
-
+          A("id")))),
+
 DEF("fed:sync1",
     S4(A("COND"), S3(A("COMP"), A("null"), S3(A("COMP"), A("fed:connector"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2)))),
        S4(A("CONS"),
@@ -10180,15 +10180,15 @@ DEF("fed:sync1",
                 S3(A("COMP"), A("fed:request"),
                    S5(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(3), N(1)), N(2))),
                 N(2))),
-          A("fed:sync2")))),
-
+          A("fed:sync2")))),
+
 DEF("sync",
-    S3(A("COMP"), A("fed:sync1"), S3(A("CONS"), S3(A("COMP"), A("fed:arg"), N(1)), N(2)))),
-
+    S3(A("COMP"), A("fed:sync1"), S3(A("CONS"), S3(A("COMP"), A("fed:arg"), N(1)), N(2)))),
+
 DEF("fed:holes",
     S3(A("COMP"), A("theta:flatten"),
-       S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("atom"), N(2)), K(PHI()), S2(A("CONS"), N(1)))))),
-
+       S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("atom"), N(2)), K(PHI()), S2(A("CONS"), N(1)))))),
+
 DEF("fed:sync_q",
     S4(A("COND"), S4(A("COMP"), A("null"), A("fed:holes"), S3(A("COMP"), N(3), N(1))),
        S4(A("CONS"),
@@ -10959,24 +10959,24 @@ DEF("tpl:filter",
 DEF("tpl:digits",
     S4(A("COND"), S3(A("COMP"), A("null"), A("chars")), K(A("F")),
        S3(A("COMP"), A("fp:and_all"),
-          S3(A("COMP"), S2(A("ALPHA"), S3(A("COMP"), A("read:env_between"), S4(A("CONS"), A("id"), K(A("0")), K(A("9"))))), A("chars"))))),
-
+          S3(A("COMP"), S2(A("ALPHA"), S3(A("COMP"), A("read:env_between"), S4(A("CONS"), A("id"), K(A("0")), K(A("9"))))), A("chars"))))),
+
 DEF("tpl:imod",
     S3(A("COMP"), A("-"),
-       S3(A("CONS"), N(1), S3(A("COMP"), A("*"), S3(A("CONS"), S3(A("COMP"), A("/"), A("id")), N(2)))))),
-
+       S3(A("CONS"), N(1), S3(A("COMP"), A("*"), S3(A("CONS"), S3(A("COMP"), A("/"), A("id")), N(2)))))),
+
 DEF("tpl:pad2",
     S4(A("COND"), S3(A("COMP"), A("lt"), S3(A("CONS"), A("id"), K(N(10)))),
        S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("CONS"), K(A("0")), A("system:numtext")))),
-       A("system:numtext"))),
-
+       A("system:numtext"))),
+
 DEF("tpl:cv1",
     S3(A("COMP"),
        S3(A("CONS"),
           S3(A("COMP"), A("/"), S3(A("CONS"), A("id"), K(N(146097)))),
           S3(A("COMP"), A("tpl:imod"), S3(A("CONS"), A("id"), K(N(146097))))),
-       S3(A("COMP"), A("+"), S3(A("CONS"), A("id"), K(N(719468)))))),
-
+       S3(A("COMP"), A("+"), S3(A("CONS"), A("id"), K(N(719468)))))),
+
 DEF("tpl:cv2",
     S4(A("CONS"), N(1), N(2),
        S3(A("COMP"), A("/"),
@@ -10988,8 +10988,8 @@ DEF("tpl:cv2",
                          S3(A("COMP"), A("-"), S3(A("CONS"), N(2), S3(A("COMP"), A("/"), S3(A("CONS"), N(2), K(N(1460)))))),
                          S3(A("COMP"), A("/"), S3(A("CONS"), N(2), K(N(36524)))))),
                    S3(A("COMP"), A("/"), S3(A("CONS"), N(2), K(N(146096)))))),
-             K(N(365)))))),
-
+             K(N(365)))))),
+
 DEF("tpl:cv3",
     S4(A("CONS"), N(1), N(3),
        S3(A("COMP"), A("-"),
@@ -11000,15 +11000,15 @@ DEF("tpl:cv3",
                       S3(A("CONS"),
                          S3(A("COMP"), A("*"), S3(A("CONS"), K(N(365)), N(3))),
                          S3(A("COMP"), A("/"), S3(A("CONS"), N(3), K(N(4)))))),
-                   S3(A("COMP"), A("/"), S3(A("CONS"), N(3), K(N(100)))))))))),
-
+                   S3(A("COMP"), A("/"), S3(A("CONS"), N(3), K(N(100)))))))))),
+
 DEF("tpl:cv4",
     S5(A("CONS"), N(1), N(2), N(3),
        S3(A("COMP"), A("/"),
           S3(A("CONS"),
              S3(A("COMP"), A("+"), S3(A("CONS"), S3(A("COMP"), A("*"), S3(A("CONS"), K(N(5)), N(3))), K(N(2)))),
-             K(N(153)))))),
-
+             K(N(153)))))),
+
 DEF("tpl:cv5",
     S4(A("CONS"),
        S3(A("COMP"), A("+"),
@@ -11026,11 +11026,11 @@ DEF("tpl:cv5",
                       S3(A("CONS"),
                          S3(A("COMP"), A("+"), S3(A("CONS"), S3(A("COMP"), A("*"), S3(A("CONS"), K(N(153)), N(4))), K(N(2)))),
                          K(N(5)))))),
-             K(N(1)))))),
-
+             K(N(1)))))),
+
 DEF("tpl:civil",
-    S6(A("COMP"), A("tpl:cv5"), A("tpl:cv4"), A("tpl:cv3"), A("tpl:cv2"), A("tpl:cv1"))),
-
+    S6(A("COMP"), A("tpl:cv5"), A("tpl:cv4"), A("tpl:cv3"), A("tpl:cv2"), A("tpl:cv1"))),
+
 DEF("tpl:iso_fmt",
     S3(A("COMP"),
        S3(A("COMP"), A("implode"),
@@ -11053,8 +11053,8 @@ DEF("tpl:iso_fmt",
              S3(A("COMP"), A("tpl:imod"), S3(A("CONS"), N(2), K(N(60))))),
           S3(A("CONS"),
              S3(A("COMP"), A("/"), S3(A("CONS"), A("id"), K(N(86400)))),
-             S3(A("COMP"), A("tpl:imod"), S3(A("CONS"), A("id"), K(N(86400)))))))),
-
+             S3(A("COMP"), A("tpl:imod"), S3(A("CONS"), A("id"), K(N(86400)))))))),
+
 DEF("tpl:iso",
     S4(A("COND"), A("tpl:digits"),
        S3(A("COMP"), A("tpl:iso_fmt"), A("cn:atoi")),
@@ -12354,7 +12354,7 @@ DEF("read:full_heads",
     S3(A("COMP"), S2(A("ALPHA"), N(1)), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("apply"), S3(A("CONS"), K(A("theta:Filter")), K(A("read:is_full_derived")))), A("id"))))),
 DEF("read:stored_only",
     S4(A("COMP"), S2(A("ALPHA"), N(1)), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("apply"), S3(A("CONS"), K(A("theta:Filter")), K(S4(A("COMP"), A("not"), A("theta:member"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2)))))), A("id"))), S3(A("COMP"), A("distr"), S3(A("CONS"), S3(A("COMP"), A("apply"), S3(A("CONS"), S3(A("COMP"), A("apply"), S3(A("CONS"), K(A("theta:Filter")), K(A("read:is_fact")))), A("id"))), A("read:full_heads"))))),
-DEF("read:rule_owned",
+DEF("read:rule_owned",
     S4(A("COND"), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), S6(A("CONS"), S3(A("COMP"), N(1), N(1)), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(3), N(1)), S3(A("COMP"), N(4), N(1)), K(S1(PHI()))), N(1))),
 DEF("read:default_uc",
     S4(A("COND"), S3(A("COMP"), A("null"), N(3)),
@@ -15622,10 +15622,19 @@ DEF("reflect:ext_of",
     S4(A("COMP"), A("main:flat"), S2(A("ALPHA"), A("distl")), A("distr"))),
 DEF("reflect:ext_arm",
     S3(A("COMP"), A("reflect:ext_of"), S3(A("CONS"), N(1), S3(A("COMP"), A("reflect:anc_of"), S3(A("CONS"), N(2), N(3)))))),
-DEF("reflect:instances",
+"MEMBERSHIP IS CLOSED OVER SUBTYPING, WHOEVER MADE THE INSTANCE (2026-09-29, Sam: `Support Response should be a subtype of Response, and Response should be a subtype of Message.`). instances.md holds membership transitive -- an instance of a subtype is an instance of each supertype -- and the readings` own instances were: read:up_rows files a read instance under every ancestor of its type. An instance the runtime created was filed under the noun it was created as and the nouns of the roles it plays, and nothing closed it: served from support.auto.dev`s store, resp-test-beau-20260925 was an instance of Support Response and of Message and not of Response, although support.md declares both links, so a rule written of Response selected none of its replies. The reflection owns this population (reflect:computed pairs it with reflect:instances, and reflect:cell_of keeps the store`s own rows beside what it answers), so the closure is one more arm of it beside the Fact Type and Role extents, and of their shape: reflect:ext_arm pairs a list of ids with one type`s upward cone, and reflect:inst_type_up pairs the instances the store files under one type with that type`s cone, rmap:cone over reflect:up_pairs as reflect:anc_of takes it. THE CONE IS A FUNCTION OF THE TYPE, NOT OF THE ROW, so the arm runs once per type that has a supertype -- the second column of reflect:up_pairs, whose pairs run <supertype, subtype>, the stored rows reversed -- and never once per row: a type with no supertype adds nothing, its memberships being the store`s own rows, which the cell keeps. reflect:inst_of selects one type`s instances as theta:flatten over COND(eq) over distr, the equal-keys filter a host may answer by an index because distr`s result is determined by its two arguments (Backus 12.2 I.7), so the membership rows are read once however many types ask, and no twin is needed. The extent is deduplicated once, whole: an instance filed under two types of one chain -- a Support Response under Support Response and under Response -- gets the upper types from both, and once written back the store`s own rows hold what the first two arms give. The references stay the meta extents` own, reflect:meta_instances: the closure adds memberships and never an instance, so it adds no reference. A membership rule in the metamodel says the same and reaches nothing -- tried, a semi-derived head with its join -- because the reflection replaces the cell the rule would have added to. <store>.",
+DEF("reflect:meta_instances",
     S3(A("COMP"), A("main:flat"), S3(A("CONS"), S3(A("COMP"), A("reflect:ext_arm"), S4(A("CONS"), S3(A("COMP"), S2(A("ALPHA"), N(1)), A("reflect:surface")), K(A("Fact Type")), A("id"))), S3(A("COMP"), A("reflect:ext_arm"), S4(A("CONS"), S3(A("COMP"), S2(A("ALPHA"), N(2)), A("reflect:roles")), K(A("Role")), A("id")))))),
+DEF("reflect:inst_of",
+    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2))), S2(A("CONS"), S3(A("COMP"), N(1), N(1))), K(PHI()))), A("distr"))),
+DEF("reflect:inst_type_up",
+    S3(A("COMP"), A("reflect:ext_of"), S3(A("CONS"), S3(A("COMP"), A("reflect:inst_of"), S3(A("CONS"), S3(A("COMP"), N(1), N(2)), N(1))), S3(A("COMP"), A("rmap:cone"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2))))))),
+DEF("reflect:inst_up",
+    S5(A("COMP"), A("main:flat"), S2(A("ALPHA"), A("reflect:inst_type_up")), S3(A("COMP"), A("distr"), S3(A("CONS"), S4(A("COMP"), A("theta:dedup"), S2(A("ALPHA"), N(2)), N(2)), A("id"))), S3(A("CONS"), S3(A("COMP"), A("reflect:src_rows"), S3(A("CONS"), K(A("ObjectTypeInstanceIsInstanceOfObjectType")), A("id"))), A("reflect:up_pairs")))),
+DEF("reflect:instances",
+    S4(A("COMP"), A("theta:dedup"), A("cat"), S3(A("CONS"), A("reflect:meta_instances"), A("reflect:inst_up")))),
 DEF("reflect:inst_refs",
-    S4(A("COMP"), A("theta:dedup"), S2(A("ALPHA"), S3(A("CONS"), N(1), N(1))), A("reflect:instances"))),
+    S4(A("COMP"), A("theta:dedup"), S2(A("ALPHA"), S3(A("CONS"), N(1), N(1))), A("reflect:meta_instances"))),
 "AND A REFLECTED POPULATION KEEPS THE ROWS THE STORE ASSERTS (#122 item 1, 2026-09-21). A reflection is lambda's answer for the constraints the schema DECLARES, and loadReflected installs it as the cell of that name; an asserted Constraint instance -- support's twelve in state-law-wiring.md, `Constraint 'de-ketler-misstated' has modality of Modality Type 'Deontic'`, `is of Constraint Type 'DF_owa'`, `spans Role 'SupportResponseRespondsToMessage.1'` -- is a fact of the same three fact types, and the cell replaced it. MEASURED: compile.js inserts the twelve (the build of 18:27 carries constraintModalityType Deontic and constraintTypeId DF_owa on every one, and twelve ConstraintSpan rows), and the served store of the SAME stamp, booted once, carries 21 Deontic rows all DEO:m:, 5,183 spans and none of the twelve -- the boot reflected, the cell shadowed the source, and emitToDb wrote the source through store:src_all from the cell before rmap:proj_rows read it. On the base an asserted row adopted through store:src_all read back before the reflection and not after, and Function then projected no row for it. So the cell is the UNION: the reflection, then the source's rows whose key the reflection does not answer -- derive:sm_keep's merge with the roles reversed, because the reflection is the schema describing itself and answers its own keys the way the readings win in compile.js's carry, while a row on a key it does not answer is a statement only the store makes. The key is the descriptor's first uniqueness (derive:sm_uc): the whole row for ConstraintSpan, the Constraint for its modality and type. The source is the descriptor's fifth slot, where store:src_all puts an adopted row and the readings an asserted one, read through reflect:src_rows and not system:pop_rows, so that a reflection never reads its own previous answer. Stable under a second pass (loadReflected leaves the source alone, so the union is the same list in the same order) and under the write-back (a source holding the union answers the union). The per-row work stays in the host's twins -- each list projected on the key once, theta:setminus and theta:dedup over the keys, trans to pair key and row, csdp:matches only for a key the reflection lacks -- measured on the base at 5,000 asserted spans against 997 reflected: within the run-to-run spread of reflect:cells itself. Measured on the base: reflect:constraints 753 and reflect:spans 997 unchanged, the three cells 754/754/998 with one asserted Constraint, its Function row projected with both columns, every other reflected cell as it was. NOT DONE HERE: compile.js's carry takes a reflected row the last boot wrote back for a runtime row and carries it into the next build, so a constraint the schema no longer declares would now survive in the source where before it was dropped with the asserted rows; a reflected name's rows are the reflection's to drop, and the carry should skip them.",
 DEF("reflect:computed",
     S3(A("COMP"), A("main:flat"), S4(A("CONS"), S9(A("CONS"), S3(A("CONS"), K(A("FactTypeHasRole")), A("reflect:roles")), S3(A("CONS"), K(A("FactTypeHasReading")), A("reflect:readings")), S3(A("CONS"), K(A("ObjectTypePlaysRole")), A("reflect:players")), S3(A("CONS"), K(A("RoleIsUsedInReading")), A("reflect:used")), S3(A("CONS"), K(A("StateMachineIsForObjectTypeInstance")), A("reflect:machines")), S3(A("CONS"), K(A("StateMachineIsInstanceOfStateMachineDefinition")), A("reflect:msmd")), S3(A("CONS"), K(A("StateMachineIsCurrentlyInStatus")), A("reflect:mstatus")), S3(A("CONS"), K(A("ObjectTypeInstanceIsCurrentlyInStatus")), A("reflect:otistatus"))), S7(A("CONS"), S3(A("CONS"), K(A("ConstraintIsOfConstraintType")), A("reflect:constraint_types")), S3(A("CONS"), K(A("ConstraintHasModalityOfModalityType")), A("reflect:modalities")), S3(A("CONS"), K(A("ConstraintSpan")), A("reflect:spans")), S3(A("CONS"), K(A("ConstraintSpanHasSequenceNumber")), A("reflect:span_seqs")), S3(A("CONS"), K(A("ConstraintSpanHasPosition")), A("reflect:span_positions")), S3(A("CONS"), K(A("FunctionBelongsToDomain")), A("reflect:fbd"))), S3(A("CONS"), S3(A("CONS"), K(A("ObjectTypeInstanceIsInstanceOfObjectType")), A("reflect:instances")), S3(A("CONS"), K(A("ObjectTypeInstanceHasReference")), A("reflect:inst_refs")))))),
