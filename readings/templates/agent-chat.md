@@ -11,6 +11,10 @@ Tool Call(.Tool Call Id) is an entity type.
 Message Role is a value type.
   The possible values of Message Role are 'user', 'assistant', 'system', 'tool'.
 
+# What a message says. Declared nowhere until 2026-09-30, so `Chat Message
+# has Body` read as a flag with one role and held no text at all.
+Body is a value type.
+
 Tool Call Id is a value type.
 
 Streaming Mode is a value type.
