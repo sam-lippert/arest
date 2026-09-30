@@ -315,4 +315,4 @@ Surface 'doom.canvas' has Pixel Origin 160 as origin- Y.
 Surface 'doom.canvas' has Pixel Width 640.
 Surface 'doom.canvas' has Pixel Height 400.
 Surface 'doom.canvas' has display- Title 'Doom canvas'.
-Surface 'doom.canvas' has Description 'Doom-host shim renders into this centered 640x400 surface. The surrounding letterbox stays whatever colour the kernel painted before the blit.'.
+Surface 'doom.canvas' has Description 'Doom-host shim renders into this centered 640x400 surface. The surrounding letterbox stays whatever color the kernel painted before the blit.'.
