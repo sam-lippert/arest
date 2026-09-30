@@ -1704,6 +1704,8 @@ function unprojAll(x) {
       const n = Math.min(row.length, paths.length);
       const key = [];
       for (const i of plan.keyAt) { if (i >= n) break; key.push(row[i]); }
+      // an objectified instance whose table keys on its roles reads back by its id (rmap:unproj_key)
+      const rkey = plan.rel && key.length > 1 ? [Ev("rmap:proj_objkey", key)] : key;
       if (plan.rel) {
         const vals = new Array(rolecols.length);
         for (let j = 0; j < rolecols.length; j++) {
@@ -1720,8 +1722,8 @@ function unprojAll(x) {
         if (v === "#") continue;
         const c = colOf(i);
         if (c.kind === 0) continue;
-        if (c.kind === 1) { if (v === "T") out.push([c.ft, key]); continue; }
-        out.push([c.ft, c.kind === 2 ? [v, ...key] : [...key, v]]);
+        if (c.kind === 1) { if (v === "T") out.push([c.ft, rkey]); continue; }
+        out.push([c.ft, c.kind === 2 ? [v, ...rkey] : [...rkey, v]]);
       }
     }
   } catch { return def(); }
@@ -2492,7 +2494,8 @@ const FASTPRIMS = new Map(Object.entries({
       if (typeof h !== "string") return def();
       if (pk.includes(h)) out.push(row[i]);
     }
-    return out;
+    // on a relation table a key of more than one column is the objectified instance, as the DEF spells it
+    return ctx[3] === "T" && out.length > 1 ? [Ev("rmap:proj_objkey", out)] : out;
   },
   "rmap:unproj": x => unprojAll(x),
   "cn:ucfacts": x => ucFacts(x),

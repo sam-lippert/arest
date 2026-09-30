@@ -6283,6 +6283,25 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     expect(Ev("value:kind_deep", ["decimal", [["decimal", -7, 1], "0.5"]])).toEqual([["decimal", -7, 1], ["decimal", 5, 1]]);
   });
 
+  // AN OBJECTIFIED INSTANCE READS BACK BY ITS ID (2026-09-29). support's PlanProduct table is keyed on its two roles and
+  // has no id column, so its prices read back as <Growth, vin, 0.0025> for a binary fact type and the uniqueness on the
+  // first role counted Plans. On a relation table a multi-column key is the instance, spelled as rmap:proj_objkey spells it.
+  test("a relation table keyed on its roles reads its instance back by its id", () => {
+    const paths = [["plan", "p"], ["platformAPI", "p"], ["callAmount", "p"]];
+    const rel = ["PlanProduct", paths, ["plan", "platformAPI"], "T", [], [1, 2]];
+    const ent = ["PlanProduct", paths, ["plan", "platformAPI"], "F", [], []];
+    const one = ["ConstraintSpan", [["constraintSpanId", "p"], ["position", "p"]], ["constraintSpanId"], "T", [], [0]];
+    const def = globalThis.AREST.DEFS.get("rmap:unproj_key");
+    for (const [x, want] of [
+      [[["Growth", "vin", "0.0025"], rel], ["Growth.vin"]],
+      [[["Growth", "vin", "0.0025"], ent], ["Growth", "vin"]],
+      [[["c1.r1", "2"], one], ["c1.r1"]],
+    ]) {
+      expect(Ev("rmap:unproj_key", x)).toEqual(want);
+      expect(Ev(def, x)).toEqual(want);
+    }
+  });
+
   test("arithmetic and order by the type a value carries: a sum, a share, a comparison", () => {
     const T = (x) => Ev("value:text", x);
     expect(Ev("value:add", [2, 3])).toBe(5);
