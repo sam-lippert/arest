@@ -4926,6 +4926,40 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     }
   }, 120_000);
 
+  // THE COMPILE IS LAMBDA'S ADDRESS, AND THE BASE CARRIERS ARE WHAT IT WRITES (2026-09-29). compile.js is
+  // deleted; `compile <out> <dir>...` is routed by main to compile:run, which renders both carriers in lambda
+  // and writes them through the registered fs:write. The metamodel compiled that way is the committed base,
+  // byte for byte -- which is also what keeps tools/carriers/base in step with metamodel/ from now on.
+  test("the carrier grammar escapes what LAMBDATEXT unescapes", () => {
+    const q = String.fromCharCode(34), b = String.fromCharCode(92);
+    const text = "a" + q + "b" + b + "c" + String.fromCharCode(10) + "d" + String.fromCharCode(13) + "e" + String.fromCharCode(9) + "f";
+    const want = "S(A(" + q + "a" + b + q + "b" + b + b + "c" + b + "n" + "d" + b + "r" + "e" + b + "t" + "f" + q + "),N(3),PHI(),A(" + q + q + "))";
+    expect(Ev("compile:src", [text, 3, [], ""])).toBe(want);
+  });
+
+  test("the base carriers regenerate byte for byte through lambda's compile address", () => {
+    const dir = mkdtempSync(join(tmpdir(), "arest-compile-"));
+    try {
+      const b = Bun.spawnSync(["bun", "build.js", "compile"],
+        { cwd: import.meta.dir, env: { ...process.env, AREST_OUT_DIR: dir }, stdout: "pipe", stderr: "pipe" });
+      expect(b.exitCode, b.stdout.toString() + b.stderr.toString()).toBe(0);
+      const out = join(dir, "carriers");
+      mkdirSync(out);
+      const env = { ...process.env, AREST_PARSE_CACHE: "off" };
+      delete env.AREST_STORE_DB; delete env.AREST_STRICT;
+      const r = Bun.spawnSync(["bun", join(dir, "compile.g.js"), "compile", out, "metamodel"],
+        { cwd: join(import.meta.dir, "..", ".."), env, stdout: "pipe", stderr: "pipe" });
+      const text = r.stdout.toString() + r.stderr.toString();
+      expect(r.exitCode, text).toBe(0);
+      expect(text).toContain("relational map: 34 artifacts");
+      for (const f of ["design-state", "compiled"]) {
+        expect(readFileSync(join(out, f)).equals(readFileSync(join(import.meta.dir, "..", "carriers", "base", f))), f).toBe(true);
+      }
+    } finally {
+      try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+    }
+  }, 120_000);
+
   test("arithmetic and order by the type a value carries: a sum, a share, a comparison", () => {
     const T = (x) => Ev("value:text", x);
     expect(Ev("value:add", [2, 3])).toBe(5);

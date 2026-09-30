@@ -960,6 +960,22 @@ const PRIMS = new Map(Object.entries({
     } finally { db.close(true); }
     return String(at(x, 0));
   },
+  // AND WHAT THE COMPILE WRITES (2026-09-29). compile.js is deleted and the compile is lambda's
+  // address now (compile:run), so the two things it still needs from a platform are registered
+  // here beside the reads: a file written whole -- beside itself first and renamed in, so a reader
+  // never meets half a carrier -- and the SHA-256 digest build.js checks the compiled carrier's
+  // stamp against. <path, text> answers the path; a text answers its digest in hex.
+  "fs:write": x => {
+    const fs = require("node:fs"), path = String(at(x, 0)), text = at(x, 1);
+    if (Array.isArray(text)) throw new Error("fs:write of a sequence");
+    fs.writeFileSync(path + ".build", String(text));
+    fs.renameSync(path + ".build", path);
+    return path;
+  },
+  "crypt:digest": x => {
+    if (Array.isArray(x)) throw new Error("crypt:digest on a sequence");
+    return require("node:crypto").createHash("sha256").update(String(x), "utf8").digest("hex");
+  },
 }));
 
 // ---- the mu: atoms resolve through DEFS then the primitives, numbers are
