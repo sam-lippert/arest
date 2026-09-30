@@ -723,13 +723,13 @@ test("a store.db is held to the schema it is read through, not to the compositio
     try { globalThis.AREST.loadStoreDb(make("short", stamp, "short")); } catch (e) { short = e.message; }
     expect(short).toContain(table);
     expect(short).toContain(col);
-    expect(short).toContain("apps_check");
+    expect(short).toContain("serve it with the module its own build wrote");
 
     // AND NO TABLES AT ALL IS THE 09-11 STORE, named table by table.
     let bare = "";
     try { globalThis.AREST.loadStoreDb(make("bare", stamp, "bare")); } catch (e) { bare = e.message; }
     expect(bare).toContain("no such table");
-    expect(bare).toContain("apps_check");
+    expect(bare).toContain("serve it with the module its own build wrote");
   } finally {
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
   }
