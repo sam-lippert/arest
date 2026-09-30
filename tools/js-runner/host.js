@@ -990,8 +990,8 @@ const PRIMS = new Map(Object.entries({
   // are that engine's calls under them. sqlite:run executes one prepared statement per row in one
   // transaction -- bound parameters, never SQL text built from values (#96) -- with the mu's absence
   // marker # bound as NULL. sqlite:fresh clears the build file a failed compile left; sqlite:install
-  // renames the build into place and refuses over an existing store, because until the in-place
-  // change is lambda's a compile only ever creates a store and never replaces one.
+  // renames a fresh build into place and refuses over an existing store, which is changed in place
+  // instead (compile:inplace, below) and put back with sqlite:replace.
   "sqlite:run": x => {
     const { Database } = require("bun:sqlite");
     const path = String(at(x, 0)), sql = String(at(x, 1)), rows = seq(at(x, 2));
@@ -1002,11 +1002,16 @@ const PRIMS = new Map(Object.entries({
       db.exec("begin");
       try {
         for (const r of rows) {
-          st.run(...seq(r).map((v) => {
+          const vals = seq(r).map((v) => {
             if (v === "#") return null;
             if (Array.isArray(v)) throw new Error("sqlite:run: a sequence where a value belongs in " + sql);
             return v;
-          }));
+          });
+          // A REFUSED ROW SAYS WHICH ONE (2026-09-30): `UNIQUE constraint failed: Function.functionId`
+          // names a table of nineteen thousand rows and no row; the first two values are the key of
+          // every table the relational map lays out, so they are what finds it.
+          try { st.run(...vals); }
+          catch (e) { throw new Error(e.message + " -- row " + (n + 1) + " of " + rows.length + ", beginning " + JSON.stringify(vals.slice(0, 2)).slice(0, 120)); }
           n++;
         }
         db.exec("commit");
@@ -1021,7 +1026,43 @@ const PRIMS = new Map(Object.entries({
   },
   "sqlite:install": x => {
     const fs = require("node:fs"), build = String(at(x, 0)), path = String(at(x, 1));
-    if (fs.existsSync(path)) throw new Error("sqlite:install refuses: " + path + " exists, and a compile only ever creates a store until its in-place change is lambda's");
+    if (fs.existsSync(path)) throw new Error("sqlite:install refuses: " + path + " exists; a store that exists is changed in place (sqlite:replace), never overwritten by a fresh build");
+    fs.renameSync(build, path);
+    return path;
+  },
+  // AND A STORE CHANGED IN PLACE (2026-09-30). The in-place compile reads the store through
+  // sqlite:query (a statement and its bound parameters, answering rows with NULL as #), works on a
+  // consistent copy made by sqlite:copy (VACUUM INTO, which SQLite runs outside a transaction), and
+  // puts the copy in the store's place with sqlite:replace, which keeps the store it replaces
+  // beside it as <store>.prior -- one step back, never a loss.
+  //
+  // A VALUE IS ANSWERED AS ITS TEXT, which is how a start reads a store (loadStoreDb's String(v))
+  // and how the compile spells what it writes (compile:cellval), so a row read here and the row
+  // lambda projects for the same facts are one spelling. A column declared INTEGER hands back a
+  // number, and answered as one the compile found two of the metamodel's tables moved when
+  // nothing had.
+  "sqlite:query": x => {
+    const { Database } = require("bun:sqlite");
+    const path = String(at(x, 0)), sql = String(at(x, 1)), params = seq(at(x, 2));
+    const db = new Database(path, { readonly: true });
+    try {
+      return db.query(sql).values(...params).map((r) => r.map((v) => (v === null || v === undefined ? "#" : String(v))));
+    } finally { db.close(true); }
+  },
+  "sqlite:copy": x => {
+    const { Database } = require("bun:sqlite");
+    const fs = require("node:fs"), from = String(at(x, 0)), to = String(at(x, 1));
+    for (const p of [to, to + "-wal", to + "-shm", to + "-journal"]) { try { fs.rmSync(p, { force: true }); } catch { } }
+    const db = new Database(from, { readonly: true });
+    try { db.query("vacuum into ?").run(to); } finally { db.close(true); }
+    return to;
+  },
+  "sqlite:replace": x => {
+    const fs = require("node:fs"), build = String(at(x, 0)), path = String(at(x, 1));
+    if (fs.existsSync(path)) {
+      try { fs.rmSync(path + ".prior", { force: true }); } catch { }
+      fs.renameSync(path, path + ".prior");
+    }
     fs.renameSync(build, path);
     return path;
   },
@@ -3569,7 +3610,14 @@ function run_cli() {
   // THE HOST CONTRACT, FINAL — six lines, no modes, no rendering, forever.
   // All dispatch and all text live in lambda `main`; a new operation is a
   // lambda edit, never a host edit. Adding a branch here is how runners die.
-  const out = Ev("main", [CELLS, process.argv.slice(2)]);
+  // (An instrumented composition prints the lambda stack of a throw here: bun hands a throw raised
+  // while the entry module evaluates -- which is where this runs -- to no uncaughtException
+  // handler, so AREST_STACK printed nothing for a CLI run. A release module drops the catch line
+  // and keeps the try whole with its finally.)
+  let out;
+  try { out = Ev("main", [CELLS, process.argv.slice(2)]); }
+  catch (e) { if (STACKS) console.error("lambda stack at throw: " + ((e && e.lambdaStack) || "(no lambda frame)")); throw e; } // @instrument
+  finally { /* the throw, if any, goes on */ }
   if (PROFILE) profReport("main"); // @instrument
   console.log(out[0]);
   process.exit(out[1] === "T" ? 0 : 1);

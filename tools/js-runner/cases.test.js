@@ -4967,7 +4967,10 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
         "const { Ev, CELLS } = globalThis.AREST;",
         "const norm = (v) => (Array.isArray(v) ? (Ev('dec:is', v) === 'T' ? Ev('dec:text', v) : v.map(norm)) : String(v));",
         "const out = {};",
-        "for (const p of Ev('derive:store_pairs', CELLS)) {",
+        // compile:adopt_pairs and not derive:store_pairs: the latter answers nothing for a fully derived head,
+        // which is right for the fixpoint's input and left this comparison blind to every population the rule
+        // owns -- and the compile had written none of them (2026-09-30).
+        "for (const p of Ev('compile:adopt_pairs', CELLS)) {",
         "  const rows = Array.isArray(p[1]) ? p[1] : [];",
         "  out[String(p[0])] = rows.map((r) => JSON.stringify(norm(r))).sort();",
         "}",
@@ -4996,6 +4999,65 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
       // and not vacuously: the metamodel's store homes hundreds of fact types and thousands of their facts
       expect(compared).toBeGreaterThan(100);
       expect(facts).toBeGreaterThan(5000);
+    } finally {
+      try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+    }
+  }, 240_000);
+
+  // AND A STORE THAT EXISTS IS CHANGED IN PLACE (2026-09-30). The same compile over a store that exists copies it,
+  // applies the new schema's delta, keeps what the runtime wrote and supersedes what the last readings said and these
+  // do not. A probe corpus is compiled, a row is written into its store the way a server writes one, the readings
+  // change -- one stated Widget goes, another comes, Widget gains a column and Gadget is new -- and the compile runs
+  // again over the store: the runtime's row is there, the dropped Widget is not, the new table and column are, and a
+  // compile of the same readings once more writes nothing.
+  test("a compile over a store that exists keeps what the runtime wrote and moves only what the readings did", () => {
+    const dir = mkdtempSync(join(tmpdir(), "arest-inplace-"));
+    const NL = String.fromCharCode(10);
+    try {
+      const b = Bun.spawnSync(["bun", "build.js", "compile"],
+        { cwd: import.meta.dir, env: { ...process.env, AREST_OUT_DIR: dir }, stdout: "pipe", stderr: "pipe" });
+      expect(b.exitCode, b.stdout.toString() + b.stderr.toString()).toBe(0);
+      const out = join(dir, "carriers"), v1 = join(dir, "v1"), v2 = join(dir, "v2");
+      for (const d of [out, v1, v2]) mkdirSync(d);
+      const head = ["Widget(.id) is an entity type.", "Colour is a value type."];
+      const domain = ["", "Domain 'ip-probe' has Description 'an in-place probe'.", ""];
+      writeFileSync(join(v1, "probe.md"), [...head, ...domain,
+        "Widget has Colour.", "  Each Widget has at most one Colour.", "", "Widget 'w1' has Colour 'red'.", ""].join(NL));
+      writeFileSync(join(v2, "probe.md"), [...head, "Size is a value type.", "Gadget(.id) is an entity type.", ...domain,
+        "Widget has Colour.", "  Each Widget has at most one Colour.", "Widget has Size.", "  Each Widget has at most one Size.",
+        "Gadget has Colour.", "  Each Gadget has at most one Colour.", "",
+        "Widget 'w3' has Colour 'green'.", "Gadget 'g1' has Colour 'red'.", ""].join(NL));
+      const env = { ...process.env, AREST_PARSE_CACHE: "off" };
+      delete env.AREST_STORE_DB; delete env.AREST_STRICT;
+      const compile = (readings) => {
+        const r = Bun.spawnSync(["bun", join(dir, "compile.g.js"), "compile-store", out, "metamodel", readings],
+          { cwd: join(import.meta.dir, "..", ".."), env, stdout: "pipe", stderr: "pipe" });
+        const text = r.stdout.toString() + r.stderr.toString();
+        expect(r.exitCode, text).toBe(0);
+        return text;
+      };
+      const widgets = () => {
+        const db = new Database(join(out, "store.db"), { readonly: true });
+        try { return db.query('select "widgetId", "colour" from "Widget" order by 1').values().map((r) => r.join("=")); }
+        finally { db.close(); }
+      };
+      expect(compile(v1)).toMatch(/store: \d+ rows in its tables/);
+      expect(widgets()).toEqual(["w1=red"]);
+      // the runtime writes a Widget of its own, as a server writes a row
+      const db = new Database(join(out, "store.db"));
+      db.run('insert into "Widget" ("widgetId", "colour") values (?, ?)', ["w-runtime", "blue"]);
+      db.close();
+      const moved = compile(v2);
+      expect(moved).toMatch(/store \(in place\): 1 fact\(s\) the runtime wrote kept, \d+ table\(s\) written again, 1 created, 1 re-laid, 0 dropped/);
+      expect(widgets()).toEqual(["w-runtime=blue", "w3=green"]);
+      const g = new Database(join(out, "store.db"), { readonly: true });
+      expect(g.query('select "gadgetId", "colour" from "Gadget"').values()).toEqual([["g1", "red"]]);
+      expect(g.query("select name from pragma_table_info('Widget')").values().map((r) => r[0])).toContain("size");
+      g.close();
+      expect(existsSync(join(out, "store.db.prior"))).toBe(true);
+      // and the same readings again change nothing
+      expect(compile(v2)).toMatch(/store \(in place\): 1 fact\(s\) the runtime wrote kept, 0 table\(s\) written again, 0 created, 0 re-laid, 0 dropped/);
+      expect(widgets()).toEqual(["w-runtime=blue", "w3=green"]);
     } finally {
       try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
     }

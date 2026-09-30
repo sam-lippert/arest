@@ -607,6 +607,24 @@ Function 'sqlite:install' yields Type Expression 'path'.
 Function 'module:root' has Definition Origin 'registered'.
 Function 'module:root' accepts Type Expression 'object'.
 Function 'module:root' yields Type Expression 'path'.
+<!-- AND A STORE THAT EXISTS, CHANGED IN PLACE (2026-09-30). The compile
+     changes a store that exists in place (compile:inplace) through seven more
+     storage operations -- tables, columns, holds, rows, set_aside, fill,
+     rewrite -- which the sqlite engine defines in lambda, and three more of
+     its calls: sqlite:query, a statement run with its bound parameters that
+     answers its rows as a start reads them, each value its text and NULL as
+     #; sqlite:copy, a consistent copy of a
+     store (VACUUM INTO); and sqlite:replace, the copy renamed into the
+     store's place with the store it replaces kept beside it as .prior. -->
+Function 'sqlite:query' has Definition Origin 'registered'.
+Function 'sqlite:query' accepts Type Expression 'path-and-sql-and-parameters'.
+Function 'sqlite:query' yields Type Expression 'rows'.
+Function 'sqlite:copy' has Definition Origin 'registered'.
+Function 'sqlite:copy' accepts Type Expression 'path-pair'.
+Function 'sqlite:copy' yields Type Expression 'path'.
+Function 'sqlite:replace' has Definition Origin 'registered'.
+Function 'sqlite:replace' accepts Type Expression 'path-pair'.
+Function 'sqlite:replace' yields Type Expression 'path'.
 
 <!-- The boundary is only a query over P if every registered function has an
      origin fact. Enumerating the runners' registration tables against lambda's
