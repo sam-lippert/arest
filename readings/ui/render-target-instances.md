@@ -31,4 +31,4 @@ Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and c
 Render Target 'html' has Platform Function Name 'render:html'.
 Render Target 'html' emits MimeType 'text/html'.
 Render Target 'html' has display- Title 'Reference HTML renderer'.
-Render Target 'html' has Description 'Engine-installed reference render function: walks the ViewProjection elements in Order, emits one labelled widget per Component Role (text-input, date-picker, checkbox, combo-box) and one rel=transition anchor per HATEOAS affordance. Pure function of its input; knows nouns and widgets, never apps.'.
+Render Target 'html' has Description 'Engine-installed reference render function: walks the ViewProjection elements in Order, emits one labeled widget per Component Role (text-input, date-picker, checkbox, combo-box) and one rel=transition anchor per HATEOAS affordance. Pure function of its input; knows nouns and widgets, never apps.'.
