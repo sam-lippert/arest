@@ -5628,6 +5628,28 @@ function closeStore() {
 }
 
 function boot(mode) {
+  // THE MODE IS A CELL, AND THE ENVIRONMENT INSTALLS IT. lambda's read:strict
+  // answers F: the AREST default is not strict (Sam, 2026-09-22: "I personally
+  // want my default configured to strict"). A person who wants strictness sets
+  // AREST_STRICT=1 where their checks are spawned: the router's apps_check runs
+  // an app's check with its own process.env, and build.js --run starts the
+  // module with that env, so the env of one router entry is one person's
+  // default and nobody else's. compile.js installed the cell until it was
+  // deleted (ed0da6ee), which left AREST_STRICT=1 doing nothing; it is here now,
+  // installed where DEF put lambda's -- in DEFS, which every application of
+  // the name reads, and over lambda's cell in CELLS, which ast:fetch reads --
+  // before the first evaluation, in every mode, the reader's too. compile.js
+  // put a second cell in front of lambda's, which the law one-name-one-cell
+  // refuses. What strictness refuses is written in lambda beside the arm that
+  // refuses it.
+  if (process.env.AREST_STRICT === "1") {
+    const strict = K("T");
+    DEFS.set("read:strict", strict);
+    const at = CELLS.findIndex((c) => Array.isArray(c) && c[1] === "read:strict");
+    if (at < 0) CELLS.push(["CELL", "read:strict", strict]); else CELLS[at] = ["CELL", "read:strict", strict];
+    DEFSVER++;
+    FETCHIDX = new WeakMap();
+  }
   // the reader's host: lambda alone, no store to load, nothing to run; the
   // importer (tools/compile-design-state.js) evaluates read:* cells itself,
   // through the same published surface the test tail exposes
