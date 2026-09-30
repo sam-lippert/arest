@@ -6375,6 +6375,18 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     }
   });
 
+  // A DECIMAL PRINTS AS ITS LEXEME (2026-09-29). system:show is the text every served verb answers in, and it printed
+  // a decimal as the sequence it is held as: `get Growth` on support answered (decimal, 100, 0) for its price per
+  // billing interval. render:json had the arm from the start; the two print a decimal alike now.
+  test("a decimal prints as its lexeme in a verb's text, as it does in JSON", () => {
+    expect(Ev("system:show", ["decimal", 4, 3])).toBe("0.004");
+    expect(Ev("system:show", [["decimal", 100, 0]])).toBe("(100)");
+    expect(Ev("system:show", ["Starter.vin", ["decimal", 4, 3]])).toBe("('Starter.vin', 0.004)");
+    expect(Ev("render:json", ["Starter.vin", ["decimal", 4, 3]])).toBe('["Starter.vin",0.004]');
+    // a sequence that only looks like one keeps printing as a sequence
+    expect(Ev("system:show", ["decimal", "4", 3])).toBe("('decimal', '4', 3)");
+  });
+
   test("arithmetic and order by the type a value carries: a sum, a share, a comparison", () => {
     const T = (x) => Ev("value:text", x);
     expect(Ev("value:add", [2, 3])).toBe(5);
