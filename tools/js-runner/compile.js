@@ -312,7 +312,10 @@ const redact = (text) => { let t = String(text); for (const v of unprinted) if (
 // object type no declaration opens; <rejected, name, status, (), reading> for
 // an instance sentence under a reading no fact type declares, its quoted
 // values taken out; <unattached, name, status, (), sentence> for a constraint
-// that attached to no reading; <undelivered, head, status, (), reason> for a
+// that attached to no reading; <unbuilt, name, status, (), sentence> for a
+// deontic rule that compiles to no constraint -- a prohibited body no arm
+// resolves, an obligation neither attached nor dual-built -- written with its
+// operator; <undelivered, head, status, (), reason> for a
 // derived head whose rule sentences no arm compiled into a recipe (lambda's
 // read:rule_reason says why); and <domain, path, status, domains, fault> for
 // a file that declares elements and no Domain (a file's domain is the first
@@ -328,6 +331,7 @@ const redact = (text) => { let t = String(text); for (const v of unprinted) if (
 const undeclared = findings.filter((r) => String(r[0]) === "undeclared");
 const rejected = findings.filter((r) => String(r[0]) === "rejected");
 const unattached = findings.filter((r) => String(r[0]) === "unattached");
+const unbuilt = findings.filter((r) => String(r[0]) === "unbuilt");
 const domainless = findings.filter((r) => String(r[0]) === "domain");
 const undelivered = findings.filter((r) => String(r[0]) === "undelivered");
 const refused = findings.some((r) => String(r[2]) === "refused");
@@ -349,6 +353,10 @@ if (rejected.length) {
 if (unattached.length) {
   console.error("UNATTACHED: " + unattached.length + " constraint(s) attach to no reading" + verdict(unattached) + ": "
     + unattached.map((r) => redact(r[4])).join("; "));
+}
+if (unbuilt.length) {
+  console.error("UNBUILT: " + unbuilt.length + " deontic rule(s) compile to no constraint" + verdict(unbuilt) + ": "
+    + unbuilt.map((r) => redact(r[4])).join("; "));
 }
 if (undelivered.length) {
   console.error("UNDELIVERED: " + undelivered.length + " derived head(s) have rules that compile to no recipe" + verdict(undelivered) + ": "

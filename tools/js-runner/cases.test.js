@@ -2934,7 +2934,9 @@ test("a fact the build asserts on another row is not carried back under its old 
 // instances under a reading it does not declare either, and they are rejected
 // too: the Domain descriptions are in neither carrier, and the line says so.
 // Under strict `Gadget has Knob` is refused, so its instance is rejected with
-// them. Each line says REFUSED when its own rows were.
+// them. Each line says REFUSED when its own rows were. Since 2026-09-29 the
+// deontic one is an UNBUILT row written with its operator, not an UNATTACHED
+// body with the operator gone.
 test("the reader reports a reading over an undeclared object type, the sentences it did not read and a file with no Domain, and refuses them under AREST_STRICT=1", () => {
   const { mkdirSync } = require("node:fs");
   const NL = String.fromCharCode(10);
@@ -2980,8 +2982,8 @@ test("the reader reports a reading over an undeclared object type, the sentences
     expect(lax.text).toContain("FILE DOMAINS: 1 file(s) declare elements and no Domain: ");
     expect(lax.text).toContain("REJECTED: 8 instance sentence(s) under 3 reading(s) no fact type declares: "
       + "Domain has Description (5); Domain has Access; Gizmo belongs to Maker (2)");
-    expect(lax.text).toContain("UNATTACHED: 2 constraint(s) attach to no reading: "
-      + "Each Gizmo belongs to at most one Maker; Each Gizmo belongs to some Maker");
+    expect(lax.text).toContain("UNATTACHED: 1 constraint(s) attach to no reading: Each Gizmo belongs to at most one Maker");
+    expect(lax.text).toContain("UNBUILT: 1 deontic rule(s) compile to no constraint: It is obligatory that each Gizmo belongs to some Maker");
     expect(lax.text).toContain("b-no-domain.md");
     expect(lax.text).not.toContain("a-gadget.md");
     expect(lax.text).not.toContain("c-catalog.md");
@@ -3007,11 +3009,61 @@ test("the reader reports a reading over an undeclared object type, the sentences
     expect(strict.text).toContain("FILE DOMAINS: 1 file(s) declare elements and no Domain -- REFUSED (AREST_STRICT=1): ");
     expect(strict.text).toContain("REJECTED: 9 instance sentence(s) under 4 reading(s) no fact type declares -- REFUSED (AREST_STRICT=1): "
       + "Domain has Description (5); Gadget has Knob; Domain has Access; Gizmo belongs to Maker (2)");
-    expect(strict.text).toContain("UNATTACHED: 2 constraint(s) attach to no reading -- REFUSED (AREST_STRICT=1): "
-      + "Each Gizmo belongs to at most one Maker; Each Gizmo belongs to some Maker");
+    expect(strict.text).toContain("UNATTACHED: 1 constraint(s) attach to no reading -- REFUSED (AREST_STRICT=1): Each Gizmo belongs to at most one Maker");
+    expect(strict.text).toContain("UNBUILT: 1 deontic rule(s) compile to no constraint -- REFUSED (AREST_STRICT=1): It is obligatory that each Gizmo belongs to some Maker");
     expect(strict.text).toContain("b-no-domain.md");
     expect(strict.code).toBe(1);
     expect(readdirSync(strict.out)).toEqual([]);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 120_000);
+
+// ---- A DEONTIC THAT STATES NO CONSTRAINT IS SAID, WITH ITS OPERATOR ------
+// (2026-09-29.) A deontic sentence ends one of four ways: a mark at its sentence
+// (DEO:m), a prohibited row (DEO:p) for a forbidden body, a prohibited row for an
+// obligation`s dual, or nothing. The corpus is support.auto.dev`s shape: Response
+// is a subtype of Message and `Message uses Dash` is declared of Message. Four of
+// its rules compile to nothing -- a forbidden body over the subtype, one over a
+// reading nobody declared, an obligation that is not an `each` form, and an
+// `each` obligation that attaches to nothing -- and all four were silent or, the
+// last, reported as `Each Gizmo belongs to some Maker`. The dual-built obligation
+// was reported unattached though DEO:p:MessageUsesDash:1 carries it; it is not
+// now. A permission states no constraint and is not reported.
+test("a deontic rule that compiles to no constraint is reported with its operator, and one that built is not", () => {
+  const NL = String.fromCharCode(10);
+  const dir = mkdtempSync(join(tmpdir(), "arest-deontic-"));
+  const corpus = join(dir, "readings");
+  mkdirSync(corpus);
+  writeFileSync(join(corpus, "a-style.md"), [
+    "Domain 'style' has Description 'the fixture'.", "",
+    "Message(.Id) is an entity type.", "", "Response is a subtype of Message.", "",
+    "Dash(.Name) is an entity type.", "", "Maker(.Name) is an entity type.", "", "Gizmo(.Name) is an entity type.", "",
+    "Message uses Dash.", "", "Message has Maker.", "", "Gizmo has Maker.", "",
+    "It is forbidden that Message uses Dash.", "",
+    "It is forbidden that Response uses Dash.", "",
+    "It is forbidden that Message licenses Dash.", "",
+    "It is obligatory that Message names Dash.", "",
+    "It is obligatory that each Gizmo has some Maker.", "",
+    "It is obligatory that each Gizmo belongs to some Maker.", "",
+    "It is obligatory that each Message that uses some Dash has some Maker.", "",
+    "It is permitted that Message uses Dash.", ""].join(NL));
+  const out = join(dir, "out");
+  mkdirSync(out);
+  try {
+    const p = Bun.spawnSync(["bun", join(import.meta.dir, "compile.js"), corpus],
+      { env: { ...process.env, AREST_OUT_DIR: out, AREST_STRICT: "" }, stdout: "pipe", stderr: "pipe" });
+    const text = p.stdout.toString() + p.stderr.toString();
+    expect(text).toContain("UNBUILT: 4 deontic rule(s) compile to no constraint: "
+      + "It is forbidden that Response uses Dash; It is forbidden that Message licenses Dash; "
+      + "It is obligatory that Message names Dash; It is obligatory that each Gizmo belongs to some Maker");
+    expect(text).not.toContain("UNATTACHED");
+    expect(text).not.toContain("uses some Dash has some Maker");
+    expect(text).not.toContain("permitted");
+    expect(p.exitCode).toBe(0);
+    const carrier = readFileSync(join(out, "design-state"), "utf8");
+    for (const key of ["DEO:m:GizmoIsInvolvedInGizmoHasMaker#1", "DEO:p:MessageUsesDash", "DEO:p:MessageUsesDash:1"]) expect(carrier).toContain('A("' + key + '")');
+    expect(carrier).not.toContain("DEO:p:MessageUsesDash:2");
   } finally {
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
   }
