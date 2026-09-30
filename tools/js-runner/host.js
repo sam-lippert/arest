@@ -5046,13 +5046,36 @@ function lazyStore(db, want) {
   // is read, in the same table order, so a fact type's facts arrive in the order its
   // population has them.
   let scans = 0;
+  // AN OBJECTIFIED INSTANCE WHOSE TABLE KEYS ON ITS ROLES IS HELD IN NO COLUMN (2026-09-29). Its id is its key
+  // columns' values joined as rmap:proj_objkey joins them, and the facts of it read back under that id since
+  // 912feafd, so a scan for a column equal to the id found none of them: support's `get Starter.vin` answered no
+  // price. Such a table is asked for its joined key too, the key columns in the table's order, as
+  // rmap:unproj_keycols answers them; any other table is asked as before.
+  const objkeyAsk = new Map();
+  const objkeyOf = (table, cols) => {
+    let sql = objkeyAsk.get(table);
+    if (sql !== undefined) return sql;
+    sql = "";
+    if (relTables.has(table)) {
+      try {
+        const ctx = Ev("rmap:unproj_ctx", [table, SCHEMA]);
+        const paths = Array.isArray(ctx) && Array.isArray(ctx[1]) ? ctx[1] : [];
+        const pk = Array.isArray(ctx) && Array.isArray(ctx[2]) ? ctx[2].map(String) : [];
+        const keyCols = paths.map((p) => String(Array.isArray(p) ? p[0] : "")).filter((c) => pk.includes(c));
+        if (ctx[3] === "T" && keyCols.length > 1 && keyCols.length === pk.length && keyCols.every((c) => cols.includes(c)))
+          sql = " or (" + keyCols.map((c) => '"' + c + '"').join(" || '.' || ") + ") = ?1";
+      } catch { sql = ""; }
+    }
+    objkeyAsk.set(table, sql);
+    return sql;
+  };
   const mentioning = (id) => {
     const byFt = new Map();
     for (const [table, cols] of want) {
       if (!carried.has(table) && !relTables.has(table)) continue;
       scans++;
       const rows = db.query("select " + cols.map((c) => '"' + c + '"').join(",") + ' from "' + table + '" where '
-        + cols.map((c) => '"' + c + '" = ?1').join(" or ")).values(id);
+        + cols.map((c) => '"' + c + '" = ?1').join(" or ") + objkeyOf(table, cols)).values(id);
       if (!rows.length) continue;
       const clean = rows.map((r) => r.map((v) => (v === null ? "#" : String(v))));
       for (const pr of Ev("rmap:unproj", [table, clean, SCHEMA])) {

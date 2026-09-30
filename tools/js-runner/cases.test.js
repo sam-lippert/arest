@@ -1406,6 +1406,62 @@ test("get over a store read from its tables reads the rows that name the id, and
   }
 }, 240_000);
 
+// ---- AND AN OBJECTIFIED INSTANCE KEYED ON ITS ROLES IS FOUND BY ITS ID -----------
+//
+// (2026-09-29.) An objectification whose relation table keys on its roles has no id column: its instance is
+// the key columns joined as rmap:proj_objkey joins them, and its functional facts read back under that id since
+// 912feafd -- support.auto.dev`s 26 prices as <Starter.vin, 0.004>. The twin above cuts each table to the rows
+// where some column IS the id, and no column is `Starter.vin`, so `get Starter.vin` answered no price while
+// fact GET served all 26: the case above samples only tables with a one-column key and never asked. Over a
+// store compiled from a corpus of that shape, the twin answers what the DEF answers for such an id, and that
+// answer holds the price.
+test("get of an objectified instance keyed on its roles finds its facts by its id, twin and DEF alike", () => {
+  const NL = String.fromCharCode(10);
+  const dir = mkdtempSync(join(tmpdir(), "arest-objget-"));
+  const corpus = join(dir, "readings");
+  const out = join(dir, "out");
+  mkdirSync(corpus);
+  mkdirSync(out);
+  writeFileSync(join(corpus, "a-shop.md"), [
+    "Domain 'shop' has Description 'the fixture'.", "",
+    "Plan(.Name) is an entity type.", "", "Platform API(.Name) is an entity type.", "",
+    "Price is a value type.", "  The data type of Price is decimal.", "",
+    "Plan Product(.id) is an entity type.", "Plan Product objectifies \"Plan includes Platform API\".", "",
+    "Plan includes Platform API.", "Plan Product has Price.", "  Each Plan Product has at most one Price.", "",
+    "Plan 'Growth' includes Platform API 'vin'.", "Plan Product 'Growth.vin' has Price '0.0025'.",
+    "Plan 'Growth' includes Platform API 'specs'.", "Plan Product 'Growth.specs' has Price '0.0015'.", ""].join(NL));
+  const driver = join(dir, "drive.mjs");
+  writeFileSync(driver, [
+    "await import(process.env.MODULE);",
+    "const { Ev, CELLS, DEFS } = globalThis.AREST;",
+    "const st = Ev('store:state', CELLS);",
+    "const twin = Ev('get', ['Growth.vin', st]);",
+    "const def = Ev(DEFS.get('get'), ['Growth.vin', st]);",
+    "console.log('twin=' + JSON.stringify(twin));",
+    "console.log('same=' + JSON.stringify(JSON.stringify(twin) === JSON.stringify(def)));",
+  ].join(NL));
+  const env = { ...process.env, AREST_OUT_DIR: out, AREST_DB: join(out, "store.db"), AREST_STRICT: "" };
+  try {
+    const c = Bun.spawnSync(["bun", join(import.meta.dir, "compile.js"), corpus], { env, stdout: "pipe", stderr: "pipe" });
+    expect(c.exitCode, c.stdout.toString() + c.stderr.toString()).toBe(0);
+    const b = Bun.spawnSync(["bun", join(import.meta.dir, "build.js"), "test"],
+      { cwd: import.meta.dir, env: { ...process.env, AREST_CARRIERS: out, AREST_OUT_DIR: out }, stdout: "pipe", stderr: "pipe" });
+    expect(b.exitCode, b.stdout.toString() + b.stderr.toString()).toBe(0);
+    const denv = { ...process.env, MODULE: pathToFileURL(join(out, "cases.g.js")).href, AREST_STORE_DB: join(out, "store.db") };
+    delete denv.AREST_EAGER_STORE;
+    delete denv.AREST_NOTWIN;
+    const d = Bun.spawnSync(["bun", driver], { env: denv, stdout: "pipe", stderr: "pipe" });
+    const text = d.stdout.toString() + d.stderr.toString();
+    const got = {};
+    for (const line of d.stdout.toString().split(NL)) { const i = line.indexOf("="); if (i > 0) try { got[line.slice(0, i)] = JSON.parse(line.slice(i + 1)); } catch { } }
+    expect(got.same, text).toBe(true);
+    expect(JSON.stringify(got.twin), text).toContain('0.0025');
+    expect(JSON.stringify(got.twin), text).toContain('PlanProductHasPrice');
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 240_000);
+
 // ---- A SEMI-DERIVED HEAD WITH ONE RUNTIME ROW STILL GETS THE REST --------------
 //
 // support.auto.dev, 2026-09-25: its rebuild carried ONE World Assumption row as runtime
