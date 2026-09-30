@@ -21,8 +21,12 @@ Streaming Mode is a value type.
 ### Agent Chat
 Agent Chat is for User.
   Each Agent Chat is for exactly one User.
-Agent Chat is with Agent.
-  Each Agent Chat is with exactly one Agent.
+# A conversation is modeled whole without an Agent. An Agent is an Agent
+# Definition powering a model over an API, and it uses a chat; a chat held by
+# an agent that is already running (a coding session) needs none (Sam,
+# 2026-09-30).
+Agent uses Agent Chat.
+  For each Agent Chat, at most one Agent uses that Agent Chat.
 Agent Chat uses Streaming Mode.
   Each Agent Chat uses exactly one Streaming Mode.
 Agent Chat occurred at Timestamp.
