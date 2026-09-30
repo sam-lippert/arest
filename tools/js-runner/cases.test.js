@@ -5118,6 +5118,63 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     }
   }, 240_000);
 
+  // AND THE REFLECTION'S INSTANCES OF A FACT TYPE THE READINGS DROP GO WITH IT (2026-09-30). The server writes the
+  // reflection's instances back into the instance-of extent, a fact type as a Fact Type and its roles as Roles, and
+  // the compile kept that extent whole as runtime facts. So claude's store kept the instances of fact types its
+  // readings no longer declare, each broke a mandatory, and every write was refused. The probe writes those rows the
+  // way the server does, beside an instance the runtime created, then drops the fact type: the reflection's rows go
+  // and the runtime's instance stays.
+  test("the reflection's instances of a fact type the readings drop go with it, and the runtime's stay", () => {
+    const dir = mkdtempSync(join(tmpdir(), "arest-reflected-"));
+    const NL = String.fromCharCode(10);
+    try {
+      const b = Bun.spawnSync(["bun", "build.js", "compile"],
+        { cwd: import.meta.dir, env: { ...process.env, AREST_OUT_DIR: dir }, stdout: "pipe", stderr: "pipe" });
+      expect(b.exitCode, b.stdout.toString() + b.stderr.toString()).toBe(0);
+      const out = join(dir, "carriers"), v1 = join(dir, "v1"), v2 = join(dir, "v2");
+      for (const d of [out, v1, v2]) mkdirSync(d);
+      const domain = ["", "Domain 'rf-probe' has Description 'a reflection probe'.", ""];
+      const colour = ["Widget has Colour.", "  Each Widget has at most one Colour."];
+      writeFileSync(join(v1, "probe.md"), ["Widget(.id) is an entity type.", "Owner(.id) is an entity type.", "Colour is a value type.",
+        ...domain, ...colour, "Widget is with Owner.", "  Each Widget is with at most one Owner.", "", "Widget 'w1' has Colour 'red'.", ""].join(NL));
+      writeFileSync(join(v2, "probe.md"), ["Widget(.id) is an entity type.", "Colour is a value type.",
+        ...domain, ...colour, "", "Widget 'w1' has Colour 'red'.", ""].join(NL));
+      const env = { ...process.env, AREST_PARSE_CACHE: "off" };
+      delete env.AREST_STORE_DB; delete env.AREST_STRICT;
+      const compile = (readings) => {
+        const r = Bun.spawnSync(["bun", join(dir, "compile.g.js"), "compile-store", out, "metamodel", readings],
+          { cwd: join(import.meta.dir, "..", ".."), env, stdout: "pipe", stderr: "pipe" });
+        const text = r.stdout.toString() + r.stderr.toString();
+        expect(r.exitCode, text).toBe(0);
+        return text;
+      };
+      const ids = ["WidgetIsWithOwner", "WidgetIsWithOwner.1", "WidgetIsWithOwner.2", "w-runtime"];
+      const extent = () => {
+        const db = new Database(join(out, "store.db"), { readonly: true });
+        try {
+          return db.query('select "objectTypeInstanceId", "objectTypeId" from "ObjectTypeInstanceIsInstanceOfObjectType" where "objectTypeInstanceId" in (?, ?, ?, ?) order by 1, 2')
+            .values(...ids).map((r) => r.join(" is a "));
+        } finally { db.close(); }
+      };
+      compile(v1);
+      // A compile's own closure files the reflection's instances and records them as derived, so the next compile drops
+      // them with the rest of its closure. claude's were written back by a server before any compile kept a record, so
+      // no record names them: the probe's store is made that way, and gets an instance the runtime created beside them.
+      const w = new Database(join(out, "store.db"));
+      expect(w.query("select count(*) from _derived where ft = 'ObjectTypeInstanceIsInstanceOfObjectType' and row like '%WidgetIsWithOwner%'").values()[0][0]).toBeGreaterThan(0);
+      w.run("delete from _derived where row like '%WidgetIsWithOwner%'");
+      for (const [i, t] of [["WidgetIsWithOwner", "Fact Type"], ["WidgetIsWithOwner", "Function"], ["WidgetIsWithOwner.1", "Role"],
+        ["WidgetIsWithOwner.2", "Role"], ["w-runtime", "Widget"]])
+        w.run('insert or ignore into "ObjectTypeInstanceIsInstanceOfObjectType" ("objectTypeInstanceId", "objectTypeId") values (?, ?)', [i, t]);
+      w.close();
+      expect(extent()).toContain("WidgetIsWithOwner.1 is a Role");
+      compile(v2);
+      expect(extent()).toEqual(["w-runtime is a Widget"]);
+    } finally {
+      try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+    }
+  }, 240_000);
+
   // AND A VALUE THE READINGS STORE THROUGH A FUNCTION IS SEALED BEFORE ANYTHING IS WRITTEN (2026-09-30). A probe's
   // .env gives a connection a Secret Reference, which core.md stores through crypt:encrypt. With a key the compile
   // writes it nowhere in plaintext -- not the answer, the carriers or the store -- and the store's column decrypts
