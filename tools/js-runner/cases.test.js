@@ -5063,6 +5063,61 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     }
   }, 240_000);
 
+  // AND A COLUMN THAT CARRIES ANOTHER FACT TYPE NOW REFUSES ONLY WHEN IT HOLDS VALUES (2026-09-30). Sam re-read
+  // `Agent Chat is with Agent` as `Agent uses Agent Chat` with no mandatory, and claude's check refused, because every
+  // column whose fact type changed was refused, empty or not. The probe makes the same change -- `Widget is with Owner`
+  // becomes `Owner uses Widget` -- over two stores. Where the owner column is empty, the compile goes through and the
+  // column carries the new fact type. Where the runtime wrote an owner into it, the compile refuses by name and the
+  // store keeps its owner.
+  test("a column that carries another fact type now is refused only when it holds values", () => {
+    const dir = mkdtempSync(join(tmpdir(), "arest-recarry-"));
+    const NL = String.fromCharCode(10);
+    try {
+      const b = Bun.spawnSync(["bun", "build.js", "compile"],
+        { cwd: import.meta.dir, env: { ...process.env, AREST_OUT_DIR: dir }, stdout: "pipe", stderr: "pipe" });
+      expect(b.exitCode, b.stdout.toString() + b.stderr.toString()).toBe(0);
+      const v1 = join(dir, "v1"), v2 = join(dir, "v2"), empty = join(dir, "empty"), filled = join(dir, "filled");
+      for (const d of [v1, v2, empty, filled]) mkdirSync(d);
+      const head = ["Widget(.id) is an entity type.", "Owner(.id) is an entity type.", "Colour is a value type.", "",
+        "Domain 'rc-probe' has Description 'a recarry probe'.", "", "Widget has Colour.", "  Each Widget has at most one Colour."];
+      writeFileSync(join(v1, "probe.md"), [...head, "Widget is with Owner.", "  Each Widget is with at most one Owner.", "",
+        "Widget 'w1' has Colour 'red'.", ""].join(NL));
+      writeFileSync(join(v2, "probe.md"), [...head, "Owner uses Widget.", "  For each Widget, at most one Owner uses that Widget.", "",
+        "Widget 'w1' has Colour 'red'.", ""].join(NL));
+      const env = { ...process.env, AREST_PARSE_CACHE: "off" };
+      delete env.AREST_STORE_DB; delete env.AREST_STRICT;
+      const compile = (out, readings) => {
+        const r = Bun.spawnSync(["bun", join(dir, "compile.g.js"), "compile-store", out, "metamodel", readings],
+          { cwd: join(import.meta.dir, "..", ".."), env, stdout: "pipe", stderr: "pipe" });
+        return { code: r.exitCode, text: r.stdout.toString() + r.stderr.toString() };
+      };
+      const read = (out, sql) => {
+        const db = new Database(join(out, "store.db"), { readonly: true });
+        try { return db.query(sql).values(); } finally { db.close(); }
+      };
+      for (const out of [empty, filled]) { const r = compile(out, v1); expect(r.code, r.text).toBe(0); }
+      const col = read(filled, "select name from pragma_table_info('Widget')").map((r) => r[0]).find((c) => /owner/i.test(c));
+      expect(col).toBeDefined();
+      const carried = (out) => read(out, "select ft from _metaschema where tab = 'Widget' and col = '" + col + "'").map((r) => r[0]);
+      expect(carried(empty)).toEqual(["WidgetIsWithOwner"]);
+      // the runtime writes an owner into one store, as a server writes a row
+      const w = new Database(join(filled, "store.db"));
+      w.run('update "Widget" set "' + col + '" = ? where "widgetId" = ?', ["o1", "w1"]);
+      w.close();
+      const e = compile(empty, v2);
+      expect(e.code, e.text).toBe(0);
+      expect(carried(empty)).toEqual(["OwnerUsesWidget"]);
+      expect(read(empty, 'select "widgetId", "colour" from "Widget"')).toEqual([["w1", "red"]]);
+      const f = compile(filled, v2);
+      expect(f.code, f.text).not.toBe(0);
+      expect(f.text).toContain("column(s) that hold values carry another fact type now: Widget." + col);
+      expect(carried(filled)).toEqual(["WidgetIsWithOwner"]);
+      expect(read(filled, 'select "' + col + '" from "Widget" where "widgetId" = \'w1\'')).toEqual([["o1"]]);
+    } finally {
+      try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+    }
+  }, 240_000);
+
   // AND A VALUE THE READINGS STORE THROUGH A FUNCTION IS SEALED BEFORE ANYTHING IS WRITTEN (2026-09-30). A probe's
   // .env gives a connection a Secret Reference, which core.md stores through crypt:encrypt. With a key the compile
   // writes it nowhere in plaintext -- not the answer, the carriers or the store -- and the store's column decrypts
