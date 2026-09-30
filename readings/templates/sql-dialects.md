@@ -1,6 +1,6 @@
 # SQL Dialect Type Mappings
 
-SQL dialect type-mapping vocabulary (#896, broadened in #279 P2b). Each
+SQL dialect type-mapping vocabulary (#896, broadened in #279 P2b). Every
 `SQL Dialect maps SQL Value Type to SQL Type` row in the Instance Facts section
 drives one branch of the dialect-specific DDL emitter in
 `compile.rs::generate_ddl`. The `SQL Value Type` role plays the part of an

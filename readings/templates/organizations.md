@@ -38,7 +38,7 @@ App Type is a value type.
      player the declaration and its mandatory can return. -->
 
 User owns Organization.
-  Each Organization is owned by at most one User.
+  For each Organization, at most one User owns that Organization.
 
 User administers Organization.
 
