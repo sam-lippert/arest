@@ -950,7 +950,14 @@ const PRIMS = new Map(Object.entries({
   // AND THE SCRIPT IS ONE TRANSACTION (2026-09-29). db.exec runs each statement in its own, and
   // on Windows each is a sync to disk: support's 655 CREATE TABLEs were 1.3-1.5 s of its compile.
   // A schema script is all or nothing anyway; one that fails part way now leaves no table of it.
-  "sql:exec": x => {
+  //
+  // AND IT IS THE ENGINE'S CALL, NOT LAMBDA'S (2026-09-29). Storage is an interface: lambda calls
+  // storage:schema, and storage:resolve applies <storage:engine>:<operation>, so this host says which
+  // engine it provides by registering storage:engine, and sqlite:exec is the one call that engine's
+  // lambda implementation (sqlite:schema over rmap:ddl) makes. It was sql:exec, a name lambda called
+  // directly, which is the coupling the interface removes.
+  "storage:engine": () => "sqlite",
+  "sqlite:exec": x => {
     const { Database } = require("bun:sqlite");
     const db = new Database(String(at(x, 0)), { create: true });
     try {

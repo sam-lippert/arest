@@ -500,6 +500,7 @@ Operation 'clock' is registrable.
 Operation 'crypt:encrypt' is registrable.
 Operation 'crypt:decrypt' is registrable.
 Operation 'crypt:genkey' is registrable.
+Operation 'storage:engine' is registrable.
 
 Operation 'synthesize' is registered.
 Operation 'validate' is registered.
@@ -507,6 +508,7 @@ Operation 'clock' is registered.
 Operation 'crypt:encrypt' is registered.
 Operation 'crypt:decrypt' is registered.
 Operation 'crypt:genkey' is registered.
+Operation 'storage:engine' is registered.
 
 ## Def 9 boundary rows
 
@@ -560,9 +562,30 @@ Function 'fs:dir' yields Type Expression 'name-list'.
 Function 'fs:read' has Definition Origin 'registered'.
 Function 'fs:read' accepts Type Expression 'path'.
 Function 'fs:read' yields Type Expression 'text'.
-Function 'sql:exec' has Definition Origin 'registered'.
-Function 'sql:exec' accepts Type Expression 'path-and-sql'.
-Function 'sql:exec' yields Type Expression 'path'.
+<!-- AND WHAT THE COMPILE WRITES, AND THE ENGINE IT WRITES THROUGH (2026-09-29).
+     compile.js is deleted and the compile is lambda's address (compile:run),
+     so writing its carriers is two more registered calls: fs:write, a text
+     written whole at a path, and crypt:digest, the SHA-256 the compiled
+     carrier's stamp is cut from. And storage is an interface now (Sam: coded
+     to an interface, the sqlite implementation resolving from DEFS through
+     it, which is inversion of control): lambda calls storage:schema,
+     storage:resolve applies <storage:engine>:<operation>, and the js host
+     registers storage:engine as sqlite and sqlite:exec as that engine's one
+     call. sql:exec was that call under a name lambda used directly, and it is
+     gone. The rule is unchanged: sqlite:schema is lambda's, so it is compiled;
+     sqlite:exec and storage:engine are not, so they are registered. -->
+Function 'fs:write' has Definition Origin 'registered'.
+Function 'fs:write' accepts Type Expression 'path-and-text'.
+Function 'fs:write' yields Type Expression 'path'.
+Function 'crypt:digest' has Definition Origin 'registered'.
+Function 'crypt:digest' accepts Type Expression 'text'.
+Function 'crypt:digest' yields Type Expression 'digest'.
+Function 'storage:engine' has Definition Origin 'registered'.
+Function 'storage:engine' accepts Type Expression 'object'.
+Function 'storage:engine' yields Type Expression 'identifier'.
+Function 'sqlite:exec' has Definition Origin 'registered'.
+Function 'sqlite:exec' accepts Type Expression 'path-and-sql'.
+Function 'sqlite:exec' yields Type Expression 'path'.
 
 <!-- The boundary is only a query over P if every registered function has an
      origin fact. Enumerating the runners' registration tables against lambda's
