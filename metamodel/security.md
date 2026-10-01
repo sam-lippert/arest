@@ -48,7 +48,23 @@ CIDR Block has Block Kind.
 
 ### SSRF Blocklist
 
-It is forbidden that External System URL resolves to host in CIDR Block.
+<!-- Decided by a function (2026-09-30, Sam: "B-D OK"). The sentence was "It
+     is forbidden that External System URL resolves to host in CIDR Block".
+     It built no constraint. decide:ssrf in lambda answers each External
+     System whose URL names a host in a CIDR Block below: a dotted quad, a
+     bracketed IPv6 literal, or localhost. That is what the killed host's
+     is_forbidden_url judged, from the URL as written. A hostname is NOT
+     resolved: that is network I/O, which a deontic computed on every write
+     must not wait on. A hostname that resolves into a blocked range is
+     caught only where the request is made, which is not built yet. -->
+Constraint 'external-system-url-not-internal' has Text 'It is forbidden that the URL of an external system resolves to a host in a blocked CIDR block'.
+Constraint 'external-system-url-not-internal' has modality of Modality Type 'Deontic'.
+Constraint 'external-system-url-not-internal' is of Constraint Type 'DF_pop'.
+Constraint 'external-system-url-not-internal' spans Role 'ExternalSystemHasURL.1'.
+Constraint 'external-system-url-not-internal' is decided by Predicate 'decide:ssrf'.
+Predicate 'decide:ssrf' has Name 'decide:ssrf'.
+Predicate 'decide:ssrf' has Module Path 'arest'.
+Predicate 'decide:ssrf' has Symbol Name 'decide:ssrf'.
 
 ## Instance Facts
 
