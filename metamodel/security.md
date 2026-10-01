@@ -38,11 +38,22 @@ Block Kind is a value type.
   The possible values of Block Kind are 'internal-loopback', 'private-rfc1918', 'link-local', 'ipv6-loopback', 'ipv6-link-local', 'ipv6-unique-local'.
   The data type of Block Kind is text.
 
+Resolved Address is a value type.
+  The data type of Resolved Address is text.
+
 ## Fact Types
 
 ### CIDR Block
 CIDR Block has Block Kind.
   Each CIDR Block has exactly one Block Kind.
+
+### External System
+External System resolves to Resolved Address.
+  Each External System, Resolved Address combination occurs at most once in the population of External System resolves to Resolved Address.
+  <!-- What the host of the system's URL resolved to when a request to it was
+       made (2026-10-01, Sam: "keep SSRF check"). Recorded by the performer at
+       the send, the one moment the name is looked up, so the store holds the
+       address a request actually went to and not one written down for it. -->
 
 ## Deontic Constraints
 
@@ -56,7 +67,12 @@ CIDR Block has Block Kind.
      is_forbidden_url judged, from the URL as written. A hostname is NOT
      resolved: that is network I/O, which a deontic computed on every write
      must not wait on. A hostname that resolves into a blocked range is
-     caught only where the request is made, which is not built yet. -->
+     caught where the request is made (2026-10-01): the performer resolves
+     the host before a live send, refuses the send when any address it gets
+     lies in a CIDR Block below, and records each address as `External System
+     resolves to Resolved Address`. decide:ssrf reads those records too, so a
+     system whose name resolved inside a blocked range is a violation here as
+     well as a refused send. -->
 Constraint 'external-system-url-not-internal' has Text 'It is forbidden that the URL of an external system resolves to a host in a blocked CIDR block'.
 Constraint 'external-system-url-not-internal' has modality of Modality Type 'Deontic'.
 Constraint 'external-system-url-not-internal' is of Constraint Type 'DF_pop'.

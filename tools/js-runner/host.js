@@ -3814,6 +3814,32 @@ async function performDeclared(before, after, opts) {
       body[String(b[0])] = String(b[1]);
     }
     if (hole) { done.push({ predicate, entity, refused: "declared path '" + hole + "' has no fact to fill it" }); continue; }
+    // A HOSTNAME IS RESOLVED WHERE THE REQUEST IS MADE (2026-10-01, Sam: "keep SSRF check").
+    // decide:ssrf judges a URL as written, because a deontic computed on every write must not
+    // wait on the network. The send is where the name is looked up anyway, so a live send looks
+    // it up first, asks lambda (perform:blocked_address) whether any address it got lies in a
+    // CIDR Block the store declares, and is refused if one does. Every address is handed back
+    // as `External System resolves to Resolved Address`, refused or not, and decide:ssrf reads
+    // those, so a name that resolved inside a blocked range is a violation in the store as well.
+    // A stubbed send makes no request and looks nothing up.
+    const observed = [];
+    if (mode === "live" && !o.send) {
+      const hostRaw = Ev("net:host", address);
+      const bare = (Array.isArray(hostRaw) ? "" : String(hostRaw)).replace(/^\[/, "").replace(/\]$/, "");
+      let addrs;
+      if (require("node:net").isIP(bare) || bare === "localhost") addrs = [bare];
+      else {
+        try { addrs = (await require("node:dns").promises.lookup(bare, { all: true })).map((r) => String(r.address)); }
+        catch (e) { done.push({ predicate, entity, refused: "the host " + bare + " does not resolve (" + String((e && e.code) || e) + ")" }); continue; }
+      }
+      const systemRaw = Ev("perform:system_of", [predicate, after]);
+      if (!Array.isArray(systemRaw)) for (const a of addrs) observed.push(["ExternalSystemResolvesToResolvedAddress", String(systemRaw), a]);
+      const blocked = Ev("perform:blocked_address", [addrs, after]);
+      if (!Array.isArray(blocked) && String(blocked)) {
+        done.push({ predicate, entity, refused: "the host " + bare + " resolves to " + String(blocked) + ", inside a blocked range", observed });
+        continue;
+      }
+    }
     // A DRY STUB MUST LOOK LIKE THE REAL ANSWER OR IT PROVES HALF THE LOOP. The
     // first version answered plain text, which is not JSON, so the response
     // projection found nothing and reported no asserts -- and "no asserts" would
@@ -3862,7 +3888,7 @@ async function performDeclared(before, after, opts) {
       if (!succeeded) { onSuccess.push(row); continue; }
       (ceiling.indexOf(row[0]) >= 0 ? asserts : outside).push(row);
     }
-    done.push({ predicate, entity, method, address, sent: body, ceiling, answer, asserts, outside, onSuccess });
+    done.push({ predicate, entity, method, address, sent: body, ceiling, answer, asserts, outside, onSuccess, observed });
   }
   return done;
 }
@@ -3919,7 +3945,10 @@ function maybePerform(prior, after, log) {
 function writeBack(done, log) {
   const say = log || console.log;
   for (const one of done) {
-    for (const a of one.asserts || []) {
+    // `observed` is what the platform saw at the send -- the addresses the host resolved to --
+    // and not a yield of the call, so it is outside the may-create ceiling by kind and is
+    // written the same way, through main:api, where an alethic constraint can still refuse it.
+    for (const a of (one.asserts || []).concat(one.observed || [])) {
       if (!Array.isArray(a) || a.length < 2) continue;
       const ft = String(a[0]);
       const args = a.slice(1).map(String);
