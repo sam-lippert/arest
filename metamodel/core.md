@@ -1454,9 +1454,25 @@ the standard violation surface.
      nouns is nonsensical — "No Customer is-subtype-of Address" has nothing
      to forbid. The killed host's check.rs emitted an Error-level
      diagnostic; the deontic form below is the same invariant spelled
-     declaratively, and is the surviving home. -->
+     declaratively, and is the surviving home.
 
-It is obligatory that each Ring Constraint spans two Roles and both Roles are played by the same Object Type.
+     DECIDED BY A FUNCTION (2026-09-30, Sam: "B-D OK"). The sentence was "It
+     is obligatory that each Ring Constraint spans two Roles and both Roles
+     are played by the same Object Type", and it built no constraint: it
+     counts the Roles a constraint spans and compares their players, which no
+     reading says. It is a deterministic deontic, so it is declared as one:
+     decide:ring_same_type in lambda answers the ring constraints that break
+     it, and each is reported as a deontic violation of the constraint
+     below. -->
+
+Constraint 'ring-spans-one-type' has Text 'It is obligatory that each ring constraint spans two roles and both roles are played by the same object type'.
+Constraint 'ring-spans-one-type' has modality of Modality Type 'Deontic'.
+Constraint 'ring-spans-one-type' is of Constraint Type 'DO_pop'.
+Constraint 'ring-spans-one-type' spans Role 'ConstraintSpan.1'.
+Constraint 'ring-spans-one-type' is decided by Predicate 'decide:ring_same_type'.
+Predicate 'decide:ring_same_type' has Name 'decide:ring_same_type'.
+Predicate 'decide:ring_same_type' has Module Path 'arest'.
+Predicate 'decide:ring_same_type' has Symbol Name 'decide:ring_same_type'.
 
 ### Layer 3: ring completeness — declare the ring on a same-object type binary
 
