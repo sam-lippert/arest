@@ -1309,15 +1309,18 @@ test("a population in another order is not a change; one row fewer is", () => {
 // ---- AND `get` READS THE ROWS THAT NAME THE ID, NOT THE WHOLE STORE -----------
 //
 // Sam, 2026-09-25: "rmap is supposed to be done on compile, not every time you call
-// a column?" The DEF of `get` projects the whole store again -- rmap over every group
+// a column?" The DEF of `get` projected the whole store again -- rmap over every group
 // and relation, then one cell taken -- and on support.auto.dev the first `get` cost
-// 2.2 s and a gigabyte for one entity's row, which the tables already hold. Its twin
+// 2.2 s and a gigabyte for one entity's row, which the tables already hold. Since
+// 2026-10-01 it reads every population to cut each to the rows that hold the id
+// (get:cut) and answers the entity's facts and links from those. Its twin
 // is the DEF over the store cut to the facts that name the id. So, over a store built
 // the way the check builds one: for ids from every keyed table (up to twenty of each), a
 // value that is no entity and an id that is nothing, the twin answers what the DEF
 // answers; the twin reads no table whole for an id that names no fact type, where
-// the DEF reads them (an id that NAMES one reads that one, whose relation cell is in
-// the answer: the base's StatusIsTerminalInStateMachineDefinition); and the served
+// the DEF reads them (an id that NAMES one is evaluated apart: until 2026-10-01 the
+// DEF merged that fact type's relation cell into its answer and the twin read it
+// whole, the base's StatusIsTerminalInStateMachineDefinition); and the served
 // route, which applies the verb cell's body rather than calling the name, reaches
 // the twin -- `main` answering `get` reads no table whole either. Failing with
 // AREST_NOTWIN=get (the whole-read assertions) and with the twin found only by name
@@ -1345,7 +1348,7 @@ test("get over a store read from its tables reads the rows that name the id, and
     "if (process.env.MAKE) { const b = popSnapshot(CELLS); closeStore(); say('made', emitToDb(b, CELLS)); process.exit(0); }",
     "const db = new Database(process.env.AREST_STORE_DB, { readonly: true });",
     "const st = Ev('store:state', CELLS);",
-    "// an id that names a fact type reads that fact type whole, since its relation cell is in the answer",
+    "// an id that names a fact type is evaluated apart, as the twin read that fact type whole until 2026-10-01",
     "const named = new Set(st[0].map((d) => String(d[0])));",
     "const ids = [];",
     "for (const t of db.query(\"select name from sqlite_master where type = 'table' and substr(name, 1, 1) <> '_'\").values().map((r) => String(r[0]))) {",
@@ -1394,7 +1397,7 @@ test("get over a store read from its tables reads the rows that name the id, and
     expect(made.made, made.out).toBeGreaterThan(0);
     const got = run({});
     expect(got.ids, got.out).toBeGreaterThan(50);
-    expect(got.named).toBeGreaterThan(0);                // some ids name fact types, which read that one whole
+    expect(got.named).toBeGreaterThan(0);                // some ids name fact types
     expect(got["twin reads"].tables).toBe(0);          // and no other id reads a table whole
     expect(got["twin reads"].scans).toBeGreaterThan(0);
     expect(got["served reads"]).toBe(0);                // the served route took the twin

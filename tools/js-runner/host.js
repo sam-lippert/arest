@@ -2222,25 +2222,25 @@ const FASTPRIMS = new Map(Object.entries({
   // is read anyway, and there the slot is unfolded at once, as the DEF does.
   // `get` <id, store> OVER A STORE READ FROM ITS TABLES READS THE ROWS THAT NAME THE ID
   // (2026-09-25; Sam: "rmap is supposed to be done on compile, not every time you call a
-  // column?"). The DEF answers <the id's cell among rmap's, the fact types nav:peers
+  // column?"). The DEF answered <the id's cell among rmap's, the fact types nav:peers
   // keeps>: rmap over the store builds a cell for every entity of every group and every
   // relation's rows, and ast:fetch then takes one; ast:File nests every population and
   // nav:peers keeps the ones that hold the id. On support.auto.dev that was the whole
   // store projected again at every first `get` -- rmap 2,228 ms and 344 -> 1,417 MB
   // resident, ast:File 74 ms, nav:peers 225 ms -- for one entity's row, which the tables
-  // already hold because the check wrote them. Everything either half reads about the
-  // id is a fact that names it: the entity's own cell is its facts, and a peer is a
-  // fact type with a row that holds it. So this is the DEF itself, evaluated over the
-  // store with every population cut to the facts that name the id -- the tables' from
-  // one scan per table (lazyStore's mentioning), the carriers' filtered -- and it
-  // answers what the DEF answers over the whole store, only without building the rest.
+  // already hold because the check wrote them. Since 2026-10-01 the DEF answers the
+  // entity's facts and its links (lambda's note above DEF(get)), and its first step,
+  // get:cut, narrows every population to the rows that hold the id, so it reads nothing
+  // else of the store. So this is the DEF itself, evaluated over the store with every
+  // population cut to the facts that name the id -- the tables' from one scan per table
+  // (lazyStore's mentioning), the carriers' filtered -- and it answers what the DEF
+  // answers over the whole store, only without reading the rest. A fact type the id
+  // NAMES is cut like any other: only the rmap answer merged its whole population in.
   // A fact type the tables carry but yield nothing for falls back to the carriers' rows
   // in a descriptor, and so it does here: support's SourceServiceHasProxyConcurrencyCap
   // is read back from its column as a unary while its fact holds a value, so the
   // store serves it from the carrier -- asked only where the carrier names the id and
-  // the tables do not. And the one fact type the id may NAME keeps every row, since its
-  // relation cell merges into the answer under that name. Any other shape, a store not
-  // read from its tables, and
+  // the tables do not. Any other shape, a store not read from its tables, and
   // AREST_NOTWIN=get give the DEF's own route.
   "get": x => {
     const def = () => Ev(DEFS.get("get"), x);
@@ -2254,11 +2254,6 @@ const FASTPRIMS = new Map(Object.entries({
       if (!Array.isArray(d) || d.length < 5) return def();
       const name = String(d[0]);
       let rows;
-      // the fact type the id NAMES keeps its whole population: rmap merges cells of one
-      // name, so `get` of a fact type's name answers its entity row with the relation's
-      // own cell, every row of it, merged in (the base's StatusIsTerminalInStateMachine-
-      // Definition, whose rows name statuses and machines and never the fact type)
-      if (name === id) { const all = d[4]; if (!Array.isArray(all)) return def(); fts.push([d[0], d[1], d[2], d[3], all]); continue; }
       if (LAZY_STORE.present(name)) {
         rows = byFt.get(name) || [];
         if (!rows.length) { const c = LAZY_STORE.carrier(name).filter(has); if (c.length && !LAZY_STORE.rowsOf(name).length) rows = c; }
