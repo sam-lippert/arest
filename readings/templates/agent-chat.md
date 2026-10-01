@@ -75,7 +75,7 @@ User closes Agent Chat.
 
 If some Tool Call is for some Chat Message then that Chat Message has Message Role 'assistant'.
 
-It is obligatory that each Agent Chat has at least one Chat Message after it occurred.
+It is obligatory that for each Agent Chat, some Chat Message belongs to that Agent Chat.
 
 ## Instance Facts
 
