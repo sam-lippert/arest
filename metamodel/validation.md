@@ -122,7 +122,22 @@ It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS'
 
 ### Value Comparison Type Compatibility
 
-It is obligatory that each Constraint of Constraint Type 'VC' spans Roles that are played by Object Types of the same Conceptual Data Type.
+<!-- Decided by a function (2026-09-30, Sam: "B-D OK"). The sentence was "It
+     is obligatory that each Constraint of Constraint Type 'VC' spans Roles
+     that are played by Object Types of the same Conceptual Data Type". It
+     built no constraint. decide:vc_types in lambda answers each VC
+     constraint whose players do not share one Conceptual Data Type. No store
+     holds a VC constraint row yet: a value comparison reaches a store as the
+     comparison inside a derivation body. So this decides nothing until one is
+     materialized, and the note below still describes the open question. -->
+Constraint 'value-comparison-same-data-type' has Text 'It is obligatory that each value comparison constraint spans roles that are played by object types of the same conceptual data type'.
+Constraint 'value-comparison-same-data-type' has modality of Modality Type 'Deontic'.
+Constraint 'value-comparison-same-data-type' is of Constraint Type 'DO_pop'.
+Constraint 'value-comparison-same-data-type' spans Role 'ConstraintSpan.1'.
+Constraint 'value-comparison-same-data-type' is decided by Predicate 'decide:vc_types'.
+Predicate 'decide:vc_types' has Name 'decide:vc_types'.
+Predicate 'decide:vc_types' has Module Path 'arest'.
+Predicate 'decide:vc_types' has Symbol Name 'decide:vc_types'.
 
 <!-- 2026-08-08. Recorded because the implementations disagree exactly where
      this model was silent, which is the signature of a missing fact rather
