@@ -1449,9 +1449,11 @@ It is obligatory that each Ring Constraint spans two Roles and both Roles are pl
      same Noun almost always wants an explicit ring constraint — without
      one, nothing prevents the self-reference cycle the schema is
      implicitly modelling. check.rs emits a Hint-level diagnostic pointing
-     at the missing "is acyclic." / "is irreflexive." annotation. -->
+     at the missing "is acyclic." / "is irreflexive." annotation.
 
-It is obligatory that each binary Fact Type whose Roles are played by the same Object Type has some Ring Constraint spanning it.
+     Merged 2026-09-30, with the designer's approval said what validation.md's Ring Constraint
+     Completeness says. That sentence is the one kept, because it names the
+     ring types and is scoped to asserted fact types. -->
 
 ## NORMA Structural Decomposition (#279)
 
