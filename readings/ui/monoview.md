@@ -10,14 +10,14 @@ the entire surface — pane mode, regions, transitions, density,
 interaction mode, surface tier, accessibility profile — is a reading,
 the same way design tokens already are (#432, `readings/ui/design.md`).
 
-The benefits are the FORML 2 dividend: derivations (touch interaction
-implies spacious density without anyone restating it), validation via
-the readings checker (a region cannot belong to two MonoViews), and
-the same MCP / HATEOAS introspection over UI surface that already
-works over data. A user-installed app advertises its preferences as a
-`PanePreference` fact; the kernel projects them through the
-derivation graph and the renderer reads the resulting facts. There is
-no UI code that branches on app identity.
+<!-- The benefits are the FORML 2 dividend: derivations (touch interaction
+     implies spacious density without anyone restating it), validation via
+     the readings checker (a region cannot belong to two MonoViews), and
+     the same MCP / HATEOAS introspection over UI surface that already
+     works over data. A user-installed app advertises its preferences as a
+     `PanePreference` fact; the kernel projects them through the
+     derivation graph and the renderer reads the resulting facts. There is
+     no UI code that branches on app identity. -->
 
 This reading is additive over `readings/ui/ui.md` (the platform-
 agnostic view hierarchy) and `readings/ui/design.md` (the token

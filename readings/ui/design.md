@@ -481,10 +481,10 @@ ColorToken 'light.info' has Hex Color '#0284C7'.
 
 ### Lucide icon set
 
-Canonical list consumed by the icon bake at #434. Names match the
-official Lucide registry exactly so the bake script can resolve them
-without aliasing. Roles tag the canonical use site; the same icon may
-be reused elsewhere without a new IconToken.
+<!-- Canonical list consumed by the icon bake at #434. Names match the
+     official Lucide registry exactly so the bake script can resolve them
+     without aliasing. Roles tag the canonical use site; the same icon may
+     be reused elsewhere without a new IconToken. -->
 
 # File browser
 
