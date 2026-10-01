@@ -188,10 +188,10 @@ A11y Profile pins Density Scale.
 ## Constraints
 
 Each MonoView is for at most one App Role.
-No two MonoViews are for the same App Role.
+For each App Role, at most one MonoView is for that App Role.
 
 Each Region belongs to at most one MonoView.
-No two Regions belonging to the same MonoView share the same Region Slot.
+For each MonoView and Region Slot, at most one Region belongs to that MonoView and has that Region Slot.
 
 Each PanePreference is for at most one App Role.
 No two PanePreferences with Override Source 'app-default' are for the same App Role.

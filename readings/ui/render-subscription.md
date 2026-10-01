@@ -62,10 +62,6 @@ Render Subscription delivers to callback URI.
        or worker push installs its own notify body) — useful for
        diagnostics and the smoke tests. -->
 
-## Constraints
-
-No two Render Subscriptions share the same Name.
-
 ## Deontic Constraints
 
 It is obligatory that each Render Subscription is for some Object Type.

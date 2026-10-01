@@ -301,8 +301,7 @@ Component Role requires Notice.
 Each Component has exactly one Component Role.
 Each Toolkit has exactly one Toolkit Slug.
 
-No two Components share the same Name.
-No two Toolkits share the same Toolkit Slug.
+For each Toolkit Slug, at most one Toolkit has that Toolkit Slug.
 
 Each Component, Toolkit combination occurs at most once in the
   population of Component is implemented by Toolkit at Toolkit Symbol.
