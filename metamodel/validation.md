@@ -248,7 +248,20 @@ Constraint 'derivation-over-storage' spans Role 'FactTypeHasRole.2'.
 
 ### Reference Mode Redundancy
 
-It is forbidden that a Reading restates the Reference Mode of an Object Type as a separate Fact Type.
+<!-- Decided by a function (2026-09-30, Sam: "B-D OK"). The sentence was "It
+     is forbidden that a Reading restates the Reference Mode of an Object Type
+     as a separate Fact Type". It built no constraint.
+     decide:refmode_restated in lambda answers each declared binary, under
+     another name than the reference fact type, over the same two players
+     with a uniqueness on the value's role. -->
+Constraint 'reference-mode-not-restated' has Text 'It is forbidden that a reading restates the reference mode of an object type as a separate fact type'.
+Constraint 'reference-mode-not-restated' has modality of Modality Type 'Deontic'.
+Constraint 'reference-mode-not-restated' is of Constraint Type 'DF_pop'.
+Constraint 'reference-mode-not-restated' spans Role 'FactTypeHasRole.1'.
+Constraint 'reference-mode-not-restated' is decided by Predicate 'decide:refmode_restated'.
+Predicate 'decide:refmode_restated' has Name 'decide:refmode_restated'.
+Predicate 'decide:refmode_restated' has Module Path 'arest'.
+Predicate 'decide:refmode_restated' has Symbol Name 'decide:refmode_restated'.
 <!-- arest-batch ruling 4: un-commented and reworded to canonical
      vocabulary. NORMA models the machinery as ReferenceMode +
      ReferenceModeKind (General/Popular/UnitBased; ORM2Core.xsd): the mode
