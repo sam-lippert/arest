@@ -14888,7 +14888,7 @@ DEF("main:row_line",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(2), K(A("T")))), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("CONS"), K(A("  law OK: ")), N(1)))), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S4(A("CONS"), K(A("  LAW FAILED: ")), N(1), K(A(" -> F"))))))),
 
 DEF("main:wit_line",
-    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(3), K(A("T")))), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("CONS"), K(A("  witness empty: ")), N(1)))), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S5(A("CONS"), K(A("  WITNESS ")), N(1), K(A(": ")), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A(", ")), S3(A("COMP"), A("cat"), N(2))))))))),
+    S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(3), K(A("T")))), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("CONS"), K(A("  witness empty: ")), N(1)))), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S5(A("CONS"), K(A("  WITNESS ")), N(1), K(A(": ")), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A(", ")), S4(A("COMP"), S2(A("ALPHA"), S4(A("COND"), A("atom"), A("id"), A("system:show"))), A("cat"), N(2))))))))),
 
 DEF("main:witness_text",
     S3(A("COMP"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("\n")), S2(A("ALPHA"), A("main:wit_line")))), A("law:witnesses"))),
