@@ -166,12 +166,10 @@ IconToken has Description.
 
 ## Constraints
 
-Each Theme has at most one ColorToken per Color Role.
-Each TypographyScale name maps to exactly one Type Role.
-Each SpacingToken name maps to exactly one Spacing Step.
-No two SpacingTokens share the same Spacing Step.
-No two MotionTokens share the same Motion Role.
-No two IconTokens share the same Lucide Name.
+For each Theme and Color Role, at most one ColorToken belongs to that Theme and has that Color Role.
+For each Spacing Step, at most one SpacingToken has that Spacing Step.
+For each Motion Role, at most one MotionToken has that Motion Role.
+For each Lucide Name, at most one IconToken has that Lucide Name.
 
 Each Pixels value used by a SpacingToken is a non-negative multiple of 4.
 Each Pixels value used as font size by a TypographyScale is a multiple of 1.

@@ -58,5 +58,5 @@ ViewElement renders Fact Type. *
        `view:ViewElement_renders_Fact_Type` def, and `resolve_view` returns
        None for every instance view (blocker found 2026-06-10). -->
 ViewElement has Component Role. *
-ViewElement has Order.
-  Each ViewElement has at most one Order.
+ViewElement has Position.
+  Each ViewElement has at most one Position.

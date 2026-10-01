@@ -62,7 +62,7 @@ Operation has CRUDL Request Type.
 Operation has Control Kind.
   Each Operation has at most one Control Kind.
 
-Operation requires Confirmation.
+Operation requires confirmation.
 
 ## Instance Facts
 
@@ -77,12 +77,12 @@ Operation 'edit' has Control Kind 'Button'.
 Operation 'delete' has iFactr Action Type 'Delete'.
 Operation 'delete' has CRUDL Request Type 'DELETE'.
 Operation 'delete' has Control Kind 'Button'.
-Operation 'delete' requires Confirmation.
+Operation 'delete' requires confirmation.
 
 Operation 'multi-delete' has iFactr Action Type 'Delete'.
 Operation 'multi-delete' has CRUDL Request Type 'DELETE'.
 Operation 'multi-delete' has Control Kind 'Button'.
-Operation 'multi-delete' requires Confirmation.
+Operation 'multi-delete' requires confirmation.
 
 Operation 'save' has iFactr Action Type 'Submit'.
 Operation 'save' has CRUDL Request Type 'PUT'.

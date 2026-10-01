@@ -96,7 +96,7 @@ Render Surface is a value type.
 
 ## Constraints
 
-No two Render Targets share the same Platform Function Name.
+For each Platform Function Name, at most one Render Target has that Platform Function Name.
 
 ## Deontic Constraints
 

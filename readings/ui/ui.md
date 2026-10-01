@@ -154,10 +154,10 @@ Platform is a value type.
 ### View (base properties)
 View has Title.
   Each View has at most one Title.
-View has Color as header color.
-  Each View has at most one header Color.
-View has Color as title color.
-  Each View has at most one title Color.
+View has header- Color.
+  Each View has at most one header- Color.
+View has title- Color.
+  Each View has at most one title- Color.
 View has Preferred Orientation.
   Each View has at most one Preferred Orientation.
 Object Type is displayed by Element.
@@ -185,13 +185,13 @@ Grid View has Menu.
 ### Canvas View
 Canvas View has Toolbar.
   Each Canvas View has at most one Toolbar.
-Canvas View has Color as stroke color.
-  Each Canvas View has at most one stroke Color.
+Canvas View has stroke- Color.
+  Each Canvas View has at most one stroke- Color.
 
 ### Tab View
 Tab View has Tab Item.
-Tab View has Color as selection color.
-  Each Tab View has at most one selection Color.
+Tab View has selection- Color.
+  Each Tab View has at most one selection- Color.
 
 ### History Stack (navigation)
 View is in History Stack.
@@ -217,8 +217,8 @@ Section has Section Footer.
 Section has Cell.
 
 ### Cell
-Cell has Color as background color.
-  Each Cell has at most one background Color.
+Cell has background- Color.
+  Each Cell has at most one background- Color.
 Grid Cell has Selection Style.
   Each Grid Cell has at most one Selection Style.
 
@@ -317,7 +317,7 @@ Status has Display Color.
   Each Status has at most one Display Color.
 
 ### Dashboard layout
-Dashboard has Widget.
+Widget belongs to Dashboard.
   Each Widget belongs to exactly one Dashboard.
 Widget has Position.
   Each Widget has exactly one Position.

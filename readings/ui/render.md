@@ -182,11 +182,11 @@ Surface belongs to Display.
 Surface has Surface Slug.
   Each Surface has exactly one Surface Slug.
 
-Surface has Pixel Origin as origin- X.
-  Each Surface has exactly one origin- X Pixel Origin.
+Surface has x- Pixel Origin.
+  Each Surface has exactly one x- Pixel Origin.
 
-Surface has Pixel Origin as origin- Y.
-  Each Surface has exactly one origin- Y Pixel Origin.
+Surface has y- Pixel Origin.
+  Each Surface has exactly one y- Pixel Origin.
 
 Surface has Pixel Width.
   Each Surface has exactly one Pixel Width.
@@ -226,10 +226,10 @@ Frame has Frame Hash.
 
 ## Constraints
 
-No two Displays share the same Display Slug.
-No two Surfaces belonging to the same Display share the same Surface Slug.
-No two Frames belonging to the same Surface share the same Frame Index.
-No two Pixel Formats share the same Pixel Format Slug.
+For each Display Slug, at most one Display has that Display Slug.
+For each Display and Surface Slug, at most one Surface belongs to that Display and has that Surface Slug.
+For each Surface and Frame Index, at most one Frame belongs to that Surface and has that Frame Index.
+For each Pixel Format Slug, at most one Pixel Format has that Pixel Format Slug.
 
 ## Deontic Constraints
 
@@ -299,8 +299,8 @@ Display 'gop' has Display Backend 'gop'.
 
 Surface 'kernel.boot-paint' belongs to Display 'gop'.
 Surface 'kernel.boot-paint' has Surface Slug 'kernel.boot-paint'.
-Surface 'kernel.boot-paint' has Pixel Origin 0 as origin- X.
-Surface 'kernel.boot-paint' has Pixel Origin 0 as origin- Y.
+Surface 'kernel.boot-paint' has x- Pixel Origin 0.
+Surface 'kernel.boot-paint' has y- Pixel Origin 0.
 Surface 'kernel.boot-paint' has Pixel Width 1280.
 Surface 'kernel.boot-paint' has Pixel Height 720.
 Surface 'kernel.boot-paint' has display- Title 'Boot paint smoke'.
@@ -310,8 +310,8 @@ Surface 'kernel.boot-paint' has Description 'Whole-screen surface the kernel pai
 
 Surface 'doom.canvas' belongs to Display 'gop'.
 Surface 'doom.canvas' has Surface Slug 'doom.canvas'.
-Surface 'doom.canvas' has Pixel Origin 320 as origin- X.
-Surface 'doom.canvas' has Pixel Origin 160 as origin- Y.
+Surface 'doom.canvas' has x- Pixel Origin 320.
+Surface 'doom.canvas' has y- Pixel Origin 160.
 Surface 'doom.canvas' has Pixel Width 640.
 Surface 'doom.canvas' has Pixel Height 400.
 Surface 'doom.canvas' has display- Title 'Doom canvas'.
