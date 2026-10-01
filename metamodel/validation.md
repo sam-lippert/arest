@@ -64,7 +64,23 @@ Predicate 'decide:objectified_spanning' has Symbol Name 'decide:objectified_span
 
 ### Ring Constraint Completeness
 
-It is obligatory that when an asserted Fact Type has exactly two Roles that both reference the same Object Type, some Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spans those Roles.
+<!-- Decided by a function (2026-09-30, Sam: "B-D OK"). The sentence was "It
+     is obligatory that when an asserted Fact Type has exactly two Roles that
+     both reference the same Object Type, some Constraint of Constraint Type
+     'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spans those Roles". It built
+     no constraint. decide:ring_complete in lambda answers each such fact
+     type that has no ring, leaving out a fully derived one (the note below),
+     and decide:rc_perm applies both conditions of the permission that
+     follows. core.md's duplicate of this rule was merged into it the same
+     day. -->
+Constraint 'same-type-binary-has-ring' has Text 'It is obligatory that when an asserted fact type has exactly two roles that both reference the same object type, some ring constraint spans those roles'.
+Constraint 'same-type-binary-has-ring' has modality of Modality Type 'Deontic'.
+Constraint 'same-type-binary-has-ring' is of Constraint Type 'DO_pop'.
+Constraint 'same-type-binary-has-ring' spans Role 'FactTypeHasRole.1'.
+Constraint 'same-type-binary-has-ring' is decided by Predicate 'decide:ring_complete'.
+Predicate 'decide:ring_complete' has Name 'decide:ring_complete'.
+Predicate 'decide:ring_complete' has Module Path 'arest'.
+Predicate 'decide:ring_complete' has Symbol Name 'decide:ring_complete'.
   <!-- ring adjudication (2026-07-17, derived): scoped to ASSERTED fact
        types. The obligation operationalizes Halpin's ring question, whose
        point is restricting INPUT; on a fully derived fact type the
