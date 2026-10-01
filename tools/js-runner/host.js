@@ -3310,6 +3310,13 @@ function sreport(label) {
   console.error(label + " (" + total + " samples, " + Math.round(performance.now() / 1000) + " s): self: " + top(2 + SDEPTH));
   console.error(label + " inclusive: " + top(2 + SDEPTH + SMAX));
   console.error(label + " running: " + stack.filter((n) => String(n).indexOf(":") >= 0).slice(0, 14).join(" > "));
+  // AREST_SAMPLE_GC=1 collects before it says what the heap holds, so the line is what is LIVE at
+  // that stack and not what the collector has yet to reclaim: a working set that climbs is garbage
+  // or data, and only a forced collection tells which (2026-10-01, support's in-place compile)
+  if (process.env.AREST_SAMPLE_GC && typeof Bun !== "undefined" && Bun.gc) {
+    const t = performance.now(); Bun.gc(true); const hs = require("bun:jsc").heapStats();
+    console.error(label + " live: rss " + Math.round(process.memoryUsage().rss / 1048576) + " MB, heap " + Math.round(hs.heapSize / 1048576) + " MB in " + hs.objectCount + " objects after a " + Math.round(performance.now() - t) + " ms collection");
+  }
   if (SWHOCOUNT.size > 0) {
     const rows = [...SWHOCOUNT.entries()].sort((a, b) => b[1] - a[1]).slice(0, 24);
     console.error(label + " who: " + rows.map(([k, n]) => k + " " + n).join("  "));
