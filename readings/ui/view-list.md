@@ -1,9 +1,9 @@
 # AREST UI: Collection-List View Derivation — task-934-2
 
-> **Status: canonized 2026-08-01.** The former status block cited
-> `lib.rs`, `UI_VIEW_READINGS`, and tests in `crates/arest/` — a source
-> layout absent from this repository, so none of it was verifiable. It is
-> removed rather than restated. What the reading asserts is the model.
+<!-- **Status: canonized 2026-08-01.** The former status block cited
+     `lib.rs`, `UI_VIEW_READINGS`, and tests in `crates/arest/` — a source
+     layout absent from this repository, so none of it was verifiable. It is
+     removed rather than restated. What the reading asserts is the model. -->
 
 ## Domain Metadata
 
@@ -15,11 +15,11 @@ Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and c
 
 ## Overview
 
-A collection view-projection.View of an Object Type lists its instances. Each row is a `ViewElement`
-that renders one `Object Type Instance` instance of that Object Type. The derivation is lazy
-(resolved at fetch time via `resolve_view`). ViewElement identity comes from
-the objectified association's identification scheme below, so it is stable
-across re-reads by construction.
+<!-- A collection view-projection.View of an Object Type lists its instances. Each row is a `ViewElement`
+     that renders one `Object Type Instance` instance of that Object Type. The derivation is lazy
+     (resolved at fetch time via `resolve_view`). ViewElement identity comes from
+     the objectified association's identification scheme below, so it is stable
+     across re-reads by construction. -->
 
 This is design-doc §3.1/§4.6 (collection rows) instantiated as a predicate
 reading. The join is simpler than the menu (3-antecedent chain vs 5-antecedent
@@ -44,7 +44,7 @@ View lists Object Type Instance.
     identification scheme for ViewElement.
 ```
 
-The association is populated by one projective rule:
+<!-- The association is populated by one projective rule: -->
 
 ```
 * View lists Object Type Instance if and only if
@@ -53,21 +53,21 @@ The association is populated by one projective rule:
     and Object Type Instance is instance of Object Type.
 ```
 
-and the Component Role derives from the View it involves rather than by
-restating the join — which also makes explicit what the original pair left
-implicit, that 'list' followed from the View Kind and not from the
-Object Type Instance:
+<!-- and the Component Role derives from the View it involves rather than by
+     restating the join — which also makes explicit what the original pair left
+     implicit, that 'list' followed from the View Kind and not from the
+     Object Type Instance: -->
 
 ```
 * ViewElement has Component Role 'list' if and only if
     ViewElement involves View and that View has View Kind 'collection'.
 ```
 
-Both rules carry `*` (lazy, `view-projection.View` materialization policy — never enters the
-eager forward chain). The `view-projection.View has View Kind 'collection'` antecedent is a
-literal-pinned filter: the parser records it as `AntecedentRoleLiteral`
-(role = "View Kind", value = "collection") and the join compiler applies it as
-a per-antecedent predicate filter over the `View_has_View_Kind` cell.
+<!-- Both rules carry `*` (lazy, `view-projection.View` materialization policy — never enters the
+     eager forward chain). The `view-projection.View has View Kind 'collection'` antecedent is a
+     literal-pinned filter: the parser records it as `AntecedentRoleLiteral`
+     (role = "View Kind", value = "collection") and the join compiler applies it as
+     a per-antecedent predicate filter over the `View_has_View_Kind` cell. -->
 
 ## Fact Types
 
@@ -80,16 +80,16 @@ ViewElement renders Object Type Instance. *
 
 ## Derivation Rules
 
-Single-line registration form of the prose above. `View is for exactly one
-Object Type` (UC in view-projection.md), so the objectified association's
-identifying pair is effectively (View, Object Type Instance) — one ViewElement per row,
-which is the design intent stated as identification rather than as a
-consequence of which nouns happened to enter a hash.
+<!-- Single-line registration form of the prose above. `View is for exactly one
+     Object Type` (UC in view-projection.md), so the objectified association's
+     identifying pair is effectively (View, Object Type Instance) — one ViewElement per row,
+     which is the design intent stated as identification rather than as a
+     consequence of which nouns happened to enter a hash.
 
-Component Role 'list' is chosen because §3.1 of the design doc maps each
-collection row instance to the `list` Component (the `list` value is already
-in the `components.md` enum — no new value needed). The `list` role labels
-the row cell in the list view surface, matching iFactr's `IContentCell` shape.
+     Component Role 'list' is chosen because §3.1 of the design doc maps each
+     collection row instance to the `list` Component (the `list` value is already
+     in the `components.md` enum — no new value needed). The `list` role labels
+     the row cell in the list view surface, matching iFactr's `IContentCell` shape. -->
 
 * View lists Object Type Instance if and only if view-projection.View is for Object Type and view-projection.View has View Kind 'collection' and Object Type Instance is instance of Object Type.
 * ViewElement has Component Role 'list' if and only if ViewElement involves View and that View has View Kind 'collection'.
@@ -112,6 +112,8 @@ entity-typed frontier (it is not part of the identifying tuple).
 
 ## Join Chain
 
+<!-- The join path the rule above takes, as pseudo-code, not readings.
+
 ```
 view-projection.View is for Object Type                          (view-projection.View → Object_Type_N)
   ⋈ view-projection.View has View Kind 'collection'      (view-projection.View → View_Kind, filtered to 'collection')
@@ -124,11 +126,11 @@ Join keys (shared by ≥2 antecedents): `view-projection.View` (appears in FTs 1
 Because each view-projection.View is for exactly one Object Type (UC from view-projection.md), the
 `(view-projection.View, Object Type)` pair collapses to `(view-projection.View)` as the discriminating prefix, so
 the effective granularity is one ViewElement per (view-projection.View, Object Type Instance) pair —
-exactly the design-doc §3.1 intent.
+exactly the design-doc §3.1 intent. -->
 
 ## ViewElement Properties
 
-Each property below used to be a consequence of hashing the frontier. Under
+<!-- Each property below used to be a consequence of hashing the frontier. Under
 objectification they follow from the identification scheme instead, which is
 a stronger footing: the old versions were guarantees the host had to keep,
 these are things the model cannot express otherwise.
@@ -140,7 +142,7 @@ these are things the model cannot express otherwise.
   the UC spans the association's roles, so a second ViewElement for the same
   tuple is a uniqueness violation rather than a second row.
 - **Lazy**: the rules emit `view:{cell}` defs, never `derivation:{cell}`
-  defs, resolved at `Func::Fetch` / `Func::FetchOrPhi` time.
+  defs, resolved at `Func::Fetch` / `Func::FetchOrPhi` time. -->
 
 <!-- Trimmed 2026-08-01. Everything from here down was "Remaining Work"
      and "Test Coverage" — issue-tracker state and test-name inventories

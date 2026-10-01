@@ -1,10 +1,10 @@
 # AREST UI: Menu-View Derivation — task-934-3
 
-> **Status: canonized 2026-08-01.** The former status claims cited
-> `lib.rs`, `UI_VIEW_READINGS`, and `compile_explicit_derivation_tests.rs`
-> in `crates/arest/` — a source layout absent from this repository, so none
-> of them were verifiable. They are removed rather than restated. What the
-> reading now asserts is the model, which stands on its own.
+<!-- **Status: canonized 2026-08-01.** The former status claims cited
+     `lib.rs`, `UI_VIEW_READINGS`, and `compile_explicit_derivation_tests.rs`
+     in `crates/arest/` — a source layout absent from this repository, so none
+     of them were verifiable. They are removed rather than restated. What the
+     reading now asserts is the model, which stands on its own. -->
 
 ## Domain Metadata
 
@@ -16,12 +16,12 @@ Domain 'ui' has Description 'Platform-agnostic view hierarchy, navigation, and c
 
 ## Overview
 
-An Object Type's action menu is a DERIVED view. Each menu item is a `ViewElement`
-that renders a `Transition` — specifically, every transition that is legal from
-the entity's CURRENT status. The derivation is lazy (resolved at fetch time
-via `resolve_view`). `ViewElement` identity is fixed by the preferred
-identification scheme of the objectified association below, so it is
-deterministic across re-reads by construction rather than by a computed key.
+<!-- An Object Type's action menu is a DERIVED view. Each menu item is a `ViewElement`
+     that renders a `Transition` — specifically, every transition that is legal from
+     the entity's CURRENT status. The derivation is lazy (resolved at fetch time
+     via `resolve_view`). `ViewElement` identity is fixed by the preferred
+     identification scheme of the objectified association below, so it is
+     deterministic across re-reads by construction rather than by a computed key. -->
 
 This is design-doc §4.5 (Theorem 4 as a view) instantiated as a predicate reading.
 
@@ -46,8 +46,8 @@ Object Type Instance affords Transition.
     identification scheme for ViewElement.
 ```
 
-The association is populated by one projective rule — the live-status
-affordance join:
+<!-- The association is populated by one projective rule — the live-status
+     affordance join: -->
 
 ```
 * Object Type Instance affords Transition if and only if
@@ -58,15 +58,15 @@ affordance join:
     and Object Type Instance is instance of that Object Type.
 ```
 
-and the Component Role derives from what the element involves:
+<!-- and the Component Role derives from what the element involves: -->
 
 ```
 * ViewElement has Component Role 'button' if and only if
     ViewElement involves Transition.
 ```
 
-Both rules carry `*` (lazy, `view-projection.View` materialization policy — never enters the
-eager forward chain that caused the task-934 metamodel hang).
+<!-- Both rules carry `*` (lazy, `view-projection.View` materialization policy — never enters the
+     eager forward chain that caused the task-934 metamodel hang). -->
 
 ## Fact Types
 
@@ -79,9 +79,9 @@ ViewElement renders Transition. *
 
 ## Derivation Rules
 
-Single-line registration form of the prose above. One rule populates the
-objectified association; the other reads the objectification's link role.
-Both heads are projective.
+<!-- Single-line registration form of the prose above. One rule populates the
+     objectified association; the other reads the objectification's link role.
+     Both heads are projective. -->
 
 * Object Type Instance affords Transition if and only if Object Type Instance is currently in Status and Transition is from that Status and Transition is defined in State Machine Definition and that State Machine Definition is for Object Type and Object Type Instance is instance of that Object Type.
 * ViewElement has Component Role 'button' if and only if ViewElement involves Transition.
@@ -109,6 +109,8 @@ join) to work across ALL Object Types+SMs, not just the tasks domain.
 
 ## Join Chain
 
+<!-- The join path the rule above takes, as pseudo-code, not readings.
+
 ```
 Object Type Instance is currently in Status            (Object Type Instance → Status_S)
   ⋈ Transition is from Status             (Transition → Status_S)  [join on Status_S]
@@ -118,11 +120,11 @@ Object Type Instance is currently in Status            (Object Type Instance →
 ```
 
 The join yields the association `Object Type Instance affords Transition`, which the
-objectification identifies `ViewElement` by.
+objectification identifies `ViewElement` by. -->
 
 ## ViewElement Properties
 
-Each property below used to be a consequence of hashing the frontier. Under
+<!-- Each property below used to be a consequence of hashing the frontier. Under
 objectification they are consequences of the identification scheme, which is
 a stronger footing: the old versions were guarantees the host had to keep,
 these are things the model cannot express otherwise.
@@ -137,7 +139,7 @@ these are things the model cannot express otherwise.
   defs, resolved at `Func::Fetch` / `Func::FetchOrPhi` time.
 - **Terminal-safe**: an entity in a terminal status affords no transitions,
   so the association is empty for it and no ViewElement exists. This now
-  follows from the rule body rather than needing a test to establish it.
+  follows from the rule body rather than needing a test to establish it. -->
 
 <!-- Trimmed 2026-08-01. Everything from here down was "Remaining Work"
      and "Test Coverage" — issue-tracker state and test-name inventories

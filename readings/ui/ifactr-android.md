@@ -6,12 +6,12 @@ model and Android Material Design (v1/Holo-to-Material) layout values as FORML
 platform-agnostic view hierarchy), `readings/ui/monoview.md` (the per-app
 render surface), and `readings/ui/design.md` (the modern-minimal token layer).
 
-The kernel UI currently hard-codes scattered card geometry. This reading gives
-the layout grammar "facts all the way down": the per-component dp values, the
-Material type scale (Roboto), the elevation/shadow ladder, the touch-target and
-spacing grid, and the iFactr view-type to Android-widget mappings are all
-instance facts a renderer can read. No magic numbers in Rust/Slint; the
-renderer queries these cells.
+<!-- The kernel UI currently hard-codes scattered card geometry. This reading gives
+     the layout grammar "facts all the way down": the per-component dp values, the
+     Material type scale (Roboto), the elevation/shadow ladder, the touch-target and
+     spacing grid, and the iFactr view-type to Android-widget mappings are all
+     instance facts a renderer can read. No magic numbers in Rust/Slint; the
+     renderer queries these cells. -->
 
 Source ground-truth:
   ZebraDevs/iFactr-Android (github.com) — dimensions.xml, styles.xml,
@@ -127,6 +127,9 @@ Material Touch Target has Dp as minimum height.
 Material Touch Target has Dp as minimum spacing.
   Each Material Touch Target has at most one Dp as minimum spacing.
 
+Material Touch Target has Description.
+  Each Material Touch Target has at most one Description.
+
 ### Material List Item Size
 
 Material List Item Size has Dp as row height.
@@ -146,7 +149,6 @@ Android Navigation Pane occupies Android Pane Slot.
 
 Each Material Type Style has at most one Sp as font size.
 Each Material Type Style has at most one Roboto Weight.
-Each Material Touch Target name maps to exactly one Dp as minimum width.
 Each Dp value used as resting elevation by a Material Elevation Level is a non-negative integer.
 Each Dp value used as row height by a Material List Item Size is a positive multiple of 4.
 Each Sp value used as font size by a Material Type Style is a positive integer.
