@@ -60,7 +60,24 @@ Webhook Event Type yields Fact Type with Role from JSON Path.
      matters, it is a dated fact (a Webhook Event processed at a Timestamp)
      with a uniqueness over the Webhook Event. -->
 
-It is obligatory that for each Webhook Event Type that yields some Fact Type, every Role of that Fact Type appears in some Webhook Event Type yields Fact Type with Role from JSON Path.
+<!-- Decided by a function (2026-09-30, Sam: "All of this looks fine as
+     recommended"). The sentence was "It is obligatory that for each Webhook
+     Event Type that yields some Fact Type, every Role of that Fact Type
+     appears in some Webhook Event Type yields Fact Type with Role from JSON
+     Path". It built no constraint: it quantifies over every Role of a Fact
+     Type, which no reading says. The coverage is per Webhook Event Type,
+     because the derivation below fills each Role from that event's own
+     Payload, so another event type's JSON Path cannot complete the fact.
+     decide:webhook_coverage in lambda answers each Webhook Event Type that
+     yields a Fact Type without mapping every Role of it. -->
+Constraint 'webhook-yield-covers-roles' has Text 'It is obligatory that each webhook event type that yields some fact type maps every role of that fact type from some JSON path'.
+Constraint 'webhook-yield-covers-roles' has modality of Modality Type 'Deontic'.
+Constraint 'webhook-yield-covers-roles' is of Constraint Type 'DO_pop'.
+Constraint 'webhook-yield-covers-roles' spans Role 'WebhookEventTypeYieldsFactTypeWithRoleFromJSONPath.1'.
+Constraint 'webhook-yield-covers-roles' is decided by Predicate 'decide:webhook_coverage'.
+Predicate 'decide:webhook_coverage' has Name 'decide:webhook_coverage'.
+Predicate 'decide:webhook_coverage' has Module Path 'arest'.
+Predicate 'decide:webhook_coverage' has Symbol Name 'decide:webhook_coverage'.
 
 ## Derivation Rules
 

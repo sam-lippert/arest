@@ -963,20 +963,25 @@ If some Role is used in some Reading where some Fact Type has that Reading then 
      transformation retired (Fact fills Role + RoleInstance uses Object Type Instance)
      — the dangling-reference class. Rewritten over the current readings. -->
 If some Fact fills some Role then that Fact is of some Fact Type that has that Role.
-It is obligatory that each Object Type Instance that some RoleInstance uses is instance of some Object Type that plays the Role that RoleInstance fills.
-  <!-- derived residue note (2026-07-17): the role-typing subset is
-       expressible in NORMA only through the IMPLIED link fact types of
-       the RoleInstance objectification (the sequence needs the pair's
-       Fact and Role components, and the nesting transformation traded
-       the flat ternary for link-machinery-only access — Halpin's own
-       prescription). Implied link readings are not A-declared
-       vocabulary, so the sentence stays deontic prose by construction,
-       not by limitation; the lambda's population-consistency and
-       instance-attribution machinery carry the semantics. -->
-<!-- the resource-typing leg correlates through the objectified pair, which
-     Definition Fragment excludes (nested objectification lies outside R):
-     it stands as the deontic obligation above until link-fact readings or
-     the evaluator's validate step carry it. -->
+<!-- Decided by a function (2026-09-30, Sam: "All of this looks fine as
+     recommended"). The sentence was "It is obligatory that each Object Type
+     Instance that some RoleInstance uses is instance of some Object Type that
+     plays the Role that RoleInstance fills". It built no constraint: it
+     correlates through the objectified pair, which only the implied link
+     fact types of the RoleInstance objectification reach, and no declared
+     reading says (the 2026-07-17 note kept it as prose for that reason).
+     decide:role_typing in lambda answers each RoleInstance whose Object Type
+     Instance is an instance of no Object Type that plays its Role. `is
+     instance of` already carries the supertypes, so an instance of a subtype
+     of the player passes. -->
+Constraint 'role-instance-typed' has Text 'It is obligatory that each object type instance that some role instance uses is an instance of some object type that plays the role that role instance fills'.
+Constraint 'role-instance-typed' has modality of Modality Type 'Deontic'.
+Constraint 'role-instance-typed' is of Constraint Type 'DO_pop'.
+Constraint 'role-instance-typed' spans Role 'RoleInstanceUsesObjectTypeInstance.1'.
+Constraint 'role-instance-typed' is decided by Predicate 'decide:role_typing'.
+Predicate 'decide:role_typing' has Name 'decide:role_typing'.
+Predicate 'decide:role_typing' has Module Path 'arest'.
+Predicate 'decide:role_typing' has Symbol Name 'decide:role_typing'.
 
 If some Fact Type defines some Fact then some Object Type Instance that is that Fact is instance of some Object Type that is that Fact Type.
 If some Fact is referenced by some Predicate and that Fact is of some Fact Type then some Reading is used by that Predicate where that Fact Type has that Reading.
