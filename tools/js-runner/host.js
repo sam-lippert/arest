@@ -1944,8 +1944,17 @@ const FASTPRIMS = new Map(Object.entries({
   // them: on well-formed text a code-unit search answers the same, and on text holding a lone
   // surrogate this searches the code points themselves. An empty haystack holds nothing, not even
   // the empty needle, because the DEF's walk never starts on one.
-  "cn:contains": x => { const h = at(x, 0), n = at(x, 1);
-    if (typeof h !== "string" || typeof n !== "string") throw new Error("chars on non-string");
+  // ONE ENTRY, AND THIS IS IT (2026-10-01). A second `cn:contains` stood further down this literal,
+  // from the twin's first version: it sent any string holding a surrogate to the DEF, and the later
+  // key wins in an object literal, so it silently replaced this one. An emoji is a surrogate pair, so
+  // support's readings, whose Suggested Prompts carry emoji icons, sent compile:seal_left's search of
+  // the whole rendered design state through the DEF a character at a time: the compile ran past
+  // twenty minutes where the same closure without the icons takes thirty seconds. Well-formed text
+  // (pairs included) is searched by code unit, which is exact for it; a lone surrogate is searched
+  // by code point; an operand that is not two strings is the DEF's, as the first version had it.
+  "cn:contains": x => {
+    if (!Array.isArray(x) || x.length < 2 || typeof x[0] !== "string" || typeof x[1] !== "string") return Ev(DEFS.get("cn:contains"), x);
+    const h = x[0], n = x[1];
     if (h.length === 0) return "F";
     if (typeof h.isWellFormed === "function" && h.isWellFormed() && n.isWellFormed()) return bool(h.includes(n));
     const hs = [...h], ns = [...n];
@@ -1984,16 +1993,8 @@ const FASTPRIMS = new Map(Object.entries({
   // part's -- so an empty text contains nothing, not even the empty part, and a non-empty one contains
   // the empty part. The DEF slides a WHILE over chars with theta:take and eq at every position:
   // rmap:unproj_isrole asks it of a fact type's name once per stored CELL while a store loads, 40% of
-  // support's load, and the reader asks it 70,131 times more (2026-09-29). Over two strings with no
-  // surrogate the characters are the code units, and a part found is found where the DEF finds it;
-  // anything else -- a surrogate, a number, a sequence, a short operand -- is the DEF's.
-  "cn:contains": x => {
-    if (!Array.isArray(x) || x.length < 2 || typeof x[0] !== "string" || typeof x[1] !== "string") return Ev(DEFS.get("cn:contains"), x);
-    const t = x[0], p = x[1];
-    for (let i = 0; i < t.length; i++) { const c = t.charCodeAt(i); if (c >= 0xD800 && c <= 0xDFFF) return Ev(DEFS.get("cn:contains"), x); }
-    for (let i = 0; i < p.length; i++) { const c = p.charCodeAt(i); if (c >= 0xD800 && c <= 0xDFFF) return Ev(DEFS.get("cn:contains"), x); }
-    return t.length > 0 && t.includes(p) ? "T" : "F";
-  },
+  // support's load, and the reader asks it 70,131 times more (2026-09-29). Its twin is the one entry
+  // above, beside theta:member; a second key here replaced it (2026-10-01, the note there).
   // rmap:proj_row <key, table, store>: an entity table's row, a column plan at a time (projRow above)
   "rmap:proj_row": x => projRow(x),
   // rmap:rows_for is the same first-column filter, <key, rows>, written as the
