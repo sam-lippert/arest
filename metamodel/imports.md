@@ -61,6 +61,7 @@ JS Package has Package Manager.
      derived ring fact types. -->
 JS Package depends on JS Package.
   Each JS Package, JS Package combination occurs at most once in the population of JS Package depends on JS Package.
+  JS Package depends on JS Package is irreflexive.
 
 JS Package reaches JS Package. *
   Each JS Package, JS Package combination occurs at most once in the population of JS Package reaches JS Package.
