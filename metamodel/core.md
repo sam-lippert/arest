@@ -749,6 +749,7 @@ For each Domain and Local Name, at most one Function belongs to that Domain and 
 
 Domain is contained in Domain.
   Each Domain is contained in at most one Domain.
+  Domain is contained in Domain is acyclic.
 
 Domain reaches Domain. *
   Each Domain, Domain combination occurs at most once in the population of Domain reaches Domain.
@@ -793,6 +794,7 @@ Function yields Type Expression.
 
 Function is inverted by Function.
   Each Function is inverted by at most one Function.
+  Function is inverted by Function is symmetric.
   <!-- THE PAIR IS A FACT ABOUT THE FUNCTIONS, NOT A CONVENTION OVER THEIR
        TYPE EXPRESSIONS. Samuel, 2026-09-11, named `an encrypt/decrypt
        function` -- a pair -- and `Object Type is stored through Function`
