@@ -32,6 +32,8 @@ yarn-error.log*
 
 # Claude Code agent state — session config + linked agent worktrees (.claude/worktrees/)
 .claude/
+# The session guide stays local to this checkout (Sam, 2026-09-30)
+/CLAUDE.md
 
 # Visual Studio
 .vs/
