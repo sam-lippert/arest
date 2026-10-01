@@ -14,11 +14,38 @@ It is obligatory that each Role references exactly one Object Type. -->
 
 ### Arity Decomposition
 
-It is forbidden that a Constraint of Constraint Type 'UC' spans fewer Roles than the arity of its Fact Type minus one.
+<!-- Decided by a function (2026-09-30, Sam: "B-D OK"). The sentence was "It
+     is forbidden that a Constraint of Constraint Type 'UC' spans fewer Roles
+     than the arity of its Fact Type minus one". It built no constraint, and
+     the compile never made the check either: csdp:s7 makes it only over the
+     law report's fixed example. decide:n_minus_one in lambda answers each
+     fact type that holds such a uniqueness. -->
+Constraint 'uniqueness-spans-n-minus-one' has Text 'It is forbidden that a uniqueness constraint spans fewer roles than the arity of its fact type minus one'.
+Constraint 'uniqueness-spans-n-minus-one' has modality of Modality Type 'Deontic'.
+Constraint 'uniqueness-spans-n-minus-one' is of Constraint Type 'DF_pop'.
+Constraint 'uniqueness-spans-n-minus-one' spans Role 'FactTypeHasRole.1'.
+Constraint 'uniqueness-spans-n-minus-one' is decided by Predicate 'decide:n_minus_one'.
+Predicate 'decide:n_minus_one' has Name 'decide:n_minus_one'.
+Predicate 'decide:n_minus_one' has Module Path 'arest'.
+Predicate 'decide:n_minus_one' has Symbol Name 'decide:n_minus_one'.
 
 ### Objectification Spanning
 
-It is forbidden that a Fact Type is objectified when no Constraint of Constraint Type 'UC' spans all Roles of that Fact Type.
+<!-- Decided by a function (2026-09-30, Sam: "B-D OK"). The sentence was "It
+     is forbidden that a Fact Type is objectified when no Constraint of
+     Constraint Type 'UC' spans all Roles of that Fact Type". It built no
+     constraint, and the check the note below gives the oracle left the
+     compile when compilation moved into lambda: `Birth objectifies "Person
+     was born in Country"` over an n:1 binary compiled clean.
+     decide:objectified_spanning in lambda answers each such fact type. -->
+Constraint 'objectification-needs-spanning-uniqueness' has Text 'It is forbidden that a fact type is objectified when no uniqueness constraint spans all roles of that fact type'.
+Constraint 'objectification-needs-spanning-uniqueness' has modality of Modality Type 'Deontic'.
+Constraint 'objectification-needs-spanning-uniqueness' is of Constraint Type 'DF_pop'.
+Constraint 'objectification-needs-spanning-uniqueness' spans Role 'FactTypeHasRole.1'.
+Constraint 'objectification-needs-spanning-uniqueness' is decided by Predicate 'decide:objectified_spanning'.
+Predicate 'decide:objectified_spanning' has Name 'decide:objectified_spanning'.
+Predicate 'decide:objectified_spanning' has Module Path 'arest'.
+Predicate 'decide:objectified_spanning' has Symbol Name 'decide:objectified_spanning'.
 <!-- Halpin, "Objectification and Atomicity" (2020-04-28,
      infosci/ObjectificationAndAtomicity.pdf): objectification is
      restricted to fact types with a SPANNING uniqueness constraint —
