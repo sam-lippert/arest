@@ -53,7 +53,12 @@ Webhook Event Type yields Fact Type with Role from JSON Path.
 
 ## Constraints
 
-It is forbidden that a Webhook Event is processed more than once.
+<!-- Removed 2026-09-30, with Sam's approval: "It is forbidden that a Webhook
+     Event is processed more than once." `Webhook Event is processed` is a
+     unary, and a unary fact holds or it does not, so no population can hold
+     it twice and the rule could never be violated. If idempotent delivery
+     matters, it is a dated fact (a Webhook Event processed at a Timestamp)
+     with a uniqueness over the Webhook Event. -->
 
 It is obligatory that for each Webhook Event Type that yields some Fact Type, every Role of that Fact Type appears in some Webhook Event Type yields Fact Type with Role from JSON Path.
 

@@ -263,7 +263,14 @@ Constraint 'constraint-invertibility' spans Role 'ConstraintHasText.1'.
 
 ### Derivation Rule Range Restriction
 
-It is obligatory that each variable in a Derivation Rule consequent appears in at least one antecedent of that Derivation Rule.
+<!-- Removed 2026-09-30, with Sam's approval: "It is obligatory that each
+     variable in a Derivation Rule consequent appears in at least one
+     antecedent of that Derivation Rule." The compiler already reports it.
+     A rule whose head names a role no antecedent binds gets no recipe, so the
+     compile reports its head UNDELIVERED ("no form says this body") and
+     AREST_STRICT=1 refuses it. Measured with
+     `* Person likes Country iff Person speaks Language.`: undelivered. The
+     same rule with the head `Person knows Language` builds. -->
 
 ## Constraint Violation Templates (#898)
 
