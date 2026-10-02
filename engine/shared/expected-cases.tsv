@@ -693,7 +693,7 @@ case:screen-actions-at-a-nested-status	"(('menu', 'actions (A)', ('item', 'Ticke
 case:collapse-follows-the-identifier-order	"(('info', 'X', 'Start', 'Start', 'T', ('f', 'XHasStart')), ('info', 'X', 'End', 'End', 'T', ('f', 'XHasEnd')))"
 case:collapse-keeps-an-unheld-child-last	"(('info', 'X', 'Start', 'Start', 'T', ('f', 'XHasStart')), ('info', 'X', 'End', 'End', 'T', ('f', 'XHasEnd')), ('info', 'X', 'Z', 'Z', 'F', ('f', 'XHasZ')))"
 case:get-of-an-empty-population	"('[[\"resource\",\"MessageUsesDash\"],[\"columns\",[\"Message\",\"Dash\"]],[\"rows\",[]],[\"violations\",[]],[\"links\",[]]]', 200)"
-case:get-of-an-unknown-resource-is-404	"('', 404)"
+case:get-of-an-unknown-resource-is-404	"('\"no collection or fact type is named NoSuchResource: GET reads a collection, or the population of a fact type, asserted or derived\"', 404)"
 case:get-of-a-ternary-names-its-columns	"('[[\"resource\",\"HexagramIsPairedWithHexagramByPairingMethod\"],[\"columns\",[\"Hexagram\",\"Hexagram\",\"Pairing Method\"]],[\"rows\",[[\"1\",\"2\",\"Binary Complement\"]]],[\"violations\",[]],[\"links\",[]]]', 200)"
 case:get-of-a-collection-names-its-columns	"('[[\"resource\",\"Note\"],[\"columns\",[\"Note\",\"NoteHasBody\",\"NoteHasStamp\"]],[\"rows\",[[\"n1\",[[\"Replaced the drum\"]],[[\"T1\"]]]]],[\"violations\",[]],[\"links\",[]]]', 200)"
 case:mcp-tool-carries-its-reading	"(('MessageRecommendsPlan', ('Message', 'Plan'), 'Message recommends Plan'))"
