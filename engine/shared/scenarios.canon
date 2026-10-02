@@ -2458,5 +2458,10 @@ DEF("case:an-identifier-field-is-an-alphanumeric-text-box", S2(A("ui:ctlextra"),
 DEF("case:a-registered-default-wins", S2(A("ui:pd"), S2(A("CellHeight"), S2(N(300), S1(S2(A("CellHeight"), N(44))))))),
 DEF("case:an-unregistered-default-falls-back", S2(A("ui:pd"), S2(A("CellHeight"), S2(N(300), PHI())))),
 DEF("case:a-text-takes-the-lines-its-width-holds", S2(A("ui:lines"), S3(A("abc\ndefghijklmnopqrstuvwxyz"), S3(A("Consolas"), N(13), A("normal")), N(100)))),
-DEF("case:an-item-cell-grows-to-its-content", S2(A("ui:itemh"), S2(S4(A("item"), A("a"), A("sub"), S2(A("Thing"), A("a"))), S2(N(300), S1(S2(A("LabelFont"), S3(A("Segoe UI"), N(30), A("normal"))))))))
+DEF("case:an-item-cell-grows-to-its-content", S2(A("ui:itemh"), S2(S4(A("item"), A("a"), A("sub"), S2(A("Thing"), A("a"))), S2(N(300), S1(S2(A("LabelFont"), S3(A("Segoe UI"), N(30), A("normal")))))))),
+"THE APP STYLE IS THE DEFAULT THEME`S TOKENS, AND A WORD IS A RESOURCE STRING (2026-10-01). The store`s default Theme is dark, whose surface token is #111114 and whose border token is #26262C, and a light theme`s surface is #FAFAFB: the layer and the section headers take the dark surface, a separator the dark border, and every member no token names keeps lambda`s Style. A store that declares no Theme keeps the whole of it. The search hint is a resource string.",
+DEF("fixture:token-store", K(S1(S3(A("CELL"), A("FILE"), S4(S3(A("CELL"), A("ThemeIsTheDefaultTheme"), S1(S1(A("dark")))), S3(A("CELL"), A("ColorTokenBelongsToTheme"), S3(S2(A("dark.surface"), A("dark")), S2(A("dark.border"), A("dark")), S2(A("light.surface"), A("light")))), S3(A("CELL"), A("ColorTokenHasColorRole"), S3(S2(A("dark.surface"), A("surface")), S2(A("dark.border"), A("border")), S2(A("light.surface"), A("surface")))), S3(A("CELL"), A("ColorTokenHasHexColor"), S3(S2(A("dark.surface"), A("#111114")), S2(A("dark.border"), A("#26262C")), S2(A("light.surface"), A("#FAFAFB"))))))))),
+DEF("case:the-app-style-is-the-default-themes-tokens", S2(S3(A("COMP"), A("ui:app_style"), A("fixture:token-store")), PHI())),
+DEF("case:a-store-with-no-theme-keeps-the-default-style", S2(S3(A("COMP"), A("ui:app_style"), A("fixture:app-store")), PHI())),
+DEF("case:a-word-is-a-resource-string", S2(A("ui:res"), A("SearchHint")))
 )
