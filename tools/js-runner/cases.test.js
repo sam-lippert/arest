@@ -5379,11 +5379,13 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     expect(Ev("render:json", rowsD)).toBe('[["w1",0.25],["w2","text"]]');
     expect(Ev(globalThis.AREST.DEFS.get("render:json"), rowsD)).toBe('[["w1",0.25],["w2","text"]]');
     expect(Ev("tpl:str", ["decimal", 25, 2])).toBe("0.25");
-    // the entity view says the fact with the decimal as its text, through solve:say, and does not throw
+    // the entity view shows Minimum as a column control holding the decimal (2026-10-01: an entity
+    // displays its column data as controls, in column order), and does not throw; render:json, the
+    // served view`s spelling, prints that value as 0.5
     const posted = Ev("main:api", [CELLS, "POST", "ObjectTypeHasMinimum", "", ["Arity", "0.50"]]);
     expect(Number(posted[1])).toBeLessThan(400);
-    const view = JSON.stringify(Ev("ui:route", [posted[2], ["Function", "Arity"], [], []]));
-    expect(view.includes("'0.5'")).toBe(true);
+    const view = Ev("render:json", Ev("ui:route", [posted[2], ["Function", "Arity"], [], []]));
+    expect(view).toMatch(/"ObjectTypeHasMinimum","[^"]*",\[[^\]]*\],0\.5\]/);
     // written into a store and read back, in processes of their own, the way a server writes
     const dir = mkdtempSync(join(tmpdir(), "arest-dec-"));
     const mod = join(import.meta.dir, "cases.g.js");
