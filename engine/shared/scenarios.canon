@@ -2518,5 +2518,11 @@ DEF("fixture:neg-wstep2", S4(A("CONS"), N(1), S3(A("COMP"), A("tl"), N(2)), S3(A
 DEF("fixture:neg-wstep", S3(A("COMP"), A("fixture:neg-wstep2"), S4(A("CONS"), S3(A("COMP"), A("fixture:neg-apply"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(2)))), N(2), N(3)))),
 DEF("fixture:neg-walk", S4(A("COMP"), N(3), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(2)), A("fixture:neg-wstep")), S4(A("CONS"), N(1), N(2), K(A("T"))))),
 DEF("case:the-write-closure-is-the-fixpoint-at-every-step",
-    S2(S3(A("COMP"), A("fixture:neg-walk"), S3(A("CONS"), A("fixture:neg-store"), K(S6(S3(A("assert"), A("NegP"), S2(A("a"), A("c1"))), S3(A("assert"), A("NegR"), S2(A("a"), A("c1"))), S3(A("assert"), A("NegD"), S2(A("a"), A("c2"))), S3(A("assert"), A("NegP"), S2(A("a"), A("c2"))), S3(A("retract"), A("NegR"), S2(A("a"), A("c1"))), S3(A("retract"), A("NegP"), S2(A("a"), A("c2"))))))), PHI()))
+    S2(S3(A("COMP"), A("fixture:neg-walk"), S3(A("CONS"), A("fixture:neg-store"), K(S6(S3(A("assert"), A("NegP"), S2(A("a"), A("c1"))), S3(A("assert"), A("NegR"), S2(A("a"), A("c1"))), S3(A("assert"), A("NegD"), S2(A("a"), A("c2"))), S3(A("assert"), A("NegP"), S2(A("a"), A("c2"))), S3(A("retract"), A("NegR"), S2(A("a"), A("c1"))), S3(A("retract"), A("NegP"), S2(A("a"), A("c2"))))))), PHI())),
+"A WRITE ANSWERS THE DEONTIC ITS DERIVED FACT RAISES (2026-10-02). fixture:neg-store with NegL prohibited: one NegP with no NegR derives NegL l1, and both write paths must answer that prohibition -- assert through main:ab_scope, whose page names a and c1 and not l1, and a POST through main:post_answer. Each answered committed with no violation while the closed store held it.",
+DEF("fixture:neg-deo-store", S3(A("COMP"), A("apndl"), S3(A("CONS"), K(S3(A("CELL"), A("state:deontics"), S1(S1(S3(A("DEO:p:NegL"), A("prohibited"), S2(A("NegL"), A("NegL"))))))), A("fixture:neg-store")))),
+DEF("case:an-assert-answers-the-deontic-its-derived-fact-raises",
+    S2(S4(A("COMP"), S3(A("CONS"), N(1), N(2)), A("assert"), S3(A("CONS"), K(S1(S3(A("NegP"), A("a"), A("c1")))), A("fixture:neg-deo-store"))), PHI())),
+DEF("case:a-post-answers-the-deontic-its-derived-fact-raises",
+    S2(S4(A("COMP"), S3(A("CONS"), N(1), N(2)), A("main:post_answer"), S4(A("CONS"), A("fixture:neg-deo-store"), K(A("NegP")), K(S2(A("a"), A("c1"))))), PHI()))
 )
