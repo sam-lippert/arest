@@ -2430,5 +2430,8 @@ DEF("case:an-entity-named-by-many-events-stands-once", S2(S3(A("COMP"), A("root:
 "A FIELD IS LABELED BY ITS ROLE`S OWN PLAYER (2026-10-01). Function belongs to Domain is a column of the Function table and its descriptor`s players are top-collapsed to Function and Function, while the reading declares Function and Domain: the field reads Domain. A fact type the store does not declare keeps the descriptor`s player.",
 DEF("fixture:declared-store", K(S2(S3(A("CELL"), A("state:declared"), S1(S1(S2(A("FunctionBelongsToDomain"), S2(A("Function"), A("Domain")))))), S3(A("CELL"), A("state:otmeta"), S1(S2(S3(A("Function"), A("entity"), A("F")), S3(A("Domain"), A("entity"), A("F")))))))),
 DEF("case:a-field-is-labeled-by-its-declared-player", S2(S3(A("COMP"), A("ui:fieldrow"), S3(A("CONS"), K(S2(A("FunctionBelongsToDomain"), A("Function"))), A("fixture:declared-store"))), PHI())),
-DEF("case:an-undeclared-field-keeps-its-descriptor-player", S2(S3(A("COMP"), A("ui:fieldrow"), S3(A("CONS"), K(S2(A("FunctionHasName"), A("Name"))), A("fixture:declared-store"))), PHI()))
+DEF("case:an-undeclared-field-keeps-its-descriptor-player", S2(S3(A("COMP"), A("ui:fieldrow"), S3(A("CONS"), K(S2(A("FunctionHasName"), A("Name"))), A("fixture:declared-store"))), PHI())),
+"AN APOSTROPHE IN AN ATTRIBUTE VALUE IS AN ENTITY (2026-10-01). The controls quote each attribute with an apostrophe, so a value holding one, Samuel`s thesis, must reach the browser as &#39; or it ends the attribute: the input keeps its whole value, and a button its whole noun.",
+DEF("case:html-textbox-escapes-an-apostrophe-in-its-value", S2(A("html:textbox"), S9(A("textbox"), N(14), N(62), N(632), N(64), A("Title"), A("MemoryHasTitle"), PHI(), A("Samuel's thesis")))),
+DEF("case:html-button-escapes-an-apostrophe-in-its-value", S2(A("html:button"), S7(A("button"), N(0), N(0), N(100), N(40), A("save"), A("Sam's Note"))))
 )
