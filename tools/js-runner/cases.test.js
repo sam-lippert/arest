@@ -5269,9 +5269,15 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     }
   }, 240_000);
 
-  test("what the compile prints blanks every value a .env quotes, and cn:contains's twin is its DEF", () => {
-    expect(Ev("compile:redact", ["key k-123 and k-123 again, not k-12", ["k-123"]])).toBe("key (not printed) and (not printed) again, not k-12");
-    expect(Ev("compile:redact", ["nothing to hide", ["absent", ""]])).toBe("nothing to hide");
+  test("what the compile prints says a .env sentence by its shape and blanks no value, and cn:contains's twin is its DEF", () => {
+    // Sam, 2026-10-02: blanking every .env value wherever an answer says it lets anyone who can put
+    // text into an answer guess and check. A finding about a .env sentence says its shape instead,
+    // and a text that merely says the same value is printed as it is.
+    const said = "It is forbidden that Thing 'a3' has Code 'k-123'";
+    const shapes = [[said, "It is forbidden that Thing '...' has Code '...'"]];
+    expect(Ev("compile:env_shaped", [[["unbuilt", "r", "reported", [], said]], shapes])).toEqual([["unbuilt", "r", "reported", [], "It is forbidden that Thing '...' has Code '...'"]]);
+    expect(Ev("compile:env_shaped", [[["unbuilt", "r", "reported", [], "a rule that says k-123"]], shapes])).toEqual([["unbuilt", "r", "reported", [], "a rule that says k-123"]]);
+    expect(globalThis.AREST.DEFS.has("compile:redact")).toBe(false);
     const def = globalThis.AREST.DEFS.get("cn:contains");
     const pairs = [["", ""], ["", "a"], ["a", ""], ["abc", "bc"], ["abc", "cd"], ["abc", "abcd"], ["a\u{1F600}b", "\u{1F600}b"], ["\u{1F600}", "\uDE00"]];
     for (const p of pairs) expect(Ev("cn:contains", p), JSON.stringify(p)).toBe(Ev(def, p));

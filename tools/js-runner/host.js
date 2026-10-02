@@ -1960,20 +1960,6 @@ const FASTPRIMS = new Map(Object.entries({
     const hs = [...h], ns = [...n];
     for (let i = 0; i < hs.length; i++) { let j = 0; while (j < ns.length && hs[i + j] === ns[j]) j++; if (j === ns.length) return "T"; }
     return "F"; },
-  // compile:unsay <text, value> is the text with each occurrence of the value, taken left to right
-  // and never overlapping, said as (not printed). The DEF walks the text a character at a time and
-  // appends each character it keeps to the right of what it kept, which copies the kept list at
-  // every step: on support's check the redaction of its findings text was the last 0.9 GB of the
-  // run's peak, the text holding a .env value as an ordinary word (2026-10-02). On well-formed text
-  // a split on the value is the same walk -- each occurrence found where the walk would find it,
-  // the search resuming after it -- so the twin splits and joins; text with a lone surrogate, or an
-  // operand that is not two strings, is the DEF's, as cn:contains has it.
-  "compile:unsay": x => {
-    if (!Array.isArray(x) || x.length < 2 || typeof x[0] !== "string" || typeof x[1] !== "string") return Ev(DEFS.get("compile:unsay"), x);
-    const t = x[0], v = x[1];
-    if (v === "" || t.length === 0) return t;
-    if (!(typeof t.isWellFormed === "function" && t.isWellFormed() && v.isWellFormed())) return Ev(DEFS.get("compile:unsay"), x);
-    return t.split(v).join("(not printed)"); },
   "theta:member": x => { const l = seq(at(x, 1)), e = at(x, 0);
     if (l.length < 16) return bool(l.some(m => deepEq(e, m)));
     let s = MEMBIDX.get(l);
