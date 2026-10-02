@@ -795,8 +795,9 @@ Function 'tlr' yields Type Expression 'sequence'.
      rows. #124 (2026-09-21) made the surface the whole pairing table: every
      kind lambda can place is declared here, because law:ctl_declared reads
      THIS population and law:paired asks a container whether it registers
-     every name in it, and a shortfall is a window that dies on the first row
-     naming a kind no container was asked to have.
+     every control in it, and one of the layout engines declared below, and
+     a shortfall is a window that dies on the first row naming a kind no
+     container was asked to have.
 
      THE SURFACE IS THE IFACTR INTERFACE SET (Sam, 2026-10-01: the idealized
      controls are based on the MonoView and iFactr interfaces). The nineteen
@@ -885,6 +886,27 @@ Function 'render:alert' yields Type Expression 'widget'.
 Function 'render:html' has Definition Origin 'registered'.
 Function 'render:html' accepts Type Expression 'placed-rows'.
 Function 'render:html' yields Type Expression 'document'.
+
+<!-- AND EACH PLATFORM REGISTERS ITS OWN (2026-10-02). An engine is told
+     from a control by what it accepts: placed-rows, the whole of a screen,
+     where a control accepts one placed-row or one property-row. law:paired
+     asks a container for every control and for one engine, its own, so the
+     web container is not asked for the Swing engine nor the Swing container
+     for the web's; a container with no engine is refused, and law:unpaired
+     names the engines, any one of which pairs it. render:swing is the Java
+     container's, render:wpf the WPF container's and render:slint the Slint
+     surface's (engine/os, Sam 2026-10-01): each draws a screen's placed rows
+     as its platform's own widgets, where render:html writes a document. Each
+     engine is one Render Target in readings/ui/render-target-instances.md. -->
+Function 'render:swing' has Definition Origin 'registered'.
+Function 'render:swing' accepts Type Expression 'placed-rows'.
+Function 'render:swing' yields Type Expression 'screen'.
+Function 'render:wpf' has Definition Origin 'registered'.
+Function 'render:wpf' accepts Type Expression 'placed-rows'.
+Function 'render:wpf' yields Type Expression 'screen'.
+Function 'render:slint' has Definition Origin 'registered'.
+Function 'render:slint' accepts Type Expression 'placed-rows'.
+Function 'render:slint' yields Type Expression 'screen'.
 
 <!-- The storage surface (2026-07-20, the emit ruling: recording is
      storage registration; the byte form is lambda, so a worthy driver

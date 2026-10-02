@@ -602,6 +602,19 @@ Toolkit 'web-components' has Toolkit Slug 'web-components'.
 Toolkit 'web-components' has Toolkit Version 'living-standard'.
 Toolkit 'web-components' has display- Title 'Web Components'.
 
+Toolkit 'wpf' has Toolkit Slug 'wpf'.
+Toolkit 'wpf' has Toolkit Version '10'.
+Toolkit 'wpf' has display- Title 'WPF'.
+  <!-- Windows Presentation Foundation on .NET 10, the toolkit of the
+       iFactr WPF binding (Repos/iFactr-WPF, WpfFactory). Its layout engine
+       is render:wpf. -->
+
+Toolkit 'swing' has Toolkit Slug 'swing'.
+Toolkit 'swing' has Toolkit Version '8'.
+Toolkit 'swing' has display- Title 'Swing'.
+  <!-- Java SE 8's Swing, the Java container's toolkit
+       (tools/java-runner). Its layout engine is render:swing. -->
+
 ### Notice anchors
 
 Notice 'no-implementation-for-role' has Notice Text 'No toolkit implementation registered for the requested Component Role; the gap-detection rule fired. Adapter slices #486-#488 and #494 close gaps surfaced this way.'.
@@ -1141,3 +1154,127 @@ Component 'alert' has display- Title 'Alert'.
 Component 'alert' has Description 'A message the platform shows over the screen: its Title and Message, such as a refusal (IAlert).'.
 Component 'alert' is implemented by Toolkit 'react' at Toolkit Symbol 'Alert'.
 ImplementationBinding 'alert.react' pivots Component 'alert' is implemented by Toolkit 'react'.
+
+### The idealized controls paired to WPF, Swing and Slint (#124)
+
+<!-- THE SAME NINETEEN, BOUND BY EACH PLATFORM'S CONTAINER (2026-10-02). Sam,
+     2026-10-01: a registration surface per platform -- Slint in Rust, WPF in
+     C#, React for the web, and any host language through the same surface.
+     Each container registers render:<kind> for every interface below and
+     its own layout engine (render:wpf, render:swing, render:slint), and
+     law:paired asks it for exactly that at every navigation. The symbol is
+     the class or component the container writes for the interface, named as
+     iFactr names the interface without its I, which is also what the iFactr
+     WPF binding registers in WpfFactory.OnSetDefinitions. Slint's button,
+     image and slider are bound above by the catalogue, at the same symbols. -->
+
+Component 'listview' is implemented by Toolkit 'wpf' at Toolkit Symbol 'ListView'.
+ImplementationBinding 'listview.wpf' pivots Component 'listview' is implemented by Toolkit 'wpf'.
+Component 'sectionheader' is implemented by Toolkit 'wpf' at Toolkit Symbol 'SectionHeader'.
+ImplementationBinding 'sectionheader.wpf' pivots Component 'sectionheader' is implemented by Toolkit 'wpf'.
+Component 'gridcell' is implemented by Toolkit 'wpf' at Toolkit Symbol 'GridCell'.
+ImplementationBinding 'gridcell.wpf' pivots Component 'gridcell' is implemented by Toolkit 'wpf'.
+Component 'label' is implemented by Toolkit 'wpf' at Toolkit Symbol 'Label'.
+ImplementationBinding 'label.wpf' pivots Component 'label' is implemented by Toolkit 'wpf'.
+Component 'richcontentcell' is implemented by Toolkit 'wpf' at Toolkit Symbol 'RichContentCell'.
+ImplementationBinding 'richcontentcell.wpf' pivots Component 'richcontentcell' is implemented by Toolkit 'wpf'.
+Component 'textbox' is implemented by Toolkit 'wpf' at Toolkit Symbol 'TextBox'.
+ImplementationBinding 'textbox.wpf' pivots Component 'textbox' is implemented by Toolkit 'wpf'.
+Component 'passwordbox' is implemented by Toolkit 'wpf' at Toolkit Symbol 'PasswordBox'.
+ImplementationBinding 'passwordbox.wpf' pivots Component 'passwordbox' is implemented by Toolkit 'wpf'.
+Component 'textarea' is implemented by Toolkit 'wpf' at Toolkit Symbol 'TextArea'.
+ImplementationBinding 'textarea.wpf' pivots Component 'textarea' is implemented by Toolkit 'wpf'.
+Component 'datepicker' is implemented by Toolkit 'wpf' at Toolkit Symbol 'DatePicker'.
+ImplementationBinding 'datepicker.wpf' pivots Component 'datepicker' is implemented by Toolkit 'wpf'.
+Component 'timepicker' is implemented by Toolkit 'wpf' at Toolkit Symbol 'TimePicker'.
+ImplementationBinding 'timepicker.wpf' pivots Component 'timepicker' is implemented by Toolkit 'wpf'.
+Component 'selectlist' is implemented by Toolkit 'wpf' at Toolkit Symbol 'SelectList'.
+ImplementationBinding 'selectlist.wpf' pivots Component 'selectlist' is implemented by Toolkit 'wpf'.
+Component 'switch' is implemented by Toolkit 'wpf' at Toolkit Symbol 'Switch'.
+ImplementationBinding 'switch.wpf' pivots Component 'switch' is implemented by Toolkit 'wpf'.
+Component 'slider' is implemented by Toolkit 'wpf' at Toolkit Symbol 'Slider'.
+ImplementationBinding 'slider.wpf' pivots Component 'slider' is implemented by Toolkit 'wpf'.
+Component 'image' is implemented by Toolkit 'wpf' at Toolkit Symbol 'Image'.
+ImplementationBinding 'image.wpf' pivots Component 'image' is implemented by Toolkit 'wpf'.
+Component 'button' is implemented by Toolkit 'wpf' at Toolkit Symbol 'Button'.
+ImplementationBinding 'button.wpf' pivots Component 'button' is implemented by Toolkit 'wpf'.
+Component 'menu' is implemented by Toolkit 'wpf' at Toolkit Symbol 'Menu'.
+ImplementationBinding 'menu.wpf' pivots Component 'menu' is implemented by Toolkit 'wpf'.
+Component 'menubutton' is implemented by Toolkit 'wpf' at Toolkit Symbol 'MenuButton'.
+ImplementationBinding 'menubutton.wpf' pivots Component 'menubutton' is implemented by Toolkit 'wpf'.
+Component 'searchbox' is implemented by Toolkit 'wpf' at Toolkit Symbol 'SearchBox'.
+ImplementationBinding 'searchbox.wpf' pivots Component 'searchbox' is implemented by Toolkit 'wpf'.
+Component 'alert' is implemented by Toolkit 'wpf' at Toolkit Symbol 'Alert'.
+ImplementationBinding 'alert.wpf' pivots Component 'alert' is implemented by Toolkit 'wpf'.
+
+Component 'listview' is implemented by Toolkit 'swing' at Toolkit Symbol 'ListView'.
+ImplementationBinding 'listview.swing' pivots Component 'listview' is implemented by Toolkit 'swing'.
+Component 'sectionheader' is implemented by Toolkit 'swing' at Toolkit Symbol 'SectionHeader'.
+ImplementationBinding 'sectionheader.swing' pivots Component 'sectionheader' is implemented by Toolkit 'swing'.
+Component 'gridcell' is implemented by Toolkit 'swing' at Toolkit Symbol 'GridCell'.
+ImplementationBinding 'gridcell.swing' pivots Component 'gridcell' is implemented by Toolkit 'swing'.
+Component 'label' is implemented by Toolkit 'swing' at Toolkit Symbol 'Label'.
+ImplementationBinding 'label.swing' pivots Component 'label' is implemented by Toolkit 'swing'.
+Component 'richcontentcell' is implemented by Toolkit 'swing' at Toolkit Symbol 'RichContentCell'.
+ImplementationBinding 'richcontentcell.swing' pivots Component 'richcontentcell' is implemented by Toolkit 'swing'.
+Component 'textbox' is implemented by Toolkit 'swing' at Toolkit Symbol 'TextBox'.
+ImplementationBinding 'textbox.swing' pivots Component 'textbox' is implemented by Toolkit 'swing'.
+Component 'passwordbox' is implemented by Toolkit 'swing' at Toolkit Symbol 'PasswordBox'.
+ImplementationBinding 'passwordbox.swing' pivots Component 'passwordbox' is implemented by Toolkit 'swing'.
+Component 'textarea' is implemented by Toolkit 'swing' at Toolkit Symbol 'TextArea'.
+ImplementationBinding 'textarea.swing' pivots Component 'textarea' is implemented by Toolkit 'swing'.
+Component 'datepicker' is implemented by Toolkit 'swing' at Toolkit Symbol 'DatePicker'.
+ImplementationBinding 'datepicker.swing' pivots Component 'datepicker' is implemented by Toolkit 'swing'.
+Component 'timepicker' is implemented by Toolkit 'swing' at Toolkit Symbol 'TimePicker'.
+ImplementationBinding 'timepicker.swing' pivots Component 'timepicker' is implemented by Toolkit 'swing'.
+Component 'selectlist' is implemented by Toolkit 'swing' at Toolkit Symbol 'SelectList'.
+ImplementationBinding 'selectlist.swing' pivots Component 'selectlist' is implemented by Toolkit 'swing'.
+Component 'switch' is implemented by Toolkit 'swing' at Toolkit Symbol 'Switch'.
+ImplementationBinding 'switch.swing' pivots Component 'switch' is implemented by Toolkit 'swing'.
+Component 'slider' is implemented by Toolkit 'swing' at Toolkit Symbol 'Slider'.
+ImplementationBinding 'slider.swing' pivots Component 'slider' is implemented by Toolkit 'swing'.
+Component 'image' is implemented by Toolkit 'swing' at Toolkit Symbol 'Image'.
+ImplementationBinding 'image.swing' pivots Component 'image' is implemented by Toolkit 'swing'.
+Component 'button' is implemented by Toolkit 'swing' at Toolkit Symbol 'Button'.
+ImplementationBinding 'button.swing' pivots Component 'button' is implemented by Toolkit 'swing'.
+Component 'menu' is implemented by Toolkit 'swing' at Toolkit Symbol 'Menu'.
+ImplementationBinding 'menu.swing' pivots Component 'menu' is implemented by Toolkit 'swing'.
+Component 'menubutton' is implemented by Toolkit 'swing' at Toolkit Symbol 'MenuButton'.
+ImplementationBinding 'menubutton.swing' pivots Component 'menubutton' is implemented by Toolkit 'swing'.
+Component 'searchbox' is implemented by Toolkit 'swing' at Toolkit Symbol 'SearchBox'.
+ImplementationBinding 'searchbox.swing' pivots Component 'searchbox' is implemented by Toolkit 'swing'.
+Component 'alert' is implemented by Toolkit 'swing' at Toolkit Symbol 'Alert'.
+ImplementationBinding 'alert.swing' pivots Component 'alert' is implemented by Toolkit 'swing'.
+
+Component 'listview' is implemented by Toolkit 'slint' at Toolkit Symbol 'ListView'.
+ImplementationBinding 'listview.slint' pivots Component 'listview' is implemented by Toolkit 'slint'.
+Component 'sectionheader' is implemented by Toolkit 'slint' at Toolkit Symbol 'SectionHeader'.
+ImplementationBinding 'sectionheader.slint' pivots Component 'sectionheader' is implemented by Toolkit 'slint'.
+Component 'gridcell' is implemented by Toolkit 'slint' at Toolkit Symbol 'GridCell'.
+ImplementationBinding 'gridcell.slint' pivots Component 'gridcell' is implemented by Toolkit 'slint'.
+Component 'label' is implemented by Toolkit 'slint' at Toolkit Symbol 'Label'.
+ImplementationBinding 'label.slint' pivots Component 'label' is implemented by Toolkit 'slint'.
+Component 'richcontentcell' is implemented by Toolkit 'slint' at Toolkit Symbol 'RichContentCell'.
+ImplementationBinding 'richcontentcell.slint' pivots Component 'richcontentcell' is implemented by Toolkit 'slint'.
+Component 'textbox' is implemented by Toolkit 'slint' at Toolkit Symbol 'TextBox'.
+ImplementationBinding 'textbox.slint' pivots Component 'textbox' is implemented by Toolkit 'slint'.
+Component 'passwordbox' is implemented by Toolkit 'slint' at Toolkit Symbol 'PasswordBox'.
+ImplementationBinding 'passwordbox.slint' pivots Component 'passwordbox' is implemented by Toolkit 'slint'.
+Component 'textarea' is implemented by Toolkit 'slint' at Toolkit Symbol 'TextArea'.
+ImplementationBinding 'textarea.slint' pivots Component 'textarea' is implemented by Toolkit 'slint'.
+Component 'datepicker' is implemented by Toolkit 'slint' at Toolkit Symbol 'DatePicker'.
+ImplementationBinding 'datepicker.slint' pivots Component 'datepicker' is implemented by Toolkit 'slint'.
+Component 'timepicker' is implemented by Toolkit 'slint' at Toolkit Symbol 'TimePicker'.
+ImplementationBinding 'timepicker.slint' pivots Component 'timepicker' is implemented by Toolkit 'slint'.
+Component 'selectlist' is implemented by Toolkit 'slint' at Toolkit Symbol 'SelectList'.
+ImplementationBinding 'selectlist.slint' pivots Component 'selectlist' is implemented by Toolkit 'slint'.
+Component 'switch' is implemented by Toolkit 'slint' at Toolkit Symbol 'Switch'.
+ImplementationBinding 'switch.slint' pivots Component 'switch' is implemented by Toolkit 'slint'.
+Component 'menu' is implemented by Toolkit 'slint' at Toolkit Symbol 'Menu'.
+ImplementationBinding 'menu.slint' pivots Component 'menu' is implemented by Toolkit 'slint'.
+Component 'menubutton' is implemented by Toolkit 'slint' at Toolkit Symbol 'MenuButton'.
+ImplementationBinding 'menubutton.slint' pivots Component 'menubutton' is implemented by Toolkit 'slint'.
+Component 'searchbox' is implemented by Toolkit 'slint' at Toolkit Symbol 'SearchBox'.
+ImplementationBinding 'searchbox.slint' pivots Component 'searchbox' is implemented by Toolkit 'slint'.
+Component 'alert' is implemented by Toolkit 'slint' at Toolkit Symbol 'Alert'.
+ImplementationBinding 'alert.slint' pivots Component 'alert' is implemented by Toolkit 'slint'.

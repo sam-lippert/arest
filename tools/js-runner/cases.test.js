@@ -2597,8 +2597,14 @@ describe("law:paired over the React container's registration table", () => {
     // let the metamodel declare ten kinds while lambda emitted nineteen, and
     // no container was ever asked whether it had the other nine. The nineteen
     // are the iFactr interfaces since 2026-10-01 (Sam: the idealized controls
-    // are based on the MonoView and iFactr interfaces).
-    expect(declared.slice().sort()).toEqual(HTML.slice().sort());
+    // are based on the MonoView and iFactr interfaces). The container's one
+    // engine is the rest of what it registers (2026-10-02: a platform is its
+    // controls and its own layout engine, so the web container registers
+    // render:html and none of the other platforms' engines).
+    const engines = Ev("law:engines_declared", CELLS).map(String);
+    const mine = HTML.filter((n) => engines.includes(n));
+    expect(mine).toEqual(["render:html"]);
+    expect(declared.concat(mine).sort()).toEqual(HTML.slice().sort());
   });
 
   test("a container missing one native control is refused, by name", () => {
@@ -2610,11 +2616,15 @@ describe("law:paired over the React container's registration table", () => {
 
   test("a container missing the layout engine is refused too", () => {
     // a platform is its paired controls AND the engine that lays them out, so
-    // an unregistered render:html is as fatal as an unregistered widget
+    // an unregistered render:html is as fatal as an unregistered widget, and
+    // the refusal names the engines the store declares, any one of which
+    // would pair it (2026-10-02)
     const HTML = container().REGISTERED_NAMES.map(String);
     const short = HTML.filter((n) => n !== "render:html");
     expect(Ev("law:paired", [CELLS, short])).toBe("F");
-    expect(Ev("law:unpaired", [CELLS, short]).map(String)).toEqual(["render:html"]);
+    const engines = Ev("law:engines_declared", CELLS).map(String);
+    expect(engines.slice().sort()).toEqual(["render:html", "render:slint", "render:swing", "render:wpf"]);
+    expect(Ev("law:unpaired", [CELLS, short]).map(String)).toEqual(engines);
   });
 
   test("a caller that is not a platform owes no pairing", () => {
