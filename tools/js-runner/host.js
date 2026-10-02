@@ -1115,6 +1115,7 @@ const PRIMS = new Map(Object.entries({
 // past the cap; the identity-keyed indexes below outlive it (memoCall).
 const EVMEMO = new Map();
 let EVMEMON = 0;
+let MEMOW = 0;   // what the memo holds weighs this (memoWeight, below)
 // Backus 13.3.4 defines fetch as a linear walk (`↑n∘tl:x`), and lambda's
 // law:find_desc is that walk: filter the descriptors by name, take the
 // first. The MEANING is "the first descriptor named n" — a lookup. The
@@ -1158,13 +1159,13 @@ function memoReleaseWhenIdle(say) {
     MEMO_IDLE = null;
     let names = 0, held = 0;
     for (const node of EVMEMO.values()) { names++; held += (node && node.held) || 0; }
-    EVMEMO.clear(); EVMEMON = 0;
+    memoEmpty();
     if (typeof Bun !== "undefined" && Bun.gc) Bun.gc(true);
     if (say && names) say("memo released: " + held + " answer(s) under " + names + " name(s)");
   }, Number(process.env.AREST_MEMO_IDLE_MS || 5000));
   if (MEMO_IDLE.unref) MEMO_IDLE.unref();
 }
-function memoClear() { EVMEMO.clear(); EVMEMON = 0; DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MATCHPROV = new WeakMap(); KEYIDX = new WeakMap(); KEYPROV = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); PROJPLAN = new WeakMap(); }
+function memoClear() { memoEmpty(); DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MATCHPROV = new WeakMap(); KEYIDX = new WeakMap(); KEYPROV = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); PROJPLAN = new WeakMap(); }
 // the rows of `rows` whose first column equals `key`, in source order -- the value
 // of csdp:matches (INSERT csdp:keep_keyed . theta:append_phi . distl). The fold
 // visits every row, so a row that is not a sequence, or is empty, throws the
@@ -3323,6 +3324,24 @@ function sreport(label) {
       console.error(label + " kinds: " + kinds.map(([k, n]) => k + " " + n).join("  "));
     }
   }
+  // AREST_SAMPLE_MEMO=1 says which names hold the memo's answers; =2 then empties it and collects,
+  // so the line after says what the memo alone was keeping alive (a diagnostic: it slows the run)
+  if (process.env.AREST_SAMPLE_MEMO) {
+    const rows = [];
+    let total = 0;
+    // an answer's weight: its elements, two levels down, a rough measure of what it keeps alive
+    const weigh = (v) => { if (!Array.isArray(v)) return 1; let w = 1 + v.length; for (const e of v) if (Array.isArray(e)) w += e.length; return w; };
+    const walk = (m, depth) => { let w = 0; for (const v of m.values()) w += (v instanceof Map && depth < 6) ? walk(v, depth + 1) : weigh(v); return w; };
+    let wtotal = 0;
+    for (const [name, node] of EVMEMO) { const h = (node && node.held) || 0; const w = walk(node, 0); total += h; wtotal += w; rows.push([name, h, w]); }
+    rows.sort((a, b) => b[2] - a[2]);
+    console.error(label + " memo: " + total + " answers weighing " + wtotal + " under " + EVMEMO.size + " names (" + EVMEMON + " since the bound): " + rows.slice(0, 14).map(([k, n, w]) => { const st = MEMOSTAT.get(k) || [0, 0]; return k + " " + n + "/" + w + " (" + st[1] + " of " + st[0] + ")"; }).join("  "));
+    if (process.env.AREST_SAMPLE_MEMO === "2" && typeof Bun !== "undefined" && Bun.gc) {
+      memoEmpty(); Bun.gc(true);
+      const hs2 = require("bun:jsc").heapStats();
+      console.error(label + " without memo: rss " + Math.round(process.memoryUsage().rss / 1048576) + " MB, heap " + Math.round(hs2.heapSize / 1048576) + " MB in " + hs2.objectCount + " objects");
+    }
+  }
   if (SWHOCOUNT.size > 0) {
     const rows = [...SWHOCOUNT.entries()].sort((a, b) => b[1] - a[1]).slice(0, 24);
     console.error(label + " who: " + rows.map(([k, n]) => k + " " + n).join("  "));
@@ -3500,16 +3519,52 @@ function sub(f) {
 // The memo is evaluator quality and never meaning, so none of this moves an
 // answer: the compile's two carriers came out byte-identical and its store row
 // for row.
+//
+// AND NO NAME, AND NOT THE MEMO, KEEPS MORE THAN A BOUNDED WEIGHT OF ANSWERS
+// (2026-10-02). Both bounds above count answers, and an answer can be a whole
+// table. support's check, on a copy of its store, stored every table's rows
+// under rmap:proj_rows and rmap:proj_entrows as it wrote them -- 404 and 207
+// answers, none of them asked for again -- and when its write peaked the memo
+// held 47.6 million elements, counted two levels down, with a heap of 1,005 MB
+// after a full collection; the one time the 400,000-answer bound emptied the
+// memo mid-check, the heap after a collection fell from 661 MB to 358. So each
+// answer stored is weighed (memoWeight: its elements and theirs, a text a
+// sixteenth of its length), a name whose answers since its entries last went
+// weigh MEMO_NAME_W loses them, and is applied bare from then on if by then it
+// has been given back fewer than one in MEMO_EARNS of its stores, and the memo
+// is emptied when what it holds weighs MEMO_ALL_W, as it is past 400,000
+// answers. The weighing is a pass over what was just computed.
 const MEMO_JUDGED = 4096;
 const MEMO_EARNS = 8;
 const MEMO_HELD = 4096;
+const MEMO_NAME_W = 1 << 20;
+const MEMO_ALL_W = 1 << 22;
 const MEMOSTAT = new Map();   // name -> [stored, given back, applied bare]
+function memoWeight(v) {
+  if (typeof v === "string") return 1 + (v.length >> 4);
+  if (!Array.isArray(v)) return 1;
+  let w = 1 + v.length;
+  for (let i = 0; i < v.length; i++) {
+    const e = v[i];
+    if (Array.isArray(e)) w += e.length;
+    else if (typeof e === "string" && e.length > 64) w += e.length >> 4;
+  }
+  return w;
+}
+// a name's answers go, and their weight with them
+function memoForget(f) {
+  const root = EVMEMO.get(f);
+  if (root === undefined) return;
+  MEMOW -= root.weight || 0;
+  EVMEMO.delete(f);
+}
+function memoEmpty() { EVMEMO.clear(); EVMEMON = 0; MEMOW = 0; }
 function memoCall(f, x, run) {
   let st = MEMOSTAT.get(f);
   if (st === undefined) { st = [0, 0, false]; MEMOSTAT.set(f, st); }
   if (st[2]) return run(x);
   let node = EVMEMO.get(f);
-  if (node === undefined) { node = new Map(); node.held = 0; EVMEMO.set(f, node); }
+  if (node === undefined) { node = new Map(); node.held = 0; node.weight = 0; EVMEMO.set(f, node); }
   const root = node;
   const chain = (Array.isArray(x) && x.length <= 4) ? [x.length, ...x] : [-1, x];
   for (let i = 0; i < chain.length - 1; i++) {
@@ -3521,8 +3576,11 @@ function memoCall(f, x, run) {
   if (node.has(last)) { st[1]++; return node.get(last); }
   const v = run(x);
   node.set(last, v);
-  if (++st[0] % MEMO_JUDGED === 0 && st[1] * MEMO_EARNS < st[0]) { st[2] = true; EVMEMO.delete(f); }
-  else if (++root.held >= MEMO_HELD) EVMEMO.delete(f);
+  const w = memoWeight(v);
+  root.weight += w; MEMOW += w;
+  if (++st[0] % MEMO_JUDGED === 0 && st[1] * MEMO_EARNS < st[0]) { st[2] = true; memoForget(f); }
+  else if (++root.held >= MEMO_HELD) memoForget(f);
+  else if (root.weight >= MEMO_NAME_W) { if (st[1] * MEMO_EARNS < st[0]) st[2] = true; memoForget(f); }
   // THE SIZE BOUND TRIMS THE MEMO, NOT THE INDEXES. The bound existed to
   // keep the memo's maps from growing without limit, and it emptied every
   // identity-keyed index with them; those are WeakMaps on immutable lambda
@@ -3531,7 +3589,7 @@ function memoCall(f, x, run) {
   // at 82% of self, most of it re-indexing relations it had indexed before
   // (the profile-and-fix loop, 2026-09-08). The one mutable array is the
   // store, and its mutation points call memoClear, which still clears all.
-  if (++EVMEMON > 400000) { EVMEMO.clear(); EVMEMON = 0; }
+  if (++EVMEMON > 400000 || MEMOW >= MEMO_ALL_W) memoEmpty();
   return v;
 }
 // A NAME IN A FORM, resolved once: Ev asked four maps per application (DEFS,
@@ -4031,7 +4089,7 @@ function adoptStore(next) {
   // after a forced collection climbed 159 -> 357 MB with the memo kept and stayed at 120 MB
   // with it dropped, every call as fast either way (2.4-3.1 s). So the memo goes here, as it
   // goes when a server idles; the identity-keyed indexes are weak and stay true for CELLS.
-  if (next === CELLS) { EVMEMO.clear(); EVMEMON = 0; return true; }
+  if (next === CELLS) { memoEmpty(); return true; }
   const copy = next.slice();
   CELLS.length = 0;
   for (const c of copy) CELLS.push(c);
@@ -5143,7 +5201,7 @@ function lazyStore(db, want) {
     // it that take a row or a cell held every read's rows and pairs for the life
     // of the server. The inverse's definitions are all rmap:unproj*, and the few
     // of them that take a table are recomputed once a read.
-    for (const k of [...EVMEMO.keys()]) if (typeof k === "string" && k.startsWith("rmap:unproj")) EVMEMO.delete(k);
+    for (const k of [...EVMEMO.keys()]) if (typeof k === "string" && k.startsWith("rmap:unproj")) memoForget(k);
     return out;
   };
   const ftRows = new Map();
@@ -5306,7 +5364,7 @@ function lazyStore(db, want) {
         let l = byFt.get(ft); if (!l) byFt.set(ft, (l = [])); l.push(fact);
       }
     }
-    for (const k of [...EVMEMO.keys()]) if (typeof k === "string" && k.startsWith("rmap:unproj")) EVMEMO.delete(k);
+    for (const k of [...EVMEMO.keys()]) if (typeof k === "string" && k.startsWith("rmap:unproj")) memoForget(k);
     return byFt;
   };
   // the carriers' rows for a fact type, unfolded: what a descriptor's fifth slot answers
