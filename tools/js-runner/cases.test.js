@@ -2594,17 +2594,18 @@ describe("law:paired over the React container's registration table", () => {
     // BOTH WAYS ROUND, which is what #124 added: law:unpaired above says the
     // container registers everything the store declares, and this says the
     // store declares everything the container registers. One direction alone
-    // let the metamodel declare ten kinds while lambda emitted nineteen --
-    // ui:screen on `new Function` places a navigationfield over this very
-    // store, and no container was ever asked whether it had one.
+    // let the metamodel declare ten kinds while lambda emitted nineteen, and
+    // no container was ever asked whether it had the other nine. The nineteen
+    // are the iFactr interfaces since 2026-10-01 (Sam: the idealized controls
+    // are based on the MonoView and iFactr interfaces).
     expect(declared.slice().sort()).toEqual(HTML.slice().sort());
   });
 
   test("a container missing one native control is refused, by name", () => {
     const HTML = container().REGISTERED_NAMES.map(String);
-    const short = HTML.filter((n) => n !== "render:itemrow");
+    const short = HTML.filter((n) => n !== "render:gridcell");
     expect(Ev("law:paired", [CELLS, short])).toBe("F");
-    expect(Ev("law:unpaired", [CELLS, short]).map(String)).toEqual(["render:itemrow"]);
+    expect(Ev("law:unpaired", [CELLS, short]).map(String)).toEqual(["render:gridcell"]);
   });
 
   test("a container missing the layout engine is refused too", () => {
@@ -4667,8 +4668,11 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     // and through compile:findings_of_x, the path compile:check hands the host: its cat is binary, so a
     // third sequence handed it was dropped without a word, and the first version of this finding was
     expect(Ev("compile:findings_of_x", [F, []]).filter((r) => String(r[0]) === "undelivered").map(J)).toEqual([J(["undelivered", "OrganizationHasRevenueAmountPerFrequency", "reported", [], "a `where` clause no form says"])]);
-    // the same arity bug closed no back button: html:backbtn handed cat three sequences and lost its </a>
-    expect(String(Ev("html:backbtn", ["backbtn", 0, 0, 120, 24, ["cases"]])).endsWith("</a>")).toBe(true);
+    // the same arity bug closed no back button: html:backbtn handed cat three sequences and lost its </a>.
+    // The back link is the view's since 2026-10-01 (an IListView's BackLink), and a linked IGridCell is the
+    // control whose markup now closes an <a> around its children
+    const cell = ["gridcell", 0, 0, 120, 24, [["NavigationLink", ["cases"]], ["Children", [["label", 0, 0, 120, 24, [["Text", "cases"]]]]]]];
+    expect(String(Ev("html:gridcell", cell)).endsWith("</div></a>")).toBe(true);
   }, 300_000);
   // AN INTEGER IS HELD AS AN INTEGER (2026-09-29, Sam: a value always in its exact type, never converted where it
   // is used). The reader wrote `Widget 'w1' has Count 12` as the text 12 and a store boot handed rmap:unproj the

@@ -74,9 +74,8 @@ Component Role is a value type.
     'button', 'text-input', 'list', 'date-picker', 'dialog',
     'image', 'slider', 'combo-box', 'progress-bar', 'checkbox',
     'tab', 'menu', 'card',
-    'canvas', 'header-bar', 'title-text', 'section-header',
-    'separator', 'list-item', 'block-text', 'navigation-field',
-    'number-input', 'time-picker', 'text-area', 'image-picker',
+    'section-header', 'grid-cell', 'rich-content', 'password-input',
+    'time-picker', 'text-area', 'menu-button', 'search-box',
     'label'.
   <!-- Closed enumeration of the canonical widget categories this
        slice seeds. New roles are added by extending the enumeration
@@ -997,157 +996,148 @@ ImplementationBinding 'tab.gtk4' has Component Trait 'dark_mode_native'.
      picker for compact density on touch", scored against MonoView constraints
      and design tokens. Nothing dispatches on it.
 
-     Lambda's control kinds are a different set and a different question. ui:place
-     answers rows <control, x, y, w, h, payload...>; ui:render applies
-     render:<control> to every row; ui:ctl_entry pairs each of the metamodel's
-     31 Conceptual Data Types to one of ten typed kinds, and a screen's layout
-     places nine more. law:ctl_declared reads the render: names out of the
-     Function population and law:paired asks a container whether it registers
-     every one of them. So the IDEALIZED SET IS LAMBDA'S NINETEEN: they are the
-     names a renderer is actually handed, and a container that pairs anything
-     else is never called. Measured on the metamodel store: the address
-     `new Function` places 175 rows over canvas, headerbar, titletext, textbox,
-     navigationfield and button.
+     The idealized controls are the other question, and Sam answered which set
+     they are on 2026-10-01: the MonoView and iFactr interfaces. ui:arrange
+     answers the placed view, <listview, 0, 0, w, h, properties> and then
+     <kind, x, y, w, h, properties> for every row in it; ui:render applies
+     render:<kind> to each; law:ctl_declared reads the render: names out of the
+     Function population (metamodel/resolution.md) and law:paired asks a
+     container whether it registers every one of them. The nineteen are the
+     interfaces an iFactr binding registers in its factory, lower-cased without
+     the I: IListView, ISectionHeader, IGridCell, ILabel, IRichContentCell,
+     ITextBox, IPasswordBox, ITextArea, IDatePicker, ITimePicker, ISelectList,
+     ISwitch, ISlider, IImage, IButton, IMenu, IMenuButton, ISearchBox and
+     IAlert. The chrome a screen used to place as controls -- a canvas, a
+     header bar, a title text, a back button, a separator -- is the view's
+     properties now (Title, BackLink, SeparatorColor), drawn by the platform
+     around the content it is handed, as every iFactr binding draws its own
+     navigation bar.
 
-     THE OVERLAP IS REAL AND IS NOT A SYNONYM TABLE. Four of the nineteen name
-     a category this reading already has -- textbox is a 'text-input',
-     selectlist a 'combo-box', datepicker a 'date-picker', switch a 'checkbox'
-     -- so they take that Role rather than a new one, and backbtn takes
-     'button'. Thirteen roles are new because the catalogue had no word for a
-     canvas, a separator or a list item. Each Component's NAME is lambda's own
-     control kind, unchanged, because the name is what render:<kind> is built
-     from: a Component named 'text-input' could never be found from a row that
-     says 'textbox' without a second table to consult, and a renderer that has
-     to consult one has leaked the seam this reading exists to close.
+     THE OVERLAP WITH THE CATALOGUE IS REAL AND IS NOT A SYNONYM TABLE. Where an
+     interface names a category this reading already has, its Component takes
+     that Role: listview is a 'list', textbox a 'text-input', selectlist a
+     'combo-box', datepicker a 'date-picker', switch a 'checkbox', alert a
+     'dialog', and button, image and slider ARE the catalogue's Components of
+     those names, bound to React here. Each Component's NAME is the control
+     kind lambda places, because the name is what render:<kind> is built from.
 
      The layout engine is NOT a Component. A platform is its paired controls
      plus the engine that lays them out (iFactr), and that engine is the
      function from a screen's placed rows to a document -- render:html in
-     metamodel/resolution.md, bound by the React container. What it draws is
-     the canvas Component with the paired widgets inside it, so it needs no
-     widget row of its own.
+     metamodel/resolution.md, bound by the React container.
 
      AND IT REPLACES THE TREE, WHICH IS WHAT THE TOOLKIT ROW ABOVE STILL SAYS.
      Samuel, 2026-07-08, on Toolkit 'react': "Its render target is the JSON
      view emitter: a react component consumes the TREE plus the apply endpoint
      and nothing else." That is the older rendering -- ui:route's layer tree
-     through system:render_html, which dispatches on 'menu', 'list' and
-     'detail'. The pairing below is over the PLACED ROWS instead, because that
-     is what ui:render applies render:<control> to and what law:paired is
-     asked about. The tree renderer is not deleted here and nothing in this
-     reading names it; which of the two the React tier draws is a decision,
-     not a fact, and it is Sam's. -->
+     through system:render_html. The pairing below is over the PLACED ROWS
+     instead, because that is what ui:render applies render:<kind> to and what
+     law:paired is asked about. -->
 
-
-Component 'canvas' has Component Role 'canvas'.
-Component 'canvas' has display- Title 'Canvas'.
-Component 'canvas' has Description 'The screen surface a layer's placed rows are positioned inside. ui:arrange gives it the frame width and the content height; every other widget sits absolutely positioned within it.'.
-Component 'canvas' is implemented by Toolkit 'react' at Toolkit Symbol 'Canvas'.
-ImplementationBinding 'canvas.react' pivots Component 'canvas' is implemented by Toolkit 'react'.
-
-Component 'headerbar' has Component Role 'header-bar'.
-Component 'headerbar' has display- Title 'HeaderBar'.
-Component 'headerbar' has Description 'The bar across the top of a screen, behind the title and the back affordance.'.
-Component 'headerbar' is implemented by Toolkit 'react' at Toolkit Symbol 'HeaderBar'.
-ImplementationBinding 'headerbar.react' pivots Component 'headerbar' is implemented by Toolkit 'react'.
-
-Component 'titletext' has Component Role 'title-text'.
-Component 'titletext' has display- Title 'TitleText'.
-Component 'titletext' has Description 'The screen's title, drawn in the header bar. Payload: the title text.'.
-Component 'titletext' is implemented by Toolkit 'react' at Toolkit Symbol 'TitleText'.
-ImplementationBinding 'titletext.react' pivots Component 'titletext' is implemented by Toolkit 'react'.
-
-Component 'backbtn' has Component Role 'button'.
-Component 'backbtn' has display- Title 'BackButton'.
-Component 'backbtn' has Description 'The affordance back to the previous address. Payload: the address, which the container turns into a link; the label is ui:style's backLabel.'.
-Component 'backbtn' is implemented by Toolkit 'react' at Toolkit Symbol 'BackButton'.
-ImplementationBinding 'backbtn.react' pivots Component 'backbtn' is implemented by Toolkit 'react'.
+Component 'listview' has Component Role 'list'.
+Component 'listview' has display- Title 'ListView'.
+Component 'listview' has Description 'The view: a list of sections the screen is placed in. Its Title, BackLink, colors and, where it has them, its Menu and SearchBox are properties, and the platform draws them as its own chrome around the content (IListView).'.
+Component 'listview' is implemented by Toolkit 'react' at Toolkit Symbol 'ListView'.
+ImplementationBinding 'listview.react' pivots Component 'listview' is implemented by Toolkit 'react'.
 
 Component 'sectionheader' has Component Role 'section-header'.
 Component 'sectionheader' has display- Title 'SectionHeader'.
-Component 'sectionheader' has Description 'The caption above a run of item rows. Payload: the section's text.'.
+Component 'sectionheader' has Description 'The caption above a section: its Text, Font and colors (ISectionHeader).'.
 Component 'sectionheader' is implemented by Toolkit 'react' at Toolkit Symbol 'SectionHeader'.
 ImplementationBinding 'sectionheader.react' pivots Component 'sectionheader' is implemented by Toolkit 'react'.
 
-Component 'sep' has Component Role 'separator'.
-Component 'sep' has display- Title 'Separator'.
-Component 'sep' has Description 'A one-pixel rule between item rows. No payload.'.
-Component 'sep' is implemented by Toolkit 'react' at Toolkit Symbol 'Separator'.
-ImplementationBinding 'sep.react' pivots Component 'sep' is implemented by Toolkit 'react'.
+Component 'gridcell' has Component Role 'grid-cell'.
+Component 'gridcell' has display- Title 'GridCell'.
+Component 'gridcell' has Description 'A cell of a section, absolutely placed, holding its Children placed relative to itself: the labels of an item, or the header label and control of a field. A cell with a NavigationLink is the link (IGridCell).'.
+Component 'gridcell' is implemented by Toolkit 'react' at Toolkit Symbol 'GridCell'.
+ImplementationBinding 'gridcell.react' pivots Component 'gridcell' is implemented by Toolkit 'react'.
 
-Component 'itemrow' has Component Role 'list-item'.
-Component 'itemrow' has display- Title 'ItemRow'.
-Component 'itemrow' has Description 'One row of a collection: text, optional subtext, and the address it navigates to. Payload: text, subtext, address.'.
-Component 'itemrow' is implemented by Toolkit 'react' at Toolkit Symbol 'ItemRow'.
-ImplementationBinding 'itemrow.react' pivots Component 'itemrow' is implemented by Toolkit 'react'.
+Component 'label' has Component Role 'label'.
+Component 'label' has display- Title 'Label'.
+Component 'label' has Description 'Text: the text or subtext of an item, the header of a field, or a value a person does not type, which carries its SubmitKey (ILabel).'.
+Component 'label' is implemented by Toolkit 'react' at Toolkit Symbol 'Label'.
+ImplementationBinding 'label.react' pivots Component 'label' is implemented by Toolkit 'react'.
 
-Component 'blocktext' has Component Role 'block-text'.
-Component 'blocktext' has display- Title 'BlockText'.
-Component 'blocktext' has Description 'A preformatted block of text on a screen, wrapped and scrollable. Payload: the text.'.
-Component 'blocktext' is implemented by Toolkit 'react' at Toolkit Symbol 'BlockText'.
-ImplementationBinding 'blocktext.react' pivots Component 'blocktext' is implemented by Toolkit 'react'.
+Component 'richcontentcell' has Component Role 'rich-content'.
+Component 'richcontentcell' has display- Title 'RichContentCell'.
+Component 'richcontentcell' has Description 'A block of text on a screen, wrapped and scrollable: a report (IRichContentCell).'.
+Component 'richcontentcell' is implemented by Toolkit 'react' at Toolkit Symbol 'RichContentCell'.
+ImplementationBinding 'richcontentcell.react' pivots Component 'richcontentcell' is implemented by Toolkit 'react'.
 
 Component 'textbox' has Component Role 'text-input'.
 Component 'textbox' has display- Title 'TextBox'.
-Component 'textbox' has Description 'Single-line text entry. Payload: the field's label and the fact type name the value is posted under.'.
+Component 'textbox' has Description 'Single-line entry of the Text of a field under its SubmitKey; a number is a text box whose KeyboardType is Symbolic (ITextBox).'.
 Component 'textbox' is implemented by Toolkit 'react' at Toolkit Symbol 'TextBox'.
 ImplementationBinding 'textbox.react' pivots Component 'textbox' is implemented by Toolkit 'react'.
 
-<!-- 'button' is already declared above; this is only its React binding. -->
-Component 'button' is implemented by Toolkit 'react' at Toolkit Symbol 'Button'.
-ImplementationBinding 'button.react' pivots Component 'button' is implemented by Toolkit 'react'.
+Component 'passwordbox' has Component Role 'password-input'.
+Component 'passwordbox' has display- Title 'PasswordBox'.
+Component 'passwordbox' has Description 'Masked entry, for a value type stored through a Function: a secret (IPasswordBox).'.
+Component 'passwordbox' is implemented by Toolkit 'react' at Toolkit Symbol 'PasswordBox'.
+ImplementationBinding 'passwordbox.react' pivots Component 'passwordbox' is implemented by Toolkit 'react'.
 
-Component 'selectlist' has Component Role 'combo-box'.
-Component 'selectlist' has display- Title 'SelectList'.
-Component 'selectlist' has Description 'A closed choice over the enumeration a value type declares. Payload: label, name, and the options.'.
-Component 'selectlist' is implemented by Toolkit 'react' at Toolkit Symbol 'SelectList'.
-ImplementationBinding 'selectlist.react' pivots Component 'selectlist' is implemented by Toolkit 'react'.
-
-Component 'navigationfield' has Component Role 'navigation-field'.
-Component 'navigationfield' has display- Title 'NavigationField'.
-Component 'navigationfield' has Description 'A choice over the population of a referenced entity type -- the same closed choice as a select list, over ids rather than enum values. Payload: label, name, and the ids.'.
-Component 'navigationfield' is implemented by Toolkit 'react' at Toolkit Symbol 'NavigationField'.
-ImplementationBinding 'navigationfield.react' pivots Component 'navigationfield' is implemented by Toolkit 'react'.
-
-Component 'numericfield' has Component Role 'number-input'.
-Component 'numericfield' has display- Title 'NumericField'.
-Component 'numericfield' has Description 'Numeric entry, for the integer, float, decimal and money Conceptual Data Types. Payload: label and name.'.
-Component 'numericfield' is implemented by Toolkit 'react' at Toolkit Symbol 'NumericField'.
-ImplementationBinding 'numericfield.react' pivots Component 'numericfield' is implemented by Toolkit 'react'.
+Component 'textarea' has Component Role 'text-area'.
+Component 'textarea' has display- Title 'TextArea'.
+Component 'textarea' has Description 'Multi-line entry, for the largeText Conceptual Data Type (ITextArea).'.
+Component 'textarea' is implemented by Toolkit 'react' at Toolkit Symbol 'TextArea'.
+ImplementationBinding 'textarea.react' pivots Component 'textarea' is implemented by Toolkit 'react'.
 
 Component 'datepicker' has Component Role 'date-picker'.
 Component 'datepicker' has display- Title 'DatePicker'.
-Component 'datepicker' has Description 'Date entry, for the date and dateTime Conceptual Data Types. Payload: label and name.'.
+Component 'datepicker' has Description 'Date entry, for the date and dateTime Conceptual Data Types (IDatePicker).'.
 Component 'datepicker' is implemented by Toolkit 'react' at Toolkit Symbol 'DatePicker'.
 ImplementationBinding 'datepicker.react' pivots Component 'datepicker' is implemented by Toolkit 'react'.
 
 Component 'timepicker' has Component Role 'time-picker'.
 Component 'timepicker' has display- Title 'TimePicker'.
-Component 'timepicker' has Description 'Time entry, for the time Conceptual Data Type. Payload: label and name.'.
+Component 'timepicker' has Description 'Time entry, for the time Conceptual Data Type (ITimePicker).'.
 Component 'timepicker' is implemented by Toolkit 'react' at Toolkit Symbol 'TimePicker'.
 ImplementationBinding 'timepicker.react' pivots Component 'timepicker' is implemented by Toolkit 'react'.
 
+Component 'selectlist' has Component Role 'combo-box'.
+Component 'selectlist' has display- Title 'SelectList'.
+Component 'selectlist' has Description 'A closed choice of its SelectedItem among its Items: an enumeration a value type declares, or the population of a referenced entity type (ISelectList).'.
+Component 'selectlist' is implemented by Toolkit 'react' at Toolkit Symbol 'SelectList'.
+ImplementationBinding 'selectlist.react' pivots Component 'selectlist' is implemented by Toolkit 'react'.
+
 Component 'switch' has Component Role 'checkbox'.
 Component 'switch' has display- Title 'Switch'.
-Component 'switch' has Description 'A two-state control, for the boolean and yesNo Conceptual Data Types. Payload: label and name.'.
+Component 'switch' has Description 'A two-state Value, for the boolean and yesNo Conceptual Data Types (ISwitch).'.
 Component 'switch' is implemented by Toolkit 'react' at Toolkit Symbol 'Switch'.
 ImplementationBinding 'switch.react' pivots Component 'switch' is implemented by Toolkit 'react'.
 
-Component 'textarea' has Component Role 'text-area'.
-Component 'textarea' has display- Title 'TextArea'.
-Component 'textarea' has Description 'Multi-line text entry, for the largeText Conceptual Data Type. Payload: label and name.'.
-Component 'textarea' is implemented by Toolkit 'react' at Toolkit Symbol 'TextArea'.
-ImplementationBinding 'textarea.react' pivots Component 'textarea' is implemented by Toolkit 'react'.
+<!-- 'slider' is already declared above; this is only its React binding. -->
+Component 'slider' is implemented by Toolkit 'react' at Toolkit Symbol 'Slider'.
+ImplementationBinding 'slider.react' pivots Component 'slider' is implemented by Toolkit 'react'.
 
-Component 'imagepicker' has Component Role 'image-picker'.
-Component 'imagepicker' has display- Title 'ImagePicker'.
-Component 'imagepicker' has Description 'Picture entry, for the picture Conceptual Data Type. Payload: label and name.'.
-Component 'imagepicker' is implemented by Toolkit 'react' at Toolkit Symbol 'ImagePicker'.
-ImplementationBinding 'imagepicker.react' pivots Component 'imagepicker' is implemented by Toolkit 'react'.
+<!-- 'image' is already declared above; this is only its React binding. -->
+Component 'image' is implemented by Toolkit 'react' at Toolkit Symbol 'Image'.
+ImplementationBinding 'image.react' pivots Component 'image' is implemented by Toolkit 'react'.
 
-Component 'label' has Component Role 'label'.
-Component 'label' has display- Title 'Label'.
-Component 'label' has Description 'A read-only value, for the Conceptual Data Types a person does not type: autoCounter, uuid, autoTimestamp, rowId, objectId and the raws. Payload: label and name.'.
-Component 'label' is implemented by Toolkit 'react' at Toolkit Symbol 'Label'.
-ImplementationBinding 'label.react' pivots Component 'label' is implemented by Toolkit 'react'.
+<!-- 'button' is already declared above; this is only its React binding. -->
+Component 'button' is implemented by Toolkit 'react' at Toolkit Symbol 'Button'.
+ImplementationBinding 'button.react' pivots Component 'button' is implemented by Toolkit 'react'.
 
+Component 'menu' has Component Role 'menu'.
+Component 'menu' has display- Title 'Menu'.
+Component 'menu' has Description 'The menu of a view: the actions the user takes, its Buttons (IMenu).'.
+Component 'menu' is implemented by Toolkit 'react' at Toolkit Symbol 'Menu'.
+ImplementationBinding 'menu.react' pivots Component 'menu' is implemented by Toolkit 'react'.
+
+Component 'menubutton' has Component Role 'menu-button'.
+Component 'menubutton' has display- Title 'MenuButton'.
+Component 'menubutton' has Description 'One action in the menu of a view: its Title and the NavigationLink it follows (IMenuButton).'.
+Component 'menubutton' is implemented by Toolkit 'react' at Toolkit Symbol 'MenuButton'.
+ImplementationBinding 'menubutton.react' pivots Component 'menubutton' is implemented by Toolkit 'react'.
+
+Component 'searchbox' has Component Role 'search-box'.
+Component 'searchbox' has display- Title 'SearchBox'.
+Component 'searchbox' has Description 'The search of a list: its Placeholder and Text (ISearchBox).'.
+Component 'searchbox' is implemented by Toolkit 'react' at Toolkit Symbol 'SearchBox'.
+ImplementationBinding 'searchbox.react' pivots Component 'searchbox' is implemented by Toolkit 'react'.
+
+Component 'alert' has Component Role 'dialog'.
+Component 'alert' has display- Title 'Alert'.
+Component 'alert' has Description 'A message the platform shows over the screen: its Title and Message, such as a refusal (IAlert).'.
+Component 'alert' is implemented by Toolkit 'react' at Toolkit Symbol 'Alert'.
+ImplementationBinding 'alert.react' pivots Component 'alert' is implemented by Toolkit 'react'.

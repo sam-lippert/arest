@@ -791,96 +791,97 @@ Function 'tlr' yields Type Expression 'sequence'.
 <!-- The render surface (2026-07-19, the registration ruling: components
      register INTO DEFS, never a side table): each abstract control's
      realization is a registered definition a container supplies at its
-     OnSetDefinitions moment; the lambda's ui:renderers names the surface,
-     so the manifest's total walk computes these rows. -->
-Function 'render:canvas' has Definition Origin 'registered'.
-Function 'render:canvas' accepts Type Expression 'placed-row'.
-Function 'render:canvas' yields Type Expression 'widget'.
-Function 'render:headerbar' has Definition Origin 'registered'.
-Function 'render:headerbar' accepts Type Expression 'placed-row'.
-Function 'render:headerbar' yields Type Expression 'widget'.
-Function 'render:titletext' has Definition Origin 'registered'.
-Function 'render:titletext' accepts Type Expression 'placed-row'.
-Function 'render:titletext' yields Type Expression 'widget'.
-Function 'render:backbtn' has Definition Origin 'registered'.
-Function 'render:backbtn' accepts Type Expression 'placed-row'.
-Function 'render:backbtn' yields Type Expression 'widget'.
+     OnSetDefinitions moment, so the manifest's total walk computes these
+     rows. #124 (2026-09-21) made the surface the whole pairing table: every
+     kind lambda can place is declared here, because law:ctl_declared reads
+     THIS population and law:paired asks a container whether it registers
+     every name in it, and a shortfall is a window that dies on the first row
+     naming a kind no container was asked to have.
+
+     THE SURFACE IS THE IFACTR INTERFACE SET (Sam, 2026-10-01: the idealized
+     controls are based on the MonoView and iFactr interfaces). The nineteen
+     names declared until today were lambda's own: canvas, headerbar,
+     titletext, backbtn, sep, itemrow, blocktext, numericfield,
+     navigationfield and imagepicker are not iFactr interfaces, and four of
+     them were the view's chrome, which iFactr carries as properties of the
+     view (IView.Title, IHistoryEntry.BackLink, IListView.SeparatorColor) and
+     every binding draws itself. Each name below is an interface a binding
+     registers in its factory (iFactr-WPF WpfFactory.OnSetDefinitions):
+     IListView, ISectionHeader, IGridCell, ILabel, IRichContentCell,
+     ITextBox, IPasswordBox, ITextArea, IDatePicker, ITimePicker,
+     ISelectList, ISwitch, ISlider, IImage, IButton, IMenu, IMenuButton,
+     ISearchBox and IAlert, lower-cased without its I. Fifteen are placed:
+     their rows are <kind, x, y, w, h, properties>. Four are not: a menu, its
+     buttons and a search box are properties of a view, and an alert is the
+     answer's own, so their rows are <kind, properties>. IToolbar is not
+     declared: iFactr gives a toolbar to ICanvasView alone, and no screen is
+     a canvas view. -->
+Function 'render:listview' has Definition Origin 'registered'.
+Function 'render:listview' accepts Type Expression 'placed-row'.
+Function 'render:listview' yields Type Expression 'widget'.
 Function 'render:sectionheader' has Definition Origin 'registered'.
 Function 'render:sectionheader' accepts Type Expression 'placed-row'.
 Function 'render:sectionheader' yields Type Expression 'widget'.
-Function 'render:sep' has Definition Origin 'registered'.
-Function 'render:sep' accepts Type Expression 'placed-row'.
-Function 'render:sep' yields Type Expression 'widget'.
-Function 'render:itemrow' has Definition Origin 'registered'.
-Function 'render:itemrow' accepts Type Expression 'placed-row'.
-Function 'render:itemrow' yields Type Expression 'widget'.
-Function 'render:blocktext' has Definition Origin 'registered'.
-Function 'render:blocktext' accepts Type Expression 'placed-row'.
-Function 'render:blocktext' yields Type Expression 'widget'.
-
-<!-- AND THE SURFACE IS THE WHOLE PAIRING TABLE, NOT EIGHT OF IT (#124,
-     2026-09-21). Lambda emits NINETEEN control kinds. ui:ctl_entry is the
-     value-type-to-control table -- each of the 31 Conceptual Data Types is
-     paired to textbox, textarea, numericfield, label, datepicker,
-     timepicker, switch, imagepicker, selectlist or navigationfield -- and
-     ui:render applies render:<control> to every placed row a screen
-     produces, the nine layout kinds above among them. This file declared
-     ten registered and gave eight a signature, so the enumerable boundary
-     was short by nine names that lambda can emit on any screen.
-
-     THAT SHORTFALL IS WHAT THE PAIRING ASKS OVER. law:ctl_declared reads
-     THIS population and law:paired asks a container whether it registers
-     every name in it, so a container was asked about ten kinds and told it
-     was total. Measured on this very store, not supposed: ui:screen on the
-     address `new Function` places 175 rows over canvas, headerbar,
-     titletext, textbox, NAVIGATIONFIELD and button, and render:navigation-
-     field was not a name any container had ever been asked to have. The
-     eleven signatures and nine origins below are added, none moved: the
-     same accepts 'placed-row' / yields 'widget' the eight already carry,
-     because a control kind is a control kind.
-
-     AND THE LAYOUT ENGINE IS REGISTERED BESIDE THE WIDGETS. A platform is
-     its paired controls plus the engine that lays them out (iFactr):
-     render:html is the html engine, the function from a screen's placed
-     rows to a document -- the canvas with the paired widgets inside it.
-     readings/ui/render-target-instances.md already declares Render Target
-     'html' has Platform Function Name 'render:html' and no host bound that
-     name; the html container binds it now, which is why it is declared here
-     with a Definition Origin at all. Registered for the same reason every
-     render: name is registered: lambda defines no cell of that name, so the
-     body comes from the container that serves the platform, and the name
-     falls on the boundary side of Eq 5's restriction. -->
+Function 'render:gridcell' has Definition Origin 'registered'.
+Function 'render:gridcell' accepts Type Expression 'placed-row'.
+Function 'render:gridcell' yields Type Expression 'widget'.
+Function 'render:label' has Definition Origin 'registered'.
+Function 'render:label' accepts Type Expression 'placed-row'.
+Function 'render:label' yields Type Expression 'widget'.
+Function 'render:richcontentcell' has Definition Origin 'registered'.
+Function 'render:richcontentcell' accepts Type Expression 'placed-row'.
+Function 'render:richcontentcell' yields Type Expression 'widget'.
 Function 'render:textbox' accepts Type Expression 'placed-row'.
 Function 'render:textbox' yields Type Expression 'widget'.
-Function 'render:button' accepts Type Expression 'placed-row'.
-Function 'render:button' yields Type Expression 'widget'.
-Function 'render:selectlist' has Definition Origin 'registered'.
-Function 'render:selectlist' accepts Type Expression 'placed-row'.
-Function 'render:selectlist' yields Type Expression 'widget'.
-Function 'render:navigationfield' has Definition Origin 'registered'.
-Function 'render:navigationfield' accepts Type Expression 'placed-row'.
-Function 'render:navigationfield' yields Type Expression 'widget'.
-Function 'render:numericfield' has Definition Origin 'registered'.
-Function 'render:numericfield' accepts Type Expression 'placed-row'.
-Function 'render:numericfield' yields Type Expression 'widget'.
+Function 'render:passwordbox' has Definition Origin 'registered'.
+Function 'render:passwordbox' accepts Type Expression 'placed-row'.
+Function 'render:passwordbox' yields Type Expression 'widget'.
+Function 'render:textarea' has Definition Origin 'registered'.
+Function 'render:textarea' accepts Type Expression 'placed-row'.
+Function 'render:textarea' yields Type Expression 'widget'.
 Function 'render:datepicker' has Definition Origin 'registered'.
 Function 'render:datepicker' accepts Type Expression 'placed-row'.
 Function 'render:datepicker' yields Type Expression 'widget'.
 Function 'render:timepicker' has Definition Origin 'registered'.
 Function 'render:timepicker' accepts Type Expression 'placed-row'.
 Function 'render:timepicker' yields Type Expression 'widget'.
+Function 'render:selectlist' has Definition Origin 'registered'.
+Function 'render:selectlist' accepts Type Expression 'placed-row'.
+Function 'render:selectlist' yields Type Expression 'widget'.
 Function 'render:switch' has Definition Origin 'registered'.
 Function 'render:switch' accepts Type Expression 'placed-row'.
 Function 'render:switch' yields Type Expression 'widget'.
-Function 'render:textarea' has Definition Origin 'registered'.
-Function 'render:textarea' accepts Type Expression 'placed-row'.
-Function 'render:textarea' yields Type Expression 'widget'.
-Function 'render:imagepicker' has Definition Origin 'registered'.
-Function 'render:imagepicker' accepts Type Expression 'placed-row'.
-Function 'render:imagepicker' yields Type Expression 'widget'.
-Function 'render:label' has Definition Origin 'registered'.
-Function 'render:label' accepts Type Expression 'placed-row'.
-Function 'render:label' yields Type Expression 'widget'.
+Function 'render:slider' has Definition Origin 'registered'.
+Function 'render:slider' accepts Type Expression 'placed-row'.
+Function 'render:slider' yields Type Expression 'widget'.
+Function 'render:image' has Definition Origin 'registered'.
+Function 'render:image' accepts Type Expression 'placed-row'.
+Function 'render:image' yields Type Expression 'widget'.
+Function 'render:button' accepts Type Expression 'placed-row'.
+Function 'render:button' yields Type Expression 'widget'.
+Function 'render:menu' has Definition Origin 'registered'.
+Function 'render:menu' accepts Type Expression 'property-row'.
+Function 'render:menu' yields Type Expression 'widget'.
+Function 'render:menubutton' has Definition Origin 'registered'.
+Function 'render:menubutton' accepts Type Expression 'property-row'.
+Function 'render:menubutton' yields Type Expression 'widget'.
+Function 'render:searchbox' has Definition Origin 'registered'.
+Function 'render:searchbox' accepts Type Expression 'property-row'.
+Function 'render:searchbox' yields Type Expression 'widget'.
+Function 'render:alert' has Definition Origin 'registered'.
+Function 'render:alert' accepts Type Expression 'property-row'.
+Function 'render:alert' yields Type Expression 'widget'.
+
+<!-- AND THE LAYOUT ENGINE IS REGISTERED BESIDE THE WIDGETS. A platform is
+     its paired controls plus the engine that lays them out (iFactr):
+     render:html is the html engine, the function from a screen's placed
+     rows to a document -- the view with the paired widgets inside it.
+     readings/ui/render-target-instances.md declares Render Target 'html'
+     has Platform Function Name 'render:html', and the React container binds
+     it. Registered for the same reason every render: name is registered:
+     lambda defines no cell of that name, so the body comes from the
+     container that serves the platform, and the name falls on the boundary
+     side of Eq 5's restriction. -->
 Function 'render:html' has Definition Origin 'registered'.
 Function 'render:html' accepts Type Expression 'placed-rows'.
 Function 'render:html' yields Type Expression 'document'.
