@@ -2539,5 +2539,10 @@ DEF("case:a-recipe-of-another-form-is-no-select", S2(A("sqlite:recipe_sql"), S2(
 "AND A HEAD IS THE ENGINE`S ONLY WHEN THE CLOSURE NEEDS NONE OF IT (2026-10-02). The closure no longer holds the population of a head the engine computes, so a head some other rule reads is left to the closure, and so is a head that reads itself through another: the engine computes a head after every head it reads, and a cycle has no first. A rule is <head, recipe>.",
 DEF("case:a-head-another-rule-reads-is-left-to-the-closure", S2(A("compile:eng_prune"), S2(S2(A("H"), A("K")), S3(S2(A("H"), S3(A("proj"), A("S"), S1(N(1)))), S2(A("K"), S3(A("proj"), A("S"), S1(N(1)))), S2(A("R"), S3(A("proj"), A("K"), S1(N(1)))))))),
 DEF("case:heads-in-a-cycle-are-left-to-the-closure", S2(A("compile:eng_order"), S2(S3(A("H"), A("K"), A("M")), S3(S2(A("H"), S3(A("proj"), A("S"), S1(N(1)))), S2(A("K"), S3(A("proj"), A("M"), S1(N(1)))), S2(A("M"), S3(A("proj"), A("K"), S1(N(1)))))))),
-DEF("case:a-head-is-computed-after-the-heads-it-reads", S2(A("compile:eng_order"), S2(S3(A("M"), A("K"), A("H")), S3(S2(A("H"), S3(A("proj"), A("S"), S1(N(1)))), S2(A("K"), S3(A("proj"), A("H"), S1(N(1)))), S2(A("M"), S3(A("minus"), A("K"), A("H")))))))
+DEF("case:a-head-is-computed-after-the-heads-it-reads", S2(A("compile:eng_order"), S2(S3(A("M"), A("K"), A("H")), S3(S2(A("H"), S3(A("proj"), A("S"), S1(N(1)))), S2(A("K"), S3(A("proj"), A("H"), S1(N(1)))), S2(A("M"), S3(A("minus"), A("K"), A("H"))))))),
+"AN ENTITY TABLE IS WRITTEN A CHUNK OF ITS KEYS AT A TIME (2026-10-02), and every key is in exactly one chunk: a list is cut into chunks of the size asked, the last as long as is left, and keys said as the same text stay in one row, in their order, as rmap:key_rows gathers them.",
+DEF("case:a-list-is-cut-into-chunks-of-the-size-asked", S2(A("compile:chunks"), S2(N(2), S5(A("a"), A("b"), A("c"), A("d"), A("e"))))),
+DEF("case:a-list-the-size-of-a-chunk-is-one-chunk", S2(A("compile:chunks"), S2(N(3), S3(A("a"), A("b"), A("c"))))),
+DEF("case:an-empty-list-is-no-chunks", S2(A("compile:chunks"), S2(N(3), PHI()))),
+DEF("case:keys-said-as-one-text-are-one-row", S2(A("compile:ent_keys_of"), S2(A("1"), S3(S2(A("1"), N(1)), S2(A("2"), N(2)), S2(A("1"), A("1"))))))
 )
