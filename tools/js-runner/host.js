@@ -3855,6 +3855,156 @@ function run_test() {
 // place the plaintext exists, which is why it happens here and nowhere else. 'base64' is the Basic
 // scheme's (ClickHouse's `Authorization: Basic` over user:password); absent means as stored. An encoding
 // this host does not write answers null, and the caller refuses rather than send the credential raw.
+// A FETCHER THIS HOST REGISTERS (2026-10-02). federation.md: a Connector reaches its Source by a Fetcher,
+// a definition name resolved at fetch time, so that changing how a Source is reached is registering a
+// name, not editing the model. Sam, 2026-10-02: "ideally I'd just want to use what's here ... what is
+// ideal for scalability is just registering and resolving them as they are and replacing with growth."
+// What is here is the gh CLI, logged in as this machine's user, and the sales inbox as Thunderbird keeps
+// it, an mbox. Each registration takes the request lambda built for the call (method, address, query
+// parameters) and answers the JSON the Function's yields read, or a refusal in its own words. Neither
+// reads a credential of the store's: gh brings its own login, and a file needs none. Both only read.
+async function runLocal(argv, env) {
+  const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", env });
+  const [out, err, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
+  return { out, err, code };
+}
+// gh: the address lambda built for api.github.com, read through `gh api`, GET only.
+async function fetchWithGh(req) {
+  const origin = "https://api.github.com";
+  if (req.method !== "GET") return { status: 405, text: "the gh Fetcher reads; it does not " + req.method };
+  if (!req.address.startsWith(origin)) return { status: 400, text: "the gh Fetcher reads " + origin + ", not " + req.address };
+  const qs = new URLSearchParams();
+  for (const pr of req.params) qs.append(pr[0], pr[1]);
+  const path = req.address.slice(origin.length) + (qs.toString() ? "?" + qs.toString() : "");
+  let r;
+  try { r = await runLocal(["gh", "api", path], process.env); }
+  catch (e) { return { status: 502, text: "gh did not run: " + String(e && e.message) }; }
+  if (r.code !== 0) return { status: 502, text: "gh api answered: " + r.err.trim().slice(0, 300) };
+  try { return { status: 200, body: JSON.parse(r.out) }; }
+  catch (e) { return { status: 502, text: "gh api answered a body that is not JSON" }; }
+}
+// mbox: the inbox the parameter mbox_env names in this process's environment; failing that, the IMAP
+// account folder the address names after its origin (/imap.gmail-4.com/INBOX) in the one Thunderbird
+// profile on this machine that keeps it. Parsed by Python's stdlib mailbox, as support.md says the inbox
+// is; a message Thunderbird marks deleted is skipped. Its rows are one per recipient, filtered by the
+// from and to parameters. The file's path is never answered, only what was scanned and matched.
+function thunderbirdFolder(address) {
+  const { join } = require("path");
+  const fs = require("fs");
+  let parts = [];
+  try { parts = new URL(address).pathname.split("/").filter((x) => x.length > 0); } catch (e) { return ""; }
+  if (parts.length !== 2) return "";
+  const roots = [process.env.APPDATA && join(process.env.APPDATA, "Thunderbird", "Profiles"),
+    process.env.HOME && join(process.env.HOME, ".thunderbird"),
+    process.env.HOME && join(process.env.HOME, "Library", "Thunderbird", "Profiles")].filter((x) => !!x);
+  const found = [];
+  for (const root of roots) {
+    let names = [];
+    try { names = fs.readdirSync(root); } catch (e) { continue; }
+    for (const n of names) {
+      const f = join(root, n, "ImapMail", parts[0], parts[1]);
+      try { if (fs.statSync(f).isFile()) found.push(f); } catch (e) { /* not this profile */ }
+    }
+  }
+  return found.length === 1 ? found[0] : "";
+}
+const MBOX_PY = [
+  'import email.policy, html, json, mailbox, os, re',
+  'from datetime import timezone',
+  'from email.parser import BytesHeaderParser, BytesParser',
+  'from email.utils import getaddresses, parsedate_to_datetime',
+  'NL = chr(10)',
+  'CR = chr(13)',
+  'want_from = os.environ.get("ARE_FROM", "").strip().lower()',
+  'want_to = os.environ.get("ARE_TO", "").strip().lower()',
+  'hp = BytesHeaderParser(policy=email.policy.compat32)',
+  'bp = BytesParser(policy=email.policy.default)',
+  'def addrs(values):',
+  '    return [a.strip().lower() for _, a in getaddresses([str(v) for v in values if v]) if "@" in a]',
+  'def text_of(msg):',
+  '    part = msg.get_body(preferencelist=("plain", "html"))',
+  '    if part is None:',
+  '        return ""',
+  '    try:',
+  '        s = part.get_content()',
+  '    except Exception:',
+  '        s = (part.get_payload(decode=True) or b"").decode(part.get_content_charset() or "utf-8", "replace")',
+  '    if part.get_content_type() == "text/html":',
+  '        s = re.sub("(?is)<(script|style).*?</(script|style)>", " ", s)',
+  '        s = re.sub("(?i)<br */?>|</p>|</div>", NL, s)',
+  '        s = html.unescape(re.sub("<[^>]+>", "", s))',
+  '    s = s.replace(CR + NL, NL).replace(CR, NL).strip()',
+  '    return s[:20000]',
+  'box = mailbox.mbox(os.environ["ARE_MBOX"], create=False)',
+  'rows, scanned, matched, unnamed = [], 0, 0, 0',
+  'for key in box.iterkeys():',
+  '    scanned += 1',
+  '    head = []',
+  '    for line in box.get_file(key):',
+  '        if not line.strip():',
+  '            break',
+  '        head.append(line)',
+  '    h = hp.parsebytes(b"".join(head))',
+  '    try:',
+  '        if int(h.get("X-Mozilla-Status", "0") or "0", 16) & 8:',
+  '            continue',
+  '    except ValueError:',
+  '        pass',
+  '    frm, to, cc = addrs(h.get_all("From", [])), addrs(h.get_all("To", [])), addrs(h.get_all("Cc", []))',
+  '    if want_from and want_from not in frm:',
+  '        continue',
+  '    if want_to and want_to not in to and want_to not in cc:',
+  '        continue',
+  '    mid = (h.get("Message-ID") or "").strip().strip("<>").strip()',
+  '    if not mid:',
+  '        unnamed += 1',
+  '        continue',
+  '    matched += 1',
+  '    msg = bp.parsebytes(box.get_bytes(key))',
+  '    row = {"message_id": mid}',
+  '    if frm:',
+  '        row["from"] = frm[0]',
+  '    try:',
+  '        d = parsedate_to_datetime(h.get("Date"))',
+  '        if d.tzinfo is not None:',
+  '            d = d.astimezone(timezone.utc)',
+  '        row["date"] = d.strftime("%Y-%m-%dT%H:%M:%SZ")',
+  '    except Exception:',
+  '        pass',
+  '    if msg.get("Subject"):',
+  '        row["subject"] = str(msg.get("Subject")).strip()',
+  '    body = text_of(msg)',
+  '    if body:',
+  '        row["body"] = body',
+  '    m = re.search("<([^>]+)>", h.get("In-Reply-To") or "")',
+  '    if m:',
+  '        row["in_reply_to"] = m.group(1).strip()',
+  '    recips = [("to", a) for a in to] + [("cc", a) for a in cc]',
+  '    for kind, a in recips or [(None, None)]:',
+  '        r = dict(row)',
+  '        if kind:',
+  '            r[kind] = a',
+  '        rows.append(r)',
+  'print(json.dumps({"messages": rows, "scanned": scanned, "matched": matched, "unnamed": unnamed}))',
+].join(String.fromCharCode(10));
+async function fetchFromMbox(req) {
+  if (req.method !== "GET") return { status: 405, text: "the mbox Fetcher reads; it does not " + req.method };
+  const p = new Map(req.params);
+  const named = p.get("mbox_env") || "";
+  const file = (named && process.env[named]) || thunderbirdFolder(req.address);
+  if (!file) return { status: 404, text: "no mbox: " + (named ? named + " is not set here, and " : "") + "no one Thunderbird profile here keeps " + req.address };
+  let r;
+  try {
+    r = await runLocal([process.env.AREST_PYTHON || "python", "-c", MBOX_PY],
+      Object.assign({}, process.env, { ARE_MBOX: file, ARE_FROM: p.get("from") || "", ARE_TO: p.get("to") || "", PYTHONIOENCODING: "utf-8" }));
+  } catch (e) { return { status: 502, text: "python did not run: " + String(e && e.message) }; }
+  if (r.code !== 0) return { status: 502, text: "the mbox did not parse: " + r.err.trim().split(String.fromCharCode(10)).slice(-1)[0].slice(0, 200) };
+  let body;
+  try { body = JSON.parse(r.out); } catch (e) { return { status: 502, text: "the mbox read answered a body that is not JSON" }; }
+  return { status: 200, body, text: "the inbox parsed: " + body.scanned + " messages scanned, " + body.matched + " matched"
+    + (body.unnamed ? ", " + body.unnamed + " without a Message-ID skipped" : "") };
+}
+
 function writtenCredential(fn, secret, store) {
   if (!secret) return secret;
   const enc = Ev("perform:credential_encoding_of", [fn, store]);
@@ -4322,6 +4472,8 @@ function run_mcp() {
   // back through the same verb -- asserted in one step, emitted like any other write -- until the
   // answer says there is no more or the cursor stops moving.
   const FETCHED = new Set(VERBS.filter((v) => String(v[1]) === "response-and-cells").map((v) => String(v[0])));
+  // what this host performs by name; a Fetcher it does not hold is not a fault, it is someone else's
+  const FETCHERS = new Map([["gh", fetchWithGh], ["mbox", fetchFromMbox]]);
   async function fetchPages(name, args) {
     const list = Array.isArray(args && args.args) ? args.args : [];
     const x = list.length ? fromJson(list[0]) : [];
@@ -4331,18 +4483,34 @@ function run_mcp() {
     const bindings = Array.isArray(x) && x.length > 1 ? x[1] : [];
     const fn = Ev("fed:connector", [source, CELLS]);
     if (Array.isArray(fn)) return call(name, args);             // lambda refuses it, and says why
+    // THE CONNECTOR'S FETCHER SAYS WHO READS (2026-10-02). None declared, or 'fetch', is the HTTP read
+    // with the connection's credential that every Connector made until now. One this host registers is
+    // performed by the registration, which brings its own access, so no credential is read for it. One
+    // no host here registers is the binding lost and the model kept: the read is answered as the request
+    // it is, for the caller who holds the Fetcher -- an agent with its own tools -- to perform and pass
+    // back as the page, the way a seam with no registration awaits its driver.
+    const fetcherRaw = Ev("perform:fetcher_of", [fn, CELLS]);
+    const fetcher = Array.isArray(fetcherRaw) ? "" : String(fetcherRaw);
+    const local = FETCHERS.get(fetcher);
+    if (fetcher && fetcher !== "fetch" && !local) {
+      const q = call(name, { args: [[source, bindings, []]] });
+      return ["awaits a driver: no host here registers Fetcher '" + fetcher + "', so this read is the caller's -- " + String(q[0])
+        + " -- and what it answers comes back as the page: [source, bindings, [], page]", Number(q[1]) >= 400 ? Number(q[1]) : 202];
+    }
     const modeRaw = Ev("perform:send_mode_of", [fn, CELLS]);
     const mode = Array.isArray(modeRaw) ? "" : String(modeRaw);
     const headers = {};
-    for (const hv of Ev("perform:headers_of", [fn, CELLS])) headers[String(hv[0])] = String(hv[1]);
-    const auth = Ev("perform:auth_header_of", [fn, CELLS]);
-    if (!Array.isArray(auth)) {
-      const cipher = Ev("perform:secret_of", [fn, CELLS]);
-      if (!Array.isArray(cipher)) {
-        const plain = Ev("hook:read", [String(process.env.AREST_MASTER_KEY || ""), "Secret Reference", String(cipher), CELLS]);
-        const secret = writtenCredential(fn, Array.isArray(plain) ? "" : String(plain), CELLS);
-        if (secret === null) return ["not performed: the credential encoding this connection declares is not one this host writes", 501];
-        if (secret) headers[String(auth)] = (headers[String(auth)] ? headers[String(auth)] + " " : "") + secret;
+    if (!local) {
+      for (const hv of Ev("perform:headers_of", [fn, CELLS])) headers[String(hv[0])] = String(hv[1]);
+      const auth = Ev("perform:auth_header_of", [fn, CELLS]);
+      if (!Array.isArray(auth)) {
+        const cipher = Ev("perform:secret_of", [fn, CELLS]);
+        if (!Array.isArray(cipher)) {
+          const plain = Ev("hook:read", [String(process.env.AREST_MASTER_KEY || ""), "Secret Reference", String(cipher), CELLS]);
+          const secret = writtenCredential(fn, Array.isArray(plain) ? "" : String(plain), CELLS);
+          if (secret === null) return ["not performed: the credential encoding this connection declares is not one this host writes", 501];
+          if (secret) headers[String(auth)] = (headers[String(auth)] ? headers[String(auth)] + " " : "") + secret;
+        }
       }
     }
     const lines = [];
@@ -4363,12 +4531,19 @@ function run_mcp() {
           + (sendBody === undefined ? "" : " with a body of " + sendBody.length + " characters"));
         break;
       }
-      let res, text;
-      try { res = await fetch(url, sendBody === undefined ? { method, headers } : { method, headers, body: sendBody }); text = await res.text(); }
-      catch (e) { lines.push(method + " " + url + " failed: " + String(e && e.message)); status = 502; break; }
-      if (res.status >= 400) { lines.push(method + " " + url + " answered " + res.status + ": " + text.slice(0, 300)); status = 502; break; }
       let body;
-      try { body = JSON.parse(text); } catch (e) { lines.push(method + " " + url + " answered a body that is not JSON"); status = 502; break; }
+      if (local) {
+        const got = await local({ method, address, params: (Array.isArray(req[3]) ? req[3] : []).map((pr) => [String(pr[0]), String(pr[1])]), body: sendBody });
+        if (got.status >= 400) { lines.push(method + " " + url + " by Fetcher '" + fetcher + "': " + got.text); status = 502; break; }
+        if (got.text) lines.push(got.text);
+        body = got.body;
+      } else {
+        let res, text;
+        try { res = await fetch(url, sendBody === undefined ? { method, headers } : { method, headers, body: sendBody }); text = await res.text(); }
+        catch (e) { lines.push(method + " " + url + " failed: " + String(e && e.message)); status = 502; break; }
+        if (res.status >= 400) { lines.push(method + " " + url + " answered " + res.status + ": " + text.slice(0, 300)); status = 502; break; }
+        try { body = JSON.parse(text); } catch (e) { lines.push(method + " " + url + " answered a body that is not JSON"); status = 502; break; }
+      }
       const out = call(name, { args: [[source, bindings, cursor, body]] });
       pages++;
       lines.push("page " + pages + " (" + method + " " + url + "): " + String(out[0]).slice(0, 400));
