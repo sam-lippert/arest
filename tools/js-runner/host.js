@@ -3861,8 +3861,9 @@ function run_test() {
 // ideal for scalability is just registering and resolving them as they are and replacing with growth."
 // What is here is the gh CLI, logged in as this machine's user, and the sales inbox as Thunderbird keeps
 // it, an mbox. Each registration takes the request lambda built for the call (method, address, query
-// parameters) and answers the JSON the Function's yields read, or a refusal in its own words. Neither
-// reads a credential of the store's: gh brings its own login, and a file needs none. Both only read.
+// parameters) and answers the JSON the Function's yields read, or a refusal in its own words. gh reads no
+// credential of the store's, bringing its own login; the mbox is handed what its Source's connection
+// carries as a Secret Reference, which names the file. Both only read.
 async function runLocal(argv, env) {
   const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", env });
   const [out, err, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
@@ -3883,31 +3884,14 @@ async function fetchWithGh(req) {
   try { return { status: 200, body: JSON.parse(r.out) }; }
   catch (e) { return { status: 502, text: "gh api answered a body that is not JSON" }; }
 }
-// mbox: the inbox the parameter mbox_env names in this process's environment; failing that, the IMAP
-// account folder the address names after its origin (/imap.gmail-4.com/INBOX) in the one Thunderbird
-// profile on this machine that keeps it. Parsed by Python's stdlib mailbox, as support.md says the inbox
-// is; a message Thunderbird marks deleted is skipped. Its rows are one per recipient, filtered by the
-// from and to parameters. The file's path is never answered, only what was scanned and matched.
-function thunderbirdFolder(address) {
-  const { join } = require("path");
-  const fs = require("fs");
-  let parts = [];
-  try { parts = new URL(address).pathname.split("/").filter((x) => x.length > 0); } catch (e) { return ""; }
-  if (parts.length !== 2) return "";
-  const roots = [process.env.APPDATA && join(process.env.APPDATA, "Thunderbird", "Profiles"),
-    process.env.HOME && join(process.env.HOME, ".thunderbird"),
-    process.env.HOME && join(process.env.HOME, "Library", "Thunderbird", "Profiles")].filter((x) => !!x);
-  const found = [];
-  for (const root of roots) {
-    let names = [];
-    try { names = fs.readdirSync(root); } catch (e) { continue; }
-    for (const n of names) {
-      const f = join(root, n, "ImapMail", parts[0], parts[1]);
-      try { if (fs.statSync(f).isFile()) found.push(f); } catch (e) { /* not this profile */ }
-    }
-  }
-  return found.length === 1 ? found[0] : "";
-}
+// mbox: the file its Source's connection carries as a Secret Reference, handed over decrypted as the
+// request's access. Sam, 2026-10-02: "We should have the sales box set by variable, but in .env, it's done
+// by secrets readings" -- an app's .env gives it as `DomainConnectsToExternalSystem '<domain>/<system>'
+// carries Secret Reference '<file>'.`, and the store keeps it sealed like every Secret Reference. Nothing
+// else names the file: no environment variable, no search of a mail profile. Parsed by Python's stdlib
+// mailbox; a message Thunderbird marks deleted is skipped. Its rows are one per recipient, filtered by the
+// from and to parameters. No answer names the file, a failure's included: what python raised is reduced
+// to the name of its exception.
 const MBOX_PY = [
   'import email.policy, html, json, mailbox, os, re',
   'from datetime import timezone',
@@ -3990,21 +3974,38 @@ const MBOX_PY = [
 async function fetchFromMbox(req) {
   if (req.method !== "GET") return { status: 405, text: "the mbox Fetcher reads; it does not " + req.method };
   const p = new Map(req.params);
-  const named = p.get("mbox_env") || "";
-  const file = (named && process.env[named]) || thunderbirdFolder(req.address);
-  if (!file) return { status: 404, text: "no mbox: " + (named ? named + " is not set here, and " : "") + "no one Thunderbird profile here keeps " + req.address };
+  const file = String(req.access || "");
+  if (!file) return { status: 404, text: "no mbox: the connection this Source reads through carries no Secret Reference naming one" };
+  let here = false;
+  try { here = require("fs").statSync(file).isFile(); } catch (e) { here = false; }
+  if (!here) return { status: 404, text: "no mbox: the file its connection's Secret Reference names is not on this machine" };
   let r;
   try {
     r = await runLocal([process.env.AREST_PYTHON || "python", "-c", MBOX_PY],
       Object.assign({}, process.env, { ARE_MBOX: file, ARE_FROM: p.get("from") || "", ARE_TO: p.get("to") || "", PYTHONIOENCODING: "utf-8" }));
   } catch (e) { return { status: 502, text: "python did not run: " + String(e && e.message) }; }
-  if (r.code !== 0) return { status: 502, text: "the mbox did not parse: " + r.err.trim().split(String.fromCharCode(10)).slice(-1)[0].slice(0, 200) };
+  if (r.code !== 0) {
+    const last = r.err.trim().split(String.fromCharCode(10)).slice(-1)[0];
+    const raised = /^([A-Za-z_][A-Za-z0-9_.]*)(:|$)/.exec(last.trim());
+    return { status: 502, text: "the mbox did not parse: python raised " + (raised ? raised[1] : "an error") };
+  }
   let body;
   try { body = JSON.parse(r.out); } catch (e) { return { status: 502, text: "the mbox read answered a body that is not JSON" }; }
   return { status: 200, body, text: "the inbox parsed: " + body.scanned + " messages scanned, " + body.matched + " matched"
     + (body.unnamed ? ", " + body.unnamed + " without a Message-ID skipped" : "") };
 }
 
+// The Secret Reference the connection of a Function's backing system carries, decrypted under the key, or
+// "" where it carries none: the HTTP read writes it into the header lambda names, and a registration
+// takes it as its access. One that does not open under the key is refused by name, never read as none.
+function connectionSecret(fn, store, key) {
+  const cipher = Ev("perform:secret_of", [fn, store]);
+  if (Array.isArray(cipher)) return "";
+  let plain;
+  try { plain = Ev("hook:read", [String(key || ""), "Secret Reference", String(cipher), store]); }
+  catch (e) { throw new Error("not read: the Secret Reference of this connection does not open under this host's AREST_MASTER_KEY (" + String(e && e.message) + ")"); }
+  return Array.isArray(plain) ? "" : String(plain);
+}
 function writtenCredential(fn, secret, store) {
   if (!secret) return secret;
   const enc = Ev("perform:credential_encoding_of", [fn, store]);
@@ -4485,7 +4486,8 @@ function run_mcp() {
     if (Array.isArray(fn)) return call(name, args);             // lambda refuses it, and says why
     // THE CONNECTOR'S FETCHER SAYS WHO READS (2026-10-02). None declared, or 'fetch', is the HTTP read
     // with the connection's credential that every Connector made until now. One this host registers is
-    // performed by the registration, which brings its own access, so no credential is read for it. One
+    // performed by the registration, handed the connection's Secret Reference, decrypted, as its access:
+    // gh brings its own login and takes none, the mbox reads the file it names. One
     // no host here registers is the binding lost and the model kept: the read is answered as the request
     // it is, for the caller who holds the Fetcher -- an agent with its own tools -- to perform and pass
     // back as the page, the way a seam with no registration awaits its driver.
@@ -4500,17 +4502,14 @@ function run_mcp() {
     const modeRaw = Ev("perform:send_mode_of", [fn, CELLS]);
     const mode = Array.isArray(modeRaw) ? "" : String(modeRaw);
     const headers = {};
+    const access = local ? connectionSecret(fn, CELLS, process.env.AREST_MASTER_KEY) : "";
     if (!local) {
       for (const hv of Ev("perform:headers_of", [fn, CELLS])) headers[String(hv[0])] = String(hv[1]);
       const auth = Ev("perform:auth_header_of", [fn, CELLS]);
       if (!Array.isArray(auth)) {
-        const cipher = Ev("perform:secret_of", [fn, CELLS]);
-        if (!Array.isArray(cipher)) {
-          const plain = Ev("hook:read", [String(process.env.AREST_MASTER_KEY || ""), "Secret Reference", String(cipher), CELLS]);
-          const secret = writtenCredential(fn, Array.isArray(plain) ? "" : String(plain), CELLS);
-          if (secret === null) return ["not performed: the credential encoding this connection declares is not one this host writes", 501];
-          if (secret) headers[String(auth)] = (headers[String(auth)] ? headers[String(auth)] + " " : "") + secret;
-        }
+        const secret = writtenCredential(fn, connectionSecret(fn, CELLS, process.env.AREST_MASTER_KEY), CELLS);
+        if (secret === null) return ["not performed: the credential encoding this connection declares is not one this host writes", 501];
+        if (secret) headers[String(auth)] = (headers[String(auth)] ? headers[String(auth)] + " " : "") + secret;
       }
     }
     const lines = [];
@@ -4533,7 +4532,7 @@ function run_mcp() {
       }
       let body;
       if (local) {
-        const got = await local({ method, address, params: (Array.isArray(req[3]) ? req[3] : []).map((pr) => [String(pr[0]), String(pr[1])]), body: sendBody });
+        const got = await local({ method, address, params: (Array.isArray(req[3]) ? req[3] : []).map((pr) => [String(pr[0]), String(pr[1])]), body: sendBody, access });
         if (got.status >= 400) { lines.push(method + " " + url + " by Fetcher '" + fetcher + "': " + got.text); status = 502; break; }
         if (got.text) lines.push(got.text);
         body = got.body;
