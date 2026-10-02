@@ -15015,9 +15015,14 @@ DEF("ui:field_opts",
           S3(A("COMP"), A("ui:ids"), S3(A("CONS"), N(2), A("ui:ft_player"))),
           K(PHI())))),
 
+"A FIELD IS LABELED BY ITS ROLE`S OWN PLAYER (2026-10-01). ui:fieldrow labeled a field with the second player of its fact type`s descriptor in state:fts, and a descriptor`s players are top-collapsed at import, so every column a subtype brought into its supertype`s table was labeled with the table: on claude`s store the Domain memory showed Function belongs to Domain, Domain is contained in Domain and Domain belongs to Organization each labeled Function. The label is the player the reading declares for the role, ui:ft_player over state:declared, which is the player ui:field_type already types the field by; the descriptor`s player stays only for a fact type state:declared does not carry.",
+DEF("ui:field_label",
+    S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), K(A("")))), N(2), N(1)),
+       S3(A("CONS"), S3(A("COMP"), A("ui:ft_player"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), S3(A("COMP"), N(2), N(1))))),
+
 DEF("ui:fieldrow",
     S3(A("COMP"),
-       S6(A("CONS"), K(A("field")), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(1), N(1)), N(3), S3(A("COMP"), A("ui:field_opts"), S4(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2), N(3)))),
+       S6(A("CONS"), K(A("field")), A("ui:field_label"), S3(A("COMP"), N(1), N(1)), N(3), S3(A("COMP"), A("ui:field_opts"), S4(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2), N(3)))),
        S4(A("CONS"), N(1), N(2), S3(A("COMP"), A("ui:field_type"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2)))))),
 
 "THE CONTROL TABLE IS KEYED BY THE CATALOGUE. The metamodel's 31 Conceptual Data Types (core.md: text, fixedText, largeText, the integers, the floats, decimal, money, uuid, date, time, dateTime, autoTimestamp, boolean, yesNo, the raws, picture, oleObject, rowId, objectId, unspecified, userDefined) are the ids a value type declares and the ids the relational map types its columns by, so they are the keys here; NORMA's own data type names (VariableLengthText ...) were the keys before and matched nothing a store held. Two keys are the layout's, not the catalogue's: enum and entity.",

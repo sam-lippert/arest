@@ -779,3 +779,5 @@ case:html-switch-is-checked-when-true	"'<label style='position:absolute;left:0px
 case:html-numericfield-draws-a-decimal-as-its-lexeme	"'<label style='position:absolute;left:0px;top:0px;width:100px;height:64px;font-size:11px;color:#8E8E93'>Minimum<br><input type='number' name='ObjectTypeHasMinimum' style='width:100%;box-sizing:border-box;font-size:14px;padding:6px' value='0.5'></label>'"
 case:the-root-is-titled-by-its-app	"'Acme Support, beta'"
 case:an-entity-named-by-many-events-stands-once	"(('Escalation', 'Raised', ('es1'), ('AgentNotesEscalation', 'AgentClosesEscalation')))"
+case:a-field-is-labeled-by-its-declared-player	"('field', 'Domain', 'FunctionBelongsToDomain', 'entity', ())"
+case:an-undeclared-field-keeps-its-descriptor-player	"('field', 'Name', 'FunctionHasName', 'text', ())"
