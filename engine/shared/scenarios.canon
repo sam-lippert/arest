@@ -2486,5 +2486,9 @@ DEF("fixture:platform-store", K(S1(S3(A("CELL"), A("state:fts"), S1(S2(S5(A("Fun
 DEF("case:the-controls-are-what-takes-a-row", S2(S3(A("COMP"), A("law:ctl_declared"), A("fixture:platform-store")), PHI())),
 DEF("case:the-engines-are-what-takes-a-screen", S2(S3(A("COMP"), A("law:engines_declared"), A("fixture:platform-store")), PHI())),
 DEF("case:a-container-with-its-own-engine-is-paired", S2(S3(A("COMP"), A("law:unpaired"), S3(A("CONS"), A("fixture:platform-store"), K(S3(A("render:a"), A("render:b"), A("render:wpf"))))), PHI())),
-DEF("case:a-container-with-no-engine-is-told-the-engines", S2(S3(A("COMP"), A("law:unpaired"), S3(A("CONS"), A("fixture:platform-store"), K(S1(A("render:a"))))), PHI()))
+DEF("case:a-container-with-no-engine-is-told-the-engines", S2(S3(A("COMP"), A("law:unpaired"), S3(A("CONS"), A("fixture:platform-store"), K(S1(A("render:a"))))), PHI())),
+"A replace addresses one fact by the fact type`s single-role key. A key that is not the leading roles is refused, and so, since 2026-10-02, is an empty key: a fact type whose only uniqueness spans its roles has no single-role key, and the empty key used to admit a replace that dropped the whole population.",
+DEF("case:a-replace-with-no-key-is-refused", S2(A("main:rp_prefix"), PHI())),
+DEF("case:a-replace-keyed-by-its-leading-role-is-admitted", S2(A("main:rp_prefix"), S1(N(1)))),
+DEF("case:a-replace-keyed-off-its-leading-roles-is-refused", S2(A("main:rp_prefix"), S1(N(2))))
 )
