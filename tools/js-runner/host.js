@@ -3329,6 +3329,29 @@ if (SAMPLE) {
   process.on("exit", () => sreport("sample at exit"));
 }
 // @instrument-end
+// A LONG EVALUATION COLLECTS WHEN IT HAS GROWN, NOT WHEN THE COLLECTOR GETS ROUND TO IT
+// (2026-10-01). An app check is one synchronous evaluation, so no timer fires inside it and
+// the collector runs when the engine decides to. On a copy of support.auto.dev`s store the
+// in-place compile peaked at 4.6 GB working set while its live heap stayed under about 0.9 GB:
+// forcing a collection every two seconds (AREST_SAMPLE_GC under the sampler) held the same
+// compile at 2.1 GB, so most of the peak was garbage nobody had collected. On a 16 GB machine
+// shared with other sessions that peak is what refuses the check. So the evaluator counts
+// definition dispatches, and every 2^18 of them asks how big the JS heap is; past
+// AREST_GC_MB (768 by default) and past half again what the last collection left live, it
+// collects in full. The heap and not the process: the engine keeps freed pages for a while
+// after a collection, so the resident size does not fall at once, and a bar set from it
+// rose with every collection until none came (measured the same day, 2.76 GB and climbing).
+// A large live heap raises the bar with it, so it is not collected over and over.
+// AREST_GC_MB=0 turns it off. No answer changes: this is when garbage goes, never what is
+// computed.
+let GCN = 0, GCNEXT = 0;
+const GCBASE = (process.env.AREST_GC_MB === undefined ? 768 : Number(process.env.AREST_GC_MB)) * 1048576;
+function gcPressure() {
+  if (!(GCBASE > 0) || typeof Bun === "undefined" || !Bun.gc) return;
+  if (process.memoryUsage().heapUsed < Math.max(GCBASE, GCNEXT)) return;
+  Bun.gc(true);
+  GCNEXT = process.memoryUsage().heapUsed * 1.5;
+}
 function Ev(f, x) {
   if (typeof f === "number") {
     if (!Array.isArray(x)) throw new Error("selector " + f + " on atom: " + show(x));
@@ -3337,6 +3360,7 @@ function Ev(f, x) {
   }
   if (typeof f === "string") {
     if (DEFS.has(f)) {
+      if ((++GCN & 0x3ffff) === 0) gcPressure();
       const fp = NOTWIN.has(f) ? undefined : FASTPRIMS.get(f);
       // A native answered here without ever entering the profile, which made
       // the report's own instrument lie by omission: rmap:pidchains:step shows
