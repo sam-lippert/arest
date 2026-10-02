@@ -1875,6 +1875,56 @@ function unprojAll(x) {
   } catch { return def(); }
   return typedPairsValue(out, x[2]);
 }
+// rmap:unproj_sp is rmap:unproj over sparse rows: a row of a wide entity table as the cells that hold
+// a value, <position, value>, in column order (2026-10-02, U9). The DEF reads an entity row's pairs
+// straight from those cells (rmap:sp_live, rmap:sp_key) and builds the full row only for a relation
+// table; this is unprojAll's walk over the cells a row holds, the same column kinds, the same key and
+// the same pairs in the same order, and a relation table, or any shape it does not expect, is handed
+// back to the DEF. Its key is the value at each primary key position, # where the row holds none.
+function unprojSparse(x) {
+  const def = () => Ev(DEFS.get("rmap:unproj_sp"), x);
+  if (!Array.isArray(x) || x.length < 3 || !Array.isArray(x[1])) return def();
+  const srows = x[1];
+  let ctx;
+  try { ctx = Ev("rmap:unproj_ctx", [x[0], x[2]]); } catch { return def(); }
+  if (!Array.isArray(ctx) || ctx.length < 6 || !Array.isArray(ctx[1]) || !Array.isArray(ctx[2])) return def();
+  if (ctx[3] === "T") return def();
+  const paths = ctx[1], pk = ctx[2], store = ctx[4];
+  for (const p of paths) if (!Array.isArray(p) || p.length < 2 || typeof p[0] !== "string") return def();
+  for (const k of pk) if (typeof k !== "string") return def();
+  const keyAt = [];
+  for (let i = 0; i < paths.length; i++) if (pk.includes(paths[i][0])) keyAt.push(i + 1);
+  const cols = new Array(paths.length);
+  const colOf = (i) => {
+    let c = cols[i];
+    if (c !== undefined) return c;
+    const path = paths[i][1];
+    const ft = Ev("rmap:proj_carried", path);
+    if (ft === "#" || pk.includes(paths[i][0]) || Ev("cn:contains", [ft, "IsInvolved"]) === "T") c = { kind: 0 };
+    else if (Ev("length", Ev(2, Ev(1, Ev("rmap:proj_hits", [ft, Ev("store:fts", store)])))) === 1) c = { kind: 1, ft };
+    else c = { kind: Ev("eq", [Ev("rmap:proj_keypos", [Ev(1, Ev("rmap:proj_nonassim", path)), store]), 2]) === "T" ? 2 : 3, ft };
+    cols[i] = c;
+    return c;
+  };
+  const out = [];
+  try {
+    for (const sr of srows) {
+      if (!Array.isArray(sr)) return def();
+      for (const c of sr) if (!Array.isArray(c) || c.length < 2 || typeof c[0] !== "number" || !Number.isInteger(c[0]) || c[0] < 1) return def();
+      const key = keyAt.map((p) => { for (const c of sr) if (c[0] === p) return c[1]; return "#"; });
+      for (const c of sr) {
+        const p = c[0], v = c[1];
+        if (typeof v !== "string" && typeof v !== "number") return def();
+        if (v === "#" || p > paths.length) continue;
+        const k = colOf(p - 1);
+        if (k.kind === 0) continue;
+        if (k.kind === 1) { if (v === "T") out.push([k.ft, key]); continue; }
+        out.push([k.ft, k.kind === 2 ? [v, ...key] : [...key, v]]);
+      }
+    }
+  } catch { return def(); }
+  return typedPairsValue(out, x[2]);
+}
 // AREST_NOTWIN=name,name disables those twins for one run, so a twin can be
 // held against its DEF on the same inputs: the law report is the only gate
 // that exercises most of them, and a twin that is not the DEF fails it
@@ -2655,6 +2705,44 @@ const FASTPRIMS = new Map(Object.entries({
     return ctx[3] === "T" && out.length > 1 ? [Ev("rmap:proj_objkey", out)] : out;
   },
   "rmap:unproj": x => unprojAll(x),
+  "rmap:unproj_sp": x => unprojSparse(x),
+  // rmap:sp_of, a row to the cells that hold a value as <position, value>: the DEF zips the row
+  // with its positions and drops the empties, a pair for every column of a 310-column row
+  "rmap:sp_of": x => {
+    if (!Array.isArray(x)) return Ev(DEFS.get("rmap:sp_of"), x);
+    const out = [];
+    for (let i = 0; i < x.length; i++) if (x[i] !== "#") out.push([i + 1, x[i]]);
+    return out;
+  },
+  // sqlite:run_sp, sqlite:run over sparse rows at the given positions (U9): the DEF expands every row of
+  // a chunk before one is bound; this expands each as it binds it, and refuses a row as sqlite:run does
+  "sqlite:run_sp": x => {
+    const { Database } = require("bun:sqlite");
+    const path = String(at(x, 0)), sql = String(at(x, 1)), rows = seq(at(x, 2)), pos = seq(at(x, 3));
+    const db = new Database(path, { create: true });
+    let n = 0;
+    try {
+      const st = db.prepare(sql);
+      db.exec("begin");
+      try {
+        for (const r of rows) {
+          const cells = seq(r);
+          const vals = pos.map((p) => {
+            let v = "#";
+            for (const c of cells) { const cc = seq(c); if (cc[0] === p) { v = cc[1]; break; } }
+            if (v === "#") return null;
+            if (Array.isArray(v)) throw new Error("sqlite:run: a sequence where a value belongs in " + sql);
+            return v;
+          });
+          try { st.run(...vals); }
+          catch (e) { throw new Error(e.message + " -- row " + (n + 1) + " of " + rows.length + ", beginning " + JSON.stringify(vals.slice(0, 2)).slice(0, 120)); }
+          n++;
+        }
+        db.exec("commit");
+      } catch (e) { try { db.exec("rollback"); } catch { } throw e; }
+    } finally { db.close(true); }
+    return n;
+  },
   "cn:ucfacts": x => ucFacts(x),
   "rmap:unproj_live": x => {
     const def = () => Ev(DEFS.get("rmap:unproj_live"), x);
