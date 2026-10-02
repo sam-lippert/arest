@@ -2524,5 +2524,11 @@ DEF("fixture:neg-deo-store", S3(A("COMP"), A("apndl"), S3(A("CONS"), K(S3(A("CEL
 DEF("case:an-assert-answers-the-deontic-its-derived-fact-raises",
     S2(S4(A("COMP"), S3(A("CONS"), N(1), N(2)), A("assert"), S3(A("CONS"), K(S1(S3(A("NegP"), A("a"), A("c1")))), A("fixture:neg-deo-store"))), PHI())),
 DEF("case:a-post-answers-the-deontic-its-derived-fact-raises",
-    S2(S4(A("COMP"), S3(A("CONS"), N(1), N(2)), A("main:post_answer"), S4(A("CONS"), A("fixture:neg-deo-store"), K(A("NegP")), K(S2(A("a"), A("c1"))))), PHI()))
+    S2(S4(A("COMP"), S3(A("CONS"), N(1), N(2)), A("main:post_answer"), S4(A("CONS"), A("fixture:neg-deo-store"), K(A("NegP")), K(S2(A("a"), A("c1"))))), PHI())),
+"A federation yield reads the bindings its call was made with as {@name}: GitHub`s issue search does not echo the endpoint it was asked about, so the endpoint comes from the call. A binding the call did not pass leaves a hole, so the row yields no fact of that type.",
+DEF("case:a-yield-reads-the-binding-its-call-was-made-with", S2(S3(A("COMP"), A("fed:val"), S3(A("CONS"), A("fed:at_bound"), K(A("{@endpoint}")))), S2(S1(S2(A("id"), N(7))), S1(S2(A("endpoint"), A("/specs/:vin")))))),
+DEF("case:a-yield-with-no-such-binding-is-a-hole", S2(S3(A("COMP"), A("fed:val"), S3(A("CONS"), A("fed:at_bound"), K(A("{@repo}")))), S2(S1(S2(A("id"), N(7))), S1(S2(A("endpoint"), A("/specs/:vin")))))),
+"A federation address with braces is filled from the call`s bindings, as its query parameters are; one a binding does not fill is sent as written.",
+DEF("case:an-address-reads-the-call-bindings", S2(A("fed:fill_addr"), S2(A("https://api.github.com/repos/{repo}/issues/{number}/events"), S2(S2(A("repo"), A("drivly/apis")), S2(A("number"), N(572)))))),
+DEF("case:an-address-a-binding-does-not-fill-is-sent-as-written", S2(A("fed:fill_addr"), S2(A("https://api.github.com/repos/{repo}/issues/{number}/events"), S1(S2(A("repo"), A("drivly/apis"))))))
 )

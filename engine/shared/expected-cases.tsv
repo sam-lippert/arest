@@ -828,3 +828,7 @@ case:a-negated-input-that-loses-rows-is-rederived-in-either-order	"((('l1', 'ok'
 case:the-write-closure-is-the-fixpoint-at-every-step	"'T'"
 case:an-assert-answers-the-deontic-its-derived-fact-raises	"('[\"committed_with_violations\",[\"new\",1],[\"held\",0],[\"violations\",[[\"NegL\",\"deontic\",\"l1\"]]]]', 200)"
 case:a-post-answers-the-deontic-its-derived-fact-raises	"('[\"committed_with_violations\",[[\"a\",\"c1\"]],[],[[\"NegL\",\"deontic\",\"l1\"]]]', 200)"
+case:a-yield-reads-the-binding-its-call-was-made-with	"'/specs/:vin'"
+case:a-yield-with-no-such-binding-is-a-hole	"()"
+case:an-address-reads-the-call-bindings	"'https://api.github.com/repos/drivly/apis/issues/572/events'"
+case:an-address-a-binding-does-not-fill-is-sent-as-written	"'https://api.github.com/repos/{repo}/issues/{number}/events'"
