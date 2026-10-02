@@ -2579,5 +2579,13 @@ DEF("case:a-sparse-row-keys-on-its-primary-key-cells", S2(A("rmap:sp_key"), S2(S
 DEF("case:a-sparse-row-without-its-key-cell-keys-on-an-empty-cell", S2(A("rmap:sp_key"), S2(S1(S2(N(3), A("v"))), S6(A("T"), S3(S2(A("id"), A("p1")), S2(A("c2"), A("p2")), S2(A("c3"), A("p3"))), S1(A("id")), A("F"), PHI(), PHI())))),
 DEF("case:a-sparse-row-is-its-live-cells-past-empties-and-past-its-columns", S2(A("rmap:sp_live"), S2(S4(S2(N(1), A("k")), S2(N(2), A("#")), S2(N(3), A("v")), S2(N(9), A("x"))), S6(A("T"), S3(S2(A("id"), A("p1")), S2(A("c2"), A("p2")), S2(A("c3"), A("p3"))), S1(A("id")), A("F"), PHI(), PHI())))),
 DEF("case:a-wide-table-is-read-a-chunk-of-rows-at-a-time-in-rowid-order", S2(A("sqlite:srows_sql"), S3(A("T"), S2(A("a"), A("b")), A("#")))),
-DEF("case:the-next-chunk-of-a-wide-table-starts-past-the-last-rowid-read", S2(A("sqlite:srows_sql"), S3(A("T"), S2(A("a"), A("b")), A("7"))))
+DEF("case:the-next-chunk-of-a-wide-table-starts-past-the-last-rowid-read", S2(A("sqlite:srows_sql"), S3(A("T"), S2(A("a"), A("b")), A("7")))),
+"A TABLE THE ENGINE WRITES WHOLE IS NOT READ (2026-10-02): the in-place check reads the old store table by table only for the split to keep what the runtime wrote, and a fully derived head`s relation table holds nothing it keeps. A plan entry here is <head, recipes, <table, columns, flag, layout>, mode>; the operand is <entries, tables whose layout changed, the fact types the last readings hold facts of>.",
+DEF("case:the-old-read-leaves-the-relation-table-of-a-fully-derived-head", S2(A("compile:ip_unread"), S3(S1(S4(A("H1"), PHI(), S4(A("T1"), PHI(), A("F"), N(0)), A("full"))), PHI(), PHI()))),
+DEF("case:the-old-read-keeps-a-table-whose-layout-changed", S2(A("compile:ip_unread"), S3(S1(S4(A("H1"), PHI(), S4(A("T1"), PHI(), A("F"), N(0)), A("full"))), S1(A("T1")), PHI()))),
+DEF("case:the-old-read-keeps-a-table-holding-a-fact-the-last-readings-asserted", S2(A("compile:ip_unread"), S3(S1(S4(A("H1"), PHI(), S4(A("T1"), PHI(), A("F"), N(0)), A("full"))), PHI(), S1(A("H1"))))),
+DEF("case:the-old-read-keeps-the-table-of-a-semi-derived-head", S2(A("compile:ip_unread"), S3(S1(S4(A("H1"), PHI(), S4(A("T1"), PHI(), A("F"), N(0)), A("semi"))), PHI(), PHI()))),
+DEF("case:the-old-read-keeps-a-table-holding-a-derived-head-as-a-column", S2(A("compile:ip_unread"), S3(S1(S4(A("H1"), PHI(), S4(A("T1"), PHI(), A("F"), N(1)), A("full"))), PHI(), PHI()))),
+DEF("case:the-old-read-leaves-only-the-tables-it-may", S2(A("compile:ip_unread"), S3(S4(S4(A("H1"), PHI(), S4(A("T1"), PHI(), A("F"), N(0)), A("full")), S4(A("H2"), PHI(), S4(A("T2"), PHI(), A("F"), N(0)), A("semi")), S4(A("H3"), PHI(), S4(A("T3"), PHI(), A("F"), N(0)), A("full")), S4(A("H4"), PHI(), S4(A("T4"), PHI(), A("F"), N(0)), A("full"))), S1(A("T3")), S1(A("H4"))))),
+DEF("case:a-table-the-old-read-leaves-is-not-opened", S2(A("compile:ip_old_table"), S2(A("T1"), S4(A("no store"), PHI(), PHI(), S1(A("T1"))))))
 )
