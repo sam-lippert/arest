@@ -32,3 +32,29 @@ Render Target 'html' has Platform Function Name 'render:html'.
 Render Target 'html' emits MimeType 'text/html'.
 Render Target 'html' has display- Title 'Reference HTML renderer'.
 Render Target 'html' has Description 'Engine-installed reference render function: walks the ViewProjection elements in Order, emits one labeled widget per Component Role (text-input, date-picker, checkbox, combo-box) and one rel=transition anchor per HATEOAS affordance. Pure function of its input; knows nouns and widgets, never apps.'.
+
+<!-- ONE RENDER TARGET PER PLATFORM (2026-10-02, #124). A platform is its
+     paired controls plus its own layout engine, the function from a
+     screen's placed rows to what the platform shows; the engine is the
+     Platform Function Name below, declared registered in
+     metamodel/resolution.md, and a container registers it beside the
+     nineteen controls. None of these three emits a MimeType: each hands its
+     widgets straight to its toolkit. -->
+
+### Render Target: the Swing container
+
+Render Target 'swing' has Platform Function Name 'render:swing'.
+Render Target 'swing' has display- Title 'Swing container'.
+Render Target 'swing' has Description 'The Java container (tools/java-runner): draws the placed rows lambda answers for a screen as Swing components at their rectangles, with the Swing fonts and metrics it registers as its platform defaults.'.
+
+### Render Target: the WPF container
+
+Render Target 'wpf' has Platform Function Name 'render:wpf'.
+Render Target 'wpf' has display- Title 'WPF container'.
+Render Target 'wpf' has Description 'The C# container: draws the placed rows lambda answers for a screen as WPF elements on a Canvas at their rectangles, as the iFactr WPF binding registers one element per interface.'.
+
+### Render Target: the Slint surface
+
+Render Target 'slint' has Platform Function Name 'render:slint'.
+Render Target 'slint' has display- Title 'Slint surface'.
+Render Target 'slint' has Description 'The Rust container (engine/os): draws the placed rows lambda answers for a screen as Slint elements at their rectangles, through the software renderer into a pixel buffer, which is what the UEFI framebuffer shows.'.
