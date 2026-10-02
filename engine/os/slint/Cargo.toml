@@ -1,0 +1,20 @@
+[package]
+name = "arest-slint"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "The Slint platform: the iFactr interfaces lambda places, registered as Slint elements, and render:slint"
+
+# Its own root: not a member of engine/os, whose image compiles the whole of
+# lambda through arest-host. This crate registers and draws; it asks lambda
+# through a Transport, so it builds and is measured on the host target alone.
+[workspace]
+
+[dependencies]
+slint = { version = "=1.17.1", default-features = false, features = ["compat-1-2", "std", "renderer-software"] }
+
+[build-dependencies]
+slint-build = "=1.17.1"
+
+[dev-dependencies]
+png = "=0.18.1"

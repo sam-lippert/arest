@@ -1,0 +1,223 @@
+// THE SLINT PLATFORM'S ELEMENTS (#124, 2026-10-02): one element per iFactr
+// interface lambda places, and Screen, the render:slint layout engine. Sam,
+// 2026-10-01: a Slint registration surface in Rust, the way there is a WPF
+// one in C# and a React one for the web.
+//
+// Lambda places every rectangle (ui:arrange), so a cell arrives absolutely
+// placed: the engine in src/lib.rs flattens a grid cell's children onto the
+// screen at the cell's origin, and each element below draws its rectangle
+// with the members its interface names -- the Text, the Font, the colors --
+// and nothing else decides a color, a size, a route or a control.
+
+import { LineEdit, TextEdit, ComboBox, CheckBox, Slider, Button } from "std-widgets.slint";
+
+// one placed row, flattened: what every interface's element reads
+export struct Cell {
+    kind: string,
+    x: length, y: length, width: length, height: length,
+    text: string,
+    placeholder: string,
+    foreground: color,
+    background: color,
+    selection: color,
+    font-family: string,
+    font-size: length,
+    bold: bool,
+    link: int,
+    items: [string],
+    selected: int,
+    checked: bool,
+    minimum: float, maximum: float, value: float,
+    read-only: bool,
+    password: bool,
+    numeric: bool,
+    picture: image,
+}
+
+// IMenuButton: its Title, the link it follows, and whether it submits the view
+export struct MenuItem { title: string, link: int, submit: bool }
+
+// one pane's screen: IListView's chrome and its cells
+export struct PaneData {
+    name: string,
+    x: length, width: length,
+    title: string,
+    back-link: int,
+    menu: [MenuItem],
+    has-search: bool,
+    search-placeholder: string,
+    search-text: string,
+    header-color: color,
+    title-color: color,
+    separator: color,
+    background: color,
+    cells: [Cell],
+}
+
+// THE LAYOUT ENGINE, render:slint: the view's chrome above its content, every
+// cell at the rectangle lambda placed it, a later cell above an earlier one
+component Screen inherits Rectangle {
+    in property <PaneData> pane;
+    callback follow(int);
+    callback edited(int, string);
+    callback chosen(int, int);
+    callback toggled(int, bool);
+    callback slid(int, float);
+    callback menu-clicked(int);
+    callback searched(string);
+
+    background: pane.background;
+    clip: true;
+
+    Rectangle {
+        x: 0; y: 0; width: parent.width; height: 40px;
+        background: pane.header-color;
+        Rectangle { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; background: pane.separator; }
+        if pane.back-link >= 0 : Rectangle {
+            x: 14px; y: 0; width: 52px; height: 40px;
+            Text { x: 0; y: 0; width: parent.width; height: parent.height;
+                   text: "\u{2039} back"; vertical-alignment: center; color: #0A64C8; font-size: 14px; }
+            TouchArea { x: 0; y: 0; width: parent.width; height: parent.height; clicked => { root.follow(pane.back-link); } }
+        }
+        Text {
+            x: pane.back-link >= 0 ? 72px : 14px; y: 0; height: 40px;
+            width: max(0px, root.width - self.x - 14px - pane.menu.length * 86px);
+            text: pane.title; vertical-alignment: center; color: pane.title-color;
+            font-size: 14px; font-weight: 600; overflow: elide;
+        }
+        for item[i] in pane.menu : Button {
+            x: root.width - 14px - (pane.menu.length - i) * 80px - (pane.menu.length - 1 - i) * 6px;
+            y: 6px; width: 80px; height: 28px;
+            text: item.title;
+            clicked => { root.menu-clicked(i); }
+        }
+    }
+
+    if pane.has-search : LineEdit {
+        x: 14px; y: 46px; width: root.width - 28px; height: 28px;
+        placeholder-text: pane.search-placeholder;
+        text: pane.search-text;
+        accepted(t) => { root.searched(t); }
+    }
+
+    Rectangle {
+        x: 0; y: pane.has-search ? 80px : 40px;
+        width: root.width; height: max(0px, root.height - self.y);
+        clip: true;
+        for cell[i] in pane.cells : Rectangle {
+            x: cell.x; y: cell.y; width: cell.width; height: cell.height;
+
+            // ISectionHeader
+            if cell.kind == "sectionheader" : Rectangle {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                background: cell.background;
+                Text { x: 0; y: 0; width: parent.width; height: parent.height; text: cell.text; color: cell.foreground;
+                       font-family: cell.font-family; font-size: cell.font-size; vertical-alignment: center; overflow: elide; }
+            }
+            // IGridCell: its background, its separator, and the link it is
+            if cell.kind == "gridcell" : Rectangle {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                background: touch.has-hover && cell.link >= 0 ? cell.selection : cell.background;
+                Rectangle { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; background: pane.separator; }
+                touch := TouchArea { x: 0; y: 0; width: parent.width; height: parent.height; enabled: cell.link >= 0;
+                                     clicked => { root.follow(cell.link); } }
+            }
+            // ILabel; one carrying a SubmitKey is a value a person does not type, shown read-only
+            if cell.kind == "label" && !cell.read-only : Text {
+                x: 0; y: 0; width: parent.width; height: parent.height; text: cell.text; color: cell.foreground;
+                font-family: cell.font-family; font-size: cell.font-size; font-weight: cell.bold ? 600 : 400;
+                vertical-alignment: center; overflow: elide;
+            }
+            if cell.kind == "label" && cell.read-only : LineEdit {
+                x: 0; y: 0; width: parent.width; height: parent.height; text: cell.text; read-only: true;
+                font-size: cell.font-size;
+            }
+            // IRichContentCell: a block of text, wrapped
+            if cell.kind == "richcontentcell" : Rectangle {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                background: cell.background;
+                Text { x: 0; y: 0; width: parent.width; height: parent.height; text: cell.text; color: cell.foreground;
+                       wrap: word-wrap; font-family: cell.font-family; font-size: cell.font-size;
+                       vertical-alignment: top; overflow: clip; }
+            }
+            // ITextBox, IPasswordBox, IDatePicker and ITimePicker: Slint's line edit
+            if cell.kind == "textbox" || cell.kind == "passwordbox" || cell.kind == "datepicker" || cell.kind == "timepicker" : LineEdit {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                text: cell.text; placeholder-text: cell.placeholder;
+                input-type: cell.password ? InputType.password : (cell.numeric ? InputType.decimal : InputType.text);
+                font-size: cell.font-size;
+                edited(t) => { root.edited(i, t); }
+            }
+            // ITextArea
+            if cell.kind == "textarea" : TextEdit {
+                x: 0; y: 0; width: parent.width; height: parent.height; text: cell.text; font-size: cell.font-size;
+                edited(t) => { root.edited(i, t); }
+            }
+            // ISelectList: its SelectedItem among its Items
+            if cell.kind == "selectlist" : ComboBox {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                model: cell.items; current-index: cell.selected;
+                selected(v) => { root.chosen(i, self.current-index); }
+            }
+            // ISwitch
+            if cell.kind == "switch" : CheckBox {
+                x: 0; y: 0; width: parent.width; height: parent.height; checked: cell.checked;
+                toggled => { root.toggled(i, self.checked); }
+            }
+            // ISlider
+            if cell.kind == "slider" : Slider {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                minimum: cell.minimum; maximum: cell.maximum; value: cell.value;
+                changed(v) => { root.slid(i, v); }
+            }
+            // IImage
+            if cell.kind == "image" : Image {
+                x: 0; y: 0; width: parent.width; height: parent.height; source: cell.picture; image-fit: contain;
+            }
+            // IButton
+            if cell.kind == "button" : Button {
+                x: 0; y: 0; width: parent.width; height: parent.height; text: cell.text;
+                clicked => { root.follow(cell.link); }
+            }
+        }
+    }
+}
+
+// THE PLATFORM'S WINDOW: the IAlert above the panes, each pane at its width
+export component FrameWindow inherits Window {
+    in property <[PaneData]> panes;
+    in property <string> alert-title;
+    in property <string> alert-message;
+    callback follow(int, int);
+    callback edited(int, int, string);
+    callback chosen(int, int, int);
+    callback toggled(int, int, bool);
+    callback slid(int, int, float);
+    callback menu-clicked(int, int);
+    callback searched(int, string);
+
+    background: white;
+    property <length> alert-height: root.alert-title == "" ? 0px : 36px;
+
+    // IAlert: a Title and a Message over the screen
+    if root.alert-title != "" : Rectangle {
+        x: 0; y: 0; width: root.width; height: root.alert-height;
+        background: #FFF4E5;
+        HorizontalLayout {
+            padding-left: 16px; spacing: 12px; alignment: start;
+            Text { vertical-alignment: center; font-size: 14px; font-weight: 700; text: root.alert-title; }
+            Text { vertical-alignment: center; font-size: 14px; text: root.alert-message; }
+        }
+    }
+    for data[p] in root.panes : Screen {
+        x: data.x; y: root.alert-height; width: data.width; height: root.height - root.alert-height;
+        pane: data;
+        follow(l) => { root.follow(p, l); }
+        edited(c, t) => { root.edited(p, c, t); }
+        chosen(c, x) => { root.chosen(p, c, x); }
+        toggled(c, b) => { root.toggled(p, c, b); }
+        slid(c, v) => { root.slid(p, c, v); }
+        menu-clicked(m) => { root.menu-clicked(p, m); }
+        searched(t) => { root.searched(p, t); }
+    }
+}
