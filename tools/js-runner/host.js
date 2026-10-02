@@ -4322,7 +4322,7 @@ function run_mcp() {
   // own and deliberately no lambda cell, because it is filled by a driver -- had no
   // door on this surface at all: the only way to reach it was the generic `drive`
   // with its name passed as a string, which is not the operation being called.
-  // drive:tools answers <tool name, operation, accepts, yields> for exactly the
+  // drive:tools answers <tool name, operation, accepts, yields, Description> for exactly the
   // seams this driver answers, so the names are lambda's (drive:driven) and none is
   // written here. The tool name is SLUG of the operation and the operation rides
   // beside it, the same two columns mcp:entity_row carries for the same reason: an
@@ -4362,10 +4362,14 @@ function run_mcp() {
     });
   }
 
+  // A VERB LEADS WITH WHAT IT IS FOR (2026-10-01). mcp:verbs answers the Function's Description
+  // fourth -- resolution.md says there what each served verb does and what goes in its args -- and
+  // the empty string where a verb has none, which leaves the shape sentence alone, as it was.
+  function said(x) { return x === undefined || Array.isArray(x) ? "" : String(x); }
   function verbTools() {
     return VERBS.map((v) => ({
       name: String(v[0]),
-      description: "takes the " + String(v[1]) + ", answers the " + String(v[2]),
+      description: (said(v[3]) ? said(v[3]) + " -- " : "") + "takes the " + String(v[1]) + ", answers the " + String(v[2]),
       inputSchema: {
         type: "object",
         properties: {
@@ -4406,7 +4410,7 @@ function run_mcp() {
   function drivenTools() {
     return DRIVEN.map((d) => ({
       name: String(d[0]),
-      description: String(d[1]) + " -- takes the " + String(d[2]) + ", answers the " + String(d[3])
+      description: (said(d[4]) ? said(d[4]) + " -- " : "") + String(d[1]) + " -- takes the " + String(d[2]) + ", answers the " + String(d[3])
         + " -- a judgement, not a computation: this store declares it registrable and no host computes it,"
         + " so the answer is YOURS and what you answer lands as rows with the completion that produced them."
         + " Call it with the subject alone to be handed the store's question; call it again with your answer"

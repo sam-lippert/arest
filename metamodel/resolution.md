@@ -112,10 +112,20 @@ Operation 'ask' is overridable.
      each verb answers under each operand rather than whether it merely
      returned. A verb whose shape is not yet settled carries no row and keeps
      the pair, which is what get, ask, induce and retract take. -->
+<!-- WHAT EACH SERVED VERB IS FOR, SAID BESIDE ITS SHAPE (2026-10-01). Sam: AREST
+     should be the tool an LLM can use for thinking clearly, and a caller handed
+     `takes the recipe-and-populations, answers the rows` cannot write a recipe.
+     `Function has Description` (core.md:669) says what each verb does and what
+     goes in its `args`, mcp:verbs answers it beside the shapes, and the tool
+     description leads with it. rmap, nav and derive add none: each is also a
+     Domain of the catalog below, so it is one Function, and the Description it
+     has is its Domain's. -->
 Function 'schema' accepts Type Expression 'store'.
 Function 'schema' yields Type Expression 'table-list'.
+Function 'schema' has Description 'Answers the relational schema with its rows: every table, its columns, its key and its rows. Takes no arguments, and the answer is the whole store.'.
 Function 'cells' accepts Type Expression 'store'.
 Function 'cells' yields Type Expression 'cell-list'.
+Function 'cells' has Description 'Answers the store as one cell per table, each with its rows. Takes no arguments, and the answer is the whole store.'.
 Function 'rmap' accepts Type Expression 'store'.
 Function 'rmap' yields Type Expression 'cell-list'.
 <!-- AND actions TAKES THE ENTITY AND THE CELLS (2026-09-17). This said
@@ -135,28 +145,38 @@ Function 'rmap' yields Type Expression 'cell-list'.
      name-and-cells it is accept, resolve and merge. -->
 Function 'actions' accepts Type Expression 'name-and-cells'.
 Function 'actions' yields Type Expression 'menu'.
+Function 'actions' has Description 'Answers what an entity affords now: one button per transition out of its current status, naming the fact type whose assertion fires it and the status it leads to. args: [id]. An entity no state machine governs affords none.'.
 Function 'nav' accepts Type Expression 'store'.
 Function 'nav' yields Type Expression 'pattern-list'.
 Function 'propose' accepts Type Expression 'store'.
 Function 'propose' yields Type Expression 'descriptor-list'.
+Function 'propose' has Description 'Answers every fact type descriptor, sorted by name: the fact type, its players, its uniqueness and mandatory roles, and its rows. Takes no arguments, and the answer is the whole store.'.
 Function 'get' accepts Type Expression 'name-and-store'.
 Function 'get' yields Type Expression 'entity-view'.
+Function 'get' has Description 'Answers one entity by its id: its facts, each a fact type with its values, then its links, each a fact type it plays a role in with the fillers that restrict that fact type to it, the number of rows and the first 25 of them. args: [id].'.
 Function 'ask' accepts Type Expression 'arguments-and-populations'.
 Function 'ask' yields Type Expression 'filtered-population'.
+Function 'ask' has Description 'Answers the populations that pass every test, each a fact type with its rows. args: [[[1, factType]]] answers that fact type with its rows; a test [i, value] keeps a population whose part i (1 the name, 2 the rows) equals value.'.
 Function 'query' accepts Type Expression 'recipe-and-populations'.
 Function 'query' yields Type Expression 'rows'.
+Function 'query' has Description 'Answers the rows of one recipe over the fact type populations. args: [recipe]. A recipe is a list whose first element names its form; a src is a fact type name or a nested recipe, and columns count from 1. ["sel", src, col, value]: the rows whose column col equals value. ["starts", src, col, prefix]: the rows whose column col starts with prefix. ["cmp", src, i, j]: the rows whose column i is less than column j. ["proj", src, [cols]]: those columns, in that order. ["join", G, H, [cols]]: the rows where column 2 of G equals column 1 of H, each the columns of G and then those of H after its first. ["joinon", L, R, [[i, j], ...], [cols]]: the rows where column i of L equals column j of R for every pair, each the columns of L and then those of R; an empty list of pairs is the cross product. ["minus", L, R]: the rows of L that are not rows of R. ["count", src, col]: one row per value of that column, with the number of rows holding it. ["sum", src, col, over]: one row per value of col, with the sum of column over across its rows. ["calc", src, op, i, j]: each row with op (+, -, * or /) of columns i and j appended. ["pairwith", src, value]: each row with value appended. ["flat", src]: each row with its first column, itself a tuple, spliced into its components.'.
 Function 'synthesize' accepts Type Expression 'name-and-cells'.
 Function 'synthesize' yields Type Expression 'sentences-and-checked-and-unchecked-and-verdict'.
+Function 'synthesize' has Description 'Speaks an entity as FORML 2 sentences and checks it: answers the sentences, the violations the deterministic rules decide, the obligations only a judgment can settle, and T when nothing decided is violated. args: [id].'.
 Function 'derive' accepts Type Expression 'arguments-and-populations'.
 Function 'derive' yields Type Expression 'populations'.
 Function 'validate' accepts Type Expression 'descriptor-list'.
 Function 'validate' yields Type Expression 'violation-list'.
+Function 'validate' has Description 'Answers the uniqueness violations the store holds at rest, each a fact type, the word uniqueness and the role whose values repeat. Takes no arguments.'.
 Function 'verify' accepts Type Expression 'cells'.
 Function 'verify' yields Type Expression 'boolean'.
+Function 'verify' has Description 'Runs every law over the store and answers T when all of them hold. Takes no arguments; on a large store it takes minutes.'.
 Function 'orient' accepts Type Expression 'name-and-cells'.
 Function 'orient' yields Type Expression 'orientation-rows'.
+Function 'orient' has Description 'Answers the context of an App or a Domain: the Description of each Domain in scope and the facts that belong to it and to the Domains it reaches, less the entities in a terminal status. args: [name]; the empty name answers the work standing in each status.'.
 Function 'tutor' accepts Type Expression 'name-and-cells'.
 Function 'tutor' yields Type Expression 'tutorial-text'.
+Function 'tutor' has Description 'Teaches one FORML 2 verbalization pattern: its form, an example and a note. args: [pattern name]; a name that is no pattern answers the list of pattern names.'.
 <!-- AND THE ONE THAT WRITES (2026-09-16). Every verb above reads, so the
      served verb surface had no way to make a fact at all: a Support Request
      has three mandatory roles and is therefore only sayable as a whole ROW,
@@ -175,12 +195,16 @@ Function 'tutor' yields Type Expression 'tutorial-text'.
      route needed the map row and no new arm. -->
 Function 'create' accepts Type Expression 'row-and-cells'.
 Function 'create' yields Type Expression 'outcome-and-store'.
+Function 'create' has Description 'Creates one entity with its facts in one step, validated once. args: [row], an object pairing the collection with the new id and then each fact type with its value, as {"Function": "f-1", "FunctionHasName": "a name"}. Answers the outcome and its violations.'.
 Function 'replace' accepts Type Expression 'row-and-cells'.
 Function 'replace' yields Type Expression 'outcome-and-store'.
+Function 'replace' has Description 'Replaces one fact in one step. args: [row], the collection with the id and exactly one fact type with its new value, as {"Function": "f-1", "FunctionHasName": "a new name"}.'.
 Function 'retract' accepts Type Expression 'row-and-cells'.
 Function 'retract' yields Type Expression 'outcome-and-store'.
+Function 'retract' has Description 'Retracts one fact, or an entity whole. args: [row], the collection with the id and one fact type with the value to remove, as {"Function": "f-1", "FunctionHasName": "a name"}; the collection and the id alone retract every fact the entity plays a role in.'.
 Function 'assert' accepts Type Expression 'row-and-cells'.
 Function 'assert' yields Type Expression 'outcome-and-store'.
+Function 'assert' has Description 'Asserts a list of facts in one step, validated once, each a fact type and one value for each of its roles, in role order. args: [[[factType, value, ...], ...]]. A fact already held is not asserted again. Answers committed, committed_with_violations or refused, how many facts were new and how many already held, and the violations whose subject is a value these facts name; a refused write answers the alethic violations that refuse it.'.
 <!-- AND A PAGE IS ONE WRITE (2026-09-25). `assert` takes a list of facts -- each a fact type and
      its role values -- and asserts every one not already held in ONE step, validated once and
      closed once, so a federation's page lands whole or not at all and a second sync of the same
@@ -337,6 +361,7 @@ Function 'assert' yields Type Expression 'outcome-and-store'.
 Operation 'drive' is overridable.
 Function 'drive' accepts Type Expression 'completion-and-cells'.
 Function 'drive' yields Type Expression 'fact-list'.
+Function 'drive' has Description 'Drives a judgment seam. args: [{"operation": name, "subject": id}] answers the question the store asks about the subject and writes nothing; [{"operation": name, "subject": id}, answer] writes the answer as rows, with the Completion that produced them.'.
 <!-- AND THE ONE THAT READS A SOURCE (2026-09-25). `sync` takes a Source -- or the list
      <Source, bindings, cursor, page> -- and answers what the Source`s Connector yields. Handed no
      page it answers the REQUEST, the method, the address and the query parameters the model
@@ -349,6 +374,7 @@ Function 'drive' yields Type Expression 'fact-list'.
 Operation 'sync' is overridable.
 Function 'sync' accepts Type Expression 'response-and-cells'.
 Function 'sync' yields Type Expression 'outcome-and-store'.
+Function 'sync' has Description 'Reads a Source through its Connector and asserts what each page yields, one step per page, until no page follows. args: [source] or [[source, {key: value}]], the bindings filling the parameters the Connector declares. Answers each page: what it asserted, its violations and whether more follow; a connection that declares no live Send Mode answers the request it would send.'.
 <!-- MEASURED 2026-09-11, which is the condition the note these replace set.
      It said derive "reads its first element as a sequence, so it answers to
      <[], populations> and throws on the empty argument an address of one
@@ -450,6 +476,7 @@ Operation 'llm:validate_judge' is registrable.
 Function 'llm:validate_judge' has Definition Origin 'registered'.
 Function 'llm:validate_judge' accepts Type Expression 'descriptor-list'.
 Function 'llm:validate_judge' yields Type Expression 'violation-list'.
+Function 'llm:validate_judge' has Description 'Judges which instances violate a constraint that no predicate decides, from the Text of the constraint.'.
 <!-- the command increment (2026-07-16): compile and apps_compile are the
      parse-and-compile verbs — their reference is the reading-to-DEFS leg
      (NORMA carries it today as the oracle; a host carries it in
@@ -690,12 +717,15 @@ Domain 'rules' has Description 'The metamodel star rules as executable data, com
 Function 'csdp:elementarize' has Definition Origin 'registered'.
 Function 'csdp:elementarize' accepts Type Expression 'familiar-examples'.
 Function 'csdp:elementarize' yields Type Expression 'design-state'.
+Function 'csdp:elementarize' has Description 'CSDP step 1: states the elementary facts that the text of the subject commits the store to.'.
 Function 'csdp:combine_judgment' has Definition Origin 'registered'.
 Function 'csdp:combine_judgment' accepts Type Expression 'design-state'.
 Function 'csdp:combine_judgment' yields Type Expression 'design-state'.
+Function 'csdp:combine_judgment' has Description 'CSDP step 3: states which object types are one entity and which roles they share.'.
 Function 'csdp:accept_judgment' has Definition Origin 'registered'.
 Function 'csdp:accept_judgment' accepts Type Expression 'candidates-and-design-state'.
 Function 'csdp:accept_judgment' yields Type Expression 'design-state'.
+Function 'csdp:accept_judgment' has Description 'CSDP step 6: states which of the subtype candidates computed by population inclusion are accepted.'.
 
 Function 'id' has Definition Origin 'registered'.
 Function 'id' accepts Type Expression 'object'.

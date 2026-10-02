@@ -216,8 +216,6 @@ Domain is a subtype of Function.
        never an enum stored on Domain); both stay out of core, and the
        stray Access instance facts are preserved as comments until
        organization readings exist. -->
-Domain has Description.
-  Each Domain has at most one Description.
 
 <!-- The party kinds (ruling 2026-07-24, per Halpin's Subtyping
      Revisited 4 and the Party pattern): Human and Organization are
@@ -438,8 +436,6 @@ Object Type has Maximum.
   Each Object Type has at most one Maximum.
 Object Type has Pattern.
   Each Object Type has at most one Pattern.
-Object Type has Description.
-  Each Object Type has at most one Description.
 Object Type has Exclusive Minimum.
   Each Object Type has at most one Exclusive Minimum.
 Object Type has Exclusive Maximum.
@@ -670,6 +666,22 @@ Fact is referenced by Predicate.
 ### Function
 Function has Name.
   Each Function has at most one Name.
+Function has Description.
+  Each Function has at most one Description.
+  <!-- ONE DESCRIPTION, ON THE ROOT (Sam, 2026-10-01: "You can add function
+       descriptions, make sure to clean up subtype descriptions."). Domain,
+       Object Type, Predicate and JS Package each declared a `has Description`
+       of its own, and all four are subtypes of Function, so a served verb
+       (an Operation, a Function too) had nowhere to say what it does. The
+       four are retired for this one, and their instance sentences stand as
+       written: the reader matches `Domain 'core' has Description '...'`
+       against the fact types of its subject's ancestors, so it lands here.
+       One id space makes a Domain and an Operation of the same name one
+       Function with one Description; resolution.md's rmap, nav and derive
+       are both. A subtype must not declare a `has Description` again: the
+       reader files a sentence under the first fact type it matches in
+       reading order, so one declared after this would hold nothing (the
+       theft recorded under `Function is called with HTTP Method`). -->
 Function has callback URI.
   Each Function has at most one callback URI.
 Function is called with HTTP Method.

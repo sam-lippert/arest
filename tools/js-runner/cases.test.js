@@ -516,10 +516,13 @@ test("an absorbed column keyed by its second player lands every row, and an obje
 // synthetic one, naming each with the count of facts it dropped.
 //
 // The Domain role sits at position 2 in every `belongs to Domain` fact type and
-// at position 1 in `Domain has Description`; that is the model's shape, not a
-// convention -- see system:domain_belongings in lambda.
+// at position 1 in `Function has Description`; that is the model's shape, not a
+// convention -- see system:domain_belongings in lambda. The Description leg reads
+// the rows of FunctionHasDescription whose subject is a Domain (2026-10-01: the
+// subtype descriptions were retired for the one on Function, so a Predicate or a
+// served verb carries a Description that is no Domain's and orients nothing).
 const ORIENT_SOURCES = [
-  ["DomainHasDescription", 0, 1],
+  ["FunctionHasDescription", 0, 1],
   ["FunctionBelongsToDomain", 1, 0],
   ["FactBelongsToDomain", 1, 0],
   ["ObjectTypeInstanceBelongsToDomain", 1, 0],
@@ -529,6 +532,10 @@ const ORIENT_SOURCES = [
 
 const popOf = (store, ft) => Ev("system:pop_rows", [ft, store]).map((r) => r.map(String));
 const key = (row) => JSON.stringify(row);   // a separator no value can forge
+// a source's rows as orient reads them: a Description only where its subject is a Domain
+const domainsOf = (store) => new Set(Ev("ui:ids", [store, "Domain"]).map(String));
+const sourceRows = (store, ft) => ft !== "FunctionHasDescription" ? popOf(store, ft)
+  : popOf(store, ft).filter((r) => domainsOf(store).has(r[0]));
 
 // the rule, stated a second time and independently: the Domain's Description
 // plus the facts belonging to it and to the Domains it reaches, less the
@@ -542,7 +549,7 @@ function attributedTo(store, domain) {
   );
   const out = [];
   for (const [ft, dpos, vpos] of ORIENT_SOURCES)
-    for (const row of popOf(store, ft))
+    for (const row of sourceRows(store, ft))
       if (scope.has(row[dpos]) && !retired.has(row[vpos])) out.push(key([row[dpos], ft, row[vpos]]));
   return out.sort();
 }
@@ -551,7 +558,7 @@ const orientRows = (store, domain) => Ev("orient", [domain, store]).map((r) => k
 
 function orientHolds(store, label) {
   const domains = new Set();
-  for (const [ft, dpos] of ORIENT_SOURCES) for (const row of popOf(store, ft)) domains.add(row[dpos]);
+  for (const [ft, dpos] of ORIENT_SOURCES) for (const row of sourceRows(store, ft)) domains.add(row[dpos]);
 
   const silent = [], wrong = [];
   let fired = 0;
@@ -585,7 +592,7 @@ test("orient answers what the composed store attributes to a domain", () => {
   expect(orientHolds(CELLS, "composed store")).toBeGreaterThan(0);
 });
 
-// The composed store populates ONE of the six sources (Domain has Description),
+// The composed store populates ONE of the six sources (Function has Description, on a Domain),
 // because nothing in the metamodel or the templates asserts `belongs to Domain`
 // and `Domain is contained in Domain` is empty, so its reach closure is empty
 // too. A rule checked only where it degenerates is not checked: this store
@@ -593,8 +600,20 @@ test("orient answers what the composed store attributes to a domain", () => {
 // populations, and an entity in a terminal status -- and the SAME assertions
 // run over it. The cells are prepended because ast:FetchPop consults top-level
 // cells before FILE, so these populations win over the composed store's.
+// The synthetic Domains are Domains of the store: a Description orients only where ui:ids files its
+// subject under Domain, so the composed store's own state:otpops is carried with d1..dx added to it,
+// and fz is a Function with a Description that is no Domain.
+const SYNTHETIC_OTPOPS = (() => {
+  const pops = Ev("ui:otpops", CELLS);
+  const extra = ["d1", "d2", "d3", "dx"];
+  // a type's ids are held in chunks, so the four are one more chunk
+  return pops.some((p) => String(p[0]) === "Domain")
+    ? pops.map((p) => String(p[0]) === "Domain" ? [p[0], [...p[1], extra]] : p)
+    : [...pops, ["Domain", [extra]]];
+})();
 const SYNTHETIC = [
-  ["CELL", "DomainHasDescription", [["d1", "Top"], ["d2", "Child"], ["d3", "Grandchild"], ["dx", "Unrelated"]]],
+  ["CELL", "FunctionHasDescription", [["d1", "Top"], ["d2", "Child"], ["fz", "A Function that is no Domain"], ["d3", "Grandchild"], ["dx", "Unrelated"]]],
+  ["CELL", "state:otpops", [SYNTHETIC_OTPOPS]],
   ["CELL", "DomainReachesDomain", [["d1", "d2"], ["d2", "d3"], ["d1", "d3"]]],
   ["CELL", "FunctionBelongsToDomain", [["f1", "d1"], ["f2", "d2"], ["f3", "d3"], ["fx", "dx"]]],
   ["CELL", "FactBelongsToDomain", [["k1", "d2"]]],
@@ -614,7 +633,7 @@ test("orient's three legs each do something: reach, restriction, terminal", () =
   // d1's orientation -- one rule, not a description rule and a facts rule
   expect(Ev("orient:scope", ["d1", SYNTHETIC]).map(String)).toEqual(["d1", "d2", "d3"]);
   const d1 = orientRows(SYNTHETIC, "d1");
-  expect(d1).toContain(key(["d3", "DomainHasDescription", "Grandchild"]));
+  expect(d1).toContain(key(["d3", "FunctionHasDescription", "Grandchild"]));
   expect(d1).toContain(key(["d2", "FactBelongsToDomain", "k1"]));
   expect(d1).toContain(key(["d3", "ViolationBelongsToDomain", "v1"]));
 
@@ -622,7 +641,7 @@ test("orient's three legs each do something: reach, restriction, terminal", () =
   expect(d1.filter((r) => r.includes("dx") || r.includes("fx"))).toEqual([]);
   // and a leaf answers only its own, which is what makes reach load-bearing
   expect(orientRows(SYNTHETIC, "d3")).toEqual(
-    [key(["d3", "DomainHasDescription", "Grandchild"]),
+    [key(["d3", "FunctionHasDescription", "Grandchild"]),
      key(["d3", "FunctionBelongsToDomain", "f3"]),
      key(["d3", "ViolationBelongsToDomain", "v1"])].sort());
 
@@ -637,6 +656,9 @@ test("orient's three legs each do something: reach, restriction, terminal", () =
   // correct -- and is why the test above asks whether the store attributes
   // anything before demanding rows
   expect(orientRows(SYNTHETIC, "no-such-domain")).toEqual([]);
+  // and a Function that is no Domain orients nothing, its Description included
+  expect(orientRows(SYNTHETIC, "fz")).toEqual([]);
+  expect(d1.filter((r) => r.includes("fz"))).toEqual([]);
 });
 
 // ---- DOES A store.db HOLD THE SCHEMA IT IS READ THROUGH? -------------------
@@ -4685,13 +4707,13 @@ describe("lambda's reader reads a value type's kind and the rows that need it", 
     expect(Ev("value:as_int", "")).toBe("");
     expect(Ev("value:as_int", 3)).toBe(3);
     // what the tables answer, typed by the fact type each pair is of; a text role keeps its text
-    expect(Ev("value:typed_pairs", [[["FactTypeHasArity", ["X", "2"]], ["DomainHasDescription", ["d", "2"]]], CELLS]))
-      .toEqual([["FactTypeHasArity", ["X", 2]], ["DomainHasDescription", ["d", "2"]]]);
+    expect(Ev("value:typed_pairs", [[["FactTypeHasArity", ["X", "2"]], ["FunctionHasDescription", ["d", "2"]]], CELLS]))
+      .toEqual([["FactTypeHasArity", ["X", 2]], ["FunctionHasDescription", ["d", "2"]]]);
     // a write: the population main:cf_store is handed, typed, and a row that meets another once typed is one row
     expect(Ev("value:cf_typed", [CELLS, ["FactTypeHasArity", [["X", "2"], ["X", 2]]]])[1]).toEqual(["FactTypeHasArity", [["X", 2]]]);
     // an assert, typed before it is compared with anything the store holds
-    expect(Ev("value:typed_in", [CELLS, [["FactTypeHasArity", "X", "3"], ["DomainHasDescription", "d", "3"]]])[1])
-      .toEqual([["FactTypeHasArity", "X", 3], ["DomainHasDescription", "d", "3"]]);
+    expect(Ev("value:typed_in", [CELLS, [["FactTypeHasArity", "X", "3"], ["FunctionHasDescription", "d", "3"]]])[1])
+      .toEqual([["FactTypeHasArity", "X", 3], ["FunctionHasDescription", "d", "3"]]);
     // the instance rows a store rebuilds a value type's population from: an instance of an integer type is one
     expect(Ev("value:typed_insts", [[["2", "Arity"], ["x", "Fact Type"]], CELLS])).toEqual([[2, "Arity"], ["x", "Fact Type"]]);
     // main:api: the fact of a fact-type resource, typed by that resource's kinds, as the fact tool's PUT and DELETE compare it
@@ -6162,7 +6184,7 @@ test("an instance created with no Domain belongs to its type's, and a reflected 
   // the reflected extents over the carriers boot: a role takes its fact type's
   // domain, a fact type its first player's wherever it is on the surface, an
   // instance its most specific type's
-  expect(dom("DomainHasDescription.1", CELLS)).toBe("core");
+  expect(dom("FunctionHasDescription.1", CELLS)).toBe("core");
   expect(dom("FactJoinsFact", CELLS)).toBe("instances");
   expect(dom("Applied", CELLS)).toBe("state");
   // a type whose file declares a domain gives its instances that domain:

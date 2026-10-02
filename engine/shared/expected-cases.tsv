@@ -699,7 +699,10 @@ case:mcp-tool-without-a-reading	"(('MessageRecommendsPlan', ('Message', 'Plan'),
 case:verb-declared-to-take-the-store	"'store'"
 case:verb-declared-to-take-arguments	"'name-and-store'"
 case:verb-the-model-does-not-describe	"''"
-case:verbs-are-the-runnable-declared-operations	"(('v1', 'store', 'cell-list'))"
+case:verbs-are-the-runnable-declared-operations	"(('v1', 'store', 'cell-list', ''))"
+case:a-verb-carries-its-description	"(('v1', 'store', 'cell-list', 'answers the cells'))"
+case:domain-descriptions-keep-the-domains	"(('d1', 'Top'), ('d2', 'Child'))"
+case:vanity-speaks-the-last-domain	"('layer', 'd2', (), ('menu', 'Child'))"
 
 case:verb-declared-to-take-the-populations	"'populations'"
 case:verb-declared-to-take-the-descriptors	"'descriptors'"

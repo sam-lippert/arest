@@ -41,9 +41,6 @@ JS Package has Version.
        Domains" was talking about package NAMES, which are not the identity. -->
 
 
-JS Package has Description.
-  Each JS Package has at most one Description.
-
 JS Package has Package Manager.
   Each JS Package has at most one Package Manager.
 
@@ -84,9 +81,6 @@ Predicate has Module Path.
 
 Predicate has Symbol Name.
   Each Predicate has at most one Symbol Name.
-
-Predicate has Description.
-  Each Predicate has at most one Description.
 
 Predicate is bound. *
 <!-- A NAME IS NOT A BINDING (2026-09-11). Sam's own parenthesis when he split
