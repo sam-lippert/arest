@@ -2420,5 +2420,8 @@ DEF("case:html-textbox-draws-its-value", S2(A("html:textbox"), S9(A("textbox"), 
 DEF("case:html-textbox-on-the-entry-screen-has-no-value", S2(A("html:textbox"), S8(A("textbox"), N(14), N(62), N(632), N(64), A("Title"), A("MemoryHasTitle"), PHI()))),
 DEF("case:html-selectlist-selects-the-value", S2(A("html:selectlist"), S9(A("selectlist"), N(0), N(0), N(100), N(64), A("Kind"), A("MemoryHasKind"), S2(A("user"), A("project")), A("project")))),
 DEF("case:html-switch-is-checked-when-true", S2(A("html:switch"), S9(A("switch"), N(0), N(0), N(100), N(64), A("Done"), A("TaskIsDone"), PHI(), A("true")))),
-DEF("case:html-numericfield-draws-a-decimal-as-its-lexeme", S2(A("html:numericfield"), S9(A("numericfield"), N(0), N(0), N(100), N(64), A("Minimum"), A("ObjectTypeHasMinimum"), PHI(), S3(A("decimal"), N(5), N(1)))))
+DEF("case:html-numericfield-draws-a-decimal-as-its-lexeme", S2(A("html:numericfield"), S9(A("numericfield"), N(0), N(0), N(100), N(64), A("Minimum"), A("ObjectTypeHasMinimum"), PHI(), S3(A("decimal"), N(5), N(1))))),
+"THE ROOT IS TITLED BY ITS APP (2026-10-01). The store holds two Apps, acme named Acme Support and beta with no Name: the root`s title is each App`s Name, beta`s own identifier where it has none, joined.",
+DEF("fixture:app-store", K(S2(S3(A("CELL"), A("state:otpops"), S1(S1(S2(A("App"), S2(A("acme"), A("beta")))))), S3(A("CELL"), A("FILE"), S1(S3(A("CELL"), A("AppHasName"), S1(S2(A("acme"), A("Acme Support"))))))))),
+DEF("case:the-root-is-titled-by-its-app", S2(S3(A("COMP"), A("ui:app_title"), A("fixture:app-store")), PHI()))
 )
