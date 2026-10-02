@@ -2544,5 +2544,9 @@ DEF("case:a-head-is-computed-after-the-heads-it-reads", S2(A("compile:eng_order"
 DEF("case:a-list-is-cut-into-chunks-of-the-size-asked", S2(A("compile:chunks"), S2(N(2), S5(A("a"), A("b"), A("c"), A("d"), A("e"))))),
 DEF("case:a-list-the-size-of-a-chunk-is-one-chunk", S2(A("compile:chunks"), S2(N(3), S3(A("a"), A("b"), A("c"))))),
 DEF("case:an-empty-list-is-no-chunks", S2(A("compile:chunks"), S2(N(3), PHI()))),
-DEF("case:keys-said-as-one-text-are-one-row", S2(A("compile:ent_keys_of"), S2(A("1"), S3(S2(A("1"), N(1)), S2(A("2"), N(2)), S2(A("1"), A("1"))))))
+DEF("case:keys-said-as-one-text-are-one-row", S2(A("compile:ent_keys_of"), S2(A("1"), S3(S2(A("1"), N(1)), S2(A("2"), N(2)), S2(A("1"), A("1")))))),
+"A Connector names the Fetcher that reads it, and one that names none is the HTTP read every Connector made before (perform:fetcher_of). A sync binds the Source it reads as @source ahead of the call`s own bindings, so a yield can say where a fact was read (fed:with_source).",
+DEF("case:a-connector-names-the-fetcher-that-reads-it", S2(A("perform:fetcher_of"), S2(A("searchSlackMessages"), S1(S3(A("CELL"), A("ConnectorFetchesWithFetcher"), S1(S2(A("searchSlackMessages"), A("claude-slack")))))))),
+DEF("case:a-connector-that-names-no-fetcher-is-the-http-read", S2(A("perform:fetcher_of"), S2(A("listStripeSubscriptions"), S1(S3(A("CELL"), A("ConnectorFetchesWithFetcher"), S1(S2(A("searchSlackMessages"), A("claude-slack")))))))),
+DEF("case:a-sync-binds-the-source-it-reads", S2(A("fed:with_source"), S3(A("slack-search"), S1(S2(A("email"), A("x@example.com"))), PHI())))
 )

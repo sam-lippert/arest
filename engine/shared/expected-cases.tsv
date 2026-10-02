@@ -840,3 +840,6 @@ case:a-list-is-cut-into-chunks-of-the-size-asked	"(('a', 'b'), ('c', 'd'), ('e')
 case:a-list-the-size-of-a-chunk-is-one-chunk	"(('a', 'b', 'c'))"
 case:an-empty-list-is-no-chunks	"()"
 case:keys-said-as-one-text-are-one-row	"(1, '1')"
+case:a-connector-names-the-fetcher-that-reads-it	"'claude-slack'"
+case:a-connector-that-names-no-fetcher-is-the-http-read	"()"
+case:a-sync-binds-the-source-it-reads	"(('source', 'slack-search'), ('email', 'x@example.com'))"
