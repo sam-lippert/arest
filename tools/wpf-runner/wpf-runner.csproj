@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- THE WPF PLATFORM (#124, 2026-10-02): the registration of the nineteen
+       iFactr interfaces as WPF elements and the render:wpf layout engine, a
+       shim over the serving host's navigate. Exe rather than WinExe so that
+       `arest-wpf snapshot <dir>` can say what it drew. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>Arest.Wpf</RootNamespace>
+    <AssemblyName>arest-wpf</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>
