@@ -225,6 +225,21 @@ if (run) {
   // so `bun run ui` composed a container and then ran it with no address
   const sep = process.argv.indexOf("--");
   const rest = sep < 0 ? [] : process.argv.slice(sep + 1);
-  const proc = Bun.spawn(["bun", join(outDir, name), ...rest], { stdio: ["inherit", "inherit", "inherit"] });
+  // A CHECK'S HEAP GROWS BY A QUARTER BEFORE THE ENGINE COLLECTS, NOT TWOFOLD (2026-10-02;
+  // Sam: this should be capable of running on a Commodore). JavaScriptCore sizes a heap's
+  // growth from the machine's memory: a heap under a quarter of it may double before a full
+  // collection, and on a 16 GB machine every heap a check holds is under that. Sampled with a
+  // collection every ten seconds, support's check held 260 to 740 MB live, and run as it ran,
+  // it peaked at 2.7 to 3.0 GB of working set: the rest was garbage the engine had not yet
+  // collected and pages it had not yet given back. So a check's module runs with the factor
+  // JavaScriptCore itself gives a heap it calls large (1.24) at the two smaller sizes as well.
+  // Only when and how much is collected changes, never what is computed. An environment that
+  // sets either factor keeps its own.
+  const env = { ...process.env };
+  if (mode === "compile") {
+    if (env.BUN_JSC_smallHeapGrowthFactor === undefined) env.BUN_JSC_smallHeapGrowthFactor = "1.25";
+    if (env.BUN_JSC_mediumHeapGrowthFactor === undefined) env.BUN_JSC_mediumHeapGrowthFactor = "1.25";
+  }
+  const proc = Bun.spawn(["bun", join(outDir, name), ...rest], { stdio: ["inherit", "inherit", "inherit"], env });
   process.exit(await proc.exited);
 }
