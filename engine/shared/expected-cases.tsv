@@ -819,3 +819,8 @@ case:a-container-with-no-engine-is-told-the-engines	"('render:b', 'render:html',
 case:a-replace-with-no-key-is-refused	"'F'"
 case:a-replace-keyed-by-its-leading-role-is-admitted	"'T'"
 case:a-replace-keyed-off-its-leading-roles-is-refused	"'F'"
+case:a-value-is-unsaid-left-to-right-never-overlapping	"'(not printed)(not printed)a'"
+case:a-value-said-inside-a-longer-word-is-unsaid-there-too	"'(not printed) (not printed)ed'"
+case:a-value-the-text-does-not-say-leaves-it	"'hello'"
+case:an-empty-value-unsays-nothing	"'hello'"
+case:a-value-between-astral-characters-is-unsaid	"'a(not printed)b(not printed)c'"

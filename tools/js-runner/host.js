@@ -1960,6 +1960,20 @@ const FASTPRIMS = new Map(Object.entries({
     const hs = [...h], ns = [...n];
     for (let i = 0; i < hs.length; i++) { let j = 0; while (j < ns.length && hs[i + j] === ns[j]) j++; if (j === ns.length) return "T"; }
     return "F"; },
+  // compile:unsay <text, value> is the text with each occurrence of the value, taken left to right
+  // and never overlapping, said as (not printed). The DEF walks the text a character at a time and
+  // appends each character it keeps to the right of what it kept, which copies the kept list at
+  // every step: on support's check the redaction of its findings text was the last 0.9 GB of the
+  // run's peak, the text holding a .env value as an ordinary word (2026-10-02). On well-formed text
+  // a split on the value is the same walk -- each occurrence found where the walk would find it,
+  // the search resuming after it -- so the twin splits and joins; text with a lone surrogate, or an
+  // operand that is not two strings, is the DEF's, as cn:contains has it.
+  "compile:unsay": x => {
+    if (!Array.isArray(x) || x.length < 2 || typeof x[0] !== "string" || typeof x[1] !== "string") return Ev(DEFS.get("compile:unsay"), x);
+    const t = x[0], v = x[1];
+    if (v === "" || t.length === 0) return t;
+    if (!(typeof t.isWellFormed === "function" && t.isWellFormed() && v.isWellFormed())) return Ev(DEFS.get("compile:unsay"), x);
+    return t.split(v).join("(not printed)"); },
   "theta:member": x => { const l = seq(at(x, 1)), e = at(x, 0);
     if (l.length < 16) return bool(l.some(m => deepEq(e, m)));
     let s = MEMBIDX.get(l);
@@ -3308,9 +3322,20 @@ function sreport(label) {
   // AREST_SAMPLE_GC=1 collects before it says what the heap holds, so the line is what is LIVE at
   // that stack and not what the collector has yet to reclaim: a working set that climbs is garbage
   // or data, and only a forced collection tells which (2026-10-01, support's in-place compile)
+  // AREST_SAMPLE_RSS=1 says what the process holds at that stack WITHOUT collecting, so the line
+  // follows the curve a release run draws and a forced collection does not flatten it
+  if (process.env.AREST_SAMPLE_RSS) {
+    const m = process.memoryUsage();
+    console.error(label + " held: rss " + Math.round(m.rss / 1048576) + " MB, heap used " + Math.round(m.heapUsed / 1048576) + " MB, external " + Math.round((m.external || 0) / 1048576) + " MB");
+  }
   if (process.env.AREST_SAMPLE_GC && typeof Bun !== "undefined" && Bun.gc) {
     const t = performance.now(); Bun.gc(true); const hs = require("bun:jsc").heapStats();
     console.error(label + " live: rss " + Math.round(process.memoryUsage().rss / 1048576) + " MB, heap " + Math.round(hs.heapSize / 1048576) + " MB in " + hs.objectCount + " objects after a " + Math.round(performance.now() - t) + " ms collection");
+    // AREST_SAMPLE_GC=2 says what those objects ARE: the eight most numerous types the heap holds
+    if (process.env.AREST_SAMPLE_GC === "2" && hs.objectTypeCounts) {
+      const kinds = Object.entries(hs.objectTypeCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      console.error(label + " kinds: " + kinds.map(([k, n]) => k + " " + n).join("  "));
+    }
   }
   if (SWHOCOUNT.size > 0) {
     const rows = [...SWHOCOUNT.entries()].sort((a, b) => b[1] - a[1]).slice(0, 24);

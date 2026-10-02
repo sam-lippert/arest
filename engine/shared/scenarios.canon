@@ -2490,5 +2490,10 @@ DEF("case:a-container-with-no-engine-is-told-the-engines", S2(S3(A("COMP"), A("l
 "A replace addresses one fact by the fact type`s single-role key. A key that is not the leading roles is refused, and so, since 2026-10-02, is an empty key: a fact type whose only uniqueness spans its roles has no single-role key, and the empty key used to admit a replace that dropped the whole population.",
 DEF("case:a-replace-with-no-key-is-refused", S2(A("main:rp_prefix"), PHI())),
 DEF("case:a-replace-keyed-by-its-leading-role-is-admitted", S2(A("main:rp_prefix"), S1(N(1)))),
-DEF("case:a-replace-keyed-off-its-leading-roles-is-refused", S2(A("main:rp_prefix"), S1(N(2))))
+DEF("case:a-replace-keyed-off-its-leading-roles-is-refused", S2(A("main:rp_prefix"), S1(N(2)))),
+DEF("case:a-value-is-unsaid-left-to-right-never-overlapping", S2(A("compile:unsay"), S2(A("aaaaa"), A("aa")))),
+DEF("case:a-value-said-inside-a-longer-word-is-unsaid-there-too", S2(A("compile:unsay"), S2(A("support supported"), A("support")))),
+DEF("case:a-value-the-text-does-not-say-leaves-it", S2(A("compile:unsay"), S2(A("hello"), A("xyz")))),
+DEF("case:an-empty-value-unsays-nothing", S2(A("compile:unsay"), S2(A("hello"), A("")))),
+DEF("case:a-value-between-astral-characters-is-unsaid", S2(A("compile:unsay"), S2(A("a😀b😀c"), A("😀"))))
 )
