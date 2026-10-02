@@ -15156,8 +15156,16 @@ DEF("root:group",
 DEF("root:work",
     S3(A("COMP"), S2(A("ALPHA"), A("root:group")), A("root:rows"))),
 
+"THE ROOT IS TITLED BY ITS APP (2026-10-01). ui:root titled its layer with the last group of the relational map, the last table the readings happen to declare: claude`s root read Correction and the base store`s read Function. The root is the App`s first screen, so its title is the App`s, read from organizations.md`s App has Name. ui:app_title answers the Name of each App the store holds (ui:ids of App), an App`s own identifier where it has no Name, the names joined where the store holds several, and the empty title where it holds none, which is the base store: a metamodel and no App.",
+DEF("ui:app_named",
+    S3(A("COMP"), A("solve:assoc"), S3(A("CONS"), N(2), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("AppHasName")), N(1)))))),
+DEF("ui:app_name",
+    S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("null"), N(1)), N(2), N(1)), S3(A("CONS"), A("ui:app_named"), N(2)))),
+DEF("ui:app_title",
+    S3(A("COMP"), A("implode"), S3(A("CONS"), K(A(", ")), S4(A("COMP"), S2(A("ALPHA"), A("ui:app_name")), A("distl"), S3(A("CONS"), A("id"), S3(A("COMP"), A("ui:ids"), S3(A("CONS"), A("id"), K(A("App"))))))))),
+
 DEF("ui:root",
-    S3(A("COMP"), A("cat"), S3(A("CONS"), S4(A("CONS"), K(A("layer")), S4(A("COND"), S4(A("COMP"), A("null"), A("ui:groups"), N(1)), K(A("")), S4(A("COMP"), A("1r"), A("ui:groups"), N(1))), K(PHI())), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("root:work"), N(1)), S4(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("CONS"), K(A("menu")), S3(A("COMP"), A("ui:sv"), K(A("menuCollections")))), S4(A("COMP"), S2(A("ALPHA"), S5(A("CONS"), K(A("item")), A("id"), K(PHI()), S2(A("CONS"), A("id")))), A("ui:top"), N(1)))), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("CONS"), K(A("menu")), S3(A("COMP"), A("ui:sv"), K(A("menuReports")))), S4(A("COMP"), S2(A("ALPHA"), S5(A("CONS"), K(A("item")), N(1), K(PHI()), S3(A("CONS"), K(A("report")), N(1)))), A("ui:modes"), N(1)))), S4(A("CONS"), K(A("menu")), K(A("")), S5(A("CONS"), K(A("item")), S3(A("COMP"), A("ui:sv"), K(A("schemaLabel"))), K(PHI()), K(S1(A("schema"))))))))))),
+    S3(A("COMP"), A("cat"), S3(A("CONS"), S4(A("CONS"), K(A("layer")), S3(A("COMP"), A("ui:app_title"), N(1)), K(PHI())), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("root:work"), N(1)), S4(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("CONS"), K(A("menu")), S3(A("COMP"), A("ui:sv"), K(A("menuCollections")))), S4(A("COMP"), S2(A("ALPHA"), S5(A("CONS"), K(A("item")), A("id"), K(PHI()), S2(A("CONS"), A("id")))), A("ui:top"), N(1)))), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("CONS"), K(A("menu")), S3(A("COMP"), A("ui:sv"), K(A("menuReports")))), S4(A("COMP"), S2(A("ALPHA"), S5(A("CONS"), K(A("item")), N(1), K(PHI()), S3(A("CONS"), K(A("report")), N(1)))), A("ui:modes"), N(1)))), S4(A("CONS"), K(A("menu")), K(A("")), S5(A("CONS"), K(A("item")), S3(A("COMP"), A("ui:sv"), K(A("schemaLabel"))), K(PHI()), K(S1(A("schema"))))))))))),
 
 DEF("ui:report",
     S5(A("CONS"), K(A("layer")), S3(A("COMP"), N(2), N(2)), S2(A("CONS"), S3(A("COMP"), A("tlr"), N(2))), S3(A("CONS"), K(A("block")), S3(A("COMP"), A("ui:text"), S3(A("CONS"), N(1), S3(A("COMP"), N(2), N(2))))))),
