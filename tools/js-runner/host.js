@@ -744,6 +744,52 @@ function isScalar(x) {
   return x.length === 3 && x[0] === "decimal" && typeof x[1] === "number" && typeof x[2] === "number";
 }
 function isRow(x) { return Array.isArray(x) && x.length > 0 && x.every(isScalar); }
+// derive:filter_sel by an index of the rows, by position and value (see its twin)
+const SELIDX = new WeakMap();
+// a key for a value, equal for two values exactly when eq holds of them; undefined where a key cannot say that
+// (a number that is not finite, which eq does not hold of itself or JSON spells as null, or a value that is no
+// lambda value), and the DEF answers there
+function selKey(v) {
+  if (typeof v === "string") return "s" + v;
+  if (typeof v === "number") return Number.isFinite(v) ? "n" + v : undefined;
+  if (Array.isArray(v)) return finiteDeep(v) ? "a" + JSON.stringify(v) : undefined;
+  return undefined;
+}
+function finiteDeep(v) {
+  for (const e of v) {
+    if (typeof e === "number") { if (!Number.isFinite(e)) return false; }
+    else if (Array.isArray(e)) { if (!finiteDeep(e)) return false; }
+    else if (typeof e !== "string") return false;
+  }
+  return true;
+}
+function filterSel(x) {
+  const def = () => Ev(DEFS.get("derive:filter_sel"), x);
+  if (!Array.isArray(x) || x.length !== 2) return def();
+  const sel = x[0], rows = x[1];
+  if (!Array.isArray(sel) || sel.length !== 2 || !Array.isArray(rows) || rows === CELLS) return def();
+  const pos = sel[0];
+  if (typeof pos !== "number") return def();
+  let byPos = SELIDX.get(rows);
+  if (byPos === undefined || byPos.n !== rows.length) { byPos = { n: rows.length, at: new Map() }; SELIDX.set(rows, byPos); }
+  let idx = byPos.at.get(pos);
+  if (idx === undefined) {
+    idx = new Map();
+    try {
+      for (const r of rows) {
+        const k = selKey(Ev(pos, r));
+        if (k === undefined) return def();
+        const l = idx.get(k);
+        if (l) l.push(r); else idx.set(k, [r]);
+      }
+    } catch (e) { return def(); }
+    byPos.at.set(pos, idx);
+  }
+  const want = selKey(sel[1]);
+  if (want === undefined) return def();
+  const hit = idx.get(want);
+  return hit ? hit.slice() : [];
+}
 const UNFOLDROWS = new WeakMap(), UNFOLDDESCS = new WeakMap();
 // solve:readings by the identity of the state:readings cell it reads (see its twin)
 const READINGSOF = new WeakMap();
@@ -3027,6 +3073,16 @@ const FASTPRIMS = new Map(Object.entries({
   "theta:all_atomp": x => (Array.isArray(x) ? bool(x.every(isScalar)) : Ev(DEFS.get("theta:all_atomp"), x)),
   "law:rowp": x => bool(isRow(x)),
   "theta:all_rowp": x => (Array.isArray(x) ? bool(x.every(isRow)) : Ev(DEFS.get("theta:all_rowp"), x)),
+  // A SELECTION IS A LOOKUP, NOT A SCAN (2026-10-03). derive:filter_sel <<position, value>, rows> keeps, in their
+  // order, the rows whose value at the position is eq to the value (derive:keep_sel), and the closure and the
+  // deontic rows ask it of the same populations again and again: on a copy of support's store one Contact
+  // Submission POST asked it 33,930 times. A population is a value -- a write that changes it answers a new
+  // array -- so the rows are indexed once per position by the value there, kept by the array's identity as
+  // theta:unfold_rows keeps its answers, and each ask is a lookup answering a fresh list of the matching rows in
+  // the population's order. A position that is not a selector number, the store itself (which the host changes
+  // in place), and a row the position cannot be applied to are the DEF's, which answers or raises as it does.
+  // AREST_NOTWIN=derive:filter_sel gives the DEF's own.
+  "derive:filter_sel": x => filterSel(x),
   "theta:unfold_rows": x => unfoldOnce(UNFOLDROWS, "theta:unfold_rows", x),
   "theta:unfold_descs": x => unfoldOnce(UNFOLDDESCS, "theta:unfold_descs", x),
   "theta:flatten": x => { const out = [];
