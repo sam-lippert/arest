@@ -4571,7 +4571,7 @@ function adoptStore(next) {
   // write. This is 120 ms on support.auto.dev against a write that costs two
   // seconds. Not during boot, where the store is half-loaded and the reflection
   // would read a seed that is not there yet; closeStore does it there.
-  if (BOOTED) loadReflected();
+  if (BOOTED && !(REFLECTED_AT && sameStore(CELLS, REFLECTED_AT))) loadReflected();
   return true;
 }
 
@@ -6210,9 +6210,23 @@ function adoptClosed(next) {
 // it in the tables is a CACHE and the recomputation is the answer; nothing
 // asserts these names, and a cell that already equals the reflection is left
 // exactly where it is, so a store with nothing to recompute loads as before.
+// A STORE THE REFLECTION LEFT AS IT WAS IS NOT REFLECTED AGAIN (2026-10-03). Every store a write adopts is
+// reflected again (adoptStore), and on a copy of support's store a pass is 1.7 to 3.4 s. store:reflect_pass is a
+// function of the store's content, and it adopts nothing when it adds no cell. So the store a pass added nothing
+// to is kept, and a later store equal to it cell for cell -- the same cells in the same order, each the same
+// object or eq to it -- is not reflected, because the pass would add nothing to it either: an approval given
+// again, a write that is refused, a write that changes nothing. A pass that adds cells leaves no such store, so
+// the next write's store is reflected as before.
+let REFLECTED_AT = null;
+function sameStore(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i] && !deepEq(a[i], b[i])) return false;
+  return true;
+}
 function loadReflected() {
   const r = Ev("store:reflect_pass", [CELLS, [...REFLECTED_NAMES], [...DERIVED_NAMES], []]);
   const added = Number(r[1]);
+  REFLECTED_AT = added ? null : CELLS.slice();
   if (added) {
     adoptClosed(r[0][0]);
     for (const n of seq(r[0][1])) REFLECTED_NAMES.add(String(n));
