@@ -4574,8 +4574,9 @@ function run_mcp() {
   async function fetchPages(name, args) {
     const list = Array.isArray(args && args.args) ? args.args : [];
     const x = list.length ? fromJson(list[0]) : [];
-    // a page passed with the call is the answer already in hand, as drive takes a passed completion
-    if (Array.isArray(x) && x.length > 3 && !(Array.isArray(x[3]) && x[3].length === 0)) return call(name, args);
+    // a page passed with the call is the answer already in hand, as drive takes a passed completion; an
+    // empty one too, which is a page that yields nothing and not a page withheld (fed:arg)
+    if (Array.isArray(x) && x.length > 3) return call(name, args);
     const source = Array.isArray(x) ? (x.length ? x[0] : "") : x;
     const bindings = Array.isArray(x) && x.length > 1 ? x[1] : [];
     const fn = Ev("fed:connector", [source, CELLS]);
