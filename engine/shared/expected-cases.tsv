@@ -821,6 +821,7 @@ case:an-entity-lists-the-rows-of-a-column-where-it-is-the-value	"(('ResponseResp
 case:a-fire-takes-the-caller-for-the-actor-no-pair-names	"('samuel', 'c1')"
 case:a-caller-fills-no-role-whose-player-it-is-not	"('', 'c1')"
 case:a-fire-with-a-role-no-one-fills-is-refused-by-the-screen	"('\"UserClosesAgentChat needs its User\"', 400)"
+case:an-entity-shows-its-n-ary-facts	"(('menu', 'Request follows Count calls to Endpoint', ('item', '12, /vin', 'Request 'r1' follows Count '12' calls to Endpoint '/vin'.', ('Endpoint', '/vin')), ('item', '3, /specs', 'Request 'r1' follows Count '3' calls to Endpoint '/specs'.', ('Endpoint', '/specs'))))"
 case:the-controls-are-what-takes-a-row	"('render:a', 'render:b')"
 case:the-engines-are-what-takes-a-screen	"('render:html', 'render:wpf')"
 case:a-container-with-its-own-engine-is-paired	"()"
