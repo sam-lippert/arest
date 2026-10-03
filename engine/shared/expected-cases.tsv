@@ -844,6 +844,8 @@ case:a-worklist-page-is-a-screen	"('layer', 'Support Response / Draft', (), ('me
 case:a-worklist-page-lands-in-the-master	"'master'"
 case:a-plus-in-a-reference-mode-mints-nothing	"((('Entity List', 'entity', ''), ('Object Type', 'entity', '.Name')), (('Object Type', 'Name', 'popular', 'Object Type_Name')))"
 case:a-list-item-shows-its-fields-then-its-status	"('menu', '', ('item', 'a1', 't1, 555-0100, Active', ('Agent', 'a1')), ('item', 'a2', 't2, Active', ('Agent', 'a2')), ('item', 'a3', 'Active', ('Agent', 'a3')))"
+case:an-offer-names-each-event-once	"((('Subscription', 'Trialing', ('s1'), ('Subscription trial has ended'))), (('menu', 'Subscription / Trialing', ('item', 's1', '-> Subscription trial has ended', ('Subscription', 's1')))))"
+case:a-refused-fire-names-its-event-as-its-button-does	"('\"Approve needs its Admin\"', 400)"
 case:the-controls-are-what-takes-a-row	"('render:a', 'render:b')"
 case:the-engines-are-what-takes-a-screen	"('render:html', 'render:wpf')"
 case:a-container-with-its-own-engine-is-paired	"()"
