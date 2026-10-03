@@ -85,9 +85,17 @@ Search Box is a subtype of Element.
 
 Dashboard(.Name) is an entity type.
 Widget(.Widget Id) is an entity type.
-Entity List(.Object Type + Domain) is an entity type.
-List Item(.Entity List + Object Type Instance) is an entity type.
-Page(.Entity List + Page Number) is an entity type.
+Entity List(.Name) is an entity type.
+List Item(.id) is an entity type.
+Page(.id) is an entity type.
+<!-- Named and identified by id, not by their parts (2026-10-02, #153): lambda has no reader for a composite
+     reference, and read (.Object Type + Domain), (.Entity List + Object Type Instance) and (.Entity List + Page
+     Number) each as ONE mode named by the whole, minting a value type and a has-fact-type of that name that nothing
+     could populate. An Entity List names its type by Entity List is for Object Type. A List Item and a Page keep
+     the facts that relate them to their list (List Item belongs to Page, List Item displays Object Type Instance,
+     Page belongs to Entity List, Page has Page Number). What they lose is the uniqueness the parts stated: one Page
+     per Page Number of a list, one List Item per instance on a page. Stating it wants an external uniqueness
+     constraint, which no reader builds (#109), so nothing refuses a second Page 2 of a list. -->
 
 ### Platform Registration
 View Renderer(.id) is an entity type.
