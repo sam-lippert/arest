@@ -3042,9 +3042,10 @@ const FASTPRIMS = new Map(Object.entries({
   // law:rowp 9.5 million times and value:is_scalar 24.5 million, 118 s of a 223 s profiled write, of
   // populations the write had not touched. Lambda's arrays are values -- a write that changes a population
   // answers a new array for it and leaves every other one the same object -- so the answer for an array is
-  // kept by the array's identity, and kept through memoClear, as the identity indexes are: it is true for as
-  // long as the array lives, and goes with it. The length is kept beside it and checked, so an array grown in
-  // place could never answer for its shorter self. AREST_NOTWIN=theta:unfold_rows gives the DEF's own.
+  // kept by the array's identity, and kept through memoClear, which builds the identity indexes anew and leaves
+  // this map as it is: it is true for as long as the array lives, and goes with it. The length is kept beside it
+  // and checked, so an array grown in place could never answer for its shorter self. AREST_NOTWIN=theta:unfold_rows
+  // gives the DEF's own.
   // THE READINGS ARE READ ONCE, NOT ONCE PER FACT TYPE PER WRITE (2026-10-03). solve:readings is the readings
   // table of a store, a function of its state:readings cell alone, and mcp:tool_reading asks it once per fact
   // type: the tool list a write's validation reads (cmd:mv_pos through mcp:tools) is built again for every new
@@ -4571,7 +4572,7 @@ function adoptStore(next) {
   // write. This is 120 ms on support.auto.dev against a write that costs two
   // seconds. Not during boot, where the store is half-loaded and the reflection
   // would read a seed that is not there yet; closeStore does it there.
-  if (BOOTED && !(REFLECTED_AT && sameStore(CELLS, REFLECTED_AT))) loadReflected();
+  if (BOOTED && !(REFLECTED_AT && sameStore(CELLS, REFLECTED_AT))) loadReflected(REFLECTED_AT);
   return true;
 }
 
@@ -6225,21 +6226,32 @@ let REFLECTED_AT = null;
 // law:reflect_by_name holds that a reflection of a store whose cells are permuted adds the same cells. So two
 // stores whose cells are all CELLs, each name once, are equal when each name holds the same cell or an eq one;
 // where a name repeats, the cells are compared in order, as before.
+// a store's cells by name, or null when a cell is not a CELL or a name is held twice
+function cellsByName(s) {
+  const m = new Map();
+  for (const c of s) { if (!Array.isArray(c) || c.length !== 3 || c[0] !== "CELL" || typeof c[1] !== "string" || m.has(c[1])) return null; m.set(c[1], c); }
+  return m;
+}
 function sameStore(a, b) {
   if (a.length !== b.length) return false;
   let i = 0;
   while (i < a.length && (a[i] === b[i] || deepEq(a[i], b[i]))) i++;
   if (i === a.length) return true;
-  const byName = (s) => { const m = new Map();
-    for (const c of s) { if (!Array.isArray(c) || c.length !== 3 || c[0] !== "CELL" || typeof c[1] !== "string" || m.has(c[1])) return null; m.set(c[1], c); }
-    return m; };
-  const ma = byName(a), mb = byName(b);
+  const ma = cellsByName(a), mb = cellsByName(b);
   if (ma === null || mb === null) return false;
   for (const [n, c] of ma) { const d = mb.get(n); if (d === undefined || (c !== d && !deepEq(c, d))) return false; }
   return true;
 }
-function loadReflected() {
-  const r = Ev("store:reflect_pass", [CELLS, [...REFLECTED_NAMES], [...DERIVED_NAMES], []]);
+// AND FROM THE LAST STORE A PASS LEFT AS IT WAS, ONLY THE ARMS WHOSE READS MOVED (2026-10-03). Over a store the
+// last pass added nothing to (REFLECTED_AT), an arm whose reads read the same in both answers what it answered
+// there, which was its cell, so store:reflect_since computes only the arms whose reads moved: an approval moves
+// one population, which only the four machine arms read. reflect:arm_reads says what each arm reads, and
+// law:reflect_since holds that the pass adds what store:reflect_pass adds. A store whose names repeat, or
+// whose earlier store's do, is reflected whole: a name is read by its first cell, and its rows are all of them.
+function loadReflected(since) {
+  const r = since && cellsByName(since) !== null && cellsByName(CELLS) !== null
+    ? Ev("store:reflect_since", [CELLS, [...REFLECTED_NAMES], [...DERIVED_NAMES], [], since])
+    : Ev("store:reflect_pass", [CELLS, [...REFLECTED_NAMES], [...DERIVED_NAMES], []]);
   const added = Number(r[1]);
   REFLECTED_AT = added ? null : CELLS.slice();
   if (added) {
