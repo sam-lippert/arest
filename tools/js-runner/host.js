@@ -1863,7 +1863,8 @@ function projRow(x) {
   for (let i = 0; i < plans.length; i++) {
     const p = plans[i];
     if (p.kind === 0) { out[i] = "#"; continue; }
-    if (p.kind === 1) { out[i] = k; continue; }
+    // a value type's own column is its key, as value:text gives it in the DEF: a decimal as its lexeme
+    if (p.kind === 1) { out[i] = decShape(k) ? Ev("dec:text", k) : k; continue; }
     let v = k;
     if (p.kind === 3) {
       const hit = p.idx.get(kk);
