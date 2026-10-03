@@ -957,6 +957,8 @@ function filterSel(x) {
   return hit ? hit.slice() : [];
 }
 const UNFOLDROWS = new WeakMap(), UNFOLDDESCS = new WeakMap();
+// nav:keep_peer: the keys of a FILE cell's atoms, or null when its contents are no trie, by the contents' identity
+const PEERATOMS = new WeakMap();
 // solve:readings by the identity of the state:readings cell it reads (see its twin)
 const READINGSOF = new WeakMap();
 function unfoldOnce(memo, name, x) {
@@ -2624,6 +2626,28 @@ const FASTPRIMS = new Map(Object.entries({
     }
     return Ev(DEFS.get("get"), [id, [fts, st[1]]]);
   },
+  // nav:keep_peer <<id, cell>, peers> TAKES A CELL'S ATOMS ONCE (2026-10-03, #163). nav:peers asks it of every FILE
+  // cell for every id, and the DEF takes the cell's atoms (nav:atoms) and theta:member indexes them, each time: once
+  // FILE holds the populations the reflection and the closure put (store:file_put), the law report's 1,530 links
+  // took 114 s under the profiler and called nav:atoms 39.5 million times, where they had taken 13.7 s and 5.3
+  // million calls. A cell's contents do not change, so whether they are a trie (nav:triep) and the keys of their
+  // atoms are taken the first time and kept by the contents' identity, as theta:unfold_rows keeps its answer, and
+  // an id is then one lookup: those links take 0.4 s, and nav:atoms runs 26,099 times. A cell that is no cell,
+  // contents that are no sequence, peers that are no sequence and AREST_NOTWIN=nav:keep_peer give the DEF's answer.
+  "nav:keep_peer": x => {
+    const def = () => Ev(DEFS.get("nav:keep_peer"), x);
+    if (!Array.isArray(x) || x.length !== 2 || !Array.isArray(x[0]) || x[0].length !== 2 || !Array.isArray(x[1])) return def();
+    const id = x[0][0], c = x[0][1];
+    if (!Array.isArray(c) || c.length < 3 || !Array.isArray(c[2])) return def();
+    const contents = c[2];
+    let keys = PEERATOMS.get(contents);
+    if (keys === undefined) {
+      keys = null;
+      if (Ev("nav:triep", contents) === "T") { keys = new Set(); for (const a of Ev("nav:atoms", contents)) keys.add(keyOf(a)); }
+      PEERATOMS.set(contents, keys);
+    }
+    return keys !== null && keys.has(keyOf(id)) ? [[c[1], [id]]].concat(x[1]) : x[1];
+  },
   // nav:peers <id, FILE> OVER A STORE READ FROM ITS TABLES READS ONLY THE TABLES THAT NAME THE ID (2026-10-03).
   // The DEF keeps each FILE cell whose population holds the id among its atoms (nav:keep_peer over nav:atoms),
   // so it reads every population: a keyed GET of one Cancel Request on a copy of support read all 1,666 for the 24
@@ -2633,9 +2657,9 @@ const FASTPRIMS = new Map(Object.entries({
   // twin reads); so such a cell is decided by the scan and left unread. A fact type the tables carry and yield
   // nothing for is read from the carriers' rows instead, as the get twin finds, so a pending cell the scan does
   // not name is still kept when those rows name the id and the tables yield no row of it. A fact type a write
-  // moved is not pending: FILE keeps the cell it had for a head the write's closure moved (main:refile1 refiles
-  // the written fact type alone), and that cell holds the rows its descriptor held when they were first read,
-  // which can be the rows before the write. Every cell but a pending one -- read already, a write's own, of a
+  // moved is not pending: the write refiles its FILE cell with the rows it put (main:refile1 for the written fact
+  // type, store:file_put for every head the closure or the reflection put), so that cell is tested by
+  // nav:keep_peer over the rows after the write. Every cell but a pending one -- read already, a write's own, of a
   // fact type a write moved or no table holds -- is tested by nav:keep_peer itself, and the links come out in
   // FILE's order, as the DEF's INSERT leaves them. An id that is not text, a store not read from its tables, and
   // AREST_NOTWIN=nav:peers give the DEF's own route.
@@ -2667,6 +2691,42 @@ const FASTPRIMS = new Map(Object.entries({
     Object.defineProperty(out, 4, { get() { if (!done) { v = Ev("theta:unfold_rows", d[4]); done = true; } return v; },
       enumerable: true, configurable: true });
     return out; },
+  // store:fp_file <pairs, store> NESTS NOTHING AT THE WRITE (2026-10-03, #163). Every put refiles FILE's cell of each
+  // population it puts (store:file_put), and the DEF nests that population's rows into the cell there and then,
+  // while a Contact Submission's reflection on support puts the instances' populations, tens of thousands of rows
+  // each, twice. So a rebuilt cell's contents are worked out when the cell is first read, as rmap:nest of the rows
+  // (which theta:unfold_rows leaves as they are), and kept: a GET's links read them, as before they read the
+  // table's rows for a fact type a write moved. Every other cell is the same cell, so the lazy store's pending cells
+  // stay pending. A pair whose rows are not rows of scalars all of one length -- which the twin cannot vouch the
+  // DEF would nest without raising -- a cell that is no cell, and AREST_NOTWIN=store:fp_file give the DEF's answer.
+  "store:fp_file": x => {
+    const def = () => Ev(DEFS.get("store:fp_file"), x);
+    if (!Array.isArray(x) || x.length !== 2 || !Array.isArray(x[0])) return def();
+    const file = Ev("store:file_of", x[1]);
+    if (!Array.isArray(file)) return def();
+    const rowsOf = new Map();
+    for (const p of x[0]) {
+      if (!Array.isArray(p) || p.length < 2) return def();
+      const k = keyOf(p[0]);
+      if (rowsOf.has(k)) continue;           // solve:assoc answers the first pair naming it
+      const rows = p[1];
+      if (!Array.isArray(rows) || !rows.every((r) => isRow(r) && r.length === rows[0].length)) return def();
+      rowsOf.set(k, rows);
+    }
+    const out = new Array(file.length);
+    for (let i = 0; i < file.length; i++) {
+      const c = file[i];
+      if (!Array.isArray(c) || c.length < 2) return def();
+      const rows = rowsOf.get(keyOf(c[1]));
+      if (rows === undefined) { out[i] = c; continue; }
+      const cell = ["CELL", c[1], null];
+      let v, done = false;
+      Object.defineProperty(cell, 2, { get() { if (!done) { v = Ev("rmap:nest", Ev("theta:unfold_rows", rows)); done = true; } return v; },
+        enumerable: true, configurable: true });
+      out[i] = cell;
+    }
+    return out;
+  },
   // store:otpops <rows, store> folds the instance-of rows into state:otpops, the
   // index ui:ids reads (the mandatory check, the entry screen, the machines'
   // seeding). The DEF is INSERT ui:otpops_cell over the rows swapped to
@@ -6510,15 +6570,25 @@ function cellsByName(s) {
   for (const c of s) { if (!Array.isArray(c) || c.length !== 3 || c[0] !== "CELL" || typeof c[1] !== "string" || m.has(c[1])) return null; m.set(c[1], c); }
   return m;
 }
+// AND FILE IS COMPARED LAST (2026-10-03, #163). Every put refiles FILE's cell of each population it puts with a
+// cell whose contents are nested when first read (store:fp_file's twin), and comparing FILE reads them. A put also
+// moves the population's own cell, so where any other cell differs the stores differ whatever FILE holds: FILE is
+// compared after every other cell, and only when all of them are the same.
+const isFileCell = (c) => Array.isArray(c) && c[0] === "CELL" && c[1] === "FILE";
 function sameStore(a, b) {
   if (a.length !== b.length) return false;
-  let i = 0;
-  while (i < a.length && (a[i] === b[i] || deepEq(a[i], b[i]))) i++;
-  if (i === a.length) return true;
+  let i = 0, fa = null, fb = null;
+  for (; i < a.length; i++) {
+    if (a[i] === b[i]) continue;
+    if (fa === null && isFileCell(a[i]) && isFileCell(b[i])) { fa = a[i]; fb = b[i]; continue; }
+    if (!deepEq(a[i], b[i])) break;
+  }
+  if (i === a.length) return fa === null || deepEq(fa, fb);
   const ma = cellsByName(a), mb = cellsByName(b);
   if (ma === null || mb === null) return false;
-  for (const [n, c] of ma) { const d = mb.get(n); if (d === undefined || (c !== d && !deepEq(c, d))) return false; }
-  return true;
+  for (const [n, c] of ma) { if (n === "FILE") continue; const d = mb.get(n); if (d === undefined || (c !== d && !deepEq(c, d))) return false; }
+  const c = ma.get("FILE"), d = mb.get("FILE");
+  return c === d || (c !== undefined && d !== undefined && deepEq(c, d));
 }
 // AND FROM THE LAST STORE A PASS LEFT AS IT WAS, ONLY THE ARMS WHOSE READS MOVED (2026-10-03). Over a store the
 // last pass added nothing to (REFLECTED_AT), an arm whose reads read the same in both answers what it answered
