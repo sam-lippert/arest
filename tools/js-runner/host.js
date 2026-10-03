@@ -4549,7 +4549,12 @@ function run_serve() {
   // method MEANS, which is http:method_kinds' job.
   const PORT = Number(process.env.AREST_PORT || 8787);
 
+  // THE PORT IS THIS MACHINE'S UNLESS SAID OTHERWISE (2026-10-03). Bun.serve with no hostname listens
+  // on every interface, and the caller below is the header as sent: no write path asks the app's
+  // authorization designation yet, so a reachable port is a port anyone can write through. It
+  // listens on 127.0.0.1, and AREST_HOST names another address for a host that has its own gate.
   Bun.serve({
+    hostname: process.env.AREST_HOST || "127.0.0.1",
     port: PORT,
     async fetch(req) {
       const url = new URL(req.url);
