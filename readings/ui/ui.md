@@ -342,6 +342,11 @@ Entity List is for Object Type.
 <!-- The type of the list, whose collection a platform pages by the Page Size of this list (2026-10-02). The ternary
      below says which instances a list displays; its old constraint, Each Entity List displays instances of
      exactly one Object Type, restated no reading and compiled UNATTACHED, so the type is this binary. -->
+Entity List shows Fact Type at Position.
+  For each Entity List and Fact Type, that Entity List shows that Fact Type at at most one Position.
+  For each Entity List and Position, that Entity List shows at most one Fact Type at that Position.
+<!-- What an item of the list shows (2026-10-02): the values its instance holds in these fact types, in
+     Position order, then its status where its type has a machine. -->
 Entity List displays Object Type Instance instances of Object Type.
 Entity List belongs to Domain.
   Each Entity List belongs to exactly one Domain.
