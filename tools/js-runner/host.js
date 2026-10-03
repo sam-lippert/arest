@@ -6218,9 +6218,24 @@ function adoptClosed(next) {
 // again, a write that is refused, a write that changes nothing. A pass that adds cells leaves no such store, so
 // the next write's store is reflected as before.
 let REFLECTED_AT = null;
+// AND A STORE IS ITS CELLS BY NAME (2026-10-03). The state is a sequence of cells fetched and stored by name
+// (AREST.tex, after Backus 13.3.4 and 14.3), and the emit's store:src_all puts the cells it re-sources first, so the
+// store after a write's emit is often the store its first reflection left as it was, in another order: on a copy of
+// support's store a retracted approval was reflected again after its emit, 2.5 s, and added nothing.
+// law:reflect_by_name holds that a reflection of a store whose cells are permuted adds the same cells. So two
+// stores whose cells are all CELLs, each name once, are equal when each name holds the same cell or an eq one;
+// where a name repeats, the cells are compared in order, as before.
 function sameStore(a, b) {
   if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i] && !deepEq(a[i], b[i])) return false;
+  let i = 0;
+  while (i < a.length && (a[i] === b[i] || deepEq(a[i], b[i]))) i++;
+  if (i === a.length) return true;
+  const byName = (s) => { const m = new Map();
+    for (const c of s) { if (!Array.isArray(c) || c.length !== 3 || c[0] !== "CELL" || typeof c[1] !== "string" || m.has(c[1])) return null; m.set(c[1], c); }
+    return m; };
+  const ma = byName(a), mb = byName(b);
+  if (ma === null || mb === null) return false;
+  for (const [n, c] of ma) { const d = mb.get(n); if (d === undefined || (c !== d && !deepEq(c, d))) return false; }
   return true;
 }
 function loadReflected() {
