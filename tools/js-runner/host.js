@@ -372,6 +372,50 @@ function popSnapshot(cells) {
   }
   return snap;
 }
+// A WRITE'S DIFF IS THE CELLS IT REPLACED (2026-10-02; Sam: a Worker isolate gets 128 MB, and
+// runtime memory must be kept to a viable level). emitToDb compared a snapshot of every declared
+// population before the write with another after it, so every write read every table of the store
+// twice over, into its rows and their sorted texts -- the 2.2 GB a support write peaked at. But
+// lambda is pure and its successor store shares every cell it did not replace: a population is read
+// through its own top-level cell, FILE's entry for it or its descriptor in state:fts, and one whose
+// three objects are the prior store's objects is the prior store's population. So the fact types
+// that can have moved are the ones some object on that path was replaced for, and only those are
+// read and compared, each as popSnapshot reads it and with the same test emitToDb applies; on
+// support a Contact Submission replaces 16 cells, of which 10 are populations that moved. A
+// replaced cell a population reads beside its own (a reference scheme's: state:ucs, state:declared,
+// state:refmodes) can move any of them, and then both snapshots are taken whole, as before.
+// Answers <before, after> over the fact types that may have moved.
+function popSnapshotMoved(prior, cells) {
+  const top = (cs) => { const m = new Map(); for (const c of cs) if (Array.isArray(c) && c[0] === "CELL") m.set(String(c[1]), c); return m; };
+  const was = top(prior), now = top(cells);
+  const moved = new Set();
+  for (const [n, c] of now) if (was.get(n) !== c) moved.add(n);
+  for (const n of was.keys()) if (!now.has(n)) moved.add(n);
+  for (const n of ["state:ucs", "state:declared", "state:refmodes"]) if (moved.has(n)) return [popSnapshot(prior), popSnapshot(cells)];
+  // the entries replaced inside a container cell, by the name each entry carries
+  const inner = (name, at) => {
+    const a = was.get(name), b = now.get(name);
+    if (a === b) return;
+    const entries = (c) => { const m = new Map(); const v = c ? c[2] : null; if (Array.isArray(v)) for (const e of v) if (Array.isArray(e)) m.set(String(e[at]), e); return m; };
+    const ea = entries(a), eb = entries(b);
+    for (const [n, e] of eb) if (ea.get(n) !== e) moved.add(n);
+    for (const n of ea.keys()) if (!eb.has(n)) moved.add(n);
+  };
+  inner("FILE", 1);
+  inner("state:fts", 0);
+  const before = new Map(), after = new Map();
+  const declared = new Set();
+  for (const d of Ev("store:fts", cells)) if (typeof d[0] === "string") declared.add(d[0]);
+  for (const ft of moved) {
+    if (!declared.has(ft)) continue;
+    let p, q;
+    try { p = Ev("system:pop_rows", [ft, prior]); } catch (e) { p = []; }
+    try { q = Ev("system:pop_rows", [ft, cells]); } catch (e) { q = []; }
+    before.set(ft, popText(Array.isArray(p) ? p : []));
+    after.set(ft, popText(Array.isArray(q) ? q : []));
+  }
+  return [before, after];
+}
 // AND THE NUMBER 1 AND THE TEXT "1" ARE ONE VALUE IN A TABLE (2026-09-25). A
 // table cell is text -- emitToDb writes flat(v) -- so a population the closure
 // answers with numbers and the tables give back as text read as MOVED at every
@@ -574,7 +618,11 @@ function emitToDb(before, cells, prior, report) {
   if (report) report.touched = [];
   const db = storeDb();
   if (!db) return 0;
-  const after = popSnapshot(cells);
+  // a caller with no snapshot of its own hands the prior store, and the diff is the cells the write
+  // replaced (popSnapshotMoved)
+  let after;
+  if (before === null && prior) [before, after] = popSnapshotMoved(prior, cells);
+  else after = popSnapshot(cells);
   const changed = new Set();
   for (const [ft, text] of after) {
     const was = before.get(ft);
@@ -3891,7 +3939,7 @@ function run_test() {
   // how the suite sees the memo judge a name: an answer applied bare is the same
   // answer, so nothing else can show that the judgement happened.
   globalThis.AREST = { Ev: Ev, CELLS: CELLS, DEFS: DEFS, composition: COMPOSITION,
-    loadStoreDb: loadStoreDb, popSnapshot: popSnapshot, adoptStore: adoptStore, emitToDb: emitToDb,
+    loadStoreDb: loadStoreDb, popSnapshot: popSnapshot, popSnapshotMoved: popSnapshotMoved, adoptStore: adoptStore, emitToDb: emitToDb,
     closeStore: closeStore, storeDb: storeDb, foldLast: () => FOLDLAST,
     writeMetaschema: writeMetaschema, readMetaschema: readMetaschema,
     storeRaw: () => STORE_RAW,
@@ -4287,13 +4335,13 @@ function writeBack(done, log) {
       if (!Array.isArray(a) || a.length < 2) continue;
       const ft = String(a[0]);
       const args = a.slice(1).map(String);
-      const before = popSnapshot(CELLS), prior = CELLS.slice();
+      const prior = CELLS.slice();
       let out;
       try { out = Ev("main:api", [CELLS, "POST", ft, "", args]); }
       catch (e) { say("write-back threw on " + ft + ": " + String(e)); continue; }
       if (out.length > 2 && Number(out[1]) < 400) {
         adoptStore(out[2]);
-        emitToDb(before, CELLS, prior);
+        emitToDb(null, CELLS, prior);
         say("wrote back " + JSON.stringify([ft].concat(args)));
       } else {
         say("write-back REFUSED " + ft + ": " + String(out[0]).slice(0, 200));
@@ -4411,12 +4459,14 @@ function run_serve() {
       // means the pre-write store has to be copied out before it adopts, or it is
       // gone by the time anything can compare against it. A fresh array is also
       // what makes main:performed evaluate: Ev memoises on the store REFERENCE.
+      // And a write takes no snapshot either: emitToDb compares the cells the write
+      // replaced against the copy (popSnapshotMoved).
       const out = Ev("main:api", [CELLS, req.method, resource, caller, fact]);
       if (out.length > 2) {
         const wrote = Number(out[1]) < 400;   // a refusal made no successor
-        const before = wrote ? popSnapshot(CELLS) : null, prior = CELLS.slice();
+        const prior = CELLS.slice();
         adoptStore(out[2]);
-        if (wrote) { emitToDb(before, CELLS, prior); maybePerform(prior, CELLS); }
+        if (wrote) { emitToDb(null, CELLS, prior); maybePerform(prior, CELLS); }
       }
       memoReleaseWhenIdle(console.log);
       return new Response(String(out[0]), {
@@ -4849,9 +4899,8 @@ function run_mcp() {
       const out = Ev("main", [CELLS, [String(name)].concat(rest)]);
       const held = String(out[1]) === "T";
       if (out.length > 2) {
-        const was = popSnapshot(CELLS);
         adoptStore(out[2]);
-        if (held) { emitToDb(was, CELLS, prior); maybePerform(prior, CELLS, console.error); }
+        if (held) { emitToDb(null, CELLS, prior); maybePerform(prior, CELLS, console.error); }
       }
       return [out[0], held ? 200 : 500];
     }
@@ -4894,9 +4943,9 @@ function run_mcp() {
       // once recorded refusals replayed 22 of them at boot for six minutes and
       // left the store as it was (engineering.auto.dev, 2026-09-04).
       const wrote = Number(out[1]) < 400;
-      const before = wrote ? popSnapshot(CELLS) : null, prior = CELLS.slice();
+      const prior = CELLS.slice();
       adoptStore(out[2]);
-      if (wrote) { emitToDb(before, CELLS, prior); maybePerform(prior, CELLS, console.error); }
+      if (wrote) { emitToDb(null, CELLS, prior); maybePerform(prior, CELLS, console.error); }
       return [out[0], out[1]];
     }
     return out;
