@@ -12,13 +12,29 @@
 //
 //   bun run build:test && bun test
 import { expect, test, describe } from "bun:test";
-import { readFileSync, readdirSync, unlinkSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, copyFileSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, unlinkSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, copyFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import { Database } from "bun:sqlite";
 
 import "./cases.g.js";
+
+// THE STORES EARLIER RUNS LEFT ARE SWEPT FIRST (2026-10-03). Each store test removes its directory in
+// its finally, but the module keeps the store it loaded open and Windows does not delete an open file,
+// so every run left them: 3,346 directories, 17 GB, filled C:. A store is open only in the process
+// that loaded it, so a directory of this suite's an hour old belongs to a run that has ended.
+{
+  const ours = /^arest-(fit|meta|write|inst|closure|get|lazy|rows)-/;
+  const hour = 60 * 60 * 1000;
+  for (const name of readdirSync(tmpdir())) {
+    if (!ours.test(name)) continue;
+    const p = join(tmpdir(), name);
+    try { if (Date.now() - statSync(p).mtimeMs > hour) rmSync(p, { recursive: true, force: true }); }
+    catch { /* still open, or gone already */ }
+  }
+}
+
 const { Ev, CELLS } = globalThis.AREST;
 
 const SHARED = join(import.meta.dir, "..", "..", "engine", "shared");
