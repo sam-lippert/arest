@@ -163,7 +163,7 @@ Function 'query' has Description 'Answers the rows of one recipe over the fact t
 Function 'synthesize' accepts Type Expression 'name-and-cells'.
 Function 'synthesize' yields Type Expression 'sentences-and-checked-and-unchecked-and-verdict'.
 Function 'synthesize' has Description 'Speaks an entity as FORML 2 sentences and checks it: answers the sentences, the violations the deterministic rules decide, the obligations only a judgment can settle, and T when nothing decided is violated. args: [id].'.
-Function 'derive' accepts Type Expression 'arguments-and-populations'.
+Function 'derive' accepts Type Expression 'rules-and-asserted-populations'.
 Function 'derive' yields Type Expression 'populations'.
 Function 'validate' accepts Type Expression 'descriptor-list'.
 Function 'validate' yields Type Expression 'violation-list'.
