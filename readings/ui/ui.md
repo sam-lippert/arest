@@ -138,6 +138,7 @@ Change Type is a value type.
 Scroll Style is a value type.
   The possible values of Scroll Style are 'infinite-scroll', 'paginated', 'load-more'.
 Page Size is a value type.
+  The data type of Page Size is integer.
 Page Number is a value type.
 Total Docs is a value type.
 Total Pages is a value type.
