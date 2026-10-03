@@ -326,6 +326,34 @@ let STORE_TABLES = new Map();            // ft -> the rows the tables held at lo
 // a row MEANS -- rmap:unproj reads state:fts to decide that -- so the rows
 // are kept as rows and the decoding is the next step's.
 let STORE_RAW = new Map();
+// THE STORE'S ALETHIC VERDICT, RECORDED WITH IT (2026-10-03). The entity POST's gate checks only what a write
+// touched, which is exact over a store that holds no alethic violation (Thm 1: a committed store holds none), and
+// lambda keeps what it knows of that in the cell state:alethic_clean. A store read from its tables has not been
+// through the gate, so the compile that wrote it judges it once (AREST_VERDICT, run by build.js after
+// compile-store) and records T or F in _verdict; the boot reads it back into the cell; a committed write records
+// the cell when it moved; and a compile drops the table, as it rewrites the store outside the gate. A store with
+// no verdict recorded is judged at its first write, as lambda does when the cell is absent.
+let VERDICT = null;
+function readVerdict() {
+  if (process.env.AREST_VERDICT) return; // the judge judges the store; it does not read an earlier answer
+  const db = storeDb();
+  if (!db) return;
+  let row;
+  try { row = db.query("select value from \"_verdict\" where name = 'alethic_clean'").get(); } catch { return; }
+  if (row && (row.value === "T" || row.value === "F")) { CELLS.push(["CELL", "state:alethic_clean", row.value]); VERDICT = row.value; memoClear(); }
+}
+function writeVerdict(v) {
+  const db = storeDb();
+  if (!db || (v !== "T" && v !== "F") || v === VERDICT) return;
+  db.run('create table if not exists "_verdict" (name text primary key, value text not null)');
+  db.query('insert or replace into "_verdict" (name, value) values (?, ?)').run("alethic_clean", v);
+  VERDICT = v;
+}
+function recordVerdict(cells) {
+  let v;
+  try { v = Ev("solve:cell", ["state:alethic_clean", cells]); } catch { return; }
+  writeVerdict(v);
+}
 function storeDb() {
   if (STORE_DB !== null) return STORE_DB;
   const path = process.env.AREST_STORE_DB;
@@ -706,6 +734,7 @@ function emitToDb(before, cells, prior, report) {
   // above the whole-table rewrite for it.
   if (plan) memoClear();
   if (report) report.touched = [...touched];
+  recordVerdict(cells);
   return written;
 }
 // theta:unfold_rows and theta:unfold_descs by the identity of the array unfolded (see their twins)
@@ -4437,6 +4466,14 @@ function fromJson(x) {
 }
 
 function run_serve() {
+  // AREST_VERDICT=1 judges the store once and records the verdict (see readVerdict above), then exits:
+  // what a compile runs over the store it wrote, so that no write after it pays the whole check.
+  if (process.env.AREST_VERDICT) {
+    const v = Ev("main:w2_clean", CELLS) === "T" ? "T" : "F";
+    writeVerdict(v);
+    console.log("alethic_clean: " + v);
+    process.exit(0);
+  }
 
   // THE SERVING TAIL. Same composition, same evaluator, one different last step:
   // tail.part.js prints a text atom and exits, and this binds a socket instead.
@@ -6194,6 +6231,7 @@ function boot(mode) {
     // by the check that builds the store (compile.js), and again only by the
     // write that changes it; the tables ARE the state.
     lap("store-db");
+    readVerdict();
   }
   else if (!schemaless) {
     loadFile(); lap("file");

@@ -17,7 +17,7 @@
 // and does not fail loudly: the cmd form silently produced a 38KB file with
 // every large input missing, which would have run an empty lambda and passed. So
 // each input is checked for existence and the result is checked for size.
-import { readFileSync, writeFileSync, statSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, statSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 
@@ -241,5 +241,23 @@ if (run) {
     if (env.BUN_JSC_mediumHeapGrowthFactor === undefined) env.BUN_JSC_mediumHeapGrowthFactor = "1.25";
   }
   const proc = Bun.spawn(["bun", join(outDir, name), ...rest], { stdio: ["inherit", "inherit", "inherit"], env });
-  process.exit(await proc.exited);
+  const code = await proc.exited;
+  // AND THE STORE A COMPILE WROTE IS JUDGED ONCE (2026-10-03). The entity POST's gate reads only what a write
+  // touched, which is exact over a store with no alethic violation, and the store a compile writes has not
+  // been through that gate: so the store is served once, by a module over the carriers the compile wrote, with
+  // AREST_VERDICT, which judges it and records T or F in its _verdict table for every boot after it.
+  // AREST_NO_VERDICT=1 skips it, and the first write then asks the whole check instead.
+  if (code === 0 && mode === "compile" && rest[0] === "compile-store" && rest[1] && !process.env.AREST_NO_VERDICT) {
+    const vdir = join(rest[1], ".verdict");
+    mkdirSync(vdir, { recursive: true });
+    const vb = Bun.spawn(["bun", join(here, "build.js"), "serve"], { cwd: here, stdio: ["ignore", "ignore", "inherit"],
+      env: { ...process.env, AREST_CARRIERS: rest[1], AREST_OUT_DIR: vdir, AREST_INSTRUMENTED: "" } });
+    if (await vb.exited === 0) {
+      const vr = Bun.spawn(["bun", join(vdir, "serve.g.js")], { stdio: ["ignore", "inherit", "inherit"],
+        env: { ...env, AREST_STORE_DB: join(rest[1], "store.db"), AREST_VERDICT: "1" } });
+      await vr.exited;
+    }
+    rmSync(vdir, { recursive: true, force: true });
+  }
+  process.exit(code);
 }
