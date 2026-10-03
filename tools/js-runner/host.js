@@ -739,6 +739,8 @@ function emitToDb(before, cells, prior, report) {
 }
 // theta:unfold_rows and theta:unfold_descs by the identity of the array unfolded (see their twins)
 const UNFOLDROWS = new WeakMap(), UNFOLDDESCS = new WeakMap();
+// solve:readings by the identity of the state:readings cell it reads (see its twin)
+const READINGSOF = new WeakMap();
 function unfoldOnce(memo, name, x) {
   if (!Array.isArray(x)) return Ev(DEFS.get(name), x);
   const hit = memo.get(x);
@@ -2956,6 +2958,21 @@ const FASTPRIMS = new Map(Object.entries({
   // kept by the array's identity, and kept through memoClear, as the identity indexes are: it is true for as
   // long as the array lives, and goes with it. The length is kept beside it and checked, so an array grown in
   // place could never answer for its shorter self. AREST_NOTWIN=theta:unfold_rows gives the DEF's own.
+  // THE READINGS ARE READ ONCE, NOT ONCE PER FACT TYPE PER WRITE (2026-10-03). solve:readings is the readings
+  // table of a store, a function of its state:readings cell alone, and mcp:tool_reading asks it once per fact
+  // type: the tool list a write's validation reads (cmd:mv_pos through mcp:tools) is built again for every new
+  // store, so on a copy of support's store one Contact Submission POST asked it 6,751 times, 16.6 s. A write
+  // does not change the readings, and the cell it reads is the same object in every store after it, so the
+  // answer is kept by that cell's identity. AREST_NOTWIN=solve:readings gives the DEF's own.
+  "solve:readings": x => {
+    let cell;
+    try { cell = Ev("solve:cell", ["state:readings", x]); } catch { return Ev(DEFS.get("solve:readings"), x); }
+    if (!Array.isArray(cell)) return Ev(DEFS.get("solve:readings"), x);
+    const hit = READINGSOF.get(cell);
+    if (hit !== undefined) return hit;
+    const v = Ev(DEFS.get("solve:readings"), x);
+    READINGSOF.set(cell, v);
+    return v; },
   "theta:unfold_rows": x => unfoldOnce(UNFOLDROWS, "theta:unfold_rows", x),
   "theta:unfold_descs": x => unfoldOnce(UNFOLDDESCS, "theta:unfold_descs", x),
   "theta:flatten": x => { const out = [];
