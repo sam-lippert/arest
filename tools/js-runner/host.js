@@ -640,7 +640,11 @@ function rowPlanner(cells, prior, changed) {
 // DDL and compile.js already use -- so writing back is projecting again, over
 // the tables that carry a fact type whose population moved, and nothing here
 // decides which those are either: rmap:ctab says which table carries what.
+// whether the last emitToDb stored its rows: false from its start until its transaction commits, so a
+// failure before then is a write nothing of which was stored (storeWrite)
+let EMIT_STORED = false;
 function emitToDb(before, cells, prior, report) {
+  EMIT_STORED = false;
   // AND SAYS WHICH TABLES IT WROTE, when handed a report to say it in: the in-place compile keeps its
   // ledger for those tables alone (2026-09-29)
   if (report) report.touched = [];
@@ -685,6 +689,15 @@ function emitToDb(before, cells, prior, report) {
   const byRow = new Set();
   const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
   let written = 0;
+  // A REFUSED STATEMENT FAILS THE WRITE (2026-10-03). Each row was written in a try of its own and a refusal
+  // taken for a row that was not the table's, so a write the closure admitted and the database refused answered
+  // committed while the table kept nothing: the process held the row and the next boot did not (a primary key
+  // over two roles of a ternary, on a test store). A table the schema has and the database does not is the
+  // same loss. So every refusal is kept, with the table and the row's first values, and the first is thrown
+  // inside the transaction, which takes back every statement it ran.
+  const refused = [];
+  const refuse = (table, e, v) => refused.push('"' + table + '": ' + String((e && e.message) || e)
+    + (v ? " -- a row beginning " + JSON.stringify(v.slice(0, 2)).slice(0, 120) : ""));
   db.transaction(() => {
     for (const table of touched) {
       const cols = Ev("rmap:proj_colnames", [table, cells]).map(String);
@@ -699,9 +712,9 @@ function emitToDb(before, cells, prior, report) {
         try {
           del = db.prepare('delete from "' + table + '" where ' + pk.map((c) => '"' + c + '" is ?').join(" and "));
           put = db.prepare('insert into "' + table + '" ("' + cols.join('","') + '") values (' + cols.map(() => "?").join(",") + ")");
-        } catch { continue; }
+        } catch (e) { refuse(table, e); continue; }
         for (const v of rows.dels) written += del.run(...v).changes;
-        for (const v of rows.ins) { try { put.run(...v); written++; } catch { /* refused: the row is not this table's */ } }
+        for (const v of rows.ins) { try { put.run(...v); written++; } catch (e) { refuse(table, e, v); } }
         byRow.add(table);
         continue;
       }
@@ -710,13 +723,15 @@ function emitToDb(before, cells, prior, report) {
         db.run('delete from "' + table + '"');
         ins = db.prepare('insert into "' + table + '" ("' + cols.join('","') + '") values ('
           + cols.map(() => "?").join(",") + ")");
-      } catch { continue; }          // a table the schema has and this database does not
+      } catch (e) { refuse(table, e); continue; }          // a table the schema has and this database does not
       for (const row of Ev("rmap:proj_rows", [table, cells])) {
         const vals = cols.map((_, i) => { const v = row[i]; return v === "#" || v === undefined ? null : flat(v); });
-        try { ins.run(...vals); written++; } catch { /* refused: the row is not this table's */ }
+        try { ins.run(...vals); written++; } catch (e) { refuse(table, e, vals); }
       }
     }
+    if (refused.length) throw new Error("the store refused " + (refused.length === 1 ? "a statement: " : refused.length + " statements, the first: ") + refused[0]);
   })();
+  EMIT_STORED = true;
   // AND WHAT A TABLE WRITTEN ROW BY ROW HELD FOR THE REST IS STILL TRUE. Dropping
   // everything read from a touched table made the NEXT write's snapshot read it all
   // back -- Function whole, 1.7 s and some 190 MB on support.auto.dev, at every write
@@ -4127,7 +4142,7 @@ function run_test() {
     memoHeld: () => { let held = 0; for (const node of EVMEMO.values()) held += (node && node.held) || 0; return held; },
     memoStat: (f) => { const st = MEMOSTAT.get(f); const root = EVMEMO.get(f);
       return st ? { stored: st[0], givenBack: st[1], bare: st[2], held: root ? root.held : 0 } : null; },
-    performDeclared: performDeclared,
+    performDeclared: performDeclared, answerWrite: answerWrite,
     // A HOST THAT PUTS A CELL INTO CELLS ITSELF SAYS SO (2026-09-29). ast:fetch answers from an index of
     // the cells array kept by the array's identity, and CELLS.unshift keeps the identity: a cell installed
     // after the first fetch was invisible to every fetch after it. compile.js installs the relational
@@ -4470,6 +4485,33 @@ async function performDeclared(before, after, opts) {
 // have gone on describing it. Nothing is asserted back either way: the answer
 // and its may-create ceiling are reported, and the assertion belongs where the
 // store is written and can refuse.
+// <the store before the write>: the rows the write CELLS holds moved, stored. When the database refuses a
+// statement, or anything fails before the rows are stored, nothing is stored, CELLS is the store before the
+// write again, and the failure is answered.
+function storeWrite(prior) {
+  try { emitToDb(null, CELLS, prior); return null; }
+  catch (e) {
+    if (EMIT_STORED) throw e;        // stored, and what failed came after
+    adoptStore(prior);
+    return String((e && e.message) || e);
+  }
+}
+const notCommitted = (why) => JSON.stringify(["not_committed", why]);
+// <main:api's answer>: the store it made adopted, the rows a write moved stored, and <body, status> to answer.
+function answerWrite(out) {
+  let body = String(out[0]), status = Number(out[1]) || 500;
+  if (out.length > 2) {
+    const wrote = Number(out[1]) < 400;   // a refusal made no successor
+    const prior = CELLS.slice();
+    adoptStore(out[2]);
+    if (wrote) {
+      const why = storeWrite(prior);
+      if (why === null) maybePerform(prior, CELLS);
+      else { body = notCommitted(why); status = 500; }
+    }
+  }
+  return [body, status];
+}
 function maybePerform(prior, after, log) {
   if (!prior || prior === after) return;
   const say = log || console.log;
@@ -4521,8 +4563,9 @@ function writeBack(done, log) {
       catch (e) { say("write-back threw on " + ft + ": " + String(e)); continue; }
       if (out.length > 2 && Number(out[1]) < 400) {
         adoptStore(out[2]);
-        emitToDb(null, CELLS, prior);
-        say("wrote back " + JSON.stringify([ft].concat(args)));
+        const why = storeWrite(prior);
+        if (why === null) say("wrote back " + JSON.stringify([ft].concat(args)));
+        else say("write-back NOT COMMITTED " + ft + ": " + why.slice(0, 300));
       } else {
         say("write-back REFUSED " + ft + ": " + String(out[0]).slice(0, 200));
       }
@@ -4655,15 +4698,10 @@ function run_serve() {
       // And a write takes no snapshot either: emitToDb compares the cells the write
       // replaced against the copy (popSnapshotMoved).
       const out = Ev("main:api", [CELLS, req.method, resource, caller, fact]);
-      if (out.length > 2) {
-        const wrote = Number(out[1]) < 400;   // a refusal made no successor
-        const prior = CELLS.slice();
-        adoptStore(out[2]);
-        if (wrote) { emitToDb(null, CELLS, prior); maybePerform(prior, CELLS); }
-      }
+      const [body, status] = answerWrite(out);
       memoReleaseWhenIdle(console.log);
-      return new Response(String(out[0]), {
-        status: Number(out[1]) || 500,
+      return new Response(body, {
+        status,
         headers: { "content-type": "application/json" },
       });
     },
@@ -5062,7 +5100,11 @@ function run_mcp() {
       const held = String(out[1]) === "T";
       if (out.length > 2) {
         adoptStore(out[2]);
-        if (held) { emitToDb(null, CELLS, prior); maybePerform(prior, CELLS, console.error); }
+        if (held) {
+          const why = storeWrite(prior);
+          if (why !== null) return [notCommitted(why), 500];
+          maybePerform(prior, CELLS, console.error);
+        }
       }
       return [out[0], held ? 200 : 500];
     }
@@ -5107,7 +5149,11 @@ function run_mcp() {
       const wrote = Number(out[1]) < 400;
       const prior = CELLS.slice();
       adoptStore(out[2]);
-      if (wrote) { emitToDb(null, CELLS, prior); maybePerform(prior, CELLS, console.error); }
+      if (wrote) {
+        const why = storeWrite(prior);
+        if (why !== null) return [notCommitted(why), 500];
+        maybePerform(prior, CELLS, console.error);
+      }
       return [out[0], out[1]];
     }
     return out;

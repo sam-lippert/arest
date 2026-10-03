@@ -1026,6 +1026,70 @@ test("a write reaches the tables, and a store with no tables keeps it in memory"
   }
 }, 120_000);
 
+// ---- A WRITE WHOSE ROWS THE DATABASE REFUSES IS NOT COMMITTED --------------
+//
+// emitToDb wrote each row in a try of its own and took a refusal for a row that
+// was not the table's, so a POST the closure admitted and the database refused
+// answered 201 `committed` while the table kept nothing: the process held the
+// row, and the next boot did not (2026-10-03, a primary key over two roles of a
+// ternary on a test store; a uniqueness over a span now refuses that write at the
+// gate, and any other refusal still went unsaid). Here every table of the store
+// refuses every insert, so the row this create writes is refused. The answer is
+// not committed and says why, the store the process holds is the one before the
+// write, and so is the next boot's.
+test("a write whose rows the database refuses is not committed, and the store is as it was", () => {
+  const stamp = globalThis.AREST.composition;
+  const dir = mkdtempSync(join(tmpdir(), "arest-write-"));
+  const mod = join(import.meta.dir, "cases.g.js");
+  const FT = "StreamHasName", KEY = "probe-stream-" + Math.random().toString(36).slice(2, 8);
+  const driver = join(dir, "drive.mjs");
+  writeFileSync(driver, [
+    "await import(process.env.MODULE);",
+    "const { Ev, CELLS, popSnapshot, emitToDb, closeStore, answerWrite } = globalThis.AREST;",
+    "const has = () => Ev('system:pop_rows', [process.env.FT, CELLS]).some((r) => String(r[0]) === process.env.KEY);",
+    "if (process.env.MAKE) {",
+    "  const b = popSnapshot(CELLS); closeStore(); console.log('made ' + emitToDb(b, CELLS));",
+    "} else if (process.env.WRITE) {",
+    "  const out = Ev('main:api', [CELLS, 'POST', process.env.FT, '', [process.env.KEY, 'probe-name']]);",
+    "  const [body, status] = answerWrite(out);",
+    "  console.log('status ' + status + ' ' + body);",
+    "  console.log('present ' + has());",
+    "} else {",
+    "  console.log('present ' + has());",
+    "}",
+  ].join("\n"));
+  const run = (db, mode) => {
+    const env = { ...process.env, MODULE: pathToFileURL(mod).href, FT, KEY, AREST_STORE_DB: db };
+    delete env.MAKE; delete env.WRITE;
+    if (mode) env[mode] = "1";
+    const p = Bun.spawnSync(["bun", driver], { env, stdout: "pipe", stderr: "pipe" });
+    return p.stdout.toString() + p.stderr.toString();
+  };
+  try {
+    const path = join(dir, "store.db");
+    const db = new Database(path);
+    makeTables(db);
+    db.run("create table _composition (hash text)");
+    db.prepare("insert into _composition values(?)").run(stamp);
+    db.close();
+    expect(run(path, "MAKE")).toMatch(/made \d+/);
+    const refusing = new Database(path);
+    const tables = refusing.query("select name from sqlite_master where type = 'table'").values().map((r) => String(r[0]))
+      .filter((t) => !t.startsWith("_") && !t.startsWith("sqlite_"));
+    for (const t of tables)
+      refusing.run("create trigger " + quo("refuse " + t) + " before insert on " + quo(t) + " begin select raise(abort, 'refused by the test'); end");
+    refusing.close();
+    expect(tables.length).toBeGreaterThan(0);
+    const wrote = run(path, "WRITE");
+    expect(wrote).toMatch(/status 500 \["not_committed",/);
+    expect(wrote).toContain("refused by the test");
+    expect(wrote).toContain("present false");
+    expect(run(path, null)).toContain("present false");
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 120_000);
+
 // ---- IS AN INSTANCE CREATED AT RUNTIME STILL ONE AFTER A BOOT FROM TABLES? -
 //
 // That a row READS BACK is the test above; that the store still knows WHAT it
