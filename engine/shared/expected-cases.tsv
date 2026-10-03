@@ -815,6 +815,8 @@ case:the-root-at-an-app-with-no-name-is-titled-by-its-id	"('beta', ('menu', 'Esc
 case:navigate-roots-at-the-requested-app	"('Title', 'Acme Support')"
 case:an-app-root-is-its-rank-0-collections	"('Support Request')"
 case:an-app-ranks-its-own-types	"((0, 'Support Request'), (1, 'Message'), (2, 'Note'))"
+case:an-app-subtype-is-a-child-through-its-supertypes-join	"('Customer')"
+case:an-app-ranks-a-subtype-below-its-supertypes-parent	"((0, 'Customer'), (1, 'Support Chat'))"
 case:an-entity-named-by-many-events-stands-once	"(('Escalation', 'Raised', ('es1'), ('AgentNotesEscalation', 'AgentClosesEscalation')))"
 case:a-field-is-labeled-by-its-declared-player	"('field', 'Domain', 'FunctionBelongsToDomain', 'entity', ())"
 case:an-undeclared-field-keeps-its-descriptor-player	"('field', 'Name', 'FunctionHasName', 'text', ())"
