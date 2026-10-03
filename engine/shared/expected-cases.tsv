@@ -881,6 +881,8 @@ case:a-follow-up-reopens-the-draft-and-its-response-is-offered-approve	"(('menu'
 case:the-worklist-holds-a-page-of-each-group	"(('menu', 'Support Response / Draft, 1-2 of 5', ('item', 'r1', '-> Approve', ('Support Response', 'r1')), ('item', 'r2', '-> Approve', ('Support Response', 'r2')), ('item', 'more', (), ('work', 'Support Response', 'Draft', 'page', 2))))"
 case:a-worklist-page-is-a-screen	"('layer', 'Support Response / Draft', (), ('menu', 'Support Response / Draft, 5-5 of 5', ('item', 'r5', '-> Approve', ('Support Response', 'r5'))))"
 case:a-worklist-page-lands-in-the-master	"'master'"
+case:an-obligation-of-at-most-one-is-no-uniqueness-of-the-fact-type	"(((1, 2)), ('DEO:u:SupportThreadIsInvolvedInSupportThreadIsCreatedFromSupportRequest#1'))"
+case:a-fact-type-whose-only-uniqueness-is-an-obligation-has-a-table	"'T'"
 case:a-plus-in-a-reference-mode-mints-nothing	"((('Entity List', 'entity', ''), ('Object Type', 'entity', '.Name')), (('Object Type', 'Name', 'popular', 'Object Type_Name')))"
 case:a-list-item-shows-its-fields-then-its-status	"('menu', '', ('item', 'a1', 't1, 555-0100, Active', ('Agent', 'a1')), ('item', 'a2', 't2, Active', ('Agent', 'a2')), ('item', 'a3', 'Active', ('Agent', 'a3')))"
 case:an-offer-names-each-event-once	"((('Subscription', 'Trialing', ('s1'), ('Subscription trial has ended'))), (('menu', 'Subscription / Trialing', ('item', 's1', '-> Subscription trial has ended', ('Subscription', 's1')))))"
