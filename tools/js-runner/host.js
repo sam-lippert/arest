@@ -738,6 +738,12 @@ function emitToDb(before, cells, prior, report) {
   return written;
 }
 // theta:unfold_rows and theta:unfold_descs by the identity of the array unfolded (see their twins)
+// value:is_scalar and law:rowp as their DEFs answer them (see their twins)
+function isScalar(x) {
+  if (!Array.isArray(x)) return true;
+  return x.length === 3 && x[0] === "decimal" && typeof x[1] === "number" && typeof x[2] === "number";
+}
+function isRow(x) { return Array.isArray(x) && x.length > 0 && x.every(isScalar); }
 const UNFOLDROWS = new WeakMap(), UNFOLDDESCS = new WeakMap();
 // solve:readings by the identity of the state:readings cell it reads (see its twin)
 const READINGSOF = new WeakMap();
@@ -3008,6 +3014,19 @@ const FASTPRIMS = new Map(Object.entries({
     const v = Ev(DEFS.get("solve:readings"), x);
     READINGSOF.set(cell, v);
     return v; },
+  // A SCALAR IS ASKED OF A VALUE NATIVELY (2026-10-03). value:is_scalar is atom or dec:is, and since it learned
+  // decimals (2026-09-29) theta:all_atomp, law:rowp and theta:all_rowp ask it of every element of a row or a
+  // population through several interpreted calls each: every theta:unfold_atoms over a population (ui:ids, a
+  // machine's lookup) and every theta:unfold_rows of a population not yet unfolded is that many calls per value.
+  // The twins answer as the DEFs answer: an atom is a scalar; a sequence is one exactly when it is a decimal, three
+  // fields, the text decimal and two numbers (value:isint is system:isnum of an atom, and system:isnum holds of a
+  // number atom: one that is not eq to its own spelling); fp:and_all answers T of the empty sequence, and law:rowp
+  // F of an atom and of the empty sequence. An atom given where a sequence is mapped is the DEF's, which raises as
+  // it raises. AREST_NOTWIN=<name> gives the DEF's own.
+  "value:is_scalar": x => bool(isScalar(x)),
+  "theta:all_atomp": x => (Array.isArray(x) ? bool(x.every(isScalar)) : Ev(DEFS.get("theta:all_atomp"), x)),
+  "law:rowp": x => bool(isRow(x)),
+  "theta:all_rowp": x => (Array.isArray(x) ? bool(x.every(isRow)) : Ev(DEFS.get("theta:all_rowp"), x)),
   "theta:unfold_rows": x => unfoldOnce(UNFOLDROWS, "theta:unfold_rows", x),
   "theta:unfold_descs": x => unfoldOnce(UNFOLDDESCS, "theta:unfold_descs", x),
   "theta:flatten": x => { const out = [];
