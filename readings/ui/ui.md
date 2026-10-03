@@ -329,8 +329,12 @@ Widget has Column Count.
   Each Widget has at most one Column Count.
 
 ### Entity List (reactive live view)
+Entity List is for Object Type.
+  Each Entity List is for exactly one Object Type.
+<!-- The type of the list, whose collection a platform pages by the Page Size of this list (2026-10-02). The ternary
+     below says which instances a list displays; its old constraint, Each Entity List displays instances of
+     exactly one Object Type, restated no reading and compiled UNATTACHED, so the type is this binary. -->
 Entity List displays Object Type Instance instances of Object Type.
-  Each Entity List displays instances of exactly one Object Type.
 Entity List belongs to Domain.
   Each Entity List belongs to exactly one Domain.
 Entity List has Polling Interval.
