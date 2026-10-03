@@ -830,6 +830,7 @@ case:an-entity-shows-its-n-ary-facts	"(('menu', 'Request follows Count calls to 
 case:a-reference-field-is-a-link-and-offers-no-instances	"(('form', 'Request', ('field', 'Customer', 'RequestTargetsCustomer', 'entity', (), 'c1', ('Customer', 'c1')), ('field', 'Subject', 'RequestHasSubject', 'text', (), 'Help')))"
 case:a-reference-cell-follows-its-link	"(('NavigationLink', ('Customer', 'c1')), 'label')"
 case:a-column-is-labeled-by-its-role	"('requested Timestamp', 'was requested no later than Timestamp', 'Subject', 'Note')"
+case:a-link-addresses-the-most-specific-type	"(('menu', 'Request targets Customer', ('item', 'c1', 'Request 'sr1' targets Customer 'c1'.', ('Customer', 'c1'))), ('menu', 'Request cites Function', ('item', 'c1', 'Request 'sr1' cites Function 'c1'.', ('Customer', 'c1'))))"
 case:the-controls-are-what-takes-a-row	"('render:a', 'render:b')"
 case:the-engines-are-what-takes-a-screen	"('render:html', 'render:wpf')"
 case:a-container-with-its-own-engine-is-paired	"()"
