@@ -412,14 +412,15 @@ function popSnapshot(cells) {
 // support a Contact Submission replaces 16 cells, of which 10 are populations that moved. A
 // replaced cell a population reads beside its own (a reference scheme's: state:ucs, state:declared,
 // state:refmodes) can move any of them, and then both snapshots are taken whole, as before.
-// Answers <before, after> over the fact types that may have moved.
-function popSnapshotMoved(prior, cells) {
+// Answers each fact type that may have moved with its rows before and after, or null when every
+// population is to be compared.
+function popsMoved(prior, cells) {
   const top = (cs) => { const m = new Map(); for (const c of cs) if (Array.isArray(c) && c[0] === "CELL") m.set(String(c[1]), c); return m; };
   const was = top(prior), now = top(cells);
   const moved = new Set();
   for (const [n, c] of now) if (was.get(n) !== c) moved.add(n);
   for (const n of was.keys()) if (!now.has(n)) moved.add(n);
-  for (const n of ["state:ucs", "state:declared", "state:refmodes"]) if (moved.has(n)) return [popSnapshot(prior), popSnapshot(cells)];
+  for (const n of ["state:ucs", "state:declared", "state:refmodes"]) if (moved.has(n)) return null;
   // the entries replaced inside a container cell, by the name each entry carries
   const inner = (name, at) => {
     const a = was.get(name), b = now.get(name);
@@ -431,7 +432,7 @@ function popSnapshotMoved(prior, cells) {
   };
   inner("FILE", 1);
   inner("state:fts", 0);
-  const before = new Map(), after = new Map();
+  const pops = new Map();
   const declared = new Set();
   for (const d of Ev("store:fts", cells)) if (typeof d[0] === "string") declared.add(d[0]);
   for (const ft of moved) {
@@ -439,9 +440,16 @@ function popSnapshotMoved(prior, cells) {
     let p, q;
     try { p = Ev("system:pop_rows", [ft, prior]); } catch (e) { p = []; }
     try { q = Ev("system:pop_rows", [ft, cells]); } catch (e) { q = []; }
-    before.set(ft, popText(Array.isArray(p) ? p : []));
-    after.set(ft, popText(Array.isArray(q) ? q : []));
+    pops.set(ft, [Array.isArray(p) ? p : [], Array.isArray(q) ? q : []]);
   }
+  return pops;
+}
+// <before, after> as popSnapshot's texts, over the fact types that may have moved
+function popSnapshotMoved(prior, cells) {
+  const pops = popsMoved(prior, cells);
+  if (pops === null) return [popSnapshot(prior), popSnapshot(cells)];
+  const before = new Map(), after = new Map();
+  for (const [ft, [p, q]] of pops) { before.set(ft, popText(p)); after.set(ft, popText(q)); }
   return [before, after];
 }
 // AND THE NUMBER 1 AND THE TEXT "1" ARE ONE VALUE IN A TABLE (2026-09-25). A
@@ -457,6 +465,122 @@ function storedText(text) {
   if (!/[[,]-?[0-9]/.test(text)) return text;
   const asStored = (v) => (Array.isArray(v) ? v.map(asStored) : typeof v === "number" ? String(v) : v);
   return popText(JSON.parse(text).map(asStored));
+}
+// TWO POPULATIONS ARE COMPARED ROW BY ROW, AND ONLY WHAT DOES NOT PAIR IS KEYED (2026-10-03). A write
+// compared each population it may have moved as the sorted texts of every row on both sides (popText),
+// compared the two again as the tables hold them where they differed (storedText), and the planner keyed
+// every row of both sides once more, and a relation table's rows a third time to say which side holds them:
+// on support a Contact Submission moves ten populations, 677,200 rows over the two sides, and its emit spent
+// 0.55 s on the texts and 0.34 s on the keys to write five rows. The two sides of a moved population are
+// mostly the same rows in the same order -- the closure and the reflection answer in an order of their own,
+// and a write does not change it -- so they are walked side by side while their rows are equal as a table
+// holds them, a run that is not is stepped over to the nearest rows that are, and only the rows left over are
+// looked for on the other side. A row paired is on both sides, so the rows left over that the other side
+// lacks are the whole difference, the one the keyed comparison finds; when the sides do not line up, or too
+// many rows are left over, the keyed comparison is what answers.
+// Two values equal as a table holds them: a number as its text, and with `rt`, as a value read back from
+// JSON is, a number JSON cannot write as null; anything but text, numbers and sequences as JSON writes it.
+function storedEq(x, y, rt) {
+  if (x === y) return true;
+  x = storedAtom(x, rt); y = storedAtom(y, rt);
+  if (x === y) return true;
+  if (Array.isArray(x) && Array.isArray(y)) {
+    if (x.length !== y.length) return false;
+    for (let i = 0; i < x.length; i++) if (!storedEq(x[i], y[i], rt)) return false;
+    return true;
+  }
+  if (typeof x === "string" && typeof y === "string") return false;
+  return JSON.stringify(x) === JSON.stringify(y);
+}
+function storedAtom(v, rt) {
+  if (typeof v === "number") return rt && !Number.isFinite(v) ? null : String(v);
+  return v === undefined || typeof v === "function" || typeof v === "symbol" ? null : v;
+}
+// <the rows of b left over, the rows of a left over> when the two are walked side by side, each in its own
+// order, or null when they do not meet again within LOOK rows or leave more than OVER rows over
+function pairWalk(b, a, eq) {
+  const LOOK = 8, OVER = 32;
+  const unB = [], unA = [];
+  let i = 0, j = 0;
+  while (i < b.length && j < a.length) {
+    if (b[i] === a[j] || eq(b[i], a[j])) { i++; j++; continue; }
+    let di = -1, dj = -1;
+    near: for (let s = 1; s <= 2 * LOOK; s++) {
+      for (let x = Math.max(0, s - LOOK); x <= Math.min(s, LOOK); x++) {
+        if (i + x < b.length && j + s - x < a.length && eq(b[i + x], a[j + s - x])) { di = x; dj = s - x; break near; }
+      }
+    }
+    if (di < 0) return null;
+    for (let e = 0; e < di; e++) unB.push(b[i + e]);
+    for (let e = 0; e < dj; e++) unA.push(a[j + e]);
+    i += di; j += dj;
+    if (unB.length + unA.length > OVER) return null;
+  }
+  if (unB.length + unA.length + (b.length - i) + (a.length - j) > OVER) return null;
+  for (; i < b.length; i++) unB.push(b[i]);
+  for (; j < a.length; j++) unA.push(a[j]);
+  return [unB, unA];
+}
+// whether two populations hold different rows as the tables hold them: the test storedText makes on their
+// texts, which `textOf` writes as popText does
+function popsDiffer(p, q, textOf) {
+  if (p === q) return false;
+  const eq = (x, y) => storedEq(x, y, true);
+  const w = pairWalk(p, q, eq);
+  if (w === null) { const tp = textOf(p), tq = textOf(q); return tp !== tq && storedText(tp) !== storedText(tq); }
+  for (const r of w[0]) if (!q.some((s) => eq(r, s))) return true;
+  for (const r of w[1]) if (!p.some((s) => eq(r, s))) return true;
+  return false;
+}
+// A POPULATION'S ROWS IN ITS TEXT'S ORDER, NOT READ BACK FROM IT (2026-10-03). The rows a write carries into
+// the source were JSON.parse of popText: each population the write moved written out as text, sorted, joined
+// and read back -- a copy of every row, which the descriptors then held beside the cells' own. The rows are put
+// in that order and made unique as their texts are, and kept as they are; a population holding a value JSON
+// does not read back as itself (a number it cannot write, -0, undefined, an object) is read back from its text,
+// as before. <text, rows>: the text popText writes and the rows JSON.parse reads from it.
+function popSorted(rows) {
+  const pairs = rows.map((r) => [JSON.stringify(r), r]);
+  pairs.sort((x, y) => (x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0));
+  const texts = [], kept = [];
+  let safe = true;
+  for (let i = 0; i < pairs.length; i++) {
+    if (i > 0 && pairs[i][0] === pairs[i - 1][0]) continue;
+    texts.push(pairs[i][0]); kept.push(pairs[i][1]);
+    if (safe && !jsonSafe(pairs[i][1])) safe = false;
+  }
+  const text = "[" + texts.join(",") + "]";
+  return [text, safe ? kept : JSON.parse(text)];
+}
+// a value JSON writes as text that reads back as the same value
+function jsonSafe(v) {
+  if (typeof v === "string" || typeof v === "boolean" || v === null) return true;
+  if (typeof v === "number") return Number.isFinite(v) && !Object.is(v, -0);
+  if (!Array.isArray(v)) return false;
+  for (let i = 0; i < v.length; i++) if (!(i in v) || !jsonSafe(v[i])) return false;
+  return true;
+}
+// <removed, added>: the rows of b that no row of a equals and the rows of a that no row of b equals, as `keyOf`
+// keys a row, each once per key, at its first place and as its last row -- the Map comparison at the end,
+// which is what answers when the walk does not
+function popDelta(b, a, keyOf) {
+  if (b === a) return [[], []];
+  const eq = (x, y) => storedEq(x, y, false);
+  const w = pairWalk(b, a, eq);
+  if (w !== null) {
+    const lacking = (left, other) => {
+      const m = new Map();
+      for (const r of left) if (!other.some((s) => eq(r, s))) m.set(keyOf(r), r);
+      return [...m.values()];
+    };
+    return [lacking(w[0], a), lacking(w[1], b)];
+  }
+  const bk = new Map(), ak = new Map();
+  for (const r of b) bk.set(keyOf(r), r);
+  for (const r of a) ak.set(keyOf(r), r);
+  const removed = [], added = [];
+  for (const [k, r] of bk) if (!ak.has(k)) removed.push(r);
+  for (const [k, r] of ak) if (!bk.has(k)) added.push(r);
+  return [removed, added];
 }
 // A WRITE REWRITES THE ROWS IT MOVED, NOT THE TABLES THEY SIT IN (2026-09-25; Sam:
 // "low memory footprint is a requirement"). emitToDb re-projected every table a
@@ -511,12 +635,8 @@ function rowPlanner(cells, prior, changed) {
     let d = deltas.get(ft);
     if (d) return d;
     const b = popOf(ft, "prior"), a = popOf(ft, "after");
-    const bk = new Map(), ak = new Map();
-    if (b !== a) { for (const r of b) bk.set(keyOf(r), r); for (const r of a) ak.set(keyOf(r), r); }
-    const moved = [];
-    for (const [k, r] of bk) if (!ak.has(k)) moved.push(r);
-    for (const [k, r] of ak) if (!bk.has(k)) moved.push(r);
-    d = { moved, flip: (b.length === 0) !== (a.length === 0) };
+    const [removed, added] = popDelta(b, a, keyOf);
+    d = { moved: removed.concat(added), removed, added, flip: (b.length === 0) !== (a.length === 0) };
     deltas.set(ft, d);
     return d;
   };
@@ -587,8 +707,12 @@ function rowPlanner(cells, prior, changed) {
         for (const [k, v] of src) dirty.set(k, v);
       }
       for (const [, k] of dirty) {
-        if (hasKey(cols, "prior", k) || hasKey(cols, "after", k)) dels.push([flat(k)]);
-        if (!hasKey(cols, "after", k)) continue;
+        // AFTER THE WRITE FIRST: a key the write created is in the first population that carries it after,
+        // and was in none before, which only reading every one of them says -- on support 290 populations,
+        // 196,129 rows, for a Contact Submission's one key
+        const after = hasKey(cols, "after", k);
+        if (after || hasKey(cols, "prior", k)) dels.push([flat(k)]);
+        if (!after) continue;
         const row = Ev("rmap:proj_row", [k, table, cells]);
         const vals = colnames.map((_, i) => cellOf(row[i]));
         if (vals[at[0]] !== flat(k)) return null;
@@ -614,15 +738,18 @@ function rowPlanner(cells, prior, changed) {
         if (v !== undefined && src.has(keyOf(v))) dirty.set(keyOf(g), g);
       }
     }
-    const was = new Set(b.map(keyOf)), is = new Set(a.map(keyOf));
+    // every row dirtied is a row of b or of a, so it was there unless the write added it and is there
+    // unless the write took it away
+    const d = b === a ? null : deltaOf(table);
+    const gained = new Set(d ? d.added.map(keyOf) : []), lost = new Set(d ? d.removed.map(keyOf) : []);
     let before = null;
     for (const [k, g] of dirty) {
-      if (was.has(k)) {
+      if (!gained.has(k)) {
         if (!before) before = Ev("rmap:proj_relcols", [table, prior]);
         const old = Ev("rmap:proj_relrow", [g, table, prior, before]);
         dels.push(at.map((i) => cellOf(old[i])));
       }
-      if (is.has(k)) {
+      if (!lost.has(k)) {
         const row = Ev("rmap:proj_relrow", [g, table, cells, relcols]);
         ins.push(colnames.map((_, i) => cellOf(row[i])));
       }
@@ -651,24 +778,34 @@ function emitToDb(before, cells, prior, report) {
   const db = storeDb();
   if (!db) return 0;
   // a caller with no snapshot of its own hands the prior store, and the diff is the cells the write
-  // replaced (popSnapshotMoved)
-  let after;
-  if (before === null && prior) [before, after] = popSnapshotMoved(prior, cells);
-  else after = popSnapshot(cells);
+  // replaced (popsMoved), a population compared row by row (popsDiffer) and written out as text only
+  // when it moved
   const changed = new Set();
-  for (const [ft, text] of after) {
-    const was = before.get(ft);
-    if (was === text || (was !== undefined && storedText(was) === storedText(text))) continue;
-    changed.add(ft);
+  let carried;
+  const pops = before === null && prior ? popsMoved(prior, cells) : null;
+  if (pops !== null) {
+    const sorted = new Map();
+    const sortedOf = (rows) => { let s = sorted.get(rows); if (s === undefined) sorted.set(rows, (s = popSorted(rows))); return s; };
+    for (const [ft, [p, q]] of pops) if (popsDiffer(p, q, (rows) => sortedOf(rows)[0])) changed.add(ft);
+    if (!changed.size) return 0;
+    carried = [...changed].map((ft) => [ft, sortedOf(pops.get(ft)[1])[1]]);
+  } else {
+    if (before === null) before = popSnapshot(prior);
+    const after = popSnapshot(cells);
+    for (const [ft, text] of after) {
+      const was = before.get(ft);
+      if (was === text || (was !== undefined && storedText(was) === storedText(text))) continue;
+      changed.add(ft);
+    }
+    if (!changed.size) return 0;
+    carried = [...changed].map((ft) => [ft, JSON.parse(after.get(ft))]);
   }
-  if (!changed.size) return 0;
   // THE SOURCE TAKES THE ROWS FIRST, because the projection reads it. A row
   // derived at boot or written through main:api lives in a per-fact-type cell,
   // and rmap:proj_rows answers from the DESCRIPTORS -- store:fts slot 5 -- so
   // re-projecting without adopting would write the tables back exactly as they
   // were and call it a store. store:src_all is how a row joins the source, and
   // it is the same call the API path already makes before it emits.
-  const carried = [...changed].map((ft) => [ft, JSON.parse(after.get(ft))]);
   adoptStore(Ev("store:src_all", [carried, cells]));
   // A TABLE IS TOUCHED BY WHAT ANY STEP OF ITS WALKS READS (2026-09-25), not only
   // the first: a column naming another entity walks to it and reads its identifier
@@ -698,6 +835,7 @@ function emitToDb(before, cells, prior, report) {
   const refused = [];
   const refuse = (table, e, v) => refused.push('"' + table + '": ' + String((e && e.message) || e)
     + (v ? " -- a row beginning " + JSON.stringify(v.slice(0, 2)).slice(0, 120) : ""));
+  const counted = new Map();
   db.transaction(() => {
     for (const table of touched) {
       const cols = Ev("rmap:proj_colnames", [table, cells]).map(String);
@@ -710,11 +848,24 @@ function emitToDb(before, cells, prior, report) {
       if (rows) {
         let del, put;
         try {
-          del = db.prepare('delete from "' + table + '" where ' + pk.map((c) => '"' + c + '" is ?').join(" and "));
+          del = db.prepare('delete from "' + table + '" where ' + pk.map((c) => '"' + c + '" is ?').join(" and ") + " returning *");
           put = db.prepare('insert into "' + table + '" ("' + cols.join('","') + '") values (' + cols.map(() => "?").join(",") + ")");
         } catch (e) { refuse(table, e); continue; }
-        for (const v of rows.dels) written += del.run(...v).changes;
-        for (const v of rows.ins) { try { put.run(...v); written++; } catch (e) { refuse(table, e, v); } }
+        // AND WHAT THE ROWS HELD IS COUNTED AS THEY GO (2026-10-03): each column's values the write took away
+        // and put back, and the rows, by which the lazy store moves its counts. It counted the table again
+        // instead, every column of it -- support's Function is 71,174 rows by 313 columns, 0.2 s of every
+        // create -- to find out what the write had just done.
+        const held = new Map();
+        let n = 0;
+        for (const v of rows.dels) for (const old of del.all(...v)) {
+          written++; n--;
+          for (const c in old) if (old[c] !== null) held.set(c, (held.get(c) || 0) - 1);
+        }
+        for (const v of rows.ins) {
+          try { put.run(...v); written++; n++; for (let i = 0; i < cols.length; i++) if (v[i] !== null) held.set(cols[i], (held.get(cols[i]) || 0) + 1); }
+          catch (e) { refuse(table, e, v); }
+        }
+        counted.set(table, { rows: n, held });
         byRow.add(table);
         continue;
       }
@@ -739,7 +890,7 @@ function emitToDb(before, cells, prior, report) {
   // it. So the lazy store keeps those, and takes the moved populations from the write
   // that stored them; a table rewritten whole is read again, as before.
   if (LAZY_STORE) {
-    LAZY_STORE.wrote(byRow, new Map(carried));
+    LAZY_STORE.wrote(byRow, new Map(carried), counted);
     LAZY_STORE.invalidate([...touched].filter((t) => !byRow.has(t)));
   }
   // AND WHAT THE ROWS WERE WORKED OUT FROM IS LET GO. The planner asks lambda about
@@ -5844,13 +5995,28 @@ function lazyStore(db, want) {
       if (relTables.has(t)) { ftRows.delete(t); movedFts.add(t); }
     }
   };
+  // the counts a write moved, by what it took away and put back column by column: what counting the table
+  // again finds. A table that held no rows held no values, whatever an earlier count left behind.
+  const recount = (table, moved) => {
+    const was = rowsIn.get(table) || 0, rows = was + moved.rows;
+    rowsIn.set(table, rows);
+    const got = new Set();
+    for (const ft of carried.get(table) || []) {
+      const k = table + "\u0000" + ft;
+      const fill = (was > 0 ? filled.get(k) || 0 : 0) + (colsOf.get(k) || []).reduce((a, c) => a + (moved.held.get(c) || 0), 0);
+      filled.set(k, fill);
+      if (rows > 0 && fill > 0) got.add(ft);
+    }
+    if (rows > 0 && relTables.has(table)) got.add(table);
+    presentIn.set(table, got);
+  };
   // a table emitToDb wrote row by row: the fact types that moved are what the write
-  // stored, and every other one it carries holds the rows it held
-  const wrote = (tables, moved) => {
+  // stored, and every other one it carries holds the rows it held; its counts move by what the write counted
+  const wrote = (tables, moved, counted) => {
     for (const ft of moved.keys()) movedFts.add(ft);
     for (const t of tables) {
       byTable.delete(t); asked.delete(t);
-      if (presentIn.has(t)) count(t);
+      if (presentIn.has(t)) { const c = counted && counted.get(t); if (c) recount(t, c); else count(t); }
       for (const ft of carried.get(t) || []) if (moved.has(ft)) ftRows.set(ft, moved.get(ft));
       if (relTables.has(t) && moved.has(t)) ftRows.set(t, moved.get(t));
     }
