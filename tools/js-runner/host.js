@@ -3563,7 +3563,11 @@ const WPHASES = [
   ["store:closed_from", "closure", null],
   ["main:delta_of", "delta", "closure"], ["derive:inc_run", "derive", "closure"], ["store:cb_put", "put", "closure"],
   ["derive:rec_put", "record", "closure"], ["store:ev_close", "events", "closure"], ["store:pf_close", "performed", "closure"],
-  ["ui:violations", "validate", null],
+  // AND WHAT A DERIVATION SPENDS OUTSIDE ITS RULES (2026-10-03): on support 1,316 ms of derive, about 150 of it
+  // in the three slowest heads' rules; each layer resets its heads, runs its rounds and merges what they found
+  ["derive:inc_pairs", "pairs", "derive"], ["derive:inc_layers", "layers", "derive"], ["derive:inc_rset", "reset", "derive"],
+  ["derive:inc_loop", "rounds", "derive"], ["derive:inc_after", "merge", "derive"],
+  ["ui:violations", "validate", null], ["main:ab_viols", "validate", null],
   ["cmd:validate", "uniqueness", "validate"], ["cmd:mand_viols", "mandatory", "validate"], ["cmd:deo_viols", "deontic", "validate"],
   ["cmd:sub_viols", "subset", "validate"], ["cmd:rec_viols", "recorded", "validate"], ["cmd:dec_viols", "decided", "validate"],
 ];
@@ -3574,7 +3578,7 @@ for (const [, part, holder] of WPHASES) if (!WPARTS.some((p) => p[0] === part)) 
 let WCLOCK = null;
 function clockStart() {
   const t = performance.now();
-  WCLOCK = { t0: t, at: t, parts: new Map(), depth: new Map(), top: 0, covered: 0, heads: new Map() };
+  WCLOCK = { t0: t, at: t, parts: new Map(), depth: new Map(), top: 0, covered: 0, keyed: new Map() };
   REFLECTS = [];
   return WCLOCK;
 }
@@ -3602,18 +3606,29 @@ function clockPart(def, part, top) {
   };
 }
 for (const [def, part, holder] of WPHASES) if (!FASTPRIMS.has(def)) FASTPRIMS.set(def, clockPart(def, part, holder === null));
-if (!FASTPRIMS.has("derive:rule_news")) FASTPRIMS.set("derive:rule_news", (x) => {
+// <DEF, label, what of its operand names the one it is for>: a rule's derivation adds its time to its head, a
+// decided constraint's check to its predicate, and a uniqueness check to its fact type (2026-10-03: on support
+// a write's validation was 1,060 ms, 561 of it the deciders', and no line said whose)
+const WKEYED = [
+  ["derive:rule_news", "heads", (x) => x[0][0]],
+  ["cmd:dec_one", "deciders", (x) => x[0][1]],
+  ["cmd:viol_for", "uniqueness by fact type", (x) => x[0]],
+];
+for (const [def, label, keyOf] of WKEYED) if (!FASTPRIMS.has(def)) FASTPRIMS.set(def, (x) => {
   const c = WCLOCK;
-  if (c === null) return Ev(DEFS.get("derive:rule_news"), x);
+  if (c === null) return Ev(DEFS.get(def), x);
   const t = performance.now();
-  try { return Ev(DEFS.get("derive:rule_news"), x); }
+  try { return Ev(DEFS.get(def), x); }
   finally {
-    const head = Array.isArray(x) && Array.isArray(x[0]) ? String(x[0][0]) : "?";
-    c.heads.set(head, (c.heads.get(head) || 0) + performance.now() - t);
+    let key = "?";
+    try { key = String(keyOf(x)); } catch {}
+    let m = c.keyed.get(label);
+    if (m === undefined) c.keyed.set(label, (m = new Map()));
+    m.set(key, (m.get(key) || 0) + performance.now() - t);
   }
 });
 // `lambda L: <part> <ms> [<the parts it holds>], ..., other <ms>; adopt <ms>; heads <head> <ms>, ...`: the
-// clock's laps and parts, the three heads whose rules took longest
+// clock's laps and parts, and for each keyed label the three it names that took longest
 function clockText(c) {
   const ms = (v) => String(Math.round(v));
   const of = (holder) => WPARTS.filter((p) => p[1] === holder && c.parts.has(p[0])).map((p) => {
@@ -3627,8 +3642,12 @@ function clockText(c) {
   }
   if (c.read !== undefined) out.push("read-through " + ms(c.read));
   if (c.adopt !== undefined) out.push("adopt " + ms(c.adopt));
-  const heads = [...c.heads].sort((a, b) => b[1] - a[1]).slice(0, 3);
-  if (heads.length) out.push("heads " + heads.map((h) => h[0] + " " + ms(h[1])).join(", "));
+  for (const [, label] of WKEYED) {
+    const m = c.keyed.get(label);
+    if (m === undefined) continue;
+    const top = [...m].sort((a, b) => b[1] - a[1]).slice(0, 3);
+    out.push(label + " " + top.map((h) => h[0] + " " + ms(h[1])).join(", "));
+  }
   return out.join("; ");
 }
 // ---- INSERT filter fast path ---------------------------------------------
