@@ -708,6 +708,16 @@ function emitToDb(before, cells, prior, report) {
   if (report) report.touched = [...touched];
   return written;
 }
+// theta:unfold_rows and theta:unfold_descs by the identity of the array unfolded (see their twins)
+const UNFOLDROWS = new WeakMap(), UNFOLDDESCS = new WeakMap();
+function unfoldOnce(memo, name, x) {
+  if (!Array.isArray(x)) return Ev(DEFS.get(name), x);
+  const hit = memo.get(x);
+  if (hit !== undefined && hit[0] === x.length) return hit[1];
+  const v = Ev(DEFS.get(name), x);
+  memo.set(x, [x.length, v]);
+  return v;
+}
 const PRIMS = new Map(Object.entries({
   "id": x => x,
   "tl": x => { const a = seq(x); if (a.length === 0) throw new Error("tl on empty"); return a.slice(1); },
@@ -2906,6 +2916,19 @@ const FASTPRIMS = new Map(Object.entries({
   // (10^5 sublists) cost minutes. The VALUE is just the concatenation, so
   // the head builds it in one linear pass. seq() on each element keeps the
   // DEF's edge: a non-sequence element is an error, exactly as cat throws.
+  // A POPULATION IS UNFOLDED ONCE, NOT ONCE PER WRITE (2026-10-03). theta:unfold_rows is WHILE not all_rowp:
+  // flatten, so even a population already in rows asks law:rowp of every row and value:is_scalar of every value
+  // to say so, and theta:unfold_descs does the same over the descriptor list. Every write ran the reflection
+  // again (adoptStore -> loadReflected) and the emit's re-sourcing, and each read every population it touched
+  // through reflect:src_rows and store:fix_desc: on a copy of support's store one Contact Submission POST asked
+  // law:rowp 9.5 million times and value:is_scalar 24.5 million, 118 s of a 223 s profiled write, of
+  // populations the write had not touched. Lambda's arrays are values -- a write that changes a population
+  // answers a new array for it and leaves every other one the same object -- so the answer for an array is
+  // kept by the array's identity, and kept through memoClear, as the identity indexes are: it is true for as
+  // long as the array lives, and goes with it. The length is kept beside it and checked, so an array grown in
+  // place could never answer for its shorter self. AREST_NOTWIN=theta:unfold_rows gives the DEF's own.
+  "theta:unfold_rows": x => unfoldOnce(UNFOLDROWS, "theta:unfold_rows", x),
+  "theta:unfold_descs": x => unfoldOnce(UNFOLDDESCS, "theta:unfold_descs", x),
   "theta:flatten": x => { const out = [];
     for (const s of seq(x)) { const a = seq(s);
       for (let i = 0; i < a.length; i++) out.push(a[i]); }
