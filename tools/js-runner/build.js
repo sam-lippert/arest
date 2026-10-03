@@ -19,7 +19,7 @@
 // each input is checked for existence and the result is checked for size.
 import { readFileSync, writeFileSync, statSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 const here = import.meta.dir;
 const root = join(here, "..", "..");
@@ -247,16 +247,23 @@ if (run) {
   // been through that gate: so the store is served once, by a module over the carriers the compile wrote, with
   // AREST_VERDICT, which judges it and records T or F in its _verdict table for every boot after it.
   // AREST_NO_VERDICT=1 skips it, and the first write then asks the whole check instead.
+  // THE STORE IS NAMED BY ITS WHOLE PATH (2026-10-03). An app's check names it relative to the app (`compile-store
+  // .check`), and the judge's module is built from here, where that path names nothing: the build failed, the
+  // judge never ran, and support.auto.dev had no _verdict, so every write took the whole check. A judge that
+  // cannot be built or run says so, and the store is left with no verdict, as before.
   if (code === 0 && mode === "compile" && rest[0] === "compile-store" && rest[1] && !process.env.AREST_NO_VERDICT) {
-    const vdir = join(rest[1], ".verdict");
+    const store = resolve(rest[1]);
+    const vdir = join(store, ".verdict");
     mkdirSync(vdir, { recursive: true });
     const vb = Bun.spawn(["bun", join(here, "build.js"), "serve"], { cwd: here, stdio: ["ignore", "ignore", "inherit"],
-      env: { ...process.env, AREST_CARRIERS: rest[1], AREST_OUT_DIR: vdir, AREST_INSTRUMENTED: "" } });
-    if (await vb.exited === 0) {
+      env: { ...process.env, AREST_CARRIERS: store, AREST_OUT_DIR: vdir, AREST_INSTRUMENTED: "" } });
+    const built = await vb.exited;
+    if (built === 0) {
       const vr = Bun.spawn(["bun", join(vdir, "serve.g.js")], { stdio: ["ignore", "inherit", "inherit"],
-        env: { ...env, AREST_STORE_DB: join(rest[1], "store.db"), AREST_VERDICT: "1" } });
-      await vr.exited;
-    }
+        env: { ...env, AREST_STORE_DB: join(store, "store.db"), AREST_VERDICT: "1" } });
+      const judged = await vr.exited;
+      if (judged !== 0) process.stderr.write("verdict: the judge exited " + judged + "; the store has no verdict, and its first write asks the whole check" + String.fromCharCode(10));
+    } else process.stderr.write("verdict: the judge's module did not build (exit " + built + "); the store has no verdict, and its first write asks the whole check" + String.fromCharCode(10));
     rmSync(vdir, { recursive: true, force: true });
   }
   process.exit(code);
