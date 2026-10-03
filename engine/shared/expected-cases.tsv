@@ -832,6 +832,7 @@ case:a-reference-cell-follows-its-link	"(('NavigationLink', ('Customer', 'c1')),
 case:a-column-is-labeled-by-its-role	"('requested Timestamp', 'was requested no later than Timestamp', 'Subject', 'Note')"
 case:a-link-addresses-the-most-specific-type	"(('menu', 'Request targets Customer', ('item', 'c1', 'Request 'sr1' targets Customer 'c1'.', ('Customer', 'c1'))), ('menu', 'Request cites Function', ('item', 'c1', 'Request 'sr1' cites Function 'c1'.', ('Customer', 'c1'))))"
 case:a-read-answers-every-value-of-a-column	"('[[\"resource\",\"Request\"],[\"columns\",[\"Request\",\"RequestHasSubject\",\"RequestHasRecording\"]],[\"rows\",[[\"r1\",[[\"Help\"]],[[\"rec1\"],[\"rec2\"]]]]],[\"violations\",[]],[\"links\",[]]]', 200)"
+case:a-button-shows-its-label-then-its-reading	"(('actions', 'actions (Draft)', ('button', 'Approve', ('fire', 'AdminApprovesSupportResponse', 'Support Response', 'r1'), 'Undefined'), ('button', 'Admin redrafts Support Response', ('fire', 'AdminRedraftsSupportResponse', 'Support Response', 'r1'), 'Undefined')))"
 case:the-controls-are-what-takes-a-row	"('render:a', 'render:b')"
 case:the-engines-are-what-takes-a-screen	"('render:html', 'render:wpf')"
 case:a-container-with-its-own-engine-is-paired	"()"

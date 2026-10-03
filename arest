@@ -15283,10 +15283,15 @@ DEF("root:ids_at",
     S3(A("COMP"), A("main:col1_where2"),
        S3(A("CONS"), S3(A("COMP"), A("main:status_pop"), S3(A("CONS"), N(1), N(2))), N(3)))),
 
+"A BUTTON SHOWS ITS LABEL, AND ITS READING WHERE IT HAS NONE, NEVER ITS ID (2026-10-02; the retention report: menu buttons show the event fact type`s id). A transition`s button and the root`s offer of it showed the fact type`s id, CaseIsObserved and AdminApprovesSupportResponse, while support`s readings give each transition an Event Label (ui.md: Transition has Event Label, Approve for approve) and every event fact type has a reading. The transition a button fires from a status is the one main:tr_rows has from that status on that event (ui:trans_of); its Event Label is the button`s title, the event`s reading where it has none (Admin approves Support Response), and the id only where the store holds neither. The address the button follows is unchanged. Operand of ui:event_label and ui:trans_of: <store, status, event fact type>.",
+DEF("ui:trans_of",
+    S3(A("COMP"), S4(A("COND"), A("null"), K(A("")), N(1)), S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(1), N(2)))), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(3), N(1)), S3(A("COMP"), N(2), N(2)))))), S2(A("CONS"), S3(A("COMP"), N(1), N(1))), K(PHI()))), S3(A("COMP"), A("distr"), S3(A("CONS"), S3(A("COMP"), A("main:tr_rows"), N(1)), S3(A("CONS"), N(2), N(3))))))),
+DEF("ui:event_label",
+    S3(A("COMP"), S4(A("COND"), S4(A("COMP"), A("not"), A("null"), N(1)), N(1), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(2), K(A("")))), N(3), N(2))), S4(A("CONS"), S3(A("COMP"), A("solve:assoc"), S3(A("CONS"), A("ui:trans_of"), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("TransitionHasEventLabel")), N(1))))), S3(A("COMP"), A("solve:phrase"), S3(A("CONS"), S3(A("COMP"), A("solve:readings"), N(1)), N(3))), N(3)))),
 DEF("root:events_at",
-    S3(A("COMP"), S2(A("ALPHA"), N(2)),
-       S4(A("COMP"), N(2), A("system:view_menu"),
-          S3(A("CONS"), N(3), S3(A("COMP"), A("main:machine_trs"), S3(A("CONS"), N(1), N(2))))))),
+    S4(A("COMP"), S2(A("ALPHA"), S3(A("COMP"), A("ui:event_label"), S4(A("CONS"), S3(A("COMP"), N(1), N(2)), S3(A("COMP"), N(2), N(2)), S3(A("COMP"), N(2), N(1))))), A("distr"),
+       S3(A("CONS"), S4(A("COMP"), N(2), A("system:view_menu"),
+          S3(A("CONS"), N(3), S3(A("COMP"), A("main:machine_trs"), S3(A("CONS"), N(1), N(2))))), S3(A("CONS"), N(1), N(3))))),
 
 DEF("root:row",
     S5(A("CONS"), N(2), N(3), A("root:ids_at"), A("root:events_at"))),
@@ -15485,7 +15490,7 @@ DEF("ui:status",
     S3(A("COMP"), A("solve:assoc"), S3(A("CONS"), N(3), S3(A("COMP"), A("main:status_pop"), S3(A("CONS"), N(1), N(2)))))),
 
 DEF("ui:transitions",
-    S4(A("COND"), S4(A("COMP"), A("null"), A("ui:smd"), S3(A("CONS"), N(1), N(2))), K(PHI()), S2(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("CONS"), K(A("actions")), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S5(A("CONS"), S3(A("COMP"), A("ui:res"), K(A("Actions"))), K(A(" (")), A("ui:status"), K(A(")")))))), S4(A("COMP"), S2(A("ALPHA"), S5(A("CONS"), K(A("button")), S3(A("COMP"), N(2), N(1)), S5(A("CONS"), K(A("fire")), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(1), N(2)), S3(A("COMP"), N(2), N(2))), K(A("Undefined")))), A("distr"), S3(A("CONS"), S4(A("COMP"), N(2), A("system:view_menu"), S3(A("CONS"), A("ui:status"), S3(A("COMP"), A("main:machine_trs"), S3(A("CONS"), N(1), N(2))))), S3(A("CONS"), N(2), N(3))))))))),
+    S4(A("COND"), S4(A("COMP"), A("null"), A("ui:smd"), S3(A("CONS"), N(1), N(2))), K(PHI()), S2(A("CONS"), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("CONS"), K(A("actions")), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S5(A("CONS"), S3(A("COMP"), A("ui:res"), K(A("Actions"))), K(A(" (")), A("ui:status"), K(A(")")))))), S4(A("COMP"), S2(A("ALPHA"), S5(A("CONS"), K(A("button")), S3(A("COMP"), A("ui:event_label"), S4(A("CONS"), S3(A("COMP"), N(3), N(2)), S3(A("COMP"), N(4), N(2)), S3(A("COMP"), N(2), N(1)))), S5(A("CONS"), K(A("fire")), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(1), N(2)), S3(A("COMP"), N(2), N(2))), K(A("Undefined")))), A("distr"), S3(A("CONS"), S4(A("COMP"), N(2), A("system:view_menu"), S3(A("CONS"), A("ui:status"), S3(A("COMP"), A("main:machine_trs"), S3(A("CONS"), N(1), N(2))))), S5(A("CONS"), N(2), N(3), N(1), A("ui:status"))))))))),
 
 
 "THE PANES AND THE CASCADE (PaneManager at its smallest faithful form): the container REGISTERS its stack population <<pane, stack>...> - its form factor - and ui:navp serves any population: pane preference derives from the matched pattern kind (collections to master, content to detail - FindTarget's default), ui:clamp is FromNavContext (one registered stack takes everything, unregistered preferences fall to master), the cascade resets every pane above the navigation target, back is pane-qualified and a master keeps its root where a detail pops to the vanity - the no-selection layer speaking the tenant's description. ui:pane_view answers each registered pane's tree; one lambda, one stack or many, the same navigation.",
