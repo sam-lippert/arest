@@ -580,7 +580,7 @@ Fact Type has Role.
   Each Fact Type has some Role.
   For each Role, exactly one Fact Type has that Role.
   It is possible that some Fact Type has more than one Role.
-Fact Type has Arity. *
+Fact Type has Arity. **
   Each Fact Type has exactly one Arity.
 Fact Type has Declaration Order.
   Each Fact Type has at most one Declaration Order.
@@ -852,7 +852,7 @@ Function has Implementation.
 Constraint has modality of Modality Type.
 Constraint has Text.
   Each Constraint has at most one Text.
-Constraint is semantic. *
+Constraint is semantic. **
 
 <!-- WHICH DECIDER OWNS THIS CONSTRAINT (2026-09-05). Sam: the deontic rules
      for messaging split into "deterministic ones that may be determined by a
@@ -1342,7 +1342,7 @@ Derivation Rule depends on Derivation Rule. *
 
 * Domain1 reaches Domain3 iff Domain1 reaches Domain2 and Domain2 reaches Domain3.
 
-* Fact Type has Arity iff Arity is the count of Role where Fact Type has Role.
+** Fact Type has Arity iff Arity is the count of Role where Fact Type has Role.
 
 * Derivation Rule1 depends on Derivation Rule2 iff Derivation Rule1 has antecedent Fact Type and Derivation Rule2 produces that Fact Type.
 <!-- arest-audit B: "some other Derivation Rule" dropped from this rule —
@@ -1357,7 +1357,7 @@ Derivation Rule depends on Derivation Rule. *
 
 
 
-* Constraint is semantic iff Constraint has modality of Modality Type 'Deontic' and Constraint has some Text and Constraint is not machine-decidable.
+** Constraint is semantic iff Constraint has modality of Modality Type 'Deontic' and Constraint has some Text and Constraint is not machine-decidable.
 
 * Constraint is machine-decidable iff Constraint is decided by some Predicate and that Predicate is bound.
 

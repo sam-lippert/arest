@@ -87,7 +87,7 @@ Predicate is performed during Transition. +
 ### Status
 Status is initial in State Machine Definition.
   For each State Machine Definition, at most one Status is initial in that State Machine Definition.
-Status is defined in State Machine Definition. *
+Status is defined in State Machine Definition. **
   Each Status, State Machine Definition combination occurs at most once in the population of Status is defined in State Machine Definition.
 Status is terminal in State Machine Definition. *
   Each Status, State Machine Definition combination occurs at most once in the population of Status is terminal in State Machine Definition.
@@ -100,7 +100,7 @@ Status is terminal in State Machine Definition. *
      history note beside the rule). An asserted sink list can silently
      disagree with the transition graph; the rule cannot. -->
 
-Transition exits Status in State Machine Definition. *
+Transition exits Status in State Machine Definition. **
   Each Transition, Status, State Machine Definition combination occurs at most once in the population of Transition exits Status in State Machine Definition.
 
 Status is rooted in State Machine Definition. *
@@ -211,15 +211,15 @@ Guard guards Transition.
      trip it -- only a machine doing both flags. -->
 It is obligatory that if some Predicate1 is performed in some Status1 and that Status1 is defined in some State Machine Definition and some Predicate2 is performed during some Transition and that Transition is defined in that State Machine Definition and that Transition is to some Status2 then Predicate2 is performed in Status2.
 
-* Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from that Status.
+** Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from that Status.
 
-* Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is to that Status.
+** Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is to that Status.
 
-* Transition exits Status in State Machine Definition iff that Transition is defined in that State Machine Definition and that Transition is from that Status.
+** Transition exits Status in State Machine Definition iff that Transition is defined in that State Machine Definition and that Transition is from that Status.
 
-* Transition exits Status in State Machine Definition1 iff that Transition exits that Status in some State Machine Definition2 and that State Machine Definition2 is defined in that State Machine Definition1.
+** Transition exits Status in State Machine Definition1 iff that Transition exits that Status in some State Machine Definition2 and that State Machine Definition2 is defined in that State Machine Definition1.
 
-* Transition exits Status in State Machine Definition1 iff that Status is defined in some State Machine Definition2 and that Transition exits that State Machine Definition2 in that State Machine Definition1.
+** Transition exits Status in State Machine Definition1 iff that Status is defined in some State Machine Definition2 and that Transition exits that State Machine Definition2 in that State Machine Definition1.
 
 * Status is terminal in State Machine Definition iff that Status is defined in that State Machine Definition and no Transition exits that Status in that State Machine Definition.
 <!-- audit-fix D: restored, mirroring `rooted`. History: the killed host's
@@ -277,9 +277,9 @@ It is obligatory that if some Predicate1 is performed in some Status1 and that S
     per the parser's normal instance-fact pathway).
 -->
 
-* Status is defined in State Machine Definition iff that Status is initial in that State Machine Definition.
+** Status is defined in State Machine Definition iff that Status is initial in that State Machine Definition.
 
-* Status is defined in State Machine Definition1 iff that Status is defined in some State Machine Definition2 and that State Machine Definition2 is defined in that State Machine Definition1.
+** Status is defined in State Machine Definition1 iff that Status is defined in some State Machine Definition2 and that State Machine Definition2 is defined in that State Machine Definition1.
 <!-- THE HAREL NESTING, WHICH THIS RELATION DID NOT CARRY (2026-09-17). A
      State Machine Definition IS a Status (the subtype above), so an app
      groups states by declaring one: support.auto.dev declares `Status 'Open'

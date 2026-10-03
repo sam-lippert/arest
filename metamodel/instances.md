@@ -94,7 +94,7 @@ Fact is of Function. *
        role `Function belongs to Domain` carries), exactly as Violation/Failure
        join on the Function they are against. See the rule under
        "## Derivation Rules". -->
-Fact belongs to Domain. *
+Fact belongs to Domain. **
   Each Fact belongs to at most one Domain.
   <!-- ns-2 (ns-derive-population-domains): a Fact does NOT store its own
        domain — it DERIVES it from its Fact Type, keeping domain single-sourced
@@ -199,9 +199,9 @@ Object Type Instance is instance of Object Type.
      CORRECT transitive membership, and 'Object Type Instance is inherited instance
      of Noun' is a non-canonical crutch (retire separately). -->
 
-Object Type Instance is properly of Object Type. *
+Object Type Instance is properly of Object Type. **
   Each Object Type Instance, Object Type combination occurs at most once in the population of Object Type Instance is properly of Object Type.
-Object Type Instance is most specifically of Object Type. *
+Object Type Instance is most specifically of Object Type. **
   Each Object Type Instance, Object Type combination occurs at most once in the population of Object Type Instance is most specifically of Object Type.
   <!-- AN INSTANCE'S DOMAIN IS ITS MOST SPECIFIC TYPE'S (2026-09-28). The
        membership above is transitive, and rightly so: a Customer is an
@@ -222,7 +222,7 @@ Object Type Instance is most specifically of Object Type. *
        Priority -- is several values that share a key, since the store keys an
        instance by its text; it is not one value whose readings conflict. -->
 
-Object Type Instance is of Function. *
+Object Type Instance is of Function. **
   Each Object Type Instance, Function combination occurs at most once in the population of Object Type Instance is of Function.
   <!-- ns-2 (ns-derive-population-domains): the single-sourcing BRIDGE for a
        Object Type Instance's domain. A Noun IS a Function (Noun < Function; same identity,
@@ -233,7 +233,7 @@ Object Type Instance is of Function. *
        role `Function belongs to Domain` carries), exactly as Violation/Failure
        join on the Function they are against. See the rule under
        "## Derivation Rules". -->
-Object Type Instance belongs to Domain. *
+Object Type Instance belongs to Domain. **
   Each Object Type Instance belongs to at most one Domain.
   <!-- ns-2 (ns-derive-population-domains): an Object Type Instance does NOT store its own
        domain — it DERIVES it from the Noun it is an instance of, keeping
@@ -297,7 +297,7 @@ User has Email.
        and the email survives as a mandatory 1:1 secondary reference. -->
 
 ### State Machine (runtime instance of State Machine Definition)
-State Machine is instance of State Machine Definition. *
+State Machine is instance of State Machine Definition. **
   Each State Machine is instance of exactly one State Machine Definition.
 State Machine is instance of Object Type.
   Each State Machine, Object Type combination occurs at most once in the population of State Machine is instance of Object Type.
@@ -512,13 +512,13 @@ Guard Run has Result.
      so "some Object Type that is that Function" binds by identity.
      Evaluator-phase gate obligation: prove convergence on
      subtype-identity joins before claiming these cells. -->
-* Object Type Instance is properly of Object Type1 iff that Object Type Instance is instance of some Object Type2 and that Object Type2 is subtype of that Object Type1.
+** Object Type Instance is properly of Object Type1 iff that Object Type Instance is instance of some Object Type2 and that Object Type2 is subtype of that Object Type1.
 
-* Object Type Instance is most specifically of Object Type iff that Object Type Instance is instance of that Object Type and it is not true that that Object Type Instance is properly of that Object Type.
+** Object Type Instance is most specifically of Object Type iff that Object Type Instance is instance of that Object Type and it is not true that that Object Type Instance is properly of that Object Type.
 
-* Object Type Instance is of Function iff that Object Type Instance is most specifically of some Object Type that is that Function.
+** Object Type Instance is of Function iff that Object Type Instance is most specifically of some Object Type that is that Function.
 
-* Object Type Instance belongs to Domain iff that Object Type Instance is of some Function that belongs to that Domain.
+** Object Type Instance belongs to Domain iff that Object Type Instance is of some Function that belongs to that Domain.
 
 <!-- `Fact is of Fact Type` is a BASE fact type, populated by population
      reflection (the killed host did this in compile.rs
@@ -530,7 +530,7 @@ Guard Run has Result.
      Role then that Fact is of some Fact Type that has that Role`). -->
 * Fact is of Function iff that Fact is of some Fact Type that is that Function.
 
-* Fact belongs to Domain iff that Fact is of some Function that belongs to that Domain.
+** Fact belongs to Domain iff that Fact is of some Function that belongs to that Domain.
 
 <!-- sm-retire-forml2: SM/Object Type Instance status projections lifted from imperative
      Rust into reading-level derivations.
@@ -564,7 +564,7 @@ Guard Run has Result.
          on State_Machine_is_currently_in_Status (instances.md 184-193) collapses
          the seed emit and the fold emits to last-write-wins. -->
 
-* State Machine is instance of State Machine Definition iff that State Machine is for some Object Type Instance and that Object Type Instance is instance of some Object Type and that State Machine Definition is for that Object Type.
+** State Machine is instance of State Machine Definition iff that State Machine is for some Object Type Instance and that Object Type Instance is instance of some Object Type and that State Machine Definition is for that Object Type.
 
 * Object Type Instance is currently in Status iff some State Machine is for that Object Type Instance and that State Machine is currently in that Status.
 

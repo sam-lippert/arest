@@ -24,7 +24,7 @@ Severity is a value type.
 ## Fact Types
 
 ### Violation
-Violation belongs to Domain. *
+Violation belongs to Domain. **
   Each Violation belongs to at most one Domain.
   <!-- ns-2 (ns-derive-population-domains): Violation does NOT store its own
        domain — it DERIVES it from the Function it is against, so domain stays
@@ -47,7 +47,7 @@ Violation belongs to Batch.
   Each Violation belongs to at most one Batch.
 
 ### Failure
-Failure belongs to Domain. *
+Failure belongs to Domain. **
   Each Failure belongs to at most one Domain.
   <!-- ns-2 (ns-derive-population-domains): Failure does NOT store its own
        domain — it DERIVES it from the Function (its operation / verb; a Verb
@@ -126,9 +126,9 @@ If some Violation occurs before some Transition then that Violation occurred at 
 
 * Failure succeeds Violation iff that Violation occurred at some Timestamp1 and that Failure occurred at some Timestamp2 where Timestamp1 is before Timestamp2.
 
-* Violation belongs to Domain iff Violation is against Function and that Function belongs to Domain.
+** Violation belongs to Domain iff Violation is against Function and that Function belongs to Domain.
 
-* Failure belongs to Domain iff Failure is against Function and that Function belongs to Domain.
+** Failure belongs to Domain iff Failure is against Function and that Function belongs to Domain.
 
 ## Instance Facts
 
