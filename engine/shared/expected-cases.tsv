@@ -946,6 +946,8 @@ case:an-asserted-row-wins-on-a-read-screen	"((('LogEntryHasHTTPStatus', 'r1', '5
 case:the-compile-keeps-a-cached-head-a-function-yields	"'F'"
 case:the-compile-recomputes-a-cached-head-its-rule-owns	"'T'"
 case:the-compile-keeps-no-read-through-head-a-function-yields	"'T'"
+case:the-compile-keeps-a-cached-head-its-cells-hold-in-the-descriptor	"'F'"
+case:a-cached-head-the-cells-hold-in-the-descriptor-keeps-its-rows	"('ProbeRequestFollowsProbeCountCallsToProbeEndpointWithProbeOutcome', ((('r1', 3, 'e1', 'served'), ('r2', 7, 'e1', 'served'))))"
 case:a-selection-the-engine-says-keeps-the-rows-with-the-constant	"('SELECT * FROM (SELECT DISTINCT \"a\" AS c1, \"b\" AS c2 FROM \"T\" WHERE \"a\" IS NOT NULL AND \"b\" IS NOT NULL) WHERE c2 = 'x'', 2)"
 case:a-selection-on-a-number-says-the-number	"('SELECT * FROM (SELECT DISTINCT \"a\" AS c1, \"b\" AS c2 FROM \"T\" WHERE \"a\" IS NOT NULL AND \"b\" IS NOT NULL) WHERE c1 = 5', 2)"
 case:a-join-on-named-columns-keeps-both-rows	"('SELECT DISTINCT g.c1 AS c1, h.c1 AS c2, h.c2 AS c3 FROM (SELECT DISTINCT \"a\" AS c1, \"b\" AS c2 FROM \"T\" WHERE \"a\" IS NOT NULL AND \"b\" IS NOT NULL) AS g JOIN (SELECT DISTINCT \"b\" AS c1, \"c\" AS c2 FROM \"U\" WHERE \"b\" IS NOT NULL AND \"c\" IS NOT NULL) AS h ON g.c2 = h.c1', 3)"
