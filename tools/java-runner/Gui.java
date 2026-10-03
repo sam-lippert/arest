@@ -51,19 +51,28 @@ import javax.swing.text.JTextComponent;
 //     Target is 'swing' in readings/ui/render-target-instances.md).
 //   - ITS IPlatformDefaults: the Swing look and feel's own fonts and the
 //     iFactr margins, so lambda places and measures this platform's screen.
-//   - THE ONE CALL: POST /navigate on the serving host, the request
-//     <stacks, address, widths, registered, defaults, from> and the answer
-//     <stacks, style, panes, unpaired, alert> (the note above DEF("navigate")).
+//   - THE ONE CALL: navigate, the request
+//     <stacks, address, widths, registered, defaults, from, app> and the answer
+//     <stacks, style, panes, unpaired, alert> (the note above DEF("navigate")),
+//     handed to the transport this container registered (AREST_TRANSPORT): remote,
+//     POST /navigate on a serving host, or local, lambda in this process.
+//     The App is the one this container was opened at, by its id (AREST_APP):
+//     lambda roots every navigation there. Who is signed in (AREST_CALLER) rides
+//     beside the request as the serving host's x-arest-caller, so a transition
+//     this container fires names its user as the actor, an Admin approving a
+//     draft as that Admin.
 //   - THE STACKS, the platform's form factor, carried from one answer to the
 //     next request.
 //
 // THE PAIRING IS LAMBDA'S. Each request carries the names registered here and
 // lambda answers law:unpaired over them; a frame naming any is a refusal to
 // draw, by name. A write is a request of the same interface (a submit or a
-// fire, main:api through navigate), so this container validates nothing,
-// persists nothing and boots no store: the old one read lambda in-process,
-// called ui:navpe, ui:iteminner and the old ui:arrange, and could neither boot
-// nor draw after the iFactr interfaces replaced them.
+// fire, main:api through navigate), so this container validates nothing and
+// persists nothing. The old one read lambda in-process and called ui:navpe,
+// ui:iteminner and the old ui:arrange, and could neither boot nor draw after the
+// iFactr interfaces replaced them; the local transport reads lambda in-process
+// too, but only to make the one call the serving host makes, main:api on
+// navigate, so a screen is the same bytes either way.
 public class Gui {
 
     // ---- THE REGISTRATION -------------------------------------------------
@@ -617,24 +626,156 @@ public class Gui {
      */
     static Frame navigate(Object stacks, Object address, Object[] widths, List<String> registered, String from)
             throws java.io.IOException {
-        Object[] body = new Object[] { stacks, address, widths, registered.toArray(), platformDefaults(),
-                                       from == null ? new Object[0] : from };
-        java.net.HttpURLConnection c =
-            (java.net.HttpURLConnection) new java.net.URL(serveBase() + "/navigate").openConnection();
-        c.setRequestMethod("POST");
-        c.setConnectTimeout(3000);
-        c.setReadTimeout(120000);
-        c.setDoOutput(true);
-        c.setRequestProperty("content-type", "application/json");
-        c.getOutputStream().write(Json.write(body).getBytes("UTF-8"));
-        int status = c.getResponseCode();
-        String text = read(status < 400 ? c.getInputStream() : c.getErrorStream());
-        Object answer;
-        try { answer = Json.parse(text); } catch (RuntimeException e) { answer = null; }
-        if (status >= 400 && !(answer instanceof Object[] && ((Object[]) answer).length == 5))
-            throw new java.io.IOException("navigate answered " + status + ": " + text.substring(0, Math.min(200, text.length())));
-        return frameFrom(answer, status);
+        return navigate(transportOf(), stacks, address, widths, registered, from, null, null);
     }
+
+    static Frame navigate(Transport transport, Object stacks, Object address, Object[] widths, List<String> registered,
+                          String from, String app, String caller) throws java.io.IOException {
+        return frameOf(transport.navigate(requestBody(stacks, address, widths, registered, from, app), caller));
+    }
+
+    /** The request body, in the order lambda reads it (ui:req_at). */
+    static String requestBody(Object stacks, Object address, Object[] widths, List<String> registered, String from, String app) {
+        Object[] body = new Object[] { stacks, address, widths, registered.toArray(), platformDefaults(),
+                                       from == null ? new Object[0] : from,
+                                       app == null || app.isEmpty() ? new Object[0] : app };
+        return Json.write(body);
+    }
+
+    /** A navigation's answer read as a frame, or the error it is. */
+    static Frame frameOf(Answer a) throws java.io.IOException {
+        Object answer;
+        try { answer = Json.parse(a.text); } catch (RuntimeException e) { answer = null; }
+        if ((a.status < 200 || a.status >= 300) && !(answer instanceof Object[] && ((Object[]) answer).length == 5))
+            throw new java.io.IOException("navigate answered " + a.status + ": " + a.text.substring(0, Math.min(200, a.text.length())));
+        return frameFrom(answer, a.status);
+    }
+
+    // ---- THE TRANSPORTS ----------------------------------------------------
+    //
+    // A navigation is one request and one answer whichever way it goes (Sam,
+    // 2026-10-02: platforms support both local and remote rendering, and an
+    // admin can boot this container and approve drafts with it).
+    //   - remote: POST /navigate on a serving host (AREST_SERVE, or AREST_PORT on
+    //     this machine), the caller as its x-arest-caller (run_serve).
+    //   - local: this runner's own host. Reader reads lambda, the case table and a
+    //     carriers directory (AREST_LAMBDA, AREST_SCENARIOS, AREST_CARRIERS, as
+    //     Program does); the store boots as the js host boots one from carriers
+    //     (ast:File over store:state, then store:close); and main:api answers
+    //     POST navigate with the caller, the store a write leaves adopted, as
+    //     run_serve adopts it. Nothing is written anywhere, which a serving host
+    //     booted from carriers does not do either.
+    // WHICH ONE A PLATFORM USES IS A REGISTRATION: each is registered under its
+    // name, and the platform asks for the one AREST_TRANSPORT names, remote when
+    // it names none. A registration is a factory, so a transport nobody asks for
+    // costs nothing; local reads lambda and boots its store when first asked.
+
+    /** What one navigation answers: the status main:api decided and the text render:json made. */
+    static final class Answer {
+        final int status;
+        final String text;
+        Answer(int status, String text) { this.status = status; this.text = text; }
+    }
+
+    /** One way to hand a navigation to lambda: the request body as JSON text, and who is signed in. */
+    interface Transport { Answer navigate(String body, String caller) throws java.io.IOException; }
+
+    /** remote: POST /navigate on the serving host at base. */
+    static final class RemoteTransport implements Transport {
+        final String base;
+        RemoteTransport(String base) { this.base = base; }
+        public Answer navigate(String body, String caller) throws java.io.IOException {
+            java.net.HttpURLConnection c =
+                (java.net.HttpURLConnection) new java.net.URL(base + "/navigate").openConnection();
+            c.setRequestMethod("POST");
+            c.setConnectTimeout(3000);
+            c.setReadTimeout(120000);
+            c.setDoOutput(true);
+            c.setRequestProperty("content-type", "application/json");
+            if (caller != null && !caller.isEmpty()) c.setRequestProperty("x-arest-caller", caller);
+            c.getOutputStream().write(body.getBytes("UTF-8"));
+            int status = c.getResponseCode();
+            return new Answer(status, read(status < 400 ? c.getInputStream() : c.getErrorStream()));
+        }
+    }
+
+    /** local: lambda in this process, over the store booted from a carriers directory. */
+    static final class LocalTransport implements Transport {
+        private Object[] store;
+
+        LocalTransport(String lambda, String scenarios, String carriers) {
+            Reader.load(lambda);
+            Reader.load(scenarios);
+            Reader.loadCarriers(carriers);
+            Object built = Arest.Ev("ast:File", Arest.Ev("store:state", Arest.CELLS.toArray()));
+            for (Object cell : (Object[]) built) Arest.CELLS.add(0, cell);
+            Arest.memoClear();
+            Object closed = Arest.Ev("store:close", new Object[] { Arest.CELLS.toArray(), new Object[0], new Object[0], new Object[0] });
+            adopt(((Object[]) closed)[0]);
+        }
+
+        private void adopt(Object next) {
+            Arest.CELLS.clear();
+            for (Object cell : (Object[]) next) Arest.CELLS.add(cell);
+            Arest.memoClear();
+            store = Arest.CELLS.toArray();
+        }
+
+        public synchronized Answer navigate(String body, String caller) {
+            Object[] out = (Object[]) Arest.Ev("main:api",
+                new Object[] { store, "POST", "navigate", caller == null ? "" : caller, fromJson(Json.parse(body)) });
+            if (out.length > 2) adopt(out[2]);
+            return new Answer(((Number) out[1]).intValue(), String.valueOf(out[0]));
+        }
+    }
+
+    /** JSON as the serving host reads it (host.js fromJson): an object is its pairs, a number a number, the rest atoms. */
+    static Object fromJson(Object x) {
+        if (x instanceof Object[]) {
+            Object[] a = (Object[]) x, out = new Object[a.length];
+            for (int i = 0; i < a.length; i++) out[i] = fromJson(a[i]);
+            return out;
+        }
+        if (x instanceof Map) {
+            List<Object> out = new ArrayList<Object>();
+            for (Map.Entry<?, ?> e : ((Map<?, ?>) x).entrySet()) out.add(new Object[] { String.valueOf(e.getKey()), fromJson(e.getValue()) });
+            return out.toArray();
+        }
+        if (x instanceof Number) return x;
+        return String.valueOf(x);
+    }
+
+    interface TransportFactory { Transport make(); }
+
+    static final LinkedHashMap<String, TransportFactory> TRANSPORTS = new LinkedHashMap<String, TransportFactory>();
+    static final Map<String, Transport> MADE = new java.util.HashMap<String, Transport>();
+
+    static {
+        registerTransport("remote", () -> new RemoteTransport(serveBase()));
+        registerTransport("local", () -> new LocalTransport(Reader.path("AREST_LAMBDA", "../../arest"),
+            Reader.path("AREST_SCENARIOS", "../../engine/shared/scenarios.canon"),
+            Reader.path("AREST_CARRIERS", "../carriers/base")));
+    }
+
+    /** Register a transport under its name; the last registration of a name is the one asked for. */
+    static void registerTransport(String name, TransportFactory factory) {
+        TRANSPORTS.put(name, factory);
+        MADE.remove(name);
+    }
+
+    /** The transport registered under a name, made once; a name nothing registered is an error, never a default. */
+    static synchronized Transport transportNamed(String name) {
+        Transport made = MADE.get(name);
+        if (made != null) return made;
+        TransportFactory f = TRANSPORTS.get(name);
+        if (f == null) throw new IllegalArgumentException("no transport is registered as '" + name + "' (registered: " + TRANSPORTS.keySet() + ")");
+        made = f.make();
+        MADE.put(name, made);
+        return made;
+    }
+
+    /** The transport this container's deployment names (AREST_TRANSPORT), remote when it names none. */
+    static Transport transportOf() { return transportNamed(Reader.path("AREST_TRANSPORT", "remote")); }
 
     static String read(java.io.InputStream in) throws java.io.IOException {
         if (in == null) return "";
@@ -674,11 +815,20 @@ public class Gui {
         return w;
     }
 
+    /** The App this container was opened at (AREST_APP), by its id, or none. */
+    static String appOf() { String a = System.getenv("AREST_APP"); return a == null || a.isEmpty() ? null : a; }
+
+    /** Who is signed in (AREST_CALLER), sent as the serving host's caller, or nobody. */
+    static String callerOf() { String c = System.getenv("AREST_CALLER"); return c == null || c.isEmpty() ? null : c; }
+
     /** One platform: what it registered and the last frame lambda answered, panes it left out kept. */
     static final class Platform {
         final String[] panes;
         final int width;
         final List<String> registered;
+        String app = appOf();
+        String caller = callerOf();
+        Transport transport;
         Object stacks;
         final LinkedHashMap<String, Object[]> placed = new LinkedHashMap<String, Object[]>();
         Object[] alert;
@@ -693,7 +843,8 @@ public class Gui {
         }
 
         Frame go(Object address, String from) throws java.io.IOException {
-            Frame f = navigate(stacks, address, widths(panes, width), registered, from);
+            if (transport == null) transport = transportOf();
+            Frame f = navigate(transport, stacks, address, widths(panes, width), registered, from, app, caller);
             unpaired = f.unpaired;
             status = f.status;
             if (!f.unpaired.isEmpty()) return f;     // a refusal to draw: nothing moves

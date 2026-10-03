@@ -16,8 +16,15 @@ import javax.swing.UIManager;
 // offscreen image. The submit is the form's own Submit button, clicked.
 //
 //   java -Djava.awt.headless=true -cp . GuiSnapshot <out-dir>
+//   java -Djava.awt.headless=true -cp . GuiSnapshot <out-dir> [<pane>=]<address as JSON>...
 //
-// with AREST_PORT (or AREST_SERVE) naming the serving host.
+// with AREST_PORT (or AREST_SERVE) naming the serving host. The first form is the
+// base store's walk below. The second navigates the root and then each address
+// in turn, from the pane named before its `=` (iFactr's active pane), and draws
+// every frame: a flow through any store, opened at AREST_APP and signed in as
+// AREST_CALLER, a fire among them. A step written <pane>@<title> is a click: the
+// button of that title the pane drew is clicked, and the address it sends is the
+// next navigation, from that pane, as a person approving a draft would send it.
 public class GuiSnapshot {
     static Object captured;
 
@@ -29,6 +36,26 @@ public class GuiSnapshot {
         System.out.println("registered " + Gui.registeredNames().size() + ": " + Gui.registeredNames());
 
         Gui.Platform p = new Gui.Platform(980, Gui.registeredNames());
+        System.out.println("app " + p.app + ", caller " + p.caller);
+        if (args.length > 1) {
+            step(p, out, "0-root", new Object[0], null);
+            for (int i = 1; i < args.length; i++) {
+                int at = args[i].indexOf('@');
+                if (at > 0 && args[i].charAt(0) != '[') {
+                    String pane = args[i].substring(0, at);
+                    Object clicked = click(p, pane, args[i].substring(at + 1));
+                    System.out.println("clicked " + args[i] + ": " + Gui.Json.write(clicked));
+                    step(p, out, i + "-" + slug(clicked), clicked, pane);
+                    continue;
+                }
+                int eq = args[i].indexOf('=');
+                boolean named = eq > 0 && args[i].charAt(0) != '[';
+                String from = named ? args[i].substring(0, eq) : null;
+                Object address = Gui.Json.parse(named ? args[i].substring(eq + 1) : args[i]);
+                step(p, out, i + "-" + slug(address), address, from);
+            }
+            return;
+        }
         step(p, out, "1-root", new Object[0], null);
         step(p, out, "2-collection", new Object[] { "Function" }, "master");
         step(p, out, "3-entity", new Object[] { "Function", "render:listview" }, "master");
@@ -64,6 +91,18 @@ public class GuiSnapshot {
         javax.imageio.ImageIO.write(Gui.paint(p, 1400), "png", new java.io.File(out, name + ".png"));
     }
 
+    /** A file name for an address: its words, lower-cased, joined by dashes. */
+    static String slug(Object address) {
+        StringBuilder b = new StringBuilder();
+        if (address instanceof Object[])
+            for (Object o : (Object[]) address) {
+                String w = String.valueOf(o).toLowerCase().replaceAll("[^a-z0-9]+", "-");
+                if (b.length() > 0) b.append('-');
+                b.append(w.length() > 24 ? w.substring(0, 24) : w);
+            }
+        return b.length() == 0 ? "root" : b.toString();
+    }
+
     /** The control kinds of a screen's rows, the rows inside a cell or a menu included. */
     static Map<String, Integer> kinds(Object[] rows) {
         Map<String, Integer> k = new TreeMap<String, Integer>();
@@ -93,6 +132,18 @@ public class GuiSnapshot {
         captured = null;
         Gui.NAVIGATOR = (address, from) -> captured = address;
         submit.doClick(0);
+        return captured;
+    }
+
+    /** Click the button of a title the pane drew; answer the address it sends. */
+    static Object click(Gui.Platform p, String pane, String title) {
+        JComponent view = Gui.screen(p.placed.get(pane), new Gui.Pane(pane));
+        AbstractButton button = find(view, title);
+        if (button == null) throw new IllegalStateException("the " + pane + " pane offers no " + title);
+        captured = null;
+        Gui.NAVIGATOR = (address, from) -> captured = address;
+        button.doClick(0);
+        if (captured == null) throw new IllegalStateException(title + " sent no navigation");
         return captured;
     }
 
