@@ -459,12 +459,20 @@ function popSnapshotMoved(prior, cells) {
 // and the Function table re-projected for it. Two texts that differ are compared
 // once more as the tables would hold them; the rows adopted are still the
 // population's own.
+// AND A DECIMAL AND ITS LEXEME ARE ONE VALUE IN A TABLE (2026-10-03, W1b). value:typed_insts files the
+// instance of a decimal value type as the decimal it is, <decimal, 0, 0>, and the projection writes it to its
+// cell as its lexeme (value:text, dec:text), "0", which a store read from its tables holds. So the first write
+// after a start read a row the reflection files with a decimal as moved, though the table holds it: on a copy of
+// support's store the planner's delta of Function belongs to Domain held 1,130 rows, 1,089 as a table holds
+// them, and the planner refused Function at the key <decimal, 0, 0>, whose row's key column holds "0", and
+// rewrote it whole, 71,174 rows. A decimal is compared as its lexeme, as a number is as its text. A row is its
+// values: a row is never read as a decimal itself.
 function storedText(text) {
   // a text with no number in it is already the text a table would hold: a JSON number
   // follows `[` or `,` and nothing else does
   if (!/[[,]-?[0-9]/.test(text)) return text;
-  const asStored = (v) => (Array.isArray(v) ? v.map(asStored) : typeof v === "number" ? String(v) : v);
-  return popText(JSON.parse(text).map(asStored));
+  const asStored = (v) => (decShape(v) ? Ev("dec:text", v) : Array.isArray(v) ? v.map(asStored) : typeof v === "number" ? String(v) : v);
+  return popText(JSON.parse(text).map((r) => (Array.isArray(r) ? r.map(asStored) : asStored(r))));
 }
 // TWO POPULATIONS ARE COMPARED ROW BY ROW, AND ONLY WHAT DOES NOT PAIR IS KEYED (2026-10-03). A write
 // compared each population it may have moved as the sorted texts of every row on both sides (popText),
@@ -478,8 +486,9 @@ function storedText(text) {
 // looked for on the other side. A row paired is on both sides, so the rows left over that the other side
 // lacks are the whole difference, the one the keyed comparison finds; when the sides do not line up, or too
 // many rows are left over, the keyed comparison is what answers.
-// Two values equal as a table holds them: a number as its text, and with `rt`, as a value read back from
-// JSON is, a number JSON cannot write as null; anything but text, numbers and sequences as JSON writes it.
+// Two values equal as a table holds them: a number as its text, a decimal as its lexeme, and with `rt`, as a
+// value read back from JSON is, a number JSON cannot write as null; anything but text, numbers and sequences
+// as JSON writes it.
 function storedEq(x, y, rt) {
   if (x === y) return true;
   x = storedAtom(x, rt); y = storedAtom(y, rt);
@@ -494,7 +503,17 @@ function storedEq(x, y, rt) {
 }
 function storedAtom(v, rt) {
   if (typeof v === "number") return rt && !Number.isFinite(v) ? null : String(v);
+  if (decShape(v)) return Ev("dec:text", v);
   return v === undefined || typeof v === "function" || typeof v === "symbol" ? null : v;
+}
+// two rows equal as a table holds them: value by value, as storedEq takes a value; the row itself is never
+// read as a decimal
+function storedRowEq(r, s, rt) {
+  if (r === s) return true;
+  if (!Array.isArray(r) || !Array.isArray(s)) return storedEq(r, s, rt);
+  if (r.length !== s.length) return false;
+  for (let i = 0; i < r.length; i++) if (!storedEq(r[i], s[i], rt)) return false;
+  return true;
 }
 // <the rows of b left over, the rows of a left over> when the two are walked side by side, each in its own
 // order, or null when they do not meet again within LOOK rows or leave more than OVER rows over
@@ -525,7 +544,7 @@ function pairWalk(b, a, eq) {
 // texts, which `textOf` writes as popText does
 function popsDiffer(p, q, textOf) {
   if (p === q) return false;
-  const eq = (x, y) => storedEq(x, y, true);
+  const eq = (x, y) => storedRowEq(x, y, true);
   const w = pairWalk(p, q, eq);
   if (w === null) { const tp = textOf(p), tq = textOf(q); return tp !== tq && storedText(tp) !== storedText(tq); }
   for (const r of w[0]) if (!q.some((s) => eq(r, s))) return true;
@@ -564,7 +583,7 @@ function jsonSafe(v) {
 // which is what answers when the walk does not
 function popDelta(b, a, keyOf) {
   if (b === a) return [[], []];
-  const eq = (x, y) => storedEq(x, y, false);
+  const eq = (x, y) => storedRowEq(x, y, false);
   const w = pairWalk(b, a, eq);
   if (w !== null) {
     const lacking = (left, other) => {
@@ -615,10 +634,14 @@ function popDelta(b, a, keyOf) {
 // row whose key column does not carry its key. And the whole table is what a
 // caller with no store-before gets, which is compile.js.
 function rowPlanner(cells, prior, changed) {
-  const asStored = (v) => (Array.isArray(v) ? v.map(asStored) : typeof v === "number" ? String(v) : v);
+  // a value as a table holds it -- a number as its text, a decimal as its lexeme (dec:text) -- keys the value
+  // (keyOf) and a row by its values (rowKey), and is the text of the cell a key is written to (cellText)
+  const asStored = (v) => (decShape(v) ? Ev("dec:text", v) : Array.isArray(v) ? v.map(asStored) : typeof v === "number" ? String(v) : v);
   const keyOf = (v) => JSON.stringify(asStored(v));
+  const rowKey = (r) => JSON.stringify(Array.isArray(r) ? r.map(asStored) : asStored(r));
   const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
   const cellOf = (v) => (v === "#" || v === undefined ? null : flat(v));
+  const cellText = (v) => (decShape(v) ? Ev("dec:text", v) : flat(v));
   const pops = new Map(), deltas = new Map(), walks = new Map(), keysets = new Map();
   const popOf = (ft, side) => {
     const k = side + "\u0000" + ft;
@@ -635,7 +658,7 @@ function rowPlanner(cells, prior, changed) {
     let d = deltas.get(ft);
     if (d) return d;
     const b = popOf(ft, "prior"), a = popOf(ft, "after");
-    const [removed, added] = popDelta(b, a, keyOf);
+    const [removed, added] = popDelta(b, a, rowKey);
     d = { moved: removed.concat(added), removed, added, flip: (b.length === 0) !== (a.length === 0) };
     deltas.set(ft, d);
     return d;
@@ -672,22 +695,30 @@ function rowPlanner(cells, prior, changed) {
     return out;
   };
   // an entity table's keys on one side: every column's first-step population at its key
-  // position, which is rmap:proj_keys
-  const hasKey = (cols, side, v) => {
+  // position, which is rmap:proj_keys -- each key as that side holds it, or undefined. A key is
+  // compared as a table holds it, so the one a row held before the write can be the text "0" where the
+  // store after it holds the decimal the reflection files; a row is projected from the key as the
+  // store it is projected from holds it
+  const keyAt = (cols, side, v) => {
     const k = keyOf(v);
     for (const c of cols) {
       const w = walkOf(c[2]);
       if (!w.length || !w[0].ft) continue;
       const id = side + "\u0000" + w[0].ft + "\u0000" + w[0].kp;
-      let set = keysets.get(id);
-      if (!set) {
-        set = new Set();
-        for (const g of popOf(w[0].ft, side)) if (Array.isArray(g) && g[w[0].kp - 1] !== undefined) set.add(keyOf(g[w[0].kp - 1]));
-        keysets.set(id, set);
+      let held = keysets.get(id);
+      if (!held) {
+        held = new Map();
+        for (const g of popOf(w[0].ft, side)) {
+          if (!Array.isArray(g) || g[w[0].kp - 1] === undefined) continue;
+          const x = g[w[0].kp - 1], kx = keyOf(x);
+          if (!held.has(kx)) held.set(kx, x);
+        }
+        keysets.set(id, held);
       }
-      if (set.has(k)) return true;
+      const x = held.get(k);
+      if (x !== undefined) return x;
     }
-    return false;
+    return undefined;
   };
   return (table, colnames, pk) => {
     let cols;
@@ -710,12 +741,12 @@ function rowPlanner(cells, prior, changed) {
         // AFTER THE WRITE FIRST: a key the write created is in the first population that carries it after,
         // and was in none before, which only reading every one of them says -- on support 290 populations,
         // 196,129 rows, for a Contact Submission's one key
-        const after = hasKey(cols, "after", k);
-        if (after || hasKey(cols, "prior", k)) dels.push([flat(k)]);
-        if (!after) continue;
-        const row = Ev("rmap:proj_row", [k, table, cells]);
+        const now = keyAt(cols, "after", k);
+        if (now !== undefined || keyAt(cols, "prior", k) !== undefined) dels.push([cellText(k)]);
+        if (now === undefined) continue;
+        const row = Ev("rmap:proj_row", [now, table, cells]);
         const vals = colnames.map((_, i) => cellOf(row[i]));
-        if (vals[at[0]] !== flat(k)) return null;
+        if (vals[at[0]] !== cellText(now)) return null;
         ins.push(vals);
       }
       return { dels, ins };
@@ -725,7 +756,7 @@ function rowPlanner(cells, prior, changed) {
     let relcols;
     try { relcols = Ev("rmap:proj_relcols", [table, cells]); } catch { return null; }
     const dirty = new Map();
-    if (changed.has(table)) for (const g of deltaOf(table).moved) dirty.set(keyOf(g), g);
+    if (changed.has(table)) for (const g of deltaOf(table).moved) dirty.set(rowKey(g), g);
     const b = popOf(table, "prior"), a = popOf(table, "after");
     for (let ci = 0; ci < relcols.length; ci++) {
       const pos = Number(relcols[ci][0]);
@@ -735,13 +766,13 @@ function rowPlanner(cells, prior, changed) {
       if (!src.size) continue;
       for (const pop of b === a ? [a] : [b, a]) for (const g of pop) {
         const v = !Array.isArray(g) ? undefined : pos === 0 ? Ev("rmap:proj_objkey", g) : g[pos - 1];
-        if (v !== undefined && src.has(keyOf(v))) dirty.set(keyOf(g), g);
+        if (v !== undefined && src.has(keyOf(v))) dirty.set(rowKey(g), g);
       }
     }
     // every row dirtied is a row of b or of a, so it was there unless the write added it and is there
     // unless the write took it away
     const d = b === a ? null : deltaOf(table);
-    const gained = new Set(d ? d.added.map(keyOf) : []), lost = new Set(d ? d.removed.map(keyOf) : []);
+    const gained = new Set(d ? d.added.map(rowKey) : []), lost = new Set(d ? d.removed.map(rowKey) : []);
     let before = null;
     for (const [k, g] of dirty) {
       if (!gained.has(k)) {
