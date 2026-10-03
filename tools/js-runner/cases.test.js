@@ -2583,13 +2583,27 @@ describe("crypt:genkey", () => {
 // and REGISTERED_NAMES is the list that table is built from and asserted
 // against at module load. That file imports nothing, which is what lets this
 // one read it without React, a bundler, or that package's node_modules.
+//
+// AND WHERE ui.do IS NOT BESIDE THIS CHECKOUT THE FIVE ARE SKIPPED, SAYING WHY
+// (2026-10-02). The container is imported from ../../../apps/ui.do, the apps
+// directory beside the arest checkout, and a worktree under .claude/worktrees has
+// none: all five failed there on an import that was never the container's. They
+// are skipped now and the reason is printed. AREST_UIDO names a ui.do checkout to
+// import instead, a worktree of ui.do that matches this one, say; one that is named
+// and does not import fails, because then the import is what is under test.
+const UIDO = process.env.AREST_UIDO;
 let REACT_CONTAINER = null;
 let REACT_CONTAINER_ERROR = "";
 try {
-  REACT_CONTAINER = await import("../../../apps/ui.do/src/render/registry.ts");
+  REACT_CONTAINER = await import(UIDO ? pathToFileURL(join(UIDO, "src", "render", "registry.ts")).href
+                                      : "../../../apps/ui.do/src/render/registry.ts");
 } catch (e) {
   REACT_CONTAINER_ERROR = e instanceof Error ? e.message : String(e);
 }
+const REACT_SKIP = !UIDO && REACT_CONTAINER_ERROR !== "";
+if (REACT_SKIP) console.log("SKIPPED: law:paired over the React container's registration table, five tests: " +
+  "ui.do is not beside this checkout (" + REACT_CONTAINER_ERROR + "); AREST_UIDO=<a ui.do checkout> runs them");
+const reactTest = REACT_SKIP ? test.skip : test;
 
 describe("law:paired over the React container's registration table", () => {
   const container = () => {
@@ -2598,7 +2612,7 @@ describe("law:paired over the React container's registration table", () => {
     return REACT_CONTAINER;
   };
 
-  test("the container's table is reachable, and is the table it renders from", () => {
+  reactTest("the container's table is reachable, and is the table it renders from", () => {
     const c = container();
     expect(c.TOOLKIT).toBe("react");
     expect(c.CONTROL_KINDS.length).toBe(19);
@@ -2612,7 +2626,7 @@ describe("law:paired over the React container's registration table", () => {
     for (const kind of c.CONTROL_KINDS) expect(typeof c.TOOLKIT_SYMBOL[kind]).toBe("string");
   });
 
-  test("the container pairs every declared control kind, and the store declares every pair", () => {
+  reactTest("the container pairs every declared control kind, and the store declares every pair", () => {
     const HTML = container().REGISTERED_NAMES.map(String);
     const declared = Ev("law:ctl_declared", CELLS).map(String);
     expect(declared.length).toBeGreaterThan(0);        // an empty set pairs vacuously
@@ -2634,14 +2648,14 @@ describe("law:paired over the React container's registration table", () => {
     expect(declared.concat(mine).sort()).toEqual(HTML.slice().sort());
   });
 
-  test("a container missing one native control is refused, by name", () => {
+  reactTest("a container missing one native control is refused, by name", () => {
     const HTML = container().REGISTERED_NAMES.map(String);
     const short = HTML.filter((n) => n !== "render:gridcell");
     expect(Ev("law:paired", [CELLS, short])).toBe("F");
     expect(Ev("law:unpaired", [CELLS, short]).map(String)).toEqual(["render:gridcell"]);
   });
 
-  test("a container missing the layout engine is refused too", () => {
+  reactTest("a container missing the layout engine is refused too", () => {
     // a platform is its paired controls AND the engine that lays them out, so
     // an unregistered render:html is as fatal as an unregistered widget, and
     // the refusal names the engines the store declares, any one of which
@@ -2659,7 +2673,7 @@ describe("law:paired over the React container's registration table", () => {
     expect(Ev("law:paired", [CELLS, []])).toBe("T");
   });
 
-  test("the reading binds the same controls the container registers", () => {
+  reactTest("the reading binds the same controls the container registers", () => {
     // readings/ui/components.md declares Toolkit 'react' and one
     // ImplementationBinding per idealized control. The binding rows and the
     // module's table are two statements of one pairing; if they disagree, the
