@@ -20420,9 +20420,10 @@ DEF("compile:ip_line_one",
        S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S9(A("CONS"), K(A("store (in place): ")), S3(A("COMP"), A("ntoa"), S3(A("COMP"), A("+"), S3(A("CONS"), S5(A("COMP"), A("length"), N(6), N(3), N(1)), S3(A("COMP"), N(7), N(1))))), K(A(" fact(s) the runtime wrote kept, ")), S3(A("COMP"), A("ntoa"), S3(A("COMP"), N(4), N(1))), K(A(" table(s) written again, ")), S4(A("COMP"), A("ntoa"), A("length"), S4(A("COMP"), N(1), N(3), N(1))), K(A(" created, ")), S4(A("COMP"), A("ntoa"), A("length"), S4(A("COMP"), N(3), N(3), N(1)))))),
        S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S9(A("CONS"), K(A(" re-laid, ")), S4(A("COMP"), A("ntoa"), A("length"), S4(A("COMP"), N(2), N(3), N(1))), K(A(" dropped; ")), S3(A("COMP"), A("ntoa"), S3(A("COMP"), N(5), N(1))), K(A(" facts the readings assert, ")), S3(A("COMP"), A("ntoa"), S3(A("COMP"), N(6), N(1))), K(A(" the closure added, at ")), N(2))))))))),
 
+"A README IS ITS DIRECTORY`S DOCUMENTATION, NOT ITS READINGS (2026-10-03). A check composes every .md file of each directory it names, and a directory`s README.md is, by the convention every repository host keeps, prose about the directory for whoever opens it. support.auto.dev composes its own root, which holds app.md, so its README.md was read as readings: a bulleted `- **Feature Request** — Proposed → Approved → In Progress → Shipped.` minted the fact type `**FeatureRequest**—Proposed→Approved→InProgress→Shipped` and its table, a Message column before that while Feature Request was a Request, and the line above it one more, and the rest of its prose was refused, sentence by sentence, as instance facts no reading declares. A README.md is left out of a directory`s readings here, beside the rule that brings a .env in, and only that name: every other .md is read as it always was.",
 DEF("read:md_only",
     S3(A("COMP"), A("theta:flatten"),
-       S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("cn:contains"), S3(A("CONS"), A("id"), K(A(".md")))), S2(A("CONS"), A("id")), K(PHI()))))),
+       S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("and"), S3(A("CONS"), S3(A("COMP"), A("cn:contains"), S3(A("CONS"), A("id"), K(A(".md")))), S4(A("COMP"), A("not"), A("eq"), S3(A("CONS"), A("id"), K(A("README.md")))))), S2(A("CONS"), A("id")), K(PHI()))))),
 
 DEF("read:name_ins",
     S4(A("COMP"),
