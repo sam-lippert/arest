@@ -90,8 +90,19 @@ Token Group is a value type.
 Theme has Theme Mode.
   Each Theme has exactly one Theme Mode.
 
-Theme is the default Theme.
-  At most one Theme is the default Theme.
+Theme is the default theme.
+  <!-- At most one Theme is the default theme. That bounds the size of
+       the population of `Theme is the default theme`, so it is a
+       Cardinality Constraint (metamodel/core.md, NORMA's
+       CardinalityConstraint) on its one role. The reader has no sentence
+       form for one and lambda builds none yet, so it is said here and
+       not as a sentence: written as `At most one Theme is the default
+       Theme.` it was tiled into a fact type of its own,
+       AtMostOneThemeIsTheDefaultTheme. The second `theme` is lower case
+       because it is a word of the predicate and not a role: written
+       `Theme is the default Theme.`, the reading named its object type
+       twice, which FORML reads as a ring over two Themes, and the
+       one-value instance below could not fill it (2026-10-02). -->
 
 Theme has display- Title.
   Each Theme has at most one display- Title.
@@ -196,7 +207,7 @@ It is obligatory that each Theme has some ColorToken with Color Role 'info'.
 * SpacingToken '2xl' has Pixels 48.
 * SpacingToken '3xl' has Pixels 64.
 
-+ ColorToken belongs to default Theme if ColorToken belongs to Theme and that Theme is the default Theme.
++ ColorToken belongs to default Theme if ColorToken belongs to Theme and that Theme is the default theme.
 
 ## Instance Facts
 
@@ -333,7 +344,7 @@ TypographyScale 'code' has Pixels 20 as line height.
 Theme 'dark' is a Dark Theme.
 Theme 'dark' has Theme Mode 'dark'.
 Theme 'dark' has display- Title 'Modern Minimal Dark'.
-Theme 'dark' is the default Theme.
+Theme 'dark' is the default theme.
 
 ColorToken 'dark.neutral-50' belongs to Theme 'dark'.
 ColorToken 'dark.neutral-50' has Color Role 'neutral-50'.
