@@ -4797,6 +4797,90 @@ function fromJson(x) {
   return typeof x === "number" ? x : String(x);
 }
 
+// ONE READ OF A SOURCE, WHOEVER ASKS FOR IT (2026-10-03). A sync's pages (run_mcp's fetchPages) and a page
+// a navigation reads through (readThrough, below) are the same read: the Connector's Fetcher says who
+// reads, the connection's Send Mode whether it may go out, and the connection's credential is the one
+// access it carries. readerFor answers that once for a Source's Function and fetchOne makes one request
+// lambda built with it. A Fetcher this host registers is performed by its registration and one it does
+// not is the caller's (awaits); a connection that is not live answers what it would have done
+// (notPerformed); a credential that does not open under this host's key, or that it cannot write,
+// refuses before anything is sent (refusal). Lambda says what the request IS; nothing here builds one.
+const FETCHERS = new Map([["gh", fetchWithGh], ["mbox", fetchFromMbox]]);
+function readerFor(fn) {
+  const fetcherRaw = Ev("perform:fetcher_of", [fn, CELLS]);
+  const fetcher = Array.isArray(fetcherRaw) ? "" : String(fetcherRaw);
+  const local = FETCHERS.get(fetcher);
+  if (fetcher && fetcher !== "fetch" && !local) return { fn, fetcher, awaits: true };
+  const modeRaw = Ev("perform:send_mode_of", [fn, CELLS]);
+  const mode = Array.isArray(modeRaw) ? "" : String(modeRaw);
+  const headers = {};
+  let access = "";
+  try {
+    access = local ? connectionSecret(fn, CELLS, process.env.AREST_MASTER_KEY) : "";
+    if (!local) {
+      for (const hv of Ev("perform:headers_of", [fn, CELLS])) headers[String(hv[0])] = String(hv[1]);
+      const auth = Ev("perform:auth_header_of", [fn, CELLS]);
+      if (!Array.isArray(auth)) {
+        const secret = writtenCredential(fn, connectionSecret(fn, CELLS, process.env.AREST_MASTER_KEY), CELLS);
+        if (secret === null) return { fn, fetcher, refusal: "not performed: the credential encoding this connection declares is not one this host writes" };
+        if (secret) headers[String(auth)] = (headers[String(auth)] ? headers[String(auth)] + " " : "") + secret;
+      }
+    }
+  } catch (e) { return { fn, fetcher, refusal: String(e && e.message) }; }
+  return { fn, fetcher, local, mode, headers, access };
+}
+async function fetchOne(rd, req) {
+  const method = String(req[1]), address = String(req[2]);
+  const params = (Array.isArray(req[3]) ? req[3] : []).map((pr) => [String(pr[0]), String(pr[1])]);
+  // a declared Query Text is the body, sent as written; the service binds its placeholders
+  const sendBody = req.length > 4 && !Array.isArray(req[4]) && String(req[4]) !== "" ? String(req[4]) : undefined;
+  const qs = new URLSearchParams();
+  for (const pr of params) qs.append(pr[0], pr[1]);
+  const url = address + (qs.toString() ? "?" + qs.toString() : "");
+  if (rd.mode !== "live") return { notPerformed: true, text: (rd.mode ? rd.mode + " -- would " : "not performed: this connection declares no Send Mode -- would ") + method + " " + url
+    + (sendBody === undefined ? "" : " with a body of " + sendBody.length + " characters") };
+  if (rd.local) {
+    const got = await rd.local({ method, address, params, body: sendBody, access: rd.access });
+    if (got.status >= 400) return { status: 502, text: method + " " + url + " by Fetcher '" + rd.fetcher + "': " + got.text };
+    return { status: 200, body: got.body, text: got.text || "", method, url };
+  }
+  let res, text;
+  try { res = await fetch(url, sendBody === undefined ? { method, headers: rd.headers } : { method, headers: rd.headers, body: sendBody }); text = await res.text(); }
+  catch (e) { return { status: 502, text: method + " " + url + " failed: " + String(e && e.message) }; }
+  if (res.status >= 400) return { status: 502, text: method + " " + url + " answered " + res.status + ": " + text.slice(0, 300) };
+  try { return { status: 200, body: JSON.parse(text), text: "", method, url }; }
+  catch (e) { return { status: 502, text: method + " " + url + " answered a body that is not JSON" }; }
+}
+
+// A NAVIGATION THAT HAS TO READ FIRST (2026-10-03; Sam: the full request log should be available for every
+// customer via external federation, read through and not stored). navigate answers a read address whose
+// request carries no page with 202 and the request lambda built for its Source, the Source after it
+// (ui:read_fetch). This makes that read as a sync makes one (readerFor, fetchOne) and asks again with the
+// page as the request's eighth element, after the App, or <failed, text> where it could not read, so
+// lambda draws the rows. It is I/O, which lambda cannot do, and the one thing added to the serving tail:
+// nothing is asserted, and the second answer is a read like the first.
+async function readThrough(out, method, resource, caller, raw) {
+  if (Number(out && out[1]) !== 202) return out;
+  let ask;
+  try { ask = JSON.parse(String(out[0])); } catch (e) { return out; }
+  if (!Array.isArray(ask) || ask[0] !== "request" || ask.length < 6) return out;
+  const source = String(ask[5]);
+  const fn = Ev("fed:connector", [source, CELLS]);
+  const rd = Array.isArray(fn) ? null : readerFor(fn);
+  let page;
+  if (!rd) page = ["failed", "the Source '" + source + "' uses no Connector"];
+  else if (rd.awaits) page = ["failed", "no host here registers Fetcher '" + rd.fetcher + "', so this read is the caller's"];
+  else if (rd.refusal) page = ["failed", rd.refusal];
+  else {
+    const got = await fetchOne(rd, ask);
+    page = got.notPerformed || got.status >= 400 ? ["failed", got.text] : got.body;
+  }
+  const again = Array.isArray(raw) ? raw.slice(0, 7) : [];
+  while (again.length < 7) again.push([]);
+  again.push(page);
+  return Ev("main:api", [CELLS, method, resource, caller, fromJson(again)]);
+}
+
 function run_serve() {
   // AREST_VERDICT=1 judges the store once and records the verdict (see readVerdict above), then exits:
   // what a compile runs over the store it wrote, so that no write after it pays the whole check.
@@ -4843,7 +4927,8 @@ function run_serve() {
       // designated authorization fact type's business, not this file's
       const caller = req.headers.get("x-arest-caller") || "";
       const resource = decodeURIComponent(url.pathname.replace(/^\//, ""));
-      const fact = fromJson(await req.json().catch(() => []));
+      const raw = await req.json().catch(() => []);
+      const fact = fromJson(raw);
       // A READ TAKES NO SNAPSHOT (2026-10-02; Sam: a Worker isolate gets 128 MB, and
       // runtime memory must be kept to a viable level). The snapshot was taken before
       // every request whose method is not GET, and a platform navigates by POST
@@ -4859,7 +4944,7 @@ function run_serve() {
       // what makes main:performed evaluate: Ev memoises on the store REFERENCE.
       // And a write takes no snapshot either: emitToDb compares the cells the write
       // replaced against the copy (popSnapshotMoved).
-      const out = Ev("main:api", [CELLS, req.method, resource, caller, fact]);
+      const out = await readThrough(Ev("main:api", [CELLS, req.method, resource, caller, fact]), req.method, resource, caller, raw);
       const [body, status] = answerWrite(out);
       memoReleaseWhenIdle(console.log);
       return new Response(body, {
@@ -4982,7 +5067,6 @@ function run_mcp() {
   // answer says there is no more or the cursor stops moving.
   const FETCHED = new Set(VERBS.filter((v) => String(v[1]) === "response-and-cells").map((v) => String(v[0])));
   // what this host performs by name; a Fetcher it does not hold is not a fault, it is someone else's
-  const FETCHERS = new Map([["gh", fetchWithGh], ["mbox", fetchFromMbox]]);
   async function fetchPages(name, args) {
     // each page is a write of the verb, by the caller who asked for the read
     const who = args && args.caller;
@@ -5002,27 +5086,14 @@ function run_mcp() {
     // no host here registers is the binding lost and the model kept: the read is answered as the request
     // it is, for the caller who holds the Fetcher -- an agent with its own tools -- to perform and pass
     // back as the page, the way a seam with no registration awaits its driver.
-    const fetcherRaw = Ev("perform:fetcher_of", [fn, CELLS]);
-    const fetcher = Array.isArray(fetcherRaw) ? "" : String(fetcherRaw);
-    const local = FETCHERS.get(fetcher);
-    if (fetcher && fetcher !== "fetch" && !local) {
+    // the Fetcher, the Send Mode and the credential: readerFor, which a read-through page takes too
+    const rd = readerFor(fn);
+    if (rd.awaits) {
       const q = call(name, { args: [[source, bindings, []]], caller: who });
-      return ["awaits a driver: no host here registers Fetcher '" + fetcher + "', so this read is the caller's -- " + String(q[0])
+      return ["awaits a driver: no host here registers Fetcher '" + rd.fetcher + "', so this read is the caller's -- " + String(q[0])
         + " -- and what it answers comes back as the page: [source, bindings, [], page]", Number(q[1]) >= 400 ? Number(q[1]) : 202];
     }
-    const modeRaw = Ev("perform:send_mode_of", [fn, CELLS]);
-    const mode = Array.isArray(modeRaw) ? "" : String(modeRaw);
-    const headers = {};
-    const access = local ? connectionSecret(fn, CELLS, process.env.AREST_MASTER_KEY) : "";
-    if (!local) {
-      for (const hv of Ev("perform:headers_of", [fn, CELLS])) headers[String(hv[0])] = String(hv[1]);
-      const auth = Ev("perform:auth_header_of", [fn, CELLS]);
-      if (!Array.isArray(auth)) {
-        const secret = writtenCredential(fn, connectionSecret(fn, CELLS, process.env.AREST_MASTER_KEY), CELLS);
-        if (secret === null) return ["not performed: the credential encoding this connection declares is not one this host writes", 501];
-        if (secret) headers[String(auth)] = (headers[String(auth)] ? headers[String(auth)] + " " : "") + secret;
-      }
-    }
+    if (rd.refusal) return [rd.refusal, 501];
     const lines = [];
     let cursor = [], pages = 0, status = 200;
     for (;;) {
@@ -5030,33 +5101,14 @@ function run_mcp() {
       let req;
       try { req = JSON.parse(String(q[0])); } catch (e) { req = null; }
       if (!Array.isArray(req) || req[0] !== "request") return [String(q[0]), Number(q[1]) >= 400 ? Number(q[1]) : 400];
-      const method = String(req[1]), address = String(req[2]);
-      // a declared Query Text is the body, sent as written; the service binds its placeholders
-      const sendBody = req.length > 4 && !Array.isArray(req[4]) && String(req[4]) !== "" ? String(req[4]) : undefined;
-      const qs = new URLSearchParams();
-      for (const pr of (Array.isArray(req[3]) ? req[3] : [])) qs.append(String(pr[0]), String(pr[1]));
-      const url = address + (qs.toString() ? "?" + qs.toString() : "");
-      if (mode !== "live") {
-        lines.push((mode ? mode + " -- would " : "not performed: this connection declares no Send Mode -- would ") + method + " " + url
-          + (sendBody === undefined ? "" : " with a body of " + sendBody.length + " characters"));
-        break;
-      }
-      let body;
-      if (local) {
-        const got = await local({ method, address, params: (Array.isArray(req[3]) ? req[3] : []).map((pr) => [String(pr[0]), String(pr[1])]), body: sendBody, access });
-        if (got.status >= 400) { lines.push(method + " " + url + " by Fetcher '" + fetcher + "': " + got.text); status = 502; break; }
-        if (got.text) lines.push(got.text);
-        body = got.body;
-      } else {
-        let res, text;
-        try { res = await fetch(url, sendBody === undefined ? { method, headers } : { method, headers, body: sendBody }); text = await res.text(); }
-        catch (e) { lines.push(method + " " + url + " failed: " + String(e && e.message)); status = 502; break; }
-        if (res.status >= 400) { lines.push(method + " " + url + " answered " + res.status + ": " + text.slice(0, 300)); status = 502; break; }
-        try { body = JSON.parse(text); } catch (e) { lines.push(method + " " + url + " answered a body that is not JSON"); status = 502; break; }
-      }
+      const got = await fetchOne(rd, req);
+      if (got.notPerformed) { lines.push(got.text); break; }
+      if (got.status >= 400) { lines.push(got.text); status = 502; break; }
+      if (got.text) lines.push(got.text);
+      const body = got.body;
       const out = call(name, { args: [[source, bindings, cursor, body]], caller: who });
       pages++;
-      lines.push("page " + pages + " (" + method + " " + url + "): " + String(out[0]).slice(0, 400));
+      lines.push("page " + pages + " (" + got.method + " " + got.url + "): " + String(out[0]).slice(0, 400));
       let ans;
       try { ans = JSON.parse(String(out[0])); } catch (e) { ans = null; }
       if (Number(out[1]) >= 400 || !Array.isArray(ans)) { status = Number(out[1]) || 500; break; }
