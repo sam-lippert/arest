@@ -4398,17 +4398,25 @@ function run_serve() {
       const caller = req.headers.get("x-arest-caller") || "";
       const resource = decodeURIComponent(url.pathname.replace(/^\//, ""));
       const fact = fromJson(await req.json().catch(() => []));
-      const before = req.method === "GET" ? null : popSnapshot(CELLS);
+      // A READ TAKES NO SNAPSHOT (2026-10-02; Sam: a Worker isolate gets 128 MB, and
+      // runtime memory must be kept to a viable level). The snapshot was taken before
+      // every request whose method is not GET, and a platform navigates by POST
+      // /navigate, reads included: each read of a screen read every table of the store
+      // into its populations and their texts to compare against a write it did not
+      // make -- on support 12 to 28 s and 1.6 to 2.3 GB at the peak, where the same
+      // read by GET is 0.2 s. Whether a request wrote is main:api's answer, a third
+      // part, and main:api leaves CELLS as it found it: adoptStore is the only thing
+      // that changes it, so the store before the write is still CELLS until then.
       // adoptStore mutates CELLS IN PLACE so the array identity survives, which
-      // means the pre-write store has to be copied out before the write or it is
+      // means the pre-write store has to be copied out before it adopts, or it is
       // gone by the time anything can compare against it. A fresh array is also
       // what makes main:performed evaluate: Ev memoises on the store REFERENCE.
-      const prior = req.method === "GET" ? null : CELLS.slice();
       const out = Ev("main:api", [CELLS, req.method, resource, caller, fact]);
       if (out.length > 2) {
+        const wrote = Number(out[1]) < 400;   // a refusal made no successor
+        const before = wrote ? popSnapshot(CELLS) : null, prior = CELLS.slice();
         adoptStore(out[2]);
-        if (before && Number(out[1]) < 400) emitToDb(before, CELLS, prior);   // a refusal made no successor
-        if (prior && Number(out[1]) < 400) maybePerform(prior, CELLS);
+        if (wrote) { emitToDb(before, CELLS, prior); maybePerform(prior, CELLS); }
       }
       memoReleaseWhenIdle(console.log);
       return new Response(String(out[0]), {
@@ -4847,7 +4855,6 @@ function run_mcp() {
       return [out[0], held ? 200 : 500];
     }
     const method = String(a.method || METHODS[0]);
-    const before = method === "GET" ? null : popSnapshot(CELLS);
     // AN ENTITY TOOL IS THE SAME ROUTE WITH THE COLLECTION'S BODY. The address
     // main:api takes for a word in ui:groups is <id, fact type, value, fact
     // type, value...> -- ui:create0's own, the one the screen's submit carries
@@ -4868,7 +4875,6 @@ function run_mcp() {
       }
     }
     // no dispatch: the resource IS the fact type and the method IS the operation
-    const prior = method === "GET" ? null : CELLS.slice();
     const out = Ev("mcp:call", [
       method,
       resource,
@@ -4877,15 +4883,19 @@ function run_mcp() {
       CELLS,
     ]);
     // a POST answers a third part, the store it made; adopting it is what
-    // makes a tool call persist. It is not part of the reply.
+    // makes a tool call persist. It is not part of the reply. The snapshot is
+    // taken here, after the evaluation and before the adoption, as the verb
+    // path above takes it: CELLS is still the store the call was handed, and a
+    // call that wrote nothing pays nothing for a snapshot it would never use.
     if (out.length > 2) {
-      adoptStore(out[2]);
       // A REFUSED WRITE IS NOT EMITTED. A refusal (status 4xx, lambda's decision)
       // made no successor, so the tables stay as they were; the journal that
       // once recorded refusals replayed 22 of them at boot for six minutes and
       // left the store as it was (engineering.auto.dev, 2026-09-04).
-      if (before && Number(out[1]) < 400) emitToDb(before, CELLS, prior);
-      if (prior && Number(out[1]) < 400) maybePerform(prior, CELLS, console.error);
+      const wrote = Number(out[1]) < 400;
+      const before = wrote ? popSnapshot(CELLS) : null, prior = CELLS.slice();
+      adoptStore(out[2]);
+      if (wrote) { emitToDb(before, CELLS, prior); maybePerform(prior, CELLS, console.error); }
       return [out[0], out[1]];
     }
     return out;
