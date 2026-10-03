@@ -3575,6 +3575,7 @@ let WCLOCK = null;
 function clockStart() {
   const t = performance.now();
   WCLOCK = { t0: t, at: t, parts: new Map(), depth: new Map(), top: 0, covered: 0, heads: new Map() };
+  REFLECTS = [];
   return WCLOCK;
 }
 // the time since the clock's last lap, as <k>; the evaluation's lap stops the phases' clock
@@ -4870,7 +4871,11 @@ function sayWrite(what, clock, rep, failed) {
       + " deleted or inserted in " + of(rep.byRow, "table") + " by row"
       + (whole.length ? ", rewritten whole: " + whole.map((r) => r[0] + " " + r[1]).join(", ") : "");
   const begin = asked ? clock.t0 : rep.start !== undefined ? rep.start : end;
-  console.error("write " + String(what || "") + " " + ms(end - begin) + " ms" + (laps.length ? ": " + laps.join(", ") : "") + " -- " + wrote);
+  // and each reflection the write's stores took (loadReflected): its time, its passes, and whether one was whole
+  const reflected = REFLECTS.map((r) => ms(r[0]) + " ms in " + r[1] + (r[1] === 1 ? " pass" : " passes") + (r[2] ? ", one whole" : "")).join(", ");
+  REFLECTS = [];
+  console.error("write " + String(what || "") + " " + ms(end - begin) + " ms" + (laps.length ? ": " + laps.join(", ") : "") + " -- " + wrote
+    + (reflected ? "; reflected " + reflected : ""));
 }
 const notCommitted = (why) => JSON.stringify(["not_committed", why]);
 // <main:api's answer>: the store it made adopted, the rows a write moved stored, and <body, status> to answer.
@@ -6786,16 +6791,36 @@ function sameStore(a, b) {
 // one population, which only the four machine arms read. reflect:arm_reads says what each arm reads, and
 // law:reflect_since holds that the pass adds what store:reflect_pass adds. A store whose names repeat, or
 // whose earlier store's do, is reflected whole: a name is read by its first cell, and its rows are all of them.
+// AND A PASS THAT ADDS CELLS IS FOLLOWED BY ONE OVER WHAT IT ADDED, UNTIL ONE ADDS NOTHING (2026-10-03). A pass that
+// added cells left no store to start from, so the next adoption reflected the whole store: a write that registers
+// an instance adds the reflection's rows of it, and the emit's re-sourced store came next -- on support a 15-fact
+// assert spent 1,691 ms planning and writing 79 rows, and a whole pass there is 1.7 to 3.4 s. After a pass over a
+// store A, every arm's cell answers A: the arms it computed were put, and the others answered A what they had
+// answered their cells. So the store it made is reflected from A, which recomputes the arms whose reads the pass
+// moved and keeps the rest, and that is repeated until a pass adds nothing; that store is kept, as one a pass
+// added nothing to always was. Eight passes that each add something leave no store, as one did before.
+// <ms, passes, whether one was a whole pass> for each reflection of the write being served, for its line
+let REFLECTS = [];
 function loadReflected(since) {
-  const r = since && cellsByName(since) !== null && cellsByName(CELLS) !== null
-    ? Ev("store:reflect_since", [CELLS, [...REFLECTED_NAMES], [...DERIVED_NAMES], [], since])
-    : Ev("store:reflect_pass", [CELLS, [...REFLECTED_NAMES], [...DERIVED_NAMES], []]);
-  const added = Number(r[1]);
-  REFLECTED_AT = added ? null : CELLS.slice();
-  if (added) {
+  const t = performance.now();
+  let from = since, added = 0, passes = 0, whole = false;
+  for (; passes < 8; ) {
+    const at = CELLS.slice();
+    const incremental = from && cellsByName(from) !== null && cellsByName(CELLS) !== null;
+    const r = incremental
+      ? Ev("store:reflect_since", [CELLS, [...REFLECTED_NAMES], [...DERIVED_NAMES], [], from])
+      : Ev("store:reflect_pass", [CELLS, [...REFLECTED_NAMES], [...DERIVED_NAMES], []]);
+    passes++;
+    if (!incremental) whole = true;
+    const n = Number(r[1]);
+    if (!n) { REFLECTED_AT = CELLS.slice(); REFLECTS.push([performance.now() - t, passes, whole]); return added; }
+    added += n;
     adoptClosed(r[0][0]);
-    for (const n of seq(r[0][1])) REFLECTED_NAMES.add(String(n));
+    for (const nm of seq(r[0][1])) REFLECTED_NAMES.add(String(nm));
+    from = at;
   }
+  REFLECTED_AT = null;
+  REFLECTS.push([performance.now() - t, passes, whole]);
   return added;
 }
 
