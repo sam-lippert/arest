@@ -48,13 +48,12 @@ public class CasesTest {
     static synchronized void load() {
         if (loaded) return;
         String r = root().getPath();
-        // the same four reads Program.java does, in the same order, with
+        // the same reads Program.java does, in the same order, with
         // absolute paths because the launcher's working directory is not the
         // runner's
         Reader.load(Paths.get(r, "arest").toString());
         Reader.load(Paths.get(r, "engine", "shared", "scenarios.canon").toString());
-        Reader.load(Paths.get(r, "tools", "norma-oracle", "design-state").toString());
-        Reader.load(Paths.get(r, "tools", "norma-oracle", "norma-answer").toString());
+        Reader.loadCarriers(Paths.get(r, "tools", "carriers", "base").toString());
         loaded = true;
     }
 
