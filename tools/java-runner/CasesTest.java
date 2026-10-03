@@ -140,13 +140,18 @@ public class CasesTest {
         assertEquals(19, n);
     }
 
+    // The law report is the gate, and no copy of it is kept (2026-10-02): main
+    // answers its text beside a verdict that is T exactly when every law holds.
     @Test
-    void lawReportHoldsByteForByte() throws IOException {
+    void lawReportHolds() {
         load();
-        String want = shared("expected-laws.txt").trim();
         Object[] out = (Object[]) Arest.Ev("main",
             new Object[] { Arest.CELLS.toArray(), new Object[] {} });
         assertTrue(out[0] != null);
-        assertEquals(want, out[0].toString().trim());
+        List<String> off = new ArrayList<String>();
+        for (String l : out[0].toString().replaceAll("\\s+$", "").split("\n"))
+            if (!l.startsWith("  law OK: ") && !l.startsWith("ALL LAWS HOLD ")) off.add(l);
+        assertEquals(new ArrayList<String>(), off);
+        assertEquals("T", String.valueOf(out[1]));
     }
 }

@@ -37,9 +37,9 @@
 # THE RUST STATION IS OWED, not quietly dropped. tools/rust-host is
 # tools/rust-station's successor and carries the tests
 # (every_case_answers_what_the_lambda_says, the 19-refusal golden,
-# law_report_holds_byte_for_byte), but lambda is compiled INTO it as rust
+# law_report_holds), but lambda is compiled INTO it as rust
 # source and is 87% of the build: after a lambda edit `cargo test --no-run` did
-# not finish in 560 s here (2026-09-11), and law_report_holds_byte_for_byte is
+# not finish in 560 s here (2026-09-11), and law_report_holds is
 # the open subject of the rust mu having none of the js host's strategies. A
 # leg that cannot be run is not a gate, so it returns when that build and that
 # law finish — and it is listed here so its absence is a debt rather than an

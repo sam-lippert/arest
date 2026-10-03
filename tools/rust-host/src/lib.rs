@@ -1683,15 +1683,20 @@ mod host_tests {
         assert_eq!(n, 19, "the golden's refusal count moved");
     }
 
+    // The law report is the gate, and no copy of it is kept (2026-10-02): main
+    // answers its text beside a verdict that is T exactly when every law holds.
     #[test]
-    fn law_report_holds_byte_for_byte() {
+    fn law_report_holds() {
         with_stack(|| {
             boot();
-            let want = shared("expected-laws.txt");
             let cells = CELLS.with(|c| q(c.borrow().clone()));
             let out = ev(&a("main"), &q(vec![cells, q(vec![])]));
             let got = join_text(&seq(&out)[0]);
-            assert_eq!(got.trim(), want.trim());
+            let off: Vec<&str> = got.trim_end().lines()
+                .filter(|l| !l.starts_with("  law OK: ") && !l.starts_with("ALL LAWS HOLD "))
+                .collect();
+            assert!(off.is_empty(), "the law report says:\n{}", off.join("\n"));
+            assert_eq!(join_text(&seq(&out)[1]), "T");
         });
     }
 }
