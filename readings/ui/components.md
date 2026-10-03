@@ -538,7 +538,7 @@ It is obligatory that each Toolkit has some Toolkit Version.
 
 + ImplementationBinding is preferred for MonoView
     if Theme has Theme Mode 'dark'
-    and Theme is the default Theme
+    and Theme is the default theme
     and ImplementationBinding pivots Component is implemented by Toolkit
     and ImplementationBinding has Component Trait 'dark_mode_native'.
   <!-- Honours the design system's default Theme (#432, currently the
