@@ -4698,6 +4698,16 @@ function maybePerform(prior, after, log) {
 // reported instead of being pushed past. emitToDb then persists it, which is
 // what makes the id survive a restart -- the store.db is the durable copy, and
 // adoptStore keeps CELLS' array identity so the next read sees it.
+// EVERY TRANSPORT PASSES A LOGIN (Sam, 2026-10-03). A write asks the app's authorization designation
+// who is writing (main:api0's gate, and main:as for the MCP's write verbs), so no path may write as
+// nobody: where an app designates one, the empty caller is refused. The HTTP tail passes the
+// x-arest-caller header as sent; the MCP passes each call's `caller`, which the router sets to the
+// login its client named when it connected (AREST_LOGIN in that session's env, mcp-router.js) and a
+// fact tool's own `caller` overrides, with the header's trust; and the host's own writes -- a
+// performer's write-back, a registration at the MCP's start -- pass a system login, system@repo.do
+// unless AREST_SYSTEM_LOGIN names another. An app that designates an authorization fact type grants
+// the logins in its own store; one that designates none takes every write, as before.
+const SYSTEM_LOGIN = process.env.AREST_SYSTEM_LOGIN || "system@repo.do";
 function writeBack(done, log) {
   const say = log || console.log;
   for (const one of done) {
@@ -4710,7 +4720,7 @@ function writeBack(done, log) {
       const args = a.slice(1).map(String);
       const prior = CELLS.slice();
       let out;
-      try { out = Ev("main:api", [CELLS, "POST", ft, "", args]); }
+      try { out = Ev("main:api", [CELLS, "POST", ft, SYSTEM_LOGIN, args]); }
       catch (e) { say("write-back threw on " + ft + ": " + String(e)); continue; }
       if (out.length > 2 && Number(out[1]) < 400) {
         adoptStore(out[2]);
@@ -4820,9 +4830,10 @@ function run_serve() {
   const PORT = Number(process.env.AREST_PORT || 8787);
 
   // THE PORT IS THIS MACHINE'S UNLESS SAID OTHERWISE (2026-10-03). Bun.serve with no hostname listens
-  // on every interface, and the caller below is the header as sent: no write path asks the app's
-  // authorization designation yet, so a reachable port is a port anyone can write through. It
-  // listens on 127.0.0.1, and AREST_HOST names another address for a host that has its own gate.
+  // on every interface, and the caller below is the header as sent: every write asks the app's
+  // authorization designation of it (main:api0), but the header is whatever the client says, so a
+  // reachable port is a port anyone can claim a login through. It listens on 127.0.0.1, and
+  // AREST_HOST names another address for a host that has its own gate.
   Bun.serve({
     hostname: process.env.AREST_HOST || "127.0.0.1",
     port: PORT,
@@ -4973,6 +4984,8 @@ function run_mcp() {
   // what this host performs by name; a Fetcher it does not hold is not a fault, it is someone else's
   const FETCHERS = new Map([["gh", fetchWithGh], ["mbox", fetchFromMbox]]);
   async function fetchPages(name, args) {
+    // each page is a write of the verb, by the caller who asked for the read
+    const who = args && args.caller;
     const list = Array.isArray(args && args.args) ? args.args : [];
     const x = list.length ? fromJson(list[0]) : [];
     // a page passed with the call is the answer already in hand, as drive takes a passed completion; an
@@ -4993,7 +5006,7 @@ function run_mcp() {
     const fetcher = Array.isArray(fetcherRaw) ? "" : String(fetcherRaw);
     const local = FETCHERS.get(fetcher);
     if (fetcher && fetcher !== "fetch" && !local) {
-      const q = call(name, { args: [[source, bindings, []]] });
+      const q = call(name, { args: [[source, bindings, []]], caller: who });
       return ["awaits a driver: no host here registers Fetcher '" + fetcher + "', so this read is the caller's -- " + String(q[0])
         + " -- and what it answers comes back as the page: [source, bindings, [], page]", Number(q[1]) >= 400 ? Number(q[1]) : 202];
     }
@@ -5013,7 +5026,7 @@ function run_mcp() {
     const lines = [];
     let cursor = [], pages = 0, status = 200;
     for (;;) {
-      const q = call(name, { args: [[source, bindings, cursor]] });
+      const q = call(name, { args: [[source, bindings, cursor]], caller: who });
       let req;
       try { req = JSON.parse(String(q[0])); } catch (e) { req = null; }
       if (!Array.isArray(req) || req[0] !== "request") return [String(q[0]), Number(q[1]) >= 400 ? Number(q[1]) : 400];
@@ -5041,7 +5054,7 @@ function run_mcp() {
         if (res.status >= 400) { lines.push(method + " " + url + " answered " + res.status + ": " + text.slice(0, 300)); status = 502; break; }
         try { body = JSON.parse(text); } catch (e) { lines.push(method + " " + url + " answered a body that is not JSON"); status = 502; break; }
       }
-      const out = call(name, { args: [[source, bindings, cursor, body]] });
+      const out = call(name, { args: [[source, bindings, cursor, body]], caller: who });
       pages++;
       lines.push("page " + pages + " (" + method + " " + url + "): " + String(out[0]).slice(0, 400));
       let ans;
@@ -5247,7 +5260,7 @@ function run_mcp() {
       // adoptStore replaces CELLS in place and main:performed compares the two; and
       // the report goes to stderr, because stdout here is the protocol.
       const prior = CELLS.slice();
-      const out = Ev("main", [CELLS, [String(name)].concat(rest)]);
+      const out = Ev("main:as", [CELLS, String(a.caller || ""), [String(name)].concat(rest)]);
       const held = String(out[1]) === "T";
       if (out.length > 2) {
         adoptStore(out[2]);
@@ -5450,7 +5463,7 @@ function run_mcp() {
     // entity in it arrives whole whatever the order, and the answer lands whole or
     // not at all. drive keeps only the fact types this store declares.
     const page = pairs.map((p) => [String(p[0])].concat((Array.isArray(p[1]) ? p[1] : [p[1]]).map(String)));
-    const out = call("assert", { args: [page] });
+    const out = call("assert", { args: [page], caller: a.caller });
     const ok = Number(out && out[1]) < 400;
     return [(answered ? "took your answer for '" : "asked the client for '") + operation + "' over " + subject
       + " (" + input.length + " characters of request, model " + model + ")"
@@ -5502,7 +5515,7 @@ function run_mcp() {
       // true of the connection reading it.
       if (SAMPLING) {
         for (const d of Ev("drive:driven", CELLS)) {
-          const out = Ev("mcp:call", ["POST", "OperationIsRegistered", "", [String(d)], CELLS]);
+          const out = Ev("mcp:call", ["POST", "OperationIsRegistered", SYSTEM_LOGIN, [String(d)], CELLS]);
           if (out.length > 2 && Number(out[1]) < 400) adoptStore(out[2]);
         }
       }
@@ -5560,7 +5573,8 @@ function run_mcp() {
                          subject: (p.arguments && Array.isArray(p.arguments.args) && p.arguments.args.length)
                            ? String(p.arguments.args[0]) : "" }]
                   .concat(p.arguments && Array.isArray(p.arguments.args) && p.arguments.args.length > 1
-                    ? [p.arguments.args[1]] : []) }
+                    ? [p.arguments.args[1]] : []),
+                caller: p.arguments && p.arguments.caller }
             : null);
       if (driving) {
         return drive(driving).then(

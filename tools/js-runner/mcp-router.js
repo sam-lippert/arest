@@ -803,7 +803,7 @@ function reply(id, result) { return { jsonrpc: "2.0", id, result }; }
 function fail(id, message) { return { jsonrpc: "2.0", id, error: { code: -32603, message } }; }
 const text = (id, s, isError) => reply(id, { content: [{ type: "text", text: s }], ...(isError ? { isError: true } : {}) });
 
-async function handle(msg) {
+async function handle(msg, login) {
   if (msg.method === "initialize") {
     // learned first, because that is what the children's own initialize is
     // waiting on. AND THE HANDSHAKE DOES NOT WAIT FOR THE APPS (2026-09-21):
@@ -859,6 +859,8 @@ async function handle(msg) {
     const args = { ...(p.arguments || {}) };
     const app = args.app;
     delete args.app;
+    // the client's login is the call's caller, where the call names none (attach)
+    if (args.caller === undefined || args.caller === null) args.caller = login || "";
     // THE REGISTRY IS NOT A RESIDENT. It has no server and no verbs; the two
     // session verbs are what it takes, and they change the LIST rather than an
     // app: apps_check recompiles its readings, apps_compile reads the App table
@@ -929,10 +931,17 @@ async function handle(msg) {
 // wait in another. Answers to one client id are single lines, so interleaving
 // is safe. One loop per connected client; ids are the client's own, so two
 // clients using the same id never meet.
+// AND EACH CLIENT WRITES AS ITS OWN LOGIN (2026-10-03). A write asks the app's authorization
+// designation who is writing, and the one daemon serves every session, so the login is the
+// client's, not the daemon's: the shim names it in an arest/client notification before any other
+// line (AREST_LOGIN in the session's env), and every tool call from that client carries it as its
+// `caller` unless the call names one itself -- a fact tool's own caller, with x-arest-caller's
+// trust. A client that names none is the empty caller.
 function attach(socket) {
   clients.add(socket);
   socket.setEncoding("utf8");
   let buf = "";
+  let login = "";
   socket.on("data", (chunk) => {
     buf += chunk;
     for (;;) {
@@ -950,8 +959,9 @@ function attach(socket) {
         resident.answer(childId, msg.error ? { error: msg.error } : { result: msg.result });
         continue;
       }
+      if (msg.method === "arest/client") { login = String((msg.params && msg.params.login) || ""); continue; }
       if (msg.method === "initialize" && (!primary || !clients.has(primary))) primary = socket;
-      handle(msg).then((out) => { if (out) { try { socket.write(JSON.stringify(out) + NL); } catch {} } },
+      handle(msg, login).then((out) => { if (out) { try { socket.write(JSON.stringify(out) + NL); } catch {} } },
         (e) => { try { socket.write(JSON.stringify(fail(msg.id === undefined ? null : msg.id, String(e && e.message))) + NL); } catch {} });
     }
   });
@@ -1003,6 +1013,8 @@ function shim() {
   const attempt = () => {
     const sock = connect(PORT, "127.0.0.1");
     sock.on("connect", () => {
+      // this session's login, before any line of the client's (attach)
+      sock.write(JSON.stringify({ jsonrpc: "2.0", method: "arest/client", params: { login: process.env.AREST_LOGIN || "" } }) + NL);
       process.stdin.setEncoding("utf8");
       process.stdin.on("data", (chunk) => sock.write(chunk));
       process.stdin.on("end", () => sock.end());
