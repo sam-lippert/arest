@@ -154,13 +154,16 @@ public class CasesTest
         Assert.Equal(19, Lambda.Golden().Count(kv => kv.Value == "<refused>"));
     }
 
+    // The law report is the gate, and no copy of it is kept (2026-10-02): main
+    // answers its text beside a verdict that is T exactly when every law holds.
     [Fact]
-    public void LawReportHoldsByteForByte()
+    public void LawReportHolds()
     {
         Lambda.Load();
-        var want = File.ReadAllText(Lambda.Shared("expected-laws.txt")).Trim();
         var outp = (object[])Arest.Ev("main",
             new object[] { Arest.CELLS.ToArray(), new object[] { } });
-        Assert.Equal(want, ((string)outp[0]).Trim());
+        var lines = ((string)outp[0]).TrimEnd().Split('\n');
+        Assert.Empty(lines.Where(l => !l.StartsWith("  law OK: ") && !l.StartsWith("ALL LAWS HOLD ")));
+        Assert.Equal("T", outp[1]?.ToString());
     }
 }

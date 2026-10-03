@@ -105,13 +105,23 @@ test("the golden still expects exactly 19 refusals", () => {
   expect(refused.length).toBe(19);
 });
 
-// 53 laws over the composed store is minutes, not milliseconds -- it is the
+// THE LAW REPORT IS THE GATE, SO THIS ASKS IT AND KEEPS NO COPY (2026-10-02).
+// engine/shared/expected-laws.txt held the report's text, compared byte for
+// byte, so every law added left the copy stale until someone recorded it again:
+// it listed 67 of the 86 laws the report names, and this failed on a report
+// that said ALL LAWS HOLD. The copy is gone. main answers <text, verdict>, and
+// the verdict is T exactly when every law the report names holds, so this asks
+// for that and shows the report's own lines for whatever does not. A law taken
+// out of the report that nothing else calls is law:unreachable's to see.
+// The report over the composed store is minutes, not milliseconds -- it is the
 // single most expensive thing this host does, and bun's default 5s cuts it off
 // mid-run and reports a timeout as a failure.
-test("law:report holds, byte for byte", () => {
-  const want = readFileSync(join(SHARED, "expected-laws.txt"), "utf8").trim();
-  const got = String(Ev("main", [CELLS, []])[0]).trim();
-  expect(got).toBe(want);
+test("law:report holds", () => {
+  const [text, verdict] = Ev("main", [CELLS, []]);
+  const lines = String(text).trimEnd().split("\n");
+  expect(lines.filter((l) => !l.startsWith("  law OK: ") && !l.startsWith("ALL LAWS HOLD "))).toEqual([]);
+  expect(lines.length).toBeGreaterThan(1);
+  expect(verdict).toBe("T");
 }, 900_000);
 
 // THE FIRST SCREEN IS A GOLDEN TOO. The laws never read the panes, so a lambda

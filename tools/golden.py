@@ -7,7 +7,9 @@ what removes python from the loop -- verifying the js host should need bun and
 nothing else.
 
     engine/shared/expected-cases.tsv   <case>\\t<json-encoded answer>
-    engine/shared/expected-laws.txt    law:report, verbatim
+
+The law report has no golden (2026-10-02): its own verdict is the gate, and a
+copy of its text, engine/shared/expected-laws.txt, fell behind every law added.
 
 The answer is JSON-encoded rather than escaped by hand. Two case answers are
 SQL DDL containing real newlines, and a hand-rolled escaper silently produced a
@@ -58,11 +60,6 @@ def main():
     with open(p, "w", encoding="utf-8", newline="\n") as f:
         f.write(out)
 
-    law = d.get("js|law:report", {}).get("out", "")
-    pl = os.path.join(root, "engine", "shared", "expected-laws.txt")
-    with open(pl, "w", encoding="utf-8", newline="\n") as f:
-        f.write(law + "\n")
-
     # the file has to read back as exactly what was written, or it is not an
     # expectation, it is a hope
     back = {}
@@ -74,7 +71,6 @@ def main():
 
     print("cases: %d   round-trips: yes   refusals: %d"
           % (len(rows), sum(1 for _, a in rows if a == "<refused>")))
-    print("laws: %d bytes, %d 'law OK'" % (len(law), law.count("law OK")))
     if disagree:
         print("EXCLUDED, hosts disagree: %s" % disagree[:5])
     if partial:
