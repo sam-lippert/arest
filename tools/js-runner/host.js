@@ -806,6 +806,12 @@ function emitToDb(before, cells, prior, report) {
   // AND SAYS WHICH TABLES IT WROTE, when handed a report to say it in: the in-place compile keeps its
   // ledger for those tables alone (2026-09-29)
   if (report) report.touched = [];
+  // AND WHAT EACH PART OF IT TOOK, for the line a served write logs (storeWrite, 2026-10-03): reading the
+  // populations, testing which moved, planning and writing the rows, and what follows the commit; and the
+  // rows of each table it rewrote whole
+  let lt = performance.now();
+  const lap = (part) => { const t = performance.now(); if (report) report[part] = t - lt; lt = t; };
+  if (report) { report.start = lt; report.rewrote = []; }
   const db = storeDb();
   if (!db) return 0;
   // a caller with no snapshot of its own hands the prior store, and the diff is the cells the write
@@ -815,22 +821,25 @@ function emitToDb(before, cells, prior, report) {
   let carried;
   const pops = before === null && prior ? popsMoved(prior, cells) : null;
   if (pops !== null) {
+    lap("snapshot");
     const sorted = new Map();
     const sortedOf = (rows) => { let s = sorted.get(rows); if (s === undefined) sorted.set(rows, (s = popSorted(rows))); return s; };
     for (const [ft, [p, q]] of pops) if (popsDiffer(p, q, (rows) => sortedOf(rows)[0])) changed.add(ft);
-    if (!changed.size) return 0;
-    carried = [...changed].map((ft) => [ft, sortedOf(pops.get(ft)[1])[1]]);
+    if (changed.size) carried = [...changed].map((ft) => [ft, sortedOf(pops.get(ft)[1])[1]]);
   } else {
     if (before === null) before = popSnapshot(prior);
     const after = popSnapshot(cells);
+    lap("snapshot");
     for (const [ft, text] of after) {
       const was = before.get(ft);
       if (was === text || (was !== undefined && storedText(was) === storedText(text))) continue;
       changed.add(ft);
     }
-    if (!changed.size) return 0;
-    carried = [...changed].map((ft) => [ft, JSON.parse(after.get(ft))]);
+    if (changed.size) carried = [...changed].map((ft) => [ft, JSON.parse(after.get(ft))]);
   }
+  lap("change");
+  if (report) report.moved = changed.size;
+  if (!changed.size) return 0;
   // THE SOURCE TAKES THE ROWS FIRST, because the projection reads it. A row
   // derived at boot or written through main:api lives in a per-fact-type cell,
   // and rmap:proj_rows answers from the DESCRIPTORS -- store:fts slot 5 -- so
@@ -906,14 +915,17 @@ function emitToDb(before, cells, prior, report) {
         ins = db.prepare('insert into "' + table + '" ("' + cols.join('","') + '") values ('
           + cols.map(() => "?").join(",") + ")");
       } catch (e) { refuse(table, e); continue; }          // a table the schema has and this database does not
+      let n = 0;
       for (const row of Ev("rmap:proj_rows", [table, cells])) {
         const vals = cols.map((_, i) => { const v = row[i]; return v === "#" || v === undefined ? null : flat(v); });
-        try { ins.run(...vals); written++; } catch (e) { refuse(table, e, vals); }
+        try { ins.run(...vals); written++; n++; } catch (e) { refuse(table, e, vals); }
       }
+      if (report) report.rewrote.push([table, n]);
     }
     if (refused.length) throw new Error("the store refused " + (refused.length === 1 ? "a statement: " : refused.length + " statements, the first: ") + refused[0]);
   })();
   EMIT_STORED = true;
+  lap("write");
   // AND WHAT A TABLE WRITTEN ROW BY ROW HELD FOR THE REST IS STILL TRUE. Dropping
   // everything read from a touched table made the NEXT write's snapshot read it all
   // back -- Function whole, 1.7 s and some 190 MB on support.auto.dev, at every write
@@ -932,6 +944,8 @@ function emitToDb(before, cells, prior, report) {
   if (plan) memoClear();
   if (report) report.touched = [...touched];
   recordVerdict(cells);
+  lap("tail");
+  if (report) { report.byRow = byRow.size; report.written = written; }
   return written;
 }
 // theta:unfold_rows and theta:unfold_descs by the identity of the array unfolded (see their twins)
@@ -4731,24 +4745,55 @@ async function performDeclared(before, after, opts) {
 // <the store before the write>: the rows the write CELLS holds moved, stored. When the database refuses a
 // statement, or anything fails before the rows are stored, nothing is stored, CELLS is the store before the
 // write again, and the failure is answered.
-function storeWrite(prior) {
-  try { emitToDb(null, CELLS, prior); return null; }
+// AND EVERY WRITE SAYS WHAT IT TOOK, ON ONE LINE (2026-10-03). No write on a served app could be timed but by
+// serving a copy of its store with a clock put in for the day. Each now writes one line to stderr, which the
+// router keeps in its log behind the app's name: <what> is the verb, or the method and resource, the write was
+// served as, and <t0> when it was asked (performance.now()), so the total takes in the evaluation.
+function storeWrite(prior, what, t0) {
+  const rep = {};
+  try { emitToDb(null, CELLS, prior, rep); }
   catch (e) {
-    if (EMIT_STORED) throw e;        // stored, and what failed came after
+    if (EMIT_STORED) { sayWrite(what, t0, rep, "stored, then failed"); throw e; }        // stored, and what failed came after
     adoptStore(prior);
+    sayWrite(what, t0, rep, "NOT COMMITTED, and the write answers why");
     return String((e && e.message) || e);
   }
+  sayWrite(what, t0, rep, null);
+  return null;
+}
+// `write <what> <total> ms: evaluation, snapshot, change test, plan and write, tail -- <what it wrote>`, the
+// parts in ms as far as the write reached them, and a table rewritten whole by name with the rows it took.
+// The reason a write failed is in its answer and not here: the router takes a line of an app's stderr that
+// says "error:" as the app's failure, and answers every call after it with that line.
+function sayWrite(what, t0, rep, failed) {
+  const end = performance.now();
+  const ms = (v) => String(Math.round(v));
+  const of = (n, one) => n + " " + one + (n === 1 ? "" : "s");
+  const asked = typeof t0 === "number";
+  const laps = [["evaluation", asked && rep.start !== undefined ? rep.start - t0 : undefined],
+    ["snapshot", rep.snapshot], ["change test", rep.change], ["plan and write", rep.write], ["tail", rep.tail]]
+    .filter((l) => l[1] !== undefined).map((l) => l[0] + " " + ms(l[1]));
+  const whole = rep.rewrote || [];
+  const wrote = failed ? failed
+    : rep.moved === undefined ? "no store to write"
+    : !rep.moved ? "nothing moved"
+    : of(rep.moved, "population") + " moved, " + of(rep.written - whole.reduce((s, r) => s + r[1], 0), "row")
+      + " deleted or inserted in " + of(rep.byRow, "table") + " by row"
+      + (whole.length ? ", rewritten whole: " + whole.map((r) => r[0] + " " + r[1]).join(", ") : "");
+  const begin = asked ? t0 : rep.start !== undefined ? rep.start : end;
+  console.error("write " + String(what || "") + " " + ms(end - begin) + " ms" + (laps.length ? ": " + laps.join(", ") : "") + " -- " + wrote);
 }
 const notCommitted = (why) => JSON.stringify(["not_committed", why]);
 // <main:api's answer>: the store it made adopted, the rows a write moved stored, and <body, status> to answer.
-function answerWrite(out) {
+// <what> and <t0> are the request and when it was asked, for the line the write logs (storeWrite).
+function answerWrite(out, what, t0) {
   let body = String(out[0]), status = Number(out[1]) || 500;
   if (out.length > 2) {
     const wrote = Number(out[1]) < 400;   // a refusal made no successor
     const prior = CELLS.slice();
     adoptStore(out[2]);
     if (wrote) {
-      const why = storeWrite(prior);
+      const why = storeWrite(prior, what, t0);
       if (why === null) maybePerform(prior, CELLS);
       else { body = notCommitted(why); status = 500; }
     }
@@ -4810,13 +4855,14 @@ function writeBack(done, log) {
       if (!Array.isArray(a) || a.length < 2) continue;
       const ft = String(a[0]);
       const args = a.slice(1).map(String);
+      const t0 = performance.now();
       const prior = CELLS.slice();
       let out;
       try { out = Ev("main:api", [CELLS, "POST", ft, SYSTEM_LOGIN, args]); }
       catch (e) { say("write-back threw on " + ft + ": " + String(e)); continue; }
       if (out.length > 2 && Number(out[1]) < 400) {
         adoptStore(out[2]);
-        const why = storeWrite(prior);
+        const why = storeWrite(prior, "write-back POST " + ft, t0);
         if (why === null) say("wrote back " + JSON.stringify([ft].concat(args)));
         else say("write-back NOT COMMITTED " + ft + ": " + why.slice(0, 300));
       } else {
@@ -5036,8 +5082,9 @@ function run_serve() {
       // what makes main:performed evaluate: Ev memoises on the store REFERENCE.
       // And a write takes no snapshot either: emitToDb compares the cells the write
       // replaced against the copy (popSnapshotMoved).
+      const t0 = performance.now();
       const out = await readThrough(Ev("main:api", [CELLS, req.method, resource, caller, fact]), req.method, resource, caller, raw);
-      const [body, status] = answerWrite(out);
+      const [body, status] = answerWrite(out, req.method + " " + resource, t0);
       memoReleaseWhenIdle(console.log);
       return new Response(body, {
         status,
@@ -5403,13 +5450,14 @@ function run_mcp() {
       // serving tail would not. The store is copied BEFORE the evaluation, because
       // adoptStore replaces CELLS in place and main:performed compares the two; and
       // the report goes to stderr, because stdout here is the protocol.
+      const t0 = performance.now();
       const prior = CELLS.slice();
       const out = Ev("main:as", [CELLS, String(a.caller || ""), [String(name)].concat(rest)]);
       const held = String(out[1]) === "T";
       if (out.length > 2) {
         adoptStore(out[2]);
         if (held) {
-          const why = storeWrite(prior);
+          const why = storeWrite(prior, String(name), t0);
           if (why !== null) return [notCommitted(why), 500];
           maybePerform(prior, CELLS, console.error);
         }
@@ -5437,6 +5485,7 @@ function run_mcp() {
       }
     }
     // no dispatch: the resource IS the fact type and the method IS the operation
+    const t0 = performance.now();
     const out = Ev("mcp:call", [
       method,
       resource,
@@ -5458,7 +5507,7 @@ function run_mcp() {
       const prior = CELLS.slice();
       adoptStore(out[2]);
       if (wrote) {
-        const why = storeWrite(prior);
+        const why = storeWrite(prior, method + " " + resource, t0);
         if (why !== null) return [notCommitted(why), 500];
         maybePerform(prior, CELLS, console.error);
       }
