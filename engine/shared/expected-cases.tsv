@@ -870,6 +870,7 @@ case:a-collection-holds-its-first-page	"('menu', '1-2 of 5', ('item', 'a1', (), 
 case:a-collection-page-holds-the-rest	"('menu', '5-5 of 5', ('item', 'a5', (), ('Agent', 'a5')))"
 case:a-collection-page-lands-in-the-master	"'master'"
 case:a-not-every-line-is-its-subtypings-qualifier	"(('CustomerHasColor'), (('AdminIsASubtypeOfCustomer', ('Admin', 'Customer'), (('{0}', 'is', 'a', 'subtype', 'of', '{1}'), ('Not', 'every', '{1}', 'is', 'an', '{0}'))), ('SupportChatIsASubtypeOfAgentChat', ('Support Chat', 'Agent Chat'), (('{0}', 'is', 'a', 'subtype', 'of', '{1}'), ('Not', 'every', '{1}', 'is', 'a', '{0}')))))"
+case:a-page-size-the-ui-readings-declare-is-a-number	"((('agents', 2)))"
 case:the-worklist-holds-a-page-of-each-group	"(('menu', 'Support Response / Draft, 1-2 of 5', ('item', 'r1', '-> Approve', ('Support Response', 'r1')), ('item', 'r2', '-> Approve', ('Support Response', 'r2')), ('item', 'more', (), ('work', 'Support Response', 'Draft', 'page', 2))))"
 case:a-worklist-page-is-a-screen	"('layer', 'Support Response / Draft', (), ('menu', 'Support Response / Draft, 5-5 of 5', ('item', 'r5', '-> Approve', ('Support Response', 'r5'))))"
 case:a-worklist-page-lands-in-the-master	"'master'"
