@@ -3667,12 +3667,15 @@ describe("lambda's reader carries the witness's general chain", () => {
                     "DomainBelongsToApp", [[3, 2]], [1, 2, 3, 4, 5, 6]], [1, 5]])),
     ].flat().sort());
     // `App displays Object Type if App navigates Domain and Object Type belongs to
-    // that Domain`: the second leg only resolves through the declared supertype
-    // (Function belongs to Domain), so the subtype's extent is joined on the
-    // substituted column and only the accumulator's own columns are kept
+    // that Domain and that Object Type is of Object Kind 'entity'`: the second leg only
+    // resolves through the declared supertype (Function belongs to Domain), so the
+    // subtype's extent is joined on the substituted column; the kind is joined on the
+    // same column and selected as 'entity' (2026-10-03: a value has no identity, so an
+    // App displays entity types only), and only the accumulator's own columns are kept
     expect(treesOf("AppDisplaysObjectType")).toEqual([
-      J(["proj", ["joinon", ["joinon", "AppNavigatesDomain", "FunctionBelongsToDomain", [[2, 2]], [1, 2, 3, 4]],
-                  ["sel", "ObjectTypeInstanceIsInstanceOfObjectType", 2, "Object Type"], [[3, 1]], [1, 2, 3, 4]], [1, 3]]),
+      J(["proj", ["sel", ["joinon", ["joinon", ["joinon", "AppNavigatesDomain", "FunctionBelongsToDomain", [[2, 2]], [1, 2, 3, 4]],
+                  "ObjectTypeIsOfObjectKind", [[3, 1]], [1, 2, 3, 4, 5, 6]],
+                  ["sel", "ObjectTypeInstanceIsInstanceOfObjectType", 2, "Object Type"], [[3, 1]], [1, 2, 3, 4, 5, 6]], 6, "entity"], [1, 3]]),
     ]);
   }, 300_000);
 });
