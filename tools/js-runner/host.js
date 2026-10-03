@@ -4591,43 +4591,12 @@ function run_serve() {
   console.error("arest serving on :" + PORT);
 
 }
-// PAIRING TOTALITY, ASKED OF THIS CONTAINER (#108, 2026-09-15). register(
-// control, impl) IS the pairing -- iFactr's IPairable, whose abstract half is
-// complete without the native half -- so a container's registration loop IS
-// its set of pairs, and law:paired asks the one question no store can answer
-// about itself: does every abstract control kind the store declares registered
-// HAVE a registration HERE? An unpaired kind is a screen that dies mid-render
-// on the first row that names it, so this refuses before the first byte and
-// law:unpaired names what is missing. The java container (Gui.java:439) has
-// asked since the law took the operand; these two register controls and never
-// did, so the only container the test suite runs was the unchecked one.
-//
-// ONLY THE PAIRING HALF IS FATAL, for the reason Gui.java records: over a
-// container's store law:origins_match is the STORE's half, gated by law:report,
-// and refusing a screen over a store defect trades a working container for a
-// check that belongs elsewhere. Both halves are printed because they are
-// measured apart.
-//
-// THE TEXT CONTAINER PRINTS ONLY ON REFUSAL. Its stdout is a screen read back
-// into a conversation by a SessionStart hook, so an unconditional verdict line
-// would be noise on every boot; the HTML container already announces its port
-// on stderr and the line rides with it.
-function pairing_gate(store, verbose) {
-  const registered = [...PRIMS.keys()];
-  const pair = [store, registered];
-  const paired = String(Ev("law:paired", pair));
-  if (verbose || paired !== "T") {
-    const kinds = Ev("law:ctl_declared", store);
-    console.error("law:origin_boundary over <store, " + registered.length
-      + " registered>: " + Ev("law:origin_boundary", pair)
-      + "  (store halves " + Ev("law:origins_match", store)
-      + ", pairing " + paired + " over " + kinds.length + " declared control kinds)");
-  }
-  if (paired !== "T") {
-    for (const m of Ev("law:unpaired", pair)) console.error("  unpaired control kind: " + m);
-    process.exit(2);
-  }
-}
+// THE PAIRING IS ASKED OF LAMBDA BY EACH PLATFORM, NOT BY THIS HOST (2026-10-03). pairing_gate asked
+// law:paired over the controls a container registered in PRIMS, for the text and HTML containers
+// this file once held; they are gone, and it had no caller. A platform now sends the render names it
+// registered in every navigate request, and lambda answers law:unpaired over them in the frame
+// (ui:frame_out): ui.do and the Swing container each refuse to draw a frame that names one. This
+// host registers no control, so it has nothing of its own to pair.
 function run_mcp() {
 
   // THE MCP TAIL. Same composition, same evaluator, one different last step:
