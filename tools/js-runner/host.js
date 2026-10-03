@@ -4800,9 +4800,17 @@ function answerWrite(out, what, t0) {
   }
   return [body, status];
 }
+// A LINE THE PERFORMER WRITES NEVER READS AS THE APP'S FAILURE (2026-10-03). The router takes a line of an
+// app's stderr that says "error:" (/error:/i) as the app's failure, and refuses every call after it with that
+// line until the app is started again (mcp-router.js). The performer's lines carry text from outside the
+// store: an Error's String begins "Error:", a failed JSON parse says "JSON Parse error: ...", a platform's
+// answer may say "Validation error: ...", and a fact type whose name ends in Error meets the colon its line
+// puts after it. So each line is written with every "error:" as "error --": the colon is the only character
+// taken out, and what stands in its place ends in "-", so no "error:" is left and none is made.
+function quiet(say) { return (line) => say(String(line).replace(/(error):/gi, "$1 --")); }
 function maybePerform(prior, after, log) {
   if (!prior || prior === after) return;
-  const say = log || console.log;
+  const say = quiet(log || console.log);
   // THE ARMING IS A FACT, NOT AN ENVIRONMENT KEY (2026-09-14). AREST_PERFORM and
   // AREST_PERFORM_SECRET are gone: `DomainConnectsToExternalSystem has Send Mode`
   // says whether a connection is live, and the connection carries its own
@@ -4819,7 +4827,7 @@ function maybePerform(prior, after, log) {
       for (const one of r) say("performed " + JSON.stringify(one));
       writeBack(r, say);
     })
-    .catch((e) => say("performer failed: " + String(e)));
+    .catch((e) => say("performer failed: " + String((e && e.message) || e)));
 }
 
 // AND THE ANSWER COMES BACK AS FACTS (2026-09-14). performDeclared computed
@@ -4846,7 +4854,7 @@ function maybePerform(prior, after, log) {
 // the logins in its own store; one that designates none takes every write, as before.
 const SYSTEM_LOGIN = process.env.AREST_SYSTEM_LOGIN || "system@repo.do";
 function writeBack(done, log) {
-  const say = log || console.log;
+  const say = quiet(log || console.log);
   for (const one of done) {
     // `observed` is what the platform saw at the send -- the addresses the host resolved to --
     // and not a yield of the call, so it is outside the may-create ceiling by kind and is
@@ -4859,7 +4867,7 @@ function writeBack(done, log) {
       const prior = CELLS.slice();
       let out;
       try { out = Ev("main:api", [CELLS, "POST", ft, SYSTEM_LOGIN, args]); }
-      catch (e) { say("write-back threw on " + ft + ": " + String(e)); continue; }
+      catch (e) { say("write-back threw on " + ft + ": " + String((e && e.message) || e)); continue; }
       if (out.length > 2 && Number(out[1]) < 400) {
         adoptStore(out[2]);
         const why = storeWrite(prior, "write-back POST " + ft, t0);
