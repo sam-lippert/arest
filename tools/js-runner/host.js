@@ -2406,6 +2406,41 @@ const FASTPRIMS = new Map(Object.entries({
     }
     return Ev(DEFS.get("get"), [id, [fts, st[1]]]);
   },
+  // nav:peers <id, FILE> OVER A STORE READ FROM ITS TABLES READS ONLY THE TABLES THAT NAME THE ID (2026-10-03).
+  // The DEF keeps each FILE cell whose population holds the id among its atoms (nav:keep_peer over nav:atoms),
+  // so it reads every population: a keyed GET of one Cancel Request on a copy of support read all 1,666 for the 24
+  // that hold it, 11 to 15 s cold. A FILE cell the lazy store has not yet read, of a fact type no write has
+  // moved (pending), holds once read its fact type's rows as the tables hold them, and those rows hold the id as
+  // a value exactly when the scan for the id finds a fact of that type (lazyStore's mentioning, the scan the get
+  // twin reads); so such a cell is decided by the scan and left unread. A fact type the tables carry and yield
+  // nothing for is read from the carriers' rows instead, as the get twin finds, so a pending cell the scan does
+  // not name is still kept when those rows name the id and the tables yield no row of it. A fact type a write
+  // moved is not pending: FILE keeps the cell it had for a head the write's closure moved (main:refile1 refiles
+  // the written fact type alone), and that cell holds the rows its descriptor held when they were first read,
+  // which can be the rows before the write. Every cell but a pending one -- read already, a write's own, of a
+  // fact type a write moved or no table holds -- is tested by nav:keep_peer itself, and the links come out in
+  // FILE's order, as the DEF's INSERT leaves them. An id that is not text, a store not read from its tables, and
+  // AREST_NOTWIN=nav:peers give the DEF's own route.
+  "nav:peers": x => {
+    const def = () => Ev(DEFS.get("nav:peers"), x);
+    if (!LAZY_STORE || typeof LAZY_STORE.pending !== "function" || !Array.isArray(x) || x.length !== 2) return def();
+    const id = x[0], file = x[1];
+    if (typeof id !== "string" || !Array.isArray(file)) return def();
+    const keep = DEFS.get("nav:keep_peer");
+    const has = (f) => Array.isArray(f) && f.some((v) => v === id);
+    let byFt = null;
+    const out = [];
+    for (const c of file) {
+      if (Array.isArray(c) && c.length === 3 && c[0] === "CELL" && typeof c[1] === "string" && LAZY_STORE.pending(c) && LAZY_STORE.present(c[1])) {
+        if (!byFt) byFt = LAZY_STORE.mentioning(id);
+        if (byFt.has(c[1]) || (LAZY_STORE.carrier(c[1]).some(has) && !LAZY_STORE.rowsOf(c[1]).length)) out.push([c[1], [id]]);
+        continue;
+      }
+      const r = Ev(keep, [[id, c], []]);
+      if (Array.isArray(r) && r.length) out.push(r[0]);
+    }
+    return out;
+  },
   "store:fix_desc": d => {
     if (!Array.isArray(d) || d.length < 5) return Ev(DEFS.get("store:fix_desc"), d);
     if (!LAZY_STORE) return [d[0], d[1], d[2], d[3], Ev("theta:unfold_rows", d[4])];
@@ -5661,10 +5696,16 @@ function lazyStore(db, want) {
     for (const ft of tablesOf.keys()) rowsOf(ft);
   };
   const pick = (cells, name) => { for (const c of cells) if (Array.isArray(c) && c[1] === name) return c[2]; return "#"; };
+  // A CELL NOT YET READ IS PENDING (2026-10-03) while no write has moved its fact type: read, it holds its fact
+  // type's rows as the tables hold them, which are the rows they held when the store was read until a write moves
+  // that fact type or rewrites its table whole. The nav:peers twin decides a pending cell from the scan for an id
+  // (mentioning) instead of reading it.
+  const pendingCells = new WeakSet(), movedFts = new Set();
   const later = (name, get) => {
     const c = ["CELL", name, null];
     let v, done = false;
-    Object.defineProperty(c, 2, { get() { if (!done) { v = get(); done = true; } return v; }, enumerable: true, configurable: true });
+    pendingCells.add(c);
+    Object.defineProperty(c, 2, { get() { if (!done) { v = get(); done = true; pendingCells.delete(c); } return v; }, enumerable: true, configurable: true });
     return c;
   };
   // the carriers' descriptors, copied, each fifth slot that fact type's rows when read
@@ -5703,13 +5744,14 @@ function lazyStore(db, want) {
     for (const t of tables) {
       byTable.delete(t); asked.delete(t);
       if (presentIn.has(t)) count(t);
-      for (const ft of carried.get(t) || []) ftRows.delete(ft);
-      if (relTables.has(t)) ftRows.delete(t);
+      for (const ft of carried.get(t) || []) { ftRows.delete(ft); movedFts.add(ft); }
+      if (relTables.has(t)) { ftRows.delete(t); movedFts.add(t); }
     }
   };
   // a table emitToDb wrote row by row: the fact types that moved are what the write
   // stored, and every other one it carries holds the rows it held
   const wrote = (tables, moved) => {
+    for (const ft of moved.keys()) movedFts.add(ft);
     for (const t of tables) {
       byTable.delete(t); asked.delete(t);
       if (presentIn.has(t)) count(t);
@@ -5779,6 +5821,7 @@ function lazyStore(db, want) {
     return d ? Ev("theta:unfold_rows", d[4]) : [];
   };
   return { db, tablesOf, rowsOf, readAll, invalidate, wrote, cells, replaced, mentioning, carrier, present,
+    pending: (c) => pendingCells.has(c) && !movedFts.has(c[1]),
     hasRows: (n) => present(n) && rowsOf(n).length > 0,
     stats: () => ({ selects, tables: byTable.size, most: Math.max(0, ...wholeReads.values()), scans }) };
 }

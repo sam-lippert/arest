@@ -1443,6 +1443,106 @@ test("get over a store read from its tables reads the rows that name the id, and
 
 
 
+// ---- AND A GET'S LINKS READ THE TABLES THAT NAME THE ID, BEFORE A WRITE AND AFTER ONE ----------
+//
+// A GET's links are nav:peers <id, FILE>: each population whose atoms hold the id. Its DEF reads
+// every population, which over a store read from its tables is every table: on a copy of support
+// a keyed GET of one Cancel Request read 1,666 populations for the 24 that hold it. The twin
+// (host.js, 2026-10-03) decides a FILE cell nothing has read yet from the scan for the id
+// (lazyStore's mentioning) and leaves the cell unread. A twin answers what its DEF answers over
+// the same store at every call, and only the host can hold it to that -- a case composes its
+// store and never reads one from tables -- so this is a test and not a case. At start: ids of
+// every object type, up to two of each, and an id that is nothing. After a write: FILE keeps the
+// cell it had for a head the write's closure moved (main:refile1 refiles the written fact type
+// alone, and before store:closed_from), and that cell holds the rows its descriptor held when
+// they were first read -- here, before the write -- while the tables hold the rows after it. So
+// the twin leaves a fact type a write moved to the DEF. The write is Domain state is contained in
+// Domain core, which moves Domain reaches Domain, read before it through its descriptor; without
+// that, the twin named 'state' a peer in it and the DEF did not.
+test("a GET's links over a store read from its tables are the DEF's, at start and after a write that moved a head", () => {
+  const stamp = globalThis.AREST.composition;
+  const dir = mkdtempSync(join(tmpdir(), "arest-peers-"));
+  const mod = join(import.meta.dir, "cases.g.js");
+  const path = join(dir, "store.db");
+  {
+    const db = new Database(path);
+    makeTables(db);
+    expect(globalThis.AREST.writeMetaschema(db)).toBeGreaterThan(0);
+    db.run("create table _composition (hash text)");
+    db.prepare("insert into _composition values(?)").run(stamp);
+    db.run("pragma wal_checkpoint(TRUNCATE)");
+    db.close();
+  }
+  const driver = join(dir, "drive.mjs");
+  writeFileSync(driver, [
+    "await import(process.env.MODULE);",
+    "const { Ev, CELLS, DEFS, popSnapshot, adoptStore, emitToDb, closeStore, storeRead } = globalThis.AREST;",
+    "const say = (k, v) => console.log(k + '=' + JSON.stringify(v));",
+    "if (process.env.MAKE) { const b = popSnapshot(CELLS); closeStore(); say('made', emitToDb(b, CELLS)); process.exit(0); }",
+    "// a write as the server makes one: main:api, its successor adopted, what moved emitted",
+    "const contain = (args) => { const prior = CELLS.slice();",
+    "  const out = Ev('main:api', [CELLS, 'POST', 'DomainIsContainedInDomain', '', args]);",
+    "  if (out.length > 2 && Number(out[1]) < 400) { adoptStore(out[2]); emitToDb(null, CELLS, prior); }",
+    "  return Number(out[1]); };",
+    "if (process.env.PRE) { say('pre', contain(['law', 'core'])); process.exit(0); }",
+    "const ids = ['state', 'law', 'core'], per = new Map();",
+    "for (const r of Ev('system:pop_rows', ['ObjectTypeInstanceIsInstanceOfObjectType', CELLS])) {",
+    "  const ty = JSON.stringify(r[1]), n = per.get(ty) || 0;",
+    "  if (n < 2 && typeof r[0] === 'string' && !ids.includes(r[0])) { ids.push(r[0]); per.set(ty, n + 1); } }",
+    "ids.push('no-such-id-anywhere');",
+    "say('ids', ids.length);",
+    "Ev('ast:fetch', ['FILE', CELLS]);",
+    "if (process.env.WRITE) {",
+    "  // the head's rows are read through its descriptor, and FILE's cell for it is not read",
+    "  say('reach before', Ev('store:fts', CELLS).find((d) => d[0] === 'DomainReachesDomain')[4]);",
+    "  say('status', contain(['state', 'core']));",
+    "  say('reach after', Ev('system:pop_rows', ['DomainReachesDomain', CELLS]));",
+    "}",
+    "const file = Ev('ast:fetch', ['FILE', CELLS]);",
+    "const s0 = storeRead().scans;",
+    "const twin = ids.map((id) => JSON.stringify(Ev('nav:peers', [id, file])));",
+    "say('twin scans', storeRead().scans - s0);",
+    "say('peers', twin.reduce((a, p) => a + JSON.parse(p).length, 0));",
+    "const def = DEFS.get('nav:peers');",
+    "say('differ', ids.filter((id, i) => JSON.stringify(Ev(def, [id, file])) !== twin[i]));",
+  ].join("\n"));
+  const run = (extra) => {
+    const env = { ...process.env, MODULE: pathToFileURL(mod).href, AREST_STORE_DB: path, ...extra };
+    delete env.AREST_EAGER_STORE;
+    delete env.AREST_NOTWIN;
+    const p = Bun.spawnSync(["bun", driver], { env, stdout: "pipe", stderr: "pipe" });
+    const got = { out: p.stdout.toString() + p.stderr.toString() };
+    for (const line of p.stdout.toString().split("\n")) {
+      const i = line.indexOf("=");
+      if (i > 0) try { got[line.slice(0, i)] = JSON.parse(line.slice(i + 1)); } catch { /* not a line of ours */ }
+    }
+    return got;
+  };
+  try {
+    const made = run({ MAKE: "1" });
+    expect(made.made, made.out).toBeGreaterThan(0);
+    const pre = run({ PRE: "1" });                       // law in core: Domain reaches Domain holds a row
+    expect(pre.pre, pre.out).toBeGreaterThanOrEqual(200);
+    expect(pre.pre).toBeLessThan(400);
+    const start = run({});
+    expect(start.ids, start.out).toBeGreaterThan(20);
+    expect(start["twin scans"]).toBeGreaterThan(0);      // the twin took the scan
+    expect(start.peers).toBeGreaterThan(0);
+    expect(start.differ).toEqual([]);                    // and answered every id as the DEF does
+    const after = run({ WRITE: "1" });
+    expect(after.status, after.out).toBeGreaterThanOrEqual(200);
+    expect(after.status).toBeLessThan(400);
+    expect(after["reach before"]).toEqual([["law", "core"]]);
+    expect(after["reach after"]).toContainEqual(["state", "core"]);   // the closure moved the head
+    expect(after["twin scans"]).toBeGreaterThan(0);
+    expect(after.differ).toEqual([]);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* left behind */ }
+  }
+}, 240_000);
+
+
+
 // ---- A STORE IS READ WHEN ASKED, AND READ ONCE -----------------------------
 //
 // A server over a store reads no rows at start (host.js, lazyStore): each
