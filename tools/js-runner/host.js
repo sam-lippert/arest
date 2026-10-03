@@ -3544,6 +3544,92 @@ const FASTPRIMS = new Map(Object.entries({
     const hit = idx.get(keyOf(name));
     return hit === undefined ? [] : hit; },
 }));
+// ---- THE WRITE CLOCK ---------------------------------------------------------
+// WHERE A WRITE'S EVALUATION GOES (2026-10-03). The line a served write logs (storeWrite) gave its evaluation
+// as one number -- 6.4 s of an 8.8 s assert on support, 9.4 s of a 13.6 s one -- and named nothing inside it.
+// So the phases the write paths pass through are clocked by name: each DEF below is entered through
+// FASTPRIMS and evaluates its own body, as a DEF with no twin is evaluated, and adds its time to the part it
+// names on the clock of the write being served; a part entered again inside itself counts once, and the
+// parts that stand at the top are summed apart, so what they did not cover is the rest of the evaluation.
+// derive:rule_news adds its time to the head of its rule. A served path starts a clock before its evaluation
+// (clockStart) and laps the evaluation and the adoption; with no clock running, a phase is its DEF.
+// <DEF, part, the part that holds it>
+const WPHASES = [
+  ["auth:gate_verb", "gate", null], ["auth:gate_api", "gate", null],
+  ["value:typed_in", "typed", null], ["value:typed_row", "typed", null],
+  ["main:ab_reg", "register", null], ["main:cr_pre", "register", null],
+  ["main:refresh_domains", "domains", "register"], ["main:refresh_domain_of", "domains", "register"],
+  ["main:ab_facts", "facts", null], ["ui:factfold", "facts", null],
+  ["store:closed_from", "closure", null],
+  ["main:delta_of", "delta", "closure"], ["derive:inc_run", "derive", "closure"], ["store:cb_put", "put", "closure"],
+  ["derive:rec_put", "record", "closure"], ["store:ev_close", "events", "closure"], ["store:pf_close", "performed", "closure"],
+  ["ui:violations", "validate", null],
+  ["cmd:validate", "uniqueness", "validate"], ["cmd:mand_viols", "mandatory", "validate"], ["cmd:deo_viols", "deontic", "validate"],
+  ["cmd:sub_viols", "subset", "validate"], ["cmd:rec_viols", "recorded", "validate"], ["cmd:dec_viols", "decided", "validate"],
+];
+// the parts once each, in the order above, with the part that holds each
+const WPARTS = [];
+for (const [, part, holder] of WPHASES) if (!WPARTS.some((p) => p[0] === part)) WPARTS.push([part, holder]);
+// the clock of the write being evaluated, or null
+let WCLOCK = null;
+function clockStart() {
+  const t = performance.now();
+  WCLOCK = { t0: t, at: t, parts: new Map(), depth: new Map(), top: 0, covered: 0, heads: new Map() };
+  return WCLOCK;
+}
+// the time since the clock's last lap, as <k>; the evaluation's lap stops the phases' clock
+function clockLap(c, k) {
+  if (!c) return;
+  const t = performance.now();
+  c[k] = t - c.at; c.at = t;
+  if (k === "lambda" && WCLOCK === c) WCLOCK = null;
+}
+function clockPart(def, part, top) {
+  return (x) => {
+    const c = WCLOCK;
+    if (c === null) return Ev(DEFS.get(def), x);
+    const t = performance.now(), d = c.depth.get(part) || 0;
+    c.depth.set(part, d + 1);
+    if (top) c.top++;
+    try { return Ev(DEFS.get(def), x); }
+    finally {
+      const dt = performance.now() - t;
+      c.depth.set(part, d);
+      if (d === 0) c.parts.set(part, (c.parts.get(part) || 0) + dt);
+      if (top && --c.top === 0) c.covered += dt;
+    }
+  };
+}
+for (const [def, part, holder] of WPHASES) if (!FASTPRIMS.has(def)) FASTPRIMS.set(def, clockPart(def, part, holder === null));
+if (!FASTPRIMS.has("derive:rule_news")) FASTPRIMS.set("derive:rule_news", (x) => {
+  const c = WCLOCK;
+  if (c === null) return Ev(DEFS.get("derive:rule_news"), x);
+  const t = performance.now();
+  try { return Ev(DEFS.get("derive:rule_news"), x); }
+  finally {
+    const head = Array.isArray(x) && Array.isArray(x[0]) ? String(x[0][0]) : "?";
+    c.heads.set(head, (c.heads.get(head) || 0) + performance.now() - t);
+  }
+});
+// `lambda L: <part> <ms> [<the parts it holds>], ..., other <ms>; adopt <ms>; heads <head> <ms>, ...`: the
+// clock's laps and parts, the three heads whose rules took longest
+function clockText(c) {
+  const ms = (v) => String(Math.round(v));
+  const of = (holder) => WPARTS.filter((p) => p[1] === holder && c.parts.has(p[0])).map((p) => {
+    const held = of(p[0]);
+    return p[0] + " " + ms(c.parts.get(p[0])) + (held.length ? " [" + held.join(", ") + "]" : "");
+  });
+  const out = [];
+  if (c.lambda !== undefined) {
+    const top = of(null);
+    out.push("lambda " + ms(c.lambda) + (top.length ? ": " + top.join(", ") + ", other " + ms(Math.max(0, c.lambda - c.covered)) : ""));
+  }
+  if (c.read !== undefined) out.push("read-through " + ms(c.read));
+  if (c.adopt !== undefined) out.push("adopt " + ms(c.adopt));
+  const heads = [...c.heads].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  if (heads.length) out.push("heads " + heads.map((h) => h[0] + " " + ms(h[1])).join(", "));
+  return out.join("; ");
+}
 // ---- INSERT filter fast path ---------------------------------------------
 // Lambda filters with a right fold that prepends every survivor:
 //   INSERT (COND p apndl @2)   or   INSERT (COND p (apndl . CONS v @2) @2)
@@ -4748,31 +4834,34 @@ async function performDeclared(before, after, opts) {
 // AND EVERY WRITE SAYS WHAT IT TOOK, ON ONE LINE (2026-10-03). No write on a served app could be timed but by
 // serving a copy of its store with a clock put in for the day. Each now writes one line to stderr, which the
 // router keeps in its log behind the app's name: <what> is the verb, or the method and resource, the write was
-// served as, and <t0> when it was asked (performance.now()), so the total takes in the evaluation.
-function storeWrite(prior, what, t0) {
+// served as, and <clock> the write's clock (clockStart), started when it was asked, so the total takes in the
+// evaluation, and the evaluation is given by its parts.
+function storeWrite(prior, what, clock) {
   const rep = {};
   try { emitToDb(null, CELLS, prior, rep); }
   catch (e) {
-    if (EMIT_STORED) { sayWrite(what, t0, rep, "stored, then failed"); throw e; }        // stored, and what failed came after
+    if (EMIT_STORED) { sayWrite(what, clock, rep, "stored, then failed"); throw e; }        // stored, and what failed came after
     adoptStore(prior);
-    sayWrite(what, t0, rep, "NOT COMMITTED, and the write answers why");
+    sayWrite(what, clock, rep, "NOT COMMITTED, and the write answers why");
     return String((e && e.message) || e);
   }
-  sayWrite(what, t0, rep, null);
+  sayWrite(what, clock, rep, null);
   return null;
 }
-// `write <what> <total> ms: evaluation, snapshot, change test, plan and write, tail -- <what it wrote>`, the
-// parts in ms as far as the write reached them, and a table rewritten whole by name with the rows it took.
-// The reason a write failed is in its answer and not here: the router takes a line of an app's stderr that
-// says "error:" as the app's failure, and answers every call after it with that line.
-function sayWrite(what, t0, rep, failed) {
+// `write <what> <total> ms: evaluation (<its parts>), snapshot, change test, plan and write, tail -- <what it
+// wrote>`, the parts in ms as far as the write reached them, the evaluation's as its clock gives them
+// (clockText), and a table rewritten whole by name with the rows it took. The reason a write failed is in its
+// answer and not here: the router takes a line of an app's stderr that says "error:" as the app's failure,
+// and answers every call after it with that line.
+function sayWrite(what, clock, rep, failed) {
   const end = performance.now();
   const ms = (v) => String(Math.round(v));
   const of = (n, one) => n + " " + one + (n === 1 ? "" : "s");
-  const asked = typeof t0 === "number";
-  const laps = [["evaluation", asked && rep.start !== undefined ? rep.start - t0 : undefined],
+  const asked = !!clock && typeof clock.t0 === "number";
+  const parts = asked ? clockText(clock) : "";
+  const laps = [["evaluation", asked && rep.start !== undefined ? rep.start - clock.t0 : undefined],
     ["snapshot", rep.snapshot], ["change test", rep.change], ["plan and write", rep.write], ["tail", rep.tail]]
-    .filter((l) => l[1] !== undefined).map((l) => l[0] + " " + ms(l[1]));
+    .filter((l) => l[1] !== undefined).map((l) => l[0] + " " + ms(l[1]) + (l[0] === "evaluation" && parts ? " (" + parts + ")" : ""));
   const whole = rep.rewrote || [];
   const wrote = failed ? failed
     : rep.moved === undefined ? "no store to write"
@@ -4780,20 +4869,21 @@ function sayWrite(what, t0, rep, failed) {
     : of(rep.moved, "population") + " moved, " + of(rep.written - whole.reduce((s, r) => s + r[1], 0), "row")
       + " deleted or inserted in " + of(rep.byRow, "table") + " by row"
       + (whole.length ? ", rewritten whole: " + whole.map((r) => r[0] + " " + r[1]).join(", ") : "");
-  const begin = asked ? t0 : rep.start !== undefined ? rep.start : end;
+  const begin = asked ? clock.t0 : rep.start !== undefined ? rep.start : end;
   console.error("write " + String(what || "") + " " + ms(end - begin) + " ms" + (laps.length ? ": " + laps.join(", ") : "") + " -- " + wrote);
 }
 const notCommitted = (why) => JSON.stringify(["not_committed", why]);
 // <main:api's answer>: the store it made adopted, the rows a write moved stored, and <body, status> to answer.
-// <what> and <t0> are the request and when it was asked, for the line the write logs (storeWrite).
-function answerWrite(out, what, t0) {
+// <what> and <clock> are the request and its clock, for the line the write logs (storeWrite).
+function answerWrite(out, what, clock) {
   let body = String(out[0]), status = Number(out[1]) || 500;
   if (out.length > 2) {
     const wrote = Number(out[1]) < 400;   // a refusal made no successor
     const prior = CELLS.slice();
     adoptStore(out[2]);
+    clockLap(clock, "adopt");
     if (wrote) {
-      const why = storeWrite(prior, what, t0);
+      const why = storeWrite(prior, what, clock);
       if (why === null) maybePerform(prior, CELLS);
       else { body = notCommitted(why); status = 500; }
     }
@@ -4863,14 +4953,16 @@ function writeBack(done, log) {
       if (!Array.isArray(a) || a.length < 2) continue;
       const ft = String(a[0]);
       const args = a.slice(1).map(String);
-      const t0 = performance.now();
+      const clock = clockStart();
       const prior = CELLS.slice();
       let out;
       try { out = Ev("main:api", [CELLS, "POST", ft, SYSTEM_LOGIN, args]); }
       catch (e) { say("write-back threw on " + ft + ": " + String((e && e.message) || e)); continue; }
+      finally { clockLap(clock, "lambda"); }
       if (out.length > 2 && Number(out[1]) < 400) {
         adoptStore(out[2]);
-        const why = storeWrite(prior, "write-back POST " + ft, t0);
+        clockLap(clock, "adopt");
+        const why = storeWrite(prior, "write-back POST " + ft, clock);
         if (why === null) say("wrote back " + JSON.stringify([ft].concat(args)));
         else say("write-back NOT COMMITTED " + ft + ": " + why.slice(0, 300));
       } else {
@@ -5090,9 +5182,12 @@ function run_serve() {
       // what makes main:performed evaluate: Ev memoises on the store REFERENCE.
       // And a write takes no snapshot either: emitToDb compares the cells the write
       // replaced against the copy (popSnapshotMoved).
-      const t0 = performance.now();
-      const out = await readThrough(Ev("main:api", [CELLS, req.method, resource, caller, fact]), req.method, resource, caller, raw);
-      const [body, status] = answerWrite(out, req.method + " " + resource, t0);
+      const clock = clockStart();
+      let answer;
+      try { answer = Ev("main:api", [CELLS, req.method, resource, caller, fact]); } finally { clockLap(clock, "lambda"); }
+      const out = await readThrough(answer, req.method, resource, caller, raw);
+      clockLap(clock, "read");
+      const [body, status] = answerWrite(out, req.method + " " + resource, clock);
       memoReleaseWhenIdle(console.log);
       return new Response(body, {
         status,
@@ -5458,14 +5553,16 @@ function run_mcp() {
       // serving tail would not. The store is copied BEFORE the evaluation, because
       // adoptStore replaces CELLS in place and main:performed compares the two; and
       // the report goes to stderr, because stdout here is the protocol.
-      const t0 = performance.now();
+      const clock = clockStart();
       const prior = CELLS.slice();
-      const out = Ev("main:as", [CELLS, String(a.caller || ""), [String(name)].concat(rest)]);
+      let out;
+      try { out = Ev("main:as", [CELLS, String(a.caller || ""), [String(name)].concat(rest)]); } finally { clockLap(clock, "lambda"); }
       const held = String(out[1]) === "T";
       if (out.length > 2) {
         adoptStore(out[2]);
+        clockLap(clock, "adopt");
         if (held) {
-          const why = storeWrite(prior, String(name), t0);
+          const why = storeWrite(prior, String(name), clock);
           if (why !== null) return [notCommitted(why), 500];
           maybePerform(prior, CELLS, console.error);
         }
@@ -5493,14 +5590,17 @@ function run_mcp() {
       }
     }
     // no dispatch: the resource IS the fact type and the method IS the operation
-    const t0 = performance.now();
-    const out = Ev("mcp:call", [
-      method,
-      resource,
-      String(a.caller || ""),
-      fact,
-      CELLS,
-    ]);
+    const clock = clockStart();
+    let out;
+    try {
+      out = Ev("mcp:call", [
+        method,
+        resource,
+        String(a.caller || ""),
+        fact,
+        CELLS,
+      ]);
+    } finally { clockLap(clock, "lambda"); }
     // a POST answers a third part, the store it made; adopting it is what
     // makes a tool call persist. It is not part of the reply. The snapshot is
     // taken here, after the evaluation and before the adoption, as the verb
@@ -5514,8 +5614,9 @@ function run_mcp() {
       const wrote = Number(out[1]) < 400;
       const prior = CELLS.slice();
       adoptStore(out[2]);
+      clockLap(clock, "adopt");
       if (wrote) {
-        const why = storeWrite(prior, method + " " + resource, t0);
+        const why = storeWrite(prior, method + " " + resource, clock);
         if (why !== null) return [notCommitted(why), 500];
         maybePerform(prior, CELLS, console.error);
       }
