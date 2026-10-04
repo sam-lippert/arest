@@ -1009,8 +1009,37 @@ const PEERATOMS = new WeakMap();
 let ORHEADS = new WeakMap(), ORROWS = new WeakMap();
 function onReadHeads(store) {
   let s = ORHEADS.get(store);
-  if (s === undefined) { s = new Set(seq(Ev(DEFS.get("derive:or_heads"), store)).map(String)); ORHEADS.set(store, s); }
+  if (s === undefined) { s = new Set(seq(orHeadsOf(store)).map(String)); ORHEADS.set(store, s); }
   return s;
+}
+// derive:or_heads <store> reads the store through its derivation marks (state:derived), its rules (state:rules,
+// beside the constant rules:metamodel) and the rows of the three fact types derive:wr_named reads (Event Type
+// is classified, the transitions' triggers, the guards' fact types), and through nothing else: so the answer is
+// kept by those, the two cells by identity and the rows by value, and every store a write or a law makes over
+// one schema computes it once. Under the profiler the law report spent most of its time recomputing it, one
+// store at a time (2026-10-04, task #172).
+const ORHEADSOF = new Map();
+const CELLIDS = new WeakMap(); let CELLIDN = 0;
+function cellId(v) {
+  if (!Array.isArray(v)) return "a" + String(v);
+  let n = CELLIDS.get(v);
+  if (n === undefined) { n = ++CELLIDN; CELLIDS.set(v, n); }
+  return "c" + n;
+}
+function orHeadsOf(store) {
+  const def = () => Ev(DEFS.get("derive:or_heads"), store);
+  if (!Array.isArray(store)) return def();
+  const fetch = FASTPRIMS.get("ast:fetch");
+  const raw = (n) => Ev(DEFS.get("derive:raw_rows"), [n, store]);
+  const key = cellId(fetch(["state:derived", store])) + "|" + cellId(fetch(["state:rules", store])) + "|"
+    + JSON.stringify([raw("EventTypeIsClassified"), raw("TransitionIsTriggeredByEventType"), raw("GuardReferencesFactType")]);
+  let v = ORHEADSOF.get(key);
+  if (v === undefined) {
+    v = def();
+    if (ORHEADSOF.size >= 64) ORHEADSOF.clear();
+    ORHEADSOF.set(key, v);
+  }
+  return v;
 }
 function onReadRows(name, store) {
   let m = ORROWS.get(store);
@@ -2629,6 +2658,7 @@ const FASTPRIMS = new Map(Object.entries({
   "derive:on_read": x => {
     if (!Array.isArray(x) || x.length !== 2 || !Array.isArray(x[1])) return Ev(DEFS.get("derive:on_read"), x);
     return onReadRows(x[0], x[1]); },
+  "derive:or_heads": x => orHeadsOf(x),
   "main:or_has": x => {
     if (!Array.isArray(x) || x.length !== 3 || !Array.isArray(x[2])) return Ev(DEFS.get("main:or_has"), x);
     return onReadAtoms(x[1], x[2]).has(keyOf(x[0])) ? "T" : "F"; },
