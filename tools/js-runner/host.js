@@ -4528,6 +4528,11 @@ function run_cli() {
   // while the entry module evaluates -- which is where this runs -- to no uncaughtException
   // handler, so AREST_STACK printed nothing for a CLI run. A release module drops the catch line
   // and keeps the try whole with its finally.)
+  // AREST_REFLECT_NOW=1 under the profiler takes one whole reflection pass over the store as booted, before the address,
+  // and names each cell it would add -- its rows against the store's, as sets, with some of each side's own -- then
+  // whether a second pass over its answer adds any: whether a store a start reads is one the reflection leaves as it
+  // is, which a server's first write relies on (REFLECTED_AT, 2026-10-04)
+  if (PROFILE && process.env.AREST_REFLECT_NOW) { const t = performance.now(); const nw = seq(Ev("store:refl_new", CELLS)); const rows = (x) => (x === "#" ? null : seq(x)); const key = (rs) => JSON.stringify(rs.map((r) => JSON.stringify(r)).sort()); console.error("whole pass over the booted store: " + Math.round(performance.now() - t) + " ms, " + nw.length + " cell(s) added: " + nw.map((c) => { const had = rows(Ev("store:cell_rows", [c[0], CELLS])), now = seq(c[1]); const hk = new Set((had || []).map((r) => JSON.stringify(r))), nk = new Set(now.map((r) => JSON.stringify(r))); const extra = now.filter((r) => !hk.has(JSON.stringify(r))), gone = (had || []).filter((r) => !nk.has(JSON.stringify(r))); return String(c[0]) + " " + now.length + (had === null ? " (none held)" : " (held " + had.length + (key(had) === key(now) ? ", the same rows in another order" : ", " + extra.length + " not held, e.g. " + JSON.stringify(extra.slice(0, 12)) + "; " + gone.length + " held and not reflected, e.g. " + JSON.stringify(gone.slice(0, 12))) + ")"); }).join("; ")); const r = Ev("store:reflect_pass", [CELLS, [], [], []]); adoptClosed(r[0][0]); const t2 = performance.now(); const nw2 = seq(Ev("store:refl_new", CELLS)); console.error("a second whole pass over its answer: " + Math.round(performance.now() - t2) + " ms, " + nw2.length + " cell(s) added: " + nw2.map((c) => String(c[0])).join(", ")); } // @instrument
   let out;
   try { out = Ev("main", [CELLS, process.argv.slice(2)]); }
   catch (e) { if (STACKS) console.error("lambda stack at throw: " + ((e && e.lambdaStack) || "(no lambda frame)")); throw e; } // @instrument
@@ -6671,6 +6676,7 @@ function loadStoreDb(path, opts) {
   // evaluator's own function two thousand lines up and was shadowed here.)
   let builtFrom = null;
   try { builtFrom = (db.query("select hash from _composition").get() || {}).hash; } catch { /* predates the stamp */ }
+  STORE_BUILT_FROM = builtFrom || null;
   if (missing.length) {
     const { createHash } = require("node:crypto");
     const schemaHash = (m) => {
@@ -6912,6 +6918,17 @@ function adoptClosed(next) {
 // again, a write that is refused, a write that changes nothing. A pass that adds cells leaves no such store, so
 // the next write's store is reflected as before.
 let REFLECTED_AT = null;
+// AND A STORE THIS COMPOSITION BUILT IS ONE ITS REFLECTION LEAVES AS IT IS (2026-10-04). A start computes nothing and
+// reads the tables (boot), and the tables hold the closure the check took and every write's reflection since, each
+// emitted by this composition's lambda. So the store a start reads is the store the last pass left as it was, and
+// it is kept as one (boot): a server's first write is reflected from it, over the arms whose reads it moved, where it
+// was reflected whole -- about a second on support.auto.dev, at the first write of every server, since one idle for
+// ten minutes stops. That holds of a store whose rows read back as the reflection wrote them, which two defects
+// broke (store:same_rows and reflect:fbd_unowned, lambda's notes); MEASURED after them on support's store as
+// booted, a whole pass adds no cell. A store another composition built is read too (loadStoreDb: the schema fits,
+// so the tables are read), but its reflection is that build's, so it is reflected whole at its first write, as
+// every store was. Which composition built the store, from its _composition row:
+let STORE_BUILT_FROM = null;
 // AND A STORE IS ITS CELLS BY NAME (2026-10-03). The state is a sequence of cells fetched and stored by name
 // (AREST.tex, after Backus 13.3.4 and 14.3), and the emit's store:src_all puts the cells it re-sources first, so the
 // store after a write's emit is often the store its first reflection left as it was, in another order: on a copy of
@@ -6977,13 +6994,14 @@ function loadReflected(since) {
     added += n;
     adoptClosed(r[0][0]);
     for (const nm of seq(r[0][1])) REFLECTED_NAMES.add(String(nm));
-    // A WHOLE PASS THAT ADDS CELLS IS NOT GONE ON FROM (2026-10-03). Its cells are the store's whole reflection --
-    // a compile's first, or a boot's -- and store:reflect_since recurses over what moved, which is built for a
-    // write's few cells, not a whole reflection. It stops there, as every pass that added cells did before
-    // 24c0ed89, and the next adoption reflects whole; an incremental pass, whose cells are a write's, goes on. A
-    // precaution, not the cure of an observed failure: the stack overflow support's check showed that day was
-    // reproduced at 4ba5d6a1, before 24c0ed89 (see this comment's commit).
-    if (!incremental) break;
+    // AND A WHOLE PASS THAT ADDS CELLS IS GONE ON FROM TOO (2026-10-04). It stopped there, as a precaution: its
+    // cells were taken for a store's whole reflection -- a compile's first, or a boot's -- where store:reflect_since
+    // is built for a write's few. But this reflects only once BOOTED, over a store the boot closed (store:close) or
+    // read from its tables, and neither reflects here: a compile closes in lambda, and a start computes nothing. So
+    // a whole pass adds a write's cells, and stopping left the store after it unkept, so the emit's re-sourced store
+    // was reflected whole again. MEASURED on support.auto.dev before this, a server's first write after a boot
+    // reflected whole twice (1,058 and 1,014 ms) and its second write once (992 ms). A whole pass after this is
+    // followed by one from the store it was over, as an incremental pass always was (law:reflect_next).
     from = at;
   }
   REFLECTED_AT = null;
@@ -7112,6 +7130,8 @@ function boot(mode) {
     // write that changes it; the tables ARE the state.
     lap("store-db");
     readVerdict();
+    // the store this composition built is one its reflection leaves as it is (see REFLECTED_AT)
+    if (COMPOSITION && STORE_BUILT_FROM === COMPOSITION) REFLECTED_AT = CELLS.slice();
   }
   else if (!schemaless) {
     loadFile(); lap("file");
