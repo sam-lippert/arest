@@ -1019,6 +1019,14 @@ function onReadRows(name, store) {
   if (rows === undefined) { rows = Ev(DEFS.get("derive:on_read"), [name, store]); m.set(name, rows); }
   return rows;
 }
+// main:or_has: the atoms of a head's computed rows, keyed as theta:member compares them, by the rows' identity
+const ORATOMS = new WeakMap();
+function onReadAtoms(name, store) {
+  const rows = onReadRows(name, store);
+  let s = ORATOMS.get(rows);
+  if (s === undefined) { s = new Set(); for (const r of seq(rows)) for (const a of seq(r)) s.add(keyOf(a)); ORATOMS.set(rows, s); }
+  return s;
+}
 // solve:readings by the identity of the state:readings cell it reads (see its twin)
 const READINGSOF = new WeakMap();
 function unfoldOnce(memo, name, x) {
@@ -2613,6 +2621,17 @@ const FASTPRIMS = new Map(Object.entries({
   // store computes on read is derive:on_read's rows before any cell is looked
   // at, as ast:FetchPop builds it (2026-10-04, task #172), kept by the store's
   // identity until a write moves it (onReadRows).
+  // derive:on_read <head, store> is a head's rows computed over the store, and main:or_has <id, head, store>
+  // whether they name the id: kept by the store's identity (onReadRows), and the atoms of the rows by theirs
+  // (onReadAtoms), so a store's links compute each head once and then look the id up (2026-10-04, task #172).
+  // The memo did not keep derive:on_read's answers -- whole populations, past its weight bound -- and the
+  // base law report's links computed it some 40,000 times. A malformed operand gives the DEF's own answer.
+  "derive:on_read": x => {
+    if (!Array.isArray(x) || x.length !== 2 || !Array.isArray(x[1])) return Ev(DEFS.get("derive:on_read"), x);
+    return onReadRows(x[0], x[1]); },
+  "main:or_has": x => {
+    if (!Array.isArray(x) || x.length !== 3 || !Array.isArray(x[2])) return Ev(DEFS.get("main:or_has"), x);
+    return onReadAtoms(x[1], x[2]).has(keyOf(x[0])) ? "T" : "F"; },
   "system:pop_in": x => { const name = at(x, 0), store = at(x, 1);
     if (Array.isArray(store) && onReadHeads(store).has(String(name))) return onReadRows(name, store);
     const fetch = FASTPRIMS.get("ast:fetch");
@@ -2674,12 +2693,15 @@ const FASTPRIMS = new Map(Object.entries({
     if (typeof id !== "string" || !Array.isArray(st) || st.length !== 2 || !Array.isArray(st[0])) return def();
     const has = (f) => Array.isArray(f) && f.some((v) => v === id);
     const byFt = LAZY_STORE.mentioning(id);
+    // a head the store computes on read keeps no table rows: store:read_state computed the rows of the ones
+    // the entity's types play into the descriptor, so those are its rows here, as they are in the DEF
+    const orh = onReadHeads(CELLS);
     const fts = [];
     for (const d of st[0]) {
       if (!Array.isArray(d) || d.length < 5) return def();
       const name = String(d[0]);
       let rows;
-      if (LAZY_STORE.present(name)) {
+      if (LAZY_STORE.present(name) && !orh.has(name)) {
         rows = byFt.get(name) || [];
         if (!rows.length) { const c = LAZY_STORE.carrier(name).filter(has); if (c.length && !LAZY_STORE.rowsOf(name).length) rows = c; }
       } else {
