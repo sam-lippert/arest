@@ -4532,6 +4532,10 @@ function run_cli() {
   try { out = Ev("main", [CELLS, process.argv.slice(2)]); }
   catch (e) { if (STACKS) console.error("lambda stack at throw: " + ((e && e.lambdaStack) || "(no lambda frame)")); throw e; } // @instrument
   finally { /* the throw, if any, goes on */ }
+  // AREST_REPEAT=<n> under the profiler asks the same address n times more, each with the DEF memo emptied as an idle
+  // server empties it (memoReleaseWhenIdle) and the profile cleared, so the table is a warm call's: what a served read
+  // costs once the store is loaded, which a cold CLI run cannot show (2026-10-04)
+  if (PROFILE && Number(process.env.AREST_REPEAT) > 0) for (let i = 0; i < Number(process.env.AREST_REPEAT); i++) { memoEmpty(); PROF.clear(); const t = performance.now(); Ev("main", [CELLS, process.argv.slice(2)]); console.error("repeat " + (i + 1) + ": " + Math.round(performance.now() - t) + " ms"); } // @instrument
   if (PROFILE) profReport("main"); // @instrument
   console.log(out[0]);
   process.exit(out[1] === "T" ? 0 : 1);
