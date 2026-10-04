@@ -6302,7 +6302,10 @@ function lazyStore(db, want) {
   const select = (table, where) => {
     selects++;
     const cols = want.get(table);
-    const rows = db.query("select " + cols.map((c) => '"' + c + '"').join(",") + ' from "' + table + '"' + (where || "")).values();
+    // IN ROWID ORDER, SAID (2026-10-04): a population's order was whatever plan SQLite chose for a bare select, and
+    // the scan for one id (mentioning) must find its rows in the order the whole read has them, which an index
+    // lookup does not; so both say the order, the order a table scan already gave.
+    const rows = db.query("select " + cols.map((c) => '"' + c + '"').join(",") + ' from "' + table + '"' + (where || "") + " order by rowid").values();
     const clean = rows.map((r) => r.map((v) => (v === null ? "#" : String(v))));
     const out = clean.length ? Ev("rmap:unproj", [table, clean, SCHEMA]) : [];
     // AND THE READ LEAVES NOTHING IN THE MEMO. The whole load clears the memo
@@ -6475,22 +6478,66 @@ function lazyStore(db, want) {
         const pk = Array.isArray(ctx) && Array.isArray(ctx[2]) ? ctx[2].map(String) : [];
         const keyCols = paths.map((p) => String(Array.isArray(p) ? p[0] : "")).filter((c) => pk.includes(c));
         if (ctx[3] === "T" && keyCols.length > 1 && keyCols.length === pk.length && keyCols.every((c) => cols.includes(c)))
-          sql = " or (" + keyCols.map((c) => '"' + c + '"').join(" || '.' || ") + ") = ?1";
+          sql = keyCols;
       } catch { sql = ""; }
     }
     objkeyAsk.set(table, sql);
     return sql;
+  };
+  // AND THE JOINED KEY IS ASKED BY ITS PARTS (2026-10-04). `(k1 || '.' || k2) = id` is an expression no index
+  // answers, so every objectified table keyed on two roles was read whole for every get: the four Object Type
+  // Instance tables were 21-34 ms each on support with both their columns indexed. The two columns join to the id
+  // exactly when the id splits at one of its dots into the two values, so each split is asked of the key itself,
+  // `(k1 = left and k2 = right)`, which the primary key answers; an id with no dot asks none. A key of three or
+  // more columns is asked joined, as before. <key columns, id> to <the SQL beside ?1, its parameters after the id>.
+  const objkeyAt = (kc, id) => {
+    if (!kc) return ["", []];
+    if (kc.length !== 2) return [" or (" + kc.map((c) => '"' + c + '"').join(" || '.' || ") + ") = ?1", []];
+    let sql = ""; const ps = [];
+    for (let i = id.indexOf("."); i >= 0; i = id.indexOf(".", i + 1)) {
+      ps.push(id.slice(0, i), id.slice(i + 1));
+      sql += ' or ("' + kc[0] + '" = ?' + ps.length + ' and "' + kc[1] + '" = ?' + (ps.length + 1) + ")";
+    }
+    return [sql, ps];
+  };
+  // A TABLE IS ASKED ONLY IN THE COLUMNS AN ENTITY CAN STAND IN (2026-10-04, task #175). get keeps a row only
+  // where the id fills a role an entity type plays (get:holds_at), so the scan needs no other column. Those are
+  // lambda's sqlite:typed_cols, and the compile indexes each of them that is not its table's leading key column
+  // (sqlite:index_ddl, `ix:<table>:<column>`), so a table is a lookup and not a scan of every row against every
+  // column. The list is read back from the indexes the store has, beside its key columns, in two statements:
+  // computing it in lambda for 647 tables took 3 s at a server's first get. A store compiled before the indexes
+  // has none, and every column is asked, as before; a table left no column and no joined key is not asked.
+  let ixCols = null;
+  const typedOf = new Map();
+  const askedCols = (table, cols) => {
+    if (ixCols === null) {
+      ixCols = new Map();
+      const add = (t, c) => { let s = ixCols.get(String(t)); if (!s) ixCols.set(String(t), (s = new Set())); s.add(String(c)); };
+      try {
+        for (const r of db.query("select m.tbl_name t, i.name c from sqlite_master m join pragma_index_info(m.name) i where m.type = 'index' and m.name like 'ix:%'").values()) add(r[0], r[1]);
+        if (ixCols.size) for (const r of db.query("select m.name t, c.name c from sqlite_master m join pragma_table_info(m.name) c where m.type = 'table' and c.pk > 0").values()) add(r[0], r[1]);
+      } catch { ixCols = new Map(); }
+    }
+    let at = typedOf.get(table);
+    if (at === undefined) {
+      const s = ixCols.get(table);
+      at = !ixCols.size ? cols : s ? cols.filter((c) => s.has(c)) : [];
+      typedOf.set(table, at);
+    }
+    return at;
   };
   const mentioning = (id) => {
     const byFt = new Map();
     const per = []; // @instrument
     for (const [table, cols] of want) {
       if (!carried.has(table) && !relTables.has(table)) continue;
+      const at = askedCols(table, cols), [ok, ps] = objkeyAt(objkeyOf(table, cols), id);
+      if (!at.length && !ok) continue;
       scans++;
       const tq = performance.now(); // @instrument
       const rows = db.query("select " + cols.map((c) => '"' + c + '"').join(",") + ' from "' + table + '" where '
-        + cols.map((c) => '"' + c + '" = ?1').join(" or ") + objkeyOf(table, cols)).values(id);
-      per.push([performance.now() - tq, table, cols.length]); // @instrument
+        + (at.length ? at.map((c) => '"' + c + '" = ?1').join(" or ") + ok : "?1 is null" + ok) + " order by rowid").values(id, ...ps);
+      per.push([performance.now() - tq, table, at.length]); // @instrument
       if (!rows.length) continue;
       const clean = rows.map((r) => r.map((v) => (v === null ? "#" : String(v))));
       for (const pr of Ev("rmap:unproj", [table, clean, SCHEMA])) {
@@ -6501,6 +6548,7 @@ function lazyStore(db, want) {
     }
     for (const k of [...EVMEMO.keys()]) if (typeof k === "string" && k.startsWith("rmap:unproj")) memoForget(k);
     if (PROFILE) console.error("mentioning: " + per.length + " table(s), " + Math.round(per.reduce((a, p) => a + p[0], 0)) + " ms in SQL; " + per.sort((a, b) => b[0] - a[0]).slice(0, 8).map((p) => p[1] + " " + Math.round(p[0]) + " ms/" + p[2] + " cols").join(", ")); // @instrument
+    if (PROFILE) console.error("mentioning: indexed columns of " + ixCols.size + " table(s); the slowest asks " + per.slice(0, 2).map((p) => p[1] + " [" + [...(ixCols.get(p[1]) || [])].join(",") + "] " + JSON.stringify(db.query("explain query plan select 1 from \"" + p[1] + "\" where " + askedCols(p[1], want.get(p[1]) || []).map((c) => '"' + c + '" = ?1').join(" or ")).all("x").map((r) => r.detail))).join("; ")); // @instrument
     return byFt;
   };
   // the carriers' rows for a fact type, unfolded: what a descriptor's fifth slot answers
