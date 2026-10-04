@@ -2722,7 +2722,9 @@ const FASTPRIMS = new Map(Object.entries({
     const id = x[0], st = x[1];
     if (typeof id !== "string" || !Array.isArray(st) || st.length !== 2 || !Array.isArray(st[0])) return def();
     const has = (f) => Array.isArray(f) && f.some((v) => v === id);
+    const tm0 = performance.now(); // @instrument
     const byFt = LAZY_STORE.mentioning(id);
+    if (PROFILE) console.error("get: mentioning " + Math.round(performance.now() - tm0) + " ms, " + byFt.size + " fact type(s)"); // @instrument
     // a head the store computes on read keeps no table rows: store:read_state computed the rows of the ones
     // the entity's types play into the descriptor, so those are its rows here, as they are in the DEF
     const orh = onReadHeads(CELLS);
@@ -3684,6 +3686,10 @@ const WKEYED = [
   ["derive:rule_news", "heads", (x) => x[0][0]],
   ["cmd:dec_one", "deciders", (x) => x[0][1]],
   ["cmd:viol_for", "uniqueness by fact type", (x) => x[0]],
+  // and a deontic row's check and a subset row's to the row they check, by its name (2026-10-04: with the
+  // deciders at a few ms, a support write's validation is mostly these two arms, and no line said whose)
+  ["cmd:dv_row", "deontics", (x) => x[1][0]],
+  ["cmd:sc_row", "subsets", (x) => x[1][2][0][0]],
 ];
 for (const [def, label, keyOf] of WKEYED) if (!FASTPRIMS.has(def)) FASTPRIMS.set(def, (x) => {
   const c = WCLOCK;
@@ -5661,7 +5667,7 @@ function run_mcp() {
           if (why !== null) return [notCommitted(why), 500];
           maybePerform(prior, CELLS, console.error);
         }
-      }
+      } else readLine(String(name), clock);
       return [out[0], held ? 200 : 500];
     }
     const method = String(a.method || METHODS[0]);
@@ -5717,7 +5723,15 @@ function run_mcp() {
       }
       return [out[0], out[1]];
     }
+    readLine(method + " " + resource, clock);
     return out;
+  }
+  // A READ IS TIMED AS A WRITE IS (2026-10-04). A served write logs its clock (storeWrite) and a read
+  // logged nothing, so how fast an app browses could only be guessed from outside. `read <verb> <ms> ms`
+  // names the verb, or the method and the fact type, and never a value: an id or an address can be a
+  // customer's.
+  function readLine(what, clock) {
+    console.error("read " + what + " " + Math.round(clock.lambda || 0) + " ms");
   }
 
   // THREE STEPS OVER MACHINERY THAT EXISTS: read what awaits, ask the client for
@@ -6465,11 +6479,14 @@ function lazyStore(db, want) {
   };
   const mentioning = (id) => {
     const byFt = new Map();
+    const per = []; // @instrument
     for (const [table, cols] of want) {
       if (!carried.has(table) && !relTables.has(table)) continue;
       scans++;
+      const tq = performance.now(); // @instrument
       const rows = db.query("select " + cols.map((c) => '"' + c + '"').join(",") + ' from "' + table + '" where '
         + cols.map((c) => '"' + c + '" = ?1').join(" or ") + objkeyOf(table, cols)).values(id);
+      per.push([performance.now() - tq, table, cols.length]); // @instrument
       if (!rows.length) continue;
       const clean = rows.map((r) => r.map((v) => (v === null ? "#" : String(v))));
       for (const pr of Ev("rmap:unproj", [table, clean, SCHEMA])) {
@@ -6479,6 +6496,7 @@ function lazyStore(db, want) {
       }
     }
     for (const k of [...EVMEMO.keys()]) if (typeof k === "string" && k.startsWith("rmap:unproj")) memoForget(k);
+    if (PROFILE) console.error("mentioning: " + per.length + " table(s), " + Math.round(per.reduce((a, p) => a + p[0], 0)) + " ms in SQL; " + per.sort((a, b) => b[0] - a[0]).slice(0, 8).map((p) => p[1] + " " + Math.round(p[0]) + " ms/" + p[2] + " cols").join(", ")); // @instrument
     return byFt;
   };
   // the carriers' rows for a fact type, unfolded: what a descriptor's fifth slot answers
