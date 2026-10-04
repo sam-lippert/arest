@@ -1004,6 +1004,21 @@ function filterSel(x) {
 const UNFOLDROWS = new WeakMap(), UNFOLDDESCS = new WeakMap();
 // nav:keep_peer: the keys of a FILE cell's atoms, or null when its contents are no trie, by the contents' identity
 const PEERATOMS = new WeakMap();
+// system:pop_in: the heads a store computes on read (derive:or_heads) and the rows each one computes to
+// (derive:on_read), by the store's identity; memoClear drops both when a write moves the store
+let ORHEADS = new WeakMap(), ORROWS = new WeakMap();
+function onReadHeads(store) {
+  let s = ORHEADS.get(store);
+  if (s === undefined) { s = new Set(seq(Ev(DEFS.get("derive:or_heads"), store)).map(String)); ORHEADS.set(store, s); }
+  return s;
+}
+function onReadRows(name, store) {
+  let m = ORROWS.get(store);
+  if (m === undefined) { m = new Map(); ORROWS.set(store, m); }
+  let rows = m.get(name);
+  if (rows === undefined) { rows = Ev(DEFS.get("derive:on_read"), [name, store]); m.set(name, rows); }
+  return rows;
+}
 // solve:readings by the identity of the state:readings cell it reads (see its twin)
 const READINGSOF = new WeakMap();
 function unfoldOnce(memo, name, x) {
@@ -1519,7 +1534,7 @@ function memoReleaseWhenIdle(say) {
   }, Number(process.env.AREST_MEMO_IDLE_MS || 5000));
   if (MEMO_IDLE.unref) MEMO_IDLE.unref();
 }
-function memoClear() { memoEmpty(); DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MATCHPROV = new WeakMap(); KEYIDX = new WeakMap(); KEYPROV = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); PROJPLAN = new WeakMap(); }
+function memoClear() { memoEmpty(); ORHEADS = new WeakMap(); ORROWS = new WeakMap(); DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MATCHPROV = new WeakMap(); KEYIDX = new WeakMap(); KEYPROV = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); PROJPLAN = new WeakMap(); }
 // the rows of `rows` whose first column equals `key`, in source order -- the value
 // of csdp:matches (INSERT csdp:keep_keyed . theta:append_phi . distl). The fold
 // visits every row, so a row that is not a sequence, or is empty, throws the
@@ -2594,8 +2609,12 @@ const FASTPRIMS = new Map(Object.entries({
   // contents> becomes name before each row of its contents unfolded
   // (ast:pop_sub: nothing is one empty row, cells recurse, an atom is a
   // one-atom row, a row is itself); an atom row is a one-atom row; a row is
-  // itself. The lookups are ast:fetch's twin, the first cell named.
+  // itself. The lookups are ast:fetch's twin, the first cell named. A head the
+  // store computes on read is derive:on_read's rows before any cell is looked
+  // at, as ast:FetchPop builds it (2026-10-04, task #172), kept by the store's
+  // identity until a write moves it (onReadRows).
   "system:pop_in": x => { const name = at(x, 0), store = at(x, 1);
+    if (Array.isArray(store) && onReadHeads(store).has(String(name))) return onReadRows(name, store);
     const fetch = FASTPRIMS.get("ast:fetch");
     const top = fetch([name, store]);
     if (top !== "#") return top;
