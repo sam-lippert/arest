@@ -6837,10 +6837,11 @@ function loadReflected(since) {
     adoptClosed(r[0][0]);
     for (const nm of seq(r[0][1])) REFLECTED_NAMES.add(String(nm));
     // A WHOLE PASS THAT ADDS CELLS IS NOT GONE ON FROM (2026-10-03). Its cells are the store's whole reflection --
-    // a compile's first, or a boot's -- and store:reflect_since recurses over what moved, so going on from the
-    // store it was over overflowed the stack in support.auto.dev's check (compile-store, exit 1). It stops there,
-    // as every pass that added cells did before 24c0ed89, and the next adoption reflects whole; an incremental
-    // pass, whose cells are a write's, goes on.
+    // a compile's first, or a boot's -- and store:reflect_since recurses over what moved, which is built for a
+    // write's few cells, not a whole reflection. It stops there, as every pass that added cells did before
+    // 24c0ed89, and the next adoption reflects whole; an incremental pass, whose cells are a write's, goes on. A
+    // precaution, not the cure of an observed failure: the stack overflow support's check showed that day was
+    // reproduced at 4ba5d6a1, before 24c0ed89 (see this comment's commit).
     if (!incremental) break;
     from = at;
   }
