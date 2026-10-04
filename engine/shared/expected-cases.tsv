@@ -743,7 +743,7 @@ case:a-query-joins-a-fully-derived-head-with-an-asserted-one	"(('t1', 'Applied',
 case:reads-pairwith-one-source	"('F1')"
 case:reads-calc-one-source	"('F1')"
 case:reads-starts-one-source	"('F1')"
-case:an-ask-reads-a-fully-derived-head-as-the-store-holds-it	"(('ThingIsInStatus', (('t1', 'Applied'), ('t9', 'Stale'))))"
+case:an-ask-reads-a-fully-derived-head-as-its-rule-computes-it	"(('ThingIsInStatus', (('t1', 'Applied'))))"
 case:derive-starts-a-head-it-owns-from-nothing	"(('t1', 'Applied'))"
 case:derive-is-handed-the-asserted-populations	"'asserted-populations'"
 case:verb-taking-descriptors-is-handed-the-fact-types	"(('AHasB', ('A', 'B'), ((1, 2)), (), (('x', '1'))))"
