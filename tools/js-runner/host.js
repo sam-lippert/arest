@@ -2813,6 +2813,59 @@ const FASTPRIMS = new Map(Object.entries({
     }
     return out;
   },
+  // main:re_gone_rows <rows, players, id, kinds> IS ONE PASS OVER THE ROWS (2026-10-05). The DEF tests each row with
+  // main:re_rowp, a trans and a distr per row and a COND, an eq and a theta:member per value: an entity retract on
+  // support.auto.dev tested 416,119 rows so, 6.1 s of the 14.9 s it took under the profiler. This is the same test:
+  // a row is kept when it has the players' length and holds the id at a position whose player is of kind entity
+  // (main:re_hit, the id an atom so a value equal to it is one), in the rows' order. An id that is not text, rows,
+  // players or a row that is no sequence, and AREST_NOTWIN=main:re_gone_rows give the DEF's answer.
+  "main:re_gone_rows": x => {
+    const def = () => Ev(DEFS.get("main:re_gone_rows"), x);
+    if (!Array.isArray(x) || x.length !== 4 || !Array.isArray(x[0]) || !Array.isArray(x[1]) || typeof x[2] !== "string") return def();
+    const rows = x[0], players = x[1], id = x[2], kinds = x[3];
+    if (!rows.every(Array.isArray)) return def();
+    const at = [];
+    for (let k = 0; k < players.length; k++) if (Ev("theta:member", [[players[k], "entity"], kinds]) === "T") at.push(k);
+    const out = [];
+    if (at.length) for (const r of rows) if (r.length === players.length && at.some((k) => r[k] === id)) out.push(r);
+    return out;
+  },
+  // main:re_facts <store, id> OVER A STORE READ FROM ITS TABLES READS ONLY THE ROWS THAT NAME THE ID (2026-10-05). The
+  // DEF asks main:re_gone of every declared fact type, which reads its population whole: an entity retract on
+  // support.auto.dev read every table it had not read (rmap:unproj 2.7 s under the profiler) to find one id's facts
+  // in nine fact types. A top-level cell the lazy store has not yet read, of a fact type no write has moved
+  // (pending), holds once read its fact type's rows as the tables hold them, so the rows of it that hold the id are
+  // the scan's for that id (lazyStore's mentioning, as the get and nav:peers twins read it), in the population's
+  // order, and main:re_gone_rows keeps of them what the DEF keeps; such a cell is left unread. A fact type the
+  // tables carry and yield nothing for, whose carriers' rows hold the id, any other cell -- read already, a write's
+  // own, a head computed on read -- and a fact type with no top-level cell are asked of main:re_gone, as the DEF
+  // asks them. An id that is not text, a store not read from its tables, and AREST_NOTWIN=main:re_facts give the
+  // DEF's own route.
+  "main:re_facts": x => {
+    const def = () => Ev(DEFS.get("main:re_facts"), x);
+    if (!LAZY_STORE || typeof LAZY_STORE.pending !== "function" || !Array.isArray(x) || x.length !== 2) return def();
+    const store = x[0], id = x[1];
+    if (typeof id !== "string" || !Array.isArray(store)) return def();
+    const top = new Map();
+    for (const c of store) if (Array.isArray(c) && c.length === 3 && c[0] === "CELL" && typeof c[1] === "string" && !top.has(c[1])) top.set(c[1], c);
+    const orh = onReadHeads(store);
+    const kinds = Ev("main:re_kinds", store);
+    const has = (f) => Array.isArray(f) && f.some((v) => v === id);
+    let byFt = null;
+    const out = [];
+    for (const ft of seq(Ev("main:declared_names", store))) {
+      const name = String(ft), c = top.get(name);
+      let rows;
+      if (c !== undefined && LAZY_STORE.pending(c) && LAZY_STORE.present(name) && !orh.has(name)) {
+        if (!byFt) byFt = LAZY_STORE.mentioning(id);
+        const got = byFt.get(name);
+        if (got === undefined && LAZY_STORE.carrier(name).some(has)) rows = Ev("main:re_gone", [store, ft, id, kinds]);
+        else rows = got === undefined ? [] : Ev("main:re_gone_rows", [got, Ev("main:cr_players", [store, ft]), id, kinds]);
+      } else rows = Ev("main:re_gone", [store, ft, id, kinds]);
+      if (seq(rows).length) out.push([ft, rows]);
+    }
+    return out;
+  },
   "store:fix_desc": d => {
     if (!Array.isArray(d) || d.length < 5) return Ev(DEFS.get("store:fix_desc"), d);
     if (!LAZY_STORE) return [d[0], d[1], d[2], d[3], Ev("theta:unfold_rows", d[4])];
