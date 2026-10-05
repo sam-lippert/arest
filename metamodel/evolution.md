@@ -274,7 +274,17 @@ It is obligatory that each Domain Change has exactly one Rationale.
      is - a join through `User is a role of Object Type Instance` - not
      about how many there are. It belongs in its own sentence, against a
      fact type that carries it, and is not smuggled into a cardinality. -->
-It is obligatory that for each applied Domain Change, some User approves that Domain Change.
+It is obligatory that if some Domain Change is applied then some User approves that Domain Change.
+<!-- Restated 2026-10-05 (task #186; Sam: "Deontics should work"). It read
+     "It is obligatory that for each applied Domain Change, some User
+     approves that Domain Change". The reader matched Domain Change in the
+     subject, dropped `applied`, and marked a mandatory on every Domain
+     Change's role in User approves Domain Change; that mark was checked by
+     nothing until now, and checked it would have warned for every Domain
+     Change not yet approved, applied or not. A for-each subject with a word
+     that names no object type is now reported UNBUILT. The conditional form
+     says the rule as written and builds it: a deontic subset, each applied
+     Domain Change among those some User approves. -->
 
 ## Ring Constraints
 

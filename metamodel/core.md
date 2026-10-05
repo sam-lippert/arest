@@ -600,23 +600,22 @@ Subtype Fact provides preferred identifier.
 ### Role
 Constraint spans Role.
   Each Constraint, Role combination occurs at most once in the population of Constraint spans Role.
-  <!-- "Each Constraint spans some Role." stood here as an alethic
-       mandatory. Sam, 2026-10-05: "a constraint has multiple spans because
-       of subsets, equality, other comparators, etc. There should be a
-       deontic warning on constraints with unfilled roles, but it's valid to
-       want to keep the constraint and span it across different roles after
-       a delete". The mandatory made the retract of a Constraint's last span,
-       or of the Role that span named, take the Constraint with it
-       (main:rc_mand). Now the Constraint stays, and the warning is
+  It is obligatory that each Constraint spans some Role.
+  <!-- An obligation, not a mandatory (Sam, 2026-10-05): "a constraint has
+       multiple spans because of subsets, equality, other comparators, etc.
+       There should be a deontic warning on constraints with unfilled roles,
+       but it's valid to want to keep the constraint and span it across
+       different roles after a delete". As the alethic "Each Constraint
+       spans some Role." it made the retract of a Constraint's last span, or
+       of the Role that span named, take the Constraint with it
+       (main:rc_mand). Now the Constraint stays, and while it spans no Role
+       it carries this violation, a warning. A Constraint that spans some
+       Role but leaves a role of its sequences unfilled is
        'constraint-roles-filled' (Check-Readings Deontic Obligations, Layer
-       4): an obligation decided by a function, for a Constraint that spans
-       no Role as for one whose role sequences leave a role unfilled.
-
-       Stated as "It is obligatory that each Constraint spans some Role."
-       the sentence compiles to the mark DEO:m:ConstraintSpansRole#1, which
-       nothing checks: the objectification below renames the fact type
-       ConstraintSpan after the mark is made, so its leg names a fact type
-       no population holds (task #186).
+       4). Until task #186 this sentence compiled to a mark nothing checked:
+       the objectification below renamed the fact type after the mark was
+       made, and a mark over an objectified fact type named the link fact
+       type, which no population holds.
 
        NORMA keeps a set comparison constraint whose role sequence lost its
        last role, and reports TooFewRoleSequencesError, but deletes a set
@@ -1538,23 +1537,24 @@ Predicate 'decide:ring_same_type' has Symbol Name 'decide:ring_same_type'.
      Constraint whose spans or Roles went (the note at Constraint spans
      Role), so what a delete leaves behind is warned of here.
 
-     DECIDED BY A FUNCTION. A span is numbered by its Sequence Number and
-     Position (1.1, 1.2, 2.1), and decide:unfilled_roles in lambda answers
-     each Constraint that spans no Role; whose numbered spans leave a hole,
+     A Constraint that spans no Role at all is the obligation at Constraint
+     spans Role. DECIDED BY A FUNCTION. A span is numbered by its Sequence
+     Number and Position (1.1, 1.2, 2.1), and decide:unfilled_roles in
+     lambda answers each Constraint that spans some Role and whose numbered
+     spans leave a hole,
      a sequence below its highest or a position below the highest of its
      sequence; one of whose sequences lacks a position the next or the one
      before it has, since every sequence of a constraint holds as many roles
      as the others; that is a subset, equality or exclusion constraint with
      fewer than two sequences; or that is a value comparison, exclusive-or
-     or inclusive-or constraint spanning fewer than two Roles. These are
-     NORMA's TooFewRoleSequencesError and
-     ExternalConstraintRoleSequenceArityMismatchError (ORMCore.dsl), with
-     the constraint that spans nothing kept rather than deleted. A span the
+     or inclusive-or constraint spanning one Role. These are NORMA's
+     TooFewRoleSequencesError and
+     ExternalConstraintRoleSequenceArityMismatchError (ORMCore.dsl). A span the
      readings state without its numbers, as the decided obligations' own,
      says nothing about sequences. A ring constraint's two roles are Layer
      2's. -->
 
-Constraint 'constraint-roles-filled' has Text 'It is obligatory that no constraint has an unfilled role: each constraint spans some role at every position of the role sequences it numbers, each subset, equality or exclusion constraint has at least two role sequences, and each value comparison, exclusive-or or inclusive-or constraint spans at least two roles'.
+Constraint 'constraint-roles-filled' has Text 'It is obligatory that no constraint that spans some role leaves a role unfilled: it spans a role at every position of the role sequences it numbers, a subset, equality or exclusion constraint has at least two role sequences, and a value comparison, exclusive-or or inclusive-or constraint spans at least two roles'.
 Constraint 'constraint-roles-filled' has modality of Modality Type 'Deontic'.
 Constraint 'constraint-roles-filled' is of Constraint Type 'DO_pop'.
 Constraint 'constraint-roles-filled' spans Role 'ConstraintSpan.1'.

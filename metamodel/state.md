@@ -209,7 +209,22 @@ Guard guards Transition.
      derived edge row: a derived row IS in the target status, so a pure-Moore
      machine never trips this and a pure-Mealy machine has no state action to
      trip it -- only a machine doing both flags. -->
-It is obligatory that if some Predicate1 is performed in some Status1 and that Status1 is defined in some State Machine Definition and some Predicate2 is performed during some Transition and that Transition is defined in that State Machine Definition and that Transition is to some Status2 then Predicate2 is performed in Status2.
+<!-- DECIDED BY A FUNCTION (2026-10-05, task #186; Sam: "Deontics should
+     work"). The obligation below was this sentence, which built nothing:
+     its sides are chains of five clauses over subscripted players, which the
+     set-comparison reader declines rather than guess a join path, and until
+     #186 no compile finding said so. decide:moore_mealy in lambda answers
+     each Transition of a State Machine Definition that has a state action
+     whose edge action is not performed in the Status the Transition is to.
+     The sentence is kept, word for word, as the constraint's Text. -->
+Constraint 'edge-action-in-target' has Text 'It is obligatory that if some Predicate1 is performed in some Status1 and that Status1 is defined in some State Machine Definition and some Predicate2 is performed during some Transition and that Transition is defined in that State Machine Definition and that Transition is to some Status2 then Predicate2 is performed in Status2'.
+Constraint 'edge-action-in-target' has modality of Modality Type 'Deontic'.
+Constraint 'edge-action-in-target' is of Constraint Type 'DO_pop'.
+Constraint 'edge-action-in-target' spans Role 'PredicateIsPerformedDuringTransition.2'.
+Constraint 'edge-action-in-target' is decided by Predicate 'decide:moore_mealy'.
+Predicate 'decide:moore_mealy' has Name 'decide:moore_mealy'.
+Predicate 'decide:moore_mealy' has Module Path 'arest'.
+Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
 ** Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from that Status.
 
@@ -424,7 +439,22 @@ If some Status is initial in some State Machine Definition then that Status is d
 Status reaches Status in State Machine Definition. *
   Each Status, Status, State Machine Definition combination occurs at most once in the population of Status reaches Status in State Machine Definition.
 
-It is obligatory that if some Status1 reaches Status1 in some State Machine Definition then some Status2 reaches Status1 in that State Machine Definition and Status1 reaches Status2 in that State Machine Definition and some Transition is defined in that State Machine Definition and that Transition is from Status2 and that Transition is to some Status3 and it is not true that Status3 reaches Status2 in that State Machine Definition.
+<!-- DECIDED BY A FUNCTION (2026-10-05, task #186), for the reason the
+     Moore and Mealy obligation is: the sentence built nothing, and no
+     finding said so. decide:cycle_exit in lambda answers each State Machine
+     Definition with a Status that reaches itself when no Transition of the
+     machine leaves that cycle for a Status that does not reach back. The
+     machine answers, not the Status, since one Status is defined in many
+     machines. The sentence is kept, word for word, as the constraint's
+     Text. -->
+Constraint 'cycle-has-exit' has Text 'It is obligatory that if some Status1 reaches Status1 in some State Machine Definition then some Status2 reaches Status1 in that State Machine Definition and Status1 reaches Status2 in that State Machine Definition and some Transition is defined in that State Machine Definition and that Transition is from Status2 and that Transition is to some Status3 and it is not true that Status3 reaches Status2 in that State Machine Definition'.
+Constraint 'cycle-has-exit' has modality of Modality Type 'Deontic'.
+Constraint 'cycle-has-exit' is of Constraint Type 'DO_pop'.
+Constraint 'cycle-has-exit' spans Role 'StatusReachesStatusInStateMachineDefinition.3'.
+Constraint 'cycle-has-exit' is decided by Predicate 'decide:cycle_exit'.
+Predicate 'decide:cycle_exit' has Name 'decide:cycle_exit'.
+Predicate 'decide:cycle_exit' has Module Path 'arest'.
+Predicate 'decide:cycle_exit' has Symbol Name 'decide:cycle_exit'.
 <!-- arest-batch ruling 6 (fidelity over improvement — replacing the
      audit-C strengthening, which was denied): the paper's sentence is
      "the deontic obligation that each cycle carry some exit transition"
