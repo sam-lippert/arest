@@ -236,6 +236,8 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
 ** Transition exits Status in State Machine Definition1 iff that Status is defined in some State Machine Definition2 and that Transition exits that State Machine Definition2 in that State Machine Definition1.
 
+** Transition exits Status in State Machine Definition2 iff that Status is defined in that State Machine Definition2 and that Transition exits that State Machine Definition2 in some State Machine Definition1.
+
 * Status is terminal in State Machine Definition iff that Status is defined in that State Machine Definition and no Transition exits that Status in that State Machine Definition.
 <!-- audit-fix D: restored, mirroring `rooted`. History: the killed host's
      parser stripped the `no ... where ...` clause (AbsenceOf detection
@@ -260,6 +262,18 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
      in the machine and exited by nothing in it: `Support Request` has Closed
      alone. The where-less `no` compiles to the same anti-join as `rooted`'s,
      over the one relation. -->
+<!-- AND A MACHINE LEFT FROM OUTSIDE IS LEFT INSIDE IT TOO (2026-10-05, task
+     #187). Sam, 2026-10-05: "For a sub-machine, it may naturally flow to a
+     terminal state, or it may be exited by the external machine. The
+     equivalent but more verbose way of acheiving the same thing is to use one
+     machine with transitions from every "open" status to the other states."
+     The third rule of `exits` above carries a composite's exit to its
+     Statuses in the machine that nests it, and the fourth carries it to them
+     in the sub-machine itself, so the sub-machine is read as that one machine:
+     `resolve` and `merge`, which leave `Open` in `Support Request`, leave
+     Received, Draft, Responded and Escalated in `Open` as well. Nothing a
+     Transition attempts changes, since the same Transition already exited
+     the same Statuses in `Support Request`. -->
 
 
 <!--
@@ -431,7 +445,19 @@ For each State Machine Definition, some Status is defined in that State Machine 
      Semantically right on its own: a machine with no defined Status is
      vacuous. The defined population is derived from transitions, so
      this evaluates after the closure. -->
-It is obligatory that for each State Machine Definition, some Status is terminal in that State Machine Definition.
+It is obligatory that if some State Machine Definition is for some Object Type then some Status is terminal in that State Machine Definition.
+<!-- RESTATED 2026-10-05 (task #187). It read "It is obligatory that for each
+     State Machine Definition, some Status is terminal in that State Machine
+     Definition", which held a sub-machine to a terminal Status of its own.
+     Sam, 2026-10-05: "For a sub-machine, it may naturally flow to a terminal
+     state, or it may be exited by the external machine." So the machine held
+     to it is the one an entity runs, the one for its Object Type, whose
+     terminal Statuses already count those of the machines nested in it (the
+     Harel rules above, #130). A sub-machine that neither flows to a terminal
+     Status nor is exited from outside has a cycle that no Transition leaves,
+     which 'cycle-has-exit' below answers. The conditional builds a deontic
+     subset: StateMachineDefinitionIsForObjectType in
+     proj(StatusIsTerminalInStateMachineDefinition, [2]). -->
 If some Status is initial in some State Machine Definition then that Status is defined in that State Machine Definition.
 
 ### Liveness (AREST.tex, after Thm 2)
@@ -442,12 +468,21 @@ Status reaches Status in State Machine Definition. *
 <!-- DECIDED BY A FUNCTION (2026-10-05, task #186), for the reason the
      Moore and Mealy obligation is: the sentence built nothing, and no
      finding said so. decide:cycle_exit in lambda answers each State Machine
-     Definition with a Status that reaches itself when no Transition of the
-     machine leaves that cycle for a Status that does not reach back. The
-     machine answers, not the Status, since one Status is defined in many
-     machines. The sentence is kept, word for word, as the constraint's
-     Text. -->
-Constraint 'cycle-has-exit' has Text 'It is obligatory that if some Status1 reaches Status1 in some State Machine Definition then some Status2 reaches Status1 in that State Machine Definition and Status1 reaches Status2 in that State Machine Definition and some Transition is defined in that State Machine Definition and that Transition is from Status2 and that Transition is to some Status3 and it is not true that Status3 reaches Status2 in that State Machine Definition'.
+     Definition with a Status that reaches itself when no Transition that
+     exits a Status of that cycle in the machine goes to a Status that does
+     not reach back. The machine answers, not the Status, since one Status is
+     defined in many machines.
+     AND THE EXIT IS THE ONE THE PROCESS TAKES (2026-10-05, task #187). Sam:
+     "The verbalization should follow the actual process", and "For a
+     sub-machine, it may naturally flow to a terminal state, or it may be
+     exited by the external machine." The sentence read "some Transition is
+     defined in that State Machine Definition and that Transition is from
+     Status2", which saw only the machine's own Transitions, so `Open`, whose
+     cycle `resolve` and `merge` leave from `Support Request`, answered. It
+     reads `exits` now, the relation the step and the performer take a
+     Transition by (the rules above), which counts a Transition of a machine
+     nested in this one and a Transition that leaves this one from outside. -->
+Constraint 'cycle-has-exit' has Text 'It is obligatory that if some Status1 reaches Status1 in some State Machine Definition then some Status2 reaches Status1 in that State Machine Definition and Status1 reaches Status2 in that State Machine Definition and some Transition exits Status2 in that State Machine Definition and that Transition is to some Status3 and it is not true that Status3 reaches Status2 in that State Machine Definition'.
 Constraint 'cycle-has-exit' has modality of Modality Type 'Deontic'.
 Constraint 'cycle-has-exit' is of Constraint Type 'DO_pop'.
 Constraint 'cycle-has-exit' spans Role 'StatusReachesStatusInStateMachineDefinition.3'.
