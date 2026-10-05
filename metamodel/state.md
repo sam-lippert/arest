@@ -236,8 +236,6 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
 ** Transition exits Status in State Machine Definition1 iff that Status is defined in some State Machine Definition2 and that Transition exits that State Machine Definition2 in that State Machine Definition1.
 
-** Transition exits Status in State Machine Definition2 iff that Status is defined in that State Machine Definition2 and that Transition exits that State Machine Definition2 in some State Machine Definition1.
-
 * Status is terminal in State Machine Definition iff that Status is defined in that State Machine Definition and no Transition exits that Status in that State Machine Definition.
 <!-- audit-fix D: restored, mirroring `rooted`. History: the killed host's
      parser stripped the `no ... where ...` clause (AbsenceOf detection
@@ -262,18 +260,27 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
      in the machine and exited by nothing in it: `Support Request` has Closed
      alone. The where-less `no` compiles to the same anti-join as `rooted`'s,
      over the one relation. -->
-<!-- AND A MACHINE LEFT FROM OUTSIDE IS LEFT INSIDE IT TOO (2026-10-05, task
-     #187). Sam, 2026-10-05: "For a sub-machine, it may naturally flow to a
+<!-- A SUB-MACHINE ENDS AT A TERMINAL STATUS OF ITS OWN OR IS LEFT FROM
+     OUTSIDE, AND ITS END MAY MOVE THE MACHINE THAT NESTS IT (2026-10-05,
+     tasks #187 and #188). Sam: "For a sub-machine, it may naturally flow to a
      terminal state, or it may be exited by the external machine. The
      equivalent but more verbose way of acheiving the same thing is to use one
      machine with transitions from every "open" status to the other states."
-     The third rule of `exits` above carries a composite's exit to its
-     Statuses in the machine that nests it, and the fourth carries it to them
-     in the sub-machine itself, so the sub-machine is read as that one machine:
-     `resolve` and `merge`, which leave `Open` in `Support Request`, leave
-     Received, Draft, Responded and Escalated in `Open` as well. Nothing a
-     Transition attempts changes, since the same Transition already exited
-     the same Statuses in `Support Request`. -->
+     And: "the terminal status event of a submachine may be the transition
+     event of its parent, i.e. closed terminal status in the sub machine
+     transitioning to the Closed status in parent".
+     So a Status is terminal in a sub-machine when nothing of the sub-machine
+     leaves it, whatever the machine that nests it does. A fourth rule stood
+     here for a day (#187), carrying a composite's exit into the sub-machine
+     as well, and under it no Status of a sub-machine its parent can leave
+     was terminal there. The exit from outside is counted where it decides
+     something, by 'cycle-has-exit' below. And an event that takes an entity
+     into a Status terminal in a sub-machine takes it on by the first
+     Transition the same Event Type triggers that leaves that Status, so the
+     end's event is the parent's Transition event (lambda, store:step_chain):
+     support.auto.dev's `Open` ends at Merged on `Admin merges Support
+     Request`, and Support Request's `close-merged`, on the same event, takes
+     the request from Merged to Closed. -->
 
 
 <!--
@@ -481,8 +488,9 @@ Status reaches Status in State Machine Definition. *
      cycle `resolve` and `merge` leave from `Support Request`, answered. It
      reads `exits` now, the relation the step and the performer take a
      Transition by (the rules above), which counts a Transition of a machine
-     nested in this one and a Transition that leaves this one from outside. -->
-Constraint 'cycle-has-exit' has Text 'It is obligatory that if some Status1 reaches Status1 in some State Machine Definition then some Status2 reaches Status1 in that State Machine Definition and Status1 reaches Status2 in that State Machine Definition and some Transition exits Status2 in that State Machine Definition and that Transition is to some Status3 and it is not true that Status3 reaches Status2 in that State Machine Definition'.
+     nested in this one, and, named in the sentence, a Transition that exits
+     this machine itself from the machine that nests it. -->
+Constraint 'cycle-has-exit' has Text 'It is obligatory that if some Status1 reaches Status1 in some State Machine Definition then some Status2 reaches Status1 in that State Machine Definition and Status1 reaches Status2 in that State Machine Definition and some Transition exits Status2 in that State Machine Definition or exits that State Machine Definition in some State Machine Definition, and that Transition is to some Status3 and it is not true that Status3 reaches Status2 in that State Machine Definition'.
 Constraint 'cycle-has-exit' has modality of Modality Type 'Deontic'.
 Constraint 'cycle-has-exit' is of Constraint Type 'DO_pop'.
 Constraint 'cycle-has-exit' spans Role 'StatusReachesStatusInStateMachineDefinition.3'.
