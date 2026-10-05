@@ -847,6 +847,12 @@ function emitToDb(before, cells, prior, report) {
   // were and call it a store. store:src_all is how a row joins the source, and
   // it is the same call the API path already makes before it emits.
   adoptStore(Ev("store:src_all", [carried, cells]));
+  // AND WHERE PLAN AND WRITE GOES, PART BY PART (2026-10-05): re-sourcing the moved populations and reflecting the
+  // store that makes, saying which tables they touch, planning each table's rows, and writing them -- on a copy of
+  // support.auto.dev a sent reply's write spent 1,574 ms here for nine rows, and the line said no more than that
+  const wp = { resource: performance.now() - lt, touched: 0, plan: 0 };
+  if (report) report.writeParts = wp;
+  let wt = performance.now();
   // A TABLE IS TOUCHED BY WHAT ANY STEP OF ITS WALKS READS (2026-09-25), not only
   // the first: a column naming another entity walks to it and reads its identifier
   // there, so a fact that moved at the second step moves this table's column. This
@@ -862,6 +868,7 @@ function emitToDb(before, cells, prior, report) {
     if (changed.has(String(t[0]))) { touched.add(table); continue; }
     for (const col of t[2]) if (reads(col[2])) { touched.add(table); break; }
   }
+  wp.touched = performance.now() - wt;
   const plan = prior ? rowPlanner(cells, prior, changed) : null;
   const byRow = new Set();
   const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
@@ -884,7 +891,11 @@ function emitToDb(before, cells, prior, report) {
       // AND A CALLER MAY HAVE A TABLE WRITTEN WHOLE where the planner could say which rows moved (2026-09-29):
       // the planner deletes a row by the key its facts project to, and a relation row an older schema's
       // write-back left under another key outlives them
+      wt = performance.now();
       const rows = plan && pk.length && !(report && typeof report.whole === "function" && report.whole(table)) ? plan(table, cols, pk) : null;
+      wt = performance.now() - wt;
+      wp.plan += wt;
+      if (wt >= 20) (wp.slow || (wp.slow = [])).push([table, wt]);
       if (rows) {
         let del, put;
         try {
@@ -4988,7 +4999,9 @@ function sayWrite(what, clock, rep, failed) {
   const parts = asked ? clockText(clock) : "";
   const laps = [["evaluation", asked && rep.start !== undefined ? rep.start - clock.t0 : undefined],
     ["snapshot", rep.snapshot], ["change test", rep.change], ["plan and write", rep.write], ["tail", rep.tail]]
-    .filter((l) => l[1] !== undefined).map((l) => l[0] + " " + ms(l[1]) + (l[0] === "evaluation" && parts ? " (" + parts + ")" : ""));
+    .filter((l) => l[1] !== undefined).map((l) => l[0] + " " + ms(l[1]) + (l[0] === "evaluation" && parts ? " (" + parts + ")" : "")
+      + (l[0] === "plan and write" && rep.writeParts ? " [re-source " + ms(rep.writeParts.resource) + ", touched " + ms(rep.writeParts.touched)
+        + ", plan " + ms(rep.writeParts.plan) + (rep.writeParts.slow ? " (" + rep.writeParts.slow.map((s) => s[0] + " " + ms(s[1])).join(", ") + ")" : "") + ", rows " + ms(l[1] - rep.writeParts.resource - rep.writeParts.touched - rep.writeParts.plan) + "]" : ""));
   const whole = rep.rewrote || [];
   const wrote = failed ? failed
     : rep.moved === undefined ? "no store to write"
@@ -5002,6 +5015,8 @@ function sayWrite(what, clock, rep, failed) {
   REFLECTS = [];
   console.error("write " + String(what || "") + " " + ms(end - begin) + " ms" + (laps.length ? ": " + laps.join(", ") : "") + " -- " + wrote
     + (reflected ? "; reflected " + reflected : ""));
+  // under the profiler, each served write's own table of definitions, and the table cleared for the next (2026-10-05)
+  if (PROFILE) { profReport("write " + String(what || "")); PROF.clear(); } // @instrument
 }
 const notCommitted = (why) => JSON.stringify(["not_committed", why]);
 // <main:api's answer>: the store it made adopted, the rows a write moved stored, and <body, status> to answer.
