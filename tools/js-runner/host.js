@@ -4876,9 +4876,13 @@ async function performDeclared(before, after, opts) {
     // have read as `the model yields nothing here` when it actually meant `my own
     // stub said nothing`. Absence caused by the harness is not evidence. The id is
     // visibly fake so a dry assert can never be mistaken for a real receipt.
-    const answer = mode === "live" || o.send
-      ? await send(method, address, headers, body)
-      : { status: 0, text: JSON.stringify({ id: "dry-run-not-sent" }) };
+    // A SEND THAT THROWS IS A SEND THAT FAILED (2026-10-04, task #173): a host that does not resolve or a connection
+    // refused answers no status, and it is recorded as a failure like a 4xx, not lost with the performer.
+    let answer;
+    if (mode === "live" || o.send) {
+      try { answer = await send(method, address, headers, body); }
+      catch (e) { answer = { status: 0, text: "", error: String((e && e.message) || e) }; }
+    } else answer = { status: 0, text: JSON.stringify({ id: "dry-run-not-sent" }) };
     // WHAT THE ANSWER PRODUCES IS DECLARED, AND THE CEILING STILL DECIDES.
     // perform:yields_of gives the <JSON Path, Fact Type, Role> triples this
     // Function's response fills and perform:subject_of says WHO they are about
@@ -4918,7 +4922,15 @@ async function performDeclared(before, after, opts) {
       if (!succeeded) { onSuccess.push(row); continue; }
       (ceiling.indexOf(row[0]) >= 0 ? asserts : outside).push(row);
     }
-    done.push({ predicate, entity, method, address, sent: body, ceiling, answer, asserts, outside, onSuccess, observed });
+    // AND A CALL THAT WENT OUT AND FAILED IS RECORDED AS A FAILURE (2026-10-04, task #173). perform:failure_rows
+    // answers the Failure's facts, which writeBack asserts together; a dry run sent nothing and records none.
+    let failures = [];
+    if ((mode === "live" || o.send) && !succeeded) {
+      const reason = answer && answer.error ? answer.error
+        : "HTTP " + String(answer ? answer.status : "?") + ": " + String((answer && answer.text) || "").slice(0, 500);
+      failures = Ev("perform:failure_rows", [predicate, entity, reason, new Date().toISOString(), after]).map((r) => r.map(String));
+    }
+    done.push({ predicate, entity, method, address, sent: body, ceiling, answer, asserts, outside, onSuccess, observed, failures });
   }
   return done;
 }
@@ -5080,6 +5092,25 @@ function writeBack(done, log) {
         else say("write-back NOT COMMITTED " + ft + ": " + why.slice(0, 300));
       } else {
         say("write-back REFUSED " + ft + ": " + String(out[0]).slice(0, 200));
+      }
+    }
+    // A FAILED CALL'S FAILURE IS ONE ASSERT (2026-10-04, task #173): four of a Failure's roles are mandatory, so its
+    // facts go in together through the assert verb, where a fact POST at a time would be refused at the first.
+    if (Array.isArray(one.failures) && one.failures.length) {
+      const clock = clockStart();
+      const prior = CELLS.slice();
+      let out;
+      try { out = Ev("main:as", [CELLS, SYSTEM_LOGIN, ["assert", one.failures]]); }
+      catch (e) { say("failure record threw for " + one.predicate + ": " + String((e && e.message) || e)); continue; }
+      finally { clockLap(clock, "lambda"); }
+      if (out.length > 2 && String(out[1]) === "T") {
+        adoptStore(out[2]);
+        clockLap(clock, "adopt");
+        const why = storeWrite(prior, "write-back failure " + one.predicate, clock);
+        if (why === null) say("recorded the failure of " + one.predicate + " for " + one.entity);
+        else say("failure record NOT COMMITTED " + one.predicate + ": " + why.slice(0, 300));
+      } else {
+        say("failure record REFUSED " + one.predicate + ": " + String(out[0]).slice(0, 300));
       }
     }
   }
