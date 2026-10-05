@@ -1018,6 +1018,14 @@ const PEERATOMS = new WeakMap();
 // system:pop_in: the heads a store computes on read (derive:or_heads) and the rows each one computes to
 // (derive:on_read), by the store's identity; memoClear drops both when a write moves the store
 let ORHEADS = new WeakMap(), ORROWS = new WeakMap();
+// whether rmap:proj_objkey spells the row as the id: its values joined by a period, as an objectified instance is
+// keyed (main:re_own). A row whose first value is text spells an id only past that text and a period, so the
+// DEF is asked of no other; a row of one text value would hold the id itself, which the callers have ruled out.
+function objkeyIs(row, id) {
+  if (!Array.isArray(row) || row.length === 0) return false;
+  if (typeof row[0] === "string" && (row.length < 2 || !id.startsWith(row[0] + "."))) return false;
+  return Ev("rmap:proj_objkey", row) === id;
+}
 function onReadHeads(store) {
   let s = ORHEADS.get(store);
   if (s === undefined) { s = new Set(seq(orHeadsOf(store)).map(String)); ORHEADS.set(store, s); }
@@ -2838,9 +2846,15 @@ const FASTPRIMS = new Map(Object.entries({
   // the scan's for that id (lazyStore's mentioning, as the get and nav:peers twins read it), in the population's
   // order, and main:re_gone_rows keeps of them what the DEF keeps; such a cell is left unread. A fact type the
   // tables carry and yield nothing for, whose carriers' rows hold the id, any other cell -- read already, a write's
-  // own, a head computed on read -- and a fact type with no top-level cell are asked of main:re_gone, as the DEF
+  // own, a head computed on read -- and a fact type with no top-level cell are asked of main:re_rows, as the DEF
   // asks them. An id that is not text, a store not read from its tables, and AREST_NOTWIN=main:re_facts give the
   // DEF's own route.
+  // AND THE ROW AN OBJECTIFIED INSTANCE IS (2026-10-05, task #185). main:re_rows takes, after those rows, the row of
+  // a fact type state:nestings objectifies whose key spells the id (main:re_own): a Constraint Span retracted by its
+  // id is its pair. The scan reads that row by its key (mentioning's objkeyAt, or the table's own id column) and
+  // hands it back apart (mentioning(id, true)'s own), since it holds no value that is the id; it is taken for a
+  // fact type the store objectifies, after the rows that hold the id, as the DEF takes it. A carrier row that
+  // spells the id where the tables yield none sends the fact type to the DEF, as a carrier row holding it does.
   "main:re_facts": x => {
     const def = () => Ev(DEFS.get("main:re_facts"), x);
     if (!LAZY_STORE || typeof LAZY_STORE.pending !== "function" || !Array.isArray(x) || x.length !== 2) return def();
@@ -2850,18 +2864,20 @@ const FASTPRIMS = new Map(Object.entries({
     for (const c of store) if (Array.isArray(c) && c.length === 3 && c[0] === "CELL" && typeof c[1] === "string" && !top.has(c[1])) top.set(c[1], c);
     const orh = onReadHeads(store);
     const kinds = Ev("main:re_kinds", store);
+    const nested = new Set(seq(Ev("main:re_nested", store)).map(String));
     const has = (f) => Array.isArray(f) && f.some((v) => v === id);
+    const spells = (f) => !has(f) && objkeyIs(f, id);
     let byFt = null;
     const out = [];
     for (const ft of seq(Ev("main:re_names", store))) {
       const name = String(ft), c = top.get(name);
       let rows;
       if (c !== undefined && LAZY_STORE.pending(c) && LAZY_STORE.present(name) && !orh.has(name)) {
-        if (!byFt) byFt = LAZY_STORE.mentioning(id);
-        const got = byFt.get(name);
-        if (got === undefined && LAZY_STORE.carrier(name).some(has)) rows = Ev("main:re_gone", [store, ft, id, kinds]);
-        else rows = got === undefined ? [] : Ev("main:re_gone_rows", [got, Ev("main:re_players", [store, ft, id, kinds]), id, kinds]);
-      } else rows = Ev("main:re_gone", [store, ft, id, kinds]);
+        if (!byFt) byFt = LAZY_STORE.mentioning(id, true);
+        const got = byFt.get(name), own = nested.has(name) ? byFt.own.get(name) : undefined;
+        if ((got === undefined && LAZY_STORE.carrier(name).some(has)) || (nested.has(name) && own === undefined && LAZY_STORE.carrier(name).some(spells))) rows = Ev("main:re_rows", [store, ft, id, kinds]);
+        else rows = (got === undefined ? [] : seq(Ev("main:re_gone_rows", [got, Ev("main:re_players", [store, ft, id, kinds]), id, kinds]))).concat(own === undefined ? [] : own);
+      } else rows = Ev("main:re_rows", [store, ft, id, kinds]);
       if (seq(rows).length) out.push([ft, rows]);
     }
     return out;
@@ -6639,8 +6655,10 @@ function lazyStore(db, want) {
     }
     return at;
   };
-  const mentioning = (id) => {
-    const byFt = new Map();
+  // mentioning(id, true) also answers, as its map's `own`, the facts the scanned rows yield that hold no value that
+  // is the id but whose key spells it (objkeyIs): an objectified instance's own fact, by fact type (main:re_facts).
+  const mentioning = (id, own) => {
+    const byFt = new Map(), owned = new Map();
     const per = []; // @instrument
     for (const [table, cols] of want) {
       if (!carried.has(table) && !relTables.has(table)) continue;
@@ -6655,10 +6673,15 @@ function lazyStore(db, want) {
       const clean = rows.map((r) => r.map((v) => (v === null ? "#" : String(v))));
       for (const pr of Ev("rmap:unproj", [table, clean, SCHEMA])) {
         const ft = String(pr[0]), fact = pr[1];
-        if (!Array.isArray(fact) || !fact.some((v) => v === id)) continue;
+        if (!Array.isArray(fact)) continue;
+        if (!fact.some((v) => v === id)) {
+          if (own && objkeyIs(fact, id)) { let o = owned.get(ft); if (!o) owned.set(ft, (o = [])); o.push(fact); }
+          continue;
+        }
         let l = byFt.get(ft); if (!l) byFt.set(ft, (l = [])); l.push(fact);
       }
     }
+    byFt.own = owned;
     for (const k of [...EVMEMO.keys()]) if (typeof k === "string" && k.startsWith("rmap:unproj")) memoForget(k);
     if (PROFILE) console.error("mentioning: " + per.length + " table(s), " + Math.round(per.reduce((a, p) => a + p[0], 0)) + " ms in SQL; " + per.sort((a, b) => b[0] - a[0]).slice(0, 8).map((p) => p[1] + " " + Math.round(p[0]) + " ms/" + p[2] + " cols").join(", ")); // @instrument
     if (PROFILE) console.error("mentioning: indexed columns of " + ixCols.size + " table(s); the slowest asks " + per.slice(0, 2).map((p) => p[1] + " [" + [...(ixCols.get(p[1]) || [])].join(",") + "] " + JSON.stringify(db.query("explain query plan select 1 from \"" + p[1] + "\" where " + askedCols(p[1], want.get(p[1]) || []).map((c) => '"' + c + '" = ?1').join(" or ")).all("x").map((r) => r.detail))).join("; ")); // @instrument

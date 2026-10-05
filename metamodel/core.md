@@ -600,7 +600,30 @@ Subtype Fact provides preferred identifier.
 ### Role
 Constraint spans Role.
   Each Constraint, Role combination occurs at most once in the population of Constraint spans Role.
-  Each Constraint spans some Role.
+  <!-- "Each Constraint spans some Role." stood here as an alethic
+       mandatory. Sam, 2026-10-05: "a constraint has multiple spans because
+       of subsets, equality, other comparators, etc. There should be a
+       deontic warning on constraints with unfilled roles, but it's valid to
+       want to keep the constraint and span it across different roles after
+       a delete". The mandatory made the retract of a Constraint's last span,
+       or of the Role that span named, take the Constraint with it
+       (main:rc_mand). Now the Constraint stays, and the warning is
+       'constraint-roles-filled' (Check-Readings Deontic Obligations, Layer
+       4): an obligation decided by a function, for a Constraint that spans
+       no Role as for one whose role sequences leave a role unfilled.
+
+       Stated as "It is obligatory that each Constraint spans some Role."
+       the sentence compiles to the mark DEO:m:ConstraintSpansRole#1, which
+       nothing checks: the objectification below renames the fact type
+       ConstraintSpan after the mark is made, so its leg names a fact type
+       no population holds (task #186).
+
+       NORMA keeps a set comparison constraint whose role sequence lost its
+       last role, and reports TooFewRoleSequencesError, but deletes a set
+       constraint (uniqueness, mandatory, frequency, ring, value comparison)
+       with its last role, since that constraint is its one role sequence
+       (ConstraintRoleSequenceHasRoleDeletedRule, Constraint.cs). Here every
+       constraint is kept. -->
 Constraint Span objectifies "Constraint spans Role".
 Constraint Span is a subtype of Function.
 Constraint Span has Sequence Number.
@@ -1506,6 +1529,39 @@ Predicate 'decide:ring_same_type' has Symbol Name 'decide:ring_same_type'.
      Constraint spanning it" said what validation.md's Ring Constraint
      Completeness says. That sentence is the one kept, because it names the
      ring types and is scoped to asserted fact types. -->
+
+### Layer 4: span filling — a constraint fills the roles it constrains
+
+<!-- Sam, 2026-10-05: "There should be a deontic warning on constraints
+     with unfilled roles, but it's valid to want to keep the constraint and
+     span it across different roles after a delete". A retract keeps a
+     Constraint whose spans or Roles went (the note at Constraint spans
+     Role), so what a delete leaves behind is warned of here.
+
+     DECIDED BY A FUNCTION. A span is numbered by its Sequence Number and
+     Position (1.1, 1.2, 2.1), and decide:unfilled_roles in lambda answers
+     each Constraint that spans no Role; whose numbered spans leave a hole,
+     a sequence below its highest or a position below the highest of its
+     sequence; one of whose sequences lacks a position the next or the one
+     before it has, since every sequence of a constraint holds as many roles
+     as the others; that is a subset, equality or exclusion constraint with
+     fewer than two sequences; or that is a value comparison, exclusive-or
+     or inclusive-or constraint spanning fewer than two Roles. These are
+     NORMA's TooFewRoleSequencesError and
+     ExternalConstraintRoleSequenceArityMismatchError (ORMCore.dsl), with
+     the constraint that spans nothing kept rather than deleted. A span the
+     readings state without its numbers, as the decided obligations' own,
+     says nothing about sequences. A ring constraint's two roles are Layer
+     2's. -->
+
+Constraint 'constraint-roles-filled' has Text 'It is obligatory that no constraint has an unfilled role: each constraint spans some role at every position of the role sequences it numbers, each subset, equality or exclusion constraint has at least two role sequences, and each value comparison, exclusive-or or inclusive-or constraint spans at least two roles'.
+Constraint 'constraint-roles-filled' has modality of Modality Type 'Deontic'.
+Constraint 'constraint-roles-filled' is of Constraint Type 'DO_pop'.
+Constraint 'constraint-roles-filled' spans Role 'ConstraintSpan.1'.
+Constraint 'constraint-roles-filled' is decided by Predicate 'decide:unfilled_roles'.
+Predicate 'decide:unfilled_roles' has Name 'decide:unfilled_roles'.
+Predicate 'decide:unfilled_roles' has Module Path 'arest'.
+Predicate 'decide:unfilled_roles' has Symbol Name 'decide:unfilled_roles'.
 
 ## NORMA Structural Decomposition (#279)
 
