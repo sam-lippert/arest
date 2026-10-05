@@ -2831,7 +2831,7 @@ const FASTPRIMS = new Map(Object.entries({
     return out;
   },
   // main:re_facts <store, id> OVER A STORE READ FROM ITS TABLES READS ONLY THE ROWS THAT NAME THE ID (2026-10-05). The
-  // DEF asks main:re_gone of every declared fact type, which reads its population whole: an entity retract on
+  // DEF asks main:re_gone of every fact type main:re_names names, which reads its population whole: an entity retract on
   // support.auto.dev read every table it had not read (rmap:unproj 2.7 s under the profiler) to find one id's facts
   // in nine fact types. A top-level cell the lazy store has not yet read, of a fact type no write has moved
   // (pending), holds once read its fact type's rows as the tables hold them, so the rows of it that hold the id are
@@ -2853,14 +2853,14 @@ const FASTPRIMS = new Map(Object.entries({
     const has = (f) => Array.isArray(f) && f.some((v) => v === id);
     let byFt = null;
     const out = [];
-    for (const ft of seq(Ev("main:declared_names", store))) {
+    for (const ft of seq(Ev("main:re_names", store))) {
       const name = String(ft), c = top.get(name);
       let rows;
       if (c !== undefined && LAZY_STORE.pending(c) && LAZY_STORE.present(name) && !orh.has(name)) {
         if (!byFt) byFt = LAZY_STORE.mentioning(id);
         const got = byFt.get(name);
         if (got === undefined && LAZY_STORE.carrier(name).some(has)) rows = Ev("main:re_gone", [store, ft, id, kinds]);
-        else rows = got === undefined ? [] : Ev("main:re_gone_rows", [got, Ev("main:cr_players", [store, ft]), id, kinds]);
+        else rows = got === undefined ? [] : Ev("main:re_gone_rows", [got, Ev("main:re_players", [store, ft, id, kinds]), id, kinds]);
       } else rows = Ev("main:re_gone", [store, ft, id, kinds]);
       if (seq(rows).length) out.push([ft, rows]);
     }
