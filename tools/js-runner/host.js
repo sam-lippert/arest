@@ -5154,10 +5154,12 @@ function maybePerform(prior, after, log) {
 // x-arest-caller header as sent; the MCP passes each call's `caller`, which the router sets to the
 // login its client named when it connected (AREST_LOGIN in that session's env, mcp-router.js) and a
 // fact tool's own `caller` overrides, with the header's trust; and the host's own writes -- a
-// performer's write-back, a registration at the MCP's start -- pass a system login, system@repo.do
+// performer's write-back, a registration at the MCP's start -- pass a system login, cicd@repo.do
 // unless AREST_SYSTEM_LOGIN names another. An app that designates an authorization fact type grants
 // the logins in its own store; one that designates none takes every write, as before.
-const SYSTEM_LOGIN = process.env.AREST_SYSTEM_LOGIN || "system@repo.do";
+// It was system@repo.do, a login that exists nowhere (Sam, 2026-10-06: "There is no system@repo.do";
+// "use cicd account"): cicd@repo.do is the agent login, a bot account in auth.vin.
+const SYSTEM_LOGIN = process.env.AREST_SYSTEM_LOGIN || "cicd@repo.do";
 function writeBack(done, log) {
   const say = quiet(log || console.log);
   for (const one of done) {
