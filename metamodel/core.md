@@ -574,7 +574,10 @@ Fact Type has Title.
   Each Fact Type has at most one Title.
 Fact Type has Reading.
   Each Fact Type has some Reading.
-  For each Reading, exactly one Fact Type has that Reading.
+  For each Reading, at most one Fact Type has that Reading.
+  <!-- At most, not exactly (Sam, 2026-10-06): a Reading a Domain Change
+       retired outlives the Fact Type it created (evolution.md, Domain
+       Change retires Reading). -->
   It is possible that some Fact Type has more than one Reading.
 Fact Type has Role.
   Each Fact Type has some Role.

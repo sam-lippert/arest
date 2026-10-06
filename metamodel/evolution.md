@@ -61,6 +61,19 @@ Domain Change has Rationale.
 Domain Change targets Domain.
   Each Domain Change targets exactly one Domain.
 
+Domain Change retires Reading.
+  Each Domain Change, Reading combination occurs at most once in the population of Domain Change retires Reading.
+  It is possible that some Domain Change retires more than one Reading and that more than one Domain Change retires the same Reading.
+  <!-- Sam, 2026-10-06: "A domain change should create a fact type from
+       a reading. The fact type may be retracted, but the reading will
+       persist." Retiring a Reading retracts the Fact Type it created
+       (its Roles and its stored rows) once exactly one User approves the
+       Domain Change and the readings no longer declare that fact type.
+       The Reading stays, with its Text spelled out in its players' names
+       since its Roles are gone, and a fact that named the retracted Fact
+       Type (a Domain Change that proposed it) names the Reading instead
+       (compile:ip_migrate). -->
+
 Domain Change is evaluated.
   <!-- Asserted by the staged gate run: per 11.2/Cor 4 (cor:closure),
        ingesting a Domain Change is itself a create judged by the one
