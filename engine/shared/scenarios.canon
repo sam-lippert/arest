@@ -2021,7 +2021,7 @@ DEF("case:modal-prefix-deontic",
     S2(A("system:modal_prefix"), S2(A("deontic"), A("negative")))),
 
 DEF("case:modal-prefix-possible",
-    S2(A("system:modal_prefix"), S2(A("deontic"), A("possibility")))),
+    S2(A("system:modal_prefix"), S2(A("alethic"), A("possibility")))),
 
 DEF("case:deontic-ops", S2(A("system:deontic_ops"), PHI())),
 

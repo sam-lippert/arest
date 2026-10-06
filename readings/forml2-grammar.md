@@ -33,7 +33,7 @@ Quantifier is a value type.
 Prose Stopword is a value type.
   The possible values of Prose Stopword are 'If', 'When', 'Then', 'That', 'This', 'An', 'A', 'The', 'Each', 'Some', 'No', 'Every'.
 Constraint Span Prefix is a value type.
-  The possible values of Constraint Span Prefix are 'It is obligatory that ', 'It is forbidden that ', 'It is permitted that ', 'Each ', 'each ', 'at most one ', 'exactly one ', 'at least one ', 'some ', 'No ', 'no '.
+  The possible values of Constraint Span Prefix are 'It is obligatory that ', 'It is forbidden that ', 'Each ', 'each ', 'at most one ', 'exactly one ', 'at least one ', 'some ', 'No ', 'no '.
 Deontic Predicate Operator is a value type.
   The possible values of Deontic Predicate Operator are ' ends with', ' does not end with', ' starts with', ' does not start with'.
 Deontic Predicate Operator Kind is a value type.
@@ -51,7 +51,12 @@ Literal Value is a value type.
 Keyword is a value type.
   The possible values of Keyword are 'iff', 'if'.
 Deontic Operator is a value type.
-  The possible values of Deontic Operator are 'obligatory', 'forbidden', 'permitted'.
+  The possible values of Deontic Operator are 'obligatory', 'forbidden'.
+  <!-- 'permitted' is not an operator (Sam, 2026-10-06: "I don't want to deal with `It is permitted that` sentences at
+       all. It should be dropped as a feature. I just want permissions to work via canonical FORML."). A permission is a
+       fact of a permission fact type (metamodel/security.md), verbalized like any other fact. -->
+
+
 Literal Role is a value type.
 Enum Value is a value type.
 Constraint Keyword is a value type.
@@ -278,7 +283,6 @@ Classification 'Deontic Constraint' is a Classification.
 
 *Statement has Classification 'Deontic Constraint' if and only if Statement has Deontic Operator 'obligatory'.
 *Statement has Classification 'Deontic Constraint' if and only if Statement has Deontic Operator 'forbidden'.
-*Statement has Classification 'Deontic Constraint' if and only if Statement has Deontic Operator 'permitted'.
 
 ## Classification Tables (2026-08-02)
 <!-- These eight tables were encoded as parallel value-type columns
@@ -335,8 +339,6 @@ Deontic Operator 'obligatory' has Deontic Constraint Kind Code 'UC'.
 Deontic Operator 'obligatory' has Deontic Constraint Modality 'deontic'.
 Deontic Operator 'forbidden' has Deontic Constraint Kind Code 'UC'.
 Deontic Operator 'forbidden' has Deontic Constraint Modality 'deontic'.
-Deontic Operator 'permitted' has Deontic Constraint Kind Code 'UC'.
-Deontic Operator 'permitted' has Deontic Constraint Modality 'deontic'.
 
 ### Cardinality Constraint Kind
 Cardinality Constraint Kind has Code.

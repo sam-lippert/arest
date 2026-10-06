@@ -86,9 +86,10 @@ User is authenticated.
      has, or to an organization the user belongs to; everything else is denied.
      The any-user grant and the open case -- an application whose readings
      declare no User at all -- are read where the controls are computed
-     (auth:links), not multiplied out per user here. `It is permitted that`
-     grants nothing: a deontic permission only excepts from an obligation or a
-     prohibition, and access is not set by one.
+     (auth:links), not multiplied out per user here. There is no
+     `It is permitted that` (Sam, 2026-10-06: "It should be dropped as a
+     feature. I just want permissions to work via canonical FORML."): access
+     is only ever these facts.
      Access Role, not Role: Role is the ORM role (core.md). -->
 Access Role(.Name) is an entity type.
 

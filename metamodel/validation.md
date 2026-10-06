@@ -71,7 +71,7 @@ Predicate 'decide:objectified_spanning' has Symbol Name 'decide:objectified_span
      and decide:rc_perm applies both conditions of the permission that
      follows. core.md's duplicate of this rule was merged into it the same
      day. -->
-Constraint 'same-type-binary-has-ring' has Text 'It is obligatory that when an asserted fact type has exactly two roles that both reference the same object type, some ring constraint spans those roles'.
+Constraint 'same-type-binary-has-ring' has Text 'It is obligatory that when an asserted fact type has exactly two roles that both reference the same object type, some ring constraint spans those roles, unless the reading of that fact type contains a capitalized-word-prefixed form of the name of that object type, or some object type has a name ending in that name'.
 Constraint 'same-type-binary-has-ring' has modality of Modality Type 'Deontic'.
 Constraint 'same-type-binary-has-ring' is of Constraint Type 'DO_pop'.
 Constraint 'same-type-binary-has-ring' spans Role 'FactTypeHasRole.1'.
@@ -90,7 +90,18 @@ Predicate 'decide:ring_complete' has Symbol Name 'decide:ring_complete'.
        a derived fact type (TR on reaches) may still be declared as
        documentation. -->
 
-It is permitted that a Fact Type has no Constraint of Constraint Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spanning its Roles when the Reading of that Fact Type contains a capitalized-word-prefixed form of the Name of the Object Type that its Roles reference, or when some Object Type has Name ending in that Name.
+<!-- The exception is the rule's own (Sam, 2026-10-06: "I would really prefer the
+     explicit verbalization that doesn't need to map `It is permitted that`").
+     It read "It is permitted that a Fact Type has no Constraint of Constraint
+     Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spanning its Roles when
+     the Reading of that Fact Type contains a capitalized-word-prefixed form of
+     the Name of the Object Type that its Roles reference, or when some Object
+     Type has Name ending in that Name." A permission is not how anything is
+     allowed here: access is granted by permission facts (security.md), and an
+     exception to a rule is part of that rule. Its two conditions are now in
+     the Text of 'same-type-binary-has-ring' above, and decide:rc_perm already
+     applies both. -->
+
 <!-- #66: this sentence said "its Ring Object Type" twice. That was never a
      type — it is prose shorthand for "the Object Type both ring Roles
      reference", exactly as :40 above spells it, and the audit note below

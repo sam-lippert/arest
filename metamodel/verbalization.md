@@ -154,7 +154,7 @@ Verbalization Pattern 'derivation-semi' has Pattern Note 'a plus marks a semi-de
 Verbalization Pattern 'deontic-obligation' is in Pattern Family 'deontic'.
 Verbalization Pattern 'deontic-obligation' has Pattern Form 'It is obligatory that each A R some B.'.
 Verbalization Pattern 'deontic-obligation' has Pattern Example 'It is obligatory that each Function belongs to some Domain.'.
-Verbalization Pattern 'deontic-obligation' has Pattern Note 'a deontic constraint warns and commits where an alethic one rejects; It is forbidden that and It is permitted that are the other modalities, and the body is any constraint sentence'.
+Verbalization Pattern 'deontic-obligation' has Pattern Note 'a deontic constraint warns and commits where an alethic one rejects; It is forbidden that is the other one, and the body is any constraint sentence; a permission is not a modality but a fact of a permission fact type (security.md)'.
 
 ## State machines
 

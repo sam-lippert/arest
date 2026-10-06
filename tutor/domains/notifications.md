@@ -70,7 +70,7 @@ Preference has Urgency threshold.
 
 Each Notification is delivered via some Channel.
 
-It is permitted that a Notification is delivered via more than one Channel.
+It is possible that the same Notification is delivered via more than one Channel.
 
 It is forbidden that a Notification is sent to a Recipient Email that has no Preference.
 
