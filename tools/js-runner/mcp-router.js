@@ -51,7 +51,7 @@
 // the first app whose lambda carries the patterns, since they are the
 // metamodel's, not an app's.
 import { spawn, spawnSync } from "node:child_process";
-import { readFileSync, appendFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { readFileSync, appendFileSync, readdirSync, statSync, existsSync, rmSync, mkdirSync, copyFileSync } from "node:fs";
 import { Database } from "bun:sqlite";
 import { createServer, connect } from "node:net";
 import { dirname, join } from "node:path";
@@ -580,7 +580,8 @@ class Resident {
     const s = this.busy
       ? this.busy + " (not served until apps_compile)"
       : this.state === "serving" ? "serving" : "not serving: " + (this.error || this.state);
-    return this.note ? s + " -- " + this.note : s;
+    const e = this.evaluating ? "evaluating " + this.evaluating + " on a scratch copy" : this.evalNote;
+    return (this.note ? s + " -- " + this.note : s) + (e ? " -- " + e : "");
   }
   // apps_check: the app's own check, in its package -- the schema from
   // its readings, by whichever writer the package names (lambda's
@@ -625,6 +626,59 @@ class Resident {
       }
     });
     return "checking " + this.name + ": bun run check in " + this.pkg + "; not served until apps_compile (or again at once if the check fails); `apps` reports the result";
+  }
+  // apps_evaluate: A DOMAIN CHANGE'S STAGED GATE (#178, 2026-10-06). evolution.md:
+  // ingesting a Domain Change is itself a create judged by the one gate; the
+  // staged application emits outcome facts and records `Domain Change is
+  // evaluated`, which `is valid` and the approve-change guard read. Nothing ran
+  // it, so the marker was asserted by hand. For a readings change the staged
+  // application is the app's own check, run over a scratch copy of its store
+  // (beside it, in .check/evaluate) instead of the store itself: the same
+  // readings directories the package's check names, the same carriers, the
+  // router's key. The app keeps serving. A run that refuses, fails, or leaves
+  // the staged store with an alethic violation is a Failure (Failure Type
+  // 'evaluation', Severity 'error', its reason the run's last lines) triggered
+  // by the Domain Change (outcomes.md); either way the app's own assert then
+  // records the Domain Change evaluated, and `is valid` follows from the rules.
+  evaluate(dc) {
+    if (this.busy || this.evaluating) return null;
+    let script;
+    try { script = JSON.parse(readFileSync(join(this.pkg, "package.json"), "utf8")).scripts.check; }
+    catch (e) { return "no check script in " + this.pkg + ": " + e.message; }
+    const m = /bun\s+(\S*build\.js)\s+(.*?)\s*compile-store\s+\.check\s+(.*)$/.exec(String(script || ""));
+    if (!m) return "the check script of " + this.pkg + " names no `compile-store .check` to stage: " + script;
+    const scratch = join(this.dir, "evaluate");
+    try {
+      rmSync(scratch, { recursive: true, force: true });
+      mkdirSync(scratch, { recursive: true });
+      for (const f of ["store.db", "design-state", "compiled"]) if (existsSync(join(this.dir, f))) copyFileSync(join(this.dir, f), join(scratch, f));
+    } catch (e) { return "the scratch copy of " + this.name + "'s store failed: " + e.message; }
+    this.evaluating = dc;
+    this.evalNote = "";
+    const args = [m[1], ...m[2].trim().split(/\s+/).filter(Boolean), "compile-store", scratch, ...m[3].trim().split(/\s+/).filter(Boolean)];
+    run(args, this.pkg, { AREST_OUT_DIR: scratch, AREST_DB: join(scratch, "store.db") }).then(async ({ code, tail }) => {
+      const clean = code === 0 && /alethic_clean: T/.test(tail);
+      const at = new Date().toISOString();
+      const facts = [];
+      if (!clean) {
+        const id = "failure:" + dc + ":" + at;
+        const reason = code === 0 ? "the staged store holds an alethic violation (alethic_clean: F)" : "the staged check failed (exit " + code + "): " + lastLines(tail, 6);
+        facts.push(["FailureHasFailureType", id, "evaluation"], ["FailureHasReasonText", id, reason], ["FailureHasSeverity", id, "error"],
+          ["FailureOccurredAtTimestamp", id, at], ["FailureIsTriggeredByObjectTypeInstance", id, dc]);
+      }
+      facts.push(["DomainChangeIsEvaluated", dc]);
+      let recorded;
+      try {
+        this.wake();
+        if (this.ready) await this.ready;
+        const out = await this.request("tools/call", { name: "assert", arguments: { args: [facts] } });
+        recorded = JSON.stringify(out && out.content ? out.content.map((c) => c.text).join(" ") : out).slice(0, 300);
+      } catch (e) { recorded = "the outcome was not recorded: " + e.message; }
+      try { rmSync(scratch, { recursive: true, force: true }); } catch {}
+      this.evaluating = null;
+      this.evalNote = "evaluated " + dc + ": " + (clean ? "clean" : "FAILED (" + facts[1][2] + ")") + "; recorded " + recorded;
+    });
+    return "evaluating " + dc + " on " + this.name + ": the app's check over a scratch copy of its store; the app keeps serving, and `apps` reports the outcome";
   }
   // apps_compile: the module from the carriers, then this app's server again.
   // The server is stopped first because it holds store.db open.
@@ -766,6 +820,7 @@ function tools() {
     { name: "apps", description: "the registry and the resident apps: where the app list was read from, whether each app is serving, and its last check or compile result", inputSchema: { type: "object", properties: {} } },
     { name: "apps_check", description: "run the app's own check in its package (bun run check: the schema from its readings, and its store); the app is stopped first, because it holds the store the check writes, and `apps` reports the result. After a readings change: apps_check, then apps_compile. On '" + REGISTRY_NAME + "' it recompiles the router's own readings -- which apps there are -- instead.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
     { name: "apps_compile", description: "rebuild the app's module from its carriers (build.js mcp) and start its server again; the app is not served meanwhile, and `apps` reports the result. The store is written by apps_check, stamped to match this module, so run apps_check first and the app serves from its database. On '" + REGISTRY_NAME + "' it reads the App table again and reconciles the residents instead: a new app is spawned, a removed or suspended one is stopped.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
+    { name: "apps_evaluate", description: "run a Domain Change's staged gate (#178): the app's own check over a scratch copy of its store, while the app keeps serving. A run that refuses, fails or leaves an alethic violation is recorded as a Failure triggered by the Domain Change; either way the app then records `Domain Change is evaluated`, so `is valid` and the approve-change guard follow from the rules. `apps` reports the outcome.", inputSchema: { type: "object", properties: { app: appArg(), domainChange: { type: "string", description: "the Domain Change to evaluate, by id" } }, required: ["app", "domainChange"] } },
     // A FACT TYPE'S OWN RESOURCE, ONE TOOL FOR ALL OF THEM (2026-09-24). Every module
     // serves a tool per fact type -- GET, POST, DELETE, PUT on it -- and this list
     // offered only the verbs, because support alone has 1,520 of those tools. So a
@@ -890,6 +945,12 @@ async function handle(msg, login) {
     const r = residents.get(app);
     if (!r) return text(msg.id, "no resident app named " + JSON.stringify(app) + "; "
       + (registry.error ? registry.error : "the apps are " + (names().join(", ") || "none")), true);
+    if (p.name === "apps_evaluate") {
+      const dc = String(args.domainChange || "");
+      if (!dc) return text(msg.id, "apps_evaluate takes the Domain Change to evaluate: domainChange", true);
+      const started = r.evaluate(dc);
+      return started ? text(msg.id, started) : text(msg.id, r.name + " is " + r.status() + "; wait for `apps` to report it", true);
+    }
     if (p.name === "apps_check" || p.name === "apps_compile") {
       const started = p.name === "apps_check" ? r.check() : r.compile();
       return started ? text(msg.id, started) : text(msg.id, r.name + " is " + r.status() + "; wait for `apps` to report it", true);
