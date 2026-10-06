@@ -63,10 +63,42 @@ External System resolves to Resolved Address.
      authorization in plain readings, by derivation rules over this fact type,
      and a function that decides authentication is bound to its predicate
      (Predicate has Module Path, Symbol Name); no syntax beyond FORML. -->
-User is authorized for Permission on Function.
+User is authorized for Permission on Function. +
   Each User, Permission, Function combination occurs at most once in the population of User is authorized for Permission on Function.
 
 User is authenticated.
+
+<!-- DENY BY DEFAULT, GRANTED BY FACTS (Sam, 2026-10-06: "A user only has read
+     or write access to a resource if their group or user has that permission.
+     So, resources are deny-by-default unless users are not included in the
+     universe of discourse or if access permissions are given for any user on a
+     resource"; "there should be no custom FORML syntax or magic phrases, and
+     permissions must be set via permission fact verbalizations"; groups are
+     both roles and organizations, "c").
+     A permission is a fact of one of four fact types, verbalized like any
+     instance fact:
+       to one user        User 'u' is authorized for Permission 'create' on Function 'F'.
+       to a role          Access Role 'admin' is authorized for Permission 'create' on Function 'F'.
+       to an organization Organization 'o' is authorized for Permission 'read' on Function 'F'.
+                          (organizations.md, where a User belongs to an Organization)
+       to any user        Object Type 'F' has Permission 'read'.   (core.md)
+     A user is authorized for what is granted to the user, to a role the user
+     has, or to an organization the user belongs to; everything else is denied.
+     The any-user grant and the open case -- an application whose readings
+     declare no User at all -- are read where the controls are computed
+     (auth:links), not multiplied out per user here. `It is permitted that`
+     grants nothing: a deontic permission only excepts from an obligation or a
+     prohibition, and access is not set by one.
+     Access Role, not Role: Role is the ORM role (core.md). -->
+Access Role(.Name) is an entity type.
+
+User has Access Role.
+  Each User, Access Role combination occurs at most once in the population of User has Access Role.
+
+Access Role is authorized for Permission on Function.
+  Each Access Role, Permission, Function combination occurs at most once in the population of Access Role is authorized for Permission on Function.
+
++ User is authorized for Permission on Function if that User has some Access Role and that Access Role is authorized for that Permission on that Function.
 
 ## Deontic Constraints
 

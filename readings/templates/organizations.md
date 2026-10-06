@@ -44,6 +44,14 @@ User administers Organization.
 
 User belongs to Organization.
 
+<!-- An organization is a group a permission is granted to (Sam, 2026-10-06;
+     metamodel/security.md, Authorization): a member is authorized for what
+     its organization is. -->
+Organization is authorized for Permission on Function.
+  Each Organization, Permission, Function combination occurs at most once in the population of Organization is authorized for Permission on Function.
+
++ User is authorized for Permission on Function if that User belongs to some Organization and that Organization is authorized for that Permission on that Function.
+
 ### User
 
 User has Email.
