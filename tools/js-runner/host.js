@@ -4902,8 +4902,19 @@ async function performDeclared(before, after, opts) {
     if (!mode) { done.push({ predicate, entity, refused: "this connection declares no Send Mode, so it is not performed" }); continue; }
     const call = Ev("perform:call_for", [predicate, after]);
     const method = Array.isArray(call[0]) ? "" : String(call[0]);
-    const address = Array.isArray(call[1]) ? "" : String(call[1]);
+    let address = Array.isArray(call[1]) ? "" : String(call[1]);
     if (!method || !address) { done.push({ predicate, entity, refused: "the model does not fully address this call" }); continue; }
+    // THE QUERY IS DECLARED AS THE BODY IS (task #193): perform:params_of answers the Function's own
+    // Query Parameters and those it fills from the subject; a hole refuses the call naming the
+    // parameter, and the pairs are encoded here as a fetch's are.
+    const qs = new URLSearchParams();
+    let qhole = null;
+    for (const q of Ev("perform:params_of", [predicate, entity, after])) {
+      if (Array.isArray(q[1])) { qhole = String(q[0]); break; }
+      qs.append(String(q[0]), String(q[1]));
+    }
+    if (qhole) { done.push({ predicate, entity, refused: "declared query parameter '" + qhole + "' has no fact to fill it" }); continue; }
+    if (qs.toString()) address += (address.includes("?") ? "&" : "?") + qs.toString();
     const headers = {};
     for (const h of Ev("perform:headers_of", [predicate, after])) headers[String(h[0])] = String(h[1]);
     // THE CREDENTIAL COMES FROM THE CONNECTION, DECRYPTED HERE AND NOWHERE ELSE.

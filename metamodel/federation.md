@@ -121,6 +121,15 @@ Function reads rows where JSON Path equals Condition Value.
 Function sends Query Text.
   Each Function sends at most one Query Text.
 
+<!-- AND A QUERY CAN NAME WHAT THE CALL IS ABOUT (2026-10-06). Sam: "Let's set up more of the
+     payload API to make the external federation r/w". A Function's Query Parameters are fixed
+     values, which is all a read needs; a write is about one entity, and Payload addresses the
+     document it updates by its query, PATCH /api/users?where[email][equals]=<email>. This is the
+     mirror of `Function sends Fact Type with Role to JSON Path` (core.md) for the query: the value
+     is the subject's, from the role named, and a value that cannot be filled refuses the call. -->
+Function sends Fact Type with Role to Query Parameter.
+  Each Function, Query Parameter combination occurs at most once in the population of Function sends Fact Type with Role to Query Parameter.
+
 ## Instance Facts
 
 <!-- organizations-domain (ruling 2): Domain 'federation' has Access 'public'. -->
