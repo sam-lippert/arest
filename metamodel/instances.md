@@ -296,6 +296,13 @@ User has Email.
        mutable data, not identity; identification inherits Function(.id)
        and the email survives as a mandatory 1:1 secondary reference. -->
 
+User is human.
+  <!-- Sam, 2026-10-06: "Let's change Human to be an attribute of a user."
+       A User is a role over the one id space, and an agent or an
+       organization may play it (core.md, the party kinds); this says the
+       user is a person. It replaces core's `Human` kind, which no fact type
+       used and no store populated. -->
+
 ### State Machine (runtime instance of State Machine Definition)
 State Machine is instance of State Machine Definition. **
   Each State Machine is instance of exactly one State Machine Definition.

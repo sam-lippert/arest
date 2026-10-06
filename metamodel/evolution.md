@@ -288,6 +288,12 @@ It is obligatory that each Domain Change has exactly one Rationale.
      about how many there are. It belongs in its own sentence, against a
      fact type that carries it, and is not smuggled into a cardinality. -->
 It is obligatory that if some Domain Change is applied then some User approves that Domain Change.
+<!-- THE HALF GIVEN UP ABOVE, NOW STATED (2026-10-06). With Human an attribute
+     of a user (`User is human`, instances.md), whether the approver is a
+     person is a fact the approval can be joined to, so "it always has to be
+     one Human" is said of the User who approves: an Agent that is a User may
+     propose a change, never sign it off. -->
+It is obligatory that if some User approves some Domain Change then that User is human.
 <!-- Restated 2026-10-05 (task #186; Sam: "Deontics should work"). It read
      "It is obligatory that for each applied Domain Change, some User
      approves that Domain Change". The reader matched Domain Change in the
