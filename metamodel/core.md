@@ -241,9 +241,12 @@ Domain is a subtype of Function.
      one id space, migration permitted, open to every kind. Any
      facts specific to one kind of user belong on an intersection
      subtype (Fig. 11's PersonalCustomer/CorporateCustomer), not on
-     User itself. -->        
-Human is an entity type.
-Human is a subtype of Object Type Instance.
+     User itself.
+     HUMAN IS AN ATTRIBUTE OF A USER. It was a kind here, `Human is an entity
+     type` and a subtype of Object Type Instance, that played no role in any
+     fact type and had no instance in any store; what the rules that named it
+     need to know is whether the user acting is a person. That is the unary
+     `User is human` (instances.md), beside the user's other facts. -->
 Organization is an entity type.
 Organization is a subtype of Object Type Instance.
 
