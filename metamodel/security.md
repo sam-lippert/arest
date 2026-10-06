@@ -55,6 +55,19 @@ External System resolves to Resolved Address.
        the send, the one moment the name is looked up, so the store holds the
        address a request actually went to and not one written down for it. -->
 
+### Authorization
+<!-- Permission is restriction by authorization and authentication (Sam,
+     2026-10-06). A caller sees, and may take, only the controls it is
+     authorized for (AREST.tex, Theorem thm:hateoas: links_c(e) is nav(e) and
+     transitions(status(e)) intersected with auth_P(c)). An application grants
+     authorization in plain readings, by derivation rules over this fact type,
+     and a function that decides authentication is bound to its predicate
+     (Predicate has Module Path, Symbol Name); no syntax beyond FORML. -->
+User is authorized for Permission on Function.
+  Each User, Permission, Function combination occurs at most once in the population of User is authorized for Permission on Function.
+
+User is authenticated.
+
 ## Deontic Constraints
 
 ### SSRF Blocklist
