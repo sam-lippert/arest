@@ -84,6 +84,10 @@ User is authenticated.
        to any user        Object Type 'F' has Permission 'read'.   (core.md)
      A user is authorized for what is granted to the user, to a role the user
      has, or to an organization the user belongs to; everything else is denied.
+     A grant on an entity type is a grant on all of it: every fact type it
+     plays a role in, its columns, unless a column is constrained by a grant of
+     its own (Sam, 2026-10-06: "A grant on an entity grants its full entity
+     access unless a column is constrained").
      The any-user grant and the open case -- an application whose readings
      declare no User at all -- are read where the controls are computed
      (auth:links), not multiplied out per user here. There is no
