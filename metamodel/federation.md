@@ -130,6 +130,32 @@ Function sends Query Text.
 Function sends Fact Type with Role to Query Parameter.
   Each Function, Query Parameter combination occurs at most once in the population of Function sends Fact Type with Role to Query Parameter.
 
+### An Object Type as its own federated view
+
+<!-- AN OBJECT TYPE IS ITS OWN FEDERATED VIEW (2026-10-06). Sam asked whether there is a better way
+     to populate an object instance from a federated view than a Source per question, and approved
+     this ("Yes, looks good."). `Object Type is backed by External System` and `Object Type has URI`
+     (core.md) were declared and read by nothing but the world assumption. With the three below an
+     Object Type is the view: it is identified at a JSON Path of each document its URI lists, each
+     Fact Type it plays the first role of is federated at a JSON Path of the same document, and its
+     system speaks a REST Dialect, which says how that system pages, names one document and answers
+     an update. Lambda answers from them what a Source, its Connector and a write Function would have
+     declared (fed:ot_*): a sync of the Object Type reads every federated Fact Type of every document,
+     a federated unary holds when its field is true, and asserting or retracting a federated fact
+     writes it to the document its key names. A path is written without its leading `$.`, as a body's
+     is, and may carry a read filter after a bar (`email|lower`); the update writes the field before it. -->
+Object Type is identified at JSON Path.
+  Each Object Type is identified at at most one JSON Path.
+
+Fact Type is federated at JSON Path.
+  Each Fact Type is federated at at most one JSON Path.
+
+REST Dialect is a value type.
+  The possible values of REST Dialect are 'payload'.
+
+External System speaks REST Dialect.
+  Each External System speaks at most one REST Dialect.
+
 ## Instance Facts
 
 <!-- organizations-domain (ruling 2): Domain 'federation' has Access 'public'. -->

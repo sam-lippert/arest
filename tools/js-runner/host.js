@@ -4890,6 +4890,13 @@ async function performDeclared(before, after, opts) {
   const done = [];
   let rows;
   try { rows = Ev("main:performed", [before, after]); } catch (e) { return done; }
+  // A WRITE OF A FEDERATED FACT IS A WRITE TO ITS SYSTEM (task #193): fed:ot_writes answers the
+  // :set and :unset calls the write's federated facts make, in main:performed's shape. The verb
+  // that wrote is passed so a sync, which is the system speaking, is never written back.
+  try {
+    const fw = Ev("fed:ot_writes", [before, after, String(o.verb || "")]);
+    if (Array.isArray(fw) && fw.length) rows = (Array.isArray(rows) ? rows : []).concat(fw);
+  } catch (e) { /* no federated object type: nothing to write through */ }
   for (const row of (Array.isArray(rows) ? rows : [])) {
     const predicate = String(row[0]);
     const entity = String(row[1]);
@@ -5012,7 +5019,15 @@ async function performDeclared(before, after, opts) {
     // successful call asserts -- `Email Message is sent via Send Tool` on support, which Resend's
     // answer never states -- and success is a 2xx. A call that failed, or a dry run's stub, reports
     // them as onSuccess and asserts none, so a guard waiting on one of them keeps waiting.
-    const succeeded = answer && Number(answer.status) >= 200 && Number(answer.status) < 300;
+    let succeeded = answer && Number(answer.status) >= 200 && Number(answer.status) < 300;
+    // AN UPDATE THAT MATCHED NOTHING DID NOTHING (task #193). Payload answers a PATCH whose query
+    // names no document 200 with none in docs, so for a federated write the dialect's matched path
+    // must list one, or the call is recorded as the failure it is.
+    const matchedRaw = Ev("fed:ot_matched", [predicate, after]);
+    if (succeeded && !Array.isArray(matchedRaw) && (mode === "live" || o.send)) {
+      const m = parsed && parsed[String(matchedRaw)];
+      if (!Array.isArray(m) || m.length === 0) { succeeded = false; answer = Object.assign({}, answer, { status: 404, text: "the update matched no document: " + String(answer.text || "").slice(0, 300) }); }
+    }
     const onSuccess = [];
     for (const r of Ev("perform:success_of", [predicate, subj, after])) {
       const row = r.map(String);
@@ -5110,7 +5125,7 @@ function answerWrite(out, what, clock) {
     clockLap(clock, "adopt");
     if (wrote) {
       const why = storeWrite(prior, what, clock);
-      if (why === null) maybePerform(prior, CELLS);
+      if (why === null) maybePerform(prior, CELLS, undefined, what);
       else { body = notCommitted(why); status = 500; }
     }
   }
@@ -5124,7 +5139,7 @@ function answerWrite(out, what, clock) {
 // puts after it. So each line is written with every "error:" as "error --": the colon is the only character
 // taken out, and what stands in its place ends in "-", so no "error:" is left and none is made.
 function quiet(say) { return (line) => say(String(line).replace(/(error):/gi, "$1 --")); }
-function maybePerform(prior, after, log) {
+function maybePerform(prior, after, log, verb) {
   if (!prior || prior === after) return;
   const say = quiet(log || console.log);
   // THE ARMING IS A FACT, NOT AN ENVIRONMENT KEY (2026-09-14). AREST_PERFORM and
@@ -5138,7 +5153,7 @@ function maybePerform(prior, after, log) {
   // THE MASTER KEY IS THE ONE THING THAT CANNOT BE A FACT, because it is what
   // decrypts the credential the store holds. It stays in the environment and is
   // passed in, which is the shape hook:read already had before it had a caller.
-  performDeclared(prior, after, { master: process.env.AREST_MASTER_KEY })
+  performDeclared(prior, after, { master: process.env.AREST_MASTER_KEY, verb })
     .then((r) => {
       for (const one of r) say("performed " + JSON.stringify(one));
       writeBack(r, say);
@@ -5811,7 +5826,7 @@ function run_mcp() {
         if (held) {
           const why = storeWrite(prior, String(name), clock);
           if (why !== null) return [notCommitted(why), 500];
-          maybePerform(prior, CELLS, console.error);
+          maybePerform(prior, CELLS, console.error, String(name));
         }
       } else readLine(String(name), clock);
       return [out[0], held ? 200 : 500];
@@ -5865,7 +5880,7 @@ function run_mcp() {
       if (wrote) {
         const why = storeWrite(prior, method + " " + resource, clock);
         if (why !== null) return [notCommitted(why), 500];
-        maybePerform(prior, CELLS, console.error);
+        maybePerform(prior, CELLS, console.error, method + " " + resource);
       }
       return [out[0], out[1]];
     }
