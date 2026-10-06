@@ -4948,6 +4948,9 @@ async function performDeclared(before, after, opts) {
       body[String(b[0])] = String(b[1]);
     }
     if (hole) { done.push({ predicate, entity, refused: "declared path '" + hole + "' has no fact to fill it" }); continue; }
+    // A UNARY IS A TRUTH, NOT A TEXT (task #193; Sam: "AREST should be able to handle unaries"): the
+    // fields a federated unary's write sets are written as the JSON booleans true and false.
+    for (const fl of Ev("fed:ot_flags", [predicate, after])) body[String(fl[0])] = String(fl[1]) === "T";
     // A HOSTNAME IS RESOLVED WHERE THE REQUEST IS MADE (2026-10-01, Sam: "keep SSRF check").
     // decide:ssrf judges a URL as written, because a deontic computed on every write must not
     // wait on the network. The send is where the name is looked up anyway, so a live send looks
