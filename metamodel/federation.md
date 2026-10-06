@@ -148,6 +148,17 @@ Object Type is identified at JSON Path.
 Fact Type is federated at JSON Path.
   Each Fact Type is federated at at most one JSON Path.
 
+<!-- A FIELD READ THROUGH A FILTER IS WRITTEN THROUGH ITS INVERSE, AND THE INVERSE IS THE FIELD'S
+     (2026-10-06). auth.example's role is read
+     through lower and written through upper; an email read through lower has no inverse, and a
+     field read through a filter that declares none is read-only. The pair is held to the values
+     the store holds: read(write(v)) is v (fed:ot_roundtrip_bad). A Filter is one of lambda's
+     registered value filters (tpl:filter), as a JSON Path's bar names one. -->
+Filter is a value type.
+
+Fact Type is written through Filter.
+  Each Fact Type is written through at most one Filter.
+
 REST Dialect is a value type.
   The possible values of REST Dialect are 'payload'.
 
