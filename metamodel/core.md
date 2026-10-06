@@ -556,7 +556,9 @@ Reading is primary.
 Role is used in Reading.
   Each Role, Reading combination occurs at most once in the population of Role is used in Reading.
   Each Role is used in some Reading.
-  For each Reading, some Role is used in that Reading.
+  <!-- A Reading needs no Role. A Reading a Domain Change
+       retires outlives the Fact Type and the Roles it created. -->
+
 RoleIsUsedInReading objectifies "Role is used in Reading".
 RoleIsUsedInReading is a subtype of Function.
 

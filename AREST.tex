@@ -226,28 +226,28 @@ $P''$ exists and is finite by Lemma~\ref{lem:finite}. $\mathit{validate}_S$ appl
 \end{proof}
 
 \begin{definition}[Operationally admissible control]\label{def:admissible}
-For entity $e$ in population $P$, $\mathit{Adm}_{S,P}(e)$ is the set of operation labels for which the command semantics has a well-typed route rooted at $e$. A label is in the set in exactly one of two ways: (i) it names a state transition whose source is $\mathit{status}(e)$ and whose trigger fact has a role played by $e$, with every other required role supplied by the request or by a uniquely determined binding; or (ii) it names a relational peer, child, or collection operation induced by a declared fact type containing $e$, where the target direction is determined by the applicable uniqueness constraints. This relation is defined from $\mathit{resolve}_S$, the state-machine facts, and the relational constraints, independently of the representation emitted by $\mathit{emit}_S$.
+For entity $e$ in population $P$ and caller $c$, $\mathit{Adm}_{S,P}(e,c)$ is the set of operation labels for which the command semantics has a well-typed route rooted at $e$ that $c$ may take. A label is in the set in exactly one of two ways: (i) it names a state transition whose source is $\mathit{status}(e)$ and whose trigger fact has a role played by $e$, with every other required role supplied by the request or by a uniquely determined binding; or (ii) it names a relational peer, child, or collection operation induced by a declared fact type containing $e$, where the target direction is determined by the applicable uniqueness constraints. In either case $P$ must hold that $c$ is authenticated and authorized for the label's operation on the function it addresses (the fact \emph{User is authorized for Permission on Function}, whether asserted or derived by a rule), and $P$ must still hold $e$: an entity whose facts have been retracted affords no control. This relation is defined from $\mathit{resolve}_S$, the state-machine facts, the relational constraints, and the authorization facts, independently of the representation emitted by $\mathit{emit}_S$.
 \end{definition}
 
 \begin{theorem}[Generated-control representation]\label{thm:hateoas}
-For every entity $e$,
+For every entity $e$ and caller $c$,
 \begin{align}
-\mathit{links}(e)&=\mathit{nav}(e)\cup\mathit{transitions}(\mathit{status}(e)) \label{eq:links}\\
-&=\mathit{Adm}_{S,P}(e),\nonumber
+\mathit{links}_c(e)&=\bigl(\mathit{nav}(e)\cup\mathit{transitions}(\mathit{status}(e))\bigr)\cap\mathit{auth}_P(c) \label{eq:links}\\
+&=\mathit{Adm}_{S,P}(e,c),\nonumber
 \end{align}
-and the left-hand side is a $\theta_1$ expression over $P$ and $S$. Thus the emitted controls are sound and complete for the operational command relation of Definition~\ref{def:admissible}.
+where $\mathit{auth}_P(c)$ is the set of labels whose operation $P$ authorizes $c$ for, and $\mathit{links}_c(e)=\varnothing$ when $P$ holds no fact of $e$. The left-hand side is a $\theta_1$ expression over $P$ and $S$. Thus the emitted controls are sound and complete for the operational command relation of Definition~\ref{def:admissible}: an unauthorized control is never emitted, rather than emitted and then refused.
 \end{theorem}
 \begin{proof}
-$\mathit{transitions}(s)$ projects exactly the transition facts restricted to source status $s$. Every projected label therefore has a command route of kind~(i), and every route of kind~(i) appears in that projection. Likewise $\mathit{nav}(e)$ examines each declared fact type in which $e$ plays a role and projects the peer control when uniqueness spans the opposite role, the child controls when uniqueness makes the remaining roles dependent on the constrained key, and the corresponding collection controls. These are exactly the routes of kind~(ii). The two cases are disjoint by their operation kind, so both inclusions between $\mathit{links}(e)$ and $\mathit{Adm}_{S,P}(e)$ follow.
+$\mathit{transitions}(s)$ projects exactly the transition facts restricted to source status $s$. Every projected label therefore has a command route of kind~(i), and every route of kind~(i) appears in that projection. Likewise $\mathit{nav}(e)$ examines each declared fact type in which $e$ plays a role and projects the peer control when uniqueness spans the opposite role, the child controls when uniqueness makes the remaining roles dependent on the constrained key, and the corresponding collection controls. These are exactly the routes of kind~(ii). The two cases are disjoint by their operation kind. $\mathit{auth}_P(c)$ selects the authorization facts whose user is $c$ and projects their operations, so intersecting with it removes exactly the routes $c$ may not take; and when $P$ holds no fact of $e$ there is no status to read and no fact type in which $e$ plays a role, so both sides are empty. Both inclusions between $\mathit{links}_c(e)$ and $\mathit{Adm}_{S,P}(e,c)$ follow.
 
-Each projection is a restriction composing $\mathit{eq}$ with selectors and constants followed by projection, an equality $\theta$-restriction~\cite[Sec.\,2.3.5]{codd72} within Codd's $\theta_1$~\cite[Sec.\,2.2]{codd70}. No separately authored control semantics is used.
+Each projection, and the intersection with $\mathit{auth}_P(c)$, is a restriction composing $\mathit{eq}$ with selectors and constants followed by projection, an equality $\theta$-restriction~\cite[Sec.\,2.3.5]{codd72} within Codd's $\theta_1$~\cite[Sec.\,2.2]{codd70}. No separately authored control semantics is used.
 \end{proof}
 
 \begin{corollary}[Control-map nonredundancy]\label{cor:controlmap}
-Let $H$ be any separately authored control map over the same $S$ and $P$. If, for every entity $e$, $H(e)$ contains every operationally admissible control and only operationally admissible controls, then $H(e)=\mathit{links}(e)$ for every $e$. Thus $H$ contributes no independent model information; maintaining both $H$ and the model duplicates the same control surface.
+Let $H$ be any separately authored control map over the same $S$ and $P$. If, for every entity $e$ and caller $c$, $H_c(e)$ contains every operationally admissible control and only operationally admissible controls, then $H_c(e)=\mathit{links}_c(e)$ for every $e$ and $c$. Thus $H$ contributes no independent model information; maintaining both $H$ and the model duplicates the same control surface.
 \end{corollary}
 \begin{proof}
-By Theorem~\ref{thm:hateoas}, $\mathit{links}(e)$ is exactly the set of operationally admissible controls. The two inclusions assumed for $H(e)$ therefore give extensional equality.
+By Theorem~\ref{thm:hateoas}, $\mathit{links}_c(e)$ is exactly the set of operationally admissible controls. The two inclusions assumed for $H_c(e)$ therefore give extensional equality.
 \end{proof}
 
 \noindent \emph{Generating}, rather than restating, this set is the novel step. Fielding~\cite{fielding00} fixed hypermedia as a constraint but left the controls for the server author to write by hand, and prior formal treatments model the \emph{client}'s traversal as a machine over the representations it receives~\cite{zuzak11}. Equation~(\ref{eq:links}) works the other side of the wire: the generated set is current as a function of $P$ and $S$, and no operationally admissible control is omitted from the generated interface. Corollary~\ref{cor:controlmap} states the architectural consequence: a sound and complete hand-authored control map can only repeat that projection. Adequacy of the schema to the business domain remains a modeling obligation. A client, or an agent reading the API, therefore need not invent an affordance that the declared model does not expose. A transition graph may cycle. A deontic reading may require each cycle to carry an exit transition, ensuring that no cycle is structurally closed; whether an enabled exit is eventually taken remains a fairness or domain obligation.
@@ -257,7 +257,7 @@ The uniqueness structure of Theorem~\ref{thm:hateoas} orders the schema: $f$ is 
 \end{corollary}
 
 \begin{proposition}[Derivability]\label{prop:derive}
-Every component of the representation $\mathit{repr}(e)$, namely the selectors on $e$'s facts, the derived facts, the constraint violations, and $\mathit{links}(e)$, is $(\rho\,f)\!:\!P$ for some object $f$.
+Every component of the representation $\mathit{repr}(e)$, namely the selectors on $e$'s facts, the derived facts, the constraint violations, and $\mathit{links}_c(e)$ for the caller $c$, is $(\rho\,f)\!:\!P$ for some object $f$.
 \end{proposition}
 \begin{proof}
 Selectors, derivation rules, and constraints are $\rho$-applications by construction, and the links are $\theta_1$ (Theorem~\ref{thm:hateoas}), themselves $\rho$-applications. No value arises outside $\rho$.
