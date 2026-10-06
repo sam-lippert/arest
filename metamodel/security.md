@@ -78,7 +78,6 @@ Constraint 'external-system-url-not-internal' has modality of Modality Type 'Deo
 Constraint 'external-system-url-not-internal' is of Constraint Type 'DF_pop'.
 Constraint 'external-system-url-not-internal' spans Role 'ExternalSystemHasURL.1'.
 Constraint 'external-system-url-not-internal' is decided by Predicate 'decide:ssrf'.
-Predicate 'decide:ssrf' has Name 'decide:ssrf'.
 Predicate 'decide:ssrf' has Module Path 'arest'.
 Predicate 'decide:ssrf' has Symbol Name 'decide:ssrf'.
 

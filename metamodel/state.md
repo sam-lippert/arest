@@ -222,7 +222,6 @@ Constraint 'edge-action-in-target' has modality of Modality Type 'Deontic'.
 Constraint 'edge-action-in-target' is of Constraint Type 'DO_pop'.
 Constraint 'edge-action-in-target' spans Role 'PredicateIsPerformedDuringTransition.2'.
 Constraint 'edge-action-in-target' is decided by Predicate 'decide:moore_mealy'.
-Predicate 'decide:moore_mealy' has Name 'decide:moore_mealy'.
 Predicate 'decide:moore_mealy' has Module Path 'arest'.
 Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
@@ -495,7 +494,6 @@ Constraint 'cycle-has-exit' has modality of Modality Type 'Deontic'.
 Constraint 'cycle-has-exit' is of Constraint Type 'DO_pop'.
 Constraint 'cycle-has-exit' spans Role 'StatusReachesStatusInStateMachineDefinition.3'.
 Constraint 'cycle-has-exit' is decided by Predicate 'decide:cycle_exit'.
-Predicate 'decide:cycle_exit' has Name 'decide:cycle_exit'.
 Predicate 'decide:cycle_exit' has Module Path 'arest'.
 Predicate 'decide:cycle_exit' has Symbol Name 'decide:cycle_exit'.
 <!-- arest-batch ruling 6 (fidelity over improvement — replacing the

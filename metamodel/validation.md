@@ -25,7 +25,6 @@ Constraint 'uniqueness-spans-n-minus-one' has modality of Modality Type 'Deontic
 Constraint 'uniqueness-spans-n-minus-one' is of Constraint Type 'DF_pop'.
 Constraint 'uniqueness-spans-n-minus-one' spans Role 'FactTypeHasRole.1'.
 Constraint 'uniqueness-spans-n-minus-one' is decided by Predicate 'decide:n_minus_one'.
-Predicate 'decide:n_minus_one' has Name 'decide:n_minus_one'.
 Predicate 'decide:n_minus_one' has Module Path 'arest'.
 Predicate 'decide:n_minus_one' has Symbol Name 'decide:n_minus_one'.
 
@@ -43,7 +42,6 @@ Constraint 'objectification-needs-spanning-uniqueness' has modality of Modality 
 Constraint 'objectification-needs-spanning-uniqueness' is of Constraint Type 'DF_pop'.
 Constraint 'objectification-needs-spanning-uniqueness' spans Role 'FactTypeHasRole.1'.
 Constraint 'objectification-needs-spanning-uniqueness' is decided by Predicate 'decide:objectified_spanning'.
-Predicate 'decide:objectified_spanning' has Name 'decide:objectified_spanning'.
 Predicate 'decide:objectified_spanning' has Module Path 'arest'.
 Predicate 'decide:objectified_spanning' has Symbol Name 'decide:objectified_spanning'.
 <!-- Halpin, "Objectification and Atomicity" (2020-04-28,
@@ -78,7 +76,6 @@ Constraint 'same-type-binary-has-ring' has modality of Modality Type 'Deontic'.
 Constraint 'same-type-binary-has-ring' is of Constraint Type 'DO_pop'.
 Constraint 'same-type-binary-has-ring' spans Role 'FactTypeHasRole.1'.
 Constraint 'same-type-binary-has-ring' is decided by Predicate 'decide:ring_complete'.
-Predicate 'decide:ring_complete' has Name 'decide:ring_complete'.
 Predicate 'decide:ring_complete' has Module Path 'arest'.
 Predicate 'decide:ring_complete' has Symbol Name 'decide:ring_complete'.
   <!-- ring adjudication (2026-07-17, derived): scoped to ASSERTED fact
@@ -135,7 +132,6 @@ Constraint 'value-comparison-same-data-type' has modality of Modality Type 'Deon
 Constraint 'value-comparison-same-data-type' is of Constraint Type 'DO_pop'.
 Constraint 'value-comparison-same-data-type' spans Role 'ConstraintSpan.1'.
 Constraint 'value-comparison-same-data-type' is decided by Predicate 'decide:vc_types'.
-Predicate 'decide:vc_types' has Name 'decide:vc_types'.
 Predicate 'decide:vc_types' has Module Path 'arest'.
 Predicate 'decide:vc_types' has Symbol Name 'decide:vc_types'.
 
@@ -274,7 +270,6 @@ Constraint 'reference-mode-not-restated' has modality of Modality Type 'Deontic'
 Constraint 'reference-mode-not-restated' is of Constraint Type 'DF_pop'.
 Constraint 'reference-mode-not-restated' spans Role 'FactTypeHasRole.1'.
 Constraint 'reference-mode-not-restated' is decided by Predicate 'decide:refmode_restated'.
-Predicate 'decide:refmode_restated' has Name 'decide:refmode_restated'.
 Predicate 'decide:refmode_restated' has Module Path 'arest'.
 Predicate 'decide:refmode_restated' has Symbol Name 'decide:refmode_restated'.
 <!-- arest-batch ruling 4: un-commented and reworded to canonical

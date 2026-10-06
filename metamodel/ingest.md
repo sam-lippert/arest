@@ -75,7 +75,6 @@ Constraint 'webhook-yield-covers-roles' has modality of Modality Type 'Deontic'.
 Constraint 'webhook-yield-covers-roles' is of Constraint Type 'DO_pop'.
 Constraint 'webhook-yield-covers-roles' spans Role 'WebhookEventTypeYieldsFactTypeWithRoleFromJSONPath.1'.
 Constraint 'webhook-yield-covers-roles' is decided by Predicate 'decide:webhook_coverage'.
-Predicate 'decide:webhook_coverage' has Name 'decide:webhook_coverage'.
 Predicate 'decide:webhook_coverage' has Module Path 'arest'.
 Predicate 'decide:webhook_coverage' has Symbol Name 'decide:webhook_coverage'.
 

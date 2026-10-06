@@ -670,9 +670,15 @@ RoleIsUsedInReading has Position.
   Each RoleIsUsedInReading has at most one Position.
 
 ### Predicate
-Predicate has Name.
-  Each Predicate has exactly one Name.
-  It is possible that more than one Predicate has the same Name.
+<!-- A Predicate has no Name (Sam, 2026-10-06: "Halpin's predicate has no
+     name property"). Halpin identifies it by a number, and "number" is an
+     id: the compile files each Reading as used by Predicate 'p<fact type>',
+     and nothing compares the ids, only the relations. One Predicate carries
+     every Reading of its fact type (Sam: "even NORMA supports reverse
+     readings, and you should be able to add localizations, too"): a reverse
+     reading or a localization is another Reading of the same Predicate, as
+     rReadingUsesRole is below. A bound function's name is its Function
+     Name. -->
 Fact Type is activated by Predicate.
   In each population of Fact Type is activated by Predicate, each Fact Type, Predicate combination occurs at most once.
 API objectifies "Fact Type is activated by Predicate".
@@ -1016,7 +1022,6 @@ Constraint 'role-instance-typed' has modality of Modality Type 'Deontic'.
 Constraint 'role-instance-typed' is of Constraint Type 'DO_pop'.
 Constraint 'role-instance-typed' spans Role 'RoleInstanceUsesObjectTypeInstance.1'.
 Constraint 'role-instance-typed' is decided by Predicate 'decide:role_typing'.
-Predicate 'decide:role_typing' has Name 'decide:role_typing'.
 Predicate 'decide:role_typing' has Module Path 'arest'.
 Predicate 'decide:role_typing' has Symbol Name 'decide:role_typing'.
 
@@ -1514,7 +1519,6 @@ Constraint 'ring-spans-one-type' has modality of Modality Type 'Deontic'.
 Constraint 'ring-spans-one-type' is of Constraint Type 'DO_pop'.
 Constraint 'ring-spans-one-type' spans Role 'ConstraintSpan.1'.
 Constraint 'ring-spans-one-type' is decided by Predicate 'decide:ring_same_type'.
-Predicate 'decide:ring_same_type' has Name 'decide:ring_same_type'.
 Predicate 'decide:ring_same_type' has Module Path 'arest'.
 Predicate 'decide:ring_same_type' has Symbol Name 'decide:ring_same_type'.
 
@@ -1562,7 +1566,6 @@ Constraint 'constraint-roles-filled' has modality of Modality Type 'Deontic'.
 Constraint 'constraint-roles-filled' is of Constraint Type 'DO_pop'.
 Constraint 'constraint-roles-filled' spans Role 'ConstraintSpan.1'.
 Constraint 'constraint-roles-filled' is decided by Predicate 'decide:unfilled_roles'.
-Predicate 'decide:unfilled_roles' has Name 'decide:unfilled_roles'.
 Predicate 'decide:unfilled_roles' has Module Path 'arest'.
 Predicate 'decide:unfilled_roles' has Symbol Name 'decide:unfilled_roles'.
 
@@ -2137,9 +2140,11 @@ Format has Pattern.
      a predicate to name it fires. Measured: the block without the Predicate
      lines takes cmd:mand_viols from 0 to 1, naming rReadingUsesRole; with
      them it is 0, and ui:violations stays at the base's 30, all deontic
-     FunctionBelongsToDomain. The name RoleUsage is this predicate's alone
-     and is not a fact type id, because Predicate and Fact Type are both
-     subtypes of Function and share one id space.
+     FunctionBelongsToDomain. The predicate was named RoleUsage; since
+     2026-10-06 every reading's predicate is filed by the compile as
+     'p<fact type>', which is not a fact type id (those begin upper case),
+     because Predicate and Fact Type are both subtypes of Function and share
+     one id space.
 
      THE ROLE ORDER IS THE ONE PART NOT HERE. `Role is used in Reading has
      Position` is what says which role is {0} in each reading, and it is 0
@@ -2153,15 +2158,11 @@ Format has Pattern.
      without it: this fact type has two readings, one predicate carries
      both, and both roles are used in both. -->
 
-Predicate 'RoleUsage' has Name 'role usage'.
-
-Reading 'rRoleIsUsedInReading' is used by Predicate 'RoleUsage'.
-
 Fact Type 'RoleIsUsedInReading' has Reading 'rReadingUsesRole'.
 
 Reading 'rReadingUsesRole' has Text '{0} uses {1}'.
 
-Reading 'rReadingUsesRole' is used by Predicate 'RoleUsage'.
+Reading 'rReadingUsesRole' is used by Predicate 'pRoleIsUsedInReading'.
 
 Role 'RoleIsUsedInReading.2' is used in Reading 'rReadingUsesRole'.
 
