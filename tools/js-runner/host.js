@@ -6707,6 +6707,28 @@ function lazyStore(db, want) {
     stats: () => ({ selects, tables: byTable.size, most: Math.max(0, ...wholeReads.values()), scans }) };
 }
 
+// AND THE RECORD OF DERIVED ROWS IS READ FROM THE COMPILE'S LEDGER (2026-10-06, task #191). A write tells a
+// derived row of a + head from an asserted one by state:derived_rows, which only a write's derive:rec_put
+// wrote, so a start held no record and every row the compile's closure derived of such a head was asserted to
+// every later write, never taken back when its support went. The compile keeps what its closure added in
+// _derived. This reads its rows of the heads the record tracks (derive:rec_heads) and installs the record
+// lambda makes of them (derive:rec_seed, derive:rec_cell). A store with no _derived has no record, as before.
+function seedDerivedRows(db, have) {
+  if (!have.has("_derived")) return;
+  const q = db.query('select "row" from "_derived" where "ft" = ?');
+  const pairs = [];
+  for (const h of seq(Ev("derive:rec_heads", CELLS))) {
+    const rows = q.values(String(h)).map((r) => JSON.parse(String(r[0])));
+    if (rows.length) pairs.push([String(h), rows]);
+  }
+  if (!pairs.length) return;
+  const rec = seq(Ev("derive:rec_seed", [CELLS, pairs]));
+  if (!rec.length) return;
+  for (let i = CELLS.length - 1; i >= 0; i--) if (Array.isArray(CELLS[i]) && CELLS[i][1] === "state:derived_rows") CELLS.splice(i, 1);
+  CELLS.unshift(Ev("derive:rec_cell", rec));
+  memoClear();
+}
+
 function loadStoreDb(path, opts) {
   const { Database } = require("bun:sqlite");
   const db = new Database(path, { readonly: true });
@@ -6902,6 +6924,7 @@ function loadStoreDb(path, opts) {
         CELLS.unshift(["CELL", "state:otpops", cell]);
         memoClear();
       }
+      seedDerivedRows(db, have);
       return;
     }
   }
@@ -6939,6 +6962,7 @@ function loadStoreDb(path, opts) {
   const OTPOPS_FT = "ObjectTypeInstanceIsInstanceOfObjectType";
   const moved = recon.map((c) => [c[1], c[2]]);
   const runtimeInst = byFt.get(OTPOPS_FT) || [];
+  seedDerivedRows(db, have);
   db.close();
   // WHAT THE TABLES THEMSELVES HOLD, in the encoding popSnapshot compares. The
   // cells below are the same rows, but only until something recomputes one --
