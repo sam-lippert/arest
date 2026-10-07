@@ -1053,9 +1053,9 @@ fn memoable(f: &str) -> bool {
     // a pure def cannot change a value while D is frozen (Backus 14.6), so this
     // is speed only; the leaf twins above intercept the ones that are also
     // FASTPRIMS (ast:fetch, cn:gmpl) before the memo is consulted.
-    const MEMOCN: [&str; 22] = ["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor", "cn:sfx",
+    const MEMOCN: [&str; 24] = ["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor", "cn:sfx",
         "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts", "cn:chrank", "lex:lw",
-        "induce:sig_of", "system:pop_in", "store:fts", "ui:otpops", "mcp:tools",
+        "induce:sig_of", "system:pop_in", "store:fts", "ui:otpops", "ui:cls_rows", "ui:typed_types", "mcp:tools",
         "derive:sm_marks", "main:status_fts", "main:cell2", "lex:subruns", "lex:camel"];
     MEMOCN.contains(&f) || f.starts_with("rmap:") || f.starts_with("state:")
 }
