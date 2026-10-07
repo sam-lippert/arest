@@ -262,6 +262,9 @@ if (run) {
   // judge never ran, and support.auto.dev had no _verdict, so every write took the whole check. A judge that
   // cannot be built or run says so, and the store is left with no verdict, as before.
   if (code === 0 && mode === "compile" && rest[0] === "compile-store" && rest[1] && !process.env.AREST_NO_VERDICT) {
+    // AND AN INSTRUMENTED CHECK LAPS IT (2026-10-07, task #194): the judge is a second composition and a
+    // second boot, which the compile's own laps cannot see, so its time is printed beside them.
+    const tv = performance.now();
     const store = resolve(rest[1]);
     const vdir = join(store, ".verdict");
     mkdirSync(vdir, { recursive: true });
@@ -275,6 +278,7 @@ if (run) {
       if (judged !== 0) process.stderr.write("verdict: the judge exited " + judged + "; the store has no verdict, and its first write asks the whole check" + String.fromCharCode(10));
     } else process.stderr.write("verdict: the judge's module did not build (exit " + built + "); the store has no verdict, and its first write asks the whole check" + String.fromCharCode(10));
     rmSync(vdir, { recursive: true, force: true });
+    if (process.env.AREST_INSTRUMENTED) process.stderr.write("verdict lap: " + Math.round(performance.now() - tv) + " ms (the serve module composed, booted on the store, judged)" + String.fromCharCode(10));
   }
   process.exit(code);
 }

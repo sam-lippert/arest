@@ -4255,6 +4255,37 @@ if (SAMPLE) {
   if (typeof w.unref === "function") w.unref();
   process.on("exit", () => sreport("sample at exit"));
 }
+// THE COMPILE'S LAPS (2026-10-07, task #194). An app's check printed no phase times: the profile of support's
+// check had to be read off its total and a sample. So an instrumented composition clocks the phases the compile
+// passes through -- the check, the sealing, the carrier, the relational map and its stamp, then, for a store
+// changed in place, its four phases (p4 split into the closure, the sync of the tables, the ledgers and the
+// replace) -- and prints them on stderr when the process exits, in the order they were entered, a phase inside
+// another indented under it. Each is entered through FASTPRIMS and evaluates its own body, as a DEF with no twin
+// is evaluated (or the twin it had), so the laps change no answer; a release module carries none of this.
+const CLAPS = [
+  ["compile:checked", "checked"], ["compile:sealed", "sealed"], ["compile:carrier", "carrier"],
+  ["compile:mapped", "mapped"], ["compile:stamped", "stamped"], ["compile:compiled", "compiled"],
+  ["compile:store_stage", "store"], ["compile:sb_closed", "closure (fresh store)"],
+  ["compile:ip_p1", "p1 copy, re-lay, read the old store"], ["compile:ip_p2", "p2 set aside"],
+  ["compile:ip_p3", "p3 fill, split the runtime's facts"],
+  ["compile:ip_p4a", "p4 closure"], ["compile:ip_p4b", "p4 sync"], ["compile:ip_p4c", "p4 ledger"], ["compile:ip_p4d", "p4 replace"],
+];
+const CLAPPED = [];
+let CLAPDEPTH = 0;
+for (const [def, label] of CLAPS) {
+  const inner = NOTWIN.has(def) ? undefined : FASTPRIMS.get(def);
+  FASTPRIMS.set(def, (x) => {
+    const lap = [label, CLAPDEPTH, null], t = performance.now();
+    CLAPPED.push(lap);
+    CLAPDEPTH++;
+    try { return inner !== undefined ? inner(x) : Ev(DEFS.get(def), x); }
+    finally { CLAPDEPTH--; lap[2] = performance.now() - t; }
+  });
+}
+process.on("exit", () => {
+  if (CLAPPED.length === 0) return;
+  console.error("compile laps:\n" + CLAPPED.map(([label, depth, ms]) => "  " + "  ".repeat(depth) + label + " " + (ms === null ? "(did not finish)" : Math.round(ms) + " ms")).join("\n"));
+});
 // @instrument-end
 // A LONG EVALUATION COLLECTS WHEN IT HAS GROWN, NOT WHEN THE COLLECTOR GETS ROUND TO IT
 // (2026-10-01). An app check is one synchronous evaluation, so no timer fires inside it and
