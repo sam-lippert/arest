@@ -803,6 +803,22 @@ function rowPlanner(cells, prior, changed) {
 // whether the last emitToDb stored its rows: false from its start until its transaction commits, so a
 // failure before then is a write nothing of which was stored (storeWrite)
 let EMIT_STORED = false;
+// <db, the store before a write, the store after it> to the statements that keep the write's record delta in
+// _derived, or null when the record did not move or the store keeps no _derived. Which rows are added and
+// which removed is lambda's (derive:rec_ledger, over derive:rec_delta), each <fact type, row text> as the
+// compile writes it; the host only writes them, removals first.
+function recordLedger(db, prior, cells) {
+  const d = Ev("derive:rec_ledger", [prior, cells]);
+  const add = seq(d[0]), del = seq(d[1]);
+  if (!add.length && !del.length) return null;
+  if (!db.query("select 1 from sqlite_master where type = 'table' and name = '_derived'").get()) return null;
+  return () => {
+    const rm = db.prepare('delete from "_derived" where "ft" = ? and "row" = ?');
+    const put = db.prepare('insert or ignore into "_derived" ("ft", "row") values (?, ?)');
+    for (const r of del) rm.run(String(r[0]), String(r[1]));
+    for (const r of add) put.run(String(r[0]), String(r[1]));
+  };
+}
 function emitToDb(before, cells, prior, report) {
   EMIT_STORED = false;
   // AND SAYS WHICH TABLES IT WROTE, when handed a report to say it in: the in-place compile keeps its
@@ -841,7 +857,15 @@ function emitToDb(before, cells, prior, report) {
   }
   lap("change");
   if (report) report.moved = changed.size;
-  if (!changed.size) return 0;
+  // AND WHAT THE WRITE CHANGED OF THE RECORD OF DERIVED ROWS IS KEPT WITH IT (2026-10-07, task #172, the hole
+  // task #191 named): the rows derive:rec_ledger answers, written into _derived in the same transaction, so a
+  // start seeds the record the write left (seedDerivedRows) and a row a write derived is not read as entered.
+  // A write that only moved the record -- a value entered equal to the derived one -- writes the ledger alone.
+  const ledger = prior ? recordLedger(db, prior, cells) : null;
+  if (!changed.size) {
+    if (ledger) { db.transaction(ledger)(); EMIT_STORED = true; }
+    return 0;
+  }
   // THE SOURCE TAKES THE ROWS FIRST, because the projection reads it. A row
   // derived at boot or written through main:api lives in a per-fact-type cell,
   // and rmap:proj_rows answers from the DESCRIPTORS -- store:fts slot 5 -- so
@@ -939,6 +963,7 @@ function emitToDb(before, cells, prior, report) {
       }
       if (report) report.rewrote.push([table, n]);
     }
+    if (ledger) ledger();
     if (refused.length) throw new Error("the store refused " + (refused.length === 1 ? "a statement: " : refused.length + " statements, the first: ") + refused[0]);
   })();
   EMIT_STORED = true;
@@ -6805,6 +6830,8 @@ function lazyStore(db, want) {
 // every later write, never taken back when its support went. The compile keeps what its closure added in
 // _derived. This reads its rows of the heads the record tracks (derive:rec_heads) and installs the record
 // lambda makes of them (derive:rec_seed, derive:rec_cell). A store with no _derived has no record, as before.
+// Each write keeps its record delta in _derived too (recordLedger, 2026-10-07), so this reads what the last
+// write left and not only what the compile did.
 function seedDerivedRows(db, have) {
   if (!have.has("_derived")) return;
   const q = db.query('select "row" from "_derived" where "ft" = ?');
