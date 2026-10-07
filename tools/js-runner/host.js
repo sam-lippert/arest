@@ -1411,15 +1411,22 @@ const PRIMS = new Map(Object.entries({
   // lambda implementation (sqlite:schema over rmap:ddl) makes. It was sql:exec, a name lambda called
   // directly, which is the coupling the interface removes.
   "storage:engine": () => "sqlite",
-  // A LOG IS AN INTERFACE TOO (2026-10-06; Sam: "that has to be a log provider registered and resolved").
-  // lambda's log:write applies <log:provider>:write, and this host provides jsonl: one JSON line per entry,
-  // appended to AREST_LOG, or to arest.log.jsonl beside the store. What an entry is is lambda's (log:response).
-  "log:provider": () => "jsonl",
-  "jsonl:write": x => {
-    const fs = require("node:fs"), path = require("node:path");
+  // A LOG IS AN INTERFACE TOO (2026-10-06; Sam: "that has to be a log provider registered and resolved", and
+  // "I only want sqlite for storage right now"). lambda's log:write applies <log:provider>:write, and this host
+  // provides sqlite: each entry is a row of the table log in arest.log.db beside the store (AREST_LOG names
+  // another), its own file so the store's schema stays the compile's. What an entry is is lambda's (log:response).
+  "log:provider": () => "sqlite",
+  "sqlite:write": x => {
+    const { Database } = require("bun:sqlite"), path = require("node:path");
     const db = process.env.AREST_DB || "";
-    const file = process.env.AREST_LOG || path.join(db && db !== ":memory:" ? path.dirname(db) : process.cwd(), "arest.log.jsonl");
-    try { fs.appendFileSync(file, JSON.stringify({ at: new Date().toISOString(), channel: String(at(x, 0)), entry: at(x, 1) }) + String.fromCharCode(10)); } catch (e) { /* a log that cannot be written is no log, never a failed call */ }
+    const file = process.env.AREST_LOG || path.join(db && db !== ":memory:" ? path.dirname(db) : process.cwd(), "arest.log.db");
+    try {
+      const ldb = new Database(file, { create: true });
+      try {
+        ldb.exec("CREATE TABLE IF NOT EXISTS log (at TEXT NOT NULL, channel TEXT NOT NULL, entry TEXT NOT NULL)");
+        ldb.query("INSERT INTO log (at, channel, entry) VALUES (?, ?, ?)").run(new Date().toISOString(), String(at(x, 0)), JSON.stringify(at(x, 1)));
+      } finally { ldb.close(); }
+    } catch (e) { /* a log that cannot be written is no log, never a failed call */ }
     return "T";
   },
   "sqlite:exec": x => {
