@@ -1411,25 +1411,11 @@ const PRIMS = new Map(Object.entries({
   // lambda implementation (sqlite:schema over rmap:ddl) makes. It was sql:exec, a name lambda called
   // directly, which is the coupling the interface removes.
   "storage:engine": () => "sqlite",
-  // A LOG IS AN INTERFACE TOO (2026-10-06; Sam: "that has to be a log provider registered and resolved", and
-  // "I only want sqlite for storage right now"). lambda's log:write applies <log:provider>:write, and this host
-  // provides sqlite: each entry is a row of the table log in arest.log.db beside the store (AREST_LOG names
-  // another), its own file so the store's schema stays the compile's. What an entry is is lambda's (log:response).
-  "log:provider": () => "sqlite",
-  "sqlite:write": x => {
-    const { Database } = require("bun:sqlite"), path = require("node:path");
-    // a served app is handed its store as AREST_STORE_DB (mcp-router.js), a check or compile as AREST_DB
-    const db = process.env.AREST_STORE_DB || process.env.AREST_DB || "";
-    const file = process.env.AREST_LOG || path.join(db && db !== ":memory:" ? path.dirname(db) : process.cwd(), "arest.log.db");
-    try {
-      const ldb = new Database(file, { create: true });
-      try {
-        ldb.exec("CREATE TABLE IF NOT EXISTS log (at TEXT NOT NULL, channel TEXT NOT NULL, entry TEXT NOT NULL)");
-        ldb.query("INSERT INTO log (at, channel, entry) VALUES (?, ?, ?)").run(new Date().toISOString(), String(at(x, 0)), JSON.stringify(at(x, 1)));
-      } finally { ldb.close(); }
-    } catch (e) { /* a log that cannot be written is no log, never a failed call */ }
-    return "T";
-  },
+  // A LOG IS AN INTERFACE TOO (2026-10-06): lambda's log:write applies <log:provider>:write. This host
+  // registers NO provider, so there is no log: the sqlite file provider (f7b9f68f, b1a238d6) is gone. Sam: "I
+  // don't want a separate log db. Events are object instances." -- and what it wrote was raw: auth.vin answers
+  // an admin's read with every user's live API key, and a raw body logged them in the clear. A response is
+  // recorded as an instance, its body sealed, once that lands (task #195); until then nothing is logged.
   "sqlite:exec": x => {
     const { Database } = require("bun:sqlite");
     const db = new Database(String(at(x, 0)), { create: true });
