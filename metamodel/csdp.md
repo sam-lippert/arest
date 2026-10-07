@@ -189,3 +189,139 @@ Transition 'complete-mapping' is defined in State Machine Definition 'Rmap'.
 Transition 'complete-mapping' is from Status 'step2-functional-grouping'.
 Transition 'complete-mapping' is to Status 'mapped'.
 Transition 'complete-mapping' is triggered by Event Type 'Relational Mapping groups functional fact types'.
+
+# Relational Schema
+
+## Description
+
+<!-- RMAP's output object (#197). After NORMA's relational catalog
+     (rcd:Table, rcd:Column, rcd:UniquenessConstraint IsPrimary,
+     rcd:ReferenceConstraint) and its bridge back to the conceptual schema
+     (TableIsPrimarilyForConceptType, ColumnHasConceptTypeChild,
+     UniquenessConstraintIsForUniqueness). The schema is rows in the store;
+     the attached engine initializes it as the app's database. The bridge is
+     what makes the mapping incremental: a Domain Change re-derives only the
+     tables bridged to the Functions it proposes. -->
+
+## Entity Types
+
+Relational Schema is an entity type.
+Table is an entity type.
+Column is an entity type.
+Table Key is an entity type.
+Table Reference is an entity type.
+
+## Fact Types
+
+### Relational Schema
+
+Relational Mapping produces Relational Schema.
+  Each Relational Mapping produces exactly one Relational Schema.
+
+Relational Schema is for Domain.
+  Each Relational Schema is for exactly one Domain.
+  For each Domain, at most one Relational Schema is for that Domain.
+  <!-- DOMAINS (Sam, 2026-10-07): an app keeps its own database while it
+       compiles with a shared library, and a child organization never
+       administers its parent unless granted. So a schema is for the Domain
+       that keeps a store (an app, or a sublet child, whose store is a cell
+       in its parent's). A Domain it uses lends names, never data: what that
+       Domain declares is mapped into the using Domain's own schema, as its
+       own tables. Two apps that use one library hold two tables for one
+       fact type, and neither sees the other's rows. -->
+
+Relational Schema covers Domain. *
+  Each Relational Schema, Domain combination occurs at most once in the population of Relational Schema covers Domain.
+
+### Table
+
+Table belongs to Relational Schema.
+  Each Table belongs to exactly one Relational Schema.
+
+Table has Name.
+  Each Table has exactly one Name.
+  For each Relational Schema and Name, at most one Table belongs to that Relational Schema and has that Name.
+
+Table is primarily for Object Type.
+  Each Table is primarily for at most one Object Type.
+
+Table is primarily for Fact Type.
+  Each Table is primarily for at most one Fact Type.
+
+For each Table, exactly one of the following holds:
+    that Table is primarily for some Object Type;
+    that Table is primarily for some Fact Type.
+
+If some Table belongs to some Relational Schema and that Table is primarily for some Object Type and that Object Type belongs to some Domain then that Relational Schema covers that Domain.
+If some Table belongs to some Relational Schema and that Table is primarily for some Fact Type and that Fact Type belongs to some Domain then that Relational Schema covers that Domain.
+  <!-- A schema maps only what its Domain declares or draws on: PM's schema
+       has no table for support's tickets unless both draw on the Domain that
+       declares them. -->
+
+Table is a view. *
+
+### Column
+
+Column belongs to Table.
+  Each Column belongs to exactly one Table.
+
+Column has Name.
+  Each Column has exactly one Name.
+  For each Table and Name, at most one Column belongs to that Table and has that Name.
+
+Column has Position.
+  Each Column has exactly one Position.
+  For each Table and Position, at most one Column belongs to that Table and has that Position.
+
+Column has Conceptual Data Type.
+  Each Column has at most one Conceptual Data Type.
+
+Column is nullable.
+
+Column is for Role.
+  Each Column, Role combination occurs at most once in the population of Column is for Role.
+  Each Column is for some Role.
+
+### Table Key
+
+Table Key belongs to Table.
+  Each Table Key belongs to exactly one Table.
+
+Table Key spans Column.
+  Each Table Key, Column combination occurs at most once in the population of Table Key spans Column.
+  Each Table Key spans some Column.
+
+Table has primary Table Key.
+  Each Table has at most one primary Table Key.
+  For each Table Key, at most one Table has primary that Table Key.
+
+Table Key realizes Constraint.
+  Each Table Key realizes at most one Constraint.
+
+### Table Reference
+
+Table Reference is from Table.
+  Each Table Reference is from exactly one Table.
+
+Table Reference targets Table Key.
+  Each Table Reference targets exactly one Table Key.
+
+Table Reference uses Column.
+  Each Table Reference, Column combination occurs at most once in the population of Table Reference uses Column.
+  Each Table Reference uses some Column.
+
+### Incremental mapping
+
+Domain Change touches Table. *
+
+## Derivation Rules
+
+* Relational Schema covers Domain iff that Relational Schema is for that Domain.
+* Relational Schema covers Domain2 iff that Relational Schema is for some Domain1 and Domain1 draws on Domain2.
+
+* Table is a view iff that Table is primarily for some Fact Type and that Fact Type has Derivation Mode 'fully-derived'.
+
+* Domain Change touches Table iff that Domain Change proposes some Role and some Column belongs to that Table and that Column is for that Role.
+* Domain Change touches Table iff that Domain Change proposes some Object Type and that Table is primarily for that Object Type.
+* Domain Change touches Table iff that Domain Change proposes some Fact Type and that Table is primarily for that Fact Type.
+* Domain Change touches Table iff that Domain Change proposes some Constraint and some Table Key belongs to that Table and that Table Key realizes that Constraint.
