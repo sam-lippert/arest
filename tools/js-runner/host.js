@@ -2065,6 +2065,12 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   // role of every fact type over the store it is validating, and a fresh list
   // per ask meant a fresh index per ask (the profile-and-fix loop, 2026-09-07)
   "ui:otpops", "mcp:tools",
+  // ui:cls_rows is the classification population ui:ids is a view of, and
+  // ui:typed_types the value types whose instances it holds typed (task #172 f,
+  // 2026-10-07): each one list per store, so csdp:matches_at's index, kept by
+  // the population list itself, is built once per population and every ui:ids
+  // after the first is a lookup
+  "ui:cls_rows", "ui:typed_types",
   // derive:sm_marks is the semi-derived markings of a store, asked once per
   // fact type per round of the closure (the profile-and-fix loop, 2026-09-08)
   "derive:sm_marks",
@@ -2985,53 +2991,6 @@ const FASTPRIMS = new Map(Object.entries({
     }
     return out;
   },
-  // store:otpops <rows, store> folds the instance-of rows into state:otpops, the
-  // index ui:ids reads (the mandatory check, the entry screen, the machines'
-  // seeding). The DEF is INSERT ui:otpops_cell over the rows swapped to
-  // <type, instance> with the prior index last, so the LAST row goes in first;
-  // for each, a type the index has puts the instance on every entry of that type
-  // that lacks it -- the entry becoming <type, <atoms of its instances, then
-  // it>>, while an entry that already holds it, or is of another type, is
-  // itself -- and a type it has not gets a new chunk <<type, <<instance>>>> at
-  // the end. Each step flattened, searched and copied the entry's whole list, so
-  // a type with n instances cost n squared: support's 24,050 rows were 17.7 s of
-  // a 22.7 s start (2026-09-24). This is the same value in one pass -- each
-  // entry unfolded once when first reached, a set for membership, the list
-  // appended in place -- and AREST_NOTWIN=store:otpops gives the DEF's own.
-  "store:otpops": x => { const cells = at(x, 1);
-    const typedTypes = new Map();
-    for (const tk of seq(Ev("value:typed_types", Ev("value:cdt_rows", cells)))) { const k = JSON.stringify(at(tk, 0)); if (!typedTypes.has(k)) typedTypes.set(k, at(tk, 1)); }
-    const rows = seq(at(x, 0)).map((r) => { const kind = typedTypes.get(JSON.stringify(at(r, 1))); return kind === undefined ? r : [asKindValue(kind, at(r, 0)), at(r, 1)]; });
-    const prior = Ev("solve:cell", ["state:otpops", cells]);
-    const key = (v) => JSON.stringify(v);
-    const byType = new Map();
-    const chunks = seq(prior).map((ch) => seq(ch).map((e) => {
-      const rec = { entry: e, type: at(e, 0), atoms: null, set: null, grown: false };
-      const k = key(rec.type);
-      if (!byType.has(k)) byType.set(k, []);
-      byType.get(k).push(rec);
-      return rec; }));
-    for (let n = rows.length - 1; n >= 0; n--) {
-      const type = at(rows[n], 1), inst = at(rows[n], 0), ik = key(inst);
-      const recs = byType.get(key(type));
-      if (recs === undefined) {
-        const rec = { entry: null, type, atoms: [inst], set: new Set([ik]), grown: true };
-        chunks.push([rec]);
-        byType.set(key(type), [rec]);
-        continue;
-      }
-      for (const rec of recs) {
-        if (rec.atoms === null) {
-          rec.atoms = seq(Ev("theta:unfold_atoms", at(rec.entry, 1))).slice();
-          rec.set = new Set(rec.atoms.map(key));
-        }
-        if (rec.set.has(ik)) continue;
-        rec.atoms.push(inst);
-        rec.set.add(ik);
-        rec.grown = true;
-      }
-    }
-    return chunks.map((ch) => ch.map((rec) => rec.grown ? [rec.entry === null ? rec.type : at(rec.entry, 0), [rec.atoms]] : rec.entry)); },
   "store:drop_cell": x => { const name = at(x, 0), cells = seq(at(x, 1));
     const out = [];
     for (let i = 0; i < cells.length; i++) {
@@ -7049,14 +7008,10 @@ function loadStoreDb(path, opts) {
       STORE_TABLES = { has: (n) => lazy.hasRows(n) };
       for (let i = CELLS.length - 1; i >= 0; i--) if (Array.isArray(CELLS[i]) && lazy.replaced.has(CELLS[i][1])) CELLS.splice(i, 1);
       for (let i = lazy.cells.length - 1; i >= 0; i--) CELLS.unshift(lazy.cells[i]);
+      // No instance index is rebuilt here: ui:ids is a view of the classification
+      // population (lambda's ui:cls_rows), which the cell of its name above
+      // answers when it is first read (task #172 f, 2026-10-07).
       memoClear();
-      const inst = lazy.tablesOf.has("ObjectTypeInstanceIsInstanceOfObjectType") ? lazy.rowsOf("ObjectTypeInstanceIsInstanceOfObjectType") : [];
-      if (inst.length) {
-        const cell = Ev("store:otpops", [inst, CELLS]);
-        for (let i = CELLS.length - 1; i >= 0; i--) if (Array.isArray(CELLS[i]) && CELLS[i][1] === "state:otpops") CELLS.splice(i, 1);
-        CELLS.unshift(["CELL", "state:otpops", cell]);
-        memoClear();
-      }
       seedDerivedRows(db, have);
       return;
     }
@@ -7092,9 +7047,7 @@ function loadStoreDb(path, opts) {
   // return in the table's key order rather than the readings'. A population is
   // a SET, the DDL stores no order, and FactTypeHasDeclarationOrder is how
   // order is a fact where it is one.
-  const OTPOPS_FT = "ObjectTypeInstanceIsInstanceOfObjectType";
   const moved = recon.map((c) => [c[1], c[2]]);
-  const runtimeInst = byFt.get(OTPOPS_FT) || [];
   seedDerivedRows(db, have);
   db.close();
   // WHAT THE TABLES THEMSELVES HOLD, in the encoding popSnapshot compares. The
@@ -7107,13 +7060,10 @@ function loadStoreDb(path, opts) {
   for (let i = CELLS.length - 1; i >= 0; i--) if (Array.isArray(CELLS[i]) && names.has(CELLS[i][1])) CELLS.splice(i, 1);
   for (let i = recon.length - 1; i >= 0; i--) CELLS.unshift(recon[i]);
   memoClear();
+  // ui:ids is a view of the classification population adopted here with the
+  // rest (lambda's ui:cls_rows), so no instance index is rebuilt beside it
+  // (task #172 f, 2026-10-07).
   if (moved.length) { adoptStore(Ev("store:src_all", [moved, CELLS])); }
-  if (runtimeInst.length) {
-    const cell = Ev("store:otpops", [runtimeInst, CELLS]);
-    for (let i = CELLS.length - 1; i >= 0; i--) if (Array.isArray(CELLS[i]) && CELLS[i][1] === "state:otpops") CELLS.splice(i, 1);
-    CELLS.unshift(["CELL", "state:otpops", cell]);
-    memoClear();
-  }
 }
 
 function loadFile() {
@@ -7389,8 +7339,8 @@ function boot(mode) {
   // So the stored fact and the menu were two computations after all, and a
   // worklist read off the tables found no live request while the menu beside it
   // offered four buttons on one. loadStoreDb already knows which rows the
-  // runtime wrote (the ledger says which it did not) and rebuilds state:otpops
-  // from them; closeStore then reflects and derives over a store that has them.
+  // runtime wrote (the ledger says which it did not) and adopts them, the
+  // classification among them, which ui:ids is a view of; closeStore then reflects and derives over a store that has them.
   // This writes that answer back, so the tables hold what the boot computed and
   // the next reader of the tables alone sees what the server sees. It is the
   // same three lines a write takes -- snapshot, evaluate, emit what changed --
