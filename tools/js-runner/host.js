@@ -1411,6 +1411,17 @@ const PRIMS = new Map(Object.entries({
   // lambda implementation (sqlite:schema over rmap:ddl) makes. It was sql:exec, a name lambda called
   // directly, which is the coupling the interface removes.
   "storage:engine": () => "sqlite",
+  // A LOG IS AN INTERFACE TOO (2026-10-06; Sam: "that has to be a log provider registered and resolved").
+  // lambda's log:write applies <log:provider>:write, and this host provides jsonl: one JSON line per entry,
+  // appended to AREST_LOG, or to arest.log.jsonl beside the store. What an entry is is lambda's (log:response).
+  "log:provider": () => "jsonl",
+  "jsonl:write": x => {
+    const fs = require("node:fs"), path = require("node:path");
+    const db = process.env.AREST_DB || "";
+    const file = process.env.AREST_LOG || path.join(db && db !== ":memory:" ? path.dirname(db) : process.cwd(), "arest.log.jsonl");
+    try { fs.appendFileSync(file, JSON.stringify({ at: new Date().toISOString(), channel: String(at(x, 0)), entry: at(x, 1) }) + String.fromCharCode(10)); } catch (e) { /* a log that cannot be written is no log, never a failed call */ }
+    return "T";
+  },
   "sqlite:exec": x => {
     const { Database } = require("bun:sqlite");
     const db = new Database(String(at(x, 0)), { create: true });
@@ -4990,6 +5001,7 @@ async function performDeclared(before, after, opts) {
       try { answer = await send(method, address, headers, body); }
       catch (e) { answer = { status: 0, text: "", error: String((e && e.message) || e) }; }
     } else answer = { status: 0, text: JSON.stringify({ id: "dry-run-not-sent" }) };
+    if (mode === "live" || o.send) { try { Ev("log:response", [predicate, method, address, String(answer.status), String(answer.text || answer.error || "")]); } catch (e) { } }
     // WHAT THE ANSWER PRODUCES IS DECLARED, AND THE CEILING STILL DECIDES.
     // perform:yields_of gives the <JSON Path, Fact Type, Role> triples this
     // Function's response fills and perform:subject_of says WHO they are about
@@ -5349,7 +5361,9 @@ async function fetchOne(rd, req) {
   }
   let res, text;
   try { res = await fetch(url, sendBody === undefined ? { method, headers: rd.headers } : { method, headers: rd.headers, body: sendBody }); text = await res.text(); }
-  catch (e) { return { status: 502, text: method + " " + url + " failed: " + String(e && e.message) }; }
+  catch (e) { try { Ev("log:response", [String(rd.fn), method, url, "0", String(e && e.message)]); } catch (e2) { } return { status: 502, text: method + " " + url + " failed: " + String(e && e.message) }; }
+  // WHAT CAME OFF THE LINE IS LOGGED THROUGH THE REGISTERED PROVIDER (log:response), never echoed in an answer.
+  try { Ev("log:response", [String(rd.fn), method, url, String(res.status), text]); } catch (e) { }
   if (res.status >= 400) return { status: 502, text: method + " " + url + " answered " + res.status + ": " + text.slice(0, 300) };
   try { return { status: 200, body: JSON.parse(text), text: "", method, url }; }
   catch (e) { return { status: 502, text: method + " " + url + " answered a body that is not JSON" }; }
