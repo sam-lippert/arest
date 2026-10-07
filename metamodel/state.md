@@ -31,13 +31,18 @@ Status is a subtype of Object Type Instance.
      domain. Sam: the metamodel should already have clear differentiation
      between value and entity types - and it does; this line was reading the
      instance level as the type level. -->
-<!-- STILL OPEN, deliberately not changed here: `State Machine Definition is a
-     subtype of Status` below says every state machine definition IS a status,
-     which is what carried CSDP, Rmap and Schema Design up the same chain. It is
-     a separate ruling and it does not need to be made to fix the 48. -->
+<!-- RULED 2026-10-07 (Sam: "State machines should be defined correctly";
+     "Approved, make the sub-machine change"). `State Machine Definition is a
+     subtype of Status` made every machine a Status, so a top-level machine
+     (CSDP, Domain Change, Rmap, every app's) was a Status no Transition could
+     reach, against `For each Status, some Transition is from that Status or
+     some Transition is to that Status`. A machine is a Status only by nesting:
+     a composite Status has its sub-machine, and that Status is defined in its
+     parent machine like any other. -->
 
 State Machine Definition is an entity type.
-State Machine Definition is a subtype of Status.
+Status has sub-machine State Machine Definition.
+  For each State Machine Definition, at most one Status has sub-machine that State Machine Definition.
 Transition is an entity type.
 Transition is a subtype of Function.
 Guard is an entity type.
