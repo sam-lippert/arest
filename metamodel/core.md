@@ -798,6 +798,31 @@ For each Domain and Local Name, at most one Function belongs to that Domain and 
        restriction are the materialized and derived views of the same
        tenant. -->
 
+Function is declared in Domain.
+  Each Function, Domain combination occurs at most once in the population of Function is declared in Domain.
+  <!-- Approved by Sam, 2026-10-07 ("Sure, let's add the domain
+       deontic"), task #199. `Function belongs to Domain` holds at most
+       one Domain per Function, so when two Domains declare one name a
+       second declaration has no row to be: the reflection kept the
+       first and the other vanished. `Function is declared in Domain`
+       is many-to-many and holds one row per Domain that declares the
+       Function, reflected from the reader's record (state:localnames)
+       at the level the cascade reads last, and never asserted. The
+       obligation below is the rule over it. It is written as the
+       Constraint's Text and decided by `decide:declared_once`, so a
+       collision is a deontic violation that warns and commits, never
+       an alethic refusal; written as a bare sentence it would also be
+       read as a deontic uniqueness, and every collision would be
+       reported twice. -->
+
+Constraint 'function-declared-in-one-domain' has Text 'It is obligatory that each Function is declared in at most one Domain'.
+Constraint 'function-declared-in-one-domain' has modality of Modality Type 'Deontic'.
+Constraint 'function-declared-in-one-domain' is of Constraint Type 'DO_pop'.
+Constraint 'function-declared-in-one-domain' spans Role 'FunctionIsDeclaredInDomain.1'.
+Constraint 'function-declared-in-one-domain' is decided by Predicate 'decide:declared_once'.
+Predicate 'decide:declared_once' has Module Path 'arest'.
+Predicate 'decide:declared_once' has Symbol Name 'decide:declared_once'.
+
 Domain is contained in Domain.
   Each Domain is contained in at most one Domain.
   Domain is contained in Domain is acyclic.
