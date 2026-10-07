@@ -1411,11 +1411,6 @@ const PRIMS = new Map(Object.entries({
   // lambda implementation (sqlite:schema over rmap:ddl) makes. It was sql:exec, a name lambda called
   // directly, which is the coupling the interface removes.
   "storage:engine": () => "sqlite",
-  // A LOG IS AN INTERFACE TOO (2026-10-06): lambda's log:write applies <log:provider>:write. This host
-  // registers NO provider, so there is no log: the sqlite file provider (f7b9f68f, b1a238d6) is gone. Sam: "I
-  // don't want a separate log db. Events are object instances." -- and what it wrote was raw: auth.vin answers
-  // an admin's read with every user's live API key, and a raw body logged them in the clear. A response is
-  // recorded as an instance, its body sealed, once that lands (task #195); until then nothing is logged.
   "sqlite:exec": x => {
     const { Database } = require("bun:sqlite");
     const db = new Database(String(at(x, 0)), { create: true });
@@ -5356,7 +5351,7 @@ async function fetchOne(rd, req) {
   let res, text;
   try { res = await fetch(url, sendBody === undefined ? { method, headers: rd.headers } : { method, headers: rd.headers, body: sendBody }); text = await res.text(); }
   catch (e) { try { Ev("log:response", [String(rd.fn), method, url, "0", String(e && e.message)]); } catch (e2) { } return { status: 502, text: method + " " + url + " failed: " + String(e && e.message) }; }
-  // WHAT CAME OFF THE LINE IS LOGGED THROUGH THE REGISTERED PROVIDER (log:response), never echoed in an answer.
+  // WHAT CAME OFF THE LINE GOES TO log:response: a registered log provider writes it, and with none it does not.
   try { Ev("log:response", [String(rd.fn), method, url, String(res.status), text]); } catch (e) { }
   if (res.status >= 400) return { status: 502, text: method + " " + url + " answered " + res.status + ": " + text.slice(0, 300) };
   try { return { status: 200, body: JSON.parse(text), text: "", method, url }; }
