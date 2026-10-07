@@ -5046,7 +5046,11 @@ async function performDeclared(before, after, opts) {
         : "HTTP " + String(answer ? answer.status : "?") + ": " + String((answer && answer.text) || "").slice(0, 500);
       failures = Ev("perform:failure_rows", [predicate, entity, reason, new Date().toISOString(), after]).map((r) => r.map(String));
     }
-    done.push({ predicate, entity, method, address, sent: body, ceiling, answer, asserts, outside, onSuccess, observed, failures });
+    // AND A FEDERATED WRITE THAT FAILED IS TAKEN BACK (task #195; Sam: "Fail should probably retract"): fed:ot_undo
+    // answers the one write that leaves the store as the system holds it, or nothing for any other predicate.
+    let undo = [];
+    if ((mode === "live" || o.send) && !succeeded) { try { const u = Ev("fed:ot_undo", [predicate, entity, after]); if (Array.isArray(u) && u.length === 2) undo = u; } catch (e) { } }
+    done.push({ predicate, entity, method, address, sent: body, ceiling, answer, asserts, outside, onSuccess, observed, failures, undo });
   }
   return done;
 }
@@ -5234,6 +5238,23 @@ function writeBack(done, log) {
       } else {
         say("failure record REFUSED " + one.predicate + ": " + String(out[0]).slice(0, 300));
       }
+    }
+    // the failed write taken back: <method, fact>, through main:api, which writes no call through
+    if (Array.isArray(one.undo) && one.undo.length === 2 && Array.isArray(one.undo[1])) {
+      const m = String(one.undo[0]), f = one.undo[1].map(String);
+      const clock = clockStart();
+      const prior = CELLS.slice();
+      let out;
+      try { out = Ev("main:api", [CELLS, m, f[0], SYSTEM_LOGIN, f.slice(1)]); }
+      catch (e) { say("undo threw on " + f[0] + ": " + String((e && e.message) || e)); continue; }
+      finally { clockLap(clock, "lambda"); }
+      if (out.length > 2 && Number(out[1]) < 400) {
+        adoptStore(out[2]);
+        clockLap(clock, "adopt");
+        const why = storeWrite(prior, "undo " + m + " " + f[0], clock);
+        if (why === null) say("took back " + m + " " + JSON.stringify(f));
+        else say("undo NOT COMMITTED " + f[0] + ": " + why.slice(0, 300));
+      } else say("undo REFUSED " + f[0] + ": " + String(out[0]).slice(0, 200));
     }
   }
 }
