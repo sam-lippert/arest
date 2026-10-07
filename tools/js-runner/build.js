@@ -118,9 +118,9 @@ for (const carrier of ["outcome", "expected"]) {
 }
 
 const mode = process.argv[2] || "cli";
-const OUT = { cli: "composed", test: "cases", serve: "serve", mcp: "mcp", sql: "sql", ui: "ui", regress: "regress", reader: "reader", compile: "compile" };
+const OUT = { cli: "composed", test: "cases", serve: "serve", mcp: "mcp", sql: "sql", ui: "ui", regress: "regress", reader: "reader", compile: "compile", page: "page" };
 if (!(mode in OUT)) {
-  console.error("unknown mode: " + mode + " (cli, test, serve, mcp, sql, ui, regress, reader)");
+  console.error("unknown mode: " + mode + " (cli, test, serve, mcp, sql, ui, regress, reader, page)");
   process.exit(1);
 }
 
@@ -190,6 +190,9 @@ function hostSource() {
 // populated, and nothing anywhere said so.
 const composition = createHash("sha256");
 const parts = [hostSource()];
+// THE PAGE HOST RIDES ONLY IN A PAGE COMPOSITION (2026-10-07, task #200): page.js is one more host, the one an
+// artifact page runs, and its registrations (the in-page SQLite engine, the page's navigate) follow host.js.
+if (mode === "page") parts.push(Buffer.from("\n;\n"), must(join(here, "page.js")));
 for (const p of SPLICED) {
   const buf = must(p);
   if (IDENTITY.includes(p)) composition.update(buf);

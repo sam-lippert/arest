@@ -7458,5 +7458,7 @@ function boot(mode) {
   if (mode === "serve" || mode === "ui") return run_serve();
   if (mode === "mcp") return run_mcp();
   if (mode === "sql") return run_sql();
+  // the page host (page.js, spliced only into a page composition): an artifact page that carries this module
+  if (mode === "page") return run_page();
   return run_cli();
 }
