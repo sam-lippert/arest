@@ -329,13 +329,13 @@ let STORE_RAW = new Map();
 // THE STORE'S ALETHIC VERDICT, RECORDED WITH IT (2026-10-03). The entity POST's gate checks only what a write
 // touched, which is exact over a store that holds no alethic violation (Thm 1: a committed store holds none), and
 // lambda keeps what it knows of that in the cell state:alethic_clean. A store read from its tables has not been
-// through the gate, so the compile that wrote it judges it once (AREST_VERDICT, run by build.js after
-// compile-store) and records T or F in _verdict; the boot reads it back into the cell; a committed write records
-// the cell when it moved; and a compile drops the table, as it rewrites the store outside the gate. A store with
-// no verdict recorded is judged at its first write, as lambda does when the cell is absent.
+// through the gate, so the compile that writes it judges it before putting it in place and records T or F in
+// _verdict (compile:judge, 2026-10-07; until then build.js booted this host on the store a second time to judge
+// it, AREST_VERDICT); the boot reads it back into the cell; and a committed write records the cell when it
+// moved, over the row and leaving the stamp of the constraints the compile recorded beside it. A store with no
+// verdict recorded is judged at its first write, as lambda does when the cell is absent.
 let VERDICT = null;
 function readVerdict() {
-  if (process.env.AREST_VERDICT) return; // the judge judges the store; it does not read an earlier answer
   const db = storeDb();
   if (!db) return;
   let row;
@@ -4269,6 +4269,8 @@ const CLAPS = [
   ["compile:ip_p1", "p1 copy, re-lay, read the old store"], ["compile:ip_p2", "p2 set aside"],
   ["compile:ip_p3", "p3 fill, split the runtime's facts"],
   ["compile:ip_p4a", "p4 closure"], ["compile:ip_p4b", "p4 sync"], ["compile:ip_p4c", "p4 ledger"], ["compile:ip_p4d", "p4 replace"],
+  // and the verdict, which the compile writes with the ledgers since it judges the store itself (compile:judge)
+  ["compile:judge", "verdict"],
 ];
 const CLAPPED = [];
 let CLAPDEPTH = 0;
@@ -5507,15 +5509,6 @@ async function readThrough(out, method, resource, caller, raw) {
 }
 
 function run_serve() {
-  // AREST_VERDICT=1 judges the store once and records the verdict (see readVerdict above), then exits:
-  // what a compile runs over the store it wrote, so that no write after it pays the whole check.
-  if (process.env.AREST_VERDICT) {
-    const v = Ev("main:w2_clean", CELLS) === "T" ? "T" : "F";
-    writeVerdict(v);
-    console.log("alethic_clean: " + v);
-    process.exit(0);
-  }
-
   // THE SERVING TAIL. Same composition, same evaluator, one different last step:
   // tail.part.js prints a text atom and exits, and this binds a socket instead.
   //

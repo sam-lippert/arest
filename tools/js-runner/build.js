@@ -17,9 +17,9 @@
 // and does not fail loudly: the cmd form silently produced a 38KB file with
 // every large input missing, which would have run an empty lambda and passed. So
 // each input is checked for existence and the result is checked for size.
-import { readFileSync, writeFileSync, statSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, statSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 
 const here = import.meta.dir;
 const root = join(here, "..", "..");
@@ -252,33 +252,11 @@ if (run) {
   }
   const proc = Bun.spawn(["bun", join(outDir, name), ...rest], { stdio: ["inherit", "inherit", "inherit"], env });
   const code = await proc.exited;
-  // AND THE STORE A COMPILE WROTE IS JUDGED ONCE (2026-10-03). The entity POST's gate reads only what a write
-  // touched, which is exact over a store with no alethic violation, and the store a compile writes has not
-  // been through that gate: so the store is served once, by a module over the carriers the compile wrote, with
-  // AREST_VERDICT, which judges it and records T or F in its _verdict table for every boot after it.
-  // AREST_NO_VERDICT=1 skips it, and the first write then asks the whole check instead.
-  // THE STORE IS NAMED BY ITS WHOLE PATH (2026-10-03). An app's check names it relative to the app (`compile-store
-  // .check`), and the judge's module is built from here, where that path names nothing: the build failed, the
-  // judge never ran, and support.auto.dev had no _verdict, so every write took the whole check. A judge that
-  // cannot be built or run says so, and the store is left with no verdict, as before.
-  if (code === 0 && mode === "compile" && rest[0] === "compile-store" && rest[1] && !process.env.AREST_NO_VERDICT) {
-    // AND AN INSTRUMENTED CHECK LAPS IT (2026-10-07, task #194): the judge is a second composition and a
-    // second boot, which the compile's own laps cannot see, so its time is printed beside them.
-    const tv = performance.now();
-    const store = resolve(rest[1]);
-    const vdir = join(store, ".verdict");
-    mkdirSync(vdir, { recursive: true });
-    const vb = Bun.spawn(["bun", join(here, "build.js"), "serve"], { cwd: here, stdio: ["ignore", "ignore", "inherit"],
-      env: { ...process.env, AREST_CARRIERS: store, AREST_OUT_DIR: vdir, AREST_INSTRUMENTED: "" } });
-    const built = await vb.exited;
-    if (built === 0) {
-      const vr = Bun.spawn(["bun", join(vdir, "serve.g.js")], { stdio: ["ignore", "inherit", "inherit"],
-        env: { ...env, AREST_STORE_DB: join(store, "store.db"), AREST_VERDICT: "1" } });
-      const judged = await vr.exited;
-      if (judged !== 0) process.stderr.write("verdict: the judge exited " + judged + "; the store has no verdict, and its first write asks the whole check" + String.fromCharCode(10));
-    } else process.stderr.write("verdict: the judge's module did not build (exit " + built + "); the store has no verdict, and its first write asks the whole check" + String.fromCharCode(10));
-    rmSync(vdir, { recursive: true, force: true });
-    if (process.env.AREST_INSTRUMENTED) process.stderr.write("verdict lap: " + Math.round(performance.now() - tv) + " ms (the serve module composed, booted on the store, judged)" + String.fromCharCode(10));
-  }
+  // THE STORE A COMPILE WRITES IS JUDGED BY THE COMPILE (2026-10-07, task #194). From 2026-10-03 this
+  // composed a second module (serve, 14 MB) over the carriers the compile wrote, booted it on the store
+  // with AREST_VERDICT and had it record T or F in _verdict: about 49 s of whole check on support beside
+  // the composition and the boot. The compile holds the closed store already, so lambda judges it there
+  // and writes _verdict with the other records before the store is put in place (compile:judge): only
+  // the constraints its changes touched when the store it replaces was known clean, else the whole check.
   process.exit(code);
 }
