@@ -1777,8 +1777,11 @@ function parseFoldKept(x) {
   if (!Array.isArray(s0) || s0.length !== 5 || !Array.isArray(s0[2])) return def();
   const rows = s0[2], B = Math.ceil(rows.length / FOLDCHUNK);
   const crypto = require("node:crypto"), zlib = require("node:zlib");
-  const keys = [crypto.createHash("sha256").update(JSON.stringify([COMPOSITION, DEFS.get("read:strict") || null, s0[0], s0[1], s0[3], s0[4]])).digest("hex")];
-  for (let b = 1; b <= B; b++) keys.push(crypto.createHash("sha256").update(keys[b - 1]).update(JSON.stringify(rows.slice((b - 1) * FOLDCHUNK, b * FOLDCHUNK))).digest("hex"));
+  // A PARSE OF ONE CHUNK OR LESS HAS NO BOUNDARY TO START FROM OR TO KEEP (foldKeptAt keeps 0 < b < B), so it
+  // hashes nothing and leaves the cache as it is: the law report parses some fifty short fixtures, and each
+  // hashed its whole initial state and wrote the cache's two purges, 0.28 s a parse (task #194, 2026-10-07)
+  const keys = B > 1 ? [crypto.createHash("sha256").update(JSON.stringify([COMPOSITION, DEFS.get("read:strict") || null, s0[0], s0[1], s0[3], s0[4]])).digest("hex")] : [];
+  for (let b = 1; B > 1 && b <= B; b++) keys.push(crypto.createHash("sha256").update(keys[b - 1]).update(JSON.stringify(rows.slice((b - 1) * FOLDCHUNK, b * FOLDCHUNK))).digest("hex"));
   let s = [s0[0], s0[1], [], s0[3], s0[4]], from = 0;
   try {
     const q = db.query("select v from folds where k = ?");
@@ -1798,7 +1801,7 @@ function parseFoldKept(x) {
   }
   const out = Ev(post, Ev(mid, s));
   FOLDLAST = { rows: rows.length, kept: Math.min(from * FOLDCHUNK, rows.length) };
-  try {
+  if (put.length > 0 || from > 0) try {
     const now = Date.now();
     const add = db.query("insert or ignore into folds (k, v, t) values (?, ?, ?)");
     for (const [k, t] of put) add.run(k, zlib.deflateSync(Buffer.from(t, "utf8"), { level: 1 }), now);
