@@ -375,6 +375,18 @@ Operation 'sync' is overridable.
 Function 'sync' accepts Type Expression 'response-and-cells'.
 Function 'sync' yields Type Expression 'outcome-and-store'.
 Function 'sync' has Description 'Reads a Source through its Connector and asserts what each page yields, one step per page, until no page follows. args: [source] or [[source, {key: value}]], the bindings filling the parameters the Connector declares. Answers each page: what it asserted, its violations and whether more follow; a connection that declares no live Send Mode answers the request it would send.'.
+<!-- AND THE ONE THAT REPLAYS, BY HAND (2026-10-07, task #198). Sam, of the SPD layer events: "not
+     automatically, these for the spd test are a manual fire." A write steps the trigger facts it
+     gains, and an Event that fits no machine when it is recorded fires nothing, then or later
+     (task #173). An Event that reached a machine and that no `Event caused Transition in State
+     Machine` names with it is replayed only when someone fires `replay` naming it, or naming an
+     instance it reached: oldest first, each cause naming the original Event, so no Event is
+     minted. It writes, so it is gated as every write verb is (main:as), and its operand is the
+     argument beside the cells, which `row-and-cells` already builds. -->
+Operation 'replay' is overridable.
+Function 'replay' accepts Type Expression 'row-and-cells'.
+Function 'replay' yields Type Expression 'outcome-and-store'.
+Function 'replay' has Description 'Replays by hand the Events that reached a state machine and that no Event caused Transition in State Machine row names with it, oldest first, each firing the transition it triggers as a write would have and naming the original Event as its cause. args: [[name, ...]] or [name], each an Event to replay or an instance whose reached and unconsumed Events are all replayed. Answers each cause it wrote, in the order stepped; a name nothing reached and left unconsumed steps nothing.'.
 <!-- MEASURED 2026-09-11, which is the condition the note these replace set.
      It said derive "reads its first element as a sequence, so it answers to
      <[], populations> and throws on the empty argument an address of one
