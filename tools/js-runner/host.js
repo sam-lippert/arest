@@ -4883,6 +4883,26 @@ function writtenCredential(fn, secret, store) {
   return null;
 }
 
+// WHAT CAME OFF THE LINE IS RECORDED AS AN INSTANCE (task #195; Sam: "Events are object instances"): a Response
+// answering the Function, from the Url, with its status and time, asserted as a Failure is. Its body is not kept --
+// it powered the facts the read yields (Sam: "Let's not keep the body in this instance, it just powers the facts").
+function recordResponse(fn, url, status, say) {
+  let facts;
+  try { facts = Ev("fed:response_facts", [String(fn), String(url), String(status), new Date().toISOString()]); } catch (e) { return; }
+  const clock = clockStart();
+  const prior = CELLS.slice();
+  let out;
+  try { out = Ev("main:as", [CELLS, SYSTEM_LOGIN, ["assert", facts]]); }
+  catch (e) { if (say) say("response record threw for " + fn + ": " + String((e && e.message) || e)); return; }
+  finally { clockLap(clock, "lambda"); }
+  if (out.length > 2 && String(out[1]) === "T") {
+    adoptStore(out[2]);
+    clockLap(clock, "adopt");
+    const why = storeWrite(prior, "response " + fn, clock);
+    if (why !== null && say) say("response record NOT COMMITTED " + fn + ": " + why.slice(0, 300));
+  } else if (say) say("response record REFUSED " + fn + ": " + String(out[0]).slice(0, 300));
+}
+
 async function performDeclared(before, after, opts) {
   const o = opts || {};
   const send = o.send || ((m, a, h, b) => fetch(a, { method: m, headers: h, body: JSON.stringify(b) })
@@ -4990,7 +5010,7 @@ async function performDeclared(before, after, opts) {
       try { answer = await send(method, address, headers, body); }
       catch (e) { answer = { status: 0, text: "", error: String((e && e.message) || e) }; }
     } else answer = { status: 0, text: JSON.stringify({ id: "dry-run-not-sent" }) };
-    if (mode === "live" || o.send) { try { Ev("log:response", [predicate, method, address, String(answer.status), String(answer.text || answer.error || "")]); } catch (e) { } }
+    if (mode === "live" || o.send) { try { Ev("log:response", [predicate, method, address, String(answer.status), String(answer.text || answer.error || "")]); } catch (e) { } recordResponse(predicate, address, answer.status); }
     // WHAT THE ANSWER PRODUCES IS DECLARED, AND THE CEILING STILL DECIDES.
     // perform:yields_of gives the <JSON Path, Fact Type, Role> triples this
     // Function's response fills and perform:subject_of says WHO they are about
@@ -5371,9 +5391,10 @@ async function fetchOne(rd, req) {
   }
   let res, text;
   try { res = await fetch(url, sendBody === undefined ? { method, headers: rd.headers } : { method, headers: rd.headers, body: sendBody }); text = await res.text(); }
-  catch (e) { try { Ev("log:response", [String(rd.fn), method, url, "0", String(e && e.message)]); } catch (e2) { } return { status: 502, text: method + " " + url + " failed: " + String(e && e.message) }; }
+  catch (e) { try { Ev("log:response", [String(rd.fn), method, url, "0", String(e && e.message)]); } catch (e2) { } recordResponse(rd.fn, url, "0"); return { status: 502, text: method + " " + url + " failed: " + String(e && e.message) }; }
   // WHAT CAME OFF THE LINE GOES TO log:response: a registered log provider writes it, and with none it does not.
   try { Ev("log:response", [String(rd.fn), method, url, String(res.status), text]); } catch (e) { }
+  recordResponse(rd.fn, url, res.status);
   if (res.status >= 400) return { status: 502, text: method + " " + url + " answered " + res.status + ": " + text.slice(0, 300) };
   try { return { status: 200, body: JSON.parse(text), text: "", method, url }; }
   catch (e) { return { status: 502, text: method + " " + url + " answered a body that is not JSON" }; }

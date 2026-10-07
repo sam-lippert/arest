@@ -130,6 +130,39 @@ Function sends Query Text.
 Function sends Fact Type with Role to Query Parameter.
   Each Function, Query Parameter combination occurs at most once in the population of Function sends Fact Type with Role to Query Parameter.
 
+### What came off the line
+
+<!-- A RESPONSE IS RECORDED AS AN INSTANCE (2026-10-06). Sam: "If you don't have any way of debugging a
+     response coming off the line, that's needed", "that has to be a log provider registered and
+     resolved", and then "I don't want a separate log db. Events are object instances." Each answer a
+     read or a performed call receives is a Response, recorded in the store through the write path by
+     the log provider the host registers (log:write, lambda`s store:write). It is not declared a
+     subtype of Event: recording an entity is recording a fact, and so an event, its id unboxed to
+     its id column (Sam: "it should get that from the fact inheritance"). ITS BODY IS NOT KEPT: it powers the
+     facts its Function yields and is gone (Sam: "Let's not keep the body in this instance, it just powers
+     the facts"); a log provider may keep bodies elsewhere -- logs.requests in ClickHouse, say -- and the
+     store holds none, since a body can carry what the read never declared to take: auth.vin answers an
+     admin's read with every user's live API key. -->
+Response is an entity type.
+
+HTTP Status Code is a value type.
+
+Response answers Function.
+  Each Response answers at most one Function.
+  Each Response answers some Function.
+
+Response is from Url.
+  Each Response is from at most one Url.
+  Each Response is from some Url.
+
+Response has HTTP Status Code.
+  Each Response has at most one HTTP Status Code.
+  Each Response has some HTTP Status Code.
+
+Response occurred at Timestamp.
+  Each Response occurred at at most one Timestamp.
+  Each Response occurred at some Timestamp.
+
 ### An Object Type as its own federated view
 
 <!-- AN OBJECT TYPE IS ITS OWN FEDERATED VIEW (2026-10-06). Sam asked whether there is a better way
