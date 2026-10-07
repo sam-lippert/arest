@@ -866,7 +866,10 @@ function emitToDb(before, cells, prior, report) {
     return Array.isArray(na) && na.some((st) => Array.isArray(st) && Array.isArray(st[4]) && st[4].length > 0 && changed.has(String(st[4][0])));
   };
   const touched = new Set();
-  for (const t of Ev("rmap:ctab", cells)) {
+  // ONLY A TABLE THE DDL CREATED (2026-10-07): rmap:writeback is rmap:ctab's keyed entries, the
+  // ones rmap:coltabs is built from; walking rmap:ctab inserted into a table without a key, which
+  // no database has (support: `"Response": no such table: Response`). law:writeback_keyed holds it.
+  for (const t of Ev("rmap:writeback", cells)) {
     const table = String(t[1]);
     if (changed.has(String(t[0]))) { touched.add(table); continue; }
     for (const col of t[2]) if (reads(col[2])) { touched.add(table); break; }
