@@ -74,18 +74,25 @@ const IDENTITY = SPLICED.slice();
 if (!slim) try {
   const carrier = readFileSync(join(oracle, "compiled"), "utf8");
   const stamped = (carrier.match(/AREST_COMPILED_FROM=([0-9a-f]+)/) || [])[1];
+  // KEYED ON LAMBDA AS WELL AS THE SCHEMA (2026-10-07, task #197). The map is
+  // lambda's answer about design-state, and each rmap:X reads stored:rmap:X
+  // before it derives, so a cache written by another lambda overrode the new
+  // DEFs while its design-state-only stamp still matched. compile:stamped
+  // stamps the lambda text followed by the design-state text; this hashes the
+  // same two files in the same order (law:compiled_keyed pins both).
   const now = createHash("sha256")
+    .update(readFileSync(join(root, "arest")))
     .update(readFileSync(join(oracle, "design-state")))
     .digest("hex").slice(0, 16);
   if (stamped === now) {
     SPLICED.push(join(oracle, "compiled"));
   } else {
-    // STALE, SO DECLINE IT. The carrier is derived FROM design-state, and a
-    // schema regenerated since leaves it describing tables that no longer
-    // exist. Not splicing is the safe direction: lambda derives instead, which
+    // STALE, SO DECLINE IT. The carrier is derived FROM design-state by lambda,
+    // and a schema regenerated or a lambda changed since leaves it describing
+    // tables that no longer exist. Not splicing is the safe direction: lambda derives instead, which
     // is slower and correct. Splicing it is neither.
     console.error("compiled carrier is stale (built from " + (stamped || "?") +
-      ", design-state is now " + now + "); deriving instead. Regenerate with:");
+      ", lambda and design-state are now " + now + "); deriving instead. Regenerate with:");
     console.error("  (compile-rmap.js is gone: compilation is moving into lambda, #109)");
   }
 } catch {
