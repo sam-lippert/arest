@@ -615,6 +615,18 @@ Toolkit 'swing' has display- Title 'Swing'.
   <!-- Java SE 8's Swing, the Java container's toolkit
        (tools/java-runner). Its layout engine is render:swing. -->
 
+Toolkit 'artifact' has Toolkit Slug 'artifact'.
+Toolkit 'artifact' has Toolkit Version 'contract-0.2'.
+Toolkit 'artifact' has display- Title 'Claude artifact'.
+  <!-- A claude.ai artifact: a published HTML page in a sandbox (task #200,
+       2026-10-07). Its widgets are lambda's own html: realizations and
+       its layout engine is render:artifact, whose body is lambda's
+       artifact:page, so the Toolkit Symbol of each binding below is the
+       DEF that draws it. Like 'wpf' and 'swing' its slug is not yet in
+       the Toolkit Slug enumeration above; widening that enumeration is
+       for review. The version names the artifact runtime contract the
+       page was written against. -->
+
 ### Notice anchors
 
 Notice 'no-implementation-for-role' has Notice Text 'No toolkit implementation registered for the requested Component Role; the gap-detection rule fired. Adapter slices #486-#488 and #494 close gaps surfaced this way.'.
@@ -1278,3 +1290,55 @@ Component 'searchbox' is implemented by Toolkit 'slint' at Toolkit Symbol 'Searc
 ImplementationBinding 'searchbox.slint' pivots Component 'searchbox' is implemented by Toolkit 'slint'.
 Component 'alert' is implemented by Toolkit 'slint' at Toolkit Symbol 'Alert'.
 ImplementationBinding 'alert.slint' pivots Component 'alert' is implemented by Toolkit 'slint'.
+
+### The idealized controls paired to the artifact (#200)
+
+<!-- THE SAME NINETEEN, DRAWN BY LAMBDA ITSELF (2026-10-07). A claude.ai
+     artifact is one more Render Target (render-target-instances.md,
+     Render Target 'artifact'). Its container registers render:<kind> for
+     every interface below as the html: realization named by the symbol,
+     and render:artifact as its layout engine, so the page is the
+     generated GUI and nothing is written per app. law:artifact_pairs
+     holds that every kind an entity screen emits is declared and has its
+     realization, and that this registration leaves law:unpaired_of
+     nothing; law:artifact_links holds that the page's controls are the
+     screen's links. -->
+
+Component 'listview' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:listview'.
+ImplementationBinding 'listview.artifact' pivots Component 'listview' is implemented by Toolkit 'artifact'.
+Component 'sectionheader' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:sectionheader'.
+ImplementationBinding 'sectionheader.artifact' pivots Component 'sectionheader' is implemented by Toolkit 'artifact'.
+Component 'gridcell' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:gridcell'.
+ImplementationBinding 'gridcell.artifact' pivots Component 'gridcell' is implemented by Toolkit 'artifact'.
+Component 'label' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:label'.
+ImplementationBinding 'label.artifact' pivots Component 'label' is implemented by Toolkit 'artifact'.
+Component 'richcontentcell' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:richcontentcell'.
+ImplementationBinding 'richcontentcell.artifact' pivots Component 'richcontentcell' is implemented by Toolkit 'artifact'.
+Component 'textbox' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:textbox'.
+ImplementationBinding 'textbox.artifact' pivots Component 'textbox' is implemented by Toolkit 'artifact'.
+Component 'passwordbox' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:passwordbox'.
+ImplementationBinding 'passwordbox.artifact' pivots Component 'passwordbox' is implemented by Toolkit 'artifact'.
+Component 'textarea' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:textarea'.
+ImplementationBinding 'textarea.artifact' pivots Component 'textarea' is implemented by Toolkit 'artifact'.
+Component 'datepicker' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:datepicker'.
+ImplementationBinding 'datepicker.artifact' pivots Component 'datepicker' is implemented by Toolkit 'artifact'.
+Component 'timepicker' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:timepicker'.
+ImplementationBinding 'timepicker.artifact' pivots Component 'timepicker' is implemented by Toolkit 'artifact'.
+Component 'selectlist' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:selectlist'.
+ImplementationBinding 'selectlist.artifact' pivots Component 'selectlist' is implemented by Toolkit 'artifact'.
+Component 'switch' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:switch'.
+ImplementationBinding 'switch.artifact' pivots Component 'switch' is implemented by Toolkit 'artifact'.
+Component 'slider' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:slider'.
+ImplementationBinding 'slider.artifact' pivots Component 'slider' is implemented by Toolkit 'artifact'.
+Component 'image' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:image'.
+ImplementationBinding 'image.artifact' pivots Component 'image' is implemented by Toolkit 'artifact'.
+Component 'button' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:button'.
+ImplementationBinding 'button.artifact' pivots Component 'button' is implemented by Toolkit 'artifact'.
+Component 'menu' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:menu'.
+ImplementationBinding 'menu.artifact' pivots Component 'menu' is implemented by Toolkit 'artifact'.
+Component 'menubutton' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:menubutton'.
+ImplementationBinding 'menubutton.artifact' pivots Component 'menubutton' is implemented by Toolkit 'artifact'.
+Component 'searchbox' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:searchbox'.
+ImplementationBinding 'searchbox.artifact' pivots Component 'searchbox' is implemented by Toolkit 'artifact'.
+Component 'alert' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:alert'.
+ImplementationBinding 'alert.artifact' pivots Component 'alert' is implemented by Toolkit 'artifact'.

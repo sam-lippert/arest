@@ -58,3 +58,31 @@ Render Target 'wpf' has Description 'The C# container: draws the placed rows lam
 Render Target 'slint' has Platform Function Name 'render:slint'.
 Render Target 'slint' has display- Title 'Slint surface'.
 Render Target 'slint' has Description 'The Rust container (engine/os): draws the placed rows lambda answers for a screen as Slint elements at their rectangles, through the software renderer into a pixel buffer, which is what the UEFI framebuffer shows.'.
+
+### Render Target: the Claude artifact
+
+<!-- A CLAUDE.AI ARTIFACT IS A CUSTOM NATIVE VIEW (Sam, 2026-10-07, task
+     #200: an artifact is like a custom native view, to which arest data may
+     be bound, powered through its own fact base). The page is a published
+     HTML document in a sandbox, so this target emits text/html like the
+     reference renderer, but it is its own platform: its widgets are
+     lambda's html: realizations (components.md, Toolkit 'artifact') and
+     its engine is render:artifact, whose body is lambda's artifact:page.
+     The fact base is the app's ordinary SQLite store: `bun composed.g.js
+     artifact <address>` with AREST_STORE_DB naming it writes the page.
+
+     THE THREE Function ROWS BELOW BELONG BESIDE render:html IN
+     metamodel/resolution.md, which is Sam's to edit; they are declared
+     here for review. Until they move, a store composed without the ui
+     readings (the base carriers) does not count render:artifact among
+     law:engines_declared, so law:paired asks the artifact container for
+     one of the four engines it does declare. -->
+
+Render Target 'artifact' has Platform Function Name 'render:artifact'.
+Render Target 'artifact' emits MimeType 'text/html'.
+Render Target 'artifact' has display- Title 'Claude artifact page'.
+Render Target 'artifact' has Description 'A self-contained HTML document a claude.ai artifact publishes: the panes one navigation answers, each placed row drawn by its html: realization, the view menu and search box as its chrome, and one script that hands a followed link back to the container. Lambda writes all of it, so its controls are links(e) and no view is written per app.'.
+
+Function 'render:artifact' has Definition Origin 'registered'.
+Function 'render:artifact' accepts Type Expression 'placed-rows'.
+Function 'render:artifact' yields Type Expression 'document'.
