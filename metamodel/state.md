@@ -236,9 +236,9 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
 ** Transition exits Status in State Machine Definition iff that Transition is defined in that State Machine Definition and that Transition is from that Status.
 
-** Transition exits Status in State Machine Definition1 iff that Transition exits that Status in some State Machine Definition2 and that State Machine Definition2 is defined in that State Machine Definition1.
+** Transition exits Status1 in State Machine Definition1 iff that Transition exits that Status1 in some State Machine Definition2 and some Status2 has sub-machine that State Machine Definition2 and that Status2 is defined in that State Machine Definition1.
 
-** Transition exits Status in State Machine Definition1 iff that Status is defined in some State Machine Definition2 and that Transition exits that State Machine Definition2 in that State Machine Definition1.
+** Transition exits Status1 in State Machine Definition1 iff that Status1 is defined in some State Machine Definition2 and some Status2 has sub-machine that State Machine Definition2 and that Transition exits that Status2 in that State Machine Definition1.
 
 * Status is terminal in State Machine Definition iff that Status is defined in that State Machine Definition and no Transition exits that Status in that State Machine Definition.
 <!-- audit-fix D: restored, mirroring `rooted`. History: the killed host's
@@ -319,7 +319,7 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
 ** Status is defined in State Machine Definition iff that Status is initial in that State Machine Definition.
 
-** Status is defined in State Machine Definition1 iff that Status is defined in some State Machine Definition2 and that State Machine Definition2 is defined in that State Machine Definition1.
+** Status1 is defined in State Machine Definition1 iff that Status1 is defined in some State Machine Definition2 and some Status2 has sub-machine that State Machine Definition2 and that Status2 is defined in that State Machine Definition1.
 <!-- THE HAREL NESTING, WHICH THIS RELATION DID NOT CARRY (2026-09-17). A
      State Machine Definition IS a Status (the subtype above), so an app
      groups states by declaring one: support.auto.dev declares `Status 'Open'
@@ -428,7 +428,7 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
      join threads through the SMD), preserving #813 — shared status names never
      cross-attach. The union over-emits a child's overridden edge (direct +
      inherited); consumer-side firing precedence picks the direct row. -->
-* Status1 has effective Transition1 to Status2 on Event Type iff Transition1 is from State Machine Definition1 and Transition1 is to Status2 and Transition1 is triggered by Event Type and Status1 is defined in State Machine Definition1.
+* Status1 has effective Transition1 to Status2 on Event Type iff Transition1 is from Status3 and Status3 has sub-machine State Machine Definition1 and Transition1 is to Status2 and Transition1 is triggered by Event Type and Status1 is defined in State Machine Definition1.
 
 <!-- arest-audit C: transitive reachability over declared transitions,
      feeding the Liveness obligation under ## Constraints. -->
