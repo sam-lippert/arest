@@ -1418,7 +1418,8 @@ const PRIMS = new Map(Object.entries({
   "log:provider": () => "sqlite",
   "sqlite:write": x => {
     const { Database } = require("bun:sqlite"), path = require("node:path");
-    const db = process.env.AREST_DB || "";
+    // a served app is handed its store as AREST_STORE_DB (mcp-router.js), a check or compile as AREST_DB
+    const db = process.env.AREST_STORE_DB || process.env.AREST_DB || "";
     const file = process.env.AREST_LOG || path.join(db && db !== ":memory:" ? path.dirname(db) : process.cwd(), "arest.log.db");
     try {
       const ldb = new Database(file, { create: true });
