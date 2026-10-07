@@ -5374,7 +5374,7 @@ function readerFor(fn) {
   } catch (e) { return { fn, fetcher, refusal: String(e && e.message) }; }
   return { fn, fetcher, local, mode, headers, access };
 }
-async function fetchOne(rd, req) {
+async function fetchOne(rd, req, say) {
   const method = String(req[1]), address = String(req[2]);
   const params = (Array.isArray(req[3]) ? req[3] : []).map((pr) => [String(pr[0]), String(pr[1])]);
   // a declared Query Text is the body, sent as written; the service binds its placeholders
@@ -5391,10 +5391,10 @@ async function fetchOne(rd, req) {
   }
   let res, text;
   try { res = await fetch(url, sendBody === undefined ? { method, headers: rd.headers } : { method, headers: rd.headers, body: sendBody }); text = await res.text(); }
-  catch (e) { try { Ev("log:response", [String(rd.fn), method, url, "0", String(e && e.message)]); } catch (e2) { } recordResponse(rd.fn, url, "0"); return { status: 502, text: method + " " + url + " failed: " + String(e && e.message) }; }
+  catch (e) { try { Ev("log:response", [String(rd.fn), method, url, "0", String(e && e.message)]); } catch (e2) { } recordResponse(rd.fn, url, "0", say); return { status: 502, text: method + " " + url + " failed: " + String(e && e.message) }; }
   // WHAT CAME OFF THE LINE GOES TO log:response: a registered log provider writes it, and with none it does not.
   try { Ev("log:response", [String(rd.fn), method, url, String(res.status), text]); } catch (e) { }
-  recordResponse(rd.fn, url, res.status);
+  recordResponse(rd.fn, url, res.status, say);
   if (res.status >= 400) return { status: 502, text: method + " " + url + " answered " + res.status + ": " + text.slice(0, 300) };
   try { return { status: 200, body: JSON.parse(text), text: "", method, url }; }
   catch (e) { return { status: 502, text: method + " " + url + " answered a body that is not JSON" }; }
@@ -5653,7 +5653,7 @@ function run_mcp() {
       let req;
       try { req = JSON.parse(String(q[0])); } catch (e) { req = null; }
       if (!Array.isArray(req) || req[0] !== "request") return [String(q[0]), Number(q[1]) >= 400 ? Number(q[1]) : 400];
-      const got = await fetchOne(rd, req);
+      const got = await fetchOne(rd, req, (t) => lines.push(t));
       if (got.notPerformed) { lines.push(got.text); break; }
       if (got.status >= 400) { lines.push(got.text); status = 502; break; }
       if (got.text) lines.push(got.text);
