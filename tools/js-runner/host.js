@@ -643,6 +643,8 @@ function rowPlanner(cells, prior, changed) {
   const cellOf = (v) => (v === "#" || v === undefined ? null : flat(v));
   const cellText = (v) => (decShape(v) ? Ev("dec:text", v) : flat(v));
   const pops = new Map(), deltas = new Map(), walks = new Map(), keysets = new Map();
+  // a path's steps and a step's key position, kept across writes by what they read (planInputs, beside projRow)
+  const held = planInputs(cells);
   const popOf = (ft, side) => {
     const k = side + "\u0000" + ft;
     let p = pops.get(k);
@@ -666,7 +668,7 @@ function rowPlanner(cells, prior, changed) {
   const stepOf = (st) => {
     const ft = Array.isArray(st) && Array.isArray(st[4]) && st[4].length ? String(st[4][0]) : null;
     let kp = 1;
-    if (ft) { try { kp = Number(Ev("rmap:proj_keypos", [st, cells])); } catch { kp = 1; } }
+    if (ft) { try { kp = Number(keyPos(st, cells, held)); } catch { kp = 1; } }
     return { ft, kp, id: Array.isArray(st) && String(st[5]) === "T" };
   };
   const walkOf = (path) => {
@@ -674,7 +676,7 @@ function rowPlanner(cells, prior, changed) {
     let w = walks.get(k);
     if (!w) {
       let na;
-      try { na = Ev("rmap:proj_nonassim", Array.isArray(path) ? path : []); } catch { na = []; }
+      try { na = nonAssim(Array.isArray(path) ? path : [], held); } catch { na = []; }
       w = (Array.isArray(na) ? na : []).map(stepOf);
       walks.set(k, w);
     }
@@ -857,9 +859,10 @@ function emitToDb(before, cells, prior, report) {
   // the first: a column naming another entity walks to it and reads its identifier
   // there, so a fact that moved at the second step moves this table's column. This
   // tested rmap:proj_carried, the first step's fact type, alone.
+  const held = planInputs(cells);
   const reads = (path) => {
     let na;
-    try { na = Ev("rmap:proj_nonassim", Array.isArray(path) ? path : []); } catch { return false; }
+    try { na = nonAssim(Array.isArray(path) ? path : [], held); } catch { return false; }
     return Array.isArray(na) && na.some((st) => Array.isArray(st) && Array.isArray(st[4]) && st[4].length > 0 && changed.has(String(st[4][0])));
   };
   const touched = new Set();
@@ -1902,8 +1905,47 @@ function matchRowsAt(n, key, rows) {
 // position, T when the row has one player, # when no row does. A shape the DEF raises on or might
 // read otherwise -- an atom where a step goes, a step shorter than the selector the DEF applies, a
 // row the index cannot key, a key position that is not a number -- is the DEF's, whole row.
-function projColPlan(path, store) {
-  const na = Ev("rmap:proj_nonassim", path);
+// AND WHAT A COLUMN'S PLAN IS MADE OF OUTLIVES THE WRITE THAT DID NOT MOVE IT (2026-10-07, task #143). A plan was
+// kept by the column list and the store, and a write makes a new store and memoClear a new column list, so every
+// write planned all 313 of Function's columns again to project the one row it moved: 250 to 500 ms of a status
+// write on a copy of support's store (2026-10-05). But a column's plan reads three things, and each is kept here by
+// exactly what it reads. rmap:proj_nonassim is a function of the column's path alone, kept by the path's text.
+// rmap:proj_keypos <step, store> reads the store only through solve:declared, the state:declared cell unfolded, so
+// it is kept by the step's text under that cell's value -- the object every store after a write shares while the
+// write declares nothing, and a new object, with nothing kept for it, when it does (popsMoved reads the same
+// cell the same way). The population is asked of the store each time, and rmap:proj_pop is one index lookup
+// (rmap:proj_hits's twin); a population the write did not move is the same array, so the index csdp:matches_at
+// keeps of it (MATCHATIDX, by the array's identity) is the one the last write built. Nothing here holds a store
+// or a population: what is kept is the schema's own steps and key positions, a few per column, and it goes when
+// the declared cell goes. The write's row planner and its touched-table test read the same two through it.
+// AREST_NOTWIN=rmap:proj_row gives the DEF's own row.
+const PLANOF = new WeakMap();
+function planInputs(store) {
+  let d;
+  try { d = Ev("solve:cell", ["state:declared", store]); } catch { return null; }
+  if (!Array.isArray(d) || d.length === 0) return null;
+  let held = PLANOF.get(d);
+  if (held === undefined) { held = { paths: new Map(), steps: new Map() }; PLANOF.set(d, held); }
+  return held;
+}
+// rmap:proj_nonassim of a path and rmap:proj_keypos of a step, as the DEFs answer them, kept in `held` when there
+// is one; a DEF that raises raises here and nothing is kept
+function nonAssim(path, held) {
+  if (!held) return Ev("rmap:proj_nonassim", path);
+  const k = JSON.stringify(path);
+  let na = held.paths.get(k);
+  if (na === undefined) { na = Ev("rmap:proj_nonassim", path); held.paths.set(k, na); }
+  return na;
+}
+function keyPos(st, store, held) {
+  if (!held) return Ev("rmap:proj_keypos", [st, store]);
+  const k = JSON.stringify(st);
+  let kp = held.steps.get(k);
+  if (kp === undefined) { kp = Ev("rmap:proj_keypos", [st, store]); held.steps.set(k, kp); }
+  return kp;
+}
+function projColPlan(path, store, held) {
+  const na = nonAssim(path, held);
   if (!Array.isArray(na)) return null;
   if (na.length === 0) return { kind: 0 };
   const s1 = na[0];
@@ -1916,7 +1958,7 @@ function projColPlan(path, store) {
     if (s1.length < 6) return null;
     return s1[5] === "T" ? { kind: 2, rest } : { kind: 0 };
   }
-  const kp = Ev("rmap:proj_keypos", [s1, store]);
+  const kp = keyPos(s1, store, held);
   if (typeof kp !== "number") return null;
   matchRowsAt(kp, "", pop);   // the index csdp:matches_at keeps, built here, raising where the DEF raises
   return { kind: 3, idx: MATCHATIDX.get(pop).get(kp), other: kp === 1 ? 1 : 0, rest };
@@ -1924,10 +1966,10 @@ function projColPlan(path, store) {
 function projPlans(cols, store) {
   const kept = PROJPLAN.get(cols);
   if (kept !== undefined && kept.store === store) return kept.plans;
-  const plans = [];
+  const plans = [], held = planInputs(store);
   for (const c of cols) {
     if (!Array.isArray(c) || c.length < 3) return null;
-    const p = projColPlan(c[2], store);
+    const p = projColPlan(c[2], store, held);
     if (p === null) return null;
     plans.push(p);
   }
@@ -2483,6 +2525,15 @@ const FASTPRIMS = new Map(Object.entries({
   // order, an atom or empty row throws the selector error the fold's predicate
   // threw at that row, no match is PHI.
   "rmap:rows_for": x => matchRows(at(x, 0), seq(at(x, 1))).slice(),
+  // rmap:proj_hits <key, rows> is that filter once more, written as ALPHA over distr: the rows whose first element
+  // is the key, in source order, an atom or empty row raising the selector error. rmap:proj_pop asks it of a fact
+  // type over store:fts, every descriptor of the store, and a projection asks proj_pop once per column per store:
+  // a write planning Function's 313 columns, and the planner's first-population search over 290 populations on
+  // each side of a create, scanned some 3,000 descriptors each time (2026-10-07, task #143). store:fts is one array
+  // per store, so its index is built once and each ask is a lookup. The rows answered are the descriptors
+  // themselves, so a population read through them is the same array the DEF reads. AREST_NOTWIN=rmap:proj_hits
+  // gives the DEF's own.
+  "rmap:proj_hits": x => matchRows(at(x, 0), seq(at(x, 1))).slice(),
   "rmap:lookup0": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? [] : [at(hits[0], 1)]; },
   // solve:assoc / solve:assoc3 are the same first-match lookup, over the
