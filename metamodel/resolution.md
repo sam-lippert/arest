@@ -386,7 +386,7 @@ Function 'sync' has Description 'Reads a Source through its Connector and assert
 Operation 'replay' is overridable.
 Function 'replay' accepts Type Expression 'row-and-cells'.
 Function 'replay' yields Type Expression 'outcome-and-store'.
-Function 'replay' has Description 'Replays by hand the Events that reached a state machine and that no Event caused Transition in State Machine row names with it, oldest first, each firing the transition it triggers as a write would have and naming the original Event as its cause. args: [[name, ...]] or [name], each an Event to replay or an instance whose reached and unconsumed Events are all replayed. Answers each cause it wrote, in the order stepped; a name nothing reached and left unconsumed steps nothing.'.
+Function 'replay' has Description 'Replays by hand the Events that reached a state machine and were never consumed, oldest first. args: [name] or [[name, ...]], each an Event or an instance.'.
 <!-- MEASURED 2026-09-11, which is the condition the note these replace set.
      It said derive "reads its first element as a sequence, so it answers to
      <[], populations> and throws on the empty argument an address of one
