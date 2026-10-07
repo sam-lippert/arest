@@ -2303,12 +2303,15 @@ function unprojAll(x) {
     UNPROJPLAN.set(ctx, plan);
   }
   const table = ctx[0], paths = ctx[1], pk = ctx[2], store = ctx[4], rolecols = ctx[5];
+  // the columns no cell reads a fact from: the key and a foreign key's components beside its reference (rmap:unproj_skip)
+  const skip = Array.isArray(ctx[6]) ? ctx[6] : pk;
+  for (const k of skip) if (typeof k !== "string") return def();
   const colOf = (i) => {
     let c = plan.cols[i];
     if (c !== undefined) return c;
     const path = paths[i][1];
     const ft = Ev("rmap:proj_carried", path);
-    if (ft === "#" || pk.includes(paths[i][0]) || Ev("cn:contains", [ft, "IsInvolved"]) === "T") c = { kind: 0 };
+    if (ft === "#" || skip.includes(paths[i][0]) || Ev("cn:contains", [ft, "IsInvolved"]) === "T") c = { kind: 0 };
     else if (Ev("length", Ev(2, Ev(1, Ev("rmap:proj_hits", [ft, Ev("store:fts", store)])))) === 1) c = { kind: 1, ft };
     else c = { kind: Ev("eq", [Ev("rmap:proj_keypos", [Ev(1, Ev("rmap:proj_nonassim", path)), store]), 2]) === "T" ? 2 : 3, ft };
     plan.cols[i] = c;
@@ -2361,8 +2364,10 @@ function unprojSparse(x) {
   if (!Array.isArray(ctx) || ctx.length < 6 || !Array.isArray(ctx[1]) || !Array.isArray(ctx[2])) return def();
   if (ctx[3] === "T") return def();
   const paths = ctx[1], pk = ctx[2], store = ctx[4];
+  const skip = Array.isArray(ctx[6]) ? ctx[6] : pk;
   for (const p of paths) if (!Array.isArray(p) || p.length < 2 || typeof p[0] !== "string") return def();
   for (const k of pk) if (typeof k !== "string") return def();
+  for (const k of skip) if (typeof k !== "string") return def();
   const keyAt = [];
   for (let i = 0; i < paths.length; i++) if (pk.includes(paths[i][0])) keyAt.push(i + 1);
   const cols = new Array(paths.length);
@@ -2371,7 +2376,7 @@ function unprojSparse(x) {
     if (c !== undefined) return c;
     const path = paths[i][1];
     const ft = Ev("rmap:proj_carried", path);
-    if (ft === "#" || pk.includes(paths[i][0]) || Ev("cn:contains", [ft, "IsInvolved"]) === "T") c = { kind: 0 };
+    if (ft === "#" || skip.includes(paths[i][0]) || Ev("cn:contains", [ft, "IsInvolved"]) === "T") c = { kind: 0 };
     else if (Ev("length", Ev(2, Ev(1, Ev("rmap:proj_hits", [ft, Ev("store:fts", store)])))) === 1) c = { kind: 1, ft };
     else c = { kind: Ev("eq", [Ev("rmap:proj_keypos", [Ev(1, Ev("rmap:proj_nonassim", path)), store]), 2]) === "T" ? 2 : 3, ft };
     cols[i] = c;
