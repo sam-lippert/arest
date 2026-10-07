@@ -831,6 +831,26 @@ Domain reaches Domain. *
   Each Domain, Domain combination occurs at most once in the population of Domain reaches Domain.
 
 No Domain reaches itself.
+  <!-- DIRECTION RULED 2026-10-07 (Sam, by the use cases: each app compiles
+       with the shared auto.dev library yet keeps its own database, and an
+       organization may sublet to a child that never administers its parent
+       unless granted). Reaching is data addressing, parent into child, as
+       AREST.tex sub-tenancy says: a parent reaches into its children because
+       their stores are cells in its own. A child reaching its parent is a
+       grant, not a derivation. Names do not travel by containment; they
+       travel by use, below. -->
+
+Domain uses Domain.
+  Each Domain, Domain combination occurs at most once in the population of Domain uses Domain.
+  Domain uses Domain is acyclic.
+  <!-- A library import, for names only: a Domain that uses another may
+       name what that Domain declares, and shares none of its data. A name
+       resolves in its own Domain, then in the Domains it draws on. -->
+
+Domain draws on Domain. *
+  Each Domain, Domain combination occurs at most once in the population of Domain draws on Domain.
+
+No Domain draws on itself.
   <!-- SUB-TENANCY: domains nest, and the nesting is a tree — at most
        one parent, and the derived reachability closure is irreflexive,
        which gives acyclicity in the fragment (the state.md reaches
@@ -1401,9 +1421,13 @@ Derivation Rule depends on Derivation Rule. *
 <!-- sub-tenancy closure (exec ruling 2026-07-16): reachability over
      domain containment, the acyclicity carrier for the tenant tree. -->
 
-* Domain1 reaches Domain2 iff Domain1 is contained in Domain2.
+* Domain1 reaches Domain2 iff Domain2 is contained in Domain1.
 
 * Domain1 reaches Domain3 iff Domain1 reaches Domain2 and Domain2 reaches Domain3.
+
+* Domain1 draws on Domain2 iff Domain1 uses Domain2.
+
+* Domain1 draws on Domain3 iff Domain1 draws on Domain2 and Domain2 draws on Domain3.
 
 ** Fact Type has Arity iff Arity is the count of Role where Fact Type has Role.
 
