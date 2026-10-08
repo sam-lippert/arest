@@ -381,6 +381,14 @@ Transition 'apply' is from Status 'Approved'.
 Transition 'apply' is to Status 'Applied'.
 Transition 'apply' is triggered by Event Type 'Domain Change is applied'.
 
+<!-- AN APPLIED DOMAIN CHANGE RE-MAPS THE TABLES IT TOUCHES (task #197, step 3; Sam, 2026-10-08). Bound
+     to a lambda function as a decider is; the function takes the store (perform:on_store) and answers
+     it with the Relational Schema rows of the tables the change touches re-mapped, and the write's
+     emit runs the DDL their difference implies (schema:emit_ddl). -->
+Predicate 'remap touched tables' is performed during Transition 'apply'.
+Predicate 'remap touched tables' has Module Path 'arest'.
+Predicate 'remap touched tables' has Symbol Name 'schema:dc_remap'.
+
 <!-- arest-audit: validity wired into the machine through the Guard
      vocabulary (state.md) — approval is affordable only for a change the
      staged gate run judged valid. Evolution is core AREST: the
