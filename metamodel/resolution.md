@@ -673,6 +673,13 @@ Function 'sqlite:copy' yields Type Expression 'path'.
 Function 'sqlite:replace' has Definition Origin 'registered'.
 Function 'sqlite:replace' accepts Type Expression 'path-pair'.
 Function 'sqlite:replace' yields Type Expression 'path'.
+<!-- AND A DATABASE WITH NO FILE (task #197, 2026-10-08). sqlite:scratch runs
+     a script in a database held in memory and answers a select over it as
+     sqlite:query answers one, so a law runs the SQL lambda builds over
+     literal rows (law:schema_stored) without a store on disk. -->
+Function 'sqlite:scratch' has Definition Origin 'registered'.
+Function 'sqlite:scratch' accepts Type Expression 'script-and-sql-and-parameters'.
+Function 'sqlite:scratch' yields Type Expression 'rows'.
 <!-- AND A VALUE THE READINGS STORE THROUGH A FUNCTION (2026-09-30). The
      compile seals such values before it writes anything (compile:sealed), and
      the master key is the platform's to hold, never a value lambda holds:
