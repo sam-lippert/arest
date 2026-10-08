@@ -261,6 +261,11 @@ Object Type Instance has Value.
   Each Object Type Instance has at most one Value.
 Object Type Instance is created by User.
   Each Object Type Instance is created by at most one User.
+Object Type Instance is required orientation.
+  <!-- Sam, 2026-10-08: what an agent reads first when it re-orients, after a compact
+       or at the start of a session. orient answers the facts of each instance in scope
+       that holds this, beside each Domain's Description, so a memory, a working rule or
+       a task can orient an agent and lambda never names an app's fact type. -->
 
 ### Fact uses Object Type Instance for Role
 Fact fills Role.
