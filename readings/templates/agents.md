@@ -53,7 +53,7 @@ Agent Definition has Prompt.
 Agent is instance of Agent Definition.
   Each Agent is instance of at most one Agent Definition.
 # Was `exactly one` (Sam, 2026-10-06: "b"): an agent that runs as a session,
-# like the Layered Agent 'claude-code', has no definition to point at, the way a
+# like the Agent 'claude-code', has no definition to point at, the way a
 # Completion need not belong to an Agent. An Agent built from a definition still
 # has at most one.
 

@@ -80,7 +80,7 @@ disambiguator. Same pattern: taskParentTaskId, taskAssociatedFileId (:3824/16205
    leading `adj- {N}` (hyphen touches the adjective, whitespace before the role), trailing
    `{N} -adj`, the `--` literal escape, one word per hyphen (chain internal hyphens for
    multi-word). Migrate any corpus readings using the touching form (scenarios.canon
-   case:lex-hyphen carries `valence-Coord` — update the case with the syntax). Keep the
+   case:lex-hyphen carries `upper-Level` — update the case with the syntax). Keep the
    reading text as the source of truth; the ftid slug already collapses `from- Status` to
    Transition_is_from_Status (verified — cells/rules/stores unchanged by respelling).
 2. RMAP NAMING: implement the four-step precedence + phase-1 collision decoration when

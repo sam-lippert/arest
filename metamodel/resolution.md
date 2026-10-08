@@ -375,8 +375,8 @@ Operation 'sync' is overridable.
 Function 'sync' accepts Type Expression 'response-and-cells'.
 Function 'sync' yields Type Expression 'outcome-and-store'.
 Function 'sync' has Description 'Reads a Source through its Connector and asserts what each page yields, one step per page, until no page follows. args: [source] or [[source, {key: value}]], the bindings filling the parameters the Connector declares. Answers each page: what it asserted, its violations and whether more follow; a connection that declares no live Send Mode answers the request it would send.'.
-<!-- AND THE ONE THAT REPLAYS, BY HAND (2026-10-07, task #198). Sam, of the SPD layer events: "not
-     automatically, these for the spd test are a manual fire." A write steps the trigger facts it
+<!-- AND THE ONE THAT REPLAYS, BY HAND (2026-10-07, task #198). Sam: such Events are not replayed
+     automatically, they are a manual fire. A write steps the trigger facts it
      gains, and an Event that fits no machine when it is recorded fires nothing, then or later
      (task #173). An Event that reached a machine and that no `Event caused Transition in State
      Machine` names with it is replayed only when someone fires `replay` naming it, or naming an

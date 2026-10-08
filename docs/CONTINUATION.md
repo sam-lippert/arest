@@ -298,11 +298,7 @@ $CLAUDE_JOB_DIR/tmp/arest-status.html (favicon 🏗️, deployed).
   DEONTIC-only sets, all the epistemics probe's designed flags
   (stale-session, negation-stratification staleness, its old
   subset-kind flags). blocked-proto/_sgate/arc-dbatch were ALREADY
-  archived (stale artifact text corrected); spd-1's .bak clutter
-  removed (the retracted-rows undo lives in the ledger + audit
-  jsonl). **spd-1 is the CANONICAL spd ruleset** (Samuel's
-  correction — never call it superseded), validates CLEAN, and its
-  ethics agreement is the first live subset mint.
+  archived (stale artifact text corrected).
 
 ## 2026-07-09 LATE SESSION: E2E PROOF, OUTAGE, SLICE 2
 
@@ -351,8 +347,8 @@ $CLAUDE_JOB_DIR/tmp/arest-status.html (favicon 🏗️, deployed).
   host composition; constraints:scoped_subset_projected has no
   canonical sibling, so the checker object was bottom from birth and
   its DefineIn poisoned evaluation. The host composition is now the
-  definition. THE MINT IS LIVE: spd-1's ethics agreement is a
-  role-projected deontic subset (unparsed 2 -> 1), support recompiles
+  definition. THE MINT IS LIVE: an ethics agreement is a
+  role-projected deontic subset, support recompiles
   with zero unsafe mints, four semantic tests land
   (test_subset_trailing.py: violation flags, satisfaction clean,
   unbound roles project away), bands 25 green. Remaining arc slices:
@@ -373,7 +369,7 @@ $CLAUDE_JOB_DIR/tmp/arest-status.html (favicon 🏗️, deployed).
   fts both sides, no where-discard, same-ft reversed-binding refused)
   behind a ROLE-PROJECTION GATE that refuses every subset mint until
   the projection slice lands. Measured no-op-except-reporting:
-  selfhost+Registry bands green (21), spd-1 unparsed 2->2, support
+  selfhost+Registry bands green (21), support
   62->55 (the 7 newly accepted = the customer-anchor and
   Resource/Lifecycle iff-rules the break had been robbing),
   populations identical, validate CLEAN. NEXT SLICES: role-projected
@@ -386,8 +382,7 @@ $CLAUDE_JOB_DIR/tmp/arest-status.html (favicon 🏗️, deployed).
 - Tokenizer: statements split at quote-aware sentence boundaries (the
   period terminates; the line was never the unit) + the VANISH GUARD
   (a classified statement matching no Stage-1 production reports as
-  unparsed via for/else raise — nothing is silently consumed). This
-  alone made spd-1 validate CLEAN with zero readings changes.
+  unparsed via for/else raise — nothing is silently consumed).
 - Parallel-ft UNIFICATION (f9141571): a reading naming a SUBTYPE in a
   role position resolves to the DECLARED supertype ft (guarded: direct
   id undeclared + exactly one substitution hit). Bit four times in one
@@ -490,14 +485,12 @@ $CLAUDE_JOB_DIR/tmp/arest-status.html (favicon 🏗️, deployed).
    unparsed (the queue derivations, GitHub label rules, us-law
    subject-to family) — all arc constituency.
 3. DO RETIREMENT: DONE 2026-07-09 (see the D1 endgame bullet).
-4. spd-1 unparsed: DONE 2026-07-09 per Samuel's deontic-subset call.
-   9 -> 2. THE LIVE FORM: violations derive as fact types
-   (Agent_wrongly_defers/performs_Action_Class from Action Kind, the
-   2-atom literal rule_iff works) and 'It is forbidden that <reading>'
+4. Deontic-subset readings: DONE 2026-07-09 per Samuel's deontic-subset
+   call. THE LIVE FORM: violations derive as fact types (the 2-atom
+   literal rule_iff works) and 'It is forbidden that <reading>'
    mints deontic_forbidden (the message-vetting transform, _plan
-   compiler.py:1673). The 2 remaining = the CANONICAL NORMA deontic
-   subset spellings (ethics obeys-order, free-will performs-implies-
-   reports), deliberately REPORTED as markers. ENGINE FINDINGS (the
+   compiler.py:1673). The CANONICAL NORMA deontic subset spellings
+   are deliberately REPORTED as markers. ENGINE FINDINGS (the
    leading-if constraint family is unreachable): grammar recognizer
    'Derivation Rule iff Keyword if' (forml2-grammar.md:264) co-fires
    on every if-sentence, sorts before 'Subset Constraint', and the
@@ -522,9 +515,9 @@ $CLAUDE_JOB_DIR/tmp/arest-status.html (favicon 🏗️, deployed).
    production, recognizer 264's Derivation-Rule-on-'if'); land
    trailing `x if y` subset constraints in the set-comparison arc
    (role projection + binding order still required; deontic trailing
-   spellings are exactly the spd-1 markers, now reverted to trailing
+   spellings are now reverted to trailing
    form); derivations keep ` iff ` only (rule_if's ` iff? ` narrows —
-   layering:46's digit-var ' if ' line then flips from the 113-row
+   a digit-var ' if ' line then flips from the 113-row
    artifact derivation to a subset constraint, which was its authored
    intent). The fleet's ~15 leading-If lines are misspellings to
    re-author trailing as they are touched. REFINEMENT (Halpin's asserted/derived/semiderived trichotomy; Samuel's pointer, same conversation): the ONE trailing surface's operational reading
@@ -540,17 +533,9 @@ $CLAUDE_JOB_DIR/tmp/arest-status.html (favicon 🏗️, deployed).
    the rule tops up what is missing). Consequences: support.md's
    queue lines want STARRED trailing-if derived heads ('* Customer
    submits Support Request if ...'), not iff respellings;
-   layering:46's intent was the derivation reading all along (declare
-   'Layer belongs to Layered System' as a fact type, then a starred
-   trailing rule); the spd-1 markers stay as spelled (asserted-head
-   deontic subsets that flag). The compiler's plain-set discipline
+   asserted-head deontic subsets stay as spelled and flag. The compiler's plain-set discipline
    ('a head the model declares plainly must not earn the rule's
-   derivation kind') is this dispatch's seed. DATA CLEANUP: spd-1's
-   Agent_defers/performs populations were old-encoding migrate relics
-   ((class, mode) pairs) minting 2 phantom Action Classes + 11
-   phantom Agents; retracted from spd-1.events.jsonl (backup:
-   spd-1.events.jsonl.bak), counts now honest (AC 13, Agent 0),
-   validate CLEAN.
+   derivation kind') is this dispatch's seed.
 
 ## OBJECTIFICATION-CONFORMANCE AUDIT (Halpin 2020, 2026-07-09)
 
@@ -684,9 +669,7 @@ declarations and minted 20 false CONFLICTs): 333 derive · 196+2
 assert-flag · 16 assert-fail · 3 CONFLICT · 225 REVIEW. FIXES
 APPLIED 2026-07-09: support contact-derivation.md's nine REKEY rules
 remarked * -> + (semiderived: the boundary ingest asserts, the rule
-tops up — recompiled, unparsed 55 stable, populations identical);
-spd-1's two violation fts got explicit trailing-starred declarations
-(recompiled stable). REMAINING CONFLICT (Samuel's call): tasks'
+tops up — recompiled, unparsed 55 stable, populations identical). REMAINING CONFLICT (Samuel's call): tasks'
 'Task is started iff finished/blocked/unblocked' trio on a plainly
 declared head (the board of record; not touched). Audit v3 note:
 deontic-ftr over a DERIVED head is the violation-ft idiom (OK class,
@@ -755,9 +738,8 @@ vanish-artifact splits, board task rides the next batch.
   batched Registry session): the memo-mechanism lesson, the FORML 2 if/iff semantics (Halpin)
   with the storage-kind dispatch refinement (iff=equality, if=subset,
   asserted heads constrain / derived heads complete), the
-  dispatch-break conformance map, the spd-1 data cleanup. The stack
-  artifact still shows the DO step open and spd-1 as superseded
-  residue; refresh when convenient.
+  dispatch-break conformance map. The stack
+  artifact still shows the DO step open; refresh when convenient.
 - The mechanism maps live in the board tasks and this file. The claude
   app carries Operating Rules + Engine Lessons (query
   Operating_Rule_has_Rule_Statement at session start per MEMORY.md).

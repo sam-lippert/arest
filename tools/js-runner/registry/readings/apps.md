@@ -84,8 +84,8 @@ App has Serving Status.
 ## Instance Facts
 
 <!-- The six residents AREST_APPS named on 2026-09-22, in the order it named
-     them. claude, memory and spd-1: apps/claude IS the composition; memory and
-     spd-1 are libraries with no App of their own, so neither appears here.
+     them. apps/claude IS a composition: the libraries it composes, memory
+     among them, have no App of their own, so none appears here.
      On 2026-09-23 arest-dev went to apps/archive with paper and engine, the two
      libraries only it composed: no session but one had asked it anything since
      the router began, and its store held nothing the runtime wrote. The one live

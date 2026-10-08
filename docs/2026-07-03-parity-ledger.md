@@ -35,15 +35,14 @@ inventory, and inherited defects get fixed, not ported.
 4. THE LIVE DATA. Migration by re-ingestion (facts are the source of truth; replay
    through the same create). Verdicts by liveness:
    * LIVE, must migrate with fidelity: claude (the operational ledger and cognitive
-     stack: 65 lessons, Operating_Rule/Engineering_Lever/Engine_Lesson, the spd-1
-     affect stack wiring), tasks (the board), support.auto.dev, message-vetting,
+     stack: 65 lessons, Operating_Rule/Engineering_Lever/Engine_Lesson), tasks (the board), support.auto.dev, message-vetting,
      identity, merge, and the *-service family (bill-negotiation, cancel, refund,
      charge-dispute, parking-ticket, property-tax, robocall, tax, gym-contract,
      hoa-dispute, small-claims).
-   * ARCHIVE, keep re-ingestable: the arc-* / gen-* / spd-* / induce-* probe fleet
+   * ARCHIVE, keep re-ingestable: the arc-* / gen-* / induce-* probe fleet
      (research artifacts; their readings re-ingest on demand).
    * RETIRE with the repo: engine-internal probes (bisect-samekey, deriv-probe,
-     freewill-repro, qvr-test, arest-dev) unless their readings carry lessons.
+     qvr-test, arest-dev) unless their readings carry lessons.
 
 5. PARSER BREADTH. The old stage-2 surfaces pyarest's fragment lacks: possessive
    role navigation (Task1's Task ID), that-relative expansion, superlative-among
@@ -229,7 +228,7 @@ Status_is_defined 32=32 (the overlay vendoring holds). The differ classes:
 1. Status_is_rooted 23 vs 4: the SAME proven old-engine negation defect as
    tasks (old = bare from-pairs).
 2. The SUM family derives zero while MAX matches (Compile_Run peak 4=4,
-   total 4v0; App run totals; Layer_has_Load; Stratum_Stack loads): the
+   total 4v0; App run totals; Unit_has_Load; Stratum_Stack loads): the
    corpus's sum spelling or the at-most-0 zero-supplying form does not
    compile yet.
 3. The SUPERLATIVE election family (is elected, is recommended, is focal,
@@ -245,14 +244,14 @@ The next grammar tranche, exact corpus texts (claude readings):
   where Compile Run1 spends Duration Ms1 in Compile Phase1.' — the agg
   out-variable is UNNUMBERED while the source is numbered, and the head
   carries the unnumbered out-variable ('total' is reading text).
-- AT-MOST-0 totalization (affect-select.md:74): '* Layer1 has Load '0' iff
-  Layer1 stacks into Stratum Stack1 and Layer1 is operator-loaded by at
+- AT-MOST-0 totalization (select.md:74): '* Unit1 has Load '0' iff
+  Unit1 stacks into Stratum Stack1 and Unit1 is operator-loaded by at
   most 0 Engineering Lever.' — a head LITERAL ('0') plus a bounded-count
   body clause ('is Xed by at most 0 Y' = the count of Y matching is <= 0,
   i.e. negation spelled as frequency); the ledger's own count-of-empty
   lesson documents the idiom.
 - The SUPERLATIVE family (is focal / is elected / is recommended /
-  slowest-for / regresses-for): mine the exact texts from affect-select.md
+  slowest-for / regresses-for): mine the exact texts from select.md
   and ledger.md at pickup.
   MINED (2026-07-04) — NOT a new rule shape: salient = ranks JOIN peak,
   focal = grades JOIN base, elected = pure conjunction, slowest-for =
@@ -266,9 +265,9 @@ The next grammar tranche, exact corpus texts (claude readings):
   the rehearsal before fixing.
   VERDICT RUN 3 (2026-07-04): 10 match (was 6) — the coerced SUMS light
   on real data (Compile_Run_has_total 4=4, App_has_run_total 4=4,
-  base_Depth 1=1). ROOT CAUSE of the remaining affect cascade:
-  Layer_has_Load = 0 because the zero-supply anti-join's NEG side reads
-  an EMPTY/ABSENT cell (Layer_is_operator_loaded_by_Engineering_Lever)
+  base_Depth 1=1). ROOT CAUSE of the remaining selection cascade:
+  Unit_has_Load = 0 because the zero-supply anti-join's NEG side reads
+  an EMPTY/ABSENT cell (Unit_is_operator_loaded_by_Engineering_Lever)
   and the fetch bottoms instead of answering the empty population — a
   vacuous negation must PASS everything (nothing exists, so nothing is
   loaded). Fix at the neg-side fetch (missing cell = φ, the COND-null
@@ -292,7 +291,7 @@ claude for the swap cleanup list.
 Mis-authoring findings (the swap re-authoring list): 72 PROSE IDS in
 Resource_is_instance_of_Noun (sentences as resource identifiers); the
 catch-all prose values — Engine_Lesson_prescribes_Construction (13),
-Operating_Rule_has_Rule_Statement (12), Stack_Layer descriptions, App
+Operating_Rule_has_Rule_Statement (12), Stack_Unit descriptions, App
 Purpose/Rationale/Usage — the documented anti-pattern, committed by the
 ledger app itself.
 THE PERFORMANCE KILLER is the old engine's REFLECTION LAYER migrated as
@@ -352,7 +351,7 @@ never as capability. The bottom-up debug below is the road to that goal;
 the cross-kernel differential generalizes to an N-way differential as
 hosts join.
 
-## The polyglot debug, OSI-style bottom-up (Samuel, 2026-07-04)
+## The polyglot debug, bottom-up (Samuel, 2026-07-04)
 
 The directive: everything polyglots off the LAMBDA FRAMEWORK; host code
 exists for capability ONLY at the kernel; everything else is canonical
@@ -486,14 +485,14 @@ a Title-case run becomes a noun only when CORROBORATED — somewhere in the
 corpus the run is immediately followed by a quoted literal (instance
 evidence: Event Type 'created', Target SHA 'abc'); and runs are ATOMIC
 (_atomic_run_guard): a declared noun matching INSIDE an uncorroborated
-run ('Layer' within 'has Layer Affinity to') is predicate text, not an
-occurrence. Root cause chain of Layer_has_Load=0: phantom 'Layer
+run ('Unit' within 'has Unit Affinity to') is predicate text, not an
+occurrence. Root cause chain of Unit_has_Load=0: phantom 'Unit
 Affinity' role -> 3-wide fact type -> 2-wide migrated rows never join ->
 operator-loaded empty -> count starves and at-most-0 fires for ALL
-layers -> agg-replace clobbered even those (fixed separately: per-GROUP
+units -> agg-replace clobbered even those (fixed separately: per-GROUP
 supersession). 51 grammar-suite tests green over both fixes.
 
-VERDICT FIVE (2026-07-04): Layer_has_Load MATCHES 8=8 (counts and zeros
+VERDICT FIVE (2026-07-04): Unit_has_Load MATCHES 8=8 (counts and zeros
 together, row for row) and peak_Load follows — the strata core derives
 natively; 11 match total. BUT the corroboration over-tightened:
 Fact_Type_has_Arity collapsed 748 -> 1 and the projection lost 10 tables
@@ -511,13 +510,13 @@ corroboration set, then narrow the guard, never widen blindly.
 VERDICT SIX (2026-07-04): Fact_Type_has_Arity HEALED 748=748 (the
 quantifier corroboration works; three corroboration sources now:
 declaration, instance quote, quantifier position — plus the atomic-run
-guard). Projection 186/241, only-new down to 46. REMAINING: Layer's
+guard). Projection 186/241, only-new down to 46. REMAINING: Unit's
 operator-loaded rule STILL does not fire (loads all zero via the
 zero-supply; the cell absent) despite actionable=6 and the affinity ft
 parsing two-wide. PROBED (2026-07-04): the rule compiles, reads the right cells, both
 antecedents populated (actionable=5, affinity=11) — and the object
 EVALUATES TO BOTTOM. The shape is a UNARY-FIRST atom followed by a join
-('EL1 is actionable and EL1 has Layer Affinity to Layer1'): every rule
+('EL1 is actionable and EL1 has Unit Affinity to Unit1'): every rule
 test so far led with a binary atom, so the width-1 running tuple through
 the linear NatJoin chain is untested. MINIMAL REPRO: three variants ALL PASS — unary-first join standalone,
 the predicate-text reading standalone, and the tiny model ATOP the base.
@@ -542,10 +541,10 @@ tree, its apply-through-mu, the delta store rebuild at the operand
 boundary) over the two stores; the divergence line IS the bug. Then the
 fix, verdict seven, gate44.
 
-VERDICT SEVEN (2026-07-04): 12 match — Layer_has_Load 8=8 EXACT (real
+VERDICT SEVEN (2026-07-04): 12 match — Unit_has_Load 8=8 EXACT (real
 counts + zero-fills) and peak_Load with it; the strata core derives
 natively. The hunt's answer held: 'one' removed from the quantifier
-corroborators (solver-loop.md:53's frequency phrase had re-nouned Layer
+corroborators (solver-loop.md:53's frequency phrase had re-nouned Unit
 Affinity into a phantom third variable; twelve hypotheses each
 falsified by measurement — the chain is the step-frame/mining
 documentation now). REMAINING CASCADE, one fix class: ranks 8v11 —
@@ -562,7 +561,7 @@ seven-fix tranche meanwhile.
 VERDICTS EIGHT AND NINE (2026-07-04): the keyed stratum and the
 reflection exclusion both landed (12 match holds; the exclusion cuts
 ~2MB from the migrated store) but the cascade is UNMOVED — and the
-corpus explains why: ranks carries NO uniqueness (affect-select.md:38),
+corpus explains why: ranks carries NO uniqueness (select.md:38),
 so the keyed pass correctly skips it. Its 11-vs-8 rows are DOWNSTREAM
 DAMAGE from Load's mid-closure supersession: rows derived from
 superseded sources must be RETRACTED and re-derived. That is deletion
@@ -602,7 +601,7 @@ whose supply vanishes entirely (per-group supersession keeps them; no
 corpus case exercises either).
 
 VERDICT ELEVEN (2026-07-04): SEVENTEEN exact matches. The joint
-fixpoint with dirty-set filtering landed the whole affect cascade:
+fixpoint with dirty-set filtering landed the whole selection cascade:
 focal 1=1, elected 2=2, base_Depth healed, and the replay phase
 converged with the migration phase (no stratum_stack diffs in either).
 The dirty filtering also fixed the cost regression the first sweep
@@ -786,15 +785,7 @@ compiler parameter, never by environment). Gate: delete the frozen
 grammar snapshot to force a cold bootstrap ingest, then the full
 suite, the fleet differential, and a rehearsal. Sherlock carries no
 .db (the rehearsal harness needs the old engine's database; not a
-flip failure); spd-1's run tells whether the harness covers it.
-
-SPD-1 CORROBORATES (2026-07-04): five of six derived fact types
-match exactly under the flipped compiler, and the one diff is
-Status_is_rooted 13v2, the SAME class as claude's 23v4. The rooted
-defect is SYSTEMIC in the old engine: every machine-bearing app
-shows the same collapse when the negation computes honestly (the
-old seed branch's non-monotonic gate over-derived). Two apps, one
-defect, zero pyarest divergences beyond it.
+flip failure).
 
 THE NAMED WORK COMPLETES (2026-07-04, commit 4f5c176, gate 487):
 system:explain moves the derivation chain into the canon, the reads
@@ -1130,7 +1121,7 @@ Four questions, four answers, and the critical path reshapes.
 3. Swap surface: WAIT FOR THE RUST RESIDENT. No Python stopgap. One
    swap, straight to the engine of record. This makes the resident's
    apps-registry half plus its MCP binding THE critical path.
-4. Fleet scope: LIVING APPS ONLY. claude, tasks, spd-1 and kin migrate
+4. Fleet scope: LIVING APPS ONLY. claude, tasks and kin migrate
    with verification; the arc-* probes and benches die with the old
    repo.
 
@@ -1193,8 +1184,6 @@ recency, size, and purpose, migrates with per-app verification
 
 - claude (the operational ledger, written today)
 - tasks (the board)
-- spd-1 (rehearsed clean at 5/6 verdicts, the sixth being the rooted
-  re-basing Samuel accepted)
 - kernel
 - support.auto.dev (173 MB, the largest store in the fleet)
 - message-vetting
@@ -1206,10 +1195,9 @@ recency, size, and purpose, migrates with per-app verification
   way)
 
 Everything else dies with the old repo: the 56 arc-* probes, the
-eight spd-* single-day aspect probes from 2026-06-14 (spd-1 itself
-lives), the gen-* and induce-* generator experiments, and the tail
+gen-* and induce-* generator experiments, and the tail
 of demos and one-off checks (maj-demo, alpha-rule-test,
-freewill-repro, agent-policy, agent-action-governance,
+agent-policy, agent-action-governance,
 csdp-action-model, csdp, qvr-test, agg-count-check, bisect-samekey,
 engine-migration, paper, blocked-proto, merge, identity, arest-dev,
 safety-probe, deriv-probe, codex, load-src-do, listings-vdp). The
@@ -1426,7 +1414,7 @@ every snapshot site; the migration manifest decided (living apps
 only); the four decisions filed. Pending at draft time: the writes
 arc landing on the resident, and the MCP config repoint.
 
-Per living app (claude, tasks, spd-1, kernel, support.auto.dev,
+Per living app (claude, tasks, kernel, support.auto.dev,
 message-vetting, bill-negotiation-service, arc-stack if Samuel says
 so), in order:
 
@@ -1648,7 +1636,7 @@ obligations, negotiation process), the old app.db's asserted rows
 replay through the older-name path the manifest flagged, zero
 derived divergence, zero sweep violations. The verdict is
 unconditional on the first run. The manifest's rehearsal column now
-reads: claude, tasks, spd-1 verdict-certified with the accepted
+reads: claude and tasks verdict-certified with the accepted
 re-basings; message-vetting, kernel, bill-negotiation-service
 unconditional; support.auto.dev in flight; arc-stack on Samuel's
 call.
@@ -1657,8 +1645,8 @@ call.
 
 The 173 MB heavyweight compiles its six readings, replays, and
 answers zero derived divergence and zero sweep violations. With it,
-every living app on the manifest has rehearsed: claude, tasks, and
-spd-1 verdict-certified earlier with the accepted re-basings, and
+every living app on the manifest has rehearsed: claude and tasks
+verdict-certified earlier with the accepted re-basings, and
 message-vetting, kernel, bill-negotiation-service, and
 support.auto.dev unconditional on first runs. Only arc-stack waits,
 on Samuel's include-or-drop call.
@@ -3605,7 +3593,7 @@ Pre-fold checks (Samuel: "Run both checks"):
 1. FLEET REHEARSAL on the current engine: 8/8 compile from readings clean
    (temp root, live .dbs untouched). Every real machine gets its status fact
    type: tasks(1), bill-negotiation(1), claude(2: Engineering_Lever, Defect),
-   support.auto.dev(ALL 7). kernel/spd-1/message-vetting/arc-stack carry no
+   support.auto.dev(ALL 7). kernel/message-vetting/arc-stack carry no
    compiled machines (their "State Machine Definition" greps were prose).
    Unclassified: 5 lines fleet-wide, all documented prose/import shapes.
 2. AREST _status READERS: 433 currently_in_Status refs in mainline — my first
@@ -3692,7 +3680,7 @@ snapshotted *.pre-0.9.0.bak; events.jsonl carries the migration batches so
 every recompile replays it):
   message-vetting readings-only | kernel 4 | arc-stack 10 | tasks 8,994/27fts
   + BRIDGE 1,072 -> Task_is_currently_in_Status (spot-checked 112=completed)
-  | spd-1 259/19fts verify 2/2 | bill-negotiation 10 | claude 707/91fts
+  | bill-negotiation 10 | claude 707/91fts
   verify 23/23 + bridge 12 Engineering_Lever + 5 Defect | support.auto.dev
   89/21fts verify 1/1 + bridge 1 (redone from the REAL 173MB store after the
   newest-parseable heuristic picked an empty-cells app.db shell — lesson:
@@ -3866,13 +3854,13 @@ clause_ft/stage-1 canonicalization + native override should price.)
 The sound shortcut: where the LOG PREDATES the .db, the snapshot provably
 holds the whole stream, so the watermark stamps directly (load, stamp,
 save, sidecar — seconds per app). All 8 living apps stamped and verified
-(claude 93, tasks 55, support 22, spd-1 19, arc-stack 6, bill 2, kernel 1,
+(claude 93, tasks 55, support 22, arc-stack 6, bill 2, kernel 1,
 message-vetting 0); the resident boots the stamped sidecar and serves the
 same 1,072 statuses. An app whose log outruns its .db still needs the
 recompile route — none did tonight.
 
 Sweep note: Repos/apps holds DOZENS of pre-0.9.0 experiment stores
-(arc-*, gen-induce-*, spd-* probes) that no longer load ("no such column:
+(arc-*, gen-induce-* probes) that no longer load ("no such column:
 ord") — old-engine schemas outside the migrated fleet. Migrate-or-delete
 is an open housekeeping decision.
 
@@ -4437,7 +4425,7 @@ and rename arestlam to arest. Use new Rust binary for mcp." Executed:
   audited manifest (13 .pre-0.9.0.bak of the verified-migrated fleet;
   claude's contaminated-era pair; 121 old-format dbs in dirs with
   readings — rebuildable under 0.9.0 by compile+replay). KEPT and
-  reported: arc-agi-3/_corpus/run.db + _offline/spdnav.db (10.7 MB,
+  reported: arc-agi-3/_corpus/run.db + an _offline nav db (10.7 MB,
   old-format, no readings beside them — no forward path) and 5 tiny
   unreadables. Manifest: job tmp legacy_db_manifest.tsv.
 - RENAME (7f513249, pushed): engine/rust arestlam -> arest (package,
