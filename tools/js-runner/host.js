@@ -6449,7 +6449,7 @@ function schemaMapRows(db) {
   const has = new Set(db.query("select name from sqlite_master where type = 'table'").values().map((r) => String(r[0])));
   if (!has.has("Function") || !has.has("ColumnIsForRole") || !has.has("TableKeySpansColumn")) return null;
   const fcols = new Set(db.query("select name from pragma_table_info('Function')").values().map((r) => String(r[0])));
-  for (const c of ["functionId", "columnTableId", "columnName", "columnPosition", "tableName", "tableFactTypeId", "tableKeyTableId"]) if (!fcols.has(c)) return null;
+  for (const c of ["functionId", "columnTableId", "columnName", "columnPosition", "tableName", "tableFactTypeId", "tableKeyTableId", "tableIsAView"]) if (!fcols.has(c)) return null;
   const rows = db.query(String(Ev("storage:schema_map", "#"))).values()
     .map((r) => ({ tab: String(r[0]), ord: r[1], col: String(r[2]), ft: r[3] === null || r[3] === undefined ? null : String(r[3]) }));
   return rows.length ? rows : null;
