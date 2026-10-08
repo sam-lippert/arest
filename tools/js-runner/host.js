@@ -819,6 +819,12 @@ function recordLedger(db, prior, cells) {
     for (const r of add) put.run(String(r[0]), String(r[1]));
   };
 }
+// the fact types of the Relational Schema, as lambda lists them (compile:kt_schema)
+let SCHEMA_FTS = null;
+function schemaFts() {
+  if (!SCHEMA_FTS) SCHEMA_FTS = seq(Ev("compile:kt_schema", "#")).map(String);
+  return SCHEMA_FTS;
+}
 function emitToDb(before, cells, prior, report) {
   EMIT_STORED = false;
   // AND SAYS WHICH TABLES IT WROTE, when handed a report to say it in: the in-place compile keeps its
@@ -862,6 +868,11 @@ function emitToDb(before, cells, prior, report) {
   // start seeds the record the write left (seedDerivedRows) and a row a write derived is not read as entered.
   // A write that only moved the record -- a value entered equal to the derived one -- writes the ledger alone.
   const ledger = prior ? recordLedger(db, prior, cells) : null;
+  // AND THE SCHEMA'S DDL GOES WITH ITS ROWS (task #197, step 3). A write that moves the rows of the
+  // Relational Schema -- an applied Domain Change re-maps the tables it touches (schema:dc_remap) -- runs
+  // the statements lambda answers for their difference (schema:emit_ddl) before any row is written, in the
+  // same transaction. Which statements, and their text, are lambda's; the host only runs them.
+  const ddl = prior && schemaFts().some((ft) => changed.has(ft)) ? seq(Ev("schema:emit_ddl", [prior, cells])).map(String) : [];
   if (!changed.size) {
     if (ledger) { db.transaction(ledger)(); EMIT_STORED = true; }
     return 0;
@@ -914,6 +925,8 @@ function emitToDb(before, cells, prior, report) {
     + (v ? " -- a row beginning " + JSON.stringify(v.slice(0, 2)).slice(0, 120) : ""));
   const counted = new Map();
   db.transaction(() => {
+    for (const s of ddl) db.exec(s);
+    if (report && ddl.length) report.ddl = ddl;
     for (const table of touched) {
       const cols = Ev("rmap:proj_colnames", [table, cells]).map(String);
       if (!cols.length) continue;
