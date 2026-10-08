@@ -1,12 +1,7 @@
 # Agent Ethics
 
-<!-- The part of Asimov's laws that does not depend on SPD's layers, stated
-     over Agent so it binds every agent that is one.
-     These readings moved here from ../../../apps/lyr-1/readings/ethics.md,
-     where they read `Layered Agent`; no runtime row held any of them. What
-     depends on the layers -- which Law governs which Layer, and precedence
-     by layer -- stays in lyr-1, and a Layered Agent inherits everything here
-     as a subtype of Agent. A human is a User who is human (`User is human`,
+<!-- Asimov's laws, stated over Agent so they bind every agent that is one,
+     and every subtype of Agent an app declares inherits them. A human is a User who is human (`User is human`,
      metamodel/instances.md), so the harmed, the one who orders and the source of a signal
      are Users, and the rules that need a person say so. -->
 
