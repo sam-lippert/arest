@@ -248,9 +248,11 @@ Table is primarily for Object Type.
 Table is primarily for Fact Type.
   Each Table is primarily for at most one Fact Type.
 
-For each Table, exactly one of the following holds:
-    that Table is primarily for some Object Type;
-    that Table is primarily for some Fact Type.
+For each Table, that Table is primarily for some Object Type or that Table is primarily for some Fact Type.
+  <!-- Inclusive, not exclusive (Sam, 2026-10-07: "a fact can be an object? This is
+       very common"): an objectified fact type's one table is primarily for the Fact
+       Type and for the Object Type that objectifies it, so a Domain Change touching
+       either re-maps it. -->
 
 If some Table belongs to some Relational Schema and that Table is primarily for some Object Type and that Object Type belongs to some Domain then that Relational Schema covers that Domain.
 If some Table belongs to some Relational Schema and that Table is primarily for some Fact Type and that Fact Type belongs to some Domain then that Relational Schema covers that Domain.
@@ -258,7 +260,11 @@ If some Table belongs to some Relational Schema and that Table is primarily for 
        has no table for support's tickets unless both draw on the Domain that
        declares them. -->
 
-Table is a view. *
+Table is a view.
+  <!-- Asserted by Rmap for the views it builds, not derived (Sam, 2026-10-07). A fully
+       derived fact type is not always a table: a functional one is grouped into its
+       entity's table as a column (step 2), so a rule over the derivation mode would
+       call more tables views than the database holds. -->
 
 ### Column
 
@@ -281,6 +287,9 @@ Column is nullable.
 Column is for Role.
   Each Column, Role combination occurs at most once in the population of Column is for Role.
   Each Column is for some Role.
+  <!-- Holds for key columns too (Sam, 2026-10-07, Halpin's Rmap step 4): a compositely
+       identified object type is a black box until its column is unpacked into the
+       columns of its identifying fact types, each the column of a role of them. -->
 
 ### Table Key
 
@@ -318,8 +327,6 @@ Domain Change touches Table. *
 
 * Relational Schema covers Domain iff that Relational Schema is for that Domain.
 * Relational Schema covers Domain2 iff that Relational Schema is for some Domain1 and Domain1 draws on Domain2.
-
-* Table is a view iff that Table is primarily for some Fact Type and that Fact Type has Derivation Mode 'fully-derived'.
 
 * Domain Change touches Table iff that Domain Change proposes some Role and some Column belongs to that Table and that Column is for that Role.
 * Domain Change touches Table iff that Domain Change proposes some Object Type and that Table is primarily for that Object Type.
