@@ -237,7 +237,7 @@ test("the instance-of index built in one pass is the index the fold builds", () 
 // pieces were always here: rmap:ddl_table and rmap:ddl_order existed with NO
 // caller, so nothing walked the schema and nothing noticed.
 test("lambda's DDL is a database SQLite will accept", () => {
-  const sql = String(Ev("rmap:ddl", CELLS));
+  const sql = String(Ev("schema:ddl", CELLS));
   expect(sql).toContain("CREATE TABLE IF NOT EXISTS");
 
   const db = new Database(":memory:");
@@ -932,7 +932,7 @@ test("a store carries the metaschema table it was written through, and a module 
 const quo = (n) => '"' + String(n).split('"').join('""') + '"';
 const makeTables = (db) => {
   const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
-  for (const stmt of flat(Ev("rmap:ddl", CELLS)).split(";")) if (stmt.trim()) db.run(stmt + ";");
+  for (const stmt of flat(Ev("schema:ddl", CELLS)).split(";")) if (stmt.trim()) db.run(stmt + ";");
 };
 
 // test skips when the artifact is missing, and an empty _meta also exercises

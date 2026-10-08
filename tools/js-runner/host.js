@@ -1439,7 +1439,7 @@ const PRIMS = new Map(Object.entries({
   // AND IT IS THE ENGINE'S CALL, NOT LAMBDA'S (2026-09-29). Storage is an interface: lambda calls
   // storage:schema, and storage:resolve applies <storage:engine>:<operation>, so this host says which
   // engine it provides by registering storage:engine, and sqlite:exec is the one call that engine's
-  // lambda implementation (sqlite:schema over rmap:ddl) makes. It was sql:exec, a name lambda called
+  // lambda implementation (sqlite:schema over schema:ddl) makes. It was sql:exec, a name lambda called
   // directly, which is the coupling the interface removes.
   "storage:engine": () => "sqlite",
   "sqlite:exec": x => {
@@ -6335,7 +6335,8 @@ function run_mcp() {
 // ---- SQL ---------------------------------------------------------------
 // A host that supports sql needs no schema knowledge of its own. Lambda derives
 // the relational mapping -- 297 rmap defs, checked against NORMA's own answer
-// by 13 laws -- and rmap:ddl renders it as the CREATE TABLE script. All this
+// by 13 laws -- and schema:ddl renders its Relational Schema's rows as the
+// CREATE TABLE script (rmap:ddl walked the map itself until task #197). All this
 // does is open a database, run that script, and execute the caller's query.
 // Deciding what the tables ARE would be this file taking lambda's job.
 //
@@ -6347,7 +6348,7 @@ function run_sql() {
   const argv = process.argv.slice(2);
   const path = process.env.AREST_DB || ":memory:";
   const db = new Database(path);
-  db.run(String(Ev("rmap:ddl", CELLS)));
+  db.run(String(Ev("schema:ddl", CELLS)));
   const query = argv[0];
   if (!query) {
     const t = db.query("select name from sqlite_master where type = ?").all("table");
