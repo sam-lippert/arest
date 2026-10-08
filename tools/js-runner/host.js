@@ -7010,7 +7010,7 @@ function loadStoreDb(path, opts) {
   // unpacking c0..cN to a recorded arity. `_meta` occurs ZERO times in lambda and
   // never did -- it was a shape this file invented so that it could read back
   // what it had written. The schema the readings actually describe is the one
-  // rmap:ddl emits, and now it is the one that is read.
+  // schema:ddl emits (rmap:ddl until task #197), and now it is the one that is read.
   // AND IT READS THE MAP THE CHECK ABOVE ALREADY BUILT: `want` IS rmap:coltabs
   // paired with rmap:proj_colnames, so the check costs no evaluation of its own
   // (5 ms for the base's 49 tables and 382 columns, paid once either way).
