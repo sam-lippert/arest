@@ -521,5 +521,11 @@ Domain 'state' has Description 'Status, Transition and Guard as a Mealy machine 
 <!-- task-965 lift (shipped 6393ceb3): the HATEOAS destructive-affordance
      rule, lifted from a Rust literal (command.rs http_method_for_status)
      into a reading. A transition whose target Status has a declared HTTP
-     Method surfaces with that method; all others default to GET. -->
-Status 'deleted' has HTTP Method 'DELETE'.
+     Method surfaces with that method; all others default to GET.
+     RETIRED 2026-10-07 (Sam): `Status 'deleted' has HTTP Method 'DELETE'`
+     declared a Status no machine reaches, against core.md's `For each
+     Status, some Transition is from that Status or some Transition is to
+     that Status`, once that inclusive-or was checked; it left support's
+     store alethically dirty. The rule stands without it: an app's own
+     Status that declares HTTP Method 'DELETE' and has a Transition into it
+     surfaces as DELETE, and a soft delete is that app's Status. -->
