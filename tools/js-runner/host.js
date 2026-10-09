@@ -1060,7 +1060,7 @@ function emitToDb(before, cells, prior, report) {
   return written;
 }
 // theta:unfold_rows and theta:unfold_descs by the identity of the array unfolded (see their twins)
-// value:is_scalar and law:rowp as their DEFs answer them (see their twins)
+// value:is_scalar and theta:rowp as their DEFs answer them (see their twins)
 function isScalar(x) {
   if (!Array.isArray(x)) return true;
   return x.length === 3 && x[0] === "decimal" && typeof x[1] === "number" && typeof x[2] === "number";
@@ -3614,11 +3614,11 @@ const FASTPRIMS = new Map(Object.entries({
   // the head builds it in one linear pass. seq() on each element keeps the
   // DEF's edge: a non-sequence element is an error, exactly as cat throws.
   // A POPULATION IS UNFOLDED ONCE, NOT ONCE PER WRITE (2026-10-03). theta:unfold_rows is WHILE not all_rowp:
-  // flatten, so even a population already in rows asks law:rowp of every row and value:is_scalar of every value
+  // flatten, so even a population already in rows asks theta:rowp of every row and value:is_scalar of every value
   // to say so, and theta:unfold_descs does the same over the descriptor list. Every write ran the reflection
   // again (adoptStore -> loadReflected) and the emit's re-sourcing, and each read every population it touched
   // through reflect:src_rows and store:fix_desc: on a copy of support's store one Contact Submission POST asked
-  // law:rowp 9.5 million times and value:is_scalar 24.5 million, 118 s of a 223 s profiled write, of
+  // theta:rowp 9.5 million times and value:is_scalar 24.5 million, 118 s of a 223 s profiled write, of
   // populations the write had not touched. Lambda's arrays are values -- a write that changes a population
   // answers a new array for it and leaves every other one the same object -- so the answer for an array is
   // kept by the array's identity, and kept through memoClear, which builds the identity indexes anew and leaves
@@ -3641,17 +3641,17 @@ const FASTPRIMS = new Map(Object.entries({
     READINGSOF.set(cell, v);
     return v; },
   // A SCALAR IS ASKED OF A VALUE NATIVELY (2026-10-03). value:is_scalar is atom or dec:is, and since it learned
-  // decimals (2026-09-29) theta:all_atomp, law:rowp and theta:all_rowp ask it of every element of a row or a
+  // decimals (2026-09-29) theta:all_atomp, theta:rowp and theta:all_rowp ask it of every element of a row or a
   // population through several interpreted calls each: every theta:unfold_atoms over a population (ui:ids, a
   // machine's lookup) and every theta:unfold_rows of a population not yet unfolded is that many calls per value.
   // The twins answer as the DEFs answer: an atom is a scalar; a sequence is one exactly when it is a decimal, three
   // fields, the text decimal and two numbers (value:isint is system:isnum of an atom, and system:isnum holds of a
-  // number atom: one that is not eq to its own spelling); fp:and_all answers T of the empty sequence, and law:rowp
+  // number atom: one that is not eq to its own spelling); fp:and_all answers T of the empty sequence, and theta:rowp
   // F of an atom and of the empty sequence. An atom given where a sequence is mapped is the DEF's, which raises as
   // it raises. AREST_NOTWIN=<name> gives the DEF's own.
   "value:is_scalar": x => bool(isScalar(x)),
   "theta:all_atomp": x => (Array.isArray(x) ? bool(x.every(isScalar)) : Ev(DEFS.get("theta:all_atomp"), x)),
-  "law:rowp": x => bool(isRow(x)),
+  "theta:rowp": x => bool(isRow(x)),
   "theta:all_rowp": x => (Array.isArray(x) ? bool(x.every(isRow)) : Ev(DEFS.get("theta:all_rowp"), x)),
   // A SELECTION IS A LOOKUP, NOT A SCAN (2026-10-03). derive:filter_sel <<position, value>, rows> keeps, in their
   // order, the rows whose value at the position is eq to the value (derive:keep_sel), and the closure and the
@@ -5715,7 +5715,7 @@ function run_serve() {
 // THE PAIRING IS ASKED OF LAMBDA BY EACH PLATFORM, NOT BY THIS HOST (2026-10-03). pairing_gate asked
 // law:paired over the controls a container registered in PRIMS, for the text and HTML containers
 // this file once held; they are gone, and it had no caller. A platform now sends the render names it
-// registered in every navigate request, and lambda answers law:unpaired over them in the frame
+// registered in every navigate request, and lambda answers ui:unpaired over them in the frame
 // (ui:frame_out): ui.do and the Swing container each refuse to draw a frame that names one. This
 // host registers no control, so it has nothing of its own to pair.
 function run_mcp() {

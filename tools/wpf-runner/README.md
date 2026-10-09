@@ -24,7 +24,7 @@ is the C# one, the sibling of ui.do's `src/render` and of
   as the IAlert.
 
 The pairing is lambda's: each request carries the names registered here and
-`law:unpaired` answers over them, so a frame naming one is a refusal to draw.
+`ui:unpaired` answers over them, so a frame naming one is a refusal to draw.
 Nothing here reads lambda, boots a store, validates or persists.
 
     dotnet build -c Release

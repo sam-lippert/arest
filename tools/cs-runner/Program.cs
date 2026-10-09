@@ -15,6 +15,7 @@ public static class Program
         // bytes at runtime and this is the fourth. Order is unchanged: lambda,
         // carriers, then the case table, exactly as the copy /b had it.
         Reader.Load(Reader.Path("AREST_LAMBDA", "../../arest"));
+        Reader.Load(Reader.Path("AREST_TESTS", "../../arest.tests"));
         Reader.Load(Reader.Path("AREST_DESIGN_STATE", "../norma-oracle/design-state"));
         Reader.Load(Reader.Path("AREST_NORMA_ANSWER", "../norma-oracle/norma-answer"));
         Reader.Load(Reader.Path("AREST_SCENARIOS", "../../engine/shared/scenarios.canon"));

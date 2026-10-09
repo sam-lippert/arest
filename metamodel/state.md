@@ -348,7 +348,7 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
      constant: an app's compiled recipes come from ITS carrier, and a carrier
      written before this line refuses writes the moment the machines appear,
      which is every app until it re-checks. When a regenerated carrier
-     carries it too, law:all_rules holds both and derives the same rows. -->
+     carries it too, derive:all_rules holds both and derives the same rows. -->
 
 * Status is effective initial in State Machine Definition iff that Status is initial in that State Machine Definition.
 

@@ -1025,7 +1025,7 @@ ImplementationBinding 'tab.gtk4' has Component Trait 'dark_mode_native'.
      they are on 2026-10-01: the MonoView and iFactr interfaces. ui:arrange
      answers the placed view, <listview, 0, 0, w, h, properties> and then
      <kind, x, y, w, h, properties> for every row in it; ui:render applies
-     render:<kind> to each; law:ctl_declared reads the render: names out of the
+     render:<kind> to each; ui:ctl_declared reads the render: names out of the
      Function population (metamodel/resolution.md) and law:paired asks a
      container whether it registers every one of them. The nineteen are the
      interfaces an iFactr binding registers in its factory, lower-cased without
@@ -1300,7 +1300,7 @@ ImplementationBinding 'alert.slint' pivots Component 'alert' is implemented by T
      and render:artifact as its layout engine, so the page is the
      generated GUI and nothing is written per app. law:artifact_pairs
      holds that every kind an entity screen emits is declared and has its
-     realization, and that this registration leaves law:unpaired_of
+     realization, and that this registration leaves ui:unpaired_of
      nothing; law:artifact_links holds that the page's controls are the
      screen's links. -->
 

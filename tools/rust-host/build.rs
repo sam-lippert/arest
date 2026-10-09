@@ -49,8 +49,9 @@ const LIFT: usize = 4 * 1024;
 
 // lambda, then the case table, then the carriers -- the js concatenation order
 // (head, arest, midcases, scenarios, mid1, design-state, mid2, norma-answer).
-const SOURCES: [(&str, &str); 4] = [
+const SOURCES: [(&str, &str); 5] = [
     ("lambda", "../../arest"),
+    ("tests", "../../arest.tests"),
     ("scenarios", "../../engine/shared/scenarios.canon"),
     ("design_state", "../norma-oracle/design-state"),
     ("norma_answer", "../norma-oracle/norma-answer"),

@@ -19,7 +19,7 @@
 //! - THE STACKS, carried from one answer to the next request.
 //!
 //! The pairing is lambda's: each request carries the names registered here and
-//! `law:unpaired` answers over them; a frame naming one is a refusal to draw.
+//! `ui:unpaired` answers over them; a frame naming one is a refusal to draw.
 //! The screen is drawn by Slint's software renderer into a pixel buffer, which
 //! is what the UEFI framebuffer shows and what the tests measure.
 

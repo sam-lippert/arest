@@ -65,7 +65,7 @@ import javax.swing.text.JTextComponent;
 //     next request.
 //
 // THE PAIRING IS LAMBDA'S. Each request carries the names registered here and
-// lambda answers law:unpaired over them; a frame naming any is a refusal to
+// lambda answers ui:unpaired over them; a frame naming any is a refusal to
 // draw, by name. A write is a request of the same interface (a submit or a
 // fire, main:api through navigate), so this container validates nothing and
 // persists nothing. The old one read lambda in-process and called ui:navpe,

@@ -17,7 +17,7 @@ namespace Arest.Wpf
     // render:wpf, the platform's Render Target (render-target-instances.md).
     //
     // THE PAIRING LAW IS NOT RESTATED HERE: each navigate request carries these
-    // names and lambda answers law:unpaired over them.
+    // names and lambda answers ui:unpaired over them.
     public static class Registry
     {
         public const string Toolkit = "wpf";

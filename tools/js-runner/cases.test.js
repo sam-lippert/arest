@@ -2077,6 +2077,7 @@ test("every objectification the metamodel declares is used as a noun", () => {
 // renamed them all (2026-10-02).
 const LAMBDA_FILES = [
   join(import.meta.dir, "..", "..", "arest"),
+  join(import.meta.dir, "..", "..", "arest.tests"),
   join(SHARED, "scenarios.canon"),
 ];
 
@@ -2808,11 +2809,11 @@ describe("law:paired over the React container's registration table", () => {
 
   reactTest("the container pairs every declared control kind, and the store declares every pair", () => {
     const HTML = container().REGISTERED_NAMES.map(String);
-    const declared = Ev("law:ctl_declared", CELLS).map(String);
+    const declared = Ev("ui:ctl_declared", CELLS).map(String);
     expect(declared.length).toBeGreaterThan(0);        // an empty set pairs vacuously
-    expect(Ev("law:unpaired", [CELLS, HTML])).toEqual([]);
+    expect(Ev("ui:unpaired", [CELLS, HTML])).toEqual([]);
     expect(Ev("law:paired", [CELLS, HTML])).toBe("T");
-    // BOTH WAYS ROUND, which is what #124 added: law:unpaired above says the
+    // BOTH WAYS ROUND, which is what #124 added: ui:unpaired above says the
     // container registers everything the store declares, and this says the
     // store declares everything the container registers. One direction alone
     // let the metamodel declare ten kinds while lambda emitted nineteen, and
@@ -2822,7 +2823,7 @@ describe("law:paired over the React container's registration table", () => {
     // engine is the rest of what it registers (2026-10-02: a platform is its
     // controls and its own layout engine, so the web container registers
     // render:html and none of the other platforms' engines).
-    const engines = Ev("law:engines_declared", CELLS).map(String);
+    const engines = Ev("ui:engines_declared", CELLS).map(String);
     const mine = HTML.filter((n) => engines.includes(n));
     expect(mine).toEqual(["render:html"]);
     expect(declared.concat(mine).sort()).toEqual(HTML.slice().sort());
@@ -2832,7 +2833,7 @@ describe("law:paired over the React container's registration table", () => {
     const HTML = container().REGISTERED_NAMES.map(String);
     const short = HTML.filter((n) => n !== "render:gridcell");
     expect(Ev("law:paired", [CELLS, short])).toBe("F");
-    expect(Ev("law:unpaired", [CELLS, short]).map(String)).toEqual(["render:gridcell"]);
+    expect(Ev("ui:unpaired", [CELLS, short]).map(String)).toEqual(["render:gridcell"]);
   });
 
   reactTest("a container missing the layout engine is refused too", () => {
@@ -2843,9 +2844,9 @@ describe("law:paired over the React container's registration table", () => {
     const HTML = container().REGISTERED_NAMES.map(String);
     const short = HTML.filter((n) => n !== "render:html");
     expect(Ev("law:paired", [CELLS, short])).toBe("F");
-    const engines = Ev("law:engines_declared", CELLS).map(String);
+    const engines = Ev("ui:engines_declared", CELLS).map(String);
     expect(engines.slice().sort()).toEqual(["render:html", "render:slint", "render:swing", "render:wpf"]);
-    expect(Ev("law:unpaired", [CELLS, short]).map(String)).toEqual(engines);
+    expect(Ev("ui:unpaired", [CELLS, short]).map(String)).toEqual(engines);
   });
 
   test("a caller that is not a platform owes no pairing", () => {

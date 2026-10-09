@@ -51,8 +51,13 @@ const slim = process.argv[2] === "regress" || process.argv[2] === "reader" || pr
 // relational answer, composed so the rmap-vs-NORMA laws can compare; a
 // carriers directory lambda wrote (tools/compile-design-state.js) has none,
 // and the build is the same build without it.
-const SPLICED = slim ? [join(root, "arest")] : [
+// THE TESTS RIDE ONLY IN A TEST COMPOSITION. arest.tests holds lambda's law:
+// cells; cli (the report), test (the suite's module) and regress run them, and
+// every served or compiling module composes arest alone.
+const TESTS = ["cli", "test", "regress"].includes(process.argv[2] || "cli") ? [join(root, "arest.tests")] : [];
+const SPLICED = slim ? [join(root, "arest"), ...TESTS] : [
   join(root, "arest"),
+  ...TESTS,
   join(root, "engine", "shared", "scenarios.canon"),
   join(oracle, "design-state"),
   ...(existsSync(join(oracle, "norma-answer")) ? [join(oracle, "norma-answer")] : []),
@@ -65,7 +70,9 @@ const SPLICED = slim ? [join(root, "arest")] : [
 // measured 2026-09-11, when hashing all seven gave support.auto.dev's
 // cases.g.js and composed.g.js two different stamps for one store, because its
 // build writes cases.g.js before `compiled` and composed.g.js after.
-const IDENTITY = SPLICED.slice();
+// The tests decide no population either, so a test composition and a served
+// one over the same carriers have the same identity.
+const IDENTITY = SPLICED.filter((p) => !TESTS.includes(p));
 
 // THE COMPILED RELATIONAL MAP IS OPTIONAL, and optional is the whole point: a
 // store that has not been compiled still runs, it just pays the Rmap

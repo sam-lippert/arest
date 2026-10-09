@@ -401,7 +401,7 @@ Function 'replay' has Description 'Replays by hand the Events that reached a sta
                 derive:store_pairs         throws, selector 5 out of range 2
 
      So derive wants what 'arguments-and-populations' already builds, <args,
-     derive:store_pairs>, which is the operand law:all_rules is handed at the
+     derive:store_pairs>, which is the operand derive:all_rules is handed at the
      one call site lambda has. No rules in the argument means no round runs and
      the populations come back as they went in: an answer, not a failure.
      validate wants the fact type DESCRIPTORS that store:fts holds, a shape
@@ -825,7 +825,7 @@ Function 'tlr' yields Type Expression 'sequence'.
      realization is a registered definition a container supplies at its
      OnSetDefinitions moment, so the manifest's total walk computes these
      rows. #124 (2026-09-21) made the surface the whole pairing table: every
-     kind lambda can place is declared here, because law:ctl_declared reads
+     kind lambda can place is declared here, because ui:ctl_declared reads
      THIS population and law:paired asks a container whether it registers
      every control in it, and one of the layout engines declared below, and
      a shortfall is a window that dies on the first row naming a kind no
@@ -924,7 +924,7 @@ Function 'render:html' yields Type Expression 'document'.
      where a control accepts one placed-row or one property-row. law:paired
      asks a container for every control and for one engine, its own, so the
      web container is not asked for the Swing engine nor the Swing container
-     for the web's; a container with no engine is refused, and law:unpaired
+     for the web's; a container with no engine is refused, and ui:unpaired
      names the engines, any one of which pairs it. render:swing is the Java
      container's, render:wpf the WPF container's and render:slint the Slint
      surface's (engine/os, Sam 2026-10-01): each draws a screen's placed rows

@@ -47,6 +47,7 @@ public static class Lambda
             // absolute paths because a test host's working directory is its
             // output folder rather than the runner's
             Reader.Load(Path.Combine(r, "arest"));
+            Reader.Load(Path.Combine(r, "arest.tests"));
             Reader.Load(Path.Combine(r, "tools", "norma-oracle", "design-state"));
             Reader.Load(Path.Combine(r, "tools", "norma-oracle", "norma-answer"));
             Reader.Load(Path.Combine(r, "engine", "shared", "scenarios.canon"));

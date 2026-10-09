@@ -64,7 +64,7 @@ the same one. `Gui.java` is the Java one, the sibling of ui.do's
   answer to the next request.
 
 The pairing is lambda's: each request carries the names registered here and
-`law:unpaired` answers over them, so a frame naming one is a refusal to
+`ui:unpaired` answers over them, so a frame naming one is a refusal to
 draw. Nothing here validates or persists. `GuiSnapshot` drives the same
 container with no window and writes each frame it draws to a PNG; a step
 written `<pane>@<title>` clicks the button of that title, as a person would.
