@@ -25,7 +25,7 @@ precisely how the last runners died.
     bun build.js mcp --run                                # the MCP server, on stdio
     bun build.js regress && bun regress.g.js regress      # the run against its record
 
-`regress` is law:regress_report over the run's own outcome (`state:built`,
+`regress` is test:regress_report over the run's own outcome (`state:built`,
 `state:errors`, `state:readback`: the carrier `outcome` the oracle writes
 beside `design-state` every run) and a recorded expectation composed in as
 the carrier `expected` (both optional, like `compiled`;

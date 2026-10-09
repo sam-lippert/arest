@@ -28,7 +28,7 @@ Operation awaits a driver. **
 
 <!-- WHAT MAY BE REGISTERED IS NOT WHAT IS (2026-09-14). `is registrable` says a host MAY
      fill this seam; nothing said whether one had, so Cor 6's honest list of where unverified
-     computation enters could not be derived, and law:origin_boundary compares the manifest
+     computation enters could not be derived, and test:origin_boundary compares the manifest
      against the store's own declarations -- declaration against declaration, never against a
      host. Measured the same day: of the seven registrable Operations FIVE are empty
      (compile, apps_compile and the three csdp seams) and THREE operations the host really
@@ -257,7 +257,7 @@ Function 'assert' has Description 'Asserts a list of facts in one step, validate
      above named is closed: `retract` was Backus's population-level cell
      (THE VERB ROUTE note's Backus 14.4.2, theta:setminus of derive:news_for
      over a named population), so it moved -- f1b0202f's own move, made here
-     for retract -- to cmd:retract, its one real caller (law:verbs) repointed
+     for retract -- to cmd:retract, its one real caller (test:verbs) repointed
      and unchanged in value. `retract` is now main:api applied to DELETE and
      the row, replace's shape (the collection's id and exactly one fact type)
      carrying the value being removed rather than a new one, and the DELETE
@@ -278,8 +278,8 @@ Function 'assert' has Description 'Asserts a list of facts in one step, validate
      MEASURED 2026-09-21 with them in, on the base carriers booted by the
      test module: lambda's reader compiles these rows, mcp:verbs answers 19
      verbs where it answered 18, and the new row is ('retract',
-     'row-and-cells', 'outcome-and-store'). law:verbs holds over
-     cmd:retract; law:one_name, law:catalog and law:origins_match hold. A
+     'row-and-cells', 'outcome-and-store'). test:verbs holds over
+     cmd:retract; test:one_name, test:catalog and test:origins_match hold. A
      round trip on an in-memory store: create <Function 'probe:test-fn',
      FunctionHasDefinitionOrigin 'compiled'> answers 200
      committed_with_violations (FunctionBelongsToDomain, deontic) and the
@@ -442,7 +442,7 @@ Function 'replay' has Description 'Replays by hand the Events that reached a sta
      and it is why retract answering 247 rows to <[], pairs> is not enough
      to declare it -- an empty retraction is the only call it could serve.
 
-     verify is the opposite and is declared above: `verify` IS law:all, it
+     verify is the opposite and is declared above: `verify` IS test:all, it
      takes the CELLS (answering 'T' on the base store, where store:state
      raises `expected sequence, got atom`), and `cells` is an operand the
      route already builds. It was off the surface only for want of the two
@@ -481,7 +481,7 @@ Operation 'validate' is registrable.
      this seam deliberately does not (it is filled only by being named
      in drive:seams, arest ~13654), so its true structural precedent is
      the csdp: triplet below (resolution.md:467-475), not synthesize or
-     validate; law:origins_match checks manifest:origins' computed
+     validate; test:origins_match checks manifest:origins' computed
      classification against exactly this declared fact, and the csdp:
      triplet is how that law already passes for a seam with no DEF. -->
 Operation 'llm:validate_judge' is registrable.
@@ -493,7 +493,7 @@ Function 'llm:validate_judge' has Description 'Judges which instances violate a 
      parse-and-compile verbs — their reference is the reading-to-DEFS leg
      (NORMA carries it today as the oracle; a host carries it in
      production), which is registration-edge work by the Stage-1 doctrine:
-     text enters the system only at the boundary. law:catalog holds every
+     text enters the system only at the boundary. test:catalog holds every
      catalogued operation to a lambda DEF or a registered row; these two
      resolve here.
 
@@ -503,7 +503,7 @@ Function 'llm:validate_judge' has Description 'Judges which instances violate a 
      the derivation above describes one: registrable, never registered, and
      therefore awaiting a driver -- a reference implementation that no host
      supplied and lambda did not carry. DEF(compile) carries it now, so
-     law:catalog resolves compile against a lambda DEF like csdp and rmap,
+     test:catalog resolves compile against a lambda DEF like csdp and rmap,
      and the registration-edge work the note names is no longer the whole
      verb: it is the three calls declared at the end of this file, which are
      a directory listing, a file's bytes and a database engine. Stage-1 is
@@ -676,7 +676,7 @@ Function 'sqlite:replace' yields Type Expression 'path'.
 <!-- AND A DATABASE WITH NO FILE (task #197, 2026-10-08). sqlite:scratch runs
      a script in a database held in memory and answers a select over it as
      sqlite:query answers one, so a law runs the SQL lambda builds over
-     literal rows (law:schema_stored) without a store on disk. -->
+     literal rows (test:schema_stored) without a store on disk. -->
 Function 'sqlite:scratch' has Definition Origin 'registered'.
 Function 'sqlite:scratch' accepts Type Expression 'script-and-sql-and-parameters'.
 Function 'sqlite:scratch' yields Type Expression 'rows'.
@@ -740,7 +740,7 @@ Domain 'constraints' has Description 'The constraint family builders: uniqueness
 Domain 'csdp' has Description 'The Conceptual Schema Design Procedure as lambda: seven steps composed, three registered seams.'.
 Domain 'rmap' has Description 'Relational mapping as lambda: the store form, absorption and separation.'.
 Domain 'manifest' has Description 'Def 9 origins computed from the store: the enumerable boundary as set arithmetic.'.
-Domain 'law' has Description 'The standing laws as lambda: carrier unfolding, set algebra, and the checks law:report names — gates are definitions the mu applies, never host code, and a law that executes needs no restatement.'.
+Domain 'test' has Description 'The tests of lambda, in arest.tests: carrier unfolding, set algebra, and the checks test:report names — gates are definitions the mu applies, never host code, and a law that executes needs no restatement.'.
 Domain 'nav' has Description 'The navigation map as emitted view: patterns generated from rmap per Thm 2 — an entity group answers collection and item patterns, a separated fact type one pattern per curry prefix, links(e) = nav(e) union transitions — one map serving browser, console, and server by varying registered render functions.'.
 Domain 'derive' has Description 'The fixpoint as lambda, semi-naive and stratified from birth: seven recipe forms (proj, join, joinon, sel, cmp, minus, count), each round bounded to the deltas, layers ordered so settled-required reads and positive feeders precede their readers, rule scope fixed by the sources the recipe names — never the whole population.'.
 Domain 'induce' has Description 'Codd 2.3 as lambda: attempts to induce the redundancies, fallible by construction — candidate recipes generated under declared-signature filtering, gated by coverage and exactness, ranked by the standing judge; adoption stays a modeling judgment at the boundary.'.
@@ -826,7 +826,7 @@ Function 'tlr' yields Type Expression 'sequence'.
      OnSetDefinitions moment, so the manifest's total walk computes these
      rows. #124 (2026-09-21) made the surface the whole pairing table: every
      kind lambda can place is declared here, because ui:ctl_declared reads
-     THIS population and law:paired asks a container whether it registers
+     THIS population and test:paired asks a container whether it registers
      every control in it, and one of the layout engines declared below, and
      a shortfall is a window that dies on the first row naming a kind no
      container was asked to have.
@@ -921,7 +921,7 @@ Function 'render:html' yields Type Expression 'document'.
 
 <!-- AND EACH PLATFORM REGISTERS ITS OWN (2026-10-02). An engine is told
      from a control by what it accepts: placed-rows, the whole of a screen,
-     where a control accepts one placed-row or one property-row. law:paired
+     where a control accepts one placed-row or one property-row. test:paired
      asks a container for every control and for one engine, its own, so the
      web container is not asked for the Swing engine nor the Swing container
      for the web's; a container with no engine is refused, and ui:unpaired
@@ -980,7 +980,7 @@ Function '/' yields Type Expression 'number'.
      not compile in one and throws in the other two. This row is the
      declaration of record; design-state carries it once the oracle runs
      again, and until then the store simply does not mention round -- which
-     law:origins_match permits, since the store's registered set need only be
+     test:origins_match permits, since the store's registered set need only be
      a SUBSET of the manifest's, not equal to it. -->
 Function 'round' has Definition Origin 'registered'.
 Function 'round' accepts Type Expression 'number-pair'.

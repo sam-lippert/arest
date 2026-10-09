@@ -164,7 +164,7 @@ public class CasesTest
         var outp = (object[])Arest.Ev("main",
             new object[] { Arest.CELLS.ToArray(), new object[] { } });
         var lines = ((string)outp[0]).TrimEnd().Split('\n');
-        Assert.Empty(lines.Where(l => !l.StartsWith("  law OK: ") && !l.StartsWith("ALL LAWS HOLD ")));
+        Assert.Empty(lines.Where(l => !l.StartsWith("  test OK: ") && !l.StartsWith("ALL TESTS PASS ")));
         Assert.Equal("T", outp[1]?.ToString());
     }
 }

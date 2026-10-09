@@ -1026,7 +1026,7 @@ ImplementationBinding 'tab.gtk4' has Component Trait 'dark_mode_native'.
      answers the placed view, <listview, 0, 0, w, h, properties> and then
      <kind, x, y, w, h, properties> for every row in it; ui:render applies
      render:<kind> to each; ui:ctl_declared reads the render: names out of the
-     Function population (metamodel/resolution.md) and law:paired asks a
+     Function population (metamodel/resolution.md) and test:paired asks a
      container whether it registers every one of them. The nineteen are the
      interfaces an iFactr binding registers in its factory, lower-cased without
      the I: IListView, ISectionHeader, IGridCell, ILabel, IRichContentCell,
@@ -1057,7 +1057,7 @@ ImplementationBinding 'tab.gtk4' has Component Trait 'dark_mode_native'.
      and nothing else." That is the older rendering -- ui:route's layer tree
      through system:render_html. The pairing below is over the PLACED ROWS
      instead, because that is what ui:render applies render:<kind> to and what
-     law:paired is asked about. -->
+     test:paired is asked about. -->
 
 Component 'listview' has Component Role 'list'.
 Component 'listview' has display- Title 'ListView'.
@@ -1174,7 +1174,7 @@ ImplementationBinding 'alert.react' pivots Component 'alert' is implemented by T
      C#, React for the web, and any host language through the same surface.
      Each container registers render:<kind> for every interface below and
      its own layout engine (render:wpf, render:swing, render:slint), and
-     law:paired asks it for exactly that at every navigation. The symbol is
+     test:paired asks it for exactly that at every navigation. The symbol is
      the class or component the container writes for the interface, named as
      iFactr names the interface without its I, which is also what the iFactr
      WPF binding registers in WpfFactory.OnSetDefinitions. Slint's button,
@@ -1298,10 +1298,10 @@ ImplementationBinding 'alert.slint' pivots Component 'alert' is implemented by T
      Render Target 'artifact'). Its container registers render:<kind> for
      every interface below as the html: realization named by the symbol,
      and render:artifact as its layout engine, so the page is the
-     generated GUI and nothing is written per app. law:artifact_pairs
+     generated GUI and nothing is written per app. test:artifact_pairs
      holds that every kind an entity screen emits is declared and has its
      realization, and that this registration leaves ui:unpaired_of
-     nothing; law:artifact_links holds that the page's controls are the
+     nothing; test:artifact_links holds that the page's controls are the
      screen's links. -->
 
 Component 'listview' is implemented by Toolkit 'artifact' at Toolkit Symbol 'html:listview'.

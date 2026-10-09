@@ -22,7 +22,7 @@
 // ---- the registration vocabulary: DEF, A, N, K, PHI, S1..S9, LAMBDA --------
 // DEF accumulates the composed store (one CELL per registered name) so the
 // store reads itself; a duplicate throws by collection semantics, exactly as
-// the C# Dictionary.Add does — law:one_name is the law.
+// the C# Dictionary.Add does — test:one_name is the law.
 // the clock at this line is the time bun spent starting and PARSING the whole
 // module (host, lambda and carriers) before running any of it; on the support
 // store's 50 MB module that is most of an eleven-second load (2026-09-07)
@@ -959,7 +959,7 @@ function emitToDb(before, cells, prior, report) {
   const touched = new Set();
   // ONLY A TABLE THE DDL CREATED (2026-10-07): rmap:writeback is rmap:ctab's keyed entries, the
   // ones rmap:coltabs is built from; walking rmap:ctab inserted into a table without a key, which
-  // no database has (support: `"Response": no such table: Response`). law:writeback_keyed holds it.
+  // no database has (support: `"Response": no such table: Response`). test:writeback_keyed holds it.
   for (const t of Ev("rmap:writeback", cells)) {
     const table = String(t[1]);
     if (changed.has(String(t[0]))) { touched.add(table); continue; }
@@ -1681,7 +1681,7 @@ const EVMEMO = new Map();
 let EVMEMON = 0;
 let MEMOW = 0;   // what the memo holds weighs this (memoWeight, below)
 // Backus 13.3.4 defines fetch as a linear walk (`↑n∘tl:x`), and lambda's
-// law:find_desc is that walk: filter the descriptors by name, take the
+// test:find_desc is that walk: filter the descriptors by name, take the
 // first. The MEANING is "the first descriptor named n" — a lookup. The
 // walk is the evaluator's business, so the head indexes it: one pass per
 // descriptor-list object, cached by reference, then O(1) per name. Keyed
@@ -2154,7 +2154,7 @@ function projRow(x) {
 //   cn:chrank is the rank of a character in the FIXED 37-char alphabet
 //   "0123456789:abcdefghijklmnopqrstuvwxyz" — a table lookup written as a WHILE
 //   walk that rebuilds the alphabet from the string constant on every call. It
-//   is the same shape as law:find_desc above ("the MEANING is a lookup; the walk
+//   is the same shape as test:find_desc above ("the MEANING is a lookup; the walk
 //   is the evaluator's business"), and it ran 567,148 times inside ONE law with
 //   at most ~37 distinct inputs. Its loop is the top four counters in the
 //   profile: eq 77.4M, null 20.2M, tl 13.8M, + 11.8M.
@@ -2165,17 +2165,17 @@ function projRow(x) {
 // recomputing it. Correctness needs nothing beyond purity, which is what
 // Backus 14.6 already guarantees while D is frozen.
 // induce:sig_of is the same case one level up, and it is the single biggest one
-// in the unit tests. It is COMP(COND(null, PHI, N(2)), law:find_desc) — a PURE lookup
+// in the unit tests. It is COMP(COND(null, PHI, N(2)), test:find_desc) — a PURE lookup
 // of a named descriptor's signature — applied at 80 sites across 8 candidate
-// generators, and it fired 28,200,366 times inside law:induce alone, with
-// law:find_desc firing 28,203,649 (i.e. once each). Its argument is the pair
+// generators, and it fired 28,200,366 times inside test:induce alone, with
+// test:find_desc firing 28,203,649 (i.e. once each). Its argument is the pair
 // <name, descs>: descs is a stable reference (were it fresh, DESCIDX would
 // rebuild per call and dominate the profile) and name ranges over the model's
 // fact-type names, so the distinct-input count is in the hundreds.
 //   Bancilhon-Ramakrishnan 1986 sec 4.7 ranks this defect FIRST of the three
 // that determine recursive-rule performance — "the repeated firing of a rule on
 // the same data ... an iterative control strategy that does not remember
-// previous firings" — and sizes the class at orders of magnitude. law:induce IS
+// previous firings" — and sizes the class at orders of magnitude. test:induce IS
 // rule-firing over derivation candidates, so that is the governing reference,
 // not an analogy.
 // system:pop_in is the same case at the population level, and it was the
@@ -2668,7 +2668,7 @@ const FASTPRIMS = new Map(Object.entries({
   "rmap:proj_row": x => projRow(x),
   // rmap:rows_for is the same first-column filter, <key, rows>, written as the
   // right fold INSERT keep_row_of . append_phi . distl. rmap:nest's twin above
-  // took it out of the nesting, but law:l2_key still asks it once PER KEY over
+  // took it out of the nesting, but test:l2_key still asks it once PER KEY over
   // the whole table: 8,487 asks, 4.5 million row tests, the first 55 of the
   // support report's 560 profiled seconds (2026-09-07). The rows are the same
   // array across the asks, so the index is built once. Edges mirrored: source
@@ -3207,7 +3207,7 @@ const FASTPRIMS = new Map(Object.entries({
   // rmap:member_pairs turns a relation's rows into <key, nonkeys> pairs: for each
   // row of its fifth field, the key column (rmap:keypos) and the other columns
   // (rmap:nonkey_positions), each read by apply. The memo keys on the argument's
-  // identity, and law:slot_for hands it a tuple built fresh per call, so the
+  // identity, and test:slot_for hands it a tuple built fresh per call, so the
   // same rows were paired 343,476 times over (12 of the report's 67 seconds,
   // 2026-09-04). The value depends on the rows and the two position answers
   // only; cached on the rows' identity under those. The positions are asked of
@@ -3716,11 +3716,11 @@ const FASTPRIMS = new Map(Object.entries({
       out[i + 1] = hit === undefined ? [] : [at(hit, 1)];
     }
     return out; },
-  // law:slot_for = rmap:lookup0 . [1, rmap:member_pairs . [1.1.2, 2.1.2, 3.1.2,
+  // test:slot_for = rmap:lookup0 . [1, rmap:member_pairs . [1.1.2, 2.1.2, 3.1.2,
   // 4.1.2, rmap:unnest . 2.2]]: the descriptor's four fields with the nested
   // rows unnested make the relation; unnest memoizes on its argument, so the
   // rows keep their identity and member_pairs' cache holds
-  "law:slot_for": x => { const d = seq(at(x, 1));
+  "test:slot_for": x => { const d = seq(at(x, 1));
     // the <descriptor, nested rows> pair is the same object for every key asked
     // of it (distl pairs each key with it), so its pairs are cached on it
     let pairs = PAIRIDX.get(d);
@@ -3733,10 +3733,10 @@ const FASTPRIMS = new Map(Object.entries({
     const hits = matchRows(at(x, 0), pairs);
     return hits.length === 0 ? [] : [at(hits[0], 1)]; },
   // the atoms of a form, in order: an atom is itself, PHI is nothing, a sequence
-  // is its elements' atoms flattened. law:atoms_of and manifest:opatoms are this
+  // is its elements' atoms flattened. test:atoms_of and manifest:opatoms are this
   // fold under two names, each called half a million times per report and
   // recursing a level per nesting; one walk.
-  "law:atoms_of": x => atomsOf(x),
+  "test:atoms_of": x => atomsOf(x),
   "manifest:opatoms": x => atomsOf(x),
   // rmap:merge_cells = INSERT rmap:merge_two . theta:append_phi: cells of one
   // name become one cell, in the order the names first appear, its contents the
@@ -3967,7 +3967,7 @@ function clockText(c) {
 //   INSERT (COND p apndl @2)   or   INSERT (COND p (apndl . CONS v @2) @2)
 // apndl copies its tail, so each survivor recopies the whole accumulator and
 // the fold is quadratic in survivors — measured at 40.8e9 element copies in
-// one law:induce. The VALUE is just the survivors in source order followed by
+// one test:induce. The VALUE is just the survivors in source order followed by
 // the fold's base, so when the body is exactly that shape the head builds it
 // in one linear pass. Soundness rests on FRAME POSITION: the fold frame is
 // <element, accumulator>, and the body may reach it only through selector 1.
@@ -4078,7 +4078,7 @@ function necKey(body, es, cs) {
 }
 const FOLDPAT = new WeakMap();
 const FOLDPATN = new Map();
-// the fold body is usually a NAME (INSERT law:keep_named), so resolve names
+// the fold body is usually a NAME (INSERT test:keep_named), so resolve names
 // to their DEF before matching — a named cell is applied to the same frame.
 function filterFold(body) {
   if (typeof body === "string") {
@@ -4173,7 +4173,7 @@ function profThrow(e) {
 }
 // AREST_PROFILE_TRACE=<prefix,...> prints each exit of a definition whose name
 // starts with one of the prefixes, with its inclusive time, as it happens:
-// `law:` gives the report law by law, in order, inside whatever cap the run
+// `test:` gives the report law by law, in order, inside whatever cap the run
 // has, where the table at a horizon shows only what has already returned and
 // the running line only what is running (support's compiled report,
 // 2026-09-07: fifty-odd laws of seconds each, none the elephant).
@@ -4810,7 +4810,7 @@ function run_cli() {
   // store as booted, before the address: its length when it is a sequence, and its first AREST_EVAL_SHOW elements
   // AREST_REFLECT_STEP=<fact type> under the profiler posts the fact AREST_REFLECT_FACT (JSON, its values) over the store
   // as booted, in memory, and adopts what that answers as a served write does, reflected from the booted store, a
-  // fixpoint (law:reflect_rows); then the store its emit re-sources (store:src_all). For each it names the arms whose
+  // fixpoint (test:reflect_rows); then the store its emit re-sources (store:src_all). For each it names the arms whose
   // reads moved and what the reflection took: where a write that moves a status spends its adoption (2026-10-05). It runs
   // AREST_REFLECT_RUNS times (default 2), each from the booted store, so the last is a warm server's
   if (PROFILE && process.env.AREST_REFLECT_STEP) for (let run = 1, booted = CELLS.slice(), runs = Number(process.env.AREST_REFLECT_RUNS) || 2; run <= runs; run++) { const ft = process.env.AREST_REFLECT_STEP; if (run > 1) { CELLS.length = 0; for (const c of booted) CELLS.push(c); memoClear(); } console.error("run " + run + ":"); REFLECTED_AT = booted; let t = performance.now(); const out = Ev("main:post_answer", [CELLS, ft, JSON.parse(process.env.AREST_REFLECT_FACT || "[]")]); console.error("post " + ft + ": " + Math.round(performance.now() - t) + " ms, status " + String(out[1])); const arms = (a, b) => seq(Ev("reflect:arms_moved", [a, b])).map((x) => { const r = Ev("reflect:arm_reads", [x, a]); return String(x[0]) + (r === "#" ? " (reads undeclared)" : " [" + seq(r).map(String).filter((n) => Ev("store:same_at", [n, [a, b]]) !== "T").join(" ") + "]"); }).join(", ") || "none"; t = performance.now(); console.error("arms whose reads the write moved: " + arms(out[2], booted) + " (" + Math.round(performance.now() - t) + " ms to say)"); REFLECTS = []; adoptStore(out[2]); console.error("reflected after the write: " + REFLECTS.map((r) => Math.round(r[0]) + " ms in " + r[1] + " pass(es)").join("; ")); const pops = popsMoved(booted, CELLS) || new Map(), changed = []; for (const [f, [p, q]] of pops) if (popsDiffer(p, q, (rows) => popSorted(rows)[0])) changed.push(f); const sourced = Ev("store:src_all", [changed.map((f) => [f, popSorted(pops.get(f)[1])[1]]), CELLS]); console.error("populations the emit re-sources: " + changed.join(", ") + "; arms whose reads that moved: " + arms(sourced, CELLS)); REFLECTS = []; adoptStore(sourced); console.error("reflected after the emit: " + REFLECTS.map((r) => Math.round(r[0]) + " ms in " + r[1] + " pass(es)").join("; ")); } // @instrument
@@ -5713,7 +5713,7 @@ function run_serve() {
 
 }
 // THE PAIRING IS ASKED OF LAMBDA BY EACH PLATFORM, NOT BY THIS HOST (2026-10-03). pairing_gate asked
-// law:paired over the controls a container registered in PRIMS, for the text and HTML containers
+// test:paired over the controls a container registered in PRIMS, for the text and HTML containers
 // this file once held; they are gone, and it had no caller. A platform now sends the render names it
 // registered in every navigate request, and lambda answers ui:unpaired over them in the frame
 // (ui:frame_out): ui.do and the Swing container each refuse to draw a frame that names one. This
@@ -6029,7 +6029,7 @@ function run_mcp() {
     if (VERB_NAMES.has(String(name))) {
       // A JSON ARGUMENT KEEPS ITS SHAPE (2026-09-11). This read `a.args.map(String)`,
       // which stringifies a nested array into one comma-joined atom: `create`'s
-      // command -- a list of <fact type, rows> pairs, the shape law:apply has
+      // command -- a list of <fact type, rows> pairs, the shape test:apply has
       // always exercised -- arrived as the atom `ErrorCodeHasHTTPStatus,PROBE_CODE,
       // 429,...` and the verb answered `expected sequence, got atom`. The address
       // route's arguments ARE atoms, because an address is words; the MCP's are
@@ -6488,7 +6488,7 @@ function run_sql() {
 // the design, and that hole is what AREST fills. ast:File builds it, one
 // relational cell per entity (RMAP: the 3NF row of facts depending on its key).
 //
-// Nothing called it. Its only caller was law:filecells -- a law that builds FILE
+// Nothing called it. Its only caller was test:filecells -- a law that builds FILE
 // to check it, while the runtime never built one -- so every composed store had
 // FILE = "#", every population lookup fell through ast:FetchPop's fallback and
 // found nothing, status(e) was unknown, and links(e) was empty for every entity
@@ -7269,7 +7269,7 @@ function loadFile() {
 // declarations, which did not change. The closure belongs at load, for the same
 // reason FILE does: a store that is not closed under its rules is not the store.
 //
-// Shapes are the ones law:apply's fixture uses, not inferred: store:fts applies
+// Shapes are the ones test:apply's fixture uses, not inferred: store:fts applies
 // store:fix_desc so column 5 is the rows themselves, induce:pairs_of then takes
 // columns 1 and 5, and rules:metamodel (39) is the set -- rules:model (21)
 // cannot derive StatusIsDefinedInStateMachineDefinition, which its own minus
@@ -7353,7 +7353,7 @@ let STORE_BUILT_FROM = null;
 // (AREST.tex, after Backus 13.3.4 and 14.3), and the emit's store:src_all puts the cells it re-sources first, so the
 // store after a write's emit is often the store its first reflection left as it was, in another order: on a copy of
 // support's store a retracted approval was reflected again after its emit, 2.5 s, and added nothing.
-// law:reflect_by_name holds that a reflection of a store whose cells are permuted adds the same cells. So two
+// test:reflect_by_name holds that a reflection of a store whose cells are permuted adds the same cells. So two
 // stores whose cells are all CELLs, each name once, are equal when each name holds the same cell or an eq one;
 // where a name repeats, the cells are compared in order, as before.
 // a store's cells by name, or null when a cell is not a CELL or a name is held twice
@@ -7386,7 +7386,7 @@ function sameStore(a, b) {
 // last pass added nothing to (REFLECTED_AT), an arm whose reads read the same in both answers what it answered
 // there, which was its cell, so store:reflect_since computes only the arms whose reads moved: an approval moves
 // one population, which only the four machine arms read. reflect:arm_reads says what each arm reads, and
-// law:reflect_since holds that the pass adds what store:reflect_pass adds. A store whose names repeat, or
+// test:reflect_since holds that the pass adds what store:reflect_pass adds. A store whose names repeat, or
 // whose earlier store's do, is reflected whole: a name is read by its first cell, and its rows are all of them.
 // AND A PASS THAT ADDS CELLS IS FOLLOWED BY ONE OVER WHAT IT ADDED, UNTIL ONE ADDS NOTHING (2026-10-03). A pass that
 // added cells left no store to start from, so the next adoption reflected the whole store: a write that registers
@@ -7421,7 +7421,7 @@ function loadReflected(since) {
     // a whole pass adds a write's cells, and stopping left the store after it unkept, so the emit's re-sourced store
     // was reflected whole again. MEASURED on support.auto.dev before this, a server's first write after a boot
     // reflected whole twice (1,058 and 1,014 ms) and its second write once (992 ms). A whole pass after this is
-    // followed by one from the store it was over, as an incremental pass always was (law:reflect_next).
+    // followed by one from the store it was over, as an incremental pass always was (test:reflect_next).
     from = at;
   }
   REFLECTED_AT = null;

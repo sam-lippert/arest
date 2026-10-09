@@ -128,7 +128,7 @@ public class Arest {
             b.append('?').append(o);
         }
     }
-    // Backus 13.3.4 defines fetch as a linear walk and law:find_desc IS that
+    // Backus 13.3.4 defines fetch as a linear walk and test:find_desc IS that
     // walk; the MEANING is "the first descriptor named n" — a lookup — so the
     // walk is the evaluator's business. Indexed once per list OBJECT, keyed by
     // reference (Object[] inherits identity equals/hashCode, so WeakHashMap
@@ -245,7 +245,7 @@ public class Arest {
     }
 
     public static Object DEF(String name, Object body) {
-        // a duplicate throws by collection semantics; law:one_name is the law
+        // a duplicate throws by collection semantics; test:one_name is the law
         if (DEFS.containsKey(name)) throw new RuntimeException("duplicate DEF: " + name);
         DEFS.put(name, body);
         CELLS.add(new Object[] { "CELL", name, body });
@@ -336,7 +336,7 @@ public class Arest {
         // lt completes the comparison quartet; reverse and trans are Backus
         // 11.2.3 base functions. All three were registered by the python host
         // and referenced by lambda (lt <- constraints:vr_lo, constraints:fq_lo,
-        // system:rp_match, law:setalgebra; reverse <- system:keep_first,
+        // system:rp_match, test:setalgebra; reverse <- system:keep_first,
         // system:partition; trans <- system:ftid, system:ft_rows) but absent
         // here, so those DEFs answered bottom on every station.
         PRIMS.put("lt", x -> { Object[] p = seq(x); return bool(cmpAtoms(p[0], p[1]) < 0); });

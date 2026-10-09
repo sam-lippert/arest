@@ -16,7 +16,7 @@ public static partial class Arest
 
     public static object DEF(string name, object body)
     {
-        DEFS.Add(name, body); // a duplicate throws by collection semantics; law:one_name is the law
+        DEFS.Add(name, body); // a duplicate throws by collection semantics; test:one_name is the law
         CELLS.Add(new object[] { "CELL", name, body });
         return name;
     }

@@ -1134,7 +1134,7 @@ Derivation Rule introduces values.
        sentence is the definition of a BASE fact type. Marked `+`, this
        failed softly and invisibly for as long as it has existed: the
        asserted half populates, so the head looks alive while the derived
-       half silently never arrives, and law:markers did not look at semi
+       half silently never arrives, and test:markers did not look at semi
        heads at all. The marker comes back in the same commit as the rule.
        Cor 1: value introduction is syntactic — a rule body applies a
        definition with origin 'registered' (the Eq 5 boundary) or a
@@ -1158,7 +1158,7 @@ If Derivation Rule1 reaches Derivation Rule2 and Derivation Rule2 reaches Deriva
        types (ancestorOf); it is the ONLY listed ring property that holds:
        irreflexivity and acyclicity are correctly absent, because the
        closure must be able to hold cycles for Cor 1 to refuse the
-       value-introducing ones. law:rules witnesses the theorem by
+       value-introducing ones. test:rules witnesses the theorem by
        execution: the chain of the derived closure minus the closure is
        empty. -->
 
@@ -1171,7 +1171,7 @@ It is impossible that some Derivation Rule introduces values and that Derivation
        single-column exclusion NORMA was holding silently overstated it
        ("introduces values and reaches ANYTHING") — masked only by empty
        populations. The content is the stratification theorem: it
-       EXECUTES as law:finiteness (Cor 6 — a value-introducing rule
+       EXECUTES as test:finiteness (Cor 6 — a value-introducing rule
        reaching its own target is refused) and as derive:layers at every
        derivation; per Codd 1970 1.5 and the constitution ruling, an
        executing law needs no restating constraint. The oracle defers

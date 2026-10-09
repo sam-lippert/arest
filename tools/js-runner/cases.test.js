@@ -125,17 +125,17 @@ test("the golden still expects exactly 19 refusals", () => {
 // engine/shared/expected-laws.txt held the report's text, compared byte for
 // byte, so every law added left the copy stale until someone recorded it again:
 // it listed 67 of the 86 laws the report names, and this failed on a report
-// that said ALL LAWS HOLD. The copy is gone. main answers <text, verdict>, and
+// that said ALL TESTS PASS. The copy is gone. main answers <text, verdict>, and
 // the verdict is T exactly when every law the report names holds, so this asks
 // for that and shows the report's own lines for whatever does not. A law taken
-// out of the report that nothing else calls is law:unreachable's to see.
+// out of the report that nothing else calls is test:unreachable's to see.
 // The report over the composed store is minutes, not milliseconds -- it is the
 // single most expensive thing this host does, and bun's default 5s cuts it off
 // mid-run and reports a timeout as a failure.
-test("law:report holds", () => {
+test("test:report holds", () => {
   const [text, verdict] = Ev("main", [CELLS, []]);
   const lines = String(text).trimEnd().split("\n");
-  expect(lines.filter((l) => !l.startsWith("  law OK: ") && !l.startsWith("ALL LAWS HOLD "))).toEqual([]);
+  expect(lines.filter((l) => !l.startsWith("  test OK: ") && !l.startsWith("ALL TESTS PASS "))).toEqual([]);
   expect(lines.length).toBeGreaterThan(1);
   expect(verdict).toBe("T");
 }, 900_000);
@@ -2109,9 +2109,9 @@ function outsideStrings(text) {
 // destroyed at load. Only the SOURCE knows, which is why this sits beside the
 // byte rules and not in the law report.
 //
-// It cost a debugging pass in #22. law:reach_out was written S4 with four
+// It cost a debugging pass in #22. test:reach_out was written S4 with four
 // functions after COMP; the fifth -- the CONS that built the operand -- was
-// dropped, the closure expanded nothing, and law:reachable came back exactly
+// dropped, the closure expanded nothing, and test:reachable came back exactly
 // equal to the entry set. That looks like an answer.
 //
 // Proven to fail before it was shipped: re-injecting that exact S5-to-S4 edit
@@ -2746,9 +2746,9 @@ describe("crypt:genkey", () => {
 });
 
 // THE PAIRING HALF, MADE TO FAIL (#108), OVER THE CONTAINER'S OWN TABLE (#124).
-// law:origin_boundary took <store, registered-names> so a container could be
+// test:origin_boundary took <store, registered-names> so a container could be
 // asked whether it has a native control for every abstract kind the store
-// declares registered -- and then law:report and law:app_report passed PHI,
+// declares registered -- and then test:report and test:app_report passed PHI,
 // which the law reads as "not a platform, owes no pairing" and answers T. So
 // the pairing half shipped without ever having run over a real set anywhere
 // the suite could see it, and this is where it is shown to FAIL: it is handed
@@ -2782,11 +2782,11 @@ try {
   REACT_CONTAINER_ERROR = e instanceof Error ? e.message : String(e);
 }
 const REACT_SKIP = !UIDO && REACT_CONTAINER_ERROR !== "";
-if (REACT_SKIP) console.log("SKIPPED: law:paired over the React container's registration table, five tests: " +
+if (REACT_SKIP) console.log("SKIPPED: test:paired over the React container's registration table, five tests: " +
   "ui.do is not beside this checkout (" + REACT_CONTAINER_ERROR + "); AREST_UIDO=<a ui.do checkout> runs them");
 const reactTest = REACT_SKIP ? test.skip : test;
 
-describe("law:paired over the React container's registration table", () => {
+describe("test:paired over the React container's registration table", () => {
   const container = () => {
     expect(REACT_CONTAINER_ERROR).toBe("");
     expect(REACT_CONTAINER).not.toBeNull();
@@ -2812,7 +2812,7 @@ describe("law:paired over the React container's registration table", () => {
     const declared = Ev("ui:ctl_declared", CELLS).map(String);
     expect(declared.length).toBeGreaterThan(0);        // an empty set pairs vacuously
     expect(Ev("ui:unpaired", [CELLS, HTML])).toEqual([]);
-    expect(Ev("law:paired", [CELLS, HTML])).toBe("T");
+    expect(Ev("test:paired", [CELLS, HTML])).toBe("T");
     // BOTH WAYS ROUND, which is what #124 added: ui:unpaired above says the
     // container registers everything the store declares, and this says the
     // store declares everything the container registers. One direction alone
@@ -2832,7 +2832,7 @@ describe("law:paired over the React container's registration table", () => {
   reactTest("a container missing one native control is refused, by name", () => {
     const HTML = container().REGISTERED_NAMES.map(String);
     const short = HTML.filter((n) => n !== "render:gridcell");
-    expect(Ev("law:paired", [CELLS, short])).toBe("F");
+    expect(Ev("test:paired", [CELLS, short])).toBe("F");
     expect(Ev("ui:unpaired", [CELLS, short]).map(String)).toEqual(["render:gridcell"]);
   });
 
@@ -2843,15 +2843,15 @@ describe("law:paired over the React container's registration table", () => {
     // would pair it (2026-10-02)
     const HTML = container().REGISTERED_NAMES.map(String);
     const short = HTML.filter((n) => n !== "render:html");
-    expect(Ev("law:paired", [CELLS, short])).toBe("F");
+    expect(Ev("test:paired", [CELLS, short])).toBe("F");
     const engines = Ev("ui:engines_declared", CELLS).map(String);
     expect(engines.slice().sort()).toEqual(["render:html", "render:slint", "render:swing", "render:wpf"]);
     expect(Ev("ui:unpaired", [CELLS, short]).map(String)).toEqual(engines);
   });
 
   test("a caller that is not a platform owes no pairing", () => {
-    // what law:report and law:app_report pass; the verdict is the store half
-    expect(Ev("law:paired", [CELLS, []])).toBe("T");
+    // what test:report and test:app_report pass; the verdict is the store half
+    expect(Ev("test:paired", [CELLS, []])).toBe("T");
   });
 
   reactTest("the reading binds the same controls the container registers", () => {
@@ -3866,7 +3866,7 @@ describe("lambda's reader carries the witness's general chain", () => {
 // Lambda's reader wrote 17 of the 29 design-state cells the witness writes, and
 // five of the twelve it did not write are the ones a STORE reads: state:otpops
 // is ui:ids, so every mandatory verdict ranged over an empty population and 16
-// laws bottomed on `#`; state:exclusions is law:exclusion and cmd:excl_viols;
+// laws bottomed on `#`; state:exclusions is test:exclusion and cmd:excl_viols;
 // state:rings is solve:rings; state:setcmp is cmd:sc_rows; state:qualifiers is
 // the rendered role label. state:factorder is cn:foidx, the ordinal every
 // relational constraint name is numbered by. Each is pinned here against the
@@ -4136,7 +4136,7 @@ describe("lambda's reader reads an alias and a leg's own value", () => {
 // NOT WRITE ------------------------------------------------------------------
 //
 // state:setcmp is what cmd:sc_rows fetches, so cmd:sub_viols, the commit gate's
-// subset arm and law:subset_clean all bottom on it: a reader that does not write
+// subset arm and test:subset_clean all bottom on it: a reader that does not write
 // it answers PHI, setminus of PHI is PHI, and a constraint that FIRES reads
 // exactly like one that holds. The nine rows below are the witness's own
 // (tools/norma-oracle/design-state), pinned as a set in both directions AND in

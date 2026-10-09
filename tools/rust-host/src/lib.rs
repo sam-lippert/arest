@@ -156,7 +156,7 @@ fn key_into(x: &V, b: &mut String) {
 
 // ============================ registration ===================================
 // Registration is INTO DEFS (the paper's platform binding). A duplicate DEF
-// dies loud; law:one_name is the law that says so.
+// dies loud; test:one_name is the law that says so.
 thread_local! {
     static DEFS: RefCell<HashMap<String, V>> = RefCell::new(HashMap::new());
     static CELLS: RefCell<Vec<V>> = RefCell::new(Vec::new());
@@ -203,7 +203,7 @@ thread_local! {
     // rmap:wide_row: relation-address -> (relation, key(col1) -> member pair).
     static SLOTIDX: RefCell<HashMap<usize, (V, HashMap<String, V>)>> =
         RefCell::new(HashMap::new());
-    // law:slot_for: <desc, nested>-address -> (that pair, its member pairs).
+    // test:slot_for: <desc, nested>-address -> (that pair, its member pairs).
     static SLOTFOR: RefCell<HashMap<usize, (V, V)>> =
         RefCell::new(HashMap::new());
     // theta:member / read:memberw over a long list: list-address -> (list, keys).
@@ -731,7 +731,7 @@ fn is_fastprim_name(s: &str) -> bool {
         | "solve:assoc3" | "cn:fokey" | "cn:rmvt" | "cn:owner" | "cn:gmpl"
         | "theta:natjoin" | "derive:jo_rows" | "rmap:nest" | "derive:count_rows"
         | "rmap:merge_cells" | "rmap:member_pairs" | "rmap:slot" | "rmap:wide_row"
-        | "law:slot_for" | "main:flat" | "theta:append_phi" | "law:atoms_of"
+        | "test:slot_for" | "main:flat" | "theta:append_phi" | "test:atoms_of"
         | "manifest:opatoms" | "solve:cell")
 }
 
@@ -774,9 +774,9 @@ fn fastprim(name: &str, x: &V) -> Option<V> {
             q(out) }
         // Both of these are ASSOC LOOKUPS written as scans, and both are
         // indexed once per list OBJECT — js keeps ENTIDX/DESCIDX for exactly
-        // this, and records law:find_desc firing 28,203,649 times inside
-        // law:induce alone. Backus 13.3.4 defines fetch as a linear walk and
-        // law:find_desc IS that walk, but the MEANING is "the first descriptor
+        // this, and records test:find_desc firing 28,203,649 times inside
+        // test:induce alone. Backus 13.3.4 defines fetch as a linear walk and
+        // test:find_desc IS that walk, but the MEANING is "the first descriptor
         // named n" — a lookup — so the walk is the evaluator's business.
         "cn:entsat" => { let lv = at(x, 0); let l = seq(&lv); let k = key(&at(x, 1));
             let id = Rc::as_ptr(&l) as usize;
@@ -1015,7 +1015,7 @@ fn fastprim(name: &str, x: &V) -> Option<V> {
                 out.push(match hit { Some(p) => q(vec![at(&p, 1)]), None => q(vec![]) });
             }
             q(out) }
-        "law:slot_for" => { let d_v = at(x, 1); let d = seq(&d_v);
+        "test:slot_for" => { let d_v = at(x, 1); let d = seq(&d_v);
             let did = Rc::as_ptr(&d) as usize;
             let cached = SLOTFOR.with(|m| m.borrow().get(&did).map(|(_, v)| v.clone()));
             let pairs = match cached { Some(p) => p, None => {
@@ -1031,7 +1031,7 @@ fn fastprim(name: &str, x: &V) -> Option<V> {
         "main:flat" => { let mut out: Vec<V> = Vec::new();
             for s in seq(x).iter() { out.extend(seq(s).iter().cloned()); } q(out) }
         "theta:append_phi" => { let l = seq(x); let mut out = l.to_vec(); out.push(q(vec![])); q(out) }
-        "law:atoms_of" | "manifest:opatoms" => q(atoms_of(x)),
+        "test:atoms_of" | "manifest:opatoms" => q(atoms_of(x)),
         // -- read:memberw: theta:member's twin on the same kept set.
         "read:memberw" => { let needle = at(x, 0); let lv = at(x, 1); let l = seq(&lv);
             if l.len() < 16 { boolv(l.iter().any(|e| deep_eq(&needle, e))) } else { membidx_has(&lv, &l, &needle) } }
@@ -1693,7 +1693,7 @@ mod host_tests {
             let out = ev(&a("main"), &q(vec![cells, q(vec![])]));
             let got = join_text(&seq(&out)[0]);
             let off: Vec<&str> = got.trim_end().lines()
-                .filter(|l| !l.starts_with("  law OK: ") && !l.starts_with("ALL LAWS HOLD "))
+                .filter(|l| !l.starts_with("  test OK: ") && !l.starts_with("ALL TESTS PASS "))
                 .collect();
             assert!(off.is_empty(), "the law report says:\n{}", off.join("\n"));
             assert_eq!(join_text(&seq(&out)[1]), "T");

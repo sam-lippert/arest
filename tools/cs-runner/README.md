@@ -1,6 +1,6 @@
 # cs-runner — the composed checker, C# station
 
-The laws are lambda DEFs (the `law:` family in `arest`), never host code.
+The laws are lambda DEFs (the `test:` family in `arest`), never host code.
 Two js runners died of accretion; this host is built to make accretion
 structurally awkward: the compose step is `copy /b` inside the csproj
 (byte concatenation, the linker's job — no compose tool exists), the
@@ -13,13 +13,13 @@ two latent lambda defects the lenient js mu had masked by coercion
 "sorting" stringified arrays) — cross-host parity as a standing
 property of having a second, stricter station.
 
-    dotnet run                      # compose+compile+exec; law:report (53 laws), exit 0 iff all T
+    dotnet run                      # compose+compile+exec; test:report (53 laws), exit 0 iff all T
     dotnet build -p:App=order && dotnet run --no-build -- app
-                                    # the app's carriers; law:app_report (10 laws)
+                                    # the app's carriers; test:app_report (10 laws)
 
 The host is exactly what the doctrine allows and will not grow: the
 registration vocabulary (DEF — a duplicate name throws by collection
-semantics; law:one_name is the law — plus A/N/K/PHI/S1..S9 and LAMBDA,
+semantics; test:one_name is the law — plus A/N/K/PHI/S1..S9 and LAMBDA,
 the varargs wrap that turns the lambda's tuple literal into a compiled
 call), the mu (atoms through DEFS then the primitives, numbers as
 selectors — STRICT: a selector on an atom throws, out-of-domain

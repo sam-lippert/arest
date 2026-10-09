@@ -75,7 +75,7 @@ Render Target 'slint' has Description 'The Rust container (engine/os): draws the
      metamodel/resolution.md, which is Sam's to edit; they are declared
      here for review. Until they move, a store composed without the ui
      readings (the base carriers) does not count render:artifact among
-     ui:engines_declared, so law:paired asks the artifact container for
+     ui:engines_declared, so test:paired asks the artifact container for
      one of the four engines it does declare. -->
 
 Render Target 'artifact' has Platform Function Name 'render:artifact'.
