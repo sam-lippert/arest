@@ -441,6 +441,9 @@ Event caused Transition in State Machine.
 If some Event caused some Transition in some State Machine then that Event is of some Event Type
   where that Transition is triggered by that Event Type.
 
+<!-- An entity is of the Domain of its most specific type, and a value has no Domain. -->
+If some Object Type Instance belongs to some Domain then that Object Type Instance is most specifically of some Object Type that is of Object Kind 'entity'.
+
 ### Guard Run
 Guard Run is for Guard.
   Each Guard Run is for exactly one Guard.
@@ -504,7 +507,7 @@ Guard Run has Result.
 
 ** Object Type Instance is of Function iff that Object Type Instance is most specifically of some Object Type that is that Function.
 
-** Object Type Instance belongs to Domain iff that Object Type Instance is of some Function that belongs to that Domain.
+** Object Type Instance belongs to Domain iff that Object Type Instance is most specifically of some Object Type that is of Object Kind 'entity' and that Object Type belongs to that Domain.
 
 <!-- `Fact is of Fact Type` is a BASE fact type, populated by population
      reflection (the killed host did this in compile.rs
