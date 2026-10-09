@@ -1596,10 +1596,14 @@ const PRIMS = new Map(Object.entries({
   "sqlite:query": x => {
     const { Database } = require("bun:sqlite");
     const path = String(at(x, 0)), sql = String(at(x, 1)), params = seq(at(x, 2));
+    const qt = performance.now(), qm = process.memoryUsage().rss; // @instrument
     const db = new Database(path, { readonly: true });
     try {
       return db.query(sql).values(...params).map((r) => r.map((v) => (v === null || v === undefined ? "#" : String(v))));
-    } finally { db.close(true); }
+    } finally {
+      db.close(true);
+      if (PROFILE) console.error("sqlite:query " + Math.round(performance.now() - qt) + " ms, rss " + (qm >> 20) + " -> " + (process.memoryUsage().rss >> 20) + " MB: " + sql.slice(0, 80)); // @instrument
+    }
   },
   "sqlite:copy": x => {
     const { Database } = require("bun:sqlite");
@@ -1643,10 +1647,13 @@ const PRIMS = new Map(Object.entries({
       db.exec("begin");
       let out;
       const t0 = performance.now(); // @instrument
+      const mem = () => { const m = process.memoryUsage(); return "rss " + (m.rss >> 20) + " MB, heap " + (m.heapUsed >> 20) + " MB, external " + (m.external >> 20) + " MB"; }; // @instrument
+      if (PROFILE) console.error("sqlite:program begins: " + mem()); // @instrument
       try { out = runSteps(db, at(x, 1)); }
       catch (e) { try { db.exec("rollback"); } catch { } throw e; }
+      if (PROFILE) console.error("sqlite:program ran its steps: " + mem()); // @instrument
       db.exec(out[0] === "refused" ? "rollback" : "commit");
-      if (PROFILE) console.error("sqlite:program: " + seq(at(x, 1)).length + " steps, " + Math.round(performance.now() - t0) + " ms, " + out[0]); // @instrument
+      if (PROFILE) console.error("sqlite:program: " + seq(at(x, 1)).length + " steps, " + Math.round(performance.now() - t0) + " ms, " + out[0] + ", " + mem()); // @instrument
       return out;
     } finally { db.close(true); }
   },
@@ -3878,6 +3885,7 @@ for (const [, part, holder] of WPHASES) if (!WPARTS.some((p) => p[0] === part)) 
 let WCLOCK = null;
 function clockStart() {
   const t = performance.now();
+  if (PROFILE) { const m = process.memoryUsage(); console.error("request begins: rss " + (m.rss >> 20) + " MB, heap " + (m.heapUsed >> 20) + " MB, external " + (m.external >> 20) + " MB"); } // @instrument
   WCLOCK = { t0: t, at: t, parts: new Map(), depth: new Map(), top: 0, covered: 0, keyed: new Map() };
   REFLECTS = [];
   return WCLOCK;
@@ -5342,6 +5350,7 @@ function storedWrite(out, what, clock) {
   console.error("write " + String(what || "") + " " + Math.round(asked ? end - clock.t0 : 0) + " ms" + (asked ? ": evaluation (" + clockText(clock) + ")" : "")
     + " -- one program, stored: " + tables.length + " table" + (tables.length === 1 ? "" : "s") + " moved" + (tables.length ? " (" + tables.join(", ") + ")" : ""));
   REFLECTS = [];
+  if (PROFILE) { const m = process.memoryUsage(); console.error("stored write: rss " + (m.rss >> 20) + " MB, heap " + (m.heapUsed >> 20) + " MB, external " + (m.external >> 20) + " MB"); } // @instrument
   if (PROFILE) { profReport("write " + String(what || "")); PROF.clear(); } // @instrument
 }
 // <main:api's answer>: the store it made adopted, the rows a write moved stored, and <body, status> to answer.
