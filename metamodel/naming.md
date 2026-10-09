@@ -8,7 +8,7 @@ declared as data so the rule set lives in the readings, not in Rust.
 
 <!--
 The English pluralization cascade in the killed host's
-crates/arest/src/naming.rs was lifted (#895) to a PluralizationRuleTable
+crates/arest/src/naming.rs was lifted to a PluralizationRuleTable
 whose rows were read at runtime from the parallel enum value types
 `Pluralization Pattern` and `Pluralization Replacement` declared below.
 Evaluator-phase obligation: read the rule set from these readings the
@@ -56,11 +56,11 @@ Pluralization Rule has Pluralization Pattern.
   Each Pluralization Rule has exactly one Pluralization Pattern.
 Pluralization Rule has Pluralization Replacement.
   Each Pluralization Rule has exactly one Pluralization Replacement.
-<!-- exec-4 finding (2026-07-15): the readings said bare Pattern (core's
-     generic JSON-schema value type) and bare Replacement (declared
-     NOWHERE — the fact type silently parsed as a unary until the
-     instance-fact leg exposed it). The enum value types above are the
-     one authority; the fact types now use them, so the enumerated
+<!-- Not bare Pattern (core's
+     generic JSON-schema value type) nor bare Replacement (declared
+     NOWHERE — the fact type would silently parse as a
+     unary). The enum value types above are the
+     one authority; the fact types use them, so the enumerated
      values constrain the rows. -->
 
 ## Instance Facts
