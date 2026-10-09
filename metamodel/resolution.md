@@ -167,7 +167,7 @@ Function 'derive' accepts Type Expression 'rules-and-asserted-populations'.
 Function 'derive' yields Type Expression 'populations'.
 Function 'validate' accepts Type Expression 'cells'.
 Function 'validate' yields Type Expression 'violation-list'.
-Function 'validate' has Description 'Answers the uniqueness violations the store holds at rest, each a fact type, the word uniqueness and the role, or the roles of a span, whose values repeat. Takes no arguments.'.
+Function 'validate' has Description 'Answers every alethic violation the store holds at rest, each as the write gate reports it: a fact type, its kind (uniqueness, mandatory or subset) and the instance: the role, or the roles of a span, whose values repeat, the instance that plays no required role, or the row of the subset that is not in its superset. Each constraint the SQL checks say is its query over the database of the store, and the rest are asked of the in-memory judge. Takes no arguments.'.
 Function 'verify' accepts Type Expression 'cells'.
 Function 'verify' yields Type Expression 'boolean'.
 Function 'verify' has Description 'Runs every law over the store and answers T when all of them hold. Takes no arguments; on a large store it takes minutes.'.
