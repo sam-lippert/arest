@@ -832,6 +832,7 @@ function runSteps(db, steps) {
   const changes = () => Number(total.values()[0][0]);
   const answers = [];
   let n = 0;
+  const kinds = new Map(); // @instrument
   for (const s of seq(steps)) {
     n++;
     const kind = String(at(s, 0)), sql = String(at(s, 1));
@@ -841,24 +842,35 @@ function runSteps(db, steps) {
       return v;
     });
     let refused = null;
+    const ts = performance.now(); // @instrument
+    // each statement prepared for its step and finalized after it: a program is run once, and the connection's
+    // cache of prepared statements (db.query) would hold every one of its statements to the end
+    let st = null;
     try {
       if (kind === "exec") {
         const was = changes();
-        if (ps.length) db.query(sql).run(...ps); else db.exec(sql);
+        if (ps.length) { st = db.prepare(sql); st.run(...ps); } else db.exec(sql);
         answers.push(changes() - was);
       } else if (kind === "rows") {
-        answers.push(text(db.query(sql).values(...ps)));
+        st = db.prepare(sql);
+        answers.push(text(st.values(...ps)));
       } else if (kind === "fix") {
-        const was = changes(), st = db.query(sql);
+        const was = changes();
+        st = db.prepare(sql);
         for (let before = -1; before !== changes();) { before = changes(); st.run(...ps); }
         answers.push(changes() - was);
       } else if (kind === "refuse") {
-        const rows = text(db.query(sql).values(...ps));
+        st = db.prepare(sql);
+        const rows = text(st.values(...ps));
         if (rows.length) refused = rows; else answers.push([]);
       } else throw new Error("no step of kind " + kind);
     } catch (e) { throw new Error("sqlite:program, step " + n + " (" + kind + "): " + String((e && e.message) || e) + " -- " + sql.slice(0, 300)); }
+    finally { if (st) st.finalize(); }
+    if (PROFILE && performance.now() - ts > 20) console.error("  step " + n + " (" + kind + ") " + Math.round(performance.now() - ts) + " ms: " + sql.slice(0, 160)); // @instrument
+    if (PROFILE) { const k = kind + " " + sql.split(" ")[0]; const v = kinds.get(k) || [0, 0]; v[0]++; v[1] += performance.now() - ts; kinds.set(k, v); } // @instrument
     if (refused) return ["refused", n, refused];
   }
+  if (PROFILE) console.error("  steps by kind: " + [...kinds].map(([k, v]) => k + " " + v[0] + "x " + Math.round(v[1]) + " ms").join(", ")); // @instrument
   return ["committed", answers];
 }
 // the fact types of the Relational Schema, as lambda lists them (compile:kt_schema)
@@ -1630,9 +1642,11 @@ const PRIMS = new Map(Object.entries({
     try {
       db.exec("begin");
       let out;
+      const t0 = performance.now(); // @instrument
       try { out = runSteps(db, at(x, 1)); }
       catch (e) { try { db.exec("rollback"); } catch { } throw e; }
       db.exec(out[0] === "refused" ? "rollback" : "commit");
+      if (PROFILE) console.error("sqlite:program: " + seq(at(x, 1)).length + " steps, " + Math.round(performance.now() - t0) + " ms, " + out[0]); // @instrument
       return out;
     } finally { db.close(true); }
   },
@@ -5328,6 +5342,7 @@ function storedWrite(out, what, clock) {
   console.error("write " + String(what || "") + " " + Math.round(asked ? end - clock.t0 : 0) + " ms" + (asked ? ": evaluation (" + clockText(clock) + ")" : "")
     + " -- one program, stored: " + tables.length + " table" + (tables.length === 1 ? "" : "s") + " moved" + (tables.length ? " (" + tables.join(", ") + ")" : ""));
   REFLECTS = [];
+  if (PROFILE) { profReport("write " + String(what || "")); PROF.clear(); } // @instrument
 }
 // <main:api's answer>: the store it made adopted, the rows a write moved stored, and <body, status> to answer.
 // <what> and <clock> are the request and its clock, for the line the write logs (storeWrite).
