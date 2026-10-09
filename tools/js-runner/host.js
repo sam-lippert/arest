@@ -4298,8 +4298,10 @@ const CLAPS = [
   ["compile:judge", "verdict"],
   // and inside it since task #197 step 4: the plan of the SQL checks (the Constraint rows read, the schema's rows
   // read, an entry for each constraint), the queries the engine runs, and what the in-memory judge is still asked
-  ["check:plan", "plan of the SQL checks"], ["schema:env", "schema rows"], ["check:recs", "Constraint rows"],
+  ["compile:plan_for", "plan read or made"], ["check:plan", "plan of the SQL checks"], ["schema:env", "schema rows"], ["check:recs", "Constraint rows"],
   ["storage:run_checks", "SQL checks run"], ["compile:jres", "in-memory rest"],
+  ["check:res_ud", "rest: uniqueness descriptors"], ["cmd:pop_descs", "rest: their populations"], ["cmd:validate", "rest: uniquenesses"],
+  ["check:res_md", "rest: mandatory descriptors"], ["check:res_sr", "rest: subset rows"], ["cmd:rec_viols", "rest: recorded"], ["check:res_x", "rest: external"],
 ];
 const CLAPPED = [];
 let CLAPDEPTH = 0;
