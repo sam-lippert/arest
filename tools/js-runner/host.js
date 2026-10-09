@@ -871,8 +871,10 @@ function emitToDb(before, cells, prior, report) {
   // AND THE SCHEMA'S DDL GOES WITH ITS ROWS (task #197, step 3). A write that moves the rows of the
   // Relational Schema -- an applied Domain Change re-maps the tables it touches (schema:dc_remap) -- runs
   // the statements lambda answers for their difference (schema:emit_ddl) before any row is written, in the
-  // same transaction. Which statements, and their text, are lambda's; the host only runs them.
-  const ddl = prior && schemaFts().some((ft) => changed.has(ft)) ? seq(Ev("schema:emit_ddl", [prior, cells])).map(String) : [];
+  // same transaction. Which statements, and their text, are lambda's; the host only runs them. The
+  // database's own layout is the old side lambda asks it for (task #197, step 4b), so it is handed the
+  // store's path, which it reads through sqlite:query before the transaction opens.
+  const ddl = prior && schemaFts().some((ft) => changed.has(ft)) ? seq(Ev("schema:emit_ddl", [prior, cells, process.env.AREST_STORE_DB])).map(String) : [];
   if (!changed.size) {
     if (ledger) { db.transaction(ledger)(); EMIT_STORED = true; }
     return 0;
