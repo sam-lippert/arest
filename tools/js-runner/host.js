@@ -4296,6 +4296,10 @@ const CLAPS = [
   ["compile:ip_p4a", "p4 closure"], ["compile:ip_p4b", "p4 sync"], ["compile:ip_p4c", "p4 ledger"], ["compile:ip_p4d", "p4 replace"],
   // and the verdict, which the compile writes with the ledgers since it judges the store itself (compile:judge)
   ["compile:judge", "verdict"],
+  // and inside it since task #197 step 4: the plan of the SQL checks (the Constraint rows read, the schema's rows
+  // read, an entry for each constraint), the queries the engine runs, and what the in-memory judge is still asked
+  ["check:plan", "plan of the SQL checks"], ["schema:env", "schema rows"], ["check:recs", "Constraint rows"],
+  ["storage:run_checks", "SQL checks run"], ["compile:jres", "in-memory rest"],
 ];
 const CLAPPED = [];
 let CLAPDEPTH = 0;
