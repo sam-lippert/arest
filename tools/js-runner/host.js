@@ -819,6 +819,48 @@ function recordLedger(db, prior, cells) {
     for (const r of add) put.run(String(r[0]), String(r[1]));
   };
 }
+// THE STEPS OF A PROGRAM LAMBDA BUILDS (task #197, step 6a), run in order on an open database whose transaction
+// the caller holds (sqlite:program, or a write's own). A step is <kind, sql, parameters>, each parameter bound
+// and never spliced, # bound as NULL: exec runs its statement, or with no parameter its statements, and answers
+// how many rows they changed; rows answers its rows, each value its text and NULL as #; fix runs its statement
+// again until it changes nothing (a closure, finite by lem:finite) and answers how many rows it changed in all;
+// refuse runs its select, and a row stops the program, answering <refused, its step, its rows>, which the
+// caller rolls back. Otherwise <committed, each step's answer>.
+function runSteps(db, steps) {
+  const text = (rows) => rows.map((r) => r.map((v) => (v === null || v === undefined ? "#" : String(v))));
+  const total = db.query("select total_changes()");
+  const changes = () => Number(total.values()[0][0]);
+  const answers = [];
+  let n = 0;
+  for (const s of seq(steps)) {
+    n++;
+    const kind = String(at(s, 0)), sql = String(at(s, 1));
+    const ps = seq(seq(s).length > 2 ? at(s, 2) : []).map((v) => {
+      if (v === "#") return null;
+      if (Array.isArray(v)) throw new Error("sqlite:program: a sequence where a value belongs, step " + n);
+      return v;
+    });
+    let refused = null;
+    try {
+      if (kind === "exec") {
+        const was = changes();
+        if (ps.length) db.query(sql).run(...ps); else db.exec(sql);
+        answers.push(changes() - was);
+      } else if (kind === "rows") {
+        answers.push(text(db.query(sql).values(...ps)));
+      } else if (kind === "fix") {
+        const was = changes(), st = db.query(sql);
+        for (let before = -1; before !== changes();) { before = changes(); st.run(...ps); }
+        answers.push(changes() - was);
+      } else if (kind === "refuse") {
+        const rows = text(db.query(sql).values(...ps));
+        if (rows.length) refused = rows; else answers.push([]);
+      } else throw new Error("no step of kind " + kind);
+    } catch (e) { throw new Error("sqlite:program, step " + n + " (" + kind + "): " + String((e && e.message) || e) + " -- " + sql.slice(0, 300)); }
+    if (refused) return ["refused", n, refused];
+  }
+  return ["committed", answers];
+}
 // the fact types of the Relational Schema, as lambda lists them (compile:kt_schema)
 let SCHEMA_FTS = null;
 function schemaFts() {
@@ -1574,6 +1616,24 @@ const PRIMS = new Map(Object.entries({
     try {
       db.exec(String(at(x, 0)));
       return db.query(String(at(x, 1))).values(...seq(at(x, 2))).map((r) => r.map((v) => (v === null || v === undefined ? "#" : String(v))));
+    } finally { db.close(true); }
+  },
+  // AND A WRITE IS ONE PROGRAM LAMBDA BUILDS (task #197, step 6a, 2026-10-08). <db, steps> runs the steps in
+  // order between one begin and one commit, in the store at the path or in a database with no file
+  // (:memory:), and answers <committed, each step's answer>; a refuse step that answers a row rolls the
+  // whole program back and answers <refused, its step, its rows>. Which steps, and their SQL, are lambda's
+  // (retract:program); the steps are run by runSteps, which a write already inside a transaction can call.
+  "sqlite:program": x => {
+    const { Database } = require("bun:sqlite");
+    const path = String(at(x, 0));
+    const db = path === ":memory:" ? new Database(":memory:") : new Database(path, { create: true });
+    try {
+      db.exec("begin");
+      let out;
+      try { out = runSteps(db, at(x, 1)); }
+      catch (e) { try { db.exec("rollback"); } catch { } throw e; }
+      db.exec(out[0] === "refused" ? "rollback" : "commit");
+      return out;
     } finally { db.close(true); }
   },
   // WHERE THIS COMPOSITION'S LAMBDA CAME FROM, which build.js stamps (ROOTED below): a store records

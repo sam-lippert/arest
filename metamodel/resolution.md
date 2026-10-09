@@ -680,6 +680,19 @@ Function 'sqlite:replace' yields Type Expression 'path'.
 Function 'sqlite:scratch' has Definition Origin 'registered'.
 Function 'sqlite:scratch' accepts Type Expression 'script-and-sql-and-parameters'.
 Function 'sqlite:scratch' yields Type Expression 'rows'.
+<!-- AND A WRITE IS ONE PROGRAM (task #197, step 6a, 2026-10-08).
+     sqlite:program runs the steps lambda builds -- each <kind, sql,
+     parameters>, the parameters bound and never spliced -- in order
+     between one begin and one commit, in the store at the path or in a
+     database with no file (:memory:): exec answers the rows it changed,
+     rows the rows it reads, fix runs again until it changes nothing, and
+     a refuse step that answers a row rolls the whole program back and
+     answers <refused, its step, its rows>. Otherwise it answers
+     <committed, each step's answer>. An entity retract is one such
+     program (retract:program). -->
+Function 'sqlite:program' has Definition Origin 'registered'.
+Function 'sqlite:program' accepts Type Expression 'path-and-steps'.
+Function 'sqlite:program' yields Type Expression 'program-answer'.
 <!-- AND A VALUE THE READINGS STORE THROUGH A FUNCTION (2026-09-30). The
      compile seals such values before it writes anything (compile:sealed), and
      the master key is the platform's to hold, never a value lambda holds:
