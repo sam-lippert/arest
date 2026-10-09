@@ -52,6 +52,7 @@ public class CasesTest {
         // absolute paths because the launcher's working directory is not the
         // runner's
         Reader.load(Paths.get(r, "arest").toString());
+        Reader.load(Paths.get(r, "arest.tests").toString());
         Reader.load(Paths.get(r, "engine", "shared", "scenarios.canon").toString());
         Reader.loadCarriers(Paths.get(r, "tools", "carriers", "base").toString());
         loaded = true;
