@@ -4244,6 +4244,10 @@ DEF("test:ce_strict",
        S3(A("COMP"), A("eq"), S3(A("CONS"), A("test:cf_names"), K(S1(A("IntegrationHasName"))))),
        S3(A("COMP"), A("null"), S3(A("COMP"), A("test:um_found"), S3(A("CONS"), K(A("created")), A("id")))),
        S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("length"), S3(A("COMP"), A("test:um_found"), S3(A("CONS"), K(A("unattached")), A("id")))), K(N(6))))))),
+"test:no_readings holds that a readings file declaring no fact type still compiles to a schema. One entity type and one constraint whose reading names an undeclared object type, so nothing creates a fact type (test:created_elem): state:readings is empty, and rmap:readrows flattened it while its first element was no atom, taking the first element of an empty sequence -- selector 1 out of range 0, the crash support.auto.dev`s check met at 7dd10c9. The schema is the entity`s table alone. Run first, it threw.",
+DEF("test:no_readings",
+    S4(A("COMP"), A("cn:contains"), S3(A("CONS"), A("schema:ddl"), K(A("CREATE TABLE IF NOT EXISTS \"Widget\""))),
+       S6(A("COMP"), S2(A("ALPHA"), A("compile:cellify")), A("compile:of_x"), A("compile:x"), S2(A("ALPHA"), A("test:ln_pair")), K(S1(S3(A("nor.md"), A("# nor\n\nWidget(.id) is an entity type.\n\nEach Widget belongs to at most one Region.\n"), A("fx/nor.md"))))))),
 DEF("test:created_elem",
     S3(A("COMP"), S4(A("COND"), A("read:strict"), A("test:ce_strict"), A("test:ce_default")), A("test:ce_run")))
 )
