@@ -5314,10 +5314,26 @@ function sayWrite(what, clock, rep, failed) {
   if (PROFILE) { profReport("write " + String(what || "")); PROF.clear(); } // @instrument
 }
 const notCommitted = (why) => JSON.stringify(["not_committed", why]);
+// A WRITE LAMBDA'S PROGRAM HAS ALREADY STORED (task #197, step 6a, 2026-10-08). An entity retract over a store
+// served from its database is one program sqlite:program ran inside lambda (retract:answer), so its answer is
+// <body, status, stored, the tables it moved>: there is no store to adopt and nothing to emit. Lambda names the
+// tables; the host drops what it read of them, and the memo, so the next read reads them from the database, and
+// logs the write's line.
+function isStored(out) { return Array.isArray(out) && out.length > 3 && out[2] === "stored"; }
+function storedWrite(out, what, clock) {
+  const tables = seq(out[3]).map(String);
+  if (LAZY_STORE) LAZY_STORE.refresh(tables);
+  memoClear();
+  const end = performance.now(), asked = !!clock && typeof clock.t0 === "number";
+  console.error("write " + String(what || "") + " " + Math.round(asked ? end - clock.t0 : 0) + " ms" + (asked ? ": evaluation (" + clockText(clock) + ")" : "")
+    + " -- one program, stored: " + tables.length + " table" + (tables.length === 1 ? "" : "s") + " moved" + (tables.length ? " (" + tables.join(", ") + ")" : ""));
+  REFLECTS = [];
+}
 // <main:api's answer>: the store it made adopted, the rows a write moved stored, and <body, status> to answer.
 // <what> and <clock> are the request and its clock, for the line the write logs (storeWrite).
 function answerWrite(out, what, clock) {
   let body = String(out[0]), status = Number(out[1]) || 500;
+  if (isStored(out)) { storedWrite(out, what, clock); return [body, status]; }
   if (out.length > 2) {
     const wrote = Number(out[1]) < 400;   // a refusal made no successor
     const prior = CELLS.slice();
@@ -6079,6 +6095,7 @@ function run_mcp() {
     // taken here, after the evaluation and before the adoption, as the verb
     // path above takes it: CELLS is still the store the call was handed, and a
     // call that wrote nothing pays nothing for a snapshot it would never use.
+    if (isStored(out)) { storedWrite(out, method + " " + resource, clock); return [out[0], out[1]]; }
     if (out.length > 2) {
       // A REFUSED WRITE IS NOT EMITTED. A refusal (status 4xx, lambda's decision)
       // made no successor, so the tables stay as they were; the journal that
@@ -6770,6 +6787,23 @@ function lazyStore(db, want) {
       if (relTables.has(t)) { ftRows.delete(t); movedFts.add(t); }
     }
   };
+  // AND A WRITE THE DATABASE ALREADY HOLDS (task #197, step 6a): a program lambda built and ran stored it, so
+  // the store has no successor to adopt and the cells it holds read the tables as they were. What was read of
+  // the tables is dropped, and each cell of a fact type they carry -- its own, the descriptors' and FILE -- is
+  // made again, pending, so the next read reads the database. A fact type the write emptied reads empty.
+  const refresh = (tables) => {
+    invalidate(tables);
+    const fts = new Set();
+    for (const t of tables) { for (const ft of carried.get(t) || []) fts.add(ft); if (relTables.has(t)) fts.add(t); }
+    for (let i = 0; i < CELLS.length; i++) {
+      const c = CELLS[i];
+      if (!Array.isArray(c) || c[0] !== "CELL") continue;
+      const name = c[1];
+      if (fts.has(name)) CELLS[i] = later(name, () => rowsOf(name));
+      else if (name === "state:fts") CELLS[i] = later("state:fts", () => descs(pick(SCHEMA, "state:fts")));
+      else if (name === "FILE") CELLS[i] = later("FILE", () => Ev("store:fts", CELLS).map((d) => later(d[0], () => Ev("rmap:rel_cell", d)[2])));
+    }
+  };
   // the counts a write moved, by what it took away and put back column by column: what counting the table
   // again finds. A table that held no rows held no values, whatever an earlier count left behind.
   const recount = (table, moved) => {
@@ -6913,7 +6947,7 @@ function lazyStore(db, want) {
     const d = rawDescs.get(ft);
     return d ? Ev("theta:unfold_rows", d[4]) : [];
   };
-  return { db, tablesOf, rowsOf, readAll, invalidate, wrote, cells, replaced, mentioning, carrier, present,
+  return { db, tablesOf, rowsOf, readAll, invalidate, refresh, wrote, cells, replaced, mentioning, carrier, present,
     pending: (c) => pendingCells.has(c) && !movedFts.has(c[1]),
     hasRows: (n) => present(n) && rowsOf(n).length > 0,
     stats: () => ({ selects, tables: byTable.size, most: Math.max(0, ...wholeReads.values()), scans }) };
