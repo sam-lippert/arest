@@ -929,6 +929,13 @@ function emitToDb(before, cells, prior, report) {
   // database's own layout is the old side lambda asks it for (task #197, step 4b), so it is handed the
   // store's path, which it reads through sqlite:query before the transaction opens.
   const ddl = prior && schemaFts().some((ft) => changed.has(ft)) ? seq(Ev("schema:emit_ddl", [prior, cells, process.env.AREST_STORE_DB])).map(String) : [];
+  // AND THE INSTANCES THE WRITE TOUCHED ARE REFLECTED IN SQL, IN ITS TRANSACTION (task #197, step 5e). Lambda answers
+  // the program (reflect:write_steps): the steps run before the rows mark the instances the rows touch, the steps run
+  // after them close those instances -- their classification up the subtypes, their Domain, their machine -- and
+  // read what each head gained and lost, which lambda puts in the store this process holds (reflect:sql_adopt). The
+  // places are the stored plan's, or the schema's own rows when the write moved them (an applied Domain Change).
+  const rf = prior && changed.size ? seq(Ev("reflect:write_steps", [cells, process.env.AREST_STORE_DB, ddl.length ? "T" : "F"])) : null;
+  let rfOut = null;
   if (!changed.size) {
     if (ledger) { db.transaction(ledger)(); EMIT_STORED = true; }
     return 0;
@@ -940,8 +947,8 @@ function emitToDb(before, cells, prior, report) {
   // were and call it a store. store:src_all is how a row joins the source, and
   // it is the same call the API path already makes before it emits.
   adoptStore(Ev("store:src_all", [carried, cells]));
-  // AND WHERE PLAN AND WRITE GOES, PART BY PART (2026-10-05): re-sourcing the moved populations and reflecting the
-  // store that makes, saying which tables they touch, planning each table's rows, and writing them -- on a copy of
+  // AND WHERE PLAN AND WRITE GOES, PART BY PART (2026-10-05): re-sourcing the moved populations, saying which tables
+  // they touch, planning each table's rows, writing them, and the SQL reflection after them -- on a copy of
   // support.auto.dev a sent reply's write spent 1,574 ms here for nine rows, and the line said no more than that
   const wp = { resource: performance.now() - lt, touched: 0, plan: 0 };
   if (report) report.writeParts = wp;
@@ -983,6 +990,7 @@ function emitToDb(before, cells, prior, report) {
   db.transaction(() => {
     for (const s of ddl) db.exec(s);
     if (report && ddl.length) report.ddl = ddl;
+    if (rf && seq(rf[0]).length) runSteps(db, rf[0]);
     for (const table of touched) {
       const cols = Ev("rmap:proj_colnames", [table, cells]).map(String);
       if (!cols.length) continue;
@@ -1032,11 +1040,15 @@ function emitToDb(before, cells, prior, report) {
       }
       if (report) report.rewrote.push([table, n]);
     }
+    if (rf && seq(rf[1]).length && !refused.length) { wt = performance.now(); rfOut = runSteps(db, rf[1]); wp.reflect = performance.now() - wt; }
     if (ledger) ledger();
     if (refused.length) throw new Error("the store refused " + (refused.length === 1 ? "a statement: " : refused.length + " statements, the first: ") + refused[0]);
   })();
   EMIT_STORED = true;
   lap("write");
+  // what the reflection wrote, put in the store this process holds as the database now holds it (reflect:sql_adopt)
+  if (rfOut && rfOut[0] === "committed") adoptClosed(Ev("reflect:sql_adopt", [CELLS, rf[2], rfOut[1]]));
+  lap("reflected");
   // AND WHAT A TABLE WRITTEN ROW BY ROW HELD FOR THE REST IS STILL TRUE. Dropping
   // everything read from a touched table made the NEXT write's snapshot read it all
   // back -- Function whole, 1.7 s and some 190 MB on support.auto.dev, at every write
@@ -3885,9 +3897,8 @@ for (const [, part, holder] of WPHASES) if (!WPARTS.some((p) => p[0] === part)) 
 let WCLOCK = null;
 function clockStart() {
   const t = performance.now();
-  if (PROFILE) { const m = process.memoryUsage(); console.error("request begins: rss " + (m.rss >> 20) + " MB, heap " + (m.heapUsed >> 20) + " MB, external " + (m.external >> 20) + " MB"); } // @instrument
+  if (PROFILE) { const m = process.memoryUsage(); console.error("request begins: rss " + Math.round(m.rss / 1048576) + " MB, heap " + Math.round(m.heapUsed / 1048576) + " MB, external " + Math.round(m.external / 1048576) + " MB"); } // @instrument
   WCLOCK = { t0: t, at: t, parts: new Map(), depth: new Map(), top: 0, covered: 0, keyed: new Map() };
-  REFLECTS = [];
   return WCLOCK;
 }
 // the time since the clock's last lap, as <k>; the evaluation's lap stops the phases' clock
@@ -4802,20 +4813,9 @@ function run_cli() {
   // while the entry module evaluates -- which is where this runs -- to no uncaughtException
   // handler, so AREST_STACK printed nothing for a CLI run. A release module drops the catch line
   // and keeps the try whole with its finally.)
-  // AREST_REFLECT_NOW=1 under the profiler takes one whole reflection pass over the store as booted, before the address,
-  // and names each cell it would add -- its rows against the store's, as sets, with some of each side's own -- then
-  // whether a second pass over its answer adds any: whether a store a start reads is one the reflection leaves as it
-  // is, which a server's first write relies on (REFLECTED_AT, 2026-10-04)
   // AREST_EVAL=<DEF> under the profiler answers that DEF over AREST_EVAL_ARG, JSON in which the string "$CELLS" is the
   // store as booted, before the address: its length when it is a sequence, and its first AREST_EVAL_SHOW elements
-  // AREST_REFLECT_STEP=<fact type> under the profiler posts the fact AREST_REFLECT_FACT (JSON, its values) over the store
-  // as booted, in memory, and adopts what that answers as a served write does, reflected from the booted store, a
-  // fixpoint (test:reflect_rows); then the store its emit re-sources (store:src_all). For each it names the arms whose
-  // reads moved and what the reflection took: where a write that moves a status spends its adoption (2026-10-05). It runs
-  // AREST_REFLECT_RUNS times (default 2), each from the booted store, so the last is a warm server's
-  if (PROFILE && process.env.AREST_REFLECT_STEP) for (let run = 1, booted = CELLS.slice(), runs = Number(process.env.AREST_REFLECT_RUNS) || 2; run <= runs; run++) { const ft = process.env.AREST_REFLECT_STEP; if (run > 1) { CELLS.length = 0; for (const c of booted) CELLS.push(c); memoClear(); } console.error("run " + run + ":"); REFLECTED_AT = booted; let t = performance.now(); const out = Ev("main:post_answer", [CELLS, ft, JSON.parse(process.env.AREST_REFLECT_FACT || "[]")]); console.error("post " + ft + ": " + Math.round(performance.now() - t) + " ms, status " + String(out[1])); const arms = (a, b) => seq(Ev("reflect:arms_moved", [a, b])).map((x) => { const r = Ev("reflect:arm_reads", [x, a]); return String(x[0]) + (r === "#" ? " (reads undeclared)" : " [" + seq(r).map(String).filter((n) => Ev("store:same_at", [n, [a, b]]) !== "T").join(" ") + "]"); }).join(", ") || "none"; t = performance.now(); console.error("arms whose reads the write moved: " + arms(out[2], booted) + " (" + Math.round(performance.now() - t) + " ms to say)"); REFLECTS = []; adoptStore(out[2]); console.error("reflected after the write: " + REFLECTS.map((r) => Math.round(r[0]) + " ms in " + r[1] + " pass(es)").join("; ")); const pops = popsMoved(booted, CELLS) || new Map(), changed = []; for (const [f, [p, q]] of pops) if (popsDiffer(p, q, (rows) => popSorted(rows)[0])) changed.push(f); const sourced = Ev("store:src_all", [changed.map((f) => [f, popSorted(pops.get(f)[1])[1]]), CELLS]); console.error("populations the emit re-sources: " + changed.join(", ") + "; arms whose reads that moved: " + arms(sourced, CELLS)); REFLECTS = []; adoptStore(sourced); console.error("reflected after the emit: " + REFLECTS.map((r) => Math.round(r[0]) + " ms in " + r[1] + " pass(es)").join("; ")); } // @instrument
   if (PROFILE && process.env.AREST_EVAL) { const sub = (v) => (v === "$CELLS" ? CELLS : Array.isArray(v) ? v.map(sub) : v); const t = performance.now(); const v = Ev(process.env.AREST_EVAL, sub(JSON.parse(process.env.AREST_EVAL_ARG || '"$CELLS"'))); console.error("eval " + process.env.AREST_EVAL + ": " + Math.round(performance.now() - t) + " ms, " + (Array.isArray(v) ? v.length + " element(s): " + JSON.stringify(v.slice(0, Number(process.env.AREST_EVAL_SHOW) || 5)).slice(0, 4000) : JSON.stringify(v).slice(0, 4000))); } // @instrument
-  if (PROFILE && process.env.AREST_REFLECT_NOW) { const t = performance.now(); const nw = seq(Ev("store:refl_new", CELLS)); const rows = (x) => (x === "#" ? null : seq(x)); const key = (rs) => JSON.stringify(rs.map((r) => JSON.stringify(r)).sort()); console.error("whole pass over the booted store: " + Math.round(performance.now() - t) + " ms, " + nw.length + " cell(s) added: " + nw.map((c) => { const had = rows(Ev("store:cell_rows", [c[0], CELLS])), now = seq(c[1]); const hk = new Set((had || []).map((r) => JSON.stringify(r))), nk = new Set(now.map((r) => JSON.stringify(r))); const extra = now.filter((r) => !hk.has(JSON.stringify(r))), gone = (had || []).filter((r) => !nk.has(JSON.stringify(r))); return String(c[0]) + " " + now.length + (had === null ? " (none held)" : " (held " + had.length + (key(had) === key(now) ? ", the same rows in another order" : ", " + extra.length + " not held, e.g. " + JSON.stringify(extra.slice(0, 12)) + "; " + gone.length + " held and not reflected, e.g. " + JSON.stringify(gone.slice(0, 12))) + ")"); }).join("; ")); const r = Ev("store:reflect_pass", [CELLS, [], [], []]); adoptClosed(r[0][0]); const t2 = performance.now(); const nw2 = seq(Ev("store:refl_new", CELLS)); console.error("a second whole pass over its answer: " + Math.round(performance.now() - t2) + " ms, " + nw2.length + " cell(s) added: " + nw2.map((c) => String(c[0])).join(", ")); } // @instrument
   let out;
   try { out = Ev("main", [CELLS, process.argv.slice(2)]); }
   catch (e) { if (STACKS) console.error("lambda stack at throw: " + ((e && e.lambdaStack) || "(no lambda frame)")); throw e; } // @instrument
@@ -5315,10 +5315,11 @@ function sayWrite(what, clock, rep, failed) {
   const asked = !!clock && typeof clock.t0 === "number";
   const parts = asked ? clockText(clock) : "";
   const laps = [["evaluation", asked && rep.start !== undefined ? rep.start - clock.t0 : undefined],
-    ["snapshot", rep.snapshot], ["change test", rep.change], ["plan and write", rep.write], ["tail", rep.tail]]
+    ["snapshot", rep.snapshot], ["change test", rep.change], ["plan and write", rep.write], ["reflection adopted", rep.reflected], ["tail", rep.tail]]
     .filter((l) => l[1] !== undefined).map((l) => l[0] + " " + ms(l[1]) + (l[0] === "evaluation" && parts ? " (" + parts + ")" : "")
       + (l[0] === "plan and write" && rep.writeParts ? " [re-source " + ms(rep.writeParts.resource) + ", touched " + ms(rep.writeParts.touched)
-        + ", plan " + ms(rep.writeParts.plan) + (rep.writeParts.slow ? " (" + rep.writeParts.slow.map((s) => s[0] + " " + ms(s[1])).join(", ") + ")" : "") + ", rows " + ms(l[1] - rep.writeParts.resource - rep.writeParts.touched - rep.writeParts.plan) + "]" : ""));
+        + ", plan " + ms(rep.writeParts.plan) + (rep.writeParts.slow ? " (" + rep.writeParts.slow.map((s) => s[0] + " " + ms(s[1])).join(", ") + ")" : "") + ", rows " + ms(l[1] - rep.writeParts.resource - rep.writeParts.touched - rep.writeParts.plan - (rep.writeParts.reflect || 0))
+        + (rep.writeParts.reflect !== undefined ? ", reflected in SQL " + ms(rep.writeParts.reflect) : "") + "]" : ""));
   const whole = rep.rewrote || [];
   const wrote = failed ? failed
     : rep.moved === undefined ? "no store to write"
@@ -5327,11 +5328,7 @@ function sayWrite(what, clock, rep, failed) {
       + " deleted or inserted in " + of(rep.byRow, "table") + " by row"
       + (whole.length ? ", rewritten whole: " + whole.map((r) => r[0] + " " + r[1]).join(", ") : "");
   const begin = asked ? clock.t0 : rep.start !== undefined ? rep.start : end;
-  // and each reflection the write's stores took (loadReflected): its time, its passes, and whether one was whole
-  const reflected = REFLECTS.map((r) => ms(r[0]) + " ms in " + r[1] + (r[1] === 1 ? " pass" : " passes") + (r[2] ? ", one whole" : "")).join(", ");
-  REFLECTS = [];
-  console.error("write " + String(what || "") + " " + ms(end - begin) + " ms" + (laps.length ? ": " + laps.join(", ") : "") + " -- " + wrote
-    + (reflected ? "; reflected " + reflected : ""));
+  console.error("write " + String(what || "") + " " + ms(end - begin) + " ms" + (laps.length ? ": " + laps.join(", ") : "") + " -- " + wrote);
   // under the profiler, each served write's own table of definitions, and the table cleared for the next (2026-10-05)
   if (PROFILE) { profReport("write " + String(what || "")); PROF.clear(); } // @instrument
 }
@@ -5349,7 +5346,6 @@ function storedWrite(out, what, clock) {
   const end = performance.now(), asked = !!clock && typeof clock.t0 === "number";
   console.error("write " + String(what || "") + " " + Math.round(asked ? end - clock.t0 : 0) + " ms" + (asked ? ": evaluation (" + clockText(clock) + ")" : "")
     + " -- one program, stored: " + tables.length + " table" + (tables.length === 1 ? "" : "s") + " moved" + (tables.length ? " (" + tables.join(", ") + ")" : ""));
-  REFLECTS = [];
   if (PROFILE) { const m = process.memoryUsage(); console.error("stored write: rss " + (m.rss >> 20) + " MB, heap " + (m.heapUsed >> 20) + " MB, external " + (m.external >> 20) + " MB"); } // @instrument
   if (PROFILE) { profReport("write " + String(what || "")); PROF.clear(); } // @instrument
 }
@@ -5499,8 +5495,6 @@ function writeBack(done, log) {
 // Mutated in place so the array identity survives, then the memo is dropped:
 // Ev keys on the store REFERENCE, so a store whose contents changed under the
 // same reference would keep answering from the old one.
-// set once the boot's own loading is done; see adoptStore
-let BOOTED = false;
 
 function adoptStore(next) {
   if (!Array.isArray(next) || next.length === 0) return false;
@@ -5522,18 +5516,10 @@ function adoptStore(next) {
   CELLS.length = 0;
   for (const c of copy) CELLS.push(c);
   memoClear();
-  // AND A STORE THAT CHANGED IS REFLECTED AGAIN (2026-09-17). A reflected
-  // population is a function of the store, so the store moving is exactly when
-  // it has to be recomputed: a Support Request created in a running server had
-  // no machine and no status until the next boot, so `actions` offered its
-  // Received menu -- computed per call -- while the worklist query could not
-  // see it at all, which is the same silence in a smaller window. The CLOSURE
-  // is deliberately NOT re-run here: it is seconds, loadDerived's own comment
-  // says it belongs at load, and no rule head is what a session asks after a
-  // write. This is 120 ms on support.auto.dev against a write that costs two
-  // seconds. Not during boot, where the store is half-loaded and the reflection
-  // would read a seed that is not there yet; closeStore does it there.
-  if (BOOTED && !(REFLECTED_AT && sameStore(CELLS, REFLECTED_AT))) loadReflected(REFLECTED_AT);
+  // A STORE THAT CHANGED IS NOT REFLECTED HERE (task #197, step 5e). A write's reflection is the SQL its emit runs in
+  // its transaction, for the instances its rows touch (reflect:write_steps), and what that SQL wrote is put in this
+  // store after the commit (emitToDb). Reflecting each adopted store in memory was two passes a write, 4.7 s of a
+  // 17 s create on a copy of support.auto.dev.
   return true;
 }
 
@@ -7103,7 +7089,6 @@ function loadStoreDb(path, opts) {
   // evaluator's own function two thousand lines up and was shadowed here.)
   let builtFrom = null;
   try { builtFrom = (db.query("select hash from _composition").get() || {}).hash; } catch { /* predates the stamp */ }
-  STORE_BUILT_FROM = builtFrom || null;
   if (missing.length) {
     const { createHash } = require("node:crypto");
     const schemaHash = (m) => {
@@ -7305,129 +7290,10 @@ function adoptClosed(next) {
   for (const c of copy) CELLS.push(c);
   memoClear();
 }
-// THE META-TYPES ARE REFLECTED AT LOAD, and lambda says which. reflect:cells
-// answers <name, population> pairs computed from the schema itself, so adding a
-// reflected meta-type later is a lambda edit and never a host edit -- this
-// function names nothing and decides nothing, exactly as loadDerived does not.
-//
-// Role was the case that forced it: a declared entity type of this metamodel
-// with NO instances anywhere, so `Each Fact Type has some Role` could not be
-// satisfied while every role sat in state:declared as a player list. Shipping
-// them as carrier data would mean ~467 static facts ABOUT a schema, beside the
-// schema, free to drift from it. Computed, the metamodel cannot disagree with
-// itself.
-//
-// BEFORE loadDerived, because a reflected population is an INPUT a rule may
-// read -- the same reason loadFile comes before both.
-//
-// AND A REFLECTION IS RECOMPUTED, NEVER READ BACK (2026-09-17). This skipped a
-// name that already had a cell, and a store booted from store.db has a cell for
-// every fact type the tables carry -- so a reflected population, once EMITTED,
-// was frozen at the value the last compile-store computed. The state machines
-// are where that shows: a Support Request created after the build had no
-// machine and no status until the store was rebuilt, which is a worklist that
-// cannot see today's work. A reflection is a function of the store, so a copy of
-// it in the tables is a CACHE and the recomputation is the answer; nothing
-// asserts these names, and a cell that already equals the reflection is left
-// exactly where it is, so a store with nothing to recompute loads as before.
-// A STORE THE REFLECTION LEFT AS IT WAS IS NOT REFLECTED AGAIN (2026-10-03). Every store a write adopts is
-// reflected again (adoptStore), and on a copy of support's store a pass is 1.7 to 3.4 s. store:reflect_pass is a
-// function of the store's content, and it adopts nothing when it adds no cell. So the store a pass added nothing
-// to is kept, and a later store equal to it cell for cell -- the same cells in the same order, each the same
-// object or eq to it -- is not reflected, because the pass would add nothing to it either: an approval given
-// again, a write that is refused, a write that changes nothing. A pass that adds cells leaves no such store, so
-// the next write's store is reflected as before.
-let REFLECTED_AT = null;
-// AND A STORE THIS COMPOSITION BUILT IS ONE ITS REFLECTION LEAVES AS IT IS (2026-10-04). A start computes nothing and
-// reads the tables (boot), and the tables hold the closure the check took and every write's reflection since, each
-// emitted by this composition's lambda. So the store a start reads is the store the last pass left as it was, and
-// it is kept as one (boot): a server's first write is reflected from it, over the arms whose reads it moved, where it
-// was reflected whole -- about a second on support.auto.dev, at the first write of every server, since one idle for
-// ten minutes stops. That holds of a store whose rows read back as the reflection wrote them, which two defects
-// broke (store:same_rows and reflect:fbd_unowned, lambda's notes); MEASURED after them on support's store as
-// booted, a whole pass adds no cell. A store another composition built is read too (loadStoreDb: the schema fits,
-// so the tables are read), but its reflection is that build's, so it is reflected whole at its first write, as
-// every store was. Which composition built the store, from its _composition row:
-let STORE_BUILT_FROM = null;
-// AND A STORE IS ITS CELLS BY NAME (2026-10-03). The state is a sequence of cells fetched and stored by name
-// (AREST.tex, after Backus 13.3.4 and 14.3), and the emit's store:src_all puts the cells it re-sources first, so the
-// store after a write's emit is often the store its first reflection left as it was, in another order: on a copy of
-// support's store a retracted approval was reflected again after its emit, 2.5 s, and added nothing.
-// test:reflect_by_name holds that a reflection of a store whose cells are permuted adds the same cells. So two
-// stores whose cells are all CELLs, each name once, are equal when each name holds the same cell or an eq one;
-// where a name repeats, the cells are compared in order, as before.
-// a store's cells by name, or null when a cell is not a CELL or a name is held twice
-function cellsByName(s) {
-  const m = new Map();
-  for (const c of s) { if (!Array.isArray(c) || c.length !== 3 || c[0] !== "CELL" || typeof c[1] !== "string" || m.has(c[1])) return null; m.set(c[1], c); }
-  return m;
-}
-// AND FILE IS COMPARED LAST (2026-10-03, #163). Every put refiles FILE's cell of each population it puts with a
-// cell whose contents are nested when first read (store:fp_file's twin), and comparing FILE reads them. A put also
-// moves the population's own cell, so where any other cell differs the stores differ whatever FILE holds: FILE is
-// compared after every other cell, and only when all of them are the same.
-const isFileCell = (c) => Array.isArray(c) && c[0] === "CELL" && c[1] === "FILE";
-function sameStore(a, b) {
-  if (a.length !== b.length) return false;
-  let i = 0, fa = null, fb = null;
-  for (; i < a.length; i++) {
-    if (a[i] === b[i]) continue;
-    if (fa === null && isFileCell(a[i]) && isFileCell(b[i])) { fa = a[i]; fb = b[i]; continue; }
-    if (!deepEq(a[i], b[i])) break;
-  }
-  if (i === a.length) return fa === null || deepEq(fa, fb);
-  const ma = cellsByName(a), mb = cellsByName(b);
-  if (ma === null || mb === null) return false;
-  for (const [n, c] of ma) { if (n === "FILE") continue; const d = mb.get(n); if (d === undefined || (c !== d && !deepEq(c, d))) return false; }
-  const c = ma.get("FILE"), d = mb.get("FILE");
-  return c === d || (c !== undefined && d !== undefined && deepEq(c, d));
-}
-// AND FROM THE LAST STORE A PASS LEFT AS IT WAS, ONLY THE ARMS WHOSE READS MOVED (2026-10-03). Over a store the
-// last pass added nothing to (REFLECTED_AT), an arm whose reads read the same in both answers what it answered
-// there, which was its cell, so store:reflect_since computes only the arms whose reads moved: an approval moves
-// one population, which only the four machine arms read. reflect:arm_reads says what each arm reads, and
-// test:reflect_since holds that the pass adds what store:reflect_pass adds. A store whose names repeat, or
-// whose earlier store's do, is reflected whole: a name is read by its first cell, and its rows are all of them.
-// AND A PASS THAT ADDS CELLS IS FOLLOWED BY ONE OVER WHAT IT ADDED, UNTIL ONE ADDS NOTHING (2026-10-03). A pass that
-// added cells left no store to start from, so the next adoption reflected the whole store: a write that registers
-// an instance adds the reflection's rows of it, and the emit's re-sourced store came next -- on support a 15-fact
-// assert spent 1,691 ms planning and writing 79 rows, and a whole pass there is 1.7 to 3.4 s. After a pass over a
-// store A, every arm's cell answers A: the arms it computed were put, and the others answered A what they had
-// answered their cells. So the store it made is reflected from A, which recomputes the arms whose reads the pass
-// moved and keeps the rest, and that is repeated until a pass adds nothing; that store is kept, as one a pass
-// added nothing to always was. Eight passes that each add something leave no store, as one did before.
-// <ms, passes, whether one was a whole pass> for each reflection of the write being served, for its line
-let REFLECTS = [];
-function loadReflected(since) {
-  const t = performance.now();
-  let from = since, added = 0, passes = 0, whole = false;
-  for (; passes < 8; ) {
-    const at = CELLS.slice();
-    const incremental = from && cellsByName(from) !== null && cellsByName(CELLS) !== null;
-    const r = incremental
-      ? Ev("store:reflect_since", [CELLS, [...REFLECTED_NAMES], [...DERIVED_NAMES], [], from])
-      : Ev("store:reflect_pass", [CELLS, [...REFLECTED_NAMES], [...DERIVED_NAMES], []]);
-    passes++;
-    if (!incremental) whole = true;
-    const n = Number(r[1]);
-    if (!n) { REFLECTED_AT = CELLS.slice(); REFLECTS.push([performance.now() - t, passes, whole]); return added; }
-    added += n;
-    adoptClosed(r[0][0]);
-    for (const nm of seq(r[0][1])) REFLECTED_NAMES.add(String(nm));
-    // AND A WHOLE PASS THAT ADDS CELLS IS GONE ON FROM TOO (2026-10-04). It stopped there, as a precaution: its
-    // cells were taken for a store's whole reflection -- a compile's first, or a boot's -- where store:reflect_since
-    // is built for a write's few. But this reflects only once BOOTED, over a store the boot closed (store:close) or
-    // read from its tables, and neither reflects here: a compile closes in lambda, and a start computes nothing. So
-    // a whole pass adds a write's cells, and stopping left the store after it unkept, so the emit's re-sourced store
-    // was reflected whole again. MEASURED on support.auto.dev before this, a server's first write after a boot
-    // reflected whole twice (1,058 and 1,014 ms) and its second write once (992 ms). A whole pass after this is
-    // followed by one from the store it was over, as an incremental pass always was (test:reflect_next).
-    from = at;
-  }
-  REFLECTED_AT = null;
-  REFLECTS.push([performance.now() - t, passes, whole]);
-  return added;
-}
+// THE META-TYPES ARE REFLECTED, and lambda says which and how. A store a compile closes is reflected by
+// store:close, inside lambda; a store a start reads from its tables holds what the compile and every write since
+// wrote; and a write reflects the instances its rows touch in SQL, in its own transaction (reflect:write_steps,
+// emitToDb). So no store is reflected here in memory (task #197, step 5e).
 
 // AND THE TWO PHASES ALTERNATE, because a reflected population may read a
 // DERIVED one as well as feed one (2026-09-17). The comment above says why
@@ -7553,15 +7419,12 @@ function boot(mode) {
     // AND WHERE THE STORE IS (task #197, step 4): the SQL checks a served verb runs (validate) read the store's own
     // database, which lambda knows only by its name, so the boot hands it the name as it hands it the verdict.
     CELLS.push(["CELL", "state:store_db", String(fromDb)]); memoClear();
-    // the store this composition built is one its reflection leaves as it is (see REFLECTED_AT)
-    if (COMPOSITION && STORE_BUILT_FROM === COMPOSITION) REFLECTED_AT = CELLS.slice();
   }
   else if (!schemaless) {
     loadFile(); lap("file");
     closeStore(); lap("reflected and derived");
   }
   if (SAMPLE && process.env.AREST_SAMPLE_AFTER_BOOT) sreset(); // @instrument
-  BOOTED = true;
   if (process.env.AREST_BOOT_MEMORY) {
     // what the resident heap is made of, after a collection, by object type
     Bun.gc(true);
