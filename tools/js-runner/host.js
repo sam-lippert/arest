@@ -7428,6 +7428,9 @@ function boot(mode) {
     // write that changes it; the tables ARE the state.
     lap("store-db");
     readVerdict();
+    // AND WHERE THE STORE IS (task #197, step 4): the SQL checks a served verb runs (validate) read the store's own
+    // database, which lambda knows only by its name, so the boot hands it the name as it hands it the verdict.
+    CELLS.push(["CELL", "state:store_db", String(fromDb)]); memoClear();
     // the store this composition built is one its reflection leaves as it is (see REFLECTED_AT)
     if (COMPOSITION && STORE_BUILT_FROM === COMPOSITION) REFLECTED_AT = CELLS.slice();
   }
