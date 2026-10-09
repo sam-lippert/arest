@@ -30,9 +30,9 @@ const oracle = process.env.AREST_CARRIERS || join(here, "..", "carriers", "base"
 
 // lambda, the case table, then the carriers. The case table rides in the same
 // module as the laws rather than a second composition, because the case cells
-// do not disturb law:report -- the base report is byte-identical with and
-// without them -- and one module then answers both `law:report` and `case`.
-// THE REGRESS MODE COMPOSES NO SCHEMA. law:regress_report reads the run's
+// do not disturb test:report -- the base report is byte-identical with and
+// without them -- and one module then answers both `test:report` and `case`.
+// THE REGRESS MODE COMPOSES NO SCHEMA. test:regress_report reads the run's
 // outcome (state:built, state:errors, state:readback, the oracle's `outcome`
 // carrier) and the record (`expected`), nothing else; composing us-law's
 // 15 MB design-state beside them cost the host two minutes to load the
@@ -51,7 +51,7 @@ const slim = process.argv[2] === "regress" || process.argv[2] === "reader" || pr
 // relational answer, composed so the rmap-vs-NORMA laws can compare; a
 // carriers directory lambda wrote (tools/compile-design-state.js) has none,
 // and the build is the same build without it.
-// THE TESTS RIDE ONLY IN A TEST COMPOSITION. arest.tests holds lambda's law:
+// THE TESTS RIDE ONLY IN A TEST COMPOSITION. arest.tests holds lambda's test:
 // cells; cli (the report), test (the suite's module) and regress run them, and
 // every served or compiling module composes arest alone.
 const TESTS = ["cli", "test", "regress"].includes(process.argv[2] || "cli") ? [join(root, "arest.tests")] : [];
@@ -86,7 +86,7 @@ if (!slim) try {
   // before it derives, so a cache written by another lambda overrode the new
   // DEFs while its design-state-only stamp still matched. compile:stamped
   // stamps the lambda text followed by the design-state text; this hashes the
-  // same two files in the same order (law:compiled_keyed pins both).
+  // same two files in the same order (test:compiled_keyed pins both).
   const now = createHash("sha256")
     .update(readFileSync(join(root, "arest")))
     .update(readFileSync(join(oracle, "design-state")))
@@ -110,7 +110,7 @@ if (!slim) try {
 // outcome into design-state (state:built, state:errors, state:readback) and
 // the same under expect: names into `expectation`; an accepted run's copy,
 // placed in the carriers directory as `expected`, is composed in, and
-// law:regress holds the store to it (`bun composed.g.js regress`). A directory
+// test:regress holds the store to it (`bun composed.g.js regress`). A directory
 // without one is a store nobody has recorded, and the law holds of it.
 // The run's own outcome rides in `outcome`, three surfaces the oracle writes
 // beside design-state every run; a carriers directory from before it has

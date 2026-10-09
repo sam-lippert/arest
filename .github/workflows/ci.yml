@@ -1,7 +1,7 @@
 # CI for AREST — the 0.9.0 engine.
 #
 # THE WALL IS THE GATE. A law is a lambda DEF the mu applies ("THE LAWS AS
-# LAMBDA", 2026-07-16), so the verification of record is lambda's own law:report
+# LAMBDA", 2026-07-16), so the verification of record is lambda's own test:report
 # evaluated over the composed store — not host test code.
 #
 # EACH HOST VERIFIES ITSELF, with its own toolchain and nothing else. They

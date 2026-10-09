@@ -150,7 +150,7 @@ public class CasesTest {
         assertTrue(out[0] != null);
         List<String> off = new ArrayList<String>();
         for (String l : out[0].toString().replaceAll("\\s+$", "").split("\n"))
-            if (!l.startsWith("  law OK: ") && !l.startsWith("ALL LAWS HOLD ")) off.add(l);
+            if (!l.startsWith("  test OK: ") && !l.startsWith("ALL TESTS PASS ")) off.add(l);
         assertEquals(new ArrayList<String>(), off);
         assertEquals("T", String.valueOf(out[1]));
     }
