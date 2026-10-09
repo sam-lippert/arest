@@ -139,42 +139,16 @@ Event Type can be created by Predicate.
   For each combination of Event Type and Predicate, that Event Type can be created by that Predicate at most once.
 
 ### Citing an Authority
-### ONE DOOR, ON THE SUPERTYPE (Sam, 2026-09-10: "shouldn't we get Citation
-### analysis moved to a supertype so that we don't have to keep redeclaring
-### that for every type?"). This stood as four fact types -- `Fact cites
-### Citation`, `Fact Type cites Citation`, `Constraint cites Citation` and, for
-### an hour, `Object Type cites Citation` -- one per kind that turned out to
-### cite an authority, each a table of its own and each a new declaration the
-### next kind would need again. Every one of those players is a Function: an
-### Object Type is (core.md), a Constraint is, a Fact Type is through Event
-### Type, and a Fact is through Event and Object Type Instance. So the role is
-### played by Function and the kinds inherit it by population inclusion, which
-### is what subtyping means here; the cited element's own kind is read off the
-### store, where `Object Type Instance is instance of Object Type` already
-### says it, and is not duplicated in four relations.
-###
-### NORMA HAS THE SAME GENERAL FORM. ORMCore gives each element class its own
-### embedded Note and Definition (ObjectTypeHasNote, FactTypeHasNote,
-### SetConstraintHasNote, ORMCore.dsl:5079-5199) AND a general reference,
-### ModelNoteReferencesModelElement (:5279), for a note that points at any
-### element. A Citation is that second thing: it is not owned by the element it
-### cites, it refers to it.
-###
-### WHAT THIS FIXES BESIDES THE REDECLARATION. us-law writes `Fact Type 'Buyer'
-### cites Citation 'UCC-2-103'` -- Buyer is a declared entity type, not a
-### sentence -- 134 times over 93 subjects, refused since the citation subject
-### stopped being minted (2026-09-09) and, before that, minted as a phantom
-### fact type with no role and no reading. With one door those sentences are
-### rows like any other; only the row's KIND is corrected, to the kind the
-### value really is. A subject that names neither a declared fact type nor a
-### declared object type is still refused with its sentence.
-###
-### And the older defect this replaced (2026-09-09): with no `Constraint cites
-### Citation`, us-law's 34 `Constraint '...' cites Citation '...'` sentences
-### were filed by player signature alone into `Function is superseded by
-### Function`, so its store said `Taxpayer files return` IS SUPERSEDED BY
-### `IRC-6012` -- thirty-one rows asserting, of a legal corpus, the opposite of
-### what the citation means.
+### One fact type on the supertype: every element that cites an authority is a
+### Function (an Object Type and a Constraint are; a Fact Type is through Event
+### Type; a Fact is through Event and Object Type Instance), so each kind plays
+### the role by population inclusion instead of declaring its own fact type. The
+### cited element's kind is read from `Object Type Instance is instance of Object
+### Type`. NORMA has the same general form: besides each element's own Note,
+### ModelNoteReferencesModelElement (ORMCore.dsl:5279) is a note that refers to
+### any element rather than being owned by it, and a Citation is that kind of
+### reference. A subject that names neither a declared fact type nor a declared
+### object type is refused with its sentence.
 Function cites Citation.
   For each combination of Function and Citation, that Function cites that Citation at most once.
   It is possible that some Function cites more than one Citation.

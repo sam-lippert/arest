@@ -98,4 +98,4 @@ Pluralization Rule 'rule-ies' has Pluralization Pattern 'y$'. Pluralization Rule
 Pluralization Rule 'rule-default' has Pluralization Pattern '$'. Pluralization Rule 'rule-default' has Pluralization Replacement 's'.
 
 <!-- organizations-domain (ruling 2): Domain 'naming' has Access 'public'. -->
-Domain 'naming' has Description 'Convention-based name projection (pluralization rules) declared as data per the Sweep-1 dispatch-to-data lift recipe (#895). PluralizationRuleTable reads the parallel Pluralization Pattern / Pluralization Replacement enum values; boot mirrors the legacy cascade so behavior round-trips.'.
+Domain 'naming' has Description 'Convention-based name projection (pluralization rules) declared as data. PluralizationRuleTable reads the parallel Pluralization Pattern / Pluralization Replacement enum values; boot mirrors the legacy cascade so behavior round-trips.'.

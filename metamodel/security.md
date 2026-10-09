@@ -150,4 +150,4 @@ CIDR Block 'fe80::/10' has Block Kind 'ipv6-link-local'.
 CIDR Block 'fc00::/7' has Block Kind 'ipv6-unique-local'.
 
 <!-- organizations-domain (ruling 2): Domain 'security' has Access 'public'. -->
-Domain 'security' has Description 'SSRF defense vocabulary. CIDR Block entries are the data the engine reads at platform_compile time to reject External System URLs resolving to internal/loopback/link-local hosts. Lifted from hardcoded Rust per the Sweep-1 dispatch-to-data recipe (#894).'.
+Domain 'security' has Description 'SSRF defense vocabulary. CIDR Block entries are the data the engine reads at platform_compile time to reject External System URLs resolving to internal/loopback/link-local hosts.'.
