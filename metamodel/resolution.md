@@ -26,26 +26,26 @@ Operation is registrable.
 Operation is registered.
 Operation awaits a driver. **
 
-<!-- WHAT MAY BE REGISTERED IS NOT WHAT IS (2026-09-14). `is registrable` says a host MAY
+<!-- WHAT MAY BE REGISTERED IS NOT WHAT IS. `is registrable` says a host MAY
      fill this seam; nothing said whether one had, so Cor 6's honest list of where unverified
      computation enters could not be derived, and test:origin_boundary compares the manifest
      against the store's own declarations -- declaration against declaration, never against a
-     host. Measured the same day: of the seven registrable Operations FIVE are empty
+     host. Measured: of the seven registrable Operations FIVE are empty
      (compile, apps_compile and the three csdp seams) and THREE operations the host really
      does register -- clock, crypt:encrypt, crypt:decrypt -- are not in the registrable list
      at all. The boundary was unsound in both directions.
 
      A HOST ASSERTS WHAT IT FILLED. It knows its own table, so `Operation is registered` is a
      fact it can state at boot, and the awaiting list is then a DERIVATION rather than a
-     comment. Samuel, 2026-09-14: the LLM seams do not need wiring into the mu -- Ev is
+     comment. The LLM seams do not need wiring into the mu -- Ev is
      synchronous and no primitive is async -- they have to be driven manually by an llm or a
      person at those points. Driving them manually requires knowing where the points ARE, and
      that is what this derives. The negated clause follows evolution.md's `Domain Change is
      valid` exactly, which the oracle builds as a finite anti-join. -->
-<!-- AND THE MARKER IS `**`, NOT `*` (2026-09-18). The awaiting list has to be READABLE
+<!-- AND THE MARKER IS `**`, NOT `*`. The awaiting list has to be READABLE
      FROM THE TABLES -- a person or an llm driving these seams does not boot the closure
      to find out where the points are -- and `*` is defined as `derive at runtime`
-     (core.md's marker ruling, Samuel 2026-08-04: the four are orthogonal, `*` derive,
+     (core.md's marker ruling: the four are orthogonal, `*` derive,
      `**` derive and store, `+` derive or assert, `++` both). A `*` head therefore LEAVES
      THE STORED SCHEMA in both directions: the oracle drops it from state:fts citing Codd
      1970 1.5, a stored derivable relation is strong redundancy, and lambda's rmap:gate
@@ -101,18 +101,18 @@ Operation 'compile' is overridable.
 Operation 'propose' is overridable.
 Operation 'ask' is overridable.
 
-<!-- WHAT EACH SERVED VERB TAKES AND ANSWERS (2026-09-10). The verb route
-     dispatches by looking the name up in the store, and until now it passed
-     one operand shape to all of them: <first argument, store state>. Most of
-     these verbs read the STORE at their first selector, so they were handed
-     the argument where the store belongs and answered an empty schema, one
+<!-- WHAT EACH SERVED VERB TAKES AND ANSWERS. The verb route
+     dispatches by looking the name up in the store. One operand shape for
+     all of them, <first argument, store state>, is wrong: most of
+     these verbs read the STORE at their first selector, so they would be handed
+     the argument where the store belongs and answer an empty schema, one
      empty cell, an empty menu -- wrong answers rather than errors. This is
      where the model says which shape each takes, and main:verb_pair reads it.
      The shapes were measured against the base store, comparing the CONTENT
      each verb answers under each operand rather than whether it merely
      returned. A verb whose shape is not yet settled carries no row and keeps
      the pair, which is what get, ask, induce and retract take. -->
-<!-- WHAT EACH SERVED VERB IS FOR, SAID BESIDE ITS SHAPE (2026-10-01). Sam: AREST
+<!-- WHAT EACH SERVED VERB IS FOR, SAID BESIDE ITS SHAPE. AREST
      should be the tool an LLM can use for thinking clearly, and a caller handed
      `takes the recipe-and-populations, answers the rows` cannot write a recipe.
      `Function has Description` (core.md:669) says what each verb does and what
@@ -128,14 +128,14 @@ Function 'cells' yields Type Expression 'cell-list'.
 Function 'cells' has Description 'Answers the store as one cell per table, each with its rows. Takes no arguments, and the answer is the whole store.'.
 Function 'rmap' accepts Type Expression 'store'.
 Function 'rmap' yields Type Expression 'cell-list'.
-<!-- AND actions TAKES THE ENTITY AND THE CELLS (2026-09-17). This said
-     'store', measured in 2026-09-10 against a cell that was system:view_menu
-     itself; under the pair that cell also answered an empty menu, so the
-     store was recorded as the better of two wrong answers. Both are wrong.
+<!-- AND actions TAKES THE ENTITY AND THE CELLS. Neither
+     'store' nor the pair is right: measured against a cell that was system:view_menu
+     itself, under the pair that cell answers an empty menu, and so does the
+     store. Both are wrong.
      Theorem 2's transitions(status(e)) is a function of an ENTITY -- the
      machine of a type it is an instance of, the status derived for it, the
      transitions leaving that status -- and a store alone names no entity, so
-     `actions sr-alpha-1` dropped the id and answered the empty menu for a
+     `actions sr-alpha-1` under 'store' drops the id and answers the empty menu for a
      Support Request whose whole lifecycle the app declares.
      THE CELLS AND NOT THE STORE STATE, for orient's reason: store:state is
      <descriptors, phi>, and the machine of an instance is found through
@@ -177,7 +177,7 @@ Function 'orient' has Description 'Answers the context of an App or a Domain, ov
 Function 'tutor' accepts Type Expression 'name-and-cells'.
 Function 'tutor' yields Type Expression 'tutorial-text'.
 Function 'tutor' has Description 'Teaches one FORML 2 verbalization pattern: its form, an example and a note. args: [pattern name]; a name that is no pattern answers the list of pattern names.'.
-<!-- AND THE ONE THAT WRITES (2026-09-16). Every verb above reads, so the
+<!-- AND THE ONE THAT WRITES. Every verb above reads, so the
      served verb surface had no way to make a fact at all: a Support Request
      has three mandatory roles and is therefore only sayable as a whole ROW,
      and the only address that took one was an HTTP POST to its collection.
@@ -205,7 +205,7 @@ Function 'retract' has Description 'Retracts one fact, an entity whole, or many 
 Function 'assert' accepts Type Expression 'row-and-cells'.
 Function 'assert' yields Type Expression 'outcome-and-store'.
 Function 'assert' has Description 'Asserts a list of facts in one step, validated once, each a fact type and one value for each of its roles, in role order. args: [[[factType, value, ...], ...]]. A fact already held is not asserted again. Answers committed, committed_with_violations or refused, how many facts were new and how many already held, and the violations whose subject is a value these facts name; a refused write answers the alethic violations that refuse it.'.
-<!-- AND A PAGE IS ONE WRITE (2026-09-25). `assert` takes a list of facts -- each a fact type and
+<!-- AND A PAGE IS ONE WRITE. `assert` takes a list of facts -- each a fact type and
      its role values -- and asserts every one not already held in ONE step, validated once and
      closed once, so a federation's page lands whole or not at all and a second sync of the same
      page asserts nothing. The argument beside the cells is the list, so `row-and-cells` carries
@@ -233,7 +233,7 @@ Function 'assert' has Description 'Asserts a list of facts in one step, validate
        Function 'replace' accepts Type Expression 'row-and-cells'.
        Function 'replace' yields Type Expression 'outcome-and-store'.
 
-     Measured 2026-09-18 with them in: lambda's reader compiles them, mcp:verbs
+     Measured with them in: lambda's reader compiles them, mcp:verbs
      answers 18 verbs where it answered 17, and the new row is
      ('replace', 'row-and-cells', 'outcome-and-store'). Measured with them in
      AND the witness carrier left as it stands: `the reader reproduces the
@@ -251,12 +251,12 @@ Function 'assert' has Description 'Asserts a list of facts in one step, validate
      a caller who asked for a retraction. The address argument the note
      below gives is stale -- create answered it by taking the row whole --
      but the name collision is not, and freeing the name is the move
-     f1b0202f already made for create: the pipeline goes under cmd:retract
+     already made for create: the pipeline goes under cmd:retract
      and `retract` becomes main:api applied to DELETE. -->
-<!-- AND THE ONE THAT REMOVES (2026-09-21). The name collision the paragraph
+<!-- AND THE ONE THAT REMOVES. The name collision the paragraph
      above named is closed: `retract` was Backus's population-level cell
      (THE VERB ROUTE note's Backus 14.4.2, theta:setminus of derive:news_for
-     over a named population), so it moved -- f1b0202f's own move, made here
+     over a named population), so it moved -- create's own move, made here
      for retract -- to cmd:retract, its one real caller (test:verbs) repointed
      and unchanged in value. `retract` is now main:api applied to DELETE and
      the row, replace's shape (the collection's id and exactly one fact type)
@@ -275,7 +275,7 @@ Function 'assert' has Description 'Asserts a list of facts in one step, validate
        Function 'retract' accepts Type Expression 'row-and-cells'.
        Function 'retract' yields Type Expression 'outcome-and-store'.
 
-     MEASURED 2026-09-21 with them in, on the base carriers booted by the
+     MEASURED with them in, on the base carriers booted by the
      test module: lambda's reader compiles these rows, mcp:verbs answers 19
      verbs where it answered 18, and the new row is ('retract',
      'row-and-cells', 'outcome-and-store'). test:verbs holds over
@@ -289,13 +289,13 @@ Function 'assert' has Description 'Asserts a list of facts in one step, validate
      refused 400, `a retract removes one fact, so the row carries the
      collection's id and the one fact type's current value`. The status is
      main:write_answer's for a committed write, the one replace answers.
-     The witness distance the 2026-09-18 paragraph measured is not a
-     measurement any more: since #109 the base carriers are regenerated by
+     The witness distance the paragraph above measured is not a
+     measurement any more: the base carriers are regenerated by
      lambda's own compile, and design-state moved by exactly the six facts
      of that regeneration (these two and llm:validate_judge's four below),
      623,291 -> 623,715 bytes, `compiled` by its stamp alone. -->
-<!-- AND THE KEY ALONE RETRACTS THE ENTITY (2026-09-21, #122 item 9's
-     follow-up, item 8's closure). The row-and-cells shape is unchanged and
+<!-- AND THE KEY ALONE RETRACTS THE ENTITY. The row-and-cells shape
+     is unchanged and
      now admits a second row: one pair, the collection's key. It retracts the
      entity -- every row of every declared fact type in which the id fills an
      entity-typed role (state:declared's players against
@@ -308,7 +308,7 @@ Function 'assert' has Description 'Asserts a list of facts in one step, validate
      one operation, as create's POST and replace's PUT are. The one-fact row
      is byte-for-byte what it was.
 
-     MEASURED 2026-09-21 on the base store booted by the test module, before:
+     MEASURED on the base store booted by the test module, before:
      retract {Function: id} answered 400 `a retract removes one fact` on the
      served route and the direct one; a single-fact retract left the id
      registered (ObjectTypeInstanceIsInstanceOfObjectType kept its row, ui:ids
@@ -338,9 +338,9 @@ Function 'assert' has Description 'Asserts a list of facts in one step, validate
      instance fact types keeps the top-level cells ui:instance_facts wrote by
      name (the Ticket store does); the base and every app store declare them,
      and there they go with the rest. -->
-<!-- AND THE ONE THAT ASKS (Samuel, 2026-09-17: "what the MCP needs is a way of
-     asking you to do something"). The comment above `Operation awaits a driver`
-     has said since 2026-09-14 that these seams "have to be driven manually by an
+<!-- AND THE ONE THAT ASKS (what the MCP needs is a way of
+     asking an LLM to do something). The comment above `Operation awaits a driver`
+     says that these seams "have to be driven manually by an
      llm or a person at those points"; MEANWHILE AN LLM IS ATTACHED, because
      every caller of the MCP is one, and the protocol has the request for exactly
      this -- sampling/createMessage, which a SERVER sends to the CLIENT. So the
@@ -348,7 +348,7 @@ Function 'assert' has Description 'Asserts a list of facts in one step, validate
      and the subject to drive it over, and answers the facts the completion
      commits the store to: the judgement lands as rows, with the Completion that
      produced it beside them, so what a model decided is something someone can
-     contradict rather than a paragraph in a session nobody can audit.
+     contradict rather than a paragraph in a transcript nobody can audit.
 
      `completion-and-cells` IS THE POINT OF THE NEW TYPE EXPRESSION, and it is
      not a shape: main:verb_shapes maps it onto the argument-beside-the-cells
@@ -362,7 +362,7 @@ Operation 'drive' is overridable.
 Function 'drive' accepts Type Expression 'completion-and-cells'.
 Function 'drive' yields Type Expression 'fact-list'.
 Function 'drive' has Description 'Drives a judgment seam. args: [{"operation": name, "subject": id}] answers the question the store asks about the subject and writes nothing; [{"operation": name, "subject": id}, answer] writes the answer as rows, with the Completion that produced them.'.
-<!-- AND THE ONE THAT READS A SOURCE (2026-09-25). `sync` takes a Source -- or the list
+<!-- AND THE ONE THAT READS A SOURCE. `sync` takes a Source -- or the list
      <Source, bindings, cursor, page> -- and answers what the Source`s Connector yields. Handed no
      page it answers the REQUEST, the method, the address and the query parameters the model
      declares, and writes nothing; handed a page, the answer as the host reads any JSON body
@@ -375,10 +375,10 @@ Operation 'sync' is overridable.
 Function 'sync' accepts Type Expression 'response-and-cells'.
 Function 'sync' yields Type Expression 'outcome-and-store'.
 Function 'sync' has Description 'Reads a Source through its Connector and asserts what each page yields, one step per page, until no page follows. args: [source] or [[source, {key: value}]], the bindings filling the parameters the Connector declares. Answers each page: what it asserted, its violations and whether more follow; a connection that declares no live Send Mode answers the request it would send.'.
-<!-- AND THE ONE THAT REPLAYS, BY HAND (2026-10-07, task #198). Sam: such Events are not replayed
+<!-- AND THE ONE THAT REPLAYS, BY HAND. Such Events are not replayed
      automatically, they are a manual fire. A write steps the trigger facts it
-     gains, and an Event that fits no machine when it is recorded fires nothing, then or later
-     (task #173). An Event that reached a machine and that no `Event caused Transition in State
+     gains, and an Event that fits no machine when it is recorded fires nothing, then or later.
+     An Event that reached a machine and that no `Event caused Transition in State
      Machine` names with it is replayed only when someone fires `replay` naming it, or naming an
      instance it reached: oldest first, each cause naming the original Event, so no Event is
      minted. It writes, so it is gated as every write verb is (main:as), and its operand is the
@@ -387,7 +387,7 @@ Operation 'replay' is overridable.
 Function 'replay' accepts Type Expression 'row-and-cells'.
 Function 'replay' yields Type Expression 'outcome-and-store'.
 Function 'replay' has Description 'Replays by hand the Events that reached a state machine and were never consumed, oldest first. args: [name] or [[name, ...]], each an Event or an instance.'.
-<!-- MEASURED 2026-09-11, which is the condition the note these replace set.
+<!-- MEASURED, which is the condition the note these replace set.
      It said derive "reads its first element as a sequence, so it answers to
      <[], populations> and throws on the empty argument an address of one
      element gives it", and that its shape stays off the surface "until the
@@ -412,8 +412,8 @@ Function 'replay' has Description 'Replays by hand the Events that reached a sta
      than while building its operand. query is declared and its operand is
      built as declared; what it does with an empty recipe is a separate
      question this did not settle. -->
-<!-- AND THE THREE STILL UNDECLARED ARE UNDECLARED FOR A MEASURED REASON,
-     2026-09-11. explain, induce and retract have lambda DEFs and are not on
+<!-- AND THE THREE STILL UNDECLARED ARE UNDECLARED FOR A MEASURED REASON.
+     explain, induce and retract have lambda DEFs and are not on
      the served surface, and the missing declaration is not what keeps them
      off it. Each was asked on the base store for every operand the route
      can build, with an empty argument and with a fact type's name:
@@ -429,14 +429,14 @@ Function 'replay' has Description 'Replays by hand the Events that reached a sta
      pair of sequences, retract a sequence of rows -- and the route builds
      its argument half out of the words of an address, which are atoms. No
      declaration reaches them: the operand they want is not one an address
-     can spell. THAT REASONING IS STALE FOR THE FIRST HALF, 2026-09-18:
+     can spell. THAT REASONING IS STALE FOR THE FIRST HALF:
      create took the row WHOLE through main:api rather than through an
      address, and `replace` above does the same for PUT, so a structured
      operand is no longer something an address has to spell. What still
      keeps retract off the surface is a NAME: `retract` already resolves to
      Backus's population-level cell, which answers rows and no store, so
      declaring it would serve that one and not main:retract_step. Freeing
-     the name is the move f1b0202f made for create -- the pipeline under
+     the name is the move made for create -- the pipeline under
      cmd:retract, the name left for the write -- and it is one commit, not
      a design question. explain and induce are untouched by this. That is a question about the address, not about this file,
      and it is why retract answering 247 rows to <[], pairs> is not enough
@@ -451,7 +451,7 @@ Function 'replay' has Description 'Replays by hand the Events that reached a sta
      but mcp:call goes through main:api, which has no mode chain, so this
      is what puts it in mcp:verbs beside the other twelve. -->
 
-<!-- The REGISTERED class (Samuel, 2026-07-13): operations a host may serve
+<!-- The REGISTERED class: operations a host may serve
      through a registered function (kernel.register, origin=registered, the
      Def 9 / Cor 5 (cor:boundary) surface — "Cor. 8" in the original note
      matched no draft's numbering) — an LLM shaping synthesize's wording under the name
@@ -460,8 +460,8 @@ Function 'replay' has Description 'Replays by hand the Events that reached a sta
      fallbacks; the kill switch retires a registration like any row. -->
 Operation 'synthesize' is registrable.
 Operation 'validate' is registrable.
-<!-- llm:validate_judge NAMED HERE ONLY IN PROSE UNTIL NOW (#122 item 7,
-     2026-09-21). The comment above has said since 2026-07-13 that an LLM
+<!-- llm:validate_judge DECLARED AS A FACT, NOT ONLY NAMED IN PROSE.
+     The comment above says that an LLM
      judge flags deontic-only validate entries under this name, but no
      instance fact ever declared it -- a name that lives only in a
      comment is neither an honest `may fill` (registrable) nor a false
@@ -475,7 +475,7 @@ Operation 'validate' is registrable.
      `Violation is of Constraint, has Text, occurred at Timestamp and is
      triggered by Object Type Instance are already the metamodel's`.
      Whether the judge's operand also needs widening to carry
-     `Constraint has Text` is open (#122 item 7, sub-question a) and not
+     `Constraint has Text` is open and not
      decided by this row. Definition Origin 'registered' is ALSO given,
      which synthesize/validate do not carry -- they have a lambda DEF and
      this seam deliberately does not (it is filled only by being named
@@ -489,17 +489,17 @@ Function 'llm:validate_judge' has Definition Origin 'registered'.
 Function 'llm:validate_judge' accepts Type Expression 'descriptor-list'.
 Function 'llm:validate_judge' yields Type Expression 'violation-list'.
 Function 'llm:validate_judge' has Description 'Judges which instances violate a constraint that no predicate decides, from the Text of the constraint.'.
-<!-- the command increment (2026-07-16): compile and apps_compile are the
+<!-- the command increment: compile and apps_compile are the
      parse-and-compile verbs — their reference is the reading-to-DEFS leg
-     (NORMA carries it today as the oracle; a host carries it in
+     (NORMA carries it as the oracle; a host carries it in
      production), which is registration-edge work by the Stage-1 doctrine:
      text enters the system only at the boundary. test:catalog holds every
      catalogued operation to a lambda DEF or a registered row; these two
      resolve here.
 
-     AND COMPILE LEAVES THIS LIST (Sam, 2026-09-21: "Compile should have a
-     lambda implementation with registrations for the db engine. Having
-     compile be an empty slot is wrong"). It was an empty slot exactly as
+     AND COMPILE LEAVES THIS LIST (compile has a
+     lambda implementation with registrations for the db engine, and
+     an empty slot for it is wrong). It was an empty slot exactly as
      the derivation above describes one: registrable, never registered, and
      therefore awaiting a driver -- a reference implementation that no host
      supplied and lambda did not carry. DEF(compile) carries it now, so
@@ -514,7 +514,7 @@ Function 'llm:validate_judge' has Description 'Judges which instances violate a 
      nothing yet answers which directories those are from the store. -->
 Operation 'apps_compile' is registrable.
 
-<!-- The CSDP boundary class (Samuel's ruling, 2026-07-15): the lambda
+<!-- The CSDP boundary class: the lambda
      defines csdp and rmap symbolically (alpha/fold over the design
      state — see the CSDP AS LAMBDA / RMAP AS LAMBDA sections of `arest`),
      and the three names below are the REGISTERED seams those defs apply
@@ -531,7 +531,7 @@ Operation 'csdp:accept_judgment' is registrable.
 
 <!-- REGISTERED BY THE JS HOST, and clock and the crypt pair are added to the registrable
      list at the same time because they were filled without ever being declared fillable.
-     Probed through Ev, 2026-09-14: an unresolved atom is empty, anything else resolved.
+     Probed through Ev: an unresolved atom is empty, anything else resolved.
      What is left registrable and unregistered -- compile, apps_compile, and the three csdp
      seams -- is what `Operation awaits a driver` now derives, and those are the points a
      person or an llm drives by hand. -->
@@ -551,7 +551,7 @@ Operation 'storage:engine' is registered.
 
 ## Def 9 boundary rows
 
-<!-- exec ruling 4b (2026-07-15): the registered surface as instance-fact
+<!-- exec ruling 4b: the registered surface as instance-fact
      verbalizations — Cor 5's enumerable boundary stated as readings. The
      lambda's manifest:origins computes the same boundary from the store by
      set arithmetic (form-aware functional-position walk); the checker mu
@@ -580,7 +580,7 @@ Function 'strip_prefix' has Definition Origin 'compiled'.
 Function 'strip_prefix' accepts Type Expression 'prefix-and-text'.
 Function 'strip_prefix' yields Type Expression 'text'.
 
-<!-- THE COMPILER'S I/O (#109, 2026-09-21). DEF(compile) reads a directory,
+<!-- THE COMPILER'S I/O. DEF(compile) reads a directory,
      reads each reading in it and answers the schema; DEF(compile:schema)
      runs the DDL. Everything between those is lambda. These three are what is
      left, and they are registered because they are outside D: a directory
@@ -592,7 +592,7 @@ Function 'strip_prefix' yields Type Expression 'text'.
      registered and implemented by nobody until it was deleted; these three
      are in tools/js-runner/host.js's PRIMS beside clock and the crypt pair,
      and if that directory goes the binding goes with it and the compiler
-     does not. Measured the same day: DEF(compile) over metamodel answers all
+     does not. Measured: DEF(compile) over metamodel answers all
      22 design-state cells identical to the carrier compile.js used to write
      with its own readdir and readFile. -->
 Function 'fs:dir' has Definition Origin 'registered'.
@@ -601,7 +601,7 @@ Function 'fs:dir' yields Type Expression 'name-list'.
 Function 'fs:read' has Definition Origin 'registered'.
 Function 'fs:read' accepts Type Expression 'path'.
 Function 'fs:read' yields Type Expression 'text'.
-<!-- AND A CARRIER IS READ AS CELLS (2026-09-30). The in-place compile reads a
+<!-- AND A CARRIER IS READ AS CELLS. The in-place compile reads a
      store through the schema that wrote it, which is the last compile's
      carriers beside it. The host's reader of intersection source registers
      what it reads, so reading them that way would replace the schema the
@@ -610,11 +610,11 @@ Function 'fs:read' yields Type Expression 'text'.
 Function 'carrier:cells' has Definition Origin 'registered'.
 Function 'carrier:cells' accepts Type Expression 'text'.
 Function 'carrier:cells' yields Type Expression 'cell-list'.
-<!-- AND WHAT THE COMPILE WRITES, AND THE ENGINE IT WRITES THROUGH (2026-09-29).
+<!-- AND WHAT THE COMPILE WRITES, AND THE ENGINE IT WRITES THROUGH.
      compile.js is deleted and the compile is lambda's address (compile:run),
      so writing its carriers is two more registered calls: fs:write, a text
      written whole at a path, and crypt:digest, the SHA-256 the compiled
-     carrier's stamp is cut from. And storage is an interface now (Sam: coded
+     carrier's stamp is cut from. And storage is an interface now (coded
      to an interface, the sqlite implementation resolving from DEFS through
      it, which is inversion of control): lambda calls storage:schema,
      storage:resolve applies <storage:engine>:<operation>, and the js host
@@ -634,7 +634,7 @@ Function 'storage:engine' yields Type Expression 'identifier'.
 Function 'sqlite:exec' has Definition Origin 'registered'.
 Function 'sqlite:exec' accepts Type Expression 'path-and-sql'.
 Function 'sqlite:exec' yields Type Expression 'path'.
-<!-- AND THE STORE A COMPILE WRITES (2026-09-30). `compile-store` writes
+<!-- AND THE STORE A COMPILE WRITES. `compile-store` writes
      out/store.db through storage:fresh, storage:schema, storage:meta,
      storage:put and storage:install, and the sqlite engine's definitions of
      them are lambda over three more of its calls: sqlite:run, one prepared
@@ -655,7 +655,7 @@ Function 'sqlite:install' yields Type Expression 'path'.
 Function 'module:root' has Definition Origin 'registered'.
 Function 'module:root' accepts Type Expression 'object'.
 Function 'module:root' yields Type Expression 'path'.
-<!-- AND A STORE THAT EXISTS, CHANGED IN PLACE (2026-09-30). The compile
+<!-- AND A STORE THAT EXISTS, CHANGED IN PLACE. The compile
      changes a store that exists in place (compile:inplace) through seven more
      storage operations -- tables, columns, holds, rows, set_aside, fill,
      rewrite -- which the sqlite engine defines in lambda, and three more of
@@ -673,14 +673,14 @@ Function 'sqlite:copy' yields Type Expression 'path'.
 Function 'sqlite:replace' has Definition Origin 'registered'.
 Function 'sqlite:replace' accepts Type Expression 'path-pair'.
 Function 'sqlite:replace' yields Type Expression 'path'.
-<!-- AND A DATABASE WITH NO FILE (task #197, 2026-10-08). sqlite:scratch runs
+<!-- AND A DATABASE WITH NO FILE. sqlite:scratch runs
      a script in a database held in memory and answers a select over it as
      sqlite:query answers one, so a law runs the SQL lambda builds over
      literal rows (test:schema_stored) without a store on disk. -->
 Function 'sqlite:scratch' has Definition Origin 'registered'.
 Function 'sqlite:scratch' accepts Type Expression 'script-and-sql-and-parameters'.
 Function 'sqlite:scratch' yields Type Expression 'rows'.
-<!-- AND A WRITE IS ONE PROGRAM (task #197, step 6a, 2026-10-08).
+<!-- AND A WRITE IS ONE PROGRAM.
      sqlite:program runs the steps lambda builds -- each <kind, sql,
      parameters>, the parameters bound and never spliced -- in order
      between one begin and one commit, in the store at the path or in a
@@ -693,7 +693,7 @@ Function 'sqlite:scratch' yields Type Expression 'rows'.
 Function 'sqlite:program' has Definition Origin 'registered'.
 Function 'sqlite:program' accepts Type Expression 'path-and-steps'.
 Function 'sqlite:program' yields Type Expression 'program-answer'.
-<!-- AND A VALUE THE READINGS STORE THROUGH A FUNCTION (2026-09-30). The
+<!-- AND A VALUE THE READINGS STORE THROUGH A FUNCTION. The
      compile seals such values before it writes anything (compile:sealed), and
      the master key is the platform's to hold, never a value lambda holds:
      hook:seal is the host applying lambda's own hook:write under that key,
@@ -728,7 +728,7 @@ Function 'store:append' has Definition Origin 'registered'.
 Function 'render:button' has Definition Origin 'registered'.
 Function 'render:textbox' has Definition Origin 'registered'.
 
-<!-- exec ruling (2026-07-16): the lambda prefix families declared as
+<!-- exec ruling: the lambda prefix families declared as
      Domains — TENANTS of the base store (namespacing is tenancy:
      Backus 14.7, a cell whose contents is another entire store). Each
      family's definitions are cells within its tenant sub-store; the
@@ -820,20 +820,20 @@ Function 'tlr' has Definition Origin 'registered'.
 Function 'tlr' accepts Type Expression 'sequence'.
 Function 'tlr' yields Type Expression 'sequence'.
 
-<!-- The render surface (2026-07-19, the registration ruling: components
+<!-- The render surface (the registration ruling: components
      register INTO DEFS, never a side table): each abstract control's
      realization is a registered definition a container supplies at its
      OnSetDefinitions moment, so the manifest's total walk computes these
-     rows. #124 (2026-09-21) made the surface the whole pairing table: every
+     rows. The surface is the whole pairing table: every
      kind lambda can place is declared here, because ui:ctl_declared reads
      THIS population and test:paired asks a container whether it registers
      every control in it, and one of the layout engines declared below, and
      a shortfall is a window that dies on the first row naming a kind no
      container was asked to have.
 
-     THE SURFACE IS THE IFACTR INTERFACE SET (Sam, 2026-10-01: the idealized
-     controls are based on the MonoView and iFactr interfaces). The nineteen
-     names declared until today were lambda's own: canvas, headerbar,
+     THE SURFACE IS THE IFACTR INTERFACE SET (the idealized
+     controls are based on the MonoView and iFactr interfaces). Names
+     of lambda's own do not serve: canvas, headerbar,
      titletext, backbtn, sep, itemrow, blocktext, numericfield,
      navigationfield and imagepicker are not iFactr interfaces, and four of
      them were the view's chrome, which iFactr carries as properties of the
@@ -919,7 +919,7 @@ Function 'render:html' has Definition Origin 'registered'.
 Function 'render:html' accepts Type Expression 'placed-rows'.
 Function 'render:html' yields Type Expression 'document'.
 
-<!-- AND EACH PLATFORM REGISTERS ITS OWN (2026-10-02). An engine is told
+<!-- AND EACH PLATFORM REGISTERS ITS OWN. An engine is told
      from a control by what it accepts: placed-rows, the whole of a screen,
      where a control accepts one placed-row or one property-row. test:paired
      asks a container for every control and for one engine, its own, so the
@@ -927,7 +927,7 @@ Function 'render:html' yields Type Expression 'document'.
      for the web's; a container with no engine is refused, and ui:unpaired
      names the engines, any one of which pairs it. render:swing is the Java
      container's, render:wpf the WPF container's and render:slint the Slint
-     surface's (engine/os, Sam 2026-10-01): each draws a screen's placed rows
+     surface's (engine/os): each draws a screen's placed rows
      as its platform's own widgets, where render:html writes a document. Each
      engine is one Render Target in readings/ui/render-target-instances.md. -->
 Function 'render:swing' has Definition Origin 'registered'.
@@ -940,12 +940,12 @@ Function 'render:slint' has Definition Origin 'registered'.
 Function 'render:slint' accepts Type Expression 'placed-rows'.
 Function 'render:slint' yields Type Expression 'screen'.
 
-<!-- The storage surface (2026-07-20, the emit ruling: recording is
+<!-- The storage surface (the emit ruling: recording is
      storage registration; the byte form is lambda, so a worthy driver
      holds nothing but the platform's one durable write). ntoa and
      quote_str sit at the registered boundary beside lex and
      escape_html. (store:append WAS listed here as the effect verb and is
-     gone 2026-08-12: Backus 13.3.4 defines store in the ALGEBRA --
+     gone: Backus 13.3.4 defines store in the ALGEBRA --
      down-arrow-n = pair -> (push n).[1, (pop n).2] over apndl/tl/eq/length --
      and lambda already carries it as ast:Store/ast:Pop/ast:Purge. No host ever
      implemented store:append and nothing but the now-deleted store:effects
@@ -961,7 +961,7 @@ Function '/' has Definition Origin 'registered'.
 Function '/' accepts Type Expression 'number-pair'.
 Function '/' yields Type Expression 'number'.
 
-<!-- The decimal surface (2026-09-15, arest #109). `*` above is exact decimal
+<!-- The decimal surface. `*` above is exact decimal
      multiplication and `/` exact truncation toward zero; neither lands a
      product back in the scale its column declares, because DECIMAL(p1,s1) x
      DECIMAL(p2,s2) is DECIMAL(p1+p2, s1+s2). round<x, s> is that total map
@@ -995,7 +995,7 @@ Function 'clock' has Definition Origin 'registered'.
 Function 'clock' accepts Type Expression 'sequence'.
 Function 'clock' yields Type Expression 'text'.
 
-<!-- The encryption surface (2026-07-20, the hooks ruling: don't assume
+<!-- The encryption surface (the hooks ruling: don't assume
      encryption is just there - the core carries the named seam, a host
      registers real platform crypto only when a domain's data types
      demand it, and an unregistered hook refuses loudly through the mu).
@@ -1010,9 +1010,9 @@ Function 'crypt:decrypt' yields Type Expression 'text'.
 Function 'crypt:encrypt' is inverted by Function 'crypt:decrypt'.
 Function 'crypt:decrypt' is inverted by Function 'crypt:encrypt'.
 
-<!-- AND THE KEY THOSE TWO TAKE HAS TO COME FROM SOMEWHERE (Samuel, 2026-09-15:
-     "Would it make sense to have a canon method to generate a key?" / "and
-     invoke via mcp?"). Not lambda: Def 3 admits only a deterministic,
+<!-- AND THE KEY THOSE TWO TAKE HAS TO COME FROM SOMEWHERE (a method
+     that generates a key, invoked through the MCP).
+     Not lambda: Def 3 admits only a deterministic,
      side-effect-free total function, and a key consumes entropy and answers
      differently every call. Registered, then, in the boundary Cor 8 enumerates
      -- and the host already HAS the entropy, since randomBytes makes

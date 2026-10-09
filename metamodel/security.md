@@ -2,7 +2,7 @@
 
 <!--
 ## Description
-SSRF defense vocabulary (#25, #894). Each `CIDR Block` row in the
+SSRF defense vocabulary. Each `CIDR Block` row in the
 instance fact list below is a network range that External System URLs
 must NOT resolve to. The deontic constraint below makes the policy
 explicit; the killed host's engine read the CIDR list at
@@ -11,10 +11,10 @@ reject any `External System has URL` whose host sits inside one of
 the listed blocks.
 -->
 
-<!-- arest-audit H (10.2 discipline): Before #894 this list lived as a
+<!-- arest-audit H (10.2 discipline): this list is data, not a
      `forbidden_v4 = a == 127 || …` chain in
-     `crates/arest/src/parse_forml2.rs::is_forbidden_url`. The Sweep-1
-     dispatch-to-data lift moves it here so operators can add or retract
+     host code,
+     so operators can add or retract
      ranges without touching Rust — e.g. a tenant operating inside RFC 6598
      (`100.64.0.0/10`, carrier-grade NAT) can add that prefix as one extra
      instance fact and the next compile re-derives the blocklist. -->
@@ -51,13 +51,13 @@ CIDR Block has Block Kind.
 External System resolves to Resolved Address.
   Each External System, Resolved Address combination occurs at most once in the population of External System resolves to Resolved Address.
   <!-- What the host of the system's URL resolved to when a request to it was
-       made (2026-10-01, Sam: "keep SSRF check"). Recorded by the performer at
+       made, which keeps the SSRF check honest. Recorded by the performer at
        the send, the one moment the name is looked up, so the store holds the
        address a request actually went to and not one written down for it. -->
 
 ### Authorization
-<!-- Permission is restriction by authorization and authentication (Sam,
-     2026-10-06). A caller sees, and may take, only the controls it is
+<!-- Permission is restriction by authorization and
+     authentication. A caller sees, and may take, only the controls it is
      authorized for (AREST.tex, Theorem thm:hateoas: links_c(e) is nav(e) and
      transitions(status(e)) intersected with auth_P(c)). An application grants
      authorization in plain readings, by derivation rules over this fact type,
@@ -68,13 +68,13 @@ User is authorized for Permission on Function. +
 
 User is authenticated.
 
-<!-- DENY BY DEFAULT, GRANTED BY FACTS (Sam, 2026-10-06: "A user only has read
-     or write access to a resource if their group or user has that permission.
-     So, resources are deny-by-default unless users are not included in the
-     universe of discourse or if access permissions are given for any user on a
-     resource"; "there should be no custom FORML syntax or magic phrases, and
-     permissions must be set via permission fact verbalizations"; groups are
-     both roles and organizations, "c").
+<!-- DENY BY DEFAULT, GRANTED BY FACTS. A user only has read
+     or write access to a resource if their group or user has that permission,
+     so resources are deny-by-default unless users are not included in the
+     universe of discourse or access permissions are given for any user on a
+     resource. There is no custom FORML syntax or magic phrase:
+     permissions are set via permission fact verbalizations, and groups are
+     both roles and organizations.
      A permission is a fact of one of four fact types, verbalized like any
      instance fact:
        to one user        User 'u' is authorized for Permission 'create' on Function 'F'.
@@ -86,13 +86,13 @@ User is authenticated.
      has, or to an organization the user belongs to; everything else is denied.
      A grant on an entity type is a grant on all of it: every fact type it
      plays a role in, its columns, unless a column is constrained by a grant of
-     its own (Sam, 2026-10-06: "A grant on an entity grants its full entity
-     access unless a column is constrained").
+     its own: a grant on an entity grants its full entity
+     access unless a column is constrained.
      The any-user grant and the open case -- an application whose readings
      declare no User at all -- are read where the controls are computed
      (auth:links), not multiplied out per user here. There is no
-     `It is permitted that` (Sam, 2026-10-06: "It should be dropped as a
-     feature. I just want permissions to work via canonical FORML."): access
+     `It is permitted that` feature;
+     permissions work via canonical FORML, and access
      is only ever these facts.
      Access Role, not Role: Role is the ORM role (core.md). -->
 Access Role(.Name) is an entity type.
@@ -109,15 +109,15 @@ Access Role is authorized for Permission on Function.
 
 ### SSRF Blocklist
 
-<!-- Decided by a function (2026-09-30, Sam: "B-D OK"). The sentence was "It
-     is forbidden that External System URL resolves to host in CIDR Block".
-     It built no constraint. decide:ssrf in lambda answers each External
+<!-- Decided by a function, not by the sentence "It
+     is forbidden that External System URL resolves to host in CIDR Block",
+     which builds no constraint. decide:ssrf in lambda answers each External
      System whose URL names a host in a CIDR Block below: a dotted quad, a
      bracketed IPv6 literal, or localhost. That is what the killed host's
      is_forbidden_url judged, from the URL as written. A hostname is NOT
      resolved: that is network I/O, which a deontic computed on every write
      must not wait on. A hostname that resolves into a blocked range is
-     caught where the request is made (2026-10-01): the performer resolves
+     caught where the request is made: the performer resolves
      the host before a live send, refuses the send when any address it gets
      lies in a CIDR Block below, and records each address as `External System
      resolves to Resolved Address`. decide:ssrf reads those records too, so a
@@ -134,7 +134,7 @@ Predicate 'decide:ssrf' has Symbol Name 'decide:ssrf'.
 ## Instance Facts
 
 <!-- arest-audit H (10.2 discipline): The eight CIDR Block entries below
-     mirror the pre-#894 hardcoded IPv4/IPv6 dispatch in
+     mirror the former hardcoded IPv4/IPv6 dispatch in
      `is_forbidden_url`. Each row's `Block Kind` documents the rationale;
      `cidr_contains` only reads the id (the CIDR string itself, now the Function id). Order
      is the same as the legacy code's branch ordering so a row-by-row audit

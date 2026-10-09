@@ -2,7 +2,7 @@
 
 <!--
 ## Description
-Vocabulary for the induce Func (#846-#852). The engine's search loop
+Vocabulary for the induce Func. The engine's search loop
 populates Hypothesis Candidate facts; ranking is AUTOMATED and domain-
 agnostic (forward-chain COVERAGE of the observed facts (the gate) plus
 SIMPLICITY/MDL [fewest hidden facts; Occam/Solomonoff]) NOT hand-
@@ -48,8 +48,8 @@ Hypothesis Candidate targets Fact Type.
 Hypothesis Candidate has Recipe Text.
   Each Hypothesis Candidate has exactly one Recipe Text.
 For each Fact Type and Recipe Text, at most one Hypothesis Candidate targets that Fact Type and has that Recipe Text.
-  <!-- extensional identity as EXTERNAL UNIQUENESS (2026-07-17, Samuel's
-       ruling: identity through external uniqueness constraints is
+  <!-- extensional identity as EXTERNAL UNIQUENESS (
+       identity through external uniqueness constraints is
        explicitly supported in NORMA — use the canonical mechanism, do
        not hold identity as prose): a candidate IS its target-recipe
        pair (Prop 3; no minting, surrogates are the boundary's

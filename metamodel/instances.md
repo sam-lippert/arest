@@ -1,6 +1,6 @@
 # AREST Instances: Runtime Entities
 
-<!-- Layer (arest-batch task 3): AREST-extension vocabulary end to end —
+<!-- Layer: AREST-extension vocabulary end to end —
      the runtime side (Object Type Instance, State Machine, Event, Fact instances,
      Guard Run, User, Citation). ORM canon models schemas; populations
      here are Thm 1's FILE cell made addressable. Everything homes under
@@ -10,8 +10,8 @@
 
 Object Type Instance is an entity type.
   Object Type Instance is a subtype of Function.
-<!-- 2026-07-09 (Samuel, NORMA-grounded): Object Type Instance was a subtype of Noun, a
-     GraphDL "Graph Schema is a Noun" artifact. In NORMA's own metamodel
+<!-- NORMA-grounded: Object Type Instance is not a subtype of Noun (that was a
+     GraphDL "Graph Schema is a Noun" artifact). In NORMA's own metamodel
      (ORMCoreMetaModel.orm) ObjectType and FactType are DISJOINT SIBLINGS —
      both <: ORMNamedElement, and FactType is NEVER a subtype of ObjectType.
      Halpin: subtyping holds only between object types; a fact type is
@@ -105,9 +105,9 @@ Fact belongs to Domain. **
        derivation so a Fact's domain is the domain of its Fact Type. -->
 Fact is completed.
 Fact is example.
-<!-- `Fact cites Citation` moved to `Function cites Citation` (2026-09-10, Sam:
-     "shouldn't we get Citation analysis moved to a supertype so that we don't
-     have to keep redeclaring that for every type?"). A Fact is an Object Type
+<!-- A Fact cites a Citation through `Function cites Citation`: citation lives
+     on the supertype so that it is not redeclared for every
+     type. A Fact is an Object Type
      Instance and so a Function; the role it plays is inherited. See the
      Citation section below. -->
 
@@ -122,8 +122,8 @@ Event is created by State Machine.
   It is possible that more than one Event is created by the same State Machine.
 Transition occurred at Timestamp. *
   Each Transition, Timestamp combination occurs at most once in the population of Transition occurred at Timestamp.
-  <!-- value-comparison increment (2026-07-16): outcomes.md:100 referenced
-       this fact type without a declaration anywhere — the silent-Replacement
+  <!-- value-comparison increment: outcomes.md references this fact type, so
+       it is declared here, against the silent-Replacement
        defect class. A Transition (a definition-level edge) has no clock of
        its own: it occurred at every Timestamp at which some Event caused it,
        so the fact type is fully derived (rule below; recipe in the lambda's
@@ -184,7 +184,7 @@ Function cites Citation.
 Object Type Instance is instance of Object Type.
   Each Object Type Instance, Object Type combination occurs at most once in the population of Object Type Instance is instance of Object Type.
   Each Object Type Instance is instance of some Object Type.
-<!-- 'exactly one Noun' was NON-CANONICAL (challenged 2026-07-09, verified
+<!-- 'exactly one Noun' is NON-CANONICAL (verified
      against Halpin, "Subtyping Revisited", NORMA): in ORM subtyping is
      population inclusion — "all instances of one type are also instances
      of a more encompassing type" — so an entity is legitimately an
@@ -203,20 +203,20 @@ Object Type Instance is properly of Object Type. **
   Each Object Type Instance, Object Type combination occurs at most once in the population of Object Type Instance is properly of Object Type.
 Object Type Instance is most specifically of Object Type. **
   Each Object Type Instance, Object Type combination occurs at most once in the population of Object Type Instance is most specifically of Object Type.
-  <!-- AN INSTANCE'S DOMAIN IS ITS MOST SPECIFIC TYPE'S (2026-09-28). The
+  <!-- AN INSTANCE'S DOMAIN IS ITS MOST SPECIFIC TYPE'S. The
        membership above is transitive, and rightly so: a Customer is an
        instance of Customer and of User, since support.auto.dev declares
-       Customer a subtype of User. The bridge below related an instance to
-       EVERY type it is an instance of, so with Customer in database-routing
-       and User in instances each customer derived two domains, against `Each
+       Customer a subtype of User. A bridge relating an instance to
+       EVERY type it is an instance of would, with Customer in database-routing
+       and User in instances, derive two domains per customer, against `Each
        Object Type Instance belongs to at most one Domain`. The compiled store
-       carried one, and every runtime closure re-derived two, so the first
-       write of a session committed and every write after it was refused
-       (pm.auto.dev, 2026-09-28, on a copy of support). An instance is
+       would carry one and every runtime closure re-derive two, so after the
+       first write every write would be refused
+       (pm.auto.dev measured it on a copy of support). An instance is
        PROPERLY of a type when it is an instance of some subtype of it, and
        MOST SPECIFICALLY of the types it is an instance of and not properly of.
        Direct subtype links are enough, because the membership already holds
-       every ancestor. The bridge now reads the most specific types, which is
+       every ancestor. The bridge reads the most specific types, which is
        how reflect:fbd already files an instance's own Function. A spelling
        typed by several unrelated value types -- '1' as a Pane Weight and as a
        Priority -- is several values that share a key, since the store keys an
@@ -262,7 +262,7 @@ Object Type Instance has Value.
 Object Type Instance is created by User.
   Each Object Type Instance is created by at most one User.
 Object Type Instance is required orientation.
-  <!-- Sam, 2026-10-08: what an agent reads first when it re-orients, after a compact
+  <!-- What an agent reads first when it re-orients, after a compact
        or at the start of a session. orient answers the facts of each instance in scope
        that holds this, beside each Domain's Description, so a memory, a working rule or
        a task can orient an agent and lambda never names an app's fact type. -->
@@ -275,8 +275,8 @@ RoleInstance objectifies "Fact fills Role".
 RoleInstance is a subtype of Function.
 RoleInstance uses Object Type Instance.
   Each RoleInstance uses exactly one Object Type Instance.
-  <!-- one-table wave (2026-07-16): Halpin's nesting transformation of the
-       former `Fact uses Object Type Instance for Role` (compound key Fact+Role): the
+  <!-- one-table wave: Halpin's nesting transformation of
+       `Fact uses Object Type Instance for Role` (compound key Fact+Role): the
        filled-role pair objectifies, its resource rides functionally
        (exactly one — a filling IS a usage), and the compound-key ternary
        leaves the schema. -->
@@ -302,7 +302,7 @@ User has Email.
        and the email survives as a mandatory 1:1 secondary reference. -->
 
 User is human.
-  <!-- Sam, 2026-10-06: "Let's change Human to be an attribute of a user."
+  <!-- Human is an attribute of a user.
        A User is a role over the one id space, and an agent or an
        organization may play it (core.md, the party kinds); this says the
        user is a person. It replaces core's `Human` kind, which no fact type
@@ -314,7 +314,7 @@ State Machine is instance of State Machine Definition. **
 State Machine is instance of Object Type.
   Each State Machine, Object Type combination occurs at most once in the population of State Machine is instance of Object Type.
   Each State Machine is instance of some Object Type.
-<!-- 'exactly one Noun' relaxed 2026-07-09 (Samuel: fix the SM readings),
+<!-- 'exactly one Noun' is relaxed here too,
      the SAME non-canonical case as Object Type Instance (see the Object Type Instance note). This
      ft is a REFLECTION cell (protocol.py REFLECTION set) like
      Object Type Instance_is_instance_of_Noun, populated by schema self-description,
@@ -325,28 +325,28 @@ State Machine is instance of Object Type.
      NOT a reflection cell and stays exactly-one pending its own
      disambiguation. -->
 
-<!-- task-987 / junk-writer-3: the SM seed has ALWAYS written this
+<!-- junk-writer-3: the SM seed writes this
      triple at runtime (compile.rs sm seed: instance_of_Noun +
-     for_Object Type Instance + currently_in_Status), but the fact type was never
-     DECLARED — so cor:closure's orphan GC dropped the population at
-     every compile and the next SM init re-minted it, forever
-     (arc-agi-3 issue-13 forensics). Declaring the engine's own
+     for_Object Type Instance + currently_in_Status). Undeclared, the fact type
+     would be an orphan — cor:closure's orphan GC would drop the population at
+     every compile and the next SM init re-mint it, forever.
+     Declaring the engine's own
      vocabulary makes the population legal, persistent, queryable
      (a 3NF table), and subject to validate — the substrate-derived
-     987 ruling: complete the self-description, never scope it. -->
+     ruling: complete the self-description, never scope it. -->
 State Machine is for Object Type Instance.
   For each Object Type Instance, at most one State Machine is for that Object Type Instance.
-<!-- AND NOW IT HAS A DERIVER, AND HAD NONE FOR THE WHOLE OF ITS LIFE
-     (2026-09-17). This cell held 0 rows in every store ever built, so no
-     State Machine instance had ever existed, so `State Machine is currently
-     in Status` was empty too and the store could answer no question about
-     what state anything was in — the three rules that stand on them (the
+<!-- AND IT HAS A DERIVER. Without one this cell holds 0 rows, so no
+     State Machine instance exists, so `State Machine is currently
+     in Status` is empty too and the store can answer no question about
+     what state anything is in — the three rules that stand on them (the
      instance-of-definition rule, the seed rule and the Object Type Instance
-     projection below) were correct and starved. Measured on
-     support.auto.dev: 0 and 0, beside 4,343 registered Object Type
+     projection below) are correct and starved. Measured on
+     support.auto.dev without it: 0 and 0, beside 4,343 registered Object Type
      Instances, 15 State Machine Definitions and 15 effective-initial rows.
-     An application whose purpose is a workflow had no worklist, and a human
-     noticed instead.
+     An application whose purpose is a workflow then has
+     no worklist,
+     and only a human notices.
 
      The deriver is lambda's, not a rule's, and it is an EVALUATOR-PHASE
      OBLIGATION of exactly the standing `Status is effective initial in State
@@ -375,28 +375,28 @@ State Machine is for Object Type Instance.
      read; a caller who wants requests rather than machines joins through
      this cell, which is what that projection means. -->
 <!-- arest-audit F: a duplicate `State Machine is for Object Type Instance. *` stood
-     here — a fully-derived marker whose rule was REMOVED 2026-06-12 (see
+     here — a fully-derived marker whose rule was REMOVED (see
      the note below); the orphaned `*` declared meaning the readings could
-     not deliver, while the real writers are the SM seed and the task-929
+     not deliver, while the real writers are the SM seed and the for-instance
      backfill. The asserted fact type above is the truth. -->
 
-<!-- [REMOVED 2026-06-12, board-derived-layer poisoning] The rule
+<!-- [NOT DECLARED: board-derived-layer poisoning] The rule
      `* State Machine is for Object Type Instance iff Object Type Instance is instance of Noun
      and some State Machine Definition is for that Noun.` is
-     UNDERSPECIFIED: it cannot bind WHICH State Machine, so it emitted
-     one-role partial tuples. Starved for months (its antecedent
-     `Object Type Instance is instance of Noun` was empty), it activated the moment
-     the task-987 membership reflection populated that cell — the
-     partials landed first in the Object Type Instance-keyed cell and
-     KeyConflict-displaced every real SM-for-Object Type Instance fact, emptying
+     UNDERSPECIFIED: it cannot bind WHICH State Machine, so it emits
+     one-role partial tuples. Once
+     `Object Type Instance is instance of Noun` is populated, by
+     the membership reflection, the
+     partials land first in the Object Type Instance-keyed cell and
+     KeyConflict-displace every real SM-for-Object Type Instance fact, emptying
      the entire Task derived layer downstream (status bridge,
      recommendation markers). The REAL writers are the SM seed
-     (compile.rs s0 trio) and the task-929 for-Object Type Instance backfill; the
+     (compile.rs s0 trio) and the for-Object Type Instance backfill; the
      chain-side arity-completeness guard is the defense-in-depth. -->
 
 
 ### State (projected from SM via State Machine is for Object Type Instance × State Machine is currently in Status)
-<!-- task-742 rename context: post-rename the canonical SM status
+<!-- The canonical SM status
      lives in State_Machine_is_currently_in_Status, keyed by the
      SM entity id; the per-Object Type Instance projection materialises via the
      SM-for-Object Type Instance role chain. Object Type Instance is an abstract noun so
@@ -408,21 +408,21 @@ State Machine is for Object Type Instance.
      that Status."  -->
 Object Type Instance is currently in Status. *
   Each Object Type Instance is currently in at most one Status.
-<!-- AND THIS ONE IS COMPUTED BESIDE THE MACHINE (2026-09-17,
-     reflect:otistatus). The rule below says what the population MEANS and
+<!-- AND THIS ONE IS COMPUTED BESIDE THE MACHINE
+     (reflect:otistatus). The rule below says what the population MEANS and
      stays; what it could not do is stay single-valued, for the seed-rule
      reason recorded beside `State Machine is currently in Status`
      below. It
      is the same walk over the same main:status_pop, so an instance's status,
      its machine's status and the menu `actions` offers are one answer. -->
 
-<!-- task-955/924 (exec-6 hygiene: was a #-styled pseudo-comment): key the
-     SM-keyed status projection so it stays single-valued. The killed
-     host's imperative transition write AND the SM event-fold both wrote
+<!-- Key the
+     SM-keyed status projection so it stays single-valued. A transition
+     write AND the SM event-fold both write
      `State_Machine_is_currently_in_Status`; without this UC the cell is
      un-keyed, so the chain folds it by full tuple and the event-fold
      (which emits one status per triggered event) ACCUMULATES every
-     historical status — the 923/924 readback artifact. Keyed by State
+     historical status, a readback artifact. Keyed by State
      Machine, keyed-upsert collapses the per-resource emits to
      last-write-wins (the latest transition target, in transition_table
      declaration order). -->
@@ -430,8 +430,8 @@ State Machine is currently in Status. +
   Each State Machine is currently in exactly one Status.
   <!-- audit-fix A4: semi-derived — the seed-branch rule below derives the
        initial occupancy; runtime transitions assert the moves. -->
-  <!-- AND NOTHING EVER ASSERTED A MOVE, because nothing ever had a machine
-       to move (2026-09-17). A fire in this repo asserts the TRIGGER FACT and
+  <!-- AND THE MOVE IS A FOLD, NOT AN ASSERTION.
+       A fire in this repo asserts the TRIGGER FACT and
        nothing else (lambda ui:apply, "a fire is an event fact asserted"), and
        the status is the fold over those facts — so the population is a
        function of rows that are already durable, and a restart recomputes it
@@ -455,11 +455,11 @@ State Machine is currently in Status. +
 ### Event caused Transition in State Machine
 Event caused Transition in State Machine.
   In each population of Event caused Transition in State Machine, each Event, Transition, State Machine combination occurs at most once.
-  <!-- NOT OBJECTIFIED (2026-09-23). It was, as `Event Caused Transition`, and it
-       played no role outside its own link fact types -- asked of SYSTEM,
-       `sel ObjectTypePlaysRole 1 EventCausedTransition` -- so it was never used
-       as a noun, and an objectified fact type exists only to be one (Sam,
-       2026-09-23). The UC above spans all three roles, so Halpin 2008 10.3
+  <!-- NOT OBJECTIFIED. As `Event Caused Transition` it
+       plays no role outside its own link fact types -- asked of SYSTEM,
+       `sel ObjectTypePlaysRole 1 EventCausedTransition` -- so it is not used
+       as a noun, and an objectified fact type exists only to be
+       one. The UC above spans all three roles, so Halpin 2008 10.3
        step 1 keys it on them; its name is its own reading's now. -->
 
 ## Subset Constraints
@@ -514,9 +514,9 @@ Guard Run has Result.
      and retire the bridge; until then the bridge is the readings-only form
      that materialises the single-sourced domain. -->
 
-<!-- arest audit-fix A1 (2026-07-15): the four bridge rules are LIVE
-     again. The 2026-06-22 disablement ("convergence-cycle ...
-     absorbed-Function self-reference") was a defect of the killed host's
+<!-- arest audit-fix A1: the four bridge rules are LIVE.
+     A "convergence-cycle ... absorbed-Function self-reference"
+     is a defect of the killed host's
      deriver, never of the math — these are stratified positive joins with
      no value introduction (Lem 1), and the readings above wore `*`
      markers that nothing delivered: drift wearing a derivation mark. The
@@ -555,7 +555,7 @@ Guard Run has Result.
          is NOT lifted — the `same entity as` identity equi-binding the safe
          rule would need is NOT supported by the parser (verified: no
          `same entity as` lowering in parse_forml2), and the underspecified
-         partial-tuple form was REMOVED 2026-06-12 for KeyConflict-displacing
+         partial-tuple form is not declared, for KeyConflict-displacing
          real facts (instances.md 155-167). So compile_sm_for_resource_backfill_for
          is RETAINED.
 
@@ -587,5 +587,5 @@ Guard Run has Result.
 ## Instance Facts
 
 <!-- The instance level belongs to core: an entity is of the Domain of its type, and a
-     value has no Domain (Sam, 2026-10-09). -->
+     value has no Domain. -->
 Domain 'core' has Description 'Extracted from NORMA ORM2 model (design/html/). The canonical FORML 2 metamodel against which every user domain is a subtype binding.'.

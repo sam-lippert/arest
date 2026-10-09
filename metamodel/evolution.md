@@ -12,8 +12,8 @@ Domain Change is a subtype of Object Type Instance.
        below join through them. -->
 Signal is an entity type.
 Signal is a subtype of Object Type Instance.
-<!-- arest-audit I+J (NORMA CompatibleSupertypesError x4; Samuel's
-     ontology lens, 2026-07-15): `Model Element(.id)` is retired. As a
+<!-- arest-audit I+J (NORMA CompatibleSupertypesError x4; the
+     ontology lens): `Model Element(.id)` is retired. As a
      second identification root declared a supertype of Reading / Noun /
      Constraint / Fact Type / Status / Transition, it handed four types two
      unrelated identification paths — NORMA refused all four. But the
@@ -23,7 +23,7 @@ Signal is a subtype of Object Type Instance.
      Change proposes a DEFINITION — so one open fact type, `Domain Change
      proposes Function`, replaces the closed six-way enumeration. The six
      kinds stay recoverable by restriction on what the proposed Function
-     is, and new definition kinds (a Derivation Rule today, tomorrow's
+     is, and new definition kinds (a Derivation Rule now, any later
      kind) are proposable without constraint surgery — as Cor 4's closure
      requires of the self-modification vocabulary. -->
 
@@ -31,7 +31,7 @@ Signal is a subtype of Object Type Instance.
 
 Rationale is a value type.
   The data type of Rationale is text.
-<!-- `Signal Source` (retired 2026-07-24) answered TWO questions with one
+<!-- `Signal Source` (retired) answered TWO questions with one
      mandatory value: 'Constraint Violation' and 'Error Pattern' named a
      phenomenon the system detected, 'Feature Request' and 'Support
      Request' named an artifact a person produced, and 'Human' named who
@@ -64,9 +64,9 @@ Domain Change targets Domain.
 Domain Change retires Reading.
   Each Domain Change, Reading combination occurs at most once in the population of Domain Change retires Reading.
   It is possible that some Domain Change retires more than one Reading and that more than one Domain Change retires the same Reading.
-  <!-- Sam, 2026-10-06: "A domain change should create a fact type from
-       a reading. The fact type may be retracted, but the reading will
-       persist." Retiring a Reading retracts the Fact Type it created
+  <!-- A domain change creates a fact type from
+       a reading. The fact type may be retracted, but the reading
+       persists. Retiring a Reading retracts the Fact Type it created
        (its Roles and its stored rows) once exactly one User approves the
        Domain Change and the readings no longer declare that fact type.
        The Reading stays, with its Text spelled out in its players' names
@@ -96,7 +96,7 @@ Signal has Signal Kind.
 Signal is raised by Object Type Instance.
   Each Signal is raised by exactly one Object Type Instance.
   <!-- Object Type Instance is the party mixin, so a Human, an Organization or
-       an Agent - the agents module's type since 2026-09-17, not core's -
+       an Agent - the agents module's type, not core's -
        may raise a signal - which is the point: automated origins
        finally have a raiser to name. `exactly one` is the throat: every
        signal is somebody's. -->        
@@ -119,7 +119,7 @@ Domain Change is applied.
 
 ### Function supersession
 
-<!-- THE MEMORY DOMAIN (2026-08-31). Function is the one id space over
+<!-- THE MEMORY DOMAIN. Function is the one id space over
      every definition - Object Type, Fact Type, Reading, Constraint and a
      host registration all identify through Function(.id) - so retirement
      needs no new object type and no new namespace: it is one ring over
@@ -168,7 +168,7 @@ Each Domain Change proposes some Function.
 
 It is obligatory that each Domain Change has exactly one Rationale.
 
-<!-- THE SELF-MODIFICATION GATE (reworded 2026-07-24, ruling: "it always
+<!-- THE SELF-MODIFICATION GATE ("it always
      has to be one Human. There must be a throat to choke.").
      The gate moved from the signal's ORIGIN to the change's APPROVAL,
      because that is where accountability actually sits: what makes a
@@ -185,18 +185,18 @@ It is obligatory that each Domain Change has exactly one Rationale.
      ... exactly one ...` is the form the metamodel already uses for a
      cardinality claim, and deontic bodies here are classified rather
      than mapped, so an ambiguous one would never have been caught.
-     Note this gate is now load-bearing in a way it was not
-     before - User became a ROLE type over the mixin (5f11814d), so a
-     User need not be a Human: an Agent, the agents module's type since
-     2026-09-17 rather than core's, may be one and could otherwise
+     Note this gate is load-bearing: User
+     is a ROLE type over the mixin, so a
+     User need not be a Human: an Agent, the agents module's type
+     rather than core's, may be one and could otherwise
      approve its own rewrite of the core. The Human requirement is what
      keeps that from happening,
      and it must be stated HERE because it is no longer implied by the
      subtype lattice. -->
-<!-- EVERY DOMAIN, not an enumeration (Sam, 2026-09-15: "It must always be
+<!-- EVERY DOMAIN, not an enumeration (a change must always be
      gated by human approval, but either agents or humans may propose fact
      types and mutations to them along with instructions for how to modify
-     changed data"). This read `targeting Domain 'core'` and again
+     changed data). This read `targeting Domain 'core'` and again
      `targeting Domain 'evolution'`, which is a list somebody has to keep,
      and the proof that it does not get kept was the third line: an 'ethics'
      gate was written, found to name a domain declared nowhere, and parked
@@ -220,10 +220,10 @@ It is obligatory that each Domain Change has exactly one Rationale.
      carries it, since Migration is a subtype of Function, which is exactly
      the openness the ontology-lens comment above was written for -- and
      applying one is a Domain Change being applied, so it arrives here. -->
-<!-- AND IT IS STATED AGAINST THE TYPE THAT PLAYS THE ROLE (2026-09-17).
+<!-- AND IT IS STATED AGAINST THE TYPE THAT PLAYS THE ROLE.
      `Human` plays no role in any fact type - it is a bare Object Type
-     Instance subtype beside Organization (core.md:248; Agent stood there
-     too until 2026-09-17, when it moved to the agents module) - so the
+     Instance subtype beside Organization (core.md:248; Agent is
+     declared by the agents module) - so the
      obligation named a type the approval fact does not mention, and NORMA
      refuses it by name. It was carried by nothing: state:deontics had no
      row for it, so the gate that this whole comment is about was enforced
@@ -238,7 +238,7 @@ It is obligatory that each Domain Change has exactly one Rationale.
      it to the applied ones is a join the deontic row shape has no legs
      for.
      AND `exactly one` IS NOT A UNIQUENESS ON THIS FACT TYPE (measured
-     2026-09-17, the same day, and against the oracle rather than lambda's
+     against the oracle rather than lambda's
      reader alone). `exactly one User approves that Domain Change` builds an
      internal uniqueness over the DOMAIN CHANGE ROLE ALONE, and that span is
      narrower than the spanning uniqueness declared above, so the reader that
@@ -279,7 +279,7 @@ It is obligatory that each Domain Change has exactly one Rationale.
      (engine/shared/scenarios.canon, case:a-second-approver-is-not-a-throat)
      and compile-store declines the Migration.
      WHAT THIS GIVES UP, said rather than lost: `Human` also said an Agent -
-     a type the agents module declares since 2026-09-17, not one this
+     a type the agents module declares, not one this
      metamodel has of its own - may not sign off its own rewrite, and User
      being a role over the mixin means an Agent may be a User. That half was
      never enforced either, and
@@ -288,18 +288,18 @@ It is obligatory that each Domain Change has exactly one Rationale.
      about how many there are. It belongs in its own sentence, against a
      fact type that carries it, and is not smuggled into a cardinality. -->
 It is obligatory that if some Domain Change is applied then some User approves that Domain Change.
-<!-- THE HALF GIVEN UP ABOVE, NOW STATED (2026-10-06). With Human an attribute
+<!-- THE HALF GIVEN UP ABOVE, NOW STATED. With Human an attribute
      of a user (`User is human`, instances.md), whether the approver is a
      person is a fact the approval can be joined to, so "it always has to be
      one Human" is said of the User who approves: an Agent that is a User may
      propose a change, never sign it off. -->
 It is obligatory that if some User approves some Domain Change then that User is human.
-<!-- Restated 2026-10-05 (task #186; Sam: "Deontics should work"). It read
+<!-- Restated so that the deontic works. It read
      "It is obligatory that for each applied Domain Change, some User
      approves that Domain Change". The reader matched Domain Change in the
      subject, dropped `applied`, and marked a mandatory on every Domain
-     Change's role in User approves Domain Change; that mark was checked by
-     nothing until now, and checked it would have warned for every Domain
+     Change's role in User approves Domain Change; that mark, once
+     checked, would have warned for every Domain
      Change not yet approved, applied or not. A for-each subject with a word
      that names no object type is now reported UNBUILT. The conditional form
      says the rule as written and builds it: a deontic subset, each applied
@@ -381,7 +381,7 @@ Transition 'apply' is from Status 'Approved'.
 Transition 'apply' is to Status 'Applied'.
 Transition 'apply' is triggered by Event Type 'Domain Change is applied'.
 
-<!-- AN APPLIED DOMAIN CHANGE RE-MAPS THE TABLES IT TOUCHES (task #197, step 3; Sam, 2026-10-08). Bound
+<!-- AN APPLIED DOMAIN CHANGE RE-MAPS THE TABLES IT TOUCHES. Bound
      to a lambda function as a decider is; the function takes the store (perform:on_store) and answers
      it with the Relational Schema rows of the tables the change touches re-mapped, and the write's
      emit runs the DDL their difference implies (schema:emit_ddl). -->
@@ -395,9 +395,9 @@ Predicate 'remap touched tables' has Symbol Name 'schema:dc_remap'.
      self-modification SM uses the framework's own guard machinery. -->
 Guard 'valid-domain-change' guards Transition 'approve-change'.
 Guard 'valid-domain-change' references Fact Type 'DomainChangeIsValid'.
-<!-- THE ID, NOT THE READING (ruling 2026-09-01, Samuel: "A reference type in
-     a fact is always filled by the reference id. The id refers to the entity,
-     the reading refers to the predicate text."). This said `Fact Type 'Domain
+<!-- THE ID, NOT THE READING (a reference type in
+     a fact is always filled by the reference id: the id refers to the entity,
+     the reading refers to the predicate text). This said `Fact Type 'Domain
      Change is valid'`, which fills the role with the PREDICATE TEXT — the
      reading — where the role player is the fact type itself and is carried by
      its id.

@@ -1,13 +1,13 @@
 # JS Library Imports
 
-<!-- Ported 2026-07-31 from readings/core/imports.md (last touched
-     2026-05-05). No counterpart existed under metamodel/, so this file was
-     the residue of the readings/core -> metamodel merge rather than a
-     superseded copy. Vocabulary map applied per the 2026-07-15 ruling in
-     core.md: Verb -> Predicate; the (.Name) reference mode is dropped and
-     JS Package identifies through Function(.id) like every other entity
-     type here. Fact types, constraints, and instance facts are otherwise
-     carried over verbatim. -->
+<!-- This file uses the core.md
+     vocabulary: a bound callable is a
+     Predicate, not a Verb;
+     there is no (.Name) reference
+     mode, and JS Package
+     identifies through Function(.id)
+     like every other entity
+     type here. -->
 
 ## Entity Types
 
@@ -45,7 +45,7 @@ JS Package has Package Manager.
   Each JS Package has at most one Package Manager.
 
 ### The dependency graph, which package.json already states and nothing modelled
-<!-- Added 2026-09-05. tools/norma-oracle-tests/corpora.md opens by saying what
+<!-- tools/norma-oracle-tests/corpora.md opens by saying what
      a corpus is: "an app's readings closure as its package.json declares it".
      It then spells that closure out as a hand-kept list of
      `Corpus 'X' reads Directory 'Y'` lines, one per dependency per app, which
@@ -83,9 +83,9 @@ Predicate has Symbol Name.
   Each Predicate has at most one Symbol Name.
 
 Predicate is bound. *
-<!-- A NAME IS NOT A BINDING (2026-09-11). Sam's own parenthesis when he split
-     the deciders says what a Predicate is: "a Predicate is already a bound
-     function (has Name, Module Path, Symbol Name)" (core.md, 2026-09-05), and
+<!-- A NAME IS NOT A BINDING. A Predicate
+     is a bound function: it has a
+     Name, a Module Path and a Symbol Name (core.md), and
      the three come together because a Predicate without the last two resolves
      to nothing. support.auto.dev has two that do not: breach-precedes-
      notification and consent-on-file carry a Name and no Module Path, no

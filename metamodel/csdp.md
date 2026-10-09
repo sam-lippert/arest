@@ -30,7 +30,7 @@ how a schema comes to BE, the Domain Change SM is how it CHANGES —
 the two halves of the self-modification machinery. First proven as
 the apps/csdp dogfood walk (the tasks app's in-progress-
 recommendation derivation traversed design → rmap end-to-end);
-promoted to the framework proper 2026-06-10 (user directive).
+now part of the framework proper.
 -->
 
 ## Instance Facts
@@ -69,7 +69,7 @@ Schema Design has Design Note.
 
 ### CSDP step-completion event facts
 
-<!-- arest (2026-07-15): the procedure these step facts narrate is now
+<!-- arest: the procedure these step facts narrate is
      DEFINED in the lambda — `arest` carries csdp (seven steps composed;
      s1/s3/s6-acceptance as registered seams, s2/s4/s5/s7 computable:
      population gate, uniqueness induction from example populations,
@@ -92,8 +92,8 @@ State Machine Definition 'CSDP' is for Object Type 'Schema Design'.
 Status 'step1-elementary-facts' is initial in State Machine Definition 'CSDP'.
 <!-- 'designed' is terminal BY DERIVATION (state.md: Status is terminal
      iff no Transition is from it - a fully derived (*) fact type, so
-     its population is computed, never asserted; the removed assertion
-     was the * discipline violated, redundant today and a divergence
+     its population is computed, never asserted; asserting it would
+     violate the * discipline, be redundant, and be a divergence
      risk the day a terminal status gains an exit). -->
 
 
@@ -194,7 +194,7 @@ Transition 'complete-mapping' is triggered by Event Type 'Relational Mapping gro
 
 ## Description
 
-<!-- RMAP's output object (#197). After NORMA's relational catalog
+<!-- RMAP's output object. After NORMA's relational catalog
      (rcd:Table, rcd:Column, rcd:UniquenessConstraint IsPrimary,
      rcd:ReferenceConstraint) and its bridge back to the conceptual schema
      (TableIsPrimarilyForConceptType, ColumnHasConceptTypeChild,
@@ -221,7 +221,7 @@ Relational Mapping produces Relational Schema.
 Relational Schema is for Domain.
   Each Relational Schema is for exactly one Domain.
   For each Domain, at most one Relational Schema is for that Domain.
-  <!-- DOMAINS (Sam, 2026-10-07): an app keeps its own database while it
+  <!-- DOMAINS: an app keeps its own database while it
        compiles with a shared library, and a child organization never
        administers its parent unless granted. So a schema is for the Domain
        that keeps a store (an app, or a sublet child, whose store is a cell
@@ -249,8 +249,8 @@ Table is primarily for Fact Type.
   Each Table is primarily for at most one Fact Type.
 
 For each Table, that Table is primarily for some Object Type or that Table is primarily for some Fact Type.
-  <!-- Inclusive, not exclusive (Sam, 2026-10-07: "a fact can be an object? This is
-       very common"): an objectified fact type's one table is primarily for the Fact
+  <!-- Inclusive, not exclusive (a fact that is also an object is
+       very common): an objectified fact type's one table is primarily for the Fact
        Type and for the Object Type that objectifies it, so a Domain Change touching
        either re-maps it. -->
 
@@ -261,7 +261,7 @@ If some Table belongs to some Relational Schema and that Table is primarily for 
        declares them. -->
 
 Table is a view.
-  <!-- Asserted by Rmap for the views it builds, not derived (Sam, 2026-10-07). A fully
+  <!-- Asserted by Rmap for the views it builds, not derived. A fully
        derived fact type is not always a table: a functional one is grouped into its
        entity's table as a column (step 2), so a rule over the derivation mode would
        call more tables views than the database holds. -->
@@ -287,7 +287,7 @@ Column is nullable.
 Column is for Role.
   Each Column, Role combination occurs at most once in the population of Column is for Role.
   Each Column is for some Role.
-  <!-- Holds for key columns too (Sam, 2026-10-07, Halpin's Rmap step 4): a compositely
+  <!-- Holds for key columns too (Halpin's Rmap step 4): a compositely
        identified object type is a black box until its column is unpacked into the
        columns of its identifying fact types, each the column of a role of them. -->
 

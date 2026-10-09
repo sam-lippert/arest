@@ -1,8 +1,8 @@
 # Verbalization
 
 <!-- The patterns an author writes FORML 2 in, as facts, so the served surface
-     can teach them (Sam, 2026-09-16: the MCP must "provide help and tutoring
-     (prompts) for verbalization patterns in FORML2"). The forms are Halpin's
+     can teach them (the MCP provides help and tutoring
+     (prompts) for verbalization patterns in FORML2). The forms are Halpin's
      (ORM 2 Technical Report 2, sections 2 and 3; AREST.tex Definition 4, the
      admitted fragment); every example is a sentence this metamodel already
      speaks. A, B, C stand for object types, R and S for predicates, N for a

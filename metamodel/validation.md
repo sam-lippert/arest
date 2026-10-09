@@ -4,7 +4,7 @@
 
 ### Object Type Declaration
 
-<!-- retired 2026-07-17 (no-guessing ruling): "each Role references
+<!-- retired (no-guessing ruling): "each Role references
      exactly one Object Type" named no declared predicate (the fit-scorer
      bound it to plays by synonym) and its content is already held
      ALETHICALLY at core.md's Role declaration: "For each Role, exactly
@@ -14,10 +14,10 @@ It is obligatory that each Role references exactly one Object Type. -->
 
 ### Arity Decomposition
 
-<!-- Decided by a function (2026-09-30, Sam: "B-D OK"). The sentence was "It
+<!-- Decided by a function, not by the sentence "It
      is forbidden that a Constraint of Constraint Type 'UC' spans fewer Roles
-     than the arity of its Fact Type minus one". It built no constraint, and
-     the compile never made the check either: csdp:s7 makes it only over the
+     than the arity of its Fact Type minus one", which builds no constraint;
+     the compile does not make the check either: csdp:s7 makes it only over the
      law report's fixed example. decide:n_minus_one in lambda answers each
      fact type that holds such a uniqueness. -->
 Constraint 'uniqueness-spans-n-minus-one' has Text 'It is forbidden that a uniqueness constraint spans fewer roles than the arity of its fact type minus one'.
@@ -30,12 +30,12 @@ Predicate 'decide:n_minus_one' has Symbol Name 'decide:n_minus_one'.
 
 ### Objectification Spanning
 
-<!-- Decided by a function (2026-09-30, Sam: "B-D OK"). The sentence was "It
+<!-- Decided by a function, not by the sentence "It
      is forbidden that a Fact Type is objectified when no Constraint of
-     Constraint Type 'UC' spans all Roles of that Fact Type". It built no
-     constraint, and the check the note below gives the oracle left the
-     compile when compilation moved into lambda: `Birth objectifies "Person
-     was born in Country"` over an n:1 binary compiled clean.
+     Constraint Type 'UC' spans all Roles of that Fact Type", which builds no
+     constraint, and the compile in lambda does not make the check the note
+     below gives the oracle: without the decider, `Birth objectifies "Person
+     was born in Country"` over an n:1 binary compiles clean.
      decide:objectified_spanning in lambda answers each such fact type. -->
 Constraint 'objectification-needs-spanning-uniqueness' has Text 'It is forbidden that a fact type is objectified when no uniqueness constraint spans all roles of that fact type'.
 Constraint 'objectification-needs-spanning-uniqueness' has modality of Modality Type 'Deontic'.
@@ -62,15 +62,15 @@ Predicate 'decide:objectified_spanning' has Symbol Name 'decide:objectified_span
 
 ### Ring Constraint Completeness
 
-<!-- Decided by a function (2026-09-30, Sam: "B-D OK"). The sentence was "It
+<!-- Decided by a function, not by the sentence "It
      is obligatory that when an asserted Fact Type has exactly two Roles that
      both reference the same Object Type, some Constraint of Constraint Type
-     'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spans those Roles". It built
+     'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spans those Roles", which builds
      no constraint. decide:ring_complete in lambda answers each such fact
      type that has no ring, leaving out a fully derived one (the note below),
      and decide:rc_perm applies both conditions of the permission that
-     follows. core.md's duplicate of this rule was merged into it the same
-     day. -->
+     follows. core.md holds no duplicate of this rule; this is its one
+     home. -->
 Constraint 'same-type-binary-has-ring' has Text 'It is obligatory that when an asserted fact type has exactly two roles that both reference the same object type, some ring constraint spans those roles, unless the reading of that fact type contains a capitalized-word-prefixed form of the name of that object type, or some object type has a name ending in that name'.
 Constraint 'same-type-binary-has-ring' has modality of Modality Type 'Deontic'.
 Constraint 'same-type-binary-has-ring' is of Constraint Type 'DO_pop'.
@@ -78,7 +78,7 @@ Constraint 'same-type-binary-has-ring' spans Role 'FactTypeHasRole.1'.
 Constraint 'same-type-binary-has-ring' is decided by Predicate 'decide:ring_complete'.
 Predicate 'decide:ring_complete' has Module Path 'arest'.
 Predicate 'decide:ring_complete' has Symbol Name 'decide:ring_complete'.
-  <!-- ring adjudication (2026-07-17, derived): scoped to ASSERTED fact
+  <!-- ring adjudication (derived): scoped to ASSERTED fact
        types. The obligation operationalizes Halpin's ring question, whose
        point is restricting INPUT; on a fully derived fact type the
        population is a theorem of its rules (Codd 1970 1.5), so the ring
@@ -90,19 +90,19 @@ Predicate 'decide:ring_complete' has Symbol Name 'decide:ring_complete'.
        a derived fact type (TR on reaches) may still be declared as
        documentation. -->
 
-<!-- The exception is the rule's own (Sam, 2026-10-06: "I would really prefer the
-     explicit verbalization that doesn't need to map `It is permitted that`").
-     It read "It is permitted that a Fact Type has no Constraint of Constraint
+<!-- The exception is the rule's own, in an
+     explicit verbalization that does not need to map `It is permitted that`,
+     not "It is permitted that a Fact Type has no Constraint of Constraint
      Type 'IR', 'AS', 'AT', 'SY', 'IT', 'TR', or 'AC' spanning its Roles when
      the Reading of that Fact Type contains a capitalized-word-prefixed form of
      the Name of the Object Type that its Roles reference, or when some Object
      Type has Name ending in that Name." A permission is not how anything is
      allowed here: access is granted by permission facts (security.md), and an
-     exception to a rule is part of that rule. Its two conditions are now in
-     the Text of 'same-type-binary-has-ring' above, and decide:rc_perm already
+     exception to a rule is part of that rule. Its two conditions are in
+     the Text of 'same-type-binary-has-ring' above, and decide:rc_perm
      applies both. -->
 
-<!-- #66: this sentence said "its Ring Object Type" twice. That was never a
+<!-- The rule does not say "its Ring Object Type". That is not a
      type — it is prose shorthand for "the Object Type both ring Roles
      reference", exactly as :40 above spells it, and the audit note below
      already called the two conditions parse-time artifacts. So the fix is to
@@ -130,10 +130,10 @@ Predicate 'decide:ring_complete' has Symbol Name 'decide:ring_complete'.
 
 ### Value Comparison Type Compatibility
 
-<!-- Decided by a function (2026-09-30, Sam: "B-D OK"). The sentence was "It
+<!-- Decided by a function, not by the sentence "It
      is obligatory that each Constraint of Constraint Type 'VC' spans Roles
-     that are played by Object Types of the same Conceptual Data Type". It
-     built no constraint. decide:vc_types in lambda answers each VC
+     that are played by Object Types of the same Conceptual Data Type", which
+     builds no constraint. decide:vc_types in lambda answers each VC
      constraint whose players do not share one Conceptual Data Type. No store
      holds a VC constraint row yet: a value comparison reaches a store as the
      comparison inside a derivation body. So this decides nothing until one is
@@ -146,7 +146,7 @@ Constraint 'value-comparison-same-data-type' is decided by Predicate 'decide:vc_
 Predicate 'decide:vc_types' has Module Path 'arest'.
 Predicate 'decide:vc_types' has Symbol Name 'decide:vc_types'.
 
-<!-- 2026-08-08. Recorded because the implementations disagree exactly where
+<!-- Recorded because the implementations disagree exactly where
      this model was silent, which is the signature of a missing fact rather
      than a bug. `⟦lt⟧(Int, Str)` — comparing a number against a string atom —
      has THREE live readings across the fleet:
@@ -181,7 +181,7 @@ Predicate 'decide:vc_types' has Symbol Name 'decide:vc_types'.
      Derived, and NOT covered by this: ⟦cmp⟧(Str, Str) is ORDINAL. system:max2's
      sole caller is system:mint_next, which composes "+" after the fold, and +
      demands numbers on every station — so max2's operands are numeric on the
-     only reachable path, and #31 already coerces value-typed role fillers at
+     only reachable path, and value-typed role fillers are already coerced at
      the reading boundary ('40' as Budget Hours becomes 40; '42' as a Task id
      stays a string). The boundary decides the type; the base must not decide
      again. -->
@@ -212,7 +212,7 @@ Constraint 'derivation-over-storage' spans Role 'FactTypeHasRole.2'.
 
 ### Subtype Constraint Declaration
 
-<!-- #36 (cont 656): this section previously asserted
+<!-- This section does not assert
 
        "It is obligatory that each subtype Object Type has some totality or
         exclusion Constraint declared for its supertype relationship."
@@ -240,7 +240,7 @@ Constraint 'derivation-over-storage' spans Role 'FactTypeHasRole.2'.
      Method, not every Event is a Fact, not every Status is a State Machine
      Definition — so the missing constraints are missing correctly.
 
-     cont 636 proposed narrowing it to "each ASSERTED subtype". THAT AXIS IS
+     Nor is it narrowed to "each ASSERTED subtype". THAT AXIS IS
      WRONG: all four counterexamples are asserted, so the narrowing leaves
      every one of them standing. The trigger is whether a partition holds, not
      how the subtype is populated.
@@ -250,8 +250,8 @@ Constraint 'derivation-over-storage' spans Role 'FactTypeHasRole.2'.
      the paper's rule cannot be written as an obligation over the population at
      all. It is an instruction to the MODELLER, not a constraint on models, and
      stating it as an obligation converted advice into a false universal — the
-     same class as #66's deontic sentences that named no type and #82's markers
-     with no deliverer, except that this one was not merely unenforced but
+     same class as deontic sentences that name no type and markers
+     with no deliverer, except that this one is not merely unenforced but
      wrong. Kept here as prose so it is not re-derived and re-added.
 
      The rule that IS checkable, and that the metamodel now satisfies, is its
@@ -270,9 +270,9 @@ Constraint 'derivation-over-storage' spans Role 'FactTypeHasRole.2'.
 
 ### Reference Mode Redundancy
 
-<!-- Decided by a function (2026-09-30, Sam: "B-D OK"). The sentence was "It
+<!-- Decided by a function, not by the sentence "It
      is forbidden that a Reading restates the Reference Mode of an Object Type
-     as a separate Fact Type". It built no constraint.
+     as a separate Fact Type", which builds no constraint.
      decide:refmode_restated in lambda answers each declared binary, under
      another name than the reference fact type, over the same two players
      with a uniqueness on the value's role. -->
@@ -303,8 +303,8 @@ Constraint 'constraint-invertibility' has Text 'It is forbidden that the verbali
 Constraint 'constraint-invertibility' has modality of Modality Type 'Deontic'.
 Constraint 'constraint-invertibility' is of Constraint Type 'DF_owa'.
 Constraint 'constraint-invertibility' spans Role 'ConstraintHasText.1'.
-<!-- Ruling 2026-07-24: "all constraint verbalizations should be
-     invertable." This is NORMA's own POSITIVE/NEGATIVE FORM pairing
+<!-- All constraint verbalizations should be
+     invertible. This is NORMA's own POSITIVE/NEGATIVE FORM pairing
      (Halpin & Curland, Automated Verbalization for ORM 2, 2): every
      constraint verbalizes both ways - positive shows how to SATISFY it,
      negative how to VIOLATE it - and the pair is generated from one
@@ -340,9 +340,9 @@ Constraint 'constraint-invertibility' spans Role 'ConstraintHasText.1'.
 
 ### Derivation Rule Range Restriction
 
-<!-- Removed 2026-09-30, with Sam's approval: "It is obligatory that each
+<!-- There is no deontic "It is obligatory that each
      variable in a Derivation Rule consequent appears in at least one
-     antecedent of that Derivation Rule." The compiler already reports it.
+     antecedent of that Derivation Rule": the compiler already reports it.
      A rule whose head names a role no antecedent binds gets no recipe, so the
      compile reports its head UNDELIVERED ("no form says this body") and
      AREST_STRICT=1 refuses it. Measured with

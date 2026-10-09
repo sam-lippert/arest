@@ -17,7 +17,7 @@ Failure Type is a value type.
 Severity is a value type.
   The possible values of Severity are 'error', 'warning', 'info'.
   The data type of Severity is text.
-<!-- exec (2026-07-16): Confidence retired — roleless orphan, superseded by
+<!-- exec: Confidence retired — roleless orphan, superseded by
      induction.md's Confidence Score (Hypothesis Candidate has Confidence
      Score). See the retirement note in core.md's value-type roster. -->
 
@@ -90,7 +90,7 @@ Violation occurs before Transition.
   Each Violation occurs before at most one Transition.
 Failure succeeds Violation. *
   Each Failure, Violation combination occurs at most once in the population of Failure succeeds Violation.
-  <!-- residue fix (2026-07-16): the former disjunctive consequent ("is
+  <!-- residue fix: a disjunctive consequent ("is
        caused by ... or ... Timestamp is before ...") is this UNION relation
        reified: a Failure succeeds a Violation when it is caused by it or
        when it temporally follows it. Fully derived (rules below; recipes in

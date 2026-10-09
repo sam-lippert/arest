@@ -8,8 +8,8 @@ implementation is re-registering a name (IoC through the store). Any backend —
 clickhouse, postgresql, sqlite, cloudflare, mongo, a file — is one more Connector
 declaring its two names. -->
 
-<!-- Declaration sweep (2026-08-09). This file was carried in with reference
-     modes and with no constraints at all, so NORMA had to ASSUME a spanning
+<!-- Declaration sweep. Without declared constraints
+     NORMA has to ASSUME a spanning
      uniqueness on each of its four fact types per Def 3 set semantics — which
      models every one of them as many-to-many, the opposite of what the note
      above describes. Modeling is verbalization: a fact type whose constraints
@@ -34,10 +34,10 @@ Connector is a subtype of Function.
      to say a Function: src.do keys its fetchers map by name and dispatches by
      it (index.js, doFetch), and each fetcher has properties of its own (an
      implementation, proxy-based, isolated), which is what auto.dev's
-     source-routing.md says of it. Declared a value type in the 2026-08-09
-     sweep, it met auto.dev's Fetcher entity as a KIND CONFLICT the oracle
-     settled by keeping this file's kind and refusing the app's scheme (Sam,
-     2026-09-10: "if the real object is an entity, then the model is wrong").
+     source-routing.md says of it. Declared a value type, it
+     met auto.dev's Fetcher entity as a KIND CONFLICT the oracle
+     settled by keeping this file's kind and refusing the app's scheme; if
+     the real object is an entity, a model that says value is wrong.
      Translator stays a value type: src.do has no translators to consult. -->
 Fetcher is an entity type.
 Fetcher is a subtype of Function.
@@ -76,8 +76,8 @@ Connector translates with Translator.
 
 ### Reading rows
 
-<!-- A FEDERATION IS A READ, AND WHAT IT READS IS DECLARED (2026-09-25). Sam: "modeling and
-     running the requested federations is the main deliverable". A Connector is a Function, so it
+<!-- A FEDERATION IS A READ, AND WHAT IT READS IS DECLARED. Modeling and
+     running the requested federations is the main deliverable. A Connector is a Function, so it
      is addressed as any Function is -- backed by an External System, called with an HTTP Method
      at its Callback URI, with the system`s headers and the connection`s credential (core.md) --
      and what its answer yields is `Function yields Fact Type with Role from JSON Path`, the
@@ -103,7 +103,7 @@ Function pages by Query Parameter.
 Function pages from JSON Path.
   Each Function pages from at most one JSON Path.
 
-<!-- AND A ROW IS READ ONLY WHEN IT SAYS WHAT THE SOURCE MEANS (2026-09-25). pm.auto.dev, over all
+<!-- AND A ROW IS READ ONLY WHEN IT SAYS WHAT THE SOURCE MEANS. pm.auto.dev, over all
      2,651 Stripe subscriptions: a hole yields no fact of that TYPE, but ten subscriptions belong to
      deleted customers with no email and still yield their Plan, so the Customer role a mandatory
      constraint needs is missing and the whole page is refused. A condition is on the ROW: every one
@@ -114,15 +114,15 @@ Function pages from JSON Path.
 Function reads rows where JSON Path equals Condition Value.
   Each Function, JSON Path combination occurs at most once in the population of Function reads rows where JSON Path equals Condition Value.
 
-<!-- AND A QUERY IS SENT AS THE BODY (2026-09-25). ClickHouse answers SQL posted to its HTTP interface
+<!-- AND A QUERY IS SENT AS THE BODY. ClickHouse answers SQL posted to its HTTP interface
      and binds a placeholder like {email:String} from the query parameter param_email on the server,
      so the text goes out exactly as written and nothing here fills it: a customer and a window are
      bindings the caller passes, and a cap is a bound LIMIT like any other value. -->
 Function sends Query Text.
   Each Function sends at most one Query Text.
 
-<!-- AND A QUERY CAN NAME WHAT THE CALL IS ABOUT (2026-10-06). Sam: "Let's set up more of the
-     payload API to make the external federation r/w". A Function's Query Parameters are fixed
+<!-- AND A QUERY CAN NAME WHAT THE CALL IS ABOUT, so the
+     payload API makes the external federation r/w. A Function's Query Parameters are fixed
      values, which is all a read needs; a write is about one entity, and Payload addresses the
      document it updates by its query, PATCH /api/users?where[email][equals]=<email>. This is the
      mirror of `Function sends Fact Type with Role to JSON Path` (core.md) for the query: the value
@@ -132,15 +132,15 @@ Function sends Fact Type with Role to Query Parameter.
 
 ### What came off the line
 
-<!-- A RESPONSE IS RECORDED AS AN INSTANCE (2026-10-06). Sam: "If you don't have any way of debugging a
-     response coming off the line, that's needed", "that has to be a log provider registered and
-     resolved", and then "I don't want a separate log db. Events are object instances." Each answer a
+<!-- A RESPONSE IS RECORDED AS AN INSTANCE, so a response coming off the line can be debugged. The
+     recorder is a log provider, registered and resolved, and there is no separate log db: events
+     are object instances. Each answer a
      read or a performed call receives is a Response, recorded in the store through the write path by
      the log provider the host registers (log:write, lambda`s store:write). It is not declared a
      subtype of Event: recording an entity is recording a fact, and so an event, its id unboxed to
-     its id column (Sam: "it should get that from the fact inheritance"). ITS BODY IS NOT KEPT: it powers the
-     facts its Function yields and is gone (Sam: "Let's not keep the body in this instance, it just powers
-     the facts"); a log provider may keep bodies elsewhere -- logs.requests in ClickHouse, say -- and the
+     its id column, which it gets from the fact inheritance. ITS BODY IS NOT KEPT: it powers the
+     facts its Function yields and is gone;
+     a log provider may keep bodies elsewhere -- logs.requests in ClickHouse, say -- and the
      store holds none, since a body can carry what the read never declared to take: auth.vin answers an
      admin's read with every user's live API key. -->
 Response is an entity type.
@@ -165,9 +165,9 @@ Response occurred at Timestamp.
 
 ### An Object Type as its own federated view
 
-<!-- AN OBJECT TYPE IS ITS OWN FEDERATED VIEW (2026-10-06). Sam asked whether there is a better way
-     to populate an object instance from a federated view than a Source per question, and approved
-     this ("Yes, looks good."). `Object Type is backed by External System` and `Object Type has URI`
+<!-- AN OBJECT TYPE IS ITS OWN FEDERATED VIEW. This is a better way
+     to populate an object instance from a federated view than a Source per question.
+     `Object Type is backed by External System` and `Object Type has URI`
      (core.md) were declared and read by nothing but the world assumption. With the three below an
      Object Type is the view: it is identified at a JSON Path of each document its URI lists, each
      Fact Type it plays the first role of is federated at a JSON Path of the same document, and its
@@ -184,8 +184,8 @@ Fact Type is federated at JSON Path.
   Each Fact Type is federated at at most one JSON Path.
 
 <!-- A FIELD READ THROUGH A FILTER IS WRITTEN THROUGH ITS INVERSE, AND THE INVERSE IS THE FIELD'S
-     (2026-10-06). Sam: "The inverse is defined at the federation level, right? upper isn't
-     universally the inverse of lower, just for this particular field." auth.vin's role is read
+     The inverse is defined at the federation level: upper is not
+     universally the inverse of lower, just for a particular field. auth.vin's role is read
      through lower and written through upper; an email read through lower has no inverse, and a
      field read through a filter that declares none is read-only. The pair is held to the values
      the store holds: read(write(v)) is v (fed:ot_roundtrip_bad). A Filter is one of lambda's

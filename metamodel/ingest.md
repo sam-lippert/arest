@@ -1,14 +1,14 @@
 # Event Ingest
 
-<!-- Ported 2026-07-31 from readings/core/ingest.md (last touched
-     2026-05-05). No counterpart existed under metamodel/, so this file was
-     the residue of the readings/core -> metamodel merge rather than a
-     superseded copy. Vocabulary map applied per the 2026-07-15 ruling in
-     core.md: the (.id) and (.Name) reference modes are dropped and both
-     entity types identify through Function(.id); "reference scheme" ->
-     "reference mode" in the derivation rule. Fact types, constraints, the
-     derivation rule, and instance facts are otherwise carried over
-     verbatim. This is the Cor. 3 path -- an external event entering P
+<!-- This file uses the core.md
+     vocabulary: there are no (.id)
+     or (.Name) reference modes, and both
+     entity types identify through
+     Function(.id); the derivation
+     rule says "reference mode",
+     not "reference scheme".
+     This is the
+     Cor. 3 path -- an external event entering P
      through the same store as any other fact. -->
 
 ## Entity Types
@@ -53,18 +53,18 @@ Webhook Event Type yields Fact Type with Role from JSON Path.
 
 ## Constraints
 
-<!-- Removed 2026-09-30, with Sam's approval: "It is forbidden that a Webhook
+<!-- There is no rule "It is forbidden that a Webhook
      Event is processed more than once." `Webhook Event is processed` is a
      unary, and a unary fact holds or it does not, so no population can hold
-     it twice and the rule could never be violated. If idempotent delivery
+     it twice and that rule could never be violated. If idempotent delivery
      matters, it is a dated fact (a Webhook Event processed at a Timestamp)
      with a uniqueness over the Webhook Event. -->
 
-<!-- Decided by a function (2026-09-30, Sam: "All of this looks fine as
-     recommended"). The sentence was "It is obligatory that for each Webhook
+<!-- Decided by a function. The rule is
+     not the sentence "It is obligatory that for each Webhook
      Event Type that yields some Fact Type, every Role of that Fact Type
      appears in some Webhook Event Type yields Fact Type with Role from JSON
-     Path". It built no constraint: it quantifies over every Role of a Fact
+     Path", which builds no constraint: it quantifies over every Role of a Fact
      Type, which no reading says. The coverage is per Webhook Event Type,
      because the derivation below fills each Role from that event's own
      Payload, so another event type's JSON Path cannot complete the fact.
