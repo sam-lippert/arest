@@ -165,7 +165,7 @@ Function 'synthesize' yields Type Expression 'sentences-and-checked-and-unchecke
 Function 'synthesize' has Description 'Speaks an entity as FORML 2 sentences and checks it: answers the sentences, the violations the deterministic rules decide, the obligations only a judgment can settle, and T when nothing decided is violated. args: [id].'.
 Function 'derive' accepts Type Expression 'rules-and-asserted-populations'.
 Function 'derive' yields Type Expression 'populations'.
-Function 'validate' accepts Type Expression 'descriptor-list'.
+Function 'validate' accepts Type Expression 'cells'.
 Function 'validate' yields Type Expression 'violation-list'.
 Function 'validate' has Description 'Answers the uniqueness violations the store holds at rest, each a fact type, the word uniqueness and the role, or the roles of a span, whose values repeat. Takes no arguments.'.
 Function 'verify' accepts Type Expression 'cells'.
