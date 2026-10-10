@@ -1526,11 +1526,17 @@ const PRIMS = new Map(Object.entries({
   "sqlite:exec": x => {
     const { Database } = require("bun:sqlite");
     const db = new Database(String(at(x, 0)), { create: true });
+    const et = performance.now(); // @instrument
     try {
       db.exec("begin");
       try { db.exec(String(at(x, 1))); db.exec("commit"); }
       catch (e) { try { db.exec("rollback"); } catch { } throw e; }
-    } finally { db.close(true); }
+    } finally {
+      db.close(true);
+      // a script slower than half a second is named with its SQL (2026-10-09: a support check spent ~3 min in
+      // sqlite:dh_make_run's scripts and no line said which)
+      if (PROFILE && performance.now() - et > 500) console.error("sqlite:exec " + Math.round(performance.now() - et) + " ms: " + String(at(x, 1)).slice(0, 6000)); // @instrument
+    }
     return String(at(x, 0));
   },
   // AND WHAT THE COMPILE WRITES (2026-09-29). compile.js is deleted and the compile is lambda's
