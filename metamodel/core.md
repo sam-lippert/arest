@@ -505,7 +505,7 @@ Object Type has World Assumption. +
        NOT AN iff RULE, and the two iff shapes show why. A literal in
        the DERIVED FACT TYPE (`has World Assumption 'open' iff ...`) names no declared
        fact type and the oracle refuses it outright; moving the value into
-       the body (`iff World Assumption is 'open' and ...`) resolves the
+       the condition (`iff World Assumption is 'open' and ...`) resolves the
        derived fact type, reads badly, and lands among the 22 rules no arm accepts. The
        shape this wants is a SUBSET CONSTRAINT derivation pair,
        written with the World Assumption definition (open if the
@@ -661,7 +661,7 @@ Constraint Span has Position.
        that `Constraint has Derivation Mode` could carry instead.
 
        NORMA models this as Role Sequence with Position (1154); that entity
-       exists here but belongs to the derivation-body decomposition and is
+       exists here but belongs to the derivation-condition decomposition and is
        never linked to Constraint. Numbering the span directly matches the
        flattened 1.1/1.2 form and needs no new wiring. -->
   <!-- objectification legal per Halpin, "Objectification and Atomicity"
@@ -1404,7 +1404,7 @@ Derivation Rule is provided by Constraint.
        has only `Constraint spans Role` (543) and `Fact Type has Role`
        (529) — nothing distinguishes which of a constraint's spanned roles
        are antecedent and which consequent, and Role Sequence (1126)
-       belongs to the derivation-body decomposition and is never linked to
+       belongs to the derivation-condition decomposition and is never linked to
        Constraint. So a rule reached only from its constraint cannot find
        its own derived fact type. Retiring this link needs
        `Constraint has antecedent Role Sequence` / `... consequent ...`
