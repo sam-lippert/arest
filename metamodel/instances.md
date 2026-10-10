@@ -420,7 +420,7 @@ State Machine is currently in Status. +
        `Status is effective initial in State Machine Definition` directly,
        which names a COMPOSITE status where one is declared, while
        main:leaf_initial descends to the leaf; and derive:closed applies the
-       semi-head keyed merge only to its OWN output, so a rule reading this
+       semi-derived fact type`s keyed merge only to its OWN output, so a rule reading this
        cell INSIDE the fixpoint sees the unmerged union. Measured on
        support.auto.dev before the projection below was computed here: two
        rows for one request, `Draft` and `Open`, against an at-most-one

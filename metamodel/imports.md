@@ -92,7 +92,7 @@ Predicate is bound. *
      Symbol Name and no JS Package, yet three of its constraints name them and
      `Constraint is machine-decidable` therefore answered T for all three. The
      model claimed a judge that does not exist, which is the same shape as a
-     head marked derived whose rule never built. This is the test that tells
+     fact type marked derived whose rule never built. This is the test that tells
      them apart, and it answers F when the binding is ABSENT rather than
      wrong. -->
 

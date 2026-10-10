@@ -932,7 +932,7 @@ function emitToDb(before, cells, prior, report) {
   // AND THE INSTANCES THE WRITE TOUCHED ARE REFLECTED IN SQL, IN ITS TRANSACTION (task #197, step 5e). Lambda answers
   // the program (reflect:write_steps): the steps run before the rows mark the instances the rows touch, the steps run
   // after them close those instances -- their classification up the subtypes, their Domain, their machine -- and
-  // read what each head gained and lost, which lambda puts in the store this process holds (reflect:sql_adopt). The
+  // read what each derived fact type gained and lost, which lambda puts in the store this process holds (reflect:sql_adopt). The
   // places are the stored plan's, or the schema's own rows when the write moved them (an applied Domain Change).
   const rf = prior && changed.size ? seq(Ev("reflect:write_steps", [cells, process.env.AREST_STORE_DB, ddl.length ? "T" : "F"])) : null;
   let rfOut = null;
@@ -1127,9 +1127,9 @@ function filterSel(x) {
 const UNFOLDROWS = new WeakMap(), UNFOLDDESCS = new WeakMap();
 // nav:keep_peer: the keys of a FILE cell's atoms, or null when its contents are no trie, by the contents' identity
 const PEERATOMS = new WeakMap();
-// system:pop_in: the heads a store computes on read (derive:or_dfts) and the rows each one computes to
+// system:pop_in: the derived fact types a store computes on read (derive:or_dfts) and the rows each one computes to
 // (derive:on_read), by the store's identity; memoClear drops both when a write moves the store
-let ORHEADS = new WeakMap(), ORROWS = new WeakMap();
+let ORDFTS = new WeakMap(), ORROWS = new WeakMap();
 // whether rmap:proj_objkey spells the row as the id: its values joined by a period, as an objectified instance is
 // keyed (main:re_own). A row whose first value is text spells an id only past that text and a period, so the
 // DEF is asked of no other; a row of one text value would hold the id itself, which the callers have ruled out.
@@ -1138,9 +1138,9 @@ function objkeyIs(row, id) {
   if (typeof row[0] === "string" && (row.length < 2 || !id.startsWith(row[0] + "."))) return false;
   return Ev("rmap:proj_objkey", row) === id;
 }
-function onReadHeads(store) {
-  let s = ORHEADS.get(store);
-  if (s === undefined) { s = new Set(seq(orHeadsOf(store)).map(String)); ORHEADS.set(store, s); }
+function onReadDfts(store) {
+  let s = ORDFTS.get(store);
+  if (s === undefined) { s = new Set(seq(orDftsOf(store)).map(String)); ORDFTS.set(store, s); }
   return s;
 }
 // derive:or_dfts <store> reads the store through its derivation marks (state:derived), its rules (state:rules,
@@ -1149,7 +1149,7 @@ function onReadHeads(store) {
 // kept by those, the two cells by identity and the rows by value, and every store a write or a law makes over
 // one schema computes it once. Under the profiler the law report spent most of its time recomputing it, one
 // store at a time (2026-10-04, task #172).
-const ORHEADSOF = new Map();
+const ORDFTSOF = new Map();
 const CELLIDS = new WeakMap(); let CELLIDN = 0;
 function cellId(v) {
   if (!Array.isArray(v)) return "a" + String(v);
@@ -1157,18 +1157,18 @@ function cellId(v) {
   if (n === undefined) { n = ++CELLIDN; CELLIDS.set(v, n); }
   return "c" + n;
 }
-function orHeadsOf(store) {
+function orDftsOf(store) {
   const def = () => Ev(DEFS.get("derive:or_dfts"), store);
   if (!Array.isArray(store)) return def();
   const fetch = FASTPRIMS.get("ast:fetch");
   const raw = (n) => Ev(DEFS.get("derive:raw_rows"), [n, store]);
   const key = cellId(fetch(["state:derived", store])) + "|" + cellId(fetch(["state:rules", store])) + "|"
     + JSON.stringify([raw("EventTypeIsClassified"), raw("TransitionIsTriggeredByEventType"), raw("GuardReferencesFactType")]);
-  let v = ORHEADSOF.get(key);
+  let v = ORDFTSOF.get(key);
   if (v === undefined) {
     v = def();
-    if (ORHEADSOF.size >= 64) ORHEADSOF.clear();
-    ORHEADSOF.set(key, v);
+    if (ORDFTSOF.size >= 64) ORDFTSOF.clear();
+    ORDFTSOF.set(key, v);
   }
   return v;
 }
@@ -1179,7 +1179,7 @@ function onReadRows(name, store) {
   if (rows === undefined) { rows = Ev(DEFS.get("derive:on_read"), [name, store]); m.set(name, rows); }
   return rows;
 }
-// main:or_has: the atoms of a head's computed rows, keyed as theta:member compares them, by the rows' identity
+// main:or_has: the atoms of a derived fact type's computed rows, keyed as theta:member compares them, by the rows' identity
 const ORATOMS = new WeakMap();
 function onReadAtoms(name, store) {
   const rows = onReadRows(name, store);
@@ -1747,7 +1747,7 @@ function memoReleaseWhenIdle(say) {
   }, Number(process.env.AREST_MEMO_IDLE_MS || 5000));
   if (MEMO_IDLE.unref) MEMO_IDLE.unref();
 }
-function memoClear() { memoEmpty(); ORHEADS = new WeakMap(); ORROWS = new WeakMap(); DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MATCHPROV = new WeakMap(); KEYIDX = new WeakMap(); KEYPROV = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); PROJPLAN = new WeakMap(); }
+function memoClear() { memoEmpty(); ORDFTS = new WeakMap(); ORROWS = new WeakMap(); DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MATCHPROV = new WeakMap(); KEYIDX = new WeakMap(); KEYPROV = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); PROJPLAN = new WeakMap(); }
 // the rows of `rows` whose first column equals `key`, in source order -- the value
 // of csdp:matches (INSERT csdp:keep_keyed . theta:append_phi . distl). The fold
 // visits every row, so a row that is not a sequence, or is empty, throws the
@@ -2244,8 +2244,8 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   "lex:subruns", "lex:camel",
   // read:state_rules is the rules compiler over a carrier's facts, and
   // read:schema asks for it TWICE: once as the cell `state:rules`, and
-  // once inside `state:undelivered`, which subtracts the heads it delivered
-  // from the heads state:derived marks. The two are the same call on the same
+  // once inside `state:undelivered`, which subtracts the derived fact types it delivered
+  // from the derived fact types state:derived marks. The two are the same call on the same
   // value -- read:schema applies every cell to one x -- so the second
   // was the first recomputed, arm for arm (the base metamodel, 2026-09-16:
   // read:rule_rows entered under state:rules and again under
@@ -2705,7 +2705,7 @@ const FASTPRIMS = new Map(Object.entries({
   "rmap:lookup0": x => { const hits = matchRows(at(x, 0), seq(at(x, 1)));
     return hits.length === 0 ? [] : [at(hits[0], 1)]; },
   // solve:assoc / solve:assoc3 are the same first-match lookup, over the
-  // closure (a head's rows) and the readings or rules (a head's row): explain
+  // closure (a derived fact type's rows) and the readings or rules (a derived fact type's row): explain
   // asks them once per sentence it says and once per leg it un-projects, and
   // at ~1 ms per interpreted scan of 281 readings each sat at 1.6 s inclusive
   // inside the 2.5 s a lawcore justification pass spends outside the fixpoint
@@ -2884,24 +2884,24 @@ const FASTPRIMS = new Map(Object.entries({
   // contents> becomes name before each row of its contents unfolded
   // (ast:pop_sub: nothing is one empty row, cells recurse, an atom is a
   // one-atom row, a row is itself); an atom row is a one-atom row; a row is
-  // itself. The lookups are ast:fetch's twin, the first cell named. A head the
+  // itself. The lookups are ast:fetch's twin, the first cell named. A derived fact type the
   // store computes on read is derive:on_read's rows before any cell is looked
   // at, as ast:FetchPop builds it (2026-10-04, task #172), kept by the store's
   // identity until a write moves it (onReadRows).
-  // derive:on_read <head, store> is a head's rows computed over the store, and main:or_has <id, head, store>
+  // derive:on_read <derived fact type, store> is its rows computed over the store, and main:or_has <id, derived fact type, store>
   // whether they name the id: kept by the store's identity (onReadRows), and the atoms of the rows by theirs
-  // (onReadAtoms), so a store's links compute each head once and then look the id up (2026-10-04, task #172).
+  // (onReadAtoms), so a store's links compute each derived fact type once and then look the id up (2026-10-04, task #172).
   // The memo did not keep derive:on_read's answers -- whole populations, past its weight bound -- and the
   // base law report's links computed it some 40,000 times. A malformed operand gives the DEF's own answer.
   "derive:on_read": x => {
     if (!Array.isArray(x) || x.length !== 2 || !Array.isArray(x[1])) return Ev(DEFS.get("derive:on_read"), x);
     return onReadRows(x[0], x[1]); },
-  "derive:or_dfts": x => orHeadsOf(x),
+  "derive:or_dfts": x => orDftsOf(x),
   "main:or_has": x => {
     if (!Array.isArray(x) || x.length !== 3 || !Array.isArray(x[2])) return Ev(DEFS.get("main:or_has"), x);
     return onReadAtoms(x[1], x[2]).has(keyOf(x[0])) ? "T" : "F"; },
   "system:pop_in": x => { const name = at(x, 0), store = at(x, 1);
-    if (Array.isArray(store) && onReadHeads(store).has(String(name))) return onReadRows(name, store);
+    if (Array.isArray(store) && onReadDfts(store).has(String(name))) return onReadRows(name, store);
     const fetch = FASTPRIMS.get("ast:fetch");
     const top = fetch([name, store]);
     if (top !== "#") return top;
@@ -2963,9 +2963,9 @@ const FASTPRIMS = new Map(Object.entries({
     const tm0 = performance.now(); // @instrument
     const byFt = LAZY_STORE.mentioning(id);
     if (PROFILE) console.error("get: mentioning " + Math.round(performance.now() - tm0) + " ms, " + byFt.size + " fact type(s)"); // @instrument
-    // a head the store computes on read keeps no table rows: store:read_state computed the rows of the ones
+    // a derived fact type the store computes on read keeps no table rows: store:read_state computed the rows of the ones
     // the entity's types play into the descriptor, so those are its rows here, as they are in the DEF
-    const orh = onReadHeads(CELLS);
+    const orh = onReadDfts(CELLS);
     const fts = [];
     for (const d of st[0]) {
       if (!Array.isArray(d) || d.length < 5) return def();
@@ -3015,7 +3015,7 @@ const FASTPRIMS = new Map(Object.entries({
   // nothing for is read from the carriers' rows instead, as the get twin finds, so a pending cell the scan does
   // not name is still kept when those rows name the id and the tables yield no row of it. A fact type a write
   // moved is not pending: the write refiles its FILE cell with the rows it put (main:refile1 for the written fact
-  // type, store:file_put for every head the closure or the reflection put), so that cell is tested by
+  // type, store:file_put for every derived fact type the closure or the reflection put), so that cell is tested by
   // nav:keep_peer over the rows after the write. Every cell but a pending one -- read already, a write's own, of a
   // fact type a write moved or no table holds -- is tested by nav:keep_peer itself, and the links come out in
   // FILE's order, as the DEF's INSERT leaves them. An id that is not text, a store not read from its tables, and
@@ -3065,7 +3065,7 @@ const FASTPRIMS = new Map(Object.entries({
   // the scan's for that id (lazyStore's mentioning, as the get and nav:peers twins read it), in the population's
   // order, and main:re_gone_rows keeps of them what the DEF keeps; such a cell is left unread. A fact type the
   // tables carry and yield nothing for, whose carriers' rows hold the id, any other cell -- read already, a write's
-  // own, a head computed on read -- and a fact type with no top-level cell are asked of main:re_rows, as the DEF
+  // own, a derived fact type computed on read -- and a fact type with no top-level cell are asked of main:re_rows, as the DEF
   // asks them. An id that is not text, a store not read from its tables, and AREST_NOTWIN=main:re_facts give the
   // DEF's own route.
   // AND THE ROW AN OBJECTIFIED INSTANCE IS (2026-10-05, task #185). main:re_rows takes, after those rows, the row of
@@ -3081,7 +3081,7 @@ const FASTPRIMS = new Map(Object.entries({
     if (typeof id !== "string" || !Array.isArray(store)) return def();
     const top = new Map();
     for (const c of store) if (Array.isArray(c) && c.length === 3 && c[0] === "CELL" && typeof c[1] === "string" && !top.has(c[1])) top.set(c[1], c);
-    const orh = onReadHeads(store);
+    const orh = onReadDfts(store);
     const kinds = Ev("main:re_kinds", store);
     const nested = new Set(seq(Ev("main:re_nested", store)).map(String));
     const has = (f) => Array.isArray(f) && f.some((v) => v === id);
@@ -3876,7 +3876,7 @@ const FASTPRIMS = new Map(Object.entries({
 // FASTPRIMS and evaluates its own body, as a DEF with no twin is evaluated, and adds its time to the part it
 // names on the clock of the write being served; a part entered again inside itself counts once, and the
 // parts that stand at the top are summed apart, so what they did not cover is the rest of the evaluation.
-// derive:rule_news adds its time to the head of its rule. A served path starts a clock before its evaluation
+// derive:rule_news adds its time to the derived fact type of its rule. A served path starts a clock before its evaluation
 // (clockStart) and laps the evaluation and the adoption; with no clock running, a phase is its DEF.
 // <DEF, part, the part that holds it>
 const WPHASES = [
@@ -3889,7 +3889,7 @@ const WPHASES = [
   ["main:delta_of", "delta", "closure"], ["derive:inc_run", "derive", "closure"], ["store:cb_put", "put", "closure"],
   ["derive:rec_put", "record", "closure"], ["store:ev_close", "events", "closure"], ["store:pf_close", "performed", "closure"],
   // AND WHAT A DERIVATION SPENDS OUTSIDE ITS RULES (2026-10-03): on support 1,316 ms of derive, about 150 of it
-  // in the three slowest heads' rules; each layer resets its heads, runs its rounds and merges what they found
+  // in the three slowest derived fact types' rules; each layer resets its derived fact types, runs its rounds and merges what they found
   ["derive:inc_pairs", "pairs", "derive"], ["derive:inc_layers", "layers", "derive"], ["derive:inc_rset", "reset", "derive"],
   ["derive:inc_loop", "rounds", "derive"], ["derive:inc_after", "merge", "derive"],
   ["ui:violations", "validate", null], ["main:ab_viols", "validate", null],
@@ -3931,11 +3931,11 @@ function clockPart(def, part, top) {
   };
 }
 for (const [def, part, holder] of WPHASES) if (!FASTPRIMS.has(def)) FASTPRIMS.set(def, clockPart(def, part, holder === null));
-// <DEF, label, what of its operand names the one it is for>: a rule's derivation adds its time to its head, a
+// <DEF, label, what of its operand names the one it is for>: a rule's derivation adds its time to its derived fact type, a
 // decided constraint's check to its predicate, and a uniqueness check to its fact type (2026-10-03: on support
 // a write's validation was 1,060 ms, 561 of it the deciders', and no line said whose)
 const WKEYED = [
-  ["derive:rule_news", "heads", (x) => x[0][0]],
+  ["derive:rule_news", "dfts", (x) => x[0][0]],
   ["cmd:dec_one", "deciders", (x) => x[0][1]],
   ["cmd:viol_for", "uniqueness by fact type", (x) => x[0]],
   // and a deontic row's check and a subset row's to the row they check, by its name (2026-10-04: with the
@@ -3956,7 +3956,7 @@ for (const [def, label, keyOf] of WKEYED) if (!FASTPRIMS.has(def)) FASTPRIMS.set
     m.set(key, (m.get(key) || 0) + performance.now() - t);
   }
 });
-// `lambda L: <part> <ms> [<the parts it holds>], ..., other <ms>; adopt <ms>; heads <head> <ms>, ...`: the
+// `lambda L: <part> <ms> [<the parts it holds>], ..., other <ms>; adopt <ms>; dfts <derived fact type> <ms>, ...`: the
 // clock's laps and parts, and for each keyed label the three it names that took longest
 function clockText(c) {
   const ms = (v) => String(Math.round(v));
@@ -6970,10 +6970,10 @@ function lazyStore(db, want) {
 }
 
 // AND THE RECORD OF DERIVED ROWS IS READ FROM THE COMPILE'S LEDGER (2026-10-06, task #191). A write tells a
-// derived row of a + head from an asserted one by state:derived_rows, which only a write's derive:rec_put
-// wrote, so a start held no record and every row the compile's closure derived of such a head was asserted to
+// derived row of a + derived fact type from an asserted one by state:derived_rows, which only a write's derive:rec_put
+// wrote, so a start held no record and every row the compile's closure derived of such a derived fact type was asserted to
 // every later write, never taken back when its support went. The compile keeps what its closure added in
-// _derived. This reads its rows of the heads the record tracks (derive:rec_dfts) and installs the record
+// _derived. This reads its rows of the derived fact types the record tracks (derive:rec_dfts) and installs the record
 // lambda makes of them (derive:rec_seed, derive:rec_cell). A store with no _derived has no record, as before.
 // Each write keeps its record delta in _derived too (recordLedger, 2026-10-07), so this reads what the last
 // write left and not only what the compile did.
@@ -7269,8 +7269,8 @@ function loadFile() {
 // AND WHICH POPULATIONS THIS PROCESS COMPUTED, which is what lets either
 // phase correct itself on a later pass without ever disturbing a cell the
 // carriers or the tables supplied. The two are kept apart because lambda's
-// REFLECTION is the answer where it speaks: a reflected head may also be a
-// rule head, and then the rule is the readings' statement of what the
+// REFLECTION is the answer where it speaks: a reflected fact type may also be a
+// rule's derived fact type, and then the rule is the readings' statement of what the
 // population means and the reflection is what computes it -- exactly the
 // standing the effective-initial cell already has (metamodel/state.md).
 const REFLECTED_NAMES = new Set();
@@ -7281,7 +7281,7 @@ const DERIVED_NAMES = new Set();
 // merged, which is left -- and lambda's store:derive_pass is that policy now, with the
 // reason for each of its rules in the note above store:cell_rows. What the host still
 // knows that lambda cannot is which fact types held rows when the store was READ:
-// STORE_TABLES is the storage's answer, and store:dv_ctx asks it of the marked heads.
+// STORE_TABLES is the storage's answer, and store:dv_ctx asks it of the marked derived fact types.
 function storedNames() {
   let marks = [];
   try { marks = Ev("derive:sm_marks", CELLS); } catch { return []; }
@@ -7308,7 +7308,7 @@ function adoptClosed(next) {
 // Instance` is one machine per instance of an object type a State Machine
 // Definition is for, and the machine sits at its definition's EFFECTIVE INITIAL
 // status advanced by the fired-transition fold -- and `Status is effective
-// initial in State Machine Definition` is itself a derived head (the rules in
+// initial in State Machine Definition` is itself a derived fact type (the rules in
 // metamodel/state.md). Reflected once, before the closure, the walk read an
 // empty seed and answered NOTHING: measured on support.auto.dev, reflect:machines
 // answers 6 rows over the closed store and 0 over the unclosed one, which is
@@ -7378,7 +7378,7 @@ function boot(mode) {
   // the CARRIERS -- it deletes AREST_STORE_DB on purpose, so its `_asserted`
   // ledger is what the readings say and nothing else -- and only afterwards
   // carries the rows the runtime wrote back into the tables. Nothing re-derives
-  // over them, so every head that reads a runtime row was written from a store
+  // over them, so every derived fact type that reads a runtime row was written from a store
   // that did not contain it. Measured on support.auto.dev's live store, built
   // 2026-09-17 21:37: `State Machine is for Object Type Instance` holds FIVE
   // rows in the tables -- sm.Free, sm.Starter, sm.Growth, sm.Scale,

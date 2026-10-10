@@ -46,14 +46,14 @@ Operation awaits a driver. **
      FROM THE TABLES -- a person or an llm driving these seams does not boot the closure
      to find out where the points are -- and `*` is defined as `derive at runtime`
      (core.md's marker ruling: the four are orthogonal, `*` derive,
-     `**` derive and store, `+` derive or assert, `++` both). A `*` head therefore LEAVES
+     `**` derive and store, `+` derive or assert, `++` both). A `*` derived fact type therefore LEAVES
      THE STORED SCHEMA in both directions: the oracle drops it from state:fts citing Codd
      1970 1.5, a stored derivable relation is strong redundancy, and lambda's rmap:gate
-     drops it from the relational map, which is NORMA's own GATE:187-188. So this head had
+     drops it from the relational map, which is NORMA's own GATE:187-188. So this derived fact type had
      no table AT ALL -- absent, not empty -- while both of its inputs were stored and
      correct, and the list this derivation exists to give was readable only by booting the
      rules. `**` is the marker that says derive AND store, and it stays unassertable,
-     which is right for a head that is nothing but a consequence of the other two.
+     which is right for a derived fact type that is nothing but a consequence of the other two.
      The price is stated where the markers are: a stored cell is materialized and
      persists, so between materializations the table GROWS under the rule and does not
      shrink -- a stored row seeds the closure and derivation is monotone. Retraction is
