@@ -4538,7 +4538,7 @@ describe("lambda's reader reads a numeral, a scheme's order and a marker", () =>
     expect(starred("**Loader placement convention** (encoded as derivations below):")).toBe("T");
     expect(starred("* Each Loader has exactly one Arity.")).toBe("F");
     // and a marked sentence some later arm answers is read without its marker
-    const headed = (s) => Ev("read:marked_head", [[], [], [0, Ev("read:demark_pairs", Ev("read:row_of", s)[1])]]);
+    const headed = (s) => Ev("read:marked_dft",[[], [], [0, Ev("read:demark_pairs", Ev("read:row_of", s)[1])]]);
     expect(headed("* Each Loader has exactly one Arity.")).toBe("T");
     expect(headed("* It is forbidden to conclude a Loader is restart-safe from the filterFn alone.")).toBe("F");
     expect(headed("* A Loader with Resumability 'idempotent-selection' recovers work on restart.")).toBe("F");

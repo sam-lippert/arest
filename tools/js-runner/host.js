@@ -1127,7 +1127,7 @@ function filterSel(x) {
 const UNFOLDROWS = new WeakMap(), UNFOLDDESCS = new WeakMap();
 // nav:keep_peer: the keys of a FILE cell's atoms, or null when its contents are no trie, by the contents' identity
 const PEERATOMS = new WeakMap();
-// system:pop_in: the heads a store computes on read (derive:or_heads) and the rows each one computes to
+// system:pop_in: the heads a store computes on read (derive:or_dfts) and the rows each one computes to
 // (derive:on_read), by the store's identity; memoClear drops both when a write moves the store
 let ORHEADS = new WeakMap(), ORROWS = new WeakMap();
 // whether rmap:proj_objkey spells the row as the id: its values joined by a period, as an objectified instance is
@@ -1143,7 +1143,7 @@ function onReadHeads(store) {
   if (s === undefined) { s = new Set(seq(orHeadsOf(store)).map(String)); ORHEADS.set(store, s); }
   return s;
 }
-// derive:or_heads <store> reads the store through its derivation marks (state:derived), its rules (state:rules,
+// derive:or_dfts <store> reads the store through its derivation marks (state:derived), its rules (state:rules,
 // beside the constant rules:metamodel) and the rows of the three fact types derive:wr_named reads (Event Type
 // is classified, the transitions' triggers, the guards' fact types), and through nothing else: so the answer is
 // kept by those, the two cells by identity and the rows by value, and every store a write or a law makes over
@@ -1158,7 +1158,7 @@ function cellId(v) {
   return "c" + n;
 }
 function orHeadsOf(store) {
-  const def = () => Ev(DEFS.get("derive:or_heads"), store);
+  const def = () => Ev(DEFS.get("derive:or_dfts"), store);
   if (!Array.isArray(store)) return def();
   const fetch = FASTPRIMS.get("ast:fetch");
   const raw = (n) => Ev(DEFS.get("derive:raw_rows"), [n, store]);
@@ -1534,7 +1534,7 @@ const PRIMS = new Map(Object.entries({
     } finally {
       db.close(true);
       // a script slower than half a second is named with its SQL (2026-10-09: a support check spent ~3 min in
-      // sqlite:dh_make_run's scripts and no line said which)
+      // sqlite:dft_make_run's scripts and no line said which)
       if (PROFILE && performance.now() - et > 500) console.error("sqlite:exec " + Math.round(performance.now() - et) + " ms: " + String(at(x, 1)).slice(0, 6000)); // @instrument
     }
     return String(at(x, 0));
@@ -2896,7 +2896,7 @@ const FASTPRIMS = new Map(Object.entries({
   "derive:on_read": x => {
     if (!Array.isArray(x) || x.length !== 2 || !Array.isArray(x[1])) return Ev(DEFS.get("derive:on_read"), x);
     return onReadRows(x[0], x[1]); },
-  "derive:or_heads": x => orHeadsOf(x),
+  "derive:or_dfts": x => orHeadsOf(x),
   "main:or_has": x => {
     if (!Array.isArray(x) || x.length !== 3 || !Array.isArray(x[2])) return Ev(DEFS.get("main:or_has"), x);
     return onReadAtoms(x[1], x[2]).has(keyOf(x[0])) ? "T" : "F"; },
@@ -6973,7 +6973,7 @@ function lazyStore(db, want) {
 // derived row of a + head from an asserted one by state:derived_rows, which only a write's derive:rec_put
 // wrote, so a start held no record and every row the compile's closure derived of such a head was asserted to
 // every later write, never taken back when its support went. The compile keeps what its closure added in
-// _derived. This reads its rows of the heads the record tracks (derive:rec_heads) and installs the record
+// _derived. This reads its rows of the heads the record tracks (derive:rec_dfts) and installs the record
 // lambda makes of them (derive:rec_seed, derive:rec_cell). A store with no _derived has no record, as before.
 // Each write keeps its record delta in _derived too (recordLedger, 2026-10-07), so this reads what the last
 // write left and not only what the compile did.
@@ -6981,7 +6981,7 @@ function seedDerivedRows(db, have) {
   if (!have.has("_derived")) return;
   const q = db.query('select "row" from "_derived" where "ft" = ?');
   const pairs = [];
-  for (const h of seq(Ev("derive:rec_heads", CELLS))) {
+  for (const h of seq(Ev("derive:rec_dfts", CELLS))) {
     const rows = q.values(String(h)).map((r) => JSON.parse(String(r[0])));
     if (rows.length) pairs.push([String(h), rows]);
   }
