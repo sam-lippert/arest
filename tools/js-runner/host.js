@@ -1197,6 +1197,40 @@ function unfoldOnce(memo, name, x) {
   memo.set(x, [x.length, v]);
   return v;
 }
+// A READ REUSES ONE CONNECTION FOR AS LONG AS THE EVALUATION RUNS (2026-10-10). sqlite:query opened the
+// store for every query, and the first statement on a connection parses the store's whole schema: on
+// support's changed-readings check 2,003 of its 2,052 queries took under 60 ms, 46 s in all, nearly all of
+// it opening the store again. A path's read-only connection is now opened once and kept until the
+// evaluation that opened it returns -- the timer set at the first open runs only when the event loop is
+// free again, after the compile or after a served request -- so no connection outlives the work that
+// asked for it, and a server holds no store between requests. A store's file is renamed or removed only
+// after its connection is closed (sqlite:fresh, install, copy, replace), which Windows requires. Another
+// connection's commits are visible to this one, as SQLite keeps them; this changes no answer, only how
+// often the store is opened.
+// sqlite:exec and sqlite:run keep a writing connection the same way (writeDb), each script still its own
+// transaction.
+let READDBS = null;
+function keptDb(key, path, opts) {
+  if (READDBS === null) { READDBS = new Map(); setTimeout(closeReadDbs, 0); }
+  let db = READDBS.get(key);
+  if (db === undefined) { const { Database } = require("bun:sqlite"); db = new Database(path, opts); READDBS.set(key, db); }
+  return db;
+}
+function readDb(path) { return keptDb("r|" + path, path, { readonly: true }); }
+function writeDb(path) { return keptDb("w|" + path, path, { create: true }); }
+function closeReadDb(path) {
+  if (READDBS === null) return;
+  for (const key of ["r|" + path, "w|" + path]) {
+    if (!READDBS.has(key)) continue;
+    try { READDBS.get(key).close(true); } catch { }
+    READDBS.delete(key);
+  }
+}
+function closeReadDbs() {
+  if (READDBS === null) return;
+  for (const db of READDBS.values()) { try { db.close(true); } catch { } }
+  READDBS = null;
+}
 const PRIMS = new Map(Object.entries({
   "id": x => x,
   "tl": x => { const a = seq(x); if (a.length === 0) throw new Error("tl on empty"); return a.slice(1); },
@@ -1524,18 +1558,17 @@ const PRIMS = new Map(Object.entries({
   // directly, which is the coupling the interface removes.
   "storage:engine": () => "sqlite",
   "sqlite:exec": x => {
-    const { Database } = require("bun:sqlite");
-    const db = new Database(String(at(x, 0)), { create: true });
+    const db = writeDb(String(at(x, 0)));
     const et = performance.now(); // @instrument
     try {
       db.exec("begin");
       try { db.exec(String(at(x, 1))); db.exec("commit"); }
       catch (e) { try { db.exec("rollback"); } catch { } throw e; }
     } finally {
-      db.close(true);
       // a script slower than half a second is named with its SQL (2026-10-09: a support check spent ~3 min in
-      // sqlite:dft_make_run's scripts and no line said which)
-      if (PROFILE && performance.now() - et > 500) console.error("sqlite:exec " + Math.round(performance.now() - et) + " ms: " + String(at(x, 1)).slice(0, 6000)); // @instrument
+      // sqlite:dft_make_run's scripts and no line said which); one slower than five seconds is named whole, since the
+      // statement that costs can sit past the first 6,000 characters (2026-10-10: the 32 s classification script)
+      if (PROFILE && performance.now() - et > 500) console.error("sqlite:exec " + Math.round(performance.now() - et) + " ms: " + String(at(x, 1)).slice(0, performance.now() - et > 5000 ? Infinity : 6000)); // @instrument
     }
     return String(at(x, 0));
   },
@@ -1563,12 +1596,11 @@ const PRIMS = new Map(Object.entries({
   // renames a fresh build into place and refuses over an existing store, which is changed in place
   // instead (compile:inplace, below) and put back with sqlite:replace.
   "sqlite:run": x => {
-    const { Database } = require("bun:sqlite");
     const path = String(at(x, 0)), sql = String(at(x, 1)), rows = seq(at(x, 2));
-    const db = new Database(path, { create: true });
+    const db = writeDb(path);
     let n = 0;
+    const st = db.prepare(sql);
     try {
-      const st = db.prepare(sql);
       db.exec("begin");
       try {
         for (const r of rows) {
@@ -1586,17 +1618,19 @@ const PRIMS = new Map(Object.entries({
         }
         db.exec("commit");
       } catch (e) { try { db.exec("rollback"); } catch { } throw e; }
-    } finally { db.close(true); }
+    } finally { st.finalize(); }
     return n;
   },
   "sqlite:fresh": x => {
     const fs = require("node:fs"), path = String(x);
+    closeReadDb(path);
     for (const p of [path, path + "-wal", path + "-shm", path + "-journal"]) { try { fs.rmSync(p, { force: true }); } catch { } }
     return path;
   },
   "sqlite:install": x => {
     const fs = require("node:fs"), build = String(at(x, 0)), path = String(at(x, 1));
     if (fs.existsSync(path)) throw new Error("sqlite:install refuses: " + path + " exists; a store that exists is changed in place (sqlite:replace), never overwritten by a fresh build");
+    closeReadDb(build); closeReadDb(path);
     fs.renameSync(build, path);
     return path;
   },
@@ -1612,20 +1646,19 @@ const PRIMS = new Map(Object.entries({
   // number, and answered as one the compile found two of the metamodel's tables moved when
   // nothing had.
   "sqlite:query": x => {
-    const { Database } = require("bun:sqlite");
     const path = String(at(x, 0)), sql = String(at(x, 1)), params = seq(at(x, 2));
     const qt = performance.now(), qm = process.memoryUsage().rss; // @instrument
-    const db = new Database(path, { readonly: true });
     try {
-      return db.query(sql).values(...params).map((r) => r.map((v) => (v === null || v === undefined ? "#" : String(v))));
+      const st = readDb(path).prepare(sql);
+      try { return st.values(...params).map((r) => r.map((v) => (v === null || v === undefined ? "#" : String(v)))); } finally { st.finalize(); }
     } finally {
-      db.close(true);
       if (PROFILE) console.error("sqlite:query " + Math.round(performance.now() - qt) + " ms, rss " + (qm >> 20) + " -> " + (process.memoryUsage().rss >> 20) + " MB: " + sql.slice(0, 80)); // @instrument
     }
   },
   "sqlite:copy": x => {
     const { Database } = require("bun:sqlite");
     const fs = require("node:fs"), from = String(at(x, 0)), to = String(at(x, 1));
+    closeReadDb(to);
     for (const p of [to, to + "-wal", to + "-shm", to + "-journal"]) { try { fs.rmSync(p, { force: true }); } catch { } }
     const db = new Database(from, { readonly: true });
     try { db.query("vacuum into ?").run(to); } finally { db.close(true); }
@@ -1633,6 +1666,7 @@ const PRIMS = new Map(Object.entries({
   },
   "sqlite:replace": x => {
     const fs = require("node:fs"), build = String(at(x, 0)), path = String(at(x, 1));
+    closeReadDb(build); closeReadDb(path); closeReadDb(path + ".prior");
     if (fs.existsSync(path)) {
       try { fs.rmSync(path + ".prior", { force: true }); } catch { }
       fs.renameSync(path, path + ".prior");
