@@ -67,7 +67,7 @@ Object Type is a subtype of Function.
       that Object Type is a Value Type.
   <!-- The two defining conditions are declared
        below as derived rules, and the subtypes themselves are declared
-       here, so both rules have heads naming types the model
+       here, so both rules have derived fact types naming types the model
        contains. Halpin's Fig 13.29 compresses this into the OTkind
        attribute; the later editions spell out the partition.
 
@@ -98,7 +98,7 @@ Object Type is a subtype of Function.
 
      Until then, note the live consequence: forml2-grammar.md accepts
      `is abstract` as a Trailing Marker (:30) and classifies it (:240), but
-     the metamodel has no head for it, which is why the grammar carries
+     the metamodel has no derived fact type for it, which is why the grammar carries
      'abstract' as a third value in its Object Kind column. That third
      value is the symptom of this same gap, not a kind. -->
 
@@ -503,10 +503,10 @@ Object Type has World Assumption. +
        declared above: `Object Type is backed by External System`.
 
        NOT AN iff RULE, and the two iff shapes show why. A literal in
-       the HEAD (`has World Assumption 'open' iff ...`) names no declared
+       the DERIVED FACT TYPE (`has World Assumption 'open' iff ...`) names no declared
        fact type and the oracle refuses it outright; moving the value into
        the body (`iff World Assumption is 'open' and ...`) resolves the
-       head, reads badly, and lands among the 22 rules no arm accepts. The
+       derived fact type, reads badly, and lands among the 22 rules no arm accepts. The
        shape this wants is a SUBSET CONSTRAINT derivation pair,
        written with the World Assumption definition (open if the
        function source is external, closed otherwise),
@@ -1133,7 +1133,7 @@ Derivation Rule introduces values.
        population source until the evaluator phase lands, and that
        sentence is the definition of a BASE fact type. Marked `+`, this
        would fail softly and invisibly: the
-       asserted half populates, so the head looks alive while the derived
+       asserted half populates, so the derived fact type looks alive while the derived
        half silently never arrives. The marker
        comes back with the rule.
        Cor 1: value introduction is syntactic — a rule body applies a
@@ -1406,7 +1406,7 @@ Derivation Rule is provided by Constraint.
        are antecedent and which consequent, and Role Sequence (1126)
        belongs to the derivation-body decomposition and is never linked to
        Constraint. So a rule reached only from its constraint cannot find
-       its own head. Retiring this link needs
+       its own derived fact type. Retiring this link needs
        `Constraint has antecedent Role Sequence` / `... consequent ...`
        declared first; that is the real gap, and it is why the link exists. -->
 Derivation Rule has antecedent Fact Type.

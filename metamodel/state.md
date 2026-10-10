@@ -199,8 +199,8 @@ Guard guards Transition.
      target status's derived action.
      audit-fix A5 (datalog-paper convention): a semi-derived rule states a
      SUFFICIENT condition only — "if", never "iff". The iff reading is the
-     closed-world closure over all rules of a fully-derived head; a `+`
-     head has asserted rows no closure can claim. -->
+     closed-world closure over all rules of a fully derived fact type; a `+`
+     derived fact type has asserted rows no closure can claim. -->
 
 + Predicate is performed during Transition if that Transition is to some Status and that Predicate is performed in that Status.
 
