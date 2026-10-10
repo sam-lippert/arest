@@ -344,7 +344,7 @@ Constraint 'constraint-invertibility' spans Role 'ConstraintHasText.1'.
      variable in a Derivation Rule consequent appears in at least one
      antecedent of that Derivation Rule": the compiler already reports it.
      A rule whose derived fact type names a role no antecedent binds gets no recipe, so the
-     compile reports its derived fact type UNDELIVERED ("no form says this body") and
+     compile reports its derived fact type UNDELIVERED ("no form says this condition") and
      AREST_STRICT=1 refuses it. Measured with
      `* Person likes Country iff Person speaks Language.`: undelivered. The
      same rule with the derived fact type `Person knows Language` builds. -->
