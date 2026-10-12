@@ -2391,7 +2391,12 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   // reflect:constraint_types and reflect:modalities each read one column of, and reflect:records under
   // reflect:spans, reflect:span_seqs and reflect:span_positions three more: five computations of one list
   // and three of its span records per reflection, 39 to 69 ms each alone on support's closed store.
-  "reflect:constraints", "reflect:records"]);
+  "reflect:constraints", "reflect:records",
+  // store:places is where the database holds each stored fact type and query:env the schema's rows a read places
+  // a source by (task #197, step 7): a function of the store's schema and its database's, which neither a read nor
+  // a write that moves no schema moves, asked by every get, query and orient of a burst. Each is one list per store
+  // between memoClears.
+  "store:places", "query:env"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot lambda list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
@@ -3029,57 +3034,10 @@ const FASTPRIMS = new Map(Object.entries({
   // first read; AREST_NOTWIN=store:fix_desc gives the DEF's own. Only where the
   // store is read on demand: in a compile, the suite or the law report every slot
   // is read anyway, and there the slot is unfolded at once, as the DEF does.
-  // `get` <id, store> OVER A STORE READ FROM ITS TABLES READS THE ROWS THAT NAME THE ID
-  // (2026-09-25; Sam: "rmap is supposed to be done on compile, not every time you call a
-  // column?"). The DEF answered <the id's cell among rmap's, the fact types nav:peers
-  // keeps>: rmap over the store builds a cell for every entity of every group and every
-  // relation's rows, and ast:fetch then takes one; ast:File nests every population and
-  // nav:peers keeps the ones that hold the id. On support.auto.dev that was the whole
-  // store projected again at every first `get` -- rmap 2,228 ms and 344 -> 1,417 MB
-  // resident, ast:File 74 ms, nav:peers 225 ms -- for one entity's row, which the tables
-  // already hold because the check wrote them. Since 2026-10-01 the DEF answers the
-  // entity's facts and its links (lambda's note above DEF(get)), and its first step,
-  // get:cut, narrows every population to the rows that hold the id, so it reads nothing
-  // else of the store. So this is the DEF itself, evaluated over the store with every
-  // population cut to the facts that name the id -- the tables' from one scan per table
-  // (lazyStore's mentioning), the carriers' filtered -- and it answers what the DEF
-  // answers over the whole store, only without reading the rest. A fact type the id
-  // NAMES is cut like any other: only the rmap answer merged its whole population in.
-  // A fact type the tables carry but yield nothing for falls back to the carriers' rows
-  // in a descriptor, and so it does here: support's SourceServiceHasProxyConcurrencyCap
-  // is read back from its column as a unary while its fact holds a value, so the
-  // store serves it from the carrier -- asked only where the carrier names the id and
-  // the tables do not. Any other shape, a store not read from its tables, and
-  // AREST_NOTWIN=get give the DEF's own route.
-  "get": x => {
-    const def = () => Ev(DEFS.get("get"), x);
-    if (!LAZY_STORE || !Array.isArray(x) || x.length !== 2) return def();
-    const id = x[0], st = x[1];
-    if (typeof id !== "string" || !Array.isArray(st) || st.length !== 2 || !Array.isArray(st[0])) return def();
-    const has = (f) => Array.isArray(f) && f.some((v) => v === id);
-    const tm0 = performance.now(); // @instrument
-    const byFt = LAZY_STORE.mentioning(id);
-    if (PROFILE) console.error("get: mentioning " + Math.round(performance.now() - tm0) + " ms, " + byFt.size + " fact type(s)"); // @instrument
-    // a derived fact type the store computes on read keeps no table rows: store:read_state computed the rows of the ones
-    // the entity's types play into the descriptor, so those are its rows here, as they are in the DEF
-    const orh = onReadDfts(CELLS);
-    const fts = [];
-    for (const d of st[0]) {
-      if (!Array.isArray(d) || d.length < 5) return def();
-      const name = String(d[0]);
-      let rows;
-      if (LAZY_STORE.present(name) && !orh.has(name)) {
-        rows = byFt.get(name) || [];
-        if (!rows.length) { const c = LAZY_STORE.carrier(name).filter(has); if (c.length && !LAZY_STORE.rowsOf(name).length) rows = c; }
-      } else {
-        const all = d[4];
-        if (!Array.isArray(all)) return def();
-        rows = all.filter(has);
-      }
-      fts.push([d[0], d[1], d[2], d[3], rows]);
-    }
-    return Ev(DEFS.get("get"), [id, [fts, st[1]]]);
-  },
+  // `get` HAS NO TWIN (task #197, step 7). From 2026-09-25 this host read the rows that name an id out of the tables
+  // itself (lazyStore's mentioning, one SELECT of its own per table) and handed the DEF a state cut to them: SQL this
+  // file built, beside lambda's. Lambda asks the database now -- store:read_state cuts each stored fact type at its
+  // place in the database (sqlite:cut_sql, the note above store:read_state) -- so the DEF is the whole route.
   // nav:keep_peer <<id, cell>, peers> TAKES A CELL'S ATOMS ONCE (2026-10-03, #163). nav:peers asks it of every FILE
   // cell for every id, and the DEF takes the cell's atoms (nav:atoms) and theta:member indexes them, each time: once
   // FILE holds the populations the reflection and the closure put (store:file_put), the law report's 1,530 links
