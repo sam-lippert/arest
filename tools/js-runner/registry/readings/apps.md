@@ -49,6 +49,8 @@
 
 App(.Slug) is an entity type.
 
+Library(.Slug) is an entity type.
+
 ## Value Types
 
 Slug is a value type.
@@ -98,11 +100,34 @@ App has Serving Status.
 App reads Readings Directory at Readings Position.
   Each App, Readings Position combination occurs at most once in the population of App reads Readings Directory at Readings Position.
 
+### Library
+
+<!-- A LIBRARY IS TESTED ON ITS OWN AND INSIDE EACH APP THAT COMPOSES IT (Sam,
+     2026-10-12: "Libraries should be able to be unit tested independently and
+     as part of an app's functional tests"). A library is readings with no
+     server and no store anything serves from, so it is no App (the note on
+     apps/claude below). Its UNIT test is compile-store over the directories it
+     reads, into an empty .check/unit, so it answers for those readings and
+     nothing an earlier store carried. Its FUNCTIONAL tests are the checks of the
+     Apps that compose it, whose readings directories include its own; apps_check
+     on a library names them. Each library's directories were the tail of its
+     package.json `check`, as the apps' were. -->
+Library has Package Directory.
+  Each Library has exactly one Package Directory.
+  For each Package Directory, at most one Library has that Package Directory.
+
+Library reads Readings Directory at Readings Position.
+  Each Library, Readings Position combination occurs at most once in the population of Library reads Readings Directory at Readings Position.
+
+App composes Library.
+  It is possible that the same App composes more than one Library.
+  It is possible that more than one App composes the same Library.
+
 ## Instance Facts
 
 <!-- The six residents AREST_APPS named on 2026-09-22, in the order it named
      them. apps/claude IS a composition: the libraries it composes, memory
-     among them, have no App of their own, so none appears here.
+     among them, have no App of their own; each is a Library, after the Apps.
      On 2026-09-23 arest-dev went to apps/archive with paper and engine, the two
      libraries only it composed: no session but one had asked it anything since
      the router began, and its store held nothing the runtime wrote. The one live
@@ -151,4 +176,47 @@ App 'engineering' reads Readings Directory '../../arest/readings/templates' at R
 App 'engineering' reads Readings Directory '.' at Readings Position '3'.
 App 'engineering' reads Readings Directory 'readings' at Readings Position '4'.
 
-Domain 'registry' has Description 'The MCP router''s residents: which apps it serves, where each app''s package is, which readings directories its check compiles and in what order, and whether to start it.'.
+<!-- The libraries the residents compose (memory and spd-1 in claude; connectors,
+     sherlock and auto.dev in support), and decidex and infosci, whose checks
+     already called compile-store. auto.dev composes connectors and sherlock in
+     turn; support reads all three itself, so it composes each. -->
+
+Library 'memory' has Package Directory 'C:/Users/lippe/Repos/apps/memory'.
+Library 'memory' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+Library 'memory' reads Readings Directory 'readings' at Readings Position '2'.
+
+Library 'spd-1' has Package Directory 'C:/Users/lippe/Repos/apps/spd-1'.
+Library 'spd-1' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+Library 'spd-1' reads Readings Directory 'readings' at Readings Position '2'.
+
+Library 'connectors' has Package Directory 'C:/Users/lippe/Repos/apps/connectors'.
+Library 'connectors' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+Library 'connectors' reads Readings Directory 'readings' at Readings Position '2'.
+
+Library 'sherlock' has Package Directory 'C:/Users/lippe/Repos/apps/sherlock'.
+Library 'sherlock' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+Library 'sherlock' reads Readings Directory '.' at Readings Position '2'.
+Library 'sherlock' reads Readings Directory 'readings' at Readings Position '3'.
+
+Library 'auto.dev' has Package Directory 'C:/Users/lippe/Repos/apps/auto.dev'.
+Library 'auto.dev' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+Library 'auto.dev' reads Readings Directory '../connectors/readings' at Readings Position '2'.
+Library 'auto.dev' reads Readings Directory '../sherlock' at Readings Position '3'.
+Library 'auto.dev' reads Readings Directory '.' at Readings Position '4'.
+Library 'auto.dev' reads Readings Directory 'readings' at Readings Position '5'.
+
+Library 'decidex' has Package Directory 'C:/Users/lippe/Repos/apps/decidex'.
+Library 'decidex' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+Library 'decidex' reads Readings Directory '.' at Readings Position '2'.
+
+Library 'infosci' has Package Directory 'C:/Users/lippe/Repos/apps/infosci'.
+Library 'infosci' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+Library 'infosci' reads Readings Directory 'readings' at Readings Position '2'.
+
+App 'claude' composes Library 'memory'.
+App 'claude' composes Library 'spd-1'.
+App 'support' composes Library 'connectors'.
+App 'support' composes Library 'sherlock'.
+App 'support' composes Library 'auto.dev'.
+
+Domain 'registry' has Description 'The MCP router''s residents and the libraries they compose: which apps it serves, where each app''s or library''s package is, which readings directories its check compiles and in what order, which libraries each app composes, and whether to start an app.'.

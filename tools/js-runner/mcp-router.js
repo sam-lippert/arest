@@ -194,19 +194,42 @@ class Registry {
       else if (existsSync(this.db + ".prev")) { rmSync(this.db, { force: true }); renameSync(this.db + ".prev", this.db); }
     } catch { /* the check's report says what failed */ }
   }
-  // AND AN APP'S CHECK READS THE DIRECTORIES ITS REGISTRY ROW NAMES, in order (App reads Readings
-  // Directory at Readings Position), each relative to its Package Directory: null where the store holds no
-  // such table, [] where it names none for this app.
-  readsOf(name) {
+  // ROWS OF ONE TABLE, OR NULL where the store or the table is not there. Opened, read and closed
+  // here, as read() does, so nothing holds the file a check renames over.
+  rows(table, sql, params) {
     if (!existsSync(this.db)) return null;
     try {
       const db = new Database(this.db, { readonly: true });
       try {
-        if (!db.query("select 1 from sqlite_master where type = 'table' and name = 'AppReadsReadingsDirectoryAtReadingsPosition'").get()) return null;
-        return db.query('select "readingsDirectory" as d from "AppReadsReadingsDirectoryAtReadingsPosition" where "app" = ?1 order by "readingsPosition"')
-          .all(name).map((r) => String(r.d));
+        if (!db.query("select 1 from sqlite_master where type = 'table' and name = ?1").get(table)) return null;
+        return db.query(sql).all(...(params || []));
       } finally { db.close(true); }
     } catch { return null; }
+  }
+  // AND A CHECK READS THE DIRECTORIES ITS REGISTRY ROW NAMES, in order (App reads Readings Directory at
+  // Readings Position, and Library reads the same), each relative to its Package Directory: null where the
+  // store holds no such table, [] where it names none for this one.
+  readsOf(name, kind = "App") {
+    const t = kind + "ReadsReadingsDirectoryAtReadingsPosition";
+    const r = this.rows(t, 'select "readingsDirectory" as d from "' + t + '" where "' + kind.toLowerCase() + '" = ?1 order by "readingsPosition"', [name]);
+    return r && r.map((x) => String(x.d));
+  }
+  // THE LIBRARIES: readings with no server, each tested on its own (its unit test) and inside the Apps that
+  // compose it (their checks, its functional tests). A slug an App or the registry already uses is refused.
+  libraries() {
+    const out = [], refused = [];
+    for (const row of this.rows("Library", 'select "slug", "packageDirectory" from "Library"') || []) {
+      const name = String(row.slug || "").trim();
+      const pkg = String(row.packageDirectory || "").trim().replace(/\\/g, "/").replace(/\/+$/, "");
+      if (!name || !pkg) { refused.push("Library '" + name + "' has no Package Directory"); continue; }
+      if (name === REGISTRY_NAME || residents.has(name)) { refused.push("Library '" + name + "' has the name of " + (name === REGISTRY_NAME ? "the registry" : "an App")); continue; }
+      out.push({ name, pkg });
+    }
+    this.libNote = refused.length ? refused.length + " library row(s) REFUSED: " + refused.join("; ") : "";
+    return out;
+  }
+  composers(library) {
+    return (this.rows("AppComposesLibrary", 'select "app" from "AppComposesLibrary" where "library" = ?1', [library]) || []).map((x) => String(x.app));
   }
   source() { return this.db; }
   // AND A STORE OLDER THAN ITS READINGS IS SAID, NOT GUESSED AT. Its rows are
@@ -328,18 +351,30 @@ class Registry {
 // A BUILD STEP IS A CHILD PROCESS WHOSE LAST LINES ARE ITS REPORT. The tools
 // say what they did on stderr (design-state: ..., store.db: ..., REFUSING ...),
 // so the tail, colours stripped, is what `apps` shows afterwards.
+// AND THE CHECK'S DIAGNOSTICS ARE KEPT WHOLE (2026-10-12). The tail is the last
+// 6000 characters, and a check says what it could not build -- UNATTACHED,
+// UNBUILT, UNDELIVERED, UNDECLARED, each one line listing every sentence -- before
+// its last lines, so a long one fell out of the tail. Each such line is kept as it
+// streams by (its head, 300 characters), so a check can say how many it had.
 function run(args, cwd, extraEnv) {
   return new Promise((resolve) => {
-    let tail = "";
-    const keep = (chunk) => { tail = (tail + String(chunk)).slice(-6000); };
+    let tail = "", partial = "";
+    const diags = [];
+    const keep = (chunk) => {
+      const s = String(chunk);
+      tail = (tail + s).slice(-6000);
+      const lines = (partial + s).split(/\r?\n/);
+      partial = lines.pop();
+      for (const l of lines) if (/^UN[A-Z]+:/.test(l)) diags.push(l.slice(0, 300));
+    };
     let p;
     try {
       p = spawn(BUN, args, { cwd, env: { ...process.env, ...(extraEnv || {}) }, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
-    } catch (e) { resolve({ code: -1, tail: String(e.message) }); return; }
+    } catch (e) { resolve({ code: -1, tail: String(e.message), diags }); return; }
     p.stdout.on("data", keep);
     p.stderr.on("data", keep);
-    p.on("error", (e) => resolve({ code: -1, tail: tail + NL + String(e.message) }));
-    p.on("exit", (code) => resolve({ code, tail }));
+    p.on("error", (e) => resolve({ code: -1, tail: tail + NL + String(e.message), diags }));
+    p.on("exit", (code) => resolve({ code, tail, diags }));
   });
 }
 function lastLines(tail, n) {
@@ -757,6 +792,62 @@ class Resident {
 
 const registry = new Registry();
 const residents = new Map();
+// ONE LIBRARY: readings with no server (Sam, 2026-10-12: "Libraries should be able
+// to be unit tested independently and as part of an app's functional tests").
+// apps_check on it is its UNIT test: compile-store over the directories its
+// registry row names, into an empty .check/unit, so the answer is about those
+// readings and nothing an earlier store carried; it passes when the function
+// exits 0 and says alethic_clean: T. Its FUNCTIONAL tests are the checks of the
+// Apps that compose it (App composes Library), which read its directories among
+// their own; the unit test names them, and apps_check on each runs one. A library
+// has no module, so apps_compile and the served verbs refuse it and say so.
+class Library {
+  constructor(lib) {
+    this.name = lib.name;
+    this.pkg = lib.pkg;
+    this.dir = lib.pkg + "/.check/unit";
+    this.busy = null;                       // null | unit testing
+    this.note = "";                         // the last unit test's result
+  }
+  check() {
+    if (this.busy) return null;
+    const dirs = registry.readsOf(this.name, "Library");
+    if (!dirs || !dirs.length) return "no unit test for library " + this.name + ": the registry names no Readings Directory for Library '" + this.name
+      + "' (Library reads Readings Directory at Readings Position, in " + registry.pkg + "/readings/apps.md); add them, then apps_check and apps_compile on '" + REGISTRY_NAME + "'";
+    try { rmSync(this.dir, { recursive: true, force: true }); mkdirSync(this.dir, { recursive: true }); }
+    catch (e) { return "the unit test of " + this.name + " could not empty " + this.dir + ": " + e.message; }
+    const apps = registry.composers(this.name);
+    const functional = apps.length ? "its functional tests are the checks of " + apps.join(", ") + " (apps_check on each)" : "no app composes it, so it has no functional test";
+    this.busy = "unit testing";
+    this.note = "";
+    const t0 = Date.now();
+    run([join(here, "build.js"), "compile", "--run", "--", "compile-store", this.dir, ...dirs], this.pkg,
+      { AREST_OUT_DIR: this.dir, AREST_DB: this.dir + "/store.db" }).then(({ code, tail, diags }) => {
+      const pass = code === 0 && /alethic_clean: T/.test(tail);
+      const secs = Math.round((Date.now() - t0) / 1000);
+      this.note = (pass ? "unit test PASSED in " + secs + " s: " : "unit test FAILED in " + secs + " s (exit " + code + "): ")
+        + lastLines(tail, pass ? 2 : 6)
+        + (diags.length ? " -- " + diags.length + " diagnostic(s): " + diags.map((d) => d.slice(0, 120)).join(" | ") : "")
+        + " -- " + functional;
+      this.busy = null;
+    });
+    return "unit testing library " + this.name + ": compile-store over its " + dirs.length + " readings directories into an empty " + this.dir
+      + "; `apps` reports the result; " + functional;
+  }
+  status() { return "library -- " + (this.busy ? this.busy : this.note || "not tested since the router started; apps_check on it runs its unit test"); }
+}
+const libraries = new Map();                // library name -> Library, from the registry's Library table
+function reconcileLibraries() {
+  const wanted = registry.libraries();
+  const byName = new Map(wanted.map((l) => [l.name, l]));
+  for (const [name, l] of [...libraries]) {
+    const w = byName.get(name);
+    if (!w || w.pkg !== l.pkg) libraries.delete(name);
+  }
+  for (const w of wanted) if (!libraries.has(w.name)) libraries.set(w.name, new Library(w));
+  return wanted;
+}
+
 // RECONCILE, DO NOT REBUILD. A resident already serving the directory the table
 // still names is left alone -- its server is the expensive thing here, fifteen
 // seconds and half a gigabyte on the smallest app -- so only the difference
@@ -803,9 +894,10 @@ function reconcile() {
     r.state = "idle";                      // survey() learns its surface; a call starts it
     started.push(a.name);
   }
+  const libs = reconcileLibraries();         // after the residents, so a library cannot take an App's name
   survey();
   announceTools();
-  return { wanted, started, stopped, parked };
+  return { wanted, started, stopped, parked, libs };
 }
 // THE SURVEY: each idle resident not yet asked what it serves, one at a time --
 // started, asked, and stopped again unless a call reached it while it booted (a
@@ -839,8 +931,9 @@ const appArg = () => ({ type: "string", enum: names(), description: "the residen
 // apps_compile on it are how the app LIST is changed: the check recompiles its
 // readings, the compile reads the App table again and reconciles the residents.
 // A client that validates against the enum could not name it otherwise.
-const sessionArg = () => ({ type: "string", enum: names().concat([REGISTRY_NAME]),
-  description: "the resident app this call is for, or '" + REGISTRY_NAME
+// AND THE LIBRARIES, because apps_check on one is its unit test.
+const sessionArg = () => ({ type: "string", enum: names().concat([...libraries.keys()], [REGISTRY_NAME]),
+  description: "the resident app this call is for, a library (apps_check runs its unit test), or '" + REGISTRY_NAME
     + "' -- the router's own store, whose App table says which apps there are" });
 
 function tools() {
@@ -857,7 +950,7 @@ function tools() {
   }));
   return [
     { name: "apps", description: "the registry and the resident apps: where the app list was read from, whether each app is serving, and its last check or compile result", inputSchema: { type: "object", properties: {} } },
-    { name: "apps_check", description: "run the app's check: the arest function compile-store over the readings directories the registry names for the app (App reads Readings Directory at Readings Position), in its package -- the schema from its readings, and its store; the app is stopped first, because it holds the store the check writes, and `apps` reports the result. After a readings change: apps_check, then apps_compile. On '" + REGISTRY_NAME + "' it recompiles the router's own readings -- which apps there are -- instead.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
+    { name: "apps_check", description: "run the app's check: the arest function compile-store over the readings directories the registry names for the app (App reads Readings Directory at Readings Position), in its package -- the schema from its readings, and its store; the app is stopped first, because it holds the store the check writes, and `apps` reports the result. After a readings change: apps_check, then apps_compile. On a library it is the library's unit test: compile-store over the directories the registry names for it, into an empty .check/unit, passing when alethic_clean is T; the checks of the apps that compose it are its functional tests. On '" + REGISTRY_NAME + "' it recompiles the router's own readings -- which apps and libraries there are -- instead.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
     { name: "apps_compile", description: "rebuild the app's module from its carriers (build.js mcp) and start its server again; the app is not served meanwhile, and `apps` reports the result. The store is written by apps_check, stamped to match this module, so run apps_check first and the app serves from its database. On '" + REGISTRY_NAME + "' it reads the App table again and reconciles the residents instead: a new app is spawned, a removed or suspended one is stopped.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
     { name: "apps_evaluate", description: "run a Domain Change's staged gate (#178): the app's own check over a scratch copy of its store, while the app keeps serving. A run that refuses, fails or leaves an alethic violation is recorded as a Failure triggered by the Domain Change; either way the app then records `Domain Change is evaluated`, so `is valid` and the approve-change guard follow from the rules. `apps` reports the outcome.", inputSchema: { type: "object", properties: { app: appArg(), domainChange: { type: "string", description: "the Domain Change to evaluate, by id" } }, required: ["app", "domainChange"] } },
     // A FACT TYPE'S OWN RESOURCE, ONE TOOL FOR ALL OF THEM (2026-09-24). Every module
@@ -923,7 +1016,8 @@ async function handle(msg, login) {
       serverInfo: { name: "arest", version: "1.0.0" },
       instructions: head + ". The app list is the App table of " + registry.source() +
         "; a readings change is apps_check then apps_compile on that app, and on '" + REGISTRY_NAME +
-        "' for the list itself. `apps` reports each. " + (registry.staleness() ? registry.staleness() + " ||| " : "") + lines.join(" ||| "),
+        "' for the list itself. `apps` reports each. " + (libraries.size ? "Libraries, which serve nothing, are unit tested by apps_check on each: "
+        + [...libraries.keys()].join(", ") + "; an app that composes one is its functional test. " : "") + (registry.staleness() ? registry.staleness() + " ||| " : "") + lines.join(" ||| "),
     });
   }
   if (msg.method === "tools/list") { return reply(msg.id, { tools: tools() }); }
@@ -946,8 +1040,9 @@ async function handle(msg, login) {
       // the command that builds one. An empty list with no first row was the
       // silence this replaced, and it is reported as an error so that a client
       // cannot mistake it for six apps that are merely slow.
-      const rows = [[REGISTRY_NAME, registry.status(), registry.dir || registry.source()]];
+      const rows = [[REGISTRY_NAME, registry.status() + (registry.libNote ? " -- " + registry.libNote : ""), registry.dir || registry.source()]];
       for (const r2 of residents.values()) rows.push([r2.name, r2.status(), r2.dir]);
+      for (const l of libraries.values()) rows.push([l.name, l.status(), l.dir]);
       return text(msg.id, JSON.stringify(rows), !!registry.error);
     }
     const args = { ...(p.arguments || {}) };
@@ -978,8 +1073,19 @@ async function handle(msg, login) {
         + (out.stopped.length ? "; stopped " + out.stopped.join(", ") : "")
         + (out.started.length || out.stopped.length || out.parked.length ? "" : "; nothing changed")
         + ". The residents are now " + (names().join(", ") || "none") + " (they were " + was + ")"
+        + "; the libraries are " + ([...libraries.keys()].join(", ") || "none") + (registry.libNote ? " (" + registry.libNote + ")" : "")
         + (registry.note ? ". " + registry.note : "")
         + (registry.staleness() ? ". " + registry.staleness() : ""));
+    }
+    const lib = libraries.get(app);
+    if (lib) {
+      if (p.name === "apps_check") {
+        const started = lib.check();
+        return started ? text(msg.id, started) : text(msg.id, lib.name + " is " + lib.status() + "; wait for `apps` to report it", true);
+      }
+      const apps = registry.composers(lib.name);
+      return text(msg.id, "'" + lib.name + "' is a library: it serves nothing and has no module, so only apps_check takes it, which runs its unit test."
+        + (apps.length ? " Its facts are served by the apps that compose it: " + apps.join(", ") + "." : " No app composes it."), true);
     }
     const r = residents.get(app);
     if (!r) return text(msg.id, "no resident app named " + JSON.stringify(app) + "; "
