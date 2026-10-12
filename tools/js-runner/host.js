@@ -825,7 +825,9 @@ function recordLedger(db, prior, cells) {
 // how many rows they changed; rows answers its rows, each value its text and NULL as #; fix runs its statement
 // again until it changes nothing (a closure, finite by lem:finite) and answers how many rows it changed in all;
 // refuse runs its select, and a row stops the program, answering <refused, its step, its rows>, which the
-// caller rolls back. Otherwise <committed, each step's answer>.
+// caller rolls back. Otherwise <committed, each step's answer>. A rows or refuse step may carry a guard, a select
+// in its fourth place: the step is asked only when the guard answers a row, and answers none otherwise, so a long
+// select whose input is empty is not even prepared (task #197, step 6: delta:guard_of).
 function runSteps(db, steps) {
   const text = (rows) => rows.map((r) => r.map((v) => (v === null || v === undefined ? "#" : String(v))));
   const total = db.query("select total_changes()");
@@ -846,6 +848,18 @@ function runSteps(db, steps) {
     // each statement prepared for its step and finalized after it: a program is run once, and the connection's
     // cache of prepared statements (db.query) would hold every one of its statements to the end
     let st = null;
+    const guard = seq(s).length > 3 && (kind === "rows" || kind === "refuse") ? String(at(s, 3)) : "";
+    if (guard) {
+      let g = null, held = false;
+      try { g = db.prepare(guard); held = g.values().length > 0; }
+      catch (e) { throw new Error("sqlite:program, step " + n + " (" + kind + ", its guard): " + String((e && e.message) || e) + " -- " + guard.slice(0, 300)); }
+      finally { if (g) g.finalize(); }
+      if (!held) {
+        answers.push([]);
+        if (PROFILE) { const k = kind + " skipped"; const v = kinds.get(k) || [0, 0]; v[0]++; v[1] += performance.now() - ts; kinds.set(k, v); } // @instrument
+        continue;
+      }
+    }
     try {
       if (kind === "exec") {
         const was = changes();
@@ -866,7 +880,7 @@ function runSteps(db, steps) {
       } else throw new Error("no step of kind " + kind);
     } catch (e) { throw new Error("sqlite:program, step " + n + " (" + kind + "): " + String((e && e.message) || e) + " -- " + sql.slice(0, 300)); }
     finally { if (st) st.finalize(); }
-    if (PROFILE && performance.now() - ts > 20) console.error("  step " + n + " (" + kind + ") " + Math.round(performance.now() - ts) + " ms: " + sql.slice(0, 160)); // @instrument
+    if (PROFILE && performance.now() - ts > 20) console.error("  step " + n + " (" + kind + ") " + Math.round(performance.now() - ts) + " ms: " + sql.slice(0, performance.now() - ts > 1000 ? 40000 : 160)); // @instrument
     if (PROFILE) { const k = kind + " " + sql.split(" ")[0]; const v = kinds.get(k) || [0, 0]; v[0]++; v[1] += performance.now() - ts; kinds.set(k, v); } // @instrument
     if (refused) return ["refused", n, refused];
   }
@@ -973,6 +987,15 @@ function emitToDb(before, cells, prior, report) {
     for (const col of t[2]) if (reads(col[2])) { touched.add(table); break; }
   }
   wp.touched = performance.now() - wt;
+  // AND THE WRITE'S CHECKS RUN IN SQL OVER ITS DELTA, IN ITS TRANSACTION (task #197, step 6). Lambda answers the program
+  // (delta:write_steps): the steps run before the rows capture what the write changes in each table it can move, those run
+  // after the rows and the reflection are the checks the gate in memory left to SQL, each a refuse step over what changed,
+  // and the last drop the capture. A refuse step that answers a row stops the program, and the transaction takes back
+  // every statement it ran; the write is then asked again without the cover (againBare). The tables the host writes are
+  // lambda's to read the parts of; which parts, and their SQL, are lambda's.
+  wt = performance.now();
+  const dl = prior ? seq(Ev("delta:write_steps", [prior, cells, process.env.AREST_STORE_DB, [...touched]])) : null;
+  wp.dsteps = performance.now() - wt;
   const plan = prior ? rowPlanner(cells, prior, changed) : null;
   const byRow = new Set();
   const flat = (v) => (Array.isArray(v) ? v.map(flat).join("") : String(v));
@@ -991,6 +1014,7 @@ function emitToDb(before, cells, prior, report) {
     for (const s of ddl) db.exec(s);
     if (report && ddl.length) report.ddl = ddl;
     if (rf && seq(rf[0]).length) runSteps(db, rf[0]);
+    if (dl && seq(dl[0]).length) runSteps(db, dl[0]);
     for (const table of touched) {
       const cols = Ev("rmap:proj_colnames", [table, cells]).map(String);
       if (!cols.length) continue;
@@ -1041,10 +1065,20 @@ function emitToDb(before, cells, prior, report) {
       if (report) report.rewrote.push([table, n]);
     }
     if (rf && seq(rf[1]).length && !refused.length) { wt = performance.now(); rfOut = runSteps(db, rf[1]); wp.reflect = performance.now() - wt; }
+    if (dl && seq(dl[1]).length && !refused.length) {
+      wt = performance.now();
+      const ck = runSteps(db, dl[1]);
+      wp.checks = performance.now() - wt;
+      if (ck[0] === "refused") throw new Error("the write's SQL checks refused it at check " + ck[1] + " of " + seq(dl[1]).length + ", answering " + JSON.stringify(ck[2]).slice(0, 200));
+    }
+    if (dl && seq(dl[2]).length) runSteps(db, dl[2]);
     if (ledger) ledger();
     if (refused.length) throw new Error("the store refused " + (refused.length === 1 ? "a statement: " : refused.length + " statements, the first: ") + refused[0]);
   })();
   EMIT_STORED = true;
+  // a write that moved the schema leaves the plan the cover was read from behind it: the cover goes, and the next writes
+  // are gated in memory whole until a compile plans the schema again
+  if (ddl.length) { const i = CELLS.findIndex(isCover); if (i >= 0) { CELLS.splice(i, 1); memoClear(); } }
   lap("write");
   // what the reflection wrote, put in the store this process holds as the database now holds it (reflect:sql_adopt)
   if (rfOut && rfOut[0] === "committed") adoptClosed(Ev("reflect:sql_adopt", [CELLS, rf[2], rfOut[1]]));
@@ -5142,7 +5176,12 @@ function recordResponse(fn, url, status, say) {
   if (out.length > 2 && String(out[1]) === "T") {
     adoptStore(out[2]);
     clockLap(clock, "adopt");
-    const why = storeWrite(prior, "response " + fn, clock);
+    let why = storeWrite(prior, "response " + fn, clock);
+    if (why !== null && hasCover(prior)) {
+      const r = againBare(prior, "response " + fn, why, (s) => Ev("main:as", [s, SYSTEM_LOGIN, ["assert", facts]]), (o) => String(o[1]) === "T");
+      if (r.out && r.out.length > 1 && String(r.out[1]) !== "T") { if (say) say("response record REFUSED " + fn + ": " + String(r.out[0]).slice(0, 300)); return; }
+      why = r.why;
+    }
     if (why !== null && say) say("response record NOT COMMITTED " + fn + ": " + why.slice(0, 300));
   } else if (say) say("response record REFUSED " + fn + ": " + String(out[0]).slice(0, 300));
 }
@@ -5353,6 +5392,38 @@ function storeWrite(prior, what, clock) {
   sayWrite(what, clock, rep, null);
   return null;
 }
+// THE COVER IS AN ASSUMPTION A WRITE'S SQL DISCHARGES (task #197, step 6). A store served from its database carries the
+// cover of the SQL checks its compile planned (the cell state:sql_cover, which the boot loads: delta:boot_cover), and
+// lambda's gate in memory leaves out what it covers, because the write's emit asks each of those constraints in SQL over
+// the write's delta, in the write's transaction (delta:write_steps). When that program refuses -- or anything else fails
+// the emit -- nothing is stored, CELLS is the store before again, and the write is asked once more of that store WITHOUT
+// the cover: the gate in memory is then whole, as it was before the cover, so the write answers what it answered then,
+// a refusal byte for byte, and emits with no SQL checks. The cover is put back after. Which constraints are covered, and
+// the SQL, are lambda's; the host holds the cell and asks again.
+const COVER = "state:sql_cover";
+function isCover(c) { return Array.isArray(c) && c[0] === "CELL" && c[1] === COVER; }
+function hasCover(cells) { return Array.isArray(cells) && cells.some(isCover); }
+// <the store before, what, the write's failure, a store to lambda's answer for the write over it, an answer to whether it
+// commits> to { out, why }: the answer the write gives over the store without the cover, and why it was not stored, or null
+function againBare(prior, what, why0, evalOver, commits) {
+  const cover = prior.find(isCover);
+  const bare = prior.filter((c) => !isCover(c));
+  adoptStore(bare);
+  console.error("write " + String(what || "") + ": the emit failed (" + String(why0).replace(/(error):/gi, "$1 --").slice(0, 300) + "), asked again without the SQL checks' cover");
+  const clock = clockStart();
+  let out, why = null;
+  try {
+    try { out = evalOver(CELLS); } finally { clockLap(clock, "lambda"); }
+    if (Array.isArray(out) && out.length > 2) {
+      adoptStore(out[2]);
+      clockLap(clock, "adopt");
+      if (commits(out)) why = storeWrite(bare, String(what || "") + " (without the cover)", clock);
+    }
+  } finally {
+    if (cover && !CELLS.some(isCover)) { CELLS.push(cover); memoClear(); }
+  }
+  return { out, why };
+}
 // `write <what> <total> ms: evaluation (<its parts>), snapshot, change test, plan and write, tail -- <what it
 // wrote>`, the parts in ms as far as the write reached them, the evaluation's as its clock gives them
 // (clockText), and a table rewritten whole by name with the rows it took. The reason a write failed is in its
@@ -5368,8 +5439,10 @@ function sayWrite(what, clock, rep, failed) {
     ["snapshot", rep.snapshot], ["change test", rep.change], ["plan and write", rep.write], ["reflection adopted", rep.reflected], ["tail", rep.tail]]
     .filter((l) => l[1] !== undefined).map((l) => l[0] + " " + ms(l[1]) + (l[0] === "evaluation" && parts ? " (" + parts + ")" : "")
       + (l[0] === "plan and write" && rep.writeParts ? " [re-source " + ms(rep.writeParts.resource) + ", touched " + ms(rep.writeParts.touched)
-        + ", plan " + ms(rep.writeParts.plan) + (rep.writeParts.slow ? " (" + rep.writeParts.slow.map((s) => s[0] + " " + ms(s[1])).join(", ") + ")" : "") + ", rows " + ms(l[1] - rep.writeParts.resource - rep.writeParts.touched - rep.writeParts.plan - (rep.writeParts.reflect || 0))
-        + (rep.writeParts.reflect !== undefined ? ", reflected in SQL " + ms(rep.writeParts.reflect) : "") + "]" : ""));
+        + (rep.writeParts.dsteps !== undefined ? ", checks planned " + ms(rep.writeParts.dsteps) : "")
+        + ", plan " + ms(rep.writeParts.plan) + (rep.writeParts.slow ? " (" + rep.writeParts.slow.map((s) => s[0] + " " + ms(s[1])).join(", ") + ")" : "") + ", rows " + ms(l[1] - rep.writeParts.resource - rep.writeParts.touched - (rep.writeParts.dsteps || 0) - rep.writeParts.plan - (rep.writeParts.reflect || 0) - (rep.writeParts.checks || 0))
+        + (rep.writeParts.reflect !== undefined ? ", reflected in SQL " + ms(rep.writeParts.reflect) : "")
+        + (rep.writeParts.checks !== undefined ? ", checked in SQL " + ms(rep.writeParts.checks) : "") + "]" : ""));
   const whole = rep.rewrote || [];
   const wrote = failed ? failed
     : rep.moved === undefined ? "no store to write"
@@ -5401,7 +5474,7 @@ function storedWrite(out, what, clock) {
 }
 // <main:api's answer>: the store it made adopted, the rows a write moved stored, and <body, status> to answer.
 // <what> and <clock> are the request and its clock, for the line the write logs (storeWrite).
-function answerWrite(out, what, clock) {
+function answerWrite(out, what, clock, again) {
   let body = String(out[0]), status = Number(out[1]) || 500;
   if (isStored(out)) { storedWrite(out, what, clock); return [body, status]; }
   if (out.length > 2) {
@@ -5410,8 +5483,13 @@ function answerWrite(out, what, clock) {
     adoptStore(out[2]);
     clockLap(clock, "adopt");
     if (wrote) {
-      const why = storeWrite(prior, what, clock);
-      if (why === null) maybePerform(prior, CELLS, undefined, what);
+      let why = storeWrite(prior, what, clock);
+      if (why !== null && again && hasCover(prior)) {
+        const r = againBare(prior, what, why, again, (o) => Number(o[1]) < 400);
+        if (!r.out || r.out.length < 2) return [notCommitted(why), 500];
+        body = String(r.out[0]); status = Number(r.out[1]) || 500; why = Number(r.out[1]) < 400 ? r.why : null;
+      }
+      if (why === null) { if (status < 400) maybePerform(prior, CELLS, undefined, what); }
       else { body = notCommitted(why); status = 500; }
     }
   }
@@ -5491,7 +5569,12 @@ function writeBack(done, log) {
       if (out.length > 2 && Number(out[1]) < 400) {
         adoptStore(out[2]);
         clockLap(clock, "adopt");
-        const why = storeWrite(prior, "write-back POST " + ft, clock);
+        let why = storeWrite(prior, "write-back POST " + ft, clock);
+        if (why !== null && hasCover(prior)) {
+          const r = againBare(prior, "write-back POST " + ft, why, (s) => Ev("main:api", [s, "POST", ft, SYSTEM_LOGIN, args]), (o) => Number(o[1]) < 400);
+          if (r.out && r.out.length > 1 && Number(r.out[1]) >= 400) { say("write-back REFUSED " + ft + ": " + String(r.out[0]).slice(0, 200)); continue; }
+          why = r.why;
+        }
         if (why === null) say("wrote back " + JSON.stringify([ft].concat(args)));
         else say("write-back NOT COMMITTED " + ft + ": " + why.slice(0, 300));
       } else {
@@ -5510,7 +5593,12 @@ function writeBack(done, log) {
       if (out.length > 2 && String(out[1]) === "T") {
         adoptStore(out[2]);
         clockLap(clock, "adopt");
-        const why = storeWrite(prior, "write-back failure " + one.predicate, clock);
+        let why = storeWrite(prior, "write-back failure " + one.predicate, clock);
+        if (why !== null && hasCover(prior)) {
+          const r = againBare(prior, "write-back failure " + one.predicate, why, (s) => Ev("main:as", [s, SYSTEM_LOGIN, ["assert", one.failures]]), (o) => String(o[1]) === "T");
+          if (r.out && r.out.length > 1 && String(r.out[1]) !== "T") { say("failure record REFUSED " + one.predicate + ": " + String(r.out[0]).slice(0, 300)); continue; }
+          why = r.why;
+        }
         if (why === null) say("recorded the failure of " + one.predicate + " for " + one.entity);
         else say("failure record NOT COMMITTED " + one.predicate + ": " + why.slice(0, 300));
       } else {
@@ -5529,7 +5617,12 @@ function writeBack(done, log) {
       if (out.length > 2 && Number(out[1]) < 400) {
         adoptStore(out[2]);
         clockLap(clock, "adopt");
-        const why = storeWrite(prior, "undo " + m + " " + f[0], clock);
+        let why = storeWrite(prior, "undo " + m + " " + f[0], clock);
+        if (why !== null && hasCover(prior)) {
+          const r = againBare(prior, "undo " + m + " " + f[0], why, (s) => Ev("main:api", [s, m, f[0], SYSTEM_LOGIN, f.slice(1)]), (o) => Number(o[1]) < 400);
+          if (r.out && r.out.length > 1 && Number(r.out[1]) >= 400) { say("undo REFUSED " + f[0] + ": " + String(r.out[0]).slice(0, 200)); continue; }
+          why = r.why;
+        }
         if (why === null) say("took back " + m + " " + JSON.stringify(f));
         else say("undo NOT COMMITTED " + f[0] + ": " + why.slice(0, 300));
       } else say("undo REFUSED " + f[0] + ": " + String(out[0]).slice(0, 200));
@@ -5736,7 +5829,7 @@ function run_serve() {
       try { answer = Ev("main:api", [CELLS, req.method, resource, caller, fact]); } finally { clockLap(clock, "lambda"); }
       const out = await readThrough(answer, req.method, resource, caller, raw);
       clockLap(clock, "read");
-      const [body, status] = answerWrite(out, req.method + " " + resource, clock);
+      const [body, status] = answerWrite(out, req.method + " " + resource, clock, (s) => Ev("main:api", [s, req.method, resource, caller, fact]));
       memoReleaseWhenIdle(console.log);
       return new Response(body, {
         status,
@@ -6105,15 +6198,21 @@ function run_mcp() {
       const clock = clockStart();
       const prior = CELLS.slice();
       let out;
-      try { out = Ev("main:as", [CELLS, String(a.caller || ""), [String(name)].concat(rest)]); } finally { clockLap(clock, "lambda"); }
-      const held = String(out[1]) === "T";
+      const asked = (s) => Ev("main:as", [s, String(a.caller || ""), [String(name)].concat(rest)]);
+      try { out = asked(CELLS); } finally { clockLap(clock, "lambda"); }
+      let held = String(out[1]) === "T";
       if (out.length > 2) {
         adoptStore(out[2]);
         clockLap(clock, "adopt");
         if (held) {
-          const why = storeWrite(prior, String(name), clock);
+          let why = storeWrite(prior, String(name), clock);
+          if (why !== null && hasCover(prior)) {
+            const r = againBare(prior, String(name), why, asked, (o) => String(o[1]) === "T");
+            if (!r.out || r.out.length < 2) return [notCommitted(why), 500];
+            out = r.out; held = String(out[1]) === "T"; why = held ? r.why : null;
+          }
           if (why !== null) return [notCommitted(why), 500];
-          maybePerform(prior, CELLS, console.error, String(name));
+          if (held) maybePerform(prior, CELLS, console.error, String(name));
         }
       } else readLine(String(name), clock);
       return [out[0], held ? 200 : 500];
@@ -6166,7 +6265,13 @@ function run_mcp() {
       adoptStore(out[2]);
       clockLap(clock, "adopt");
       if (wrote) {
-        const why = storeWrite(prior, method + " " + resource, clock);
+        let why = storeWrite(prior, method + " " + resource, clock);
+        if (why !== null && hasCover(prior)) {
+          const r = againBare(prior, method + " " + resource, why, (s) => Ev("mcp:call", [method, resource, String(a.caller || ""), fact, s]), (o) => Number(o[1]) < 400);
+          if (!r.out || r.out.length < 2) return [notCommitted(why), 500];
+          out = r.out; why = Number(out[1]) < 400 ? r.why : null;
+          if (why === null && Number(out[1]) >= 400) return [out[0], out[1]];
+        }
         if (why !== null) return [notCommitted(why), 500];
         maybePerform(prior, CELLS, console.error, method + " " + resource);
       }
@@ -7466,6 +7571,11 @@ function boot(mode) {
     // write that changes it; the tables ARE the state.
     lap("store-db");
     readVerdict();
+    // AND WHAT ITS SQL CHECKS COVER (task #197, step 6): the cover of the checks the store's compile planned, which a
+    // write asks in SQL over its delta and the gate in memory then leaves out (delta:covered_in); none when the plan holds
+    // no parts to ask (delta:boot_cover), and the gate is whole.
+    { const cover = seq(Ev("delta:boot_cover", String(fromDb))); if (cover.length) { CELLS.push(["CELL", COVER, cover]); memoClear(); } }
+    lap("cover");
     // AND WHERE THE STORE IS (task #197, step 4): the SQL checks a served verb runs (validate) read the store's own
     // database, which lambda knows only by its name, so the boot hands it the name as it hands it the verdict.
     CELLS.push(["CELL", "state:store_db", String(fromDb)]); memoClear();
