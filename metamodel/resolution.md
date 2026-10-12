@@ -700,6 +700,16 @@ Function 'sqlite:scratch' yields Type Expression 'rows'.
 Function 'sqlite:program' has Definition Origin 'registered'.
 Function 'sqlite:program' accepts Type Expression 'path-and-steps'.
 Function 'sqlite:program' yields Type Expression 'program-answer'.
+<!-- AND WHETHER ANOTHER CONNECTION MOVED THE STORE. A server keeps
+     what it read of its store, and a row another connection commits is
+     not among it. sqlite:data_version answers PRAGMA data_version of the
+     store at the path, on a connection the host keeps for that alone, so
+     the number moves exactly when another connection commits there; lambda
+     decides whether the store moved (store:stale) and the host drops what
+     it read. -->
+Function 'sqlite:data_version' has Definition Origin 'registered'.
+Function 'sqlite:data_version' accepts Type Expression 'path'.
+Function 'sqlite:data_version' yields Type Expression 'number'.
 <!-- AND A VALUE THE READINGS STORE THROUGH A FUNCTION. The
      compile seals such values before it writes anything (compile:sealed), and
      the master key is the platform's to hold, never a value lambda holds:
