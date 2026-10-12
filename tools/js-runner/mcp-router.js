@@ -353,7 +353,8 @@ class Registry {
 // so the tail, colours stripped, is what `apps` shows afterwards.
 // AND THE CHECK'S DIAGNOSTICS ARE KEPT WHOLE (2026-10-12). The tail is the last
 // 6000 characters, and a check says what it could not build -- UNATTACHED,
-// UNBUILT, UNDELIVERED, UNDECLARED, each one line listing every sentence -- before
+// UNBUILT, UNDELIVERED, UNDECLARED, UNMARKED, FILE DOMAINS, each one line listing
+// every sentence -- before
 // its last lines, so a long one fell out of the tail. Each such line is kept as it
 // streams by (its head, 300 characters), so a check can say how many it had.
 function run(args, cwd, extraEnv) {
@@ -365,7 +366,7 @@ function run(args, cwd, extraEnv) {
       tail = (tail + s).slice(-6000);
       const lines = (partial + s).split(/\r?\n/);
       partial = lines.pop();
-      for (const l of lines) if (/^UN[A-Z]+:/.test(l)) diags.push(l.slice(0, 300));
+      for (const l of lines) if (/^(UN[A-Z]+|FILE DOMAINS):/.test(l)) diags.push(l.slice(0, 300));
     };
     let p;
     try {
