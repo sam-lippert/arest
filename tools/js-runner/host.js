@@ -827,9 +827,10 @@ function recordLedger(db, prior, cells) {
 // refuse runs its select, and a row stops the program, answering <refused, its step, its rows>, which the
 // caller rolls back; deny runs its select and the program runs on, and a row any deny step answers makes the
 // program's answer <denied, each such <step, its rows>>, which the caller rolls back and lambda reads the refusal
-// from (delta:refused). Otherwise <committed, each step's answer>. A rows, refuse or deny step may carry a guard, a
-// select in its fourth place: the step is asked only when the guard answers a row, and answers none otherwise, so a
-// long select whose input is empty is not even prepared (task #197, step 6: delta:guard_of).
+// from (delta:refused). Otherwise <committed, each step's answer>. A rows, refuse, deny or exec step may carry a
+// guard, a select in its fourth place: the step is asked only when the guard answers a row, and answers none
+// otherwise, so a long select whose input is empty is not even prepared (task #197, step 6: delta:guard_of, and the
+// refresh of a stored derived fact type, delta:wp_rows, whose statements wait on the keys a write moved).
 function runSteps(db, steps) {
   const text = (rows) => rows.map((r) => r.map((v) => (v === null || v === undefined ? "#" : String(v))));
   const total = db.query("select total_changes()");
@@ -851,7 +852,7 @@ function runSteps(db, steps) {
     // each statement prepared for its step and finalized after it: a program is run once, and the connection's
     // cache of prepared statements (db.query) would hold every one of its statements to the end
     let st = null;
-    const guard = seq(s).length > 3 && (kind === "rows" || kind === "refuse" || kind === "deny") ? String(at(s, 3)) : "";
+    const guard = seq(s).length > 3 && (kind === "rows" || kind === "refuse" || kind === "deny" || kind === "exec") ? String(at(s, 3)) : "";
     if (guard) {
       let g = null, held = false;
       try { g = db.prepare(guard); held = g.values().length > 0; }
@@ -958,7 +959,7 @@ function emitToDb(before, cells, prior, report) {
   // read what each derived fact type gained and lost, which lambda puts in the store this process holds (reflect:sql_adopt). The
   // places are the stored plan's, or the schema's own rows when the write moved them (an applied Domain Change).
   const rf = prior && changed.size ? seq(Ev("reflect:write_steps", [cells, process.env.AREST_STORE_DB, ddl.length ? "T" : "F"])) : null;
-  let rfOut = null;
+  let rfOut = null, wsOut = null;
   if (!changed.size) {
     if (ledger) { db.transaction(ledger)(); EMIT_STORED = true; }
     return 0;
@@ -1075,7 +1076,7 @@ function emitToDb(before, cells, prior, report) {
       if (report) report.rewrote.push([table, n]);
     }
     if (rf && seq(rf[1]).length && !refused.length) { wt = performance.now(); rfOut = runSteps(db, rf[1]); wp.reflect = performance.now() - wt; }
-    if (dl && seq(dl[1]).length && !refused.length) { wt = performance.now(); runSteps(db, dl[1]); wp.refresh = performance.now() - wt; }
+    if (dl && seq(dl[1]).length && !refused.length) { wt = performance.now(); wsOut = runSteps(db, dl[1]); wp.refresh = performance.now() - wt; }
     if (dl && seq(dl[2]).length && !refused.length) {
       wt = performance.now();
       const ck = runSteps(db, dl[2]);
@@ -1093,10 +1094,13 @@ function emitToDb(before, cells, prior, report) {
   EMIT_STORED = true;
   // a write that moved the schema leaves the plan the cover was read from behind it: the cover goes, and the next writes
   // are gated in memory whole until a compile plans the schema again
-  if (ddl.length) { const i = CELLS.findIndex(isCover); if (i >= 0) { CELLS.splice(i, 1); memoClear(); } }
+  // and so do the names its writes refresh in SQL (state:sql_refresh), the closure computing them again
+  if (ddl.length) for (const drop of [isCover, isRefresh]) { const i = CELLS.findIndex(drop); if (i >= 0) { CELLS.splice(i, 1); memoClear(); } }
   lap("write");
   // what the reflection wrote, put in the store this process holds as the database now holds it (reflect:sql_adopt)
   if (rfOut && rfOut[0] === "committed") adoptClosed(Ev("reflect:sql_adopt", [CELLS, rf[2], rfOut[1]]));
+  // and what the refresh of each stored derived fact type gained and lost (task #197, step 6: delta:wp_rows), the same way
+  if (wsOut && wsOut[0] === "committed") adoptClosed(Ev("reflect:sql_adopt", [CELLS, dl[5], wsOut[1]]));
   lap("reflected");
   // AND WHAT A TABLE WRITTEN ROW BY ROW HELD FOR THE REST IS STILL TRUE. Dropping
   // everything read from a touched table made the NEXT write's snapshot read it all
@@ -5421,6 +5425,8 @@ function storeAnswer(prior, out, what, clock) {
 }
 const COVER = "state:sql_cover";
 function isCover(c) { return Array.isArray(c) && c[0] === "CELL" && c[1] === COVER; }
+const REFRESH = "state:sql_refresh";
+function isRefresh(c) { return Array.isArray(c) && c[0] === "CELL" && c[1] === REFRESH; }
 // `write <what> <total> ms: evaluation (<its parts>), snapshot, change test, plan and write, tail -- <what it
 // wrote>`, the parts in ms as far as the write reached them, the evaluation's as its clock gives them
 // (clockText), and a table rewritten whole by name with the rows it took. The reason a write failed is in its
@@ -5437,8 +5443,9 @@ function sayWrite(what, clock, rep, failed) {
     .filter((l) => l[1] !== undefined).map((l) => l[0] + " " + ms(l[1]) + (l[0] === "evaluation" && parts ? " (" + parts + ")" : "")
       + (l[0] === "plan and write" && rep.writeParts ? " [re-source " + ms(rep.writeParts.resource) + ", touched " + ms(rep.writeParts.touched)
         + (rep.writeParts.dsteps !== undefined ? ", checks planned " + ms(rep.writeParts.dsteps) : "")
-        + ", plan " + ms(rep.writeParts.plan) + (rep.writeParts.slow ? " (" + rep.writeParts.slow.map((s) => s[0] + " " + ms(s[1])).join(", ") + ")" : "") + ", rows " + ms(l[1] - rep.writeParts.resource - rep.writeParts.touched - (rep.writeParts.dsteps || 0) - rep.writeParts.plan - (rep.writeParts.reflect || 0) - (rep.writeParts.checks || 0))
+        + ", plan " + ms(rep.writeParts.plan) + (rep.writeParts.slow ? " (" + rep.writeParts.slow.map((s) => s[0] + " " + ms(s[1])).join(", ") + ")" : "") + ", rows " + ms(l[1] - rep.writeParts.resource - rep.writeParts.touched - (rep.writeParts.dsteps || 0) - rep.writeParts.plan - (rep.writeParts.reflect || 0) - (rep.writeParts.refresh || 0) - (rep.writeParts.checks || 0))
         + (rep.writeParts.reflect !== undefined ? ", reflected in SQL " + ms(rep.writeParts.reflect) : "")
+        + (rep.writeParts.refresh !== undefined ? ", refreshed in SQL " + ms(rep.writeParts.refresh) : "")
         + (rep.writeParts.checks !== undefined ? ", checked in SQL " + ms(rep.writeParts.checks) : "") + "]" : ""));
   const whole = rep.rewrote || [];
   const wrote = failed ? failed
@@ -7549,6 +7556,10 @@ function boot(mode) {
     // write asks in SQL over its delta and the gate in memory then leaves out (delta:covered_in); none when the plan holds
     // no parts to ask (delta:boot_cover), and the gate is whole.
     { const cover = seq(Ev("delta:boot_cover", String(fromDb))); if (cover.length) { CELLS.push(["CELL", COVER, cover]); memoClear(); } }
+    // AND THE STORED DERIVED FACT TYPES ITS WRITES REFRESH IN SQL (task #197, step 6): the names of the refresh the
+    // compile planned, whose rules a write's closure then leaves out (derive:write_rules) and whose rows its program
+    // refreshes from its delta (delta:write_steps); none when the plan holds none (delta:boot_refresh).
+    { const names = seq(Ev("delta:boot_refresh", String(fromDb))); if (names.length) { CELLS.push(["CELL", REFRESH, names]); memoClear(); } }
     lap("cover");
     // AND WHERE THE STORE IS (task #197, step 4): the SQL checks a served verb runs (validate) read the store's own
     // database, which lambda knows only by its name, so the boot hands it the name as it hands it the verdict.
