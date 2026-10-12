@@ -1209,11 +1209,19 @@ function unfoldOnce(memo, name, x) {
 // often the store is opened.
 // sqlite:exec and sqlite:run keep a writing connection the same way (writeDb), each script still its own
 // transaction.
+// A KEPT CONNECTION READS THE SCHEMA AGAIN BEFORE IT IS USED (2026-10-12). A connection compiles a statement
+// against the schema it last read, and finds the store's schema moved only when the statement runs, so a
+// table another connection laid out again was compiled with its old columns: on support's check
+// `SELECT * FROM "_edft" EXCEPT SELECT <3 columns>` was refused for the column count of the derived fact type
+// staged before it. Running a statement that reads a table first has SQLite compare its schema with the
+// store's and read it again when they differ (`pragma schema_version` reads the store's number and compares
+// nothing). test:schema_fresh.
 let READDBS = null;
 function keptDb(key, path, opts) {
   if (READDBS === null) { READDBS = new Map(); setTimeout(closeReadDbs, 0); }
   let db = READDBS.get(key);
   if (db === undefined) { const { Database } = require("bun:sqlite"); db = new Database(path, opts); READDBS.set(key, db); }
+  else db.query("select 1 from sqlite_master limit 1").get();
   return db;
 }
 function readDb(path) { return keptDb("r|" + path, path, { readonly: true }); }
@@ -1649,7 +1657,9 @@ const PRIMS = new Map(Object.entries({
     const path = String(at(x, 0)), sql = String(at(x, 1)), params = seq(at(x, 2));
     const qt = performance.now(), qm = process.memoryUsage().rss; // @instrument
     try {
-      const st = readDb(path).prepare(sql);
+      // a statement SQLite refuses is named in the error, as a refused row is (sqlite:put)
+      let st;
+      try { st = readDb(path).prepare(sql); } catch (e) { throw new Error(e.message + " -- in: " + sql.slice(0, 600)); }
       try { return st.values(...params).map((r) => r.map((v) => (v === null || v === undefined ? "#" : String(v)))); } finally { st.finalize(); }
     } finally {
       if (PROFILE) console.error("sqlite:query " + Math.round(performance.now() - qt) + " ms, rss " + (qm >> 20) + " -> " + (process.memoryUsage().rss >> 20) + " MB: " + sql.slice(0, 80)); // @instrument
