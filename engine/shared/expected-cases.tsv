@@ -742,6 +742,7 @@ case:a-query-reads-no-row-of-a-fully-derived-fact-type-its-rule-does-not-compute
 case:a-query-joins-a-fully-derived-fact-type-with-an-asserted-one	"(('t1', 'Applied', 'sam'))"
 case:a-query-answers-its-rows-as-a-set-in-json-order	"(('ann'), ('bo'), ('sam'))"
 case:a-query-of-a-store-in-memory-is-lambdas	"'#'"
+case:a-store-in-memory-is-never-stale	"'F'"
 case:reads-pairwith-one-source	"('F1')"
 case:reads-calc-one-source	"('F1')"
 case:reads-starts-one-source	"('F1')"

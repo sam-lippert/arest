@@ -340,7 +340,12 @@ function readVerdict() {
   if (!db) return;
   let row;
   try { row = db.query("select value from \"_verdict\" where name = 'alethic_clean'").get(); } catch { return; }
-  if (row && (row.value === "T" || row.value === "F")) { CELLS.push(["CELL", "state:alethic_clean", row.value]); VERDICT = row.value; memoClear(); }
+  if (row && (row.value === "T" || row.value === "F")) { setCell("state:alethic_clean", row.value); VERDICT = row.value; memoClear(); }
+}
+// a top-level cell put in place of the one of its name, which solve:cell would find first, or after the rest
+function setCell(name, value) {
+  const at = CELLS.findIndex((c) => Array.isArray(c) && c[0] === "CELL" && c[1] === name);
+  if (at < 0) CELLS.push(["CELL", name, value]); else CELLS[at] = ["CELL", name, value];
 }
 function writeVerdict(v) {
   const db = storeDb();
@@ -1279,7 +1284,21 @@ function keptDb(key, path, opts) {
 }
 function readDb(path) { return keptDb("r|" + path, path, { readonly: true }); }
 function writeDb(path) { return keptDb("w|" + path, path, { create: true }); }
+// A STORE'S DATA VERSION IS ASKED ON A CONNECTION KEPT FOR THAT ALONE (task #197, step 7). PRAGMA data_version
+// answers a number that moves when another connection commits to the database, and a connection opened afresh
+// starts a count of its own, so the per-evaluation connections above cannot tell a server whether its store
+// moved between two requests. sqlite:data_version keeps one read-only connection per path for the life of the
+// process, opened at the first ask and closed with the others when the file is cleared, renamed or replaced
+// (closeReadDb); it holds no transaction between asks, so it keeps no writer out.
+let WATCHDBS = null;
+function watchDb(path) {
+  if (WATCHDBS === null) WATCHDBS = new Map();
+  let db = WATCHDBS.get(path);
+  if (db === undefined) { const { Database } = require("bun:sqlite"); db = new Database(path, { readonly: true }); WATCHDBS.set(path, db); }
+  return db;
+}
 function closeReadDb(path) {
+  if (WATCHDBS !== null && WATCHDBS.has(path)) { try { WATCHDBS.get(path).close(true); } catch { } WATCHDBS.delete(path); }
   if (READDBS === null) return;
   for (const key of ["r|" + path, "w|" + path]) {
     if (!READDBS.has(key)) continue;
@@ -1717,6 +1736,13 @@ const PRIMS = new Map(Object.entries({
     } finally {
       if (PROFILE) console.error("sqlite:query " + Math.round(performance.now() - qt) + " ms, rss " + (qm >> 20) + " -> " + (process.memoryUsage().rss >> 20) + " MB: " + sql.slice(0, 80)); // @instrument
     }
+  },
+  // <path> to the store's PRAGMA data_version, on the connection kept for it (watchDb): a number that moves when
+  // another connection commits there. Lambda decides what that means (store:stale); the serving tails drop what
+  // they read when it says the store moved (storeFreshen).
+  "sqlite:data_version": x => {
+    if (Array.isArray(x)) throw new Error("sqlite:data_version on a sequence");
+    return Number(watchDb(String(x)).query("pragma data_version").values()[0][0]);
   },
   "sqlite:copy": x => {
     const { Database } = require("bun:sqlite");
@@ -2395,7 +2421,7 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   // store:places is where the database holds each stored fact type and query:env the schema's rows a read places
   // a source by (task #197, step 7): a function of the store's schema and its database's, which neither a read nor
   // a write that moves no schema moves, asked by every get, query and orient of a burst. Each is one list per store
-  // between memoClears.
+  // between memoClears, and storeFreshen clears the memo when another connection moved the store.
   "store:places", "query:env"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot lambda list cells (the lex-primitive precedent:
@@ -5773,11 +5799,15 @@ function run_serve() {
       // And a write takes no snapshot either: emitToDb compares the cells the write
       // replaced against the copy (popSnapshotMoved).
       const clock = clockStart();
+      // the store asked first whether another connection moved it, and its version recorded after a write (storeFreshen)
+      storeFreshen();
+      const w0 = LAZY_STORE ? LAZY_STORE.writes() : 0;
       let answer;
       try { answer = Ev("main:api", [CELLS, req.method, resource, caller, fact]); } finally { clockLap(clock, "lambda"); }
       const out = await readThrough(answer, req.method, resource, caller, raw);
       clockLap(clock, "read");
       const [body, status] = answerWrite(out, req.method + " " + resource, clock);
+      if (LAZY_STORE && LAZY_STORE.writes() !== w0) storeNoteVersion();
       memoReleaseWhenIdle(console.log);
       return new Response(body, {
         status,
@@ -6095,7 +6125,9 @@ function run_mcp() {
     }));
   }
 
-  function call(name, args) {
+  // every tool call asks first whether another connection moved the store (storeFreshen)
+  function call(name, args) { return freshened(() => callNow(name, args)); }
+  function callNow(name, args) {
     const a = args || {};
     // A VERB IS THE OTHER HALF OF THE SURFACE, and it is dispatched by the
     // same lambda that dispatches the CLI: main looks the name up in the store
@@ -6883,7 +6915,10 @@ function lazyStore(db, want) {
   cells.push(later("FILE", () => Ev("store:fts", CELLS).map((d) => later(d[0], () => Ev("rmap:rel_cell", d)[2]))));
   const replaced = new Set([...stored, "state:fts", "FILE"]);
   // a write rewrote these tables: what was read from them is read again when asked
+  // (notes counts the writes this store was told of, so a serving tail can see that a request wrote: storeNoteVersion)
+  let notes = 0;
   const invalidate = (tables) => {
+    notes++;
     for (const t of tables) {
       byTable.delete(t); asked.delete(t);
       if (presentIn.has(t)) count(t);
@@ -6926,6 +6961,7 @@ function lazyStore(db, want) {
   // a table emitToDb wrote row by row: the fact types that moved are what the write
   // stored, and every other one it carries holds the rows it held; its counts move by what the write counted
   const wrote = (tables, moved, counted) => {
+    notes++;
     for (const ft of moved.keys()) movedFts.add(ft);
     for (const t of tables) {
       byTable.delete(t); asked.delete(t);
@@ -7052,6 +7088,7 @@ function lazyStore(db, want) {
     return d ? Ev("theta:unfold_rows", d[4]) : [];
   };
   return { db, tablesOf, rowsOf, readAll, invalidate, refresh, wrote, cells, replaced, mentioning, carrier, present,
+    tables: () => [...want.keys()], writes: () => notes,
     pending: (c) => pendingCells.has(c) && !movedFts.has(c[1]),
     hasRows: (n) => present(n) && rowsOf(n).length > 0,
     stats: () => ({ selects, tables: byTable.size, most: Math.max(0, ...wholeReads.values()), scans }) };
@@ -7079,6 +7116,44 @@ function seedDerivedRows(db, have) {
   for (let i = CELLS.length - 1; i >= 0; i--) if (Array.isArray(CELLS[i]) && CELLS[i][1] === "state:derived_rows") CELLS.splice(i, 1);
   CELLS.unshift(Ev("derive:rec_cell", rec));
   memoClear();
+}
+
+// A SERVER ASKS WHETHER ANOTHER CONNECTION MOVED ITS STORE BEFORE IT ANSWERS FROM WHAT IT READ (task #197, step 7).
+// A store read on demand keeps what it read of the tables -- a fact type's rows once read, a table read whole, the
+// verdict -- for the life of the process, and only this process's own writes told it what moved (LAZY_STORE.refresh,
+// .wrote): a row another connection committed -- a second server over the same file, a check run in place, a tool --
+// was not seen until the server stopped. Lambda answers whether the store moved since the version this process last
+// recorded (store:stale, over PRAGMA data_version); where it did, every table's reading is dropped, so each fact type
+// is read again when it is next asked, the verdict is read again, the memo is emptied, and the new version is
+// recorded. The serving tails ask before every request and record after each write this process commits, so its own
+// writes do not read as another's. What the boot read for the write path alone -- the record of derived rows and the
+// cover of the SQL checks -- is left as it was read.
+function storeNoteVersion() {
+  if (!LAZY_STORE) return;
+  let v;
+  try { v = Ev("store:version", CELLS); } catch (e) { console.error("store: no data version: " + e.message); return; }
+  setCell("state:data_version", v);
+  memoClear();
+}
+function storeFreshen() {
+  if (!LAZY_STORE) return false;
+  let stale;
+  try { stale = Ev("store:stale", CELLS); } catch (e) { console.error("store: could not ask whether it moved: " + e.message); return false; }
+  if (stale !== "T") return false;
+  const t0 = performance.now();
+  LAZY_STORE.refresh(LAZY_STORE.tables());
+  readVerdict();
+  memoClear();
+  storeNoteVersion();
+  console.error("store: another connection moved it; what was read of it is dropped (" + Math.round(performance.now() - t0) + " ms)");
+  return true;
+}
+// a request's evaluation, the store asked first whether it moved and its version recorded after a write it made
+function freshened(run) {
+  storeFreshen();
+  const w0 = LAZY_STORE ? LAZY_STORE.writes() : 0;
+  try { return run(); }
+  finally { if (LAZY_STORE && LAZY_STORE.writes() !== w0) storeNoteVersion(); }
 }
 
 function loadStoreDb(path, opts) {
@@ -7522,6 +7597,8 @@ function boot(mode) {
     // AND WHERE THE STORE IS (task #197, step 4): the SQL checks a served verb runs (validate) read the store's own
     // database, which lambda knows only by its name, so the boot hands it the name as it hands it the verdict.
     CELLS.push(["CELL", "state:store_db", String(fromDb)]); memoClear();
+    // AND THE VERSION OF THE STORE IT READ (task #197, step 7): what storeFreshen compares with before each request
+    storeNoteVersion();
   }
   else if (!schemaless) {
     loadFile(); lap("file");
