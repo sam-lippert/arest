@@ -20,8 +20,9 @@
 // like the app list coming from a config file. AREST should have an mcp sqlite
 // store for config."). The router's store is the registry PACKAGE beside this
 // file, registry/. Its readings say which apps there are, where each package
-// is and whether to start it; `bun run check` there compiles them the way
-// every app's check compiles its own; and this daemon reads the App table of
+// is, which readings directories its check compiles and whether to start it; the
+// arest function compile-store compiles them the way every app's check compiles
+// its own (no package script runs, 2026-10-12); and this daemon reads the App table of
 // registry/.check/store.db with bun:sqlite -- one select, the columns taken BY
 // NAME, the handle closed before anything else runs, because a check renames
 // a build over that file and an open handle is the EPERM stop() below exists
@@ -51,7 +52,7 @@
 // the first app whose lambda carries the patterns, since they are the
 // metamodel's, not an app's.
 import { spawn, spawnSync } from "node:child_process";
-import { readFileSync, appendFileSync, readdirSync, statSync, existsSync, rmSync, mkdirSync, copyFileSync } from "node:fs";
+import { readFileSync, appendFileSync, readdirSync, statSync, existsSync, rmSync, mkdirSync, copyFileSync, renameSync } from "node:fs";
 import { Database } from "bun:sqlite";
 import { createServer, connect } from "node:net";
 import { dirname, join } from "node:path";
@@ -170,8 +171,42 @@ class Registry {
   }
   // WHAT TO RUN, SAID IN FULL, wherever there is no store to read.
   howToBuild() {
-    return "run `bun run check` in " + this.pkg + " (or apps_check on '" + REGISTRY_NAME
-      + "' and then apps_compile on it), which compiles readings/apps.md into its App table";
+    return "run apps_check on '" + REGISTRY_NAME + "' and then apps_compile on it, which compile readings/apps.md"
+      + " into its App table (the arest function: " + BUN + " " + this.checkArgs().join(" ") + ", in " + this.pkg + ")";
+  }
+  // A CHECK IS AN AREST FUNCTION, NOT A PACKAGE SCRIPT (Sam, 2026-10-12: "compile/build/whatever should
+  // just be called as arest functions"). The registry's is compile-store over the metamodel and its own
+  // readings; it replaces the store rather than carrying it (checkFresh), because nothing writes this store
+  // at runtime, so a row its readings no longer assert is a deletion. The old store is SET ASIDE, not
+  // deleted, and checkSettle puts it back when the check fails: a refused check leaves the router the list
+  // it had, not an empty one.
+  checkArgs() {
+    return [join(here, "build.js"), "compile", "--run", "--", "compile-store", ".check",
+      join(here, "..", "..", "metamodel").replace(/\\/g, "/"), "readings"];
+  }
+  checkFresh() {
+    try { rmSync(this.db + ".prev", { force: true }); if (existsSync(this.db)) renameSync(this.db, this.db + ".prev"); }
+    catch { /* the check reports what follows */ }
+  }
+  checkSettle(ok) {
+    try {
+      if (ok) rmSync(this.db + ".prev", { force: true });
+      else if (existsSync(this.db + ".prev")) { rmSync(this.db, { force: true }); renameSync(this.db + ".prev", this.db); }
+    } catch { /* the check's report says what failed */ }
+  }
+  // AND AN APP'S CHECK READS THE DIRECTORIES ITS REGISTRY ROW NAMES, in order (App reads Readings
+  // Directory at Readings Position), each relative to its Package Directory: null where the store holds no
+  // such table, [] where it names none for this app.
+  readsOf(name) {
+    if (!existsSync(this.db)) return null;
+    try {
+      const db = new Database(this.db, { readonly: true });
+      try {
+        if (!db.query("select 1 from sqlite_master where type = 'table' and name = 'AppReadsReadingsDirectoryAtReadingsPosition'").get()) return null;
+        return db.query('select "readingsDirectory" as d from "AppReadsReadingsDirectoryAtReadingsPosition" where "app" = ?1 order by "readingsPosition"')
+          .all(name).map((r) => String(r.d));
+      } finally { db.close(true); }
+    } catch { return null; }
   }
   source() { return this.db; }
   // AND A STORE OLDER THAN ITS READINGS IS SAID, NOT GUESSED AT. Its rows are
@@ -202,8 +237,10 @@ class Registry {
     const had = existsSync(this.db);
     if (had && !this.staleness()) return;
     const why = had ? "its readings are newer than the store" : "there was no store";
-    const r = spawnSync(BUN, ["run", "--silent", "check"], { cwd: this.pkg, env: { ...process.env, AREST_DB: this.db }, encoding: "utf8", windowsHide: true });
+    this.checkFresh();
+    const r = spawnSync(BUN, this.checkArgs(), { cwd: this.pkg, env: { ...process.env, AREST_OUT_DIR: this.dir, AREST_DB: this.db }, encoding: "utf8", windowsHide: true });
     const out = String(r.stderr || "") + NL + String(r.stdout || "") + (r.error ? NL + String(r.error.message) : "");
+    this.checkSettle(r.status === 0);
     this.built = r.status === 0
       ? "built at start because " + why + ": " + (lastLines(String(r.stdout || ""), 1) || lastLines(out, 1))
       : "the check at start FAILED (exit " + r.status + ", because " + why + "): " + lastLines(out, 6);
@@ -266,11 +303,14 @@ class Registry {
     if (this.busy) return null;
     this.busy = "checking";
     this.note = "";
-    run(["run", "--silent", "check"], this.pkg, { AREST_DB: join(this.dir, "store.db") }).then(({ code, tail }) => {
-      this.note = (code === 0 ? "check ok: " : "check FAILED (exit " + code + "): ") + lastLines(tail, code === 0 ? 1 : 6);
+    this.checkFresh();
+    run(this.checkArgs(), this.pkg, { AREST_OUT_DIR: this.dir, AREST_DB: this.db }).then(({ code, tail }) => {
+      this.checkSettle(code === 0);
+      this.note = (code === 0 ? "check ok: " : "check FAILED (exit " + code + "): ") + lastLines(tail, code === 0 ? 1 : 6)
+        + (code === 0 ? "" : " -- the store as it was is kept");
       this.busy = null;
     });
-    return "checking the registry: bun run check in " + this.pkg + "; `apps` reports the result, and apps_compile on '"
+    return "checking the registry: compile-store over the metamodel and readings/ in " + this.pkg + "; `apps` reports the result, and apps_compile on '"
       + REGISTRY_NAME + "' then reads the App table again and reconciles the residents against it";
   }
   status() {
@@ -590,6 +630,9 @@ class Resident {
   // nothing running holds them.
   check() {
     if (this.busy) return null;
+    const dirs = registry.readsOf(this.name);
+    if (!dirs || !dirs.length) return "no check for " + this.name + ": the registry names no Readings Directory for App '" + this.name
+      + "' (App reads Readings Directory at Readings Position, in " + registry.pkg + "/readings/apps.md); add them, then apps_check and apps_compile on '" + REGISTRY_NAME + "'";
     this.busy = "checking";
     this.note = "";
     // AND THE SERVER IS STOPPED FIRST, BECAUSE THE STORE THE CHECK WRITES IS THE
@@ -603,14 +646,13 @@ class Resident {
     // projections over the NEW tables and writing them back. Not served from
     // here until apps_compile spawns it again over the store this writes.
     this.stop("checking");
-    // AND THE STORE IS BUILT WITH THE CARRIERS (#109). The app's check names its
-    // own readings directories -- the router does not know them and should not --
-    // so AREST_DB beside AREST_OUT_DIR is the whole change: compile.js writes the
-    // tables rmap:ddl emits and the rows rmap:proj_rows answers, carries forward
-    // what the runtime wrote into the prior store, and stamps it with the same
-    // composition build.js stamps the module with. A compiled app then serves from
-    // its database instead of from its carriers.
-    run(["run", "--silent", "check"], this.pkg, { AREST_DB: join(this.dir, "store.db") }).then(async ({ code, tail }) => {
+    // AND THE CHECK IS THE AREST FUNCTION compile-store OVER THE DIRECTORIES THE REGISTRY
+    // NAMES (Sam, 2026-10-12). It was each package's `check` script, which named its
+    // readings directories in a string the router ran blind; they are facts now (App reads
+    // Readings Directory at Readings Position) and the router calls the function itself,
+    // in the package, so the app's .env and relative directories resolve as before.
+    run([join(here, "build.js"), "compile", "--run", "--", "compile-store", ".check", ...dirs], this.pkg,
+      { AREST_OUT_DIR: this.dir, AREST_DB: join(this.dir, "store.db") }).then(async ({ code, tail }) => {
       this.note = (code === 0 ? "check ok: " : "check FAILED (exit " + code + "): ") + lastLines(tail, code === 0 ? 1 : 6);
       this.busy = null;
       // AND A FAILED CHECK DOES NOT LEAVE THE APP DOWN (2026-09-24). compile.js
@@ -625,7 +667,7 @@ class Resident {
         this.note += this.state === "serving" ? " -- serving again on the store as it was" : "";
       }
     });
-    return "checking " + this.name + ": bun run check in " + this.pkg + "; not served until apps_compile (or again at once if the check fails); `apps` reports the result";
+    return "checking " + this.name + ": compile-store over its " + dirs.length + " readings directories in " + this.pkg + "; not served until apps_compile (or again at once if the check fails); `apps` reports the result";
   }
   // apps_evaluate: A DOMAIN CHANGE'S STAGED GATE (#178, 2026-10-06). evolution.md:
   // ingesting a Domain Change is itself a create judged by the one gate; the
@@ -642,11 +684,8 @@ class Resident {
   // records the Domain Change evaluated, and `is valid` follows from the rules.
   evaluate(dc) {
     if (this.busy || this.evaluating) return null;
-    let script;
-    try { script = JSON.parse(readFileSync(join(this.pkg, "package.json"), "utf8")).scripts.check; }
-    catch (e) { return "no check script in " + this.pkg + ": " + e.message; }
-    const m = /bun\s+(\S*build\.js)\s+(.*?)\s*compile-store\s+\.check\s+(.*)$/.exec(String(script || ""));
-    if (!m) return "the check script of " + this.pkg + " names no `compile-store .check` to stage: " + script;
+    const dirs = registry.readsOf(this.name);
+    if (!dirs || !dirs.length) return "nothing to stage for " + this.name + ": the registry names no Readings Directory for App '" + this.name + "'";
     const scratch = join(this.dir, "evaluate");
     try {
       rmSync(scratch, { recursive: true, force: true });
@@ -655,7 +694,7 @@ class Resident {
     } catch (e) { return "the scratch copy of " + this.name + "'s store failed: " + e.message; }
     this.evaluating = dc;
     this.evalNote = "";
-    const args = [m[1], ...m[2].trim().split(/\s+/).filter(Boolean), "compile-store", scratch, ...m[3].trim().split(/\s+/).filter(Boolean)];
+    const args = [join(here, "build.js"), "compile", "--run", "--", "compile-store", scratch, ...dirs];
     run(args, this.pkg, { AREST_OUT_DIR: scratch, AREST_DB: join(scratch, "store.db") }).then(async ({ code, tail }) => {
       const clean = code === 0 && /alethic_clean: T/.test(tail);
       const at = new Date().toISOString();
@@ -818,7 +857,7 @@ function tools() {
   }));
   return [
     { name: "apps", description: "the registry and the resident apps: where the app list was read from, whether each app is serving, and its last check or compile result", inputSchema: { type: "object", properties: {} } },
-    { name: "apps_check", description: "run the app's own check in its package (bun run check: the schema from its readings, and its store); the app is stopped first, because it holds the store the check writes, and `apps` reports the result. After a readings change: apps_check, then apps_compile. On '" + REGISTRY_NAME + "' it recompiles the router's own readings -- which apps there are -- instead.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
+    { name: "apps_check", description: "run the app's check: the arest function compile-store over the readings directories the registry names for the app (App reads Readings Directory at Readings Position), in its package -- the schema from its readings, and its store; the app is stopped first, because it holds the store the check writes, and `apps` reports the result. After a readings change: apps_check, then apps_compile. On '" + REGISTRY_NAME + "' it recompiles the router's own readings -- which apps there are -- instead.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
     { name: "apps_compile", description: "rebuild the app's module from its carriers (build.js mcp) and start its server again; the app is not served meanwhile, and `apps` reports the result. The store is written by apps_check, stamped to match this module, so run apps_check first and the app serves from its database. On '" + REGISTRY_NAME + "' it reads the App table again and reconciles the residents instead: a new app is spawned, a removed or suspended one is stopped.", inputSchema: { type: "object", properties: { app: sessionArg() }, required: ["app"] } },
     { name: "apps_evaluate", description: "run a Domain Change's staged gate (#178): the app's own check over a scratch copy of its store, while the app keeps serving. A run that refuses, fails or leaves an alethic violation is recorded as a Failure triggered by the Domain Change; either way the app then records `Domain Change is evaluated`, so `is valid` and the approve-change guard follow from the rules. `apps` reports the outcome.", inputSchema: { type: "object", properties: { app: appArg(), domainChange: { type: "string", description: "the Domain Change to evaluate, by id" } }, required: ["app", "domainChange"] } },
     // A FACT TYPE'S OWN RESOURCE, ONE TOOL FOR ALL OF THEM (2026-09-24). Every module

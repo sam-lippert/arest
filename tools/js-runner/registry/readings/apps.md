@@ -11,13 +11,15 @@
      and adding an app meant editing JSON that no check ever reads.
 
      So the list is READINGS, this file, and the daemon reads the App table of
-     the store they compile to. Sam writes sentences; `bun run check` here
-     compiles them the way every app's check compiles its own; the daemon reads
-     the table with bun:sqlite at start and reconciles its residents when
+     the store they compile to. Sam writes sentences; apps_check on `registry`
+     compiles them with the arest function compile-store, the way every app's
+     check compiles its own (2026-10-12: no package script runs); the daemon
+     reads the table with bun:sqlite at start and reconciles its residents when
      apps_compile is called on `registry`. -->
 
-<!-- AND THE CHECK REPLACES THE STORE RATHER THAN CARRYING IT (package.json:
-     `rm -f .check/store.db` before compile.js). compile.js carries a prior
+<!-- AND THE CHECK REPLACES THE STORE RATHER THAN CARRYING IT (mcp-router.js
+     sets the old store aside before compile-store and puts it back only when
+     the check fails). compile.js carried a prior
      store's rows into the new build on one rule -- "the build beside us is
      exactly what the readings assert, so anything the prior store holds that
      the build does not is, by construction, what the runtime wrote" -- which
@@ -56,6 +58,11 @@ Package Directory is a value type.
 Serving Status is a value type.
   The possible values of Serving Status are 'serving', 'suspended'.
 
+Readings Directory is a value type.
+
+Readings Position is a value type.
+  The data type of Readings Position is integer.
+
 ## Fact Types
 
 ### App
@@ -81,6 +88,16 @@ App has Package Directory.
 App has Serving Status.
   Each App has at most one Serving Status.
 
+<!-- AND WHAT ITS CHECK READS (Sam, 2026-10-12: compile and build are arest
+     functions, not package scripts). An app's check is the arest function
+     compile-store over the readings directories it composes, in order, each
+     relative to its Package Directory. They were the tail of a `check` string
+     in each package.json, which the router ran blind and apps_evaluate parsed
+     back out with a regular expression; as facts the router reads them and calls
+     the function itself. -->
+App reads Readings Directory at Readings Position.
+  Each App, Readings Position combination occurs at most once in the population of App reads Readings Directory at Readings Position.
+
 ## Instance Facts
 
 <!-- The six residents AREST_APPS named on 2026-09-22, in the order it named
@@ -95,13 +112,43 @@ App has Serving Status.
      cannot stop the memory store from building. -->
 
 App 'claude' has Package Directory 'C:/Users/lippe/Repos/apps/claude'.
+App 'claude' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+App 'claude' reads Readings Directory '../../arest/readings/templates' at Readings Position '2'.
+App 'claude' reads Readings Directory '../memory/readings' at Readings Position '3'.
+App 'claude' reads Readings Directory '../spd-1/readings' at Readings Position '4'.
+App 'claude' reads Readings Directory 'readings' at Readings Position '5'.
 
 App 'tasks' has Package Directory 'C:/Users/lippe/Repos/apps/tasks'.
+App 'tasks' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+App 'tasks' reads Readings Directory '../../arest/readings/templates' at Readings Position '2'.
+App 'tasks' reads Readings Directory 'readings' at Readings Position '3'.
 
 App 'support' has Package Directory 'C:/Users/lippe/Repos/apps/support.auto.dev'.
+App 'support' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+App 'support' reads Readings Directory '../../arest/readings/templates' at Readings Position '2'.
+App 'support' reads Readings Directory '../../arest/readings/ui' at Readings Position '3'.
+App 'support' reads Readings Directory '../connectors/readings' at Readings Position '4'.
+App 'support' reads Readings Directory '../sherlock' at Readings Position '5'.
+App 'support' reads Readings Directory '../auto.dev' at Readings Position '6'.
+App 'support' reads Readings Directory '.' at Readings Position '7'.
+App 'support' reads Readings Directory 'readings' at Readings Position '8'.
 
 App 'qa' has Package Directory 'C:/Users/lippe/Repos/apps/qa.auto.dev'.
+App 'qa' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+App 'qa' reads Readings Directory '../../arest/readings/templates' at Readings Position '2'.
+App 'qa' reads Readings Directory '.' at Readings Position '3'.
+App 'qa' reads Readings Directory 'readings' at Readings Position '4'.
 
 App 'pm' has Package Directory 'C:/Users/lippe/Repos/apps/pm.auto.dev'.
+App 'pm' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+App 'pm' reads Readings Directory '../../arest/readings/templates' at Readings Position '2'.
+App 'pm' reads Readings Directory '.' at Readings Position '3'.
+App 'pm' reads Readings Directory 'readings' at Readings Position '4'.
 
 App 'engineering' has Package Directory 'C:/Users/lippe/Repos/apps/engineering.auto.dev'.
+App 'engineering' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+App 'engineering' reads Readings Directory '../../arest/readings/templates' at Readings Position '2'.
+App 'engineering' reads Readings Directory '.' at Readings Position '3'.
+App 'engineering' reads Readings Directory 'readings' at Readings Position '4'.
+
+Domain 'registry' has Description 'The MCP router''s residents: which apps it serves, where each app''s package is, which readings directories its check compiles and in what order, and whether to start it.'.

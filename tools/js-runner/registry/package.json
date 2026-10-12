@@ -2,7 +2,7 @@
   "name": "arest-mcp-registry",
   "version": "0.1.0",
   "private": true,
-  "description": "The MCP router's own store: which apps it serves, where each package is, and whether to start it, read by the daemon's start with bun:sqlite, one select over the App table. There is no `mcp` script: nothing calls a verb on the registry, so it composes no module and starts no server. There is no `check` script either: it ran compile.js, deleted 2026-09-29, and removed store.db first, so it would now leave the router serving nothing. A check that cannot run leaves the store in .check as it is, and the router serves it.",
+  "description": "The MCP router's own store: which apps it serves, where each package is, which readings directories each app's check compiles, and whether to start it, read by the daemon's start with bun:sqlite. There is no `mcp` script: nothing calls a verb on the registry, so it composes no module and starts no server. There is no `check` script either: a check is the arest function compile-store, which the router calls itself (apps_check on 'registry'), setting the old store aside first and putting it back if the check fails.",
   "kind": "app",
   "keywords": [
     "arest",
