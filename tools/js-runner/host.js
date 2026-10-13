@@ -2455,7 +2455,14 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   // a source by (task #197, step 7): a function of the store's schema and its database's, which neither a read nor
   // a write that moves no schema moves, asked by every get, query and orient of a burst. Each is one list per store
   // between memoClears, and storeFreshen clears the memo when another connection moved the store.
-  "store:places", "query:env"]);
+  "store:places", "query:env",
+  // and what a read asks the database (task #197, step 7b): a statement's rows, kept by the database, the statement, its
+  // one bound value and the database's version (sqlite:read0v, sqlite:read1v), so a statement asked again of a database
+  // that has not moved is not run again, and one another connection moved answers a version not asked before; the
+  // statements that say which places hold an id (get:mention_sql), one list per store; orient's parts of a Domain and
+  // the live required orientation, which every Domain of a burst's orients reads. A write clears the memo, and
+  // storeFreshen does when another connection moved the store, which PRAGMA data_version says before each request.
+  "sqlite:read0v", "sqlite:read1v", "get:mention_sql", "orient:parts", "orient:live_required"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot lambda list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
@@ -6292,6 +6299,7 @@ function run_mcp() {
   // customer's.
   function readLine(what, clock) {
     console.error("read " + what + " " + Math.round(clock.lambda || 0) + " ms");
+    if (PROFILE) { profReport("read " + what); PROF.clear(); } // @instrument
   }
 
   // THREE STEPS OVER MACHINERY THAT EXISTS: read what awaits, ask the client for
