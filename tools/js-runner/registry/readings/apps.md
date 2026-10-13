@@ -32,7 +32,7 @@
      the readings the whole truth, and loses nothing, because there is nothing
      here that the readings did not put there. -->
 
-<!-- WHY THIS IS NOT arest/readings/templates/organizations.md's App. That App
+<!-- WHY THIS IS NOT the organizations library's App (apps/organizations, once arest/readings/templates/organizations.md). That App
      is the DEPLOYED application: it has an Organization, navigable Domains, a
      Generator, an authorization Fact Type, and `Each App has some navigable
      Domain` is mandatory -- a registry row would have to invent a Domain per
@@ -138,43 +138,61 @@ App composes Library.
 
 App 'claude' has Package Directory 'C:/Users/lippe/Repos/apps/claude'.
 App 'claude' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
-App 'claude' reads Readings Directory '../../arest/readings/templates' at Readings Position '2'.
-App 'claude' reads Readings Directory '../memory/readings' at Readings Position '3'.
-App 'claude' reads Readings Directory '../spd-1/readings' at Readings Position '4'.
-App 'claude' reads Readings Directory 'readings' at Readings Position '5'.
+App 'claude' reads Readings Directory '../agents/readings' at Readings Position '2'.
+App 'claude' reads Readings Directory '../organizations/readings' at Readings Position '3'.
+App 'claude' reads Readings Directory '../connectors/sql-dialects/readings' at Readings Position '4'.
+App 'claude' reads Readings Directory '../connectors/vercel-ai/readings' at Readings Position '5'.
+App 'claude' reads Readings Directory '../memory/readings' at Readings Position '6'.
+App 'claude' reads Readings Directory '../spd-1/readings' at Readings Position '7'.
+App 'claude' reads Readings Directory 'readings' at Readings Position '8'.
 
 App 'tasks' has Package Directory 'C:/Users/lippe/Repos/apps/tasks'.
 App 'tasks' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
-App 'tasks' reads Readings Directory '../../arest/readings/templates' at Readings Position '2'.
-App 'tasks' reads Readings Directory 'readings' at Readings Position '3'.
+App 'tasks' reads Readings Directory '../agents/readings' at Readings Position '2'.
+App 'tasks' reads Readings Directory '../organizations/readings' at Readings Position '3'.
+App 'tasks' reads Readings Directory '../connectors/sql-dialects/readings' at Readings Position '4'.
+App 'tasks' reads Readings Directory '../connectors/vercel-ai/readings' at Readings Position '5'.
+App 'tasks' reads Readings Directory 'readings' at Readings Position '6'.
 
 App 'support' has Package Directory 'C:/Users/lippe/Repos/apps/support.auto.dev'.
 App 'support' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
-App 'support' reads Readings Directory '../../arest/readings/templates' at Readings Position '2'.
-App 'support' reads Readings Directory '../../arest/readings/ui' at Readings Position '3'.
-App 'support' reads Readings Directory '../connectors/readings' at Readings Position '4'.
-App 'support' reads Readings Directory '../sherlock' at Readings Position '5'.
-App 'support' reads Readings Directory '../auto.dev' at Readings Position '6'.
-App 'support' reads Readings Directory '.' at Readings Position '7'.
-App 'support' reads Readings Directory 'readings' at Readings Position '8'.
+App 'support' reads Readings Directory '../agents/readings' at Readings Position '2'.
+App 'support' reads Readings Directory '../organizations/readings' at Readings Position '3'.
+App 'support' reads Readings Directory '../connectors/sql-dialects/readings' at Readings Position '4'.
+App 'support' reads Readings Directory '../connectors/vercel-ai/readings' at Readings Position '5'.
+App 'support' reads Readings Directory '../ui/readings' at Readings Position '6'.
+App 'support' reads Readings Directory '../connectors/readings' at Readings Position '7'.
+App 'support' reads Readings Directory '../sherlock' at Readings Position '8'.
+App 'support' reads Readings Directory '../auto.dev' at Readings Position '9'.
+App 'support' reads Readings Directory '.' at Readings Position '10'.
+App 'support' reads Readings Directory 'readings' at Readings Position '11'.
 
 App 'qa' has Package Directory 'C:/Users/lippe/Repos/apps/qa.auto.dev'.
 App 'qa' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
-App 'qa' reads Readings Directory '../../arest/readings/templates' at Readings Position '2'.
-App 'qa' reads Readings Directory '.' at Readings Position '3'.
-App 'qa' reads Readings Directory 'readings' at Readings Position '4'.
+App 'qa' reads Readings Directory '../agents/readings' at Readings Position '2'.
+App 'qa' reads Readings Directory '../organizations/readings' at Readings Position '3'.
+App 'qa' reads Readings Directory '../connectors/sql-dialects/readings' at Readings Position '4'.
+App 'qa' reads Readings Directory '../connectors/vercel-ai/readings' at Readings Position '5'.
+App 'qa' reads Readings Directory '.' at Readings Position '6'.
+App 'qa' reads Readings Directory 'readings' at Readings Position '7'.
 
 App 'pm' has Package Directory 'C:/Users/lippe/Repos/apps/pm.auto.dev'.
 App 'pm' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
-App 'pm' reads Readings Directory '../../arest/readings/templates' at Readings Position '2'.
-App 'pm' reads Readings Directory '.' at Readings Position '3'.
-App 'pm' reads Readings Directory 'readings' at Readings Position '4'.
+App 'pm' reads Readings Directory '../agents/readings' at Readings Position '2'.
+App 'pm' reads Readings Directory '../organizations/readings' at Readings Position '3'.
+App 'pm' reads Readings Directory '../connectors/sql-dialects/readings' at Readings Position '4'.
+App 'pm' reads Readings Directory '../connectors/vercel-ai/readings' at Readings Position '5'.
+App 'pm' reads Readings Directory '.' at Readings Position '6'.
+App 'pm' reads Readings Directory 'readings' at Readings Position '7'.
 
 App 'engineering' has Package Directory 'C:/Users/lippe/Repos/apps/engineering.auto.dev'.
 App 'engineering' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
-App 'engineering' reads Readings Directory '../../arest/readings/templates' at Readings Position '2'.
-App 'engineering' reads Readings Directory '.' at Readings Position '3'.
-App 'engineering' reads Readings Directory 'readings' at Readings Position '4'.
+App 'engineering' reads Readings Directory '../agents/readings' at Readings Position '2'.
+App 'engineering' reads Readings Directory '../organizations/readings' at Readings Position '3'.
+App 'engineering' reads Readings Directory '../connectors/sql-dialects/readings' at Readings Position '4'.
+App 'engineering' reads Readings Directory '../connectors/vercel-ai/readings' at Readings Position '5'.
+App 'engineering' reads Readings Directory '.' at Readings Position '6'.
+App 'engineering' reads Readings Directory 'readings' at Readings Position '7'.
 
 <!-- The libraries the residents compose (memory and spd-1 in claude; connectors,
      sherlock and auto.dev in support), and decidex and infosci, whose checks
@@ -213,10 +231,68 @@ Library 'infosci' has Package Directory 'C:/Users/lippe/Repos/apps/infosci'.
 Library 'infosci' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
 Library 'infosci' reads Readings Directory 'readings' at Readings Position '2'.
 
+<!-- 2026-10-13, Sam: "I don't like 'templates,' and I don't want that in the arest repo. They
+     should be moved into libraries and connectors", "in the apps folder", and Agent "in its own
+     separate library, anything that uses agents should reference it". arest/readings/templates
+     became agents (agents, agent-chat, agent-ethics), organizations, and two connectors under
+     apps/connectors, sql-dialects and vercel-ai (vercel-ai, vercel-chat); arest/readings/ui became
+     ui, and arest/readings/os became os. Every app that read templates composes all four, in the
+     order the templates directory gave its files, so a check over the moved files rebuilds the
+     store it had. Which app needs which is the next step. -->
+
+Library 'agents' has Package Directory 'C:/Users/lippe/Repos/apps/agents'.
+Library 'agents' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+Library 'agents' reads Readings Directory 'readings' at Readings Position '2'.
+
+Library 'organizations' has Package Directory 'C:/Users/lippe/Repos/apps/organizations'.
+Library 'organizations' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+Library 'organizations' reads Readings Directory 'readings' at Readings Position '2'.
+
+Library 'sql-dialects' has Package Directory 'C:/Users/lippe/Repos/apps/connectors/sql-dialects'.
+Library 'sql-dialects' reads Readings Directory '../../../arest/metamodel' at Readings Position '1'.
+Library 'sql-dialects' reads Readings Directory 'readings' at Readings Position '2'.
+
+Library 'vercel-ai' has Package Directory 'C:/Users/lippe/Repos/apps/connectors/vercel-ai'.
+Library 'vercel-ai' reads Readings Directory '../../../arest/metamodel' at Readings Position '1'.
+Library 'vercel-ai' reads Readings Directory 'readings' at Readings Position '2'.
+
+Library 'ui' has Package Directory 'C:/Users/lippe/Repos/apps/ui'.
+Library 'ui' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+Library 'ui' reads Readings Directory 'readings' at Readings Position '2'.
+
+Library 'os' has Package Directory 'C:/Users/lippe/Repos/apps/os'.
+Library 'os' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
+Library 'os' reads Readings Directory 'readings' at Readings Position '2'.
+
+App 'claude' composes Library 'agents'.
+App 'claude' composes Library 'organizations'.
+App 'claude' composes Library 'sql-dialects'.
+App 'claude' composes Library 'vercel-ai'.
 App 'claude' composes Library 'memory'.
 App 'claude' composes Library 'spd-1'.
+App 'tasks' composes Library 'agents'.
+App 'tasks' composes Library 'organizations'.
+App 'tasks' composes Library 'sql-dialects'.
+App 'tasks' composes Library 'vercel-ai'.
+App 'support' composes Library 'agents'.
+App 'support' composes Library 'organizations'.
+App 'support' composes Library 'sql-dialects'.
+App 'support' composes Library 'vercel-ai'.
+App 'support' composes Library 'ui'.
 App 'support' composes Library 'connectors'.
 App 'support' composes Library 'sherlock'.
 App 'support' composes Library 'auto.dev'.
+App 'qa' composes Library 'agents'.
+App 'qa' composes Library 'organizations'.
+App 'qa' composes Library 'sql-dialects'.
+App 'qa' composes Library 'vercel-ai'.
+App 'pm' composes Library 'agents'.
+App 'pm' composes Library 'organizations'.
+App 'pm' composes Library 'sql-dialects'.
+App 'pm' composes Library 'vercel-ai'.
+App 'engineering' composes Library 'agents'.
+App 'engineering' composes Library 'organizations'.
+App 'engineering' composes Library 'sql-dialects'.
+App 'engineering' composes Library 'vercel-ai'.
 
 Domain 'registry' has Description 'The MCP router''s residents and the libraries they compose: which apps it serves, where each app''s or library''s package is, which readings directories its check compiles and in what order, which libraries each app composes, and whether to start an app.'.

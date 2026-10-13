@@ -225,7 +225,7 @@ Domain is a subtype of Function.
      Declared in core so the kind anchors before any
      alphabetically-earlier app file can infer a kind from usage.
      Agent is the same pattern and is declared by the agents module
-     (readings/templates/agents.md), entity type and subtype link
+     (the agents library, apps/agents/readings/agents.md), entity type and subtype link
      together, because an agent is something this metamodel
      describes rather than part of the metamodel's own vocabulary
      (Agent belongs in a module, not in core);
@@ -2408,7 +2408,7 @@ Conceptual Data Type 'oleObject' has JSON Format 'byte'.
 SQL/DDL projection of the catalog (P2b). NORMA maps a Conceptual
 Data Type to SQL in two stages: first to an abstract SQL type (the
 DCIL layer — a SQL-standard "predefined type" name), then to the
-vendor type per dialect (`readings/templates/sql-dialects.md`). The
+vendor type per dialect (the sql-dialects connector, `apps/connectors/sql-dialects`). The
 Abstract SQL Type facts below are stage one. They absorb `abstractSqlType`
 onto the Conceptual Data Type cell via RMAP, the same way `jsonType`
 absorbs (P2a) and `conceptualDataType` absorbs onto Noun (P1). The
