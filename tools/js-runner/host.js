@@ -1290,12 +1290,42 @@ function writeDb(path) { return keptDb("w|" + path, path, { create: true }); }
 // moved between two requests. sqlite:data_version keeps one read-only connection per path for the life of the
 // process, opened at the first ask and closed with the others when the file is cleared, renamed or replaced
 // (closeReadDb); it holds no transaction between asks, so it keeps no writer out.
+// AND A SERVER ASKS IT ON ITS OWN WRITE CONNECTION (task #197, step 7b). The version moves for a commit on any
+// connection but the one asked, so asked on the connection the host writes its store with (storeDb: the emit, the
+// verdict, the ledgers) a write of the server's own does not move it, and nothing has to be recorded after it. A write
+// lambda runs on a connection of its own does move it, and is recorded at its commit (commitNoted).
 let WATCHDBS = null;
 function watchDb(path) {
+  if (LAZY_STORE && process.env.AREST_STORE_DB && String(path) === process.env.AREST_STORE_DB) { const own = storeDb(); if (own) return own; }
   if (WATCHDBS === null) WATCHDBS = new Map();
   let db = WATCHDBS.get(path);
   if (db === undefined) { const { Database } = require("bun:sqlite"); db = new Database(path, { readonly: true }); WATCHDBS.set(path, db); }
   return db;
+}
+// AND A COMMIT OF A WRITE LAMBDA RUNS IS RECORDED AT THE COMMIT (task #197, step 7b). The version is asked just before
+// the commit, while the write holds the database's write lock and no other connection can commit, and again after it;
+// lambda answers the version to record (store:commit_note): the one after, where the one before is the version
+// recorded, else the version recorded, so the next request reads the store again. A transaction that changed no row
+// holds no lock, and is not recorded. Within a request the version waits for the request's end (freshened), so the
+// cells a request is evaluated over do not change under it.
+let NOTING = null, REQUESTS = 0;
+function notedVersion() {
+  for (const c of CELLS) if (Array.isArray(c) && c[0] === "CELL" && c[1] === "state:data_version") return c[2];
+  return [];
+}
+function rowChanges(db) { return Number(db.query("select total_changes()").values()[0][0]); }
+// the rows a connection has changed, where it writes the store this process serves; null anywhere else
+function servedChanges(db, path) {
+  return LAZY_STORE && process.env.AREST_STORE_DB && String(path) === process.env.AREST_STORE_DB ? rowChanges(db) : null;
+}
+function commitNoted(db, path, changed0) {
+  const served = changed0 !== null && rowChanges(db) > changed0;
+  const before = served ? Number(watchDb(String(path)).query("pragma data_version").values()[0][0]) : null;
+  db.exec("commit");
+  if (!served) return;
+  const after = Number(watchDb(String(path)).query("pragma data_version").values()[0][0]);
+  const v = Ev("store:commit_note", [NOTING !== null ? NOTING : notedVersion(), before, after]);
+  if (REQUESTS > 0) NOTING = v; else setCell("state:data_version", v);
 }
 function closeReadDb(path) {
   if (WATCHDBS !== null && WATCHDBS.has(path)) { try { WATCHDBS.get(path).close(true); } catch { } WATCHDBS.delete(path); }
@@ -1641,8 +1671,9 @@ const PRIMS = new Map(Object.entries({
     const db = writeDb(String(at(x, 0)));
     const et = performance.now(); // @instrument
     try {
+      const changed0 = servedChanges(db, at(x, 0));
       db.exec("begin");
-      try { db.exec(String(at(x, 1))); db.exec("commit"); }
+      try { db.exec(String(at(x, 1))); commitNoted(db, at(x, 0), changed0); }
       catch (e) { try { db.exec("rollback"); } catch { } throw e; }
     } finally {
       // a script slower than half a second is named with its SQL (2026-10-09: a support check spent ~3 min in
@@ -1681,6 +1712,7 @@ const PRIMS = new Map(Object.entries({
     let n = 0;
     const st = db.prepare(sql);
     try {
+      const changed0 = servedChanges(db, path);
       db.exec("begin");
       try {
         for (const r of rows) {
@@ -1696,7 +1728,7 @@ const PRIMS = new Map(Object.entries({
           catch (e) { throw new Error(e.message + " -- row " + (n + 1) + " of " + rows.length + ", beginning " + JSON.stringify(vals.slice(0, 2)).slice(0, 120)); }
           n++;
         }
-        db.exec("commit");
+        commitNoted(db, path, changed0);
       } catch (e) { try { db.exec("rollback"); } catch { } throw e; }
     } finally { st.finalize(); }
     return n;
@@ -1785,6 +1817,7 @@ const PRIMS = new Map(Object.entries({
     const path = String(at(x, 0));
     const db = path === ":memory:" ? new Database(":memory:") : new Database(path, { create: true });
     try {
+      const changed0 = servedChanges(db, path);
       db.exec("begin");
       let out;
       const t0 = performance.now(); // @instrument
@@ -1793,7 +1826,7 @@ const PRIMS = new Map(Object.entries({
       try { out = runSteps(db, at(x, 1)); }
       catch (e) { try { db.exec("rollback"); } catch { } throw e; }
       if (PROFILE) console.error("sqlite:program ran its steps: " + mem()); // @instrument
-      db.exec(out[0] === "refused" ? "rollback" : "commit");
+      if (out[0] === "refused") db.exec("rollback"); else commitNoted(db, path, changed0);
       if (PROFILE) console.error("sqlite:program: " + seq(at(x, 1)).length + " steps, " + Math.round(performance.now() - t0) + " ms, " + out[0] + ", " + mem()); // @instrument
       return out;
     } finally { db.close(true); }
@@ -3577,6 +3610,7 @@ const FASTPRIMS = new Map(Object.entries({
     let n = 0;
     try {
       const st = db.prepare(sql);
+      const changed0 = servedChanges(db, path);
       db.exec("begin");
       try {
         for (const r of rows) {
@@ -3592,7 +3626,7 @@ const FASTPRIMS = new Map(Object.entries({
           catch (e) { throw new Error(e.message + " -- row " + (n + 1) + " of " + rows.length + ", beginning " + JSON.stringify(vals.slice(0, 2)).slice(0, 120)); }
           n++;
         }
-        db.exec("commit");
+        commitNoted(db, path, changed0);
       } catch (e) { try { db.exec("rollback"); } catch { } throw e; }
     } finally { db.close(true); }
     return n;
@@ -5799,15 +5833,16 @@ function run_serve() {
       // And a write takes no snapshot either: emitToDb compares the cells the write
       // replaced against the copy (popSnapshotMoved).
       const clock = clockStart();
-      // the store asked first whether another connection moved it, and its version recorded after a write (storeFreshen)
-      storeFreshen();
-      const w0 = LAZY_STORE ? LAZY_STORE.writes() : 0;
-      let answer;
-      try { answer = Ev("main:api", [CELLS, req.method, resource, caller, fact]); } finally { clockLap(clock, "lambda"); }
-      const out = await readThrough(answer, req.method, resource, caller, raw);
-      clockLap(clock, "read");
-      const [body, status] = answerWrite(out, req.method + " " + resource, clock);
-      if (LAZY_STORE && LAZY_STORE.writes() !== w0) storeNoteVersion();
+      // the store asked first whether another connection moved it (storeFreshen, requestBegin)
+      requestBegin();
+      let body, status;
+      try {
+        let answer;
+        try { answer = Ev("main:api", [CELLS, req.method, resource, caller, fact]); } finally { clockLap(clock, "lambda"); }
+        const out = await readThrough(answer, req.method, resource, caller, raw);
+        clockLap(clock, "read");
+        [body, status] = answerWrite(out, req.method + " " + resource, clock);
+      } finally { requestEnd(); }
       memoReleaseWhenIdle(console.log);
       return new Response(body, {
         status,
@@ -6915,10 +6950,7 @@ function lazyStore(db, want) {
   cells.push(later("FILE", () => Ev("store:fts", CELLS).map((d) => later(d[0], () => Ev("rmap:rel_cell", d)[2]))));
   const replaced = new Set([...stored, "state:fts", "FILE"]);
   // a write rewrote these tables: what was read from them is read again when asked
-  // (notes counts the writes this store was told of, so a serving tail can see that a request wrote: storeNoteVersion)
-  let notes = 0;
   const invalidate = (tables) => {
-    notes++;
     for (const t of tables) {
       byTable.delete(t); asked.delete(t);
       if (presentIn.has(t)) count(t);
@@ -6961,7 +6993,6 @@ function lazyStore(db, want) {
   // a table emitToDb wrote row by row: the fact types that moved are what the write
   // stored, and every other one it carries holds the rows it held; its counts move by what the write counted
   const wrote = (tables, moved, counted) => {
-    notes++;
     for (const ft of moved.keys()) movedFts.add(ft);
     for (const t of tables) {
       byTable.delete(t); asked.delete(t);
@@ -7088,7 +7119,7 @@ function lazyStore(db, want) {
     return d ? Ev("theta:unfold_rows", d[4]) : [];
   };
   return { db, tablesOf, rowsOf, readAll, invalidate, refresh, wrote, cells, replaced, mentioning, carrier, present,
-    tables: () => [...want.keys()], writes: () => notes,
+    tables: () => [...want.keys()],
     pending: (c) => pendingCells.has(c) && !movedFts.has(c[1]),
     hasRows: (n) => present(n) && rowsOf(n).length > 0,
     stats: () => ({ selects, tables: byTable.size, most: Math.max(0, ...wholeReads.values()), scans }) };
@@ -7125,9 +7156,13 @@ function seedDerivedRows(db, have) {
 // was not seen until the server stopped. Lambda answers whether the store moved since the version this process last
 // recorded (store:stale, over PRAGMA data_version); where it did, every table's reading is dropped, so each fact type
 // is read again when it is next asked, the verdict is read again, the memo is emptied, and the new version is
-// recorded. The serving tails ask before every request and record after each write this process commits, so its own
-// writes do not read as another's. What the boot read for the write path alone -- the record of derived rows and the
-// cover of the SQL checks -- is left as it was read.
+// recorded. The serving tails ask before every request. What the boot read for the write path alone -- the record of
+// derived rows and the cover of the SQL checks -- is left as it was read.
+// AND THE VERSION RECORDED IS THE ONE ASKED BEFORE ANYTHING IS READ AGAIN (task #197, step 7b): store:freshen answers
+// whether the store moved and the version it is at, asked once, and that version is recorded, so a row another
+// connection commits while the server reads again moves the store past it and is read at the next request. A write of
+// the server's own does not move the version its own write connection answers (watchDb), and one lambda runs on a
+// connection of its own is recorded at its commit (commitNoted).
 function storeNoteVersion() {
   if (!LAZY_STORE) return;
   let v;
@@ -7137,23 +7172,29 @@ function storeNoteVersion() {
 }
 function storeFreshen() {
   if (!LAZY_STORE) return false;
-  let stale;
-  try { stale = Ev("store:stale", CELLS); } catch (e) { console.error("store: could not ask whether it moved: " + e.message); return false; }
-  if (stale !== "T") return false;
+  if (NOTING !== null && REQUESTS === 0) { setCell("state:data_version", NOTING); NOTING = null; }
+  let fresh;
+  try { fresh = seq(Ev("store:freshen", CELLS)); } catch (e) { console.error("store: could not ask whether it moved: " + e.message); return false; }
+  if (fresh[0] !== "T") return false;
   const t0 = performance.now();
   LAZY_STORE.refresh(LAZY_STORE.tables());
   readVerdict();
+  setCell("state:data_version", fresh[1]);
   memoClear();
-  storeNoteVersion();
   console.error("store: another connection moved it; what was read of it is dropped (" + Math.round(performance.now() - t0) + " ms)");
   return true;
 }
-// a request's evaluation, the store asked first whether it moved and its version recorded after a write it made
+// a request's evaluation, the store asked first whether it moved; a version a commit of its own recorded is put in
+// the cells when no request is being answered (requestEnd), so the cells a request reads do not change under it
+function requestBegin() { storeFreshen(); REQUESTS++; }
+function requestEnd() {
+  if (REQUESTS > 0) REQUESTS--;
+  if (REQUESTS === 0 && NOTING !== null) { setCell("state:data_version", NOTING); NOTING = null; }
+}
 function freshened(run) {
-  storeFreshen();
-  const w0 = LAZY_STORE ? LAZY_STORE.writes() : 0;
+  requestBegin();
   try { return run(); }
-  finally { if (LAZY_STORE && LAZY_STORE.writes() !== w0) storeNoteVersion(); }
+  finally { requestEnd(); }
 }
 
 function loadStoreDb(path, opts) {
