@@ -927,7 +927,7 @@ Function 'render:alert' yields Type Expression 'widget'.
      its paired controls plus the engine that lays them out (iFactr):
      render:html is the html engine, the function from a screen's placed
      rows to a document -- the view with the paired widgets inside it.
-     readings/ui/render-target-instances.md declares Render Target 'html'
+     the ui library's render-target-instances.md (apps/ui) declares Render Target 'html'
      has Platform Function Name 'render:html', and the React container binds
      it. Registered for the same reason every render: name is registered:
      lambda defines no cell of that name, so the body comes from the
@@ -947,7 +947,7 @@ Function 'render:html' yields Type Expression 'document'.
      container's, render:wpf the WPF container's and render:slint the Slint
      surface's (engine/os): each draws a screen's placed rows
      as its platform's own widgets, where render:html writes a document. Each
-     engine is one Render Target in readings/ui/render-target-instances.md. -->
+     engine is one Render Target in the ui library's render-target-instances.md (apps/ui). -->
 Function 'render:swing' has Definition Origin 'registered'.
 Function 'render:swing' accepts Type Expression 'placed-rows'.
 Function 'render:swing' yields Type Expression 'screen'.
