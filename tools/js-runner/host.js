@@ -1188,6 +1188,10 @@ const PEERATOMS = new WeakMap();
 // system:pop_in: the derived fact types a store computes on read (derive:or_dfts) and the rows each one computes to
 // (derive:on_read), by the store's identity; memoClear drops both when a write moves the store
 let ORDFTS = new WeakMap(), ORROWS = new WeakMap();
+// store:for_read's answer, by the store's identity (task #197, step 7b): the memo keeps it for a burst, and this keeps it
+// until memoClear, as ORROWS and the other indexes are kept, so what is kept by the read store's identity -- the
+// on-read rows, the fetch index -- outlives an idle server's memo release as it does for the store itself
+let FORREAD = new WeakMap();
 // whether rmap:proj_objkey spells the row as the id: its values joined by a period, as an objectified instance is
 // keyed (main:re_own). A row whose first value is text spells an id only past that text and a period, so the
 // DEF is asked of no other; a row of one text value would hold the id itself, which the callers have ruled out.
@@ -1195,6 +1199,12 @@ function objkeyIs(row, id) {
   if (!Array.isArray(row) || row.length === 0) return false;
   if (typeof row[0] === "string" && (row.length < 2 || !id.startsWith(row[0] + "."))) return false;
   return Ev("rmap:proj_objkey", row) === id;
+}
+// store:served's answer, as a twin asks it: a store whose first cell is the read cell (store:for_read)
+function servedStore(store) {
+  if (!Array.isArray(store) || store.length === 0) return false;
+  const c = store[0];
+  return Array.isArray(c) && c.length >= 2 && c[1] === "state:read_db";
 }
 function onReadDfts(store) {
   let s = ORDFTS.get(store);
@@ -1903,7 +1913,7 @@ function memoReleaseWhenIdle(say) {
   }, Number(process.env.AREST_MEMO_IDLE_MS || 5000));
   if (MEMO_IDLE.unref) MEMO_IDLE.unref();
 }
-function memoClear() { memoEmpty(); ORDFTS = new WeakMap(); ORROWS = new WeakMap(); DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MATCHPROV = new WeakMap(); KEYIDX = new WeakMap(); KEYPROV = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); PROJPLAN = new WeakMap(); }
+function memoClear() { memoEmpty(); ORDFTS = new WeakMap(); ORROWS = new WeakMap(); FORREAD = new WeakMap(); DESCIDX = new WeakMap(); ENTIDX = new WeakMap(); JOINIDX = new WeakMap(); FETCHIDX = new WeakMap(); MATCHIDX = new WeakMap(); MATCHPROV = new WeakMap(); KEYIDX = new WeakMap(); KEYPROV = new WeakMap(); MEMBIDX = new WeakMap(); PAIRIDX = new WeakMap(); SOLVEIDX = new WeakMap(); MPIDX = new WeakMap(); SLOTIDX = new WeakMap(); PROJPLAN = new WeakMap(); }
 // the rows of `rows` whose first column equals `key`, in source order -- the value
 // of csdp:matches (INSERT csdp:keep_keyed . theta:append_phi . distl). The fold
 // visits every row, so a row that is not a sequence, or is empty, throws the
@@ -2462,7 +2472,12 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   // statements that say which places hold an id (get:mention_sql), one list per store; orient's parts of a Domain and
   // the live required orientation, which every Domain of a burst's orients reads. A write clears the memo, and
   // storeFreshen does when another connection moved the store, which PRAGMA data_version says before each request.
-  "sqlite:read0v", "sqlite:read1v", "get:mention_sql", "orient:parts", "orient:live_required"]);
+  "sqlite:read0v", "sqlite:read1v", "get:mention_sql", "orient:parts", "orient:live_required",
+  // and the kinds a population read in the database is typed in (value:kind_rows), one list per store (the store a
+  // read is answered over is kept by its twin, store:for_read, as long as the store's own indexes are)
+  "value:kind_rows",
+  // and a population a read reads there, typed (store:sql_rows), once per store and name
+  "store:sql_rows"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot lambda list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
@@ -3068,7 +3083,18 @@ const FASTPRIMS = new Map(Object.entries({
   "main:or_has": x => {
     if (!Array.isArray(x) || x.length !== 3 || !Array.isArray(x[2])) return Ev(DEFS.get("main:or_has"), x);
     return onReadAtoms(x[1], x[2]).has(keyOf(x[0])) ? "T" : "F"; },
-  "system:pop_in": x => { const name = at(x, 0), store = at(x, 1);
+  // A STORE A READ IS ANSWERED OVER IS READ IN ITS DATABASE (task #197, step 7b): the DEF says where (system:pop_db),
+  // and system:pop_cells, below, is what this twin answered for every store before, a store held in memory and a
+  // population the database does not place.
+  "store:for_read": x => {
+    if (!Array.isArray(x)) return Ev(DEFS.get("store:for_read"), x);
+    let r = FORREAD.get(x);
+    if (r === undefined) { r = Ev(DEFS.get("store:for_read"), x); FORREAD.set(x, r); }
+    return r; },
+  "system:pop_in": x => { const store = at(x, 1);
+    if (servedStore(store)) return Ev(DEFS.get("system:pop_in"), x);
+    return FASTPRIMS.get("system:pop_cells")(x); },
+  "system:pop_cells": x => { const name = at(x, 0), store = at(x, 1);
     if (Array.isArray(store) && onReadDfts(store).has(String(name))) return onReadRows(name, store);
     const fetch = FASTPRIMS.get("ast:fetch");
     const top = fetch([name, store]);
