@@ -156,16 +156,17 @@ App 'tasks' reads Readings Directory 'readings' at Readings Position '7'.
 
 App 'support' has Package Directory 'C:/Users/me/Repos/apps/support.example.dev'.
 App 'support' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
-App 'support' reads Readings Directory '../agents/readings' at Readings Position '2'.
-App 'support' reads Readings Directory '../organizations/readings' at Readings Position '3'.
-App 'support' reads Readings Directory '../connectors/sql-dialects/readings' at Readings Position '4'.
-App 'support' reads Readings Directory '../connectors/vercel-ai/readings' at Readings Position '5'.
-App 'support' reads Readings Directory '../ui/readings' at Readings Position '6'.
-App 'support' reads Readings Directory '../connectors/readings' at Readings Position '7'.
-App 'support' reads Readings Directory '../sherlock' at Readings Position '8'.
-App 'support' reads Readings Directory '../example.dev' at Readings Position '9'.
-App 'support' reads Readings Directory '.' at Readings Position '10'.
-App 'support' reads Readings Directory 'readings' at Readings Position '11'.
+App 'support' reads Readings Directory '../messages/readings' at Readings Position '2'.
+App 'support' reads Readings Directory '../agents/readings' at Readings Position '3'.
+App 'support' reads Readings Directory '../organizations/readings' at Readings Position '4'.
+App 'support' reads Readings Directory '../connectors/sql-dialects/readings' at Readings Position '5'.
+App 'support' reads Readings Directory '../connectors/vercel-ai/readings' at Readings Position '6'.
+App 'support' reads Readings Directory '../ui/readings' at Readings Position '7'.
+App 'support' reads Readings Directory '../connectors/readings' at Readings Position '8'.
+App 'support' reads Readings Directory '../sherlock' at Readings Position '9'.
+App 'support' reads Readings Directory '../example.dev' at Readings Position '10'.
+App 'support' reads Readings Directory '.' at Readings Position '11'.
+App 'support' reads Readings Directory 'readings' at Readings Position '12'.
 
 App 'qa' has Package Directory 'C:/Users/me/Repos/apps/qa.example.dev'.
 App 'qa' reads Readings Directory '../../arest/metamodel' at Readings Position '1'.
@@ -290,6 +291,7 @@ App 'tasks' composes Library 'agents'.
 App 'tasks' composes Library 'organizations'.
 App 'tasks' composes Library 'sql-dialects'.
 App 'tasks' composes Library 'vercel-ai'.
+App 'support' composes Library 'messages'.
 App 'support' composes Library 'agents'.
 App 'support' composes Library 'organizations'.
 App 'support' composes Library 'sql-dialects'.
