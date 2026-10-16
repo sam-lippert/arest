@@ -98,8 +98,13 @@ async function record(role, body) {
   const now = new Date().toISOString();
   const facts = [["ChatMessageBelongsToAgentChat", id, chat], ["ChatMessageHasMessageRole", id, role],
     ["MessageHasMessageBody", id, body || "(no text)"], ["MessageHasTimestamp", id, now]];
-  if (seq === 1) facts.unshift(["AgentChatIsForUser", chat, LOGIN], ["AgentChatUsesStreamingMode", chat, "non-streaming"],
-    ["AgentChatOccurredAtTimestamp", chat, started]);
+  // THE CHAT IS CREATED IN A WRITE OF ITS OWN (measured 2026-10-16): with its first message in the same
+  // write, the Agent Chat machine's first step is refused on StateMachineIsCurrentlyInStatus's subset
+  if (seq === 1) {
+    const made = textOf(await call("assert", { app: AUDIT, args: [[["AgentChatIsForUser", chat, LOGIN],
+      ["AgentChatUsesStreamingMode", chat, "non-streaming"], ["AgentChatOccurredAtTimestamp", chat, started]]] }));
+    if (!/^\["committed/.test(made)) say("error", "the chat " + chat + " was not created: " + made.slice(0, 400));
+  }
   const out = textOf(await call("assert", { app: AUDIT, args: [facts] }));
   if (!/^\["committed/.test(out)) say("error", "the record of " + id + " was not committed: " + out.slice(0, 400));
   return id;
