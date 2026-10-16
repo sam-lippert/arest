@@ -3,8 +3,10 @@
 <!-- Layer: AREST-extension vocabulary end to end —
      the runtime side (Object Type Instance, State Machine, Event, Fact instances,
      Guard Run, User, Citation). ORM canon models schemas; populations
-     here are Thm 1's FILE cell made addressable. Everything homes under
-     Object Type Instance, itself a Function subtype (FFP: one root). -->
+     here are Thm 1's FILE cell made addressable. Every instance homes under
+     Object Type Instance, itself a Function subtype (FFP: one root). An event
+     is not an instance: it has no state, it fires a transition (Sam, 2026-10-16),
+     so Event homes under Function directly. -->
 
 ## Entity Types
 
@@ -26,7 +28,13 @@ Object Type Instance is an entity type.
      NORMA's ObjectTypeHasObjectTypeInstance (Multiplicity One) with
      WalkSupertypes delegation for supertype-walking consumers. -->
 Event is an entity type.
-  Event is a subtype of Object Type Instance.
+  Event is a subtype of Function.
+<!-- Sam, 2026-10-16: "Events shouldn't be object type instances either.
+     Instances get state machines, and events don't have states, they power
+     the machine transitions." An Object Type Instance is what may have a state
+     machine and a status; an Event is what moves one. So Event is a Function,
+     in the one id space, beside Transition and Event Type, and not an
+     Object Type Instance; a Fact, being an Event, is not one either. -->
 Fact is an entity type.
   Fact is a subtype of Event.
 State Machine is an entity type.
@@ -107,8 +115,8 @@ Fact is completed.
 Fact is example.
 <!-- A Fact cites a Citation through `Function cites Citation`: citation lives
      on the supertype so that it is not redeclared for every
-     type. A Fact is an Object Type
-     Instance and so a Function; the role it plays is inherited. See the
+     type. A Fact is an Event and so a
+     Function; the role it plays is inherited. See the
      Citation section below. -->
 
 
@@ -141,7 +149,7 @@ Event Type can be created by Predicate.
 ### Citing an Authority
 ### One fact type on the supertype: every element that cites an authority is a
 ### Function (an Object Type and a Constraint are; a Fact Type is through Event
-### Type; a Fact is through Event and Object Type Instance), so each kind plays
+### Type; a Fact is through Event), so each kind plays
 ### the role by population inclusion instead of declaring its own fact type. The
 ### cited element's kind is read from `Object Type Instance is instance of Object
 ### Type`. NORMA has the same general form: besides each element's own Note,
