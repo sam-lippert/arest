@@ -5917,7 +5917,8 @@ function run_view() {
       const path = decodeURIComponent(url.pathname.replace(/^\//, ""));
       memoClear();
       let body = "", status = 500;
-      try { const a = Ev("view:api", [db, req.method, path]); body = String(a[0]); status = Number(a[1]); }
+      // the origin is transport data, as the caller is: lambda makes every link a full url from it
+      try { const a = Ev("view:api", [db, req.method, path, url.origin]); body = String(a[0]); status = Number(a[1]); }
       catch (e) { body = JSON.stringify(String((e && e.message) || e)); }
       return new Response(body, { status, headers: { "content-type": "application/json" } });
     },
