@@ -1989,6 +1989,17 @@ function jsonText(x) {
   if (decShape(x)) return Ev("dec:text", x);
   if (Array.isArray(x)) {
     if (x.length === 0) return "[]";
+    // an object is the tagged pair <{}, <<name, value>, ...>> (render:is_obj, render:json_obj)
+    if (x.length === 2 && x[0] === "{}" && Array.isArray(x[1])) {
+      let out = "{";
+      for (let i = 0; i < x[1].length; i++) {
+        if (i > 0) out += ",";
+        const m = x[1][i], k = at(m, 0);
+        if (typeof k !== "string") throw new Error("chars on non-string");
+        out += jsonQuote(k) + ":" + jsonText(at(m, 1));
+      }
+      return out + "}";
+    }
     let out = "[";
     for (let i = 0; i < x.length; i++) { if (i > 0) out += ","; out += jsonText(x[i]); }
     return out + "]";
