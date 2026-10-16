@@ -5267,6 +5267,27 @@ function recordResponse(fn, url, status, say) {
   } else if (say) say("response record REFUSED " + fn + ": " + String(out[0]).slice(0, 300));
 }
 
+// a dotted JSON path set and read: a numeric step is an array index, and a key that holds the whole
+// path as one name (a service that answers {"a.b": 1}) is read as written first
+function setJsonPath(obj, path, v) {
+  const segs = path.split(".");
+  let cur = obj;
+  for (let i = 0; i < segs.length - 1; i++) {
+    const k = segs[i];
+    if (cur[k] === undefined || cur[k] === null || typeof cur[k] !== "object") cur[k] = /^\d+$/.test(segs[i + 1]) ? [] : {};
+    cur = cur[k];
+  }
+  cur[segs[segs.length - 1]] = v;
+}
+function getJsonPath(obj, path) {
+  if (obj && typeof obj === "object" && path in obj) return obj[path];
+  let cur = obj;
+  for (const k of path.replace(/^\$\./, "").split(".")) {
+    if (cur === undefined || cur === null || typeof cur !== "object") return undefined;
+    cur = cur[k];
+  }
+  return cur;
+}
 async function performDeclared(before, after, opts) {
   const o = opts || {};
   const send = o.send || ((m, a, h, b) => fetch(a, { method: m, headers: h, body: JSON.stringify(b) })
@@ -5327,14 +5348,26 @@ async function performDeclared(before, after, opts) {
     if (!Array.isArray(auth) && secret) headers[String(auth)] = (headers[String(auth)] || "") + (headers[String(auth)] ? " " : "") + secret;
     const body = {};
     let hole = null;
+    // A JSON PATH IS A PATH (2026-10-16): 'headers.In-Reply-To' is the field In-Reply-To of the object
+    // headers, and 'messages.0.content' the content of the first element of the array messages, so a
+    // dotted path is written nested and a numeric step makes an array. Written flat, Resend received a
+    // key named "headers.In-Reply-To" and threaded nothing, and the Claude Messages API could not be
+    // called at all. AND A NUMBER IN A TEMPLATE IS A NUMBER: a Body Template with no placeholder whose
+    // text is an integer ('max_tokens' 2048) is written as the JSON number; every value read from a fact
+    // stays text, as before.
+    const numeric = new Set();
+    for (const t of Ev("perform:tpls_of", [predicate, after])) {
+      const tx = Array.isArray(t[1]) ? "" : String(t[1]);
+      if (/^-?\d+$/.test(tx)) numeric.add(String(t[0]));
+    }
     for (const b of Ev("perform:body_of", [predicate, entity, after])) {
       if (Array.isArray(b[1])) { hole = String(b[0]); break; }
-      body[String(b[0])] = String(b[1]);
+      setJsonPath(body, String(b[0]), numeric.has(String(b[0])) ? Number(b[1]) : String(b[1]));
     }
     if (hole) { done.push({ predicate, entity, refused: "declared path '" + hole + "' has no fact to fill it" }); continue; }
     // A UNARY IS A TRUTH, NOT A TEXT (task #193; Sam: "AREST should be able to handle unaries"): the
     // fields a federated unary's write sets are written as the JSON booleans true and false.
-    for (const fl of Ev("fed:ot_flags", [predicate, after])) body[String(fl[0])] = String(fl[1]) === "T";
+    for (const fl of Ev("fed:ot_flags", [predicate, after])) setJsonPath(body, String(fl[0]), String(fl[1]) === "T");
     // A HOSTNAME IS RESOLVED WHERE THE REQUEST IS MADE (2026-10-01, Sam: "keep SSRF check").
     // decide:ssrf judges a URL as written, because a deontic computed on every write must not
     // wait on the network. The send is where the name is looked up anyway, so a live send looks
@@ -5398,8 +5431,9 @@ async function performDeclared(before, after, opts) {
     if (parsed && typeof parsed === "object") {
       for (const t of Ev("perform:yields_of", [predicate, after])) {
         const path = String(t[0]), ft = String(t[1]);
-        if (!(path in parsed)) continue;            // the service did not return it
-        const row = [ft, subj, String(parsed[path])];
+        const got = getJsonPath(parsed, path);
+        if (got === undefined || got === null) continue;   // the service did not return it
+        const row = [ft, subj, String(got)];
         (ceiling.indexOf(ft) >= 0 ? asserts : outside).push(row);
       }
     }
