@@ -5267,8 +5267,10 @@ function recordResponse(fn, url, status, say) {
   } else if (say) say("response record REFUSED " + fn + ": " + String(out[0]).slice(0, 300));
 }
 
-// a dotted JSON path set and read: a numeric step is an array index, and a key that holds the whole
-// path as one name (a service that answers {"a.b": 1}) is read as written first
+// a dotted JSON path set and read: a numeric step is an array index, a * step read is any element
+// (the first that holds the rest of the path, as JSONPath's [*]: a Messages answer may put its tool
+// call after a text block), and a key that holds the whole path as one name (a service that answers
+// {"a.b": 1}) is read as written first
 function setJsonPath(obj, path, v) {
   const segs = path.split(".");
   let cur = obj;
@@ -5281,12 +5283,21 @@ function setJsonPath(obj, path, v) {
 }
 function getJsonPath(obj, path) {
   if (obj && typeof obj === "object" && path in obj) return obj[path];
-  let cur = obj;
-  for (const k of path.replace(/^\$\./, "").split(".")) {
-    if (cur === undefined || cur === null || typeof cur !== "object") return undefined;
-    cur = cur[k];
-  }
-  return cur;
+  const walk = (cur, segs, i) => {
+    for (; i < segs.length; i++) {
+      if (cur === undefined || cur === null || typeof cur !== "object") return undefined;
+      if (segs[i] === "*") {
+        for (const v of Object.values(cur)) {
+          const got = walk(v, segs, i + 1);
+          if (got !== undefined && got !== null) return got;
+        }
+        return undefined;
+      }
+      cur = cur[segs[i]];
+    }
+    return cur;
+  };
+  return walk(obj, path.replace(/^\$\./, "").split("."), 0);
 }
 async function performDeclared(before, after, opts) {
   const o = opts || {};
