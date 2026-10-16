@@ -2490,9 +2490,9 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   // and a population a read reads there, typed (store:sql_rows), once per store and name
   "store:sql_rows",
   // and what a viewer reads of a database's catalogue and place map, which every row of one request asks
-  // again: its tables, a table's key and columns, and its child places (view:kid_map, ~180 ms on support,
-  // read per row before this). run_view drops the memo before each request.
-  "view:tables", "view:key", "view:cols", "view:kid_map"]);
+  // again: its tables, a table's key and columns and how many columns key it, and its child places
+  // (view:kid_map, ~180 ms on support, read per row before this). run_view drops the memo before each request.
+  "view:tables", "view:key", "view:cols", "view:kid_map", "view:pk_n"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot lambda list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
