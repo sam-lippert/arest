@@ -2488,7 +2488,11 @@ const MEMOCN = new Set(["system:cellrows", "ast:fetch", "cn:otparts", "cn:mandfo
   // read is answered over is kept by its twin, store:for_read, as long as the store's own indexes are)
   "value:kind_rows",
   // and a population a read reads there, typed (store:sql_rows), once per store and name
-  "store:sql_rows"]);
+  "store:sql_rows",
+  // and what a viewer reads of a database's catalogue and place map, which every row of one request asks
+  // again: its tables, a table's key and columns, and its child places (view:kid_map, ~180 ms on support,
+  // read per row before this). run_view drops the memo before each request.
+  "view:tables", "view:key", "view:cols", "view:kid_map"]);
 function memoable(f) { return MEMOCN.has(f) || f.startsWith("rmap:") || f.startsWith("state:"); }
 // Compiled forms of hot lambda list cells (the lex-primitive precedent:
 // the DEF stays the meaning; the head evaluates its extensional equal;
@@ -5918,7 +5922,7 @@ function run_view() {
       memoClear();
       let body = "", status = 500;
       // the origin is transport data, as the caller is: lambda makes every link a full url from it
-      try { const a = Ev("view:api", [db, req.method, path, url.origin]); body = String(a[0]); status = Number(a[1]); }
+      try { const a = Ev("view:api", [db, req.method, path, url.origin, url.search]); body = String(a[0]); status = Number(a[1]); }
       catch (e) { body = JSON.stringify(String((e && e.message) || e)); }
       return new Response(body, { status, headers: { "content-type": "application/json" } });
     },
