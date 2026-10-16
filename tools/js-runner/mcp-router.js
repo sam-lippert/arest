@@ -1129,6 +1129,17 @@ async function handle(msg, login) {
     }
     return reply(msg.id, out);
   }
+  // THE SUPPORT AGENT'S MODEL CALL (tools/js-runner/agent.js): forwarded to the app whose store holds the
+  // connection, which opens its Secret Reference and answers the model's text; the router never holds it.
+  if (msg.method === "arest/complete") {
+    const p = msg.params || {};
+    const r = residents.get(String(p.app || ""));
+    if (!r) return fail(msg.id, "no resident app named " + JSON.stringify(p.app) + "; the apps are " + (names().join(", ") || "none"));
+    r.wake();
+    if (r.ready) await r.ready;
+    try { return reply(msg.id, await r.request("arest/complete", { function: p.function, body: p.body })); }
+    catch (e) { return fail(msg.id, String(e.message)); }
+  }
   if (msg.id === undefined) return null;
   return fail(msg.id, "unknown method: " + msg.method);
 }

@@ -5246,6 +5246,29 @@ function writtenCredential(fn, secret, store) {
   return null;
 }
 
+// THE SUPPORT AGENT'S MODEL CALL (Sam, 2026-10-16: an API chat whose agent changes readings and evolves the
+// domain, and hands source edits to another agent). It is a call over a Function's declared connection: the
+// method, address and headers are the Function's own, as performDeclared reads them, the Secret Reference is
+// opened here, in the process that holds the store, and only the answer leaves it. The agent acts only
+// through the served verbs, so this answers text and performs nothing. A connection whose Send Mode is not
+// 'live' is not called, as performDeclared calls none.
+async function completeOver(fn, body, store, master) {
+  const mode = Ev("perform:send_mode_of", [fn, store]);
+  if (Array.isArray(mode) || String(mode) !== "live") return { status: 0, text: "the connection of " + fn + " is not live, so it is not called" };
+  const call = Ev("perform:call_for", [fn, store]);
+  const method = Array.isArray(call[0]) ? "" : String(call[0]);
+  const address = Array.isArray(call[1]) ? "" : String(call[1]);
+  if (method !== "POST" || !address) return { status: 0, text: "a model call of " + fn + " is a declared POST" };
+  const headers = {};
+  for (const h of Ev("perform:headers_of", [fn, store])) headers[String(h[0])] = String(h[1]);
+  const auth = Ev("perform:auth_header_of", [fn, store]);
+  const secret = Array.isArray(auth) ? "" : writtenCredential(fn, connectionSecret(fn, store, master), store);
+  if (secret === null) return { status: 0, text: "the credential encoding of " + fn + "'s connection is not one this host writes" };
+  if (secret) headers[String(auth)] = (headers[String(auth)] ? headers[String(auth)] + " " : "") + secret;
+  const r = await fetch(address, { method, headers, body: JSON.stringify(body) });
+  return { status: r.status, text: await r.text() };
+}
+
 // WHAT CAME OFF THE LINE IS RECORDED AS AN INSTANCE (task #195; Sam: "Events are object instances"): a Response
 // answering the Function, from the Url, with its status and time, asserted as a Failure is. Its body is not kept --
 // it powered the facts the read yields (Sam: "Let's not keep the body in this instance, it just powers the facts").
@@ -6641,6 +6664,12 @@ function run_mcp() {
         return reply(msg.id, { description: "FORML 2 verbalization pattern " + String(p.name || ""),
           messages: [{ role: "user", content: { type: "text", text } }] });
       } catch (e) { return fail(msg.id, String(e.message)); }
+    }
+    // the support agent's model call (completeOver above): text in, text out, nothing performed
+    if (msg.method === "arest/complete") {
+      const p = msg.params || {};
+      return completeOver(String(p.function || ""), p.body || {}, CELLS, process.env.AREST_MASTER_KEY)
+        .then((a) => reply(msg.id, a), (e) => fail(msg.id, String(e && e.message)));
     }
     if (msg.method === "tools/call") {
       const p = msg.params || {};
