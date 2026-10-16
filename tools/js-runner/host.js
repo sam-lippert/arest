@@ -5887,6 +5887,32 @@ function run_serve() {
   console.error("arest serving on :" + PORT);
 
 }
+// THE VIEWER TAIL (Sam, 2026-10-15: "The server shouldn't be so heavy. Very quick & lightweight, basically just
+// a sqlite viewer"). The serving tail above composes the whole app and loads its store to answer a read, ~350 MB
+// at boot and ~600 MB after reads on support. A store is a SQLite database and reading one asks nothing of the
+// closure, so this composition is lambda alone (build.js view) and loads nothing: each request is one
+// application of view:api to <database, method, path>, which reads the database's own catalogue through
+// sqlite:query on a read-only connection, refuses every method but GET, and answers <body, status>. What a
+// request costs is the statements it runs. The memo is dropped before each request, since a row read a moment
+// ago may have been written since by the app's own server.
+function run_view() {
+  const PORT = Number(process.env.AREST_PORT || 8787);
+  const db = String(process.env.AREST_STORE_DB || "");
+  Bun.serve({
+    hostname: process.env.AREST_HOST || "127.0.0.1",
+    port: PORT,
+    fetch(req) {
+      const url = new URL(req.url);
+      const path = decodeURIComponent(url.pathname.replace(/^\//, ""));
+      memoClear();
+      let body = "", status = 500;
+      try { const a = Ev("view:api", [db, req.method, path]); body = String(a[0]); status = Number(a[1]); }
+      catch (e) { body = JSON.stringify(String((e && e.message) || e)); }
+      return new Response(body, { status, headers: { "content-type": "application/json" } });
+    },
+  });
+  console.error("arest viewer on :" + PORT + " over " + db);
+}
 // THE PAIRING IS ASKED OF LAMBDA BY EACH PLATFORM, NOT BY THIS HOST (2026-10-03). pairing_gate asked
 // test:paired over the controls a container registered in PRIMS, for the text and HTML containers
 // this file once held; they are gone, and it had no caller. A platform now sends the render names it
@@ -7592,6 +7618,8 @@ function boot(mode) {
   // importer (tools/compile-design-state.js) evaluates read:* cells itself,
   // through the same published surface the test tail exposes
   if (mode === "reader") return run_test();
+  // the viewer's host: lambda alone and no store loaded either; each request is read in the database (run_view)
+  if (mode === "view") return run_view();
   // a server says where its boot went: the MCP client gives a server thirty
   // seconds to answer initialize, and this boot took two minutes on 2026-09-03
   // without a line to say which step

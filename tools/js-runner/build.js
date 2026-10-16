@@ -46,7 +46,9 @@ const oracle = process.env.AREST_CARRIERS || join(here, "..", "carriers", "base"
 // lambda's address now -- `bun compile.g.js compile <out> <dir>...`, main routing it to compile:run --
 // and it reads its schema from the readings it is handed, so it composes no carrier, the reader's
 // reason; boot falls through to run_cli for a mode it does not name, which is the six-line contract.
-const slim = process.argv[2] === "regress" || process.argv[2] === "reader" || process.argv[2] === "compile";
+// AND THE VIEW MODE IS LAMBDA ALONE WITH THE VIEWER'S TAIL (2026-10-15): it reads a store's database and
+// loads none of it, so it composes no carrier either.
+const slim = process.argv[2] === "regress" || process.argv[2] === "reader" || process.argv[2] === "compile" || process.argv[2] === "view";
 // THE WITNESS'S ANSWER IS NOT A BUILD INPUT. norma-answer is NORMA's own
 // relational answer, composed so the rmap-vs-NORMA laws can compare; a
 // carriers directory lambda wrote (tools/compile-design-state.js) has none,
@@ -125,9 +127,9 @@ for (const carrier of ["outcome", "expected"]) {
 }
 
 const mode = process.argv[2] || "cli";
-const OUT = { cli: "composed", test: "cases", serve: "serve", mcp: "mcp", sql: "sql", ui: "ui", regress: "regress", reader: "reader", compile: "compile", page: "page" };
+const OUT = { cli: "composed", test: "cases", serve: "serve", mcp: "mcp", sql: "sql", ui: "ui", regress: "regress", reader: "reader", compile: "compile", page: "page", view: "view" };
 if (!(mode in OUT)) {
-  console.error("unknown mode: " + mode + " (cli, test, serve, mcp, sql, ui, regress, reader, page)");
+  console.error("unknown mode: " + mode + " (cli, test, serve, mcp, sql, ui, regress, reader, page, view)");
   process.exit(1);
 }
 
