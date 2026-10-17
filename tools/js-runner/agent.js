@@ -189,8 +189,8 @@ const call = (name, args) => rpc("tools/call", { name, arguments: args });
 const textOf = (out) => (out && Array.isArray(out.content) ? out.content.map((c) => c.text || "").join("") : JSON.stringify(out));
 
 // ---- the record and the permission, both the claude store's
-const started = new Date().toISOString();
-const chat = ROLE + "-agent-" + started.replace(/[:.]/g, "-");
+let started = new Date().toISOString();
+let chat = ROLE + "-agent-" + started.replace(/[:.]/g, "-");
 let seq = 0;
 async function record(role, body) {
   const id = chat + "-" + (++seq);
@@ -208,6 +208,47 @@ async function record(role, body) {
   if (!/^\["committed/.test(out)) say("error", "the record of " + id + " was not committed: " + out.slice(0, 400));
   return id;
 }
+// THE CHATS ARE THE STORE'S (Sam, 2026-10-17: "Is there a way to list my agent chats? The interface resets
+// whenever the server restarts"). Every message is already a Chat Message of an Agent Chat in the claude store,
+// so the list is that store's Agent Chats of this role, and opening one reads its messages back. The model's
+// history is rebuilt from their text; the tool calls in it are the bracketed lines the record kept.
+async function population(ft) {
+  const t = textOf(await call("fact", { app: AUDIT, factType: ft, method: "GET" }));
+  let j;
+  try { j = JSON.parse(t); } catch { throw new Error(ft + " did not answer JSON: " + t.slice(0, 200)); }
+  if (Array.isArray(j)) j = Object.fromEntries(j);
+  const cols = j.columns || [];
+  return (j.rows || []).map((r) => (Array.isArray(r) ? r : cols.map((c) => r[c])).map(String));
+}
+async function chats() {
+  return (await population("AgentChatOccurredAtTimestamp")).filter((r) => r[0].startsWith(ROLE + "-agent-"))
+    .sort((a, b) => (a[1] < b[1] ? 1 : -1)).map((r) => ({ chat: r[0], at: r[1] }));
+}
+function fresh() {
+  started = new Date().toISOString();
+  chat = ROLE + "-agent-" + started.replace(/[:.]/g, "-");
+  seq = 0; history.length = 0; transcript.length = 0; held.clear();
+}
+async function openChat(id) {
+  const [belongs, roles, bodies, times] = await Promise.all(["ChatMessageBelongsToAgentChat", "ChatMessageHasMessageRole",
+    "MessageHasMessageBody", "MessageHasTimestamp"].map(population));
+  const mine = belongs.filter((r) => r[1] === id).map((r) => r[0]);
+  if (!mine.length) { say("error", "no messages in " + id); return; }
+  const role = new Map(roles), body = new Map(bodies), at = new Map(times);
+  const n = (m) => Number(m.slice(id.length + 1)) || 0;
+  mine.sort((a, b) => n(a) - n(b));
+  fresh();
+  chat = id;
+  seq = Math.max(...mine.map(n));
+  for (const m of mine) {
+    const r = role.get(m) === "assistant" ? "assistant" : "user", text = body.get(m) || "";
+    transcript.push({ role: r, text, at: at.get(m) || "" });
+    const last = history[history.length - 1];
+    if (last && last.role === r) last.content += NL + NL + text; else history.push({ role: r, content: text });
+  }
+  if (history[0].role !== "user") history.unshift({ role: "user", content: "(the chat resumed)" });
+}
+
 // a call on support is its own Predicate, because a write there may email a customer; and so is a call on
 // claude, because that store holds this agent's own permissions: a write there would let the agent consent to
 // its own call or reclassify a Predicate, so it has no Action Class and waits for a User like any other
@@ -268,7 +309,9 @@ async function turn() {
   say("error", "stopped after " + STEPS + " model calls in one turn");
 }
 async function send(text) {
-  history.push({ role: "user", content: text });
+  const last = history[history.length - 1];
+  if (last && last.role === "user" && typeof last.content === "string") last.content += NL + NL + text;
+  else history.push({ role: "user", content: text });
   say("user", text);
   await record("user", text);
   await turn();
@@ -296,7 +339,8 @@ body{font:15px/1.45 system-ui,sans-serif;margin:0;background:#fafafa;color:#111}
 form{display:flex;gap:8px;position:sticky;bottom:0;background:#fafafa;padding:8px 0}textarea{flex:1;font:inherit;padding:8px}
 button{font:inherit;padding:8px 14px}@media(prefers-color-scheme:dark){body{background:#151515;color:#eee}.m{background:#1e1e1e;border-color:#333}
 .user{background:#1d2a40}.held{background:#3a3016}.error{background:#3a1d1d}.tool{color:#aaa}form{background:#151515}}
-</style></head><body><main><h1>${ROLE === "code" ? "Code" : "Support"} agent</h1><div id="log"></div><div id="held"></div><p id="busy"></p>
+</style></head><body><main><h1>${ROLE === "code" ? "Code" : "Support"} agent</h1>
+<details id="list"><summary>Chats</summary><button id="new">New chat</button><ul id="chats"></ul></details><div id="log"></div><div id="held"></div><p id="busy"></p>
 <form id="f"><textarea id="t" rows="3" placeholder="Ask, or say what broke"></textarea><button>Send</button></form></main><script>
 const H={"content-type":"application/json","x-arest-agent":"1"};
 async function post(p,b){await fetch(p,{method:"POST",headers:H,body:JSON.stringify(b)});tick();}
@@ -305,6 +349,10 @@ async function tick(){const s=await (await fetch("/state")).json();
 document.getElementById("log").innerHTML="";for(const m of s.transcript){const d=document.createElement("div");d.className="m "+m.role;d.textContent=m.text;document.getElementById("log").appendChild(d);}
 const h=document.getElementById("held");h.innerHTML="";for(const c of s.held){const d=document.createElement("div");d.className="m held";d.textContent="Waiting for your consent: "+c.pred+" "+JSON.stringify(c.input)+" ";const b=document.createElement("button");b.textContent="Consent";b.onclick=()=>post("/consent",{tc:c.tc});d.appendChild(b);h.appendChild(d);}
 document.getElementById("busy").textContent=s.busy?"working...":"";}
+async function list(){const s=await (await fetch("/chats")).json();const ul=document.getElementById("chats");ul.innerHTML="";
+for(const c of s.chats){const li=document.createElement("li");const b=document.createElement("button");b.textContent=c.at+(c.chat===s.current?" (open)":"");b.title=c.chat;
+b.onclick=()=>post("/open",{chat:c.chat});li.appendChild(b);ul.appendChild(li);}}
+document.getElementById("new").onclick=()=>post("/new",{});document.getElementById("list").ontoggle=list;
 tick();setInterval(tick,2000);</script></body></html>`;
 
 async function main() {
@@ -320,13 +368,16 @@ async function main() {
       if (req.method === "GET" && u.pathname === "/") return new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8" } });
       if (req.method === "GET" && u.pathname === "/state")
         return Response.json({ busy, transcript, held: [...held.entries()].map(([tc, h]) => ({ tc, pred: h.pred, input: h.u.input })) });
-      if (req.method === "POST" && (u.pathname === "/send" || u.pathname === "/consent")) {
+      if (req.method === "GET" && u.pathname === "/chats")
+        return Response.json({ current: chat, chats: await chats().catch((e) => [{ chat: "error: " + e.message, at: "" }]) });
+      if (req.method === "POST" && ["/send", "/consent", "/open", "/new"].includes(u.pathname)) {
         if (req.headers.get("x-arest-agent") !== "1") return new Response("refused", { status: 403 });
         if (busy) return Response.json({ error: "busy" }, { status: 409 });
         const b = await req.json().catch(() => ({}));
         busy = true;
-        (u.pathname === "/send" ? send(String(b.text || "")) : consent(String(b.tc || "")))
-          .catch((e) => say("error", String(e && e.message))).finally(() => { busy = false; });
+        const job = u.pathname === "/send" ? send(String(b.text || "")) : u.pathname === "/consent" ? consent(String(b.tc || ""))
+          : u.pathname === "/open" ? openChat(String(b.chat || "")) : Promise.resolve(fresh());
+        job.catch((e) => say("error", String(e && e.message))).finally(() => { busy = false; });
         return Response.json({ ok: true });
       }
       return new Response("not found", { status: 404 });
