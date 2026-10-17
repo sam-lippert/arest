@@ -359,7 +359,10 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewp
 *{box-sizing:border-box}body{font:15px/1.45 system-ui,sans-serif;margin:0;background:var(--bg);color:var(--fg)}
 header{position:sticky;top:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 16px;background:var(--card);border-bottom:1px solid var(--line);z-index:2}
 header .grow{flex:1;color:var(--soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-main{max-width:980px;margin:0 auto;padding:16px}a{color:var(--accent)}h2{margin:18px 0 6px}
+main{max-width:1180px;margin:0 auto;padding:16px;display:flex;gap:20px;align-items:flex-start}a{color:var(--accent)}h2{margin:18px 0 6px}
+#menu{flex:0 0 210px;display:flex;flex-direction:column;gap:2px;position:sticky;top:60px}#menu a{padding:3px 6px;border-radius:6px;text-decoration:none}
+#menu a.on{background:var(--user);font-weight:600}#view{flex:1;min-width:0}
+@media(max-width:760px){main{flex-direction:column}#menu{position:static;flex-direction:row;flex-wrap:wrap;flex-basis:auto}}
 details{margin:4px 0}summary{cursor:pointer}ul{margin:4px 0 8px 18px;padding:0}
 table{border-collapse:collapse;width:100%;margin:8px 0}th,td{border-top:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
 th{white-space:nowrap;color:var(--soft);font-weight:500}td{white-space:pre-wrap;word-break:break-word}
@@ -371,12 +374,13 @@ aside[hidden]{display:none}aside .top{display:flex;gap:8px;align-items:center;pa
 form{display:flex;gap:8px;padding:8px 12px;border-top:1px solid var(--line)}textarea{flex:1;font:inherit;padding:8px;background:var(--card);color:var(--fg)}
 </style></head><body>
 <header><b>${ROLE === "code" ? "Code" : "Support"} agent</b><select id="app"></select><button id="home">Home</button><span class="grow" id="where"></span><button id="chatbtn">Chat</button></header>
-<main id="view"></main>
+<main><nav id="menu"></nav><section id="view"></section></main>
 <aside id="chat" hidden><div class="top"><b>Chat</b><details id="list"><summary>Chats</summary><button id="new">New chat</button><ul id="chats"></ul></details><span class="grow"></span><button id="close">Close</button></div>
 <div id="log"></div><div id="held"></div><p id="busy" class="tool"></p>
 <form id="f"><textarea id="t" rows="3" placeholder="Ask, or say what broke"></textarea><button>Send</button></form></aside>
 <script>
-const H={"content-type":"application/json","x-arest-agent":"1"};const LOGIN=${JSON.stringify(LOGIN)};
+const H={"content-type":"application/json","x-arest-agent":"1"};const LOGIN=${JSON.stringify(LOGIN)};const HOME=${JSON.stringify(process.env.AREST_AGENT_HOME || "Support Request")};
+const MENU={};
 let V={app:"",id:"",type:"",v:-1};
 const $=(i)=>document.getElementById(i);
 function el(t,a,...k){const e=document.createElement(t);if(a)for(const x in a)e[x]=a[x];for(const c of k)e.append(c);return e;}
@@ -392,7 +396,19 @@ async function api(verb,arg){return (await fetch("/api?verb="+verb+"&app="+encod
 function go(app,id,type){V.app=app;V.id=id||"";V.type=type||"";fetch("/api/view",{method:"POST",headers:H,body:JSON.stringify({app:V.app,id:V.id,type:V.type})});render();}
 function value(x,type){const s=Array.isArray(x)?x.join(", "):String(x);
 if(s&&s.length<100&&!/ /.test(s))return el("a",{href:"#",textContent:s,onclick:(e)=>{e.preventDefault();go(V.app,s,type);}});return document.createTextNode(s);}
-async function render(){const m=$("view");m.textContent="loading...";$("where").textContent=V.app+(V.id?" / "+V.id:"");$("app").value=V.app;
+async function menu(){if(!MENU[V.app])MENU[V.app]=arr(parse(await (await fetch("/api/menu?app="+encodeURIComponent(V.app))).text())).map((r)=>arr(r)[1]).filter(Boolean).sort();return MENU[V.app];}
+async function render(){const m=$("view");m.textContent="loading...";$("app").value=V.app;
+const types=await menu();if(!V.id&&!V.type)V.type=types.includes(HOME)?HOME:(types[0]||"*work");
+const nav=$("menu");nav.textContent="";
+for(const t of types.concat(["*work"]))nav.append(el("a",{href:"#",textContent:t==="*work"?"Standing work":t,className:!V.id&&V.type===t?"on":"",onclick:(e)=>{e.preventDefault();go(V.app,"",t);}}));
+$("where").textContent=V.app+" / "+(V.id||(V.type==="*work"?"standing work":V.type));
+if(!V.id&&V.type!=="*work"){const j=await (await fetch("/api/collection?app="+encodeURIComponent(V.app)+"&type="+encodeURIComponent(V.type))).json();
+const all=arr(parse(j.instances)).map((r)=>arr(r)[0]),st={};for(const r of arr(parse(j.statuses))){const r2=arr(r);st[r2[0]]=r2[1];}
+m.textContent="";m.append(el("h2",{textContent:V.type+" ("+all.length+")"}));const by={};
+for(const id of all){const s=st[id]||"(no status)";(by[s]=by[s]||[]).push(id);}
+for(const s of Object.keys(by).sort()){const d=el("details",{open:by[s].length<=50},el("summary",{textContent:s+" ("+by[s].length+")"}));const ul=el("ul");
+for(const id of by[s].slice(0,300))ul.append(el("li",{},value(id,V.type)));if(by[s].length>300)ul.append(el("li",{textContent:"and "+(by[s].length-300)+" more"}));d.append(ul);m.append(d);}
+if(!all.length)m.append(el("p",{textContent:"No "+V.type+" yet."}));return;}
 if(!V.id){const rows=arr(parse(await api("orient","")));m.textContent="";const by={};
 for(const r of rows){if(Array.isArray(r)&&r.length>=3)(by[r[0]]=by[r[0]]||[]).push(r);}
 for(const t of Object.keys(by).sort()){const sec=el("section",{},el("h2",{textContent:t}));
@@ -452,6 +468,20 @@ async function main() {
         if (!["orient", "get", "actions"].includes(verb)) return new Response("the view reads orient, get and actions", { status: 403 });
         const out = await call(verb, { app: u.searchParams.get("app"), args: [u.searchParams.get("arg") || ""] }).catch((e) => ({ content: [{ text: String(e.message) }] }));
         return new Response(textOf(out), { headers: { "content-type": "text/plain; charset=utf-8" } });
+      }
+      // the app's menu is the store's own derivation, App displays Object Type, and a collection is the
+      // instances of one Object Type with the status each stands in
+      if (req.method === "GET" && u.pathname === "/api/menu") {
+        const app = u.searchParams.get("app");
+        const out = await call("query", { app, args: [["sel", "AppDisplaysObjectType", 1, app]] }).catch((e) => ({ content: [{ text: String(e.message) }] }));
+        return new Response(textOf(out), { headers: { "content-type": "text/plain; charset=utf-8" } });
+      }
+      if (req.method === "GET" && u.pathname === "/api/collection") {
+        const app = u.searchParams.get("app"), inst = ["sel", "ObjectTypeInstanceIsInstanceOfObjectType", 2, u.searchParams.get("type")];
+        const [a, s] = await Promise.all([call("query", { app, args: [inst] }),
+          call("query", { app, args: [["joinon", inst, "ObjectTypeInstanceIsCurrentlyInStatus", [[1, 1]], [1, 4]]] })])
+          .catch((e) => [{ content: [{ text: "()" }] }, { content: [{ text: String(e.message) }] }]);
+        return Response.json({ instances: textOf(a), statuses: textOf(s) });
       }
       if (req.method === "GET" && u.pathname === "/api/columns") {
         let j = {};
