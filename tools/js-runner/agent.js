@@ -221,9 +221,14 @@ async function population(ft) {
   const cols = j.columns || [];
   return (j.rows || []).map((r) => (Array.isArray(r) ? r : cols.map((c) => r[c])).map(String));
 }
+// a chat with no message is not listed (the first live run left one, its first write refused), and each listed
+// one says how many it holds
 async function chats() {
-  return (await population("AgentChatOccurredAtTimestamp")).filter((r) => r[0].startsWith(ROLE + "-agent-"))
-    .sort((a, b) => (a[1] < b[1] ? 1 : -1)).map((r) => ({ chat: r[0], at: r[1] }));
+  const [made, belongs] = await Promise.all([population("AgentChatOccurredAtTimestamp"), population("ChatMessageBelongsToAgentChat")]);
+  const count = new Map();
+  for (const r of belongs) count.set(r[1], (count.get(r[1]) || 0) + 1);
+  return made.filter((r) => r[0].startsWith(ROLE + "-agent-") && count.get(r[0]))
+    .sort((a, b) => (a[1] < b[1] ? 1 : -1)).map((r) => ({ chat: r[0], at: r[1], messages: count.get(r[0]) }));
 }
 function fresh() {
   started = new Date().toISOString();
@@ -422,7 +427,7 @@ const h=$("held");h.textContent="";for(const c of s.held){const d=el("div",{clas
 d.append(el("button",{textContent:"Consent",onclick:()=>post("/consent",{tc:c.tc})}));h.append(d);$("chat").hidden=false;}
 $("busy").textContent=s.busy?"working...":"";}
 async function list(){const s=await (await fetch("/chats")).json();const ul=$("chats");ul.textContent="";
-for(const c of s.chats)ul.append(el("li",{},el("button",{textContent:c.at+(c.chat===s.current?" (open)":""),title:c.chat,onclick:()=>post("/open",{chat:c.chat})})));}
+for(const c of s.chats)ul.append(el("li",{},el("button",{textContent:c.at+" ("+c.messages+(c.chat===s.current?", open":"")+")",title:c.chat,onclick:()=>post("/open",{chat:c.chat})})));}
 $("new").onclick=()=>post("/new",{});$("list").ontoggle=list;
 tick();setInterval(tick,2000);</script></body></html>`;
 
