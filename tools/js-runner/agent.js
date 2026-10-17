@@ -29,6 +29,8 @@ const ROUTER_PORT = Number(process.env.AREST_ROUTER_PORT || 41817);
 const PORT = Number(process.env.AREST_AGENT_PORT || (ROLE === "code" ? 8794 : 8793));
 const ROOTS = (process.env.AREST_CODE_ROOTS || "C:/Users/lippe/Repos/arest;C:/Users/lippe/Repos/apps").split(";").filter(Boolean).map((p) => resolve(p));
 const LOGIN = process.env.AREST_LOGIN || "";
+// ui.do's build: the React frame this server hands the browser (/ui), whose one call is POST /navigate
+const FRAME = resolve(process.env.AREST_UI_DIST || resolve(ROOTS[0], "../apps/ui.do/dist"));
 const MODEL_APP = process.env.AREST_AGENT_APP || "support";
 const MODEL_FN = process.env.AREST_AGENT_FUNCTION || "draftSupportReply";
 const MODEL = process.env.AREST_AGENT_MODEL || "claude-sonnet-5-5";
@@ -499,6 +501,33 @@ async function main() {
     async fetch(req) {
       const u = new URL(req.url);
       if (req.method === "GET" && u.pathname === "/") return new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8" } });
+      // THE REACT FRAME, AND ITS ONE CALL (Sam, 2026-10-17: "I'd like this interface to be react-based",
+      // "I want to serve the ui from the local router, but the exact same mechanism should power ui.do in a
+      // worker eventually"). /ui is ui.do's build -- the widgets it registers are the pairing table's, so
+      // what is drawn is resolved from the readings and not written here -- and its navigations go to the
+      // app process through the router (arest/navigate -> host.js navigateOnce -> main:api). A worker tier
+      // is that same call behind POST /navigate, which is why nothing of the frame knows which it is.
+      // A page from another origin cannot make this call: an application/json body is not CORS-simple, so
+      // the browser preflights it and this server answers no preflight.
+      if (req.method === "POST" && u.pathname === "/navigate") {
+        const body = await req.json().catch(() => []);
+        try {
+          const a = await rpc("arest/navigate", { app: VIEW.app, caller: req.headers.get("x-arest-caller") || LOGIN, body });
+          return new Response(String((a && a.text) || ""), { status: Number(a && a.status) || 500, headers: { "content-type": "application/json" } });
+        } catch (e) { return new Response(JSON.stringify(String(e && e.message)), { status: 502, headers: { "content-type": "application/json" } }); }
+      }
+      // the build's own files; a path that resolves outside it is refused, and anything the build does not
+      // have is index.html, because the frame routes its own addresses
+      if (req.method === "GET" && (u.pathname === "/ui" || u.pathname.startsWith("/ui/") || u.pathname.startsWith("/assets/"))) {
+        const rel = u.pathname.startsWith("/assets/") ? u.pathname.slice(1) : u.pathname.slice(4).replace(/^\/+/, "");
+        const want = resolve(FRAME, rel || "index.html");
+        if (want !== FRAME && !want.startsWith(FRAME + sep)) return new Response("not found", { status: 404 });
+        const f = Bun.file(want);
+        if (await f.exists()) return new Response(f);
+        const home = Bun.file(resolve(FRAME, "index.html"));
+        if (await home.exists()) return new Response(home, { headers: { "content-type": "text/html; charset=utf-8" } });
+        return new Response("no ui.do build at " + FRAME + ": build it (pnpm build in apps/ui.do) or set AREST_UI_DIST", { status: 404 });
+      }
       if (req.method === "GET" && u.pathname === "/state")
         return Response.json({ busy, transcript, view: VIEW, apps: APPS, held: [...held.entries()].map(([tc, h]) => ({ tc, pred: h.pred, input: h.u.input })) });
       // the main view's reads: what the served verbs answer, as the user, with no model in between

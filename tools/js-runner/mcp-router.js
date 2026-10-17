@@ -1140,6 +1140,20 @@ async function handle(msg, login) {
     try { return reply(msg.id, await r.request("arest/complete", { function: p.function, body: p.body })); }
     catch (e) { return fail(msg.id, String(e.message)); }
   }
+  // AND THE WEB PLATFORM'S NAVIGATION (tools/js-runner/agent.js serves the React frame): forwarded to the
+  // named app, which answers it from the composition and the store it already holds (host.js,
+  // arest/navigate), so the frame reads one store and no second server opens it. The caller is this
+  // client's login unless the client named one, as a tool call's is above: the frame is a client here.
+  if (msg.method === "arest/navigate") {
+    const p = msg.params || {};
+    const r = residents.get(String(p.app || ""));
+    if (!r) return fail(msg.id, "no resident app named " + JSON.stringify(p.app) + "; the apps are " + (names().join(", ") || "none"));
+    r.wake();
+    if (r.ready) await r.ready;
+    const caller = p.caller === undefined || p.caller === null ? (login || "") : p.caller;
+    try { return reply(msg.id, await r.request("arest/navigate", { method: p.method, resource: p.resource, caller, body: p.body })); }
+    catch (e) { return fail(msg.id, String(e.message)); }
+  }
   if (msg.id === undefined) return null;
   return fail(msg.id, "unknown method: " + msg.method);
 }

@@ -5894,6 +5894,45 @@ async function readThrough(out, method, resource, caller, raw) {
   return Ev("main:api", [CELLS, method, resource, caller, fromJson(again)]);
 }
 
+// ONE NAVIGATION, WHICHEVER TAIL ASKS FOR IT (2026-10-17; Sam: "I want to serve the ui from the local
+// router, but the exact same mechanism should power ui.do in a worker eventually"). The serving tail below
+// and the MCP tail's arest/navigate both apply main:api to <method, resource, caller, fact> and both adopt
+// what a write leaves; only the envelope differs. So the request is written once, here, and a worker's tail
+// is this same call behind POST /navigate -- not a second copy of the write path, which is where
+// correctness lives (readThrough's second ask, answerWrite's adopt, requestBegin's freshen).
+//
+// THE LOG IS THE TAIL'S, BECAUSE STDOUT IS NOT ALWAYS FREE. The serving tail prints to stdout; in the MCP
+// tail stdout IS the JSON-RPC channel, so a line written there corrupts the protocol. Each tail hands in
+// the writer it may use rather than this deciding.
+//
+// A READ TAKES NO SNAPSHOT (2026-10-02; Sam: a Worker isolate gets 128 MB, and runtime memory must be kept
+// to a viable level). The snapshot was taken before every request whose method is not GET, and a platform
+// navigates by POST /navigate, reads included: each read of a screen read every table of the store into its
+// populations and their texts to compare against a write it did not make -- on support 12 to 28 s and 1.6 to
+// 2.3 GB at the peak, where the same read by GET is 0.2 s. Whether a request wrote is main:api's answer, a
+// third part, and main:api leaves CELLS as it found it: adoptStore is the only thing that changes it, so the
+// store before the write is still CELLS until then. adoptStore mutates CELLS IN PLACE so the array identity
+// survives, which means the pre-write store has to be copied out before it adopts, or it is gone by the time
+// anything can compare against it. A fresh array is also what makes main:performed evaluate: Ev memoises on
+// the store REFERENCE. And a write takes no snapshot either: emitToDb compares the cells the write replaced
+// against the copy (popSnapshotMoved).
+async function navigateOnce(method, resource, caller, raw, log) {
+  const fact = fromJson(raw);
+  const clock = clockStart();
+  // the store asked first whether another connection moved it (storeFreshen, requestBegin)
+  requestBegin();
+  let body, status;
+  try {
+    let answer;
+    try { answer = Ev("main:api", [CELLS, method, resource, caller, fact]); } finally { clockLap(clock, "lambda"); }
+    const out = await readThrough(answer, method, resource, caller, raw);
+    clockLap(clock, "read");
+    [body, status] = answerWrite(out, method + " " + resource, clock);
+  } finally { requestEnd(); }
+  memoReleaseWhenIdle(log);
+  return [body, status];
+}
+
 function run_serve() {
   // THE SERVING TAIL. Same composition, same evaluator, one different last step:
   // tail.part.js prints a text atom and exits, and this binds a socket instead.
@@ -5932,34 +5971,7 @@ function run_serve() {
       const caller = req.headers.get("x-arest-caller") || "";
       const resource = decodeURIComponent(url.pathname.replace(/^\//, ""));
       const raw = await req.json().catch(() => []);
-      const fact = fromJson(raw);
-      // A READ TAKES NO SNAPSHOT (2026-10-02; Sam: a Worker isolate gets 128 MB, and
-      // runtime memory must be kept to a viable level). The snapshot was taken before
-      // every request whose method is not GET, and a platform navigates by POST
-      // /navigate, reads included: each read of a screen read every table of the store
-      // into its populations and their texts to compare against a write it did not
-      // make -- on support 12 to 28 s and 1.6 to 2.3 GB at the peak, where the same
-      // read by GET is 0.2 s. Whether a request wrote is main:api's answer, a third
-      // part, and main:api leaves CELLS as it found it: adoptStore is the only thing
-      // that changes it, so the store before the write is still CELLS until then.
-      // adoptStore mutates CELLS IN PLACE so the array identity survives, which
-      // means the pre-write store has to be copied out before it adopts, or it is
-      // gone by the time anything can compare against it. A fresh array is also
-      // what makes main:performed evaluate: Ev memoises on the store REFERENCE.
-      // And a write takes no snapshot either: emitToDb compares the cells the write
-      // replaced against the copy (popSnapshotMoved).
-      const clock = clockStart();
-      // the store asked first whether another connection moved it (storeFreshen, requestBegin)
-      requestBegin();
-      let body, status;
-      try {
-        let answer;
-        try { answer = Ev("main:api", [CELLS, req.method, resource, caller, fact]); } finally { clockLap(clock, "lambda"); }
-        const out = await readThrough(answer, req.method, resource, caller, raw);
-        clockLap(clock, "read");
-        [body, status] = answerWrite(out, req.method + " " + resource, clock);
-      } finally { requestEnd(); }
-      memoReleaseWhenIdle(console.log);
+      const [body, status] = await navigateOnce(req.method, resource, caller, raw, console.log);
       return new Response(body, {
         status,
         headers: { "content-type": "application/json" },
@@ -6670,6 +6682,18 @@ function run_mcp() {
       const p = msg.params || {};
       return completeOver(String(p.function || ""), p.body || {}, CELLS, process.env.AREST_MASTER_KEY)
         .then((a) => reply(msg.id, a), (e) => fail(msg.id, String(e && e.message)));
+    }
+    // THE WEB PLATFORM'S ONE CALL (ui.do, src/render/transport.ts), forwarded here by the router so the
+    // React frame navigates the app THIS process already holds -- one composition and one store, not a
+    // second server beside it. It is navigateOnce, the serving tail's own call, so the answer is the text
+    // render:json made and the status main:api decided, and a write adopts here as it adopts there.
+    // The memo's line goes to stderr: stdout is this tail's JSON-RPC channel.
+    if (msg.method === "arest/navigate") {
+      const p = msg.params || {};
+      return navigateOnce(String(p.method || "POST"), String(p.resource || "navigate"),
+        String(p.caller || ""), p.body === undefined ? [] : p.body, console.error)
+        .then((a) => reply(msg.id, { text: String(a[0]), status: Number(a[1]) || 500 }),
+              (e) => fail(msg.id, String(e && e.message)));
     }
     if (msg.method === "tools/call") {
       const p = msg.params || {};
