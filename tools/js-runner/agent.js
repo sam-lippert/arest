@@ -109,11 +109,14 @@ async function record(role, body) {
   if (!/^\["committed/.test(out)) say("error", "the record of " + id + " was not committed: " + out.slice(0, 400));
   return id;
 }
-// a call on support is its own Predicate, because a write there may email a customer
+// a call on support is its own Predicate, because a write there may email a customer; and so is a call on
+// claude, because that store holds this agent's own permissions: a write there would let the agent consent to
+// its own call or reclassify a Predicate, so it has no Action Class and waits for a User like any other
 function predicateOf(name, input) {
   let p = "tool:" + name;
   if (name === "fact" && String(input.method || "") === "GET") p += " GET";
   if (input.app === "support") p += "@support";
+  else if (input.app === AUDIT) p += "@" + AUDIT;
   return p;
 }
 async function permitted(tc) {
