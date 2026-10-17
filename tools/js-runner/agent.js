@@ -247,13 +247,20 @@ async function openChat(id) {
   fresh();
   chat = id;
   seq = Math.max(...mine.map(n));
+  // A RECORDED CALL IS NOT A CALL (2026-10-17): the record keeps each tool call as a '[name {input}]' line,
+  // and a reopened history that showed those lines taught the model to write calls as text, which run
+  // nothing (the handoff chat, messages 19 and 21: no Tool Call behind them). In the history they become
+  // notes that a call was made, and the history opens by saying how a tool is called.
   for (const m of mine) {
     const r = role.get(m) === "assistant" ? "assistant" : "user", text = body.get(m) || "";
     transcript.push({ role: r, text, at: at.get(m) || "" });
+    const seen = r === "assistant" ? text.replace(/^\[([A-Za-z_]+) (\{.*\})\]$/gm, "(earlier I called $1 with $2; its result is not in this reopened history)") : text;
     const last = history[history.length - 1];
-    if (last && last.role === r) last.content += NL + NL + text; else history.push({ role: r, content: text });
+    if (last && last.role === r) last.content += NL + NL + seen; else history.push({ role: r, content: seen });
   }
-  if (history[0].role !== "user") history.unshift({ role: "user", content: "(the chat resumed)" });
+  const head = "(This chat was reopened from its record. Earlier tool calls appear as notes without their results. A tool runs only when you call it; text that looks like a call does nothing.)";
+  if (history[0].role === "user") history[0].content = head + NL + NL + history[0].content;
+  else history.unshift({ role: "user", content: head });
 }
 
 // a call on support is its own Predicate, because a write there may email a customer; and so is a call on
@@ -325,6 +332,14 @@ async function turn() {
     const uses = m.content.filter((b) => b.type === "tool_use");
     const mid = await record("assistant", [said, ...uses.map((u) => "[" + u.name + " " + JSON.stringify(u.input) + "]")].filter(Boolean).join(NL));
     if (said) say("assistant", said);
+    // a call written as text runs nothing: say so, and ask the model for the call itself
+    if (!uses.length && /^\[[A-Za-z_]+ \{/m.test(said)) {
+      const note = "That reply wrote a tool call as text, so nothing ran. Call the tool itself.";
+      say("error", "the model wrote a tool call as text; nothing ran, and it was asked to call the tool");
+      history.push({ role: "user", content: note });
+      await record("user", "(the agent page) " + note);
+      continue;
+    }
     if (!uses.length) return;
     const results = [];
     for (const u of uses) results.push(await runTool(u, mid));
