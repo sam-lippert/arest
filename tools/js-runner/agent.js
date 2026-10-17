@@ -15,8 +15,8 @@
 import { connect } from "node:net";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
-import { resolve, sep, basename } from "node:path";
+import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from "node:fs";
+import { resolve, sep, basename, dirname } from "node:path";
 
 // TWO ROLES, ONE PROGRAM (Sam, 2026-10-17: "Can we get a framework code agent that can run side-by-side with
 // support?", "the support agent doesn't request framework changes, I do", and "This is for running ORM and doing
@@ -47,8 +47,9 @@ const SYSTEM = [
 
 // ---- the code role: its brief is the repository's own rules, and its tools are these
 const SECRET = /(^|[\\/])(\.env[^\\/]*|\.dev\.vars|[^\\/]*\.(pem|key))$/i;
+// a relative path is the first root's (arest), wherever the agent was started from
 function within(p) {
-  const a = resolve(String(p || ""));
+  const a = resolve(ROOTS[0], String(p || ""));
   if (SECRET.test(a)) throw new Error("refused: a secret file is never read or written");
   if (!ROOTS.some((r) => a === r || a.startsWith(r + sep))) throw new Error("refused: " + a + " is outside " + ROOTS.join(", "));
   return a;
@@ -98,9 +99,9 @@ const LOCAL = ROLE !== "code" ? {} : {
       if (s.indexOf(o, at + 1) >= 0) return "not edited: old_string occurs more than once in " + f;
       writeFileSync(f, s.slice(0, at) + n + s.slice(at + o.length));
       return "edited " + f; } },
-  write_file: { description: "Write a whole file inside the repositories: a new file, or one you have read.",
+  write_file: { description: "Write a whole file inside the repositories: a new file, or one you have read. Directories on its path that do not exist are made.",
     schema: { type: "object", properties: { path: { type: "string" }, content: { type: "string" } }, required: ["path", "content"] },
-    run: (i) => { const f = within(i.path); writeFileSync(f, String(i.content)); return "wrote " + f; } },
+    run: (i) => { const f = within(i.path); mkdirSync(dirname(f), { recursive: true }); writeFileSync(f, String(i.content)); return "wrote " + f; } },
   run_tests: { description: "Run lambda's gate in tools/js-runner: build the CLI, run the test report, then regress.",
     schema: { type: "object", properties: {} },
     run: async () => {
@@ -352,6 +353,19 @@ async function consent(tc) {
   await record("user", "Consented to " + h.pred + " (Tool Call " + tc + ")");
   await turn();
 }
+// a held call the user refuses: it never runs, the model is told so, and the chat records it
+async function deny(tc) {
+  const h = held.get(tc);
+  if (!h) { say("error", "no held Tool Call " + tc); return; }
+  held.delete(tc);
+  say("held", "Denied: " + h.pred + " " + JSON.stringify(h.u.input || {}));
+  const note = "I denied " + h.pred + " (Tool Call " + tc + "); it did not run. Do not ask for it again unless I say so.";
+  const last = history[history.length - 1];
+  if (last && last.role === "user" && typeof last.content === "string") last.content += NL + NL + note;
+  else history.push({ role: "user", content: note });
+  await record("user", "Denied " + h.pred + " (Tool Call " + tc + ")");
+  await turn();
+}
 
 // ---- the page: the app in the main view, the chat in a drawer. A POST needs the x-arest-agent header, which no
 // other site's page can send here without a preflight this server never answers. The page's script holds no
@@ -450,7 +464,7 @@ if(s.view.v!==V.v){V={...s.view};render();}
 const log=$("log"),end=log.scrollTop+log.clientHeight>=log.scrollHeight-4;log.textContent="";
 for(const m of s.transcript)log.append(el("div",{className:"m "+m.role,textContent:m.text}));if(end)log.scrollTop=log.scrollHeight;
 const h=$("held");h.textContent="";for(const c of s.held){const d=el("div",{className:"m held",textContent:"Waiting for your consent: "+c.pred+" "+JSON.stringify(c.input)+" "});
-d.append(el("button",{textContent:"Consent",onclick:()=>post("/consent",{tc:c.tc})}));h.append(d);$("chat").hidden=false;}
+d.append(el("button",{textContent:"Consent",onclick:()=>post("/consent",{tc:c.tc})})," ",el("button",{textContent:"Deny",onclick:()=>post("/deny",{tc:c.tc})}));h.append(d);$("chat").hidden=false;}
 $("busy").textContent=s.busy?"working...":"";}
 async function list(){const s=await (await fetch("/chats")).json();const ul=$("chats");ul.textContent="";
 for(const c of s.chats)ul.append(el("li",{},el("button",{textContent:c.at+" ("+c.messages+(c.chat===s.current?", open":"")+")",title:c.chat,onclick:()=>post("/open",{chat:c.chat})})));}
@@ -512,12 +526,13 @@ async function main() {
       }
       if (req.method === "GET" && u.pathname === "/chats")
         return Response.json({ current: chat, chats: await chats().catch((e) => [{ chat: "error: " + e.message, at: "" }]) });
-      if (req.method === "POST" && ["/send", "/consent", "/open", "/new"].includes(u.pathname)) {
+      if (req.method === "POST" && ["/send", "/consent", "/deny", "/open", "/new"].includes(u.pathname)) {
         if (req.headers.get("x-arest-agent") !== "1") return new Response("refused", { status: 403 });
         if (busy) return Response.json({ error: "busy" }, { status: 409 });
         const b = await req.json().catch(() => ({}));
         busy = true;
         const job = u.pathname === "/send" ? send(String(b.text || "")) : u.pathname === "/consent" ? consent(String(b.tc || ""))
+          : u.pathname === "/deny" ? deny(String(b.tc || ""))
           : u.pathname === "/open" ? openChat(String(b.chat || "")) : Promise.resolve(fresh());
         job.catch((e) => say("error", String(e && e.message))).finally(() => { busy = false; });
         return Response.json({ ok: true });
