@@ -311,7 +311,11 @@ async function runTool(u, mid) {
 }
 async function turn() {
   for (let step = 0; step < STEPS; step++) {
-    const body = { model: MODEL, max_tokens: 4096, system: BRIEF, tools: TOOLS, messages: history, thinking: { type: "between_tools" } };
+    // NO THINKING SETTING BY DEFAULT (2026-10-17): 'between_tools' is refused by some models (400 "not supported
+    // for this model" on the code agent), and the loop needs none: every block the model answers is kept in the
+    // history, thinking included, and only text and tool_use are read. AREST_AGENT_THINKING (JSON) sets one.
+    const body = { model: MODEL, max_tokens: 16000, system: BRIEF, tools: TOOLS, messages: history };
+    if (process.env.AREST_AGENT_THINKING) body.thinking = JSON.parse(process.env.AREST_AGENT_THINKING);
     const ans = await rpc("arest/complete", { app: MODEL_APP, function: MODEL_FN, body });
     if (Number(ans.status) !== 200) { say("error", "the model call answered " + ans.status + ": " + String(ans.text).slice(0, 800)); return; }
     const m = JSON.parse(ans.text);
