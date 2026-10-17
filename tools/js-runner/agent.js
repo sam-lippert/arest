@@ -362,6 +362,8 @@ header .grow{flex:1;color:var(--soft);overflow:hidden;text-overflow:ellipsis;whi
 main{max-width:1180px;margin:0 auto;padding:16px;display:flex;gap:20px;align-items:flex-start}a{color:var(--accent)}h2{margin:18px 0 6px}
 #menu{flex:0 0 210px;display:flex;flex-direction:column;gap:2px;position:sticky;top:60px}#menu a{padding:3px 6px;border-radius:6px;text-decoration:none}
 #menu a.on{background:var(--user);font-weight:600}#view{flex:1;min-width:0}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;max-width:1180px;margin:0 auto;padding:10px 16px 0;border-bottom:1px solid var(--line)}
+.tabs button{border:1px solid var(--line);border-bottom:none;background:var(--bg);color:var(--fg);border-radius:6px 6px 0 0}.tabs button.on{background:var(--card);font-weight:600}
 @media(max-width:760px){main{flex-direction:column}#menu{position:static;flex-direction:row;flex-wrap:wrap;flex-basis:auto}}
 details{margin:4px 0}summary{cursor:pointer}ul{margin:4px 0 8px 18px;padding:0}
 table{border-collapse:collapse;width:100%;margin:8px 0}th,td{border-top:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
@@ -374,7 +376,7 @@ aside[hidden]{display:none}aside .top{display:flex;gap:8px;align-items:center;pa
 form{display:flex;gap:8px;padding:8px 12px;border-top:1px solid var(--line)}textarea{flex:1;font:inherit;padding:8px;background:var(--card);color:var(--fg)}
 </style></head><body>
 <header><b>${ROLE === "code" ? "Code" : "Support"} agent</b><select id="app"></select><button id="home">Home</button><span class="grow" id="where"></span><button id="chatbtn">Chat</button></header>
-<main><nav id="menu"></nav><section id="view"></section></main>
+<div class="tabs" id="tabs"></div><main><nav id="menu"></nav><section id="view"></section></main>
 <aside id="chat" hidden><div class="top"><b>Chat</b><details id="list"><summary>Chats</summary><button id="new">New chat</button><ul id="chats"></ul></details><span class="grow"></span><button id="close">Close</button></div>
 <div id="log"></div><div id="held"></div><p id="busy" class="tool"></p>
 <form id="f"><textarea id="t" rows="3" placeholder="Ask, or say what broke"></textarea><button>Send</button></form></aside>
@@ -396,9 +398,13 @@ async function api(verb,arg){return (await fetch("/api?verb="+verb+"&app="+encod
 function go(app,id,type){V.app=app;V.id=id||"";V.type=type||"";fetch("/api/view",{method:"POST",headers:H,body:JSON.stringify({app:V.app,id:V.id,type:V.type})});render();}
 function value(x,type){const s=Array.isArray(x)?x.join(", "):String(x);
 if(s&&s.length<100&&!/ /.test(s))return el("a",{href:"#",textContent:s,onclick:(e)=>{e.preventDefault();go(V.app,s,type);}});return document.createTextNode(s);}
-async function menu(){if(!MENU[V.app])MENU[V.app]=arr(parse(await (await fetch("/api/menu?app="+encodeURIComponent(V.app))).text())).map((r)=>arr(r)[1]).filter(Boolean).sort();return MENU[V.app];}
+async function menu(){if(!MENU[V.app])MENU[V.app]=arr(parse(await (await fetch("/api/menu?app="+encodeURIComponent(V.app))).text())).map((r)=>arr(r)).filter((r)=>r.length>=2).sort((a,b)=>a[0]<b[0]?-1:1);return MENU[V.app];}
 async function render(){const m=$("view");m.textContent="loading...";$("app").value=V.app;
-const types=await menu();if(!V.id&&!V.type)V.type=types.includes(HOME)?HOME:(types[0]||"*work");
+const rows=await menu(),tabs=[...new Set(rows.map((r)=>r[1]))].sort((a,b)=>a===V.app?-1:b===V.app?1:(a<b?-1:1)),home=rows.find((r)=>r[0]===HOME);
+if(!V.tab||tabs.indexOf(V.tab)<0)V.tab=(V.type&&(rows.find((r)=>r[0]===V.type)||[])[1])||(home?home[1]:(tabs[0]||""));
+const types=rows.filter((r)=>r[1]===V.tab).map((r)=>r[0]);if(!V.id&&!V.type)V.type=types.includes(HOME)?HOME:(types[0]||"*work");
+const tb=$("tabs");tb.textContent="";
+for(const d of tabs)tb.append(el("button",{textContent:d,className:d===V.tab?"on":"",onclick:()=>{V.tab=d;const t=rows.filter((r)=>r[1]===d).map((r)=>r[0]);go(V.app,"",t.includes(HOME)?HOME:(t[0]||"*work"));}}));
 const nav=$("menu");nav.textContent="";
 for(const t of types.concat(["*work"]))nav.append(el("a",{href:"#",textContent:t==="*work"?"Standing work":t,className:!V.id&&V.type===t?"on":"",onclick:(e)=>{e.preventDefault();go(V.app,"",t);}}));
 $("where").textContent=V.app+" / "+(V.id||(V.type==="*work"?"standing work":V.type));
@@ -473,7 +479,9 @@ async function main() {
       // instances of one Object Type with the status each stands in
       if (req.method === "GET" && u.pathname === "/api/menu") {
         const app = u.searchParams.get("app");
-        const out = await call("query", { app, args: [["sel", "AppDisplaysObjectType", 1, app]] }).catch((e) => ({ content: [{ text: String(e.message) }] }));
+        // each displayed Object Type with the Domain it belongs to: a navigable Domain is a tab (Sam, 2026-10-17)
+        const out = await call("query", { app, args: [["joinon", ["sel", "AppDisplaysObjectType", 1, app], "FunctionBelongsToDomain", [[2, 1]], [2, 4]]] })
+          .catch((e) => ({ content: [{ text: String(e.message) }] }));
         return new Response(textOf(out), { headers: { "content-type": "text/plain; charset=utf-8" } });
       }
       if (req.method === "GET" && u.pathname === "/api/collection") {
