@@ -403,8 +403,8 @@ async function render(){const m=$("view");m.textContent="loading...";$("app").va
 const rows=await menu(),tabs=[...new Set(rows.map((r)=>r[1]))].sort((a,b)=>a===V.app?-1:b===V.app?1:(a<b?-1:1)),home=rows.find((r)=>r[0]===HOME);
 if(!V.tab||tabs.indexOf(V.tab)<0)V.tab=(V.type&&(rows.find((r)=>r[0]===V.type)||[])[1])||(home?home[1]:(tabs[0]||""));
 const types=rows.filter((r)=>r[1]===V.tab).map((r)=>r[0]);if(!V.id&&!V.type)V.type=types.includes(HOME)?HOME:(types[0]||"*work");
-const tb=$("tabs");tb.textContent="";
-for(const d of tabs)tb.append(el("button",{textContent:d,className:d===V.tab?"on":"",onclick:()=>{V.tab=d;const t=rows.filter((r)=>r[1]===d).map((r)=>r[0]);go(V.app,"",t.includes(HOME)?HOME:(t[0]||"*work"));}}));
+const tabbar=$("tabs");tabbar.textContent="";
+for(const d of tabs)tabbar.append(el("button",{textContent:d,className:d===V.tab?"on":"",onclick:()=>{V.tab=d;const t=rows.filter((r)=>r[1]===d).map((r)=>r[0]);go(V.app,"",t.includes(HOME)?HOME:(t[0]||"*work"));}}));
 const nav=$("menu");nav.textContent="";
 for(const t of types.concat(["*work"]))nav.append(el("a",{href:"#",textContent:t==="*work"?"Standing work":t,className:!V.id&&V.type===t?"on":"",onclick:(e)=>{e.preventDefault();go(V.app,"",t);}}));
 $("where").textContent=V.app+" / "+(V.id||(V.type==="*work"?"standing work":V.type));
