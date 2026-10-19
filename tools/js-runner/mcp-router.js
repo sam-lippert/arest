@@ -1218,7 +1218,60 @@ function idle() {
   }, 10 * 60 * 1000);
 }
 
+// THE NORMAL UI, SERVED BY THE FRAMEWORK (Sam, 2026-10-19: "I don't want it to be agent based though, I want it
+// to be the normal UI with an agent integrated"). The router holds every resident app, so it serves ui.do's build
+// and the frame's one call: GET /ui (and /assets) is the build, anything it does not hold is index.html since the
+// frame routes its own addresses, and POST /navigate is handed to the app the request names (its app element,
+// the page's /ui?app=, an App's id being its resident's name; else AREST_UI_APP) as arest/navigate, the call
+// the app's own process answers with navigateOnce -- one composition
+// and one store, no second server opening it. The caller is x-arest-caller, else this daemon's AREST_LOGIN. An
+// application/json POST is not CORS-simple, so another origin's is preflighted, and nothing here answers a
+// preflight. A UI request keeps the daemon from idling out, as a client does.
+const UI_PORT = Number(process.env.AREST_UI_PORT || 8790);
+const UI_DIST = process.env.AREST_UI_DIST || join(here, "..", "..", "..", "apps", "ui.do", "dist");
+const UI_APP = process.env.AREST_UI_APP || "support";
+function uiServe() {
+  const root = join(UI_DIST);
+  const inside = (p) => { const f = join(root, p); return f === root || f.startsWith(join(root, "/")) ? f : null; };
+  try {
+    Bun.serve({
+      hostname: "127.0.0.1", port: UI_PORT,
+      async fetch(req) {
+        if (!clients.size) { if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; } idle(); }
+        const u = new URL(req.url);
+        if (req.method === "POST" && u.pathname === "/navigate") {
+          const body = await req.json().catch(() => []);
+          const named = Array.isArray(body) && typeof body[6] === "string" ? body[6] : "";
+          const app = named || u.searchParams.get("app") || UI_APP;
+          const r = residents.get(app);
+          if (!r) return Response.json("no resident app named " + app + "; the apps are " + names().join(", "), { status: 404 });
+          // the frame is a client that offers nothing: first in, it releases the handshake the children wait on
+          // (capsSeen) with no sampling, which a child then refuses honestly; a client after it is too late to
+          // offer sampling to a child already started.
+          if (clientCaps === null) { clientCaps = {}; sawClient(); }
+          r.wake();
+          if (r.ready) await r.ready;
+          try {
+            const a = await r.request("arest/navigate", { method: "POST", resource: "navigate",
+              caller: req.headers.get("x-arest-caller") || process.env.AREST_LOGIN || "", body });
+            return new Response(String((a && a.text) || ""), { status: Number(a && a.status) || 500, headers: { "content-type": "application/json" } });
+          } catch (e) { return Response.json(String(e && e.message), { status: 502 }); }
+        }
+        if (req.method !== "GET") return new Response("not found", { status: 404 });
+        const rel = u.pathname.startsWith("/assets/") ? u.pathname.slice(1) : u.pathname.replace(/^\/ui\/?/, "").replace(/^\/+/, "");
+        const want = rel ? inside(rel) : null;
+        if (want && existsSync(want) && statSync(want).isFile()) return new Response(Bun.file(want));
+        const home = join(root, "index.html");
+        if (existsSync(home)) return new Response(Bun.file(home), { headers: { "content-type": "text/html; charset=utf-8" } });
+        return new Response("no ui.do build at " + root + ": build it (pnpm build in apps/ui.do) or set AREST_UI_DIST", { status: 404 });
+      },
+    });
+    log("the UI (ui.do) on http://127.0.0.1:" + UI_PORT + "/ui for " + UI_APP + ", from " + root);
+  } catch (e) { log("the UI could not listen on 127.0.0.1:" + UI_PORT + ": " + e.message); }
+}
+
 function daemon() {
+  uiServe();
   const server = createServer((socket) => { attach(socket); idle(); });
   server.on("error", (e) => { log("cannot listen on 127.0.0.1:" + PORT + ": " + e.message); process.exit(1); });
   server.listen(PORT, "127.0.0.1", () => log("router daemon listening on 127.0.0.1:" + PORT
