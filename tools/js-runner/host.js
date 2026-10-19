@@ -5458,17 +5458,24 @@ async function performDeclared(before, after, opts) {
     // explains them afterwards.
     const asserts = [];
     const outside = [];
+    // A YIELD FILLS THE ROLE IT NAMES, AND A CALL'S YIELDS LAND TOGETHER (2026-10-19). The host reads each
+    // declared path out of the answer and lambda makes the facts (perform:yield_rows): each value in its declared
+    // role, the subject in the role no yield names, a fact type with a declared value missing not written. They are
+    // asserted in one write (writeBack), so an entity the answer names arrives with all its facts, as a Failure's do.
+    const yields = [];
     let parsed = null;
     try { parsed = JSON.parse(String(answer && answer.text)); } catch (e) { parsed = null; }
     const subject = Ev("perform:subject_of", [predicate, entity, after]);
     const subj = Array.isArray(subject) ? entity : String(subject);
     if (parsed && typeof parsed === "object") {
+      const quads = [];
       for (const t of Ev("perform:yields_of", [predicate, after])) {
-        const path = String(t[0]), ft = String(t[1]);
-        const got = getJsonPath(parsed, path);
-        if (got === undefined || got === null) continue;   // the service did not return it
-        const row = [ft, subj, String(got)];
-        (ceiling.indexOf(ft) >= 0 ? asserts : outside).push(row);
+        const got = getJsonPath(parsed, String(t[0]));
+        quads.push([String(t[0]), String(t[1]), String(t[2]), got === undefined || got === null ? [] : String(got)]);
+      }
+      for (const r of Ev("perform:yield_rows", [quads, subj, after])) {
+        const row = r.map(String);
+        (ceiling.indexOf(row[0]) >= 0 ? yields : outside).push(row);
       }
     }
     // AND WHAT THE CALL ESTABLISHED BY SUCCEEDING (#131). perform:success_of answers the rows a
@@ -5502,7 +5509,7 @@ async function performDeclared(before, after, opts) {
     // answers the one write that leaves the store as the system holds it, or nothing for any other predicate.
     let undo = [];
     if ((mode === "live" || o.send) && !succeeded) { try { const u = Ev("fed:ot_undo", [predicate, entity, after]); if (Array.isArray(u) && u.length === 2) undo = u; } catch (e) { } }
-    done.push({ predicate, entity, method, address, sent: body, ceiling, answer, asserts, outside, onSuccess, observed, failures, undo });
+    done.push({ predicate, entity, method, address, sent: body, ceiling, answer, yields, asserts, outside, onSuccess, observed, failures, undo });
   }
   return done;
 }
@@ -5639,9 +5646,44 @@ function answerWrite(out, what, clock) {
 // puts after it. So each line is written with every "error:" as "error --": the colon is the only character
 // taken out, and what stands in its place ends in "-", so no "error:" is left and none is made.
 function quiet(say) { return (line) => say(String(line).replace(/(error):/gi, "$1 --")); }
-function maybePerform(prior, after, log, verb) {
+// A COMMITTED WRITE RECORDS THE VIOLATIONS IT INTRODUCED, AND WHAT THOSE MOVE IS PERFORMED (2026-10-19). A decided
+// violation is a fact (record:new_violations), asserted one Violation at a time so one an alethic constraint refuses
+// keeps no other out, and each recording is itself a committed write: what it moves (a draft corrected on its
+// violation) is performed by its own pass here. The performer below is handed the store as this write left it, before
+// the recording, so a transition the recording takes is performed once. A write-back cascades the same way
+// (writeBack). CASCADE_MAX bounds the chain; the readings bound it first, and the cap is a resource guard, said when hit.
+const CASCADE_MAX = 8;
+function recordViolations(prior, after, log, depth) {
+  const say = quiet(log || console.log);
+  let lists;
+  try { lists = Ev("record:new_violations", [prior, after, new Date().toISOString()]); }
+  catch (e) { say("violation record threw: " + String((e && e.message) || e)); return; }
+  for (const facts of lists) {
+    if (!Array.isArray(facts) || !facts.length) continue;
+    const clock = clockStart();
+    const before = CELLS.slice();
+    let out;
+    try { out = Ev("main:as", [CELLS, SYSTEM_LOGIN, ["assert", facts.map((f) => f.map(String))]]); }
+    catch (e) { say("violation record threw on " + String(facts[0][1]) + ": " + String((e && e.message) || e)); continue; }
+    finally { clockLap(clock, "lambda"); }
+    if (out && out.length > 2 && String(out[1]) === "T") {
+      adoptStore(out[2]);
+      clockLap(clock, "adopt");
+      const r = storeAnswer(before, out, "recorded " + String(facts[0][1]), clock);
+      if (r.denied || r.why !== null) { say("violation record NOT COMMITTED " + String(facts[0][1]) + ": " + String(r.why || r.out[0]).slice(0, 300)); continue; }
+      say("recorded " + String(facts[0][1]));
+      maybePerform(before, CELLS, log, "recorded violation", depth + 1);
+    } else say("violation record REFUSED " + String(facts[0][1]) + ": " + String(out && out[0]).slice(0, 300));
+  }
+}
+function maybePerform(prior, after, log, verb, depth) {
   if (!prior || prior === after) return;
   const say = quiet(log || console.log);
+  const d = depth || 0;
+  if (d > CASCADE_MAX) { say("stopped a cascade at " + d + " writes deep: what the last one moved is not performed"); return; }
+  const snap = after === CELLS ? CELLS.slice() : after;
+  recordViolations(prior, snap, log, d);
+  after = snap;
   // THE ARMING IS A FACT, NOT AN ENVIRONMENT KEY (2026-09-14). AREST_PERFORM and
   // AREST_PERFORM_SECRET are gone: `DomainConnectsToExternalSystem has Send Mode`
   // says whether a connection is live, and the connection carries its own
@@ -5656,7 +5698,7 @@ function maybePerform(prior, after, log, verb) {
   performDeclared(prior, after, { master: process.env.AREST_MASTER_KEY, verb })
     .then((r) => {
       for (const one of r) say("performed " + JSON.stringify(one));
-      writeBack(r, say);
+      writeBack(r, say, d);
     })
     .catch((e) => say("performer failed: " + String((e && e.message) || e)));
 }
@@ -5686,9 +5728,28 @@ function maybePerform(prior, after, log, verb) {
 // It was system@repo.do, a login that exists nowhere (Sam, 2026-10-06: "There is no system@repo.do";
 // "use cicd account"): cicd@repo.do is the agent login, a bot account in auth.vin.
 const SYSTEM_LOGIN = process.env.AREST_SYSTEM_LOGIN || "cicd@repo.do";
-function writeBack(done, log) {
+function writeBack(done, log, depth) {
   const say = quiet(log || console.log);
+  const d = depth || 0;
   for (const one of done) {
+    // the call's yields, one assert: the facts of an entity the answer names are checked as one entity, and what the
+    // write moves is performed in turn (maybePerform), so a draft the answer makes is checked and, broken, corrected
+    if (Array.isArray(one.yields) && one.yields.length) {
+      const clock = clockStart();
+      const prior = CELLS.slice();
+      let out;
+      try { out = Ev("main:as", [CELLS, SYSTEM_LOGIN, ["assert", one.yields]]); }
+      catch (e) { say("write-back threw on the yields of " + one.predicate + ": " + String((e && e.message) || e)); out = null; }
+      finally { clockLap(clock, "lambda"); }
+      if (out && out.length > 2 && String(out[1]) === "T") {
+        adoptStore(out[2]);
+        clockLap(clock, "adopt");
+        const r = storeAnswer(prior, out, "write-back yields " + one.predicate, clock);
+        if (r.denied) say("write-back REFUSED the yields of " + one.predicate + ": " + String(r.out[0]).slice(0, 300));
+        else if (r.why === null) { say("wrote back " + JSON.stringify(one.yields)); maybePerform(prior, CELLS, log, "write-back " + one.predicate, d + 1); }
+        else say("write-back NOT COMMITTED the yields of " + one.predicate + ": " + r.why.slice(0, 300));
+      } else if (out) say("write-back REFUSED the yields of " + one.predicate + ": " + String(out[0]).slice(0, 300));
+    }
     // `observed` is what the platform saw at the send -- the addresses the host resolved to --
     // and not a yield of the call, so it is outside the may-create ceiling by kind and is
     // written the same way, through main:api, where an alethic constraint can still refuse it.
@@ -5707,7 +5768,7 @@ function writeBack(done, log) {
         clockLap(clock, "adopt");
         const r = storeAnswer(prior, out, "write-back POST " + ft, clock);
         if (r.denied) { say("write-back REFUSED " + ft + ": " + String(r.out[0]).slice(0, 200)); continue; }
-        if (r.why === null) say("wrote back " + JSON.stringify([ft].concat(args)));
+        if (r.why === null) { say("wrote back " + JSON.stringify([ft].concat(args))); maybePerform(prior, CELLS, log, "write-back " + ft, d + 1); }
         else say("write-back NOT COMMITTED " + ft + ": " + r.why.slice(0, 300));
       } else {
         say("write-back REFUSED " + ft + ": " + String(out[0]).slice(0, 200));
@@ -5727,7 +5788,7 @@ function writeBack(done, log) {
         clockLap(clock, "adopt");
         const r = storeAnswer(prior, out, "write-back failure " + one.predicate, clock);
         if (r.denied) { say("failure record REFUSED " + one.predicate + ": " + String(r.out[0]).slice(0, 300)); continue; }
-        if (r.why === null) say("recorded the failure of " + one.predicate + " for " + one.entity);
+        if (r.why === null) { say("recorded the failure of " + one.predicate + " for " + one.entity); maybePerform(prior, CELLS, log, "failure " + one.predicate, d + 1); }
         else say("failure record NOT COMMITTED " + one.predicate + ": " + r.why.slice(0, 300));
       } else {
         say("failure record REFUSED " + one.predicate + ": " + String(out[0]).slice(0, 300));
