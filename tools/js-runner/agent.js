@@ -306,7 +306,9 @@ async function perform(tc, u) {
   catch (e) { text = "the call failed: " + e.message; }
   await call("assert", { app: AUDIT, args: [[["ToolCallHasResult", tc, text.slice(0, 2000) || "(empty)"]]] });
   say("tool", u.name + " " + JSON.stringify(u.input || {}) + NL + text.slice(0, 1200));
-  return text.slice(0, 40000);
+  // a result stays in the history and is re-read by every later call, so it is capped (AREST_AGENT_RESULT_CAP)
+  const cap = Number(process.env.AREST_AGENT_RESULT_CAP || 12000);
+  return text.length > cap ? text.slice(0, cap) + NL + "(cut at " + cap + " of " + text.length + " characters: ask for a part)" : text;
 }
 async function runTool(u, mid) {
   const tc = u.id, pred = predicateOf(u.name, u.input || {});
@@ -319,16 +321,41 @@ async function runTool(u, mid) {
   }
   return { type: "tool_result", tool_use_id: tc, content: await perform(tc, u) };
 }
+// the history as sent: the same messages, the newest one's last block marked as the cache breakpoint (a copy, so
+// the kept history never accumulates breakpoints past the four the API allows)
+function cached(msgs) {
+  if (!msgs.length) return msgs;
+  const last = msgs[msgs.length - 1];
+  const blocks = typeof last.content === "string" ? [{ type: "text", text: last.content }] : last.content.slice();
+  const i = blocks.length - 1;
+  if (i >= 0 && blocks[i].type !== "thinking" && blocks[i].type !== "redacted_thinking") blocks[i] = { ...blocks[i], cache_control: { type: "ephemeral" } };
+  return msgs.slice(0, -1).concat([{ role: last.role, content: blocks }]);
+}
+// what the calls have cost, in tokens, since this agent started: shown on the page and on the console
+const USAGE = { calls: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0 };
+function spend(u) {
+  if (!u) return;
+  USAGE.calls++; USAGE.input += u.input_tokens || 0; USAGE.cacheWrite += u.cache_creation_input_tokens || 0;
+  USAGE.cacheRead += u.cache_read_input_tokens || 0; USAGE.output += u.output_tokens || 0;
+  console.error("agent: call " + USAGE.calls + " in " + (u.input_tokens || 0) + " cache-write " + (u.cache_creation_input_tokens || 0)
+    + " cache-read " + (u.cache_read_input_tokens || 0) + " out " + (u.output_tokens || 0));
+}
 async function turn() {
   for (let step = 0; step < STEPS; step++) {
     // NO THINKING SETTING BY DEFAULT (2026-10-17): 'between_tools' is refused by some models (400 "not supported
     // for this model" on the code agent), and the loop needs none: every block the model answers is kept in the
     // history, thinking included, and only text and tool_use are read. AREST_AGENT_THINKING (JSON) sets one.
-    const body = { model: MODEL, max_tokens: 16000, system: BRIEF, tools: TOOLS, messages: history };
+    // PROMPT CACHING (Sam, 2026-10-19, after a weekend of the code agent at full price): every call sent the whole
+    // brief, every tool's definition and the whole conversation again. Three cache breakpoints -- the last tool,
+    // the brief, and the newest message -- let each call read what the last one wrote at the cached rate, so a
+    // call pays in full only for what is new since it.
+    const body = { model: MODEL, max_tokens: 16000, system: [{ type: "text", text: BRIEF, cache_control: { type: "ephemeral" } }],
+      tools: TOOLS.map((t, i) => (i === TOOLS.length - 1 ? { ...t, cache_control: { type: "ephemeral" } } : t)), messages: cached(history) };
     if (process.env.AREST_AGENT_THINKING) body.thinking = JSON.parse(process.env.AREST_AGENT_THINKING);
     const ans = await rpc("arest/complete", { app: MODEL_APP, function: MODEL_FN, body });
     if (Number(ans.status) !== 200) { say("error", "the model call answered " + ans.status + ": " + String(ans.text).slice(0, 800)); return; }
     const m = JSON.parse(ans.text);
+    spend(m.usage);
     history.push({ role: "assistant", content: m.content });
     const said = m.content.filter((b) => b.type === "text").map((b) => b.text).join(NL);
     const uses = m.content.filter((b) => b.type === "tool_use");
@@ -482,7 +509,7 @@ const log=$("log"),end=log.scrollTop+log.clientHeight>=log.scrollHeight-4;log.te
 for(const m of s.transcript)log.append(el("div",{className:"m "+m.role,textContent:m.text}));if(end)log.scrollTop=log.scrollHeight;
 const h=$("held");h.textContent="";for(const c of s.held){const d=el("div",{className:"m held",textContent:"Waiting for your consent: "+c.pred+" "+JSON.stringify(c.input)+" "});
 d.append(el("button",{textContent:"Consent",onclick:()=>post("/consent",{tc:c.tc})})," ",el("button",{textContent:"Deny",onclick:()=>post("/deny",{tc:c.tc})}));h.append(d);$("chat").hidden=false;}
-$("busy").textContent=s.busy?"working...":"";}
+$("busy").textContent=(s.busy?"working... ":"")+(s.usage&&s.usage.calls?s.usage.calls+" calls; tokens in "+s.usage.input+", cache write "+s.usage.cacheWrite+", cache read "+s.usage.cacheRead+", out "+s.usage.output:"");}
 async function list(){const s=await (await fetch("/chats")).json();const ul=$("chats");ul.textContent="";
 for(const c of s.chats)ul.append(el("li",{},el("button",{textContent:c.at+" ("+c.messages+(c.chat===s.current?", open":"")+")",title:c.chat,onclick:()=>post("/open",{chat:c.chat})})));}
 $("new").onclick=()=>post("/new",{});$("list").ontoggle=list;
@@ -529,7 +556,7 @@ async function main() {
         return new Response("no ui.do build at " + FRAME + ": build it (pnpm build in apps/ui.do) or set AREST_UI_DIST", { status: 404 });
       }
       if (req.method === "GET" && u.pathname === "/state")
-        return Response.json({ busy, transcript, view: VIEW, apps: APPS, held: [...held.entries()].map(([tc, h]) => ({ tc, pred: h.pred, input: h.u.input })) });
+        return Response.json({ busy, transcript, view: VIEW, apps: APPS, usage: USAGE, held: [...held.entries()].map(([tc, h]) => ({ tc, pred: h.pred, input: h.u.input })) });
       // the main view's reads: what the served verbs answer, as the user, with no model in between
       if (req.method === "GET" && u.pathname === "/api") {
         const verb = u.searchParams.get("verb");
