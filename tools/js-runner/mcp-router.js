@@ -1230,6 +1230,24 @@ function idle() {
 const UI_PORT = Number(process.env.AREST_UI_PORT || 8790);
 const UI_DIST = process.env.AREST_UI_DIST || join(here, "..", "..", "..", "apps", "ui.do", "dist");
 const UI_APP = process.env.AREST_UI_APP || "support";
+// AND THE AGENTS BESIDE IT (agent.js, one per role): GET /agent names the roles this UI proxies, and
+// /agent/<role>/<path> is that agent's own chat API, so the frame's drawer calls it from the UI's origin. The
+// agent's header guard rides through untouched, and a role whose agent is not running answers 503.
+const UI_AGENTS = Object.fromEntries(String(process.env.AREST_UI_AGENTS || "support=8793;code=8794").split(";")
+  .map((e) => e.split("=")).filter(([r, p]) => r && Number(p)).map(([r, p]) => [r.trim(), Number(p)]));
+async function agentProxy(req, u) {
+  if (u.pathname === "/agent" || u.pathname === "/agent/") return Response.json(Object.keys(UI_AGENTS));
+  const m = /^\/agent\/([a-z]+)(\/[a-z]*)$/.exec(u.pathname);
+  const port = m && UI_AGENTS[m[1]];
+  if (!port) return new Response("no agent at " + u.pathname + "; the roles are " + Object.keys(UI_AGENTS).join(", "), { status: 404 });
+  const headers = { "content-type": req.headers.get("content-type") || "application/json" };
+  if (req.headers.get("x-arest-agent")) headers["x-arest-agent"] = req.headers.get("x-arest-agent");
+  try {
+    const a = await fetch("http://127.0.0.1:" + port + m[2] + u.search,
+      { method: req.method, headers, body: req.method === "GET" || req.method === "HEAD" ? undefined : await req.text(), redirect: "manual" });
+    return new Response(a.body, { status: a.status, headers: { "content-type": a.headers.get("content-type") || "text/plain; charset=utf-8" } });
+  } catch { return Response.json("the " + m[1] + " agent is not running on 127.0.0.1:" + port, { status: 503 }); }
+}
 function uiServe() {
   const root = join(UI_DIST);
   const inside = (p) => { const f = join(root, p); return f === root || f.startsWith(join(root, "/")) ? f : null; };
@@ -1239,6 +1257,7 @@ function uiServe() {
       async fetch(req) {
         if (!clients.size) { if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; } idle(); }
         const u = new URL(req.url);
+        if (u.pathname === "/agent" || u.pathname.startsWith("/agent/")) return agentProxy(req, u);
         if (req.method === "POST" && u.pathname === "/navigate") {
           const body = await req.json().catch(() => []);
           const named = Array.isArray(body) && typeof body[6] === "string" ? body[6] : "";
