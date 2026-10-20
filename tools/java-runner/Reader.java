@@ -108,17 +108,26 @@ public final class Reader {
         return null;
     }
 
+    // what the grammar wanted where the text does not give it: fatal, since a form read as null is a
+    // different program in this host from the one every other host reads
+    private RuntimeException malformed(String wanted) {
+        return new RuntimeException("lambda reader: " + wanted + " in " + def + " at byte " + i + ": "
+            + new String(b, i, Math.min(60, b.length - i), StandardCharsets.UTF_8));
+    }
+
+    private void close() { if (!eat(")")) throw malformed("a closing paren"); }
+
     private Object expr() {
         ws();
-        if (eat("PHI(")) { eat(")"); return Arest.PHI(); }
-        if (eat("A(")) { String s = string(); eat(")"); return Arest.A(s); }
+        if (eat("PHI(")) { close(); return Arest.PHI(); }
+        if (eat("A(")) { String s = string(); if (s == null) throw malformed("a string"); close(); return Arest.A(s); }
         if (eat("N(")) {
             ws();
             int st = i;
             if (i < b.length && b[i] == '-') i++;
             while (i < b.length && b[i] >= '0' && b[i] <= '9') i++;
             long n = Long.parseLong(new String(b, st, i - st, StandardCharsets.UTF_8));
-            eat(")");
+            close();
             return Arest.N(n);
         }
         if (eat("K(")) {
@@ -145,7 +154,7 @@ public final class Reader {
                 while (true) {
                     ws();
                     if (i < b.length && b[i] == ')') { i++; break; }
-                    if (!parts.isEmpty() && !eat(",")) return null;
+                    if (!parts.isEmpty() && !eat(",")) throw malformed("a comma or a closing paren");
                     parts.add(expr());
                 }
                 // Sn names a sequence of n elements; one written with another
@@ -155,7 +164,7 @@ public final class Reader {
                 return parts.toArray();
             }
         }
-        return null;
+        throw malformed("A, N, K, PHI or S");
     }
 
     // Read one file and register it, in file order. A file that is missing or
@@ -183,18 +192,24 @@ public final class Reader {
 
     private static void each(byte[] src, String what, java.util.function.BiConsumer<String, Object> def) {
         Reader p = new Reader(src);
-        p.eat("(");
+        if (!p.eat("(")) throw new RuntimeException("lambda reader: " + what + " does not open with a paren");
         while (true) {
             p.ws();
-            if (p.i >= p.b.length) break;
-            if (p.b[p.i] == ')') { p.i++; continue; }
+            if (p.i >= p.b.length) throw new RuntimeException("lambda reader: " + what + " never closes its opening paren");
+            // the file's one tuple closes once, at its end
+            if (p.b[p.i] == ')') {
+                p.i++;
+                p.ws();
+                if (p.i < p.b.length) throw new RuntimeException("lambda reader: " + what + " has text after its closing paren, at byte " + p.i);
+                break;
+            }
             if (p.b[p.i] == '"') { p.string(); p.eat(","); continue; }
             if (p.eat("DEF(")) {
                 String name = p.string();
                 if (!p.eat(",")) throw new RuntimeException("lambda reader: " + what + " bad DEF");
                 p.def = name;
                 Object body = p.expr();
-                p.eat(")");
+                p.close();
                 p.eat(",");
                 def.accept(name, body);
                 continue;
