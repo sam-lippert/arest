@@ -2,7 +2,7 @@
   "name": "arest-js-runner",
   "private": true,
   "version": "0.0.0",
-  "description": "The thin JS host: the vocabulary and strict mu (arest.js), the registrations resolution.md declares (registrations.js) and the command line (program.js), a peer of tools/java-runner.",
+  "description": "The thin JS host: the vocabulary and strict mu (arest.js), the registrations resolution.md declares (registrations.js), the command line (program.js) and one app's MCP server (serve.js), a peer of tools/java-runner.",
   "scripts": {
     "start": "bun program.js"
   }
