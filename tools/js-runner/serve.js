@@ -20,18 +20,24 @@ const A = require("./arest.js");
 // stdout is the protocol's; anything a registration prints goes to stderr
 console.log = console.error;
 
-const t0 = Date.now();
-const dir = process.argv[2].replace(/\\/g, "/");
-const lambda = A.path("AREST_LAMBDA", __dirname + "/../../arest");
-A.load(lambda);
-A.loadCarriers(dir);
-require("./registrations.js").register(lambda);
-const db = dir + "/store.db";
-if (!fs.existsSync(db)) throw new Error("no store at " + db + ": the app's check writes it");
-A.CELLS.push(["CELL", "state:store_db", db]);
-// what a served read asks of the schema, computed once by lambda (store:boot)
-const store = A.Ev("store:boot", A.CELLS.slice());
-process.stderr.write("serve: " + dir + " booted in " + (Date.now() - t0) + " ms, " + store.length + " cells\n");
+// the store this server answers over: an app's (boot), or the registry's when router.js serves through this file
+let store = null;
+
+// lambda and the carriers the check wrote beside the database, and the database named: what a served read asks of
+// the schema, computed once by lambda (store:boot)
+function boot(dir) {
+  const t0 = Date.now();
+  const lambda = A.path("AREST_LAMBDA", __dirname + "/../../arest");
+  A.load(lambda);
+  A.loadCarriers(dir);
+  require("./registrations.js").register(lambda);
+  const db = dir + "/store.db";
+  if (!fs.existsSync(db)) throw new Error("no store at " + db + ": the app's check writes it");
+  A.CELLS.push(["CELL", "state:store_db", db]);
+  store = A.Ev("store:boot", A.CELLS.slice());
+  process.stderr.write("serve: " + dir + " booted in " + (Date.now() - t0) + " ms, " + store.length + " cells\n");
+  return store;
+}
 
 // the store as a read is answered over: its populations read in the database (store:for_read)
 const read = () => A.Ev("store:for_read", store);
@@ -102,17 +108,22 @@ function answered(out, status) {
   return [out[0], status];
 }
 
-if (process.argv[3] === "--call") {
-  const t1 = Date.now();
-  const out = call({ name: process.argv[4], arguments: process.argv[5] ? JSON.parse(process.argv[5]) : {} });
-  process.stderr.write("serve: " + process.argv[4] + " answered in " + (Date.now() - t1) + " ms, status " + out[1] + "\n");
-  process.stdout.write(String(out[0]) + "\n");
-} else {
-  const lines = require("readline").createInterface({ input: process.stdin });
-  lines.on("line", (line) => {
-    if (!line.trim()) return;
-    let r;
-    try { r = handle(JSON.parse(line)); } catch (e) { r = fail(null, String(e.message)); }
-    if (r !== null) process.stdout.write(JSON.stringify(r) + "\n");
-  });
+module.exports = { boot, handle, call, read, reply, fail, setStore: (s) => { store = s; } };
+
+if (require.main === module) {
+  boot(process.argv[2].replace(/\\/g, "/"));
+  if (process.argv[3] === "--call") {
+    const t1 = Date.now();
+    const out = call({ name: process.argv[4], arguments: process.argv[5] ? JSON.parse(process.argv[5]) : {} });
+    process.stderr.write("serve: " + process.argv[4] + " answered in " + (Date.now() - t1) + " ms, status " + out[1] + "\n");
+    process.stdout.write(String(out[0]) + "\n");
+  } else {
+    const lines = require("readline").createInterface({ input: process.stdin });
+    lines.on("line", (line) => {
+      if (!line.trim()) return;
+      let r;
+      try { r = handle(JSON.parse(line)); } catch (e) { r = fail(null, String(e.message)); }
+      if (r !== null) process.stdout.write(JSON.stringify(r) + "\n");
+    });
+  }
 }
