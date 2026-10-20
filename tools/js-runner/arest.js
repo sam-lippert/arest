@@ -193,8 +193,35 @@ function profileText() {
 }
 if (PROFILE) process.on("exit", () => fs.writeFileSync(PROFILE, profileText()));
 
+// AREST_COUNT=<file> counts every named application by its name, and for the DEF AREST_COUNT_ARGS names, its operand's
+// first element and whether its answer is #, written to the file at exit: measurement, no meaning.
+const COUNT = process.env.AREST_COUNT, COUNT_OF = process.env.AREST_COUNT_ARGS;
+const CALLS = new Map(), ARGS = new Map();
+let CTICK = 0, CWROTE = Date.now();
+function countText() {
+  const top = (m) => [...m.entries()].sort((p, q) => q[1] - p[1]).slice(0, 60).map(([k, v]) => String(v).padStart(10) + "  " + k).join("\n");
+  return "-- calls\n" + top(CALLS) + "\n-- " + COUNT_OF + " by operand\n" + top(ARGS) + "\n";
+}
+if (COUNT) process.on("exit", () => fs.writeFileSync(COUNT, countText()));
+
 function Ev(f, x) {
-  if (PROFILE && typeof f === "string") {
+  if (COUNT && typeof f === "string") {
+    CALLS.set(f, (CALLS.get(f) || 0) + 1);
+    if ((++CTICK & 65535) === 0 && Date.now() - CWROTE > 30000) { CWROTE = Date.now(); fs.writeFileSync(COUNT, countText()); }
+    if (f === COUNT_OF) {
+      const v = PROFILE ? Ev1(f, x) : Ev0(f, x);
+      // under the profile, the nearest named callers that are not combining forms or primitives
+      const by = PROFILE ? "  <- " + PSTACK.filter((n) => DEFS.has(n) && !/^(CONS|CONST|apply)$/.test(n)).slice(-4, -1).reverse().join(" < ") : "";
+      const k = (Array.isArray(x) && x.length ? show(x[0]).slice(0, 60) : "?") + (v === "#" ? "  -> #" : "") + by;
+      ARGS.set(k, (ARGS.get(k) || 0) + 1);
+      return v;
+    }
+  }
+  return PROFILE ? Ev1(f, x) : Ev0(f, x);
+}
+
+function Ev1(f, x) {
+  if (typeof f === "string") {
     PSTACK.push(f);
     if ((++PTICK & 255) === 0) sample();
     try { return Ev0(f, x); } finally { PSTACK.pop(); }
