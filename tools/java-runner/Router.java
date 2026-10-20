@@ -124,6 +124,8 @@ public class Router {
             String app = a.get("app") == null ? "" : String.valueOf(a.remove("app"));
             App x = APPS.get(app);
             if (x == null) return text(id, "no app named " + Gui.Json.write(app) + "; the apps are " + String.join(", ", APPS.keySet()), true);
+            if ("apps_check".equals(name)) return text(id, x.check(), false);
+            if ("apps_compile".equals(name)) return text(id, x.compile(), false);
             if (!a.containsKey("caller") || a.get("caller") == null) a.put("caller", login);
             Map<?, ?> r = x.request("tools/call", Serve.obj("name", name, "arguments", a));
             if (r.get("error") != null) return text(id, String.valueOf(((Map<?, ?>) r.get("error")).get("message")), true);
@@ -149,6 +151,10 @@ public class Router {
         out.add(Serve.obj("name", "apps", "description", "the resident apps: whether each is serving, and its store's directory",
             "inputSchema", Serve.obj("type", "object", "properties", Serve.obj())));
         Map<String, Object> app = Serve.obj("type", "string", "enum", APPS.keySet().toArray(), "description", "the resident app this call is for");
+        out.add(Serve.obj("name", "apps_check", "description", "the app's check: its package compiled into its store by lambda's apps_check, from the readings its package.json's dependencies compose; the app is not served until apps_compile",
+            "inputSchema", Serve.obj("type", "object", "properties", Serve.obj("app", app), "required", new Object[] { "app" })));
+        out.add(Serve.obj("name", "apps_compile", "description", "the app served again, over the store its check wrote",
+            "inputSchema", Serve.obj("type", "object", "properties", Serve.obj("app", app), "required", new Object[] { "app" })));
         for (Object t : Serve.tools()) {
             @SuppressWarnings("unchecked") Map<String, Object> tool = (Map<String, Object>) t;
             @SuppressWarnings("unchecked") Map<String, Object> schema = (Map<String, Object>) tool.get("inputSchema");
@@ -170,14 +176,71 @@ public class Router {
         final String name, dir, classes;
         Process proc;
         Writer to;
-        String instructions, error;
+        String instructions, error, busy, note = "";
         volatile long last = System.currentTimeMillis();
         final AtomicLong seq = new AtomicLong();
         final ConcurrentHashMap<Long, CompletableFuture<Map<?, ?>>> pending = new ConcurrentHashMap<Long, CompletableFuture<Map<?, ?>>>();
 
         App(String name, String dir, String classes) { this.name = name; this.dir = dir; this.classes = classes; }
 
+        // apps_check: the app's server is stopped, because the check writes the store it holds, and the command
+        // line runs lambda's `apps_check <package directory>` in the package. Which readings, in what order and
+        // where they land are lambda's; this starts the process and reports how it ended.
+        synchronized String check() throws Exception {
+            if (busy != null) return name + " is " + busy;
+            stop();
+            busy = "checking";
+            note = "";
+            String pkg = new File(dir).getParent().replace('\\', '/');
+            String root = new File(lambda).getParent().replace('\\', '/');
+            String jvm = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
+            ProcessBuilder pb = new ProcessBuilder(jvm, "-Xmx" + Reader.path("AREST_APP_HEAP", "2g"), "-Xss512m",
+                "-cp", System.getProperty("java.class.path"), "Program", "apps_check", pkg);
+            pb.directory(new File(pkg));
+            pb.environment().put("AREST_LAMBDA", lambda);
+            pb.environment().put("AREST_TESTS", root + "/arest.tests");
+            pb.environment().put("AREST_SCENARIOS", root + "/engine/shared/scenarios.canon");
+            pb.environment().put("AREST_CARRIERS", root + "/tools/carriers/base");
+            final File log = new File(pkg, "check.log");
+            pb.redirectErrorStream(true);
+            pb.redirectOutput(log);
+            final Process p = pb.start();
+            Thread w = new Thread(() -> {
+                int code;
+                try { code = p.waitFor(); } catch (InterruptedException e) { code = -1; }
+                String tail = "";
+                try {
+                    List<String> lines = java.nio.file.Files.readAllLines(log.toPath(), StandardCharsets.UTF_8);
+                    tail = String.join(" | ", lines.subList(Math.max(0, lines.size() - (code == 0 ? 1 : 6)), lines.size()));
+                } catch (Exception e) { }
+                synchronized (App.this) {
+                    busy = null;
+                    note = (code == 0 ? "check ok: " : "check FAILED (exit " + code + "), the store as it was: ") + tail;
+                }
+            });
+            w.setDaemon(true);
+            w.start();
+            return "checking " + name + ": lambda's apps_check over " + pkg + " (its package.json's dependencies), into " + dir
+                + "; not served until apps_compile, and `apps` reports the result";
+        }
+
+        // apps_compile: this host reads lambda and the store's carriers when a server starts, so compiling the
+        // app is starting its server again over the store apps_check wrote.
+        synchronized String compile() throws Exception {
+            if (busy != null) return name + " is " + busy;
+            stop();
+            note = "";
+            start();
+            return "compiled " + name + ": serving over " + dir + "/store.db";
+        }
+
         synchronized String status() {
+            if (busy != null) return busy;
+            String s = statusOf();
+            return note.isEmpty() ? s : s + " -- " + note;
+        }
+
+        synchronized String statusOf() {
             if (error != null) return "failed: " + error;
             if (proc != null && proc.isAlive()) return "serving";
             return new File(dir, "store.db").isFile() ? "idle" : "no store at " + dir + "/store.db";
@@ -185,6 +248,7 @@ public class Router {
 
         synchronized void start() throws Exception {
             if (proc != null && proc.isAlive()) return;
+            if (busy != null) throw new RuntimeException(name + " is " + busy + "; apps_compile serves it again");
             error = null;
             if (!new File(dir, "store.db").isFile()) throw new RuntimeException(name + " has no store at " + dir + "/store.db: its check writes it");
             String java = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
