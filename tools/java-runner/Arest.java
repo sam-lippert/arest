@@ -52,7 +52,7 @@ public class Arest {
     // without printing a law.
     //
     // Keys mirror JS Map semantics exactly: atoms by value, sequences by
-    // REFERENCE. Java gives both for free — String/Integer implement
+    // REFERENCE. Java gives both for free — String/Long implement
     // equals/hashCode by value, and Object[] inherits Object's identity
     // versions. Frames of 4 or fewer key by element (so ctx-threaded
     // references hit); anything else keys by the operand itself under -1.
@@ -68,7 +68,9 @@ public class Arest {
     }
     // Any harness that mutates CELLS between evaluations MUST call this at
     // the mutation point. Also the bound: a full clear past the cap.
+    static int MEMOCLEARS = 0;
     public static void memoClear() {
+        MEMOCLEARS++;
         EVMEMO.clear(); EVMEMON = 0;
         DESCIDX = new java.util.WeakHashMap<Object, Map<String, Object>>();
         ENTIDX = new java.util.WeakHashMap<Object, Map<String, List<Object>>>();
@@ -106,7 +108,7 @@ public class Arest {
     }
     // Canonical key, standing in for JSON.stringify's use as a Map/Set key.
     // Only the EQUIVALENCE CLASSES matter, and both encodings are injective
-    // over {String, Integer, Object[]}; length-prefixing the text makes this
+    // over {String, Long, Object[]}; length-prefixing the text makes this
     // one unambiguous without imitating JSON's escaping.
     static String key(Object o) {
         StringBuilder b = new StringBuilder();
@@ -117,7 +119,7 @@ public class Arest {
         if (o instanceof String) {
             String s = (String) o;
             b.append('S').append(s.length()).append(':').append(s);
-        } else if (o instanceof Integer) {
+        } else if (o instanceof Long) {
             b.append('N').append(o);
         } else if (o instanceof Object[]) {
             Object[] a = (Object[]) o;
@@ -139,8 +141,8 @@ public class Arest {
         new java.util.WeakHashMap<Object, Map<String, List<Object>>>();
 
     static int drainCount(Object[] l, Object nO) {
-        int n = ((Integer) nO).intValue();
-        return n == 0 ? 0 : (n < 0 ? l.length : Math.min(l.length, n));
+        long n = (Long) nO;
+        return n == 0 ? 0 : (n < 0 ? l.length : (int) Math.min(l.length, n));
     }
     static Object[] slice(Object[] a, int from, int to) {
         Object[] r = new Object[Math.max(0, to - from)];
@@ -150,6 +152,10 @@ public class Arest {
 
     static final Map<String, Function<Object, Object>> FASTPRIMS =
         new HashMap<String, Function<Object, Object>>();
+    // AREST_NO_OVERRIDE runs every DEF as its body, no twin consulted
+    // (resolution.md's one kill switch), so a run with twins and a run
+    // without can be held byte for byte against each other
+    static final boolean NO_OVERRIDE = System.getenv("AREST_NO_OVERRIDE") != null;
     static {
         FASTPRIMS.put("theta:member", x -> {
             Object needle = at(x, 0);
@@ -177,10 +183,10 @@ public class Arest {
             Object[] l = seq(x);
             return slice(l, 0, Math.max(0, l.length - 1)); });
         FASTPRIMS.put("theta:iota", x -> {
-            if (!(x instanceof Integer)) throw new RuntimeException("iota on non-number");
-            int n = (Integer) x;
+            if (!(x instanceof Long)) throw new RuntimeException("iota on non-number");
+            int n = Math.toIntExact((Long) x);
             Object[] out = new Object[Math.max(0, n)];
-            for (int i = 1; i <= n; i++) out[i - 1] = Integer.valueOf(i);
+            for (int i = 1; i <= n; i++) out[i - 1] = Long.valueOf(i);
             return out; });
         FASTPRIMS.put("theta:zip", x -> {
             Object[] a = seq(at(x, 0)), b = seq(at(x, 1));
@@ -253,7 +259,9 @@ public class Arest {
     }
 
     public static Object A(String s) { return s; }
-    public static Object N(int n) { return Integer.valueOf(n); }
+    // A number is a 64-bit integer: lambda's decimals carry their mantissas as
+    // numbers (dec:round), and a mantissa of ten digits is past 32 bits.
+    public static Object N(long n) { return Long.valueOf(n); }
     public static Object K(Object x) { return new Object[] { "CONST", x }; }
     public static Object PHI() { return new Object[0]; }
 
@@ -279,7 +287,7 @@ public class Arest {
     public static boolean deepEq(Object a, Object b) {
         if (a == b) return true;
         if (a instanceof String && b instanceof String) return a.equals(b);
-        if (a instanceof Integer && b instanceof Integer) return a.equals(b);
+        if (a instanceof Long && b instanceof Long) return a.equals(b);
         if (a instanceof Object[] && b instanceof Object[]) {
             Object[] xa = (Object[]) a, xb = (Object[]) b;
             if (xa.length != xb.length) return false;
@@ -292,7 +300,7 @@ public class Arest {
     static String bool(boolean b) { return b ? "T" : "F"; }
 
     static Object[] seq(Object x) {
-        if (!(x instanceof Object[])) throw new RuntimeException("expected sequence, got atom: " + x);
+        if (!(x instanceof Object[])) throw new RuntimeException("expected sequence, got atom: " + x + where());
         return (Object[]) x;
     }
 
@@ -304,7 +312,7 @@ public class Arest {
     // The engine kernels coerce and are the ones carrying the drift; mixed
     // int/lexical atoms are a READING-BOUNDARY defect (#31).
     static int cmpAtoms(Object a, Object b) {
-        if (a instanceof Integer && b instanceof Integer) return ((Integer) a).compareTo((Integer) b);
+        if (a instanceof Long && b instanceof Long) return ((Long) a).compareTo((Long) b);
         if (a instanceof String && b instanceof String) return ((String) a).compareTo((String) b);
         throw new RuntimeException("compare across atom kinds: " + a + " vs " + b);
     }
@@ -332,7 +340,7 @@ public class Arest {
         PRIMS.put("eq", x -> { Object[] p = seq(x); return bool(deepEq(p[0], p[1])); });
         PRIMS.put("not", x -> bool(!(x instanceof String && x.equals("T"))));
         PRIMS.put("and", x -> { Object[] p = seq(x); return bool("T".equals(p[0]) && "T".equals(p[1])); });
-        PRIMS.put("length", x -> Integer.valueOf(seq(x).length));
+        PRIMS.put("length", x -> Long.valueOf(seq(x).length));
         // lt completes the comparison quartet; reverse and trans are Backus
         // 11.2.3 base functions. All three were registered by the python host
         // and referenced by lambda (lt <- constraints:vr_lo, constraints:fq_lo,
@@ -356,10 +364,12 @@ public class Arest {
         PRIMS.put("le", x -> { Object[] p = seq(x); return bool(cmpAtoms(p[0], p[1]) <= 0); });
         PRIMS.put("ge", x -> { Object[] p = seq(x); return bool(cmpAtoms(p[0], p[1]) >= 0); });
         PRIMS.put("gt", x -> { Object[] p = seq(x); return bool(cmpAtoms(p[0], p[1]) > 0); });
-        PRIMS.put("+", x -> { Object[] p = seq(x); return Integer.valueOf((Integer) p[0] + (Integer) p[1]); });
-        PRIMS.put("-", x -> { Object[] p = seq(x); return Integer.valueOf((Integer) p[0] - (Integer) p[1]); });
-        PRIMS.put("*", x -> { Object[] p = seq(x); return Integer.valueOf((Integer) p[0] * (Integer) p[1]); });
-        PRIMS.put("/", x -> { Object[] p = seq(x); return Integer.valueOf((Integer) p[0] / (Integer) p[1]); });
+        // Backus 11.2.3: defined when both are numbers and the result is one, so
+        // a result past 64 bits is bottom (it throws), never a wrapped number
+        PRIMS.put("+", x -> { Object[] p = seq(x); return Long.valueOf(Math.addExact((Long) p[0], (Long) p[1])); });
+        PRIMS.put("-", x -> { Object[] p = seq(x); return Long.valueOf(Math.subtractExact((Long) p[0], (Long) p[1])); });
+        PRIMS.put("*", x -> { Object[] p = seq(x); return Long.valueOf(Math.multiplyExact((Long) p[0], (Long) p[1])); });
+        PRIMS.put("/", x -> { Object[] p = seq(x); return Long.valueOf((Long) p[0] / (Long) p[1]); });
         PRIMS.put("apply", x -> { Object[] p = seq(x); return Ev(p[0], p[1]); });
         // lex yields TOKEN-RECORDS, ten fields per token, as
         // metamodel/resolution.md types it. This station answered a flat word
@@ -401,7 +411,7 @@ public class Arest {
                 rows.add(new Object[] { tok, nopunct, base,
                     nopunct.substring(base.length()),
                     tok.toLowerCase(java.util.Locale.ROOT),
-                    qtext, up, tpl, k > 0 ? "T" : "F", Integer.valueOf(k) });
+                    qtext, up, tpl, k > 0 ? "T" : "F", Long.valueOf(k) });
             }
             return rows.toArray(); });
         PRIMS.put("implode", x -> { Object[] p = seq(x); String sep = (String) p[0]; Object[] parts = seq(p[1]);
@@ -429,22 +439,116 @@ public class Arest {
         // strip_prefix is LAMBDA -- DEF("strip_prefix"). Deleted here.
         // ntoa is LAMBDA -- DEF("ntoa"). Deleted here.
         // quote_str is LAMBDA -- DEF("quote_str"). Deleted here.
-        PRIMS.put("1r", x -> { Object[] a = seq(x); return a[a.length - 1]; });
-        PRIMS.put("tlr", x -> { Object[] a = seq(x); Object[] r = new Object[a.length - 1];
+        // Backus 11.2.3: the last of <> is bottom
+        PRIMS.put("1r", x -> { Object[] a = seq(x); if (a.length == 0) throw new RuntimeException("1r of <>" + where()); return a[a.length - 1]; });
+        PRIMS.put("tlr", x -> { Object[] a = seq(x); if (a.length == 0) throw new RuntimeException("tlr of <>" + where());
+            Object[] r = new Object[a.length - 1];
             System.arraycopy(a, 0, r, 0, r.length); return r; });
     }
 
+    // ---- the profile (AREST_PROFILE): measurement, no meaning. Each named
+    // application pushes its name; a sampler counts, about every millisecond,
+    // the name on top (self) and each name on the stack once (inclusive), and
+    // the counts print to stderr at exit. Off, it costs one branch.
+    static final boolean PROFILE = System.getenv("AREST_PROFILE") != null;
+    static String[] PSTACK = new String[1 << 16];
+    static volatile int PSP = 0;
+    static {
+        if (PROFILE) {
+            final Map<String, long[]> counts = new HashMap<String, long[]>();
+            final long[] total = new long[1];
+            final long t0 = System.nanoTime();
+            Thread sampler = new Thread(() -> {
+                java.util.Set<String> seen = new java.util.HashSet<String>();
+                while (true) {
+                    try { Thread.sleep(1); } catch (InterruptedException e) { return; }
+                    String[] s = PSTACK;
+                    int sp = Math.min(PSP, s.length);
+                    if (sp == 0) continue;
+                    synchronized (counts) {
+                        total[0]++;
+                        seen.clear();
+                        for (int i = 0; i < sp; i++) {
+                            String n = s[i];
+                            if (n != null && seen.add(n)) count(counts, n, 1);
+                        }
+                        if (s[sp - 1] != null) count(counts, s[sp - 1], 0);
+                    }
+                }
+            });
+            sampler.setDaemon(true);
+            sampler.start();
+            // AREST_PROFILE names a file: the profile is written there every 30 s
+            // as well, so a long run can be read while it runs
+            final String file = System.getenv("AREST_PROFILE");
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> System.err.print(profileText(counts, total, t0))));
+            if (!"1".equals(file)) {
+                Thread writer = new Thread(() -> {
+                    while (true) {
+                        try { Thread.sleep(30000); } catch (InterruptedException e) { return; }
+                        try { java.nio.file.Files.write(java.nio.file.Paths.get(file), profileText(counts, total, t0).getBytes("UTF-8")); }
+                        catch (Exception e) { }
+                    }
+                });
+                writer.setDaemon(true);
+                writer.start();
+            }
+        }
+    }
+    static String profileText(Map<String, long[]> counts, long[] total, long t0) {
+        StringBuilder b = new StringBuilder();
+        synchronized (counts) {
+            b.append("profile: ").append(total[0]).append(" samples over ")
+             .append((System.nanoTime() - t0) / 1000000000L).append(" s, memo cleared ")
+             .append(MEMOCLEARS).append(" times\n");
+            for (int k = 0; k < 2; k++) {
+                final int by = k;
+                List<Map.Entry<String, long[]>> es = new ArrayList<Map.Entry<String, long[]>>(counts.entrySet());
+                es.sort((p, q) -> Long.compare(q.getValue()[by], p.getValue()[by]));
+                b.append(by == 0 ? "-- self\n" : "-- inclusive\n");
+                for (int i = 0; i < Math.min(80, es.size()); i++)
+                    b.append(String.format("%6.2f%%  %s%n", 100.0 * es.get(i).getValue()[by] / Math.max(1, total[0]), es.get(i).getKey()));
+            }
+        }
+        return b.toString();
+    }
+    static void count(Map<String, long[]> counts, String n, int at) {
+        long[] c = counts.get(n);
+        if (c == null) { c = new long[2]; counts.put(n, c); }
+        c[at]++;
+    }
+
+    // under the profiler, the innermost named cells at a throw, which the unwinding would otherwise take with it
+    static String where() {
+        if (!PROFILE) return "";
+        StringBuilder b = new StringBuilder(" -- in");
+        for (int i = PSP - 1, k = 0; i >= 0 && k < 24; i--, k++) b.append(' ').append(PSTACK[i]);
+        return b.toString();
+    }
+
     public static Object Ev(Object f, Object x) {
-        if (f instanceof Integer) {
-            int n = (Integer) f;
-            if (!(x instanceof Object[])) throw new RuntimeException("selector " + n + " on atom: " + x);
-            return ((Object[]) x)[n - 1]; // out of range throws natively, as in C#
+        if (PROFILE && f instanceof String) {
+            if (PSP == PSTACK.length) PSTACK = java.util.Arrays.copyOf(PSTACK, PSP * 2);
+            PSTACK[PSP] = (String) f;
+            PSP = PSP + 1;
+            try { return Ev0(f, x); } finally { PSP = PSP - 1; }
+        }
+        return Ev0(f, x);
+    }
+
+    static Object Ev0(Object f, Object x) {
+        if (f instanceof Long) {
+            long n = (Long) f;
+            if (!(x instanceof Object[])) throw new RuntimeException("selector " + n + " on atom: " + x + where());
+            Object[] xs = (Object[]) x;
+            if (n < 1 || n > xs.length) throw new RuntimeException("selector " + n + " out of range " + xs.length + where());
+            return xs[(int) n - 1];
         }
         if (f instanceof String) {
             String fn = (String) f;
             Object body = DEFS.get(fn);
             if (body != null) {
-                Function<Object, Object> fp = FASTPRIMS.get(fn);
+                Function<Object, Object> fp = NO_OVERRIDE ? null : FASTPRIMS.get(fn);
                 if (fp != null) return fp.apply(x);
                 if (!memoable(fn)) return Ev(body, x);
                 Map<Object, Object> node = EVMEMO.get(fn);

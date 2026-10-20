@@ -6,8 +6,8 @@ one is a platform over the serving host's `navigate`. No law semantics, no
 mode names, no rendering decisions live here; if a guard or a name list ever
 appears in this directory, delete it — accretion is how the first fleet died.
 
-    javac -encoding UTF-8 Arest.java Reader.java Program.java Gui.java GuiSnapshot.java TransportCheck.java
-    java -cp . Program [mode…]     # console container: THE HOST CONTRACT
+    javac -encoding UTF-8 Arest.java Reader.java Registrations.java Program.java Gui.java GuiSnapshot.java TransportCheck.java
+    java -Xss512m -cp ".;../lib/sqlite-jdbc.jar;../lib/slf4j-api.jar" Program [mode…]   # console container: THE HOST CONTRACT
     AREST_PORT=8787 java -cp . Gui # the Swing platform over a serving host
     AREST_PORT=8787 java -Djava.awt.headless=true -cp . GuiSnapshot <dir> [<pane>=<address>|<pane>@<button>]…
     AREST_PORT=8787 java -cp . TransportCheck   # local and remote answer the same bytes
@@ -27,6 +27,43 @@ separator would break byte parity), exit by the flag. Six lines, no
 branches, forever. Certified byte-identical to `bun composed.g.js` on the
 same carriers: base 53 laws, app 10, solve, explain, and the unknown-mode
 refusal with exit 1.
+
+## Registrations — the functions outside D
+
+`Registrations.java` gives a body to each Function that
+`metamodel/resolution.md` declares with Definition Origin 'registered' and that
+lambda applies: the clock, `round`, the files (`fs:dir`, `fs:read`,
+`fs:write`, `carrier:cells`), `module:root`, the crypt rows and `hook:seal`,
+and the SQLite engine (`storage:engine` and the `sqlite:` calls, over
+xerial's sqlite-jdbc in `../lib`). Each is written from its row there, and
+every entry point (Program, CasesTest, Gui's local transport) registers the
+same set. A number is a 64-bit integer, and arithmetic past 64 bits is bottom.
+
+## Serve and Router — the MCP transport
+
+`Serve <app>/.check` serves one app's store over MCP on stdio, one JSON-RPC
+message to a line. It loads lambda and the carriers the app's check wrote,
+names the database in `state:store_db`, and boots through lambda's
+`store:boot`; every answer is lambda's (`mcp:instructions`, `mcp:verbs`,
+`main:as`, `mcp:call`, `mcp:prompts`). A read is answered over the database
+(`store:for_read`). A write is not evaluated: a verb lambda says writes
+(`main:verb_writes`), or a fact call other than GET, is answered
+`not_committed` and changes nothing, because lambda does not yet commit a
+write's new store itself (#197) and a host has no commit of its own.
+`--call <tool> <json>` answers one call and exits.
+
+`Router` is the connection a session starts. Its own store is the registry
+(`tools/js-runner/registry`), whose App table lambda reads; every verb takes
+`app`, and each app is a `Serve` process started at its first call and
+stopped after ten minutes without one. `apps` lists them.
+
+    java -Xss512m -cp ".;../lib/sqlite-jdbc.jar;../lib/slf4j-api.jar" Router
+
+AREST_LAMBDA names the lambda file, AREST_REGISTRY the registry package,
+AREST_LOGIN the caller a call names when it names none, AREST_APP_HEAP each
+app's heap (2g). The driver must be sqlite-jdbc 3.46 or later: 3.45's parser
+stack overflows on the deepest views the map writes (claude's
+`TrigramIsTheComplementOfTrigram`).
 
 ## Gui — the Swing platform (#124)
 
