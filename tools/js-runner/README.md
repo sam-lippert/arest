@@ -23,6 +23,14 @@ strategy a host keeps is one every other host must keep too, so speed belongs in
       bun serve.js <app .check directory>                        # as java Serve <dir>
       bun serve.js <app .check directory> --call <tool> <json>   # one call, answered on stdout
 
+- `router.js`: every app over one MCP connection, as `java Router`. Its own store is the registry (`registry/`), whose
+  App table names the apps; each app is a `serve.js` process, started at its first call and stopped after ten minutes
+  without one. Every sentence it answers is lambda's (`router:*`); it starts, stops and speaks to the app servers.
+
+      bun router.js                                              # as java Router
+
+`AREST_REGISTRY` names the registry package and `AREST_LOGIN` the caller a call names when it names none.
+
 `AREST_LAMBDA`, `AREST_TESTS`, `AREST_SCENARIOS` and `AREST_CARRIERS` name the files, as for the Java host.
 
 The `registry/` directory is the router's own readings and store.
