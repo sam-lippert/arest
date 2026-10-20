@@ -11,10 +11,12 @@
 // set), read as build.js splices it (Reader.loadCarriers).
 public class Program {
     public static void main(String[] args) {
-        Reader.load(Reader.path("AREST_LAMBDA", "../../arest"));
+        String lambda = Reader.path("AREST_LAMBDA", "../../arest");
+        Reader.load(lambda);
         Reader.load(Reader.path("AREST_TESTS", "../../arest.tests"));
         Reader.load(Reader.path("AREST_SCENARIOS", "../../engine/shared/scenarios.canon"));
         Reader.loadCarriers(Reader.path("AREST_CARRIERS", "../carriers/base"));
+        Registrations.register(lambda);
         Object[] out = (Object[]) Arest.Ev("main", new Object[] { Arest.CELLS.toArray(), args });
         System.out.print(out[0] + "\n");
         System.exit("T".equals(out[1]) ? 0 : 1);

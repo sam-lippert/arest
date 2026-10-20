@@ -124,7 +124,7 @@ public class Gui {
     // ---- ITS IPlatformDefaults --------------------------------------------
 
     static Object[] fontOf(Font f) {
-        return new Object[] { f.getFamily(), Integer.valueOf(f.getSize()), f.isBold() ? "bold" : "normal" };
+        return new Object[] { f.getFamily(), Long.valueOf(f.getSize()), f.isBold() ? "bold" : "normal" };
     }
 
     static Object[] member(String name, Object value) { return new Object[] { name, value }; }
@@ -707,6 +707,7 @@ public class Gui {
             Reader.load(lambda);
             Reader.load(scenarios);
             Reader.loadCarriers(carriers);
+            Registrations.register(lambda);
             Object built = Arest.Ev("ast:File", Arest.Ev("store:state", Arest.CELLS.toArray()));
             for (Object cell : (Object[]) built) Arest.CELLS.add(0, cell);
             Arest.memoClear();
@@ -1015,9 +1016,7 @@ public class Gui {
             String n = s.substring(start, i);
             if (n.isEmpty()) throw new IllegalArgumentException("json: unexpected " + c + " at " + start);
             if (n.indexOf('.') < 0 && n.indexOf('e') < 0 && n.indexOf('E') < 0) {
-                long l = Long.parseLong(n);
-                if (l >= Integer.MIN_VALUE && l <= Integer.MAX_VALUE) return Integer.valueOf((int) l);
-                return Long.valueOf(l);
+                return Long.valueOf(Long.parseLong(n));
             }
             return Double.valueOf(n);
         }
@@ -1062,6 +1061,19 @@ public class Gui {
                 return;
             }
             if (v instanceof List) { write(((List<?>) v).toArray(), b); return; }
+            if (v instanceof Map) {
+                b.append('{');
+                boolean first = true;
+                for (Map.Entry<?, ?> e : ((Map<?, ?>) v).entrySet()) {
+                    if (!first) b.append(',');
+                    first = false;
+                    write(String.valueOf(e.getKey()), b);
+                    b.append(':');
+                    write(e.getValue(), b);
+                }
+                b.append('}');
+                return;
+            }
             if (v instanceof Boolean || v instanceof Integer || v instanceof Long) { b.append(v); return; }
             if (v instanceof Number) {
                 double d = ((Number) v).doubleValue();

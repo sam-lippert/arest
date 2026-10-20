@@ -16,7 +16,7 @@ import java.util.List;
 //
 // A parser has no method-size problem. This is the same reader engine/rust and
 // rust-station now carry, in this platform's terms: A is a String, N an
-// Integer, PHI an empty Object[], K an Object[]{"CONST", x}, and SN an
+// Long, PHI an empty Object[], K an Object[]{"CONST", x}, and SN an
 // Object[]. Same grammar, same four names, same order.
 //
 //     file := '(' item* ')'
@@ -29,6 +29,8 @@ import java.util.List;
 public final class Reader {
     private final byte[] b;
     private int i;
+    private String def = "";
+    private final List<String> arity = new ArrayList<>();
 
     private Reader(byte[] src) {
         this.b = src;
@@ -65,6 +67,18 @@ public final class Reader {
                     case 'r': out.append('\r'); break;
                     case 't': out.append('\t'); break;
                     case '0': out.append('\0'); break;
+                    // a UTF-16 unit in four hex digits, as every host's string literal reads it
+                    // (quote_str:ctls names the control characters so)
+                    case 'u':
+                        if (i + 3 < b.length) {
+                            try {
+                                out.append((char) Integer.parseInt(new String(b, i, 4, StandardCharsets.UTF_8), 16));
+                                i += 4;
+                                break;
+                            } catch (NumberFormatException ignored) { }
+                        }
+                        out.append('u');
+                        break;
                     case 'x':
                         if (i + 1 < b.length) {
                             String h = new String(b, i, 2, StandardCharsets.UTF_8);
@@ -103,11 +117,21 @@ public final class Reader {
             int st = i;
             if (i < b.length && b[i] == '-') i++;
             while (i < b.length && b[i] >= '0' && b[i] <= '9') i++;
-            int n = Integer.parseInt(new String(b, st, i - st, StandardCharsets.UTF_8));
+            long n = Long.parseLong(new String(b, st, i - st, StandardCharsets.UTF_8));
             eat(")");
             return Arest.N(n);
         }
-        if (eat("K(")) { Object x = expr(); eat(")"); return Arest.K(x); }
+        if (eat("K(")) {
+            int at = i - 2;
+            Object x = expr();
+            if (!eat(")")) {
+                int n = 1;
+                while (eat(",")) { expr(); n++; }
+                eat(")");
+                arity.add("K with " + n + " elements in " + def + " at byte " + at);
+            }
+            return Arest.K(x);
+        }
         ws();
         if (i + 1 < b.length && b[i] == 'S') {
             int argc = -1, skip = 0;
@@ -116,21 +140,18 @@ public final class Reader {
                      && b[i + 2] == '(') { argc = b[i + 1] - '0'; skip = 3; }
             if (argc != -1) {
                 i += skip;
+                int at = i - skip;
                 List<Object> parts = new ArrayList<>();
-                if (argc == -2) {
-                    while (true) {
-                        ws();
-                        if (i < b.length && b[i] == ')') { i++; break; }
-                        if (!parts.isEmpty() && !eat(",")) return null;
-                        parts.add(expr());
-                    }
-                } else {
-                    for (int k = 0; k < argc; k++) {
-                        if (k > 0 && !eat(",")) return null;
-                        parts.add(expr());
-                    }
-                    eat(")");
+                while (true) {
+                    ws();
+                    if (i < b.length && b[i] == ')') { i++; break; }
+                    if (!parts.isEmpty() && !eat(",")) return null;
+                    parts.add(expr());
                 }
+                // Sn names a sequence of n elements; one written with another
+                // count is a different object in every host that does not refuse it
+                if (argc > 0 && parts.size() != argc)
+                    arity.add("S" + argc + " with " + parts.size() + " elements in " + def + " at byte " + at);
                 return parts.toArray();
             }
         }
@@ -148,6 +169,19 @@ public final class Reader {
         } catch (Exception e) {
             throw new RuntimeException("lambda reader: cannot read " + path + ": " + e);
         }
+        each(src, path, Arest::DEF);
+    }
+
+    // A carrier's text to the <CELL, name, body> list DEF would have made of it,
+    // registering nothing (carrier:cells).
+    public static Object[] cells(String text) {
+        List<Object> out = new ArrayList<>();
+        each(text.getBytes(StandardCharsets.UTF_8), "carrier text",
+             (name, body) -> out.add(new Object[] { "CELL", name, body }));
+        return out.toArray();
+    }
+
+    private static void each(byte[] src, String what, java.util.function.BiConsumer<String, Object> def) {
         Reader p = new Reader(src);
         p.eat("(");
         while (true) {
@@ -157,15 +191,20 @@ public final class Reader {
             if (p.b[p.i] == '"') { p.string(); p.eat(","); continue; }
             if (p.eat("DEF(")) {
                 String name = p.string();
-                if (!p.eat(",")) throw new RuntimeException("lambda reader: " + path + " bad DEF");
+                if (!p.eat(",")) throw new RuntimeException("lambda reader: " + what + " bad DEF");
+                p.def = name;
                 Object body = p.expr();
                 p.eat(")");
                 p.eat(",");
-                Arest.DEF(name, body);
+                def.accept(name, body);
                 continue;
             }
-            throw new RuntimeException("lambda reader: " + path + " is not the DEF grammar");
+            throw new RuntimeException("lambda reader: " + what + " is not the DEF grammar at byte " + p.i + ": "
+                + new String(p.b, p.i, Math.min(80, p.b.length - p.i), StandardCharsets.UTF_8));
         }
+        if (!p.arity.isEmpty())
+            throw new RuntimeException("lambda reader: " + what + ": " + p.arity.size() + " constructors whose name is not their length:\n  "
+                + String.join("\n  ", p.arity));
     }
 
     public static String path(String var, String dflt) {

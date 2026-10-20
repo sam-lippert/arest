@@ -24,12 +24,20 @@ lib="$here/../lib"
 jar="$lib/junit-platform-console-standalone.jar"
 cp="../lib/junit-platform-console-standalone.jar;."
 url="https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.10.2/junit-platform-console-standalone-1.10.2.jar"
-
-if [ ! -f "$jar" ]; then
-  echo "fetching the JUnit console launcher..."
-  mkdir -p "$lib"
-  curl -sSL -o "$jar" "$url"
-fi
+# the SQLite engine the registrations bind (Registrations.java), and the
+# logging API its driver needs to load
+run="../lib/sqlite-jdbc.jar;../lib/slf4j-api.jar;."
+fetch() {
+  if [ ! -f "$lib/$1" ]; then
+    echo "fetching $1..."
+    mkdir -p "$lib"
+    curl -sSL -o "$lib/$1" "$2"
+  fi
+}
+fetch junit-platform-console-standalone.jar "$url"
+# 3.46 or later: 3.45's parser stack overflows on the deepest views the map writes
+fetch sqlite-jdbc.jar "https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.47.1.0/sqlite-jdbc-3.47.1.0.jar"
+fetch slf4j-api.jar "https://repo1.maven.org/maven2/org/slf4j/slf4j-api/1.7.36/slf4j-api-1.7.36.jar"
 
 # EVERY SOURCE IN THIS RUNNER, not the one the test names (2026-09-11). This
 # compiled CasesTest.java alone, and javac only pulls in what that reaches:
@@ -42,4 +50,4 @@ fi
 # of them costs a second and closes that.
 cd "$here"
 javac -cp "$cp" *.java
-exec java -jar ../lib/junit-platform-console-standalone.jar -cp . -c CasesTest --details=summary
+exec java -jar ../lib/junit-platform-console-standalone.jar -cp "$run" -c CasesTest --details=summary
