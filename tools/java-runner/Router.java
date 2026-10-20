@@ -22,7 +22,8 @@ import java.util.concurrent.atomic.AtomicLong;
 //
 // The router's own store is the registry (tools/js-runner/registry): its App table says which apps
 // there are and where each package is, and lambda reads it, as it reads any served store. The verbs
-// are lambda's, read off the registry's store, and every one takes `app`; `apps` lists the apps.
+// are lambda's, read off the registry's store, and every one takes `app`; `apps` lists the apps. Every
+// sentence it answers is lambda's too (router:*); this file starts, stops and speaks to the app servers.
 //
 //   java -cp <classes;sqlite-jdbc;slf4j-api> Router
 //
@@ -97,17 +98,15 @@ public class Router {
         String method = String.valueOf(msg.get("method"));
         Map<?, ?> p = msg.get("params") instanceof Map ? (Map<?, ?>) msg.get("params") : new LinkedHashMap<String, Object>();
         if ("initialize".equals(method)) {
-            List<String> lines = new ArrayList<String>();
-            for (App a : APPS.values()) if (a.instructions != null) lines.add(a.name + ": " + a.instructions);
+            List<Object> lines = new ArrayList<Object>();
+            for (App a : APPS.values()) if (a.instructions != null) lines.add(new Object[] { a.name, a.instructions });
             return Serve.reply(id, Serve.obj("protocolVersion", "2024-11-05",
                 "capabilities", Serve.obj("tools", Serve.obj(), "prompts", Serve.obj()),
                 "serverInfo", Serve.obj("name", "arest", "version", "1.0.0"),
-                "instructions", "AREST serves " + APPS.size() + " apps, each its own store; every verb takes `app`: "
-                    + String.join(", ", APPS.keySet()) + ". The app list is the App table of the registry store. `apps` reports each."
-                    + " This host serves reads; a write is answered not_committed and changes nothing until lambda commits writes itself (#197)."
-                    + (lines.isEmpty() ? "" : " ||| " + String.join(" ||| ", lines))));
+                "instructions", say("router:instructions", names(), lines.toArray())));
         }
-        if ("tools/list".equals(method)) return Serve.reply(id, Serve.obj("tools", tools()));
+        if ("tools/list".equals(method))
+            return Serve.reply(id, Serve.obj("tools", Gui.Json.parse(say("router:tools_json", names(), Serve.read()))));
         if ("prompts/list".equals(method) || "prompts/get".equals(method)) {
             Object r = Serve.handle(msg);
             return r;
@@ -123,7 +122,7 @@ public class Router {
             }
             String app = a.get("app") == null ? "" : String.valueOf(a.remove("app"));
             App x = APPS.get(app);
-            if (x == null) return text(id, "no app named " + Gui.Json.write(app) + "; the apps are " + String.join(", ", APPS.keySet()), true);
+            if (x == null) return text(id, say("router:no_app", app, names()), true);
             if ("apps_check".equals(name)) return text(id, x.check(), false);
             if ("apps_compile".equals(name)) return text(id, x.compile(), false);
             if (!a.containsKey("caller") || a.get("caller") == null) a.put("caller", login);
@@ -133,8 +132,7 @@ public class Router {
             int size = 0;
             if (result.get("content") instanceof Object[]) for (Object c : (Object[]) result.get("content")) size += String.valueOf(((Map<?, ?>) c).get("text")).length();
             if (size > MAX_ANSWER)
-                return text(id, name + " on " + app + " answered " + size + " characters, more than one message to a session carries (" + MAX_ANSWER
-                    + "): ask for a part -- `get` one entity, `actions` on it, one fact type through `fact` with GET", true);
+                return text(id, say("router:too_large", name, app, (long) size, (long) MAX_ANSWER), true);
             return Serve.reply(id, result);
         }
         if (id == null) return null;
@@ -145,31 +143,9 @@ public class Router {
         return Serve.reply(id, Serve.obj("content", new Object[] { Serve.obj("type", "text", "text", s) }, "isError", err));
     }
 
-    // lambda's verbs over the registry's store, each with the app it is for
-    static List<Object> tools() {
-        List<Object> out = new ArrayList<Object>();
-        out.add(Serve.obj("name", "apps", "description", "the resident apps: whether each is serving, and its store's directory",
-            "inputSchema", Serve.obj("type", "object", "properties", Serve.obj())));
-        Map<String, Object> app = Serve.obj("type", "string", "enum", APPS.keySet().toArray(), "description", "the resident app this call is for");
-        out.add(Serve.obj("name", "apps_check", "description", "the app's check: its package compiled into its store by lambda's apps_check, from the readings its package.json's dependencies compose; the app is not served until apps_compile",
-            "inputSchema", Serve.obj("type", "object", "properties", Serve.obj("app", app), "required", new Object[] { "app" })));
-        out.add(Serve.obj("name", "apps_compile", "description", "the app served again, over the store its check wrote",
-            "inputSchema", Serve.obj("type", "object", "properties", Serve.obj("app", app), "required", new Object[] { "app" })));
-        for (Object t : (Object[]) Serve.tools()) {
-            @SuppressWarnings("unchecked") Map<String, Object> tool = (Map<String, Object>) t;
-            @SuppressWarnings("unchecked") Map<String, Object> schema = (Map<String, Object>) tool.get("inputSchema");
-            @SuppressWarnings("unchecked") Map<String, Object> props = (Map<String, Object>) schema.get("properties");
-            Map<String, Object> withApp = new LinkedHashMap<String, Object>();
-            withApp.put("app", app);
-            withApp.putAll(props);
-            List<Object> req = new ArrayList<Object>();
-            req.add("app");
-            if (schema.get("required") instanceof Object[]) for (Object r : (Object[]) schema.get("required")) req.add(r);
-            out.add(Serve.obj("name", tool.get("name"), "description", tool.get("description") + " -- in the app named by `app`",
-                "inputSchema", Serve.obj("type", "object", "properties", withApp, "required", req.toArray())));
-        }
-        return out;
-    }
+    // a sentence lambda says over the parts this host knows; one part is passed as itself
+    static String say(String def, Object... parts) { return String.valueOf(Arest.Ev(def, parts.length == 1 ? parts[0] : parts)); }
+    static Object[] names() { return APPS.keySet().toArray(); }
 
     // ONE APP'S SERVER: a Serve process over the app's .check directory, spoken to in JSON-RPC lines
     static final class App {
@@ -187,7 +163,7 @@ public class Router {
         // line runs lambda's `apps_check <package directory>` in the package. Which readings, in what order and
         // where they land are lambda's; this starts the process and reports how it ended.
         synchronized String check() throws Exception {
-            if (busy != null) return name + " is " + busy;
+            if (busy != null) return say("router:busy", name, busy);
             stop();
             busy = "checking";
             note = "";
@@ -215,42 +191,41 @@ public class Router {
                 } catch (Exception e) { }
                 synchronized (App.this) {
                     busy = null;
-                    note = (code == 0 ? "check ok: " : "check FAILED (exit " + code + "), the store as it was: ") + tail;
+                    note = say("router:check_note", (long) code, tail);
                 }
             });
             w.setDaemon(true);
             w.start();
-            return "checking " + name + ": lambda's apps_check over " + pkg + " (its package.json's dependencies), into " + dir
-                + "; not served until apps_compile, and `apps` reports the result";
+            return say("router:checking", name, pkg, dir);
         }
 
         // apps_compile: this host reads lambda and the store's carriers when a server starts, so compiling the
         // app is starting its server again over the store apps_check wrote.
         synchronized String compile() throws Exception {
-            if (busy != null) return name + " is " + busy;
+            if (busy != null) return say("router:busy", name, busy);
             stop();
             note = "";
             start();
-            return "compiled " + name + ": serving over " + dir + "/store.db";
+            return say("router:compiled", name, dir);
         }
 
         synchronized String status() {
             if (busy != null) return busy;
             String s = statusOf();
-            return note.isEmpty() ? s : s + " -- " + note;
+            return say("router:with_note", s, note);
         }
 
         synchronized String statusOf() {
-            if (error != null) return "failed: " + error;
+            if (error != null) return say("router:failed", error);
             if (proc != null && proc.isAlive()) return "serving";
-            return new File(dir, "store.db").isFile() ? "idle" : "no store at " + dir + "/store.db";
+            return new File(dir, "store.db").isFile() ? "idle" : say("router:no_store_at", dir);
         }
 
         synchronized void start() throws Exception {
             if (proc != null && proc.isAlive()) return;
-            if (busy != null) throw new RuntimeException(name + " is " + busy + "; apps_compile serves it again");
+            if (busy != null) throw new RuntimeException(say("router:start_busy", name, busy));
             error = null;
-            if (!new File(dir, "store.db").isFile()) throw new RuntimeException(name + " has no store at " + dir + "/store.db: its check writes it");
+            if (!new File(dir, "store.db").isFile()) throw new RuntimeException(say("router:no_store", name, dir));
             String java = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
             ProcessBuilder pb = new ProcessBuilder(java, "-Xmx" + Reader.path("AREST_APP_HEAP", "2g"), "-Xss512m",
                 "-cp", System.getProperty("java.class.path"), "Serve", dir);
@@ -269,8 +244,8 @@ public class Router {
                         if (f != null) f.complete(m);
                     }
                 } catch (Exception e) { }
-                synchronized (App.this) { if (proc == me) error = "the server exited (" + exitOf(me) + "); see " + dir + "/serve.log"; }
-                for (CompletableFuture<Map<?, ?>> f : pending.values()) f.complete(Serve.fail(null, name + "'s server exited; see " + dir + "/serve.log"));
+                synchronized (App.this) { if (proc == me) error = say("router:exited", exitOf(me), dir); }
+                for (CompletableFuture<Map<?, ?>> f : pending.values()) f.complete(Serve.fail(null, say("router:exited_call", name, dir)));
                 pending.clear();
             });
             rd.setDaemon(true);
@@ -280,7 +255,7 @@ public class Router {
             if (r instanceof Map && ((Map<?, ?>) r).get("instructions") != null) instructions = String.valueOf(((Map<?, ?>) r).get("instructions"));
         }
 
-        static String exitOf(Process p) { try { return "exit " + p.exitValue(); } catch (Exception e) { return "running"; } }
+        static Object exitOf(Process p) { try { return Long.valueOf(p.exitValue()); } catch (Exception e) { return "running"; } }
 
         Map<?, ?> request(String method, Object params) throws Exception {
             last = System.currentTimeMillis();
