@@ -2,18 +2,8 @@
   "name": "arest-js-runner",
   "private": true,
   "version": "0.0.0",
-  "description": "One host file plus lambda. host.js is the whole host -- a strict mu, the Backus base, the registration vocabulary and the four ways in (cli, test, serve, mcp); build.js splices lambda and the carriers into it by byte concatenation and appends the boot call. Composed, exec'd by bun, never eval'd.",
+  "description": "The thin JS host: the vocabulary and strict mu (arest.js), the registrations resolution.md declares (registrations.js) and the command line (program.js), a peer of tools/java-runner.",
   "scripts": {
-    "build": "bun build.js cli",
-    "build:test": "bun build.js test",
-    "build:serve": "bun build.js serve",
-    "build:mcp": "bun build.js mcp",
-    "start": "bun composed.g.js",
-    "test": "bun build.js test && bun test",
-    "build:order": "AREST_CARRIERS=../../../apps/order bun build.js cli",
-    "build:family": "AREST_CARRIERS=../../../apps/family bun build.js cli",
-    "build:sherlock": "AREST_CARRIERS=../../../apps/sherlock bun build.js cli",
-    "build:arest": "AREST_CARRIERS=../../../apps/arest bun build.js cli",
-    "build:autodev": "AREST_CARRIERS=../../../apps/auto.dev bun build.js cli"
+    "start": "bun program.js"
   }
 }

@@ -1,71 +1,21 @@
-# js-runner — the one thin runner
+# js-runner: the thin JS host
 
-Seven stations died of the same disease at different speeds: host code.
-First it was fallback lists and guards; at the end it was mode dispatch —
-every lambda operation teaching eight hosts a new argv branch. The cure is
-structural. This runner is the whole fleet now, and it can never grow.
+A peer of `tools/java-runner`, written from the same rows. A host brings Backus's primitives, the registrations
+`metamodel/resolution.md` declares, and a way in; everything else is lambda. There is no memo and no twin here: a
+strategy a host keeps is one every other host must keep too, so speed belongs in lambda.
 
-**The host contract, final:** the lambda's `main` takes `⟨store, args⟩`
-and answers `⟨text, ok⟩`. The tail converts argv to atoms, evaluates
-`main`, prints the text atom verbatim, and exits by the flag:
+- `arest.js`: the vocabulary and the strict mu. Lambda is read as what it is in JS: `LAMBDA` before the file's one
+  parenthesized literal makes it a call, and `DEF`, `A`, `N`, `K`, `PHI` and `S1`..`S9` are bound to this host's
+  functions. Each constructor is held to its name, so `S3` with four elements is refused, as the Java reader refuses
+  it. A number is a 64-bit integer (a BigInt held to 64 bits, as Java's Long is). `AREST_PROFILE=<file>` writes a
+  profile of lambda's own names; under it, a throw names the innermost cells.
+- `registrations.js`: one body per registered Function lambda applies: the clock, `round`, the files,
+  `module:root`, the crypt rows, `hook:seal`, and the SQLite engine (bun's `bun:sqlite`).
+- `program.js`: the command line. It prints what lambda's `main` answers over the cells and the arguments, and exits
+  by its verdict.
 
-    const out = Ev("main", [CELLS, process.argv.slice(2)]);
-    console.log(out[0]);
-    process.exit(out[1] === "T" ? 0 : 1);
+      bun program.js <address...>        # as java Program <address...>
 
-That is the entire host surface. All dispatch (base report, app report,
-solve, loud refusal of unknown modes) and ALL rendering (every output
-line) live in lambda `main:`. A new operation is a lambda edit, never a
-host edit. If you are about to add a branch to the tail, stop — that is
-precisely how the last runners died.
+`AREST_LAMBDA`, `AREST_TESTS`, `AREST_SCENARIOS` and `AREST_CARRIERS` name the files, as for the Java host.
 
-    npm run build           && bun composed.g.js          # base: 24 laws
-    npm run build:order     && bun composed.g.js app      # an app's 10 laws
-    npm run build:sherlock  && bun composed.g.js solve    # the solve narrative
-    bun build.js mcp --run                                # the MCP server, on stdio
-    bun build.js regress && bun regress.g.js regress      # the run against its record
-
-`regress` is test:regress_report over the run's own outcome (`state:built`,
-`state:errors`, `state:readback`: the carrier `outcome` the oracle writes
-beside `design-state` every run) and a recorded expectation composed in as
-the carrier `expected` (both optional, like `compiled`;
-`AREST_OUT_DIR` puts the composed module beside them). The `regress` build
-mode composes lambda with those two carriers and no schema, since the laws
-read nothing else and us-law's design-state took the host minutes to load
-and close. Three rows, then the heads lost and new. That is the corpus
-check of tools/norma-oracle-tests. The cli composition carries the two
-carriers as well, so `bun composed.g.js regress` answers on the base store.
-
-The composed modules (`*.g.js`) are build products and are not tracked,
-so anything that starts one must compose it first. The MCP entry in the
-repository's `.mcp.json` runs `build.js mcp --run`, which composes from
-the current lambda and carriers and then starts the module on the same
-stdio (the size line and the boot timings go to stderr; stdout is the
-protocol channel). A module started directly can be days old: the one the
-harness started on 2026-09-03 took two minutes to boot, past the client's
-thirty-second limit, where a current one boots in about eight seconds,
-most of it the derivation closure (`boot: derived` on stderr says how much).
-
-`head.part.js` is the strict μ, unchanged from the certified fleet era
-(selector-on-atom throws, duplicate DEF throws, compare-across-kinds
-throws, Backus ⊥ on `tl`/`tlr`/`1r`/`INSERT` of the empty sequence).
-The compose step is byte concatenation; bun execs the composed file;
-nothing is read, eval'd, or interpreted at runtime.
-
-THERE IS NO FOURTH CARRIER. A JOURNAL used to be one: an append-only
-argument list of `,\n\nDEF("journal:n", address)` entries written by a
-registered `store:append`, replayed at boot by `ui:boot` through
-`ui:apply`/`ui:create` in file order, so a fired transition survived
-recomposition. It is gone (Samuel, 2026-09-11) — eleven lambda DEFs,
-the slot in `ui:navpe` that minted a `journal:<n>` cell on every write,
-and the `mid3.part.js`/`mid4.part.js` this paragraph named, which this
-station had already stopped composing. Continuity is the tables: a
-write emits into them through `emitToDb`, and boot reads them back.
-
-The certification story after the reset: the NORMA oracle remains the
-independent semantic anchor, and any second μ — a redeployed station
-from git history, or muc regenerated against this same contract — must
-reproduce this runner's printed atoms byte-for-byte. The deleted fleet
-lives in git (`87ad3e7` and earlier) should a dispute ever need a
-second opinion; its evidentiary work (eight evaluators, byte-identical
-across five languages) is banked in the ledger.
+The `registry/` directory is the router's own readings and store.
