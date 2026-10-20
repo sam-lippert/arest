@@ -155,7 +155,7 @@ public class Router {
             "inputSchema", Serve.obj("type", "object", "properties", Serve.obj("app", app), "required", new Object[] { "app" })));
         out.add(Serve.obj("name", "apps_compile", "description", "the app served again, over the store its check wrote",
             "inputSchema", Serve.obj("type", "object", "properties", Serve.obj("app", app), "required", new Object[] { "app" })));
-        for (Object t : Serve.tools()) {
+        for (Object t : (Object[]) Serve.tools()) {
             @SuppressWarnings("unchecked") Map<String, Object> tool = (Map<String, Object>) t;
             @SuppressWarnings("unchecked") Map<String, Object> schema = (Map<String, Object>) tool.get("inputSchema");
             @SuppressWarnings("unchecked") Map<String, Object> props = (Map<String, Object>) schema.get("properties");
