@@ -37,14 +37,8 @@ function show(x) {
   return typeof x === "string" ? x : String(x);
 }
 
-// under the profiler, the innermost named cells at a throw, which the unwinding would otherwise take with it
-function where() {
-  if (!process.env.AREST_PROFILE) return "";
-  return " -- in " + PSTACK.slice(-24).reverse().join(" ");
-}
-
 function seq(x) {
-  if (!Array.isArray(x)) throw new Error("expected sequence, got atom: " + show(x) + where());
+  if (!Array.isArray(x)) throw new Error("expected sequence, got atom: " + show(x));
   return x;
 }
 
@@ -162,78 +156,11 @@ PRIMS.set("chars", (x) => { if (typeof x !== "string") throw new Error("chars of
 PRIMS.set("1r", (x) => { const a = seq(x); if (a.length === 0) throw new Error("1r of <>"); return a[a.length - 1]; });
 PRIMS.set("tlr", (x) => { const a = seq(x); if (a.length === 0) throw new Error("tlr of <>"); return a.slice(0, -1); });
 
-// ---- the profile (AREST_PROFILE names a file): measurement, no meaning. Each named application pushes its name;
-// about every millisecond the names on the stack are counted once each (inclusive) and the top one (self), and the
-// counts are written to the file every 30 s. Evaluation is synchronous, so the clock is read every 256 named calls
-// rather than by a timer. Off, it costs one branch.
-const PROFILE = process.env.AREST_PROFILE;
-const PSTACK = [];
-const PCOUNTS = new Map();
-let PTICK = 0, PSAMPLES = 0, PLAST = Date.now(), PWROTE = Date.now();
-const PT0 = Date.now();
-function sample() {
-  const now = Date.now();
-  if (now - PLAST < 1) return;
-  PLAST = now;
-  PSAMPLES++;
-  const seen = new Set();
-  for (const n of PSTACK) if (!seen.has(n)) { seen.add(n); bump(n, 1); }
-  if (PSTACK.length) bump(PSTACK[PSTACK.length - 1], 0);
-  if (now - PWROTE > 30000) { PWROTE = now; fs.writeFileSync(PROFILE, profileText()); }
-}
-function bump(n, at) { let c = PCOUNTS.get(n); if (!c) { c = [0, 0]; PCOUNTS.set(n, c); } c[at]++; }
-function profileText() {
-  let out = "profile: " + PSAMPLES + " samples over " + Math.round((Date.now() - PT0) / 1000) + " s\n";
-  for (const by of [0, 1]) {
-    out += by === 0 ? "-- self\n" : "-- inclusive\n";
-    const es = [...PCOUNTS.entries()].sort((p, q) => q[1][by] - p[1][by]).slice(0, 80);
-    for (const [n, c] of es) out += (100 * c[by] / Math.max(1, PSAMPLES)).toFixed(2).padStart(6) + "%  " + n + "\n";
-  }
-  return out;
-}
-if (PROFILE) process.on("exit", () => fs.writeFileSync(PROFILE, profileText()));
-
-// AREST_COUNT=<file> counts every named application by its name, and for the DEF AREST_COUNT_ARGS names, its operand's
-// first element and whether its answer is #, written to the file at exit: measurement, no meaning.
-const COUNT = process.env.AREST_COUNT, COUNT_OF = process.env.AREST_COUNT_ARGS;
-const CALLS = new Map(), ARGS = new Map();
-let CTICK = 0, CWROTE = Date.now();
-function countText() {
-  const top = (m) => [...m.entries()].sort((p, q) => q[1] - p[1]).slice(0, 60).map(([k, v]) => String(v).padStart(10) + "  " + k).join("\n");
-  return "-- calls\n" + top(CALLS) + "\n-- " + COUNT_OF + " by operand\n" + top(ARGS) + "\n";
-}
-if (COUNT) process.on("exit", () => fs.writeFileSync(COUNT, countText()));
-
 function Ev(f, x) {
-  if (COUNT && typeof f === "string") {
-    CALLS.set(f, (CALLS.get(f) || 0) + 1);
-    if ((++CTICK & 65535) === 0 && Date.now() - CWROTE > 30000) { CWROTE = Date.now(); fs.writeFileSync(COUNT, countText()); }
-    if (f === COUNT_OF) {
-      const v = PROFILE ? Ev1(f, x) : Ev0(f, x);
-      // under the profile, the nearest named callers that are not combining forms or primitives
-      const by = PROFILE ? "  <- " + PSTACK.filter((n) => DEFS.has(n) && !/^(CONS|CONST|apply)$/.test(n)).slice(-4, -1).reverse().join(" < ") : "";
-      const k = (Array.isArray(x) && x.length ? show(x[0]).slice(0, 60) : "?") + (v === "#" ? "  -> #" : "") + by;
-      ARGS.set(k, (ARGS.get(k) || 0) + 1);
-      return v;
-    }
-  }
-  return PROFILE ? Ev1(f, x) : Ev0(f, x);
-}
-
-function Ev1(f, x) {
-  if (typeof f === "string") {
-    PSTACK.push(f);
-    if ((++PTICK & 255) === 0) sample();
-    try { return Ev0(f, x); } finally { PSTACK.pop(); }
-  }
-  return Ev0(f, x);
-}
-
-function Ev0(f, x) {
   if (typeof f === "bigint") {
-    if (!Array.isArray(x)) throw new Error("selector " + f + " on atom: " + show(x) + where());
+    if (!Array.isArray(x)) throw new Error("selector " + f + " on atom: " + show(x));
     const n = Number(f);
-    if (n < 1 || n > x.length) throw new Error("selector " + f + " out of range " + x.length + where());
+    if (n < 1 || n > x.length) throw new Error("selector " + f + " out of range " + x.length);
     return x[n - 1];
   }
   if (typeof f === "string") {
