@@ -17,9 +17,7 @@ public class Program {
         Reader.load(Reader.path("AREST_SCENARIOS", "../../engine/shared/scenarios.canon"));
         Reader.loadCarriers(Reader.path("AREST_CARRIERS", "../carriers/base"));
         Registrations.register(lambda);
-        // the composed store booted as lambda says (main:boot): FILE built and the store closed
-        Object store = Arest.Ev("main:boot", Arest.CELLS.toArray());
-        Object[] out = (Object[]) Arest.Ev("main", new Object[] { store, args });
+        Object[] out = (Object[]) Arest.Ev("main", new Object[] { Arest.CELLS.toArray(), args });
         System.out.print(out[0] + "\n");
         System.exit("T".equals(out[1]) ? 0 : 1);
     }
