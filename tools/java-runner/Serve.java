@@ -103,7 +103,7 @@ public class Serve {
         if ("prompts/get".equals(method)) {
             String name = p.get("name") == null ? "" : String.valueOf(p.get("name"));
             String t = String.valueOf(Arest.Ev("mcp:prompt", new Object[] { name, read() }));
-            return reply(id, obj("description", "FORML 2 verbalization pattern " + name,
+            return reply(id, obj("description", String.valueOf(Arest.Ev("mcp:prompt_description", name)),
                 "messages", new Object[] { obj("role", "user", "content", obj("type", "text", "text", t)) }));
         }
         if ("tools/call".equals(method)) {
@@ -127,7 +127,7 @@ public class Serve {
         Object[] out;
         if ("fact".equals(name)) {
             String method = a.get("method") == null ? "GET" : String.valueOf(a.get("method"));
-            if (!"GET".equals(method)) return NOT_COMMITTED;
+            if (!"GET".equals(method)) return notCommitted();
             Object fact = a.get("fact") == null ? new Object[0] : Gui.fromJson(a.get("fact"));
             out = (Object[]) Arest.Ev("mcp:call", new Object[] { method, String.valueOf(a.get("factType")), caller, fact, store });
             return answered(out, ((Number) out[1]).longValue());
@@ -136,18 +136,18 @@ public class Serve {
         argv.add(name);
         if (a.get("args") instanceof Object[]) for (Object x : (Object[]) a.get("args")) argv.add(Gui.fromJson(x));
         // a verb lambda says writes is not evaluated: its new store would be thrown away (answered, below)
-        if ("T".equals(Arest.Ev("main:verb_writes", new Object[] { read(), argv.toArray() }))) return NOT_COMMITTED;
+        if ("T".equals(Arest.Ev("main:verb_writes", new Object[] { read(), argv.toArray() }))) return notCommitted();
         out = (Object[]) Arest.Ev("main:as", new Object[] { store, caller, argv.toArray() });
         return answered(out, "T".equals(out[1]) ? 200L : 500L);
     }
 
-    static final Object[] NOT_COMMITTED = new Object[] {
-        "[\"not_committed\",\"this host takes no writes yet: lambda does not commit a write's new store itself (#197), and a host has no commit of its own, so nothing was evaluated and the store is as it was\"]", 501L };
+    // a write lambda does not commit and this host cannot: lambda says so (mcp:not_committed)
+    static Object[] notCommitted() { return new Object[] { String.valueOf(Arest.Ev("mcp:not_committed", new Object[0])), 501L }; }
 
     // a read's answer, a write lambda stored, or a write this host cannot commit
     static Object[] answered(Object[] out, long status) {
         if (out.length > 2 && "stored".equals(out[2])) { Arest.memoClear(); return new Object[] { out[0], status }; }
-        if (out.length > 2 && status < 400) return NOT_COMMITTED;
+        if (out.length > 2 && status < 400) return notCommitted();
         return new Object[] { out[0], status };
     }
 }
