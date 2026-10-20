@@ -16,6 +16,13 @@ strategy a host keeps is one every other host must keep too, so speed belongs in
 
       bun program.js <address...>        # as java Program <address...>
 
+- `serve.js`: one app's store over MCP on stdio. It builds the JSON-RPC envelopes around lambda's answers
+  (`mcp:instructions`, `mcp:tools_json`, `main:as`, `mcp:call`, `mcp:prompts`, `mcp:prompt`, `mcp:prompt_description`,
+  `mcp:not_committed`) and writes nothing of its own. Over the same store its answers are Java's, byte for byte.
+
+      bun serve.js <app .check directory>                        # as java Serve <dir>
+      bun serve.js <app .check directory> --call <tool> <json>   # one call, answered on stdout
+
 `AREST_LAMBDA`, `AREST_TESTS`, `AREST_SCENARIOS` and `AREST_CARRIERS` name the files, as for the Java host.
 
 The `registry/` directory is the router's own readings and store.
