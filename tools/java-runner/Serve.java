@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 // ONE APP'S STORE OVER MCP. JSON-RPC on stdio, one message to a line, and every answer lambda's:
-// mcp:instructions at initialize, mcp:verbs for the tools, main:as for a verb, mcp:call for a fact
+// mcp:instructions at initialize, mcp:tools_json for the tools, main:as for a verb, mcp:call for a fact
 // type's own resource, mcp:prompts and mcp:prompt for the verbalization patterns. This file builds
 // the protocol's envelopes and nothing else.
 //
@@ -117,27 +117,8 @@ public class Serve {
         return fail(id, "unknown method: " + method);
     }
 
-    // the verbs lambda serves, each taking its arguments as one array, and the fact type's own resource
-    static List<Object> tools() {
-        List<Object> out = new ArrayList<Object>();
-        for (Object v : (Object[]) Arest.Ev("mcp:verbs", read())) {
-            Object[] r = (Object[]) v;
-            String said = r.length > 3 ? text(r[3]) : "";
-            out.add(obj("name", text(r[0]),
-                "description", (said.isEmpty() ? "" : said + " -- ") + "takes the " + text(r[1]) + ", answers the " + text(r[2]),
-                "inputSchema", obj("type", "object", "properties", obj(
-                    "args", obj("type", "array", "description", "the verb's arguments, in order; a verb that takes the store takes none")))));
-        }
-        out.add(obj("name", "fact",
-            "description", "one fact type's own resource: GET reads its population and its links; POST asserts one fact, DELETE retracts one and PUT replaces one. `factType` is the resource name `actions`, `schema` and the fact types' GETs give; `fact` is the role players in role order.",
-            "inputSchema", obj("type", "object", "properties", obj(
-                "factType", obj("type", "string", "description", "the fact type's resource name"),
-                "method", obj("type", "string", "enum", new Object[] { "GET", "POST", "DELETE", "PUT" }),
-                "fact", obj("type", "array", "description", "the role players, in role order"),
-                "caller", obj("type", "string", "description", "who is calling")),
-                "required", new Object[] { "factType", "method" })));
-        return out;
-    }
+    // the tools lambda serves (mcp:tools_json): each verb, taking its arguments as one array, and the fact type's own resource
+    static Object tools() { return Gui.Json.parse(String.valueOf(Arest.Ev("mcp:tools_json", read()))); }
 
     static Object[] call(Map<?, ?> p) {
         String name = String.valueOf(p.get("name"));
