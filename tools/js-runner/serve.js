@@ -4,8 +4,9 @@
 // mcp:not_committed for a write this host cannot commit. This file builds the protocol's envelopes and nothing else.
 //
 // The store is the app's database: lambda reads a population where the database places it (store:for_read,
-// store:sql_rows) once the store names its database in state:store_db, and the carriers its check wrote beside the
-// database give the schema it is read through.
+// store:sql_rows) once the store names its database in state:store_db. The schema it is read through is the carriers
+// its check wrote beside the database, or, where none are, the schema its compile wrote into the database
+// (store:schema_in reads its _defs).
 //
 // A WRITE IS COMMITTED BY LAMBDA OR IT IS REFUSED. An answer whose third part is `stored` was committed by lambda's own
 // program (sqlite:program inside it, as an entity retract is), and it is answered. An answer that hands back a new
@@ -29,13 +30,15 @@ console.log = console.error;
 // the store this server answers over: an app's (boot), or the registry's when router.js serves through this file
 let store = null;
 
-// lambda and the carriers the check wrote beside the database, and the database named: what a served read asks of
-// the schema, computed once by lambda (store:boot)
+// lambda, the carriers the check wrote beside the database where it wrote any, and the database named: what a
+// served read asks of the schema, computed once by lambda (store:boot)
 function boot(dir) {
   const t0 = Date.now();
   const lambda = A.path("AREST_LAMBDA", __dirname + "/../../arest");
   A.load(lambda);
-  A.loadCarriers(dir);
+  // a store whose check wrote carriers beside it is read through them; one with none is read through the schema its
+  // compile wrote into it (store:schema_in reads its _defs)
+  if (fs.existsSync(dir + "/design-state")) A.loadCarriers(dir);
   require("./registrations.js").register(lambda);
   const db = dir + "/store.db";
   if (!fs.existsSync(db)) throw new Error("no store at " + db + ": the app's check writes it");
