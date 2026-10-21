@@ -22,8 +22,15 @@ import java.util.Map;
 // (#197, the write path), and this host has no commit of its own to run in its place, so it
 // answers that the write was not committed and keeps the store as it was.
 //
+// HTTP IS THE SAME OPERATION OVER ANOTHER TRANSPORT. A request is <store, method, resource, caller, body>
+// through lambda's main:api: the resource is the path less its leading slash, the caller the
+// x-arest-caller header (no header is the anonymous caller), the body the request's JSON (none is the
+// empty sequence). The answer's text and status are lambda's, and a request lambda says writes
+// (main:writes) is answered as a write the MCP verbs make is.
+//
 //   java Serve <app .check directory>                         serve MCP on stdio
 //   java Serve <app .check directory> --call <tool> <json>    one call, answered on stdout
+//   java Serve <app .check directory> --http <port>           serve HTTP on the port, on 127.0.0.1
 public class Serve {
     static Object[] store;
     static final PrintStream OUT = utf8Out();
@@ -56,6 +63,11 @@ public class Serve {
             Object[] out = call(call);
             System.err.println("serve: " + args[2] + " answered in " + (System.nanoTime() - t1) / 1000000 + " ms, status " + out[1]);
             OUT.println(String.valueOf(out[0]));
+            return;
+        }
+        if (args.length > 2 && "--http".equals(args[1])) {
+            http(Integer.parseInt(args[2]));
+            System.err.println("serve: HTTP on 127.0.0.1:" + args[2]);
             return;
         }
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
@@ -113,8 +125,61 @@ public class Serve {
             return reply(id, obj("content", new Object[] { obj("type", "text", "text", String.valueOf(out[0])) },
                 "isError", ((Number) out[1]).longValue() >= 400));
         }
+        // the router's HTTP request for this app, passed on as it came
+        if ("http/request".equals(method)) {
+            Object[] out = request(String.valueOf(p.get("method")), p.get("resource") == null ? "" : String.valueOf(p.get("resource")),
+                p.get("caller") == null ? "" : String.valueOf(p.get("caller")), p.get("body"));
+            return reply(id, obj("status", out[1], "body", String.valueOf(out[0])));
+        }
         if (id == null) return null;
         return fail(id, "unknown method: " + method);
+    }
+
+    // one HTTP request through main:api, answered <text, status>
+    static Object[] request(String method, String resource, String caller, Object body) {
+        try {
+            Object[] req = new Object[] { store, method, resource, caller, body == null ? new Object[0] : Gui.fromJson(body) };
+            if ("T".equals(Arest.Ev("main:writes", req))) return notCommitted();
+            Object[] out = (Object[]) Arest.Ev("main:api", req);
+            return answered(out, status(out[1]));
+        } catch (Throwable e) { return new Object[] { String.valueOf(e.getMessage()), 500L }; }
+    }
+    static long status(Object s) {
+        if (s instanceof Number) return ((Number) s).longValue();
+        try { return Long.parseLong(String.valueOf(s)); } catch (NumberFormatException e) { return 500L; }
+    }
+
+    // the request's JSON, or nothing when it has none or it does not parse
+    static Object body(com.sun.net.httpserver.HttpExchange ex) {
+        try (java.io.InputStream in = ex.getRequestBody()) {
+            java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            for (int n; (n = in.read(buf)) > 0; ) b.write(buf, 0, n);
+            String s = new String(b.toByteArray(), StandardCharsets.UTF_8);
+            return s.trim().isEmpty() ? null : Gui.Json.parse(s);
+        } catch (Throwable e) { return null; }
+    }
+    static void respond(com.sun.net.httpserver.HttpExchange ex, long status, String text) throws java.io.IOException {
+        byte[] b = text.getBytes(StandardCharsets.UTF_8);
+        ex.getResponseHeaders().set("content-type", "application/json; charset=utf-8");
+        ex.sendResponseHeaders((int) status, b.length == 0 ? -1 : b.length);
+        if (b.length > 0) try (java.io.OutputStream o = ex.getResponseBody()) { o.write(b); }
+        ex.close();
+    }
+    static String caller(com.sun.net.httpserver.HttpExchange ex) {
+        String c = ex.getRequestHeaders().getFirst("x-arest-caller");
+        return c == null ? "" : c;
+    }
+
+    // one request at a time, in the order they came, as the MCP lines are answered
+    static void http(int port) throws Exception {
+        com.sun.net.httpserver.HttpServer s = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", port), 0);
+        s.createContext("/", ex -> {
+            String path = ex.getRequestURI().getPath();
+            Object[] out = request(ex.getRequestMethod(), path.startsWith("/") ? path.substring(1) : path, caller(ex), body(ex));
+            respond(ex, ((Number) out[1]).longValue(), String.valueOf(out[0]));
+        });
+        s.start();
     }
 
     // the tools lambda serves (mcp:tools_json): each verb, taking its arguments as one array, and the fact type's own resource

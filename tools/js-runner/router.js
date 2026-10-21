@@ -10,7 +10,8 @@
 //   bun router.js
 //
 // AREST_LAMBDA names the lambda file, AREST_REGISTRY the registry package, AREST_LOGIN the caller a call names when it
-// names none.
+// names none. AREST_HTTP_PORT, when set, serves HTTP on 127.0.0.1 too: /<app>/<resource> is passed to that app's server
+// as it came (serve.js's HTTP), and the caller is the request's own.
 "use strict";
 const fs = require("fs");
 const nodePath = require("path");
@@ -212,6 +213,27 @@ for (const r of rows("AppHasPackageDirectory")) {
 }
 process.stderr.write("router: " + APPS.size + " apps from " + dir + ": " + names().join(", ") + "\n");
 setInterval(() => { for (const a of APPS.values()) a.restIfIdle(); }, 60000).unref();
+
+// /<app>/<resource> to that app's server; an app the registry does not name is lambda's unknown resource
+const httpPort = A.path("AREST_HTTP_PORT", "");
+if (httpPort !== "") {
+  Bun.serve({ hostname: "127.0.0.1", port: Number(httpPort), async fetch(req) {
+    const path = decodeURIComponent(new URL(req.url).pathname);
+    const rest = path.startsWith("/") ? path.slice(1) : path;
+    const i = rest.indexOf("/");
+    const name = i < 0 ? rest : rest.slice(0, i);
+    const x = APPS.get(name);
+    if (!x) return serve.respond(serve.status(A.Ev("http:status_of", "unknown_resource")), say("router:no_app", name, names()));
+    let out;
+    try {
+      const r = await x.request("http/request", { method: req.method, resource: i < 0 ? "" : rest.slice(i + 1),
+        caller: serve.callerOf(req), body: await serve.body(req) });
+      out = r.error != null ? [String(r.error.message), 500] : [String(r.result.body), serve.status(r.result.status)];
+    } catch (e) { out = [String(e.message), 500]; }
+    return serve.respond(out[1], out[0]);
+  } });
+  process.stderr.write("router: HTTP on 127.0.0.1:" + httpPort + "\n");
+}
 
 const inflight = new Set();
 const lines = require("readline").createInterface({ input: process.stdin });

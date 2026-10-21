@@ -12,8 +12,14 @@
 // store is a write lambda does not commit itself yet (#197, the write path), and this host has no commit of its own to
 // run in its place, so it answers what lambda says of that and keeps the store as it was.
 //
+// HTTP IS THE SAME OPERATION OVER ANOTHER TRANSPORT. A request is <store, method, resource, caller, body> through
+// lambda's main:api: the resource is the path less its leading slash, the caller the x-arest-caller header (no header
+// is the anonymous caller), the body the request's JSON (none is the empty sequence). The answer's text and status are
+// lambda's, and a request lambda says writes (main:writes) is answered as a write the MCP verbs make is.
+//
 //   bun serve.js <app .check directory>                         serve MCP on stdio
 //   bun serve.js <app .check directory> --call <tool> <json>    one call, answered on stdout
+//   bun serve.js <app .check directory> --http <port>           serve HTTP on the port, on 127.0.0.1
 "use strict";
 const fs = require("fs");
 const A = require("./arest.js");
@@ -75,8 +81,46 @@ function handle(msg) {
     try { out = call(p); } catch (e) { out = [String(e.message), 500]; }
     return reply(id, { content: [{ type: "text", text: String(out[0]) }], isError: out[1] >= 400 });
   }
+  // the router's HTTP request for this app, passed on as it came
+  if (method === "http/request") {
+    const out = request(str(p.method), p.resource == null ? "" : String(p.resource), p.caller == null ? "" : String(p.caller), p.body);
+    return reply(id, { status: out[1], body: String(out[0]) });
+  }
   if (id === null) return null;
   return fail(id, "unknown method: " + method);
+}
+
+// one HTTP request through main:api, answered <text, status>
+function request(method, resource, caller, body) {
+  try {
+    const req = [store, method, resource, caller, body == null ? [] : fromJson(body)];
+    if (A.Ev("main:writes", req) === "T") return notCommitted();
+    const out = A.Ev("main:api", req);
+    return answered(out, status(out[1]));
+  } catch (e) { return [String(e.message), 500]; }
+}
+const status = (s) => { const n = Number(s); return Number.isInteger(n) ? n : 500; };
+
+// the request's JSON, or nothing when it has none or it does not parse
+async function body(req) {
+  try { const s = await req.text(); return s.trim() ? JSON.parse(s) : null; } catch (e) { return null; }
+}
+const respond = (status, text) => new Response(text.length ? text : null,
+  { status, headers: { "content-type": "application/json; charset=utf-8" } });
+const callerOf = (req) => req.headers.get("x-arest-caller") || "";
+
+// one request at a time, in the order they came, as the MCP lines are answered
+function http(port) {
+  let last = Promise.resolve();
+  Bun.serve({ hostname: "127.0.0.1", port, fetch(req) {
+    const path = decodeURIComponent(new URL(req.url).pathname);
+    const next = last.then(async () => {
+      const out = request(req.method, path.startsWith("/") ? path.slice(1) : path, callerOf(req), await body(req));
+      return respond(Number(out[1]), String(out[0]));
+    });
+    last = next.catch(() => {});
+    return next;
+  } });
 }
 
 function call(p) {
@@ -108,7 +152,7 @@ function answered(out, status) {
   return [out[0], status];
 }
 
-module.exports = { boot, handle, call, read, reply, fail, setStore: (s) => { store = s; } };
+module.exports = { boot, handle, call, read, reply, fail, body, respond, callerOf, status, setStore: (s) => { store = s; } };
 
 if (require.main === module) {
   boot(process.argv[2].replace(/\\/g, "/"));
@@ -117,6 +161,9 @@ if (require.main === module) {
     const out = call({ name: process.argv[4], arguments: process.argv[5] ? JSON.parse(process.argv[5]) : {} });
     process.stderr.write("serve: " + process.argv[4] + " answered in " + (Date.now() - t1) + " ms, status " + out[1] + "\n");
     process.stdout.write(String(out[0]) + "\n");
+  } else if (process.argv[3] === "--http") {
+    http(Number(process.argv[4]));
+    process.stderr.write("serve: HTTP on 127.0.0.1:" + process.argv[4] + "\n");
   } else {
     const lines = require("readline").createInterface({ input: process.stdin });
     lines.on("line", (line) => {
