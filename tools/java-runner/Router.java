@@ -28,7 +28,8 @@ import java.util.concurrent.atomic.AtomicLong;
 //   java -cp <classes;sqlite-jdbc;slf4j-api> Router
 //
 // AREST_LAMBDA names the lambda file, AREST_REGISTRY the registry package, AREST_LOGIN the caller a
-// call names when it names none.
+// call names when it names none. AREST_HTTP_PORT, when set, serves HTTP on 127.0.0.1 too: /<app>/<resource>
+// is passed to that app's server as it came (Serve's HTTP), and the caller is the request's own.
 public class Router {
     static final PrintStream OUT = Serve.OUT;
     static final long IDLE_MS = 600000L;
@@ -70,6 +71,8 @@ public class Router {
         });
         idle.setDaemon(true);
         idle.start();
+        String port = Reader.path("AREST_HTTP_PORT", "");
+        if (!port.isEmpty()) http(Integer.parseInt(port));
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
         for (String line; (line = in.readLine()) != null; ) {
             if (line.trim().isEmpty()) continue;
@@ -137,6 +140,36 @@ public class Router {
         }
         if (id == null) return null;
         return Serve.fail(id, "unknown method: " + method);
+    }
+
+    // /<app>/<resource> to that app's server; an app the registry does not name is lambda's unknown resource
+    static void http(int port) throws Exception {
+        com.sun.net.httpserver.HttpServer s = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", port), 0);
+        s.setExecutor(POOL);
+        s.createContext("/", ex -> {
+            String path = ex.getRequestURI().getPath();
+            String rest = path.startsWith("/") ? path.substring(1) : path;
+            int i = rest.indexOf('/');
+            String name = i < 0 ? rest : rest.substring(0, i);
+            App x = APPS.get(name);
+            if (x == null) {
+                Serve.respond(ex, Serve.status(Arest.Ev("http:status_of", "unknown_resource")), say("router:no_app", name, names()));
+                return;
+            }
+            Object[] out;
+            try {
+                Map<?, ?> r = x.request("http/request", Serve.obj("method", ex.getRequestMethod(), "resource", i < 0 ? "" : rest.substring(i + 1),
+                    "caller", Serve.caller(ex), "body", Serve.body(ex)));
+                if (r.get("error") != null) out = new Object[] { String.valueOf(((Map<?, ?>) r.get("error")).get("message")), 500L };
+                else {
+                    Map<?, ?> result = (Map<?, ?>) r.get("result");
+                    out = new Object[] { String.valueOf(result.get("body")), Serve.status(result.get("status")) };
+                }
+            } catch (Throwable e) { out = new Object[] { String.valueOf(e.getMessage()), 500L }; }
+            Serve.respond(ex, (Long) out[1], String.valueOf(out[0]));
+        });
+        s.start();
+        System.err.println("router: HTTP on 127.0.0.1:" + port);
     }
 
     static Map<String, Object> text(Object id, String s, boolean err) {
