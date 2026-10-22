@@ -124,7 +124,12 @@ Fact is example.
 Event is of Event Type.
   Each Event is of exactly one Event Type.
 Event occurred at Timestamp.
-  Each Event occurred at exactly one Timestamp.
+  Each Event occurred at at most one Timestamp.
+  <!-- Sam, 2026-10-21: "Events don't necessarily depend on timestamps, just ordering." An Event
+       need not have occurred at a known time; what orders the events of a store is the order
+       its writes are committed in, `Event has Position` (with #218, Position being the
+       autoCounter value type). So the Timestamp is optional, and a Fact a reading declares,
+       a Fact being an Event, is not refused for having none. -->
 Event is created by State Machine.
   Each Event is created by at most one State Machine.
   It is possible that more than one Event is created by the same State Machine.
