@@ -230,11 +230,18 @@ public final class Reader {
     // A CARRIERS DIRECTORY IS READ AS THE JS BUILD SPLICES IT (tools/js-runner/build.js), so a
     // station composes what the js host composes. design-state first; norma-answer where the
     // directory has one, which a directory lambda wrote (tools/carriers/base) does not; the
-    // compiled relational map only when the stamp it carries is the hash of this design-state,
+    // compiled relational map only when the stamp it carries is the hash of this lambda and design-state,
     // since a map built from an older schema describes tables that no longer exist and lambda
     // derives the map instead; and a run's record, outcome and expected, where there is one.
     // tools/norma-oracle, which Program and CasesTest read, was deleted on 2026-09-20 (#109).
+    // The stamp is lambda's (compile:stamped): the hash of the lambda text followed by the
+    // design-state text, since the map is lambda's answer about a schema and another lambda's
+    // map is stale over the same design-state. So the loader is handed the lambda it read.
     public static void loadCarriers(String dir) {
+        loadCarriers(dir, path("AREST_LAMBDA", "../../arest"));
+    }
+
+    public static void loadCarriers(String dir, String lambda) {
         java.nio.file.Path ds = Paths.get(dir, "design-state");
         load(ds.toString());
         if (Files.exists(Paths.get(dir, "norma-answer"))) load(Paths.get(dir, "norma-answer").toString());
@@ -244,9 +251,12 @@ public final class Reader {
                 String text = new String(Files.readAllBytes(compiled), StandardCharsets.UTF_8);
                 java.util.regex.Matcher m = java.util.regex.Pattern.compile("AREST_COMPILED_FROM=([0-9a-f]+)").matcher(text);
                 String stamped = m.find() ? m.group(1) : "?";
-                String now = sha256hex(Files.readAllBytes(ds)).substring(0, 16);
+                byte[] l = Files.readAllBytes(Paths.get(lambda)), d = Files.readAllBytes(ds);
+                byte[] ld = java.util.Arrays.copyOf(l, l.length + d.length);
+                System.arraycopy(d, 0, ld, l.length, d.length);
+                String now = sha256hex(ld).substring(0, 16);
                 if (stamped.equals(now)) load(compiled.toString());
-                else System.err.println("compiled carrier is stale (built from " + stamped + ", design-state is now " + now + "); deriving instead");
+                else System.err.println("compiled carrier is stale (built from " + stamped + ", lambda and design-state are now " + now + "); deriving instead");
             } catch (java.io.IOException e) {
                 throw new RuntimeException("lambda reader: cannot read " + compiled + ": " + e);
             }
