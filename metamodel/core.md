@@ -1717,7 +1717,11 @@ Role Projection produces Role.
 
 Derivation Rule has Role Projection.
   Each Derivation Rule, Role Projection combination occurs at most once in the population of Derivation Rule has Role Projection.
-  Each Derivation Rule has some Role Projection.
+  <!-- Sam, 2026-10-22: "Derivation Rule is mismodeled. I've been saying that it's a constraint type, so
+       manually redeclaring role relations is wrong." A derivation is a constraint in its completing mode, and
+       a constraint's spans already say which roles it reads and which it fills (Constraint Span has Sequence
+       Number and Position). The mandatory that every Derivation Rule restate its roles here is dropped; the
+       relation itself goes when Derivation Rule becomes a Constraint Type (roadmap step 6, #220). -->
 
 Fact Type has Derivation Storage Type.
   Each Fact Type has at most one Derivation Storage Type.
@@ -1852,7 +1856,11 @@ Clause Shape is a value type.
   The data type of Clause Shape is text.
 
 Derivation Rule has Antecedent Clause.
-  Each Derivation Rule has some Antecedent Clause.
+  <!-- Sam, 2026-10-22: "Derivation Rule is mismodeled. I've been saying that it's a constraint type, so
+       manually redeclaring role relations is wrong." A derivation is a constraint in its completing mode, and
+       a constraint's spans already say which roles it reads and which it fills (Constraint Span has Sequence
+       Number and Position). The mandatory that every Derivation Rule restate its roles here is dropped; the
+       relation itself goes when Derivation Rule becomes a Constraint Type (roadmap step 6, #220). -->
   For each Antecedent Clause, exactly one Derivation Rule has that Antecedent Clause.
 
 Antecedent Clause has Clause Shape.
