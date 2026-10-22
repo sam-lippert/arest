@@ -14,9 +14,19 @@ DEF("theta:member",
     S5(A("COMP"), A("not"), A("null"), A("theta:filter_eq"), A("distl"))),
 
 DEF("theta:dedup",
+    S4(A("COND"), S3(A("COMP"), A("le"), S3(A("CONS"), A("length"), K(N(64)))), A("theta:dedup_fold"), A("theta:dedup_sorted"))),
+
+DEF("theta:dedup_fold",
     S3(A("COMP"),
        S2(A("INSERT"), S4(A("COND"), A("theta:member"), N(2), A("apndl"))),
        A("theta:append_phi"))),
+
+DEF("theta:dedup_sorted",
+    S8(A("COMP"), S2(A("ALPHA"), N(2)), A("rmap:msort"),
+       S2(A("ALPHA"), S3(A("CONS"), S3(A("COMP"), N(2), A("theta:last")), S3(A("COMP"), N(3), A("theta:last")))),
+       A("rmap:runs"), A("rmap:msort"),
+       S2(A("ALPHA"), S4(A("CONS"), S3(A("COMP"), A("rmap:vtext"), N(1)), N(2), N(1))),
+       S3(A("COMP"), A("trans"), S3(A("CONS"), A("id"), S3(A("COMP"), A("theta:iota"), A("length")))))),
 
 DEF("theta:flatten",
     S3(A("COMP"), S2(A("INSERT"), A("cat")), A("theta:append_phi"))),
