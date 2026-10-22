@@ -38,7 +38,7 @@ function boot(dir) {
   A.load(lambda);
   // a store whose check wrote carriers beside it is read through them; one with none is read through the schema its
   // compile wrote into it (store:schema_in reads its _defs)
-  if (fs.existsSync(dir + "/design-state")) A.loadCarriers(dir);
+  if (fs.existsSync(dir + "/design-state")) A.loadCarriers(dir, lambda);
   require("./registrations.js").register(lambda);
   const db = dir + "/store.db";
   if (!fs.existsSync(db)) throw new Error("no store at " + db + ": the app's check writes it");

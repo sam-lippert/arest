@@ -9,7 +9,7 @@ const lambda = A.path("AREST_LAMBDA", __dirname + "/../../arest");
 A.load(lambda);
 A.load(A.path("AREST_TESTS", __dirname + "/../../arest.tests"));
 A.load(A.path("AREST_SCENARIOS", __dirname + "/../../engine/shared/scenarios.canon"));
-A.loadCarriers(A.path("AREST_CARRIERS", __dirname + "/../carriers/base"));
+A.loadCarriers(A.path("AREST_CARRIERS", __dirname + "/../carriers/base"), lambda);
 require("./registrations.js").register(lambda);
 const out = A.Ev("main", [A.CELLS.slice(), process.argv.slice(2)]);
 process.stdout.write(A.show(out[0]) + "\n");

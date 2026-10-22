@@ -49,7 +49,7 @@ public class Serve {
         Reader.load(lambda);
         // a store whose check wrote carriers beside it is read through them; one with none is read through the
         // schema its compile wrote into it (store:schema_in reads its _defs)
-        if (new java.io.File(dir, "design-state").isFile()) Reader.loadCarriers(dir);
+        if (new java.io.File(dir, "design-state").isFile()) Reader.loadCarriers(dir, lambda);
         Registrations.register(lambda);
         String db = dir + "/store.db";
         if (!new java.io.File(db).isFile()) throw new RuntimeException("no store at " + db + ": the app's check writes it");

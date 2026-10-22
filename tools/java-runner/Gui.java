@@ -706,7 +706,7 @@ public class Gui {
         LocalTransport(String lambda, String scenarios, String carriers) {
             Reader.load(lambda);
             Reader.load(scenarios);
-            Reader.loadCarriers(carriers);
+            Reader.loadCarriers(carriers, lambda);
             Registrations.register(lambda);
             Object built = Arest.Ev("ast:File", Arest.Ev("store:state", Arest.CELLS.toArray()));
             for (Object cell : (Object[]) built) Arest.CELLS.add(0, cell);

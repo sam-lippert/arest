@@ -47,7 +47,7 @@ public class Router {
         login = Reader.path("AREST_LOGIN", "");
         String dir = registry + "/.check";
         Reader.load(lambda);
-        Reader.loadCarriers(dir);
+        Reader.loadCarriers(dir, lambda);
         Registrations.register(lambda);
         Arest.CELLS.add(new Object[] { "CELL", "state:store_db", dir + "/store.db" });
         Arest.memoClear();

@@ -259,7 +259,9 @@ function path(name, dflt) {
 // A CARRIERS DIRECTORY is read as the Java station reads it: design-state, norma-answer where there
 // is one, the compiled relational map only when its stamp is this design-state's hash, then a run's
 // outcome and expected.
-function loadCarriers(dir) {
+// the stamp is lambda's (compile:stamped): the hash of the lambda text followed by the design-state text, since the map
+// is lambda's answer about a schema; so the loader is handed the lambda it read
+function loadCarriers(dir, lambda = path("AREST_LAMBDA", __dirname + "/../../arest")) {
   const ds = dir + "/design-state";
   load(ds);
   if (fs.existsSync(dir + "/norma-answer")) load(dir + "/norma-answer");
@@ -268,9 +270,9 @@ function loadCarriers(dir) {
     const text = fs.readFileSync(compiled, "utf8");
     const m = /AREST_COMPILED_FROM=([0-9a-f]+)/.exec(text);
     const stamped = m ? m[1] : "?";
-    const now = crypto.createHash("sha256").update(fs.readFileSync(ds)).digest("hex").substring(0, 16);
+    const now = crypto.createHash("sha256").update(fs.readFileSync(lambda)).update(fs.readFileSync(ds)).digest("hex").substring(0, 16);
     if (stamped === now) load(compiled);
-    else process.stderr.write("compiled carrier is stale (built from " + stamped + ", design-state is now " + now + "); deriving instead\n");
+    else process.stderr.write("compiled carrier is stale (built from " + stamped + ", lambda and design-state are now " + now + "); deriving instead\n");
   }
   for (const record of ["outcome", "expected"]) if (fs.existsSync(dir + "/" + record)) load(dir + "/" + record);
 }

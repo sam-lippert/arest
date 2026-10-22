@@ -15,7 +15,7 @@ public class Program {
         Reader.load(lambda);
         Reader.load(Reader.path("AREST_TESTS", "../../arest.tests"));
         Reader.load(Reader.path("AREST_SCENARIOS", "../../engine/shared/scenarios.canon"));
-        Reader.loadCarriers(Reader.path("AREST_CARRIERS", "../carriers/base"));
+        Reader.loadCarriers(Reader.path("AREST_CARRIERS", "../carriers/base"), lambda);
         Registrations.register(lambda);
         Object[] out = (Object[]) Arest.Ev("main", new Object[] { Arest.CELLS.toArray(), args });
         System.out.print(out[0] + "\n");
