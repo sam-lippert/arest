@@ -13088,7 +13088,22 @@ DEF("sqlite:mentioned",
        S3(A("COMP"), A("distl"), S3(A("CONS"), S3(A("CONS"), S3(A("CONS"), N(1), N(3)), S3(A("COMP"), A("sqlite:data_version"), N(1))), N(2))))),
 "cells to <name, place> for each fact type of the store the database holds in a table: every fact type the store declares but those computed on read (derive:or_dfts), placed by get:places; none where the store is held in memory alone. AND THE PLACES OF A STORE A READ IS ANSWERED OVER ARE THE STORE`S OWN (task #197, step 7b): which fact types are computed on read is asked of the store as it is -- derive:or_dfts reads populations through derive:or_src, which over a store a read is answered over reads them at these places -- so the read cell is set aside first, and one list serves both.",
 "A STORE BOOTED TO SERVE CARRIES WHAT ITS READS ASK OF ITS SCHEMA. A served read asks store:places at every population it reads (store:sql_place) and derive:or_dfts with it, and both are values of the schema the database was compiled to, which a read does not move; so is where the database holds what was entered of a semi-derived fact type (store:held_places). cells to the cells with state:fts_boot, state:typed_boot, state:or_dfts, state:places and state:held_places after them, which those then answer from, over the schema store:schema_in gives them.",
-DEF("store:boot",
+DEF("store:boot", S3(A("COMP"), A("store:state_first"), A("store:boot_cells"))),
+
+DEF("store:state_first", S3(A("COMP"), A("cat"), S3(A("CONS"), A("store:state_cells"), A("store:other_cells")))),
+
+DEF("store:state_cells", S3(A("COMP"), S2(A("INSERT"), S4(A("COND"), S3(A("COMP"), A("store:state_cellp"), N(1)), A("apndl"), N(2))), A("theta:append_phi"))),
+
+DEF("store:other_cells", S3(A("COMP"), S2(A("INSERT"), S4(A("COND"), S3(A("COMP"), A("store:state_cellp"), N(1)), N(2), A("apndl"))), A("theta:append_phi"))),
+
+DEF("store:state_cellp",
+    S4(A("COND"), A("atom"), K(A("F")),
+       S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("length"), K(N(3)))),
+          S4(A("COND"), S3(A("COMP"), A("system:isnum"), N(2)), K(A("F")),
+             S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("read:firstn"), S3(A("CONS"), K(N(6)), S3(A("COMP"), A("chars"), N(2)))), K(S6(A("s"), A("t"), A("a"), A("t"), A("e"), A(":")))))),
+          K(A("F"))))),
+
+DEF("store:boot_cells",
     S3(A("COMP"), A("store:boot_cell"), S3(A("CONS"), K(A("state:held_places")),
     S3(A("COMP"), A("store:boot_cell"), S3(A("CONS"), K(A("state:places")),
        S3(A("COMP"), A("store:boot_cell"), S3(A("CONS"), K(A("state:or_dfts")),
