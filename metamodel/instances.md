@@ -121,7 +121,7 @@ Fact is example.
 
 
 ### Event
-Event is of Event Type.
+Event is of Event Type. +
   Each Event is of exactly one Event Type.
 Event occurred at Timestamp.
   Each Event occurred at at most one Timestamp.
@@ -531,6 +531,13 @@ Guard Run has Result.
      subset constraint in core.md (`If some Fact uses some Object Type Instance for some
      Role then that Fact is of some Fact Type that has that Role`). -->
 * Fact is of Function iff that Fact is of some Fact Type that is that Function.
+
+<!-- A FACT IS OF THE EVENT TYPE ITS FACT TYPE IS. A Fact is an Event and a Fact Type is an Event Type
+     (core.md), so the Event Type a Fact is of is the Fact Type it is of, as `Fact is of Function` re-projects
+     the same value under Function. Marked +: an Event that is not a Fact still has its Event Type entered.
+     A Fact a reading declares (sherlock's clues) was refused for having none. -->
++ Event is of Event Type if that Event is some Fact that is of some Fact Type that is that Event Type.
+
 
 ** Fact belongs to Domain iff that Fact is of some Function that belongs to that Domain.
 
