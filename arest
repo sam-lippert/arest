@@ -26456,7 +26456,15 @@ DEF("main:nav_at",
           K(PHI()),
           S3(A("COMP"), A("ast:fetch"), S3(A("CONS"), K(A("FILE")), N(1)))))),
 "AND A LINK TO A DERIVED FACT TYPE THE STORE COMPUTES ON READ IS COMPUTED TOO. nav:peers keeps the FILE cells whose rows name the entity, and FILE holds what the store keeps, so a derived fact type the store computes on read, kept nowhere, would leave nav(e). Its link is the same entry nav:peers answers, <derived fact type, <id>>, for each on-read derived fact type one of whose roles a type of the entity plays -- ObjectTypeInstanceIsInstanceOfObjectType names every type of an instance, its supertypes among them -- when derive:on_read`s rows for it name the entity. An entity`s links are FILE`s peers, then the computed ones FILE`s did not already answer, then its transitions: so a store that still keeps an on-read derived fact type answers exactly what it answered before. <store, id> to the instance`s types (main:or_types), the on-read derived fact types they play (main:or_cands) and the computed links (main:or_peers).",
-DEF("main:or_types",
+DEF("main:or_types", S4(A("COND"), A("main:or_tcut_p"), A("main:or_types_cut"), A("main:or_types_pop"))),
+
+DEF("main:or_tplace", S3(A("COMP"), A("solve:assoc"), S3(A("CONS"), K(A("ObjectTypeInstanceIsInstanceOfObjectType")), S3(A("COMP"), A("store:places"), N(1))))),
+
+DEF("main:or_tcut_p", S3(A("COMP"), A("and"), S3(A("CONS"), S4(A("COMP"), A("not"), A("null"), S3(A("COMP"), A("query:db"), N(1))), S5(A("COMP"), A("not"), A("fp:or2"), S3(A("CONS"), A("atom"), A("null")), A("main:or_tplace"))))),
+
+DEF("main:or_types_cut", S3(A("COMP"), S2(A("ALPHA"), N(2)), S3(A("COMP"), A("storage:cut_rows"), S5(A("CONS"), S3(A("COMP"), A("query:db"), N(1)), A("main:or_tplace"), K(S1(N(1))), N(2))))),
+
+DEF("main:or_types_pop",
     S4(A("COMP"), S2(A("ALPHA"), N(2)), A("derive:filter_sel"),
        S3(A("CONS"), S3(A("CONS"), K(N(1)), N(2)), S3(A("COMP"), A("system:pop_rows"), S3(A("CONS"), K(A("ObjectTypeInstanceIsInstanceOfObjectType")), N(1)))))),
 "<the store`s derive:or_dfts, store> to <name, kinds> of each descriptor among them.",
