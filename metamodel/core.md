@@ -513,8 +513,20 @@ Object Type has World Assumption. +
        which is a declarative statement about
        populations rather than a recipe, is written beside the definition
        it constrains, and carries its own modality. -->
-If some Object Type is backed by some Federation then that Object Type has World Assumption 'open'.
+If some Object Type is backed by some Federation and that Federation is not compiled then that Object Type has World Assumption 'open'.
 If some Object Type is not backed by some Federation then that Object Type has World Assumption 'closed'.
+If some Object Type is backed by some Federation and that Federation is compiled then that Object Type has World Assumption 'closed'.
+  <!-- KEYED ON THE FETCHER'S ORIGIN, NOT ON THE BACKING ALONE (2026-10-23). §355's line
+       is that a population "fetched by a registered function" enters under the open world;
+       eq:boundary is Filter(origin = registered):DEFS. A population lambda fetches for itself is
+       not across that line: the reflection is a Federation pointed at lambda (Sam, 2026-10-22),
+       its Fetcher reflect:schema is compiled, and what it answers is the schema describing
+       itself, which is closed. So the exception is the compiled Federation, and a backed
+       Object Type whose Federation declares no Fetcher stays open: its rows come over the
+       boundary by the HTTP read, whose Fetcher 'fetch' is registered (federation.md). The
+       rule is keyed on the origin and never on a URL, which a Federation need not have and
+       lambda could be given. Lambda carries the three as rules:metamodel's two
+       ObjectTypeHasWorldAssumption recipes. -->
   <!-- TWO RULES, NOT ONE: no conclusion is drawn from an open
        population, so the default needs a twin rule for
        non-external populations. Stating only
@@ -1180,7 +1192,13 @@ It is impossible that some Derivation Rule introduces values and that Derivation
 
 ### Federation
 Federation has URL.
-  Each Federation has exactly one URL.
+  Each Federation has at most one URL.
+  <!-- AT MOST ONE, NOT EXACTLY ONE (2026-10-23). A Federation is where a population is
+       fetched from, and not every one is reached at a URL: auto.dev's MongoDB Atlas is a
+       mongodb+srv address, a file or an OS read has none, and the reflection is a Federation
+       pointed at lambda (Sam, 2026-10-22), fetched by a compiled Function and addressed by
+       none. Whether its population is open or closed is not read off the URL either, but off
+       its Fetcher's Definition Origin (`Federation is compiled`, below). -->
 Federation has Header.
   Each Federation, Header combination occurs at most once in the population of Federation has Header.
 Federation has Header with Header Value.
@@ -1232,6 +1250,12 @@ Object Type is backed by Federation.
   Each Object Type is backed by at most one Federation.
 Function is backed by Federation.
   Each Function is backed by at most one Federation.
+Federation is compiled. *
+  <!-- A FEDERATION IS COMPILED WHEN LAMBDA FETCHES IT. A Connector backed by the Federation
+       fetches with a Fetcher, and the Fetcher is a Function with a Definition Origin (Def 9).
+       Compiled is the reflection's case: the Federation 'lambda' and its Fetcher
+       'reflect:schema' (federation.md). The World Assumption rules turn on it. -->
+* Federation is compiled iff some Connector is backed by that Federation and that Connector fetches with some Fetcher and that Fetcher has Definition Origin 'compiled'.
 Function reaches its subject through Fact Type.
   Each Function reaches its subject through at most one Fact Type.
   <!-- THE FACTS A CALL SENDS AND RECORDS ARE OFTEN NOT ABOUT THE ENTITY THAT

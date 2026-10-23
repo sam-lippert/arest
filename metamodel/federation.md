@@ -203,5 +203,14 @@ Federation speaks REST Dialect.
 
 ## Instance Facts
 
+<!-- THE HTTP READ IS A REGISTERED FUNCTION. A Connector that declares no Fetcher reads by
+     HTTP, and fed:ot_rd1 answers 'fetch' as the Fetcher of every REST-dialect read. It is
+     outside D -- the network -- so its origin is registered (Def 9), and a population it
+     fetches enters under the open world (§355). MEASURED 2026-10-23: no host registers a
+     body named 'fetch' today (tools/js-runner/registrations.js); the row states what the
+     name is, not that a host performs it. -->
+Fetcher 'fetch' has Definition Origin 'registered'.
+
+
 <!-- organizations-domain (ruling 2): Domain 'federation' has Access 'public'. -->
 Domain 'federation' has Description 'Sources, connectors and translators as a standard module: a Source is where facts live and a Connector names how to reach and read it, its Fetcher and Translator being definition names resolved through DEFS at fetch time.'.
