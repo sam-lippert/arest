@@ -211,6 +211,28 @@ Federation speaks REST Dialect.
      name is, not that a host performs it. -->
 Fetcher 'fetch' has Definition Origin 'registered'.
 
+<!-- THE REFLECTION IS A FEDERATION POINTED AT LAMBDA (Sam, 2026-10-22: "Reflection is a federation
+     pointed at lambda: its schema arms are fetched from lambda when the schema changes; its
+     instance arms are derivations over the store."). The schema arms -- the roles, readings,
+     primary readings, players and uses, the five constraint arms, the local names, the Domains
+     of declaration and the ring texts -- read only the carrier and schema cells, so they are a
+     population fetched from lambda: the Connector 'reflection' fetches with the Fetcher
+     'reflect:schema', a DEF the compile registers, whose origin is compiled. It is synced in
+     the step that changes DEFS (a compile, or the boot of a composed store) and never in a
+     write, and what it answers is never compile input (compile:ip_excluded leaves the
+     reflected names out of the runtime's facts). The Federation has no URL, and it is
+     compiled, so what it backs is closed-world (core.md, `Federation is compiled`). It backs
+     the two Object Types whose instances only the reflection introduces: Role, introduced by
+     Fact Type has Role, and Reading, by Fact Type has Reading. The instance arms are not
+     here: they are derivations over the store. -->
+Federation 'lambda' has Kind 'lambda'.
+Connector 'reflection' is backed by Federation 'lambda'.
+Connector 'reflection' fetches with Fetcher 'reflect:schema'.
+Connector 'reflection' translates with Translator 'id'.
+Fetcher 'reflect:schema' has Definition Origin 'compiled'.
+Object Type 'Role' is backed by Federation 'lambda'.
+Object Type 'Reading' is backed by Federation 'lambda'.
+
 
 <!-- organizations-domain (ruling 2): Domain 'federation' has Access 'public'. -->
 Domain 'federation' has Description 'Sources, connectors and translators as a standard module: a Source is where facts live and a Connector names how to reach and read it, its Fetcher and Translator being definition names resolved through DEFS at fetch time.'.
