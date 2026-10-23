@@ -131,8 +131,8 @@ first write: make every connection it declares dry, which resolves a send and
 records what it would carry without sending it, and serve it without
 `AREST_MASTER_KEY`, so no sealed credential can be unsealed:
 
-    curl -s http://127.0.0.1:8946/DomainConnectsToExternalSystemHasSendMode          # the connections
-    curl -s -X PUT -H 'content-type: application/json' -d '["support.gmail","dry"]' http://127.0.0.1:8946/DomainConnectsToExternalSystemHasSendMode
+    curl -s http://127.0.0.1:8946/DomainConnectsToFederationHasSendMode          # the connections
+    curl -s -X PUT -H 'content-type: application/json' -d '["support.gmail","dry"]' http://127.0.0.1:8946/DomainConnectsToFederationHasSendMode
 
 On the retention copies, which declare no Send Mode at all, Approve answered
 201 and recorded the approval, and the draft stayed at Draft, since approve is

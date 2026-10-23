@@ -78,9 +78,9 @@ Citation has Retrieval Date.
 Citation has Authority Type.
   Each Citation has at most one Authority Type.
   It is possible that more than one Citation has the same Authority Type.
-Citation is backed by External System.
-  Each Citation is backed by at most one External System.
-  It is possible that more than one Citation is backed by the same External System.
+Citation is backed by Federation.
+  Each Citation is backed by at most one Federation.
+  It is possible that more than one Citation is backed by the same Federation.
 Citation pins Cell Name.
   Each Citation pins at most one Cell Name.
   It is possible that more than one Citation pins the same Cell Name.

@@ -22,8 +22,8 @@ App 'tutor' uses Generator 'ilayer'.
 
 ### Federation
 
-User is backed by External System 'auth.vin'.
-Stripe Customer is backed by External System 'stripe'.
+User is backed by Federation 'auth.vin'.
+Stripe Customer is backed by Federation 'stripe'.
 
 ### These declarations live in the bundled metamodel's organizations.md.
 ### This file surfaces them for tutor learners so that federation works out

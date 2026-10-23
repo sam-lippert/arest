@@ -78,7 +78,7 @@ Connector translates with Translator.
 
 <!-- A FEDERATION IS A READ, AND WHAT IT READS IS DECLARED. Modeling and
      running the requested federations is the main deliverable. A Connector is a Function, so it
-     is addressed as any Function is -- backed by an External System, called with an HTTP Method
+     is addressed as any Function is -- backed by a Federation, called with an HTTP Method
      at its Callback URI, with the system`s headers and the connection`s credential (core.md) --
      and what its answer yields is `Function yields Fact Type with Role from JSON Path`, the
      declaration a webhook payload and a performed call`s receipt already use, read here once per
@@ -167,7 +167,7 @@ Response occurred at Timestamp.
 
 <!-- AN OBJECT TYPE IS ITS OWN FEDERATED VIEW. This is a better way
      to populate an object instance from a federated view than a Source per question.
-     `Object Type is backed by External System` and `Object Type has URI`
+     `Object Type is backed by Federation` and `Object Type has URI`
      (core.md) were declared and read by nothing but the world assumption. With the three below an
      Object Type is the view: it is identified at a JSON Path of each document its URI lists, each
      Fact Type it plays the first role of is federated at a JSON Path of the same document, and its
@@ -198,8 +198,8 @@ Fact Type is written through Filter.
 REST Dialect is a value type.
   The possible values of REST Dialect are 'payload'.
 
-External System speaks REST Dialect.
-  Each External System speaks at most one REST Dialect.
+Federation speaks REST Dialect.
+  Each Federation speaks at most one REST Dialect.
 
 ## Instance Facts
 

@@ -109,17 +109,17 @@ The engine exposes a v1.0 verb set to agents via MCP.
 
 **ChatGPT compatibility:** the remote worker also exposes `search` and `fetch` in the shape OpenAI's apps, deep research, and company knowledge modes require. Both are thin adapters over the entity model. See [docs/09](docs/09-mcp-verbs.md#chatgpt-compatibility) for the contract.
 
-Every framework primitive (Noun, Fact Type, Constraint, Derivation Rule, State Machine Definition, Status, Transition, Event Type, Instance Fact, Verb, Reading, External System, Agent Definition, and Generator opt-in) is reachable via these verbs. Runtime Platform functions are registered on the server and are intentionally not exposed to the LLM.
+Every framework primitive (Noun, Fact Type, Constraint, Derivation Rule, State Machine Definition, Status, Transition, Event Type, Instance Fact, Verb, Reading, Federation, Agent Definition, and Generator opt-in) is reachable via these verbs. Runtime Platform functions are registered on the server and are intentionally not exposed to the LLM.
 
 ## Federation
 
 Declare an external system as a populating function:
 
 ```markdown
-External System 'stripe' has URL 'https://api.stripe.com/v1'.
-External System 'stripe' has Header 'Authorization'.
-External System 'stripe' has Prefix 'Bearer'.
-Noun 'Stripe Customer' is backed by External System 'stripe'.
+Federation 'stripe' has URL 'https://api.stripe.com/v1'.
+Federation 'stripe' has Header 'Authorization'.
+Federation 'stripe' has Prefix 'Bearer'.
+Noun 'Stripe Customer' is backed by Federation 'stripe'.
 Noun 'Stripe Customer' has URI '/customers'.
 ```
 

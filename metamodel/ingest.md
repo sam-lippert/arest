@@ -40,9 +40,9 @@ Webhook Event is processed.
 
 ### Webhook Event Type
 
-Webhook Event Type belongs to External System.
-  Each Webhook Event Type belongs to exactly one External System.
-  It is possible that more than one Webhook Event Type belongs to the same External System.
+Webhook Event Type belongs to Federation.
+  Each Webhook Event Type belongs to exactly one Federation.
+  It is possible that more than one Webhook Event Type belongs to the same Federation.
 
 ### Yields
 
@@ -90,4 +90,4 @@ Predicate 'decide:webhook_coverage' has Symbol Name 'decide:webhook_coverage'.
 ## Instance Facts
 
 <!-- organizations-domain (ruling 2): Domain 'ingest' has Access 'public'. -->
-Domain 'ingest' has Description 'Webhook event ingest. External system pushes a Webhook Event carrying a Payload; the Webhook Event Type declares which Fact Types it yields and the JSON Paths that fill each Role.'.
+Domain 'ingest' has Description 'Webhook event ingest. A Federation pushes a Webhook Event carrying a Payload; the Webhook Event Type declares which Fact Types it yields and the JSON Paths that fill each Role.'.

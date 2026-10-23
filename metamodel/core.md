@@ -34,7 +34,7 @@
      Value Range/Bound/Facet, Unit/Dimension, Conceptual Data Type/Data
      Type Group. AREST-extension: Function (the FFP root and DEFS cell),
      Object Type Instance, Event Type as Fact Type supertype, Definition Origin, Type
-     Expression, Domain, Migration, Language/Format, External System,
+     Expression, Domain, Migration, Language/Format, Federation,
      schema:Thing, and the HTTP/API/JSON/SQL projection vocabulary.
      state.md (Harel SMDs) and instances.md (runtime) are AREST layers
      end to end and carry their own head notes. -->
@@ -204,8 +204,8 @@ Language is a subtype of Function.
 schema:Thing is an entity type.
 schema:Thing is a subtype of Function.
 
-External System is an entity type.
-External System is a subtype of Function.
+Federation is an entity type.
+Federation is a subtype of Function.
 
 Domain is an entity type.
 Domain is a subtype of Function.
@@ -494,13 +494,13 @@ Object Type has World Assumption. +
 
        A DEFAULT IS NOT DATA either: one row per Object Type would put a
        ruling in 147 places and let them drift. The derivation is closed
-       unless the type is backed by an External System, which is the
+       unless the type is backed by a Federation, which is the
        paper's own line — §355, "An object type backed by an external system
        sits on this line: its population is fetched by a registered function,
        and its facts enter under the open-world assumption", with §309
        pairing an alethic constraint over a closed-world object type against a
        deontic one over an open-world object type. The predicate it turns on is
-       declared above: `Object Type is backed by External System`.
+       declared above: `Object Type is backed by Federation`.
 
        NOT AN iff RULE, and the two iff shapes show why. A literal in
        the DERIVED FACT TYPE (`has World Assumption 'open' iff ...`) names no declared
@@ -513,8 +513,8 @@ Object Type has World Assumption. +
        which is a declarative statement about
        populations rather than a recipe, is written beside the definition
        it constrains, and carries its own modality. -->
-If some Object Type is backed by some External System then that Object Type has World Assumption 'open'.
-If some Object Type is not backed by some External System then that Object Type has World Assumption 'closed'.
+If some Object Type is backed by some Federation then that Object Type has World Assumption 'open'.
+If some Object Type is not backed by some Federation then that Object Type has World Assumption 'closed'.
   <!-- TWO RULES, NOT ONE: no conclusion is drawn from an open
        population, so the default needs a twin rule for
        non-external populations. Stating only
@@ -745,16 +745,16 @@ Function is called with HTTP Method.
        the one that invokes it.
 
        MEASURED:
-       support's sendSupportEmail has callback URI '/emails' and External System
+       support's sendSupportEmail has callback URI '/emails' and Federation
        'resend' at https://api.resend.com, and the method was the only piece of
        the line the model could not supply. -->
 Function sends Header.
   Each Function, Header combination occurs at most once in the population of Function sends Header.
-  <!-- `has`, HERE, STOLE FROM External System. MEASURED on
+  <!-- `has`, HERE, STOLE FROM Federation. MEASURED on
        support's corpus: FunctionHasHeader carried 16 rows and every subject
-       was an External System -- cornell-lii, congress-gov, auto.dev and the
-       rest, cross-checked against ExternalSystemHasURL -- while
-       ExternalSystemHasHeader carried NONE. External System is a subtype of
+       was a Federation -- cornell-lii, congress-gov, auto.dev and the
+       rest, cross-checked against FederationHasURL -- while
+       FederationHasHeader carried NONE. Federation is a subtype of
        Function, both readings were `{0} has Header {1}`, and the general one
        took every sentence the specific one was written for. Zero of those 16
        rows was ever a fact about a Function, so this fact type has never held
@@ -765,9 +765,9 @@ Function sends Header.
        keeps the plain verb, the general one takes a predicate that cannot
        capture. Under `has` this one fails silently: every connector's
        headers are misfiled for as long as both
-       declarations exist, so a credential an External System sends
+       declarations exist, so a credential a Federation sends
        as a Header cannot
-       reach the store, and widening External System has Header to carry a
+       reach the store, and widening Federation has Header to carry a
        value changes nothing on its own. -->
 <!-- arest-batch ruling 2 (organizations-domain vocabulary, moved out):
 Function has Scope.
@@ -1178,31 +1178,31 @@ It is impossible that some Derivation Rule introduces values and that Derivation
        self-join impossibility clauses to this note class rather than
        misbuild them. -->
 
-### External System
-External System has URL.
-  Each External System has exactly one URL.
-External System has Header.
-  Each External System, Header combination occurs at most once in the population of External System has Header.
-External System has Header with Header Value.
-  Each External System, Header combination occurs at most once in the population of External System has Header with Header Value.
+### Federation
+Federation has URL.
+  Each Federation has exactly one URL.
+Federation has Header.
+  Each Federation, Header combination occurs at most once in the population of Federation has Header.
+Federation has Header with Header Value.
+  Each Federation, Header combination occurs at most once in the population of Federation has Header with Header Value.
   <!-- A TERNARY, NOT AN OBJECTIFIED BINARY PLUS AN ATTRIBUTE, because the
        Header Value is functionally dependent on the System and the Header
        together, and because apps/connectors had ALREADY WRITTEN the ternary
-       sentence -- `External System 'resend' has Header 'Authorization' with
+       sentence -- `Federation 'resend' has Header 'Authorization' with
        Header Value 'Bearer'` -- before any of this was declared. The model
        should hold the sentence a reader naturally wrote, not make the corpus
        restate it in two. -->
-External System authenticates with Header.
-  Each External System authenticates with at most one Header.
+Federation authenticates with Header.
+  Each Federation authenticates with at most one Header.
   <!-- A SYSTEM HAS MORE THAN ONE HEADER AND THEY CARRY VALUES, which this could
        not say. It was a binary with `at most one` and no Header Value type
        existed, so apps/connectors wrote what it needed anyway --
-       `External System 'resend' has Header 'Authorization' with Header Value
+       `Federation 'resend' has Header 'Authorization' with Header Value
        'Bearer'` plus a User-Agent and an `authenticates via` line -- and ALL
        THREE fell through silently. MEASURED on support's built
-       store: ExternalSystemHasHeader 0 rows, and neither
-       ExternalSystemHasHeaderWithHeaderValue nor
-       ExternalSystemAuthenticatesViaHeader existed as a fact type at all. The
+       store: FederationHasHeader 0 rows, and neither
+       FederationHasHeaderWithHeaderValue nor
+       FederationAuthenticatesViaHeader existed as a fact type at all. The
        oracle reported no errors. This is the same shape as the unquoted
        rotation limit and `Resource (.Name)` with a space: well-formed English
        the model cannot hold.
@@ -1213,8 +1213,8 @@ External System authenticates with Header.
        not something a caller should infer from the name. `with`, not `via`,
        because `Customer authenticates via Cookie Name` already exists and a
        shared predicate steals. -->
-External System has Credential Encoding.
-  Each External System has at most one Credential Encoding.
+Federation has Credential Encoding.
+  Each Federation has at most one Credential Encoding.
   <!-- THE CREDENTIAL AS ITS SCHEME WANTS IT. ClickHouse's HTTP
        interface takes `Authorization: Basic` over base64(user:password), and
        support.auto.dev keeps that credential as user:password, the way it was
@@ -1224,14 +1224,14 @@ External System has Credential Encoding.
        place the plaintext exists, and lambda says whether and how
        (perform:credential_encoding_of). Absent means as stored, which is every
        Bearer system. -->
-External System has Prefix.
-  Each External System has at most one Prefix.
-External System has Kind.
-  Each External System has at most one Kind.
-Object Type is backed by External System.
-  Each Object Type is backed by at most one External System.
-Function is backed by External System.
-  Each Function is backed by at most one External System.
+Federation has Prefix.
+  Each Federation has at most one Prefix.
+Federation has Kind.
+  Each Federation has at most one Kind.
+Object Type is backed by Federation.
+  Each Object Type is backed by at most one Federation.
+Function is backed by Federation.
+  Each Function is backed by at most one Federation.
 Function reaches its subject through Fact Type.
   Each Function reaches its subject through at most one Fact Type.
   <!-- THE FACTS A CALL SENDS AND RECORDS ARE OFTEN NOT ABOUT THE ENTITY THAT
@@ -1288,7 +1288,7 @@ Function asserts Fact Type on success.
        went out through Resend", and the guard on its `approve` waits on exactly that
        fact. So a Function names the fact types a successful call asserts. Success is a
        2xx answer. The subject (`reaches its subject through`) fills the fact type's
-       first role, and for a binary the name of the External System the Function is
+       first role, and for a binary the name of the Federation the Function is
        backed by fills the second -- 'resend' for sendSupportEmail, which is also the
        Send Tool's value. A call that does not succeed asserts none of them, and a dry
        run reports them without asserting. The may-create ceiling still decides, as it
@@ -1343,16 +1343,16 @@ Object Type has URI.
   Each Object Type has at most one URI.
 
 ### Domain Connection
-Domain connects to External System.
-  Each Domain, External System combination occurs at most once in the population of Domain connects to External System.
-DomainConnectsToExternalSystem objectifies "Domain connects to External System".
-DomainConnectsToExternalSystem is a subtype of Function.
+Domain connects to Federation.
+  Each Domain, Federation combination occurs at most once in the population of Domain connects to Federation.
+DomainConnectsToFederation objectifies "Domain connects to Federation".
+DomainConnectsToFederation is a subtype of Function.
 Send Mode is a value type.
   The possible values of Send Mode are 'dry', 'live'.
-DomainConnectsToExternalSystem has Send Mode.
-  Each DomainConnectsToExternalSystem has at most one Send Mode.
+DomainConnectsToFederation has Send Mode.
+  Each DomainConnectsToFederation has at most one Send Mode.
   <!-- WHETHER BYTES LEAVE IS IN THE MODEL TOO. Everything about
-       an outbound call is declared -- the External System's URL, the Function's
+       an outbound call is declared -- the Federation's URL, the Function's
        callback URI and HTTP Method, the headers and which carries the credential,
        the body's JSON Paths, the may-create ceiling, the subject and the
        response projection. Arming by an environment variable would put
@@ -1360,7 +1360,7 @@ DomainConnectsToExternalSystem has Send Mode.
        the most consequential decision of the lot.
 
        IT RIDES THE CONNECTION because that is what is or is not live: the same
-       objectified `Domain connects to External System` that carries the Secret
+       objectified `Domain connects to Federation` that carries the Secret
        Reference, and a connection with no credential cannot send anyway. Not the
        Function -- one Function reaches one system, but a store may connect to a
        system it is not yet allowed to call.
@@ -1373,11 +1373,11 @@ DomainConnectsToExternalSystem has Send Mode.
        THE MASTER KEY STAYS OUTSIDE and is the only thing that can. It decrypts the
        Secret Reference, so it cannot live in the store it protects; hook:read
        already takes it as an argument rather than reading it. -->
-DomainConnectsToExternalSystem carries Secret Reference.
-  Each DomainConnectsToExternalSystem carries at most one Secret Reference.
+DomainConnectsToFederation carries Secret Reference.
+  Each DomainConnectsToFederation carries at most one Secret Reference.
   <!-- one-table wave: Halpin's nesting transformation of the
-       former `Domain connects to External System with Secret Reference`
-       (compound key Domain+ExternalSystem): the connection objectifies —
+       former `Domain connects to Federation with Secret Reference`
+       (compound key Domain+Federation): the connection objectifies —
        this is the "Domain Connection" the connectors note anticipated —
        and the per-connection secret rides functionally. -->
 
@@ -2257,10 +2257,10 @@ Role 'RoleIsUsedInReading.1' is used in Reading 'rReadingUsesRole'.
      another environment.
 
      MEASURED on support.auto.dev, both sides of reading .env. Its
-     .env was already FORML -- `Domain ...` and `DomainConnectsToExternalSystem
+     .env was already FORML -- `Domain ...` and `DomainConnectsToFederation
      ...` sentences, not shell assignments -- but sat in no readings directory,
-     so DomainConnectsToExternalSystem answered 0 ROWS while `Domain Connects To
-     External System has Send Mode`, which rides that same objectification and
+     so DomainConnectsToFederation answered 0 ROWS while `Domain Connects To
+     Federation has Send Mode`, which rides that same objectification and
      lives in a .md, had its one row. The sentences were written; nothing could
      ever see them. The cost was not theoretical: perform:conn_of could not
      build the 'domain/system' key, so a correctly declared and correctly armed
@@ -2570,9 +2570,9 @@ HTTP Method 'DELETE' has Name 'DELETE'.
 HTTP Method 'HEAD' has Name 'HEAD'.
 HTTP Method 'OPTIONS' has Name 'OPTIONS'.
 
-### External Systems
+### Federations
 
-<!-- External System auth shape instance facts (URL/Header/Prefix/Country Code/Kind) for auth.vin, auto.dev, stripe, github, resend live in apps/connectors/readings/connectors.md, which is what a consuming app composes via ../../connectors/readings. A path in a comment cannot fail a check, so check it against the tree rather than copying it. Per-app Domain Connection facts carrying Secret References live in each consuming app's gitignored .env file, as TWO sentences under the one-table wave -- the connection, then the secret on the objectification, identified <Domain>/<ExternalSystem> (support.auto.dev confirms the spelling by row count). -->
+<!-- Federation auth shape instance facts (URL/Header/Prefix/Country Code/Kind) for auth.vin, auto.dev, stripe, github, resend live in apps/connectors/readings/connectors.md, which is what a consuming app composes via ../../connectors/readings. A path in a comment cannot fail a check, so check it against the tree rather than copying it. Per-app Domain Connection facts carrying Secret References live in each consuming app's gitignored .env file, as TWO sentences under the one-table wave -- the connection, then the secret on the objectification, identified <Domain>/<Federation> (support.auto.dev confirms the spelling by row count). -->
 
 <!-- organizations-domain (ruling 2): Domain 'core' has Access 'public'. -->
 Domain 'core' has Description 'Extracted from NORMA ORM2 model (design/html/). The canonical FORML 2 metamodel against which every user domain is a subtype binding.'.

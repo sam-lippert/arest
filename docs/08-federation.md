@@ -4,21 +4,21 @@ Some facts are not yours. Customer records live in your CRM, payments live in St
 
 ## Declaring an external system
 
-An External System gets a URL, an auth header, and an optional prefix:
+A Federation gets a URL, an auth header, and an optional prefix:
 
 ```forml2
-External System 'stripe' has URL 'https://api.stripe.com/v1'.
-External System 'stripe' has Header 'Authorization'.
-External System 'stripe' has Prefix 'Bearer'.
+Federation 'stripe' has URL 'https://api.stripe.com/v1'.
+Federation 'stripe' has Header 'Authorization'.
+Federation 'stripe' has Prefix 'Bearer'.
 ```
 
 Then point one or more nouns at it:
 
 ```forml2
-Noun 'Stripe Customer' is backed by External System 'stripe'.
+Noun 'Stripe Customer' is backed by Federation 'stripe'.
 Noun 'Stripe Customer' has URI '/customers'.
 
-Noun 'Stripe Invoice' is backed by External System 'stripe'.
+Noun 'Stripe Invoice' is backed by Federation 'stripe'.
 Noun 'Stripe Invoice' has URI '/invoices'.
 ```
 
@@ -50,13 +50,13 @@ Secrets are never stored in readings or state. If the environment variable is mi
 
 ## SSRF protection
 
-At compile time, the engine validates every External System URL against an SSRF denylist. Internal (RFC 1918), loopback, and link-local addresses are rejected. Attempting to declare:
+At compile time, the engine validates every Federation URL against an SSRF denylist. Internal (RFC 1918), loopback, and link-local addresses are rejected. Attempting to declare:
 
 ```forml2
-External System 'evil' has URL 'http://169.254.169.254/latest/meta-data'.
+Federation 'evil' has URL 'http://169.254.169.254/latest/meta-data'.
 ```
 
-is caught during compile, not at runtime. The check runs once when the External System instance fact is parsed.
+is caught during compile, not at runtime. The check runs once when the Federation instance fact is parsed.
 
 ## Caching and consistency
 
@@ -92,7 +92,7 @@ Each federated fetch emits one Citation:
 Citation 'cite:<hash>' has URI 'https://api.stripe.com/v1/customers/cus_1'.
 Citation 'cite:<hash>' has Retrieval Date '2026-04-20T12:00:00Z'.
 Citation 'cite:<hash>' has Authority Type 'Federated-Fetch'.
-Citation 'cite:<hash>' is backed by External System 'stripe'.
+Citation 'cite:<hash>' is backed by Federation 'stripe'.
 ```
 
 All facts returned by a given fetch share the same Citation (they came from the same response at the same moment). The caller — the MCP server's absorb path, or the engine's populate arm — emits paired `Fact cites Citation` links so each entity fact points back at its origin.
@@ -164,7 +164,7 @@ After `federated_ingest`, downstream constraints and derivations see the federat
 ## Federated analytics backends (#219)
 
 The fetch path above loads a single entity from its source. The
-same External System mechanism covers read-heavy OLAP queries —
+same Federation mechanism covers read-heavy OLAP queries —
 list, count, aggregate — for nouns whose volume makes per-cell
 reads impractical. This is the paper's §5.3 platform-binding
 shape applied to analytics.
@@ -172,12 +172,12 @@ shape applied to analytics.
 Declare a noun is backed by an analytics backend the same way:
 
 ```forml2
-External System 'analytics' has URL 'https://clickhouse.internal'.
-External System 'analytics' has Kind 'analytics'.
-External System 'analytics' has Header 'Authorization'.
-External System 'analytics' has Prefix 'Bearer'.
+Federation 'analytics' has URL 'https://clickhouse.internal'.
+Federation 'analytics' has Kind 'analytics'.
+Federation 'analytics' has Header 'Authorization'.
+Federation 'analytics' has Prefix 'Bearer'.
 
-Noun 'Listing' is backed by External System 'analytics'.
+Noun 'Listing' is backed by Federation 'analytics'.
 Noun 'Listing' has URI '/v1/query'.
 ```
 
@@ -213,13 +213,13 @@ The bundled metamodel includes `organizations.md` which declares:
 - `auto.dev` is an automotive data API.
 - `stripe` is a billing system, exposed with all eight standard resources (customer, subscription, invoice, charge, payment_method, price, product, payment_intent).
 
-You get these for free when you import the metamodel. Add your own External Systems in your domain readings.
+You get these for free when you import the metamodel. Add your own Federations in your domain readings.
 
 ## Writing a new integration
 
 Four steps:
 
-1. Declare the External System with URL, header, and optional prefix.
+1. Declare the Federation with URL, header, and optional prefix.
 2. Declare each noun backed by it with a URI path.
 3. Set `AREST_SECRET_{SYSTEM}` in your runtime environment.
 4. Write constraints and derivations that use the federated noun alongside your local nouns.
@@ -237,9 +237,9 @@ When you need completeness anyway, reach for one of these three patterns.
 Fetch the federated population once, assert each fact locally, then declare the noun CWA going forward. Appropriate when the remote changes slowly (regulatory lists, country codes, chart-of-accounts). After the snapshot, every constraint spanning the noun is complete against the authoritative local population.
 
 ```forml2
-External System 'iso' has URL 'https://iso.example/countries'.
+Federation 'iso' has URL 'https://iso.example/countries'.
 
-Noun 'Country' is backed by External System 'iso'.
+Noun 'Country' is backed by Federation 'iso'.
 Noun 'Country' has URI '/countries'.
 
 ## Instance Facts
@@ -254,7 +254,7 @@ The last line flips the noun from OWA (the federation default) to CWA. Further f
 Declare the federated noun with read-only permission so the compiler rejects alethic constraints that depend on completeness; express federated-spanning rules as deontic instead. This keeps the formalism honest — the system never *claims* a property it can't verify.
 
 ```forml2
-Noun 'Stripe Customer' is backed by External System 'stripe'.
+Noun 'Stripe Customer' is backed by Federation 'stripe'.
 Noun 'Stripe Customer' has URI '/customers'.
 Noun 'Stripe Customer' has Permission 'read'.
 

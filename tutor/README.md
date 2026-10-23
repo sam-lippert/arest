@@ -102,7 +102,7 @@ If you are new to fact-oriented modeling, read the domains in this order.
 - **Compound reference scheme**: `ProductVariant(.id) is an entity type where Product has Size and Color.` (catalog)
 - **State machines**: Order has seven statuses and seven transitions (orders).
 - **Facts as events**: a fact entering P fires an event the SM consumes (orders, notifications).
-- **Federation**: `User is backed by External System 'auth.vin'` is fetched live from the identity provider (_config).
+- **Federation**: `User is backed by Federation 'auth.vin'` is fetched live from the identity provider (_config).
 - **Multiple generators**: SQL, Solidity, and iLayer are emitted from the same readings (_config).
 
 ## Federation credentials
