@@ -12,7 +12,6 @@
 // the Java reader refuses it, where a JS call would drop the fourth silently.
 "use strict";
 const fs = require("fs");
-const crypto = require("crypto");
 
 const DEFS = new Map();
 const CELLS = [];
@@ -261,19 +260,14 @@ function path(name, dflt) {
 // outcome and expected.
 // the stamp is lambda's (compile:stamped): the hash of the lambda text followed by the design-state text, since the map
 // is lambda's answer about a schema; so the loader is handed the lambda it read
+// for now the stamp is not checked (Sam, 2026-10-22): the map is loaded whatever it was built from, as the Java
+// station loads it; a lambda change that moves the map's body regenerates the carrier itself
 function loadCarriers(dir, lambda = path("AREST_LAMBDA", __dirname + "/../../arest")) {
   const ds = dir + "/design-state";
   load(ds);
   if (fs.existsSync(dir + "/norma-answer")) load(dir + "/norma-answer");
   const compiled = dir + "/compiled";
-  if (fs.existsSync(compiled)) {
-    const text = fs.readFileSync(compiled, "utf8");
-    const m = /AREST_COMPILED_FROM=([0-9a-f]+)/.exec(text);
-    const stamped = m ? m[1] : "?";
-    const now = crypto.createHash("sha256").update(fs.readFileSync(lambda)).update(fs.readFileSync(ds)).digest("hex").substring(0, 16);
-    if (stamped === now) load(compiled);
-    else process.stderr.write("compiled carrier is stale (built from " + stamped + ", lambda and design-state are now " + now + "); deriving instead\n");
-  }
+  if (fs.existsSync(compiled)) load(compiled);
   for (const record of ["outcome", "expected"]) if (fs.existsSync(dir + "/" + record)) load(dir + "/" + record);
 }
 

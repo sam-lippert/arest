@@ -237,6 +237,9 @@ public final class Reader {
     // The stamp is lambda's (compile:stamped): the hash of the lambda text followed by the
     // design-state text, since the map is lambda's answer about a schema and another lambda's
     // map is stale over the same design-state. So the loader is handed the lambda it read.
+    // FOR NOW THE STAMP IS NOT CHECKED (Sam, 2026-10-22): the map is loaded whatever it was built
+    // from. A lambda change that leaves the map's body as it was (every unit since 959de210) made
+    // every boot derive the map again; one that moves it must regenerate the carrier itself.
     public static void loadCarriers(String dir) {
         loadCarriers(dir, path("AREST_LAMBDA", "../../arest"));
     }
@@ -246,33 +249,9 @@ public final class Reader {
         load(ds.toString());
         if (Files.exists(Paths.get(dir, "norma-answer"))) load(Paths.get(dir, "norma-answer").toString());
         java.nio.file.Path compiled = Paths.get(dir, "compiled");
-        if (Files.exists(compiled)) {
-            try {
-                String text = new String(Files.readAllBytes(compiled), StandardCharsets.UTF_8);
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("AREST_COMPILED_FROM=([0-9a-f]+)").matcher(text);
-                String stamped = m.find() ? m.group(1) : "?";
-                byte[] l = Files.readAllBytes(Paths.get(lambda)), d = Files.readAllBytes(ds);
-                byte[] ld = java.util.Arrays.copyOf(l, l.length + d.length);
-                System.arraycopy(d, 0, ld, l.length, d.length);
-                String now = sha256hex(ld).substring(0, 16);
-                if (stamped.equals(now)) load(compiled.toString());
-                else System.err.println("compiled carrier is stale (built from " + stamped + ", lambda and design-state are now " + now + "); deriving instead");
-            } catch (java.io.IOException e) {
-                throw new RuntimeException("lambda reader: cannot read " + compiled + ": " + e);
-            }
-        }
+        if (Files.exists(compiled)) load(compiled.toString());
         for (String record : new String[] { "outcome", "expected" })
             if (Files.exists(Paths.get(dir, record))) load(Paths.get(dir, record).toString());
     }
 
-    static String sha256hex(byte[] bytes) {
-        try {
-            byte[] d = java.security.MessageDigest.getInstance("SHA-256").digest(bytes);
-            StringBuilder s = new StringBuilder();
-            for (byte x : d) s.append(String.format("%02x", x));
-            return s.toString();
-        } catch (java.security.NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
-    }
 }
