@@ -112,6 +112,13 @@ Status is rooted in State Machine Definition. *
   Each Status, State Machine Definition combination occurs at most once in the population of Status is rooted in State Machine Definition.
 Status is effective initial in State Machine Definition. *
   Each Status, State Machine Definition combination occurs at most once in the population of Status is effective initial in State Machine Definition.
+Status is leaf initial in State Machine Definition. *
+  Each Status, State Machine Definition combination occurs at most once in the population of Status is leaf initial in State Machine Definition.
+<!-- Where a machine starts an entity: its effective initial, or, where that Status is
+     composite, the leaf initial of its sub-machine, as Harel enters a composite state
+     (Sam, 2026-10-23: the idle status is the leaf, not the composite). An idle Support
+     Request stands at Received, the leaf of Open. lambda`s main:leaf_initial walks the
+     same descent. -->
 <!-- sm-retire-forml2: the resolved seed status of a machine. The cardinality
      gate ("exactly one rooted ⇒ initial, else empty") is a non-monotonic
      predicate FORML 2 cannot express (count+`=1` does not compose as a same-rule
@@ -353,6 +360,10 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 * Status is effective initial in State Machine Definition iff that Status is initial in that State Machine Definition.
 
 * Status is effective initial in State Machine Definition iff that Status is rooted in that State Machine Definition and no Status is initial in that State Machine Definition.
+
+* Status is leaf initial in State Machine Definition1 iff that Status is effective initial in that State Machine Definition1 and it is not true that that Status has some sub-machine State Machine Definition2.
+
+* Status1 is leaf initial in State Machine Definition1 iff some Status2 is effective initial in that State Machine Definition1 and that Status2 has sub-machine some State Machine Definition2 and that Status1 is leaf initial in that State Machine Definition2.
 <!-- residue fix: the effective-initial rules
      (the marker's named debt): the declared initial when present,
      else the graph-derived root — the Pass-4 source-never-target fold the

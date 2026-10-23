@@ -437,7 +437,9 @@ State Machine is currently in Status. +
        cell INSIDE the fixpoint sees the unmerged union. Measured on
        support.auto.dev before the projection below was computed here: two
        rows for one request, `Draft` and `Open`, against an at-most-one
-       uniqueness. -->
+       uniqueness. FIXED (Sam, 2026-10-23): the seed rule reads `Status is
+       leaf initial in State Machine Definition` (state.md), the leaf a
+       composite initial descends to, so it emits one row. -->
 
 ### Event caused Transition in State Machine
 Event caused Transition in State Machine.
@@ -577,7 +579,9 @@ Guard Run has Result.
 
 * Object Type Instance is currently in Status iff some State Machine is for that Object Type Instance and that State Machine is currently in that Status.
 
-* State Machine is currently in Status iff that State Machine is instance of some State Machine Definition and that Status is effective initial in that State Machine Definition.
+* Object Type Instance is currently in Status iff that Object Type Instance is instance of some Object Type and some State Machine Definition is for that Object Type and that Status is leaf initial in that State Machine Definition and no State Machine is for that Object Type Instance.
+
+* State Machine is currently in Status iff that State Machine is instance of some State Machine Definition and that Status is leaf initial in that State Machine Definition.
 
 * Transition occurred at Timestamp iff some Event caused that Transition in some State Machine and that Event occurred at that Timestamp.
 
