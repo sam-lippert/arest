@@ -67,13 +67,65 @@ public class Arest {
         return MEMOCN.contains(f) || f.startsWith("rmap:") || f.startsWith("state:");
     }
     // Any harness that mutates CELLS between evaluations MUST call this at
-    // the mutation point. Also the bound: a full clear past the cap.
+    // the mutation point.
     static int MEMOCLEARS = 0;
     public static void memoClear() {
-        MEMOCLEARS++;
-        EVMEMO.clear(); EVMEMON = 0;
+        memoEmpty();
         DESCIDX = new java.util.WeakHashMap<Object, Map<String, Object>>();
         ENTIDX = new java.util.WeakHashMap<Object, Map<String, List<Object>>>();
+    }
+    // THE MEMO'S BOUNDS ARE THE JS HOST'S (memoCall in tools/js-runner/host.js
+    // before 4f117761: 1bd449f9, 2026-09-23, and d2905422, 2026-10-02). This
+    // station kept only the 400,000-answer bound it had on 2026-08-13, and
+    // that bound was the whole of what let a name's answers go. MEASURED
+    // (lane D, 7d): support's scratch compile ran out of a 3 GB heap inside
+    // its first store:close, in store:file_put's rmap:nest, whose merge sort
+    // walks <merged, a, b, i, j> by rmap:mg_step. A step's operand is a fresh
+    // state every time, so its answer is never asked for again, and the memo
+    // kept every one -- each holding the merged prefix apndr copied, so a merge
+    // of n rows held about n^2/2 references. rmap:groups_of over n synthetic
+    // rows held 26, 97 and 364 MB after a collection at n = 2,000, 4,000 and
+    // 8,000 (68k, 146k and 314k answers, none given back) and ran out of 512 MB
+    // at 16,000; applied bare it held nothing, with the same answers. So, as
+    // the js host had it: a name that has stored MEMO_JUDGED answers and been
+    // given back fewer than one in MEMO_EARNS is applied bare for the rest of
+    // the process (the counts describe how a name is called, so they outlive
+    // memoClear); no name keeps more than MEMO_HELD answers, or answers
+    // weighing MEMO_NAME_W, since its entries last went; and the memo is
+    // emptied past 400,000 answers or MEMO_ALL_W of weight. A bound empties the
+    // memo and not the identity-keyed indexes, which stay true while their
+    // values live; only a mutation (memoClear) drops those. Speed only: no
+    // answer moves.
+    static final int MEMO_JUDGED = 4096;
+    static final int MEMO_EARNS = 8;
+    static final int MEMO_HELD = 4096;
+    static final long MEMO_NAME_W = 1L << 20;
+    static final long MEMO_ALL_W = 1L << 22;
+    // name -> {stored, given back, applied bare}
+    static final Map<String, long[]> MEMOSTAT = new HashMap<String, long[]>();
+    // name -> {held, weight} of its entries since they last went
+    static final Map<String, long[]> MEMOROOT = new HashMap<String, long[]>();
+    static long MEMOW = 0;
+    static void memoEmpty() {
+        MEMOCLEARS++;
+        EVMEMO.clear(); MEMOROOT.clear(); EVMEMON = 0; MEMOW = 0;
+    }
+    static void memoForget(String f) {
+        long[] root = MEMOROOT.remove(f);
+        if (root != null) MEMOW -= root[1];
+        EVMEMO.remove(f);
+    }
+    // an answer's weight: its elements and theirs, a text a sixteenth of its length
+    static long memoWeight(Object v) {
+        if (v instanceof String) return 1 + (((String) v).length() >> 4);
+        if (!(v instanceof Object[])) return 1;
+        Object[] a = (Object[]) v;
+        long w = 1 + a.length;
+        for (Object e : a) {
+            if (e instanceof Object[]) w += ((Object[]) e).length;
+            else if (e instanceof String && ((String) e).length() > 64) w += ((String) e).length() >> 4;
+        }
+        return w;
     }
 
     // ---- FASTPRIMS: compiled forms of hot lambda list cells, mirroring
@@ -551,8 +603,13 @@ public class Arest {
                 Function<Object, Object> fp = NO_OVERRIDE ? null : FASTPRIMS.get(fn);
                 if (fp != null) return fp.apply(x);
                 if (!memoable(fn)) return Ev(body, x);
+                long[] st = MEMOSTAT.get(fn);
+                if (st == null) { st = new long[3]; MEMOSTAT.put(fn, st); }
+                if (st[2] != 0) return Ev(body, x);
                 Map<Object, Object> node = EVMEMO.get(fn);
                 if (node == null) { node = new HashMap<Object, Object>(); EVMEMO.put(fn, node); }
+                long[] root = MEMOROOT.get(fn);
+                if (root == null) { root = new long[2]; MEMOROOT.put(fn, root); }
                 Object[] chain;
                 if (x instanceof Object[] && ((Object[]) x).length <= 4) {
                     Object[] xs = (Object[]) x;
@@ -570,10 +627,15 @@ public class Arest {
                     node = step;
                 }
                 Object last = chain[chain.length - 1];
-                if (node.containsKey(last)) return node.get(last);
+                if (node.containsKey(last)) { st[1]++; return node.get(last); }
                 Object v = Ev(body, x);
                 node.put(last, v);
-                if (++EVMEMON > 400000) memoClear();
+                long w = memoWeight(v);
+                root[1] += w; MEMOW += w;
+                if (++st[0] % MEMO_JUDGED == 0 && st[1] * MEMO_EARNS < st[0]) { st[2] = 1; memoForget(fn); }
+                else if (++root[0] >= MEMO_HELD) memoForget(fn);
+                else if (root[1] >= MEMO_NAME_W) { if (st[1] * MEMO_EARNS < st[0]) st[2] = 1; memoForget(fn); }
+                if (++EVMEMON > 400000 || MEMOW >= MEMO_ALL_W) memoEmpty();
                 return v;
             }
             Function<Object, Object> prim = PRIMS.get(f);
