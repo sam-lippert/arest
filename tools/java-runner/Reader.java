@@ -244,8 +244,17 @@ public final class Reader {
         loadCarriers(dir, path("AREST_LAMBDA", "../../arest"));
     }
 
+    // A DIRECTORY THAT HOLDS A STORE AND NO CARRIERS IS NAMED, NOT READ (task 8e): where it holds no
+    // design-state but holds store.db (the base a compile-store of the metamodel wrote), the cells
+    // name that database in state:store_db, as Serve composes a store whose check wrote no carriers,
+    // and lambda boots it (main:boot: store:for_read of store:boot), its schema read from the store.
     public static void loadCarriers(String dir, String lambda) {
         java.nio.file.Path ds = Paths.get(dir, "design-state");
+        java.nio.file.Path db = Paths.get(dir, "store.db");
+        if (!Files.exists(ds) && Files.isRegularFile(db)) {
+            Arest.CELLS.add(new Object[] { "CELL", "state:store_db", db.toAbsolutePath().toString().replace('\\', '/') });
+            return;
+        }
         load(ds.toString());
         if (Files.exists(Paths.get(dir, "norma-answer"))) load(Paths.get(dir, "norma-answer").toString());
         java.nio.file.Path compiled = Paths.get(dir, "compiled");
