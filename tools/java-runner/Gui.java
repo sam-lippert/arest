@@ -708,6 +708,12 @@ public class Gui {
             Reader.load(scenarios);
             Reader.loadCarriers(carriers, lambda);
             Registrations.register(lambda);
+            // a carriers directory that holds a store and no carriers names its database (Reader.loadCarriers), and
+            // lambda boots it as it boots any composed store (main:boot)
+            if (!new java.io.File(carriers, "design-state").isFile()) {
+                adopt(Arest.Ev("main:boot", Arest.CELLS.toArray()));
+                return;
+            }
             Object built = Arest.Ev("ast:File", Arest.Ev("store:state", Arest.CELLS.toArray()));
             for (Object cell : (Object[]) built) Arest.CELLS.add(0, cell);
             Arest.memoClear();

@@ -47,7 +47,8 @@ public class Router {
         login = Reader.path("AREST_LOGIN", "");
         String dir = registry + "/.check";
         Reader.load(lambda);
-        Reader.loadCarriers(dir, lambda);
+        // as Serve reads a store: through the carriers its check wrote beside it, where it wrote any
+        if (new File(dir, "design-state").isFile()) Reader.loadCarriers(dir, lambda);
         Registrations.register(lambda);
         Arest.CELLS.add(new Object[] { "CELL", "state:store_db", dir + "/store.db" });
         Arest.memoClear();
