@@ -868,7 +868,7 @@ No Domain draws on itself.
        which gives acyclicity in the fragment (the state.md reaches
        pattern). A multi-segment path (a:b:c) is a walk down the tree:
        store a, then its sub-store b, then cell c. -->
-It is obligatory that each Function belongs to some Domain.
+It is obligatory that each Function that is not some Object Type Instance belongs to some Domain.
 
 Definition Origin is a value type.
   The possible values of Definition Origin are 'compiled', 'registered'.
