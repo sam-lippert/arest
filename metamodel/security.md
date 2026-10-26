@@ -30,7 +30,7 @@ origin 'registered') and serve both surfaces from the one definition.
 ## Entity Types
 
 CIDR Block is an entity type.
-CIDR Block is a subtype of Function.
+CIDR Block is a subtype of Object Type Instance.
 
 ## Value Types
 
