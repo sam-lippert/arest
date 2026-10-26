@@ -70,10 +70,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       # java and dotnet are preinstalled on windows-latest.
+      # lambda's test:report over the composed store, its verdict the exit
+      # status (main:on: `verify` and the empty address both answer it). This
+      # step ran `bun run build:test && bun test` until 2026-10-26, scripts
+      # that left with build.js, so it failed at "Script not found" before a
+      # law ran and the java and cs steps were skipped. The whole report
+      # outlasts timeout-minutes today (8,451 s on Java, 2026-10-22); a run
+      # cut off by it is a report not yet fast enough, never a pass (roadmap
+      # 8f).
       - name: js host
         shell: bash
         working-directory: tools/js-runner
-        run: bun run build:test && bun test
+        run: bun program.js verify
       # compiles Arest, Reader, Program, CasesTest AND Gui — the Swing
       # container is gated here or nowhere
       - name: java host and its GUI
