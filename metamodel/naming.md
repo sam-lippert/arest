@@ -39,7 +39,7 @@ bare `s$`, and the empty-pattern default must be last.
 ## Entity Types
 
 Pluralization Rule is an entity type.
-Pluralization Rule is a subtype of Function.
+Pluralization Rule is a subtype of Object Type Instance.
 
 ## Value Types
 

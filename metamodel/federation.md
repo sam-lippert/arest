@@ -28,7 +28,7 @@ Source is an entity type.
 Source is a subtype of Function.
 
 Connector is an entity type.
-Connector is a subtype of Function.
+Connector is a subtype of Object Type Instance.
 
 <!-- A Fetcher is a definition name resolved by rho (the note above), which is
      to say a Function: src.do keys its fetchers map by name and dispatches by
@@ -40,7 +40,7 @@ Connector is a subtype of Function.
      the real object is an entity, a model that says value is wrong.
      Translator stays a value type: src.do has no translators to consult. -->
 Fetcher is an entity type.
-Fetcher is a subtype of Function.
+Fetcher is a subtype of Object Type Instance.
 
 ## Value Types
 

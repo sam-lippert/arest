@@ -155,7 +155,7 @@ Reading is a subtype of Function.
 Role is an entity type.
 Role is a subtype of Function.
 
-Predicate is a subtype of Function.
+Predicate is a subtype of Object Type Instance.
   HTTP Method is a subtype of Predicate.
 
 Constraint is an entity type.
@@ -185,7 +185,7 @@ Constraint is an entity type.
      evidence, not a silent rider on a declaration fix. -->
 
 Constraint Type is an entity type.
-Constraint Type is a subtype of Function.
+Constraint Type is a subtype of Object Type Instance.
 
 Derivation Rule is an entity type.
   Derivation Rule is a subtype of Function.
@@ -205,10 +205,10 @@ schema:Thing is an entity type.
 schema:Thing is a subtype of Function.
 
 Federation is an entity type.
-Federation is a subtype of Function.
+Federation is a subtype of Object Type Instance.
 
 Domain is an entity type.
-Domain is a subtype of Function.
+Domain is a subtype of Object Type Instance.
   <!-- arest-batch ruling 2: Domain is the namespace unit `Function
        belongs to Domain` requires — declared at last, schema-side under
        Function. Access and Scope are organization-domain vocabulary per
@@ -1680,7 +1680,7 @@ Role Sequence is a subtype of Function.
 Role Projection is an entity type.
 Role Projection is a subtype of Function.
 Join Type is an entity type.
-Join Type is a subtype of Function.
+Join Type is a subtype of Object Type Instance.
 
 ### Value types
 
@@ -2008,11 +2008,11 @@ Unit is a subtype of Function.
 Dimension is an entity type.
 Dimension is a subtype of Function.
 Conceptual Data Type is an entity type.
-Conceptual Data Type is a subtype of Function.
+Conceptual Data Type is a subtype of Object Type Instance.
 Data Type Group is an entity type.
-Data Type Group is a subtype of Function.
+Data Type Group is a subtype of Object Type Instance.
 Format is an entity type.
-Format is a subtype of Function.
+Format is a subtype of Object Type Instance.
 Textual Constraint is a subtype of Constraint.
 
 ### Value types

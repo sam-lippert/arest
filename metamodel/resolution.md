@@ -17,7 +17,7 @@ Domain 'resolution' has Description 'The Resolution Registry (docs ch. 15) as la
 ## Entity Types
 
 Operation is an entity type.
-Operation is a subtype of Function.
+Operation is a subtype of Object Type Instance.
 
 ## Fact Types
 

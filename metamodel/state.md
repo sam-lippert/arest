@@ -41,12 +41,13 @@ Status is a subtype of Object Type Instance.
      parent machine like any other. -->
 
 State Machine Definition is an entity type.
+State Machine Definition is a subtype of Object Type Instance.
 Status has sub-machine State Machine Definition.
   For each State Machine Definition, at most one Status has sub-machine that State Machine Definition.
 Transition is an entity type.
-Transition is a subtype of Function.
+Transition is a subtype of Object Type Instance.
 Guard is an entity type.
-Guard is a subtype of Function.
+Guard is a subtype of Object Type Instance.
 
 Stream is an entity type.
 Stream is a subtype of Function.

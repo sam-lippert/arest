@@ -17,7 +17,7 @@
 Domain 'core' has Description 'Extracted from NORMA ORM2 model (design/html/). The canonical FORML 2 metamodel against which every user domain is a subtype binding.'.
 
 Verbalization Pattern(.name) is an entity type.
-Verbalization Pattern is a subtype of Function.
+Verbalization Pattern is a subtype of Object Type Instance.
 
 Pattern Family is a value type.
   The possible values of Pattern Family are 'declaration', 'fact type', 'uniqueness', 'mandatory', 'ring', 'set comparison', 'value', 'subtyping', 'objectification', 'derivation', 'deontic', 'state machine', 'population'.
