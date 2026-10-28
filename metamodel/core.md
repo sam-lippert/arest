@@ -269,7 +269,13 @@ Reference Mode is a value type.
      none of these was one. Same retirement: Data (was in the roster below)
      and Confidence (outcomes.md, superseded by Confidence Score). -->
 Position is a value type.
-  The data type of Position is integer.
+  The data type of Position is autoCounter.
+  <!-- AUTO-INCREMENT, AND AN ASSERTED VALUE STANDS (Sam, 2026-10-19: "Position should be auto-increment, but
+       that also means that it honors asserted values"). A write that states a Position keeps it, as every
+       reading that numbers a role does; a write that leaves it out is given the next one after the greatest
+       held by the facts that agree with it on the other roles of the uniqueness spanning it, the next message
+       in its thread. -->
+
 Sequence Number is a value type.
   The data type of Sequence Number is integer.
   <!-- Which argument sequence of a constraint a span belongs to. Paired

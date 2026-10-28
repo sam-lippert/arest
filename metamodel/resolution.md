@@ -690,14 +690,21 @@ Function 'sqlite:scratch' accepts Type Expression 'script-and-sql-and-parameters
 Function 'sqlite:scratch' yields Type Expression 'rows'.
 <!-- AND A WRITE IS ONE PROGRAM.
      sqlite:program runs the steps lambda builds -- each <kind, sql,
-     parameters>, the parameters bound and never spliced -- in order
-     between one begin and one commit, in the store at the path or in a
-     database with no file (:memory:): exec answers the rows it changed,
-     rows the rows it reads, fix runs again until it changes nothing, and
-     a refuse step that answers a row rolls the whole program back and
-     answers <refused, its step, its rows>. Otherwise it answers
-     <committed, each step's answer>. An entity retract is one such
-     program (retract:program). -->
+     parameters, guard>, the last two optional, the parameters bound and
+     never spliced and # bound as NULL -- in order between one begin and one
+     commit, in the store at the path or in a database with no file
+     (:memory:): exec answers the rows it changed, rows the rows it reads,
+     fix runs again until it changes nothing, and a refuse step that answers
+     a row rolls the whole program back and answers <refused, its step, its
+     rows>. A deny step answers its rows and the program runs on; a row any
+     deny step answers rolls the program back and answers <denied, each
+     <step, rows>>, so a refused write names every alethic violation
+     (Def. 9: V is the union of each V_c), not only the first. A guard is a
+     select, and the exec, rows, refuse or deny step it guards is asked only
+     when the guard answers a row: speed only, since a select over an empty
+     input answers no row. Otherwise it answers <committed, each step's
+     answer>. An entity retract is one such program (retract:program), and
+     a write's checks another (delta:wa4). -->
 Function 'sqlite:program' has Definition Origin 'registered'.
 Function 'sqlite:program' accepts Type Expression 'path-and-steps'.
 Function 'sqlite:program' yields Type Expression 'program-answer'.
@@ -990,12 +997,11 @@ Function '/' yields Type Expression 'number'.
      mode flag. A negative scale rounds to tens and hundreds, so the operand
      is a number-pair like every other arithmetic row.
 
-     ONLY THE js HOST IMPLEMENTS IT, AND ONLY js CAN. The certified hosts
-     have no decimal in their value domain to round:
-     tools/rust-host/src/lib.rs:1214 is `fn N(n: i64) -> V`,
-     tools/cs-runner/Reader.cs:113 is int.Parse and
-     tools/java-runner/Reader.java:106 is Integer.parseInt, so N(6.875) does
-     not compile in one and throws in the other two. This row is the
+     A HOST'S NUMBERS ARE 64-BIT INTEGERS, at least largeInteger's domain
+     (core.md), and a decimal is lambda's own <decimal, mantissa, scale>
+     (dec:round), so round over a host number has scale 0: round<x, s> is x
+     for s >= 0 and x to the nearest 10^-s otherwise. The Java host
+     registers it (tools/java-runner/Registrations.java). This row is the
      declaration of record; design-state carries it once the oracle runs
      again, and until then the store simply does not mention round -- which
      test:origins_match permits, since the store's registered set need only be
