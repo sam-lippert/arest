@@ -132,13 +132,14 @@ App 'pm' has Package Directory 'C:/Users/lippe/Repos/apps/pm.auto.dev'.
 
 App 'engineering' has Package Directory 'C:/Users/lippe/Repos/apps/engineering.auto.dev'.
 
+<!-- SPD-1 runs by itself (Sam, 2026-10-28): an App that claude also composes as a library. -->
+App 'spd-1' has Package Directory 'C:/Users/lippe/Repos/apps/spd-1'.
+
 <!-- The libraries the residents compose, and decidex and infosci, whose checks
      already called compile-store. Which compose which is each package.json's
      dependencies. -->
 
 Library 'memory' has Package Directory 'C:/Users/lippe/Repos/apps/memory'.
-
-Library 'spd-1' has Package Directory 'C:/Users/lippe/Repos/apps/spd-1'.
 
 Library 'connectors' has Package Directory 'C:/Users/lippe/Repos/apps/connectors'.
 
