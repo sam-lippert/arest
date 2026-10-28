@@ -128,13 +128,14 @@ App 'pm' has Package Directory 'C:/Users/me/Repos/apps/pm.example.dev'.
 
 App 'engineering' has Package Directory 'C:/Users/me/Repos/apps/engineering.example.dev'.
 
+<!-- LYR-1 runs by itself: an App that claude also composes as a library. -->
+App 'lyr-1' has Package Directory 'C:/Users/me/Repos/apps/lyr-1'.
+
 <!-- The libraries the residents compose, and decidex and infosci, whose checks
      already called compile-store. Which compose which is each package.json's
      dependencies. -->
 
 Library 'memory' has Package Directory 'C:/Users/me/Repos/apps/memory'.
-
-Library 'lyr-1' has Package Directory 'C:/Users/me/Repos/apps/lyr-1'.
 
 Library 'connectors' has Package Directory 'C:/Users/me/Repos/apps/connectors'.
 
