@@ -95,7 +95,12 @@ Status is initial in State Machine Definition.
   For each State Machine Definition, at most one Status is initial in that State Machine Definition.
 Status is defined in State Machine Definition. **
   Each Status, State Machine Definition combination occurs at most once in the population of Status is defined in State Machine Definition.
-Status is terminal in State Machine Definition. *
+Status is terminal in State Machine Definition.
+  <!-- DECLARED, NOT DERIVED (Sam, 2026-10-27). Whether a Status ends the work is a modeling statement:
+       a machine says which of its Statuses are terminal, and an entity in one is retired from
+       orientation then (orient:retired). It was derived as the Statuses no Transition exits, which
+       made every sink finished whether or not anyone meant it, while the apps already declared
+       theirs against a fully derived (*) fact type that cannot take an assertion. -->
   Each Status, State Machine Definition combination occurs at most once in the population of Status is terminal in State Machine Definition.
 <!-- audit-fix D: DERIVED again. The asserted-form rationale
      that stood here ("a derivation rule asserts only positive facts")
@@ -248,30 +253,6 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
 ** Transition exits Status1 in State Machine Definition1 iff that Status1 is defined in some State Machine Definition2 and some Status2 has sub-machine that State Machine Definition2 and that Transition exits that Status2 in that State Machine Definition1.
 
-* Status is terminal in State Machine Definition iff that Status is defined in that State Machine Definition and no Transition exits that Status in that State Machine Definition.
-<!-- audit-fix D: restored, mirroring `rooted`. History: the killed host's
-     parser stripped the `no ... where ...` clause (AbsenceOf detection
-     removed, parse_forml2.rs), compiling this rule to
-     `terminal == defined` (verified wrong live: 32/32), and the
-     response demoted the cell to asserted under a rationale the paper
-     does not support. Evaluator-phase gate obligation: negated-clause
-     rules compile faithfully or refuse loudly — never strip-and-fall-back. -->
-<!-- AND A NESTED MACHINE'S EXITS COUNT OUTSIDE IT. The
-     Harel rule below defines a status of a nested machine in the machine that
-     nests it too, and terminal counting only the transitions defined
-     in that same machine would read support.auto.dev's `Support Request`
-     Received, Draft, Responded and Escalated -- the sub-statuses of its
-     composite `Open` -- as terminal beside Closed, and its Agent Chat machine
-     the same (pm.auto.dev). So what leaves a status is a
-     relation of its own. A Transition exits a Status in a machine when it is
-     defined there and is from that Status. It also exits it when it exits that
-     Status in a nested machine defined there, so `accept`, inside `Open`,
-     leaves Received in `Support Request` too. And it exits it when it exits a
-     composite there that the Status is defined in, so `resolve`, which leaves
-     `Open`, leaves every sub-status of `Open`. Terminal is then what is defined
-     in the machine and exited by nothing in it: `Support Request` has Closed
-     alone. The where-less `no` compiles to the same anti-join as `rooted`'s,
-     over the one relation. -->
 <!-- A SUB-MACHINE ENDS AT A TERMINAL STATUS OF ITS OWN OR IS LEFT FROM
      OUTSIDE, AND ITS END MAY MOVE THE MACHINE THAT NESTS IT. A sub-machine
      may naturally flow to a
@@ -461,13 +442,6 @@ For each State Machine Definition, at most one Status is initial in that State M
        declared reading's own direction. At-most-one: the initial status
        is optional at declaration (effective-initial falls back to the
        root), so the old "exactly one" overstated the model. -->
-For each State Machine Definition, some Status is defined in that State Machine Definition.
-<!-- exec-4: NORMA's NotWellModeledSubsetAndMandatory
-     resolution (2) — the initial-implies-defined subset plus the
-     mandatory initial Status requires the superset role mandatory too.
-     Semantically right on its own: a machine with no defined Status is
-     vacuous. The defined population is derived from transitions, so
-     this evaluates after the closure. -->
 It is obligatory that if some State Machine Definition is for some Object Type then some Status is terminal in that State Machine Definition.
 <!-- CONDITIONAL ON AN OBJECT TYPE. "It is obligatory that for each
      State Machine Definition, some Status is terminal in that State Machine
@@ -481,7 +455,6 @@ It is obligatory that if some State Machine Definition is for some Object Type t
      which 'cycle-has-exit' below answers. The conditional builds a deontic
      subset: StateMachineDefinitionIsForObjectType in
      proj(StatusIsTerminalInStateMachineDefinition, [2]). -->
-If some Status is initial in some State Machine Definition then that Status is defined in that State Machine Definition.
 
 ### Liveness (AREST.tex, after Thm 2)
 

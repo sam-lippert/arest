@@ -268,8 +268,6 @@ Reference Mode is a value type.
      Only an INDEPENDENT object type earns a standalone table (Halpin), and
      none of these was one. Same retirement: Data (was in the roster below)
      and Confidence (outcomes.md, superseded by Confidence Score). -->
-Arity is a value type.
-  The data type of Arity is integer.
 Position is a value type.
   The data type of Position is integer.
 Sequence Number is a value type.
@@ -371,33 +369,28 @@ Scope is a value type.
 Derivation Mode is a value type.
   The possible values of Derivation Mode are 'fully-derived', 'derived-and-stored', 'semi-derived', 'semi-derived-and-stored'.
   The data type of Derivation Mode is text.
-  <!-- marker: 'semi-derived-and-stored' is the fourth mode. Without it the
-       enum would carry three of Halpin's four ORM 2 derivation markers, and the
-       corpus could not express `++` at all. The four are orthogonal, storage on
-       one axis and assertability on the other:
-         *   derive at runtime
-         **  derive and store
-         +   derive or assert
-         ++  derive and store, or assert
-       The missing mode is the only one that supports a computed DEFAULT an
-       author may then override. A runtime-derived cell (`*`, `+`) recomputes on
-       every read, so an assertion to the contrary is overwritten, which is the
-       non-monotonic retraction Lem 1 excludes and which state.md already hit on
-       effective-initial. A STORED cell is materialized once and persists, so a
-       later assertion survives until the next materialization.
-       First use: `Subscription is set to cancel at period end` in
-       apps/auto.dev/plans-subscriptions.md, where an admin-provisioned trial
-       must default to cancelling at trial end and an admin may deliberately
-       assert otherwise.
-       AREST.tex enumerates only three ("fully derived (*), derived and stored
-       (**, materialized), or semi-derived (+, also directly assertable)") and
-       carries the same gap. Not corrected here; the readings lead.
-       Follow-up, not taken unilaterally: NORMA models this as TWO orthogonal
-       enums, completeness (fully / partially derived) crossed with storage
-       (derived / derived and stored), which yields the four markers as products
-       rather than as a flat list. Splitting this value type that way is the
-       faithful modeling and would make the orthogonality structural, but it
-       changes the shape of an existing populated value type. -->
+  <!-- THE FOUR MARKINGS ARE TWO CHOICES (Halpin, sec. 3.5 and 5.3).
+       Completeness: a fact type is fully derived when its rule's main
+       operator is iff, and partly (semi-) derived when it is if, its
+       population then the facts entered of it together with the facts its
+       rules derive.
+       Storage: a derived fact type that is not stored is derived on query,
+       lazy evaluation, so the derived information is computed only when it
+       is requested; one that is also stored is derived on update, eager
+       evaluation, chosen because it offers better performance.
+         *   fully derived, derived on query
+         **  fully derived and stored, derived on update
+         +   semi-derived, derived on query
+         ++  semi-derived and stored, derived on update
+       Storage decides when a derivation runs, never what it answers: the
+       stored rows are its rules' rows, a cache, never a record that differs
+       from them. Nothing evaluates eagerly here -- a derivation runs when
+       its entity is read (Sam, 2026-10-27) -- so every marking is read
+       through its rules. An entered fact of a semi-derived fact type
+       overrides no derived one; a default that an entered value overrides
+       is itself a fully derived fact type over the semi-derived one.
+       NORMA models the two choices as two enums, completeness crossed with
+       storage, which this value type flattens into four values. -->
 
 
 Constraint Type Label is a value type.
@@ -603,8 +596,6 @@ Fact Type has Role.
   Each Fact Type has some Role.
   For each Role, exactly one Fact Type has that Role.
   It is possible that some Fact Type has more than one Role.
-Fact Type has Arity. **
-  Each Fact Type has exactly one Arity.
 Fact Type has Declaration Order.
   Each Fact Type has at most one Declaration Order.
 Fact Type has Role Relationship.
@@ -1099,7 +1090,6 @@ If some Guard Run is for some Guard and that Guard Run references some Fact then
      Fact" for `Fact is of Fact Type`) — parseable by charity only.
      Reworded to the declared reading directions; both now build as real
      NORMA subset constraints with join paths. -->
-If some State Machine is currently in some Status then that Status is defined in some State Machine Definition where that State Machine is instance of that State Machine Definition.
 If some API accepts some Object Type as parameter and some other Object Type is subtype of that Object Type then that API accepts that subtype Object Type as parameter.
 <!-- exec-4 adjudication: the two Format subset sentences
      that stood here are retired — built as real NORMA SubsetConstraints,
@@ -1453,7 +1443,6 @@ Derivation Rule depends on Derivation Rule. *
 
 * Domain1 draws on Domain3 iff Domain1 draws on Domain2 and Domain2 draws on Domain3.
 
-** Fact Type has Arity iff Arity is the count of Role where Fact Type has Role.
 
 * Derivation Rule1 depends on Derivation Rule2 iff Derivation Rule1 has antecedent Fact Type and Derivation Rule2 produces that Fact Type.
 <!-- arest-audit B: "some other Derivation Rule" dropped from this rule —

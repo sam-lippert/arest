@@ -209,29 +209,6 @@ Object Type Instance is most specifically of Object Type. **
        Priority -- is several values that share a key, since the store keys an
        instance by its text; it is not one value whose readings conflict. -->
 
-Object Type Instance is of Function. **
-  Each Object Type Instance, Function combination occurs at most once in the population of Object Type Instance is of Function.
-  <!-- ns-2 (ns-derive-population-domains): the single-sourcing BRIDGE for a
-       Object Type Instance's domain. A Noun IS a Function (Noun < Function; same identity,
-       same id), so this fully-derived FT re-labels the Noun an Object Type Instance is an
-       instance of as that same Function. It stores NO domain — it only
-       re-projects the existing `Object Type Instance is instance of Noun` value under a
-       `Function` role so the domain rule below can JOIN on `Function` (the
-       role `Function belongs to Domain` carries), exactly as Violation/Failure
-       join on the Function they are against. See the rule under
-       "## Derivation Rules". -->
-Object Type Instance belongs to Domain. **
-  Each Object Type Instance belongs to at most one Domain.
-  <!-- ns-2 (ns-derive-population-domains): an Object Type Instance does NOT store its own
-       domain — it DERIVES it from the Noun it is an instance of, keeping
-       domain single-sourced on Function (a Noun is a subtype of Function;
-       core.md "Function belongs to Domain"). The `*` marks this Fact Type as
-       fully derived; the rule is under "## Derivation Rules" below. Object Type Instance
-       never stored a domain, so nothing is removed — this only adds the
-       derivation so an Object Type Instance's domain is the domain of its Noun. Distinct
-       from the createEntity `domain` command field (ast.rs `same_identity` /
-       `annotate_noun_domain`), which is the per-FILE namespace tag, not a
-       stored population-level domain fact. -->
 Object Type Instance has Reference.
   Each Object Type Instance has exactly one Reference.
   For each Reference, at most one Object Type Instance has that Reference.
@@ -456,8 +433,6 @@ Event caused Transition in State Machine.
 If some Event caused some Transition in some State Machine then that Event is of some Event Type
   where that Transition is triggered by that Event Type.
 
-<!-- An entity is of the Domain of its most specific type, and a value has no Domain. -->
-If some Object Type Instance belongs to some Domain then that Object Type Instance is most specifically of some Object Type that is of Object Kind 'entity'.
 
 ### Guard Run
 Guard Run is for Guard.
@@ -489,15 +464,16 @@ Guard Run has Result.
 
      A Noun IS a Function and a Fact Type IS a Function (Fact Type < Object Type Instance <
      Noun < Function), with the SAME identity / id. So the fully-derived bridge
-     FTs `Object Type Instance is of Function` / `Fact is of Function` (declared above)
+     FT `Fact is of Function` (declared above)
      re-label that same value under a `Function` role — a 1-antecedent
      ModusPonens with a computed-binding rename (`Function is Noun` /
      `Function is Fact Type`); they STORE NO domain. The domain rules then relate
      via `is of Function` and JOIN on `Function` with `Function belongs to
      Domain` — byte-for-byte the Violation / Failure shape — and the Domain
-     value propagates onto the Object Type Instance / Fact consequent. Domain stays
+     value propagates onto the Fact consequent. Domain stays
      single-sourced on Function throughout (the only Domain-valued fact lives on
-     the Function; Object Type Instance / Fact / the bridge store none).
+     the Function; Fact and the bridge store none). An Object Type Instance has no
+     Domain of its own: it is its type`s, by inheritance (Sam, 2026-10-27).
 
      A future engine fix (filed task `derivation-subtype-join-resolution`) that
      resolves a subtype-subject `belongs to Domain` clause to the Function FT
@@ -519,10 +495,6 @@ Guard Run has Result.
 ** Object Type Instance is properly of Object Type1 iff that Object Type Instance is instance of some Object Type2 and that Object Type2 is subtype of that Object Type1.
 
 ** Object Type Instance is most specifically of Object Type iff that Object Type Instance is instance of that Object Type and it is not true that that Object Type Instance is properly of that Object Type.
-
-** Object Type Instance is of Function iff that Object Type Instance is most specifically of some Object Type that is that Function.
-
-** Object Type Instance belongs to Domain iff that Object Type Instance is most specifically of some Object Type that is of Object Kind 'entity' and that Object Type belongs to that Domain.
 
 <!-- `Fact is of Fact Type` is a BASE fact type, populated by population
      reflection (the killed host did this in compile.rs
