@@ -5783,5 +5783,10 @@ DEF("test:contains_indexed",
        S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("cn:contains"), K(S2(A("aaab"), A("aab")))), K(A("T")))),
        S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("cn:contains"), K(S2(A("xabc"), A("bc")))), K(A("T")))),
        S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("cn:contains"), K(S2(A(""), A("")))), K(A("F")))),
-       S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("cn:contains"), K(S2(A("banana"), A("nab")))), K(A("F")))))))
+       S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("cn:contains"), K(S2(A("banana"), A("nab")))), K(A("F"))))))),
+"A COMPILE`S MAP IS ITS OWN: for every artifact, a carried stored:rmap cell behind compile:map_masks fetches as # (absent), so rmap:X derives.",
+DEF("test:map_masks",
+    S4(A("COMP"), A("fp:and_all"), S2(A("ALPHA"), A("test:mm_one")), A("compile:artifacts"))),
+DEF("test:mm_one",
+    S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("ast:fetch"), S3(A("CONS"), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("CONS"), K(A("stored:rmap:")), A("id")))), S3(A("COMP"), A("cat"), S3(A("CONS"), A("compile:map_masks"), S2(A("CONS"), S4(A("CONS"), K(A("CELL")), S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("CONS"), K(A("stored:rmap:")), A("id")))), K(A("stale")))))))), K(A("#")))))
 )
