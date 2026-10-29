@@ -941,6 +941,19 @@ Function has Implementation.
        over the fact algebra. Population arrives with the lambda
        manifest. -->
 
+
+### Function supersession
+
+<!-- THE MEMORY DOMAIN (from evolution.md). Function is the one id space over every definition, so
+     retirement is one ring over the space that already names everything: a fact whose truth is a
+     function of the store, retracted when it stops holding, where a count or a description would rot.
+     Passive on purpose (the retired name reads first), and no date or rationale role: a modeling
+     act's account is the Schema Design that proposed it. Spanning, with no narrower uniqueness: a
+     retirement may have more than one successor (Signal Source split in two), and one successor may
+     retire several. -->
+Function is superseded by Function.
+  Each Function, Function combination occurs at most once in the population of Function is superseded by Function.
+
 ### Constraint
 Constraint has modality of Modality Type.
 Constraint has Text.
@@ -1109,6 +1122,11 @@ If some API accepts some Object Type as parameter and some other Object Type is 
        If some Object Type has some Format then that Format is built on some Conceptual Data Type. -->
 
 ## Ring Constraints
+
+No Function is superseded by itself.
+If Function1 is superseded by Function2, then Function2 is not superseded by Function1.
+<!-- Acyclic is the true property; these are its consequences at path lengths one and two, and the two
+     roles being disjoint (every chain one hop) is the law supersession-resolves. -->
 
 No Object Type is subtype of itself.
 If Object Type1 is subtype of Object Type2, then Object Type2 is not subtype of Object Type1.
@@ -2186,6 +2204,14 @@ Format has Pattern.
        as `pattern`; absent when the Format imposes no lexical shape. -->
 
 ## Instance Facts
+
+<!-- SUPERSESSION, populated from what the repo can be asked: every retired name resolves to
+     nothing (no lambda definition, no Definition Origin row). Moved from evolution.md. -->
+Function 'finiteness_check' is superseded by Function 'derive:stratified'.
+Function 'ast:pop_row' is superseded by Function 'ast:pop_exp'.
+Function 'journal:overflow' is superseded by Function 'ui:st_long'.
+Function 'Signal Source' is superseded by Function 'Signal Kind'.
+Function 'Signal Source' is superseded by Function 'Signal is raised by Object Type Instance'.
 
 ### The two readings of Role is used in Reading
 

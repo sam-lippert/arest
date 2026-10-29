@@ -25,7 +25,13 @@ set-comparison and subtype constraints (6.1), (7) other constraints
 -->
 
 <!--
-Registered in the evolution slice (`EVOLUTION_READINGS`): CSDP is
+A CHANGE IS A SCHEMA DESIGN OVER A POPULATED DOMAIN (Sam, 2026-10-26): the Domain Change machine
+(evolution.md) folds in here. Its migration is step 2's restatement of the population, its approval
+step 6's acceptance (Halpin 2008, sec. 1.2: the modeler abstracts to fact types once the domain expert
+agrees with the verbalization), step 7's final checks (sec. 7.5) its validity, and applying it a step of
+its own after the relational mapping (Sam, 2026-10-28: RMAP just creates the schema). A design the expert
+does not accept goes back to step 1; there is no reject step, since a dropped proposal's rows are
+dropped (Sam, 2026-10-28). Formerly: CSDP is
 how a schema comes to BE, the Domain Change SM is how it CHANGES —
 the two halves of the self-modification machinery. First proven as
 the apps/csdp dogfood walk (the tasks app's in-progress-
@@ -35,11 +41,9 @@ now part of the framework proper.
 
 ## Instance Facts
 
-<!-- This file's part of the domain: Halpin's Conceptual Schema Design Procedure (7 steps) as an executable state machine: how a schema comes to BE, the complement of the Domain Change state machine's how it CHANGES -- the two halves of the self-modification machinery.
-     The sentence below is metamodel/evolution.md:387 repeated verbatim.
-     core.md:670 makes Description functional, so a domain carries ONE
-     text and an identical sentence is the identical fact. -->
-Domain 'evolution' has Description 'Self-modification as a Domain Change state machine. Proposing a new fact type is proposing a theorem (Curry-Howard). CSDP validation is the proof check, successful ingestion is the proof.'.
+<!-- The file's Domain, as it was when evolution.md shared it: the Domain Change machine folded in here (Sam,
+     2026-10-26), so Domain 'evolution' is how a schema comes to be and how it changes, one machine. -->
+Domain 'evolution' has Description 'Self-modification as the Conceptual Schema Design Procedure: a Schema Design over a populated Domain is a change, approved at step 6 by a human User and applied after its relational mapping. Proposing a new fact type is proposing a theorem (Curry-Howard). CSDP validation is the proof check, successful ingestion is the proof.'.
 
 Object Type 'Design Note' has Format 'text'.
   <!-- Widget opt-in (pb-zero-glue-acceptance): the §4.2 view rules
@@ -54,11 +58,18 @@ Object Type 'Design Note' has Format 'text'.
 
 Schema Design is an entity type.
 Schema Design is a subtype of Object Type Instance.
+Signal is an entity type.
+Signal is a subtype of Object Type Instance.
 
 ## Value Types
 
 Design Note is a value type.
 The data type of Design Note is text.
+Rationale is a value type.
+  The data type of Rationale is text.
+Signal Kind is a value type.
+  The possible values of Signal Kind are 'Constraint Violation', 'Error Pattern', 'Feature Request', 'Support Request'.
+  The data type of Signal Kind is text.
 
 ## Fact Types
 
@@ -66,6 +77,56 @@ The data type of Design Note is text.
 
 Schema Design has Design Note.
   Each Schema Design has at most one Design Note.
+
+<!-- A Schema Design proposes a DEFINITION: Function is the unification root that names every
+     definition, so one open fact type carries every kind (an Object Type, a Fact Type, a Constraint,
+     a Derivation Rule, a Migration) without an enumeration to keep (from evolution.md). -->
+Schema Design proposes Function.
+  Each Schema Design, Function combination occurs at most once in the population of Schema Design proposes Function.
+  It is possible that some Schema Design proposes more than one Function and that more than one Schema Design proposes the same Function.
+
+Schema Design has Rationale.
+  Each Schema Design has exactly one Rationale.
+
+Schema Design targets Domain.
+  Each Schema Design targets exactly one Domain.
+
+Schema Design retires Reading.
+  Each Schema Design, Reading combination occurs at most once in the population of Schema Design retires Reading.
+  It is possible that some Schema Design retires more than one Reading and that more than one Schema Design retires the same Reading.
+  <!-- A design creates a fact type from a reading. The fact type may be retracted, but the reading
+       persists: retiring a Reading retracts the Fact Type it created (its Roles and its stored rows)
+       once a User approves the design and the readings no longer declare that fact type; the Reading
+       stays, its Text spelled out in its players' names (compile:ip_migrate). -->
+
+Schema Design is evaluated.
+  <!-- Asserted by the staged gate run: ingesting a design is itself a create judged by the one gate
+       (11.2, Cor 4); without the marker, no violations before any evaluation would read as validity. -->
+
+Schema Design has blocking outcome. *
+
+Schema Design is valid. *
+
+### Signal
+
+Signal leads to Schema Design.
+  Each Signal leads to at most one Schema Design.
+
+Signal has Signal Kind.
+  Each Signal has exactly one Signal Kind.
+
+Signal is raised by Object Type Instance.
+  Each Signal is raised by exactly one Object Type Instance.
+
+### The domain expert's judgments
+
+User approves Schema Design.
+  Each User, Schema Design combination occurs at most once in the population of User approves Schema Design.
+
+User requests revision of Schema Design.
+  Each User, Schema Design combination occurs at most once in the population of User requests revision of Schema Design.
+
+Schema Design is applied.
 
 ### CSDP step-completion event facts
 
@@ -86,11 +147,33 @@ Schema Design adds mandatory roles.
 Schema Design adds value and subtype constraints.
 Schema Design passes final checks.
 
+## Constraints
+
+Each Schema Design proposes some Function.
+
+It is obligatory that each Schema Design has exactly one Rationale.
+
+<!-- THE SELF-MODIFICATION GATE ("it always has to be one Human. There must be a throat to choke."),
+     moved from evolution.md with its reasons: accountability sits at the approval, not at what prompted
+     the change; it is an obligation so the cardinality does not fall inside a negated scope; every Domain,
+     not an enumeration; and User is a role over the mixin, so an Agent may be a User and propose a
+     change, never sign it off. -->
+It is obligatory that if some Schema Design is applied then some User approves that Schema Design.
+It is obligatory that if some User approves some Schema Design then that User is human.
+
+## Derivation Rules
+
+* Schema Design has blocking outcome iff some Violation is triggered by that Schema Design and that Violation has Severity 'error'.
+
+* Schema Design has blocking outcome iff some Failure is triggered by that Schema Design.
+
+* Schema Design is valid iff that Schema Design is evaluated and it is not true that that Schema Design has blocking outcome.
+
 ## State Machine
 
 State Machine Definition 'CSDP' is for Object Type 'Schema Design'.
 Status 'step1-elementary-facts' is initial in State Machine Definition 'CSDP'.
-Status 'designed' is terminal in State Machine Definition 'CSDP'.
+Status 'applied' is terminal in State Machine Definition 'CSDP'.
 
 
 Transition 'advance-to-step2' is defined in State Machine Definition 'CSDP'.
@@ -121,12 +204,34 @@ Transition 'advance-to-step6' is triggered by Event Type 'Schema Design adds man
 Transition 'advance-to-step7' is defined in State Machine Definition 'CSDP'.
 Transition 'advance-to-step7' is from Status 'step6-value-subtype'.
 Transition 'advance-to-step7' is to Status 'step7-final-checks'.
-Transition 'advance-to-step7' is triggered by Event Type 'Schema Design adds value and subtype constraints'.
+Transition 'advance-to-step7' is triggered by Event Type 'User approves Schema Design'.
+<!-- STEP 6'S ACCEPTANCE IS THE APPROVAL (Sam, 2026-10-26), affordable only for a design the staged gate
+     judged valid (the guard evolution.md's approve-change carried). -->
+Guard 'valid-schema-design' guards Transition 'advance-to-step7'.
+Guard 'valid-schema-design' references Fact Type 'SchemaDesignIsValid'.
+
+Transition 'revise' is defined in State Machine Definition 'CSDP'.
+Transition 'revise' is from Status 'step6-value-subtype'.
+Transition 'revise' is to Status 'step1-elementary-facts'.
+Transition 'revise' is triggered by Event Type 'User requests revision of Schema Design'.
 
 Transition 'complete-design' is defined in State Machine Definition 'CSDP'.
 Transition 'complete-design' is from Status 'step7-final-checks'.
 Transition 'complete-design' is to Status 'designed'.
 Transition 'complete-design' is triggered by Event Type 'Schema Design passes final checks'.
+
+<!-- APPLYING IS ITS OWN STEP (Sam, 2026-10-28: RMAP just creates the schema): a designed schema is mapped
+     (Rmap, below), and applying it re-maps the tables it touches, in the write that applies it: the
+     Predicate takes the store (perform:on_store) and answers it with the Relational Schema rows of the
+     touched tables re-mapped, and the emit runs the DDL their difference implies (schema:emit_ddl). -->
+Transition 'apply' is defined in State Machine Definition 'CSDP'.
+Transition 'apply' is from Status 'designed'.
+Transition 'apply' is to Status 'applied'.
+Transition 'apply' is triggered by Event Type 'Schema Design is applied'.
+
+Predicate 'remap touched tables' is performed during Transition 'apply'.
+Predicate 'remap touched tables' has Module Path 'arest'.
+Predicate 'remap touched tables' has Symbol Name 'schema:dc_remap'.
 
 # Rmap
 
@@ -196,7 +301,7 @@ Transition 'complete-mapping' is triggered by Event Type 'Relational Mapping gro
      (TableIsPrimarilyForConceptType, ColumnHasConceptTypeChild,
      UniquenessConstraintIsForUniqueness). The schema is rows in the store;
      the attached engine initializes it as the app's database. The bridge is
-     what makes the mapping incremental: a Domain Change re-derives only the
+     what makes the mapping incremental: a Schema Design re-derives only the
      tables bridged to the Functions it proposes. -->
 
 ## Entity Types
@@ -317,14 +422,14 @@ Table Reference uses Column.
 
 ### Incremental mapping
 
-Domain Change touches Table. *
+Schema Design touches Table. *
 
 ## Derivation Rules
 
 * Relational Schema covers Domain iff that Relational Schema is for that Domain.
 * Relational Schema covers Domain2 iff that Relational Schema is for some Domain1 and Domain1 draws on Domain2.
 
-* Domain Change touches Table iff that Domain Change proposes some Role and some Column belongs to that Table and that Column is for that Role.
-* Domain Change touches Table iff that Domain Change proposes some Object Type and that Table is primarily for that Object Type.
-* Domain Change touches Table iff that Domain Change proposes some Fact Type and that Table is primarily for that Fact Type.
-* Domain Change touches Table iff that Domain Change proposes some Constraint and some Table Key belongs to that Table and that Table Key realizes that Constraint.
+* Schema Design touches Table iff that Schema Design proposes some Role and some Column belongs to that Table and that Column is for that Role.
+* Schema Design touches Table iff that Schema Design proposes some Object Type and that Table is primarily for that Object Type.
+* Schema Design touches Table iff that Schema Design proposes some Fact Type and that Table is primarily for that Fact Type.
+* Schema Design touches Table iff that Schema Design proposes some Constraint and some Table Key belongs to that Table and that Table Key realizes that Constraint.
