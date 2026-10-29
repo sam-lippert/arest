@@ -62,7 +62,12 @@ public class Arest {
     static final java.util.Set<String> MEMOCN = new java.util.HashSet<String>(
         java.util.Arrays.asList("ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
             "cn:sfx", "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts",
-            "cn:chrank", "lex:lw", "induce:sig_of"));
+            "cn:chrank", "lex:lw", "induce:sig_of",
+            // a store's own reads, the same for every entity it is asked of (roadmap 1a): derive:on_read's population
+            // of an on-read fact type, the store's database (query:db) and places (store:places), and a population's
+            // atoms (nav:pop_atoms; nav:atoms itself recurses into every cell and is not kept). test:thm2 links every
+            // entity of the base: over 1,500 s walking each, 38 s kept, the same T.
+            "derive:on_read", "query:db", "store:places", "nav:pop_atoms"));
     static boolean memoable(String f) {
         return MEMOCN.contains(f) || f.startsWith("rmap:") || f.startsWith("state:");
     }
