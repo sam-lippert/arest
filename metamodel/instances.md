@@ -390,10 +390,15 @@ Object Type Instance is currently in Status. *
      Machine, keyed-upsert collapses the per-resource emits to
      last-write-wins (the latest transition target, in transition_table
      declaration order). -->
-State Machine is currently in Status. +
+State Machine is currently in Status. **
   Each State Machine is currently in exactly one Status.
-  <!-- audit-fix A4: semi-derived — the seed-branch rule below derives the
-       initial occupancy; runtime transitions assert the moves. -->
+  <!-- DERIVED AND STORED (Sam, 2026-10-29: "Status is derive and store ** I think
+       because it's derived from the event stream and the transitions. Storing it
+       allows you to not need to replay the whole event stream."). The seed rule below
+       gives the leaf initial to a machine no Event caused a Transition in; a machine an
+       Event moved stands where the step put it, and the step writes the Event and its
+       cause beside the move, so the closure and a read keep the stored row instead of
+       replaying the stream (derive:step_heads). -->
   <!-- AND THE MOVE IS A FOLD, NOT AN ASSERTION.
        A fire in this repo asserts the TRIGGER FACT and
        nothing else (lambda ui:apply, "a fire is an event fact asserted"), and
@@ -401,10 +406,7 @@ State Machine is currently in Status. +
        function of rows that are already durable, and a restart recomputes it
        rather than reading back a copy. reflect:mstatus is that fold, the same
        main:status_pop the machine above is walked from and `actions` answers
-       from. The marker stays `+`: the cell keeps its descriptor (a `*` one
-       has none, and then `query` cannot reach it), and a model that does
-       assert a move is still free to — derive:closed keeps an asserted row
-       over a derived one on the same uniqueness key.
+       from. (The marker was `+` until 2026-10-29; it is `**` now, above.)
 
        THE SEED RULE BELOW STILL OVER-EMITS AND IS NOT FIXED HERE. It joins
        `Status is effective initial in State Machine Definition` directly,
@@ -553,7 +555,7 @@ Guard Run has Result.
 
 * Object Type Instance is currently in Status iff that Object Type Instance is instance of some Object Type and some State Machine Definition is for that Object Type and that Status is leaf initial in that State Machine Definition and no State Machine is for that Object Type Instance.
 
-* State Machine is currently in Status iff that State Machine is instance of some State Machine Definition and that Status is leaf initial in that State Machine Definition.
+** State Machine is currently in Status iff that State Machine is instance of some State Machine Definition and that Status is leaf initial in that State Machine Definition and no Event caused some Transition in that State Machine.
 
 * Transition occurred at Timestamp iff some Event caused that Transition in some State Machine and that Event occurred at that Timestamp.
 
