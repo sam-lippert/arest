@@ -244,23 +244,30 @@ public final class Reader {
         loadCarriers(dir, path("AREST_LAMBDA", "../../arest"));
     }
 
-    // A DIRECTORY THAT HOLDS A STORE AND NO CARRIERS IS NAMED, NOT READ (task 8e): where it holds no
-    // design-state but holds store.db (the base a compile-store of the metamodel wrote), the cells
-    // name that database in state:store_db, as Serve composes a store whose check wrote no carriers,
-    // and lambda boots it (main:boot: store:for_read of store:boot), its schema read from the store.
     public static void loadCarriers(String dir, String lambda) {
         java.nio.file.Path ds = Paths.get(dir, "design-state");
-        java.nio.file.Path db = Paths.get(dir, "store.db");
-        if (!Files.exists(ds) && Files.isRegularFile(db)) {
-            Arest.CELLS.add(new Object[] { "CELL", "state:store_db", db.toAbsolutePath().toString().replace('\\', '/') });
-            return;
-        }
         load(ds.toString());
         if (Files.exists(Paths.get(dir, "norma-answer"))) load(Paths.get(dir, "norma-answer").toString());
         java.nio.file.Path compiled = Paths.get(dir, "compiled");
         if (Files.exists(compiled)) load(compiled.toString());
         for (String record : new String[] { "outcome", "expected" })
             if (Files.exists(Paths.get(dir, record))) load(Paths.get(dir, record).toString());
+    }
+
+    // THE BASE A MODULE COMPOSES IS NAMED, NOT READ (task 8e). The base is the store a compile-store of
+    // the metamodel writes (tools/base, built, never tracked); where dir holds it, the cells name it in
+    // state:base_db and lambda reads it whole at boot (main:boot: store:base_boot), its schema from _defs
+    // and its facts from _readings, as the carriers held them. A directory with no store but carriers is
+    // read as carriers are (loadCarriers). One with neither composes no base, which is how the base is
+    // built: compile-store of the metamodel into an empty tools/base composes nothing and writes it.
+    public static void loadBase(String dir, String lambda) {
+        java.nio.file.Path db = Paths.get(dir, "store.db");
+        if (Files.isRegularFile(db)) {
+            Arest.CELLS.add(new Object[] { "CELL", "state:base_db", db.toAbsolutePath().toString().replace('\\', '/') });
+            return;
+        }
+        if (Files.exists(Paths.get(dir, "design-state"))) { loadCarriers(dir, lambda); return; }
+        System.err.println("no base at " + dir + ": nothing composed under the readings");
     }
 
 }

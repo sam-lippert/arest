@@ -262,17 +262,8 @@ function path(name, dflt) {
 // is lambda's answer about a schema; so the loader is handed the lambda it read
 // for now the stamp is not checked (Sam, 2026-10-22): the map is loaded whatever it was built from, as the Java
 // station loads it; a lambda change that moves the map's body regenerates the carrier itself
-// A DIRECTORY THAT HOLDS A STORE AND NO CARRIERS is named, not read (task 8e), as the Java station names it: where it
-// holds no design-state but holds store.db (the base a compile-store of the metamodel wrote), the cells name that
-// database in state:store_db, as serve.js composes a store whose check wrote no carriers, and lambda boots it
-// (main:boot: store:for_read of store:boot), its schema read from the store.
 function loadCarriers(dir, lambda = path("AREST_LAMBDA", __dirname + "/../../arest")) {
   const ds = dir + "/design-state";
-  const db = dir + "/store.db";
-  if (!fs.existsSync(ds) && fs.existsSync(db) && fs.statSync(db).isFile()) {
-    CELLS.push(["CELL", "state:store_db", require("path").resolve(db).replace(/\\/g, "/")]);
-    return;
-  }
   load(ds);
   if (fs.existsSync(dir + "/norma-answer")) load(dir + "/norma-answer");
   const compiled = dir + "/compiled";
@@ -280,4 +271,19 @@ function loadCarriers(dir, lambda = path("AREST_LAMBDA", __dirname + "/../../are
   for (const record of ["outcome", "expected"]) if (fs.existsSync(dir + "/" + record)) load(dir + "/" + record);
 }
 
-module.exports = { DEFS, CELLS, PRIMS, register, Ev, seq, at, show, deepEq, load, cells, path, loadCarriers, num };
+// THE BASE A MODULE COMPOSES IS NAMED, NOT READ (task 8e), as the Java station names it (Reader.loadBase): where dir
+// holds store.db (the base a compile-store of the metamodel wrote, tools/base), the cells name it in state:base_db and
+// lambda reads it whole at boot (main:boot: store:base_boot), its schema from _defs and its facts from _readings; a
+// directory with no store but carriers is read as carriers are; one with neither composes no base, which is how the
+// base is built: compile-store of the metamodel into an empty tools/base composes nothing and writes it.
+function loadBase(dir, lambda = path("AREST_LAMBDA", __dirname + "/../../arest")) {
+  const db = dir + "/store.db";
+  if (fs.existsSync(db) && fs.statSync(db).isFile()) {
+    CELLS.push(["CELL", "state:base_db", require("path").resolve(db).replace(/\\/g, "/")]);
+    return;
+  }
+  if (fs.existsSync(dir + "/design-state")) return loadCarriers(dir, lambda);
+  process.stderr.write("no base at " + dir + ": nothing composed under the readings\n");
+}
+
+module.exports = { DEFS, CELLS, PRIMS, register, Ev, seq, at, show, deepEq, load, cells, path, loadCarriers, loadBase, num };

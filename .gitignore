@@ -168,6 +168,11 @@ tools/wall/derive-refresh.g.js
 __pycache__/
 *.pyc
 
+# THE BASE STORE IS A BUILD PRODUCT (task 8e): compile-store of the metamodel into an empty
+# tools/base writes it (store.db, and design-state and compiled beside it until 8g), and every
+# host composes it from there (Reader.loadBase, arest.js loadBase). Never tracked.
+tools/base/
+
 # The JUnit console launcher: a test-only binary, fetched not vendored.
 # tools/java-runner/fetch-junit.sh gets it; every other build output
 # here (bin/, obj/, target/) is ignored for the same reason.
