@@ -62,7 +62,12 @@ public class Arest {
     static final java.util.Set<String> MEMOCN = new java.util.HashSet<String>(
         java.util.Arrays.asList("ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
             "cn:sfx", "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts",
-            "cn:chrank", "lex:lw", "induce:sig_of"));
+            "cn:chrank", "lex:lw", "induce:sig_of",
+            // a store's own reads, the same for every entity it is asked of (roadmap 1a): derive:on_read's population
+            // of an on-read fact type, the store's database (query:db) and places (store:places), and a population's
+            // atoms (nav:pop_atoms; nav:atoms itself recurses into every cell and is not kept). test:thm2 links every
+            // entity of the base: over 1,500 s walking each, 38 s kept, the same T.
+            "derive:on_read", "query:db", "store:places", "nav:pop_atoms"));
     static boolean memoable(String f) {
         return MEMOCN.contains(f) || f.startsWith("rmap:") || f.startsWith("state:");
     }
@@ -73,6 +78,8 @@ public class Arest {
         memoEmpty();
         DESCIDX = new java.util.WeakHashMap<Object, Map<String, Object>>();
         ENTIDX = new java.util.WeakHashMap<Object, Map<String, List<Object>>>();
+        MEMBERIDX = new java.util.WeakHashMap<Object, Object>();
+        MATCHIDX = new java.util.WeakHashMap<Object, Map<Object, Object>>();
     }
     // THE MEMO'S BOUNDS ARE THE JS HOST'S (memoCall in tools/js-runner/host.js
     // before 4f117761: 1bd449f9, 2026-09-23, and d2905422, 2026-10-02). This
@@ -191,6 +198,20 @@ public class Arest {
         new java.util.WeakHashMap<Object, Map<String, Object>>();
     static java.util.WeakHashMap<Object, Map<String, List<Object>>> ENTIDX =
         new java.util.WeakHashMap<Object, Map<String, List<Object>>>();
+    // theta:member's and csdp:matches_at's indexes, kept by list OBJECT as DESCIDX is. A list is walked the first time
+    // it is asked and indexed the second, so a list asked once costs its walk alone; one shorter than INDEX_MIN is
+    // always walked, its walk being cheaper than its index; one holding anything but texts, numbers and sequences of
+    // them is marked WALK and walked, since only for those do equal keys mean deepEq.
+    static java.util.WeakHashMap<Object, Object> MEMBERIDX = new java.util.WeakHashMap<Object, Object>();
+    static java.util.WeakHashMap<Object, Map<Object, Object>> MATCHIDX = new java.util.WeakHashMap<Object, Map<Object, Object>>();
+    static final Object ASKED = new Object(), WALK = new Object();
+    static final int INDEX_MIN = 16;
+    static boolean plain(Object o) {
+        if (o instanceof String || o instanceof Long) return true;
+        if (!(o instanceof Object[])) return false;
+        for (Object e : (Object[]) o) if (!plain(e)) return false;
+        return true;
+    }
 
     static int drainCount(Object[] l, Object nO) {
         long n = (Long) nO;
@@ -209,10 +230,75 @@ public class Arest {
     // without can be held byte for byte against each other
     static final boolean NO_OVERRIDE = System.getenv("AREST_NO_OVERRIDE") != null;
     static {
+        // cn:contains is <haystack, needle> to T when the needle's chars occur in the haystack's; chars splits by
+        // UTF-16 unit, so for two texts that is String.contains, with an empty needle in every haystack but the
+        // empty one. Anything else runs the DEF, which throws where chars does. compile:seal_left asks it of the
+        // whole design state once for each sealed value: 4.7 MB of chars, eight times, was 9% of support's compile.
+        FASTPRIMS.put("cn:contains", x -> {
+            Object[] a = seq(x);
+            if (a.length >= 2 && a[0] instanceof String && a[1] instanceof String) {
+                String h = (String) a[0], n = (String) a[1];
+                if (n.isEmpty()) return h.isEmpty() ? "F" : "T";
+                return h.contains(n) ? "T" : "F";
+            }
+            return Ev(DEFS.get("cn:contains"), x); });
+        // theta:member is <x, list> to T when x is one of the list's elements: Backus's walk, whose meaning is a set
+        // lookup, so the walk is the evaluator's business as theta:find_desc's is. A list asked again is answered from
+        // the set of its elements' keys (MEMBERIDX). csdp:matches_at is <f, key, list> to the elements e, in order,
+        // with f:e equal to key: a filter whose every ask applies f to the whole list. A list asked again with the same
+        // f is answered from its elements grouped by f:e, applied once, right to left as the DEF's INSERT applies it,
+        // so an f that throws throws first where the DEF does (MATCHIDX). Anything else is the DEF's.
+        // MEASURED on main f562b20a with -Xmx3g: support`s compile-package over a scratch copy of its store, 3,105 s
+        // walking and 1,223 s indexed (refused alike, by its pending Federation Migration); auto.dev`s, in place, 3,480 s and
+        // 1,569 s, its 590 tables the same row for row; spd-1`s, fresh, 204 s and 183 s, the same.
         FASTPRIMS.put("theta:member", x -> {
             Object needle = at(x, 0);
-            for (Object e : seq(at(x, 1))) if (deepEq(needle, e)) return "T";
+            Object[] l = seq(at(x, 1));
+            if (l.length >= INDEX_MIN && plain(needle)) {
+                Object ix = MEMBERIDX.get(l);
+                if (ix == null) MEMBERIDX.put(l, ASKED);
+                else {
+                    if (ix == ASKED) {
+                        java.util.Set<String> keys = new java.util.HashSet<String>();
+                        for (Object e : l) { if (!plain(e)) { keys = null; break; } keys.add(key(e)); }
+                        ix = keys == null ? WALK : keys;
+                        MEMBERIDX.put(l, ix);
+                    }
+                    if (ix != WALK) return ((java.util.Set<?>) ix).contains(key(needle)) ? "T" : "F";
+                }
+            }
+            for (Object e : l) if (deepEq(needle, e)) return "T";
             return "F"; });
+        FASTPRIMS.put("csdp:matches_at", x -> {
+            Object[] a = seq(x);
+            if (a.length >= 3 && a[2] instanceof Object[] && ((Object[]) a[2]).length >= INDEX_MIN && plain(a[1])) {
+                Object[] l = (Object[]) a[2];
+                Map<Object, Object> byF = MATCHIDX.get(l);
+                if (byF == null) { byF = new HashMap<Object, Object>(); MATCHIDX.put(l, byF); }
+                Object ix = byF.get(a[0]);
+                if (ix == null) byF.put(a[0], ASKED);
+                else {
+                    if (ix == ASKED) {
+                        Object[] vals = new Object[l.length];
+                        for (int i = l.length - 1; i >= 0; i--) vals[i] = Ev(a[0], l[i]);
+                        Map<String, List<Object>> g = new HashMap<String, List<Object>>();
+                        for (int i = 0; i < l.length && g != null; i++) {
+                            if (!plain(vals[i])) { g = null; break; }
+                            String k = key(vals[i]);
+                            List<Object> sl = g.get(k);
+                            if (sl == null) { sl = new ArrayList<Object>(); g.put(k, sl); }
+                            sl.add(l[i]);
+                        }
+                        ix = g == null ? WALK : g;
+                        byF.put(a[0], ix);
+                    }
+                    if (ix != WALK) {
+                        @SuppressWarnings("unchecked") List<Object> hit = ((Map<String, List<Object>>) ix).get(key(a[1]));
+                        return hit == null ? new Object[0] : hit.toArray();
+                    }
+                }
+            }
+            return Ev(DEFS.get("csdp:matches_at"), x); });
         FASTPRIMS.put("theta:filter_eq", x -> {
             List<Object> out = new ArrayList<Object>();
             for (Object p : seq(x)) if (deepEq(at(p, 0), at(p, 1))) out.add(p);

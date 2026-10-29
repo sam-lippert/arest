@@ -54,7 +54,7 @@ public class CasesTest {
         Reader.load(Paths.get(r, "arest").toString());
         Reader.load(Paths.get(r, "arest.tests").toString());
         Reader.load(Paths.get(r, "engine", "shared", "scenarios.canon").toString());
-        Reader.loadCarriers(Paths.get(r, "tools", "carriers", "base").toString(), Paths.get(r, "arest").toString());
+        Reader.loadBase(Paths.get(r, "tools", "base").toString(), Paths.get(r, "arest").toString());
         Registrations.register(Paths.get(r, "arest").toString());
         loaded = true;
     }
