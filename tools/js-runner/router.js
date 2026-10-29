@@ -63,7 +63,7 @@ class App {
     const logPath = pkg + "/check.log";
     const log = fs.openSync(logPath, "w");
     const env = Object.assign({}, process.env, { AREST_LAMBDA: lambda, AREST_TESTS: root + "/arest.tests",
-      AREST_SCENARIOS: root + "/engine/shared/scenarios.canon", AREST_CARRIERS: root + "/tools/carriers/base" });
+      AREST_SCENARIOS: root + "/engine/shared/scenarios.canon", AREST_CARRIERS: root + "/tools/base" });
     const p = spawn(process.execPath, [__dirname + "/program.js", "apps_check", pkg], { cwd: pkg, env, stdio: ["ignore", log, log] });
     p.on("close", (code) => {
       fs.closeSync(log);

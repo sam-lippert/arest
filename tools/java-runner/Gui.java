@@ -706,11 +706,11 @@ public class Gui {
         LocalTransport(String lambda, String scenarios, String carriers) {
             Reader.load(lambda);
             Reader.load(scenarios);
-            Reader.loadCarriers(carriers, lambda);
+            Reader.loadBase(carriers, lambda);
             Registrations.register(lambda);
-            // a carriers directory that holds a store and no carriers names its database (Reader.loadCarriers), and
-            // lambda boots it as it boots any composed store (main:boot)
-            if (!new java.io.File(carriers, "design-state").isFile()) {
+            // a base directory that holds a store names it (Reader.loadBase), and lambda boots it as it boots any
+            // composed store (main:boot)
+            if (new java.io.File(carriers, "store.db").isFile()) {
                 adopt(Arest.Ev("main:boot", Arest.CELLS.toArray()));
                 return;
             }
@@ -761,7 +761,7 @@ public class Gui {
         registerTransport("remote", () -> new RemoteTransport(serveBase()));
         registerTransport("local", () -> new LocalTransport(Reader.path("AREST_LAMBDA", "../../arest"),
             Reader.path("AREST_SCENARIOS", "../../engine/shared/scenarios.canon"),
-            Reader.path("AREST_CARRIERS", "../carriers/base")));
+            Reader.path("AREST_CARRIERS", "../base")));
     }
 
     /** Register a transport under its name; the last registration of a name is the one asked for. */
