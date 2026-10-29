@@ -209,6 +209,18 @@ public class Arest {
     // without can be held byte for byte against each other
     static final boolean NO_OVERRIDE = System.getenv("AREST_NO_OVERRIDE") != null;
     static {
+        // cn:contains is <haystack, needle> to T when the needle's chars occur in the haystack's; chars splits by
+        // UTF-16 unit, so for two texts that is String.contains, with an empty needle in every haystack but the
+        // empty one. Anything else runs the DEF, which throws where chars does. compile:seal_left asks it of the
+        // whole design state once for each sealed value: 4.7 MB of chars, eight times, was 9% of support's compile.
+        FASTPRIMS.put("cn:contains", x -> {
+            Object[] a = seq(x);
+            if (a.length >= 2 && a[0] instanceof String && a[1] instanceof String) {
+                String h = (String) a[0], n = (String) a[1];
+                if (n.isEmpty()) return h.isEmpty() ? "F" : "T";
+                return h.contains(n) ? "T" : "F";
+            }
+            return Ev(DEFS.get("cn:contains"), x); });
         FASTPRIMS.put("theta:member", x -> {
             Object needle = at(x, 0);
             for (Object e : seq(at(x, 1))) if (deepEq(needle, e)) return "T";
