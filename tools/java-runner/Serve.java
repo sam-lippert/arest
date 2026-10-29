@@ -19,15 +19,16 @@ import java.util.Map;
 //
 // A WRITE IS COMMITTED BY LAMBDA OR IT IS REFUSED. An answer whose third part is `stored` was
 // committed by lambda's own program (sqlite:program inside it, as an entity retract is), and it is
-// answered. An answer that hands back a new store is a write lambda does not commit itself yet
-// (#197, the write path), and this host has no commit of its own to run in its place, so it
-// answers that the write was not committed and keeps the store as it was.
+// answered. A POST, a PUT or a DELETE of a fact goes to lambda as any request does, and main:api
+// commits it (main:commit). An answer that hands back a new store is a write lambda does not commit
+// itself yet (a writing verb, which main:as answers without committing), and this host has no commit
+// of its own to run in its place, so it answers that the write was not committed and keeps the store
+// as it was; a verb lambda says writes is not evaluated at all.
 //
 // HTTP IS THE SAME OPERATION OVER ANOTHER TRANSPORT. A request is <store, method, resource, caller, body>
 // through lambda's main:api: the resource is the path less its leading slash, the caller the
 // x-arest-caller header (no header is the anonymous caller), the body the request's JSON (none is the
-// empty sequence). The answer's text and status are lambda's, and a request lambda says writes
-// (main:writes) is answered as a write the MCP verbs make is.
+// empty sequence). The answer's text and status are lambda's.
 //
 //   java Serve <app .check directory>                         serve MCP on stdio
 //   java Serve <app .check directory> --call <tool> <json>    one call, answered on stdout
@@ -142,7 +143,6 @@ public class Serve {
     static Object[] request(String method, String resource, String caller, Object body) {
         try {
             Object[] req = new Object[] { store, method, resource, caller, body == null ? new Object[0] : Gui.fromJson(body) };
-            if ("T".equals(Arest.Ev("main:writes", req))) return notCommitted();
             Object[] out = (Object[]) Arest.Ev("main:api", req);
             return answered(out, status(out[1]));
         } catch (Throwable e) { return new Object[] { String.valueOf(e.getMessage()), 500L }; }
@@ -195,7 +195,6 @@ public class Serve {
         Object[] out;
         if ("fact".equals(name)) {
             String method = a.get("method") == null ? "GET" : String.valueOf(a.get("method"));
-            if (!"GET".equals(method)) return notCommitted();
             Object fact = a.get("fact") == null ? new Object[0] : Gui.fromJson(a.get("fact"));
             out = (Object[]) Arest.Ev("mcp:call", new Object[] { method, String.valueOf(a.get("factType")), caller, fact, store });
             return answered(out, ((Number) out[1]).longValue());

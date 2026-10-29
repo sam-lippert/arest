@@ -9,14 +9,16 @@
 // (store:schema_in reads its _defs).
 //
 // A WRITE IS COMMITTED BY LAMBDA OR IT IS REFUSED. An answer whose third part is `stored` was committed by lambda's own
-// program (sqlite:program inside it, as an entity retract is), and it is answered. An answer that hands back a new
-// store is a write lambda does not commit itself yet (#197, the write path), and this host has no commit of its own to
-// run in its place, so it answers what lambda says of that and keeps the store as it was.
+// program (sqlite:program inside it, as an entity retract is), and it is answered. A POST, a PUT or a DELETE of a fact
+// goes to lambda as any request does, and main:api commits it (main:commit). An answer that hands back a new store is a
+// write lambda does not commit itself yet (a writing verb, which main:as answers without committing), and this host has
+// no commit of its own to run in its place, so it answers what lambda says of that and keeps the store as it was; a
+// verb lambda says writes is not evaluated at all.
 //
 // HTTP IS THE SAME OPERATION OVER ANOTHER TRANSPORT. A request is <store, method, resource, caller, body> through
 // lambda's main:api: the resource is the path less its leading slash, the caller the x-arest-caller header (no header
 // is the anonymous caller), the body the request's JSON (none is the empty sequence). The answer's text and status are
-// lambda's, and a request lambda says writes (main:writes) is answered as a write the MCP verbs make is.
+// lambda's.
 //
 //   bun serve.js <app .check directory>                         serve MCP on stdio
 //   bun serve.js <app .check directory> --call <tool> <json>    one call, answered on stdout
@@ -97,7 +99,6 @@ function handle(msg) {
 function request(method, resource, caller, body) {
   try {
     const req = [store, method, resource, caller, body == null ? [] : fromJson(body)];
-    if (A.Ev("main:writes", req) === "T") return notCommitted();
     const out = A.Ev("main:api", req);
     return answered(out, status(out[1]));
   } catch (e) { return [String(e.message), 500]; }
@@ -132,7 +133,6 @@ function call(p) {
   const caller = a.caller == null ? "" : String(a.caller);
   if (name === "fact") {
     const method = a.method == null ? "GET" : String(a.method);
-    if (method !== "GET") return notCommitted();
     const fact = a.fact == null ? [] : fromJson(a.fact);
     const out = A.Ev("mcp:call", [method, str(a.factType), caller, fact, store]);
     return answered(out, Number(out[1]));
