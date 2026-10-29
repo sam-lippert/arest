@@ -210,7 +210,7 @@ public class Router {
             pb.environment().put("AREST_LAMBDA", lambda);
             pb.environment().put("AREST_TESTS", root + "/arest.tests");
             pb.environment().put("AREST_SCENARIOS", root + "/engine/shared/scenarios.canon");
-            pb.environment().put("AREST_CARRIERS", root + "/tools/carriers/base");
+            pb.environment().put("AREST_CARRIERS", root + "/tools/base");
             final File log = new File(pkg, "check.log");
             pb.redirectErrorStream(true);
             pb.redirectOutput(log);
