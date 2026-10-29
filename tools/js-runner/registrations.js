@@ -20,6 +20,23 @@ function text(x) {
 const present = (s) => s !== undefined && s !== null && s !== "";
 const sha256 = (b) => crypto.createHash("sha256").update(b).digest();
 
+// The master key: the environment's, else the AREST_MASTER_KEY line of the .env beside the lambda, a dev key kept on
+// disk in plaintext (Sam, 2026-10-28). Never printed. An agent that holds the key (as git asks a credential helper, or
+// a key in pageant) goes before the file.
+function masterKey(root) {
+  if (present(process.env[KEY])) return process.env[KEY];
+  const p = nodePath.join(root, ".env");
+  if (!fs.existsSync(p)) return undefined;
+  for (const line of fs.readFileSync(p, "utf8").split(/\r?\n/)) {
+    const m = /^\s*AREST_MASTER_KEY\s*=(.*)$/.exec(line);
+    if (!m) continue;
+    let v = m[1].trim();
+    if (v.length > 1 && ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")))) v = v.slice(1, -1);
+    return present(v) ? v : undefined;
+  }
+  return undefined;
+}
+
 function register(lambdaPath) {
   const root = nodePath.dirname(nodePath.resolve(lambdaPath)).replace(/\\/g, "/");
   const reg = A.register;
@@ -60,10 +77,10 @@ function register(lambdaPath) {
   // already in the file
   reg("crypt:genkey", genkey);
   // object -> boolean: whether the platform holds a key
-  reg("crypt:keyed", () => (present(process.env[KEY]) ? "T" : "F"));
+  reg("crypt:keyed", () => (present(masterKey(root)) ? "T" : "F"));
   // type-and-value-and-store -> text: lambda's hook:write under the key
   reg("hook:seal", (x) => {
-    const key = process.env[KEY];
+    const key = masterKey(root);
     if (!present(key)) throw new Error("hook:seal: there is no " + KEY + " to store a value through a Function with");
     return A.Ev("hook:write", [key, A.at(x, 0), A.at(x, 1), A.at(x, 2)]);
   });

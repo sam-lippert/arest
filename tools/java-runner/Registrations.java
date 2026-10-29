@@ -43,9 +43,33 @@ public final class Registrations {
     static final DateTimeFormatter ISO =
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);
     static final SecureRandom ENTROPY = new SecureRandom();
+    // the directory the composition's lambda was read from, where the dev key's .env is
+    static String root;
+
+    // The master key: the environment's, else the AREST_MASTER_KEY line of the .env beside the
+    // lambda, a dev key kept on disk in plaintext (Sam, 2026-10-28). Never printed. An agent that
+    // holds the key (as git asks a credential helper, or a key in pageant) goes before the file.
+    static String masterKey() {
+        String k = System.getenv(KEY);
+        if (present(k)) return k;
+        if (root == null) return null;
+        Path p = Paths.get(root, ".env");
+        if (!Files.exists(p)) return null;
+        for (String line : new String(io(() -> Files.readAllBytes(p)), StandardCharsets.UTF_8).split("\r?\n")) {
+            String t = line.trim();
+            if (!t.startsWith(KEY)) continue;
+            String r = t.substring(KEY.length()).trim();
+            if (!r.startsWith("=")) continue;
+            String v = r.substring(1).trim();
+            if (v.length() > 1 && ((v.startsWith("\"") && v.endsWith("\"")) || (v.startsWith("'") && v.endsWith("'"))))
+                v = v.substring(1, v.length() - 1);
+            return present(v) ? v : null;
+        }
+        return null;
+    }
 
     public static void register(String lambdaPath) {
-        String root = Paths.get(lambdaPath).toAbsolutePath().normalize().getParent().toString().replace('\\', '/');
+        root = Paths.get(lambdaPath).toAbsolutePath().normalize().getParent().toString().replace('\\', '/');
 
         // sequence -> text: now, ISO 8601 in UTC
         Arest.register("clock", x -> ISO.format(Instant.now()));
@@ -86,10 +110,10 @@ public final class Registrations {
         // answered; refused where a key is set or already in the file
         Arest.register("crypt:genkey", Registrations::genkey);
         // object -> boolean: whether the platform holds a key
-        Arest.register("crypt:keyed", x -> present(System.getenv(KEY)) ? "T" : "F");
+        Arest.register("crypt:keyed", x -> present(masterKey()) ? "T" : "F");
         // type-and-value-and-store -> text: lambda's hook:write under the key
         Arest.register("hook:seal", x -> {
-            String key = System.getenv(KEY);
+            String key = masterKey();
             if (!present(key)) throw new RuntimeException("hook:seal: there is no " + KEY + " to store a value through a Function with");
             return Arest.Ev("hook:write", new Object[] { key, Arest.at(x, 0), Arest.at(x, 1), Arest.at(x, 2) });
         });
