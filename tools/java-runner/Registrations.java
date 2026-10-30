@@ -87,6 +87,7 @@ public final class Registrations {
         Arest.register("fs:read", x -> new String(io(() -> Files.readAllBytes(Paths.get(text(x)))), StandardCharsets.UTF_8));
         Arest.register("fs:write", x -> {
             String path = text(Arest.at(x, 0));
+            unwatch(path);
             Path build = Paths.get(path + ".build");
             io(() -> Files.write(build, text(Arest.at(x, 1)).getBytes(StandardCharsets.UTF_8)));
             io(() -> Files.move(build, Paths.get(path), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE));
@@ -124,11 +125,7 @@ public final class Registrations {
             return path;
         });
         Arest.register("sqlite:run", Registrations::run);
-        Arest.register("sqlite:query", x -> sql(() -> {
-            try (Connection c = open(text(Arest.at(x, 0)), true)) {
-                return query(c, text(Arest.at(x, 1)), Arest.seq(Arest.at(x, 2)), false);
-            }
-        }));
+        Arest.register("sqlite:query", x -> sql(() -> read(text(Arest.at(x, 0)), text(Arest.at(x, 1)), Arest.seq(Arest.at(x, 2)))));
         Arest.register("sqlite:scratch", x -> sql(() -> {
             try (Connection c = open(":memory:", false)) {
                 try (Statement st = c.createStatement()) { st.executeUpdate(text(Arest.at(x, 0))); }
@@ -437,6 +434,26 @@ public final class Registrations {
 
     static void unwatch(String path) {
         Connection c = WATCHED.remove(path);
+        if (c != null) try { c.close(); } catch (SQLException ignored) { }
+        unread(path);
+    }
+
+    // A read is a statement on the store's one read-only connection, kept open: a connection opened for each statement
+    // parses the store's whole schema again (17-18 ms on an app's store, against 0.5 ms for a statement that reads no
+    // table). Autocommit gives every statement its own read transaction, so it sees what any connection committed, and
+    // SQLite parses the schema again itself when another connection changes it. On Windows an open connection keeps its
+    // file from being replaced or removed, so whatever replaces, moves or removes a store closes it first (unwatch).
+    static final Map<String, Connection> READERS = new HashMap<>();
+
+    static synchronized Object[] read(String path, String statement, Object[] ps) throws SQLException {
+        String key = Paths.get(path).toAbsolutePath().normalize().toString();
+        Connection c = READERS.get(key);
+        if (c == null) { c = open(path, true); READERS.put(key, c); }
+        return query(c, statement, ps, false);
+    }
+
+    static synchronized void unread(String path) {
+        Connection c = READERS.remove(Paths.get(path).toAbsolutePath().normalize().toString());
         if (c != null) try { c.close(); } catch (SQLException ignored) { }
     }
 
