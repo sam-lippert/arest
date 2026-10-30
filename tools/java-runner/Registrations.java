@@ -302,19 +302,26 @@ public final class Registrations {
     static Object program(Object x) {
         String path = text(Arest.at(x, 0));
         Object[] steps = Arest.seq(Arest.at(x, 1));
-        return sql(() -> {
-            try (Connection c = open(path, false)) {
-                c.setAutoCommit(false);
-                try {
-                    Object[] out = steps(c, steps);
-                    if ("committed".equals(out[0])) c.commit(); else c.rollback();
-                    return out;
-                } catch (SQLException | RuntimeException e) {
-                    try { c.rollback(); } catch (SQLException ignored) { }
-                    throw e;
+        synchronized (Registrations.class) {
+            return sql(() -> {
+                if (kept(path)) return programOn(writer(path), steps);
+                try (Connection c = open(path, false)) {
+                    c.setAutoCommit(false);
+                    return programOn(c, steps);
                 }
-            }
-        });
+            });
+        }
+    }
+
+    static Object[] programOn(Connection c, Object[] steps) throws SQLException {
+        try {
+            Object[] out = steps(c, steps);
+            if ("committed".equals(out[0])) c.commit(); else c.rollback();
+            return out;
+        } catch (SQLException | RuntimeException e) {
+            try { c.rollback(); } catch (SQLException ignored) { }
+            throw e;
+        }
     }
 
     static Object[] steps(Connection c, Object[] steps) throws SQLException {
@@ -399,19 +406,26 @@ public final class Registrations {
 
     // one write call, one transaction
     static <T> T write(String path, Work<T> work) {
-        return sql(() -> {
-            try (Connection c = open(path, false)) {
-                c.setAutoCommit(false);
-                try {
-                    T out = work.on(c);
-                    c.commit();
-                    return out;
-                } catch (SQLException | RuntimeException e) {
-                    try { c.rollback(); } catch (SQLException ignored) { }
-                    throw e;
+        synchronized (Registrations.class) {
+            return sql(() -> {
+                if (kept(path)) return writeOn(writer(path), work);
+                try (Connection c = open(path, false)) {
+                    c.setAutoCommit(false);
+                    return writeOn(c, work);
                 }
-            }
-        });
+            });
+        }
+    }
+
+    static <T> T writeOn(Connection c, Work<T> work) throws SQLException {
+        try {
+            T out = work.on(c);
+            c.commit();
+            return out;
+        } catch (SQLException | RuntimeException e) {
+            try { c.rollback(); } catch (SQLException ignored) { }
+            throw e;
+        }
     }
 
     static Connection open(String path, boolean readOnly) throws SQLException {
@@ -446,15 +460,45 @@ public final class Registrations {
     static final Map<String, Connection> READERS = new HashMap<>();
 
     static synchronized Object[] read(String path, String statement, Object[] ps) throws SQLException {
-        String key = Paths.get(path).toAbsolutePath().normalize().toString();
+        if (!kept(path)) {
+            try (Connection c = open(path, true)) { return query(c, statement, ps, false); }
+        }
+        String key = key(path);
         Connection c = READERS.get(key);
         if (c == null) { c = open(path, true); READERS.put(key, c); }
         return query(c, statement, ps, false);
     }
 
     static synchronized void unread(String path) {
-        Connection c = READERS.remove(Paths.get(path).toAbsolutePath().normalize().toString());
+        if (!kept(path)) return;
+        String key = key(path);
+        Connection c = READERS.remove(key);
         if (c != null) try { c.close(); } catch (SQLException ignored) { }
+        Connection w = WRITERS.remove(key);
+        if (w != null) {
+            try { w.rollback(); } catch (SQLException ignored) { }
+            try { w.close(); } catch (SQLException ignored) { }
+        }
+    }
+
+    // Only a store that is a file keeps its connections: `:memory:` (or a URI) is a new database for every connection.
+    static boolean kept(String path) { return !path.isEmpty() && !path.startsWith(":") && !path.startsWith("file:"); }
+
+    static String key(String path) { return Paths.get(path).toAbsolutePath().normalize().toString(); }
+
+    // A write is one transaction on the store's one read-write connection, kept open like a read's: it begins when the
+    // write's first statement runs and ends at its commit or rollback, so between writes it holds no lock.
+    static final Map<String, Connection> WRITERS = new HashMap<>();
+
+    static synchronized Connection writer(String path) throws SQLException {
+        String key = key(path);
+        Connection c = WRITERS.get(key);
+        if (c == null || c.isClosed()) {
+            c = open(path, false);
+            c.setAutoCommit(false);
+            WRITERS.put(key, c);
+        }
+        return c;
     }
 
     // ---- the atoms ----------------------------------------------------------
