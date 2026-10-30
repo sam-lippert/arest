@@ -304,7 +304,7 @@ public final class Registrations {
         Object[] steps = Arest.seq(Arest.at(x, 1));
         synchronized (Registrations.class) {
             return sql(() -> {
-                if (kept(path)) return programOn(writer(path), steps);
+                if (kept(path)) { KEPT_WRITES++; return programOn(writer(path), steps); }
                 try (Connection c = open(path, false)) {
                     c.setAutoCommit(false);
                     return programOn(c, steps);
@@ -408,7 +408,7 @@ public final class Registrations {
     static <T> T write(String path, Work<T> work) {
         synchronized (Registrations.class) {
             return sql(() -> {
-                if (kept(path)) return writeOn(writer(path), work);
+                if (kept(path)) { KEPT_WRITES++; return writeOn(writer(path), work); }
                 try (Connection c = open(path, false)) {
                     c.setAutoCommit(false);
                     return writeOn(c, work);
@@ -466,6 +466,7 @@ public final class Registrations {
         String key = key(path);
         Connection c = READERS.get(key);
         if (c == null) { c = open(path, true); READERS.put(key, c); }
+        KEPT_READS++;
         return query(c, statement, ps, false);
     }
 
@@ -482,7 +483,12 @@ public final class Registrations {
     }
 
     // Only a store that is a file keeps its connections: `:memory:` (or a URI) is a new database for every connection.
-    static boolean kept(String path) { return !path.isEmpty() && !path.startsWith(":") && !path.startsWith("file:"); }
+    // A kept connection is this host's optimization, not lambda's: under AREST_NO_OVERRIDE, the one switch for them
+    // all, every statement opens its own. KEPT_READS and KEPT_WRITES count what the kept ones ran, for the profile.
+    static long KEPT_READS = 0, KEPT_WRITES = 0;
+    static boolean kept(String path) {
+        return !Arest.NO_OVERRIDE && !path.isEmpty() && !path.startsWith(":") && !path.startsWith("file:");
+    }
 
     static String key(String path) { return Paths.get(path).toAbsolutePath().normalize().toString(); }
 
