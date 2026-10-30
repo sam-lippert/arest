@@ -227,8 +227,14 @@ public class Arest {
         new HashMap<String, Function<Object, Object>>();
     // AREST_NO_OVERRIDE runs every DEF as its body, no twin consulted
     // (resolution.md's one kill switch), so a run with twins and a run
-    // without can be held byte for byte against each other
+    // without can be held byte for byte against each other. It is the
+    // switch for every optimization of this host's own, not only the
+    // twins: under it no store keeps a connection either (Registrations.kept),
+    // so what a run without it costs is what lambda costs on a plain host.
+    // A profiled run names the ones it used (hostText).
     static final boolean NO_OVERRIDE = System.getenv("AREST_NO_OVERRIDE") != null;
+    // under the profiler, each twin's name to the times it was consulted
+    static final Map<String, long[]> TWINUSE = new java.util.concurrent.ConcurrentHashMap<String, long[]>();
     static {
         // cn:contains is <haystack, needle> to T when the needle's chars occur in the haystack's; chars splits by
         // UTF-16 unit, so for two texts that is String.contains, with an empty needle in every haystack but the
@@ -644,7 +650,7 @@ public class Arest {
             // AREST_PROFILE names a file: the profile is written there every 30 s
             // as well, so a long run can be read while it runs
             final String file = System.getenv("AREST_PROFILE");
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> System.err.print(profileText(counts, total, t0))));
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> System.err.print(profileText(counts, total, t0) + hostText())));
             if (!"1".equals(file)) {
                 Thread writer = new Thread(() -> {
                     while (true) {
@@ -673,6 +679,19 @@ public class Arest {
                     b.append(String.format("%6.2f%%  %s%n", 100.0 * es.get(i).getValue()[by] / Math.max(1, total[0]), es.get(i).getKey()));
             }
         }
+        return b.toString();
+    }
+    // The host's own optimizations a run used, so that no time measured with them is taken for lambda's: each twin
+    // consulted and how often, and the statements run on a kept connection. AREST_NO_OVERRIDE turns them all off.
+    static String hostText() {
+        StringBuilder b = new StringBuilder();
+        if (NO_OVERRIDE) return b.append("-- host optimizations: none (AREST_NO_OVERRIDE)\n").toString();
+        b.append("-- host optimizations used (AREST_NO_OVERRIDE turns them off)\n");
+        List<Map.Entry<String, long[]>> es = new ArrayList<Map.Entry<String, long[]>>(TWINUSE.entrySet());
+        es.sort((p, q) -> Long.compare(q.getValue()[0], p.getValue()[0]));
+        for (Map.Entry<String, long[]> e : es) b.append(String.format("%12d  twin %s%n", e.getValue()[0], e.getKey()));
+        b.append(String.format("%12d  statements on a kept read connection%n", Registrations.KEPT_READS));
+        b.append(String.format("%12d  writes and programs on a kept write connection%n", Registrations.KEPT_WRITES));
         return b.toString();
     }
     static void count(Map<String, long[]> counts, String n, int at) {
@@ -712,7 +731,10 @@ public class Arest {
             Object body = DEFS.get(fn);
             if (body != null) {
                 Function<Object, Object> fp = NO_OVERRIDE ? null : FASTPRIMS.get(fn);
-                if (fp != null) return fp.apply(x);
+                if (fp != null) {
+                    if (PROFILE) TWINUSE.computeIfAbsent(fn, k -> new long[1])[0]++;
+                    return fp.apply(x);
+                }
                 if (!memoable(fn)) return Ev(body, x);
                 long[] st = MEMOSTAT.get(fn);
                 if (st == null) { st = new long[3]; MEMOSTAT.put(fn, st); }
