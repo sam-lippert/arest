@@ -467,7 +467,19 @@ public final class Registrations {
         Connection c = READERS.get(key);
         if (c == null) { c = open(path, true); READERS.put(key, c); }
         KEPT_READS++;
-        return query(c, statement, ps, false);
+        try {
+            return query(c, statement, ps, false);
+        } catch (SQLException e) {
+            // SQLite reads the schema again when a statement steps, not when it is prepared, so on a kept connection
+            // a statement over what another connection created, dropped or altered since fails to compile (no such
+            // table, a column count). It is asked once more on a connection opened for it, which reads the schema as
+            // it stands; a statement that is wrong fails there the same way.
+            READERS.remove(key);
+            try { c.close(); } catch (SQLException ignored) { }
+            c = open(path, true);
+            READERS.put(key, c);
+            return query(c, statement, ps, false);
+        }
     }
 
     static synchronized void unread(String path) {
