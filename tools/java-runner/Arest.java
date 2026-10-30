@@ -242,6 +242,31 @@ public class Arest {
                 return h.contains(n) ? "T" : "F";
             }
             return Ev(DEFS.get("cn:contains"), x); });
+        // quote_str is a text to its JSON string: DEF("quote_str") escapes each of its chars (UTF-16 units) with
+        // quote_str:esc -- the backslash, the quote, newline and return by their letters, a unit below the space from
+        // quote_str:ctls (backspace, tab and form feed by their letters, every other as backslash-u and four lowercase
+        // hex digits), any other unit as itself -- and implodes them between quotes. The twin does that in one pass;
+        // anything but a text runs the DEF, which throws where chars does. MEASURED on qa's change compile (profiled,
+        // 196 s): quote_str under compile:json_val was 10.5% of it, every fact the compile stages or writes given its
+        // JSON a char at a time.
+        FASTPRIMS.put("quote_str", x -> {
+            if (!(x instanceof String)) return Ev(DEFS.get("quote_str"), x);
+            String t = (String) x;
+            StringBuilder b = new StringBuilder(t.length() + 2).append('"');
+            for (int i = 0; i < t.length(); i++) {
+                char c = t.charAt(i);
+                if (c == '\\') b.append("\\\\");
+                else if (c == '"') b.append("\\\"");
+                else if (c == '\n') b.append("\\n");
+                else if (c == '\r') b.append("\\r");
+                else if (c < ' ') {
+                    if (c == '\b') b.append("\\b");
+                    else if (c == '\t') b.append("\\t");
+                    else if (c == '\f') b.append("\\f");
+                    else b.append(String.format("\\u%04x", (int) c));
+                } else b.append(c);
+            }
+            return b.append('"').toString(); });
         // theta:member is <x, list> to T when x is one of the list's elements: Backus's walk, whose meaning is a set
         // lookup, so the walk is the evaluator's business as theta:find_desc's is. A list asked again is answered from
         // the set of its elements' keys (MEMBERIDX). csdp:matches_at is <f, key, list> to the elements e, in order,
