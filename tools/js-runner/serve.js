@@ -10,10 +10,10 @@
 //
 // A WRITE IS COMMITTED BY LAMBDA OR IT IS REFUSED. An answer whose third part is `stored` was committed by lambda's own
 // program (sqlite:program inside it, as an entity retract is), and it is answered. A POST, a PUT or a DELETE of a fact
-// goes to lambda as any request does, and main:api commits it (main:commit). An answer that hands back a new store is a
-// write lambda does not commit itself yet (a writing verb, which main:as answers without committing), and this host has
-// no commit of its own to run in its place, so it answers what lambda says of that and keeps the store as it was; a
-// verb lambda says writes is not evaluated at all.
+// goes to lambda as any request does, and main:api commits it (main:commit), as main:as commits the store a writing verb
+// makes (main:as_commit). An answer that still hands back a new store is a write lambda did not commit, over a store
+// held in memory alone, and this host has no commit of its own to run in its place, so it answers what lambda says of
+// that and keeps the store as it was.
 //
 // HTTP IS THE SAME OPERATION OVER ANOTHER TRANSPORT. A request is <store, method, resource, caller, body> through
 // lambda's main:api: the resource is the path less its leading slash, the caller the x-arest-caller header (no header
@@ -139,8 +139,7 @@ function call(p) {
   }
   const argv = [name];
   if (Array.isArray(a.args)) for (const x of a.args) argv.push(fromJson(x));
-  // a verb lambda says writes is not evaluated: its new store would be thrown away (answered, below)
-  if (A.Ev("main:verb_writes", [read(), argv]) === "T") return notCommitted();
+  // a writing verb is evaluated and main:as commits its store (main:as_commit); one it did not commit is answered below
   const out = A.Ev("main:as", [store, caller, argv]);
   return answered(out, out[1] === "T" ? 200 : 500);
 }
