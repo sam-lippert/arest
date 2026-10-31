@@ -20,10 +20,10 @@ import java.util.Map;
 // A WRITE IS COMMITTED BY LAMBDA OR IT IS REFUSED. An answer whose third part is `stored` was
 // committed by lambda's own program (sqlite:program inside it, as an entity retract is), and it is
 // answered. A POST, a PUT or a DELETE of a fact goes to lambda as any request does, and main:api
-// commits it (main:commit). An answer that hands back a new store is a write lambda does not commit
-// itself yet (a writing verb, which main:as answers without committing), and this host has no commit
-// of its own to run in its place, so it answers that the write was not committed and keeps the store
-// as it was; a verb lambda says writes is not evaluated at all.
+// commits it (main:commit), as main:as commits the store a writing verb makes (main:as_commit). An
+// answer that still hands back a new store is a write lambda did not commit, over a store held in
+// memory alone, and this host has no commit of its own to run in its place, so it answers that the
+// write was not committed and keeps the store as it was.
 //
 // HTTP IS THE SAME OPERATION OVER ANOTHER TRANSPORT. A request is <store, method, resource, caller, body>
 // through lambda's main:api: the resource is the path less its leading slash, the caller the
@@ -202,8 +202,7 @@ public class Serve {
         List<Object> argv = new ArrayList<Object>();
         argv.add(name);
         if (a.get("args") instanceof Object[]) for (Object x : (Object[]) a.get("args")) argv.add(Gui.fromJson(x));
-        // a verb lambda says writes is not evaluated: its new store would be thrown away (answered, below)
-        if ("T".equals(Arest.Ev("main:verb_writes", new Object[] { read(), argv.toArray() }))) return notCommitted();
+        // a writing verb is evaluated and main:as commits its store (main:as_commit); one it did not commit is answered below
         out = (Object[]) Arest.Ev("main:as", new Object[] { store, caller, argv.toArray() });
         return answered(out, "T".equals(out[1]) ? 200L : 500L);
     }
