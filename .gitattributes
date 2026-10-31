@@ -1,5 +1,9 @@
 arest -text
 arest.tests -text
+kernel -text
+kernel.tests -text
+kernel.forms -text
+kernel.agree -text
 
 # THE GOLDENS ARE COMPARED BYTE FOR BYTE, so they must reach disk as they are
 # stored. core.autocrlf is true here, and it was rewriting all four of these on
