@@ -328,6 +328,7 @@ case:lex-quoted	"(('Status', 'Status', 'Status', '', 'status', '', 'T', 'Status'
 case:lex-hyphen	"(('Gauge', 'Gauge', 'Gauge', '', 'gauge', '', 'T', 'Gauge', 'F', 0), ('has', 'has', 'has', '', 'has', '', 'F', 'has', 'F', 0), ('upper-', 'upper-', 'upper-', '', 'upper-', '', 'F', 'upper', 'F', 0), ('Level', 'Level', 'Level', '', 'level', '', 'T', 'Level', 'F', 0), ('and', 'and', 'and', '', 'and', '', 'F', 'and', 'F', 0), ('Type', 'Type', 'Type', '', 'type', '', 'T', 'Type', 'F', 0), ('-adj', '-adj', '-adj', '', '-adj', '', 'F', 'adj', 'F', 0), ('and', 'and', 'and', '', 'and', '', 'F', 'and', 'F', 0), ('FORE--', 'FORE--', 'FORE--', '', 'fore--', '', 'T', 'FORE-', 'F', 0), ('WORD', 'WORD', 'WORD', '', 'word', '', 'T', 'WORD', 'F', 0), ('and', 'and', 'and', '', 'and', '', 'F', 'and', 'F', 0), ('from-Status', 'from-Status', 'from-Status', '', 'from-status', '', 'F', 'from-Status', 'F', 0))"
 case:implode-tpl	"'{0} was {1}'"
 case:implode-us	"'a_b'"
+case:implode-nested	"<refused>"
 case:slug-reading	"'Order_was_placed_by_Customer'"
 case:slug-hyphen	"'place_receipt'"
 case:reading-parse	"('{0} was placed by {1}', ('Order', 'Customer'))"

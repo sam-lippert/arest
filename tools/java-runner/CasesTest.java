@@ -134,12 +134,12 @@ public class CasesTest {
     // something was itself failing for a reason that had nothing to do with
     // any host -- and failing inside a station whose suite takes 23 minutes,
     // where nobody reads the tail. The rust station's twin already says 19.
-    // AND 20 since case:insert-empty (9e): INSERT on <> is bottom on every host.
+    // AND 20 since case:insert-empty (9e): INSERT on <> is bottom on every host; 21 since case:implode-nested (F3).
     @Test
-    void theGoldenStillExpectsExactlyTwentyRefusals() throws IOException {
+    void theGoldenStillExpectsExactlyTwentyOneRefusals() throws IOException {
         int n = 0;
         for (String[] r : golden()) if ("<refused>".equals(r[1])) n++;
-        assertEquals(20, n);
+        assertEquals(21, n);
     }
 
     // The law report is the gate, and no copy of it is kept (2026-10-02): main

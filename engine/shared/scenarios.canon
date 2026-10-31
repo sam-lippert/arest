@@ -1279,6 +1279,8 @@ DEF("case:lex-quoted", S2(A("lex"), A("Status 'In Cart' is to Status 'Placed'.")
 DEF("case:lex-hyphen", S2(A("lex"), A("Gauge has upper- Level and Type -adj and FORE-- WORD and from-Status"))),
 DEF("case:implode-tpl", S2(A("implode"), S2(A(" "), S3(A("{0}"), A("was"), A("{1}"))))),
 DEF("case:implode-us", S2(A("implode"), S2(A("_"), S2(A("a"), A("b"))))),
+"case:implode-nested is implode over parts one of which is a sequence. implode joins atoms; a sequence is not text, so it is bottom and every host refuses it: C# threw, Java answered the sequence`s identity hash and JS and Rust joined its elements with commas, which is how a recipe tree became Role ids unnoticed (lane D, F3).",
+DEF("case:implode-nested", S2(A("implode"), S2(A("_"), S2(A("a"), S2(A("b"), A("c")))))),
 DEF("case:slug-reading", S2(A("slug"), A("Order was placed by Customer"))),
 DEF("case:slug-hyphen", S2(A("slug"), A("place-receipt"))),
 
