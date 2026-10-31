@@ -4,7 +4,7 @@ The MCP (Model Context Protocol) server is how agents interact with arest. The v
 
 ## Configuration
 
-### Claude Code / Claude Desktop
+### A desktop or CLI MCP client
 
 ```json
 {

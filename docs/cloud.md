@@ -102,7 +102,7 @@ trigger against the current population.
 
 ## MCP from a deployed worker
 
-Point any MCP-aware agent (Claude Desktop, Claude Code) at the worker:
+Point any MCP-aware agent at the worker:
 
 ```json
 {

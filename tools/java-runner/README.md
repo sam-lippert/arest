@@ -49,10 +49,10 @@ names the database in `state:store_db`, and boots through lambda's
 (`store:for_read`). A write is not evaluated: a verb lambda says writes
 (`main:verb_writes`), or a fact call other than GET, is answered
 `not_committed` and changes nothing, because lambda does not yet commit a
-write's new store itself (#197) and a host has no commit of its own.
+write's new store itself and a host has no commit of its own.
 `--call <tool> <json>` answers one call and exits.
 
-`Router` is the connection a session starts. Its own store is the registry
+`Router` is the connection a client starts. Its own store is the registry
 (`tools/js-runner/registry`), whose App table lambda reads; every verb takes
 `app`, and each app is a `Serve` process started at its first call and
 stopped after ten minutes without one. `apps` lists them.
@@ -62,16 +62,15 @@ stopped after ten minutes without one. `apps` lists them.
 AREST_LAMBDA names the lambda file, AREST_REGISTRY the registry package,
 AREST_LOGIN the caller a call names when it names none, AREST_APP_HEAP each
 app's heap (2g). The driver must be sqlite-jdbc 3.46 or later: 3.45's parser
-stack overflows on the deepest views the map writes (claude's
-`TrigramIsTheComplementOfTrigram`).
+stack overflows on the deepest views the map writes (a view over a ring of
+one type on itself, such as `TrigramIsTheComplementOfTrigram`).
 
-## Gui — the Swing platform (#124)
+## Gui — the Swing platform
 
 A platform is a shim that registers its paired controls, hands each event
-to lambda and draws what lambda answers (Sam, 2026-09-20), and Sam,
-2026-10-01: a registration surface per platform, any host language through
-the same one. `Gui.java` is the Java one, the sibling of ui.do's
-`src/render`:
+to lambda and draws what lambda answers, with a registration surface per
+platform and any host language through the same one. `Gui.java` is the Java
+one, the sibling of the web renderer:
 
 - **The registration**: one Swing widget per iFactr interface lambda places,
   `render:<kind>` for the nineteen (`WIDGETS`), and its own layout engine,
@@ -108,22 +107,22 @@ written `<pane>@<title>` clicks the button of that title, as a person would.
 
 ## The admin path: the Swing UI against a serving host
 
-An admin approves drafts in this container, against the JS host serving the
-app's store. Two commands, one per terminal:
+An admin fires an app's transitions in this container, against the JS host
+serving the app's store. Two commands, one per terminal:
 
-    # 1. serve the store (here, support's; the module is built from the current lambda)
-    cd apps/support.auto.dev && AREST_PORT=8946 bun run serve
+    # 1. serve the store (the module is built from the current lambda)
+    cd apps/<app> && AREST_PORT=8946 bun run serve
 
     # 2. the Swing UI against it, opened at the App, signed in as its Admin
     cd arest/tools/java-runner && javac -encoding UTF-8 Arest.java Reader.java Gui.java
-    AREST_PORT=8946 AREST_APP=support AREST_CALLER=<admin email> java -cp . Gui
+    AREST_PORT=8946 AREST_APP=<app> AREST_CALLER=<admin email> java -cp . Gui
 
-**Live support sends real email.** On the live store, Approve on a draft fires
-`Admin approves Support Response`, and the performer sends the reply through
-the connection the store declares. Try it on a copy first:
+**A live store that declares a send connection sends for real.** On it, a
+transition whose performer sends (an approval that sends a reply, say) sends
+through the connection the store declares. Try it on a copy first:
 
-    mkdir <copy> && sqlite3 apps/support.auto.dev/.check/store.db "VACUUM INTO '<copy>/store.db'"
-    cp apps/support.auto.dev/.check/{design-state,compiled,norma-answer,outcome,expectation} <copy>/
+    mkdir <copy> && sqlite3 apps/<app>/.check/store.db "VACUUM INTO '<copy>/store.db'"
+    cp apps/<app>/.check/{design-state,compiled,norma-answer,outcome,expectation} <copy>/
     cd arest/tools/js-runner && env -u AREST_MASTER_KEY AREST_CARRIERS=<copy> AREST_OUT_DIR=<copy> AREST_STORE_DB=<copy>/store.db AREST_PORT=8946 bun build.js serve --run
 
 A copy of the live store keeps live's connections, so fence it before the
@@ -132,11 +131,11 @@ records what it would carry without sending it, and serve it without
 `AREST_MASTER_KEY`, so no sealed credential can be unsealed:
 
     curl -s http://127.0.0.1:8946/DomainConnectsToFederationHasSendMode          # the connections
-    curl -s -X PUT -H 'content-type: application/json' -d '["support.gmail","dry"]' http://127.0.0.1:8946/DomainConnectsToFederationHasSendMode
+    curl -s -X PUT -H 'content-type: application/json' -d '["<connection>","dry"]' http://127.0.0.1:8946/DomainConnectsToFederationHasSendMode
 
-On the retention copies, which declare no Send Mode at all, Approve answered
-201 and recorded the approval, and the draft stayed at Draft, since approve is
-guarded by the send succeeding. Without
+On a copy that declares no Send Mode at all, such a transition answers 201
+and records the approval, and the entity stays where it was, since the
+transition is guarded by the send succeeding. Without
 `AREST_CALLER` the same click is refused with the alert "... needs its Admin".
 Serve a store from one process at a time: the MCP router serves the same
 store when asked, and two processes each hold their own copy of it.

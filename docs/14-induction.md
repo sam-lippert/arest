@@ -8,7 +8,7 @@ Inductive logic is a whole branch of logic apart from deductive logic. Induction
 
 Per the whitepaper Domain Change SM section, the CSDP loop closes when the system can self-modify in response to constraint violations, error patterns, or feature requests. `induce` is the missing primitive in that loop. The system that asserts a constraint violation can also propose the candidate populations whose addition would resolve it, and route that proposal through the standard Domain Change state machine (see [10-self-modification](10-self-modification.md)).
 
-This is also how the [Sherlock](https://github.com/graphdl/apps-sherlock) app solves mysteries, and how AREST will go up against ARC-AGI-3: enumerate candidates over the finite domain, gate by constraints, rank by user-declared scoring rules. No black-box LLM in the inner loop.
+This is also how an abduction app solves mysteries, and how AREST will go up against ARC-AGI-3: enumerate candidates over the finite domain, gate by constraints, rank by user-declared scoring rules. No black-box LLM in the inner loop.
 
 ## Distinct from abduction
 
@@ -28,7 +28,7 @@ apply Func::Platform("induce") to <<ft_id, "FactType_id">,
                                    <to_explain, <fact₁, fact₂, …>>>
 ```
 
-- `ft_id` names the relation to enumerate candidates over (e.g. `Coin_has_Side`, or in Sherlock, `Suspect_committed_Crime`). The engine reads the FactType + Role cells to determine the role positions and noun types.
+- `ft_id` names the relation to enumerate candidates over (e.g. `Coin_has_Side`, or in a mystery schema, `Suspect_committed_Crime`). The engine reads the FactType + Role cells to determine the role positions and noun types.
 - `to_explain` is a list of observed facts the candidate must derive after forward-chain LFP. May be empty for unconstrained enumeration (every constraint-satisfying candidate is emitted).
 
 Output: `Seq<Object>` of Hypothesis Candidate facts per the schema in `readings/core/induction.md`. Each Hypothesis Candidate carries:
@@ -80,11 +80,11 @@ Scoring Rule applies to Hypothesis Candidate.
 
 The engine's `forward_chain_defs_state` evaluates these on the post-search state; rules emit `Hypothesis Candidate has Confidence Score` facts. Callers sort the search result by Confidence Score before presentation. Adding a new heuristic is an `apply propose` against the schema, not a Rust patch.
 
-## Sherlock walk-through (sketch)
+## A mystery walk-through (sketch)
 
-The Sherlock app at `C:\Users\lippe\Repos\apps\sherlock` solves mysteries by abduction over a Crime + Evidence schema. The fixture is still pending (#853), so this is sketched against the substrate's intent.
+A mystery-solving app works by abduction over a Crime + Evidence schema. Its fixture is still pending, so this is sketched against the substrate's intent.
 
-Schema (from `apps/sherlock/readings/{crime,evidence,reasoning}.md`):
+Schema (readings over crime, evidence and reasoning):
 
 ```forml2
 Suspect(.Name) is an entity type.

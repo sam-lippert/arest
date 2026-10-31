@@ -216,7 +216,7 @@ to the oracle over real apps through the real flow.
 2. **Register the catalog in lambda** — done: `shared/base/resolution.md` declares
    `Operation is overridable` and enumerates the catalog; the host's `HOST_OVERRIDES`
    is asserted a subset of it by test.
-3. **Lift, don't rewrite** — DONE (2026-07-13, the lambda-first rebuild): the eight
+3. **Lift, don't rewrite** — done: the eight
    name-keyed `prim` arms live in the `DEF_OVERRIDES` table behind `resolve_def`
    (theta:NatJoin documented at the table as the one SHAPE-keyed override at the
    application seam), and the five guarded verb bindings live in `VERB_OVERRIDES`
@@ -224,7 +224,7 @@ to the oracle over real apps through the real flow.
    bindings. A new override is a table row plus a catalog row plus a parity pin.
    The coverage gate audits both tables: every DEF row must name an existing lambda
    DEF, every verb row a catalog row, and the DELEGATED drain queue may only
-   shrink (explain drained the same day; sql stays delegated by design under the
+   shrink (sql stays delegated by design under the
    zero-dep host rule, its materialization being a sqlite artifact on the
    registered-function side of the enumerable boundary).
 
@@ -246,15 +246,12 @@ Through the seam, chapter 11's `compile` cell reads:
   chapter is the operation half (the `OVERRIDES` table). Together they are AREST's whole
   DI/IoC story: *meaning in the lambda, side effects and speed injected per platform,
   everything certified equal to the lambda reference.*
-- **`2026-07-10-rust-native-compile.md`** is the design record behind the compile
-  override's native pipeline.
-- **`2026-07-12-incremental-aggregate-spec.md`** is another registry citizen: a fast
-  override of the fixpoint aggregate pass, gated by (today) `AREST_NO_INCR_AGG` — which
-  step 2 folds into `AREST_NO_OVERRIDE`.
-- **The `system:nav` family (chapter 25)** is the current cautionary tale for why the
-  differential matters: a lambda fix that is correct under the reference reducer can still
-  read wrong through an override whose twin has drifted — which is precisely what the kill
-  switch exists to catch.
+- **The compile override's native pipeline** and **the incremental aggregate pass** are
+  registry citizens of the same kind: the latter is a fast override of the fixpoint
+  aggregate pass, gated by `AREST_NO_INCR_AGG`, which step 2 folds into `AREST_NO_OVERRIDE`.
+- **The `system:nav` family (chapter 25)** shows why the differential matters: a lambda
+  fix that is correct under the reference reducer can still read wrong through an override
+  whose twin has drifted, which is precisely what the kill switch exists to catch.
 
 ## What resolves through the seam today
 

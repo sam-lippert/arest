@@ -159,116 +159,24 @@ with `system:nav("Zebra", D) = ()` for an unplayed noun, and
 Theorem 4. The classification above is therefore executable and verified, not a
 description of intent.
 
-## Real-store behavior (2026-07-12): RMAP absorption hides the 1:n edges
+## Absorption does not change navigation
 
-The classification above is correct on an **un-absorbed** schema — the fixture leaves
-`rmapColumns` empty, so every fact type stays own-table and `nav_kind` sees its
-uniqueness constraint. On a **real compiled store** it degenerates, and running the
-wired resident `nav` verb over the `tasks` app makes this concrete:
+The classification above is stated over a schema whose fact types each keep their own
+table. On a compiled store, RMAP absorbs a noun's functional fact types as columns of
+its table, and those absorbed fact types are exactly its `child` and `peer` edges. So
+`system:nav` draws its candidate pool from every fact type the noun plays, not from the
+own-table fact types alone (`system:ev_ownfts`, `factType` minus `rmapColumns`, whose
+other caller `system:ev_facts` does need own-table only). Absorption is a *storage*
+decision (own table vs. column); it must not change *navigation*: an absorbed functional
+fact type is still a reference edge, the strongest navigation link. An absorbed unary
+fact type surfaces as a target-less `('collection', ft, ())` edge, as an own-table unary
+does; an arity-at-least-2 filter drops them where unary flags are unwanted as links.
 
-- `nav("Task")` returns seven edges, **all `collection`** (`Task_blocks_Task`,
-  `Task_touches_Source_File`, the derived `Task_carries_*_Task_Priority`, …).
-- `nav("Park Reason")`, `nav("Status")`, `nav("Tick Action")` return **empty**.
-- `child` and `peer` **never fire**.
+## An app carries only its own definitions
 
-**Root cause (isolated on the real D, 2026-07-12): `system:ev_ownfts` IS the excluder.**
-`system:nav` draws its candidate pool from `system:ev_ownfts` (`arest.canon:4794`) =
-`factType` **minus** `rmapColumns`. On the real `tasks` store 23 Task fact types are
-absorbed into `rmapColumns` (columns 2–24), including `Task_is_parked_for_Park_Reason`
-and `Task_is_currently_in_Status`, so the pool loses them **before** classification. A
-stage-by-stage trace through the real reducer settled it:
-
-| stage | on real `Task` | verdict |
-| --- | --- | --- |
-| `nav_playedfts("Task")` | includes both absorbed fts (32 fts) | played-set correct |
-| `ev_ownfts("Task",…)` | **excludes** both (absorbed stripped) | **the drop is here** |
-| `Filter(member …)` | would keep them | not the excluder |
-| `nav_kind("Task_is_parked_…")` | `"child"` | would classify right if it arrived |
-
-The absorbed functional fts are exactly the `child`/`peer` edges, so they never fire.
-(An earlier note here claimed the excluder was "downstream" and that an `ev_allfts`
-substitution was a real-store no-op — both were **measurement errors**: the Python
-oracle double-wrapped the store (`load_sqlite` already returns a lam D), and the Rust
-resident reading was a host-twin divergence, not the lambda's behavior. Corrected.)
-
-**The fix (applied, `arest.canon:4389`):** swap `system:nav`'s pool from `ev_ownfts` to
-the full `factType` fetch. Absorption is a *storage* decision (own table vs. column); it
-must not change *navigation* — an absorbed functional ft is still a reference edge, the
-strongest nav link. `ev_ownfts` itself is unchanged (its other caller `system:ev_facts`
-correctly needs own-table-only). **Proven in the real reducer:** nav("Task") goes
-7 → 30 edges, `{collection: 22, child: 8}`, purely additive (all 7 baseline preserved),
-surfacing `('child','Task_is_parked_for_Park_Reason',('Park Reason',))`,
-`('child','Task_has_Owner',('Owner',))`, etc.; the fixture regression still passes.
-(Side note: it also surfaces 15 absorbed **unary** booleans as target-less
-`('collection', ft, ())` edges — consistent with how own-table unaries already appear;
-add an arity-≥-2 filter if unary flags are unwanted as nav links. Design refinement, not
-a bug.)
-
-## Status (2026-07-13)
-
-- **Sidecar-staleness fix DONE + certed end-to-end (2026-07-13).** The durable fix is
-  implemented at every write/read site and proven on the real store. *Python writer*
-  (`Registry._sidecar`, protocol.py:1901): the frozen process keeps a `"compiled"` def only
-  when its name has no `:` — dropping the 325 namespaced engine-lambda defs, keeping the 8
-  bare app defs. *Rust ingest + grammar-scratch + native-compile writer* (main.rs:3043,
-  6544, 10188): the same `':'`-filter, so existing stale sidecars load engine lambda from
-  live `NCANON`, and `op_compile_model` can never re-freeze it. **Certs:** a scratch compile
-  writes a sidecar of exactly 8 bare defs (0 engine-lambda); 30 Python tests across
-  sidecar/ingest/defs/differential/CLI/app-compile stay green; a 123-app + grammar + base
-  corpus scan confirms the filter drops nothing app-own; and the **release resident, over
-  the un-recompiled stale `tasks` sidecar, now returns nav = 30 {collection 22, child 8}
-  (was 7 all-collection)** with `query`/`schema` intact. So every lambda fix now reaches
-  already-compiled apps live, and the native compile inherits clean sidecars by
-  construction. This resolves the nav divergence end-to-end.
-- **Lambda fix applied + Python-verified** — `system:nav` now navigates absorbed 1:n
-  relations; real-store `tasks` gives 30 edges / 8 `child` through the reference reducer,
-  fixture unchanged.
-- **Resident `nav` verb wired** — `arest.exe` resolves `system:nav` lambda-first.
-- **RESOLVED — it was NOT a native-mu twin bug; it is stale-sidecar shadowing (diagnosed
-  2026-07-12).** After the fix + clean rebuild the resident still returned 7 `collection`,
-  and an earlier note here (and the ledger) wrongly called this an `NCANON`/native-`mu`
-  twin bug. Instrumented tracing on the real store disproved that: the native carrier is
-  faithful (native `ast:FetchPop` and the fresh-`NCANON` reduction both give the correct
-  30). The resident returned 7 because it resolved `system:nav` from the **app's persisted
-  process** — a *frozen copy of the entire engine lambda* that every sidecar carries — and
-  that copy predates the `4389` fix. `NEval::mu` resolves a name `process`-before-`NCANON`
-  (main.rs:1654 then 1688), so the stale `system:nav` in the sidecar shadowed the corrected
-  `NCANON` and the fix at 1688 was never reached. The Scott `make_mu` resolves in the same
-  order, so this is *not* a twin divergence — both mus agree; both read the stale copy.
-  **Root of the freeze:** `Registry._sidecar` (protocol.py:1901-1903) freezes every
-  `"compiled"` def (which is all of `theta:`/`ast:`/`system:`/`constraints:`,
-  kernel.py:229) into each app's process — defeating `NCANON`, whose whole purpose
-  (main.rs:296-303) is to supply engine lambda to stores that *don't* carry it. So **any**
-  lambda fix is silently shadowed for every already-compiled app, and this touches the
-  native compile/derive path (`eval_full`/`eval_delta` over `srv.nprocess`) too, not just
-  nav. This is a concrete instance of the chapter-15 thesis: an app must carry only its
-  *own* defs and defer engine-lambda names to the shared live reference; freezing a copy of
-  the reference is the anti-pattern.
-- **The fix (systemic).** *Immediate, zero-code:* recompile the app (`apps_compile tasks`)
-  — the sidecar's frozen `system:nav` refreshes to the corrected def and the resident
-  returns 30. *Durable (fixes existing stale sidecars without recompile):* at the
-  sidecar-process ingest (main.rs:3043-3056, which feeds **both** the Scott `PROCESS` and
-  native `srv.nprocess`, keeping the twins aligned) **skip names in an engine-lambda
-  namespace** so they always resolve from live `LAMBDA`/`NCANON`; apply the same filter at
-  `load_grammar_scratch` (main.rs:6544) and in the writers (`Registry._sidecar`
-  protocol.py:1901-1903, Rust `sidecar_payload` main.rs:~11552) so sidecars stop freezing
-  engine lambda at all. Do **not** reorder only the native mu to NCANON-before-process — the
-  Scott mu has the same order, so a native-only reorder would create a *new* native-vs-Scott
-  divergence; the ingest/write filter feeds both mus the same list and preserves equivalence.
-  - **The exact discriminator (verified 2026-07-12, correcting the diagnosis list).** Engine
-    lambda uses **five** namespaces — `system:` (221 defs), `constraints:` (43), `ast:` (37),
-    `theta:` (22), and **`monad:` (2)**; the original recommendation named only the first
-    four, so `monad:` would stay frozen. App-own defs are **bare-named** (no colon): a real
-    `claude.store.json` process is exactly 325 namespaced engine defs + 8 bare app defs
-    (`resolve, derive, validate, emit, create, run, rmap, csdp`). So the safe, complete
-    filter is *"keep a `"compiled"` def iff its name has no `:`"* — drop every namespaced
-    (engine) def, keep the bare app defs. Equivalence to certify is *filtered-sidecar +
-    `NCANON` == a freshly-recompiled sidecar* (not == the stale one — the whole point is that
-    changed engine defs now resolve to their corrected form).
-- **Then** — `get` `_links` (per-entity projection); `arest-show` navigating by `nav`.
-
-**Reusable real-D oracle recipe** (no double-wrap): `D = load_sqlite(".../tasks.db")`
-(already a lam D — do NOT `to_lam` it); `from_lam(R(A("system:nav"), _S(A("Task"), D)))`.
-Trace any sub-step by applying `system:nav_playedfts` / `system:ev_ownfts` / `nav_kind`
-to the same `D`. Scratch scripts in the job tmp: `navreal3.py`, and the agent's
-`navtrace.py` / `navtest_fix.py`.
+A compiled app carries only its own definitions. An engine definition (every namespaced
+name: `system:`, `constraints:`, `ast:`, `theta:`, `monad:` and the rest) resolves from
+the live lambda, never from a copy frozen into the app's store: a host resolves a
+store's own definitions before lambda's, so a frozen copy would shadow every later fix
+to that definition, in every host alike. This is the chapter-15 thesis in one case: an
+app defers engine names to the shared live reference.

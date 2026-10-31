@@ -10,11 +10,11 @@ readings text → parse_to_state → P (Map) → compile_to_defs_state → defs 
 
 `P` is the population (facts). `D` is the state, meaning `P` plus all compiled defs. At rest, `D` is held as a `HashMap<String, Arc<RwLock<Object>>>` — one independently-lockable cell per key, with Backus's fetch / store operators mapped onto per-cell read and write locks. Every MCP call operates against that cells map through a snapshot / diff / commit cycle (see "Concurrency" below).
 
-The pre-#211 design had a typed `Domain` struct in the middle (`parse → Domain → domain_to_state → P`) and a second round-trip (`state → Domain → compile`). Both are gone: parse emits cells directly, and the compiler reads cells directly.
+There is no typed `Domain` struct in the middle (`parse → Domain → domain_to_state → P`) and no second round-trip (`state → Domain → compile`): parse emits cells directly, and the compiler reads cells directly.
 
 ## Step 1: Parse
 
-Since #285 the public `parse_to_state` delegates to the two-stage meta-circular pipeline defined in `readings/forml2-grammar.md`. Stage 1 (`parse_forml2_stage1::tokenize_statement`) turns each line into `Statement` + `Role Reference` cells; Stage 2 (`parse_forml2_stage2::parse_to_state_via_stage12`) runs the grammar's derivation rules over those cells to produce the full metamodel cell set (Noun / FactType / Role / Constraint / Subtype / DerivationRule / InstanceFact / EnumValues). The legacy cascade (`parse_to_state_legacy`) survives only as the bootstrap for parsing the grammar itself — stage12 can't parse its own grammar without recursion.
+The public `parse_to_state` delegates to the two-stage meta-circular pipeline defined in `readings/forml2-grammar.md`. Stage 1 (`parse_forml2_stage1::tokenize_statement`) turns each line into `Statement` + `Role Reference` cells; Stage 2 (`parse_forml2_stage2::parse_to_state_via_stage12`) runs the grammar's derivation rules over those cells to produce the full metamodel cell set (Noun / FactType / Role / Constraint / Subtype / DerivationRule / InstanceFact / EnumValues). The legacy cascade (`parse_to_state_legacy`) survives only as the bootstrap for parsing the grammar itself — stage12 can't parse its own grammar without recursion.
 
 Either pipeline recognises the same three constraint families (Theorem 1: Grammar Unambiguity):
 
@@ -34,7 +34,7 @@ This is the big one. It reads metamodel cells directly from `P` and produces a f
 
 - **Constraints.** Each constraint gets `constraint:{id}` plus `validate:{fact_type_id}` per-FT indexed validators.
 - **Machines.** Each SM gets `machine:{noun}`, `machine:{noun}:initial`, and `transitions:{noun}`.
-- **Derivations.** Each derivation rule (user-authored or materialized by the schema — subtype inheritance, transitivity, SS auto-fill, CWA negation) lowers through the same compile pipeline and gets `derivation:{id}`. The pre-`#287` "synthetic" path — dedicated per-kind functions — is gone; the schema-materialized rules are `DerivationRuleDef`s emitted alongside user rules inside `compile_derivations`.
+- **Derivations.** Each derivation rule (user-authored or materialized by the schema — subtype inheritance, transitivity, SS auto-fill, CWA negation) lowers through the same compile pipeline and gets `derivation:{id}`. There is no "synthetic" path of dedicated per-kind functions; the schema-materialized rules are `DerivationRuleDef`s emitted alongside user rules inside `compile_derivations`.
 - **Derivation index.** The compiler emits `derivation_index:{noun}` cells so that `create` can gate which rules run.
 - **Shard map.** The compiler emits `shard:{fact_type_id}` mapping each fact type to its owning cell (the RMAP partition).
 - **Schemas.** Each fact type gets `schema:{fact_type_id}` Construction funcs (tuple constructors).
@@ -63,7 +63,7 @@ Halpin Ch. 10 gives the procedure. The engine's RMAP runs as follows.
 5. Compound reference schemes become a composite primary key on the components.
 6. Constraints map directly: UC becomes UNIQUE, MC becomes NOT NULL, VC becomes CHECK, and SS becomes a foreign key.
 
-The result is today still a list of `TableDef` structs with columns, primary keys, uniqueness constraints, and check constraints — that boundary is the last remaining typed-IR layer in the compile path (tracked under #325 follow-up: "retire `Vec<TableDef>` as rmap's output"). SQL and FPGA generators consume it; OpenAPI and Solidity have already moved their state-machine reads off typed structs and onto direct `InstanceFact` cell lookups.
+The result is today still a list of `TableDef` structs with columns, primary keys, uniqueness constraints, and check constraints — that boundary is the last remaining typed-IR layer in the compile path, and `Vec<TableDef>` as rmap's output is the one left to retire. SQL and FPGA generators consume it; OpenAPI and Solidity have already moved their state-machine reads off typed structs and onto direct `InstanceFact` cell lookups.
 
 ## Hot paths
 

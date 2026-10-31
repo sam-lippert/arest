@@ -3,7 +3,7 @@
 The canonical stratum is written once, in `shared/*.canon` — files that are
 simultaneously a valid Python expression and normal Rust (and, wrapped in a
 method, normal C# or Java). The extension is neutral because the files belong
-to no host (Samuel, 2026-07-07). Every host executes the SAME RAW BYTES natively (task 14, 2026-07-14) — no
+to no host. Every host executes the SAME RAW BYTES natively — no
 JSON store, no bespoke reader, no generation artifact. Each language's own
 source-execution mechanism tokenizes the .canon files with a tiny vocabulary
 bound:

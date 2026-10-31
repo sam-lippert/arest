@@ -1,4 +1,4 @@
-# Stage-1 Tokenization Rules (#295)
+# Stage-1 Tokenization Rules
 
 The classification rules in `readings/forml2-grammar.md` operate on
 `Statement` cells that are already populated with fields like
@@ -6,7 +6,7 @@ The classification rules in `readings/forml2-grammar.md` operate on
 Stage-1 should extract those fields from raw statement text — today
 they are implemented in Rust (`crates/arest/src/parse_forml2_stage1.rs`);
 moving them into readings closes the bootstrap gap once the FFP
-text-pattern primitives land (#282).
+text-pattern primitives land.
 
 Until then, these rules are **normative documentation**: the Rust
 tokenizer must produce the same cells the rules below describe, and
@@ -162,7 +162,7 @@ This matches `parse_forml2_stage1::reserved_keyword_in`'s documented
 contract at `docs/02-writing-readings.md` §"Noun names and reserved
 words".
 
-## Migrating to readings (#282 + follow-up)
+## Migrating to readings
 
 Once FFP text-pattern primitives land (`Contains`, `StartsWith`,
 `EndsWith`, `Regex`, …) each rule above becomes an executable FORML 2

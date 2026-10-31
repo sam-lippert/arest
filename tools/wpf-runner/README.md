@@ -1,10 +1,10 @@
-# wpf-runner — the WPF platform (#124)
+# wpf-runner — the WPF platform
 
 A platform is a shim that registers its paired controls, hands each event to
-lambda and draws what lambda answers, and nothing else (Sam, 2026-09-20).
-Sam, 2026-10-01: a registration surface per platform -- Slint in Rust, WPF in
-C#, React for the web -- and any host language through the same surface. This
-is the C# one, the sibling of ui.do's `src/render` and of
+lambda and draws what lambda answers, and nothing else. There is a
+registration surface per platform -- Slint in Rust, WPF in C#, React for the
+web -- and any host language goes through the same surface. This
+is the C# one, the sibling of the web renderer and of
 `tools/java-runner/Gui.java`:
 
 - `Registry.cs`: the pairing table, iFactr-WPF's `WpfFactory.OnSetDefinitions`
@@ -35,6 +35,4 @@ Nothing here reads lambda, boots a store, validates or persists.
 draws to a PNG (RenderTargetBitmap), the form's Submit clicked through its own
 button.
 
-This directory held a 15,311-line `Gui.cs` until 2026-09-20 (37d356d5, Sam:
-"delete the UI hosts too. They're probably all wrong."); this starts from
-navigate, not from that.
+It starts from navigate: the platform keeps no UI logic of its own.

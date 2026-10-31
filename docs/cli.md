@@ -110,12 +110,12 @@ cargo run --release --bin arest-cli --features local -- readings/ --db app.db
 cargo run --release --bin arest-cli --features local -- --db app.db "list:Order" ""
 ```
 
-## Tenant master key (#663)
+## Tenant master key
 
 On first run, `arest-cli` generates a 32-byte tenant master key and writes
 it to `~/.arest/tenant_master.bin` (Unix) or `%USERPROFILE%\.arest\tenant_master.bin`
 (Windows). On subsequent runs the same file is read; the bytes seed the
-HKDF-SHA256 derivation of every per-cell ChaCha20-Poly1305 key (#659).
+HKDF-SHA256 derivation of every per-cell ChaCha20-Poly1305 key.
 
 Two operator invariants:
 

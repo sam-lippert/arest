@@ -82,7 +82,7 @@ Derivation rules join across:
 
 The engine does not distinguish local from federated at query time. It fetches the federated data when needed, joins it with the local population, and evaluates the rule as usual.
 
-## Provenance via Citation (#305)
+## Provenance via Citation
 
 Every fact produced by `ρ(populate_n)` carries a paired `Citation` record. An LLM reading the API — or a constraint evaluated over `P` — can ask *where did this fact come from?* and get a queryable answer without the engine having to invent a side-channel. The Citation is itself a fact in `P`, so Theorem 5 continues to hold: every value in the REST representation is produced by a ρ-application, including the Citation record.
 
@@ -161,7 +161,7 @@ This split is why `populate:{noun}` stays a compile-time config constant rather 
 
 After `federated_ingest`, downstream constraints and derivations see the federated facts as part of the unified population — no special-casing.
 
-## Federated analytics backends (#219)
+## Federated analytics backends
 
 The fetch path above loads a single entity from its source. The
 same Federation mechanism covers read-heavy OLAP queries —
@@ -184,7 +184,7 @@ Noun 'Listing' has URI '/v1/query'.
 Two things change at compile time for an `analytics`-kind binding:
 
 - The emitted `populate:Listing` def carries an "OLAP" shape —
-  it consumes the same sort / order query params (#218) the
+  it consumes the same sort / order query params the
   REST list endpoint advertises, plus any declared fact-type
   filters, and returns a JSON array under OWA.
 - Write-path routing is unchanged: create / update still land
@@ -205,15 +205,11 @@ The SSRF denylist and credential-env-var rules from the fetch
 path apply unchanged. A compile-time check rejects analytics URLs
 that point into private address space.
 
-## Built-in integrations
+## Shared integrations
 
-The bundled metamodel includes `organizations.md` which declares:
+A shared vocabulary library can declare common Federations once, such as an identity provider with its auth prefix, or a billing system exposed with its standard resources (customer, subscription, invoice, charge, payment_method, price, product, payment_intent).
 
-- `auth.vin` is an identity provider at `https://auth.vin` with the `users API-Key` prefix.
-- `auto.dev` is an automotive data API.
-- `stripe` is a billing system, exposed with all eight standard resources (customer, subscription, invoice, charge, payment_method, price, product, payment_intent).
-
-You get these for free when you import the metamodel. Add your own Federations in your domain readings.
+A domain that composes the library gets them for free. Add your own Federations in your domain readings.
 
 ## Writing a new integration
 

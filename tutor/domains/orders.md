@@ -118,7 +118,7 @@ If some Customer places some Order then that Order has Shipping Address equal to
 
 ### The 0.9.0 aggregate grammar takes ONE source atom after `where`, so the
 ### two-hop sum (belongs-to joined with the line's Amount) reads through a
-### fully-derived carrier — the same shape the tasks app's priority tiers use.
+### fully-derived carrier
 Order carries line Amount. *
 
 * Order1 carries line Amount iff LineItem1 belongs to Order1 and LineItem1 has Amount.
