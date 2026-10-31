@@ -183,6 +183,8 @@ function Ev(f, x) {
   if (head === "ALPHA") return seq(x).map((e) => Ev(form[1], e));
   if (head === "INSERT") {
     const xs = seq(x);
+    // /f:<> is bottom (Backus 11.2.4: /f is defined on a sequence of one or more), as Java, C# and Rust answer it
+    if (xs.length === 0) throw new Error("INSERT on empty");
     let acc = xs[xs.length - 1];
     for (let i = xs.length - 2; i >= 0; i--) acc = Ev(form[1], [xs[i], acc]);
     return acc;

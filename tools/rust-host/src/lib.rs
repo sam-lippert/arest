@@ -1676,11 +1676,11 @@ mod host_tests {
     // replaced treated an unrecognized form AS a join and a transitive
     // closure stopped closing. This host asserted 17 while the SHARED
     // golden said 18 -- it is not in hosts.sh's default stations, so
-    // nothing ran it to notice.
+    // nothing ran it to notice. 20 since case:insert-empty (9e): INSERT on <> is bottom on every host.
     #[test]
-    fn the_golden_still_expects_exactly_19_refusals() {
+    fn the_golden_still_expects_exactly_20_refusals() {
         let n = golden_cases().iter().filter(|(_, v)| v == "<refused>").count();
-        assert_eq!(n, 19, "the golden's refusal count moved");
+        assert_eq!(n, 20, "the golden's refusal count moved");
     }
 
     // The law report is the gate, and no copy of it is kept (2026-10-02): main
