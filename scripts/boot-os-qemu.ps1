@@ -5,7 +5,7 @@
   serial capture (ConOut is mirrored to COM1 by OVMF).
 
 .DESCRIPTION
-  Mechanics inherited from the pre-0.9.0 harness (66a580ab):
+  Mechanics inherited from the pre-0.9.0 harness:
     * The .efi stages at <esp>\EFI\BOOT\BOOTX64.EFI — the removable-
       media default path OVMF probes when no boot var names a loader.
     * Firmware is the split pair edk2-x86_64-code.fd (read-only pflash
@@ -84,10 +84,10 @@ $serial = Join-Path $work 'serial.log'
 # --- boot --------------------------------------------------------------
 $qargs = @(
   '-machine', 'q35', '-m', '256M', '-display', 'none',
-  # TCG on purpose: WHPX + OVMF + -cpu max faults in PlatformPei
-  # (tried 2026-07-08). The boot path must stay cheap enough for pure
+  # TCG on purpose: WHPX + OVMF + -cpu max faults in PlatformPei.
+  # The boot path must stay cheap enough for pure
   # emulation — the interpretive verbs are NOT (the engine's own note:
-  # minutes at tasks scale); boot probes ride the native carrier.
+  # minutes at app scale); boot probes ride the native carrier.
   # std's UEFI random source needs EFI_RNG_PROTOCOL: virtio-rng feeds
   # OVMF's VirtioRngDxe, and -cpu max adds RDRAND for RngDxe's CPU path
   '-cpu', 'max', '-device', 'virtio-rng-pci',
@@ -132,7 +132,7 @@ while ((Get-Date) -lt $deadline) {
             }
             # SUBTYPE probe (non-fatal): a Support Request's fields live
             # on the Agent Chat table — renders only with the
-            # top-supertype resolution (ev_cols_native, a314ff32)
+            # top-supertype resolution (ev_cols_native)
             try {
               $s2 = Invoke-WebRequest -Uri 'http://127.0.0.1:18080/get?args=%7B%22noun%22%3A%22Support%20Request%22%2C%22id%22%3A%22smoketest-profile%22%7D' -TimeoutSec 10 -UseBasicParsing
               Write-Host ("wire subtype get: " + $s2.Content.Substring(0, [Math]::Min(300, $s2.Content.Length)))

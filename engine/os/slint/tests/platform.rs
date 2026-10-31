@@ -1,4 +1,4 @@
-// THE SLINT PLATFORM, MEASURED (#124, 2026-10-02): the registration, the
+// THE SLINT PLATFORM, MEASURED: the registration, the
 // engine's refusal of an unpaired kind, every interface drawn into pixels by
 // Slint's software renderer, and -- with AREST_PORT naming a serving host --
 // the container navigated, typed into and clicked as a person would, each

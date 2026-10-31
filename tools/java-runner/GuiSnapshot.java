@@ -9,7 +9,7 @@ import javax.swing.JComponent;
 import javax.swing.JTextField;
 import javax.swing.UIManager;
 
-// THE SWING CONTAINER WITH NO WINDOW (#124, 2026-10-02): the evidence that Gui
+// THE SWING CONTAINER WITH NO WINDOW: the evidence that Gui
 // pairs and draws, run headless against a serving host. Every frame below is
 // one navigate the container sends with its own registration and defaults, and
 // every image is that frame drawn by its own widgets and layout engine into an

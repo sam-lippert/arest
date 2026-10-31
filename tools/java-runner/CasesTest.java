@@ -128,13 +128,10 @@ public class CasesTest {
 
     // A def NO host can evaluate answers <refused> everywhere and agrees
     // perfectly, so the refusal COUNT is the signal, not the pass line.
-    // AND THE NUMBER IS 19, not 17 (2026-09-11). Two deliberate refusals were
-    // added to the golden and this constant was not moved with them, so the
-    // canary that exists to notice a host losing the ability to reduce
-    // something was itself failing for a reason that had nothing to do with
-    // any host -- and failing inside a station whose suite takes 23 minutes,
-    // where nobody reads the tail. The rust station's twin already says 19.
-    // AND 20 since case:insert-empty (9e): INSERT on <> is bottom on every host; 21 since case:implode-nested (F3).
+    // THE NUMBER IS 21, among them case:insert-empty (INSERT on <> is bottom on
+    // every host) and case:implode-nested. A constant that does not move with the
+    // golden makes the canary that exists to notice a host losing the ability to
+    // reduce something fail for a reason that has nothing to do with any host.
     @Test
     void theGoldenStillExpectsExactlyTwentyOneRefusals() throws IOException {
         int n = 0;
@@ -142,7 +139,7 @@ public class CasesTest {
         assertEquals(21, n);
     }
 
-    // The law report is the gate, and no copy of it is kept (2026-10-02): main
+    // The law report is the gate, and no copy of it is kept: main
     // answers its text beside a verdict that is T exactly when every law holds.
     @Test
     void lawReportHolds() {
