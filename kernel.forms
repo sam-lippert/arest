@@ -1,5 +1,5 @@
 (
-"THE FORMS THE KERNEL BRINGS (MK1): CONS and CONST as today`s lambda defines them (arest), loaded only when the kernel runs alone; beside today`s lambda, its own two serve. MK5 brings all seven as DEFs over the primitives.",
+"THE FORMS THE KERNEL BRINGS: CONS and CONST as today`s lambda defines them (arest), loaded only when the kernel runs alone; beside today`s lambda, its own two serve. All seven are to be brought as DEFs over the primitives.",
 DEF("CONST",
     S3(A("COMP"), N(2), N(1))),
 DEF("CONS",
