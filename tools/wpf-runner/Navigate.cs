@@ -34,8 +34,8 @@ namespace Arest.Wpf
 
     /// <summary>
     /// One platform: what it registered, its stacks (its form factor), its pane widths, and the
-    /// last frame lambda answered, a pane the answer leaves out keeping what it showed. Sam,
-    /// 2026-09-20: a UI is a platform registration, a shim that hands the platform's events to
+    /// last frame lambda answered, a pane the answer leaves out keeping what it showed. A
+    /// UI is a platform registration, a shim that hands the platform's events to
     /// canon and renders what canon answers. MonoCross names the event (MXContainer.Navigate) and
     /// lambda serves it as navigate, so the serving host's POST /navigate is the whole protocol:
     /// the request is stacks, address, widths, registered, defaults, from; the answer is stacks,

@@ -10,14 +10,12 @@ using System.Windows.Media.Imaging;
 
 namespace Arest.Wpf
 {
-    // THE WPF CONTAINER (#124, 2026-10-02). Sam, 2026-10-01: a registration
-    // surface per platform -- Slint in Rust, WPF in C#, React for the web -- and
-    // any host language registers through the same surface. This is the C# one:
-    // Registry.cs is the pairing table and the platform's defaults, Controls.cs
-    // the elements and the render:wpf layout engine, Navigate.cs the one call.
-    // tools/wpf-runner held a 15,311-line Gui.cs until 2026-09-20, deleted as a
-    // UI host that was not a registration (Sam: "delete the UI hosts too. They're
-    // probably all wrong."); this starts from navigate, not from that.
+    // THE WPF CONTAINER: a registration surface per platform -- Slint in Rust,
+    // WPF in C#, React for the web -- and any host language registers through
+    // the same surface. This is the C# one: Registry.cs is the pairing table and
+    // the platform's defaults, Controls.cs the elements and the render:wpf layout
+    // engine, Navigate.cs the one call. It starts from navigate: a UI host that
+    // is not a registration is not a platform.
     //
     //   arest-wpf                      the window, master and detail, over AREST_PORT
     //   arest-wpf snapshot <dir>       the same container with no window, each frame

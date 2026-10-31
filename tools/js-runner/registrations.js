@@ -21,7 +21,7 @@ const present = (s) => s !== undefined && s !== null && s !== "";
 const sha256 = (b) => crypto.createHash("sha256").update(b).digest();
 
 // The master key: the environment's, else the AREST_MASTER_KEY line of the .env beside the lambda, a dev key kept on
-// disk in plaintext (Sam, 2026-10-28). Never printed. An agent that holds the key (as git asks a credential helper, or
+// disk in plaintext. Never printed. An agent that holds the key (as git asks a credential helper, or
 // a key in pageant) goes before the file.
 function masterKey(root) {
   if (present(process.env[KEY])) return process.env[KEY];

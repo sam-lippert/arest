@@ -109,7 +109,7 @@ public static partial class Arest
         return added;
     }
 
-    // NO JOURNAL FOLD. The journal is gone (Samuel, 2026-09-11): boot is FILE,
+    // NO JOURNAL FOLD. No journal is read: boot is FILE,
     // the reflected meta-types and the closure, and durability is the write into
     // the tables. ui:replay and the journal: cell prefix this recognised are not
     // in lambda any more, so LoadJournal and IsJournalCell went with them.

@@ -45,7 +45,7 @@ public static partial class Arest
     // Does NOT coerce a numeric-looking string: lambda's eq does not coerce
     // (eq<1,"1"> = F), and a coercing <= would give le<1,"1"> = le<"1",1> = T
     // with eq<1,"1"> = F — antisymmetry violated. Mixed int/lexical atoms are
-    // a READING-BOUNDARY defect (#31), not a licence to break the order.
+    // a READING-BOUNDARY defect, not a license to break the order.
     static int CompareAtoms(object a, object b)
     {
         if (a is int ia && b is int ib) return ia.CompareTo(ib);
@@ -132,7 +132,7 @@ public static partial class Arest
                 }
                 string nopunct = PyStrip(tok, ".;:,");
                 string bas = PyRstrip(nopunct, "0123456789");
-                // field 8 is the NORMA hyphen template (#24)
+                // field 8 is the NORMA hyphen template
                 string tpl = tok;
                 if (tpl.Length > 2 && tpl.EndsWith("--", StringComparison.Ordinal)) tpl = tpl.Substring(0, tpl.Length - 1);
                 else if (tpl.Length > 2 && tpl.StartsWith("--", StringComparison.Ordinal)) tpl = tpl.Substring(1);
@@ -167,7 +167,7 @@ public static partial class Arest
         // charislow is LAMBDA -- range test over 1 . chars. Deleted here.
         // charisdigit is LAMBDA -- range test over 1 . chars. Deleted here.
         // escape_html is LAMBDA -- char fold over chars/implode. Deleted here.
-        // policy-free: <prefix, s> -> tail-or-s (parity-ledger 2026-07-08). At
+        // policy-free: <prefix, s> -> tail-or-s. At
         // pre == t the answer is "", not t — no strictly-longer guard.
         // strip_prefix is LAMBDA -- DEF("strip_prefix"). Deleted here.
         // ntoa is LAMBDA -- DEF("ntoa"). Deleted here.
@@ -205,8 +205,8 @@ public static partial class Arest
         // system:pop_in builds a fetch form and runs it, so the whole walk over
         // FILE is one frame's work; store:fts rebuilds and revalidates every
         // descriptor. Both are pure functions of the store, both were asked
-        // hundreds of times per closure, and both cost the js host more than
-        // anything else until they were memoised (b1075649, c7fbc16b).
+        // hundreds of times per closure, and without a memo both cost the js
+        // host more than anything else.
         "induce:sig_of", "system:pop_in", "store:fts"
     };
     static bool Memoable(string f) =>

@@ -28,14 +28,11 @@
 // arrive as source, the way they do for every other host.
 //
 // AND THE ENGINE IS THE SAME ONE, which is the other half. This crate
-// depended on engine/rust — a second evaluator, 19,664 lines, with a
-// verb table of its own — and when that went with the fat hosts the
-// path dangled and nothing here had built since. It now depends on
-// tools/rust-host, the thin mu the CLI runs: same chunker, same
+// depends on tools/rust-host, the thin mu the CLI runs, and not on a
+// second evaluator with a verb table of its own: same chunker, same
 // evaluator, same canon, so a question answered on the desktop is the
-// same question answered on firmware. The four calls that used to go
-// through `arest::worker::arest_call(verb, json)` are gone; what is
-// left asks canon `main` an address, or canon `main:api` a step.
+// same question answered on firmware. What it asks is canon `main` an
+// address, or canon `main:api` a step.
 //
 // THE STACK IS THE ONE THING THIS TARGET CANNOT COPY. Canon is one
 // deeply nested expression, so BUILDING it recurses far past a default
@@ -83,8 +80,8 @@ fn main() {
     console_loop();
 
     // server: the engine parks here until the verb table goes over
-    // the wire (virtio-net / SNP + smoltcp — the lane's next
-    // milestone). std::thread::sleep has no clock on bare firmware;
+    // the wire (virtio-net / SNP + smoltcp, not built yet).
+    // std::thread::sleep has no clock on bare firmware;
     // the harness kills QEMU at its cap.
     #[allow(unreachable_code)]
     loop {

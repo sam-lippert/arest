@@ -263,7 +263,7 @@ function path(name, dflt) {
 // outcome and expected.
 // the stamp is lambda's (compile:stamped): the hash of the lambda text followed by the design-state text, since the map
 // is lambda's answer about a schema; so the loader is handed the lambda it read
-// for now the stamp is not checked (Sam, 2026-10-22): the map is loaded whatever it was built from, as the Java
+// the stamp is not checked: the map is loaded whatever it was built from, as the Java
 // station loads it; a lambda change that moves the map's body regenerates the carrier itself
 function loadCarriers(dir, lambda = path("AREST_LAMBDA", __dirname + "/../../arest")) {
   const ds = dir + "/design-state";
@@ -274,7 +274,7 @@ function loadCarriers(dir, lambda = path("AREST_LAMBDA", __dirname + "/../../are
   for (const record of ["outcome", "expected"]) if (fs.existsSync(dir + "/" + record)) load(dir + "/" + record);
 }
 
-// THE BASE A MODULE COMPOSES IS NAMED, NOT READ (task 8e), as the Java station names it (Reader.loadBase): where dir
+// THE BASE A MODULE COMPOSES IS NAMED, NOT READ, as the Java station names it (Reader.loadBase): where dir
 // holds store.db (the base a compile-store of the metamodel wrote, tools/base), the cells name it in state:base_db and
 // lambda reads it whole at boot (main:boot: store:base_boot), its schema from _defs and its facts from _readings; a
 // directory with no store but carriers is read as carriers are; one with neither composes no base, which is how the

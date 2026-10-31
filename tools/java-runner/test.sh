@@ -11,13 +11,12 @@
 # what this runner is built with.
 #
 # AND THE CLASSPATH IS RELATIVE, because javac is a WINDOWS binary and this is
-# a POSIX shell (2026-09-11). `-cp "$jar;."` handed it /c/Users/.../lib/....jar
+# a POSIX shell. `-cp "$jar;."` hands it /c/Users/.../lib/....jar
 # -- MSYS rewrites a lone path argument to C:\ and leaves a SEMICOLON-joined
-# one alone, since a path list to it is colon-joined -- so the jar was not on
-# the classpath at all and every assertEquals in CasesTest was `cannot find
-# symbol`, 20 errors, exit 1. The same shell runs this leg on windows-latest,
-# so the java station has been failing in CI, not passing quietly. Relative to
-# $here it needs no rewriting on any shell.
+# one alone, since a path list to it is colon-joined -- so the jar is not on
+# the classpath at all and every assertEquals in CasesTest is `cannot find
+# symbol`, 20 errors, exit 1. The same shell runs this leg on windows-latest.
+# Relative to $here it needs no rewriting on any shell.
 set -e
 here="$(cd "$(dirname "$0")" && pwd)"
 lib="$here/../lib"
@@ -39,15 +38,12 @@ fetch junit-platform-console-standalone.jar "$url"
 fetch sqlite-jdbc.jar "https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.47.1.0/sqlite-jdbc-3.47.1.0.jar"
 fetch slf4j-api.jar "https://repo1.maven.org/maven2/org/slf4j/slf4j-api/1.7.36/slf4j-api-1.7.36.jar"
 
-# EVERY SOURCE IN THIS RUNNER, not the one the test names (2026-09-11). This
-# compiled CasesTest.java alone, and javac only pulls in what that reaches:
-# Arest and Reader. Gui.java -- the Swing container, the station that draws
-# ui:screen -- and Program.java, the CLI, were compiled by NOTHING in this
-# repo, so "the java GUI builds" was a fact about whoever last ran javac by
-# hand rather than one the tree asserts. Samuel, today: GUI runners should
-# work. A runner nothing compiles is a runner nothing knows the state of, and
-# the five sources here compile clean from an empty directory, so gating all
-# of them costs a second and closes that.
+# EVERY SOURCE IN THIS RUNNER, not the one the test names. javac given
+# CasesTest.java alone pulls in only what that reaches: Arest and Reader, and
+# not Gui.java -- the Swing container, the station that draws ui:screen -- or
+# Program.java, the CLI. GUI runners must build, and a runner nothing compiles
+# is a runner nothing knows the state of; the sources here compile clean from
+# an empty directory, so gating all of them costs a second.
 cd "$here"
 javac -cp "$cp" *.java
 exec java -jar ../lib/junit-platform-console-standalone.jar -cp "$run" -c CasesTest --details=summary

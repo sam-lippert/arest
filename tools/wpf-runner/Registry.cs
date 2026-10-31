@@ -5,12 +5,11 @@ using System.Windows;
 
 namespace Arest.Wpf
 {
-    // THE PAIRING TABLE FOR WPF (#124, 2026-10-02). Sam, 2026-09-21: "the
-    // correct way to render html or any other ui is to register the widgets and
-    // layout engines and resolve them to mirror the idealized agnostic paired ui
-    // controls"; 2026-10-01: the idealized controls are the MonoView and iFactr
-    // interfaces, and there should be a WPF registration in C# the way there is
-    // a React one for the web. This is that registration, iFactr-WPF's
+    // THE PAIRING TABLE FOR WPF. The way to render html or any other ui is to
+    // register the widgets and layout engines and resolve them to mirror the
+    // idealized agnostic paired ui controls, and the idealized controls are the
+    // MonoView and iFactr interfaces; there is a WPF registration in C# the way
+    // there is a React one for the web. This is that registration, iFactr-WPF's
     // WpfFactory.OnSetDefinitions over lambda's names: render:<kind> for each
     // interface lambda places (metamodel/resolution.md), bound to Toolkit 'wpf'
     // at the class it names (readings/ui/components.md), and the layout engine

@@ -11,7 +11,7 @@ import java.util.List;
 // The serving host (AREST_SERVE, or AREST_PORT on this machine) must be booted over the carriers the local
 // transport reads (AREST_CARRIERS, tools/base unless set) with no AREST_STORE_DB, since the
 // sequence writes: its save answers 201 on both sides, and both must start from the same store. The
-// screens are the base store's, as ui.do's src/render/parity.ts walks them: the root, a list, an entity,
+// screens are the base store's, walked as a renderer's parity check walks them: the root, a list, an entity,
 // an entry form and its save, and an empty save, which the gate refuses with its alert.
 public class TransportCheck {
     static final Object[][] SCREENS = {

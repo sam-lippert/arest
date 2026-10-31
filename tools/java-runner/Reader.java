@@ -233,13 +233,12 @@ public final class Reader {
     // compiled relational map only when the stamp it carries is the hash of this lambda and design-state,
     // since a map built from an older schema describes tables that no longer exist and lambda
     // derives the map instead; and a run's record, outcome and expected, where there is one.
-    // tools/norma-oracle, which Program and CasesTest read, was deleted on 2026-09-20 (#109).
     // The stamp is lambda's (compile:stamped): the hash of the lambda text followed by the
     // design-state text, since the map is lambda's answer about a schema and another lambda's
     // map is stale over the same design-state. So the loader is handed the lambda it read.
-    // FOR NOW THE STAMP IS NOT CHECKED (Sam, 2026-10-22): the map is loaded whatever it was built
-    // from. A lambda change that leaves the map's body as it was (every unit since 959de210) made
-    // every boot derive the map again; one that moves it must regenerate the carrier itself.
+    // THE STAMP IS NOT CHECKED: the map is loaded whatever it was built from. Checking it would make
+    // every boot derive the map again after any lambda change that leaves the map's body as it was;
+    // a change that moves the map must regenerate the carrier itself.
     public static void loadCarriers(String dir) {
         loadCarriers(dir, path("AREST_LAMBDA", "../../arest"));
     }
@@ -254,7 +253,7 @@ public final class Reader {
             if (Files.exists(Paths.get(dir, record))) load(Paths.get(dir, record).toString());
     }
 
-    // THE BASE A MODULE COMPOSES IS NAMED, NOT READ (task 8e). The base is the store a compile-store of
+    // THE BASE A MODULE COMPOSES IS NAMED, NOT READ. The base is the store a compile-store of
     // the metamodel writes (tools/base, built, never tracked); where dir holds it, the cells name it in
     // state:base_db and lambda reads it whole at boot (main:boot: store:base_boot), its schema from _defs
     // and its facts from _readings, as the carriers held them. A directory with no store but carriers is

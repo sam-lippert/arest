@@ -1,10 +1,9 @@
-//! THE SLINT PLATFORM (#124, 2026-10-02). Sam, 2026-10-01: "I want a slint
-//! registration surface in Rust the same way there should be a wpf registration
-//! in C# and a react registration for web." A platform is a shim that registers
-//! its paired controls, hands each event to lambda and draws what lambda
-//! answers, and nothing else (Sam, 2026-09-20). This crate is the Rust one, the
-//! sibling of ui.do's `src/render`, `tools/java-runner/Gui.java` and
-//! `tools/wpf-runner`, and it holds the same four things:
+//! THE SLINT PLATFORM: a registration surface in Rust, the same way there is a
+//! wpf registration in C# and a react registration for web. A platform is a
+//! shim that registers its paired controls, hands each event to lambda and
+//! draws what lambda answers, and nothing else. This crate is the Rust one,
+//! the sibling of `tools/java-runner/Gui.java` and `tools/wpf-runner`, and it
+//! holds the same four things:
 //!
 //! - THE REGISTRATION: `render:<kind>` for each iFactr interface lambda places
 //!   (metamodel/resolution.md), each drawn by an element of `ui/ifactr.slint`

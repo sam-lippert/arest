@@ -63,7 +63,7 @@ public class Arest {
         java.util.Arrays.asList("ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor",
             "cn:sfx", "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts",
             "cn:chrank", "lex:lw", "induce:sig_of",
-            // a store's own reads, the same for every entity it is asked of (roadmap 1a): derive:on_read's population
+            // a store's own reads, the same for every entity it is asked of: derive:on_read's population
             // of an on-read fact type, the store's database (query:db) and places (store:places), and a population's
             // atoms (nav:pop_atoms; nav:atoms itself recurses into every cell and is not kept). test:thm2 links every
             // entity of the base: over 1,500 s walking each, 38 s kept, the same T.
@@ -81,11 +81,9 @@ public class Arest {
         MEMBERIDX = new java.util.WeakHashMap<Object, Object>();
         MATCHIDX = new java.util.WeakHashMap<Object, Map<Object, Object>>();
     }
-    // THE MEMO'S BOUNDS ARE THE JS HOST'S (memoCall in tools/js-runner/host.js
-    // before 4f117761: 1bd449f9, 2026-09-23, and d2905422, 2026-10-02). This
-    // station kept only the 400,000-answer bound it had on 2026-08-13, and
-    // that bound was the whole of what let a name's answers go. MEASURED
-    // (lane D, 7d): support's scratch compile ran out of a 3 GB heap inside
+    // THE MEMO'S BOUNDS ARE THE ONES THE JS HOST'S MEMO HAD. A 400,000-answer
+    // bound alone does not let a name's answers go soon enough. MEASURED:
+    // a large app's scratch compile ran out of a 3 GB heap inside
     // its first store:close, in store:file_put's rmap:nest, whose merge sort
     // walks <merged, a, b, i, j> by rmap:mg_step. A step's operand is a fresh
     // state every time, so its answer is never asked for again, and the memo
@@ -239,7 +237,7 @@ public class Arest {
         // cn:contains is <haystack, needle> to T when the needle's chars occur in the haystack's; chars splits by
         // UTF-16 unit, so for two texts that is String.contains, with an empty needle in every haystack but the
         // empty one. Anything else runs the DEF, which throws where chars does. compile:seal_left asks it of the
-        // whole design state once for each sealed value: 4.7 MB of chars, eight times, was 9% of support's compile.
+        // whole design state once for each sealed value: 4.7 MB of chars, eight times, was 9% of a large app's compile.
         FASTPRIMS.put("cn:contains", x -> {
             Object[] a = seq(x);
             if (a.length >= 2 && a[0] instanceof String && a[1] instanceof String) {
@@ -252,7 +250,7 @@ public class Arest {
         // quote_str:esc -- the backslash, the quote, newline and return by their letters, a unit below the space from
         // quote_str:ctls (backspace, tab and form feed by their letters, every other as backslash-u and four lowercase
         // hex digits), any other unit as itself -- and implodes them between quotes. The twin does that in one pass;
-        // anything but a text runs the DEF, which throws where chars does. MEASURED on qa's change compile (profiled,
+        // anything but a text runs the DEF, which throws where chars does. MEASURED on an app's change compile (profiled,
         // 196 s): quote_str under compile:json_val was 10.5% of it, every fact the compile stages or writes given its
         // JSON a char at a time.
         FASTPRIMS.put("quote_str", x -> {
@@ -279,9 +277,9 @@ public class Arest {
         // with f:e equal to key: a filter whose every ask applies f to the whole list. A list asked again with the same
         // f is answered from its elements grouped by f:e, applied once, right to left as the DEF's INSERT applies it,
         // so an f that throws throws first where the DEF does (MATCHIDX). Anything else is the DEF's.
-        // MEASURED on main f562b20a with -Xmx3g: support`s compile-package over a scratch copy of its store, 3,105 s
-        // walking and 1,223 s indexed (refused alike, by its pending Federation Migration); auto.dev`s, in place, 3,480 s and
-        // 1,569 s, its 590 tables the same row for row; spd-1`s, fresh, 204 s and 183 s, the same.
+        // MEASURED with -Xmx3g: one large app's compile-package over a scratch copy of its store, 3,105 s
+        // walking and 1,223 s indexed (refused alike, by its pending Federation Migration); another's, in place, 3,480 s and
+        // 1,569 s, its 590 tables the same row for row; a small app's, fresh, 204 s and 183 s, the same.
         FASTPRIMS.put("theta:member", x -> {
             Object needle = at(x, 0);
             Object[] l = seq(at(x, 1));
@@ -479,7 +477,7 @@ public class Arest {
     // (eq<1,"1"> = F), and a coercing <= would give le<1,"1"> = le<"1",1> = T
     // with eq<1,"1"> = F — antisymmetry violated, so <= would not be an order.
     // The engine kernels coerce and are the ones carrying the drift; mixed
-    // int/lexical atoms are a READING-BOUNDARY defect (#31).
+    // int/lexical atoms are a READING-BOUNDARY defect.
     static int cmpAtoms(Object a, Object b) {
         if (a instanceof Long && b instanceof Long) return ((Long) a).compareTo((Long) b);
         if (a instanceof String && b instanceof String) return ((String) a).compareTo((String) b);
@@ -567,7 +565,7 @@ public class Arest {
                                                   Math.min(e, spans.get(k - 1)[1] - 1));
                 String nopunct = pyStrip(tok, ".;:,");
                 String base = pyRstrip(nopunct, "0123456789");
-                // field 8 is the NORMA hyphen template (#24): a one-sided
+                // field 8 is the NORMA hyphen template: a one-sided
                 // touching hyphen is the bind marker and is consumed, a
                 // doubled one escapes to a single literal hyphen.
                 String tpl = tok;
@@ -605,7 +603,7 @@ public class Arest {
         // charislow is LAMBDA -- range test over 1 . chars. Deleted here.
         // charisdigit is LAMBDA -- range test over 1 . chars. Deleted here.
         // escape_html is LAMBDA -- char fold over chars/implode. Deleted here.
-        // policy-free: <prefix, s> -> tail-or-s (parity-ledger 2026-07-08). At
+        // policy-free: <prefix, s> -> tail-or-s. At
         // pre.equals(t) the answer is "", not t — no strictly-longer guard.
         // strip_prefix is LAMBDA -- DEF("strip_prefix"). Deleted here.
         // ntoa is LAMBDA -- DEF("ntoa"). Deleted here.

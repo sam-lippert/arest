@@ -54,7 +54,7 @@ public static class Lambda
             // the two carriers js-runner/build.js also splices, on the same
             // terms: the compiled map only while its stamp matches the
             // design-state, the outcome only when the oracle wrote one. There
-            // is no third: the journal is gone (Samuel, 2026-09-11).
+            // is no third: no journal is read.
             Reader.LoadCompiled(Path.Combine(r, "tools", "norma-oracle", "compiled"),
                                 Path.Combine(r, "tools", "norma-oracle", "design-state"));
             Reader.LoadOptional(Path.Combine(r, "tools", "norma-oracle", "outcome"));
@@ -150,12 +150,11 @@ public class CasesTest
     [Fact]
     public void TheGoldenStillExpectsExactlyTwentyOneRefusals()
     {
-        // 19 since 4cc9f726 (2026-09-02, a nested population is one row per fact);
-        // the js host has no count test, so this one lagged the golden by a day; 20 since case:insert-empty (9e), 21 since case:implode-nested (F3)
+        // 21, among them case:insert-empty and case:implode-nested
         Assert.Equal(21, Lambda.Golden().Count(kv => kv.Value == "<refused>"));
     }
 
-    // The law report is the gate, and no copy of it is kept (2026-10-02): main
+    // The law report is the gate, and no copy of it is kept: main
     // answers its text beside a verdict that is T exactly when every law holds.
     [Fact]
     public void LawReportHolds()

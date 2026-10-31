@@ -1,9 +1,8 @@
-# engine/os — the AREST 0.9.0 operating-system target, FRESH (2026-07-08,
-# Samuel's spec): the 0.9.0 engine hosted on bare UEFI firmware. The
-# pre-0.9.0 kernel (crates/arest-kernel, removed in the serving swap
-# c2902a64) is the reference tree for target quirks — the soft-SIMD
-# build pin (d65bdb43), the OVMF harness mechanics, the profile split —
-# but no code is resurrected wholesale; the engine core this crate
+# engine/os — the AREST 0.9.0 operating-system target: the 0.9.0 engine
+# hosted on bare UEFI firmware. The pre-0.9.0 kernel (crates/arest-kernel)
+# is the reference for target quirks — the soft-SIMD build pin, the OVMF
+# harness mechanics, the profile split — but no code is resurrected
+# wholesale; the engine core this crate
 # hosts is the 0.9.0 one.
 #
 # Three targets, cumulative:
@@ -31,13 +30,9 @@ mini = ["server"]
 full = ["mini", "dep:slint"]
 
 [dependencies]
-# CANON, THROUGH THE SAME MU EVERY OTHER HOST USES. This was
-# `arest = { path = "../rust", features = ["worker"] }` - a second
-# engine, 19,664 lines, serving a verb table over a JSON store image.
-# It went with the fat hosts on 2026-08-29 and the path dangled, so
-# this crate had not built since. Pointing it at tools/rust-host is
-# not one dependency swapped for another: that crate IS the thin mu,
-# canon and the carriers arrive as SOURCE through its chunker, and
+# CANON, THROUGH THE SAME MU EVERY OTHER HOST USES: tools/rust-host,
+# not a second engine with a verb table of its own. That crate IS the
+# thin mu, canon and the carriers arrive as SOURCE through its chunker, and
 # rustc compiles the same bytes bun executes. There is no store
 # artifact to load and no verb table to serve - the OS asks canon
 # `main` an address, which is the whole of a fact-based system: an

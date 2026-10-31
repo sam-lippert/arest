@@ -36,13 +36,11 @@ import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.text.JTextComponent;
 
-// THE SWING CONTAINER (#124, 2026-10-02): a shim that registers its paired
-// controls, hands each event to lambda and draws what lambda answers, and
-// nothing else (Sam, 2026-09-20). Sam, 2026-10-01: a registration surface per
-// platform -- Slint in Rust, WPF in C#, React for the web -- and any host
-// language registers through the same surface. This is the Java one, the
-// sibling of ui.do's src/render (registry.ts, defaults.ts, controls.tsx,
-// screen.tsx, navigate.ts, frame.tsx), and it holds the same four things:
+// THE SWING CONTAINER: a shim that registers its paired controls, hands each
+// event to lambda and draws what lambda answers, and nothing else. There is a
+// registration surface per platform -- Slint in Rust, WPF in C#, React for the
+// web -- and any host language registers through the same surface. This is the
+// Java one, and it holds the same four things:
 //
 //   - THE REGISTRATION: one widget per iFactr interface lambda places,
 //     render:<kind>, and its own layout engine, render:swing
@@ -653,9 +651,9 @@ public class Gui {
 
     // ---- THE TRANSPORTS ----------------------------------------------------
     //
-    // A navigation is one request and one answer whichever way it goes (Sam,
-    // 2026-10-02: platforms support both local and remote rendering, and an
-    // admin can boot this container and approve drafts with it).
+    // A navigation is one request and one answer whichever way it goes: a
+    // platform supports both local and remote rendering, and an admin can boot
+    // this container and approve drafts with it.
     //   - remote: POST /navigate on a serving host (AREST_SERVE, or AREST_PORT on
     //     this machine), the caller as its x-arest-caller (run_serve).
     //   - local: this runner's own host. Reader reads lambda, the case table and a

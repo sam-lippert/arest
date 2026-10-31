@@ -80,7 +80,7 @@ fn deep_eq(x: &V, y: &V) -> bool {
 // Does NOT coerce a numeric-looking string: lambda's eq does not coerce
 // (eq<1,"1"> = F), and a coercing <= would give le<1,"1"> = le<"1",1> = T with
 // eq<1,"1"> = F — antisymmetry violated, so <= would not be an order relation.
-// Mixed int/lexical atoms are a READING-BOUNDARY defect (#31).
+// Mixed int/lexical atoms are a READING-BOUNDARY defect.
 fn cmp_atoms(x: &V, y: &V) -> std::cmp::Ordering {
     match (x, y) {
         (V::I(p), V::I(r)) => p.cmp(r),
@@ -235,10 +235,9 @@ fn DEF(name: &str, body: V) -> V {
 // The lambda's vocabulary, bound as this platform's lambda. The lambda file uses
 // exactly these names and no others — that is what makes one file readable by
 // four hosts.
-// The lambda vocabulary -- A, N, K, PHI, S1..S9, Sv -- used to be bound here as
-// this platform lambda so that compose.py output could call it. The READER is
-// that binding now: it turns the same names into the same values, from the file
-// rather than from generated source, so the functions had no callers left. A
+// The lambda vocabulary -- A, N, K, PHI, S1..S9, Sv -- is not bound here as
+// functions: the READER is that binding, turning the same names into the same
+// values from the file rather than from generated source. A
 // host that defines what no dispatch reaches is the shape the coverage scan
 // catches, and it scans this file.
 
@@ -329,7 +328,7 @@ fn prim(name: &str, x: &V) -> Option<V> {
                 } else { String::new() };
                 let nopunct = tok.trim_matches(|c| ".;:,".contains(c)).to_string();
                 let bas = nopunct.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
-                // field 8 is the NORMA hyphen template (#24)
+                // field 8 is the NORMA hyphen template
                 let mut tpl = tok.clone();
                 if tpl.len() > 2 && tpl.ends_with("--") { tpl.pop(); }
                 else if tpl.len() > 2 && tpl.starts_with("--") { tpl.remove(0); }
@@ -1672,20 +1671,18 @@ mod host_tests {
 
     // A def NO host can evaluate answers <refused> everywhere and agrees
     // perfectly, so the refusal COUNT is the signal, not the pass line.
-    // 19 since case:eval-unknown-form-refuses joined them: the full-path
-    // no entry in derive:forms must REFUSE, because the COND chain it
-    // replaced treated an unrecognized form AS a join and a transitive
-    // closure stopped closing. This host asserted 17 while the SHARED
-    // golden said 18 -- it is not in hosts.sh's default stations, so
-    // nothing ran it to notice. 20 since case:insert-empty (9e): INSERT on <> is bottom on every host; 21 since
-    // case:implode-nested (F3).
+    // Among the 21: case:eval-unknown-form-refuses, since a full-path form with
+    // no entry in derive:forms must REFUSE (a COND chain that treats an
+    // unrecognized form AS a join stops a transitive closure closing);
+    // case:insert-empty, since INSERT on <> is bottom on every host; and
+    // case:implode-nested.
     #[test]
     fn the_golden_still_expects_exactly_21_refusals() {
         let n = golden_cases().iter().filter(|(_, v)| v == "<refused>").count();
         assert_eq!(n, 21, "the golden's refusal count moved");
     }
 
-    // The law report is the gate, and no copy of it is kept (2026-10-02): main
+    // The law report is the gate, and no copy of it is kept: main
     // answers its text beside a verdict that is T exactly when every law holds.
     #[test]
     fn law_report_holds() {

@@ -13,8 +13,8 @@ kernel.agree -text
 # a lone CR, which has no tab, so JSON.parse got EOF and the whole suite loaded
 # 0 tests -- and expected-laws.txt would have failed a byte-for-byte compare
 # quietly. `arest` was already pinned this way; the rest belong with it.
-# expected-laws.txt is gone (2026-10-02): the law report's own verdict is the
-# gate, and a copy of its text fell behind every law added.
+# There is no expected-laws.txt: the law report's own verdict is the gate,
+# since a copy of its text falls behind every law added.
 engine/shared/expected-cases.tsv -text
 engine/shared/expected-root.txt -text
 engine/shared/scenarios.canon -text
@@ -25,6 +25,6 @@ engine/shared/scenarios.canon -text
 # d26dd73401db1e66 to a703deeaffbbf231 -- so the stamp stopped matching and the
 # suite SILENTLY COMPOSED FIVE INPUTS INSTEAD OF SIX, dropping the 34 stored
 # relational-map artifacts and 38 assertions with them. One line on stderr was
-# the whole of the notice. Measured 2026-09-20.
+# the whole of the notice.
 tools/carriers/base/design-state -text
 tools/carriers/base/compiled -text

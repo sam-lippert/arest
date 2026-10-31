@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- THE WPF PLATFORM (#124, 2026-10-02): the registration of the nineteen
+  <!-- THE WPF PLATFORM: the registration of the nineteen
        iFactr interfaces as WPF elements and the render:wpf layout engine, a
        shim over the serving host's navigate. Exe rather than WinExe so that
        `arest-wpf snapshot <dir>` can say what it drew. -->

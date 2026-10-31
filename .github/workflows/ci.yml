@@ -1,8 +1,8 @@
 # CI for AREST — the 0.9.0 engine.
 #
-# THE WALL IS THE GATE. A law is a lambda DEF the mu applies ("THE LAWS AS
-# LAMBDA", 2026-07-16: "a law written in a host IS the meaning-location
-# failure"), so the verification of record is lambda's own test:report
+# THE WALL IS THE GATE. A law is a lambda DEF the mu applies (a law written
+# in a host is the meaning-location failure), so the verification of record
+# is lambda's own test:report
 # evaluated over the composed store — not host test code.
 #
 # EACH HOST VERIFIES ITSELF, with its own toolchain and nothing else. They
@@ -11,35 +11,21 @@
 # second one installed. A station that is missing prints SKIPPED, never a
 # pass.
 #
-# WHAT THIS FILE SAID BEFORE 2026-09-11, and why none of it could run. `delete
-# the fat hosts` (8cc259ca, 08-29) removed tools/rust-station and the python
-# suites, and this file was not read again, because it triggers on main alone
-# and the work has been on a branch since. So of six steps:
+# A gate describing a tree that is not there is not a gate, so this file
+# names only what is here.
 #
-#   wall / java host    FAILED  — test.sh handed javac a POSIX jar path
-#   wall / rust host    FAILED  — tools/rust-station does not exist
-#   python (whole job)  FAILED  — all 14 test files it names are gone;
-#                                 engine/tests holds only __pycache__
-#   rust (whole job)    FAILED  — engine/rust does not exist
-#
-# The js and cs steps were the only two that could pass. A gate describing a
-# tree from August is not a gate, so this file now names what is here.
-#
-# THE GUI STATIONS ARE PART OF IT (Samuel, 2026-09-11: GUI runners should
-# work). Neither was compiled by anything in this repo: test.sh built
-# CasesTest alone, which reaches Arest and Reader and not Gui or Program, and
-# tools/wpf-runner appeared in no step at all. They both build today, but that
-# was a fact about the last person to run javac by hand. The java leg now
-# compiles every source in the runner, and the wpf container has a step of its
+# THE GUI STATIONS ARE PART OF IT: GUI runners must build. CasesTest alone
+# reaches Arest and Reader and not Gui or Program, so the java leg compiles
+# every source in the runner, and the wpf container has a step of its
 # own — conditional, because it links iFactr.Wpf, iFactr.UI and MonoCross from
 # the iFactr-WPF repo BESIDE this one, which a CI checkout does not have.
 #
-# THE RUST STATION IS OWED, not quietly dropped. tools/rust-host is
-# tools/rust-station's successor and carries the tests
+# THE RUST STATION IS OWED, not quietly dropped. tools/rust-host carries
+# the tests
 # (every_case_answers_what_the_lambda_says, the 19-refusal golden,
 # law_report_holds), but lambda is compiled INTO it as rust
 # source and is 87% of the build: after a lambda edit `cargo test --no-run` did
-# not finish in 560 s here (2026-09-11), and law_report_holds is
+# not finish in 560 s here, and law_report_holds is
 # the open subject of the rust mu having none of the js host's strategies. A
 # leg that cannot be run is not a gate, so it returns when that build and that
 # law finish — and it is listed here so its absence is a debt rather than an
@@ -71,13 +57,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       # java and dotnet are preinstalled on windows-latest.
       # lambda's test:report over the composed store, its verdict the exit
-      # status (main:on: `verify` and the empty address both answer it). This
-      # step ran `bun run build:test && bun test` until 2026-10-26, scripts
-      # that left with build.js, so it failed at "Script not found" before a
-      # law ran and the java and cs steps were skipped. The whole report
-      # outlasts timeout-minutes today (8,451 s on Java, 2026-10-22); a run
-      # cut off by it is a report not yet fast enough, never a pass (roadmap
-      # 8f).
+      # status (main:on: `verify` and the empty address both answer it). The
+      # whole report outlasts timeout-minutes (8,451 s on Java); a run cut
+      # off by it is a report not yet fast enough, never a pass.
       - name: js host
         shell: bash
         working-directory: tools/js-runner
@@ -97,11 +79,8 @@ jobs:
       # — and apps is a set of repos, one .git each. A CI checkout has neither,
       # so this SKIPS and says so; a skip is never read as a pass.
       #
-      # It used to have a THIRD carrier, a `journal`, and the csproj made a
-      # missing one a build error. The journal is gone (Samuel, 2026-09-11):
-      # the splice, the J field nothing read, and that Error condition are all
-      # out, and this container is verified to build against a carrier dir with
-      # no journal in it. What the station still owes is durability -- Boot.cs
+      # It reads no journal carrier: this container builds against a carrier
+      # dir with no journal in it. What the station still owes is durability -- Boot.cs
       # folded a journal where the js host loads the tables, and neither GUI
       # writes rows the way emitToDb does.
       - name: wpf container

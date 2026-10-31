@@ -30,9 +30,9 @@ yarn-error.log*
 # worktrees
 .worktrees/
 
-# Claude Code agent state — session config + linked agent worktrees (.claude/worktrees/)
+# Local agent tooling state and linked agent worktrees (.claude/worktrees/)
 .claude/
-# The session guide stays local to this checkout (Sam, 2026-09-30)
+# The local working guide stays out of the repository
 /CLAUDE.md
 
 # Visual Studio
@@ -42,9 +42,9 @@ yarn-error.log*
 **/target/
 /crates/arest/pkg/
 
-# Agent scratch — per-session reports, diagnostics, handoffs, commit
-# message drafts. CLAUDE.md declares `_reports/*` "Transient — never
-# commit"; ignore the whole dir so `git status` stops listing it.
+# Agent scratch — reports, diagnostics, handoffs, commit message drafts:
+# transient, never committed; ignore the whole dir so `git status` stops
+# listing it.
 /_reports/
 
 # legacy build artifacts
@@ -100,7 +100,7 @@ target-c/
 target2/
 
 # ============================================================
-# arest rebuild (merged 2026-07-20): carriers regenerate on demand;
+# Carriers regenerate on demand;
 # composed stations and oracle outputs are build ephemera.
 # The journal files are NOT ephemera - they track.
 # ============================================================
@@ -112,7 +112,7 @@ apps/*/verbalization-report.html
 apps/*/.combined/
 apps/*/checker-answer
 
-# the toolchain (tracked since 2026-07-20): only build ephemera stay out —
+# the toolchain: only build ephemera stay out —
 # composed stations and oracle outputs regenerate on demand. The journal
 # files are NOT ephemera: they are the store of record, and they track.
 bin/
@@ -168,8 +168,8 @@ tools/wall/derive-refresh.g.js
 __pycache__/
 *.pyc
 
-# THE BASE STORE IS A BUILD PRODUCT (task 8e): compile-store of the metamodel into an empty
-# tools/base writes it (store.db, and design-state and compiled beside it until 8g), and every
+# THE BASE STORE IS A BUILD PRODUCT: compile-store of the metamodel into an empty
+# tools/base writes it (store.db, with design-state and compiled beside it), and every
 # host composes it from there (Reader.loadBase, arest.js loadBase). Never tracked.
 tools/base/
 
