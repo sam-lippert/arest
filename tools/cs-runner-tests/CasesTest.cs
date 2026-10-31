@@ -148,11 +148,11 @@ public class CasesTest
     // A def NO host can evaluate answers <refused> everywhere and agrees
     // perfectly, so the refusal COUNT is the signal, not the pass line.
     [Fact]
-    public void TheGoldenStillExpectsExactlySeventeenRefusals()
+    public void TheGoldenStillExpectsExactlyTwentyRefusals()
     {
         // 19 since 4cc9f726 (2026-09-02, a nested population is one row per fact);
-        // the js host has no count test, so this one lagged the golden by a day
-        Assert.Equal(19, Lambda.Golden().Count(kv => kv.Value == "<refused>"));
+        // the js host has no count test, so this one lagged the golden by a day; 20 since case:insert-empty (9e)
+        Assert.Equal(20, Lambda.Golden().Count(kv => kv.Value == "<refused>"));
     }
 
     // The law report is the gate, and no copy of it is kept (2026-10-02): main
