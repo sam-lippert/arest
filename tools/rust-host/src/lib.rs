@@ -345,7 +345,8 @@ fn prim(name: &str, x: &V) -> Option<V> {
             }
             q(rows) }
         "implode" => { let p = seq(x); let sep = text_of(&p[0]); let parts = seq(&p[1]);
-            astr(parts.iter().map(join_text).collect::<Vec<_>>().join(&sep)) }
+            // a sequence among the parts is bottom (F3), as every host answers it
+            astr(parts.iter().map(|e| match e { V::Q(_) => panic!("implode on sequence"), _ => join_text(e) }).collect::<Vec<_>>().join(&sep)) }
         // slug yields an IDENTIFIER (resolution.md). Lambda defines the same
         // function as sl:slug; this stays until both carriers regenerate.
         // slug is LAMBDA -- DEF("slug"). Deleted here.
@@ -1676,11 +1677,12 @@ mod host_tests {
     // replaced treated an unrecognized form AS a join and a transitive
     // closure stopped closing. This host asserted 17 while the SHARED
     // golden said 18 -- it is not in hosts.sh's default stations, so
-    // nothing ran it to notice. 20 since case:insert-empty (9e): INSERT on <> is bottom on every host.
+    // nothing ran it to notice. 20 since case:insert-empty (9e): INSERT on <> is bottom on every host; 21 since
+    // case:implode-nested (F3).
     #[test]
-    fn the_golden_still_expects_exactly_20_refusals() {
+    fn the_golden_still_expects_exactly_21_refusals() {
         let n = golden_cases().iter().filter(|(_, v)| v == "<refused>").count();
-        assert_eq!(n, 20, "the golden's refusal count moved");
+        assert_eq!(n, 21, "the golden's refusal count moved");
     }
 
     // The law report is the gate, and no copy of it is kept (2026-10-02): main

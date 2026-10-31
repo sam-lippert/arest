@@ -587,7 +587,9 @@ public class Arest {
             // atoms stringify (numbers included) — js Array.join semantics;
             // a (String) cast here would diverge from the certified js head
             StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < parts.length; i++) { if (i > 0) sb.append(sep); sb.append(String.valueOf(parts[i])); }
+            // a sequence among the parts is bottom (F3): its toString was an identity hash, never text
+            for (int i = 0; i < parts.length; i++) { if (parts[i] instanceof Object[]) throw new RuntimeException("implode on sequence");
+                if (i > 0) sb.append(sep); sb.append(String.valueOf(parts[i])); }
             return sb.toString(); });
         // slug yields an IDENTIFIER (resolution.md). Lambda defines the same
         // function as sl:slug; this stays until both carriers regenerate.

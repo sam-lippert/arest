@@ -148,7 +148,8 @@ PRIMS.set("lex", (x) => {
   return rows;
 });
 // atoms stringify, numbers included
-PRIMS.set("implode", (x) => { const p = seq(x); return seq(p[1]).map((e) => (typeof e === "string" ? e : String(e))).join(p[0]); });
+// implode joins atoms; a sequence among them is bottom (F3), as every host answers it
+PRIMS.set("implode", (x) => { const p = seq(x); return seq(p[1]).map((e) => { if (Array.isArray(e)) throw new Error("implode on sequence"); return typeof e === "string" ? e : String(e); }).join(p[0]); });
 // the char-level boundary: one atom per UTF-16 unit
 PRIMS.set("chars", (x) => { if (typeof x !== "string") throw new Error("chars of a non-text"); return Array.from({ length: x.length }, (_, i) => x[i]); });
 // the last of <> is bottom
