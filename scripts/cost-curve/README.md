@@ -1,6 +1,6 @@
 # 13 · Platform-Binding Cost Curve
 
-This document defines the measurement methodology for validating the per-cell DO architecture (§5.4, Definition 2) at listings-scale volume (20M rows). Tracked as task #222.
+This document defines the measurement methodology for validating the per-cell DO architecture (§5.4, Definition 2) at listings-scale volume (20M rows).
 
 ## What the curve answers
 
@@ -8,7 +8,7 @@ Three operational questions:
 
 1. **Write latency** under concurrent pressure: does the per-cell DO isolation really let disjoint-cell writers run without contention, all the way up to the tail?
 2. **Cost per 1M writes** as the tenant grows: does fanning out to a per-cell DO add storage / Durable Object invocation overhead that undoes the parallelism win?
-3. **Read-path crossover point**: at what volume does a fanned-out list query across per-cell DOs start losing to the analytics-backed populate (#219)?
+3. **Read-path crossover point**: at what volume does a fanned-out list query across per-cell DOs start losing to the analytics-backed populate?
 
 Each is a line on the curve — write-latency, write-cost, and list-latency against (cells, concurrency).
 
@@ -28,7 +28,7 @@ This matches the domain shape the framework is typically exercised against — i
 - **1K cells**: sanity run, should complete in minutes.
 - **100K cells**: CI-gated run, should finish in under an hour with real Workers.
 - **1M cells**: scale run, Cloudflare-only (local SQLite at this size stops being representative).
-- **20M cells**: the target volume per #222. Requires the production Workers + DO plan; not reachable from a free tier.
+- **20M cells**: the target volume. Requires the production Workers + DO plan; not reachable from a free tier.
 
 All four volumes run the same test program so the curve is continuous.
 
@@ -39,8 +39,8 @@ For each volume N:
 1. Seed — populate N `Listing` entities via `POST /api/listings`. Parallelise across the worker fleet. Record per-entity RPS and p50/p95/p99 latency.
 2. Write fan — fire M concurrent PATCH requests, each to a distinct Listing. M varies: 1, 8, 64, 512, 4096. The per-entity latency should stay flat as M grows (Definition 2 — disjoint cells don't contend). If it degrades, the per-cell isolation is leaking.
 3. Write collide — fire M concurrent PATCH requests all to the SAME Listing. Latency should grow linearly — that's the single-cell serialisation the paper requires. Measure the serialisation overhead per concurrent writer.
-4. List walk — `GET /api/listings?sort=created_at&order=desc&limit=20` with cold cache; record p50/p95/p99. Then warm cache. The fanned-out read-path should saturate around ~10K cells; beyond that the analytics binding (#219) should win.
-5. SSE scale — open K cellKey-scoped subscribers (#220), drive background writes, measure event-delivery p50/p99 and bytes/sec per subscriber as K grows to 10K.
+4. List walk — `GET /api/listings?sort=created_at&order=desc&limit=20` with cold cache; record p50/p95/p99. Then warm cache. The fanned-out read-path should saturate around ~10K cells; beyond that the analytics binding should win.
+5. SSE scale — open K cellKey-scoped subscribers, drive background writes, measure event-delivery p50/p99 and bytes/sec per subscriber as K grows to 10K.
 
 ## Success criteria
 
@@ -75,6 +75,6 @@ When those are in place, the runbook here applies unchanged. Partial runs (1K / 
 
 ## Pointers
 
-- `src/broadcast-do.test.ts` — the demux correctness pins (#220). Load tests on top extend these.
+- `src/broadcast-do.test.ts` — the demux correctness pins. Load tests on top extend these.
 - `docs/12-physical-mapping.md` — the architecture the cost curve validates.
 - `docs/08-federation.md` §Federated analytics — the read-path fork-point.

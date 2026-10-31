@@ -1,9 +1,9 @@
-# arest-slint — the Slint platform (#124)
+# arest-slint — the Slint platform
 
-
-A platform is a shim that registers its paired controls, hands each event to
-lambda and draws what lambda answers, and nothing else. This
-crate is the Rust one, the sibling of ui.do's `src/render`,
+There is a registration surface per platform: Slint in Rust, as there is WPF
+in C# and React for the web. A platform is a shim that registers its paired
+controls, hands each event to lambda and draws what lambda answers, and
+nothing else. This crate is the Rust one, the sibling of the web renderer,
 `tools/java-runner/Gui.java` and `tools/wpf-runner`:
 
 - **The registration** (`src/lib.rs`): `render:<kind>` for the nineteen iFactr

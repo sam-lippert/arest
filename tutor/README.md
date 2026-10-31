@@ -1,6 +1,6 @@
 # AREST Tutor
 
-This is a teaching app that exercises every AREST framework concept. Each domain demonstrates specific capabilities. Read the readings, run the MCP server, poke at the system from Claude Code, and build intuition for how fact-oriented modeling produces correct-by-construction applications.
+This is a teaching app that exercises every AREST framework concept. Each domain demonstrates specific capabilities. Read the readings, run the MCP server, poke at the system from an MCP client, and build intuition for how fact-oriented modeling produces correct-by-construction applications.
 
 ## Quick start
 
@@ -13,7 +13,7 @@ yarn install
 yarn compile   # round-trips every domain through the Rust compiler
 ```
 
-With the `arest` MCP connected in Claude Code, ask the agent things like:
+With the `arest` MCP connected in an MCP client, ask the agent things like:
 
 > "Create an order for customer alice@example.com, then place it and ship it."
 > "Why was this order marked delivered?"
@@ -21,7 +21,7 @@ With the `arest` MCP connected in Claude Code, ask the agent things like:
 
 Every response is a ρ-application over the facts. No handler code was written; the readings produced the behavior.
 
-## Using the tutor from Claude Code or Claude Desktop
+## Using the tutor from an MCP client
 
 The tutor is built into the main `arest` MCP server — you do **not** need
 a separate `arest-tutor` registration. Any current `arest` registration
@@ -65,9 +65,9 @@ hash and rebootstrap from the current readings.
 
 ### Migrating from `arest-tutor`
 
-The previous `arest-tutor` named entry in `.mcp.json` has been removed.
-If your personal config still has it, the entry continues to work but is
-redundant — point Claude at `arest` instead.
+No separate `arest-tutor` entry in `.mcp.json` is needed. A config that
+still has one keeps working, but it is redundant: point the client at
+`arest` instead.
 
 ## Domains
 

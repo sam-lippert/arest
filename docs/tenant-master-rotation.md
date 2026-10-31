@@ -1,4 +1,4 @@
-# Tenant master key rotation (#662)
+# Tenant master key rotation
 
 This is the operator runbook for rotating an AREST deployment's per-tenant
 master key from master A → master B without losing access to existing
@@ -8,11 +8,11 @@ The rotation primitive is `arest::cell_aead::rotate_cell` /
 `rotate_tenant`; the SystemVerb that drives it from the engine boundary
 is `system(handle, "rotate_tenant_master:<tenant_id>", <JSON body>)`,
 gated behind `RegisterMode::Privileged` (same boundary as `register:`
-and `load_reading:` per #328's pattern).
+and `load_reading:`).
 
 ## What rotation actually does
 
-Per #659 every cell crossing a serialization boundary is sealed against
+Every cell crossing a serialization boundary is sealed against
 a per-tenant master via:
 
 ```
@@ -44,7 +44,7 @@ Rotation is non-zero-downtime. The tenant goes read-only for the
 rotation window. The caller MUST hold a per-tenant write lock for the
 duration of the walk:
 
-- **Kernel side**: the per-slot RwLock from #155 around DOMAINS, plus
+- **Kernel side**: the per-slot RwLock around DOMAINS, plus
   the `block_storage::MOUNT` Mutex for the on-disk checkpoint. The
   helper `arest_kernel::block_storage::rotate_checkpoint_master(old,
   new)` acquires `MOUNT` for the read-side, calls `cell_aead::
@@ -60,7 +60,7 @@ duration of the walk:
   exclusive with any other tenant write for the rotation window.
   `EntityDB.rotateMaster(...)` performs the per-DO atomic swap; the
   orchestrator iterates the tenant's entity ids (via the per-tenant
-  scoping from #205) and collects the per-cell results into a
+  scoping) and collects the per-cell results into a
   RotationReport.
 
 Concurrent writes during rotation would observe a half-rotated cell
@@ -74,7 +74,7 @@ the rotation or hold writes until it completes.
 2. Persist B in the freeze-blob "pending" slot alongside the existing
    "active" slot. Targets that derive the master from boot entropy +
    salt store the new salt in "pending" instead of the bytes.
-3. Acquire the per-tenant write lock (the per-slot RwLock from #155).
+3. Acquire the per-tenant write lock (the per-slot RwLock).
 4. Call `arest_kernel::block_storage::rotate_checkpoint_master(&old,
    &new)`. The helper:
    - reads the on-disk sealed checkpoint envelope under the old master;
@@ -88,8 +88,8 @@ the rotation or hold writes until it completes.
 6. Release the per-tenant write lock.
 
 There is exactly one sealed envelope on disk per kernel slot today
-(the outer-envelope checkpoint). A multi-checkpoint follow-up (#666 et
-al.) would extend this to the per-slot checkpoint set, at which point
+(the outer-envelope checkpoint). A multi-checkpoint extension would
+extend this to the per-slot checkpoint set, at which point
 the kernel would call `cell_aead::rotate_tenant` over the iterator of
 sealed checkpoint envelopes.
 
@@ -102,7 +102,7 @@ sealed checkpoint envelopes.
 3. Acquire the per-tenant write semaphore at the orchestrator (the
    RegistryDB / dispatcher seam).
 4. Enumerate the tenant's EntityDB cells via the per-tenant scoping
-   from #205. For each cell call `EntityDB.rotateMaster({ oldSeed,
+   For each cell call `EntityDB.rotateMaster({ oldSeed,
    oldSalt, newSeed, newSalt })`. The DO:
    - reads the sealed row;
    - opens under the old master;

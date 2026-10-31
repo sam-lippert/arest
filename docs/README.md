@@ -19,6 +19,6 @@ Read them in order if you are new. If you are looking up a particular topic, jum
 15. [The Resolution Registry](15-resolution-registry.md): the operation-level DI/IoC seam — per-platform fast overrides resolved by lambda interface name, certified equal behind one kill switch.
 25. [The Entity Navigation Graph](25-navigation-graph.md): `child`/`peer`/`collection` edges derived from uniqueness cardinality; the graph HATEOAS links project from.
 
-Two words changed on 2026-09-24. The definitions file `arest` and everything it defines are now called **lambda**; they were called canon. The compiled model of the readings is now called the **schema**; it was called the design state. The dated notes in this directory (`2026-07-*.md`) are records of their time and keep the old words.
+The definitions file `arest` and everything it defines are called **lambda**, and the compiled model of the readings is called the **schema**. Where a guide says canon it means lambda, and design state means the schema.
 
 For a quick start, see the [top-level README](https://github.com/graphdl/arest#readme). For the formal foundations, the [whitepaper](https://github.com/graphdl/arest/blob/main/AREST.pdf) presents the five theorems and their proofs.

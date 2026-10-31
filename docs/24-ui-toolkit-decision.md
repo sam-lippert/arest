@@ -1,8 +1,8 @@
-# 24. UI Toolkit Decision — egui vs Slint (#425)
+# 24. UI Toolkit Decision — egui vs Slint
 
-## Why this commit
+## Why
 
-Epic #424 lifts the boot-time framebuffer demo (#270/#271 Doom blit) into
+The kernel's UI lifts the boot-time framebuffer demo (the Doom blit) into
 a real on-device UI surface for the kernel. The driver is already in place
 (`crates/arest-kernel/src/framebuffer.rs` — triple-buffered linear
 framebuffer with damage tracking, `with_back(|back| ...)` + `present()`).
@@ -20,8 +20,7 @@ Two crates dominate the no-GPU Rust UI space at the level we need:
   paints pixels directly into a surface the caller provides via the
   `LineBufferProvider` trait.
 
-This doc records the choice and the reasoning. NO Cargo.toml change in
-this commit — wiring lands under #426.
+This doc records the choice and the reasoning; the wiring is a separate step.
 
 ## Comparison
 
@@ -66,10 +65,10 @@ real but bounded — it's one extra file type and a build-dep, both of
 which the kernel already tolerates (`build.rs` exists already for the
 custom-target JSON file under `arest-kernel-armv7-uefi.json`).
 
-## Integration sketch (lands in #426)
+## Integration sketch
 
 ```rust
-// crates/arest-kernel/src/ui/slint_backend.rs (sketch — #426 will land)
+// crates/arest-kernel/src/ui/slint_backend.rs (sketch)
 struct ArestLineBuffer;
 
 impl slint::platform::software_renderer::LineBufferProvider for ArestLineBuffer {
@@ -94,11 +93,11 @@ The `LineBufferProvider` impl is the only non-trivial bridge code; the
 rest is `slint::platform::set_platform(...)` once at boot, then a
 `MainWindow::new()?.run()?` analogue under `kernel_run`.
 
-## What ships in this commit
+## Staging
 
-This document only. Code, Cargo.toml, and the `ui/` module follow under
-the #424 chain (#426 = Slint dep + scaffold; #427-#431 = widgets, input,
-theming, REPL surface, settings UI).
+This document is the decision. Code, Cargo.toml, and the `ui/` module follow
+in order: the Slint dependency and scaffold, then widgets, input, theming,
+the REPL surface and the settings UI.
 
 [egui-1251]: https://github.com/emilk/egui/discussions/1251
 [slint-mcu]: https://docs.rs/slint/latest/slint/docs/mcu/index.html

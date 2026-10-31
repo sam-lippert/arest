@@ -2,7 +2,7 @@
 
 ## Why
 
-The kernel as shipped (#174–#184) targets `x86_64-unknown-none` and
+The BIOS-era kernel targets `x86_64-unknown-none` and
 leans on BIOS-era expedients: `bootloader_api 0.11` for the boot
 handoff, `uart_16550` for serial, `pic8259` for interrupts, the
 `x86_64` crate for IDT/GDT/paging. None of that was architectural
@@ -27,8 +27,8 @@ not thirty.
 |--------------------------------|----------------|--------------------------------|
 | `x86_64-unknown-uefi`          | OVMF           | QEMU-x86, laptops, Pixel GBL   |
 | `aarch64-unknown-uefi`         | AAVMF          | QEMU-virt arm, Raspberry Pi 4  |
-| `aarch64-unknown-none`         | Android fastboot + DT | real phones (#347) |
-| `armv7a-none-eabihf`           | Android fastboot + DT | older 32-bit phones (#346) |
+| `aarch64-unknown-none`         | Android fastboot + DT | real phones |
+| `armv7a-none-eabihf`           | Android fastboot + DT | older 32-bit phones |
 
 UEFI covers the top two. The bottom two (fastboot + device tree)
 are how Android phones actually boot; they share the post-entry
@@ -42,7 +42,7 @@ crates/arest-kernel/src/
   entry/
     uefi.rs           — #[cfg(target_os = "uefi")] efi_main
     bios.rs           — #[cfg(target_os = "none", target_arch = "x86_64")] bootloader_api entry (legacy)
-    fastboot.rs       — #[cfg(target_os = "none", target_arch ∈ {aarch64, arm})] raw DT entry (#347)
+    fastboot.rs       — #[cfg(target_os = "none", target_arch ∈ {aarch64, arm})] raw DT entry
   arch/
     mod.rs            — trait Arch: boot_setup / init_interrupts / map_page / ...
     x86_64.rs         — APIC, IDT, CR3, MSR syscall
@@ -71,7 +71,7 @@ trait; everything above the trait is one copy.
    switches to PL011 (aarch64) or COM1 (x86_64), interrupts go
    through the arch-specific GIC/APIC setup.
 5. **Framebuffer.** `GraphicsOutputProtocol` → base pointer + pitch.
-   Handed to `BootInfo`. Used by future #269/#270/#271 (Doom
+   Handed to `BootInfo`. Usable by a framebuffer client (the Doom
    framebuffer) without a virtio-gpu driver.
 
 ## Staging
@@ -101,15 +101,14 @@ feature parity. Then BIOS entry gets retired.
 6. **Retire BIOS path.** `entry/bios.rs` deleted; `bootloader_api`,
    `uart_16550`, `pic8259`, `pc-keyboard` follow. Kernel is UEFI-only
    and runs on both arches from one build tree.
-7. **Add `aarch64-unknown-none` fastboot entry (#347).** Reuses
+7. **Add `aarch64-unknown-none` fastboot entry.** Reuses
    `arch::aarch64` entirely; only the entry differs (raw DT pointer
    in x0).
-8. **Add `armv7a-none-eabihf` (#346).** Separate `arch::armv7`;
+8. **Add `armv7a-none-eabihf`.** Separate `arch::armv7`;
    same pattern.
 
-## What ships in this commit
+## Staging
 
-The design only. Code scaffolding (step 1: `uefi-rs` dep + stub
-`entry/uefi.rs` + `x86_64-unknown-uefi` toolchain target) follows
-in the next commit under #344; each subsequent stage tracks as its
-own commit under #344 / #345 / #346 / #347.
+This is the design. Code scaffolding (step 1: `uefi-rs` dep + stub
+`entry/uefi.rs` + `x86_64-unknown-uefi` toolchain target) comes first,
+and each subsequent stage lands as its own change.

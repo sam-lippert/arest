@@ -208,5 +208,5 @@ Self-modification preserves all five properties (Corollary: Closure). Constraint
 ## License
 
 - **Engine + kernel** (`crates/arest`, `crates/arest-kernel`): **AGPL-3.0-or-later**. Building a derivative product on AREST's core means publishing source — including SaaS deployments. See `LICENSE`.
-- **Web glue** (`apps/ui.do/`): **MIT**, so applications built on top of AREST stay unencumbered. See `apps/ui.do/LICENSE-MIT`.
+- **Web glue** (the web rendering library, kept in its own repository): **MIT**, so applications built on top of AREST stay unencumbered. Its `LICENSE-MIT` says so.
 - **Optional Doom WASM** (gated behind `--features doom`): GPL-2.0 from `jacobenget/doom.wasm` v0.1.0. Distributing the kernel with this feature on inherits GPL-2.0 obligations on the resulting binary; the default kernel build carries only AGPL-3.0-or-later.
