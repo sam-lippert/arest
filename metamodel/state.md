@@ -78,14 +78,14 @@ Transition is triggered by Event Type.
      performed during transitions: the same predicate just cannot be on two
      transitions from the same status. `Each Predicate is
      performed during at most one Transition` would contradict the
-     Moore rule below (ruling 5): a state action is performed during EVERY
-     transition into its status, so support.auto.dev's draftSupportResponse,
-     performed in Draft, which accept, resolve-escalation and redraft-sent all
+     Moore rule below: a state action is performed during EVERY
+     transition into its status, so a drafting predicate
+     performed in Draft, which several transitions all
      enter, would break it by construction, and every create that closed the
-     machine's facts again -- a Subscription -- would be refused on it. What a
+     machine's facts again would be refused on it. What a
      machine cannot mean is one predicate on two transitions LEAVING the same
      status, which is the external uniqueness below. The per-transition
-     uniqueness stays: it is the one ruling 5 keeps as the conflict detector. -->
+     uniqueness stays: it is the one the Moore rule keeps as the conflict detector. -->
 Predicate is performed during Transition. +
   For each Transition, at most one Predicate is performed during that Transition.
   For each Status and Predicate, at most one Transition is from that Status and that Predicate is performed during that Transition.
@@ -96,15 +96,15 @@ Status is initial in State Machine Definition.
 Status is defined in State Machine Definition. **
   Each Status, State Machine Definition combination occurs at most once in the population of Status is defined in State Machine Definition.
 Status is terminal in State Machine Definition.
-  <!-- DECLARED, NOT DERIVED (Sam, 2026-10-27). Whether a Status ends the work is a modeling statement:
+  <!-- DECLARED, NOT DERIVED. Whether a Status ends the work is a modeling statement:
        a machine says which of its Statuses are terminal, and an entity in one is retired from
-       orientation then (orient:retired). It was derived as the Statuses no Transition exits, which
-       made every sink finished whether or not anyone meant it, while the apps already declared
-       theirs against a fully derived (*) fact type that cannot take an assertion. -->
+       orientation then (orient:retired). Derived as the Statuses no Transition exits, it would
+       make every sink finished whether or not anyone meant it, and an app could not declare
+       its own against a fully derived (*) fact type, which takes no assertion. -->
   Each Status, State Machine Definition combination occurs at most once in the population of Status is terminal in State Machine Definition.
-<!-- audit-fix D: DERIVED again. The asserted-form rationale
-     that stood here ("a derivation rule asserts only positive facts")
-     contradicted both the paper (§Negation: a negated role path over
+<!-- DERIVED. An asserted-form rationale
+     ("a derivation rule asserts only positive facts") would
+     contradict both the paper (§Negation: a negated role path over
      settled cells is a finite anti-join; Lem 1 undisturbed) and this
      file's own `rooted` rule, which derives with the same negation
      shape. The real motive was a killed-host parser defect (see the
@@ -122,15 +122,15 @@ Status is leaf initial in State Machine Definition. *
   Each Status, State Machine Definition combination occurs at most once in the population of Status is leaf initial in State Machine Definition.
 <!-- Where a machine starts an entity: its effective initial, or, where that Status is
      composite, the leaf initial of its sub-machine, as Harel enters a composite state
-     (Sam, 2026-10-23: the idle status is the leaf, not the composite). An idle Support
-     Request stands at Received, the leaf of Open. lambda`s main:leaf_initial walks the
+     (the idle status is the leaf, not the composite). An idle Request
+     stands at Received, the leaf of Open. lambda`s main:leaf_initial walks the
      same descent. -->
-<!-- sm-retire-forml2: the resolved seed status of a machine. The cardinality
+<!-- The resolved seed status of a machine. The cardinality
      gate ("exactly one rooted ⇒ initial, else empty") is a non-monotonic
      predicate FORML 2 cannot express (count+`=1` does not compose as a same-rule
      filter; `no Status is initial` is not an antecedent kind — derivation.md
      193-223 / 414-422). So this `*` cell's deriver is an EVALUATOR-PHASE
-     OBLIGATION (audit-fix A2): a definition that prefers an explicit
+     OBLIGATION: a definition that prefers an explicit
      `Status is initial in State Machine Definition` and else applies the
      cardinality gate over `Status is rooted in State Machine Definition`.
 
@@ -142,10 +142,10 @@ Status is leaf initial in State Machine Definition. *
      `Status is initial`.
      They are compiled into the app's own recipes,
      and they FIRE.
-     Measured on support.auto.dev, booting its module from its store.db the
-     way a server does: `Status is initial in State Machine Definition` 12
-     rows, `Status is rooted in State Machine Definition` 10, and this cell
-     15 — one per State Machine Definition the app declares. What a machine
+     Booting an app's module from its store.db the way a server does, this
+     cell holds one row per State Machine Definition the app declares, beside
+     the narrower `Status is initial in State Machine Definition` and `Status
+     is rooted in State Machine Definition`. What a machine
      instance seeds from is one layer down, in `State Machine is for Object
      Type Instance` and `State Machine is currently in Status`
      (instances.md): with no rows there,
@@ -157,7 +157,7 @@ Status is leaf initial in State Machine Definition. *
      non-monotonic remnant — retained, not newly added. -->
 
 ### Effective Transition (post-Harel available-transition relation)
-<!-- sm-retire-forml2: the post-Harel <from, to, event> available-transition
+<!-- The post-Harel <from, to, event> available-transition
      relation, multi-valued. REPLACES the Rust Harel expansion + transition_table
      + machine:{noun} + transitions:{noun} (compile.rs compile_state_machine
      11957-12003 fan-out). Rule 1 is the DIRECT declared edge; rule 2 is the
@@ -201,7 +201,7 @@ Guard guards Transition.
 
 ## Derivation Rules
 
-<!-- arest-batch ruling 5: Moore and Mealy are two views of one
+<!-- Moore and Mealy are two views of one
      operation. Moore -> Mealy is the monotone direction (an action
      attached to a status is performed by every transition entering it),
      so the Mealy relation is semi-derived (+): directly assertable for
@@ -210,14 +210,14 @@ Guard guards Transition.
      out of the monotone fragment. The per-transition uniqueness doubles
      as a conflict detector between an edge's own asserted action and its
      target status's derived action.
-     audit-fix A5 (datalog-paper convention): a semi-derived rule states a
+     By the datalog-paper convention, a semi-derived rule states a
      SUFFICIENT condition only — "if", never "iff". The iff reading is the
      closed-world closure over all rules of a fully derived fact type; a `+`
      derived fact type has asserted rows no closure can claim. -->
 
 + Predicate is performed during Transition if that Transition is to some Status and that Predicate is performed in that Status.
 
-<!-- Moore and Mealy are two views of one machine (ruling 5) and both are
+<!-- Moore and Mealy are two views of one machine and both are
      first-class: a state action is asserted `Predicate is performed in Status`
      (the rule above derives its edge view), a genuine edge action is asserted
      `Predicate is performed during Transition` and is NOT performed in the
@@ -271,13 +271,13 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
      into a Status terminal in a sub-machine takes it on by the first
      Transition the same Event Type triggers that leaves that Status, so the
      end's event is the parent's Transition event (lambda, store:step_chain):
-     support.auto.dev's `Open` ends at Merged on `Admin merges Support
-     Request`, and Support Request's `close-merged`, on the same event, takes
+     a Request's `Open` may end at Merged on `Admin merges Request`,
+     and the Request's `close-merged`, on the same event, takes
      the request from Merged to Closed. -->
 
 
 <!--
-  Audit MC3b-a: normalized SM derivation rules covering Pass 1
+  Normalized SM derivation rules covering Pass 1
   / 2 / 2b of the Rust function `derive_state_machines_from_facts`
   (compile.rs:372-507). Together with the existing transition-driven
   derivation above, these rules let the SM cell be populated from
@@ -311,25 +311,23 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 ** Status1 is defined in State Machine Definition1 iff that Status1 is defined in some State Machine Definition2 and some Status2 has sub-machine that State Machine Definition2 and that Status2 is defined in that State Machine Definition1.
 <!-- THE HAREL NESTING, WHICH THE FLAT RULES DO NOT CARRY. A
      State Machine Definition IS a Status (the subtype above), so an app
-     groups states by declaring one: support.auto.dev declares `Status 'Open'
-     is initial in State Machine Definition 'Support Request'` and then
+     groups states by declaring one: `Status 'Open'
+     is initial in State Machine Definition 'Request'` and then
      `Status 'Received' is initial in State Machine Definition 'Open'`, with
      Draft, Responded and Escalated defined in 'Open' too. The three rules
      above are all FLAT — a Status is defined in the machine whose own
-     transitions or initial name it — so 'Draft' was defined in 'Open' and in
-     nothing else, and the Support Request machine's own list of statuses
-     was <Resolved, Merged, Open>.
+     transitions or initial name it — so by them alone 'Draft' is defined in
+     'Open' and in nothing else, and the Request machine's own list of statuses
+     is <Resolved, Merged, Open>.
 
-     It stayed invisible while no machine instance existed. The moment one
-     did, core.md's subset constraint read it: `If some State Machine is
+     That is invisible while no machine instance exists. The moment one
+     does, core.md's subset constraint reads it: `If some State Machine is
      currently in some Status then that Status is defined in some State
      Machine Definition where that State Machine is instance of that State
-     Machine Definition`. A Support Request in Draft is an instance of the
-     'Support Request' definition and Draft was not defined in it, so the
-     constraint failed ALETHICALLY and every subsequent write to the app was
-     refused. Measured on support.auto.dev: one violation,
-     `<StateMachineIsCurrentlyInStatus, subset, <Draft,
-     sm.sr-chris-pennington-20260913>>`, refusing a create.
+     Machine Definition`. A Request in Draft is an instance of the
+     'Request' definition, and with Draft not defined in it the
+     constraint fails ALETHICALLY and every subsequent write to the app is
+     refused, a create included.
 
      The containment is transitive and this says so, in the shape `Status
      reaches Status in State Machine Definition` below already uses. It is
@@ -391,7 +389,7 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
 * Status is rooted in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from that Status and no Transition is defined in that State Machine Definition where that Transition is to that Status.
 
-<!-- sm-retire-forml2: post-Harel effective-transition relation. Rule 1 is the
+<!-- Post-Harel effective-transition relation. Rule 1 is the
      DIRECT declared edge (the literal Transition from its single `from` Status).
      Rule 2 is the INHERITED / Harel edge: State Machine Definition is a subtype
      of Status, so a Transition whose single `from` Status IS the machine
@@ -408,7 +406,7 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
 * Status1 has effective Transition1 to Status2 on Event Type iff Transition1 is from Status1 and Transition1 is to Status2 and Transition1 is triggered by Event Type.
 
-<!-- sm-retire-forml2 RULE 2 (Harel inherited edge), now ENABLED. State Machine
+<!-- RULE 2 (Harel inherited edge), ENABLED. State Machine
      Definition is a subtype of Status, so a Transition whose single `from`
      Status IS the machine super-state induces an effective transition out of
      every child Status defined in that machine. This was previously blocked:
@@ -423,7 +421,7 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
      inherited); consumer-side firing precedence picks the direct row. -->
 * Status1 has effective Transition1 to Status2 on Event Type iff Transition1 is from Status3 and Status3 has sub-machine State Machine Definition1 and Transition1 is to Status2 and Transition1 is triggered by Event Type and Status1 is defined in State Machine Definition1.
 
-<!-- arest-audit C: transitive reachability over declared transitions,
+<!-- Transitive reachability over declared transitions,
      feeding the Liveness obligation under ## Constraints. -->
 
 * Status1 reaches Status2 in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from Status1 and that Transition is to Status2.
@@ -436,9 +434,9 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
 For each Object Type, at most one State Machine Definition is for that Object Type.
 For each State Machine Definition, at most one Status is initial in that State Machine Definition.
-  <!-- worded per the no-guessing ruling: the old phrasing ("has
-       exactly one initial Status") matched no declared reading and rode
-       the fit-scorer onto is-initial-in; the sentence now speaks the
+  <!-- worded per the no-guessing rule: a phrasing like ("has
+       exactly one initial Status") matches no declared reading and rides
+       the fit-scorer onto is-initial-in; the sentence speaks the
        declared reading's own direction. At-most-one: the initial status
        is optional at declaration (effective-initial falls back to the
        root), so the old "exactly one" overstated the model. -->
@@ -474,7 +472,7 @@ Status reaches Status in State Machine Definition. *
      exited by the external machine. "some Transition is
      defined in that State Machine Definition and that Transition is from
      Status2" would see only the machine's own Transitions, so `Open`, whose
-     cycle `resolve` and `merge` leave from `Support Request`, would answer.
+     cycle `resolve` and `merge` leave from `Request`, would answer.
      The sentence reads `exits`, the relation the step and the performer take a
      Transition by (the rules above), which counts a Transition of a machine
      nested in this one, and, named in the sentence, a Transition that exits
@@ -486,8 +484,7 @@ Constraint 'cycle-has-exit' spans Role 'StatusReachesStatusInStateMachineDefinit
 Constraint 'cycle-has-exit' is decided by Predicate 'decide:cycle_exit'.
 Predicate 'decide:cycle_exit' has Module Path 'arest'.
 Predicate 'decide:cycle_exit' has Symbol Name 'decide:cycle_exit'.
-<!-- arest-batch ruling 6 (fidelity over improvement — replacing the
-     audit-C strengthening, which was denied): the paper's sentence is
+<!-- Fidelity over improvement: the paper's sentence is
      "the deontic obligation that each cycle carry some exit transition"
      (AREST.tex, after Thm 2), formalized at status granularity: a cyclic
      Status (one that reaches itself) shares a mutually-reaching component
@@ -500,7 +497,7 @@ Predicate 'decide:cycle_exit' has Symbol Name 'decide:cycle_exit'.
 
 ## Instance Facts
 
-<!-- organizations-domain (ruling 2): Domain 'state' has Access 'public'. -->
+<!-- In the organizations vocabulary: Domain 'state' has Access 'public'. -->
 Domain 'state' has Description 'Status, Transition and Guard as a Mealy machine over Object Type Instances: a State Machine Definition is for an Object Type, and an Event Type causes a Transition whose Guard decides it.'.
 
 <!-- The HATEOAS destructive-affordance

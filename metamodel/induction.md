@@ -14,10 +14,9 @@ Prop 3 (prop:derive): induce is a ρ-application over P that returns
 candidate populations as facts in P. The induction posture is Codd 1970
 §2.3 itself: a system "might, over a period of time, make attempts to
 induce the redundancies, but such attempts would be fallible" — hence
-candidates plus a judge, never silent adoption. Note (arest-audit
-sweep): induce has no section of its own in the current paper and never
-did in any checkpointed draft — the old "§3 + Theorem 4" citation was
-loose; it rides Prop 3's licence and Codd's posture.
+candidates plus a judge, never silent adoption. Note: induce has no
+section of its own in the paper and no "§3 + Theorem 4" citation applies;
+it rides Prop 3's licence and Codd's posture.
 -->
 
 ## Entity Types
@@ -55,7 +54,7 @@ For each Fact Type and Recipe Text, at most one Hypothesis Candidate targets tha
        pair (Prop 3; no minting, surrogates are the boundary's
        business). The external UC holds that extensional identity as a
        real constraint; the PREFERRED scheme remains Function(.id) per
-       the one-reference-scheme ruling (Halpin 6.7 — subtypes inherit
+       the one-reference-scheme rule (Halpin 6.7 — subtypes inherit
        the root's identification), so the id space stores while the
        external UC guarantees no two candidates share content. The
        lambda's induce:facts emits both identity facts (the recipe rides
@@ -70,5 +69,5 @@ Scoring Rule applies to Hypothesis Candidate.
 
 ## Instance Facts
 
-<!-- organizations-domain (ruling 2): Domain 'induction' has Access 'public'. -->
+<!-- In the organizations vocabulary: Domain 'induction' has Access 'public'. -->
 Domain 'induction' has Description 'Operational vocabulary the induce Func populates and consumes. Hypothesis Candidate per candidate population, Confidence Score per candidate, Scoring Rule per ranking heuristic. Prop 3 (prop:derive) + Codd 1970 §2.3.'.

@@ -4,9 +4,9 @@
 
 ### Object Type Declaration
 
-<!-- retired (no-guessing ruling): "each Role references
-     exactly one Object Type" named no declared predicate (the fit-scorer
-     bound it to plays by synonym) and its content is already held
+<!-- Not declared (no-guessing rule): "each Role references
+     exactly one Object Type" names no declared predicate (the fit-scorer
+     binds it to plays by synonym) and its content is already held
      ALETHICALLY at core.md's Role declaration: "For each Role, exactly
      one Object Type plays that Role." An alethic constraint subsumes its
      deontic restatement.
@@ -111,13 +111,13 @@ Predicate 'decide:ring_complete' has Symbol Name 'decide:ring_complete'.
      fiction in the model to silence a report. BOTH conditions are preserved
      verbatim in force — the note below makes this sentence the source of truth
      for the suppression patterns, and dropping either re-enables 9 false
-     positives on the eu-law corpus. -->
-<!-- arest-audit H (prose split, per the vindicated 10.2 scrub): the two
-     conditions reflect compound-noun parse-time artifacts (eu-law
+     positives on a law corpus. -->
+<!-- Prose split from the permission sentence: the two
+     conditions reflect compound-noun parse-time artifacts (a law corpus's
      `Personal Data Breach … Personal Data` and Biometric/Genetic/Personal
      Data sharing the `Data` suffix) and were read by the killed host's
      `check_ring_completeness` to suppress ring-completeness hints;
-     without them, that corpus surfaced 9 false positives. The permission
+     without them, such a corpus surfaces 9 false positives. The permission
      sentence remains the source of truth for the suppression patterns —
      the evaluator-phase checker must read the Permission cell and apply
      the named pattern matchers; deleting either condition re-enables the
@@ -170,7 +170,7 @@ Predicate 'decide:vc_types' has Symbol Name 'decide:vc_types'.
      structure the schema cannot yet express. Deontic records the obligation
      without demanding its referents up front — a todo with teeth, surfacing
      as a Violation through the Def 6 / Thm 1 path until satisfied, exactly
-     as the deontics-are-violable ruling intends.
+     as the deontics-are-violable rule intends.
 
      WHAT IT DOES NOT DECIDE. It says comparison is well formed only within a
      Conceptual Data Type; it does not choose T, ⊥ or throw for the ill-formed
@@ -192,8 +192,8 @@ Constraint 'singular-naming' has Text 'It is forbidden that an object type has a
 Constraint 'singular-naming' has modality of Modality Type 'Deontic'.
 Constraint 'singular-naming' is of Constraint Type 'DF_owa'.
 Constraint 'singular-naming' spans Role 'FunctionHasName.1'.
-<!-- audit-fix C: one home. core.md's cruder syntactic 'ies' rule is
-     retired into this one — the plural-form qualifier is what keeps
+<!-- One home: no cruder syntactic 'ies' rule in core.md
+     beside this one — the plural-form qualifier is what keeps
      Series and Species legal. -->
 
 ### Alethic Before Deontic
@@ -283,12 +283,10 @@ Constraint 'reference-mode-not-restated' spans Role 'FactTypeHasRole.1'.
 Constraint 'reference-mode-not-restated' is decided by Predicate 'decide:refmode_restated'.
 Predicate 'decide:refmode_restated' has Module Path 'arest'.
 Predicate 'decide:refmode_restated' has Symbol Name 'decide:refmode_restated'.
-<!-- arest-batch ruling 4: un-commented and reworded to canonical
-     vocabulary. NORMA models the machinery as ReferenceMode +
+<!-- In canonical vocabulary. NORMA models the machinery as ReferenceMode +
      ReferenceModeKind (General/Popular/UnitBased; ORM2Core.xsd): the mode
      mints the value type and the identifying fact type, so restating it
-     as an explicit reading duplicates the model. First enforcement:
-     instances.md's `Object Type Instance has Reference` retired. -->
+     as an explicit reading duplicates the model. -->
 
 ### Elementary Fact Decomposition
 
@@ -331,9 +329,9 @@ Constraint 'constraint-invertibility' spans Role 'ConstraintHasText.1'.
 
 ### Derivation Rule Acyclicity
 
-<!-- arest-audit B: the former pair here (irreflexive + asymmetric)
-     forbade self- and mutual recursion, which Lem 1 licenses, and
-     disagreed with core.md's (also wrong) irreflexive + intransitive.
+<!-- No ring pair here: irreflexive + asymmetric would forbid
+     self- and mutual recursion, which Lem 1 licenses, and so would
+     irreflexive + intransitive.
      The faithful constraint — no VALUE-INTRODUCING rule on a dependency
      cycle — lives in core.md beside the `reaches` closure and the
      `introduces values` fact type. One home, per the one-gate lesson. -->
@@ -349,7 +347,7 @@ Constraint 'constraint-invertibility' spans Role 'ConstraintHasText.1'.
      `* Person likes Country iff Person speaks Language.`: undelivered. The
      same rule with the derived fact type `Person knows Language` builds. -->
 
-## Constraint Violation Templates (#898)
+## Constraint Violation Templates
 
 Violation Template is a value type.
   The data type of Violation Template is text.
@@ -421,5 +419,5 @@ Constraint Type 'DO_sender' has Violation Template 'Response missing obligatory 
 
 ## Instance Facts
 
-<!-- organizations-domain (ruling 2): Domain 'validation' has Access 'public'. -->
+<!-- In the organizations vocabulary: Domain 'validation' has Access 'public'. -->
 Domain 'validation' has Description 'Deontic constraints encoding ORM 2 / FORML 2 modeling discipline at the framework level. Meta-constraints about how domain models should be structured. Every domain inherits them.'.

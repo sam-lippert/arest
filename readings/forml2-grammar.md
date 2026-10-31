@@ -3,8 +3,8 @@
 Classification grammar + recognizer derivation rules for FORML 2.
 The parser is not a program. It is this file.
 
-Stage-1 (#285) tokenizes input into `Statement` cells with structured
-fields; Stage-2 (#280) applies the derivation rules below to populate
+Stage 1 tokenizes input into `Statement` cells with structured
+fields; Stage 2 applies the derivation rules below to populate
 downstream metamodel cells (`Object Type`, `Fact Type`, `Role`,
 `Instance Fact`, `Derivation Rule`, `Constraint`).
 
@@ -52,9 +52,8 @@ Keyword is a value type.
   The possible values of Keyword are 'iff', 'if'.
 Deontic Operator is a value type.
   The possible values of Deontic Operator are 'obligatory', 'forbidden'.
-  <!-- 'permitted' is not an operator (Sam, 2026-10-06: "I don't want to deal with `It is permitted that` sentences at
-       all. It should be dropped as a feature. I just want permissions to work via canonical FORML."). A permission is a
-       fact of a permission fact type (metamodel/security.md), verbalized like any other fact. -->
+  <!-- 'permitted' is not an operator: `It is permitted that` sentences are not a feature, and permissions work via
+       canonical FORML. A permission is a fact of a permission fact type (metamodel/security.md), verbalized like any other fact. -->
 
 
 Literal Role is a value type.
@@ -142,7 +141,7 @@ Role Reference has Head Object Type.
 Role Reference has Literal Value.
 Role Reference has Role Position.
 
-## Statement Translator Dispatch (#833)
+## Statement Translator Dispatch
 
 Per AREST.tex §3 (eq:sys) — *the entity handles the dispatch, not the
 system function.* New translators are registered into DEFS without
@@ -234,7 +233,7 @@ Classification 'Deontic Constraint' is a Classification.
      classifier rule for the shorthand. -->
 *Statement has Classification 'Enum Values Declaration' if and only if Statement has Predicate 'the possible values of'.
 
-<!-- #279 P1: `The data type of <ValueType> is <code>.` assigns a portable
+<!-- `The data type of <ValueType> is <code>.` assigns a portable
      Conceptual Data Type to a value type. Stage-1 recognises the leading
      phrase and overrides Predicate to 'the data type of' (mirroring the enum
      declaration's Predicate override), so this single recognizer fires. -->
@@ -284,7 +283,7 @@ Classification 'Deontic Constraint' is a Classification.
 *Statement has Classification 'Deontic Constraint' if and only if Statement has Deontic Operator 'obligatory'.
 *Statement has Classification 'Deontic Constraint' if and only if Statement has Deontic Operator 'forbidden'.
 
-## Classification Tables (2026-08-02)
+## Classification Tables
 <!-- These eight tables were encoded as parallel value-type columns
      joined by position. That is a mapping stored in a set declaration,
      which is why five of them showed repeated values: a set has no
@@ -398,15 +397,12 @@ Object Type Source Kind yields an abstract Object Type.
 Object Type Source Kind 'Abstract Declaration' yields an abstract Object Type.
 Object Type Source Kind 'Partition Declaration' yields an abstract Object Type.
 
-## Ported recognizer families (2026-08-03)
+## Ported recognizer families
 
-<!-- Six Classifications existed only in engine/shared/forml2-grammar.md and are
-     ported here, because this file is the lineage with legible intent: 44
-     commits in this repository between 2026-04-19 and 06-21 (the ORM2 Gap 2
-     quantifier widening, the NORMA conceptual-data-type catalog, removing the
-     ungrounded `when` connective, disciplining the superlative vocabulary),
-     against three commits on the shared copy of which the first is the subtree
-     import `Add 'engine/' from commit 397768f`.
+<!-- Six Classifications that engine/shared/forml2-grammar.md also holds, carried
+     here because this file is the lineage with legible intent (the ORM2 Gap 2
+     quantifier widening, the NORMA conceptual-data-type catalog, no ungrounded
+     `when` connective, a disciplined superlative vocabulary).
 
      One of the six is load-bearing for work already in the corpus:
      'Objectification' recognises `This association with ...`, which is the form
@@ -448,7 +444,7 @@ Statement has Objectification Prefix.
 *Statement has Classification 'Negation Reading' if and only if Statement has Predicate 'does not'.
 *Statement has Classification 'Negation Reading' if and only if Statement has Predicate 'is not'.
 
-## Grammar merge completion (2026-08-03)
+## Grammar merge completion
 
 <!-- The remainder of engine/shared/forml2-grammar.md that this lineage lacked.
      Excluded deliberately: the parallel-column enums (Deontic Predicate

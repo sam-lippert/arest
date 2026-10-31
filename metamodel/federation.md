@@ -8,14 +8,14 @@ implementation is re-registering a name (IoC through the store). Any backend —
 clickhouse, postgresql, sqlite, cloudflare, mongo, a file — is one more Connector
 declaring its two names. -->
 
-<!-- Declaration sweep. Without declared constraints
+<!-- Declared constraints. Without them
      NORMA has to ASSUME a spanning
      uniqueness on each of its four fact types per Def 3 set semantics — which
      models every one of them as many-to-many, the opposite of what the note
      above describes. Modeling is verbalization: a fact type whose constraints
      are not written is not modelled, it is only mentioned.
 
-     Reference modes: `Source(.Name)` and `Connector(.Name)` are dropped.
+     Reference modes: no `Source(.Name)` and no `Connector(.Name)`.
      Function(.id) is the ONLY declared reference mode in this metamodel
      (core.md, Halpin 2nd ed §6.7 and §10.4 — a subtype inherits the root's
      primary reference scheme, and a subtype-own scheme is the advanced case
@@ -31,14 +31,12 @@ Connector is an entity type.
 Connector is a subtype of Object Type Instance.
 
 <!-- A Fetcher is a definition name resolved by rho (the note above), which is
-     to say a Function: src.do keys its fetchers map by name and dispatches by
-     it (index.js, doFetch), and each fetcher has properties of its own (an
-     implementation, proxy-based, isolated), which is what auto.dev's
-     source-routing.md says of it. Declared a value type, it
-     met auto.dev's Fetcher entity as a KIND CONFLICT the oracle
-     settled by keeping this file's kind and refusing the app's scheme; if
-     the real object is an entity, a model that says value is wrong.
-     Translator stays a value type: src.do has no translators to consult. -->
+     to say a Function: a fetcher is dispatched by its name, and each fetcher
+     has properties of its own (an implementation, proxy-based, isolated). Declared
+     a value type, it would meet an app's Fetcher entity as a KIND CONFLICT the
+     oracle settles by keeping this file's kind and refusing the app's scheme; the
+     real object is an entity, and a model that says value is wrong.
+     Translator stays a value type: a translator has no properties of its own. -->
 Fetcher is an entity type.
 Fetcher is a subtype of Object Type Instance.
 
@@ -85,7 +83,7 @@ Connector translates with Translator.
      ROW with every role taken from its own path. These say what the call carries and how its
      answer pages: its query parameters, where in the answer the rows are, which path says there
      is more, and which query parameter carries the cursor and from which path of the answer --
-     Stripe`s is $.data[-1].id, the last row`s id, and Gmail`s $.nextPageToken.
+     one source`s is $.data[-1].id, the last row`s id, another`s $.nextPageToken.
      The cursor is two facts and not one ternary: a Function has one of each, and a ternary unique
      on one role is two binaries that were never elementary together. -->
 Function has Query Parameter with Parameter Value.
@@ -103,13 +101,12 @@ Function pages by Query Parameter.
 Function pages from JSON Path.
   Each Function pages from at most one JSON Path.
 
-<!-- AND A ROW IS READ ONLY WHEN IT SAYS WHAT THE SOURCE MEANS. pm.auto.dev, over all
-     2,651 Stripe subscriptions: a hole yields no fact of that TYPE, but ten subscriptions belong to
-     deleted customers with no email and still yield their Plan, so the Customer role a mandatory
-     constraint needs is missing and the whole page is refused. A condition is on the ROW: every one
+<!-- AND A ROW IS READ ONLY WHEN IT SAYS WHAT THE SOURCE MEANS. A hole yields no fact of that
+     TYPE, but a subscription that belongs to a deleted customer with no email still yields its
+     Plan, so the Customer role a mandatory constraint needs is missing and the whole page is refused. A condition is on the ROW: every one
      a Function declares must hold, or none of the row is read. The path takes the filters a value
      does, so `is present` is the path with |present equal to 'T', and an event Source keeps its
-     kind with $.type equal to 'customer.subscription.deleted'. Several conditions are all of them;
+     kind with $.type equal to 'subscription.deleted'. Several conditions are all of them;
      an either-or is two Sources. -->
 Function reads rows where JSON Path equals Condition Value.
   Each Function, JSON Path combination occurs at most once in the population of Function reads rows where JSON Path equals Condition Value.
@@ -141,8 +138,8 @@ Function sends Fact Type with Role to Query Parameter.
      its id column, which it gets from the fact inheritance. ITS BODY IS NOT KEPT: it powers the
      facts its Function yields and is gone;
      a log provider may keep bodies elsewhere -- logs.requests in ClickHouse, say -- and the
-     store holds none, since a body can carry what the read never declared to take: auth.vin answers an
-     admin's read with every user's live API key. -->
+     store holds none, since a body can carry what the read never declared to take: an auth service
+     may answer an admin's read with every user's live API key. -->
 Response is an entity type.
 
 HTTP Status Code is a value type.
@@ -185,7 +182,7 @@ Fact Type is federated at JSON Path.
 
 <!-- A FIELD READ THROUGH A FILTER IS WRITTEN THROUGH ITS INVERSE, AND THE INVERSE IS THE FIELD'S
      The inverse is defined at the federation level: upper is not
-     universally the inverse of lower, just for a particular field. auth.vin's role is read
+     universally the inverse of lower, just for a particular field. A user's role may be read
      through lower and written through upper; an email read through lower has no inverse, and a
      field read through a filter that declares none is read-only. The pair is held to the values
      the store holds: read(write(v)) is v (fed:ot_roundtrip_bad). A Filter is one of lambda's
@@ -206,14 +203,13 @@ Federation speaks REST Dialect.
 <!-- THE HTTP READ IS A REGISTERED FUNCTION. A Connector that declares no Fetcher reads by
      HTTP, and fed:ot_rd1 answers 'fetch' as the Fetcher of every REST-dialect read. It is
      outside D -- the network -- so its origin is registered (Def 9), and a population it
-     fetches enters under the open world (§355). MEASURED 2026-10-23: no host registers a
-     body named 'fetch' today (tools/js-runner/registrations.js); the row states what the
+     fetches enters under the open world (§355). No host need register a
+     body named 'fetch' (tools/js-runner/registrations.js has none); the row states what the
      name is, not that a host performs it. -->
 Fetcher 'fetch' has Definition Origin 'registered'.
 
-<!-- THE REFLECTION IS A FEDERATION POINTED AT LAMBDA (Sam, 2026-10-22: "Reflection is a federation
-     pointed at lambda: its schema arms are fetched from lambda when the schema changes; its
-     instance arms are derivations over the store."). The schema arms -- the roles, readings,
+<!-- THE REFLECTION IS A FEDERATION POINTED AT LAMBDA: its schema arms are fetched from lambda
+     when the schema changes, and its instance arms are derivations over the store. The schema arms -- the roles, readings,
      primary readings, players and uses, the five constraint arms, the local names, the Domains
      of declaration and the ring texts -- read only the carrier and schema cells, so they are a
      population fetched from lambda: the Connector 'reflection' fetches with the Fetcher
@@ -234,5 +230,5 @@ Object Type 'Role' is backed by Federation 'lambda'.
 Object Type 'Reading' is backed by Federation 'lambda'.
 
 
-<!-- organizations-domain (ruling 2): Domain 'federation' has Access 'public'. -->
+<!-- In the organizations vocabulary: Domain 'federation' has Access 'public'. -->
 Domain 'federation' has Description 'Sources, connectors and translators as a standard module: a Source is where facts live and a Connector names how to reach and read it, its Fetcher and Translator being definition names resolved through DEFS at fetch time.'.

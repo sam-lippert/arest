@@ -17,9 +17,9 @@ Failure Type is a value type.
 Severity is a value type.
   The possible values of Severity are 'error', 'warning', 'info'.
   The data type of Severity is text.
-<!-- exec: Confidence retired — roleless orphan, superseded by
+<!-- No Confidence value type: roleless, and superseded by
      induction.md's Confidence Score (Hypothesis Candidate has Confidence
-     Score). See the retirement note in core.md's value-type roster. -->
+     Score). See the note in core.md's value-type roster. -->
 
 ## Fact Types
 
@@ -75,7 +75,7 @@ Violation is triggered by Object Type Instance.
   Each Violation is triggered by at most one Object Type Instance.
 Failure is triggered by Object Type Instance.
   Each Failure is triggered by at most one Object Type Instance.
-  <!-- arest-audit: provenance parity with Violation. evolution.md's
+  <!-- Provenance parity with Violation. The Domain Change
        validity rules read it — a staged Domain Change application that
        cannot parse emits a Failure (Failure Type 'parse') triggered by
        the change, mirroring how a gate refusal emits a Violation
@@ -132,5 +132,5 @@ If some Violation occurs before some Transition then that Violation occurred at 
 
 ## Instance Facts
 
-<!-- organizations-domain (ruling 2): Domain 'outcomes' has Access 'public'. -->
+<!-- In the organizations vocabulary: Domain 'outcomes' has Access 'public'. -->
 Domain 'outcomes' has Description 'Violations and failures as first-class facts. Every evaluation path returns valid claims, violation facts, failure facts, or a combination. No silent paths.'.

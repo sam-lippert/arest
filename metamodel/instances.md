@@ -5,7 +5,7 @@
      Guard Run, User, Citation). ORM canon models schemas; populations
      here are Thm 1's FILE cell made addressable. Every instance homes under
      Object Type Instance, itself a Function subtype (FFP: one root). An event
-     is not an instance: it has no state, it fires a transition (Sam, 2026-10-16),
+     is not an instance: it has no state, it fires a transition,
      so Event homes under Function directly. -->
 
 ## Entity Types
@@ -29,9 +29,9 @@ Object Type Instance is an entity type.
      WalkSupertypes delegation for supertype-walking consumers. -->
 Event is an entity type.
   Event is a subtype of Function.
-<!-- Sam, 2026-10-16: "Events shouldn't be object type instances either.
-     Instances get state machines, and events don't have states, they power
-     the machine transitions." An Object Type Instance is what may have a state
+<!-- Events are not object type instances either: instances get state machines,
+     and events have no states, they power the machine transitions. An Object Type
+     Instance is what may have a state
      machine and a status; an Event is what moves one. So Event is a Function,
      in the one id space, beside Transition and Event Type, and not an
      Object Type Instance; a Fact, being an Event, is not one either. -->
@@ -125,9 +125,9 @@ Event is of Event Type. +
   Each Event is of exactly one Event Type.
 Event occurred at Timestamp.
   Each Event occurred at at most one Timestamp.
-  <!-- Sam, 2026-10-21: "Events don't necessarily depend on timestamps, just ordering." An Event
+  <!-- Events depend on ordering, not necessarily on timestamps. An Event
        need not have occurred at a known time; what orders the events of a store is the order
-       its writes are committed in, `Event has Position` (with #218, Position being the
+       its writes are committed in, `Event has Position` (Position being the
        autoCounter value type). So the Timestamp is optional, and a Fact a reading declares,
        a Fact being an Event, is not refused for having none. -->
 Event is created by State Machine.
@@ -192,14 +192,13 @@ Object Type Instance is most specifically of Object Type. **
   Each Object Type Instance, Object Type combination occurs at most once in the population of Object Type Instance is most specifically of Object Type.
   <!-- AN INSTANCE'S DOMAIN IS ITS MOST SPECIFIC TYPE'S. The
        membership above is transitive, and rightly so: a Customer is an
-       instance of Customer and of User, since support.auto.dev declares
+       instance of Customer and of User, where an app declares
        Customer a subtype of User. A bridge relating an instance to
        EVERY type it is an instance of would, with Customer in database-routing
        and User in instances, derive two domains per customer, against `Each
        Object Type Instance belongs to at most one Domain`. The compiled store
        would carry one and every runtime closure re-derive two, so after the
-       first write every write would be refused
-       (pm.auto.dev measured it on a copy of support). An instance is
+       first write every write would be refused. An instance is
        PROPERLY of a type when it is an instance of some subtype of it, and
        MOST SPECIFICALLY of the types it is an instance of and not properly of.
        Direct subtype links are enough, because the membership already holds
@@ -212,12 +211,10 @@ Object Type Instance is most specifically of Object Type. **
 Object Type Instance has Reference.
   Each Object Type Instance has exactly one Reference.
   For each Reference, at most one Object Type Instance has that Reference.
-  <!-- arest (Halpin sweep): reversal of the ruling-4 retirement, on
-       Halpin's own grounds. Ruling 4 removed this reading because the
-       (.Reference) reference mode minted the identical fact type. The
-       sweep then removed the mode itself — Object Type Instance is a subtype of
-       Function and inherits Function(.id) per §6.7's default — so
-       Reference is no longer identity but data: the runtime address, a
+  <!-- Declared on Halpin's own grounds. A (.Reference) reference mode would
+       mint the identical fact type, but there is no such mode: Object Type
+       Instance is a subtype of Function and inherits Function(.id) per §6.7's
+       default, so Reference is not identity but data: the runtime address, a
        mandatory 1:1 secondary reference. With no mode there is no minted
        fact type to restate, so the Reference Mode Redundancy deontic is
        satisfied. -->
@@ -227,7 +224,7 @@ Object Type Instance is created by User.
   Each Object Type Instance is created by at most one User.
 Object Type Instance is required orientation.
   <!-- What an agent reads first when it re-orients, after a compact
-       or at the start of a session. orient answers the facts of each instance in scope
+       or when it starts. orient answers the facts of each instance in scope
        that holds this, beside each Domain's Description, so a memory, a working rule or
        a task can orient an agent and lambda never names an app's fact type. -->
 
@@ -239,21 +236,21 @@ RoleInstance objectifies "Fact fills Role".
 RoleInstance is a subtype of Function.
 RoleInstance uses Object Type Instance.
   Each RoleInstance uses exactly one Object Type Instance.
-  <!-- one-table wave: Halpin's nesting transformation of
+  <!-- Halpin's nesting transformation of
        `Fact uses Object Type Instance for Role` (compound key Fact+Role): the
        filled-role pair objectifies, its resource rides functionally
        (exactly one — a filling IS a usage), and the compound-key ternary
        leaves the schema. -->
-<!-- arest (Halpin, "Objectification and Atomicity", 2020-04-28): the
-     former `Object Type Instance Role` objectification is retired. Its UC spans
+<!-- Halpin, "Objectification and Atomicity", 2020-04-28: no
+     `Object Type Instance Role` objectification. Its UC would span
      {Fact, Role} — two of three roles — and the note restricts
      objectification to fact types with a SPANNING uniqueness constraint
      (the ORM 2 any-fact-type relaxation is retracted; flattened, a
      non-spanning objectification violates the n-1 rule, so populated
-     facts against it are non-atomic conjunctions). The old association
-     sentence also contradicted the declared UC by claiming the full
-     triple as the identification scheme. Nothing in the corpus played a
-     role against Object Type Instance Role, which is exactly the note's prescription
+     facts against it are non-atomic conjunctions). An association
+     sentence claiming the full triple as the identification scheme would
+     also contradict the declared UC. Nothing plays a
+     role against such an objectification, which is exactly the note's prescription
      case: the objectified type hosts no other roles, so prefer the
      unnested schema. The ternary stays as the plain fact type above. -->
 
@@ -261,7 +258,7 @@ RoleInstance uses Object Type Instance.
 User has Email.
   Each User has exactly one Email.
   For each Email, at most one User has that Email.
-  <!-- arest (Halpin sweep): formerly User(.Email) — an email is
+  <!-- Not User(.Email): an email is
        mutable data, not identity; identification inherits Function(.id)
        and the email survives as a mandatory 1:1 secondary reference. -->
 
@@ -297,7 +294,7 @@ State Machine is instance of Object Type.
      Declaring the engine's own
      vocabulary makes the population legal, persistent, queryable
      (a 3NF table), and subject to validate — the substrate-derived
-     ruling: complete the self-description, never scope it. -->
+     rule: complete the self-description, never scope it. -->
 State Machine is for Object Type Instance.
   For each Object Type Instance, at most one State Machine is for that Object Type Instance.
 <!-- AND IT HAS A DERIVER. Without one this cell holds 0 rows, so no
@@ -305,9 +302,9 @@ State Machine is for Object Type Instance.
      in Status` is empty too and the store can answer no question about
      what state anything is in — the three rules that stand on them (the
      instance-of-definition rule, the seed rule and the Object Type Instance
-     projection below) are correct and starved. Measured on
-     support.auto.dev without it: 0 and 0, beside 4,343 registered Object Type
-     Instances, 15 State Machine Definitions and 15 effective-initial rows.
+     projection below) are correct and starved: 0 machines and 0 statuses
+     beside thousands of registered Object Type Instances and every
+     State Machine Definition's effective-initial row.
      An application whose purpose is a workflow then has
      no worklist,
      and only a human notices.
@@ -338,10 +335,9 @@ State Machine is for Object Type Instance.
      instance-level projection below is where an instance's own status is
      read; a caller who wants requests rather than machines joins through
      this cell, which is what that projection means. -->
-<!-- arest-audit F: a duplicate `State Machine is for Object Type Instance. *` stood
-     here — a fully-derived marker whose rule was REMOVED (see
-     the note below); the orphaned `*` declared meaning the readings could
-     not deliver, while the real writers are the SM seed and the for-instance
+<!-- No `State Machine is for Object Type Instance. *` here: a fully-derived
+     marker with no rule (see the note below) would declare meaning the readings
+     cannot deliver, while the real writers are the SM seed and the for-instance
      backfill. The asserted fact type above is the truth. -->
 
 <!-- [NOT DECLARED: board-derived-layer poisoning] The rule
@@ -365,8 +361,7 @@ State Machine is for Object Type Instance.
      SM entity id; the per-Object Type Instance projection materialises via the
      SM-for-Object Type Instance role chain. Object Type Instance is an abstract noun so
      RMAP cannot absorb the status into an Object Type Instance cell -- there
-     IS no Object Type Instance cell. App-level readings (e.g. apps/tasks/
-     readings/app.md) carry the explicit projection
+     IS no Object Type Instance cell. The explicit projection is
      "Object Type Instance is currently in Status iff some State Machine is
      for that Object Type Instance and that State Machine is currently in
      that Status."  -->
@@ -392,9 +387,8 @@ Object Type Instance is currently in Status. *
      declaration order). -->
 State Machine is currently in Status. **
   Each State Machine is currently in exactly one Status.
-  <!-- DERIVED AND STORED (Sam, 2026-10-29: "Status is derive and store ** I think
-       because it's derived from the event stream and the transitions. Storing it
-       allows you to not need to replay the whole event stream."). The seed rule below
+  <!-- DERIVED AND STORED: Status is derived from the event stream and the
+       transitions, and storing it means the whole stream need not be replayed. The seed rule below
        gives the leaf initial to a machine no Event caused a Transition in; a machine an
        Event moved stands where the step put it, and the step writes the Event and its
        cause beside the move, so the closure and a read keep the stored row instead of
@@ -406,19 +400,17 @@ State Machine is currently in Status. **
        function of rows that are already durable, and a restart recomputes it
        rather than reading back a copy. reflect:mstatus is that fold, the same
        main:status_pop the machine above is walked from and `actions` answers
-       from. (The marker was `+` until 2026-10-29; it is `**` now, above.)
+       from. (The marker is `**`, above.)
 
-       THE SEED RULE BELOW STILL OVER-EMITS AND IS NOT FIXED HERE. It joins
-       `Status is effective initial in State Machine Definition` directly,
-       which names a COMPOSITE status where one is declared, while
-       main:leaf_initial descends to the leaf; and derive:closed applies the
-       semi-derived fact type`s keyed merge only to its OWN output, so a rule reading this
-       cell INSIDE the fixpoint sees the unmerged union. Measured on
-       support.auto.dev before the projection below was computed here: two
-       rows for one request, `Draft` and `Open`, against an at-most-one
-       uniqueness. FIXED (Sam, 2026-10-23): the seed rule reads `Status is
+       THE SEED RULE READS THE LEAF. Joining `Status is effective initial in
+       State Machine Definition` directly would name a COMPOSITE status where
+       one is declared, while main:leaf_initial descends to the leaf; and
+       derive:closed applies the semi-derived fact type`s keyed merge only to its
+       OWN output, so a rule reading this cell INSIDE the fixpoint would see the
+       unmerged union: two rows for one machine, a composite and its leaf, against
+       an at-most-one uniqueness. So the seed rule reads `Status is
        leaf initial in State Machine Definition` (state.md), the leaf a
-       composite initial descends to, so it emits one row. -->
+       composite initial descends to, and emits one row. -->
 
 ### Event caused Transition in State Machine
 Event caused Transition in State Machine.
@@ -475,22 +467,22 @@ Guard Run has Result.
      value propagates onto the Fact consequent. Domain stays
      single-sourced on Function throughout (the only Domain-valued fact lives on
      the Function; Fact and the bridge store none). An Object Type Instance has no
-     Domain of its own: it is its type`s, by inheritance (Sam, 2026-10-27).
+     Domain of its own: it is its type`s, by inheritance.
 
-     A future engine fix (filed task `derivation-subtype-join-resolution`) that
+     An engine fix that
      resolves a subtype-subject `belongs to Domain` clause to the Function FT
      and widens the join across the subtype lattice would let the relating
      clause be the natural `is instance of Noun` / `is of Fact Type` directly
      and retire the bridge; until then the bridge is the readings-only form
      that materialises the single-sourced domain. -->
 
-<!-- arest audit-fix A1: the four bridge rules are LIVE.
+<!-- The four bridge rules are LIVE.
      A "convergence-cycle ... absorbed-Function self-reference"
      is a defect of the killed host's
      deriver, never of the math — these are stratified positive joins with
      no value introduction (Lem 1), and the readings above wore `*`
      markers that nothing delivered: drift wearing a derivation mark. The
-     reference-scheme sweep made the cast clause literal: one id space,
+     one reference scheme makes the cast clause literal: one id space,
      so "some Object Type that is that Function" binds by identity.
      Evaluator-phase gate obligation: prove convergence on
      subtype-identity joins before claiming these cells. -->
@@ -511,14 +503,14 @@ Guard Run has Result.
 <!-- A FACT IS OF THE EVENT TYPE ITS FACT TYPE IS. A Fact is an Event and a Fact Type is an Event Type
      (core.md), so the Event Type a Fact is of is the Fact Type it is of, as `Fact is of Function` re-projects
      the same value under Function. Marked +: an Event that is not a Fact still has its Event Type entered.
-     A Fact a reading declares (sherlock's clues) was refused for having none. -->
+     A Fact a reading declares is not refused for having none. -->
 + Event is of Event Type if that Event is some Fact that is of some Fact Type that is that Event Type.
 
 
 ** Fact belongs to Domain iff that Fact is of some Function that belongs to that Domain.
 
-<!-- sm-retire-forml2: SM/Object Type Instance status projections lifted from imperative
-     Rust into reading-level derivations.
+<!-- SM/Object Type Instance status projections as reading-level derivations
+     rather than imperative Rust.
 
      (1) instance-of-definition (noun-scoped): replaces the compile-time-baked
          definition_id / compile_sm_instance_of_definition_backfill_for. A State
@@ -533,7 +525,7 @@ Guard Run has Result.
          is RETAINED.
 
      (2) Object Type Instance-is-currently-in-Status projection: lifts the per-app
-         projection (apps/tasks/readings/app.md) to core, replacing the
+         projection to core, replacing the
          imperative Object Type Instance_is_currently_in_Status maintenance block in
          command.rs. 2-antecedent equi-join (derivation.md shape 6),
          single-valued.

@@ -45,14 +45,13 @@ JS Package has Package Manager.
   Each JS Package has at most one Package Manager.
 
 ### The dependency graph, which package.json already states and nothing modelled
-<!-- tools/norma-oracle-tests/corpora.md opens by saying what
-     a corpus is: "an app's readings closure as its package.json declares it".
-     It then spells that closure out as a hand-kept list of
-     `Corpus 'X' reads Directory 'Y'` lines, one per dependency per app, which
+<!-- A corpus is an app's readings closure as its package.json declares it.
+     Spelled out as a hand-kept list of
+     `Corpus 'X' reads Directory 'Y'` lines, one per dependency per app, it
      has to be walked forward every time a package.json changes and sits
      outside every store where no law can check it. The closure is not a
-     primitive: it is the transitive closure of one edge, and the edge was
-     simply missing from this file. `reaches` is the same shape core.md
+     primitive: it is the transitive closure of one edge, which this file
+     declares. `reaches` is the same shape core.md
      already uses for `Domain reaches Domain` -- a derived ring whose
      transitivity is declared as the theorem it is, per Halpin's practice for
      derived ring fact types. -->
@@ -64,9 +63,9 @@ JS Package reaches JS Package. *
   Each JS Package, JS Package combination occurs at most once in the population of JS Package reaches JS Package.
 
 <!-- The directories are per package, not per corpus: a package may keep its
-     readings in more than one place (auto.dev has both its own directory and a
-     readings/ subdirectory), which is why the closure alone does not give the
-     list. This is the fact the hand-kept manifest actually carries that the
+     readings in more than one place (both its own directory and a
+     readings/ subdirectory, say), which is why the closure alone does not give the
+     list. This is the fact a hand-kept manifest carries that the
      dependency graph does not. -->
 JS Package has Readings Directory.
   Each JS Package, Readings Directory combination occurs at most once in the population of JS Package has Readings Directory.
@@ -87,11 +86,10 @@ Predicate is bound. *
      is a bound function: it has a
      Name, a Module Path and a Symbol Name (core.md), and
      the three come together because a Predicate without the last two resolves
-     to nothing. support.auto.dev has two that do not: breach-precedes-
-     notification and consent-on-file carry a Name and no Module Path, no
-     Symbol Name and no JS Package, yet three of its constraints name them and
-     `Constraint is machine-decidable` therefore answered T for all three. The
-     model claimed a judge that does not exist, which is the same shape as a
+     to nothing. A Predicate that carries a Name and no Module Path, no
+     Symbol Name and no JS Package, named by a constraint, would make
+     `Constraint is machine-decidable` answer T for that constraint: the
+     model would claim a judge that does not exist, which is the same shape as a
      fact type marked derived whose rule never built. This is the test that tells
      them apart, and it answers F when the binding is ABSENT rather than
      wrong. -->
@@ -118,5 +116,5 @@ It is forbidden that a Predicate is exported from a JS Package and also is backe
 
 ## Instance Facts
 
-<!-- organizations-domain (ruling 2): Domain 'imports' has Access 'public'. -->
+<!-- In the organizations vocabulary: Domain 'imports' has Access 'public'. -->
 Domain 'imports' has Description 'JS library imports as a federation primitive. Predicates exported from a JS Package are bound at runtime via DEFS the same way HTTP-backed Predicates are.'.

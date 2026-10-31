@@ -89,5 +89,5 @@ Predicate 'decide:webhook_coverage' has Symbol Name 'decide:webhook_coverage'.
 
 ## Instance Facts
 
-<!-- organizations-domain (ruling 2): Domain 'ingest' has Access 'public'. -->
+<!-- In the organizations vocabulary: Domain 'ingest' has Access 'public'. -->
 Domain 'ingest' has Description 'Webhook event ingest. A Federation pushes a Webhook Event carrying a Payload; the Webhook Event Type declares which Fact Types it yields and the JSON Paths that fill each Role.'.

@@ -40,12 +40,12 @@ Operation awaits a driver. **
      comment. The LLM seams do not need wiring into the mu -- Ev is
      synchronous and no primitive is async -- they have to be driven manually by an llm or a
      person at those points. Driving them manually requires knowing where the points ARE, and
-     that is what this derives. The negated clause follows evolution.md's `Domain Change is
+     that is what this derives. The negated clause follows `Domain Change is
      valid` exactly, which the oracle builds as a finite anti-join. -->
 <!-- AND THE MARKER IS `**`, NOT `*`. The awaiting list has to be READABLE
      FROM THE TABLES -- a person or an llm driving these seams does not boot the closure
      to find out where the points are -- and `*` is defined as `derive at runtime`
-     (core.md's marker ruling: the four are orthogonal, `*` derive,
+     (core.md's markers: the four are orthogonal, `*` derive,
      `**` derive and store, `+` derive or assert, `++` both). A `*` derived fact type therefore LEAVES
      THE STORED SCHEMA in both directions: the oracle drops it from state:fts citing Codd
      1970 1.5, a stored derivable relation is strong redundancy, and lambda's rmap:gate
@@ -135,14 +135,14 @@ Function 'rmap' yields Type Expression 'cell-list'.
      Theorem 2's transitions(status(e)) is a function of an ENTITY -- the
      machine of a type it is an instance of, the status derived for it, the
      transitions leaving that status -- and a store alone names no entity, so
-     `actions sr-alpha-1` under 'store' drops the id and answers the empty menu for a
-     Support Request whose whole lifecycle the app declares.
+     `actions r-1` under 'store' drops the id and answers the empty menu for a
+     Request whose whole lifecycle the app declares.
      THE CELLS AND NOT THE STORE STATE, for orient's reason: store:state is
      <descriptors, phi>, and the machine of an instance is found through
      state:otpops -- a top-level cell, no fact type, no descriptor -- so the
-     projection cannot see which type's population holds the id. Measured on
-     support.auto.dev: under name-and-store the menu is empty, under
-     name-and-cells it is accept, resolve and merge. -->
+     projection cannot see which type's population holds the id. On a served
+     app's store, under name-and-store the menu is empty, and under
+     name-and-cells it is the instance's transitions. -->
 Function 'actions' accepts Type Expression 'name-and-cells'.
 Function 'actions' yields Type Expression 'menu'.
 Function 'actions' has Description 'Answers what an entity affords now: one button per transition out of its current status, naming the fact type whose assertion fires it and the status it leads to. args: [id]. An entity no state machine governs affords none.'.
@@ -186,15 +186,15 @@ Function 'tutor' accepts Type Expression 'name-and-cells'.
 Function 'tutor' yields Type Expression 'tutorial-text'.
 Function 'tutor' has Description 'Teaches one FORML 2 verbalization pattern: its form, an example and a note. args: [pattern name]; a name that is no pattern answers the list of pattern names.'.
 <!-- AND THE ONE THAT WRITES. Every verb above reads, so the
-     served verb surface had no way to make a fact at all: a Support Request
+     served verb surface would have no way to make a fact at all: a Request
      has three mandatory roles and is therefore only sayable as a whole ROW,
      and the only address that took one was an HTTP POST to its collection.
      `apply` cannot be that verb -- it is the mu's own apply combinator,
      registered below with the shape it has always had, and a lambda cell of
      that name would shadow the combinator everywhere in lambda. `create` is
      the name the model itself uses for the write (an app's authorization
-     readings say `Operation 'create' on Protected Resource 'Support
-     Request'`), so that is the Operation declared here. It takes ONE
+     readings say `Operation 'create' on Protected Resource
+     'Request'`), so that is the Operation declared here. It takes ONE
      argument, the row -- the entity whole, its fact types naming its values
      and the pair named for the collection carrying the id -- and answers
      what Theorem 1 says a transition answers: the outcome AND the successor
@@ -412,11 +412,10 @@ Function 'replay' has Description 'Replays by hand the Events that reached a sta
      derive:store_pairs>, which is the operand derive:all_rules is handed at the
      one call site lambda has. No rules in the argument means no round runs and
      the populations come back as they went in: an answer, not a failure.
-     validate wants the fact type DESCRIPTORS that store:fts holds, a shape
-     the table did not have and now does. Through the route both used to throw
-     'selector 2 out of range 1', which is the one-element address the old
-     note names, and query threw it too. query still throws, but the throw
-     moved: it is now 'selector 1 out of range 0', raised inside query rather
+     validate wants the fact type DESCRIPTORS that store:fts holds, the shape
+     the table declares. Given a one-element address both throw
+     'selector 2 out of range 1'. query, given an empty recipe, throws
+     'selector 1 out of range 0', raised inside query rather
      than while building its operand. query is declared and its operand is
      built as declared; what it does with an empty recipe is a separate
      question this did not settle. -->
@@ -479,7 +478,7 @@ Operation 'validate' is registrable.
      registered` list below -- the same honest-until-filled state
      synthesize and validate are in. Accepts and yields reuse validate's
      own two Type Expressions verbatim rather than invent a new shape:
-     support's state-law-wiring.md already has the target populated --
+     an app's own law wiring can have the target populated --
      `Violation is of Constraint, has Text, occurred at Timestamp and is
      triggered by Object Type Instance are already the metamodel's`.
      Whether the judge's operand also needs widening to carry
@@ -559,7 +558,7 @@ Operation 'storage:engine' is registered.
 
 ## Def 9 boundary rows
 
-<!-- exec ruling 4b: the registered surface as instance-fact
+<!-- The registered surface as instance-fact
      verbalizations — Cor 5's enumerable boundary stated as readings. The
      lambda's manifest:origins computes the same boundary from the store by
      set arithmetic (form-aware functional-position walk); the checker mu
@@ -596,12 +595,11 @@ Function 'strip_prefix' yields Type Expression 'text'.
      database engine is not a function at all. The rule below decides it --
      lambda defines no fs: or sql: cell and must not.
 
-     THEY ARE TRUE ROWS, which store:append was not. It stood here declared
-     registered and implemented by nobody until it was deleted; these three
+     THEY ARE TRUE ROWS, each registered and implemented: these three
      are in tools/js-runner/host.js's PRIMS beside clock and the crypt pair,
      and if that directory goes the binding goes with it and the compiler
      does not. Measured: DEF(compile) over metamodel answers all
-     22 design-state cells identical to the carrier compile.js used to write
+     22 design-state cells identical to a carrier a host writes
      with its own readdir and readFile. -->
 Function 'fs:dir' has Definition Origin 'registered'.
 Function 'fs:dir' accepts Type Expression 'path'.
@@ -753,7 +751,7 @@ Function 'store:append' has Definition Origin 'registered'.
 Function 'render:button' has Definition Origin 'registered'.
 Function 'render:textbox' has Definition Origin 'registered'.
 
-<!-- exec ruling: the lambda prefix families declared as
+<!-- The lambda prefix families declared as
      Domains — TENANTS of the base store (namespacing is tenancy:
      Backus 14.7, a cell whose contents is another entire store). Each
      family's definitions are cells within its tenant sub-store; the
@@ -845,7 +843,7 @@ Function 'tlr' has Definition Origin 'registered'.
 Function 'tlr' accepts Type Expression 'sequence'.
 Function 'tlr' yields Type Expression 'sequence'.
 
-<!-- The render surface (the registration ruling: components
+<!-- The render surface (the registration rule: components
      register INTO DEFS, never a side table): each abstract control's
      realization is a registered definition a container supplies at its
      OnSetDefinitions moment, so the manifest's total walk computes these
@@ -934,7 +932,7 @@ Function 'render:alert' yields Type Expression 'widget'.
      its paired controls plus the engine that lays them out (iFactr):
      render:html is the html engine, the function from a screen's placed
      rows to a document -- the view with the paired widgets inside it.
-     the ui library's render-target-instances.md (apps/ui) declares Render Target 'html'
+     the shared ui library declares Render Target 'html'
      has Platform Function Name 'render:html', and the React container binds
      it. Registered for the same reason every render: name is registered:
      lambda defines no cell of that name, so the body comes from the
@@ -954,7 +952,7 @@ Function 'render:html' yields Type Expression 'document'.
      container's, render:wpf the WPF container's and render:slint the Slint
      surface's (engine/os): each draws a screen's placed rows
      as its platform's own widgets, where render:html writes a document. Each
-     engine is one Render Target in the ui library's render-target-instances.md (apps/ui). -->
+     engine is one Render Target in the shared ui library. -->
 Function 'render:swing' has Definition Origin 'registered'.
 Function 'render:swing' accepts Type Expression 'placed-rows'.
 Function 'render:swing' yields Type Expression 'screen'.
@@ -965,7 +963,7 @@ Function 'render:slint' has Definition Origin 'registered'.
 Function 'render:slint' accepts Type Expression 'placed-rows'.
 Function 'render:slint' yields Type Expression 'screen'.
 
-<!-- The storage surface (the emit ruling: recording is
+<!-- The storage surface (the emit rule: recording is
      storage registration; the byte form is lambda, so a worthy driver
      holds nothing but the platform's one durable write). ntoa and
      quote_str sit at the registered boundary beside lex and
@@ -1019,7 +1017,7 @@ Function 'clock' has Definition Origin 'registered'.
 Function 'clock' accepts Type Expression 'sequence'.
 Function 'clock' yields Type Expression 'text'.
 
-<!-- The encryption surface (the hooks ruling: don't assume
+<!-- The encryption surface (the hooks rule: don't assume
      encryption is just there - the core carries the named seam, a host
      registers real platform crypto only when a domain's data types
      demand it, and an unregistered hook refuses loudly through the mu).

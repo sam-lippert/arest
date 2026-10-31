@@ -1,12 +1,11 @@
 # AREST Core Metamodel
 
-<!-- arest-batch: the metamodel is canonical
+<!-- The metamodel is canonical
      FORML/ORM/Halpin. Legacy GraphDL vocabulary is renamed in all operative
      sentences: Noun -> Object Type, the old {entity, value} enum -> Object Kind
      (Halpin Fig 13.29: "each EntityType is an ObjectType that is of OTkind
      'Entity'"), Verb -> Predicate, Reference Scheme -> Reference Mode.
-     Historical comments below retain the names in use when they were
-     written.
+     Some comments below keep the legacy names.
 
      Two amendments:
 
@@ -43,7 +42,7 @@
 ## Entity Types
 
 Function(.id) is an entity type.
-  <!-- arest (Halpin sweep): the ONLY declared reference
+  <!-- The ONLY declared reference
        mode in the metamodel. Book (2nd-ed text) §6.7: "By default, a
        subtype inherits the primary reference scheme of the root
        supertype; in this case the reference scheme is not displayed on
@@ -51,12 +50,12 @@ Function(.id) is an entity type.
        advanced case ("shown if and only if the subtype has at least one
        direct supertype with a DIFFERENT primary reference scheme"),
        mapped via total tables and "extremely complex reference
-       constraints". The 48 per-kind modes ((.id)/(.Name)/(.code)/
-       (.Email)/(.Reference)) were exactly that case and mapped as
-       dual-identity bridge columns on this root's table. They are
-       stripped: every subtype identifies through Function(.id) — a
+       constraints". Per-kind modes ((.id)/(.Name)/(.code)/
+       (.Email)/(.Reference)) would be exactly that case, mapped as
+       dual-identity bridge columns on this root's table, so none is
+       declared: every subtype identifies through Function(.id) — a
        Def 9 definition's name IS its identity, one id space in D.
-       Former natural-key modes survive as data where they carry
+       Natural keys survive as data where they carry
        information beyond identity (Object Type Instance has Reference, User has
        Email — mandatory 1:1 secondary references). -->
 Object Type is a subtype of Function.
@@ -124,7 +123,7 @@ Object Type is a subtype of Function.
       that Function is an Event Type;
       that Function is a Constraint;
       that Function is a Derivation Rule.
-  <!-- arest-batch ruling 1 (FFP): one root. Everything the metamodel
+  <!-- One root (FFP). Everything the metamodel
        names is a cell in D; the ORM spelling is a subtype edge to
        Function (schema content) or to Object Type Instance (runtime instances, itself
        a Function subtype). Backus has no lattice — atoms and sequences,
@@ -132,17 +131,16 @@ Object Type is a subtype of Function.
        statement of rho's totality, the same way the spanning UCs state
        Def 3's set semantics per fact type. Schema elements surface as
        addressable Object Type Instances by reflection (instance-of), never by a second
-       subtype path. The former Object Type Instance placements of this trio migrate
-       accordingly. -->
-  <!-- arest-audit A: State Machine Definition removed from the exclusive
+       subtype path. -->
+  <!-- State Machine Definition is not in the exclusive
        list. state.md declares `State Machine Definition is a subtype of
        Status` (the Harel nesting, deliberate),
        so SMD and Status cannot also be mutually exclusive siblings — the
-       pair of declarations forced SMD's population empty. SMD inherits
+       pair of declarations would force SMD's population empty. SMD inherits
        Status's exclusions through the subtype.
-       arest-audit I (NORMA CompatibleSupertypesError): Status removed
-       too. Its home is `Status is a subtype of Noun` (state.md); listing
-       it here also made it a direct Object Type Instance subtype, giving Status two
+       Nor is Status (NORMA CompatibleSupertypesError). Its home is
+       `Status is a subtype of Noun` (state.md); listing
+       it here would also make it a direct Object Type Instance subtype, giving Status two
        unrelated identification paths (Noun -> Function.id vs
        Object Type Instance.Reference). Status's schema-side identity flows through
        Noun; schema elements surface as Object Type Instances by reflection
@@ -181,7 +179,7 @@ Constraint is an entity type.
      only an ASSERTED subtype needs its exclusion declared "since it is not
      derivable". Deliberately NOT added to the exclusion set above:
      both exclusion declarations in this metamodel are 3-element and a 4-element
-     one is unprecedented here, so widening it is a separate ruling with its own
+     one is unprecedented here, so widening it is a separate decision with its own
      evidence, not a silent rider on a declaration fix. -->
 
 Constraint Type is an entity type.
@@ -209,13 +207,13 @@ Federation is a subtype of Object Type Instance.
 
 Domain is an entity type.
 Domain is a subtype of Object Type Instance.
-  <!-- arest-batch ruling 2: Domain is the namespace unit `Function
-       belongs to Domain` requires — declared at last, schema-side under
+  <!-- Domain is the namespace unit `Function
+       belongs to Domain` requires, declared schema-side under
        Function. Access and Scope are organization-domain vocabulary per
        Cor 2 (authorization is a derivation over User/Organization facts,
        never an enum stored on Domain); both stay out of core, and the
-       stray Access instance facts are preserved as comments until
-       organization readings exist. -->
+       Access instance facts stay comments here: they belong to the
+       organization readings. -->
 
 <!-- The party kinds (per Halpin's Subtyping
      Revisited 4 and the Party pattern): Human and Organization are
@@ -225,7 +223,7 @@ Domain is a subtype of Object Type Instance.
      Declared in core so the kind anchors before any
      alphabetically-earlier app file can infer a kind from usage.
      Agent is the same pattern and is declared by the agents module
-     (the agents library, apps/agents/readings/agents.md), entity type and subtype link
+     (the shared agents vocabulary), entity type and subtype link
      together, because an agent is something this metamodel
      describes rather than part of the metamodel's own vocabulary
      (Agent belongs in a module, not in core);
@@ -261,17 +259,17 @@ Secret Reference is a value type.
 Reference Mode is a value type.
   The data type of Reference Mode is text.
 
-<!-- exec: the bare id/code value types are RETIRED. They were
-     reference-mode vocabulary; the reference-scheme sweep left them declared
-     with no fact role, and a roleless value type maps to a degree-1 relation,
+<!-- The bare id/code value types are not declared. As
+     reference-mode vocabulary they would have no fact role,
+     and a roleless value type maps to a degree-1 relation,
      which is just the active domain (Codd 1970 2.3) — derived, never stored.
      Only an INDEPENDENT object type earns a standalone table (Halpin), and
-     none of these was one. Same retirement: Data (was in the roster below)
+     none of these is one. The same holds for Data
      and Confidence (outcomes.md, superseded by Confidence Score). -->
 Position is a value type.
   The data type of Position is autoCounter.
-  <!-- AUTO-INCREMENT, AND AN ASSERTED VALUE STANDS (Sam, 2026-10-19: "Position should be auto-increment, but
-       that also means that it honors asserted values"). A write that states a Position keeps it, as every
+  <!-- AUTO-INCREMENT, AND AN ASSERTED VALUE STANDS. Position is auto-incremented, and an
+       asserted value is honored. A write that states a Position keeps it, as every
        reading that numbers a role does; a write that leaves it out is given the next one after the greatest
        held by the facts that agree with it on the other roles of the uniqueness spanning it, the next message
        in its thread. -->
@@ -368,7 +366,7 @@ Role Relationship is a value type.
   The data type of Role Relationship is text.
 
 
-<!-- arest-batch ruling 2 (organizations-domain vocabulary, moved out):
+<!-- In the organizations vocabulary, not core:
 Scope is a value type.
   The possible values of Scope are 'organization', 'public'. -->
 
@@ -391,7 +389,7 @@ Derivation Mode is a value type.
        Storage decides when a derivation runs, never what it answers: the
        stored rows are its rules' rows, a cache, never a record that differs
        from them. Nothing evaluates eagerly here -- a derivation runs when
-       its entity is read (Sam, 2026-10-27) -- so every marking is read
+       its entity is read -- so every marking is read
        through its rules. An entered fact of a semi-derived fact type
        overrides no derived one; a default that an entered value overrides
        is itself a fully derived fact type over the semi-derived one.
@@ -415,16 +413,16 @@ Constraint Match Keyword is a value type.
 Object Type is of Object Kind.
   Each Object Type is of exactly one Object Kind.
 
-<!-- arest-batch (Halpin Fig 13.29, verbatim shape): the kinds as
+<!-- Halpin Fig 13.29, verbatim shape: the kinds as
      derived subtypes — "each EntityType is an ObjectType that is of
      OTkind 'Entity'". -->
 * Each Entity Type is an Object Type that is of Object Kind 'entity'.
 * Each Value Type is an Object Type that is of Object Kind 'value'.
 Object Type has Plural.
   Each Object Type has at most one Plural.
-<!-- one-table wave: `Object Type has value-type- Name` (the
-     GLOBAL uniqueness of value-type names, keyed on the Name role — it was
-     the whole Name absorption table) is RETIRED as superseded by tenancy:
+<!-- `Object Type has value-type- Name` (the
+     GLOBAL uniqueness of value-type names, keyed on the Name role, which
+     would be the whole Name absorption table) is not declared: tenancy supersedes it:
      names denote per store (Backus 14.7; the whitepaper's tenant-isolation
      proposition makes cross-store name comparison ill-formed), and the
      per-store statement is the external uniqueness over Domain and Local
@@ -492,7 +490,7 @@ Object Type has World Assumption. +
        is performed during Transition` (state.md).
 
        A DEFAULT IS NOT DATA either: one row per Object Type would put a
-       ruling in 147 places and let them drift. The derivation is closed
+       rule in 147 places and let them drift. The derivation is closed
        unless the type is backed by a Federation, which is the
        paper's own line — §355, "An object type backed by an external system
        sits on this line: its population is fetched by a registered function,
@@ -515,10 +513,10 @@ Object Type has World Assumption. +
 If some Object Type is backed by some Federation and that Federation is not compiled then that Object Type has World Assumption 'open'.
 If some Object Type is not backed by some Federation then that Object Type has World Assumption 'closed'.
 If some Object Type is backed by some Federation and that Federation is compiled then that Object Type has World Assumption 'closed'.
-  <!-- KEYED ON THE FETCHER'S ORIGIN, NOT ON THE BACKING ALONE (2026-10-23). §355's line
+  <!-- KEYED ON THE FETCHER'S ORIGIN, NOT ON THE BACKING ALONE. §355's line
        is that a population "fetched by a registered function" enters under the open world;
        eq:boundary is Filter(origin = registered):DEFS. A population lambda fetches for itself is
-       not across that line: the reflection is a Federation pointed at lambda (Sam, 2026-10-22),
+       not across that line: the reflection is a Federation pointed at lambda,
        its Fetcher reflect:schema is compiled, and what it answers is the schema describing
        itself, which is closed. So the exception is the compiled Federation, and a backed
        Object Type whose Federation declares no Fetcher stays open: its rows come over the
@@ -595,7 +593,7 @@ Fact Type has Reading.
   Each Fact Type has some Reading.
   For each Reading, at most one Fact Type has that Reading.
   <!-- At most, not exactly: a Reading a Domain Change
-       retired outlives the Fact Type it created (evolution.md, Domain
+       retired outlives the Fact Type it created (Domain
        Change retires Reading). -->
   It is possible that some Fact Type has more than one Reading.
 Fact Type has Role.
@@ -674,11 +672,11 @@ Constraint Span has Position.
        never linked to Constraint. Numbering the span directly matches the
        flattened 1.1/1.2 form and needs no new wiring. -->
   <!-- objectification legal per Halpin, "Objectification and Atomicity"
-       (2020-04-28): the UC above spans both roles. one-table wave:
-       identity through the one id space (the subtype), the
-       spanning UC stays as the pairhood uniqueness; the old association-
-       provides-identification form is retired. -->
-<!-- one-table wave: `Role has Position for Reading` (compound
+       (2020-04-28): the UC above spans both roles. Identity is
+       through the one id space (the subtype), and the
+       spanning UC is the pairhood uniqueness; no association
+       provides identification. -->
+<!-- `Role has Position for Reading` (compound
      key Role+Reading) is Halpin's nesting transformation of the SAME content
      below — the position rides the objectified usage pair, so the compound-
      key ternary leaves the schema and the position column absorbs into the
@@ -701,13 +699,13 @@ Fact Type is activated by Predicate.
 API objectifies "Fact Type is activated by Predicate".
 API is a subtype of Function.
   <!-- objectification legal per Halpin, "Objectification and Atomicity"
-       (2020-04-28): the UC above spans both roles. one-table wave:
-       identity through the one id space. -->
+       (2020-04-28): the UC above spans both roles. Identity is
+       through the one id space. -->
 Fact is referenced by Predicate.
   Each Fact, Predicate combination occurs at most once in the population of Fact is referenced by Predicate.
   It is possible that some Predicate references more than one Fact.
   It is possible that more than one Predicate references the same Fact.
-<!-- arest-batch ruling 5: Moore/Mealy action attachment lives in
+<!-- Moore/Mealy action attachment lives in
      state.md, single home; the Mealy relation is semi-derived there
      (Moore folds into it on entry). -->
 
@@ -753,21 +751,19 @@ Function is called with HTTP Method.
        besides: a Status HAS the method it answers on, a Function IS CALLED WITH
        the one that invokes it.
 
-       MEASURED:
-       support's sendSupportEmail has callback URI '/emails' and Federation
-       'resend' at https://api.resend.com, and the method was the only piece of
-       the line the model could not supply. -->
+       A mail-sending Function with a callback URI and a Federation at an
+       HTTPS URL shows it: the method is the only piece of the line the model
+       cannot otherwise supply. -->
 Function sends Header.
   Each Function, Header combination occurs at most once in the population of Function sends Header.
-  <!-- `has`, HERE, STOLE FROM Federation. MEASURED on
-       support's corpus: FunctionHasHeader carried 16 rows and every subject
-       was a Federation -- cornell-lii, congress-gov, auto.dev and the
-       rest, cross-checked against FederationHasURL -- while
-       FederationHasHeader carried NONE. Federation is a subtype of
-       Function, both readings were `{0} has Header {1}`, and the general one
-       took every sentence the specific one was written for. Zero of those 16
-       rows was ever a fact about a Function, so this fact type has never held
-       its own population and nothing is lost by moving it off `has`.
+  <!-- `has`, HERE, STEALS FROM Federation. Under `Function has Header`,
+       every row of FunctionHasHeader on a store with federations has a
+       Federation for its subject, cross-checked against FederationHasURL,
+       while FederationHasHeader carries NONE. Federation is a subtype of
+       Function; with both readings `{0} has Header {1}`, the general one
+       takes every sentence the specific one is written for. None of those
+       rows is a fact about a Function, so nothing is lost by keeping this
+       fact type off `has`.
 
        THE SAME COLLISION AS `Function has HTTP Method` against `Status has
        HTTP Method`, and the same remedy: the specific subject
@@ -778,7 +774,7 @@ Function sends Header.
        as a Header cannot
        reach the store, and widening Federation has Header to carry a
        value changes nothing on its own. -->
-<!-- arest-batch ruling 2 (organizations-domain vocabulary, moved out):
+<!-- In the organizations vocabulary, not core:
 Function has Scope.
   Each Function has at most one Scope. -->
 Function belongs to Domain.
@@ -788,7 +784,7 @@ Function has Local Name.
   Each Function has at most one Local Name.
 
 For each Domain and Local Name, at most one Function belongs to that Domain and has that Local Name.
-  <!-- exec ruling: NAMESPACING
+  <!-- NAMESPACING
        IS TENANCY. A Domain is a tenant — a cell whose contents is
        another entire store (Backus 14.7; the paper: a tenant is a
        sub-store and a tenant's tenants are sub-sub-stores). A Function
@@ -841,7 +837,7 @@ Domain reaches Domain. *
 
 No Domain reaches itself.
   <!-- DIRECTION, by the use cases (each app compiles
-       with the shared auto.dev library yet keeps its own database, and an
+       with a shared library yet keeps its own database, and an
        organization may sublet to a child that never administers its parent
        unless granted). Reaching is data addressing, parent into child, as
        AREST.tex sub-tenancy says: a parent reaches into its children because
@@ -878,7 +874,7 @@ Definition Origin is a value type.
   The data type of Definition Origin is text.
 Function has Definition Origin.
   Each Function has at most one Definition Origin.
-  <!-- arest-audit E: Def 9 — a definition is ⟨name, dom, cod, origin,
+  <!-- Def 9 — a definition is ⟨name, dom, cod, origin,
        impl⟩ with origin ∈ {compiled, registered}; Eq 5 filters DEFS on
        origin = 'registered', Cor 5 identifies that restriction with the
        decidability frontier, and Cor 1 reads rule bodies as data. Without
@@ -896,7 +892,7 @@ Function accepts Type Expression.
   Each Function accepts at most one Type Expression.
 Function yields Type Expression.
   Each Function yields at most one Type Expression.
-  <!-- arest-batch ruling 11: Def 9's dom and cod — accepts is dom,
+  <!-- Def 9's dom and cod — accepts is dom,
        yields is cod. Values are lexical type expressions: an Object Type
        name where the signature is simple, an FFP shape expression where
        structured. Carried exactly for DEFS entries, like Definition
@@ -929,7 +925,7 @@ Implementation is a value type.
   The data type of Implementation is text.
 Function has Implementation.
   Each Function has at most one Implementation.
-  <!-- audit-fix E (Def 9's impl): SYMBOLIC
+  <!-- Def 9's impl: SYMBOLIC
        function definitions in Backus's functional forms (1978 Turing
        lecture, 11.2.4) — composition, construction, condition, constant,
        insert (fold), apply-to-all (alpha), selectors — serialized the way
@@ -950,7 +946,7 @@ Function has Implementation.
 
 ### Function supersession
 
-<!-- THE MEMORY DOMAIN (from evolution.md). Function is the one id space over every definition, so
+<!-- THE MEMORY DOMAIN. Function is the one id space over every definition, so
      retirement is one ring over the space that already names everything: a fact whose truth is a
      function of the store, retracted when it stops holding, where a count or a description would rot.
      Passive on purpose (the retired name reads first), and no date or rationale role: a modeling
@@ -973,7 +969,7 @@ Constraint is semantic. **
      a violation is a trigger to regenerate the message with the
      corrections, before human approval. The model must say WHICH kind a
      rule is: with both in one bucket (26 in one store, 36 in another,
-     12 more in support.auto.dev's state-law-wiring.md) the runtime cannot
+     12 more in a third) the runtime cannot
      route what the model does not say.
 
      A Predicate is already a bound function (has Name, Module Path, Symbol
@@ -1001,7 +997,7 @@ Constraint has Constraint Match Keyword.
   Each Constraint, Constraint Match Keyword combination occurs at most once in the population of Constraint has Constraint Match Keyword.
   It is possible that some Constraint has more than one Constraint Match Keyword.
 
-### Constraint Type (merged #13: NORMA ConstraintType — one classifier carrying code, Name, Label, Family, and Violation Template)
+### Constraint Type (NORMA ConstraintType — one classifier carrying code, Name, Label, Family, and Violation Template)
 Constraint is of Constraint Type.
   Each Constraint is of exactly one Constraint Type.
 <!-- Without this fact type nothing joins Constraint to Constraint
@@ -1040,10 +1036,9 @@ Frequency Constraint has Max Occurrence.
   Each Frequency Constraint has at most one Max Occurrence.
 
 ### Cardinality Constraint (subtype of Constraint)
-<!-- arest-audit D: Def 2 lists cardinality among the constraint kinds —
+<!-- Def 2 lists cardinality among the constraint kinds —
      a bound on the SIZE of a type's population (NORMA CardinalityConstraint),
-     distinct from frequency's per-value occurrence bound. It was absent from
-     this metamodel. Cor 2 leans on the kind directly: "a rate limit is a
+     distinct from frequency's per-value occurrence bound. Cor 2 leans on the kind directly: "a rate limit is a
      cardinality constraint over timestamped request facts"; §3's slack
      discussion tunes CAP posture by a cardinality constraint's distance
      from its bound. -->
@@ -1053,8 +1048,8 @@ Cardinality Constraint has Max Occurrence.
   Each Cardinality Constraint has at most one Max Occurrence.
 
 ### Constraint Span (objectification of "Constraint spans Role")
-<!-- exec ruling: the `Constraint Span autofills from
-     superset` unary is RETIRED — a stored boolean where the mechanism
+<!-- No `Constraint Span autofills from
+     superset` unary: it would be a stored boolean where the mechanism
      belongs. A constraint that materializes its consequent does so by
      PROVIDING a derivation: see `Derivation Rule is provided by
      Constraint` under the Derivation Rule readings. Constraint Span is
@@ -1146,12 +1141,12 @@ If Object Type1 is subtype of Object Type2, then Object Type2 is not subtype of 
      no acyclic ring form yet, so irreflexive and asymmetric are what is
      declared. -->
 
-<!-- arest-audit B: the former rings here (irreflexive + intransitive; and
-     validation.md carried irreflexive + asymmetric) contradicted Lem 1 and
+<!-- No ring constraint here: irreflexive + intransitive, or
+     irreflexive + asymmetric, would contradict Lem 1 and
      each other. Lem 1 licenses arbitrary recursion — self- and mutual
      recursion included (transitive closure is a legitimate rule) — and
      forbids exactly one shape: a VALUE-INTRODUCING rule on a dependency
-     cycle. Intransitivity even forbade legitimate dependency diamonds
+     cycle. Intransitivity would even forbid legitimate dependency diamonds
      (DR1→DR2→DR3 with DR1→DR3). Cor 1 makes the true check a query over
      the dependency graph; the faithful constraint follows. -->
 
@@ -1173,9 +1168,8 @@ Derivation Rule introduces values.
        value-constructing base operation (arithmetic, length, dynamic
        application); every other operation rearranges atoms already in
        adom(P) or quoted in the rule. Semi-derived: asserting it from the
-       body's clause shapes is an EVALUATOR-PHASE OBLIGATION (audit-fix
-       A3 — the killed host's compile pass is the reference behavior; no
-       compiler exists in this repo); an author may also assert it
+       body's clause shapes is an EVALUATOR-PHASE OBLIGATION (the earlier
+       Rust host's compile pass is the reference behavior); an author may also assert it
        directly, and until the evaluator lands that is the only
        population source. -->
 
@@ -1205,7 +1199,7 @@ It is impossible that some Derivation Rule introduces values and that Derivation
        populations. The content is the stratification theorem: it
        EXECUTES as test:finiteness (Cor 6 — a value-introducing rule
        reaching its own target is refused) and as derive:layers at every
-       derivation; per Codd 1970 1.5 and the constitution ruling, an
+       derivation; per Codd 1970 1.5, an
        executing law needs no restating constraint. The oracle defers
        self-join impossibility clauses to this note class rather than
        misbuild them. -->
@@ -1213,10 +1207,10 @@ It is impossible that some Derivation Rule introduces values and that Derivation
 ### Federation
 Federation has URL.
   Each Federation has at most one URL.
-  <!-- AT MOST ONE, NOT EXACTLY ONE (2026-10-23). A Federation is where a population is
-       fetched from, and not every one is reached at a URL: auto.dev's MongoDB Atlas is a
+  <!-- AT MOST ONE, NOT EXACTLY ONE. A Federation is where a population is
+       fetched from, and not every one is reached at a URL: a MongoDB Atlas source is a
        mongodb+srv address, a file or an OS read has none, and the reflection is a Federation
-       pointed at lambda (Sam, 2026-10-22), fetched by a compiled Function and addressed by
+       pointed at lambda, fetched by a compiled Function and addressed by
        none. Whether its population is open or closed is not read off the URL either, but off
        its Fetcher's Definition Origin (`Federation is compiled`, below). -->
 Federation has Header.
@@ -1225,23 +1219,23 @@ Federation has Header with Header Value.
   Each Federation, Header combination occurs at most once in the population of Federation has Header with Header Value.
   <!-- A TERNARY, NOT AN OBJECTIFIED BINARY PLUS AN ATTRIBUTE, because the
        Header Value is functionally dependent on the System and the Header
-       together, and because apps/connectors had ALREADY WRITTEN the ternary
-       sentence -- `Federation 'resend' has Header 'Authorization' with
-       Header Value 'Bearer'` -- before any of this was declared. The model
-       should hold the sentence a reader naturally wrote, not make the corpus
+       together, and because the ternary is the sentence a connector naturally
+       writes -- `Federation 'mail' has Header 'Authorization' with
+       Header Value 'Bearer'`. The model
+       should hold the sentence a reader naturally writes, not make the corpus
        restate it in two. -->
 Federation authenticates with Header.
   Each Federation authenticates with at most one Header.
-  <!-- A SYSTEM HAS MORE THAN ONE HEADER AND THEY CARRY VALUES, which this could
-       not say. It was a binary with `at most one` and no Header Value type
-       existed, so apps/connectors wrote what it needed anyway --
-       `Federation 'resend' has Header 'Authorization' with Header Value
-       'Bearer'` plus a User-Agent and an `authenticates via` line -- and ALL
-       THREE fell through silently. MEASURED on support's built
-       store: FederationHasHeader 0 rows, and neither
+  <!-- A SYSTEM HAS MORE THAN ONE HEADER AND THEY CARRY VALUES, which a binary
+       with `at most one` and no Header Value type cannot say. A connector
+       writes what it needs anyway --
+       `Federation 'mail' has Header 'Authorization' with Header Value
+       'Bearer'` plus a User-Agent and an `authenticates via` line -- and
+       without these fact types ALL THREE fall through silently:
+       FederationHasHeader holds 0 rows, and neither
        FederationHasHeaderWithHeaderValue nor
-       FederationAuthenticatesViaHeader existed as a fact type at all. The
-       oracle reported no errors. This is the same shape as the unquoted
+       FederationAuthenticatesViaHeader exists as a fact type at all, while the
+       oracle reports no errors. This is the same shape as the unquoted
        rotation limit and `Resource (.Name)` with a space: well-formed English
        the model cannot hold.
 
@@ -1255,7 +1249,7 @@ Federation has Credential Encoding.
   Each Federation has at most one Credential Encoding.
   <!-- THE CREDENTIAL AS ITS SCHEME WANTS IT. ClickHouse's HTTP
        interface takes `Authorization: Basic` over base64(user:password), and
-       support.auto.dev keeps that credential as user:password, the way it was
+       an app keeps that credential as user:password, the way it was
        issued. Sent exactly as it comes out of the store,
        a Basic header would go out unencoded. This says how a system wants its
        credential written. The host applies it to the decrypted secret, the one
@@ -1280,10 +1274,10 @@ Function reaches its subject through Fact Type.
   Each Function reaches its subject through at most one Fact Type.
   <!-- THE FACTS A CALL SENDS AND RECORDS ARE OFTEN NOT ABOUT THE ENTITY THAT
        FIRED IT. main:performed answers <predicate, entity, may-create> where the
-       entity is the one whose STATUS MOVED -- support.auto.dev's Support Response
-       -- while the body it sends and the receipt it records are facts of that
-       response's EMAIL MESSAGE. One declared functional step apart, and nothing
-       said which step, so perform:body_val could read the entity or the function
+       entity is the one whose STATUS MOVED -- a Response, say -- while the body it
+       sends and the receipt it records are facts of that response's EMAIL MESSAGE.
+       One declared functional step apart, and with nothing to
+       say which step, perform:body_val could read the entity or the function
        and neither of those is the subject.
 
        A NARROW SPECIAL CASE OF A JOIN PATH, LIMITED TO ONE STEP ON PURPOSE. Join
@@ -1327,14 +1321,14 @@ Function asserts Fact Type on success.
   Each Function, Fact Type combination occurs at most once in the population of Function asserts Fact Type on success.
   <!-- WHAT A SUCCESSFUL CALL KNOWS AND DOES NOT RETURN. A yield
        reads a value the service RETURNED. Some facts are established by the call
-       succeeding at all, and no answer states them: support.auto.dev's `Email Message
-       is sent via Send Tool` is the case, since Resend answers an id and never "this
-       went out through Resend", and the guard on its `approve` waits on exactly that
+       succeeding at all, and no answer states them: `Email Message
+       is sent via Send Tool` is the case, since a mail service answers an id and never "this
+       went out through me", and a guard on an `approve` may wait on exactly that
        fact. So a Function names the fact types a successful call asserts. Success is a
        2xx answer. The subject (`reaches its subject through`) fills the fact type's
        first role, and for a binary the name of the Federation the Function is
-       backed by fills the second -- 'resend' for sendSupportEmail, which is also the
-       Send Tool's value. A call that does not succeed asserts none of them, and a dry
+       backed by fills the second -- for a mail-sending Function, its mail Federation, which
+       is also the Send Tool's value. A call that does not succeed asserts none of them, and a dry
        run reports them without asserting. The may-create ceiling still decides, as it
        does for a yield. -->
 Function sends Fact Type with Role to JSON Path.
@@ -1351,15 +1345,15 @@ Function sends Fact Type with Role to JSON Path.
        yielded Fact Type must be fillable or the fact cannot be built, and
        ingest.md makes that obligatory. Outbound the opposite is normal: a call
        sends ONE role of a fact type and leaves the rest -- `to` is filled from
-       the Email Address role of Support Request has Email Address and the
-       Support Request role is the subject being sent, not a field. Copying the
+       the Email Address role of Request has Email Address and the
+       Request role is the subject being sent, not a field. Copying the
        inbound constraint here would refuse every real request body. -->
 Body Template is a value type.
   The data type of Body Template is text.
 Function fills JSON Path with Body Template.
   Each Function, JSON Path combination occurs at most once in the population of Function fills JSON Path with Body Template.
   <!-- A FIELD COMPOSED FROM THE OTHERS, WORDED BY THE APP: the LLM does not
-       format the email with the original message body; the resend call
+       format the email with the original message body; the sending call
        formats the email to contain the original message. `Function sends Fact
        Type with Role to JSON Path` carries one role's value to each path, so a reply that
        quotes the message it answers would have no declared shape, and the quote could only be pasted
@@ -1419,8 +1413,8 @@ DomainConnectsToFederation has Send Mode.
        already takes it as an argument rather than reading it. -->
 DomainConnectsToFederation carries Secret Reference.
   Each DomainConnectsToFederation carries at most one Secret Reference.
-  <!-- one-table wave: Halpin's nesting transformation of the
-       former `Domain connects to Federation with Secret Reference`
+  <!-- Halpin's nesting transformation of
+       `Domain connects to Federation with Secret Reference`
        (compound key Domain+Federation): the connection objectifies —
        this is the "Domain Connection" the connectors note anticipated —
        and the per-connection secret rides functionally. -->
@@ -1433,7 +1427,7 @@ Derivation Rule has Text.
 Derivation Rule is provided by Constraint.
   Each Derivation Rule is provided by at most one Constraint.
   For each Constraint, at most one Derivation Rule is provided by that Constraint.
-  <!-- exec ruling: the derivation a
+  <!-- The derivation a
        materializing constraint supplies. A provided rule carries no
        authored Text — its content compiles from the providing
        constraint's role sequences. Optional both ways: most rules are
@@ -1443,7 +1437,7 @@ Derivation Rule is provided by Constraint.
        has Derivation Mode`, on the reasoning that the link stores only one
        real bit (whether this constraint materializes) and everything else
        recomputes. The reasoning holds; the replacement does not, because
-       the recomputation is not expressible. The ruling names an
+       the recomputation is not expressible. That design names an
        "antecedent sequence" and a "consequent sequence", but the metamodel
        has only `Constraint spans Role` (543) and `Fact Type has Role`
        (529) — nothing distinguishes which of a constraint's spanned roles
@@ -1462,7 +1456,7 @@ Derivation Rule depends on Derivation Rule. *
 
 ## Derivation Rules
 
-<!-- sub-tenancy closure (exec ruling): reachability over
+<!-- sub-tenancy closure: reachability over
      domain containment, the acyclicity carrier for the tenant tree. -->
 
 * Domain1 reaches Domain2 iff Domain2 is contained in Domain1.
@@ -1475,10 +1469,10 @@ Derivation Rule depends on Derivation Rule. *
 
 
 * Derivation Rule1 depends on Derivation Rule2 iff Derivation Rule1 has antecedent Fact Type and Derivation Rule2 produces that Fact Type.
-<!-- arest-audit B: "some other Derivation Rule" dropped from this rule —
-     it filtered self-loops out of the dependency graph, so a
+<!-- No "some other Derivation Rule" in this rule:
+     it would filter self-loops out of the dependency graph, so a
      value-introducing self-recursive rule (a 1-cycle Lem 1 must refuse)
-     was invisible to the Cor 1 check. Self-dependency is a legitimate,
+     would be invisible to the Cor 1 check. Self-dependency is a legitimate,
      recordable edge. -->
 
 * Derivation Rule1 reaches Derivation Rule2 iff Derivation Rule1 depends on Derivation Rule2.
@@ -1491,7 +1485,7 @@ Derivation Rule depends on Derivation Rule. *
 
 * Constraint is machine-decidable iff Constraint is decided by some Predicate and that Predicate is bound.
 
-## Implicit Derivation Rules (#316 / #287c)
+## Implicit Derivation Rules
 
 <!--
 The four derivations below are currently materialised by the
@@ -1504,7 +1498,7 @@ push; until then the Rust synthesis continues to cover them.
 
 ### Subtype inheritance
 
-<!-- arest-audit H2 (10.2, oracle-found prose — this block parsed into
+<!-- Prose, not readings (read as readings it parses into
      garbage fact types): Every fact that binds a subtype also binds the
      supertype: if Noun1 is a subtype of Noun2 and a Fact uses an Object Type Instance
      whose Noun is Noun1 for some Role, then that same Object Type Instance is also an
@@ -1514,19 +1508,18 @@ push; until then the Rust synthesis continues to cover them.
      over-broad to carry it. Inheritance proper is PROPERTY reuse, not a
      distinct membership relation. -->
 
-<!-- RETIRED (challenged + NORMA-verified): `Object Type Instance is
-     inherited instance of Noun` was a non-canonical relation — ORM has
-     no separate "inherited membership", and it only existed to prop up
-     the (also non-canonical, now relaxed) `instance of exactly one
-     Noun`. It had ZERO readers in base or apps (grep: only its own
-     declaration), so retiring it removes dead derived data.
+<!-- NOT DECLARED (NORMA-verified): `Object Type Instance is
+     inherited instance of Noun` is a non-canonical relation — ORM has
+     no separate "inherited membership", and it would only prop up
+     the (also non-canonical, relaxed) `instance of exactly one
+     Noun`. Nothing reads it.
 * Object Type Instance is inherited instance of Noun iff Object Type Instance is instance of some subtype of that Noun. -->
 
 
 ### Derivations provided by constraints
 
-<!-- exec ruling, replacing the retired autofill flag and
-     the killed host's SS auto-fill pass: a Subset Constraint that is to
+<!-- In place of an autofill flag or an SS auto-fill
+     pass: a Subset Constraint that is to
      be MATERIALIZED provides a Derivation Rule. The rule needs no
      authored body — its content compiles from the constraint's own role
      sequences (the antecedent sequence is the projection, the consequent
@@ -1584,7 +1577,7 @@ No Fact joins itself.
 
 * Fact1 joins Fact2 iff Fact1 fills some Role1 and that RoleInstance uses some Object Type Instance and that Role1 is used in some Reading1 and that RoleIsUsedInReading has Position 2 and some other Fact2 fills some Role2 and that RoleInstance uses that Object Type Instance and that Role2 is used in some Reading2 and that RoleIsUsedInReading has Position 1.
 
-## Check-Readings Deontic Obligations (#288)
+## Check-Readings Deontic Obligations
 
 <!--
 Layers 2 and 3 of the killed host's readings checker
@@ -1598,7 +1591,7 @@ the standard violation surface.
 
 ### Layer 2: ring validity — same-object type spans
 
-<!-- arest-audit H2 (10.2): A ring constraint (IR, AS, AT, SY, IT, TR,
+<!-- A ring constraint (IR, AS, AT, SY, IT, TR,
      AC, RF) must span roles whose Nouns are identical. A ring across mixed
      nouns is nonsensical — "No Customer is-subtype-of Address" has nothing
      to forbid. The killed host's check.rs emitted an Error-level
@@ -1624,7 +1617,7 @@ Predicate 'decide:ring_same_type' has Symbol Name 'decide:ring_same_type'.
 
 ### Layer 3: ring completeness — declare the ring on a same-object type binary
 
-<!-- arest-audit H2 (10.2): A binary Fact Type whose two Roles share the
+<!-- A binary Fact Type whose two Roles share the
      same Noun almost always wants an explicit ring constraint — without
      one, nothing prevents the self-reference cycle the schema is
      implicitly modelling. check.rs emits a Hint-level diagnostic pointing
@@ -1669,7 +1662,7 @@ Constraint 'constraint-roles-filled' is decided by Predicate 'decide:unfilled_ro
 Predicate 'decide:unfilled_roles' has Module Path 'arest'.
 Predicate 'decide:unfilled_roles' has Symbol Name 'decide:unfilled_roles'.
 
-## NORMA Structural Decomposition (#279)
+## NORMA Structural Decomposition
 
 <!--
 The concepts below mirror NORMA's `ORMCoreMetaModel.orm`
@@ -1680,7 +1673,7 @@ decomposing each user-authored rule into a `Join Path` +
 rule text with Rust heuristics.
 -->
 
-<!-- arest-audit H2 (10.2):
+<!--
 Backus §11.2.4 / Def 7 correspondence:
   Join Path       ↔ Composition (COMP)
   Role Sequence   ↔ Construction (CONS)
@@ -1747,8 +1740,8 @@ RoleSequenceHasPosition objectifies "Role Sequence has Position".
 RoleSequenceHasPosition is a subtype of Function.
 RoleSequenceHasPosition holds Role.
   Each RoleSequenceHasPosition holds at most one Role.
-  <!-- one-table wave: Halpin's nesting transformation of the
-       former `Role Sequence has Role at Position` (compound key
+  <!-- Halpin's nesting transformation of
+       `Role Sequence has Role at Position` (compound key
        RoleSequence+Position): the slot pair objectifies, the role it holds
        rides functionally, and the compound-key ternary leaves the schema. -->
 
@@ -1760,11 +1753,10 @@ Role Projection produces Role.
 
 Derivation Rule has Role Projection.
   Each Derivation Rule, Role Projection combination occurs at most once in the population of Derivation Rule has Role Projection.
-  <!-- Sam, 2026-10-22: "Derivation Rule is mismodeled. I've been saying that it's a constraint type, so
-       manually redeclaring role relations is wrong." A derivation is a constraint in its completing mode, and
-       a constraint's spans already say which roles it reads and which it fills (Constraint Span has Sequence
-       Number and Position). The mandatory that every Derivation Rule restate its roles here is dropped; the
-       relation itself goes when Derivation Rule becomes a Constraint Type (roadmap step 6, #220). -->
+  <!-- A derivation is a constraint in its completing mode, so Derivation Rule is a constraint type and
+       redeclaring its role relations by hand is wrong: a constraint's spans already say which roles it reads
+       and which it fills (Constraint Span has Sequence Number and Position). No mandatory makes a Derivation
+       Rule restate its roles here, and the relation goes once Derivation Rule is a Constraint Type. -->
 
 Fact Type has Derivation Storage Type.
   Each Fact Type has at most one Derivation Storage Type.
@@ -1787,11 +1779,9 @@ Fact Type has Assimilation Absorption Choice.
      one` and not mandatory: writing Absorb on every subtyping would say nothing
      and cost a row per subtyping.
 
-     MEASURED (recorded in the probe
-     body-leg-on-a-derived-cell): under the default, support.auto.dev's 141
-     declared subtypings all absorb, so User, Event, Citation, State Machine,
-     Guard Run, Fact, Object Type Instance and Customer have no table of their
-     own and Subscription, which has no supertype, does. Absorption is
+     Under the default every declared subtyping absorbs, so a subtype such as
+     User, Event, State Machine, Fact or Object Type Instance has no table of
+     its own and a type with no supertype does. Absorption is
      configurable, as in NORMA. -->
 
 ## Negation
@@ -1880,7 +1870,7 @@ Explicit Negation Fact Type negates Fact Type.
      The 1:1 pairing above already carries what "paired" means. Recorded so
      the prohibition is not re-derived and re-added. -->
 
-## Antecedent Clause Shape (#281)
+## Antecedent Clause Shape
 
 <!--
 Every clause inside a derivation-rule antecedent should parse into a
@@ -1899,11 +1889,10 @@ Clause Shape is a value type.
   The data type of Clause Shape is text.
 
 Derivation Rule has Antecedent Clause.
-  <!-- Sam, 2026-10-22: "Derivation Rule is mismodeled. I've been saying that it's a constraint type, so
-       manually redeclaring role relations is wrong." A derivation is a constraint in its completing mode, and
-       a constraint's spans already say which roles it reads and which it fills (Constraint Span has Sequence
-       Number and Position). The mandatory that every Derivation Rule restate its roles here is dropped; the
-       relation itself goes when Derivation Rule becomes a Constraint Type (roadmap step 6, #220). -->
+  <!-- A derivation is a constraint in its completing mode, so Derivation Rule is a constraint type and
+       redeclaring its role relations by hand is wrong: a constraint's spans already say which roles it reads
+       and which it fills (Constraint Span has Sequence Number and Position). No mandatory makes a Derivation
+       Rule restate its roles here, and the relation goes once Derivation Rule is a Constraint Type. -->
   For each Antecedent Clause, exactly one Derivation Rule has that Antecedent Clause.
 
 Antecedent Clause has Clause Shape.
@@ -1911,18 +1900,18 @@ Antecedent Clause has Clause Shape.
 
 It is obligatory that each Antecedent Clause has some Clause Shape.
 
-<!-- audit-fix C: the stray naming deontic that stood here ("It is
-     forbidden that each Object Type has a name that ends with 'ies'.")
-     is retired: misplaced (Antecedent Clause section), malformed
+<!-- No naming deontic here (such as "It is
+     forbidden that each Object Type has a name that ends with 'ies'."):
+     it would be misplaced (Antecedent Clause section), malformed
      (forbidding a universal is satisfied by one counterexample), and
-     over-broad (it forbade Series/Species). validation.md's Singular
+     over-broad (it would forbid Series/Species). validation.md's Singular
      Naming rule — plural-form names forbidden — is the one home and
      subsumes the intent. -->
 
-## Migration (#348)
+## Migration
 
 ### Rationale
-<!-- arest-audit H2 (10.2): Population-level rewriting when a schema
+<!-- Population-level rewriting when a schema
      evolves. Cor 4 (cor:closure) stages migration as derivation rules /
      transition triggers / deontic rules; none is shaped for "rewrite facts
      of one Fact Type into facts of another," so Migration names it
@@ -1950,10 +1939,10 @@ Migration has Timestamp.
 
 It is obligatory that each Migration produces some Fact Type as target.
 
-## Migration Application (#349)
+## Migration Application
 
 ### Rationale
-<!-- arest-audit H2 (10.2): Migration firing emits a Migration
+<!-- Migration firing emits a Migration
      Application per source fact touched, recording which target facts were
      produced and when. Prop 3 (prop:derive)
      holds because Migration Application is itself a fact: the
@@ -1978,7 +1967,7 @@ Migration Application produces Fact.
 Migration Application has Timestamp.
   Each Migration Application has exactly one Timestamp.
 
-## Migration Application ordering (#351)
+## Migration Application ordering
 
 <!--
 ### Rationale
@@ -2008,7 +1997,7 @@ It is obligatory that for each Fact and Fact Type, at most one Migration Applica
 
 It is obligatory that for each Timestamp, at most one Migration Application has that Timestamp.
 
-## NORMA Value Domain (#279)
+## NORMA Value Domain
 
 ### Entity types
 
@@ -2018,8 +2007,8 @@ Value Range is an entity type.
 Value Range is a subtype of Function.
 Facet is an entity type.
 Facet is a subtype of Function.
-<!-- arest-batch ruling 3a (NORMA-correct): the reified Value entity is
-     retired — NORMA's ValueRange carries MinValue/MaxValue lexically and
+<!-- No reified Value entity (NORMA-correct):
+     NORMA's ValueRange carries MinValue/MaxValue lexically and
      has no Value instance entity. Bounds carry Lexical Value directly.
 Value(.id) is an entity type. -->
 Unit is an entity type.
@@ -2212,7 +2201,7 @@ Format has Pattern.
 ## Instance Facts
 
 <!-- SUPERSESSION, populated from what the repo can be asked: every retired name resolves to
-     nothing (no lambda definition, no Definition Origin row). Moved from evolution.md. -->
+     nothing (no lambda definition, no Definition Origin row). -->
 Function 'finiteness_check' is superseded by Function 'derive:stratified'.
 Function 'ast:pop_row' is superseded by Function 'ast:pop_exp'.
 Function 'journal:overflow' is superseded by Function 'ui:st_long'.
@@ -2299,25 +2288,21 @@ Role 'RoleIsUsedInReading.1' is used in Reading 'rReadingUsesRole'.
      secrets, and they are never put in a .md. .env in arest contains
      atomic fact instance readings itself. The fact types are in the .md
      and specify whether the field is encrypted.
-     support.auto.dev's .gitignore records the rule
-     in its own words ("NO SECRETS .md IS PLANNED OR WANTED").
 
      SO THE ORACLE READS .env: .env is read into the system to make it
      all work in the live db. .env is compile-time, and a db must be
      portable to
      another environment.
 
-     MEASURED on support.auto.dev, both sides of reading .env. Its
-     .env was already FORML -- `Domain ...` and `DomainConnectsToFederation
-     ...` sentences, not shell assignments -- but sat in no readings directory,
-     so DomainConnectsToFederation answered 0 ROWS while `Domain Connects To
-     Federation has Send Mode`, which rides that same objectification and
-     lives in a .md, had its one row. The sentences were written; nothing could
-     ever see them. The cost was not theoretical: perform:conn_of could not
-     build the 'domain/system' key, so a correctly declared and correctly armed
-     performer refused every send with "this connection declares no Send Mode".
-     Reading .env took the same corpus to 6 connections, 6 Secret References,
-     conn_of 'support/resend' and send_mode_of 'dry', NORMA model errors (none).
+     Both sides of reading .env. An app's .env is FORML -- `Domain ...` and
+     `DomainConnectsToFederation ...` sentences, not shell assignments -- and
+     it sits in no readings directory, so unread, DomainConnectsToFederation
+     answers 0 ROWS while `Domain Connects To Federation has Send Mode`, which
+     rides that same objectification and lives in a .md, has its row. Then
+     perform:conn_of cannot build the 'domain/system' key, and a correctly
+     declared and correctly armed performer refuses every send with "this
+     connection declares no Send Mode". Read, the .env yields each connection,
+     its Secret Reference and its 'domain/system' key, with no NORMA model errors.
 
      WHERE THE CIPHER APPLIES, since "stored through" names a moment and not a
      file. Plaintext exists at COMPILE time -- in .env and in the carriers the
@@ -2345,9 +2330,9 @@ Constraint Type 'TR' has Name 'Transitive'.
 Constraint Type 'AC' has Name 'Acyclic'.
 Constraint Type 'VC' has Name 'ValueComparison'.
 
-### Conceptual Data Types (#279)
+### Conceptual Data Types
 
-<!-- arest-audit H2 (10.2): NORMA's portable data-type catalog. Each leaf
+<!-- NORMA's portable data-type catalog. Each leaf
      Conceptual Data Type is classified into exactly one of eight Data Type
      Groups. The "is in" facts below are the single source of truth for the
      leaf codes and group membership. A value type opts into a data type
@@ -2412,7 +2397,7 @@ Conceptual Data Type 'objectId' is in Data Type Group 'other'.
 Conceptual Data Type 'unspecified' is in Data Type Group 'unspecified'.
 Conceptual Data Type 'userDefined' is in Data Type Group 'userDefined'.
 
-<!-- arest-audit H2 (10.2): JSON-Schema projection of the catalog
+<!-- JSON-Schema projection of the catalog
      (P2a). Each leaf carries one JSON Type and, for temporal / binary
      / uuid leaves, a JSON Format; these absorb jsonType / jsonFormat onto
      the Conceptual Data Type cell via RMAP, the same way
@@ -2467,7 +2452,7 @@ Conceptual Data Type 'oleObject' has JSON Format 'byte'.
 SQL/DDL projection of the catalog (P2b). NORMA maps a Conceptual
 Data Type to SQL in two stages: first to an abstract SQL type (the
 DCIL layer — a SQL-standard "predefined type" name), then to the
-vendor type per dialect (the sql-dialects connector, `apps/connectors/sql-dialects`). The
+vendor type per dialect (a shared sql-dialects connector). The
 Abstract SQL Type facts below are stage one. They absorb `abstractSqlType`
 onto the Conceptual Data Type cell via RMAP, the same way `jsonType`
 absorbs (P2a) and `conceptualDataType` absorbs onto Noun (P1). The
@@ -2518,7 +2503,7 @@ Conceptual Data Type 'objectId' has Abstract SQL Type 'INTEGER'.
 Conceptual Data Type 'unspecified' has Abstract SQL Type 'CHARACTER VARYING'.
 Conceptual Data Type 'userDefined' has Abstract SQL Type 'CHARACTER VARYING'.
 
-### Constraint Types (#747)
+### Constraint Types
 
 <!--
 Each Constraint Type code below names one alethic constraint dispatch
@@ -2596,7 +2581,7 @@ Constraint Type 'DO_obl' has Constraint Type Family 'deontic'.
 Constraint Type 'DO_sender' has Constraint Type Label 'Deontic Obligatory (sender)'.
 Constraint Type 'DO_sender' has Constraint Type Family 'deontic'.
 
-### Join Types (NORMA #279)
+### Join Types (NORMA)
 
 Join Type 'inner' has Name 'inner'.
 Join Type 'outer' has Name 'outer'.
@@ -2623,7 +2608,7 @@ HTTP Method 'OPTIONS' has Name 'OPTIONS'.
 
 ### Federations
 
-<!-- Federation auth shape instance facts (URL/Header/Prefix/Country Code/Kind) for auth.vin, auto.dev, stripe, github, resend live in apps/connectors/readings/connectors.md, which is what a consuming app composes via ../../connectors/readings. A path in a comment cannot fail a check, so check it against the tree rather than copying it. Per-app Domain Connection facts carrying Secret References live in each consuming app's gitignored .env file, as TWO sentences under the one-table wave -- the connection, then the secret on the objectification, identified <Domain>/<Federation> (support.auto.dev confirms the spelling by row count). -->
+<!-- Federation auth shape instance facts (URL/Header/Prefix/Country Code/Kind) live in the connectors library's readings, which a consuming app composes. Per-app Domain Connection facts carrying Secret References live in each consuming app's gitignored .env file, as TWO sentences -- the connection, then the secret on the objectification, identified <Domain>/<Federation>. -->
 
-<!-- organizations-domain (ruling 2): Domain 'core' has Access 'public'. -->
+<!-- In the organizations vocabulary: Domain 'core' has Access 'public'. -->
 Domain 'core' has Description 'Extracted from NORMA ORM2 model (design/html/). The canonical FORML 2 metamodel against which every user domain is a subtype binding.'.

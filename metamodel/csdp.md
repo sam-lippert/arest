@@ -2,8 +2,8 @@
 
 ## Description
 
-<!-- arest-audit H (10.2 discipline: readings files carry sentences of R
-     and comments; bare prose invites prose-as-name compile artifacts):
+<!-- (Readings files carry sentences of R and comments; bare prose
+     invites prose-as-name compile artifacts.)
      Halpin's Conceptual Schema Design Procedure (7 steps) as an
      EXECUTABLE state machine of the framework itself, not prose and not
      an app: every AREST universe of discourse carries the procedure that
@@ -25,24 +25,20 @@ set-comparison and subtype constraints (6.1), (7) other constraints
 -->
 
 <!--
-A CHANGE IS A SCHEMA DESIGN OVER A POPULATED DOMAIN (Sam, 2026-10-26): the Domain Change machine
-(evolution.md) folds in here. Its migration is step 2's restatement of the population, its approval
+A CHANGE IS A SCHEMA DESIGN OVER A POPULATED DOMAIN: the Domain Change machine
+is this one. Its migration is step 2's restatement of the population, its approval
 step 6's acceptance (Halpin 2008, sec. 1.2: the modeler abstracts to fact types once the domain expert
 agrees with the verbalization), step 7's final checks (sec. 7.5) its validity, and applying it a step of
-its own after the relational mapping (Sam, 2026-10-28: RMAP just creates the schema). A design the expert
+its own after the relational mapping, since RMAP only creates the schema. A design the expert
 does not accept goes back to step 1; there is no reject step, since a dropped proposal's rows are
-dropped (Sam, 2026-10-28). Formerly: CSDP is
-how a schema comes to BE, the Domain Change SM is how it CHANGES —
-the two halves of the self-modification machinery. First proven as
-the apps/csdp dogfood walk (the tasks app's in-progress-
-recommendation derivation traversed design → rmap end-to-end);
-now part of the framework proper.
+dropped. So CSDP is both how a schema comes to BE and how it CHANGES:
+one machine for the self-modification machinery, part of the framework proper.
 -->
 
 ## Instance Facts
 
-<!-- The file's Domain, as it was when evolution.md shared it: the Domain Change machine folded in here (Sam,
-     2026-10-26), so Domain 'evolution' is how a schema comes to be and how it changes, one machine. -->
+<!-- The file's Domain: the Domain Change machine is CSDP's, so Domain 'evolution' is how a schema
+     comes to be and how it changes, one machine. -->
 Domain 'evolution' has Description 'Self-modification as the Conceptual Schema Design Procedure: a Schema Design over a populated Domain is a change, approved at step 6 by a human User and applied after its relational mapping. Proposing a new fact type is proposing a theorem (Curry-Howard). CSDP validation is the proof check, successful ingestion is the proof.'.
 
 Object Type 'Design Note' has Format 'text'.
@@ -80,7 +76,7 @@ Schema Design has Design Note.
 
 <!-- A Schema Design proposes a DEFINITION: Function is the unification root that names every
      definition, so one open fact type carries every kind (an Object Type, a Fact Type, a Constraint,
-     a Derivation Rule, a Migration) without an enumeration to keep (from evolution.md). -->
+     a Derivation Rule, a Migration) without an enumeration to keep. -->
 Schema Design proposes Function.
   Each Schema Design, Function combination occurs at most once in the population of Schema Design proposes Function.
   It is possible that some Schema Design proposes more than one Function and that more than one Schema Design proposes the same Function.
@@ -153,8 +149,8 @@ Each Schema Design proposes some Function.
 
 It is obligatory that each Schema Design has exactly one Rationale.
 
-<!-- THE SELF-MODIFICATION GATE ("it always has to be one Human. There must be a throat to choke."),
-     moved from evolution.md with its reasons: accountability sits at the approval, not at what prompted
+<!-- THE SELF-MODIFICATION GATE: one Human is always accountable for a change, for these
+     reasons: accountability sits at the approval, not at what prompted
      the change; it is an obligation so the cardinality does not fall inside a negated scope; every Domain,
      not an enumeration; and User is a role over the mixin, so an Agent may be a User and propose a
      change, never sign it off. -->
@@ -205,8 +201,8 @@ Transition 'advance-to-step7' is defined in State Machine Definition 'CSDP'.
 Transition 'advance-to-step7' is from Status 'step6-value-subtype'.
 Transition 'advance-to-step7' is to Status 'step7-final-checks'.
 Transition 'advance-to-step7' is triggered by Event Type 'User approves Schema Design'.
-<!-- STEP 6'S ACCEPTANCE IS THE APPROVAL (Sam, 2026-10-26), affordable only for a design the staged gate
-     judged valid (the guard evolution.md's approve-change carried). -->
+<!-- STEP 6'S ACCEPTANCE IS THE APPROVAL, affordable only for a design the staged gate
+     judged valid. -->
 Guard 'valid-schema-design' guards Transition 'advance-to-step7'.
 Guard 'valid-schema-design' references Fact Type 'SchemaDesignIsValid'.
 
@@ -220,7 +216,7 @@ Transition 'complete-design' is from Status 'step7-final-checks'.
 Transition 'complete-design' is to Status 'designed'.
 Transition 'complete-design' is triggered by Event Type 'Schema Design passes final checks'.
 
-<!-- APPLYING IS ITS OWN STEP (Sam, 2026-10-28: RMAP just creates the schema): a designed schema is mapped
+<!-- APPLYING IS ITS OWN STEP, since RMAP only creates the schema: a designed schema is mapped
      (Rmap, below), and applying it re-maps the tables it touches, in the write that applies it: the
      Predicate takes the store (perform:on_store) and answers it with the Relational Schema rows of the
      touched tables re-mapped, and the emit runs the DDL their difference implies (schema:emit_ddl). -->
@@ -357,8 +353,8 @@ For each Table, that Table is primarily for some Object Type or that Table is pr
 
 If some Table belongs to some Relational Schema and that Table is primarily for some Object Type and that Object Type belongs to some Domain then that Relational Schema covers that Domain.
 If some Table belongs to some Relational Schema and that Table is primarily for some Fact Type and that Fact Type belongs to some Domain then that Relational Schema covers that Domain.
-  <!-- A schema maps only what its Domain declares or draws on: PM's schema
-       has no table for support's tickets unless both draw on the Domain that
+  <!-- A schema maps only what its Domain declares or draws on: one app's schema
+       has no table for another app's tickets unless both draw on the Domain that
        declares them. -->
 
 Table is a view.
