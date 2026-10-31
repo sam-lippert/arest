@@ -75,8 +75,8 @@ human-readability and tooling that walks the rule set as named
 records (e.g. UI surfaces, diagnostics).
 -->
 
-<!-- arest-audit G: subjects were bare quoted ids ('rule-child' has
-     Pattern …) with no entity-type name. `has Pattern` is ambiguous across
+<!-- Subjects carry an entity-type name, never bare quoted ids ('rule-child' has
+     Pattern …). `has Pattern` is ambiguous across
      Pluralization Rule, Noun, Facet, and Format — the bare form cannot
      resolve its fact type by reading alone (Def 4's fragment resolves
      declarations by keyword-delimited family; an anonymous subject leans
@@ -97,5 +97,5 @@ Pluralization Rule 'rule-z' has Pluralization Pattern 'z$'. Pluralization Rule '
 Pluralization Rule 'rule-ies' has Pluralization Pattern 'y$'. Pluralization Rule 'rule-ies' has Pluralization Replacement 'ies'.
 Pluralization Rule 'rule-default' has Pluralization Pattern '$'. Pluralization Rule 'rule-default' has Pluralization Replacement 's'.
 
-<!-- organizations-domain (ruling 2): Domain 'naming' has Access 'public'. -->
+<!-- In the organizations vocabulary: Domain 'naming' has Access 'public'. -->
 Domain 'naming' has Description 'Convention-based name projection (pluralization rules) declared as data. PluralizationRuleTable reads the parallel Pluralization Pattern / Pluralization Replacement enum values; boot mirrors the legacy cascade so behavior round-trips.'.

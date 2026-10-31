@@ -11,7 +11,7 @@ reject any `Federation has URL` whose host sits inside one of
 the listed blocks.
 -->
 
-<!-- arest-audit H (10.2 discipline): this list is data, not a
+<!-- This list is data, not a
      `forbidden_v4 = a == 127 || …` chain in
      host code,
      so operators can add or retract
@@ -133,8 +133,8 @@ Predicate 'decide:ssrf' has Symbol Name 'decide:ssrf'.
 
 ## Instance Facts
 
-<!-- arest-audit H (10.2 discipline): The eight CIDR Block entries below
-     mirror the former hardcoded IPv4/IPv6 dispatch in
+<!-- The eight CIDR Block entries below
+     mirror a hardcoded IPv4/IPv6 dispatch in
      `is_forbidden_url`. Each row's `Block Kind` documents the rationale;
      `cidr_contains` only reads the id (the CIDR string itself, now the Function id). Order
      is the same as the legacy code's branch ordering so a row-by-row audit
@@ -149,5 +149,5 @@ CIDR Block '::1/128' has Block Kind 'ipv6-loopback'.
 CIDR Block 'fe80::/10' has Block Kind 'ipv6-link-local'.
 CIDR Block 'fc00::/7' has Block Kind 'ipv6-unique-local'.
 
-<!-- organizations-domain (ruling 2): Domain 'security' has Access 'public'. -->
+<!-- In the organizations vocabulary: Domain 'security' has Access 'public'. -->
 Domain 'security' has Description 'SSRF defense vocabulary. CIDR Block entries are the data the engine reads at platform_compile time to reject Federation URLs resolving to internal/loopback/link-local hosts.'.

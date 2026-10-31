@@ -3,8 +3,8 @@
 Classification grammar + recognizer derivation rules for FORML 2.
 The parser is not a program. It is this file.
 
-Stage-1 (#285) tokenizes input into `Statement` cells with structured
-fields; Stage-2 (#280) applies the derivation rules below to populate
+Stage 1 tokenizes input into `Statement` cells with structured
+fields; Stage 2 applies the derivation rules below to populate
 downstream metamodel cells (`Object Type`, `Fact Type`, `Role`,
 `Instance Fact`, `Derivation Rule`, `Constraint`).
 
@@ -154,7 +154,7 @@ Role Reference has Head Object Type.
 Role Reference has Literal Value.
 Role Reference has Role Position.
 
-## Statement Translator Dispatch (#833)
+## Statement Translator Dispatch
 
 Per AREST.tex §3 (eq:sys) — *the entity handles the dispatch, not the
 system function.* New translators are registered into DEFS without
@@ -254,7 +254,7 @@ Statement has Classification 'Abstract Declaration' iff Statement has Trailing M
      classifier rule for the shorthand. -->
 Statement has Classification 'Enum Values Declaration' iff Statement has Predicate 'the possible values of'.
 
-<!-- #279 P1: `The data type of <ValueType> is <code>.` assigns a portable
+<!-- `The data type of <ValueType> is <code>.` assigns a portable
      Conceptual Data Type to a value type. Stage-1 recognises the leading
      phrase and overrides Predicate to 'the data type of' (mirroring the enum
      declaration's Predicate override), so this single recognizer fires. -->
