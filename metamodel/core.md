@@ -865,7 +865,13 @@ No Domain draws on itself.
        which gives acyclicity in the fragment (the state.md reaches
        pattern). A multi-segment path (a:b:c) is a walk down the tree:
        store a, then its sub-store b, then cell c. -->
-It is obligatory that each Function that is not some Object Type Instance belongs to some Domain.
+Constraint 'function-in-some-domain' has Text 'It is obligatory that each Function that is not some Object Type Instance belongs to some Domain'.
+Constraint 'function-in-some-domain' has modality of Modality Type 'Deontic'.
+Constraint 'function-in-some-domain' is of Constraint Type 'DO_pop'.
+Constraint 'function-in-some-domain' spans Role 'FunctionBelongsToDomain.1'.
+Constraint 'function-in-some-domain' is decided by Predicate 'decide:in_domain'.
+Predicate 'decide:in_domain' has Module Path 'arest'.
+Predicate 'decide:in_domain' has Symbol Name 'decide:in_domain'.
 
 Definition Origin is a value type.
   The possible values of Definition Origin are 'compiled', 'registered'.
