@@ -29,7 +29,7 @@ Violation belongs to Domain. **
   <!-- ns-2 (ns-derive-population-domains): Violation does NOT store its own
        domain — it DERIVES it from the Function it is against, so domain stays
        single-sourced on Function (core.md "Function belongs to Domain"). The
-       `*` marks this Fact Type as fully derived; the rule is under
+       `**` marks this Fact Type as fully derived and stored; the rule is under
        "## Derivation Rules" below. The prior stored binding ("Each Violation
        belongs to exactly one Domain") is removed — outcome facts inherit
        their domain via derivation, never duplication. -->
@@ -52,7 +52,7 @@ Failure belongs to Domain. **
   <!-- ns-2 (ns-derive-population-domains): Failure does NOT store its own
        domain — it DERIVES it from the Function (its operation / verb; a Verb
        is a subtype of Function) it is against, so domain stays single-sourced
-       on Function. The `*` marks this Fact Type as fully derived; the rule is
+       on Function. The `**` marks this Fact Type as fully derived and stored; the rule is
        under "## Derivation Rules" below. The prior stored binding ("Each
        Failure belongs to at most one Domain") is removed. -->
 Failure has Failure Type.
@@ -99,11 +99,6 @@ Failure succeeds Violation. *
        below becomes a plain one-clause subset NORMA holds as a real
        element. -->
 
-## Constraints
-
-Each Violation is of exactly one Constraint.
-Each Failure has exactly one Failure Type.
-
 ## Subset Constraints
 
 If some Failure follows some Violation then that Failure succeeds that Violation.
@@ -126,9 +121,9 @@ If some Violation occurs before some Transition then that Violation occurred at 
 
 * Failure succeeds Violation iff that Violation occurred at some Timestamp1 and that Failure occurred at some Timestamp2 where Timestamp1 is before Timestamp2.
 
-** Violation belongs to Domain iff Violation is against Function and that Function belongs to Domain.
+** Violation belongs to Domain iff that Violation is against some Function and that Function belongs to that Domain.
 
-** Failure belongs to Domain iff Failure is against Function and that Function belongs to Domain.
+** Failure belongs to Domain iff that Failure is against some Function and that Function belongs to that Domain.
 
 ## Instance Facts
 

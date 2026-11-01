@@ -245,17 +245,16 @@ Constraint Span 'derivation-over-storage.FactTypeHasRole.2' has Position 1.
      needs at least two arguments, and a totality constraint over a single
      subtype asserts subtype = supertype. So every supertype with exactly ONE
      subtype makes the obligation unsatisfiable except by asserting something
-     false, and there are four:
+     false, and there are three:
          Fact Type              is a subtype of Event Type   (core.md:47)
          HTTP Method            is a subtype of Predicate    (core.md:81)
          Fact                   is a subtype of Event        (instances.md:31)
-         State Machine Definition is a subtype of Status     (state.md:14)
      Not every Event Type is a Fact Type, not every Predicate is an HTTP
-     Method, not every Event is a Fact, not every Status is a State Machine
-     Definition — so the missing constraints are missing correctly.
+     Method, not every Event is a Fact — so the missing constraints are
+     missing correctly.
 
      Nor is it narrowed to "each ASSERTED subtype". THAT AXIS IS
-     WRONG: all four counterexamples are asserted, so the narrowing leaves
+     WRONG: all three counterexamples are asserted, so the narrowing leaves
      every one of them standing. The trigger is whether a partition holds, not
      how the subtype is populated.
 

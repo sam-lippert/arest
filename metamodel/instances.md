@@ -92,8 +92,8 @@ Fact is of Fact Type.
 Fact is of Function. *
   Each Fact, Function combination occurs at most once in the population of Fact is of Function.
   <!-- ns-2 (ns-derive-population-domains): the single-sourcing BRIDGE for a
-       Fact's domain. A Fact Type IS a Function (Fact Type < Object Type Instance < Noun <
-       Function; same identity, same id), so this fully-derived FT re-labels
+       Fact's domain. A Fact Type IS a Function (Fact Type < Event Type < Function;
+       same identity, same id), so this fully-derived FT re-labels
        the Fact Type a Fact is of as that same Function. It stores NO domain —
        it only re-projects the existing `Fact is of Fact Type` value under a
        `Function` role so the domain rule below can JOIN on `Function` (the
@@ -104,9 +104,9 @@ Fact belongs to Domain. **
   Each Fact belongs to at most one Domain.
   <!-- ns-2 (ns-derive-population-domains): a Fact does NOT store its own
        domain — it DERIVES it from its Fact Type, keeping domain single-sourced
-       on Function (a Fact Type is a subtype of Function via Object Type Instance < Noun <
-       Function; core.md "Function belongs to Domain"). The `*` marks this Fact
-       Type as fully derived; the rule is under "## Derivation Rules" below.
+       on Function (a Fact Type is a subtype of Function via Event Type; core.md
+       "Function belongs to Domain"). The `**` marks this Fact Type as fully
+       derived and stored; the rule is under "## Derivation Rules" below.
        Fact never stored a domain, so nothing is removed — this only adds the
        derivation so a Fact's domain is the domain of its Fact Type. -->
 Fact is completed.
@@ -146,7 +146,7 @@ Event Type publishes to Stream.
   Each Event Type publishes to at most one Stream.
   It is possible that more than one Event Type publishes to the same Stream.
 Event Type can be created by Predicate.
-  It is possible that some Event Type can be created by more than one Predicate and that some Predicate can create more than one Event Type.
+  It is possible that some Event Type can be created by more than one Predicate and that more than one Event Type can be created by the same Predicate.
   For each combination of Event Type and Predicate, that Event Type can be created by that Predicate at most once.
 
 ### Citing an Authority
@@ -286,6 +286,7 @@ State Machine is instance of Object Type.
      (a 3NF table), and subject to validate — the substrate-derived
      rule: complete the self-description, never scope it. -->
 State Machine is for Object Type Instance.
+  Each State Machine is for exactly one Object Type Instance.
   For each Object Type Instance, at most one State Machine is for that Object Type Instance.
 <!-- AND IT HAS A DERIVER. Without one this cell holds 0 rows, so no
      State Machine instance exists, so `State Machine is currently
@@ -446,8 +447,8 @@ Guard Run has Result.
      the Function-keyed `Function belongs to Domain` FT (noun-set `[Domain,
      Noun]` is not declared) nor shares its `Function` role, so no join forms.
 
-     A Noun IS a Function and a Fact Type IS a Function (Fact Type < Object Type Instance <
-     Noun < Function), with the SAME identity / id. So the fully-derived bridge
+     A Noun IS a Function and a Fact Type IS a Function (Fact Type < Event
+     Type < Function), with the SAME identity / id. So the fully-derived bridge
      FT `Fact is of Function` (declared above)
      re-label that same value under a `Function` role — a 1-antecedent
      ModusPonens with a computed-binding rename (`Function is Noun` /

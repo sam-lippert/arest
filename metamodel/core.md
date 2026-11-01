@@ -490,9 +490,9 @@ Object Type has World Assumption. +
        that can be overridden is derived OR asserted. Fully derived would
        say no author may ever state a world assumption, and an author must
        be able to — the default is a default, not a law. The same marker
-       and the same reason as `Derivation Rule introduces values` below,
-       `State Machine is currently in Status` (instances.md) and `Predicate
-       is performed during Transition` (state.md).
+       and the same reason as `State Machine is currently in Status`
+       (instances.md) and `Predicate is performed during Transition`
+       (state.md).
 
        A DEFAULT IS NOT DATA either: one row per Object Type would put a
        rule in 147 places and let them drift. The derivation is closed
@@ -708,8 +708,8 @@ API is a subtype of Function.
        through the one id space. -->
 Fact is referenced by Predicate.
   Each Fact, Predicate combination occurs at most once in the population of Fact is referenced by Predicate.
-  It is possible that some Predicate references more than one Fact.
-  It is possible that more than one Predicate references the same Fact.
+  It is possible that some Fact is referenced by more than one Predicate.
+  It is possible that more than one Fact is referenced by the same Predicate.
 <!-- Moore/Mealy action attachment lives in
      state.md, single home; the Mealy relation is semi-derived there
      (Moore folds into it on entry). -->
@@ -1130,7 +1130,7 @@ If some Guard Run is for some Guard and that Guard Run references some Fact then
      Fact" for `Fact is of Fact Type`) — parseable by charity only.
      Reworded to the declared reading directions; both now build as real
      NORMA subset constraints with join paths. -->
-If some API accepts some Object Type as parameter and some other Object Type is subtype of that Object Type then that API accepts that subtype Object Type as parameter.
+If some API accepts some Object Type1 as parameter and some Object Type2 is subtype of that Object Type1 then that API accepts that Object Type2 as parameter.
 <!-- exec-4 adjudication: the two Format subset sentences
      that stood here are retired — built as real NORMA SubsetConstraints,
      NORMA proved both redundant: "implied by a simple mandatory
@@ -1187,7 +1187,7 @@ Derivation Rule introduces values.
        definition with origin 'registered' (the Eq 5 boundary) or a
        value-constructing base operation (arithmetic, length, dynamic
        application); every other operation rearranges atoms already in
-       adom(P) or quoted in the rule. Semi-derived: asserting it from the
+       adom(P) or quoted in the rule. Deriving it from the
        body's clause shapes is an EVALUATOR-PHASE OBLIGATION (the earlier
        Rust host's compile pass is the reference behavior); an author may also assert it
        directly, and until the evaluator lands that is the only
@@ -1259,12 +1259,10 @@ Federation authenticates with Header.
        rotation limit and `Resource (.Name)` with a space: well-formed English
        the model cannot hold.
 
-       OBJECTIFIED THE WAY `Function has Header` ALREADY IS, so the value hangs
-       off the header rather than becoming a third role, and the authenticating
-       header is named separately because WHICH header carries the credential is
-       not something a caller should infer from the name. `with`, not `via`,
-       because `Customer authenticates via Cookie Name` already exists and a
-       shared predicate steals. -->
+       The authenticating header is named separately because WHICH header
+       carries the credential is not something a caller should infer from the
+       name. `with`, not `via`, because `Customer authenticates via Cookie Name`
+       already exists and a shared predicate steals. -->
 Federation has Credential Encoding.
   Each Federation has at most one Credential Encoding.
   <!-- THE CREDENTIAL AS ITS SCHEME WANTS IT. ClickHouse's HTTP
@@ -1365,7 +1363,7 @@ Function asserts Fact Type on success.
        run reports them without asserting. The may-create ceiling still decides, as it
        does for a yield. -->
 Function sends Fact Type with Role to JSON Path.
-  Each Function, Fact Type, Role combination occurs at most once.
+  Each Function, Fact Type, Role combination occurs at most once in the population of Function sends Fact Type with Role to JSON Path.
   It is possible that some Function sends more than one Fact Type.
   It is possible that more than one Function sends the same Fact Type.
   <!-- THE MIRROR OF `Function yields Fact Type with Role from JSON Path`.
@@ -1453,7 +1451,6 @@ DomainConnectsToFederation carries Secret Reference.
 
 ### Derivation Rule
 
-Derivation Rule is an entity type.
 Derivation Rule has Text.
   Each Derivation Rule has at most one Text.
 Derivation Rule is provided by Constraint.
@@ -1700,10 +1697,6 @@ Clusivity is a value type.
   The possible values of Clusivity are 'inclusive', 'exclusive'.
   The data type of Clusivity is text.
 
-Derivation Storage Type is a value type.
-  The possible values of Derivation Storage Type are 'stored', 'derived', 'derived-and-stored'.
-  The data type of Derivation Storage Type is text.
-
 Assimilation Absorption Choice is a value type.
   The possible values of Assimilation Absorption Choice are 'Absorb', 'Partition', 'Separate'.
   The data type of Assimilation Absorption Choice is text.
@@ -1716,9 +1709,6 @@ Assimilation Absorption Choice is a value type.
      enumeration and not a spelling of ours. -->
 
 ### Fact types
-
-Fact Type has Derivation Storage Type.
-  Each Fact Type has at most one Derivation Storage Type.
 
 Fact Type has Assimilation Absorption Choice.
   Each Fact Type has at most one Assimilation Absorption Choice.
@@ -2034,9 +2024,6 @@ Unit has Dimension.
 Object Type is measured in Unit.
   Each Object Type is measured in at most one Unit.
 
-Textual Constraint has Text.
-  Each Textual Constraint has exactly one Text.
-
 Object Type has Alias.
   Each Object Type, Alias combination occurs at most once in the population of Object Type has Alias.
   It is possible that more than one Object Type has the same Alias.
@@ -2176,7 +2163,7 @@ Function 'Signal Source' is superseded by Function 'Signal is raised by Object T
      `Fact Type has Reading`, `Reading has Text`, `Reading is used by
      Predicate` and `Role is used in Reading` are its fact types, so a
      second reading is an INSTANCE of them, written the way this file writes
-     every other instance. `For each Reading, exactly one Fact Type has that
+     every other instance. `For each Reading, at most one Fact Type has that
      Reading` still holds -- each reading names one fact type -- and `It is
      possible that some Fact Type has more than one Reading` (:1999) is
      exercised here for the first time in this model.
@@ -2457,8 +2444,7 @@ arm in `compile.rs`. The Family groups codes that share an evaluation
 shape (ring, set-comparison, subset/equality, value, frequency,
 uniqueness, mandatory) so tooling — OpenAPI, docs, MCP introspection —
 can enumerate the inventory from declared facts instead of reading the
-Rust match. AT and ANS share the antisymmetric ring kernel; ANS is
-preserved as a separate kind so the alias surfaces as a fact.
+Rust match.
 -->
 
 Constraint Type 'IR' has Constraint Type Label 'Irreflexive Ring'.

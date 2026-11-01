@@ -73,7 +73,7 @@ JS Package has Readings Directory.
 ### Predicate
 Predicate is exported from JS Package.
   Each Predicate is exported from at most one JS Package.
-  It is possible that some JS Package exports more than one Predicate.
+  It is possible that more than one Predicate is exported from the same JS Package.
 
 Predicate has Module Path.
   Each Predicate has at most one Module Path.
@@ -103,6 +103,7 @@ Predicate is bound. *
      deliberately absent: a package that depended on itself is a modelling error
      for a law to report, not a shape the closure may not hold. -->
 * JS Package1 reaches JS Package2 iff JS Package1 depends on JS Package2.
+* JS Package1 reaches JS Package3 iff JS Package1 depends on JS Package2 and JS Package2 reaches JS Package3.
 If JS Package1 reaches JS Package2 and JS Package2 reaches JS Package3 then JS Package1 reaches JS Package3.
 
 * Predicate is bound iff Predicate has some Module Path and Predicate has some Symbol Name.

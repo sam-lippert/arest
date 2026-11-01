@@ -213,12 +213,12 @@ Transition 'complete-design' is triggered by Event Type 'Schema Design passes fi
      (Rmap, below), and applying it re-maps the tables it touches, in the write that applies it: the
      Predicate takes the store (perform:on_store) and answers it with the Relational Schema rows of the
      touched tables re-mapped, and the emit runs the DDL their difference implies (schema:emit_ddl). -->
-Transition 'apply' is defined in State Machine Definition 'CSDP'.
-Transition 'apply' is from Status 'designed'.
-Transition 'apply' is to Status 'applied'.
-Transition 'apply' is triggered by Event Type 'Schema Design is applied'.
+Transition 'apply-design' is defined in State Machine Definition 'CSDP'.
+Transition 'apply-design' is from Status 'designed'.
+Transition 'apply-design' is to Status 'applied'.
+Transition 'apply-design' is triggered by Event Type 'Schema Design is applied'.
 
-Predicate 'remap touched tables' is performed during Transition 'apply'.
+Predicate 'remap touched tables' is performed during Transition 'apply-design'.
 Predicate 'remap touched tables' has Module Path 'arest'.
 Predicate 'remap touched tables' has Symbol Name 'schema:dc_remap'.
 
