@@ -141,6 +141,7 @@ Function sends Fact Type with Role to Query Parameter.
      store holds none, since a body can carry what the read never declared to take: an auth service
      may answer an admin's read with every user's live API key. -->
 Response is an entity type.
+Response is a subtype of Object Type Instance.
 
 HTTP Status Code is a value type.
 

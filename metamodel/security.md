@@ -95,7 +95,8 @@ User is authenticated.
      permissions work via canonical FORML, and access
      is only ever these facts.
      Access Role, not Role: Role is the ORM role (core.md). -->
-Access Role(.Name) is an entity type.
+Access Role is an entity type.
+Access Role is a subtype of Object Type Instance.
 
 User has Access Role.
   Each User, Access Role combination occurs at most once in the population of User has Access Role.
