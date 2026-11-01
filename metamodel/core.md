@@ -1286,32 +1286,47 @@ Function reaches its subject through Fact Type.
        ABSENT MEANS THE ENTITY ITSELF, which is what every Function without a
        federated subject wants, and is why this is optional rather than one more
        mandatory that nothing can satisfy. -->
+JSON Path is a value type.
 Function yields Fact Type with Role from JSON Path.
   Each Function, Fact Type, Role combination occurs at most once in the population of Function yields Fact Type with Role from JSON Path.
   It is possible that some Function yields more than one Fact Type.
   It is possible that more than one Function yields the same Fact Type.
-  <!-- THE RESPONSE HAD NOWHERE TO LAND. `Webhook Event Type yields Fact Type
-       with Role from JSON Path` (ingest.md:49) covers a payload that ARRIVES
-       unbidden; `Function sends ... to JSON Path` above covers the body that
-       LEAVES. Neither covers the answer to a call the app itself made, which
-       is where a send receipt comes back -- so a performed predicate could
-       state its whole request from facts and had no declared way to record
-       what it got. `Function yields Type Expression` (core.md:793) is the
+  <!-- ONE DECLARATION FOR EVERY ANSWER THAT LANDS. A payload that ARRIVES
+       unbidden (a webhook, whose kind is the Function), the rows a federated
+       read answers (federation.md), and the answer to a call the app itself
+       made, where a send receipt comes back, are each a Function's answer, and
+       this says where in it each role's value is found. `Function sends ... to
+       JSON Path` below covers the body that LEAVES. `Function yields Type Expression` (core.md:793) is the
        signature's return type, not a projection, and was the near-miss that
        made this look already modelled.
 
-       ONE ROLE PER ROW, AND THE OTHER ROLES ARE NOT THIS FACT TYPE'S JOB.
-       Inbound, ingest.md:58 obliges every Role of the yielded Fact Type to
-       appear in the payload, because a webhook is all there is. A response is
-       not: the call was made ABOUT something, so the entity role is already
-       bound by `main:performed`'s row and only the values the service
-       returned come from the body. Mirroring that obligation would demand a
-       JSON Path for a role the request already knows.
+       ONE ROLE PER ROW, AND THE OTHER ROLES ARE NOT ALWAYS THIS FACT TYPE'S
+       JOB. A Function that no machine performs is all there is: its payload
+       arrives on its own, so every Role of the Fact Type it yields must be
+       found in it ('yield-covers-roles' below). A performed call is not: it
+       was made ABOUT something, so the entity role is already bound by
+       `main:performed`'s row and only the values the service returned come
+       from the body, and the obligation is scoped to the Functions performed
+       in no Status and during no Transition.
 
        AND IT MAY NOT MINT. What a performed predicate is permitted to assert
        is `Event Type can be created by Predicate`, the may-create ceiling,
        which is the Thm 1 boundary. This says WHERE a value is found in the
        answer; it never widens WHAT may be written. -->
+<!-- Decided by a function. A sentence quantifying over every Role of a Fact
+     Type builds no constraint, so decide:yield_coverage answers each Function
+     performed in no Status and during no Transition that yields a Fact Type
+     without mapping every Role of it. The coverage is per Function, because
+     each role is filled from that Function's own answer. -->
+Constraint 'yield-covers-roles' has Text 'It is obligatory that each Function that yields some Fact Type and is performed in no Status and during no Transition maps every role of that Fact Type from some JSON path'.
+Constraint 'yield-covers-roles' has modality of Modality Type 'Deontic'.
+Constraint 'yield-covers-roles' is of Constraint Type 'DO_pop'.
+Constraint 'yield-covers-roles' spans Role 'FunctionYieldsFactTypeWithRoleFromJSONPath.1'.
+Constraint Span 'yield-covers-roles.FunctionYieldsFactTypeWithRoleFromJSONPath.1' has Sequence Number 1.
+Constraint Span 'yield-covers-roles.FunctionYieldsFactTypeWithRoleFromJSONPath.1' has Position 1.
+Constraint 'yield-covers-roles' is decided by Predicate 'decide:yield_coverage'.
+Predicate 'decide:yield_coverage' has Module Path 'arest'.
+Predicate 'decide:yield_coverage' has Symbol Name 'decide:yield_coverage'.
 Function asserts Fact Type on success.
   Each Function, Fact Type combination occurs at most once in the population of Function asserts Fact Type on success.
   <!-- WHAT A SUCCESSFUL CALL KNOWS AND DOES NOT RETURN. A yield
@@ -1330,15 +1345,14 @@ Function sends Fact Type with Role to JSON Path.
   Each Function, Fact Type, Role combination occurs at most once.
   It is possible that some Function sends more than one Fact Type.
   It is possible that more than one Function sends the same Fact Type.
-  <!-- THE MIRROR OF ingest.md:49, WHICH HAD NO MIRROR. `Webhook Event Type
-       yields Fact Type with Role from JSON Path` says how an arriving payload
-       becomes facts; nothing said how facts become a LEAVING one, so a request
+  <!-- THE MIRROR OF `Function yields Fact Type with Role from JSON Path`.
+       That says how an arriving payload becomes facts; nothing said how facts become a LEAVING one, so a request
        body could not be assembled from the model at all and every outbound call
        had to carry its shape in host code.
 
        THE OBLIGATION IS NOT MIRRORED, deliberately. Inbound, every Role of a
        yielded Fact Type must be fillable or the fact cannot be built, and
-       ingest.md makes that obligatory. Outbound the opposite is normal: a call
+       'yield-covers-roles' makes that obligatory. Outbound the opposite is normal: a call
        sends ONE role of a fact type and leaves the rest -- `to` is filled from
        the Email Address role of Request has Email Address and the
        Request role is the subject being sent, not a field. Copying the
