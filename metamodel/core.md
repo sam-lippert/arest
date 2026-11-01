@@ -56,8 +56,8 @@ Function(.id) is an entity type.
        Def 9 definition's name IS its identity, one id space in D.
        An Object Type Instance is identified by its id, and no
        further fact restates that id. Natural keys survive as data where they
-       carry information beyond identity (User has Email, a 1:1 secondary
-       reference). -->
+       carry information beyond identity (User has Email, an optional 1:1
+       secondary reference). -->
 Object Type is a subtype of Function.
   Entity Type is a subtype of Object Type.
   Value Type is a subtype of Object Type.

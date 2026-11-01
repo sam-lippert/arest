@@ -244,11 +244,13 @@ RoleInstance uses Object Type Instance.
 
 ### User
 User has Email.
-  Each User has exactly one Email.
+  Each User has at most one Email.
   For each Email, at most one User has that Email.
   <!-- Not User(.Email): an email is
        mutable data, not identity; identification inherits Function(.id)
-       and the email survives as a mandatory 1:1 secondary reference. -->
+       and the email survives as an optional 1:1 secondary reference. A User
+       is a role an agent or an organization may play, and not every one has
+       a mailbox. -->
 
 User is human.
   <!-- Human is an attribute of a user.
