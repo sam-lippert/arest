@@ -29,8 +29,7 @@
      ORM-canonical — echoes of Halpin's metamodel (Fig 13.29) and NORMA's
      ORM2Core: Object Type, Object Kind, Entity Type, Value Type, Fact Type,
      Predicate, Reading, Role, Constraint, Constraint Type, Derivation
-     Rule, Reference Mode, Join Path/Join/Role Sequence/Role Projection,
-     Value Range/Bound/Facet, Unit/Dimension, Conceptual Data Type/Data
+     Rule, Reference Mode, Value Range/Bound/Facet, Unit/Dimension, Conceptual Data Type/Data
      Type Group. AREST-extension: Function (the FFP root and DEFS cell),
      Object Type Instance, Event Type as Fact Type supertype, Definition Origin, Type
      Expression, Domain, Migration, Language/Format, Federation,
@@ -153,7 +152,18 @@ Predicate is a subtype of Object Type Instance.
 
 Constraint is an entity type.
   Constraint is a subtype of Function.
-* Each Set Comparison Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'set-comparison'.
+* Each Set Comparison Constraint is a Constraint that is of Constraint Type 'SS'.
+* Each Set Comparison Constraint is a Constraint that is of Constraint Type 'XC'.
+* Each Set Comparison Constraint is a Constraint that is of Constraint Type 'EQ'.
+<!-- A SET COMPARISON CONSTRAINT IS A SUBSET, AN EXCLUSION OR AN EQUALITY
+     (Halpin ch. 6; NORMA SetComparisonConstraint: Subset, Equality,
+     Exclusion), over role sequences of one Argument Length. An inclusive-or
+     (OR) is a disjunctive mandatory (NORMA MandatoryConstraint over several
+     roles), and an exclusive-or (XO) is an exclusion and a disjunctive
+     mandatory over the same roles (NORMA ExclusiveOrConstraintCoupler), so
+     neither is a set comparison. The subtype is read off the Constraint Type
+     itself, because a Constraint Type Family names the family a violation is
+     reported under (main:vz_tpl), and XC shares its family with XO and OR. -->
 * Each Frequency Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'frequency'.
 * Each Cardinality Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'cardinality'.
 * Each Ring Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'ring'.
@@ -662,10 +672,10 @@ Constraint Span has Position.
        looked like all along: one bit (does this constraint materialize)
        that `Constraint has Derivation Mode` could carry instead.
 
-       NORMA models this as Role Sequence with Position (1154); that entity
-       exists here but belongs to the derivation-condition decomposition and is
-       never linked to Constraint. Numbering the span directly matches the
-       flattened 1.1/1.2 form and needs no new wiring. -->
+       NORMA models this as a Role Sequence with Position. Numbering the span
+       directly is Halpin's form: a Constraint spans a Role in a Position of a
+       sequence, the Sequence Number being the argument, flattened as
+       1.1/1.2. -->
   <!-- objectification legal per Halpin, "Objectification and Atomicity"
        (2020-04-28): the UC above spans both roles. Identity is
        through the one id space (the subtype), and the
@@ -1275,13 +1285,11 @@ Function reaches its subject through Fact Type.
        say which step, perform:body_val could read the entity or the function
        and neither of those is the subject.
 
-       A NARROW SPECIAL CASE OF A JOIN PATH, LIMITED TO ONE STEP ON PURPOSE. Join
-       Path, Join and Role Sequence already model an arbitrary path and are
-       populated by nothing, anywhere. A multi-step subject belongs there when
-       something finally reads them. One functional step covers every caller that
-       exists, is decided by the uniqueness constraint on the named fact type
-       rather than by a search, and does not raise a second general mechanism
-       beside the one already declared.
+       A NARROW SPECIAL CASE OF A ROLE PATH, LIMITED TO ONE STEP ON PURPOSE. A
+       multi-step subject is a role path, which a derivation rule states and the
+       rule reader reads. One functional step covers every caller that exists,
+       and is decided by the uniqueness constraint on the named fact type
+       rather than by a search.
 
        ABSENT MEANS THE ENTITY ITSELF, which is what every Function without a
        federated subject wants, and is why this is optional rather than one more
@@ -1442,20 +1450,10 @@ Derivation Rule is provided by Constraint.
        constraint's role sequences. Optional both ways: most rules are
        authored, most constraints only restrict.
 
-       Considered and rejected: replacing this with `Constraint
-       has Derivation Mode`, on the reasoning that the link stores only one
-       real bit (whether this constraint materializes) and everything else
-       recomputes. The reasoning holds; the replacement does not, because
-       the recomputation is not expressible. That design names an
-       "antecedent sequence" and a "consequent sequence", but the metamodel
-       has only `Constraint spans Role` (543) and `Fact Type has Role`
-       (529) — nothing distinguishes which of a constraint's spanned roles
-       are antecedent and which consequent, and Role Sequence (1126)
-       belongs to the derivation-condition decomposition and is never linked to
-       Constraint. So a rule reached only from its constraint cannot find
-       its own derived fact type. Retiring this link needs
-       `Constraint has antecedent Role Sequence` / `... consequent ...`
-       declared first; that is the real gap, and it is why the link exists. -->
+       The link stores one real bit, whether this constraint materializes,
+       and the rest is the constraint's own sequences: its spans carry their
+       Sequence Number, so the antecedent is the spans at sequence 1 and the
+       consequent the spans at 2 (Constraint Span). -->
 Derivation Rule has antecedent Fact Type.
   Each Derivation Rule, Fact Type combination occurs at most once in the population of Derivation Rule has antecedent Fact Type.
 Derivation Rule produces Fact Type.
@@ -1671,37 +1669,13 @@ Constraint 'constraint-roles-filled' is decided by Predicate 'decide:unfilled_ro
 Predicate 'decide:unfilled_roles' has Module Path 'arest'.
 Predicate 'decide:unfilled_roles' has Symbol Name 'decide:unfilled_roles'.
 
-## NORMA Structural Decomposition
+## Derivation Storage and Absorption
 
-<!--
-The concepts below mirror NORMA's `ORMCoreMetaModel.orm`
-decomposition of derivation rule bodies. They are the FORML 2
-surface that the meta-circular parser populates by
-decomposing each user-authored rule into a `Join Path` +
-`Role Sequence` + `Role Projection`, rather than classifying the
-rule text with Rust heuristics.
--->
-
-<!--
-Backus §11.2.4 / Def 7 correspondence:
-  Join Path       ↔ Composition (COMP)
-  Role Sequence   ↔ Construction (CONS)
-  Role Projection ↔ Selector
-  Join Type       ↔ Condition (COND)
--->
-
-### Entity types
-
-Join Path is an entity type.
-Join Path is a subtype of Function.
-Join is an entity type.
-Join is a subtype of Function.
-Role Sequence is an entity type.
-Role Sequence is a subtype of Function.
-Role Projection is an entity type.
-Role Projection is a subtype of Function.
-Join Type is an entity type.
-Join Type is a subtype of Object Type Instance.
+<!-- A derivation rule's body is not decomposed into facts here. The rule
+     reader reads a rule's text as a role path over declared fact types
+     (AREST.tex def:fragment), and the path it reads is the recipe the
+     compile stores (state:rpaths); a step, a root or a branch may be
+     negated in the text, and the reader carries it. -->
 
 ### Value types
 
@@ -1725,47 +1699,6 @@ Assimilation Absorption Choice is a value type.
      enumeration and not a spelling of ours. -->
 
 ### Fact types
-
-Derivation Rule has Join Path.
-  Each Derivation Rule has at most one Join Path.
-
-Join Path has Join.
-  Each Join Path has some Join.
-  For each Join, exactly one Join Path has that Join.
-
-Join uses Fact Type.
-  Each Join uses exactly one Fact Type.
-
-Join has Join Type.
-  Each Join has exactly one Join Type.
-
-Join has Role Sequence.
-  Each Join, Role Sequence combination occurs at most once in the population of Join has Role Sequence.
-  Each Join has some Role Sequence.
-
-Role Sequence has Position.
-  Each Role Sequence, Position combination occurs at most once in the population of Role Sequence has Position.
-RoleSequenceHasPosition objectifies "Role Sequence has Position".
-RoleSequenceHasPosition is a subtype of Function.
-RoleSequenceHasPosition holds Role.
-  Each RoleSequenceHasPosition holds at most one Role.
-  <!-- Halpin's nesting transformation of
-       `Role Sequence has Role at Position` (compound key
-       RoleSequence+Position): the slot pair objectifies, the role it holds
-       rides functionally, and the compound-key ternary leaves the schema. -->
-
-Role Projection is from Role Sequence.
-  Each Role Projection is from exactly one Role Sequence.
-
-Role Projection produces Role.
-  Each Role Projection produces exactly one Role.
-
-Derivation Rule has Role Projection.
-  Each Derivation Rule, Role Projection combination occurs at most once in the population of Derivation Rule has Role Projection.
-  <!-- A derivation is a constraint in its completing mode, so Derivation Rule is a constraint type and
-       redeclaring its role relations by hand is wrong: a constraint's spans already say which roles it reads
-       and which it fills (Constraint Span has Sequence Number and Position). No mandatory makes a Derivation
-       Rule restate its roles here, and the relation goes once Derivation Rule is a Constraint Type. -->
 
 Fact Type has Derivation Storage Type.
   Each Fact Type has at most one Derivation Storage Type.
@@ -1810,19 +1743,12 @@ with none. NORMA carries both, and the paper names both.
     The paper names the same three: negation is admitted "inside derivation
     role paths, where a step, a root, or a branch may be negated."
 
-    Negation is ORTHOGONAL to join flavour — NORMA has no 'anti' join kind.
-    That is why `Join Type 'anti'` is retired (see Join Types under Instance
-    Facts): an anti-join is how a negated step EVALUATES, not what it is
-    ("a negated role path ... evaluates as a finite anti-join against a
-    completed lower stratum"). Carrying both gave two ways to say "negated
-    step" and made negation exclusive with inner/outer, which it is not.
-    The step flag sits on `Join` because that is where `Join Type` sat, so
-    the granularity is unchanged — only the axis is.
-
-    BRANCH NEGATION IS NOT MODELLED. SplitIsNegated negates a tail split,
-    and this decomposition has no split: `Join Path has Join` is a flat list
-    with no branch structure. The gap is structural and pre-dates negation —
-    a split entity has to come first — so it is recorded rather than faked.
+    Negation is ORTHOGONAL to join flavour: NORMA has no 'anti' join kind,
+    and an anti-join is how a negated step EVALUATES, not what it is ("a
+    negated role path ... evaluates as a finite anti-join against a
+    completed lower stratum"). The role path is the rule's text as the rule
+    reader reads it, so a negated root, step or branch is carried there and
+    not as a flag on a fact of the schema.
 
 (2) EXPLICIT NEGATION — epistemic falsity, never inferred from absence:
     "An epistemic falsity, verbalized 'it is known to be false that,' enters
@@ -1852,10 +1778,6 @@ false that" / "it is not known to be false that") is a third thing again,
 and it is already modelled: validation.md's Constraint Invertibility carries
 NORMA's positive/negative form pairing.
 -->
-
-Join Path is negated.
-
-Join is negated.
 
 Explicit Negation Fact Type is a subtype of Fact Type.
 
@@ -2589,20 +2511,6 @@ Constraint Type 'DO_obl' has Constraint Type Label 'Deontic Obligatory'.
 Constraint Type 'DO_obl' has Constraint Type Family 'deontic'.
 Constraint Type 'DO_sender' has Constraint Type Label 'Deontic Obligatory (sender)'.
 Constraint Type 'DO_sender' has Constraint Type Family 'deontic'.
-
-### Join Types (NORMA)
-
-Join Type 'inner' has Name 'inner'.
-Join Type 'outer' has Name 'outer'.
-Join Type 'left-outer' has Name 'left-outer'.
-Join Type 'right-outer' has Name 'right-outer'.
-<!-- 'anti' retired with the Negation section above. NORMA has no 'anti'
-     join kind: negation is an orthogonal boolean on the path (IsNegated),
-     and the anti-join is how a negated step EVALUATES. Fused into this
-     enum it made negation exclusive with inner/outer and gave a second way
-     to say what `Join is negated` says. No derivation read this value —
-     the machinery is system:compile_rule_neg, which builds the anti-join
-     from the negation, not from a join kind. -->
 
 
 ### HTTP Methods
