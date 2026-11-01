@@ -1280,175 +1280,28 @@ thread_local! {
 }
 
 // ============================ the store boot =================================
-// A STORE IS NOT THE FILE IT WAS READ FROM (cs-runner/Boot.cs, ported here). The
-// carriers give lambda plus the composed populations; the STORE js and the C#
-// host answer over is three steps further on -- FILE is a projection of
-// state:fts, the reflected meta-types are computed from the schema, and the
-// derived populations are the closure under the program's own rules. Skipping
-// them is the whole of "the law golden is js-only": the hosts were not
-// disagreeing about an answer, they were answering over different stores, and
-// origin-boundary-match / store-closed / unreachable-set / nothing-owed /
-// writable / file-is-projection are the family that reads exactly that state.
-//
-// Every step is the same lambda call the js and C# hosts make, in the same order
-// and under the same memo rule: CELLS is mutated, so the memo and the identity
-// indexes are cleared at each mutation point, because ev keys on the store's
-// identity and a store whose contents changed under the same reference would
-// keep answering from the old one. Order is not free: FILE is what the
-// population accessor reads, so it is first; a reflected population is an input
-// a rule may read, so it precedes the closure; the journal is folded last
-// because its entries change state:fts, whose projection FILE must then rebuild.
-
-// a fresh snapshot of the cell store, the operand every boot step evaluates over
-fn store_cells() -> V { CELLS.with(|c| q(c.borrow().clone())) }
-
-// CELLS was mutated: drop the memo and every identity index, exactly as js
-// memoClear does, so the next evaluation reindexes the new store.
-fn memo_clear_all() {
-    EVMEMO.with(|m| m.borrow_mut().clear());
-    EVMEMON.with(|n| *n.borrow_mut() = 0);
-    ENTIDX.with(|m| m.borrow_mut().clear());
-    ENTDESC.with(|m| m.borrow_mut().clear());
-    MATCHIDX.with(|m| m.borrow_mut().clear());
-    MATCHATIDX.with(|m| m.borrow_mut().clear());
-    FETCHIDX.with(|m| m.borrow_mut().clear());
-    SOLVEIDX.with(|m| m.borrow_mut().clear());
-    SLOTIDX.with(|m| m.borrow_mut().clear());
-    SLOTFOR.with(|m| m.borrow_mut().clear());
-    MEMBIDX.with(|m| m.borrow_mut().clear());
-    JOINIDX.with(|m| m.borrow_mut().clear());
-    PAIRIDX_X.with(|m| m.borrow_mut().clear());
-    PAIRIDX_ROWS.with(|m| m.borrow_mut().clear());
+// THE BOOT IS LAMBDA'S. The host loads lambda and the carriers into CELLS and
+// hands them to lambda's main, which boots the store itself (main:boot) as the
+// Java host's Program and CasesTest do; a host carries no boot sequence of its
+// own. The cells are handed as one value, so the memo keeps main:boot's answer
+// for every call made over them.
+thread_local! {
+    static CELLSV: std::cell::RefCell<Option<V>> = const { std::cell::RefCell::new(None) };
 }
 
-fn is_cell_named(cell: &V, name: &V) -> bool {
-    matches!(cell, V::Q(a) if a.len() >= 2
-        && matches!(&a[0], V::S(s) if &**s == "CELL") && deep_eq(&a[1], name))
-}
-fn is_journal_cell(cell: &V) -> bool {
-    matches!(cell, V::Q(a) if a.len() >= 2
-        && matches!(&a[1], V::S(s) if s.starts_with("journal:")))
-}
-
-// FILE is a projection of state:fts, and the accessor reads it, so it is built
-// first. Prepend each built cell (js unshift / C# Insert(0), which reverses).
-fn load_file() {
-    let cells = store_cells();
-    if !deep_eq(&ev(&a("ast:fetch"), &q(vec![a("FILE"), cells.clone()])), &a("#")) { return; }
-    let built = ev(&a("ast:File"), &ev(&a("store:state"), &cells));
-    let bs = seq(&built);
-    if bs.is_empty() { return; }
-    CELLS.with(|c| {
-        let mut cc = c.borrow_mut();
-        let mut nv: Vec<V> = bs.iter().rev().cloned().collect();
-        nv.extend(cc.drain(..));
-        *cc = nv;
-    });
-    memo_clear_all();
+fn store_cells() -> V {
+    CELLSV.with(|v| {
+        let mut b = v.borrow_mut();
+        if b.is_none() { *b = Some(CELLS.with(|c| q(c.borrow().clone()))); }
+        b.as_ref().unwrap().clone()
+    })
 }
 
-// lambda says WHICH meta-types are reflected: reflect:cells answers
-// <name, population> pairs computed from the schema. Prepend each new one.
-fn load_reflected() {
-    let cells = store_cells();
-    let entries = ev(&a("reflect:cells"), &cells);
-    let mut added = false;
-    for entry in seq(&entries).iter() {
-        let e = seq(entry);
-        let name = &e[0];
-        let pop = &e[1];
-        if !matches!(pop, V::Q(p) if !p.is_empty()) { continue; }
-        if CELLS.with(|c| c.borrow().iter().any(|cell| is_cell_named(cell, name))) { continue; }
-        CELLS.with(|c| c.borrow_mut().insert(0, q(vec![a("CELL"), name.clone(), pop.clone()])));
-        added = true;
-    }
-    if added { memo_clear_all(); }
-}
-
-// THE STORE IS CLOSED UNDER ITS OWN RULES. derive:closed is the closure; carry a
-// head only when it holds MORE rows than already present (a semi-derived head
-// may carry an asserted prefix), never when empty, never over its own cell.
-fn load_derived() -> bool {
-    let cells = store_cells();
-    let mut carried: HashMap<String, usize> = HashMap::new();
-    for p in seq(&ev(&a("derive:store_pairs"), &cells)).iter() {
-        let pa = seq(p);
-        let n = if let V::Q(rows) = &pa[1] { rows.len() } else { 0 };
-        carried.insert(key(&pa[0]), n);
-    }
-    let mut seen: HashSet<String> = HashSet::new();
-    CELLS.with(|c| for cell in c.borrow().iter() {
-        if let V::Q(a2) = cell {
-            if a2.len() >= 2 && matches!(&a2[0], V::S(s) if &**s == "CELL") { seen.insert(key(&a2[1])); }
-        }
-    });
-    let closed = ev(&a("derive:closed"), &cells);
-    let mut to_add: Vec<V> = Vec::new();
-    for entry in seq(&closed).iter() {
-        let e = seq(entry);
-        let nk = key(&e[0]);
-        if seen.contains(&nk) { continue; }
-        let rows_len = if let V::Q(rows) = &e[1] { rows.len() } else { 0 };
-        if *carried.get(&nk).unwrap_or(&0) >= rows_len { continue; }
-        if rows_len == 0 { continue; }
-        to_add.push(q(vec![a("CELL"), e[0].clone(), e[1].clone()]));
-    }
-    if to_add.is_empty() { return false; }
-    CELLS.with(|c| {
-        let mut cc = c.borrow_mut();
-        for cell in to_add.iter() { cc.insert(0, cell.clone()); }
-    });
-    memo_clear_all();
-    true
-}
-
-// ui:replay folds the journal:<n> cells on their verbs and answers the store
-// they produce; lambda returns the SAME operand when nothing folds. Returns
-// whether there were journal entries at all (the count, not the cell delta).
-fn load_journal() -> bool {
-    let before = store_cells();
-    let out = ev(&a("ui:replay"), &before);
-    if let (V::Q(o), V::Q(b)) = (&out, &before) { if Rc::ptr_eq(o, b) { return false; } }
-    let outv = match &out { V::Q(o) if !o.is_empty() => o.clone(), _ => return false };
-    let n = CELLS.with(|c| c.borrow().iter().filter(|cell| is_journal_cell(cell)).count());
-    CELLS.with(|c| *c.borrow_mut() = outv.iter().cloned().collect());
-    memo_clear_all();
-    n > 0
-}
-
-// a new store replaces the old wholesale (main:refile after a journal fold).
-fn adopt_store(next: &V) {
-    if let V::Q(arr) = next {
-        if arr.is_empty() { return; }
-        CELLS.with(|c| *c.borrow_mut() = arr.iter().cloned().collect());
-        memo_clear_all();
-    }
-}
-
-// The boot, mirroring Boot.cs / js boot() for the lambda+carriers path (no
-// store-db). A store with no schema surface has no FILE to build, nothing to
-// reflect and no rules to close under, and asking anyway throws -- so it is left
-// as the carriers gave it.
-fn build_store() {
-    if deep_eq(&ev(&a("ast:fetch"), &q(vec![a("state:fts"), store_cells()])), &a("#")) { return; }
-    load_file();
-    load_reflected();
-    load_derived();
-    if load_journal() {
-        adopt_store(&ev(&a("main:refile"), &store_cells()));
-        load_derived();
-    }
-}
-
-/// Load lambda and the carriers, once per thread. Every entry below calls it so
-/// a caller cannot forget, and the flag is why: DEF registration order is the
-/// contract, and loading twice would double CELLS rather than fail loudly.
 pub fn boot() {
     BOOTED.with(|b| {
         if !b.get() {
             load_lambda();
             load_carriers();
-            build_store();
             b.set(true);
         }
     });
@@ -1457,7 +1310,7 @@ pub fn boot() {
 /// Ask lambda `main` an address -- the CLI contract, verbatim: <text, ok>.
 pub fn ask(argv: &[&str]) -> (String, bool) {
     boot();
-    let cells = CELLS.with(|c| q(c.borrow().clone()));
+    let cells = store_cells();
     let addr = q(argv.iter().map(|s| a(s)).collect());
     let out = ev(&a("main"), &q(vec![cells, addr]));
     let o = seq(&out);
@@ -1471,7 +1324,7 @@ pub fn ask(argv: &[&str]) -> (String, bool) {
 /// a host that formats has started to mean something.
 pub fn api(method: &str, resource: &str, caller: &str, fact: &[&str]) -> String {
     boot();
-    let cells = CELLS.with(|c| q(c.borrow().clone()));
+    let cells = store_cells();
     let f = q(fact.iter().map(|s| a(s)).collect());
     let out = ev(
         &a("main:api"),
@@ -1637,7 +1490,7 @@ mod host_tests {
     // here or the deliberate refusals read as broken tests.
     fn answer(name: &str) -> String {
         let got = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let cells = CELLS.with(|c| q(c.borrow().clone()));
+            let cells = store_cells();
             let argv = q(vec![a("case"), astr(name.to_string())]);
             let out = ev(&a("main"), &q(vec![cells, argv]));
             join_text(&seq(&out)[0])
@@ -1688,7 +1541,7 @@ mod host_tests {
     fn law_report_holds() {
         with_stack(|| {
             boot();
-            let cells = CELLS.with(|c| q(c.borrow().clone()));
+            let cells = store_cells();
             let out = ev(&a("main"), &q(vec![cells, q(vec![])]));
             let got = join_text(&seq(&out)[0]);
             let off: Vec<&str> = got.trim_end().lines()
