@@ -829,6 +829,8 @@ Constraint 'function-declared-in-one-domain' has Text 'It is obligatory that eac
 Constraint 'function-declared-in-one-domain' has modality of Modality Type 'Deontic'.
 Constraint 'function-declared-in-one-domain' is of Constraint Type 'DO_pop'.
 Constraint 'function-declared-in-one-domain' spans Role 'FunctionIsDeclaredInDomain.1'.
+Constraint Span 'function-declared-in-one-domain.FunctionIsDeclaredInDomain.1' has Sequence Number 1.
+Constraint Span 'function-declared-in-one-domain.FunctionIsDeclaredInDomain.1' has Position 1.
 Constraint 'function-declared-in-one-domain' is decided by Predicate 'decide:declared_once'.
 Predicate 'decide:declared_once' has Module Path 'arest'.
 Predicate 'decide:declared_once' has Symbol Name 'decide:declared_once'.
@@ -870,6 +872,8 @@ Constraint 'function-in-some-domain' has Text 'It is obligatory that each Functi
 Constraint 'function-in-some-domain' has modality of Modality Type 'Deontic'.
 Constraint 'function-in-some-domain' is of Constraint Type 'DO_pop'.
 Constraint 'function-in-some-domain' spans Role 'FunctionBelongsToDomain.1'.
+Constraint Span 'function-in-some-domain.FunctionBelongsToDomain.1' has Sequence Number 1.
+Constraint Span 'function-in-some-domain.FunctionBelongsToDomain.1' has Position 1.
 Constraint 'function-in-some-domain' is decided by Predicate 'decide:in_domain'.
 Predicate 'decide:in_domain' has Module Path 'arest'.
 Predicate 'decide:in_domain' has Symbol Name 'decide:in_domain'.
@@ -1111,6 +1115,8 @@ Constraint 'role-instance-typed' has Text 'It is obligatory that each object typ
 Constraint 'role-instance-typed' has modality of Modality Type 'Deontic'.
 Constraint 'role-instance-typed' is of Constraint Type 'DO_pop'.
 Constraint 'role-instance-typed' spans Role 'RoleInstanceUsesObjectTypeInstance.1'.
+Constraint Span 'role-instance-typed.RoleInstanceUsesObjectTypeInstance.1' has Sequence Number 1.
+Constraint Span 'role-instance-typed.RoleInstanceUsesObjectTypeInstance.1' has Position 1.
 Constraint 'role-instance-typed' is decided by Predicate 'decide:role_typing'.
 Predicate 'decide:role_typing' has Module Path 'arest'.
 Predicate 'decide:role_typing' has Symbol Name 'decide:role_typing'.
@@ -1627,6 +1633,8 @@ Constraint 'ring-spans-one-type' has Text 'It is obligatory that each ring const
 Constraint 'ring-spans-one-type' has modality of Modality Type 'Deontic'.
 Constraint 'ring-spans-one-type' is of Constraint Type 'DO_pop'.
 Constraint 'ring-spans-one-type' spans Role 'ConstraintSpan.1'.
+Constraint Span 'ring-spans-one-type.ConstraintSpan.1' has Sequence Number 1.
+Constraint Span 'ring-spans-one-type.ConstraintSpan.1' has Position 1.
 Constraint 'ring-spans-one-type' is decided by Predicate 'decide:ring_same_type'.
 Predicate 'decide:ring_same_type' has Module Path 'arest'.
 Predicate 'decide:ring_same_type' has Symbol Name 'decide:ring_same_type'.
@@ -1665,15 +1673,15 @@ Predicate 'decide:ring_same_type' has Symbol Name 'decide:ring_same_type'.
      fewer than two sequences; or that is a value comparison, exclusive-or
      or inclusive-or constraint spanning one Role. These are NORMA's
      TooFewRoleSequencesError and
-     ExternalConstraintRoleSequenceArityMismatchError (ORMCore.dsl). A span the
-     readings state without its numbers, as the decided obligations' own,
-     says nothing about sequences. A ring constraint's two roles are Layer
-     2's. -->
+     ExternalConstraintRoleSequenceArityMismatchError (ORMCore.dsl). A ring
+     constraint's two roles are Layer 2's. -->
 
 Constraint 'constraint-roles-filled' has Text 'It is obligatory that no constraint that spans some role leaves a role unfilled: it spans a role at every position of the role sequences it numbers, a subset, equality or exclusion constraint has at least two role sequences, and a value comparison, exclusive-or or inclusive-or constraint spans at least two roles'.
 Constraint 'constraint-roles-filled' has modality of Modality Type 'Deontic'.
 Constraint 'constraint-roles-filled' is of Constraint Type 'DO_pop'.
 Constraint 'constraint-roles-filled' spans Role 'ConstraintSpan.1'.
+Constraint Span 'constraint-roles-filled.ConstraintSpan.1' has Sequence Number 1.
+Constraint Span 'constraint-roles-filled.ConstraintSpan.1' has Position 1.
 Constraint 'constraint-roles-filled' is decided by Predicate 'decide:unfilled_roles'.
 Predicate 'decide:unfilled_roles' has Module Path 'arest'.
 Predicate 'decide:unfilled_roles' has Symbol Name 'decide:unfilled_roles'.
