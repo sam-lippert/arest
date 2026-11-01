@@ -1877,8 +1877,6 @@ Migration has Migration Rule Text.
 Migration has Timestamp.
   Each Migration has exactly one Timestamp.
 
-It is obligatory that each Migration produces some Fact Type as target.
-
 ## Migration Application
 
 ### Rationale

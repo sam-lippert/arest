@@ -61,8 +61,6 @@ Signal is a subtype of Object Type Instance.
 
 Design Note is a value type.
 The data type of Design Note is text.
-Rationale is a value type.
-  The data type of Rationale is text.
 Signal Kind is a value type.
   The possible values of Signal Kind are 'Constraint Violation', 'Error Pattern', 'Feature Request', 'Support Request'.
   The data type of Signal Kind is text.
@@ -80,9 +78,6 @@ Schema Design has Design Note.
 Schema Design proposes Function.
   Each Schema Design, Function combination occurs at most once in the population of Schema Design proposes Function.
   It is possible that some Schema Design proposes more than one Function and that more than one Schema Design proposes the same Function.
-
-Schema Design has Rationale.
-  Each Schema Design has exactly one Rationale.
 
 Schema Design targets Domain.
   Each Schema Design targets exactly one Domain.
@@ -146,8 +141,6 @@ Schema Design passes final checks.
 ## Constraints
 
 Each Schema Design proposes some Function.
-
-It is obligatory that each Schema Design has exactly one Rationale.
 
 <!-- THE SELF-MODIFICATION GATE: one Human is always accountable for a change, for these
      reasons: accountability sits at the approval, not at what prompted
