@@ -296,10 +296,20 @@ Transition 'complete-mapping' is triggered by Event Type 'Relational Mapping gro
 ## Entity Types
 
 Relational Schema is an entity type.
+Relational Schema is a subtype of Function.
 Table is an entity type.
+Table is a subtype of Function.
 Column is an entity type.
+Column is a subtype of Function.
 Table Key is an entity type.
+Table Key is a subtype of Function.
 Table Reference is an entity type.
+Table Reference is a subtype of Function.
+<!-- ONE ROOT. Each element of a Relational Schema is a definition the map
+     makes, a Function in D like every other (AREST.tex: rho fetches a
+     definition from D by its name), so it is identified by its Function id.
+     A Table's or a Column's Name is data, not identity: two Tables of two
+     schemas may share one. -->
 
 ## Fact Types
 
