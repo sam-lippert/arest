@@ -16,7 +16,7 @@
      text and an identical sentence is the identical fact. -->
 Domain 'core' has Description 'Extracted from NORMA ORM2 model (design/html/). The canonical FORML 2 metamodel against which every user domain is a subtype binding.'.
 
-Verbalization Pattern(.name) is an entity type.
+Verbalization Pattern is an entity type.
 Verbalization Pattern is a subtype of Object Type Instance.
 
 Pattern Family is a value type.

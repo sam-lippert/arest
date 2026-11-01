@@ -48,8 +48,6 @@ User is a subtype of Object Type Instance.
 
 ## Value Types
 
-Reference is a value type.
-  The data type of Reference is text.
 Email is a value type.
   The data type of Email is text.
 Value is a value type.
@@ -208,16 +206,6 @@ Object Type Instance is most specifically of Object Type. **
        Priority -- is several values that share a key, since the store keys an
        instance by its text; it is not one value whose readings conflict. -->
 
-Object Type Instance has Reference.
-  Each Object Type Instance has exactly one Reference.
-  For each Reference, at most one Object Type Instance has that Reference.
-  <!-- Declared on Halpin's own grounds. A (.Reference) reference mode would
-       mint the identical fact type, but there is no such mode: Object Type
-       Instance is a subtype of Function and inherits Function(.id) per §6.7's
-       default, so Reference is not identity but data: the runtime address, a
-       mandatory 1:1 secondary reference. With no mode there is no minted
-       fact type to restate, so the Reference Mode Redundancy deontic is
-       satisfied. -->
 Object Type Instance has Value.
   Each Object Type Instance has at most one Value.
 Object Type Instance is created by User.
