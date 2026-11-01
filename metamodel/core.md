@@ -55,9 +55,10 @@ Function(.id) is an entity type.
        dual-identity bridge columns on this root's table, so none is
        declared: every subtype identifies through Function(.id) — a
        Def 9 definition's name IS its identity, one id space in D.
-       Natural keys survive as data where they carry
-       information beyond identity (Object Type Instance has Reference, User has
-       Email — mandatory 1:1 secondary references). -->
+       An Object Type Instance is identified by its id, and no
+       further fact restates that id. Natural keys survive as data where they
+       carry information beyond identity (User has Email, a 1:1 secondary
+       reference). -->
 Object Type is a subtype of Function.
   Entity Type is a subtype of Object Type.
   Value Type is a subtype of Object Type.
@@ -132,19 +133,13 @@ Object Type is a subtype of Function.
        Def 3's set semantics per fact type. Schema elements surface as
        addressable Object Type Instances by reflection (instance-of), never by a second
        subtype path. -->
-  <!-- State Machine Definition is not in the exclusive
-       list. state.md declares `State Machine Definition is a subtype of
-       Status` (the Harel nesting, deliberate),
-       so SMD and Status cannot also be mutually exclusive siblings — the
-       pair of declarations would force SMD's population empty. SMD inherits
-       Status's exclusions through the subtype.
-       Nor is Status (NORMA CompatibleSupertypesError). Its home is
-       `Status is a subtype of Noun` (state.md); listing
-       it here would also make it a direct Object Type Instance subtype, giving Status two
-       unrelated identification paths (Noun -> Function.id vs
-       Object Type Instance.Reference). Status's schema-side identity flows through
-       Noun; schema elements surface as Object Type Instances by reflection
-       (`Object Type Instance is instance of Noun`, instances.md), not by subtyping. -->
+  <!-- Neither State Machine Definition nor Status is in the
+       exclusive list. Each is a subtype of Object Type Instance (state.md),
+       and a machine nests in a Status by `Status has sub-machine State
+       Machine Definition`, not by subtyping. Each identifies through
+       Function(.id), as every Object Type Instance does; schema elements
+       surface as Object Type Instances by reflection (`Object Type Instance
+       is instance of Object Type`, instances.md). -->
 
 
 Reading is an entity type.

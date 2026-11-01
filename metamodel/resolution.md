@@ -323,9 +323,8 @@ Function 'assert' has Description 'Asserts a list of facts in one step, validate
      listed it); DELETE /Function/<id>/extra answered 201 committed and
      changed nothing. After: create <Function id, FunctionHasDefinitionOrigin
      compiled> then retract {Function: id} answers 201 committed in 239 ms,
-     the body naming FunctionHasDefinitionOrigin,
-     ObjectTypeInstanceIsInstanceOfObjectType and ObjectTypeInstanceHasReference
-     with the one row of each, ui:ids Function shorter by one, every other row
+     the body naming FunctionHasDefinitionOrigin and
+     ObjectTypeInstanceIsInstanceOfObjectType with the one row of each, ui:ids Function shorter by one, every other row
      kept; the same over main answers T and the store; an id that is nobody's
      answers 201 and no rows (case:retract-absent's no-op); a row with two
      fact types and DELETE /Function/<id>/extra answer 400; an entity whose id
