@@ -92,7 +92,6 @@ Predicate is performed during Transition. +
 
 ### Status
 Status is initial in State Machine Definition.
-  For each State Machine Definition, at most one Status is initial in that State Machine Definition.
 Status is defined in State Machine Definition. **
   Each Status, State Machine Definition combination occurs at most once in the population of Status is defined in State Machine Definition.
 Status is terminal in State Machine Definition.
@@ -102,14 +101,6 @@ Status is terminal in State Machine Definition.
        make every sink finished whether or not anyone meant it, and an app could not declare
        its own against a fully derived (*) fact type, which takes no assertion. -->
   Each Status, State Machine Definition combination occurs at most once in the population of Status is terminal in State Machine Definition.
-<!-- DERIVED. An asserted-form rationale
-     ("a derivation rule asserts only positive facts") would
-     contradict both the paper (§Negation: a negated role path over
-     settled cells is a finite anti-join; Lem 1 undisturbed) and this
-     file's own `rooted` rule, which derives with the same negation
-     shape. The real motive was a killed-host parser defect (see the
-     history note beside the rule). An asserted sink list can silently
-     disagree with the transition graph; the rule cannot. -->
 
 Transition exits Status in State Machine Definition. **
   Each Transition, Status, State Machine Definition combination occurs at most once in the population of Transition exits Status in State Machine Definition.
@@ -161,10 +152,10 @@ Status is leaf initial in State Machine Definition. *
      relation, multi-valued. REPLACES the Rust Harel expansion + transition_table
      + machine:{noun} + transitions:{noun} (compile.rs compile_state_machine
      11957-12003 fan-out). Rule 1 is the DIRECT declared edge; rule 2 is the
-     INHERITED (Harel) edge: because State Machine Definition is a subtype of
-     Status, a Transition whose single `from` Status IS the machine super-state
-     induces an effective transition out of every child Status defined in that
-     machine. Override-suppression (a child's own <event> edge shadowing the
+     INHERITED (Harel) edge: a composite Status has its sub-machine (`Status has
+     sub-machine State Machine Definition`), so a Transition whose single `from`
+     Status is the composite induces an effective transition out of every child
+     Status defined in its sub-machine. Override-suppression (a child's own <event> edge shadowing the
      inherited one) is NOT expressible as a rule (negation is not an antecedent
      kind, and it would recurse through negation over this same FT) — the union
      deliberately over-emits and consumer-side firing precedence prefers the
@@ -303,7 +294,7 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
       `Status 'S' is defined in State Machine Definition 'X'`
     instance fact is a direct assertion the parser already routes
     into the same cell; no derivation rule needed (Status is defined
-    in SM is `*` in the FT declaration above for the transition-driven
+    in SM is `**` in the FT declaration above for the transition-driven
     derivation, but assertable instance facts still land in the cell
     per the parser's normal instance-fact pathway).
 -->
@@ -312,8 +303,8 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
 ** Status1 is defined in State Machine Definition1 iff that Status1 is defined in some State Machine Definition2 and some Status2 has sub-machine that State Machine Definition2 and that Status2 is defined in that State Machine Definition1.
 <!-- THE HAREL NESTING, WHICH THE FLAT RULES DO NOT CARRY. A
-     State Machine Definition IS a Status (the subtype above), so an app
-     groups states by declaring one: `Status 'Open'
+     composite Status has its sub-machine (`Status has sub-machine State
+     Machine Definition`), so an app groups states by declaring one: `Status 'Open'
      is initial in State Machine Definition 'Request'` and then
      `Status 'Received' is initial in State Machine Definition 'Open'`, with
      Draft, Responded and Escalated defined in 'Open' too. The three rules
@@ -323,13 +314,8 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
      is <Resolved, Merged, Open>.
 
      That is invisible while no machine instance exists. The moment one
-     does, core.md's subset constraint reads it: `If some State Machine is
-     currently in some Status then that Status is defined in some State
-     Machine Definition where that State Machine is instance of that State
-     Machine Definition`. A Request in Draft is an instance of the
-     'Request' definition, and with Draft not defined in it the
-     constraint fails ALETHICALLY and every subsequent write to the app is
-     refused, a create included.
+     does, a Request in Draft is an instance of the 'Request' definition,
+     and Draft is not among the statuses that definition defines.
 
      The containment is transitive and this says so, in the shape `Status
      reaches Status in State Machine Definition` below already uses. It is
@@ -408,10 +394,10 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
 * Status1 has effective Transition1 to Status2 on Event Type iff Transition1 is from Status1 and Transition1 is to Status2 and Transition1 is triggered by Event Type.
 
-<!-- RULE 2 (Harel inherited edge), ENABLED. State Machine
-     Definition is a subtype of Status, so a Transition whose single `from`
-     Status IS the machine super-state induces an effective transition out of
-     every child Status defined in that machine. This was previously blocked:
+<!-- RULE 2 (Harel inherited edge), ENABLED. A composite Status has
+     its sub-machine, so a Transition whose single `from` Status is the
+     composite induces an effective transition out of every child Status
+     defined in its sub-machine. This was previously blocked:
      compute_ring_join_plan (parse_forml2.rs) dropped the `State Machine
      Definition1` token (a Status subtype) from the `Transition is from Status`
      arity count, so the ring plan bailed and the rule derived 0 inherited rows.
