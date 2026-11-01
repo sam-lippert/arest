@@ -128,6 +128,8 @@ Constraint 'federation-url-not-internal' has Text 'It is forbidden that the URL 
 Constraint 'federation-url-not-internal' has modality of Modality Type 'Deontic'.
 Constraint 'federation-url-not-internal' is of Constraint Type 'DF_pop'.
 Constraint 'federation-url-not-internal' spans Role 'FederationHasURL.1'.
+Constraint Span 'federation-url-not-internal.FederationHasURL.1' has Sequence Number 1.
+Constraint Span 'federation-url-not-internal.FederationHasURL.1' has Position 1.
 Constraint 'federation-url-not-internal' is decided by Predicate 'decide:ssrf'.
 Predicate 'decide:ssrf' has Module Path 'arest'.
 Predicate 'decide:ssrf' has Symbol Name 'decide:ssrf'.

@@ -24,6 +24,8 @@ Constraint 'uniqueness-spans-n-minus-one' has Text 'It is forbidden that a uniqu
 Constraint 'uniqueness-spans-n-minus-one' has modality of Modality Type 'Deontic'.
 Constraint 'uniqueness-spans-n-minus-one' is of Constraint Type 'DF_pop'.
 Constraint 'uniqueness-spans-n-minus-one' spans Role 'FactTypeHasRole.1'.
+Constraint Span 'uniqueness-spans-n-minus-one.FactTypeHasRole.1' has Sequence Number 1.
+Constraint Span 'uniqueness-spans-n-minus-one.FactTypeHasRole.1' has Position 1.
 Constraint 'uniqueness-spans-n-minus-one' is decided by Predicate 'decide:n_minus_one'.
 Predicate 'decide:n_minus_one' has Module Path 'arest'.
 Predicate 'decide:n_minus_one' has Symbol Name 'decide:n_minus_one'.
@@ -41,6 +43,8 @@ Constraint 'objectification-needs-spanning-uniqueness' has Text 'It is forbidden
 Constraint 'objectification-needs-spanning-uniqueness' has modality of Modality Type 'Deontic'.
 Constraint 'objectification-needs-spanning-uniqueness' is of Constraint Type 'DF_pop'.
 Constraint 'objectification-needs-spanning-uniqueness' spans Role 'FactTypeHasRole.1'.
+Constraint Span 'objectification-needs-spanning-uniqueness.FactTypeHasRole.1' has Sequence Number 1.
+Constraint Span 'objectification-needs-spanning-uniqueness.FactTypeHasRole.1' has Position 1.
 Constraint 'objectification-needs-spanning-uniqueness' is decided by Predicate 'decide:objectified_spanning'.
 Predicate 'decide:objectified_spanning' has Module Path 'arest'.
 Predicate 'decide:objectified_spanning' has Symbol Name 'decide:objectified_spanning'.
@@ -75,6 +79,8 @@ Constraint 'same-type-binary-has-ring' has Text 'It is obligatory that when an a
 Constraint 'same-type-binary-has-ring' has modality of Modality Type 'Deontic'.
 Constraint 'same-type-binary-has-ring' is of Constraint Type 'DO_pop'.
 Constraint 'same-type-binary-has-ring' spans Role 'FactTypeHasRole.1'.
+Constraint Span 'same-type-binary-has-ring.FactTypeHasRole.1' has Sequence Number 1.
+Constraint Span 'same-type-binary-has-ring.FactTypeHasRole.1' has Position 1.
 Constraint 'same-type-binary-has-ring' is decided by Predicate 'decide:ring_complete'.
 Predicate 'decide:ring_complete' has Module Path 'arest'.
 Predicate 'decide:ring_complete' has Symbol Name 'decide:ring_complete'.
@@ -142,6 +148,8 @@ Constraint 'value-comparison-same-data-type' has Text 'It is obligatory that eac
 Constraint 'value-comparison-same-data-type' has modality of Modality Type 'Deontic'.
 Constraint 'value-comparison-same-data-type' is of Constraint Type 'DO_pop'.
 Constraint 'value-comparison-same-data-type' spans Role 'ConstraintSpan.1'.
+Constraint Span 'value-comparison-same-data-type.ConstraintSpan.1' has Sequence Number 1.
+Constraint Span 'value-comparison-same-data-type.ConstraintSpan.1' has Position 1.
 Constraint 'value-comparison-same-data-type' is decided by Predicate 'decide:vc_types'.
 Predicate 'decide:vc_types' has Module Path 'arest'.
 Predicate 'decide:vc_types' has Symbol Name 'decide:vc_types'.
@@ -192,6 +200,8 @@ Constraint 'singular-naming' has Text 'It is forbidden that an object type has a
 Constraint 'singular-naming' has modality of Modality Type 'Deontic'.
 Constraint 'singular-naming' is of Constraint Type 'DF_owa'.
 Constraint 'singular-naming' spans Role 'FunctionHasName.1'.
+Constraint Span 'singular-naming.FunctionHasName.1' has Sequence Number 1.
+Constraint Span 'singular-naming.FunctionHasName.1' has Position 1.
 <!-- One home: no cruder syntactic 'ies' rule in core.md
      beside this one — the plural-form qualifier is what keeps
      Series and Species legal. -->
@@ -202,6 +212,8 @@ Constraint 'alethic-before-deontic' has Text 'It is forbidden that a constraint 
 Constraint 'alethic-before-deontic' has modality of Modality Type 'Deontic'.
 Constraint 'alethic-before-deontic' is of Constraint Type 'DF_owa'.
 Constraint 'alethic-before-deontic' spans Role 'ConstraintHasModalityOfModalityType.1'.
+Constraint Span 'alethic-before-deontic.ConstraintHasModalityOfModalityType.1' has Sequence Number 1.
+Constraint Span 'alethic-before-deontic.ConstraintHasModalityOfModalityType.1' has Position 1.
 
 ### Derivation Over Storage
 
@@ -209,6 +221,8 @@ Constraint 'derivation-over-storage' has Text 'It is forbidden that a role store
 Constraint 'derivation-over-storage' has modality of Modality Type 'Deontic'.
 Constraint 'derivation-over-storage' is of Constraint Type 'DF_owa'.
 Constraint 'derivation-over-storage' spans Role 'FactTypeHasRole.2'.
+Constraint Span 'derivation-over-storage.FactTypeHasRole.2' has Sequence Number 1.
+Constraint Span 'derivation-over-storage.FactTypeHasRole.2' has Position 1.
 
 ### Subtype Constraint Declaration
 
@@ -280,6 +294,8 @@ Constraint 'reference-mode-not-restated' has Text 'It is forbidden that a readin
 Constraint 'reference-mode-not-restated' has modality of Modality Type 'Deontic'.
 Constraint 'reference-mode-not-restated' is of Constraint Type 'DF_pop'.
 Constraint 'reference-mode-not-restated' spans Role 'FactTypeHasRole.1'.
+Constraint Span 'reference-mode-not-restated.FactTypeHasRole.1' has Sequence Number 1.
+Constraint Span 'reference-mode-not-restated.FactTypeHasRole.1' has Position 1.
 Constraint 'reference-mode-not-restated' is decided by Predicate 'decide:refmode_restated'.
 Predicate 'decide:refmode_restated' has Module Path 'arest'.
 Predicate 'decide:refmode_restated' has Symbol Name 'decide:refmode_restated'.
@@ -294,6 +310,8 @@ Constraint 'elementary-fact-decomposition' has Text 'It is forbidden that a read
 Constraint 'elementary-fact-decomposition' has modality of Modality Type 'Deontic'.
 Constraint 'elementary-fact-decomposition' is of Constraint Type 'DF_owa'.
 Constraint 'elementary-fact-decomposition' spans Role 'ReadingHasText.1'.
+Constraint Span 'elementary-fact-decomposition.ReadingHasText.1' has Sequence Number 1.
+Constraint Span 'elementary-fact-decomposition.ReadingHasText.1' has Position 1.
 
 ### Constraint Invertibility
 
@@ -301,6 +319,8 @@ Constraint 'constraint-invertibility' has Text 'It is forbidden that the verbali
 Constraint 'constraint-invertibility' has modality of Modality Type 'Deontic'.
 Constraint 'constraint-invertibility' is of Constraint Type 'DF_owa'.
 Constraint 'constraint-invertibility' spans Role 'ConstraintHasText.1'.
+Constraint Span 'constraint-invertibility.ConstraintHasText.1' has Sequence Number 1.
+Constraint Span 'constraint-invertibility.ConstraintHasText.1' has Position 1.
 <!-- All constraint verbalizations should be
      invertible. This is NORMA's own POSITIVE/NEGATIVE FORM pairing
      (Halpin & Curland, Automated Verbalization for ORM 2, 2): every

@@ -109,10 +109,10 @@ If JS Package1 reaches JS Package2 and JS Package2 reaches JS Package3 then JS P
 
 ## Constraints
 
-It is obligatory that each Predicate exported from some JS Package has some Module Path.
-It is obligatory that each Predicate exported from some JS Package has some Symbol Name.
+It is obligatory that if some Predicate is exported from some JS Package then that Predicate has some Module Path.
+It is obligatory that if some Predicate is exported from some JS Package then that Predicate has some Symbol Name.
 
-It is forbidden that a Predicate is exported from a JS Package and also is backed by a Federation.
+It is forbidden that some Predicate is exported from some JS Package and that Predicate is backed by some Federation.
 
 ## Instance Facts
 
