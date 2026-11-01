@@ -162,8 +162,8 @@ Constraint is an entity type.
      roles), and an exclusive-or (XO) is an exclusion and a disjunctive
      mandatory over the same roles (NORMA ExclusiveOrConstraintCoupler), so
      neither is a set comparison. The subtype is read off the Constraint Type
-     itself, because a Constraint Type Family names the family a violation is
-     reported under (main:vz_tpl), and XC shares its family with XO and OR. -->
+     itself: XC, SS and EQ share their family with no other type, but the
+     subtype is the three types, whatever their family. -->
 * Each Frequency Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'frequency'.
 * Each Cardinality Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'cardinality'.
 * Each Ring Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'ring'.
@@ -406,7 +406,7 @@ Constraint Type Label is a value type.
   The data type of Constraint Type Label is text.
 
 Constraint Type Family is a value type.
-  The possible values of Constraint Type Family are 'ring', 'uniqueness', 'mandatory', 'frequency', 'value-comparison', 'set-comparison', 'subset', 'equality', 'deontic', 'cardinality'.
+  The possible values of Constraint Type Family are 'ring', 'uniqueness', 'mandatory', 'frequency', 'value-comparison', 'set-comparison', 'deontic', 'cardinality'.
   The data type of Constraint Type Family is text.
 
 Constraint Match Keyword is a value type.
@@ -1028,7 +1028,16 @@ Constraint is of Constraint Type.
 Constraint Type has Constraint Type Label.
   Each Constraint Type has exactly one Constraint Type Label.
 Constraint Type has Constraint Type Family.
-  Each Constraint Type has exactly one Constraint Type Family.
+  Each Constraint Type has at most one Constraint Type Family.
+  <!-- THE FAMILIES ARE HALPIN'S. A set comparison is a subset, an equality
+     or an exclusion (Halpin ch. 6; NORMA SetComparisonConstraint), so SS, EQ
+     and XC are 'set-comparison'; an inclusive-or is a disjunctive mandatory
+     (NORMA MandatoryConstraint over several roles), so OR is 'mandatory' with
+     MC. An exclusive-or is an exclusion and a disjunctive mandatory over the
+     same roles (NORMA ExclusiveOrConstraintCoupler): its family follows from
+     those two, so XO has none of its own, and a Constraint Type has at most
+     one. A violation reads the template of its own Constraint Type
+     (main:vz_tpl), so types that share a family keep their own. -->
 
 ### Set Comparison Constraint (subtype of Constraint)
 Set Comparison Constraint has Argument Length.
@@ -2486,15 +2495,14 @@ Constraint Type 'VC' has Constraint Type Family 'value-comparison'.
      which is where the oracle writes it (ApplyValueEnum), so it needs no
      Constraint Type row and has none. -->
 Constraint Type 'XO' has Constraint Type Label 'Exclusive Or'.
-Constraint Type 'XO' has Constraint Type Family 'set-comparison'.
 Constraint Type 'XC' has Constraint Type Label 'Exclusion'.
 Constraint Type 'XC' has Constraint Type Family 'set-comparison'.
 Constraint Type 'OR' has Constraint Type Label 'Inclusive Or'.
-Constraint Type 'OR' has Constraint Type Family 'set-comparison'.
+Constraint Type 'OR' has Constraint Type Family 'mandatory'.
 Constraint Type 'SS' has Constraint Type Label 'Subset'.
-Constraint Type 'SS' has Constraint Type Family 'subset'.
+Constraint Type 'SS' has Constraint Type Family 'set-comparison'.
 Constraint Type 'EQ' has Constraint Type Label 'Equality'.
-Constraint Type 'EQ' has Constraint Type Family 'equality'.
+Constraint Type 'EQ' has Constraint Type Family 'set-comparison'.
 Constraint Type 'CC' has Name 'Cardinality'.
 Constraint Type 'CC' has Constraint Type Label 'Cardinality'.
 Constraint Type 'CC' has Constraint Type Family 'cardinality'.
