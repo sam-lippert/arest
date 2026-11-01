@@ -47,14 +47,14 @@ use std::path::Path;
 const BODY_BUDGET: usize = 8 * 1024;
 const LIFT: usize = 4 * 1024;
 
-// lambda, then the case table, then the carriers -- the js concatenation order
-// (head, arest, midcases, scenarios, mid1, design-state, mid2, norma-answer).
+// lambda, then the case table, then the base carriers (tools/carriers/base), in the order the Java host reads
+// them (Reader.loadCarriers): design-state, then compiled.
 const SOURCES: [(&str, &str); 5] = [
     ("lambda", "../../arest"),
     ("tests", "../../arest.tests"),
     ("scenarios", "../../engine/shared/scenarios.canon"),
-    ("design_state", "../norma-oracle/design-state"),
-    ("norma_answer", "../norma-oracle/norma-answer"),
+    ("design_state", "../carriers/base/design-state"),
+    ("compiled", "../carriers/base/compiled"),
 ];
 
 /// Split a lambda body on its TOP-LEVEL commas. Depth counts parens; a comma
@@ -160,7 +160,8 @@ fn rewrite_variadic_s(text: &str) -> (String, usize) {
 /// one function body of a quarter megabyte, which is the very thing chunking
 /// exists to avoid. Measured: element-count chunks built the host in 18m57s.
 ///
-/// So an oversized ARGUMENT is lifted into its own fn and called in place. This
+/// So an oversized ARGUMENT is lifted into its own fn and called in place, unless it is a string literal: the
+/// helper answers a V, and A takes the literal as a &str. This
 /// runs on the RAW form, where every item is a uniform Name(args): the variadic
 /// rewrite has to come last, over the finished text, because `Sv(vec![..])`
 /// carries a bracket that a splitter which only understands calls cannot walk.
@@ -187,7 +188,7 @@ fn hoist(expr: &str, helpers: &mut Vec<String>, ctr: &mut usize, lift: usize) ->
     let mut out = Vec::with_capacity(args.len());
     for a in args {
         let h = hoist(a, helpers, ctr, lift);
-        if h.len() > lift {
+        if h.len() > lift && !h.starts_with('"') {
             *ctr += 1;
             let name = format!("h{}", *ctr);
             helpers.push(format!(
@@ -236,6 +237,38 @@ fn hoist(expr: &str, helpers: &mut Vec<String>, ctr: &mut usize, lift: usize) ->
     joined
 }
 
+/// A STRING ESCAPE IS THE SAME CHARACTER IN RUST'S SPELLING. Lambda writes a code point as \uXXXX, as the Java,
+/// JS, Python and C# hosts read it, and Rust spells that character \u{XXXX}. Inside a string literal, and only
+/// there, each \uXXXX becomes \u{XXXX}; an escaped backslash is passed whole, so \\u0000 stays as it is.
+/// Every other byte is verbatim.
+fn rust_escapes(text: &str) -> String {
+    let b = text.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(b.len());
+    let (mut in_str, mut i) = (false, 0usize);
+    while i < b.len() {
+        let c = b[i];
+        if in_str && c == b'\\' && i + 1 < b.len() {
+            if b[i + 1] == b'u' && i + 5 < b.len() && b[i + 2..i + 6].iter().all(|x| x.is_ascii_hexdigit()) {
+                out.extend_from_slice(b"\\u{");
+                out.extend_from_slice(&b[i + 2..i + 6]);
+                out.push(b'}');
+                i += 6;
+            } else {
+                out.push(c);
+                out.push(b[i + 1]);
+                i += 2;
+            }
+            continue;
+        }
+        if c == b'"' {
+            in_str = !in_str;
+        }
+        out.push(c);
+        i += 1;
+    }
+    String::from_utf8(out).expect("the escapes rewritten stay utf-8")
+}
+
 fn main() {
     let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR");
     let mut emitted = String::from(
@@ -251,6 +284,7 @@ fn main() {
             Ok(t) => t,
             Err(e) => panic!("chunker: cannot read {}: {}", rel, e),
         };
+        let text = rust_escapes(&text);
         let trimmed = text.trim();
         // an EMPTY carrier is legitimate -- a fresh journal has no entries
         if trimmed.is_empty() {
