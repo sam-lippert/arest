@@ -182,6 +182,9 @@ Function 'verify' has Description 'Runs every law over the store and answers T w
 Function 'orient' accepts Type Expression 'name-and-cells'.
 Function 'orient' yields Type Expression 'orientation-rows'.
 Function 'orient' has Description 'Answers the context of an App or a Domain, over each Domain in scope (the Domain and the Domains it reaches): first each instance that belongs to one and is required orientation, less the instances in a terminal status, as a row of the Domain, the fact type ObjectTypeInstanceIsRequiredOrientation, the instance and what get answers for it (its facts, then its links with their values); then the Description of each Domain, as a row of the Domain, FunctionHasDescription and the text. No other instance is answered. args: [name]; the empty name answers the work standing in each status.'.
+Function 'verbalize' accepts Type Expression 'name-and-cells'.
+Function 'verbalize' yields Type Expression 'text'.
+Function 'verbalize' has Description 'Speaks one constraint as NORMA does, in its positive form, from the constraint`s facts and the snippet and pattern facts of verbalization.md (AREST.tex prop:spec). args: [constraint id].'.
 Function 'tutor' accepts Type Expression 'name-and-cells'.
 Function 'tutor' yields Type Expression 'tutorial-text'.
 Function 'tutor' has Description 'Teaches one FORML 2 verbalization pattern: its form, an example and a note. args: [pattern name]; a name that is no pattern answers the list of pattern names.'.
