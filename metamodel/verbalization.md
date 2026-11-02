@@ -141,9 +141,11 @@ Pattern Construct is a value type.
 Role Match is a value type.
   The possible values of Role Match are 'primary', 'included', 'excluded'.
   The data type of Role Match is text.
-List Style is a value type.
-  The possible values of List Style are 'SimpleList', 'CompactList', 'AndList', 'OrList', 'SemicolonList'.
-  The data type of List Style is text.
+List Style is an entity type.
+List Style is a subtype of Object Type Instance.
+  <!-- An entity type, not a value type: a List Style has facts of its own
+       (the snippets it separates and ends with), and Halpin models a thing
+       with facts of its own as an entity, identified as every instance is. -->
 
 Verbalization Pattern verbalizes Constraint Type.
   Each Verbalization Pattern verbalizes at most one Constraint Type.
