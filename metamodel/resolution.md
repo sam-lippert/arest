@@ -115,7 +115,7 @@ Operation 'ask' is overridable.
 <!-- WHAT EACH SERVED VERB IS FOR, SAID BESIDE ITS SHAPE. AREST
      should be the tool an LLM can use for thinking clearly, and a caller handed
      `takes the recipe-and-populations, answers the rows` cannot write a recipe.
-     `Function has Description` (core.md:669) says what each verb does and what
+     `Function has Description` (core.md) says what each verb does and what
      goes in its `args`, mcp:verbs answers it beside the shapes, and the tool
      description leads with it. rmap, nav and derive add none: each is also a
      Domain of the catalog below, so it is one Function, and the Description it
@@ -471,7 +471,7 @@ Operation 'validate' is registrable.
      judge flags deontic-only validate entries under this name, but no
      instance fact ever declared it -- a name that lives only in a
      comment is neither an honest `may fill` (registrable) nor a false
-     `does fill` (registered; arest:13208, "a registered row naming a
+     `does fill` (registered; lambda's own note: "a registered row naming a
      capability no host provides is a FALSE entry in Cor 6 enumerable
      boundary"). Declared registrable here and left off the `is
      registered` list below -- the same honest-until-filled state
@@ -485,8 +485,8 @@ Operation 'validate' is registrable.
      decided by this row. Definition Origin 'registered' is ALSO given,
      which synthesize/validate do not carry -- they have a lambda DEF and
      this seam deliberately does not (it is filled only by being named
-     in drive:seams, arest ~13654), so its true structural precedent is
-     the csdp: triplet below (resolution.md:467-475), not synthesize or
+     in drive:seams), so its true structural precedent is
+     the csdp: triplet below, not synthesize or
      validate; test:origins_match checks manifest:origins' computed
      classification against exactly this declared fact, and the csdp:
      triplet is how that law already passes for a seam with no DEF. -->
@@ -1042,7 +1042,7 @@ Function 'crypt:decrypt' is inverted by Function 'crypt:encrypt'.
      that mints the secret everything else depends on.
 
      IT YIELDS A FINGERPRINT, NOT A KEY, and that is what makes it safe to put
-     on the MCP surface at all. An answer is transcript. core.md:1227 already
+     on the MCP surface at all. An answer is transcript. core.md already
      rules the key "cannot live in the store it protects"; the reply is the same
      argument. So the yielded Type Expression is a truncated digest -- enough to
      tell two keys apart, useless for decrypting -- and the key itself reaches

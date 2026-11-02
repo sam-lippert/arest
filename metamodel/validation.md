@@ -110,7 +110,7 @@ Predicate 'decide:ring_complete' has Symbol Name 'decide:ring_complete'.
 
 <!-- The rule does not say "its Ring Object Type". That is not a
      type — it is prose shorthand for "the Object Type both ring Roles
-     reference", exactly as :40 above spells it, and the audit note below
+     reference", exactly as the rule above spells it, and the audit note below
      already called the two conditions parse-time artifacts. So the fix is to
      say it in declared vocabulary, NOT to declare a type that does not exist:
      inventing `Ring Object Type` to satisfy the resolver would have put a
@@ -246,9 +246,9 @@ Constraint Span 'derivation-over-storage.FactTypeHasRole.2' has Position 1.
      subtype asserts subtype = supertype. So every supertype with exactly ONE
      subtype makes the obligation unsatisfiable except by asserting something
      false, and there are three:
-         Fact Type              is a subtype of Event Type   (core.md:47)
-         HTTP Method            is a subtype of Predicate    (core.md:81)
-         Fact                   is a subtype of Event        (instances.md:31)
+         Fact Type              is a subtype of Event Type   (core.md)
+         HTTP Method            is a subtype of Predicate    (core.md)
+         Fact                   is a subtype of Event        (instances.md)
      Not every Event Type is a Fact Type, not every Predicate is an HTTP
      Method, not every Event is a Fact — so the missing constraints are
      missing correctly.
@@ -378,8 +378,8 @@ Constraint Type has Violation Template.
 
 <!--
 Each template carries one or more `{name}` substitution markers. The
-per-kind resolver in `compile.rs` maps each name to a `Vec<Func>`
-that runtime-evaluates to the atoms inserted at that position:
+per-kind resolver maps each name to the function that evaluates to
+the atoms inserted at that position:
 
 - `{value}` — the offending role value (single-role kinds: IR, AC,
   RF), via `role_value(0)` or the role index of the constrained

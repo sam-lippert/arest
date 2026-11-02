@@ -20,10 +20,9 @@ the listed blocks.
      instance fact and the next compile re-derives the blocklist. -->
 
 <!--
-The killed host's `cidr_contains` Platform Func (crates/arest/src/
-ast.rs) was the membership predicate — one implementation called by
-both the engine's SSRF check and app access-control derivation rules.
-Evaluator-phase obligation: register cidr_contains once (Def 9,
+`cidr_contains` is the membership predicate — one implementation
+called by both the engine's SSRF check and app access-control
+derivation rules. Register cidr_contains once (Def 9,
 origin 'registered') and serve both surfaces from the one definition.
 -->
 

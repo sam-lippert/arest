@@ -11,7 +11,7 @@
 Status is an entity type.
 Status is a subtype of Object Type Instance.
 <!-- WAS `subtype of Object Type`, and that made every Status an OBJECT TYPE.
-     evolution.md states the established pattern while citing this very type as
+     csdp.md states the established pattern while citing this very type as
      precedent for itself - "the schema-entity-as-Object Type Instance pattern
      (core.md: Event Type, Status, Constraint, Derivation Rule are Object Type
      Instance subtypes)" - so Domain Change followed the pattern and the type it
@@ -149,9 +149,7 @@ Status is leaf initial in State Machine Definition. *
 
 ### Effective Transition (post-Harel available-transition relation)
 <!-- The post-Harel <from, to, event> available-transition
-     relation, multi-valued. REPLACES the Rust Harel expansion + transition_table
-     + machine:{noun} + transitions:{noun} (compile.rs compile_state_machine
-     11957-12003 fan-out). Rule 1 is the DIRECT declared edge; rule 2 is the
+     relation, multi-valued. Rule 1 is the DIRECT declared edge; rule 2 is the
      INHERITED (Harel) edge: a composite Status has its sub-machine (`Status has
      sub-machine State Machine Definition`), so a Transition whose single `from`
      Status is the composite induces an effective transition out of every child
@@ -270,27 +268,22 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
 
 <!--
-  Normalized SM derivation rules covering Pass 1
-  / 2 / 2b of the Rust function `derive_state_machines_from_facts`
-  (compile.rs:372-507). Together with the existing transition-driven
-  derivation above, these rules let the SM cell be populated from
-  instance facts via the engine's forward-chain — no Rust path needed.
-  A JSON-blob StateMachine cell, where one is live, is a fallback
-  only; the typed StateMachineDef and the Rust function are not
-  needed by these rules.
+  Normalized SM derivation rules. Together with the transition-driven
+  derivation above, they populate a machine's statuses from instance
+  facts by derivation.
 
-    Pass 1 (compile.rs:376-383): instance facts of the form
+    Pass 1: instance facts of the form
       `State Machine Definition 'X' is for Noun 'Y'`
     already register the SM record by virtue of the FT itself; no
     derivation rule needed.
 
-    Pass 2 (compile.rs:385-401): an `initial in` declaration entails
+    Pass 2: an `initial in` declaration entails
     that the same Status is defined in the same SM. The rule below
     fires whenever the parser captures the initial-marking fact,
-    populating `Status_is_defined_in_State_Machine_Definition` so
-    downstream consumers see initial Statuses without the Rust path.
+    populating `Status is defined in State Machine Definition` so
+    downstream consumers see initial Statuses.
 
-    Pass 2b (compile.rs:403-415): a non-initial
+    Pass 2b: a non-initial
       `Status 'S' is defined in State Machine Definition 'X'`
     instance fact is a direct assertion the parser already routes
     into the same cell; no derivation rule needed (Status is defined
@@ -340,37 +333,23 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
      no initial), stratified. -->
 
 <!--
-  Audit MC3b-b: Pass-4 graph-derived initial Status. Mirrors
-  the source-never-target topology fold in
-  `derive_state_machines_from_facts` at compile.rs:479-505.
+  Pass 4: the graph-derived initial Status, the source-never-target
+  topology fold.
 
   A Status is "rooted" in a SM iff it is the source of some Transition
   in that SM and no Transition in that SM has it as target. The
   consumer side (`compile_state_machine`) promotes a single
   rooted Status to `is initial in` ONLY when the rooted set has
   cardinality 1; ambiguity (multiple rooted, zero rooted, or cycles)
-  leaves the SM without an inferred initial — the same behaviour the
-  Rust path implements at compile.rs:502-504.
+  leaves the SM without an inferred initial.
 
-  Two things the rule is NOT able to express on its own and that the
-  consumer side must therefore implement:
-
-  (1) Uniqueness gate. FORML 2 derivations are monotonic — "exactly
-      one rooted Status per SM" is a cardinality predicate, not a
-      join. The rule deliberately stops short
-      and emits every candidate; the consumer applies cardinality.
-
-  (2) Strict set-difference negation. The parser currently strips
-      the leading `no` and the trailing `where …` clause and falls
-      back to resolving the bare FT (parse_forml2.rs:1184-1194), so
-      the negative antecedent does not produce an `AbsenceOf` source
-      — only the explicit `_cwa_negation_…` synthetic rules in
-      compile.rs:2546-2599 currently emit AbsenceOf, and only for
-      CWA nouns. Until parser-side negation lands as a follow-up,
-      this rule over-emits for source-AND-target Statuses; the
-      consumer's cardinality gate filters that case naturally
-      (over-emit ⇒ |rooted| > 1 ⇒ no initial inferred ⇒ same end
-      result as the Rust path's "ambiguous" branch).
+  The uniqueness gate is the one thing the rule does not express on
+  its own, so the consumer side applies it: "exactly one rooted Status
+  per SM" is a cardinality predicate, not a join, so the rule emits
+  every candidate and the consumer applies cardinality. The negation
+  `no Transition is defined in that State Machine Definition where
+  that Transition is to that Status` is a set difference, read as one
+  (AREST.tex lem:finite, stratified).
 
 
 -->
@@ -379,14 +358,14 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
 <!-- Post-Harel effective-transition relation. Rule 1 is the
      DIRECT declared edge (the literal Transition from its single `from` Status).
-     Rule 2 is the INHERITED / Harel edge: State Machine Definition is a subtype
-     of Status, so a Transition whose single `from` Status IS the machine
-     super-state induces an effective transition out of every child Status that
-     is defined in that machine. The two from-roles never collapse: rule 2's
-     first antecedent types the from-value as a State Machine Definition entity,
-     so it fires ONLY when the from-Status is itself a machine; the child clause
-     then ranges over that machine's members via the already-derived
-     `Status is defined in State Machine Definition` cell. Noun-scoping is
+     Rule 2 is the INHERITED / Harel edge: a composite Status has its
+     sub-machine (`Status has sub-machine State Machine Definition`), so a
+     Transition whose single `from` Status is the composite induces an
+     effective transition out of every child Status that is defined in that
+     sub-machine. The two from-roles never collapse: rule 2 fires ONLY when the
+     from-Status has a sub-machine, and the child clause then ranges over that
+     machine's members via the already-derived `Status is defined in State
+     Machine Definition` cell. Noun-scoping is
      intrinsic (the join is through the SMD), so shared status
      names never cross-attach. The union over-emits a child's overridden edge
      (direct + inherited); firing precedence (consumer-side) picks the direct
@@ -397,13 +376,7 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 <!-- RULE 2 (Harel inherited edge), ENABLED. A composite Status has
      its sub-machine, so a Transition whose single `from` Status is the
      composite induces an effective transition out of every child Status
-     defined in its sub-machine. This was previously blocked:
-     compute_ring_join_plan (parse_forml2.rs) dropped the `State Machine
-     Definition1` token (a Status subtype) from the `Transition is from Status`
-     arity count, so the ring plan bailed and the rule derived 0 inherited rows.
-     The planner now accepts a subtype filler in a supertype-typed role (the
-     supertype_chain walk), mirroring the existing subtype bridge in
-     resolve_derivation_rule, so the rule fires. Noun-scoping is intrinsic (the
+     defined in its sub-machine. Noun-scoping is intrinsic (the
      join threads through the SMD), so shared status names never
      cross-attach. The union over-emits a child's overridden edge (direct +
      inherited); consumer-side firing precedence picks the direct row. -->
@@ -491,8 +464,7 @@ Predicate 'decide:cycle_exit' has Symbol Name 'decide:cycle_exit'.
 Domain 'state' has Description 'Status, Transition and Guard as a Mealy machine over Object Type Instances: a State Machine Definition is for an Object Type, and an Event Type causes a Transition whose Guard decides it.'.
 
 <!-- The HATEOAS destructive-affordance
-     rule, lifted from a Rust literal (command.rs http_method_for_status)
-     into a reading. A transition whose target Status has a declared HTTP
+     rule, as a reading. A transition whose target Status has a declared HTTP
      Method surfaces with that method; all others default to GET.
      No generic `Status 'deleted' has HTTP Method 'DELETE'` is declared:
      it would be a Status no machine reaches, against core.md's `For each

@@ -267,7 +267,7 @@ State Machine is instance of Object Type.
   Each State Machine is instance of some Object Type.
 <!-- 'exactly one Noun' is relaxed here too,
      the SAME non-canonical case as Object Type Instance (see the Object Type Instance note). This
-     ft is a REFLECTION cell (protocol.py REFLECTION set) like
+     ft is a REFLECTION cell like
      Object Type Instance_is_instance_of_Noun, populated by schema self-description,
      so an SMD reflects as an instance of Noun AND State Machine
      Definition via SMD < Status < Noun (deliberate — the Harel nesting,
@@ -277,8 +277,8 @@ State Machine is instance of Object Type.
      disambiguation. -->
 
 <!-- junk-writer-3: the SM seed writes this
-     triple at runtime (compile.rs sm seed: instance_of_Noun +
-     for_Object Type Instance + currently_in_Status). Undeclared, the fact type
+     triple at runtime (is instance of, is for Object Type Instance, is
+     currently in Status). Undeclared, the fact type
      would be an orphan — cor:closure's orphan GC would drop the population at
      every compile and the next SM init re-mint it, forever.
      Declaring the engine's own
@@ -342,7 +342,7 @@ State Machine is for Object Type Instance.
      KeyConflict-displace every real SM-for-Object Type Instance fact, emptying
      the entire Task derived layer downstream (status bridge,
      recommendation markers). The REAL writers are the SM seed
-     (compile.rs s0 trio) and the for-Object Type Instance backfill; the
+     and the for-Object Type Instance backfill; the
      chain-side arity-completeness guard is the defense-in-depth. -->
 
 
@@ -482,9 +482,8 @@ Guard Run has Result.
 ** Object Type Instance is most specifically of Object Type iff that Object Type Instance is instance of that Object Type and it is not true that that Object Type Instance is properly of that Object Type.
 
 <!-- `Fact is of Fact Type` is a BASE fact type, populated by population
-     reflection (the killed host did this in compile.rs
-     `reflect_schema_cells`; the evaluator must reflect populated
-     fact-type cells the same way) — every populated row of a fact-type
+     reflection (the evaluator reflects each populated fact-type cell)
+     — every populated row of a fact-type
      cell IS a Fact of that fact type, the instance-object mirror of
      `Object Type Instance is instance of Noun`. It is VALIDATED, not derived, by the
      subset constraint in core.md (`If some Fact uses some Object Type Instance for some
@@ -516,9 +515,9 @@ Guard Run has Result.
          is RETAINED.
 
      (2) Object Type Instance-is-currently-in-Status projection: lifts the per-app
-         projection to core, replacing the
-         imperative Object Type Instance_is_currently_in_Status maintenance block in
-         command.rs. 2-antecedent equi-join (derivation.md shape 6),
+         projection to core, in place of an
+         imperative maintenance of Object Type Instance is currently in Status.
+         2-antecedent equi-join (derivation.md shape 6),
          single-valued.
 
      (3) SM seed branch: a fresh / eventless SM instance sits at its
