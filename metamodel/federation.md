@@ -122,9 +122,12 @@ Function sends Query Text.
      values, which is all a read needs; a write is about one entity, and Payload addresses the
      document it updates by its query, PATCH /api/users?where[email][equals]=<email>. This is the
      mirror of `Function sends Fact Type with Role to JSON Path` (core.md) for the query: the value
-     is the subject's, from the role named, and a value that cannot be filled refuses the call. -->
-Function sends Fact Type with Role to Query Parameter.
-  Each Function, Query Parameter combination occurs at most once in the population of Function sends Fact Type with Role to Query Parameter.
+     is the subject's, from the role named, and a value that cannot be filled refuses the call.
+     The Role names its Fact Type (Fact Type has Role), so the fact is the Role's alone: a
+     uniqueness over a Function and a Query Parameter spans two roles of a quaternary that also
+     names the Fact Type, and Halpin's n-1 rule says such a fact type is not elementary. -->
+Function sends Role to Query Parameter.
+  Each Function, Query Parameter combination occurs at most once in the population of Function sends Role to Query Parameter.
 
 ### What came off the line
 
