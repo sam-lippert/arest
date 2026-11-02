@@ -42,7 +42,6 @@ Fetcher is a subtype of Object Type Instance.
 
 ## Value Types
 
-Url is a value type.
 Translator is a value type.
 Query Parameter is a value type.
 Parameter Value is a value type.
@@ -53,9 +52,9 @@ Query Text is a value type.
 
 ### Source
 
-Source has Url.
-  Each Source has at most one Url.
-  It is obligatory that each Source has some Url.
+Source has URL.
+  Each Source has at most one URL.
+  It is obligatory that each Source has some URL.
 
 Source uses Connector.
   Each Source uses at most one Connector.
@@ -149,9 +148,9 @@ Response answers Function.
   Each Response answers at most one Function.
   Each Response answers some Function.
 
-Response is from Url.
-  Each Response is from at most one Url.
-  Each Response is from some Url.
+Response is from URL.
+  Each Response is from at most one URL.
+  Each Response is from some URL.
 
 Response has HTTP Status Code.
   Each Response has at most one HTTP Status Code.
