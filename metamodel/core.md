@@ -263,6 +263,9 @@ Secret Reference is a value type.
   The data type of Secret Reference is text.
 Reference Mode is a value type.
   The data type of Reference Mode is text.
+Reference Mode Type is a value type.
+  The possible values of Reference Mode Type are 'popular', 'unit-based', 'general'.
+  The data type of Reference Mode Type is text.
 
 <!-- The bare id/code value types are not declared. As
      reference-mode vocabulary they would have no fact role,
@@ -456,6 +459,13 @@ Object Type has Permission.
   Each Object Type, Permission combination occurs at most once in the population of Object Type has Permission.
 Entity Type has Reference Mode.
   Each Entity Type has at most one Reference Mode.
+Reference Mode is of Reference Mode Type.
+  Each Reference Mode is of at most one Reference Mode Type.
+  <!-- NORMA's ReferenceModeType: a popular mode (.id, .Code, .Nr) names a
+       value type after the entity type that uses it; a unit-based mode (cm,
+       kg) names a unit; a general mode names a value type of its own. The
+       popular modes are the instance facts below; the general ones are
+       asserted until a rule derives them from the types a mode names. -->
   <!-- Halpin, ORM metamodel (Fig 13.29): the reference mode is a fact about
        an entity type -- a value type is identified by its values and has
        none -- and a subtype is identified by its supertype's scheme rather
@@ -2135,6 +2145,23 @@ Format has Pattern.
        as `pattern`; absent when the Format imposes no lexical shape. -->
 
 ## Instance Facts
+
+### Popular reference modes
+
+<!-- NORMA's popular reference modes: each names a value type after the entity
+     type that uses it (Order(.id) is identified by Order_id). Name and Title are
+     declared value types of the base, so a mode named for them is general. -->
+Reference Mode 'Id' is of Reference Mode Type 'popular'.
+Reference Mode 'id' is of Reference Mode Type 'popular'.
+Reference Mode 'ID' is of Reference Mode Type 'popular'.
+Reference Mode 'UUID' is of Reference Mode Type 'popular'.
+Reference Mode 'Uuid' is of Reference Mode Type 'popular'.
+Reference Mode 'name' is of Reference Mode Type 'popular'.
+Reference Mode 'Code' is of Reference Mode Type 'popular'.
+Reference Mode 'code' is of Reference Mode Type 'popular'.
+Reference Mode 'title' is of Reference Mode Type 'popular'.
+Reference Mode 'Nr' is of Reference Mode Type 'popular'.
+Reference Mode 'nr' is of Reference Mode Type 'popular'.
 
 <!-- SUPERSESSION, populated from what the repo can be asked: every retired name resolves to
      nothing (no lambda definition, no Definition Origin row). -->
