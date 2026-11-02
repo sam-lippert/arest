@@ -415,6 +415,10 @@ Constraint Type Family is a value type.
 Constraint Match Keyword is a value type.
   The data type of Constraint Match Keyword is text.
 
+Value Comparison Operator is a value type.
+  The possible values of Value Comparison Operator are 'LessThan', 'LessThanOrEqual', 'GreaterThan', 'GreaterThanOrEqual', 'Equal', 'NotEqual'.
+  The data type of Value Comparison Operator is text.
+
 ## Fact Types
 
 ### Object Type
@@ -1025,6 +1029,16 @@ Constraint is machine-decidable. *
 Constraint has Constraint Match Keyword.
   Each Constraint, Constraint Match Keyword combination occurs at most once in the population of Constraint has Constraint Match Keyword.
   It is possible that some Constraint has more than one Constraint Match Keyword.
+
+<!-- A VALUE COMPARISON COMPARES BY ITS OPERATOR. NORMA`s
+     ValueComparisonConstraint carries an Operator (ORMCore.dsl,
+     ValueComparisonOperator: LessThan, LessThanOrEqual, GreaterThan,
+     GreaterThanOrEqual, Equal, NotEqual) beside the two roles it spans;
+     a Constraint of Constraint Type VC says it here. The words that say
+     it follow the compared type: is before and is after for a temporal
+     one, is less than and is greater than for a number. -->
+Constraint compares by Value Comparison Operator.
+  Each Constraint compares by at most one Value Comparison Operator.
 
 ### Constraint Type (NORMA ConstraintType — one classifier carrying code, Name, Label, Family, and Violation Template)
 Constraint is of Constraint Type.
