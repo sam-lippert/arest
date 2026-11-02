@@ -611,6 +611,15 @@ Fact Type has Role Relationship.
   Each Fact Type has at most one Role Relationship.
 Fact Type has Derivation Mode.
   Each Fact Type has at most one Derivation Mode.
+Object Type objectifies Fact Type.
+  Each Object Type objectifies at most one Fact Type.
+  For each Fact Type, at most one Object Type objectifies that Fact Type.
+Fact Type is implicitly objectified.
+  <!-- NORMA's Objectification and its IsImplied: a fact type's nesting object
+       type, stated by an `objectifies` sentence or implied for a fact type
+       whose instances are themselves the objects of other facts (Halpin,
+       Objectification and Atomicity). The compile populates both from the
+       objectifications it reads. -->
 Subtype Fact provides preferred identifier.
 <!-- ORMCore SubtypeFact.ProvidesPreferredIdentifier, shown as
      IdentificationPath (ORMCore.dsl:731): the subtype link along which the
