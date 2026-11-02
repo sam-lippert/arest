@@ -570,7 +570,8 @@ If some Object Type is backed by some Federation and that Federation is compiled
        the negated-unary case. NORMA is a modelling tool and rendering a
        derivation as a note is reasonable there; AREST is what has to
        execute it. -->
-Object Type is independent.
+Object Type is independent. +
+  * Object Type is independent if that Object Type objectifies some Fact Type and that Fact Type is implicitly objectified and that Fact Type has some Role and some Constraint spans that Role and that Constraint is of Constraint Type 'UC' and no Role of that Fact Type is not spanned by that Constraint.
 Object Type is of schema:Thing.
   Each Object Type is of at most one schema:Thing.
   It is possible that more than one Object Type is of the same schema:Thing.
@@ -640,7 +641,7 @@ Subtype Fact provides preferred identifier.
      choice and is not reflected. -->
 
 ### Role
-Constraint spans Role.
+Constraint spans Role / Role is spanned by Constraint.
   Each Constraint, Role combination occurs at most once in the population of Constraint spans Role.
   It is obligatory that each Constraint spans some Role.
   <!-- An obligation, not a mandatory: a constraint has
