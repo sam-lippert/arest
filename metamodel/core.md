@@ -96,7 +96,7 @@ Object Type is a subtype of Function.
         subtype of that Object Type and is not absorbed into it.
 
      Until then, note the live consequence: forml2-grammar.md accepts
-     `is abstract` as a Trailing Marker (:30) and classifies it (:240), but
+     `is abstract` as a Trailing Marker and classifies it, but
      the metamodel has no derived fact type for it, which is why the grammar carries
      'abstract' as a third value in its Object Kind column. That third
      value is the symptom of this same gap, not a kind. -->
@@ -167,8 +167,8 @@ Constraint is an entity type.
 * Each Frequency Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'frequency'.
 * Each Cardinality Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'cardinality'.
 * Each Ring Constraint is a Constraint that is of some Constraint Type that has Constraint Type Family 'ring'.
-<!-- Ring Constraint is SPOKEN of by two deontic sentences (core.md:945,
-     :955); declared nowhere, both obligations would resolve to no type and
+<!-- Ring Constraint is SPOKEN of by two deontic sentences (the ring
+     obligations of Check-Readings Layers 2 and 3 below); declared nowhere, both obligations would resolve to no type and
      be enforced by nothing — meaning present in the text, absent from the
      machinery. Declared as a DERIVED subtype. Its predicate ties it to
      Constraint Type Family 'ring' through a chain, and the chained arm
@@ -309,7 +309,7 @@ Object Kind is a value type.
      `Format(.Name)` in the NORMA Value Domain section below (alongside
      `Conceptual Data Type`), so new presentation Formats are added by
      declaring instances rather than editing a closed enumeration. The
-     `Noun has Format` binary at :109 is unchanged in surface syntax but is
+     `Noun has Format` binary above is unchanged in surface syntax but is
      now an entity-valued refinement link (Noun -> Format entity). No live
      reading or app ever populated `Noun has Format`, so the promotion is
      data-safe. See "## NORMA Value Domain" -> Format. -->
@@ -741,7 +741,7 @@ Function is called with HTTP Method.
        URI` says WHERE and this says
        WITH WHAT, so a performer assembling the call never chooses the method in host
        code, which is the one thing a host must never decide. Status has HTTP
-       Method already (state.md:59) for the route a lifecycle step answers on;
+       Method already (state.md) for the route a lifecycle step answers on;
        this is the same value type on the other side of the boundary, for the
        call the store MAKES rather than the one it serves. At most one, because
        a Function with two methods is two Functions.
@@ -1011,11 +1011,11 @@ Constraint is of Constraint Type.
   Each Constraint is of exactly one Constraint Type.
 <!-- Without this fact type nothing joins Constraint to Constraint
      Type, so every sentence of the form "Constraint of Constraint Type
-     'IR'" (validation.md:40, :53, :68) would name a path that does not exist. The
+     'IR'" (validation.md) would name a path that does not exist. The
      cardinality is not a preference: NORMA raises
      RingConstraintTypeNotSpecifiedError when the type is left unset, i.e. the
      typing is MANDATORY, which gives exactly one. The shape is the metamodel's
-     own precedent for a kind-attribute, core.md:268-269
+     own precedent for a kind-attribute,
      `Object Type is of Object Kind. / Each Object Type is of exactly one Object Kind.` -->
 <!-- `Constraint Type has Name. / Each Constraint Type has at most one Name.`
      is RETIRED for the same reason as Data Type Group has Name below: the
@@ -1317,7 +1317,7 @@ Function yields Fact Type with Role from JSON Path.
        read answers (federation.md), and the answer to a call the app itself
        made, where a send receipt comes back, are each a Function's answer, and
        this says where in it each role's value is found. `Function sends ... to
-       JSON Path` below covers the body that LEAVES. `Function yields Type Expression` (core.md:793) is the
+       JSON Path` below covers the body that LEAVES. `Function yields Type Expression` is the
        signature's return type, not a projection, and was the near-miss that
        made this look already modelled.
 
@@ -1599,13 +1599,9 @@ No Fact joins itself.
 ## Check-Readings Deontic Obligations
 
 <!--
-Layers 2 and 3 of the killed host's readings checker
-(crates/arest/src/check.rs) enforced ring-constraint validity and
-completeness as Rust control flow. The deontic constraints below are
-the readings-side home; the evaluator-phase obligation is to drive
-them through the Def 6 / Thm 1 violation path
-so authors see the diagnostics via
-the standard violation surface.
+Layers 2 and 3 are ring-constraint validity and completeness, stated
+as deontic constraints, so a violation of either reaches authors through
+the Def 6 / Thm 1 violation path, the standard violation surface.
 -->
 
 ### Layer 2: ring validity — same-object type spans
@@ -1613,9 +1609,7 @@ the standard violation surface.
 <!-- A ring constraint (IR, AS, AT, SY, IT, TR,
      AC, RF) must span roles whose Nouns are identical. A ring across mixed
      nouns is nonsensical — "No Customer is-subtype-of Address" has nothing
-     to forbid. The killed host's check.rs emitted an Error-level
-     diagnostic; the deontic form below is the same invariant spelled
-     declaratively, and is the surviving home.
+     to forbid. The deontic form below states that invariant.
 
      DECIDED BY A FUNCTION. The sentence "It
      is obligatory that each Ring Constraint spans two Roles and both Roles
@@ -1641,8 +1635,8 @@ Predicate 'decide:ring_same_type' has Symbol Name 'decide:ring_same_type'.
 <!-- A binary Fact Type whose two Roles share the
      same Noun almost always wants an explicit ring constraint — without
      one, nothing prevents the self-reference cycle the schema is
-     implicitly modelling. check.rs emits a Hint-level diagnostic pointing
-     at the missing "is acyclic." / "is irreflexive." annotation.
+     implicitly modelling, and the obligation points at the missing
+     "is acyclic." / "is irreflexive." annotation.
 
      Merged: "It is obligatory that each binary
      Fact Type whose Roles are played by the same Object Type has some Ring
@@ -2128,7 +2122,7 @@ Format has JSON Format.
 Format has Pattern.
   Each Format has at most one Pattern.
   <!-- Optional regex `pattern` keyword for the Format (reuses the core
-       `Pattern` value type at :67). Surfaces in the derived JSON Schema
+       `Pattern` value type). Surfaces in the derived JSON Schema
        as `pattern`; absent when the Format imposes no lexical shape. -->
 
 ## Instance Facts
@@ -2165,7 +2159,8 @@ Function 'Signal Source' is superseded by Function 'Signal is raised by Object T
      second reading is an INSTANCE of them, written the way this file writes
      every other instance. `For each Reading, at most one Fact Type has that
      Reading` still holds -- each reading names one fact type -- and `It is
-     possible that some Fact Type has more than one Reading` (:1999) is
+     possible that some Fact Type has more than one Reading` (at Fact Type has
+     Reading) is
      exercised here for the first time in this model.
 
      ONE PREDICATE, TWO READINGS.
@@ -2208,8 +2203,8 @@ Role 'RoleIsUsedInReading.1' is used in Reading 'rReadingUsesRole'.
 
 ### Ciphers
 
-<!-- The one value type that is ciphertext at rest. A DomainConnectsToExternal
-     System carries at most one Secret Reference (:1225); with this fact the
+<!-- The one value type that is ciphertext at rest. A DomainConnectsToFederation
+     carries at most one Secret Reference; with this fact the
      value it carries is encrypted.
 
      SECRETS NEVER GO IN A .md, ciphertext or not. Encrypting is not a
@@ -2439,12 +2434,11 @@ Conceptual Data Type 'userDefined' has Abstract SQL Type 'CHARACTER VARYING'.
 ### Constraint Types
 
 <!--
-Each Constraint Type code below names one alethic constraint dispatch
-arm in `compile.rs`. The Family groups codes that share an evaluation
-shape (ring, set-comparison, subset/equality, value, frequency,
-uniqueness, mandatory) so tooling — OpenAPI, docs, MCP introspection —
-can enumerate the inventory from declared facts instead of reading the
-Rust match.
+Each Constraint Type code below names one kind of constraint. The
+Family groups codes that share an evaluation shape (ring,
+set-comparison, subset/equality, value, frequency, uniqueness,
+mandatory) so tooling — OpenAPI, docs, MCP introspection — can
+enumerate the inventory from declared facts.
 -->
 
 Constraint Type 'IR' has Constraint Type Label 'Irreflexive Ring'.

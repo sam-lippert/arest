@@ -7,9 +7,8 @@ declared as data so the rule set lives in the readings, not in Rust.
 -->
 
 <!--
-The English pluralization cascade in the killed host's
-crates/arest/src/naming.rs was lifted to a PluralizationRuleTable
-whose rows were read at runtime from the parallel enum value types
+The English pluralization cascade is a PluralizationRuleTable
+whose rows are read at runtime from the parallel enum value types
 `Pluralization Pattern` and `Pluralization Replacement` declared below.
 Evaluator-phase obligation: read the rule set from these readings the
 same way, and mirror the legacy suffix cascade at boot so behavior
