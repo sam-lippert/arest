@@ -2163,17 +2163,20 @@ Format has Pattern.
 
 ### Popular reference modes
 
-<!-- NORMA's popular reference modes: each names a value type after the entity
-     type that uses it (Order(.id) is identified by Order_id). Name and Title are
-     declared value types of the base, so a mode named for them is general. -->
+<!-- NORMA's popular reference modes (ReferenceMode.cs:336-349): each names a
+     value type after the entity type that uses it, Order(.id) identified by
+     Order_id and Person(.Name) by Person_Name, whatever value types the schema
+     declares. A mode written with a dot that no model mode names is popular too. -->
 Reference Mode 'Id' is of Reference Mode Type 'popular'.
 Reference Mode 'id' is of Reference Mode Type 'popular'.
 Reference Mode 'ID' is of Reference Mode Type 'popular'.
 Reference Mode 'UUID' is of Reference Mode Type 'popular'.
 Reference Mode 'Uuid' is of Reference Mode Type 'popular'.
+Reference Mode 'Name' is of Reference Mode Type 'popular'.
 Reference Mode 'name' is of Reference Mode Type 'popular'.
 Reference Mode 'Code' is of Reference Mode Type 'popular'.
 Reference Mode 'code' is of Reference Mode Type 'popular'.
+Reference Mode 'Title' is of Reference Mode Type 'popular'.
 Reference Mode 'title' is of Reference Mode Type 'popular'.
 Reference Mode 'Nr' is of Reference Mode Type 'popular'.
 Reference Mode 'nr' is of Reference Mode Type 'popular'.
