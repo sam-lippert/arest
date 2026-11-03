@@ -1724,11 +1724,11 @@ Predicate 'decide:unfilled_roles' has Symbol Name 'decide:unfilled_roles'.
 
 ## Derivation Storage and Absorption
 
-<!-- A derivation rule's body is not decomposed into facts here. The rule
-     reader reads a rule's text as a role path over declared fact types
-     (AREST.tex def:fragment), and the path it reads is the recipe the
-     compile stores (state:rpaths); a step, a root or a branch may be
-     negated in the text, and the reader carries it. -->
+<!-- The rule reader reads a rule's text as a role path over declared fact
+     types (AREST.tex def:fragment). Where a constraint provides the rule,
+     the path is that constraint's role sequences, a negated step a negated
+     span (Constraint Span is negated); a rule no constraint provides keeps
+     its recipe as its head's Implementation. -->
 
 ### Value types
 
@@ -1792,9 +1792,11 @@ with none. NORMA carries both, and the paper names both.
     Negation is ORTHOGONAL to join flavour: NORMA has no 'anti' join kind,
     and an anti-join is how a negated step EVALUATES, not what it is ("a
     negated role path ... evaluates as a finite anti-join against a
-    completed lower stratum"). The role path is the rule's text as the rule
-    reader reads it, so a negated root, step or branch is carried there and
-    not as a flag on a fact of the schema.
+    completed lower stratum"). A rule's role path is the role sequences of
+    the constraint that provides it, so a negated step is a negated span of
+    that constraint (Constraint Span is negated), NORMA's own flag on the
+    pathed role, and never a flag on a Fact Type, whose negatability is the
+    pairing below.
 
 (2) EXPLICIT NEGATION — epistemic falsity, never inferred from absence:
     "An epistemic falsity, verbalized 'it is known to be false that,' enters
@@ -2048,6 +2050,25 @@ Object Type has Value Range.
 Constraint Span has Value Range.
   Each Constraint Span, Value Range combination occurs at most once in the population of Constraint Span has Value Range.
   It is possible that more than one Constraint Span has the same Value Range.
+
+<!-- A step of a constraint's role sequences may be negated, as NORMA negates a
+     pathed role (PathedRole.IsNegated, "this step in the path is negated",
+     ORMCore.dsl:6652) in the join path a constraint role sequence owns
+     (ConstraintRoleSequenceJoinPath is a RolePathOwner, ORMCore.dsl:1398; only
+     the automatic join path is kept positive, Constraint.cs). The negated span
+     is the role by which the step enters its fact type, where NORMA opens "it
+     is not true that" (Verbalization.cs, the negated chain pushed at the entry
+     pathed role), as Halpin, Curland et al. map ORM to Datalog: the path "negates
+     its entry into the drives predicate". The step is the fact type that role
+     is in: the rule `H iff P and it is not true that Q` is provided by a
+     constraint whose antecedent spans P's roles and Q's, Q's entry role
+     negated. A Position only the negated step's roles take is quantified
+     inside the negation (their Existential Placement rule), so `it is not
+     true that that Status has some sub-machine State Machine Definition2`
+     needs no second Status. A negation over more than one fact type is read
+     through a derived fact type, first derived and then negated, as the same
+     paper does for a negated conjunction. -->
+Constraint Span is negated.
 
 Object Type has Facet.
   Each Object Type, Facet combination occurs at most once in the population of Object Type has Facet.
