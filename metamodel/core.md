@@ -1040,6 +1040,17 @@ Constraint has Constraint Match Keyword.
 Constraint compares by Value Comparison Operator.
   Each Constraint compares by at most one Value Comparison Operator.
 
+<!-- AN IMPLIED MANDATORY IS THE OBJECT TYPE`S. An object type that is not
+     independent plays at least one of its roles, and NORMA keeps that
+     disjunctive mandatory apart from the ones a modeler declares: a
+     MandatoryConstraint IsImplied, and the relationship
+     ObjectTypeImpliesMandatoryConstraint (ORMCore.dsl), at most one each
+     way. Over the same roles a declared mandatory and an implied one are
+     two constraints, and only this fact tells them apart. -->
+Object Type implies mandatory Constraint.
+  Each Object Type implies mandatory at most one Constraint.
+  For each Constraint, at most one Object Type implies mandatory that Constraint.
+
 ### Constraint Type (NORMA ConstraintType — one classifier carrying code, Name, Label, Family, and Violation Template)
 Constraint is of Constraint Type.
   Each Constraint is of exactly one Constraint Type.
