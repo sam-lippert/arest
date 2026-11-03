@@ -2030,6 +2030,14 @@ Object Type has Value Range.
   Each Object Type, Value Range combination occurs at most once in the population of Object Type has Value Range.
   It is possible that more than one Object Type has the same Value Range.
 
+<!-- A value range also restricts a role where a constraint spans it, as NORMA
+     keeps a value constraint on a role or a pathed role (RoleHasValueConstraint,
+     PathedRoleHasValueConstraint; ORM 2 allows a value constraint on a role): a
+     rule's constant is a value range on the span of the role it fixes. -->
+Constraint Span has Value Range.
+  Each Constraint Span, Value Range combination occurs at most once in the population of Constraint Span has Value Range.
+  It is possible that more than one Constraint Span has the same Value Range.
+
 Object Type has Facet.
   Each Object Type, Facet combination occurs at most once in the population of Object Type has Facet.
   It is possible that more than one Object Type has the same Facet.
