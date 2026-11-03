@@ -169,7 +169,7 @@ __pycache__/
 *.pyc
 
 # THE BASE STORE IS A BUILD PRODUCT: compile-store of the metamodel into an empty
-# tools/base writes it (store.db, with design-state and compiled beside it), and every
+# tools/base writes it (store.db, and nothing beside it), and every
 # host composes it from there (Reader.loadBase, arest.js loadBase). Never tracked.
 tools/base/
 

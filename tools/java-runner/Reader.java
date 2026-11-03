@@ -227,37 +227,10 @@ public final class Reader {
         return (v == null || v.isEmpty()) ? dflt : v;
     }
 
-    // A CARRIERS DIRECTORY IS READ AS THE JS BUILD SPLICES IT (tools/js-runner/build.js), so a
-    // station composes what the js host composes. design-state first; norma-answer where the
-    // directory has one, which a directory lambda wrote (tools/carriers/base) does not; the
-    // compiled relational map only when the stamp it carries is the hash of this lambda and design-state,
-    // since a map built from an older schema describes tables that no longer exist and lambda
-    // derives the map instead; and a run's record, outcome and expected, where there is one.
-    // The stamp is lambda's (compile:stamped): the hash of the lambda text followed by the
-    // design-state text, since the map is lambda's answer about a schema and another lambda's
-    // map is stale over the same design-state. So the loader is handed the lambda it read.
-    // THE STAMP IS NOT CHECKED: the map is loaded whatever it was built from. Checking it would make
-    // every boot derive the map again after any lambda change that leaves the map's body as it was;
-    // a change that moves the map must regenerate the carrier itself.
-    public static void loadCarriers(String dir) {
-        loadCarriers(dir, path("AREST_LAMBDA", "../../arest"));
-    }
-
-    public static void loadCarriers(String dir, String lambda) {
-        java.nio.file.Path ds = Paths.get(dir, "design-state");
-        load(ds.toString());
-        if (Files.exists(Paths.get(dir, "norma-answer"))) load(Paths.get(dir, "norma-answer").toString());
-        java.nio.file.Path compiled = Paths.get(dir, "compiled");
-        if (Files.exists(compiled)) load(compiled.toString());
-        for (String record : new String[] { "outcome", "expected" })
-            if (Files.exists(Paths.get(dir, record))) load(Paths.get(dir, record).toString());
-    }
-
     // THE BASE A MODULE COMPOSES IS NAMED, NOT READ. The base is the store a compile-store of
     // the metamodel writes (tools/base, built, never tracked); where dir holds it, the cells name it in
     // state:base_db and lambda reads it whole at boot (main:boot: store:base_boot), its schema from _defs
-    // and its facts from _readings, as the carriers held them. A directory with no store but carriers is
-    // read as carriers are (loadCarriers). One with neither composes no base, which is how the base is
+    // and its facts from _readings. A directory with no store composes no base, which is how the base is
     // built: compile-store of the metamodel into an empty tools/base composes nothing and writes it.
     public static void loadBase(String dir, String lambda) {
         java.nio.file.Path db = Paths.get(dir, "store.db");
@@ -265,7 +238,6 @@ public final class Reader {
             Arest.CELLS.add(new Object[] { "CELL", "state:base_db", db.toAbsolutePath().toString().replace('\\', '/') });
             return;
         }
-        if (Files.exists(Paths.get(dir, "design-state"))) { loadCarriers(dir, lambda); return; }
         System.err.println("no base at " + dir + ": nothing composed under the readings");
     }
 

@@ -14,8 +14,7 @@ import java.util.Map;
 //
 // The store is the app's database: lambda reads a population where the database places it
 // (store:for_read, store:sql_rows) once the store names its database in state:store_db. The schema
-// it is read through is the carriers its check wrote beside the database, or, where none are, the
-// schema its compile wrote into the database (store:schema_in reads its _defs).
+// it is read through is the one its compile wrote into the database (store:schema_in reads its _defs).
 //
 // A WRITE IS COMMITTED BY LAMBDA OR IT IS REFUSED. An answer whose third part is `stored` was
 // committed by lambda's own program (sqlite:program inside it, as an entity retract is), and it is
@@ -48,9 +47,7 @@ public class Serve {
         String dir = args[0].replace('\\', '/');
         String lambda = Reader.path("AREST_LAMBDA", "../../arest");
         Reader.load(lambda);
-        // a store whose check wrote carriers beside it is read through them; one with none is read through the
-        // schema its compile wrote into it (store:schema_in reads its _defs)
-        if (new java.io.File(dir, "design-state").isFile()) Reader.loadCarriers(dir, lambda);
+        // a store is read through the schema its compile wrote into it (store:schema_in reads its _defs)
         Registrations.register(lambda);
         String db = dir + "/store.db";
         if (!new java.io.File(db).isFile()) throw new RuntimeException("no store at " + db + ": the app's check writes it");
