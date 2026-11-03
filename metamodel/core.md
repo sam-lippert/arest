@@ -110,7 +110,7 @@ Object Type is a subtype of Function.
        (ORMCore.dsl:2437, :2443), its reading `{0} is a subtype of {1}`
        and its name `{0}IsASubtypeOf{1}` (ORMModel.resx). The oracle
        reflects every subtype fact on its own reading-shaped surface
-       (state:subtypefacts), so its roles, players and reading follow at
+       (system:subtypefacts), so its roles, players and reading follow at
        boot like any fact type's, and lists it as an instance of Subtype
        Fact (Object Type Instance is instance of Object Type). The meta
        roles are the reading's positions 1 and 2, which is also how NORMA
