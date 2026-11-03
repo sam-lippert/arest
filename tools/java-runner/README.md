@@ -12,7 +12,7 @@ appears in this directory, delete it — accretion is how the first fleet died.
     AREST_PORT=8787 java -Djava.awt.headless=true -cp . GuiSnapshot <dir> [<pane>=<address>|<pane>@<button>]…
     AREST_PORT=8787 java -cp . TransportCheck   # local and remote answer the same bytes
 
-There is no compose step. The console container READS the lambda and the carriers at
+There is no compose step. The console container READS the lambda and the base store at
 runtime through `Reader`, so a lambda edit needs no rebuild — and lambda stays
 STATE, which AREST.tex:59 requires of D: a station holding it as object code
 cannot be handed a different one. `compose.py` produced a 2.16 MB
@@ -42,8 +42,7 @@ same set. A number is a 64-bit integer, and arithmetic past 64 bits is bottom.
 ## Serve and Router — the MCP transport
 
 `Serve <app>/.check` serves one app's store over MCP on stdio, one JSON-RPC
-message to a line. It loads lambda and the carriers the app's check wrote,
-names the database in `state:store_db`, and boots through lambda's
+message to a line. It loads lambda, names the database in `state:store_db`, and boots through lambda's
 `store:boot`; every answer is lambda's (`mcp:instructions`, `mcp:verbs`,
 `main:as`, `mcp:call`, `mcp:prompts`). A read is answered over the database
 (`store:for_read`). A write is not evaluated: a verb lambda says writes
@@ -90,7 +89,7 @@ one, the sibling of the web renderer:
 - **Its transport**, a registration (`AREST_TRANSPORT`, remote unless set):
   `remote` is `POST /navigate` on a serving host (`AREST_SERVE`, or
   `AREST_PORT` on this machine); `local` is lambda in this process, the
-  store read from a carriers directory (`AREST_LAMBDA`, `AREST_SCENARIOS`,
+  store read from the base directory (`AREST_LAMBDA`, `AREST_SCENARIOS`,
   `AREST_CARRIERS`, as Program reads them), booted as the js host boots one
   (FILE, then the closure) and asked the same `main:api` the serving host
   asks. Both answer the same bytes (`TransportCheck`). Local is not usable
@@ -122,7 +121,6 @@ transition whose performer sends (an approval that sends a reply, say) sends
 through the connection the store declares. Try it on a copy first:
 
     mkdir <copy> && sqlite3 apps/<app>/.check/store.db "VACUUM INTO '<copy>/store.db'"
-    cp apps/<app>/.check/{design-state,compiled,norma-answer,outcome,expectation} <copy>/
     cd arest/tools/js-runner && env -u AREST_MASTER_KEY AREST_CARRIERS=<copy> AREST_OUT_DIR=<copy> AREST_STORE_DB=<copy>/store.db AREST_PORT=8946 bun build.js serve --run
 
 A copy of the live store keeps live's connections, so fence it before the

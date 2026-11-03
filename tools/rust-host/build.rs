@@ -47,14 +47,12 @@ use std::path::Path;
 const BODY_BUDGET: usize = 8 * 1024;
 const LIFT: usize = 4 * 1024;
 
-// lambda, then the case table, then the base carriers (tools/carriers/base), in the order the Java host reads
-// them (Reader.loadCarriers): design-state, then compiled.
-const SOURCES: [(&str, &str); 5] = [
+// lambda, then the case table, in the order the Java host reads them. A compile writes the base as a store and
+// nothing beside it, and this host reads no database, so it composes no base.
+const SOURCES: [(&str, &str); 3] = [
     ("lambda", "../../arest"),
     ("tests", "../../arest.tests"),
     ("scenarios", "../../engine/shared/scenarios.canon"),
-    ("design_state", "../carriers/base/design-state"),
-    ("compiled", "../carriers/base/compiled"),
 ];
 
 /// Split a lambda body on its TOP-LEVEL commas. Depth counts parens; a comma

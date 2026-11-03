@@ -258,35 +258,17 @@ function path(name, dflt) {
   return v === undefined || v === "" ? dflt : v;
 }
 
-// A CARRIERS DIRECTORY is read as the Java station reads it: design-state, norma-answer where there
-// is one, the compiled relational map only when its stamp is this design-state's hash, then a run's
-// outcome and expected.
-// the stamp is lambda's (compile:stamped): the hash of the lambda text followed by the design-state text, since the map
-// is lambda's answer about a schema; so the loader is handed the lambda it read
-// the stamp is not checked: the map is loaded whatever it was built from, as the Java
-// station loads it; a lambda change that moves the map's body regenerates the carrier itself
-function loadCarriers(dir, lambda = path("AREST_LAMBDA", __dirname + "/../../arest")) {
-  const ds = dir + "/design-state";
-  load(ds);
-  if (fs.existsSync(dir + "/norma-answer")) load(dir + "/norma-answer");
-  const compiled = dir + "/compiled";
-  if (fs.existsSync(compiled)) load(compiled);
-  for (const record of ["outcome", "expected"]) if (fs.existsSync(dir + "/" + record)) load(dir + "/" + record);
-}
-
 // THE BASE A MODULE COMPOSES IS NAMED, NOT READ, as the Java station names it (Reader.loadBase): where dir
 // holds store.db (the base a compile-store of the metamodel wrote, tools/base), the cells name it in state:base_db and
 // lambda reads it whole at boot (main:boot: store:base_boot), its schema from _defs and its facts from _readings; a
-// directory with no store but carriers is read as carriers are; one with neither composes no base, which is how the
-// base is built: compile-store of the metamodel into an empty tools/base composes nothing and writes it.
+// directory with no store composes no base, which is how the base is built: compile-store of the metamodel into an empty tools/base composes nothing and writes it.
 function loadBase(dir, lambda = path("AREST_LAMBDA", __dirname + "/../../arest")) {
   const db = dir + "/store.db";
   if (fs.existsSync(db) && fs.statSync(db).isFile()) {
     CELLS.push(["CELL", "state:base_db", require("path").resolve(db).replace(/\\/g, "/")]);
     return;
   }
-  if (fs.existsSync(dir + "/design-state")) return loadCarriers(dir, lambda);
   process.stderr.write("no base at " + dir + ": nothing composed under the readings\n");
 }
 
-module.exports = { DEFS, CELLS, PRIMS, register, Ev, seq, at, show, deepEq, load, cells, path, loadCarriers, loadBase, num };
+module.exports = { DEFS, CELLS, PRIMS, register, Ev, seq, at, show, deepEq, load, cells, path, loadBase, num };

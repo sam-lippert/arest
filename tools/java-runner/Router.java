@@ -47,8 +47,6 @@ public class Router {
         login = Reader.path("AREST_LOGIN", "");
         String dir = registry + "/.check";
         Reader.load(lambda);
-        // as Serve reads a store: through the carriers its check wrote beside it, where it wrote any
-        if (new File(dir, "design-state").isFile()) Reader.loadCarriers(dir, lambda);
         Registrations.register(lambda);
         Arest.CELLS.add(new Object[] { "CELL", "state:store_db", dir + "/store.db" });
         Arest.memoClear();
@@ -233,7 +231,7 @@ public class Router {
             return say("router:checking", name, pkg, dir);
         }
 
-        // apps_compile: this host reads lambda and the store's carriers when a server starts, so compiling the
+        // apps_compile: this host reads lambda and the store when a server starts, so compiling the
         // app is starting its server again over the store apps_check wrote.
         synchronized String compile() throws Exception {
             if (busy != null) return say("router:busy", name, busy);
