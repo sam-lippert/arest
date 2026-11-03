@@ -2177,6 +2177,25 @@ Reference Mode 'code' is of Reference Mode Type 'popular'.
 Reference Mode 'title' is of Reference Mode Type 'popular'.
 Reference Mode 'Nr' is of Reference Mode Type 'popular'.
 Reference Mode 'nr' is of Reference Mode Type 'popular'.
+Reference Mode '#' is of Reference Mode Type 'popular'.
+
+### Unit-based reference modes
+
+<!-- NORMA's unit-based reference modes (ReferenceMode.cs:350-360): each names
+     its value type for the unit, {1}Value, so Mass(kg:) is identified by kgValue.
+     A mode written with a trailing colon is unit-based, and one the model already
+     has keeps its kind, so Length(.cm) is identified by cmValue. -->
+Reference Mode 'kg' is of Reference Mode Type 'unit-based'.
+Reference Mode 'mm' is of Reference Mode Type 'unit-based'.
+Reference Mode 'cm' is of Reference Mode Type 'unit-based'.
+Reference Mode 'km' is of Reference Mode Type 'unit-based'.
+Reference Mode 'mile' is of Reference Mode Type 'unit-based'.
+Reference Mode 'Celsius' is of Reference Mode Type 'unit-based'.
+Reference Mode 'Fahrenheit' is of Reference Mode Type 'unit-based'.
+Reference Mode 'USD' is of Reference Mode Type 'unit-based'.
+Reference Mode 'AUD' is of Reference Mode Type 'unit-based'.
+Reference Mode 'EUR' is of Reference Mode Type 'unit-based'.
+Reference Mode 'CE' is of Reference Mode Type 'unit-based'.
 
 <!-- SUPERSESSION, populated from what the repo can be asked: every retired name resolves to
      nothing (no lambda definition, no Definition Origin row). -->
