@@ -884,7 +884,7 @@ case:a-button-shows-its-label-then-its-reading	"(('actions', 'actions (Draft)', 
 case:a-collection-holds-its-first-page	"('menu', '1-2 of 5', ('item', 'a1', (), ('Agent', 'a1')), ('item', 'a2', (), ('Agent', 'a2')), ('item', 'more', (), ('Agent', 'page', 2)))"
 case:a-collection-page-holds-the-rest	"('menu', '5-5 of 5', ('item', 'a5', (), ('Agent', 'a5')))"
 case:a-collection-page-lands-in-the-master	"'master'"
-case:a-not-every-line-is-its-subtypings-qualifier	"(('CustomerHasColor'), (('AdminIsASubtypeOfCustomer', ('Admin', 'Customer'), (('{0}', 'is', 'a', 'subtype', 'of', '{1}'), ('Not', 'every', '{1}', 'is', 'an', '{0}'))), ('SupportChatIsASubtypeOfAgentChat', ('Support Chat', 'Agent Chat'), (('{0}', 'is', 'a', 'subtype', 'of', '{1}'), ('Not', 'every', '{1}', 'is', 'a', '{0}')))))"
+case:a-not-every-line-is-its-subtypings-qualifier	"(('CustomerHasColor'), (('AdminIsASubtypeOfCustomer', ('Admin', 'Customer'), (('{0}', 'is', 'a', 'subtype', 'of', '{1}'))), ('SupportChatIsASubtypeOfAgentChat', ('Support Chat', 'Agent Chat'), (('{0}', 'is', 'a', 'subtype', 'of', '{1}')))))"
 case:a-page-size-the-ui-readings-declare-is-a-number	"((('agents', 2)))"
 case:an-entity-list-is-sorted-by-its-sort-field	"('menu', '', ('item', 'a1', (), ('Agent', 'a1')), ('item', 'a4', (), ('Agent', 'a4')), ('item', 'a2', (), ('Agent', 'a2')), ('item', 'a3', (), ('Agent', 'a3')))"
 case:a-follow-up-reopens-the-draft-and-its-response-is-offered-approve	"(('menu', (('button', 'SupportResponseAnswersSupportRequest', 'Responded'), ('button', 'AdminMergesSupportRequest', 'Closed'))), ('menu', ()), ('menu', (('button', 'AdminApprovesSupportResponse', 'Sent'))))"
