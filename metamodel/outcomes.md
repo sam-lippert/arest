@@ -84,25 +84,15 @@ Failure occurs during Transition.
   Each Failure occurs during at most one Transition.
 
 ### Temporal Ordering
-Failure follows Violation.
-  Each Failure follows at most one Violation.
-Violation occurs before Transition.
-  Each Violation occurs before at most one Transition.
-Failure succeeds Violation. *
-  Each Failure, Violation combination occurs at most once in the population of Failure succeeds Violation.
-  <!-- residue fix: a disjunctive consequent ("is
-       caused by ... or ... Timestamp is before ...") is this UNION relation
-       reified: a Failure succeeds a Violation when it is caused by it or
-       when it temporally follows it. Fully derived (rules below; recipes in
-       the lambda's rules:metamodel — the union is two rules on one target,
-       the temporal leg riding the cmp recipe form), so the subset sentence
-       below becomes a plain one-clause subset NORMA holds as a real
-       element. -->
+Failure occurred right after Violation.
+  Each Failure occurred right after at most one Violation.
+Violation occurred right before Transition.
+  Each Violation occurred right before at most one Transition.
 
-## Subset Constraints
+## Value Comparisons
 
-If some Failure follows some Violation then that Failure succeeds that Violation.
-If some Violation occurs before some Transition then that Violation occurred at some Timestamp and that Transition occurred at some Timestamp where that Violation Timestamp is before that Transition Timestamp.
+If some Failure occurred right after some Violation then that Violation occurred at some Timestamp and that Failure occurred at some Timestamp where that Violation Timestamp is before that Failure Timestamp.
+If some Violation occurred right before some Transition then that Violation occurred at some Timestamp and that Transition occurred at some Timestamp where that Violation Timestamp is before that Transition Timestamp.
 
 ## Derivation Rules
 
@@ -116,10 +106,6 @@ If some Violation occurs before some Transition then that Violation occurred at 
      role, the rule classifies as a Join and the Domain value propagates from
      the joined Function fact onto the Violation / Failure consequent. No
      domain is stored on the outcome itself. -->
-
-* Failure succeeds Violation iff that Failure is caused by that Violation.
-
-* Failure succeeds Violation iff that Violation occurred at some Timestamp1 and that Failure occurred at some Timestamp2 where Timestamp1 is before Timestamp2.
 
 ** Violation belongs to Domain iff that Violation is against some Function and that Function belongs to that Domain.
 
