@@ -595,16 +595,17 @@ Reading is localized for Language.
   Each Reading is localized for at most one Language.
   It is possible that more than one Reading is localized for the same Language.
 Reading is primary.
-Role is used in Reading.
-  Each Role, Reading combination occurs at most once in the population of Role is used in Reading.
-  Each Role is used in some Reading.
-  <!-- A Reading needs no Role: Halpin relates the role to the
-       predicate, and the
-       predicate to the reading text. A Reading a Domain Change
-       retires outlives the Fact Type and the Roles it created. -->
-
-RoleIsUsedInReading objectifies "Role is used in Reading".
-RoleIsUsedInReading is a subtype of Function.
+Role has Position in Reading / Reading has Role at Position.
+  Each Reading, Position combination occurs at most once in the population of Role has Position in Reading.
+  Each Role, Reading combination occurs at most once in the population of Role has Position in Reading.
+  Each Role has some Position in some Reading.
+  <!-- A role has a Position in each reading of its fact type, the
+       place {Position - 1} of the reading's text, so alternate readings
+       in any role order are readings of the same fact type (NORMA's
+       ReadingOrderHasRole, a reading order's ordered roles). A Reading
+       needs no Role: Halpin relates the role to the predicate, and the
+       predicate to the reading text. A Reading a Domain Change retires
+       outlives the Fact Type and the Roles it created. -->
 
 ### Fact Type (subtype of Object Type)
 Fact Type has Title.
@@ -705,13 +706,6 @@ Constraint Span has Position.
        through the one id space (the subtype), and the
        spanning UC is the pairhood uniqueness; no association
        provides identification. -->
-<!-- `Role has Position for Reading` (compound
-     key Role+Reading) is Halpin's nesting transformation of the SAME content
-     below — the position rides the objectified usage pair, so the compound-
-     key ternary leaves the schema and the position column absorbs into the
-     one Function table. -->
-RoleIsUsedInReading has Position.
-  Each RoleIsUsedInReading has at most one Position.
 
 ### Predicate
 <!-- A Predicate has no Name: Halpin's predicate has no
@@ -1139,7 +1133,7 @@ For each Status, some Transition is from that Status or some Transition is to th
 
 ## Subset Constraints
 
-If some Role is used in some Reading where some Fact Type has that Reading then that Fact Type has that Role.
+If some Role has some Position in some Reading where some Fact Type has that Reading then that Fact Type has that Role.
 <!-- residue fix: both sentences below were phrased over `Fact
      uses Object Type Instance for Role`, the ternary the one-table nesting
      transformation retired (Fact fills Role + RoleInstance uses Object Type Instance)
@@ -1631,15 +1625,15 @@ No Fact joins itself.
      finally in the fragment. A fact chain-composes with a distinct
      fact when the resource it uses at a position-2 role is the
      resource the other uses at a position-1 role — positions through
-     RoleIsUsedInReading has Position, usage through RoleInstance uses
+     Reading has Role at Position, usage through RoleInstance uses
      Object Type Instance. Recipes #38/#39 of rules:metamodel: the flat form
      unfolds both nested attachments (their extensional first columns
      open into components), two cmp mirrors hold the distinctness the
      sketch's "some other Fact" asked for, so the ring is irreflexive
-     by construction. The anaphoric RoleInstance / RoleIsUsedInReading
-     references bind nearest-antecedent. -->
+     by construction. The anaphoric RoleInstance references bind
+     nearest-antecedent. -->
 
-* Fact1 joins Fact2 iff Fact1 fills some Role1 and that RoleInstance uses some Object Type Instance and that Role1 is used in some Reading1 and that RoleIsUsedInReading has Position 2 and some other Fact2 fills some Role2 and that RoleInstance uses that Object Type Instance and that Role2 is used in some Reading2 and that RoleIsUsedInReading has Position 1.
+* Fact1 joins Fact2 iff Fact1 fills some Role1 and that RoleInstance uses some Object Type Instance and some Reading1 has that Role1 at Position 2 and some other Fact2 fills some Role2 and that RoleInstance uses that Object Type Instance and some Reading2 has that Role2 at Position 1.
 
 ## Check-Readings Deontic Obligations
 
@@ -2247,72 +2241,6 @@ Function 'ast:pop_row' is superseded by Function 'ast:pop_exp'.
 Function 'journal:overflow' is superseded by Function 'ui:st_long'.
 Function 'Signal Source' is superseded by Function 'Signal Kind'.
 Function 'Signal Source' is superseded by Function 'Signal is raised by Object Type Instance'.
-
-### The two readings of Role is used in Reading
-
-<!-- An alternate reading of the predicate, for
-     Reading uses Role. Readings are their own entity, and a predicate can have
-     multiple readings with different role orders.
-
-     A SECOND READING IS A POPULATION, NOT A SECOND SENTENCE. Writing
-     `Reading uses Role.` beside `Role is used in Reading.` declares a
-     SECOND FACT TYPE: measured on a copy of this file, the store went from
-     67 tables to 68, the new one being ReadingUsesRole with its own
-     readingId and roleId and no constraint tying its population to this
-     one's. The same happens to the `Customer purchases Product.` /
-     `Product is bought by Customer.` pair that docs/02-writing-readings.md
-     offers as the way to write an alternate reading: two entries in
-     state:readings with reversed player lists, two fact types, two tables.
-     The reader has no form that attaches a reading to a fact type already
-     declared.
-
-     IT NEEDS NO SUCH FORM. Reading is an entity type of this metamodel and
-     `Fact Type has Reading`, `Reading has Text`, `Reading is used by
-     Predicate` and `Role is used in Reading` are its fact types, so a
-     second reading is an INSTANCE of them, written the way this file writes
-     every other instance. `For each Reading, at most one Fact Type has that
-     Reading` still holds -- each reading names one fact type -- and `It is
-     possible that some Fact Type has more than one Reading` (at Fact Type has
-     Reading) is
-     exercised here for the first time in this model.
-
-     ONE PREDICATE, TWO READINGS.
-     `Each Reading is used by exactly one Predicate` and `It is possible
-     that some Predicate is used by more than one Reading` already say a
-     predicate carries several verbalizations, and this one carries two.
-     Every reading needs a predicate:
-     registering a reading as
-     an Object Type Instance is what makes that mandatory bind, and without
-     a predicate to name it fires. Measured: the block without the Predicate
-     lines takes cmd:mand_viols from 0 to 1, naming rReadingUsesRole; with
-     them it is 0, and ui:violations stays at the base's 30, all deontic
-     FunctionBelongsToDomain. Every
-     reading's predicate is filed by the compile as
-     'p<fact type>', which is not a fact type id (those begin upper case),
-     because Predicate and Fact Type are both subtypes of Function and share
-     one id space.
-
-     THE ROLE ORDER IS THE ONE PART NOT HERE. `Role is used in Reading has
-     Position` is what says which role is {0} in each reading, and it is 0
-     rows in every store. Writing it as an instance fact reaches the
-     deadlock reflect:roles_of already records from the other side:
-     `expected sequence, got atom: RoleIsUsedInReading.2.rReadingUsesRole`,
-     the objectified pair imploded the way rmap:proj_objkey keys it, met by
-     a rule that wants <role, reading, position> flat. Until that is
-     reconciled the second reading is IN the model and cannot be RENDERED
-     from it, because rendering needs the order. The rows below are true
-     without it: this fact type has two readings, one predicate carries
-     both, and both roles are used in both. -->
-
-Fact Type 'RoleIsUsedInReading' has Reading 'rReadingUsesRole'.
-
-Reading 'rReadingUsesRole' has Text '{0} uses {1}'.
-
-Reading 'rReadingUsesRole' is used by Predicate 'pRoleIsUsedInReading'.
-
-Role 'RoleIsUsedInReading.2' is used in Reading 'rReadingUsesRole'.
-
-Role 'RoleIsUsedInReading.1' is used in Reading 'rReadingUsesRole'.
 
 ### Ciphers
 
