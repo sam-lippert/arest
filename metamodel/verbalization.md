@@ -1119,7 +1119,7 @@ Verbalization Pattern 'ring-kind' has Pattern Note 'the fact type in its own wor
 
 Verbalization Pattern 'subset' is in Pattern Family 'set comparison'.
 Verbalization Pattern 'subset' has Pattern Form 'If A R B then A S B.'.
-Verbalization Pattern 'subset' has Pattern Example 'If some Role is used in some Reading where some Fact Type has that Reading then that Fact Type has that Role.'.
+Verbalization Pattern 'subset' has Pattern Example 'If some Role has some Position in some Reading where some Fact Type has that Reading then that Fact Type has that Role.'.
 Verbalization Pattern 'subset' has Pattern Note 'a subset constraint: every A that R a B also S that B; subscripts 1 and 2 tell two instances of one type apart, and a negated consequent states an exclusion'.
 
 Verbalization Pattern 'exclusion-of-subtypes' is in Pattern Family 'set comparison'.
