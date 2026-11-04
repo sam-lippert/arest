@@ -533,9 +533,9 @@ Guard Run has Result.
 
 ** State Machine is instance of State Machine Definition iff that State Machine is for some Object Type Instance and that Object Type Instance is instance of some Object Type and that State Machine Definition is for that Object Type.
 
-* Object Type Instance is currently in Status iff some State Machine is for that Object Type Instance and that State Machine is currently in that Status.
+* Object Type Instance is currently in Status if some State Machine is for that Object Type Instance and that State Machine is currently in that Status.
 
-* Object Type Instance is currently in Status iff that Object Type Instance is instance of some Object Type and some State Machine Definition is for that Object Type and that Status is leaf initial in that State Machine Definition and no State Machine is for that Object Type Instance.
+* Object Type Instance is currently in Status if that Object Type Instance is instance of some Object Type and some State Machine Definition is for that Object Type and that Status is leaf initial in that State Machine Definition and no State Machine is for that Object Type Instance.
 
 ** State Machine is currently in Status iff that State Machine is instance of some State Machine Definition and that Status is leaf initial in that State Machine Definition and no Event caused some Transition in that State Machine.
 

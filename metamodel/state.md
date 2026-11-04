@@ -105,6 +105,8 @@ Status is terminal in State Machine Definition.
 Transition exits Status in State Machine Definition. **
   Each Transition, Status, State Machine Definition combination occurs at most once in the population of Transition exits Status in State Machine Definition.
 
+Status is entered in State Machine Definition. *
+  Each Status, State Machine Definition combination occurs at most once in the population of Status is entered in State Machine Definition.
 Status is rooted in State Machine Definition. *
   Each Status, State Machine Definition combination occurs at most once in the population of Status is rooted in State Machine Definition.
 Status is effective initial in State Machine Definition. *
@@ -234,15 +236,15 @@ Constraint 'edge-action-in-target' is decided by Predicate 'decide:moore_mealy'.
 Predicate 'decide:moore_mealy' has Module Path 'arest'.
 Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
 
-** Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from that Status.
+** Status is defined in State Machine Definition if some Transition is defined in that State Machine Definition and that Transition is from that Status.
 
-** Status is defined in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is to that Status.
+** Status is defined in State Machine Definition if some Transition is defined in that State Machine Definition and that Transition is to that Status.
 
-** Transition exits Status in State Machine Definition iff that Transition is defined in that State Machine Definition and that Transition is from that Status.
+** Transition exits Status in State Machine Definition if that Transition is defined in that State Machine Definition and that Transition is from that Status.
 
-** Transition exits Status1 in State Machine Definition1 iff that Transition exits that Status1 in some State Machine Definition2 and some Status2 has sub-machine that State Machine Definition2 and that Status2 is defined in that State Machine Definition1.
+** Transition exits Status1 in State Machine Definition1 if that Transition exits that Status1 in some State Machine Definition2 and some Status2 has sub-machine that State Machine Definition2 and that Status2 is defined in that State Machine Definition1.
 
-** Transition exits Status1 in State Machine Definition1 iff that Status1 is defined in some State Machine Definition2 and some Status2 has sub-machine that State Machine Definition2 and that Transition exits that Status2 in that State Machine Definition1.
+** Transition exits Status1 in State Machine Definition1 if that Status1 is defined in some State Machine Definition2 and some Status2 has sub-machine that State Machine Definition2 and that Transition exits that Status2 in that State Machine Definition1.
 
 <!-- A SUB-MACHINE ENDS AT A TERMINAL STATUS OF ITS OWN OR IS LEFT FROM
      OUTSIDE, AND ITS END MAY MOVE THE MACHINE THAT NESTS IT. A sub-machine
@@ -292,9 +294,9 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
     per the parser's normal instance-fact pathway).
 -->
 
-** Status is defined in State Machine Definition iff that Status is initial in that State Machine Definition.
+** Status is defined in State Machine Definition if that Status is initial in that State Machine Definition.
 
-** Status1 is defined in State Machine Definition1 iff that Status1 is defined in some State Machine Definition2 and some Status2 has sub-machine that State Machine Definition2 and that Status2 is defined in that State Machine Definition1.
+** Status1 is defined in State Machine Definition1 if that Status1 is defined in some State Machine Definition2 and some Status2 has sub-machine that State Machine Definition2 and that Status2 is defined in that State Machine Definition1.
 <!-- THE HAREL NESTING, WHICH THE FLAT RULES DO NOT CARRY. A
      composite Status has its sub-machine (`Status has sub-machine State
      Machine Definition`), so an app groups states by declaring one: `Status 'Open'
@@ -318,13 +320,13 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
      which is every app until it re-checks. When a regenerated carrier
      carries it too, derive:all_rules holds both and derives the same rows. -->
 
-* Status is effective initial in State Machine Definition iff that Status is initial in that State Machine Definition.
+* Status is effective initial in State Machine Definition if that Status is initial in that State Machine Definition.
 
-* Status is effective initial in State Machine Definition iff that Status is rooted in that State Machine Definition and no Status is initial in that State Machine Definition.
+* Status is effective initial in State Machine Definition if that Status is rooted in that State Machine Definition and no Status is initial in that State Machine Definition.
 
-* Status is leaf initial in State Machine Definition1 iff that Status is effective initial in that State Machine Definition1 and it is not true that that Status has some sub-machine State Machine Definition2.
+* Status is leaf initial in State Machine Definition1 if that Status is effective initial in that State Machine Definition1 and it is not true that that Status has some sub-machine State Machine Definition2.
 
-* Status1 is leaf initial in State Machine Definition1 iff some Status2 is effective initial in that State Machine Definition1 and that Status2 has sub-machine some State Machine Definition2 and that Status1 is leaf initial in that State Machine Definition2.
+* Status1 is leaf initial in State Machine Definition1 if some Status2 is effective initial in that State Machine Definition1 and that Status2 has sub-machine some State Machine Definition2 and that Status1 is leaf initial in that State Machine Definition2.
 <!-- residue fix: the effective-initial rules
      (the marker's named debt): the declared initial when present,
      else the graph-derived root — the Pass-4 source-never-target fold the
@@ -346,15 +348,18 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
   The uniqueness gate is the one thing the rule does not express on
   its own, so the consumer side applies it: "exactly one rooted Status
   per SM" is a cardinality predicate, not a join, so the rule emits
-  every candidate and the consumer applies cardinality. The negation
-  `no Transition is defined in that State Machine Definition where
-  that Transition is to that Status` is a set difference, read as one
-  (AREST.tex lem:finite, stratified).
+  every candidate and the consumer applies cardinality. A Status is
+  entered in a State Machine Definition when some Transition of it is
+  to that Status, a fact type of its own, and rooted negates it: a
+  negated clause is a declared fact type, negated whole (Halpin,
+  Curland et al., Mapping ORM to Datalog, sec. 3), a set difference
+  over a lower stratum (AREST.tex lem:finite, stratified).
 
 
 -->
 
-* Status is rooted in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from that Status and no Transition is defined in that State Machine Definition where that Transition is to that Status.
+* Status is entered in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is to that Status.
+* Status is rooted in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from that Status and it is not true that that Status is entered in that State Machine Definition.
 
 <!-- Post-Harel effective-transition relation. Rule 1 is the
      DIRECT declared edge (the literal Transition from its single `from` Status).
@@ -371,7 +376,7 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
      (direct + inherited); firing precedence (consumer-side) picks the direct
      row, the affordance path tolerates the extra legal row. -->
 
-* Status1 has effective Transition1 to Status2 on Event Type iff Transition1 is from Status1 and Transition1 is to Status2 and Transition1 is triggered by Event Type.
+* Status1 has effective Transition1 to Status2 on Event Type if Transition1 is from Status1 and Transition1 is to Status2 and Transition1 is triggered by Event Type.
 
 <!-- RULE 2 (Harel inherited edge), ENABLED. A composite Status has
      its sub-machine, so a Transition whose single `from` Status is the
@@ -380,14 +385,14 @@ Predicate 'decide:moore_mealy' has Symbol Name 'decide:moore_mealy'.
      join threads through the SMD), so shared status names never
      cross-attach. The union over-emits a child's overridden edge (direct +
      inherited); consumer-side firing precedence picks the direct row. -->
-* Status1 has effective Transition1 to Status2 on Event Type iff Transition1 is from Status3 and Status3 has sub-machine State Machine Definition1 and Transition1 is to Status2 and Transition1 is triggered by Event Type and Status1 is defined in State Machine Definition1.
+* Status1 has effective Transition1 to Status2 on Event Type if Transition1 is from Status3 and Status3 has sub-machine State Machine Definition1 and Transition1 is to Status2 and Transition1 is triggered by Event Type and Status1 is defined in State Machine Definition1.
 
 <!-- Transitive reachability over declared transitions,
      feeding the Liveness obligation under ## Constraints. -->
 
-* Status1 reaches Status2 in State Machine Definition iff some Transition is defined in that State Machine Definition and that Transition is from Status1 and that Transition is to Status2.
+* Status1 reaches Status2 in State Machine Definition if some Transition is defined in that State Machine Definition and that Transition is from Status1 and that Transition is to Status2.
 
-* Status1 reaches Status3 in State Machine Definition iff Status1 reaches Status2 in that State Machine Definition and Status2 reaches Status3 in that State Machine Definition.
+* Status1 reaches Status3 in State Machine Definition if Status1 reaches Status2 in that State Machine Definition and Status2 reaches Status3 in that State Machine Definition.
 
 
 
