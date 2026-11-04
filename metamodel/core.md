@@ -1523,13 +1523,13 @@ Derivation Rule depends on Derivation Rule. *
 <!-- sub-tenancy closure: reachability over
      domain containment, the acyclicity carrier for the tenant tree. -->
 
-* Domain1 reaches Domain2 iff Domain2 is contained in Domain1.
+* Domain1 reaches Domain2 if Domain2 is contained in Domain1.
 
-* Domain1 reaches Domain3 iff Domain1 reaches Domain2 and Domain2 reaches Domain3.
+* Domain1 reaches Domain3 if Domain1 reaches Domain2 and Domain2 reaches Domain3.
 
-* Domain1 draws on Domain2 iff Domain1 uses Domain2.
+* Domain1 draws on Domain2 if Domain1 uses Domain2.
 
-* Domain1 draws on Domain3 iff Domain1 draws on Domain2 and Domain2 draws on Domain3.
+* Domain1 draws on Domain3 if Domain1 draws on Domain2 and Domain2 draws on Domain3.
 
 
 * Derivation Rule1 depends on Derivation Rule2 iff Derivation Rule1 has antecedent Fact Type and Derivation Rule2 produces that Fact Type.
@@ -1539,9 +1539,9 @@ Derivation Rule depends on Derivation Rule. *
      would be invisible to the Cor 1 check. Self-dependency is a legitimate,
      recordable edge. -->
 
-* Derivation Rule1 reaches Derivation Rule2 iff Derivation Rule1 depends on Derivation Rule2.
+* Derivation Rule1 reaches Derivation Rule2 if Derivation Rule1 depends on Derivation Rule2.
 
-* Derivation Rule1 reaches Derivation Rule3 iff Derivation Rule1 depends on Derivation Rule2 and Derivation Rule2 reaches Derivation Rule3.
+* Derivation Rule1 reaches Derivation Rule3 if Derivation Rule1 depends on Derivation Rule2 and Derivation Rule2 reaches Derivation Rule3.
 
 
 

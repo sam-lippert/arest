@@ -102,8 +102,8 @@ Predicate is bound. *
      the theorem stated rather than an extra restriction. Irreflexivity is
      deliberately absent: a package that depended on itself is a modelling error
      for a law to report, not a shape the closure may not hold. -->
-* JS Package1 reaches JS Package2 iff JS Package1 depends on JS Package2.
-* JS Package1 reaches JS Package3 iff JS Package1 depends on JS Package2 and JS Package2 reaches JS Package3.
+* JS Package1 reaches JS Package2 if JS Package1 depends on JS Package2.
+* JS Package1 reaches JS Package3 if JS Package1 depends on JS Package2 and JS Package2 reaches JS Package3.
 If JS Package1 reaches JS Package2 and JS Package2 reaches JS Package3 then JS Package1 reaches JS Package3.
 
 * Predicate is bound iff Predicate has some Module Path and Predicate has some Symbol Name.

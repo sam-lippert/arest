@@ -152,9 +152,9 @@ It is obligatory that if some User approves some Schema Design then that User is
 
 ## Derivation Rules
 
-* Schema Design has blocking outcome iff some Violation is triggered by that Schema Design and that Violation has Severity 'error'.
+* Schema Design has blocking outcome if some Violation is triggered by that Schema Design and that Violation has Severity 'error'.
 
-* Schema Design has blocking outcome iff some Failure is triggered by that Schema Design.
+* Schema Design has blocking outcome if some Failure is triggered by that Schema Design.
 
 * Schema Design is valid iff that Schema Design is evaluated and it is not true that that Schema Design has blocking outcome.
 
@@ -425,10 +425,10 @@ Schema Design touches Table. *
 
 ## Derivation Rules
 
-* Relational Schema covers Domain iff that Relational Schema is for that Domain.
-* Relational Schema covers Domain2 iff that Relational Schema is for some Domain1 and Domain1 draws on Domain2.
+* Relational Schema covers Domain if that Relational Schema is for that Domain.
+* Relational Schema covers Domain2 if that Relational Schema is for some Domain1 and Domain1 draws on Domain2.
 
-* Schema Design touches Table iff that Schema Design proposes some Role and some Column belongs to that Table and that Column is for that Role.
-* Schema Design touches Table iff that Schema Design proposes some Object Type and that Table is primarily for that Object Type.
-* Schema Design touches Table iff that Schema Design proposes some Fact Type and that Table is primarily for that Fact Type.
-* Schema Design touches Table iff that Schema Design proposes some Constraint and some Table Key belongs to that Table and that Table Key realizes that Constraint.
+* Schema Design touches Table if that Schema Design proposes some Role and some Column belongs to that Table and that Column is for that Role.
+* Schema Design touches Table if that Schema Design proposes some Object Type and that Table is primarily for that Object Type.
+* Schema Design touches Table if that Schema Design proposes some Fact Type and that Table is primarily for that Fact Type.
+* Schema Design touches Table if that Schema Design proposes some Constraint and some Table Key belongs to that Table and that Table Key realizes that Constraint.
