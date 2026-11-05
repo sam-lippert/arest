@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 // ONE APP'S STORE OVER MCP. JSON-RPC on stdio, one message to a line, and every answer lambda's:
-// mcp:instructions at initialize, mcp:tools_json for the tools, main:as for a verb, mcp:call for a fact
+// mcp:instructions at initialize, mcp:tools_json for the tools, k:as for a verb, k:mcp_call for a fact
 // type's own resource, mcp:prompts and mcp:prompt for the verbalization patterns. This file builds
 // the protocol's envelopes and nothing else.
 //
@@ -18,14 +18,15 @@ import java.util.Map;
 //
 // A WRITE IS COMMITTED BY LAMBDA OR IT IS REFUSED. An answer whose third part is `stored` was
 // committed by lambda's own program (sqlite:program inside it, as an entity retract is), and it is
-// answered. A POST, a PUT or a DELETE of a fact goes to lambda as any request does, and main:api
-// commits it (main:commit), as main:as commits the store a writing verb makes (main:as_commit). An
+// answered. A POST, a PUT or a DELETE of a fact goes to lambda as any request does, and one application
+// of SYSTEM commits it in one program (k:system, k:do_change), as it does a writing verb; a request SYSTEM
+// does not answer stays with main:api and main:as, which commit their own (main:commit, main:as_commit). An
 // answer that still hands back a new store is a write lambda did not commit, over a store held in
 // memory alone, and this host has no commit of its own to run in its place, so it answers that the
 // write was not committed and keeps the store as it was.
 //
 // HTTP IS THE SAME OPERATION OVER ANOTHER TRANSPORT. A request is <store, method, resource, caller, body>
-// through lambda's main:api: the resource is the path less its leading slash, the caller the
+// through k:api: the resource is the path less its leading slash, the caller the
 // x-arest-caller header (no header is the anonymous caller), the body the request's JSON (none is the
 // empty sequence). The answer's text and status are lambda's.
 //
@@ -47,14 +48,16 @@ public class Serve {
         String dir = args[0].replace('\\', '/');
         String lambda = Reader.path("AREST_LAMBDA", "../../arest");
         Reader.load(lambda);
+        // SYSTEM's own cells, beside lambda: a request goes through them (k:serve_boot, k:api, k:mcp_call, k:as)
+        Reader.load(Reader.path("AREST_KERNEL", "../../kernel"));
         // a store is read through the schema its compile wrote into it (store:schema_in reads its _defs)
         Registrations.register(lambda);
         String db = dir + "/store.db";
         if (!new java.io.File(db).isFile()) throw new RuntimeException("no store at " + db + ": the app's check writes it");
         Arest.CELLS.add(new Object[] { "CELL", "state:store_db", db });
         Arest.memoClear();
-        // what a served read asks of the schema, computed once by lambda (store:boot)
-        store = (Object[]) Arest.Ev("store:boot", Arest.CELLS.toArray());
+        // what a served read asks of the schema, computed once by lambda, with SYSTEM's D (k:serve_boot)
+        store = (Object[]) Arest.Ev("k:serve_boot", Arest.CELLS.toArray());
         System.err.println("serve: " + dir + " booted in " + (System.nanoTime() - t0) / 1000000 + " ms, " + store.length + " cells");
         if (args.length > 1 && "--call".equals(args[1])) {
             Map<String, Object> call = new LinkedHashMap<String, Object>();
@@ -136,11 +139,11 @@ public class Serve {
         return fail(id, "unknown method: " + method);
     }
 
-    // one HTTP request through main:api, answered <text, status>
+    // one HTTP request through k:api, answered <text, status>
     static Object[] request(String method, String resource, String caller, Object body) {
         try {
             Object[] req = new Object[] { store, method, resource, caller, body == null ? new Object[0] : Gui.fromJson(body) };
-            Object[] out = (Object[]) Arest.Ev("main:api", req);
+            Object[] out = (Object[]) Arest.Ev("k:api", req);
             return answered(out, status(out[1]));
         } catch (Throwable e) { return new Object[] { String.valueOf(e.getMessage()), 500L }; }
     }
@@ -193,14 +196,14 @@ public class Serve {
         if ("fact".equals(name)) {
             String method = a.get("method") == null ? "GET" : String.valueOf(a.get("method"));
             Object fact = a.get("fact") == null ? new Object[0] : Gui.fromJson(a.get("fact"));
-            out = (Object[]) Arest.Ev("mcp:call", new Object[] { method, String.valueOf(a.get("factType")), caller, fact, store });
+            out = (Object[]) Arest.Ev("k:mcp_call", new Object[] { method, String.valueOf(a.get("factType")), caller, fact, store });
             return answered(out, ((Number) out[1]).longValue());
         }
         List<Object> argv = new ArrayList<Object>();
         argv.add(name);
         if (a.get("args") instanceof Object[]) for (Object x : (Object[]) a.get("args")) argv.add(Gui.fromJson(x));
-        // a writing verb is evaluated and main:as commits its store (main:as_commit); one it did not commit is answered below
-        out = (Object[]) Arest.Ev("main:as", new Object[] { store, caller, argv.toArray() });
+        // a writing verb is one application of SYSTEM (k:as), or commits its store through main:as; one not committed is answered below
+        out = (Object[]) Arest.Ev("k:as", new Object[] { store, caller, argv.toArray() });
         return answered(out, "T".equals(out[1]) ? 200L : 500L);
     }
 

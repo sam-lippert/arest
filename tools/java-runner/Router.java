@@ -47,10 +47,12 @@ public class Router {
         login = Reader.path("AREST_LOGIN", "");
         String dir = registry + "/.check";
         Reader.load(lambda);
+        // SYSTEM's own cells, beside lambda: a request goes through them (k:serve_boot, k:api, k:mcp_call, k:as)
+        Reader.load(Reader.path("AREST_KERNEL", new File(lambda).getParent() + "/kernel"));
         Registrations.register(lambda);
         Arest.CELLS.add(new Object[] { "CELL", "state:store_db", dir + "/store.db" });
         Arest.memoClear();
-        store = (Object[]) Arest.Ev("store:boot", Arest.CELLS.toArray());
+        store = (Object[]) Arest.Ev("k:serve_boot", Arest.CELLS.toArray());
         Serve.store = store;
         Object read = Arest.Ev("store:for_read", store);
         Map<String, String> status = new LinkedHashMap<String, String>();

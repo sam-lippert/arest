@@ -16,7 +16,7 @@ strategy a host keeps is one every other host must keep too, so speed belongs in
       bun program.js <address...>        # as java Program <address...>
 
 - `serve.js`: one app's store over MCP on stdio. It builds the JSON-RPC envelopes around lambda's answers
-  (`mcp:instructions`, `mcp:tools_json`, `main:as`, `mcp:call`, `mcp:prompts`, `mcp:prompt`, `mcp:prompt_description`,
+  (`mcp:instructions`, `mcp:tools_json`, `k:as`, `k:mcp_call`, `mcp:prompts`, `mcp:prompt`, `mcp:prompt_description`,
   `mcp:not_committed`) and writes nothing of its own. Over the same store its answers are Java's, byte for byte.
 
       bun serve.js <app .check directory>                        # as java Serve <dir>
