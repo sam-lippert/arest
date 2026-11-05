@@ -1,5 +1,5 @@
 // ONE APP'S STORE OVER MCP, a peer of tools/java-runner/Serve.java. JSON-RPC on stdio, one message to a line, and
-// every answer lambda's: mcp:instructions at initialize, mcp:tools_json for the tools, main:as for a verb, mcp:call for
+// every answer lambda's: mcp:instructions at initialize, mcp:tools_json for the tools, k:as for a verb, k:mcp_call for
 // a fact type's own resource, mcp:prompts, mcp:prompt and mcp:prompt_description for the verbalization patterns, and
 // mcp:not_committed for a write this host cannot commit. This file builds the protocol's envelopes and nothing else.
 //
@@ -9,13 +9,14 @@
 //
 // A WRITE IS COMMITTED BY LAMBDA OR IT IS REFUSED. An answer whose third part is `stored` was committed by lambda's own
 // program (sqlite:program inside it, as an entity retract is), and it is answered. A POST, a PUT or a DELETE of a fact
-// goes to lambda as any request does, and main:api commits it (main:commit), as main:as commits the store a writing verb
-// makes (main:as_commit). An answer that still hands back a new store is a write lambda did not commit, over a store
+// goes to lambda as any request does, and one application of SYSTEM commits it in one program (k:system, k:do_change), as
+// it does a writing verb; a request SYSTEM does not answer stays with main:api and main:as, which commit their own
+// (main:commit, main:as_commit). An answer that still hands back a new store is a write lambda did not commit, over a store
 // held in memory alone, and this host has no commit of its own to run in its place, so it answers what lambda says of
 // that and keeps the store as it was.
 //
 // HTTP IS THE SAME OPERATION OVER ANOTHER TRANSPORT. A request is <store, method, resource, caller, body> through
-// lambda's main:api: the resource is the path less its leading slash, the caller the x-arest-caller header (no header
+// k:api: the resource is the path less its leading slash, the caller the x-arest-caller header (no header
 // is the anonymous caller), the body the request's JSON (none is the empty sequence). The answer's text and status are
 // lambda's.
 //
@@ -31,17 +32,19 @@ console.log = console.error;
 // the store this server answers over: an app's (boot), or the registry's when router.js serves through this file
 let store = null;
 
-// lambda and the database named: what a served read asks of the schema, computed once by lambda (store:boot)
+// lambda and the database named: what a served read asks of the schema, computed once by lambda, with SYSTEM's D (k:serve_boot)
 function boot(dir) {
   const t0 = Date.now();
   const lambda = A.path("AREST_LAMBDA", __dirname + "/../../arest");
   A.load(lambda);
+  // SYSTEM's own cells, beside lambda: a request goes through them (k:serve_boot, k:api, k:mcp_call, k:as)
+  A.load(A.path("AREST_KERNEL", __dirname + "/../../kernel"));
   // a store is read through the schema its compile wrote into it (store:schema_in reads its _defs)
   require("./registrations.js").register(lambda);
   const db = dir + "/store.db";
   if (!fs.existsSync(db)) throw new Error("no store at " + db + ": the app's check writes it");
   A.CELLS.push(["CELL", "state:store_db", db]);
-  store = A.Ev("store:boot", A.CELLS.slice());
+  store = A.Ev("k:serve_boot", A.CELLS.slice());
   process.stderr.write("serve: " + dir + " booted in " + (Date.now() - t0) + " ms, " + store.length + " cells\n");
   return store;
 }
@@ -91,11 +94,11 @@ function handle(msg) {
   return fail(id, "unknown method: " + method);
 }
 
-// one HTTP request through main:api, answered <text, status>
+// one HTTP request through k:api, answered <text, status>
 function request(method, resource, caller, body) {
   try {
     const req = [store, method, resource, caller, body == null ? [] : fromJson(body)];
-    const out = A.Ev("main:api", req);
+    const out = A.Ev("k:api", req);
     return answered(out, status(out[1]));
   } catch (e) { return [String(e.message), 500]; }
 }
@@ -130,13 +133,13 @@ function call(p) {
   if (name === "fact") {
     const method = a.method == null ? "GET" : String(a.method);
     const fact = a.fact == null ? [] : fromJson(a.fact);
-    const out = A.Ev("mcp:call", [method, str(a.factType), caller, fact, store]);
+    const out = A.Ev("k:mcp_call", [method, str(a.factType), caller, fact, store]);
     return answered(out, Number(out[1]));
   }
   const argv = [name];
   if (Array.isArray(a.args)) for (const x of a.args) argv.push(fromJson(x));
-  // a writing verb is evaluated and main:as commits its store (main:as_commit); one it did not commit is answered below
-  const out = A.Ev("main:as", [store, caller, argv]);
+  // a writing verb is one application of SYSTEM (k:as), or commits its store through main:as; one not committed is answered below
+  const out = A.Ev("k:as", [store, caller, argv]);
   return answered(out, out[1] === "T" ? 200 : 500);
 }
 
