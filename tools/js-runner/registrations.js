@@ -116,6 +116,7 @@ function register(lambdaPath) {
   });
   reg("sqlite:copy", (x) => {
     const from = text(A.at(x, 0)), to = text(A.at(x, 1));
+    if (from === to || !fs.existsSync(from)) throw new Error("sqlite:copy refuses: nothing to copy from " + from + " to " + to);
     unwatch(to);
     for (const f of [to, to + "-wal", to + "-shm", to + "-journal"]) fs.rmSync(f, { force: true });
     const db = open(from, true);

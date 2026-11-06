@@ -156,6 +156,7 @@ public final class Registrations {
         });
         Arest.register("sqlite:copy", x -> {
             String from = text(Arest.at(x, 0)), to = text(Arest.at(x, 1));
+            if (from.equals(to) || !Files.exists(Paths.get(from))) throw new RuntimeException("sqlite:copy refuses: nothing to copy from " + from + " to " + to);
             unwatch(to);
             for (String p : new String[] { to, to + "-wal", to + "-shm", to + "-journal" })
                 io(() -> Files.deleteIfExists(Paths.get(p)));
