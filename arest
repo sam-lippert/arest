@@ -3806,11 +3806,9 @@ DEF("system:ins_lo",
 DEF("system:ins_asc",
     S3(A("COMP"), S3(A("COMP"), A("cat"), S3(A("CONS"), S3(A("COMP"), A("theta:take"), S3(A("CONS"), N(2), N(3))), S3(A("COMP"), A("apndl"), S3(A("CONS"), N(1), S3(A("COMP"), A("theta:drop"), S3(A("CONS"), N(2), N(3))))))), S4(A("CONS"), N(1), N(2), A("system:ins_lo")))),
 
+"A sequence to its members ordered by their firsts, stably, by the one merge sort (rmap:msort). Inserting each member at the place a binary search found read the middle of the list at every step, which a host with no index of a list walks to: a query of 11,000 rows on a large app spent four minutes there.",
 DEF("system:sort_asc",
-    S3(A("COMP"), S2(A("INSERT"), A("system:ins_asc")),
-       S3(A("COMP"), A("apndr"),
-          S3(A("CONS"), A("id"), S2(A("CONST"), PHI()))))),
-
+    A("rmap:msort")),
 "The store surface as MATH. engine/rust's `cells` op walks the resident index building name+rowcount pairs and sorts them, ~41 lines of Rust; the only host part of that is rendering JSON. NOT named `cells`: lambda already binds DEF(cells) to rmap (the relational map), and two meanings under one name is the ambiguity we removed elsewhere. A cell is <CELL,name,contents>: the name is 2, the count is length.3. The ATOM cell (no population) is why the guard is here and not left to bottom. length of an atom IS bottom, and engine/rust prints that cell's rows as null -- but a sequence CONTAINING bottom is itself bottom (13.2), so an unguarded length.3 does not answer <name,null>, it collapses the WHOLE listing to bottom. The case with an atom cell in it refuted the unguarded form on the first run. phi is the empty population, which the host renders as null.",
 DEF("store:namerows",
     S3(A("COMP"), A("system:sort_asc"),
