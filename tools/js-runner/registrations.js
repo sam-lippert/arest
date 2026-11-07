@@ -233,13 +233,15 @@ function run(x) {
   const p = text(A.at(x, 0)), statement = text(A.at(x, 1)), rows = A.seq(A.at(x, 2));
   return write(p, (db) => {
     const st = db.prepare(statement);
-    let n = 0;
-    for (const r of rows) {
-      try { st.run(...bind(A.seq(r), true)); }
-      catch (e) { throw new Error(e.message + " -- row " + (n + 1) + " of " + rows.length); }
-      n++;
-    }
-    return BigInt(n);
+    try {
+      let n = 0;
+      for (const r of rows) {
+        try { st.run(...bind(A.seq(r), true)); }
+        catch (e) { throw new Error(e.message + " -- row " + (n + 1) + " of " + rows.length); }
+        n++;
+      }
+      return BigInt(n);
+    } finally { st.finalize(); }  // a connection with a statement still prepared stays open past its close, and holds its file
   });
 }
 
