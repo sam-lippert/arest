@@ -97,10 +97,7 @@ User is authenticated.
 Access Role is an entity type.
 Access Role is a subtype of Object Type Instance.
 
-<!-- A role is held by assertion or by rule: an app may say that the members of an Organization have a role
-     (support.example.dev: each User that belongs to Example has Access Role 'support'), and a user registered for one
-     role alone is asserted to have it. So the fact type is semi-derived. -->
-User has Access Role. +
+User has Access Role.
   Each User, Access Role combination occurs at most once in the population of User has Access Role.
 
 Access Role is authorized for Permission on Function.
