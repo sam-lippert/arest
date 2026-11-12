@@ -30,9 +30,9 @@ import java.util.Map;
 // x-arest-caller header (no header is the anonymous caller), the body the request's JSON (none is the
 // empty sequence). The answer's text and status are lambda's.
 //
-//   java Serve <app .check directory>                         serve MCP on stdio
-//   java Serve <app .check directory> --call <tool> <json>    one call, answered on stdout
-//   java Serve <app .check directory> --http <port>           serve HTTP on the port, on 127.0.0.1
+//   java Serve <app store directory>                         serve MCP on stdio
+//   java Serve <app store directory> --call <tool> <json>    one call, answered on stdout
+//   java Serve <app store directory> --http <port>           serve HTTP on the port, on 127.0.0.1
 public class Serve {
     static Object[] store;
     static final PrintStream OUT = utf8Out();

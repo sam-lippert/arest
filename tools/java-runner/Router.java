@@ -20,14 +20,16 @@ import java.util.concurrent.atomic.AtomicLong;
 // over its own store (Serve), started at its first call and stopped after ten minutes without one,
 // so two apps answer at once and one app answers in its order.
 //
-// The router's own store is the registry (tools/js-runner/registry): its App table says which apps
-// there are and where each package is, and lambda reads it, as it reads any served store. The verbs
+// The router's own store is the registry's (the package tools/js-runner/registry): its App table says
+// which apps there are, where each package is and where each store is, and lambda reads it, as it reads
+// any served store. No store is inside a package; each is the App's Store Directory. The verbs
 // are lambda's, read off the registry's store, and every one takes `app`; `apps` lists the apps. Every
 // sentence it answers is lambda's too (router:*); this file starts, stops and speaks to the app servers.
 //
 //   java -cp <classes;sqlite-jdbc;slf4j-api> Router
 //
-// AREST_LAMBDA names the lambda file, AREST_REGISTRY the registry package, AREST_LOGIN the caller a
+// AREST_LAMBDA names the lambda file, AREST_REGISTRY the registry package, AREST_REGISTRY_STORE its store
+// directory (by default ~/.arest/registry), AREST_LOGIN the caller a
 // call names when it names none. AREST_HTTP_PORT, when set, serves HTTP on 127.0.0.1 too: /<app>/<resource>
 // is passed to that app's server as it came (Serve's HTTP), and the caller is the request's own.
 public class Router {
@@ -37,7 +39,7 @@ public class Router {
     static Object[] store;
     static final LinkedHashMap<String, App> APPS = new LinkedHashMap<String, App>();
     static final ExecutorService POOL = Executors.newCachedThreadPool();
-    static String lambda, login;
+    static String lambda, login, kernel;
 
     public static void main(String[] args) throws Exception {
         System.setOut(System.err);
@@ -45,10 +47,12 @@ public class Router {
         lambda = new File(Reader.path("AREST_LAMBDA", "../../arest")).getCanonicalPath().replace('\\', '/');
         String registry = Reader.path("AREST_REGISTRY", new File(lambda).getParent() + "/tools/js-runner/registry").replace('\\', '/');
         login = Reader.path("AREST_LOGIN", "");
-        String dir = registry + "/.check";
+        // The registry's own store, outside the package like every App's.
+        String dir = Reader.path("AREST_REGISTRY_STORE", System.getProperty("user.home").replace('\\', '/') + "/.arest/registry").replace('\\', '/');
         Reader.load(lambda);
         // SYSTEM's own cells, beside lambda: a request goes through them (k:serve_boot, k:api, k:mcp_call, k:as)
-        Reader.load(Reader.path("AREST_KERNEL", new File(lambda).getParent() + "/kernel"));
+        kernel = new File(Reader.path("AREST_KERNEL", new File(lambda).getParent() + "/kernel")).getCanonicalPath().replace('\\', '/');
+        Reader.load(kernel);
         Registrations.register(lambda);
         Arest.CELLS.add(new Object[] { "CELL", "state:store_db", dir + "/store.db" });
         Arest.memoClear();
@@ -57,11 +61,15 @@ public class Router {
         Object read = Arest.Ev("store:for_read", store);
         Map<String, String> status = new LinkedHashMap<String, String>();
         for (Object r : rows("AppHasServingStatus", read)) status.put(String.valueOf(((Object[]) r)[0]), String.valueOf(((Object[]) r)[1]));
+        Map<String, String> stores = new LinkedHashMap<String, String>();
+        for (Object r : rows("AppHasStoreDirectory", read)) stores.put(String.valueOf(((Object[]) r)[0]), String.valueOf(((Object[]) r)[1]).replace('\\', '/'));
         for (Object r : rows("AppHasPackageDirectory", read)) {
             Object[] row = (Object[]) r;
             String name = String.valueOf(row[0]);
             if ("suspended".equals(status.get(name))) continue;
-            APPS.put(name, new App(name, String.valueOf(row[1]).replace('\\', '/') + "/.check", here));
+            String at = stores.get(name);
+            if (at == null) { System.err.println("router: " + name + " has no Store Directory in the registry, so it is not served"); continue; }
+            APPS.put(name, new App(name, String.valueOf(row[1]).replace('\\', '/'), at, here));
         }
         System.err.println("router: " + APPS.size() + " apps from " + dir + ": " + String.join(", ", APPS.keySet()));
         Thread idle = new Thread(() -> {
@@ -181,9 +189,9 @@ public class Router {
     static String say(String def, Object... parts) { return String.valueOf(Arest.Ev(def, parts.length == 1 ? parts[0] : parts)); }
     static Object[] names() { return APPS.keySet().toArray(); }
 
-    // ONE APP'S SERVER: a Serve process over the app's .check directory, spoken to in JSON-RPC lines
+    // ONE APP'S SERVER: a Serve process over the app's store directory, spoken to in JSON-RPC lines
     static final class App {
-        final String name, dir, classes;
+        final String name, pkg, dir, classes;
         Process proc;
         Writer to;
         String instructions, error, busy, note = "";
@@ -191,27 +199,28 @@ public class Router {
         final AtomicLong seq = new AtomicLong();
         final ConcurrentHashMap<Long, CompletableFuture<Map<?, ?>>> pending = new ConcurrentHashMap<Long, CompletableFuture<Map<?, ?>>>();
 
-        App(String name, String dir, String classes) { this.name = name; this.dir = dir; this.classes = classes; }
+        App(String name, String pkg, String dir, String classes) { this.name = name; this.pkg = pkg; this.dir = dir; this.classes = classes; }
 
         // apps_check: the app's server is stopped, because the check writes the store it holds, and the command
-        // line runs lambda's `apps_check <package directory>` in the package. Which readings, in what order and
+        // line runs lambda's `apps_check <package directory> <store directory>` in the package. Which readings, in what order and
         // where they land are lambda's; this starts the process and reports how it ended.
         synchronized String check() throws Exception {
             if (busy != null) return say("router:busy", name, busy);
             stop();
             busy = "checking";
             note = "";
-            String pkg = new File(dir).getParent().replace('\\', '/');
+            new File(dir).mkdirs();
             String root = new File(lambda).getParent().replace('\\', '/');
             String jvm = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
             ProcessBuilder pb = new ProcessBuilder(jvm, "-Xmx" + Reader.path("AREST_APP_HEAP", "2g"), "-Xss512m",
-                "-cp", System.getProperty("java.class.path"), "Program", "apps_check", pkg);
+                "-cp", System.getProperty("java.class.path"), "Program", "apps_check", pkg, dir);
             pb.directory(new File(pkg));
             pb.environment().put("AREST_LAMBDA", lambda);
             pb.environment().put("AREST_TESTS", root + "/arest.tests");
             pb.environment().put("AREST_SCENARIOS", root + "/engine/shared/scenarios.canon");
             pb.environment().put("AREST_CARRIERS", root + "/tools/base");
-            final File log = new File(pkg, "check.log");
+            pb.environment().put("AREST_KERNEL", kernel);
+            final File log = new File(dir, "check.log");
             pb.redirectErrorStream(true);
             pb.redirectOutput(log);
             final Process p = pb.start();
@@ -264,6 +273,7 @@ public class Router {
             ProcessBuilder pb = new ProcessBuilder(java, "-Xmx" + Reader.path("AREST_APP_HEAP", "2g"), "-Xss512m",
                 "-cp", System.getProperty("java.class.path"), "Serve", dir);
             pb.environment().put("AREST_LAMBDA", lambda);
+            pb.environment().put("AREST_KERNEL", kernel);
             pb.redirectError(new File(dir, "serve.log"));
             proc = pb.start();
             to = new OutputStreamWriter(proc.getOutputStream(), StandardCharsets.UTF_8);
