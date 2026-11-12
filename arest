@@ -7410,16 +7410,10 @@ DEF("csdp:append_T",
 DEF("csdp:allp",
     S3(A("COMP"), S2(A("INSERT"), A("and")), A("csdp:append_T"))),
 
-DEF("csdp:keep_keyed",
-    S4(A("COND"),
-       S3(A("COMP"), A("eq"),
-          S3(A("CONS"), S3(A("COMP"), N(1), N(1)),
-             S3(A("COMP"), N(1), S3(A("COMP"), N(2), N(1))))),
-       S3(A("COMP"), A("apndl"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), N(2))),
-       N(2))),
 
+"<key, rows> to the rows whose first is the key, in their order: csdp:matches_at with the first place, the same rows (csdp:keep_keyed_at keeps them as csdp:keep_keyed did), which a host may answer from an index of rows asked again.",
 DEF("csdp:matches",
-    S4(A("COMP"), S2(A("INSERT"), A("csdp:keep_keyed")), A("theta:append_phi"), A("distl"))),
+    S3(A("COMP"), A("csdp:matches_at"), S3(A("COMP"), A("apndl"), S3(A("CONS"), K(N(1)), A("id"))))),
 
 DEF("csdp:keep_keyed_at",
     S4(A("COND"),
