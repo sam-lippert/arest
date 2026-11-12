@@ -92,8 +92,9 @@ function register(lambdaPath) {
   });
   reg("sqlite:run", run);
   reg("sqlite:query", (x) => {
-    const db = open(text(A.at(x, 0)), true);
-    try { return query(db, text(A.at(x, 1)), A.seq(A.at(x, 2)), false); } finally { db.close(); }
+    // a read asks on the path's kept read connection (watched): opened for each statement, a store of hundreds of
+    // tables read its schema again every time, and orient over the claude store took 47 s where it takes 12
+    return query(watched(text(A.at(x, 0))), text(A.at(x, 1)), A.seq(A.at(x, 2)), false);
   });
   reg("sqlite:scratch", (x) => {
     const db = open(":memory:", false);
@@ -303,8 +304,9 @@ function runSteps(db, steps) {
   return ["committed", answers];
 }
 
-// PRAGMA data_version moves when ANOTHER connection commits, so it is asked on a connection kept for that alone,
-// one per path, closed before its file is removed or renamed
+// PRAGMA data_version moves when ANOTHER connection commits, so it is asked on a connection kept read-only, one per
+// path, closed before its file is removed or renamed; sqlite:query reads on it too, each statement its own read
+// transaction, so it sees every commit before it
 const WATCHED = new Map();
 function watched(p) {
   let db = WATCHED.get(p);
