@@ -2,11 +2,20 @@
   "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/sdk/main/schemas/mcp.json",
   "mcpServers": {
     "arest": {
-      "description": "AREST, served by the thin JS host, the clean room: router.js routes every app the registry names over one connection, each app its own serve.js process over its store. Every tool and every sentence is lambda's (mcp:tools_json, router:*); lambda is developed and tested on the Java host.",
-      "command": "bun",
+      "description": "AREST, served by the Java host: Router routes every app the registry names over one connection, each app its own Serve process over its store, and apps_check compiles on Java. Every tool and every sentence is lambda's (mcp:tools_json, router:*). The JS host stays the clean room the laws are checked on.",
+      "command": "java",
       "args": [
-        "tools/js-runner/router.js"
-      ]
+        "-Xss512m",
+        "-Xmx4g",
+        "-cp",
+        "C:/Users/me/Repos/arest/tools/java-runner;C:/Users/me/Repos/arest/tools/lib/sqlite-jdbc.jar;C:/Users/me/Repos/arest/tools/lib/slf4j-api.jar",
+        "Router"
+      ],
+      "env": {
+        "AREST_LAMBDA": "C:/Users/me/Repos/arest/arest",
+        "AREST_KERNEL": "C:/Users/me/Repos/arest/kernel",
+        "AREST_APP_HEAP": "8g"
+      }
     }
   }
 }
