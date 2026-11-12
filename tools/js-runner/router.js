@@ -32,10 +32,11 @@ const say = (def, ...parts) => String(A.Ev(def, parts.length === 1 ? parts[0] : 
 const names = () => [...APPS.keys()];
 const text = (id, s, err) => serve.reply(id, { content: [{ type: "text", text: s }], isError: err });
 
-// ONE APP'S SERVER: a serve.js process over the app's .check directory, spoken to in JSON-RPC lines
+// ONE APP'S SERVER: a serve.js process over the app's store directory, spoken to in JSON-RPC lines
 class App {
-  constructor(name, dir) {
+  constructor(name, pkg, dir) {
     this.name = name;
+    this.pkg = pkg;
     this.dir = dir;
     this.proc = null;
     this.instructions = null;
@@ -51,20 +52,21 @@ class App {
   alive() { return this.proc !== null && this.proc.running; }
 
   // apps_check: the app's server is stopped, because the check writes the store it holds, and the command line runs
-  // lambda's `apps_check <package directory>` in the package. Which readings, in what order and where they land are
+  // lambda's `apps_check <package directory> <store directory>` in the package. Which readings, in what order and where they land are
   // lambda's; this starts the process and reports how it ended.
   async check() {
     if (this.busy !== null) return say("router:busy", this.name, this.busy);
     await this.stop();
     this.busy = "checking";
     this.note = "";
-    const pkg = slash(nodePath.dirname(this.dir));
+    const pkg = this.pkg;
+    fs.mkdirSync(this.dir, { recursive: true });
     const root = slash(nodePath.dirname(lambda));
-    const logPath = pkg + "/check.log";
+    const logPath = this.dir + "/check.log";
     const log = fs.openSync(logPath, "w");
     const env = Object.assign({}, process.env, { AREST_LAMBDA: lambda, AREST_TESTS: root + "/arest.tests",
       AREST_SCENARIOS: root + "/engine/shared/scenarios.canon", AREST_CARRIERS: root + "/tools/base" });
-    const p = spawn(process.execPath, [__dirname + "/program.js", "apps_check", pkg], { cwd: pkg, env, stdio: ["ignore", log, log] });
+    const p = spawn(process.execPath, [__dirname + "/program.js", "apps_check", pkg, this.dir], { cwd: pkg, env, stdio: ["ignore", log, log] });
     p.on("close", (code) => {
       fs.closeSync(log);
       let tail = "";
@@ -199,17 +201,20 @@ async function handle(msg) {
   return serve.fail(id, "unknown method: " + method);
 }
 
-// the registry's store, booted as an app's is, and its App table
-const dir = registry + "/.check";
+// the registry's store, booted as an app's is, and its App table; outside the package like every App's
+//
+const dir = slash(process.env.AREST_REGISTRY_STORE || (require("os").homedir() + "/.arest/registry"));
 serve.boot(dir);
 const read = serve.read();
 const rows = (factType) => { const r = A.Ev("system:pop_rows", [factType, read]); return Array.isArray(r) ? r : []; };
 const status = new Map(rows("AppHasServingStatus").map((r) => [String(r[0]), String(r[1])]));
 const APPS = new Map();
+const stores = new Map(rows("AppHasStoreDirectory").map((r) => [String(r[0]), slash(String(r[1]))]));
 for (const r of rows("AppHasPackageDirectory")) {
   const name = String(r[0]);
   if (status.get(name) === "suspended") continue;
-  APPS.set(name, new App(name, slash(String(r[1])) + "/.check"));
+  if (!stores.has(name)) { process.stderr.write("router: " + name + " has no Store Directory in the registry, so it is not served\n"); continue; }
+  APPS.set(name, new App(name, slash(String(r[1])), stores.get(name)));
 }
 process.stderr.write("router: " + APPS.size + " apps from " + dir + ": " + names().join(", ") + "\n");
 setInterval(() => { for (const a of APPS.values()) a.restIfIdle(); }, 60000).unref();

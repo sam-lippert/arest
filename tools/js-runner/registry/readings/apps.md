@@ -56,6 +56,8 @@ Slug is a value type.
 
 Package Directory is a value type.
 
+Store Directory is a value type.
+
 Serving Status is a value type.
   The possible values of Serving Status are 'serving', 'suspended'.
 
@@ -66,8 +68,8 @@ Serving Status is a value type.
 <!-- THE PACKAGE, NOT THE CARRIERS DIRECTORY. AREST_APPS named each app's
      `.check` directory and the router derived the package from it with
      dirname(); the package is the thing a person names (it is where
-     package.json and the readings are) and `.check` is where the build puts
-     its output, so the fact is the package and the router appends `/.check`.
+     package.json and the readings are), so the fact is the package. Where the
+     build puts its output is the Store Directory below, not a directory inside it.
      Mandatory because a resident with no package is nothing the router can
      start, and unique because two residents over one directory is exactly what
      mcp-router's reap() exists to kill: one server per app directory. -->
@@ -83,6 +85,14 @@ App has Package Directory.
      suspended` is not a sentence anybody wants to have to write. -->
 App has Serving Status.
   Each App has at most one Serving Status.
+
+<!-- AND WHERE ITS STORE IS. The store and the
+     carriers its check writes live in this directory, outside the package, so a repository holds the
+     readings and nothing a check or a server writes. The router hands it to apps_check and serves the
+     App from it; unique because one store is one App's. -->
+App has Store Directory.
+  Each App has exactly one Store Directory.
+  For each Store Directory, at most one App has that Store Directory.
 
 <!-- AND WHAT ITS CHECK READS IS ITS PACKAGE'S. An app's check is lambda's apps_check over its Package Directory:
      the metamodel, then each package its package.json's dependencies reach, each after the
@@ -117,19 +127,26 @@ Library has Package Directory.
      cannot stop the memory store from building. -->
 
 App 'claude' has Package Directory 'C:/Users/me/Repos/apps/claude'.
+App 'claude' has Store Directory 'C:/Users/me/.arest/claude'.
 
 App 'tasks' has Package Directory 'C:/Users/me/Repos/apps/tasks'.
+App 'tasks' has Store Directory 'C:/Users/me/.arest/tasks'.
 
 App 'support' has Package Directory 'C:/Users/me/Repos/apps/support.example.dev'.
+App 'support' has Store Directory 'C:/Users/me/.arest/support'.
 
 App 'qa' has Package Directory 'C:/Users/me/Repos/apps/qa.example.dev'.
+App 'qa' has Store Directory 'C:/Users/me/.arest/qa'.
 
 App 'pm' has Package Directory 'C:/Users/me/Repos/apps/pm.example.dev'.
+App 'pm' has Store Directory 'C:/Users/me/.arest/pm'.
 
 App 'engineering' has Package Directory 'C:/Users/me/Repos/apps/engineering.example.dev'.
+App 'engineering' has Store Directory 'C:/Users/me/.arest/engineering'.
 
 <!-- LYR-1 runs by itself: an App that claude also composes as a library. -->
 App 'lyr-1' has Package Directory 'C:/Users/me/Repos/apps/lyr-1'.
+App 'lyr-1' has Store Directory 'C:/Users/me/.arest/lyr-1'.
 
 <!-- The libraries the residents compose, and decidex and infosci, whose checks
      already called compile-store. Which compose which is each package.json's
