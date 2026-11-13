@@ -134,9 +134,11 @@ public final class Registrations {
         }));
         Arest.register("sqlite:program", Registrations::program);
         Arest.register("sqlite:data_version", x -> sql(() -> {
-            try (Statement st = watched(text(x)).createStatement(); ResultSet rs = st.executeQuery("pragma data_version")) {
-                rs.next();
-                return Long.valueOf(rs.getLong(1));
+            synchronized (Registrations.class) {
+                try (Statement st = watched(text(x)).createStatement(); ResultSet rs = st.executeQuery("pragma data_version")) {
+                    rs.next();
+                    return Long.valueOf(rs.getLong(1));
+                }
             }
         }));
         Arest.register("sqlite:fresh", x -> {
@@ -438,16 +440,20 @@ public final class Registrations {
 
     // PRAGMA data_version moves when ANOTHER connection commits, so it is asked
     // on a connection kept for that alone, one per path, closed before its file
-    // is removed or renamed
+    // is removed or renamed. Its map is read and changed under the class's monitor, as READERS and WRITERS are: a
+    // router answers its messages on several threads, and two that asked at once each found no connection, each
+    // opened one, and the second put replaced the first, which nothing then closed. MEASURED: after a tool listing
+    // and a prompt listing sent together, as a client sends them when it connects, the registry's store could not
+    // be renamed for as long as the router lived (2026-11-13).
     static final Map<String, Connection> WATCHED = new HashMap<>();
 
-    static Connection watched(String path) throws SQLException {
+    static synchronized Connection watched(String path) throws SQLException {
         Connection c = WATCHED.get(path);
         if (c == null) { c = open(path, true); WATCHED.put(path, c); }
         return c;
     }
 
-    static void unwatch(String path) {
+    static synchronized void unwatch(String path) {
         Connection c = WATCHED.remove(path);
         if (c != null) try { c.close(); } catch (SQLException ignored) { }
         unread(path);
