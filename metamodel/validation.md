@@ -64,6 +64,35 @@ Predicate 'decide:objectified_spanning' has Symbol Name 'decide:objectified_span
 
 
 
+### Implied Ring Constraints
+
+<!-- Halpin and Morgan, section 7.3: "To avoid implied constraints, omit irreflexive if asymmetric applies", and
+     a role pair declared acyclic is not declared asymmetric too. Asymmetric is antisymmetric and irreflexive
+     together; an intransitive relation is irreflexive; an acyclic one is asymmetric. Which ring constraint
+     implies which is a fact about the constraint types, so it is stored as data (Halpin 2001: a rule that may
+     change is stored as data in a table) and one rule reads it. A ring constraint another on the same roles
+     implies is redundant, and the audit answers it. -->
+Constraint Type implies Constraint Type.
+  Constraint Type implies Constraint Type is acyclic.
+Constraint makes Constraint redundant. *
+Constraint is redundant. *
+* Constraint1 makes Constraint2 redundant iff that Constraint1 is of some Constraint Type1 and that Constraint2 is of some Constraint Type2 and that Constraint Type1 implies that Constraint Type2 and that Constraint1 spans some Role and that Constraint2 spans that Role.
+* Constraint is redundant iff some Constraint1 makes that Constraint redundant.
+It is forbidden that some Constraint is redundant.
+Constraint Type 'AS' implies Constraint Type 'IR'.
+Constraint Type 'AS' implies Constraint Type 'AT'.
+Constraint Type 'IT' implies Constraint Type 'IR'.
+Constraint Type 'AC' implies Constraint Type 'AS'.
+Constraint Type 'AC' implies Constraint Type 'IR'.
+Constraint Type 'AC' implies Constraint Type 'AT'.
+
+### A Derived Fact Type Has Its Rule
+
+<!-- Halpin 2001: a derived fact type may be shown or omitted, "but in all cases a derivation rule must be
+     supplied"; Halpin and Morgan, section 3.5: whether or not a fact type is displayed, a rule for deriving it
+     should be declared. A fact type marked derived that no rule produces is answered by the audit. -->
+It is obligatory that if some Fact Type has some Derivation Mode then some Derivation Rule produces that Fact Type.
+
 ### Ring Constraint Completeness
 
 <!-- Decided by a function, not by the sentence "It

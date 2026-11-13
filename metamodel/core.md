@@ -1183,12 +1183,12 @@ If some API accepts some Object Type1 as parameter and some Object Type2 is subt
 
 ## Ring Constraints
 
-No Function is superseded by itself.
 If Function1 is superseded by Function2, then Function2 is not superseded by Function1.
-<!-- Acyclic is the true property; these are its consequences at path lengths one and two, and the two
-     roles being disjoint (every chain one hop) is the law supersession-resolves. -->
+<!-- Acyclic is the true property; asymmetry is its consequence at path length two, and implies that no
+     Function is superseded by itself and no Object Type is subtype of itself, so neither is said again
+     (Halpin and Morgan, section 7.3: omit irreflexive if asymmetric applies). The two roles being disjoint
+     (every chain one hop) is the law supersession-resolves. -->
 
-No Object Type is subtype of itself.
 If Object Type1 is subtype of Object Type2, then Object Type2 is not subtype of Object Type1.
 <!-- The population of `Object Type is subtype of Object Type` is the DIRECT
      links, one row per NORMA SubtypeFact, so the transitive
