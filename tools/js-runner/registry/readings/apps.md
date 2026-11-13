@@ -2,47 +2,43 @@
 
 ## Description
 
-<!--. It is this. The router's app list was AREST_APPS, a
-     semicolon-separated string in ~/.claude.json -- `claude=C:/...;support=C:/...`
-     -- parsed by parseApps (mcp-router.js) into <name, dir> pairs. A string in a
-     client's launch configuration is the one part of AREST that was not a fact:
-     nothing could constrain it, nothing could say two apps shared a directory,
-     and adding an app meant editing JSON that no check ever reads.
+<!-- THE ROUTER'S APP LIST IS FACTS, NOT A CONFIGURATION STRING. A list of
+     name=directory pairs in a client's launch configuration is the one part of
+     AREST that would not be a fact: nothing could constrain it, nothing could
+     say two apps shared a directory, and adding an app would mean editing JSON
+     that no check ever reads.
 
-     So the list is READINGS, this file, and the daemon reads the App table of
-     the store they compile to. The designer writes sentences; apps_check on `registry`
-     compiles them with the arest function compile-store, the way every app's
-     check compiles its own (2026-10-12: no package script runs); the daemon
-     reads the table with bun:sqlite at start and reconciles its residents when
-     apps_compile is called on `registry`. -->
+     So the list is readings, and the router reads the App table of the store
+     they compile to. This file is the SCHEMA: what an App and a Library are and
+     what the router needs to know of each. The residents themselves, which apps
+     and libraries a machine has and where their packages are, are stated by a
+     package of that machine's own, outside this repository, that names this one
+     among its dependencies; its check compiles into the registry's store
+     directory, the way every app's check compiles its own. -->
 
-<!-- AND THE CHECK REPLACES THE STORE RATHER THAN CARRYING IT (mcp-router.js
-     sets the old store aside before compile-store and puts it back only when
-     the check fails). compile.js carried a prior
-     store's rows into the new build on one rule -- "the build beside us is
-     exactly what the readings assert, so anything the prior store holds that
-     the build does not is, by construction, what the runtime wrote" -- which
-     is right for every app and wrong for exactly this one, because NOTHING
-     writes this store at runtime: the daemon opens it readonly and selects.
-     So a row the readings no longer assert is a deletion, not a runtime write.
-     Measured 2026-09-22: with the carry, deleting an App sentence and running
-     the check left the app in the table and the router went on serving it --
-     an app could be added and never removed. Removing the file first makes
-     the readings the whole truth, and loses nothing, because there is nothing
-     here that the readings did not put there. -->
+<!-- AND THE CHECK REPLACES THE STORE RATHER THAN CARRYING IT. A check carries a
+     prior store's rows into the new build on one rule: what the prior store
+     holds that the build does not is what the runtime wrote. That is right for
+     every app and wrong for this one, because nothing writes this store at
+     runtime: the router opens it read-only and selects. So a row the readings no
+     longer assert is a deletion, not a runtime write. Measured: with the carry,
+     deleting an App sentence and running the check left the app in the table
+     and the router went on serving it, so an app could be added and never
+     removed. The readings are the whole truth here, and nothing is lost,
+     because there is nothing in this store that the readings did not put there. -->
 
-<!-- WHY THIS IS NOT the organizations library's App (apps/organizations, once arest/readings/templates/organizations.md). That App
-     is the DEPLOYED application: it has an Organization, navigable Domains, a
-     Generator, an authorization Fact Type, and `Each App has some navigable
-     Domain` is mandatory -- a registry row would have to invent a Domain per
-     app to satisfy it, and composing templates would pull agent-chat, vercel
-     and sql-dialects vocabulary into a store whose only reader wants a name and
-     a path. This is the RESIDENT: what the router runs, where its package is,
-     and whether to start it.
+<!-- WHY THIS IS NOT the organizations library's App. That App is the DEPLOYED
+     application: it has an Organization, navigable Domains, a Generator, an
+     authorization Fact Type, and `Each App has some navigable Domain` is
+     mandatory, so a registry row would have to invent a Domain per app to
+     satisfy it, and composing that library would pull unrelated vocabulary
+     into a store whose only reader wants a name and a path. This is the
+     RESIDENT: what the router runs, where its package is, and whether to start
+     it.
 
-     The reference scheme is the same on purpose -- App(.Slug), the spelling
-     organizations.md uses -- so that `App 'support'` denotes the same app in
-     both closures and the two never disagree about what identifies one. -->
+     The reference scheme is the same on purpose, App(.Slug), so that one slug
+     denotes the same app in both closures and the two never disagree about
+     what identifies one. -->
 
 ## Entity Types
 
@@ -65,48 +61,45 @@ Serving Status is a value type.
 
 ### App
 
-<!-- THE PACKAGE, NOT THE CARRIERS DIRECTORY. AREST_APPS named each app's
-     `.check` directory and the router derived the package from it with
-     dirname(); the package is the thing a person names (it is where
-     package.json and the readings are), so the fact is the package. Where the
-     build puts its output is the Store Directory below, not a directory inside it.
+<!-- THE PACKAGE, NOT A DIRECTORY INSIDE IT. The package is the thing a person
+     names (it is where package.json and the readings are), so the fact is the
+     package. Where the build puts its output is the Store Directory below.
      Mandatory because a resident with no package is nothing the router can
-     start, and unique because two residents over one directory is exactly what
-     mcp-router's reap() exists to kill: one server per app directory. -->
+     start, and unique because two residents over one directory are one server
+     started twice. -->
 App has Package Directory.
   Each App has exactly one Package Directory.
   For each Package Directory, at most one App has that Package Directory.
 
-<!-- AND WHETHER TO START IT. Absence reads as 'serving': the smallest row the designer
-     can write is a package directory, and it serves. 'suspended' is the
-     opt-out -- the app stays in the registry, keeps its directory, is listed by
-     `apps`, and no server is spawned for it. A value type rather than a unary
-     because the absent case must be the common one and `App 'qa' is not
-     suspended` is not a sentence anybody wants to have to write. -->
+<!-- AND WHETHER TO START IT. Absence reads as 'serving': the smallest row is a
+     package directory, and it serves. 'suspended' is the opt-out: the app stays
+     in the registry, keeps its directory, is listed by `apps`, and no server is
+     started for it. A value type rather than a unary because the absent case
+     must be the common one. -->
 App has Serving Status.
   Each App has at most one Serving Status.
 
-<!-- AND WHERE ITS STORE IS. The store and the
-     carriers its check writes live in this directory, outside the package, so a repository holds the
-     readings and nothing a check or a server writes. The router hands it to apps_check and serves the
-     App from it; unique because one store is one App's. -->
+<!-- AND WHERE ITS STORE IS. The store and the carriers its check writes live in
+     this directory, outside the package, so a repository holds the readings and
+     nothing a check or a server writes. The router hands it to apps_check and
+     serves the App from it; unique because one store is one App's. -->
 App has Store Directory.
   Each App has exactly one Store Directory.
   For each Store Directory, at most one App has that Store Directory.
 
-<!-- AND WHAT ITS CHECK READS IS ITS PACKAGE'S. An app's check is lambda's apps_check over its Package Directory:
-     the metamodel, then each package its package.json's dependencies reach, each after the
-     packages it depends on, a package's readings being its own directory and then its
-     readings directory. No list of readings directories, nor of the libraries an App
-     composes, is kept here: it would say again by hand what the dependencies say. -->
+<!-- AND WHAT ITS CHECK READS IS ITS PACKAGE'S. A check reads the metamodel, then
+     each package its package.json's dependencies reach, each after the packages
+     it depends on, a package's readings being its own directory and then its
+     readings directory. No list of readings directories, nor of the libraries
+     an App composes, is kept here: it would say again by hand what the
+     dependencies say. -->
 
 ### Library
 
-<!-- A LIBRARY IS TESTED ON ITS OWN AND INSIDE EACH APP THAT COMPOSES IT (the designer,
-     2026-10-12). A library is readings with no
-     server and no store anything serves from, so it is no App (the note on
-     apps/claude below). Its UNIT test is its package compiled alone, so it answers
-     for its readings and the packages it depends on and nothing an earlier store
+<!-- A LIBRARY IS TESTED ON ITS OWN AND INSIDE EACH APP THAT COMPOSES IT. A
+     library is readings with no server and no store anything serves from, so it
+     is no App. Its UNIT test is its package compiled alone, so it answers for
+     its readings and the packages it depends on and nothing an earlier store
      carried. Its FUNCTIONAL tests are the checks of the Apps whose dependencies
      reach it. -->
 Library has Package Directory.
@@ -115,78 +108,14 @@ Library has Package Directory.
 
 ## Instance Facts
 
-<!-- The six residents AREST_APPS named on 2026-09-22, in the order it named
-     them. apps/claude IS a composition: the libraries it composes, memory
-     among them, have no App of their own; each is a Library, after the Apps.
-     On 2026-09-23 arest-dev went to apps/archive with paper and engine, the two
-     libraries only it composed: no session but one had asked it anything since
-     the router began, and its store held nothing the runtime wrote. The one live
-     thing it served was the punchlist, so tasks took its place as an App of its
-     own, parallel to claude. On 2026-11-12 the punchlist became a library claude
-     composes, so a Memory can detail a Task and roll out when a Commit closes it
-    ; tasks is no longer an App. -->
+<!-- NO RESIDENT IS NAMED HERE. A machine's package of residents states them,
+     one App with its Package Directory and its Store Directory, one Library
+     with its Package Directory, for instance:
 
-App 'claude' has Package Directory 'C:/Users/me/Repos/apps/claude'.
-App 'claude' has Store Directory 'C:/Users/me/.arest/claude'.
+       App 'example' has Package Directory '/home/me/apps/example'.
+       App 'example' has Store Directory '/home/me/.arest/example'.
+       Library 'shared' has Package Directory '/home/me/apps/shared'.
 
-App 'support' has Package Directory 'C:/Users/me/Repos/apps/support.example.dev'.
-App 'support' has Store Directory 'C:/Users/me/.arest/support'.
-
-App 'qa' has Package Directory 'C:/Users/me/Repos/apps/qa.example.dev'.
-App 'qa' has Store Directory 'C:/Users/me/.arest/qa'.
-
-App 'pm' has Package Directory 'C:/Users/me/Repos/apps/pm.example.dev'.
-App 'pm' has Store Directory 'C:/Users/me/.arest/pm'.
-
-App 'engineering' has Package Directory 'C:/Users/me/Repos/apps/engineering.example.dev'.
-App 'engineering' has Store Directory 'C:/Users/me/.arest/engineering'.
-
-<!-- LYR-1 runs by itself: an App that claude also composes as a library. -->
-App 'lyr-1' has Package Directory 'C:/Users/me/Repos/apps/lyr-1'.
-App 'lyr-1' has Store Directory 'C:/Users/me/.arest/lyr-1'.
-
-<!-- The libraries the residents compose, and decidex and infosci, whose checks
-     already called compile-store. Which compose which is each package.json's
-     dependencies. -->
-
-Library 'memory' has Package Directory 'C:/Users/me/Repos/apps/memory'.
-
-Library 'tasks' has Package Directory 'C:/Users/me/Repos/apps/tasks'.
-
-Library 'connectors' has Package Directory 'C:/Users/me/Repos/apps/connectors'.
-
-Library 'sherlock' has Package Directory 'C:/Users/me/Repos/apps/sherlock'.
-
-Library 'example.dev' has Package Directory 'C:/Users/me/Repos/apps/example.dev'.
-
-Library 'decidex' has Package Directory 'C:/Users/me/Repos/apps/decidex'.
-
-Library 'infosci' has Package Directory 'C:/Users/me/Repos/apps/infosci'.
-
-<!-- 2026-10-13, and Agent "in its own
-     separate library, anything that uses agents should reference it". arest/readings/templates
-     became agents (agents, agent-chat, agent-ethics), organizations, and two connectors under
-     apps/connectors, sql-dialects and vercel-ai (vercel-ai, vercel-chat); arest/readings/ui became
-     ui, and arest/readings/os became os. Every app that read templates composes all four, in the
-     order the templates directory gave its files, so a check over the moved files rebuilds the
-     store it had. Which app needs which is the next step. -->
-
-<!-- 2026-10-13. A Chat Message is a Message, so agents composes messages, and
-     every app that composes agents reads messages first. support declares Message itself until
-     its own readings drop that declaration, so it does not compose messages yet. -->
-
-Library 'messages' has Package Directory 'C:/Users/me/Repos/apps/messages'.
-
-Library 'agents' has Package Directory 'C:/Users/me/Repos/apps/agents'.
-
-Library 'organizations' has Package Directory 'C:/Users/me/Repos/apps/organizations'.
-
-Library 'sql-dialects' has Package Directory 'C:/Users/me/Repos/apps/connectors/sql-dialects'.
-
-Library 'vercel-ai' has Package Directory 'C:/Users/me/Repos/apps/connectors/vercel-ai'.
-
-Library 'ui' has Package Directory 'C:/Users/me/Repos/apps/ui'.
-
-Library 'os' has Package Directory 'C:/Users/me/Repos/apps/os'.
+     With none stated the router serves no app and answers `apps` with nothing. -->
 
 Domain 'registry' has Description 'The MCP router''s residents and the libraries they compose: which apps it serves, where each app''s or library''s package is, and whether to start an app; what each composes is its package.json''s dependencies.'.

@@ -8,12 +8,12 @@
         "-Xss512m",
         "-Xmx4g",
         "-cp",
-        "C:/Users/me/Repos/arest/tools/java-runner;C:/Users/me/Repos/arest/tools/lib/sqlite-jdbc.jar;C:/Users/me/Repos/arest/tools/lib/slf4j-api.jar",
+        "tools/java-runner;tools/lib/sqlite-jdbc.jar;tools/lib/slf4j-api.jar",
         "Router"
       ],
       "env": {
-        "AREST_LAMBDA": "C:/Users/me/Repos/arest/arest",
-        "AREST_KERNEL": "C:/Users/me/Repos/arest/kernel",
+        "AREST_LAMBDA": "arest",
+        "AREST_KERNEL": "kernel",
         "AREST_APP_HEAP": "8g"
       }
     }
