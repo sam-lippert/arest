@@ -217,6 +217,9 @@ for (const r of rows("AppHasPackageDirectory")) {
   APPS.set(name, new App(name, slash(String(r[1])), stores.get(name)));
 }
 process.stderr.write("router: " + APPS.size + " apps from " + dir + ": " + names().join(", ") + "\n");
+// The registry is read once, above. Its connection is closed here, because on Windows an open connection keeps its
+// file from being replaced, and a check of the registry replaces its store while routers run.
+require("./registrations.js").unwatch(dir + "/store.db");
 setInterval(() => { for (const a of APPS.values()) a.restIfIdle(); }, 60000).unref();
 
 // /<app>/<resource> to that app's server; an app the registry does not name is lambda's unknown resource

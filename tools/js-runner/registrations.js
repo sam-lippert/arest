@@ -318,4 +318,4 @@ function unwatch(p) {
   if (db) { WATCHED.delete(p); try { db.close(); } catch (_) { } }
 }
 
-module.exports = { register };
+module.exports = { register, unwatch };

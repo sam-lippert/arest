@@ -72,6 +72,9 @@ public class Router {
             APPS.put(name, new App(name, String.valueOf(row[1]).replace('\\', '/'), at, here));
         }
         System.err.println("router: " + APPS.size() + " apps from " + dir + ": " + String.join(", ", APPS.keySet()));
+        // The registry is read once, above. Its connections are closed here, because on Windows an open connection
+        // keeps its file from being replaced, and a check of the registry replaces its store while routers run.
+        Registrations.unwatch(dir + "/store.db");
         Thread idle = new Thread(() -> {
             while (true) {
                 try { Thread.sleep(60000); } catch (InterruptedException e) { return; }
