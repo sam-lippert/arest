@@ -121,16 +121,13 @@ Library has Package Directory.
      On 2026-09-23 arest-dev went to apps/archive with paper and engine, the two
      libraries only it composed: no session but one had asked it anything since
      the router began, and its store held nothing the runtime wrote. The one live
-     thing it served was the punchlist, so tasks takes its place as an App of its
-     own, parallel to claude rather than inside it: a punchlist edit then checks
-     28 tasks in 32 s instead of claude's whole corpus, and a bad sentence in it
-     cannot stop the memory store from building. -->
+     thing it served was the punchlist, so tasks took its place as an App of its
+     own, parallel to claude. On 2026-11-12 the punchlist became a library claude
+     composes, so a Memory can detail a Task and roll out when a Commit closes it
+    ; tasks is no longer an App. -->
 
 App 'claude' has Package Directory 'C:/Users/me/Repos/apps/claude'.
 App 'claude' has Store Directory 'C:/Users/me/.arest/claude'.
-
-App 'tasks' has Package Directory 'C:/Users/me/Repos/apps/tasks'.
-App 'tasks' has Store Directory 'C:/Users/me/.arest/tasks'.
 
 App 'support' has Package Directory 'C:/Users/me/Repos/apps/support.example.dev'.
 App 'support' has Store Directory 'C:/Users/me/.arest/support'.
@@ -153,6 +150,8 @@ App 'lyr-1' has Store Directory 'C:/Users/me/.arest/lyr-1'.
      dependencies. -->
 
 Library 'memory' has Package Directory 'C:/Users/me/Repos/apps/memory'.
+
+Library 'tasks' has Package Directory 'C:/Users/me/Repos/apps/tasks'.
 
 Library 'connectors' has Package Directory 'C:/Users/me/Repos/apps/connectors'.
 
