@@ -166,7 +166,14 @@ class App {
   }
 }
 
+// A message that lists the tools or the prompts reads the registry's store, which opens its connection again. It is
+// closed when the message is answered: closing only after boot left the store held from the first tool listing on,
+// and a check of the registry was refused its store (2026-11-13).
 async function handle(msg) {
+  try { return await handle1(msg); } finally { require("./registrations.js").unwatch(dir + "/store.db"); }
+}
+
+async function handle1(msg) {
   const id = msg.id === undefined ? null : msg.id;
   const method = msg.method == null ? "null" : String(msg.method);
   const p = isObj(msg.params) ? msg.params : {};
@@ -217,8 +224,9 @@ for (const r of rows("AppHasPackageDirectory")) {
   APPS.set(name, new App(name, slash(String(r[1])), stores.get(name)));
 }
 process.stderr.write("router: " + APPS.size + " apps from " + dir + ": " + names().join(", ") + "\n");
-// The registry is read once, above. Its connection is closed here, because on Windows an open connection keeps its
-// file from being replaced, and a check of the registry replaces its store while routers run.
+// The registry is read above, and again by a message that lists the tools or the prompts (handle). Its connection is
+// closed here and after each message, because on Windows an open connection keeps its file from being replaced, and
+// a check of the registry replaces its store while routers run.
 require("./registrations.js").unwatch(dir + "/store.db");
 setInterval(() => { for (const a of APPS.values()) a.restIfIdle(); }, 60000).unref();
 

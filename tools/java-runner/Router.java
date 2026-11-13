@@ -39,7 +39,7 @@ public class Router {
     static Object[] store;
     static final LinkedHashMap<String, App> APPS = new LinkedHashMap<String, App>();
     static final ExecutorService POOL = Executors.newCachedThreadPool();
-    static String lambda, login, kernel;
+    static String lambda, login, kernel, registryDb;
 
     public static void main(String[] args) throws Exception {
         System.setOut(System.err);
@@ -72,9 +72,11 @@ public class Router {
             APPS.put(name, new App(name, String.valueOf(row[1]).replace('\\', '/'), at, here));
         }
         System.err.println("router: " + APPS.size() + " apps from " + dir + ": " + String.join(", ", APPS.keySet()));
-        // The registry is read once, above. Its connections are closed here, because on Windows an open connection
-        // keeps its file from being replaced, and a check of the registry replaces its store while routers run.
-        Registrations.unwatch(dir + "/store.db");
+        // The registry is read above, and again by a message that lists the tools or the prompts (handle). Its
+        // connections are closed here and after each such message, because on Windows an open connection keeps its
+        // file from being replaced, and a check of the registry replaces its store while routers run.
+        registryDb = dir + "/store.db";
+        Registrations.unwatch(registryDb);
         Thread idle = new Thread(() -> {
             while (true) {
                 try { Thread.sleep(60000); } catch (InterruptedException e) { return; }
@@ -108,7 +110,17 @@ public class Router {
         return r instanceof Object[] ? (Object[]) r : new Object[0];
     }
 
+    // A message that lists the tools or the prompts reads the registry's store, which opens its connections again.
+    // They are closed when the last message in hand is answered: closing only after boot left the store held from
+    // the first tool listing on, and a check of the registry was refused its store (2026-11-13).
+    static int reading = 0;
     static Object handle(Map<?, ?> msg) throws Exception {
+        synchronized (Router.class) { reading++; }
+        try { return handle1(msg); }
+        finally { synchronized (Router.class) { if (--reading == 0 && registryDb != null) Registrations.unwatch(registryDb); } }
+    }
+
+    static Object handle1(Map<?, ?> msg) throws Exception {
         Object id = msg.get("id");
         String method = String.valueOf(msg.get("method"));
         Map<?, ?> p = msg.get("params") instanceof Map ? (Map<?, ?>) msg.get("params") : new LinkedHashMap<String, Object>();
