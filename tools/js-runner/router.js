@@ -209,7 +209,6 @@ async function handle1(msg) {
 }
 
 // the registry's store, booted as an app's is, and its App table; outside the package like every App's
-//
 const dir = slash(process.env.AREST_REGISTRY_STORE || (require("os").homedir() + "/.arest/registry"));
 serve.boot(dir);
 const read = serve.read();
