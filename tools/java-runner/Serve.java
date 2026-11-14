@@ -202,9 +202,31 @@ public class Serve {
         List<Object> argv = new ArrayList<Object>();
         argv.add(name);
         if (a.get("args") instanceof Object[]) for (Object x : (Object[]) a.get("args")) argv.add(Gui.fromJson(x));
+        // a verb whose operand is a response is handed a Source, and this host reads its pages (Perform)
+        if (fetched().contains(name)) return Perform.pages(name, caller, argv.subList(1, argv.size()).toArray());
         // a writing verb is one application of SYSTEM (k:as), or commits its store through main:as; one not committed is answered below
         out = (Object[]) Arest.Ev("k:as", new Object[] { store, caller, argv.toArray() });
         return answered(out, "T".equals(out[1]) ? 200L : 500L);
+    }
+
+    // one verb over one operand, as a call makes it: <text, status>
+    static Object[] verb(String name, String caller, Object arg) {
+        Object[] out = (Object[]) Arest.Ev("k:as", new Object[] { store, caller == null ? "" : caller, new Object[] { name, arg } });
+        return answered(out, "T".equals(out[1]) ? 200L : 500L);
+    }
+
+    // the verbs the store says accept a response: those a caller hands a Source and this host reads for
+    static java.util.Set<String> FETCHED;
+    static java.util.Set<String> fetched() {
+        if (FETCHED == null) {
+            java.util.Set<String> f = new java.util.HashSet<String>();
+            for (Object row : (Object[]) Arest.Ev("system:pop_rows", new Object[] { "FunctionAcceptsTypeExpression", read() })) {
+                Object[] r = (Object[]) row;
+                if (r.length > 1 && "response-and-cells".equals(String.valueOf(r[1]))) f.add(String.valueOf(r[0]));
+            }
+            FETCHED = f;
+        }
+        return FETCHED;
     }
 
     // a write lambda does not commit and this host cannot: lambda says so (mcp:not_committed)
