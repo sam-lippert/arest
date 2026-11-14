@@ -328,6 +328,8 @@ public final class Registrations {
         }
     }
 
+    // how much of a slow statement the profiler's line shows (AREST_PROFILE_STEP_CHARS, 220 where unset)
+    static final int STEP_CHARS = System.getenv("AREST_PROFILE_STEP_CHARS") == null ? 220 : Integer.parseInt(System.getenv("AREST_PROFILE_STEP_CHARS"));
     static Object[] steps(Connection c, Object[] steps) throws SQLException {
         List<Object> answers = new ArrayList<>(), denied = new ArrayList<>();
         int n = 0;
@@ -367,7 +369,7 @@ public final class Registrations {
                 // under the profiler, each statement of a program that took a tenth of a second or more: measurement, no meaning
                 if (Arest.PROFILE && System.nanoTime() - began >= 100000000L)
                     System.err.println("program step " + n + " of " + steps.length + " (" + kind + ") " + (System.nanoTime() - began) / 1000000 + " ms: "
-                        + statement.substring(0, Math.min(220, statement.length())).replace('\n', ' '));
+                        + statement.substring(0, Math.min(STEP_CHARS, statement.length())).replace('\n', ' '));
             } catch (SQLException | RuntimeException e) {
                 throw new RuntimeException("sqlite:program, step " + n + " (" + kind + "): " + e.getMessage()
                     + " -- " + statement.substring(0, Math.min(300, statement.length())));
