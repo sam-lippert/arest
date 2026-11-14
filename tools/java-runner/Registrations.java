@@ -72,7 +72,8 @@ public final class Registrations {
         root = Paths.get(lambdaPath).toAbsolutePath().normalize().getParent().toString().replace('\\', '/');
 
         // sequence -> text: now, ISO 8601 in UTC
-        Arest.register("clock", x -> ISO.format(Instant.now()));
+        // each time handed out is kept for the write it served (Perform.tick): what that write performs is found by it
+        Arest.register("clock", x -> Perform.tick(ISO.format(Instant.now())));
         // number-pair -> number: <x, s> to x at scale s, half away from zero.
         // This host's numbers are integers, so a scale of 0 or more is x itself.
         Arest.register("round", Registrations::round);

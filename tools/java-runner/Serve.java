@@ -25,6 +25,10 @@ import java.util.Map;
 // memory alone, and this host has no commit of its own to run in its place, so it answers that the
 // write was not committed and keeps the store as it was.
 //
+// A COMMITTED WRITE PERFORMS WHAT ITS TRANSITIONS DECLARE. Each committed write is asked what it performs
+// (Perform.took), and the calls are made once its answer is out (Perform.drain), so no caller waits on another
+// service; an MCP answer names the calls about to be made beside lambda's text.
+//
 // HTTP IS THE SAME OPERATION OVER ANOTHER TRANSPORT. A request is <store, method, resource, caller, body>
 // through k:api: the resource is the path less its leading slash, the caller the
 // x-arest-caller header (no header is the anonymous caller), the body the request's JSON (none is the
@@ -67,6 +71,7 @@ public class Serve {
             Object[] out = call(call);
             System.err.println("serve: " + args[2] + " answered in " + (System.nanoTime() - t1) / 1000000 + " ms, status " + out[1]);
             OUT.println(String.valueOf(out[0]));
+            Perform.drain();
             return;
         }
         if (args.length > 2 && "--http".equals(args[1])) {
@@ -81,6 +86,7 @@ public class Serve {
             try { reply = handle((Map<?, ?>) Gui.Json.parse(line)); }
             catch (Throwable e) { reply = fail(null, String.valueOf(e.getMessage())); }
             if (reply != null) OUT.println(Gui.Json.write(reply));
+            Perform.drain();
         }
     }
 
@@ -126,7 +132,9 @@ public class Serve {
             Object[] out;
             try { out = call(p); }
             catch (Throwable e) { out = new Object[] { String.valueOf(e.getMessage()), 500L }; }
-            return reply(id, obj("content", new Object[] { obj("type", "text", "text", String.valueOf(out[0])) },
+            String due = Perform.due();
+            Object text = obj("type", "text", "text", String.valueOf(out[0]));
+            return reply(id, obj("content", due.isEmpty() ? new Object[] { text } : new Object[] { text, obj("type", "text", "text", due) },
                 "isError", ((Number) out[1]).longValue() >= 400));
         }
         // the router's HTTP request for this app, passed on as it came
@@ -141,6 +149,7 @@ public class Serve {
 
     // one HTTP request through k:api, answered <text, status>
     static Object[] request(String method, String resource, String caller, Object body) {
+        Perform.mark(caller);
         try {
             Object[] req = new Object[] { store, method, resource, caller, body == null ? new Object[0] : Gui.fromJson(body) };
             Object[] out = (Object[]) Arest.Ev("k:api", req);
@@ -181,6 +190,7 @@ public class Serve {
             String path = ex.getRequestURI().getPath();
             Object[] out = request(ex.getRequestMethod(), path.startsWith("/") ? path.substring(1) : path, caller(ex), body(ex));
             respond(ex, ((Number) out[1]).longValue(), String.valueOf(out[0]));
+            Perform.drain();
         });
         s.start();
     }
@@ -192,6 +202,7 @@ public class Serve {
         String name = String.valueOf(p.get("name"));
         Map<?, ?> a = p.get("arguments") instanceof Map ? (Map<?, ?>) p.get("arguments") : new LinkedHashMap<String, Object>();
         String caller = a.get("caller") == null ? "" : String.valueOf(a.get("caller"));
+        Perform.mark(caller);
         Object[] out;
         if ("fact".equals(name)) {
             String method = a.get("method") == null ? "GET" : String.valueOf(a.get("method"));
@@ -211,6 +222,7 @@ public class Serve {
 
     // one verb over one operand, as a call makes it: <text, status>
     static Object[] verb(String name, String caller, Object arg) {
+        Perform.mark(caller);
         Object[] out = (Object[]) Arest.Ev("k:as", new Object[] { store, caller == null ? "" : caller, new Object[] { name, arg } });
         return answered(out, "T".equals(out[1]) ? 200L : 500L);
     }
@@ -234,7 +246,7 @@ public class Serve {
 
     // a read's answer, a write lambda stored, or a write this host cannot commit
     static Object[] answered(Object[] out, long status) {
-        if (out.length > 2 && "stored".equals(out[2])) { Arest.memoClear(); return new Object[] { out[0], status }; }
+        if (out.length > 2 && "stored".equals(out[2])) { Arest.memoClear(); if (status < 400) Perform.took(); return new Object[] { out[0], status }; }
         if (out.length > 2 && status < 400) return notCommitted();
         return new Object[] { out[0], status };
     }

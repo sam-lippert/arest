@@ -12,6 +12,21 @@
 // is, for the caller who holds that Fetcher to perform and pass back as the page. A connection that is not live
 // answers what it would have done. A redirect is not followed, so a credential is never carried to an address the
 // store did not declare.
+//
+// AND ONE CALL A WRITE OWES. A Predicate is performed during a Transition, and the write that takes the transition
+// is where the call it declares goes out: an approval sends the reply it approves. Lambda says which calls a
+// committed write owes (k:performed: the Events that occurred at the times this write read its clock, the
+// transitions they caused, the Predicates performed during those, the instance each machine is for), so a call is
+// made once, by the host whose write took the transition, and by no other host that reads the same store. Lambda
+// says what each call IS as well: its method and address, its query, its headers, each path of its body, what its
+// answer yields and about whom, what its success asserts and what its failure records, and the fact types it may
+// create, past which nothing is written. This host resolves the name, refuses an address inside a blocked range,
+// sends, and hands the answer back as writes like any other, so what they move is performed in turn. A connection
+// that declares no Send Mode is not performed; one that is not live sends nothing, writes nothing, and says what it
+// would have sent. The calls are made after the write's answer is out. A write of a federated object type is not
+// written through to its system by this host (fed:ot_writes asks for the store before the write, which a store
+// served from its database does not hold), and a Predicate bound to a definition of lambda's own is not this
+// host's to perform. What it writes to its log names fact types and instances, and no value of a body.
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -263,6 +278,353 @@ final class Perform {
         if (ans instanceof Object[]) for (Object pr : (Object[]) ans)
             if (pr instanceof Object[] && ((Object[]) pr).length > 1 && key.equals(String.valueOf(((Object[]) pr)[0]))) return ((Object[]) pr)[1];
         return null;
+    }
+
+    // ---- what a write performs --------------------------------------------------------------------------------
+
+    static final java.util.Set<String> TICKS = new java.util.LinkedHashSet<String>();
+    static final java.util.ArrayDeque<String[]> DUE = new java.util.ArrayDeque<String[]>();
+    static String WHO = "";
+    static final int CHAIN_MAX = 8;
+
+    /** The clock lambda reads: each time it hands out is kept until the write it served is answered. */
+    static synchronized String tick(String now) {
+        if (TICKS.size() < 4096) TICKS.add(now);
+        return now;
+    }
+
+    /** A request begins: the times read from here on are its own, and what it performs is written back as its caller's. */
+    static synchronized void mark(String who) {
+        TICKS.clear();
+        WHO = who == null ? "" : who;
+    }
+
+    /** A write committed: the calls its own Events perform are asked of lambda now, and made once its answer is out. */
+    static void took() {
+        Object[] times;
+        String who;
+        synchronized (Perform.class) { times = TICKS.toArray(); TICKS.clear(); who = WHO; }
+        if (times.length == 0 || Serve.store == null) return;
+        try {
+            Object kd = Arest.Ev("k:kd", Serve.store);
+            if (!(kd instanceof Object[])) return;
+            for (Object r : seq(Arest.Ev("k:performed", new Object[] { times, kd }))) {
+                Object[] row = seq(r);
+                if (row.length > 1) DUE.add(new String[] { atom(row[0]), atom(row[1]), who });
+            }
+        } catch (RuntimeException e) { say("performer: what the write performs could not be read: " + cut(String.valueOf(e.getMessage()), 300)); }
+    }
+
+    /** What is about to be performed, for the answer of the write that owes it. */
+    static String due() {
+        if (DUE.isEmpty()) return "";
+        StringBuilder b = new StringBuilder("performing after this answer:");
+        for (String[] d : DUE) b.append(' ').append(d[0]).append(" for ").append(d[1]).append(';');
+        return b.toString();
+    }
+
+    /** The calls due are made, and those their write-backs owe in turn, until none is left or the chain is too long. */
+    static void drain() {
+        int made = 0;
+        for (String[] d; (d = DUE.poll()) != null; ) {
+            if (++made > CHAIN_MAX) {
+                say("performer: stopped after " + CHAIN_MAX + " calls in one chain; " + (DUE.size() + 1) + " not made");
+                DUE.clear();
+                return;
+            }
+            List<String> lines = new ArrayList<String>();
+            try { one(d[0], d[1], d[2], lines); }
+            catch (Throwable e) { lines.add("failed: " + cut(String.valueOf(e), 300)); }
+            for (String l : lines) say("performed " + d[0] + " for " + d[1] + ": " + l);
+        }
+    }
+
+    // a line of the log; no line reads as this app's failure to a reader that looks for the word and a colon
+    static void say(String line) { System.err.println(line.replaceAll("(?i)(error):", "$1 --")); }
+
+    static Object[] seq(Object x) { return x instanceof Object[] ? (Object[]) x : new Object[0]; }
+
+    static Object[] texts(Object row) {
+        Object[] a = seq(row), out = new Object[a.length];
+        for (int i = 0; i < a.length; i++) out[i] = a[i] instanceof Object[] ? a[i] : String.valueOf(a[i]);
+        return out;
+    }
+
+    // a value of an answer as the text a fact holds: a number as it is written, an object or a list as its JSON
+    static String text(Object v) {
+        if (v instanceof Map || v instanceof Object[] || v instanceof List) return Gui.Json.write(v);
+        if (v instanceof Double) { double d = ((Double) v).doubleValue(); if (d == Math.rint(d) && Math.abs(d) < 1e15) return String.valueOf((long) d); }
+        return String.valueOf(v);
+    }
+
+    static boolean digits(String s) { return !s.isEmpty() && s.chars().allMatch(c -> c >= '0' && c <= '9'); }
+
+    // A dotted JSON path set and read: 'headers.In-Reply-To' is the field In-Reply-To of the object headers, a numeric
+    // step is an index of a list ('messages.0.content'), a * step read is the first element that holds the rest of
+    // the path, and a key that holds the whole path as one name is read as written first.
+    @SuppressWarnings("unchecked")
+    static void put(Object cur, String k, Object v) {
+        if (cur instanceof Map) ((Map<String, Object>) cur).put(k, v);
+        else if (cur instanceof List && digits(k)) {
+            List<Object> l = (List<Object>) cur;
+            int n = Integer.parseInt(k);
+            while (l.size() <= n) l.add(null);
+            l.set(n, v);
+        }
+    }
+
+    static Object child(Object cur, String k) {
+        if (cur instanceof Map) return ((Map<?, ?>) cur).get(k);
+        if (cur instanceof List && digits(k)) { List<?> l = (List<?>) cur; int n = Integer.parseInt(k); return n < l.size() ? l.get(n) : null; }
+        if (cur instanceof Object[] && digits(k)) { Object[] a = (Object[]) cur; int n = Integer.parseInt(k); return n < a.length ? a[n] : null; }
+        return null;
+    }
+
+    static void setPath(Object root, String path, Object v) {
+        String[] segs = path.split("\\.");
+        Object cur = root;
+        for (int i = 0; i < segs.length - 1; i++) {
+            Object next = child(cur, segs[i]);
+            if (!(next instanceof Map) && !(next instanceof List)) {
+                next = digits(segs[i + 1]) ? (Object) new ArrayList<Object>() : (Object) new LinkedHashMap<String, Object>();
+                put(cur, segs[i], next);
+            }
+            cur = next;
+        }
+        put(cur, segs[segs.length - 1], v);
+    }
+
+    static Object walk(Object cur, String[] segs, int i) {
+        for (; i < segs.length; i++) {
+            if (!(cur instanceof Map) && !(cur instanceof Object[]) && !(cur instanceof List)) return null;
+            if ("*".equals(segs[i])) {
+                Iterable<?> each = cur instanceof Map ? ((Map<?, ?>) cur).values() : cur instanceof List ? (List<?>) cur : Arrays.asList((Object[]) cur);
+                for (Object v : each) { Object got = walk(v, segs, i + 1); if (got != null) return got; }
+                return null;
+            }
+            cur = child(cur, segs[i]);
+        }
+        return cur;
+    }
+
+    static Object getPath(Object obj, String path) {
+        if (obj instanceof Map && ((Map<?, ?>) obj).containsKey(path)) return ((Map<?, ?>) obj).get(path);
+        return walk(obj, (path.startsWith("$.") ? path.substring(2) : path).split("\\."), 0);
+    }
+
+    /** What a call answered: its status and text, or why it answered none. */
+    static final class Sent {
+        int status;
+        String text = "", error;
+    }
+
+    // one request with a JSON body, its redirect not followed
+    static Sent post(String method, String url, Map<String, String> headers, String json) {
+        Sent s = new Sent();
+        try {
+            HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+            c.setInstanceFollowRedirects(false);
+            c.setConnectTimeout(15000);
+            c.setReadTimeout(120000);
+            c.setRequestMethod(method);
+            boolean typed = false;
+            for (Map.Entry<String, String> h : headers.entrySet()) {
+                c.setRequestProperty(h.getKey(), h.getValue());
+                if ("content-type".equalsIgnoreCase(h.getKey())) typed = true;
+            }
+            if (!"GET".equals(method) && !"HEAD".equals(method)) {
+                if (!typed) c.setRequestProperty("Content-Type", "application/json");
+                c.setDoOutput(true);
+                try (OutputStream o = c.getOutputStream()) { o.write(json.getBytes(StandardCharsets.UTF_8)); }
+            }
+            s.status = c.getResponseCode();
+            s.text = new String(all(s.status >= 400 ? c.getErrorStream() : c.getInputStream()), StandardCharsets.UTF_8);
+            c.disconnect();
+        } catch (Exception e) {
+            s.status = 0;
+            s.error = e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage());
+        }
+        return s;
+    }
+
+    // facts asserted in one step as the system's login, or the caller's where the environment names none
+    static boolean back(String label, Object facts, String who, List<String> lines) {
+        try {
+            Object[] out = Serve.verb("assert", Reader.path("AREST_SYSTEM_LOGIN", who), facts);
+            if (((Number) out[1]).longValue() >= 400) { lines.add(label + " REFUSED: " + cut(String.valueOf(out[0]), 400)); return false; }
+            lines.add(label + ": " + cut(String.valueOf(out[0]), 200));
+            return true;
+        } catch (RuntimeException e) { lines.add(label + " threw: " + cut(String.valueOf(e.getMessage()), 300)); return false; }
+    }
+
+    static String names(List<Object> rows) {
+        List<String> out = new ArrayList<String>();
+        for (Object r : rows) { String n = String.valueOf(seq(r)[0]); if (!out.contains(n)) out.add(n); }
+        return String.join(", ", out);
+    }
+
+    /** A call as lambda spells it: where it goes, what it carries, whom its answer is about and what it may write. */
+    static final class Call {
+        String fn, entity, subj, method, address, json;
+        final Map<String, String> headers = new LinkedHashMap<String, String>();
+        final List<String> filled = new ArrayList<String>(), ceiling = new ArrayList<String>();
+        Object[] yieldsOf, successOf, observed = new Object[0];
+    }
+
+    /** One call a write owes: the Predicate's call for the instance, made, and its answer written back. */
+    static void one(String fn, String entity, String who, List<String> lines) {
+        Object read = Serve.read();
+        Call c = prepare(fn, entity, read, lines);
+        if (c != null && guard(c, read, who, lines)) made(c, read, who, lines);
+    }
+
+    // what the call is, or nothing where it is not this host's, not performed, refused, or only said (a connection not live)
+    static Call prepare(String fn, String entity, Object read, List<String> lines) {
+        Call c = new Call();
+        c.fn = fn;
+        c.entity = entity;
+        if (seq(Arest.Ev("store:pf_external", new Object[] { new Object[] { new Object[] { fn, entity } }, read })).length == 0) {
+            lines.add("not this host's: the Predicate is bound to a definition of lambda's own");
+            return null;
+        }
+        String mode = atom(Arest.Ev("perform:send_mode_of", new Object[] { fn, read }));
+        if (mode.isEmpty()) { lines.add("not performed: its connection declares no Send Mode"); return null; }
+        boolean live = "live".equals(mode);
+        Object[] call = seq(Arest.Ev("perform:call_for", new Object[] { fn, read }));
+        String method = call.length > 0 ? atom(call[0]) : "", address = call.length > 1 ? atom(call[1]) : "";
+        if (method.isEmpty() || address.isEmpty()) { lines.add("refused: the model does not fully address this call"); return null; }
+        StringBuilder qs = new StringBuilder();
+        for (Object q : seq(Arest.Ev("perform:params_of", new Object[] { fn, entity, read }))) {
+            Object[] p = seq(q);
+            if (p[1] instanceof Object[]) { lines.add("refused: declared query parameter '" + p[0] + "' has no fact to fill it"); return null; }
+            if (qs.length() > 0) qs.append('&');
+            qs.append(enc(String.valueOf(p[0]))).append('=').append(enc(String.valueOf(p[1])));
+        }
+        if (qs.length() > 0) address += (address.indexOf('?') >= 0 ? "&" : "?") + qs;
+        Map<String, String> headers = c.headers;
+        for (Object hv : seq(Arest.Ev("perform:headers_of", new Object[] { fn, read }))) {
+            Object[] p = seq(hv);
+            headers.put(String.valueOf(p[0]), String.valueOf(p[1]));
+        }
+        // the credential is the connection's, opened here and nowhere else, and carried in the header the model names
+        Object auth = Arest.Ev("perform:auth_header_of", new Object[] { fn, read });
+        if (!(auth instanceof Object[])) {
+            String secret;
+            try { secret = written(fn, secret(fn, read), read); }
+            catch (RuntimeException e) { lines.add("refused: " + e.getMessage()); return null; }
+            if (secret == null) { lines.add("refused: the credential encoding this connection declares is not one this host writes"); return null; }
+            if (!secret.isEmpty()) {
+                String k = String.valueOf(auth), had = headers.get(k);
+                headers.put(k, (had == null || had.isEmpty() ? "" : had + " ") + secret);
+            }
+        }
+        // the body, path by path: a Body Template with no placeholder whose text is an integer is that number
+        java.util.Set<String> numeric = new java.util.HashSet<String>();
+        for (Object t : seq(Arest.Ev("perform:tpls_of", new Object[] { fn, read }))) {
+            Object[] p = seq(t);
+            if (p.length > 1 && !(p[1] instanceof Object[]) && String.valueOf(p[1]).matches("-?\\d+")) numeric.add(String.valueOf(p[0]));
+        }
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        List<String> filled = c.filled;
+        for (Object b : seq(Arest.Ev("perform:body_of", new Object[] { fn, entity, read }))) {
+            Object[] p = seq(b);
+            String path = String.valueOf(p[0]);
+            if (p[1] instanceof Object[]) { lines.add("refused: declared path '" + path + "' has no fact to fill it"); return null; }
+            setPath(body, path, numeric.contains(path) ? (Object) Long.valueOf(String.valueOf(p[1])) : (Object) String.valueOf(p[1]));
+            filled.add(path);
+        }
+        String json = Gui.Json.write(body);
+        Object subject = Arest.Ev("perform:subject_of", new Object[] { fn, entity, read });
+        String subj = subject instanceof Object[] ? entity : String.valueOf(subject);
+        for (Object ft : seq(Arest.Ev("main:pf_creates", new Object[] { fn, read }))) c.ceiling.add(atom(ft));
+        Object[] yieldsOf = seq(Arest.Ev("perform:yields_of", new Object[] { fn, read }));
+        Object[] successOf = seq(Arest.Ev("perform:success_of", new Object[] { fn, subj, read }));
+        if (!live) {
+            List<Object> would = new ArrayList<Object>();
+            for (Object t : yieldsOf) would.add(new Object[] { seq(t)[1] });
+            List<Object> then = new ArrayList<Object>();
+            for (Object r : successOf) then.add(r);
+            lines.add(mode + " -- would " + method + " " + address + " with a body of " + json.length() + " characters filling " + String.join(", ", filled)
+                + " about " + subj + "; its answer would yield " + (would.isEmpty() ? "nothing" : names(would))
+                + " and its success assert " + (then.isEmpty() ? "nothing" : names(then)) + "; nothing is sent and nothing written");
+            return null;
+        }
+        c.subj = subj;
+        c.method = method;
+        c.address = address;
+        c.json = json;
+        c.yieldsOf = yieldsOf;
+        c.successOf = successOf;
+        return c;
+    }
+
+    // the name is resolved where the request is made, and an address inside a blocked range refuses the send
+    static boolean guard(Call c, Object read, String who, List<String> lines) {
+        String fn = c.fn;
+        String bare = atom(Arest.Ev("net:host", c.address)).replaceAll("^\\[|\\]$", "");
+        List<Object> addrs = new ArrayList<Object>();
+        try { for (java.net.InetAddress a : java.net.InetAddress.getAllByName(bare)) addrs.add(a.getHostAddress()); }
+        catch (java.net.UnknownHostException e) { lines.add("refused: the host " + bare + " does not resolve"); return false; }
+        Object system = Arest.Ev("perform:system_of", new Object[] { fn, read });
+        Object[] observed = system instanceof Object[] ? new Object[0]
+            : seq(Arest.Ev("perform:resolved_facts", new Object[] { String.valueOf(system), addrs.toArray() }));
+        c.observed = observed;
+        Object blocked = Arest.Ev("perform:blocked_address", new Object[] { addrs.toArray(), read });
+        if (!(blocked instanceof Object[]) && !String.valueOf(blocked).isEmpty()) {
+            lines.add("refused: the host " + bare + " resolves to " + blocked + ", inside a blocked range");
+            if (observed.length > 0) back("recorded what its host resolved to", observed, who, lines);
+            return false;
+        }
+        return true;
+    }
+
+    // the send, and what it writes back: what the call established by succeeding, what its answer yields, or its Failure
+    static void made(Call c, Object read, String who, List<String> lines) {
+        String fn = c.fn, entity = c.entity, subj = c.subj, method = c.method, address = c.address, json = c.json;
+        List<String> filled = c.filled, ceiling = c.ceiling;
+        Object[] yieldsOf = c.yieldsOf, successOf = c.successOf, observed = c.observed;
+        Sent a = post(method, address, c.headers, json);
+        try { Arest.Ev("log:response", new Object[] { fn, method, address, String.valueOf(a.status), a.error != null ? a.error : a.text }); } catch (RuntimeException e) { }
+        boolean ok = a.status >= 200 && a.status < 300;
+        lines.add(method + " " + address + (a.error != null ? " failed: " + cut(a.error, 200) : " answered " + a.status) + ", sent a body of " + json.length()
+            + " characters filling " + String.join(", ", filled));
+        List<String> outside = new ArrayList<String>();
+        if (ok) {
+            // what the call established by succeeding first, then what its answer yields, each within what it may create
+            for (Object r : successOf) {
+                Object[] row = texts(r);
+                if (row.length == 0) continue;
+                if (ceiling.contains(String.valueOf(row[0]))) back("asserted " + row[0] + " of " + subj, new Object[] { row }, who, lines);
+                else outside.add(String.valueOf(row[0]));
+            }
+            Object parsed;
+            try { parsed = Gui.Json.parse(a.text); } catch (RuntimeException e) { parsed = null; }
+            List<Object> yields = new ArrayList<Object>();
+            if (parsed instanceof Map || parsed instanceof Object[]) {
+                List<Object> quads = new ArrayList<Object>();
+                for (Object t : yieldsOf) {
+                    Object[] p = seq(t);
+                    Object got = getPath(parsed, String.valueOf(p[0]));
+                    quads.add(new Object[] { String.valueOf(p[0]), String.valueOf(p[1]), String.valueOf(p[2]), got == null ? (Object) new Object[0] : (Object) text(got) });
+                }
+                for (Object r : seq(Arest.Ev("perform:yield_rows", new Object[] { quads.toArray(), subj, read }))) {
+                    Object[] row = texts(r);
+                    if (row.length == 0) continue;
+                    if (ceiling.contains(String.valueOf(row[0]))) yields.add(row); else outside.add(String.valueOf(row[0]));
+                }
+            }
+            if (!yields.isEmpty()) back("wrote back what the answer yields (" + names(yields) + ") of " + subj, yields.toArray(), who, lines);
+        } else {
+            // a call that went out and failed is recorded as a Failure, its facts together
+            String reason = a.error != null ? a.error : "HTTP " + a.status + ": " + cut(a.text, 500);
+            String now = java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS).toString();
+            Object[] failure = seq(Arest.Ev("perform:failure_rows", new Object[] { fn, entity, reason, now, read }));
+            if (failure.length > 0) back("recorded the failure", failure, who, lines);
+            else lines.add("no Failure is declared for it, so none is recorded");
+        }
+        for (String ft : outside) lines.add("not written, outside what " + fn + " may create: " + ft);
+        record(fn, address, String.valueOf(a.status), lines, who);
+        if (observed.length > 0) back("recorded what its host resolved to", observed, who, lines);
     }
 
     /** The verb over a Source: its pages read one request at a time and each handed back through the verb. */
