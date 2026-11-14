@@ -1417,6 +1417,24 @@ Function sends Fact Type with Role to JSON Path.
        the Email Address role of Request has Email Address and the
        Request role is the subject being sent, not a field. Copying the
        inbound constraint here would refuse every real request body. -->
+Function lists Fact Type at JSON Path.
+  For each Function and JSON Path, that Function lists at most one Fact Type at that JSON Path.
+  <!-- A PART OF A BODY THAT IS A LIST. `Function sends Fact Type with Role to JSON Path` carries one value to a
+       path, the one the subject has, so a call could say one thing about one entity and never a sequence of them:
+       a conversation given turn by turn, the lines of an order, the recipients of a notice. A Function names the
+       fact type whose facts about its subject are the list at a path: the subject fills its first role and each
+       fact's second role is one element. A path the Function sends to that holds a * step after the list's path
+       is filled once for each element, from that element's own fact, the * being the element's place counted
+       from 0: with the Messages of a request listed at 'messages', `messages.*.content` is each Message's own
+       text in turn. A path with no * step is filled from the subject as it was. An element that has no fact to
+       fill a path is a hole there, and the call is refused, as for any path. -->
+Function orders JSON Path by Fact Type.
+  For each Function and JSON Path, that Function orders that JSON Path by at most one Fact Type.
+  <!-- AND THE ORDER OF A LIST IS SAID, NOT FOUND. A population is a set, and a list a call sends has an order
+       the receiver reads: a conversation is read first turn first. The elements of the list at the path are
+       put in the order of the value each has in this fact type, least first, as text is ordered, which for an
+       ISO 8601 instant in UTC is the order of time. A list no fact type orders is sent as its population is
+       read. -->
 Body Template is a value type.
   The data type of Body Template is text.
 Function fills JSON Path with Body Template.
