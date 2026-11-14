@@ -382,6 +382,84 @@ public class Arest {
             List<Object> out = new ArrayList<Object>();
             for (Object s : seq(x)) for (Object e : seq(s)) out.add(e);
             return out.toArray(); });
+        // rmap:msort is a sequence to its members ordered by their firsts (le), stably: a bottom-up merge of runs, each
+        // comparison and each push an application lambda makes. Where every member is a sequence with a first and the
+        // firsts are all numbers or all texts, le orders them as cmpAtoms does, and the DEF's answer is the stable sort by
+        // the first, which this is. A sequence of fewer than two members is answered as it is, as the DEF answers it
+        // without a comparison. Anything else runs the DEF, which throws where le or a selector does.
+        // MEASURED: a large app's in-place check, 3,841 s profiled, was 38.8% inside rmap:msort, the readings' rows
+        // sorted again each time a derived fact type's players were asked.
+        FASTPRIMS.put("rmap:msort", x -> {
+            if (x instanceof Object[]) {
+                Object[] l = (Object[]) x;
+                if (l.length < 2) return x;
+                boolean nums = true, texts = true;
+                for (Object m : l) {
+                    if (!(m instanceof Object[]) || ((Object[]) m).length == 0) { nums = false; texts = false; break; }
+                    Object f = ((Object[]) m)[0];
+                    if (!(f instanceof Long)) nums = false;
+                    if (!(f instanceof String)) texts = false;
+                    if (!nums && !texts) break;
+                }
+                if (nums || texts) {
+                    Object[] out = l.clone();
+                    if (nums) java.util.Arrays.sort(out, (a, b) -> ((Long) ((Object[]) a)[0]).compareTo((Long) ((Object[]) b)[0]));
+                    else java.util.Arrays.sort(out, (a, b) -> ((String) ((Object[]) a)[0]).compareTo((String) ((Object[]) b)[0]));
+                    return out;
+                }
+            }
+            return Ev(DEFS.get("rmap:msort"), x); });
+        // THE KERNEL'S LIST HELPERS. The kernel writes membership, concatenation, lookup, its sets and its bisection in
+        // the combining forms (k:has, k:flat, k:assoc, k:msort, k:msort_k, k:union, k:minus, k:inter, k:bs), and every
+        // check a write plans and every table a boot binds goes through them an application at a time. Each twin
+        // answers what its DEF answers where its operand has the DEF's shape and, where an order is asked, holds only
+        // numbers, texts and sequences of them (plain): k:has is one walk with eq; k:flat one copy; k:assoc the second
+        // of the first pair whose first is the key; k:msort the numbers, then the texts, then the sequences, each in
+        // k:lt2's order with duplicates merged away, and k:msort_k the same keeping them, stably; k:union, k:minus and
+        // k:inter one walk over two such sets; k:bs the DEF's own bisection, probe for probe. Anything else runs the
+        // DEF, which throws where a primitive does.
+        // MEASURED on a large app's store: these were a third of a served write (k:has alone 35% of one) and two
+        // fifths of the server's boot (k:msort 20%, k:bs 14%, k:assoc 14%).
+        FASTPRIMS.put("k:has", x -> {
+            if (x instanceof Object[] && ((Object[]) x).length >= 2 && ((Object[]) x)[1] instanceof Object[]) {
+                Object needle = ((Object[]) x)[0];
+                for (Object e : (Object[]) ((Object[]) x)[1]) if (deepEq(needle, e)) return "T";
+                return "F";
+            }
+            return Ev(DEFS.get("k:has"), x); });
+        FASTPRIMS.put("k:flat", x -> {
+            if (x instanceof Object[]) {
+                int n = 0;
+                boolean ok = true;
+                for (Object e : (Object[]) x) { if (!(e instanceof Object[])) { ok = false; break; } n += ((Object[]) e).length; }
+                if (ok) {
+                    Object[] out = new Object[n];
+                    int i = 0;
+                    for (Object e : (Object[]) x) { Object[] a = (Object[]) e; System.arraycopy(a, 0, out, i, a.length); i += a.length; }
+                    return out;
+                }
+            }
+            return Ev(DEFS.get("k:flat"), x); });
+        FASTPRIMS.put("k:assoc", x -> {
+            if (x instanceof Object[] && ((Object[]) x).length >= 2 && ((Object[]) x)[1] instanceof Object[]) {
+                Object key = ((Object[]) x)[0];
+                Object[] pairs = (Object[]) ((Object[]) x)[1];
+                Object[] hit = null;
+                boolean ok = true;
+                for (Object p : pairs) {
+                    if (!(p instanceof Object[]) || ((Object[]) p).length == 0) { ok = false; break; }
+                    if (hit == null && deepEq(key, ((Object[]) p)[0])) hit = (Object[]) p;
+                }
+                if (ok && hit == null) return new Object[0];
+                if (ok && hit.length >= 2) return hit[1];
+            }
+            return Ev(DEFS.get("k:assoc"), x); });
+        FASTPRIMS.put("k:msort", x -> x instanceof Object[] && plain(x) ? sorted2((Object[]) x, true) : Ev(DEFS.get("k:msort"), x));
+        FASTPRIMS.put("k:msort_k", x -> x instanceof Object[] && plain(x) ? sorted2((Object[]) x, false) : Ev(DEFS.get("k:msort_k"), x));
+        FASTPRIMS.put("k:union", x -> { Object r = sets2(x, 0); return r != null ? r : Ev(DEFS.get("k:union"), x); });
+        FASTPRIMS.put("k:minus", x -> { Object r = sets2(x, 1); return r != null ? r : Ev(DEFS.get("k:minus"), x); });
+        FASTPRIMS.put("k:inter", x -> { Object r = sets2(x, 2); return r != null ? r : Ev(DEFS.get("k:inter"), x); });
+        FASTPRIMS.put("k:bs", x -> { Object r = bisect2(x); return r != null ? r : Ev(DEFS.get("k:bs"), x); });
         FASTPRIMS.put("cn:entsat", x -> {
             Object[] l = seq(at(x, 0));
             Object k = at(x, 1);
@@ -453,6 +531,74 @@ public class Arest {
     public static Object[] LAMBDA(Object... xs) { return xs; }
 
     // ---- the mu ------------------------------------------------------------
+
+    // The kernel's order over plain values (k:lt2): two numbers and two texts by the primitive lt, a number before a
+    // text, an atom before a sequence, and two sequences field by field, the one that begins the other first.
+    static int cmp2(Object a, Object b) {
+        boolean sa = a instanceof Object[], sb = b instanceof Object[];
+        if (!sa && !sb) {
+            if (a instanceof Long) return b instanceof Long ? ((Long) a).compareTo((Long) b) : -1;
+            return b instanceof Long ? 1 : ((String) a).compareTo((String) b);
+        }
+        if (!sa) return -1;
+        if (!sb) return 1;
+        Object[] x = (Object[]) a, y = (Object[]) b;
+        int n = Math.min(x.length, y.length);
+        for (int i = 0; i < n; i++) if (!deepEq(x[i], y[i])) return cmp2(x[i], y[i]);
+        return Integer.compare(x.length, y.length);
+    }
+
+    // a plain sequence in the kernel's sorted form: its numbers, then its texts, then its sequences, each in order,
+    // duplicates merged away for a set and kept, in the order they came, otherwise
+    static Object[] sorted2(Object[] l, boolean set) {
+        List<Object> nums = new ArrayList<Object>(), texts = new ArrayList<Object>(), seqs = new ArrayList<Object>();
+        for (Object e : l) (e instanceof Long ? nums : e instanceof String ? texts : seqs).add(e);
+        java.util.Comparator<Object> c = Arest::cmp2;
+        nums.sort(c); texts.sort(c); seqs.sort(c);
+        List<Object> out = new ArrayList<Object>(l.length);
+        for (List<Object> part : java.util.Arrays.asList(nums, texts, seqs))
+            for (Object e : part) if (!set || out.isEmpty() || !deepEq(out.get(out.size() - 1), e)) out.add(e);
+        return out.toArray();
+    }
+
+    // <A, B>, two plain sequences, as sets: 0 their union, 1 A less B, 2 what both hold; null where the operand is not that
+    static Object sets2(Object x, int op) {
+        if (!(x instanceof Object[]) || ((Object[]) x).length < 2) return null;
+        Object pa = ((Object[]) x)[0], pb = ((Object[]) x)[1];
+        if (!(pa instanceof Object[]) || !(pb instanceof Object[]) || !plain(pa) || !plain(pb)) return null;
+        Object[] a = sorted2((Object[]) pa, true), b = sorted2((Object[]) pb, true);
+        List<Object> out = new ArrayList<Object>();
+        int i = 0, j = 0;
+        while (i < a.length && j < b.length) {
+            int c = cmp2(a[i], b[j]);
+            if (c == 0) { if (op != 1) out.add(a[i]); i++; j++; }
+            else if (c < 0) { if (op != 2) out.add(a[i]); i++; }
+            else { if (op == 0) out.add(b[j]); j++; }
+        }
+        if (op != 2) for (; i < a.length; i++) out.add(a[i]);
+        if (op == 0) for (; j < b.length; j++) out.add(b[j]);
+        return out.toArray();
+    }
+
+    // <key, table>: the kernel's bisection (k:bs), probe for probe; null where a probe meets what the DEF must answer
+    static Object bisect2(Object x) {
+        if (!(x instanceof Object[]) || ((Object[]) x).length < 2 || !(((Object[]) x)[1] instanceof Object[])) return null;
+        Object key = ((Object[]) x)[0];
+        Object[] t = (Object[]) ((Object[]) x)[1];
+        if (t.length == 0) return new Object[0];
+        if (!plain(key)) return null;
+        long lo = 1, hi = t.length;
+        while (lo < hi) {
+            long mid = (lo + hi) / 2;
+            Object row = t[(int) mid - 1];
+            if (!(row instanceof Object[]) || ((Object[]) row).length == 0 || !plain(((Object[]) row)[0])) return null;
+            if (cmp2(((Object[]) row)[0], key) < 0) lo = mid + 1; else hi = mid;
+        }
+        Object row = t[(int) lo - 1];
+        if (!(row instanceof Object[]) || ((Object[]) row).length == 0) return null;
+        if (!deepEq(((Object[]) row)[0], key)) return new Object[0];
+        return ((Object[]) row).length >= 2 ? ((Object[]) row)[1] : null;
+    }
 
     public static boolean deepEq(Object a, Object b) {
         if (a == b) return true;
