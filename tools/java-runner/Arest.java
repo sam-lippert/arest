@@ -460,6 +460,14 @@ public class Arest {
         FASTPRIMS.put("k:minus", x -> { Object r = sets2(x, 1); return r != null ? r : Ev(DEFS.get("k:minus"), x); });
         FASTPRIMS.put("k:inter", x -> { Object r = sets2(x, 2); return r != null ? r : Ev(DEFS.get("k:inter"), x); });
         FASTPRIMS.put("k:bs", x -> { Object r = bisect2(x); return r != null ? r : Ev(DEFS.get("k:bs"), x); });
+        // k:sq is a text to its pieces between double quotes, a char at a time in the DEF: one split here, an empty piece
+        // between two quotes together and at either end, as the DEF gives them. Anything but a text runs the DEF.
+        FASTPRIMS.put("k:sq", x -> {
+            if (!(x instanceof String)) return Ev(DEFS.get("k:sq"), x);
+            String[] parts = ((String) x).split("\"", -1);
+            Object[] out = new Object[parts.length];
+            System.arraycopy(parts, 0, out, 0, parts.length);
+            return out; });
         FASTPRIMS.put("cn:entsat", x -> {
             Object[] l = seq(at(x, 0));
             Object k = at(x, 1);
