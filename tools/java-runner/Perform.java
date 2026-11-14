@@ -8,7 +8,10 @@
 // This host registers two Fetchers. `fetch` is a direct HTTPS request whose answer is JSON. `mbox` reads a mailbox
 // file on this machine, the one the connection's Secret Reference names, with the reader beside this class
 // (mbox_read.py: Python's own mailbox and email), for the address the request's parameters name, or the one message
-// whose Message-ID they name; it reads, and the file is not changed. Any other Fetcher is one this host does not register: the read is answered as the request it
+// whose Message-ID they name; it reads, and the file is not changed. Each message is answered with its whole body and,
+// as own_text, what its sender wrote in it: the body up to where it quotes the mail it answers (the line that says who
+// wrote what follows, a quoted line, a forwarded message's rule or header block), both without the characters no reader
+// sees; a message that opens with a quote keeps its whole body there. Any other Fetcher is one this host does not register: the read is answered as the request it
 // is, for the caller who holds that Fetcher to perform and pass back as the page. A connection that is not live
 // answers what it would have done. A redirect is not followed, so a credential is never carried to an address the
 // store did not declare.
