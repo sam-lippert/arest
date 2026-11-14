@@ -2315,6 +2315,7 @@ Constraint Type 'SY' has Name 'Symmetric'.
 Constraint Type 'IT' has Name 'Intransitive'.
 Constraint Type 'TR' has Name 'Transitive'.
 Constraint Type 'AC' has Name 'Acyclic'.
+Constraint Type 'RF' has Name 'Reflexive'.
 Constraint Type 'VC' has Name 'ValueComparison'.
 
 ### Conceptual Data Types
