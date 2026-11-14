@@ -774,6 +774,7 @@ case:a-call-carries-only-the-headers-of-the-system-that-backs-it	"(('Authorizati
 case:which-header-carries-the-credential-is-a-fact-not-a-guess	"'Authorization'"
 case:a-request-body-is-joined-from-the-entitys-own-facts	"(('to', 'admin@example.com'), ('subject', 'Re: your request'))"
 case:a-declared-path-the-entity-cannot-fill-is-a-hole-not-an-omission	"(('to', ()), ('subject', ()))"
+case:a-path-a-rule-decides-is-left-out-where-it-does-not-hold	"(('to', 'admin@example.com'), ('subject', ()))"
 case:a-body-path-the-sender-carries-is-read-from-the-function	"(('subject', 'Example - Support'), ('to', 'admin@example.com'))"
 case:the-entity-outranks-the-function-where-both-carry-a-path	"(('to', 'the entity is own'))"
 case:a-templated-body-quotes-the-message-it-answers	"(('to', 'admin@example.com'), ('text', 'Yes, for some makes.\n\nOn 2026-09-24 at 19:08 UTC, you wrote:\n> Does any plan return OEM build data?\n> Thanks.'))"
