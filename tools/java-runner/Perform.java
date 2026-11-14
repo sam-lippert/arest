@@ -5,10 +5,13 @@
 // service answers goes back through the same verb, asserted in one step like any other write, until the answer says
 // there is no more or the cursor stops moving. Lambda says what the request IS; nothing here builds one.
 //
-// A Fetcher other than `fetch` is one this host does not register: the read is answered as the request it is, for
-// the caller who holds that Fetcher to perform and pass back as the page. A connection that is not live answers what
-// it would have done. A redirect is not followed, so a credential is never carried to an address the store did not
-// declare.
+// This host registers two Fetchers. `fetch` is a direct HTTPS request whose answer is JSON. `mbox` reads a mailbox
+// file on this machine, the one the connection's Secret Reference names, with the reader beside this class
+// (mbox_read.py: Python's own mailbox and email), for the address the request's parameters name; it reads, and the
+// file is not changed. Any other Fetcher is one this host does not register: the read is answered as the request it
+// is, for the caller who holds that Fetcher to perform and pass back as the page. A connection that is not live
+// answers what it would have done. A redirect is not followed, so a credential is never carried to an address the
+// store did not declare.
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -21,6 +24,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 final class Perform {
     private Perform() { }
@@ -29,7 +33,7 @@ final class Perform {
 
     /** Who reads a Function's pages, whether the read may go out, and the headers it carries. */
     static final class Rd {
-        String fn, fetcher = "", mode = "", refusal;
+        String fn, fetcher = "", mode = "", refusal, access = "";
         boolean awaits;
         final Map<String, String> headers = new LinkedHashMap<String, String>();
     }
@@ -38,8 +42,13 @@ final class Perform {
         Rd r = new Rd();
         r.fn = fn;
         r.fetcher = atom(Arest.Ev("perform:fetcher_of", new Object[] { fn, read }));
-        if (!r.fetcher.isEmpty() && !"fetch".equals(r.fetcher)) { r.awaits = true; return r; }
+        if (!r.fetcher.isEmpty() && !"fetch".equals(r.fetcher) && !"mbox".equals(r.fetcher)) { r.awaits = true; return r; }
         r.mode = atom(Arest.Ev("perform:send_mode_of", new Object[] { fn, read }));
+        if ("mbox".equals(r.fetcher)) {
+            // the file is the connection's Secret Reference: this read's one access, carried in no header
+            try { r.access = secret(fn, read); } catch (RuntimeException e) { r.refusal = String.valueOf(e.getMessage()); }
+            return r;
+        }
         try {
             for (Object hv : (Object[]) Arest.Ev("perform:headers_of", new Object[] { fn, read })) {
                 Object[] p = (Object[]) hv;
@@ -165,6 +174,77 @@ final class Perform {
         return g;
     }
 
+    static byte[] quietly(InputStream in) { try { return all(in); } catch (java.io.IOException e) { return new byte[0]; } }
+
+    // The mbox Fetcher. req is lambda's <request, method, address, parameters, body>; the parameters from and to name
+    // the address whose mail is read. The file's path is the connection's secret: it goes to the reader in its
+    // environment, and is in no line this host writes and no fact it records. What the reader prints is the page.
+    static Got fetchMbox(Rd rd, Object[] req, List<String> lines, String who) {
+        Got g = new Got();
+        g.method = String.valueOf(req[1]);
+        String from = "", to = "";
+        StringBuilder qs = new StringBuilder();
+        if (req.length > 3 && req[3] instanceof Object[]) for (Object pr : (Object[]) req[3]) {
+            Object[] p = (Object[]) pr;
+            String k = String.valueOf(p[0]), v = String.valueOf(p[1]);
+            if ("from".equals(k)) from = v;
+            if ("to".equals(k)) to = v;
+            if (qs.length() > 0) qs.append('&');
+            qs.append(enc(k)).append('=').append(enc(v));
+        }
+        g.url = String.valueOf(req[2]) + (qs.length() > 0 ? "?" + qs : "");
+        if (!"live".equals(rd.mode)) {
+            g.notPerformed = true;
+            g.text = (rd.mode.isEmpty() ? "not performed: this connection declares no Send Mode -- would " : rd.mode + " -- would ") + "read the mailbox for " + g.url;
+            return g;
+        }
+        if (!"GET".equals(g.method)) { g.status = 405; g.text = "the mbox Fetcher reads; it does not " + g.method; return g; }
+        if (rd.access.isEmpty()) { g.status = 404; g.text = "no mbox: the connection this Source reads through carries no Secret Reference naming one"; return g; }
+        java.io.File file = new java.io.File(rd.access);
+        if (!file.isFile()) { g.status = 404; g.text = "no mbox: the file its connection's Secret Reference names is not on this machine"; return g; }
+        final byte[][] io = new byte[2][];
+        int code;
+        try {
+            java.io.File script = new java.io.File(new java.io.File(Perform.class.getProtectionDomain().getCodeSource().getLocation().toURI()), "mbox_read.py");
+            if (!script.isFile()) { g.status = 501; g.text = "the mbox Fetcher's reader, mbox_read.py, is not beside this host's classes"; return g; }
+            String py = System.getenv("AREST_PYTHON");
+            ProcessBuilder pb = new ProcessBuilder(py == null || py.isEmpty() ? "python" : py, "-I", script.getPath());
+            pb.environment().put("ARE_MBOX", file.getPath());
+            pb.environment().put("ARE_FROM", from);
+            pb.environment().put("ARE_TO", to);
+            final Process p = pb.start();
+            p.getOutputStream().close();
+            Thread out = new Thread(new Runnable() { public void run() { io[0] = quietly(p.getInputStream()); } });
+            Thread err = new Thread(new Runnable() { public void run() { io[1] = quietly(p.getErrorStream()); } });
+            out.start(); err.start();
+            if (!p.waitFor(500, TimeUnit.SECONDS)) {
+                p.destroyForcibly();
+                record(rd.fn, g.url, "0", lines, who);
+                g.status = 504; g.text = "the mbox read did not finish in 500 seconds; stopped"; return g;
+            }
+            out.join(); err.join();
+            code = p.exitValue();
+        } catch (Exception e) {
+            record(rd.fn, g.url, "0", lines, who);
+            g.status = 502; g.text = "python did not run: " + e.getClass().getSimpleName(); return g;
+        }
+        if (code != 0) {
+            // the last line python wrote names what it raised; its message may quote the mail, so only the name is kept
+            String[] el = new String(io[1] == null ? new byte[0] : io[1], StandardCharsets.UTF_8).trim().split("\n");
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^([A-Za-z_][A-Za-z0-9_.]*)(:|$)").matcher(el[el.length - 1].trim());
+            record(rd.fn, g.url, "500", lines, who);
+            g.status = 502; g.text = "the mbox did not parse: python raised " + (m.find() ? m.group(1) : "an error"); return g;
+        }
+        try { g.body = Gui.fromJson(Gui.Json.parse(new String(io[0] == null ? new byte[0] : io[0], StandardCharsets.UTF_8))); }
+        catch (RuntimeException e) { record(rd.fn, g.url, "500", lines, who); g.status = 502; g.text = "the mbox read answered a body that is not JSON"; return g; }
+        record(rd.fn, g.url, "200", lines, who);
+        Object scanned = find(g.body, "scanned"), matched = find(g.body, "matched"), unnamed = find(g.body, "unnamed");
+        lines.add("the inbox parsed: " + scanned + " messages scanned, " + matched + " matched"
+            + (unnamed != null && !"0".equals(String.valueOf(unnamed)) ? ", " + unnamed + " without a Message-ID skipped" : ""));
+        g.status = 200;
+        return g;
+    }
+
     // What came off the line is recorded as an instance: a Response answering the Function, from the address, with
     // its status and time. Its body is not kept; it is what the facts the read yields were read from.
     static void record(String fn, String url, String status, List<String> lines, String who) {
@@ -215,7 +295,7 @@ final class Perform {
                 long st = ((Number) q[1]).longValue();
                 return new Object[] { String.valueOf(q[0]), st >= 400 ? st : 400L };
             }
-            Got got = fetchOne(rd, (Object[]) req, lines, who);
+            Got got = "mbox".equals(rd.fetcher) ? fetchMbox(rd, (Object[]) req, lines, who) : fetchOne(rd, (Object[]) req, lines, who);
             if (got.notPerformed) { lines.add(got.text); break; }
             if (got.status >= 400) { lines.add(got.text); status = 502; break; }
             Object[] out = Serve.verb(name, who, new Object[] { source, bindings, cursor, got.body });
