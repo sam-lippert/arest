@@ -7,8 +7,8 @@
 //
 // This host registers two Fetchers. `fetch` is a direct HTTPS request whose answer is JSON. `mbox` reads a mailbox
 // file on this machine, the one the connection's Secret Reference names, with the reader beside this class
-// (mbox_read.py: Python's own mailbox and email), for the address the request's parameters name; it reads, and the
-// file is not changed. Any other Fetcher is one this host does not register: the read is answered as the request it
+// (mbox_read.py: Python's own mailbox and email), for the address the request's parameters name, or the one message
+// whose Message-ID they name; it reads, and the file is not changed. Any other Fetcher is one this host does not register: the read is answered as the request it
 // is, for the caller who holds that Fetcher to perform and pass back as the page. A connection that is not live
 // answers what it would have done. A redirect is not followed, so a credential is never carried to an address the
 // store did not declare.
@@ -192,18 +192,19 @@ final class Perform {
     static byte[] quietly(InputStream in) { try { return all(in); } catch (java.io.IOException e) { return new byte[0]; } }
 
     // The mbox Fetcher. req is lambda's <request, method, address, parameters, body>; the parameters from and to name
-    // the address whose mail is read. The file's path is the connection's secret: it goes to the reader in its
+    // the address whose mail is read, and id the Message-ID of the one message to read. The file's path is the connection's secret: it goes to the reader in its
     // environment, and is in no line this host writes and no fact it records. What the reader prints is the page.
     static Got fetchMbox(Rd rd, Object[] req, List<String> lines, String who) {
         Got g = new Got();
         g.method = String.valueOf(req[1]);
-        String from = "", to = "";
+        String from = "", to = "", id = "";
         StringBuilder qs = new StringBuilder();
         if (req.length > 3 && req[3] instanceof Object[]) for (Object pr : (Object[]) req[3]) {
             Object[] p = (Object[]) pr;
             String k = String.valueOf(p[0]), v = String.valueOf(p[1]);
             if ("from".equals(k)) from = v;
             if ("to".equals(k)) to = v;
+            if ("id".equals(k)) id = v;
             if (qs.length() > 0) qs.append('&');
             qs.append(enc(k)).append('=').append(enc(v));
         }
@@ -227,6 +228,7 @@ final class Perform {
             pb.environment().put("ARE_MBOX", file.getPath());
             pb.environment().put("ARE_FROM", from);
             pb.environment().put("ARE_TO", to);
+            pb.environment().put("ARE_ID", id);
             final Process p = pb.start();
             p.getOutputStream().close();
             Thread out = new Thread(new Runnable() { public void run() { io[0] = quietly(p.getInputStream()); } });

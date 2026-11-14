@@ -6,6 +6,7 @@ NL = chr(10)
 CR = chr(13)
 want_from = os.environ.get("ARE_FROM", "").strip().lower()
 want_to = os.environ.get("ARE_TO", "").strip().lower()
+want_id = os.environ.get("ARE_ID", "").strip().strip("<>").strip()
 hp = BytesHeaderParser(policy=email.policy.compat32)
 bp = BytesParser(policy=email.policy.default)
 def addrs(values):
@@ -47,6 +48,8 @@ for key in box.iterkeys():
     mid = (h.get("Message-ID") or "").strip().strip("<>").strip()
     if not mid:
         unnamed += 1
+        continue
+    if want_id and mid != want_id:
         continue
     matched += 1
     msg = bp.parsebytes(box.get_bytes(key))
