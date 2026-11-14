@@ -337,6 +337,7 @@ public final class Registrations {
             String kind = text(s[0]), statement = text(s[1]);
             Object[] ps = s.length > 2 ? Arest.seq(s[2]) : new Object[0];
             String guard = s.length > 3 && !"fix".equals(kind) ? text(s[3]) : "";
+            long began = Arest.PROFILE ? System.nanoTime() : 0;
             try {
                 if (!guard.isEmpty() && query(c, guard, new Object[0], true).length == 0) { answers.add(new Object[0]); continue; }
                 if ("exec".equals(kind)) {
@@ -363,6 +364,10 @@ public final class Registrations {
                 } else {
                     throw new RuntimeException("no step of kind " + kind);
                 }
+                // under the profiler, each statement of a program that took a tenth of a second or more: measurement, no meaning
+                if (Arest.PROFILE && System.nanoTime() - began >= 100000000L)
+                    System.err.println("program step " + n + " of " + steps.length + " (" + kind + ") " + (System.nanoTime() - began) / 1000000 + " ms: "
+                        + statement.substring(0, Math.min(220, statement.length())).replace('\n', ' '));
             } catch (SQLException | RuntimeException e) {
                 throw new RuntimeException("sqlite:program, step " + n + " (" + kind + "): " + e.getMessage()
                     + " -- " + statement.substring(0, Math.min(300, statement.length())));
