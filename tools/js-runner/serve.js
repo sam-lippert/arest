@@ -97,7 +97,7 @@ function handle(msg) {
 // one HTTP request through k:api, answered <text, status>, asked once more with the page where it reads first (readPage)
 async function request(method, resource, caller, body) {
   try {
-    const out = api(method, resource, caller, body), page = await readPage(out);
+    const out = api(method, resource, caller, body), page = await readPage(out, caller);
     if (page === undefined) return out;
     const again = Array.isArray(body) ? body.slice(0, 7) : [];
     while (again.length < 7) again.push([]);
@@ -111,8 +111,9 @@ const api = (method, resource, caller, body) => {
 // A NAVIGATION THAT HAS TO READ FIRST answers 202 with the request lambda built for its Source, the Source after it
 // (ui:read_fetch). This host makes it through the Connector's Fetcher `fetch` (none declared is that one), when the
 // connection's Send Mode is live, with the headers it declares, and answers the page, or <failed, text> where it could
-// not read; it opens no credential, so a connection that carries one is not read here. undefined: no read is asked.
-async function readPage(out) {
+// not read; it opens no credential, so a connection that carries one is not read here. A request that went out is
+// recorded as a sync's read is (record). undefined: no read is asked.
+async function readPage(out, caller) {
   let q;
   try { q = Number(out[1]) === 202 ? JSON.parse(String(out[0])) : null; } catch (e) { q = null; }
   if (!Array.isArray(q) || q[0] !== "request" || q.length < 6) return undefined;
@@ -127,11 +128,23 @@ async function readPage(out) {
   if (mode !== "live") return ["failed", (mode || "not performed: this connection declares no Send Mode") + " -- would " + q[1] + " " + url];
   const headers = Object.fromEntries(A.Ev("perform:headers_of", [fn, rd]).map((h) => [String(h[0]), String(h[1])]));
   const sent = Array.isArray(q[4]) || String(q[4]) === "" ? undefined : String(q[4]);
+  let res, text;
+  try { res = await fetch(url, { method: String(q[1]), headers, body: sent, redirect: "manual" }); text = await res.text(); }
+  catch (e) { record(fn, url, "0", caller); return ["failed", q[1] + " " + url + " failed: " + e.message]; }
+  record(fn, url, String(res.status), caller);
+  if (res.status >= 300) return ["failed", q[1] + " " + url + " answered " + res.status + ": " + text.slice(0, 300)];
+  try { return JSON.parse(text); } catch (e) { return ["failed", q[1] + " " + url + " answered a body that is not JSON"]; }
+}
+// WHAT CAME OFF THE LINE IS RECORDED, as the Java host records a sync's read (Perform.record): a Response answering
+// the Function, from the address, with its status and time (fed:response_facts), asserted as the system's login, or the
+// caller's where the environment names none. Its body is not kept.
+function record(fn, url, code, who) {
   try {
-    const res = await fetch(url, { method: String(q[1]), headers, body: sent, redirect: "manual" }), text = await res.text();
-    if (res.status >= 300) return ["failed", q[1] + " " + url + " answered " + res.status + ": " + text.slice(0, 300)];
-    try { return JSON.parse(text); } catch (e) { return ["failed", q[1] + " " + url + " answered a body that is not JSON"]; }
-  } catch (e) { return ["failed", q[1] + " " + url + " failed: " + e.message]; }
+    const facts = A.Ev("fed:response_facts", [fn, url, code, new Date().toISOString()]);
+    const out = A.Ev("k:as", [store, process.env.AREST_SYSTEM_LOGIN || who, ["assert", facts]]);
+    const st = answered(out, out[1] === "T" ? 200 : 500);
+    if (st[1] >= 400) process.stderr.write("serve: response record not kept for " + fn + ": " + String(st[0]).slice(0, 300) + "\n");
+  } catch (e) { process.stderr.write("serve: response record threw for " + fn + ": " + String(e.message).slice(0, 300) + "\n"); }
 }
 const status = (s) => { const n = Number(s); return Number.isInteger(n) ? n : 500; };
 
