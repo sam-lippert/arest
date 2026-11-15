@@ -32,7 +32,9 @@ import java.util.Map;
 // HTTP IS THE SAME OPERATION OVER ANOTHER TRANSPORT. A request is <store, method, resource, caller, body>
 // through k:api: the resource is the path less its leading slash, the caller the
 // x-arest-caller header (no header is the anonymous caller), the body the request's JSON (none is the
-// empty sequence). The answer's text and status are lambda's.
+// empty sequence). The answer's text and status are lambda's. A navigation lambda answers with 202 and a
+// request (ui:read_fetch) is read here as a sync's page is read (Perform), and asked again with the page
+// (readPage), the I/O lambda cannot do.
 //
 //   java Serve <app store directory>                         serve MCP on stdio
 //   java Serve <app store directory> --call <tool> <json>    one call, answered on stdout
@@ -147,14 +149,39 @@ public class Serve {
         return fail(id, "unknown method: " + method);
     }
 
-    // one HTTP request through k:api, answered <text, status>
+    // one HTTP request through k:api, answered <text, status>, asked once more with the page where it reads first (readPage)
     static Object[] request(String method, String resource, String caller, Object body) {
         Perform.mark(caller);
         try {
-            Object[] req = new Object[] { store, method, resource, caller, body == null ? new Object[0] : Gui.fromJson(body) };
-            Object[] out = (Object[]) Arest.Ev("k:api", req);
-            return answered(out, status(out[1]));
+            Object[] out = api(method, resource, caller, body);
+            Object page = readPage(out, caller);
+            if (page == null) return out;
+            Object[] b = body instanceof Object[] ? (Object[]) body : new Object[0], again = new Object[8];
+            for (int i = 0; i < 7; i++) again[i] = i < b.length ? b[i] : new Object[0];
+            again[7] = page;
+            return api(method, resource, caller, again);
         } catch (Throwable e) { return new Object[] { String.valueOf(e.getMessage()), 500L }; }
+    }
+    static Object[] api(String method, String resource, String caller, Object body) {
+        Object[] out = (Object[]) Arest.Ev("k:api", new Object[] { store, method, resource, caller, body == null ? new Object[0] : Gui.fromJson(body) });
+        return answered(out, status(out[1]));
+    }
+    // A NAVIGATION THAT HAS TO READ FIRST answers 202 with the request lambda built for its Source, the Source after it
+    // (ui:read_fetch). This host makes that read as it makes a sync's (Perform.readerFor, fetchOne, fetchMbox) and answers
+    // the page, or <failed, text> where it could not read; null where the answer asks for no read.
+    static Object readPage(Object[] out, String caller) {
+        Object q;
+        try { q = ((Number) out[1]).longValue() == 202 ? Gui.fromJson(Gui.Json.parse(String.valueOf(out[0]))) : null; } catch (RuntimeException e) { q = null; }
+        if (!(q instanceof Object[]) || ((Object[]) q).length < 6 || !"request".equals(String.valueOf(((Object[]) q)[0]))) return null;
+        Object[] ask = (Object[]) q;
+        Object read = read(), fn = Arest.Ev("fed:connector", new Object[] { ask[5], read });
+        if (fn instanceof Object[]) return new Object[] { "failed", "the Source '" + ask[5] + "' uses no Connector" };
+        Perform.Rd rd = Perform.readerFor(String.valueOf(fn), read);
+        if (rd.awaits) return new Object[] { "failed", "no host here registers Fetcher '" + rd.fetcher + "', so this read is the caller's" };
+        if (rd.refusal != null) return new Object[] { "failed", rd.refusal };
+        List<String> lines = new ArrayList<String>();
+        Perform.Got got = "mbox".equals(rd.fetcher) ? Perform.fetchMbox(rd, ask, lines, caller) : Perform.fetchOne(rd, ask, lines, caller);
+        return got.notPerformed || got.status >= 400 ? new Object[] { "failed", got.text } : got.body;
     }
     static long status(Object s) {
         if (s instanceof Number) return ((Number) s).longValue();

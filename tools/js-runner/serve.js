@@ -18,7 +18,8 @@
 // HTTP IS THE SAME OPERATION OVER ANOTHER TRANSPORT. A request is <store, method, resource, caller, body> through
 // k:api: the resource is the path less its leading slash, the caller the x-arest-caller header (no header
 // is the anonymous caller), the body the request's JSON (none is the empty sequence). The answer's text and status are
-// lambda's.
+// lambda's. A navigation lambda answers with 202 and a request (ui:read_fetch) is read here, and asked again with the
+// page (readPage), the I/O lambda cannot do.
 //
 //   bun serve.js <app store directory>                         serve MCP on stdio
 //   bun serve.js <app store directory> --call <tool> <json>    one call, answered on stdout
@@ -86,21 +87,51 @@ function handle(msg) {
     return reply(id, { content: [{ type: "text", text: String(out[0]) }], isError: out[1] >= 400 });
   }
   // the router's HTTP request for this app, passed on as it came
-  if (method === "http/request") {
-    const out = request(str(p.method), p.resource == null ? "" : String(p.resource), p.caller == null ? "" : String(p.caller), p.body);
-    return reply(id, { status: out[1], body: String(out[0]) });
-  }
+  if (method === "http/request")
+    return request(str(p.method), p.resource == null ? "" : String(p.resource), p.caller == null ? "" : String(p.caller), p.body)
+      .then((out) => reply(id, { status: out[1], body: String(out[0]) }));
   if (id === null) return null;
   return fail(id, "unknown method: " + method);
 }
 
-// one HTTP request through k:api, answered <text, status>
-function request(method, resource, caller, body) {
+// one HTTP request through k:api, answered <text, status>, asked once more with the page where it reads first (readPage)
+async function request(method, resource, caller, body) {
   try {
-    const req = [store, method, resource, caller, body == null ? [] : fromJson(body)];
-    const out = A.Ev("k:api", req);
-    return answered(out, status(out[1]));
+    const out = api(method, resource, caller, body), page = await readPage(out);
+    if (page === undefined) return out;
+    const again = Array.isArray(body) ? body.slice(0, 7) : [];
+    while (again.length < 7) again.push([]);
+    return api(method, resource, caller, again.concat([page]));
   } catch (e) { return [String(e.message), 500]; }
+}
+const api = (method, resource, caller, body) => {
+  const out = A.Ev("k:api", [store, method, resource, caller, body == null ? [] : fromJson(body)]);
+  return answered(out, status(out[1]));
+};
+// A NAVIGATION THAT HAS TO READ FIRST answers 202 with the request lambda built for its Source, the Source after it
+// (ui:read_fetch). This host makes it through the Connector's Fetcher `fetch` (none declared is that one), when the
+// connection's Send Mode is live, with the headers it declares, and answers the page, or <failed, text> where it could
+// not read; it opens no credential, so a connection that carries one is not read here. undefined: no read is asked.
+async function readPage(out) {
+  let q;
+  try { q = Number(out[1]) === 202 ? JSON.parse(String(out[0])) : null; } catch (e) { q = null; }
+  if (!Array.isArray(q) || q[0] !== "request" || q.length < 6) return undefined;
+  const rd = read(), fn = A.Ev("fed:connector", [String(q[5]), rd]);
+  if (Array.isArray(fn)) return ["failed", "the Source '" + q[5] + "' uses no Connector"];
+  const of = (f) => { const v = A.Ev(f, [fn, rd]); return Array.isArray(v) ? "" : String(v); };
+  const fetcher = of("perform:fetcher_of"), mode = of("perform:send_mode_of");
+  if (fetcher && fetcher !== "fetch") return ["failed", "no host here registers Fetcher '" + fetcher + "', so this read is the caller's"];
+  if (of("perform:auth_header_of") && of("perform:secret_of")) return ["failed", "not performed: this host opens no credential"];
+  const qs = new URLSearchParams((Array.isArray(q[3]) ? q[3] : []).map((p) => [String(p[0]), String(p[1])])).toString();
+  const url = String(q[2]) + (qs ? (String(q[2]).includes("?") ? "&" : "?") + qs : "");
+  if (mode !== "live") return ["failed", (mode || "not performed: this connection declares no Send Mode") + " -- would " + q[1] + " " + url];
+  const headers = Object.fromEntries(A.Ev("perform:headers_of", [fn, rd]).map((h) => [String(h[0]), String(h[1])]));
+  const sent = Array.isArray(q[4]) || String(q[4]) === "" ? undefined : String(q[4]);
+  try {
+    const res = await fetch(url, { method: String(q[1]), headers, body: sent, redirect: "manual" }), text = await res.text();
+    if (res.status >= 300) return ["failed", q[1] + " " + url + " answered " + res.status + ": " + text.slice(0, 300)];
+    try { return JSON.parse(text); } catch (e) { return ["failed", q[1] + " " + url + " answered a body that is not JSON"]; }
+  } catch (e) { return ["failed", q[1] + " " + url + " failed: " + e.message]; }
 }
 const status = (s) => { const n = Number(s); return Number.isInteger(n) ? n : 500; };
 
@@ -118,7 +149,7 @@ function http(port) {
   Bun.serve({ hostname: "127.0.0.1", port, fetch(req) {
     const path = decodeURIComponent(new URL(req.url).pathname);
     const next = last.then(async () => {
-      const out = request(req.method, path.startsWith("/") ? path.slice(1) : path, callerOf(req), await body(req));
+      const out = await request(req.method, path.startsWith("/") ? path.slice(1) : path, callerOf(req), await body(req));
       return respond(Number(out[1]), String(out[0]));
     });
     last = next.catch(() => {});
@@ -167,11 +198,14 @@ if (require.main === module) {
     process.stderr.write("serve: HTTP on 127.0.0.1:" + process.argv[4] + "\n");
   } else {
     const lines = require("readline").createInterface({ input: process.stdin });
+    let last = Promise.resolve();
     lines.on("line", (line) => {
       if (!line.trim()) return;
-      let r;
-      try { r = handle(JSON.parse(line)); } catch (e) { r = fail(null, String(e.message)); }
-      if (r !== null) process.stdout.write(JSON.stringify(r) + "\n");
+      last = last.then(async () => {
+        let r;
+        try { r = await handle(JSON.parse(line)); } catch (e) { r = fail(null, String(e.message)); }
+        if (r !== null) process.stdout.write(JSON.stringify(r) + "\n");
+      });
     });
   }
 }
