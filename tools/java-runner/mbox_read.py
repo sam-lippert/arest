@@ -19,6 +19,15 @@ QUOTED = re.compile("(?m)^>")
 RULED = re.compile("(?m)^-{2,}[ ]*(?:Original|Forwarded) [Mm]essage[ ]*-{2,}")
 HEADED = re.compile("(?m)^From:[^" + NL + "]*" + NL + "(?:Sent|Date):")
 QUOTE_TAG = re.compile("(?is)<div[^>]*class=[^>]*gmail_quote|<blockquote")
+# How marked-up text reads as lines: an element that stands on its own line begins and ends one, a break ends one, and
+# the end of a cell parts it from the next. Each is marked before the tags are taken out, and the marks are read after.
+TAB = chr(9)
+AFTER_NAME = "(?=[ />" + TAB + CR + NL + "])"
+BLOCK = re.compile("(?i)</?(?:p|div|li|ul|ol|tr|table|h[1-6]|blockquote|pre|hr|section|article|header|footer)" + AFTER_NAME + "[^>]*>")
+BREAK = re.compile("(?i)<br" + AFTER_NAME + "[^>]*>")
+CELL = re.compile("(?i)</t[dh]" + AFTER_NAME + "[^>]*>")
+BLOCK_MARK, BREAK_MARK = chr(1), chr(2)
+MARKS = re.compile("([" + BLOCK_MARK + BREAK_MARK + "])")
 def addrs(values):
     return [a.strip().lower() for _, a in getaddresses([str(v) for v in values if v]) if "@" in a]
 def part_of(msg):
@@ -33,8 +42,23 @@ def part_of(msg):
 def as_text(s, marked):
     if marked:
         s = re.sub("(?is)<(script|style).*?</(script|style)>", " ", s)
-        s = re.sub("(?i)<br */?>|</p>|</div>", NL, s)
-        s = html.unescape(re.sub("<[^>]+>", "", s))
+        s = s.replace(BLOCK_MARK, "").replace(BREAK_MARK, "")
+        s = CELL.sub(" ", BREAK.sub(BREAK_MARK, BLOCK.sub(BLOCK_MARK, s)))
+        s = html.unescape(re.sub("<[^>]+>", "", s)).replace(CR + NL, NL).replace(CR, NL)
+        out, at_start = [], True
+        for piece in MARKS.split(s):
+            if piece == BREAK_MARK:
+                out.append(NL)
+                at_start = True
+            elif piece == BLOCK_MARK:
+                if not at_start:
+                    out.append(NL)
+                    at_start = True
+            elif piece:
+                out.append(piece)
+                if piece.strip(" " + TAB):
+                    at_start = piece.rstrip(" " + TAB).endswith(NL)
+        s = "".join(out)
     return s.replace(CR + NL, NL).replace(CR, NL).strip()
 def seen(s):
     for ch in HIDDEN:

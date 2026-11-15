@@ -4,9 +4,9 @@ import os
 import subprocess
 import sys
 from email.message import EmailMessage
-# The mbox Fetcher's reader over a synthetic mailbox of five messages: what it yields as each message's own text, that
-# no character a reader does not see is left, and that the whole body keeps what the message quotes. No real mail is
-# read.
+# The mbox Fetcher's reader over a synthetic mailbox of seven messages: what it yields as each message's own text, that
+# no character a reader does not see is left, that the whole body keeps what the message quotes, and that marked-up
+# text reads as the lines its elements stand on. No real mail is read.
 #   python mbox_read_test.py <mbox_read.py> <scratch dir>
 script, scratch = sys.argv[1], sys.argv[2]
 os.makedirs(scratch, exist_ok=True)
@@ -45,6 +45,11 @@ box.add(mail('inline@example.com', '> is the key rotated?\n\nYes, last night.\n\
 box.add(mail('outlook@example.com',
              'Please cancel my plan.\n\n________________________________\nFrom: Desk Example <desk@example.org>\n'
              'Sent: Monday, October 26, 2026 10:35 AM\nTo: Pat\nSubject: an alert\n\nYour usage alert\n'))
+box.add(mail('html-blocks@example.com', None,
+             '<div dir="ltr">Is the key rotated instead of reset ?<div>Also, is there a log?</div><div><br></div>'
+             '<div id="sig">Sent from my phone</div></div>'))
+box.add(mail('html-cells@example.com', None,
+             '<table><tr><td>Plan</td><td>Growth</td></tr><tr><td>Seats</td><td>5</td></tr></table><p>Thanks<br>Pat</p>'))
 box.flush()
 box.close()
 env = dict(os.environ, ARE_MBOX=path, ARE_FROM='pat@example.com')
@@ -63,8 +68,10 @@ want = {
     'no-quote@example.com': 'A first message with no quote at all.\n\n\nSigned, Pat',
     'inline@example.com': '> is the key rotated?\n\nYes, last night.\n\n> and the old one?\n\nRevoked.',
     'outlook@example.com': 'Please cancel my plan.',
+    'html-blocks@example.com': 'Is the key rotated instead of reset ?\nAlso, is there a log?\n\nSent from my phone',
+    'html-cells@example.com': 'Plan Growth\nSeats 5\nThanks\nPat',
 }
-ok = got['matched'] == 5
+ok = got['matched'] == 7
 for mid, text in want.items():
     r = rows.get(mid, {})
     same = r.get('own_text') == text
