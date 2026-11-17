@@ -139,6 +139,19 @@ public class CasesTest {
         assertEquals(21, n);
     }
 
+    // A JSON number reaches lambda as the js serving host reads it (serve.js fromJson): a whole number a number,
+    // any other its text. A Double is an atom kind no primitive orders, and a served assert holding 1740 and 13.5
+    // threw in the kernel's set order.
+    @Test
+    void aJsonNumberIsANumberWhenWholeAndItsTextOtherwise() {
+        Object[] got = (Object[]) Gui.fromJson(Gui.Json.parse("[1740, 13.5, 2.0, -0.25, \"7\"]"));
+        assertEquals(Long.valueOf(1740), got[0]);
+        assertEquals("13.5", got[1]);
+        assertEquals(Long.valueOf(2), got[2]);
+        assertEquals("-0.25", got[3]);
+        assertEquals("7", got[4]);
+    }
+
     // The law report is the gate, and no copy of it is kept: main
     // answers its text beside a verdict that is T exactly when every law holds.
     @Test

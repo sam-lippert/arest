@@ -734,7 +734,11 @@ public class Gui {
         }
     }
 
-    /** JSON as the serving host reads it (host.js fromJson): an object is its pairs, a number a number, the rest atoms. */
+    /** JSON as lambda reads it, as the js serving host reads it (serve.js fromJson): an object is its pairs, a whole
+     *  number a number, the rest atoms. A number with a fraction is its text, as a DECIMAL column reads back from the
+     *  store: Json.parse gives it as a Double, an atom kind no primitive orders or adds (cmpAtoms orders two Longs or
+     *  two Strings), and the kernel's set order threw on a batch holding 1740 and 13.5. A whole one past a Long is
+     *  its text too. */
     static Object fromJson(Object x) {
         if (x instanceof Object[]) {
             Object[] a = (Object[]) x, out = new Object[a.length];
@@ -746,7 +750,11 @@ public class Gui {
             for (Map.Entry<?, ?> e : ((Map<?, ?>) x).entrySet()) out.add(new Object[] { String.valueOf(e.getKey()), fromJson(e.getValue()) });
             return out.toArray();
         }
-        if (x instanceof Number) return x;
+        if (x instanceof Long || x instanceof Integer) return Long.valueOf(((Number) x).longValue());
+        if (x instanceof Number) {
+            double d = ((Number) x).doubleValue();
+            if (d == Math.rint(d) && Math.abs(d) < 9.2e18) return Long.valueOf((long) d);
+        }
         return String.valueOf(x);
     }
 
