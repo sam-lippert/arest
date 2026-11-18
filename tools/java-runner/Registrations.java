@@ -474,7 +474,18 @@ public final class Registrations {
     // file from being replaced or removed, so whatever replaces, moves or removes a store closes it first (unwatch).
     static final Map<String, Connection> READERS = new HashMap<>();
 
+    // under the profiler, each read that took 20 ms or more, its time and the head of its statement: measurement, no meaning
     static synchronized Object[] read(String path, String statement, Object[] ps) throws SQLException {
+        if (!Arest.PROFILE) return read0(path, statement, ps);
+        long began = System.nanoTime();
+        Object[] rows = read0(path, statement, ps);
+        long ms = (System.nanoTime() - began) / 1000000;
+        if (ms >= 20) System.err.println("read " + ms + " ms, " + rows.length + " rows: "
+            + statement.substring(0, Math.min(STEP_CHARS, statement.length())).replace('\n', ' '));
+        return rows;
+    }
+
+    static Object[] read0(String path, String statement, Object[] ps) throws SQLException {
         if (!kept(path)) {
             try (Connection c = open(path, true)) { return query(c, statement, ps, false); }
         }
