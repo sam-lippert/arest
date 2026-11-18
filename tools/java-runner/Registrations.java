@@ -329,6 +329,8 @@ public final class Registrations {
     }
 
     // how much of a slow statement the profiler's line shows (AREST_PROFILE_STEP_CHARS, 220 where unset)
+    // the least time a statement of a program takes for the profiler to show it (AREST_PROFILE_STEP_MS, 100 where unset)
+    static final long STEP_NS = (System.getenv("AREST_PROFILE_STEP_MS") == null ? 100L : Long.parseLong(System.getenv("AREST_PROFILE_STEP_MS"))) * 1000000L;
     static final int STEP_CHARS = System.getenv("AREST_PROFILE_STEP_CHARS") == null ? 220 : Integer.parseInt(System.getenv("AREST_PROFILE_STEP_CHARS"));
     static Object[] steps(Connection c, Object[] steps) throws SQLException {
         List<Object> answers = new ArrayList<>(), denied = new ArrayList<>();
@@ -367,8 +369,8 @@ public final class Registrations {
                     throw new RuntimeException("no step of kind " + kind);
                 }
                 // under the profiler, each statement of a program that took a tenth of a second or more: measurement, no meaning
-                if (Arest.PROFILE && System.nanoTime() - began >= 100000000L)
-                    System.err.println("program step " + n + " of " + steps.length + " (" + kind + ") " + (System.nanoTime() - began) / 1000000 + " ms: "
+                if (Arest.PROFILE && System.nanoTime() - began >= STEP_NS)
+                    System.err.println("program step " + n + " of " + steps.length + " (" + kind + ") " + (System.nanoTime() - began) / 1000000 + " ms, " + ps.length + " params: "
                         + statement.substring(0, Math.min(STEP_CHARS, statement.length())).replace('\n', ' '));
             } catch (SQLException | RuntimeException e) {
                 throw new RuntimeException("sqlite:program, step " + n + " (" + kind + "): " + e.getMessage()
@@ -474,13 +476,15 @@ public final class Registrations {
     // file from being replaced or removed, so whatever replaces, moves or removes a store closes it first (unwatch).
     static final Map<String, Connection> READERS = new HashMap<>();
 
+    // the least time a read takes for the profiler to show it (AREST_PROFILE_READ_MS, 20 where unset)
+    static final long READ_MS = System.getenv("AREST_PROFILE_READ_MS") == null ? 20L : Long.parseLong(System.getenv("AREST_PROFILE_READ_MS"));
     // under the profiler, each read that took 20 ms or more, its time and the head of its statement: measurement, no meaning
     static synchronized Object[] read(String path, String statement, Object[] ps) throws SQLException {
         if (!Arest.PROFILE) return read0(path, statement, ps);
         long began = System.nanoTime();
         Object[] rows = read0(path, statement, ps);
         long ms = (System.nanoTime() - began) / 1000000;
-        if (ms >= 20) System.err.println("read " + ms + " ms, " + rows.length + " rows: "
+        if (ms >= READ_MS) System.err.println("read " + ms + " ms, " + rows.length + " rows: "
             + statement.substring(0, Math.min(STEP_CHARS, statement.length())).replace('\n', ' '));
         return rows;
     }

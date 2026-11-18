@@ -832,7 +832,7 @@ public class Arest {
                 List<Map.Entry<String, long[]>> es = new ArrayList<Map.Entry<String, long[]>>(counts.entrySet());
                 es.sort((p, q) -> Long.compare(q.getValue()[by], p.getValue()[by]));
                 b.append(by == 0 ? "-- self\n" : "-- inclusive\n");
-                for (int i = 0; i < Math.min(80, es.size()); i++)
+                for (int i = 0; i < Math.min(PROFILE_ROWS, es.size()); i++)
                     b.append(String.format("%6.2f%%  %s%n", 100.0 * es.get(i).getValue()[by] / Math.max(1, total[0]), es.get(i).getKey()));
             }
         }
@@ -840,6 +840,9 @@ public class Arest {
     }
     // The host's own optimizations a run used, so that no time measured with them is taken for lambda's: each twin
     // consulted and how often, and the statements run on a kept connection. AREST_NO_OVERRIDE turns them all off.
+    // how many names each list of the profile shows (AREST_PROFILE_ROWS, 80 where unset)
+    static final int PROFILE_ROWS = System.getenv("AREST_PROFILE_ROWS") == null ? 80 : Integer.parseInt(System.getenv("AREST_PROFILE_ROWS"));
+
     static String hostText() {
         StringBuilder b = new StringBuilder();
         if (NO_OVERRIDE) return b.append("-- host optimizations: none (AREST_NO_OVERRIDE)\n").toString();
