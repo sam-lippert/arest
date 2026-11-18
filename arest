@@ -15416,11 +15416,14 @@ DEF("read:ins",
 DEF("read:sorted",
     S4(A("COND"), A("null"), A("id"), S4(A("COMP"), N(2), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(3)), S4(A("CONS"), N(1), S3(A("COMP"), A("read:ins"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), N(2))), S3(A("COMP"), A("tl"), N(3)))), S4(A("CONS"), A("id"), K(PHI()), A("id"))))),
 
+"<x, list> to the positions of x in the list, first to last: each element paired with its position (trans with theta:iota), the positions of those equal to x. A walk that took the tail at each step copied the rest of the list there, the square of its length in copies for every ask.",
 DEF("read:pos1",
-    S4(A("COMP"), N(3), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(4)), S5(A("CONS"), N(1), S3(A("COMP"), A("+"), S3(A("CONS"), N(2), K(N(1)))), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(4)))), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(3), N(2))), N(3)), S3(A("COMP"), A("tl"), N(4)))), S5(A("CONS"), N(1), K(N(1)), K(PHI()), N(2)))),
+    S4(A("COND"), S3(A("COMP"), A("null"), N(2)), K(PHI()),
+       S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), N(1), S3(A("COMP"), N(1), N(2)))), S2(A("CONS"), S3(A("COMP"), N(2), N(2))), K(PHI()))), S3(A("COMP"), A("distl"), S3(A("CONS"), N(1), S3(A("COMP"), A("trans"), S3(A("CONS"), N(2), S3(A("COMP"), A("theta:iota"), S3(A("COMP"), A("length"), N(2)))))))))),
 
+"<x, list> to T where x is one of the list`s elements: the or of each element`s eq to x, one pass. It was read:pos1 not null, every position of x found by a walk that copied the rest of the list at each step, so a test cost the square of the list`s length: the tool list asks it of each tool against the names the router sends elsewhere, 0.7 GB allocated and 0.4 s of an app`s boot.",
 DEF("read:memberw",
-    S4(A("COMP"), A("not"), A("null"), A("read:pos1"))),
+    S4(A("COND"), S3(A("COMP"), A("null"), N(2)), K(A("F")), S4(A("COMP"), S2(A("INSERT"), A("fp:or2")), S2(A("ALPHA"), A("eq")), A("distl")))),
 
 DEF("read:drop_stops",
     S4(A("COMP"), N(2), S3(A("WHILE"), S4(A("COMP"), A("not"), A("null"), N(3)), S4(A("CONS"), N(1), S4(A("COND"), S3(A("COMP"), A("read:memberw"), S3(A("CONS"), S3(A("COMP"), N(1), N(3)), N(1))), N(2), S3(A("COMP"), A("apndr"), S3(A("CONS"), N(2), S3(A("COMP"), N(1), N(3))))), S3(A("COMP"), A("tl"), N(3)))), S4(A("CONS"), N(1), K(PHI()), N(2)))),
