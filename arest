@@ -10142,8 +10142,9 @@ DEF("derive:minus_rights",
 DEF("derive:edges",
     S3(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S3(A("COMP"), A("distl"), S3(A("CONS"), N(1), S3(A("COMP"), A("derive:reads"), N(2))))))),
 
+"THE CLOSURE OF EDGES GROWS AN EDGE AT A TIME. <edges> to every pair the edges reach: R is E, and R`s pairs joined to E`s. R joined to itself reached the same pairs in fewer rounds, but each round joined every new pair with every pair found, and a store`s boot asks the closure of its rules` reads (rpath:vbad): 4.5% of an app`s profiled boot, nearly all of it the join. Joined to E, each round joins the new pairs with the edges alone, and the semi-naive rounds stop where no pair is new, the same pairs.",
 DEF("derive:closure",
-    S3(A("COMP"), A("derive:pop"), S3(A("CONS"), S2(A("CONST"), A("R")), S3(A("COMP"), A("derive"), S3(A("CONS"), S2(A("CONST"), S2(S2(A("R"), S3(A("proj"), A("E"), S2(N(1), N(2)))), S2(A("R"), S4(A("join"), A("R"), A("R"), S2(N(1), N(3)))))), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), A("E")), A("id")), S2(A("CONST"), S2(A("R"), PHI())))))))),
+    S3(A("COMP"), A("derive:pop"), S3(A("CONS"), S2(A("CONST"), A("R")), S3(A("COMP"), A("derive"), S3(A("CONS"), S2(A("CONST"), S2(S2(A("R"), S3(A("proj"), A("E"), S2(N(1), N(2)))), S2(A("R"), S4(A("join"), A("R"), A("E"), S2(N(1), N(3)))))), S3(A("CONS"), S3(A("CONS"), S2(A("CONST"), A("E")), A("id")), S2(A("CONST"), S2(A("R"), PHI())))))))),
 
 DEF("derive:strat_ok",
     S3(A("COMP"), A("not"), S3(A("COMP"), A("fp:or2"), S3(A("CONS"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(1), N(1)))), S3(A("COMP"), A("theta:member"), S3(A("CONS"), S3(A("CONS"), S3(A("COMP"), N(2), N(1)), S3(A("COMP"), N(1), N(1))), N(2))))))),
