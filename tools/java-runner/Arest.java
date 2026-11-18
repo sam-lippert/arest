@@ -779,6 +779,10 @@ public class Arest {
     static final boolean PROFILE = System.getenv("AREST_PROFILE") != null;
     static String[] PSTACK = new String[1 << 16];
     static volatile int PSP = 0;
+    // the thread that evaluates, and, under AREST_PROFILE_ALLOC, the bytes it allocated charged to the names on its stack
+    static volatile Thread PTHREAD = null;
+    static final boolean PALLOC = System.getenv("AREST_PROFILE_ALLOC") != null;
+    static final Map<String, long[]> ALLOCS = new HashMap<String, long[]>();
     static {
         if (PROFILE) {
             final Map<String, long[]> counts = new HashMap<String, long[]>();
@@ -786,13 +790,27 @@ public class Arest {
             final long t0 = System.nanoTime();
             Thread sampler = new Thread(() -> {
                 java.util.Set<String> seen = new java.util.HashSet<String>();
+                com.sun.management.ThreadMXBean mx = PALLOC ? (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean() : null;
+                long lastBytes = -1; Thread lastThread = null;
                 while (true) {
                     try { Thread.sleep(1); } catch (InterruptedException e) { return; }
                     String[] s = PSTACK;
                     int sp = Math.min(PSP, s.length);
                     if (sp == 0) continue;
+                    long delta = 0;
+                    if (mx != null && PTHREAD != null) {
+                        long b = mx.getThreadAllocatedBytes(PTHREAD.getId());
+                        if (PTHREAD == lastThread && lastBytes >= 0 && b >= lastBytes) delta = b - lastBytes;
+                        lastBytes = b; lastThread = PTHREAD;
+                    }
                     synchronized (counts) {
                         total[0]++;
+                        if (delta > 0) {
+                            java.util.Set<String> aseen = new java.util.HashSet<String>();
+                            for (int i = 0; i < sp; i++) { String n = s[i]; if (n != null && aseen.add(n)) addAlloc(n, 1, delta); }
+                            if (s[sp - 1] != null) addAlloc(s[sp - 1], 0, delta);
+                            addAlloc("(all)", 1, delta);
+                        }
                         seen.clear();
                         for (int i = 0; i < sp; i++) {
                             String n = s[i];
@@ -835,6 +853,14 @@ public class Arest {
                 for (int i = 0; i < Math.min(PROFILE_ROWS, es.size()); i++)
                     b.append(String.format("%6.2f%%  %s%n", 100.0 * es.get(i).getValue()[by] / Math.max(1, total[0]), es.get(i).getKey()));
             }
+            if (PALLOC) for (int k = 0; k < 2; k++) {
+                final int by = k;
+                List<Map.Entry<String, long[]>> es = new ArrayList<Map.Entry<String, long[]>>(ALLOCS.entrySet());
+                es.sort((p, q) -> Long.compare(q.getValue()[by], p.getValue()[by]));
+                b.append(by == 0 ? "-- allocated self (MB)\n" : "-- allocated inclusive (MB)\n");
+                for (int i = 0; i < Math.min(PROFILE_ROWS, es.size()); i++)
+                    b.append(String.format("%9.1f  %s%n", es.get(i).getValue()[by] / 1048576.0, es.get(i).getKey()));
+            }
         }
         return b.toString();
     }
@@ -854,6 +880,12 @@ public class Arest {
         b.append(String.format("%12d  writes and programs on a kept write connection%n", Registrations.KEPT_WRITES));
         return b.toString();
     }
+    static void addAlloc(String n, int at, long bytes) {
+        long[] c = ALLOCS.get(n);
+        if (c == null) { c = new long[2]; ALLOCS.put(n, c); }
+        c[at] += bytes;
+    }
+
     static void count(Map<String, long[]> counts, String n, int at) {
         long[] c = counts.get(n);
         if (c == null) { c = new long[2]; counts.put(n, c); }
@@ -871,6 +903,7 @@ public class Arest {
     public static Object Ev(Object f, Object x) {
         if (PROFILE && f instanceof String) {
             if (PSP == PSTACK.length) PSTACK = java.util.Arrays.copyOf(PSTACK, PSP * 2);
+            if (PSP == 0) PTHREAD = Thread.currentThread();
             PSTACK[PSP] = (String) f;
             PSP = PSP + 1;
             try { return Ev0(f, x); } finally { PSP = PSP - 1; }
