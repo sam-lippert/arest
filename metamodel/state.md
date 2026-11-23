@@ -52,6 +52,25 @@ Guard is a subtype of Object Type Instance.
 Stream is an entity type.
 Stream is a subtype of Function.
 
+## Value Types
+
+<!-- A Transition's ESTIMATE, attached to the edge, which is where Halpin puts
+     it: a process definition is, among other purposes, how cost and latency
+     are estimated, and what is estimated is what each step costs and how long
+     it takes. The unit is NOT fixed here. The metamodel consumes core.md only
+     and money and time belong to the app's own vocabulary, so an app states
+     them through core.md's 'Object Type is measured in Unit' (as
+     business-metrics.md does for Amount: "Object Type 'Amount' is measured in
+     Unit 'USD'"), here "Object Type 'Estimated Cost' is measured in Unit 'USD'"
+     and "Object Type 'Estimated Latency' is measured in Unit 'millisecond'".
+     Named apart from the observed side (Cost, Latency Milliseconds,
+     Response Time) so an app composing both never reads an estimate as an
+     actual. -->
+Estimated Cost is a value type.
+  The data type of Estimated Cost is decimal.
+Estimated Latency is a value type.
+  The data type of Estimated Latency is decimal.
+
 ## Readings
 
 ### State Machine Definition
@@ -89,6 +108,15 @@ Transition is triggered by Event Type.
 Predicate is performed during Transition. +
   For each Transition, at most one Predicate is performed during that Transition.
   For each Status and Predicate, at most one Transition is from that Status and that Predicate is performed during that Transition.
+<!-- ONE ESTIMATE PER TRANSITION, OPTIONAL. Each is a single figure, not a
+     range and not a probability-weighted expectation, and each is at most one
+     because a Transition is one edge of one machine. Optional because most
+     machines are declared before anyone has priced them; an unestimated
+     Transition is unknown, not free, so no mandatory and no zero default. -->
+Transition has Estimated Cost.
+  Each Transition has at most one Estimated Cost.
+Transition has Estimated Latency.
+  Each Transition has at most one Estimated Latency.
 
 ### Status
 Status is initial in State Machine Definition.
