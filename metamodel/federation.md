@@ -196,7 +196,9 @@ Fact Type is written through Filter.
   Each Fact Type is written through at most one Filter.
 
 REST Dialect is a value type.
-  The possible values of REST Dialect are 'payload'.
+  The possible values of REST Dialect are 'payload', 'path'.
+  <!-- 'path': a document is named in the path of its collection, /<collection>/<key>, and answered alone, the plain
+       REST form; it says no update method, so what is federated through it is only read. -->
 
 Federation speaks REST Dialect.
   Each Federation speaks at most one REST Dialect.
