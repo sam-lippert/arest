@@ -53,9 +53,10 @@ class App {
 
   // apps_check: the app's server is stopped, because the check writes the store it holds, and the command line runs
   // lambda's `apps_check <package directory> <store directory>` in the package. Which readings, in what order and where they land are
-  // lambda's; this starts the process and reports how it ended.
-  async check() {
-    if (this.busy !== null) return say("router:busy", this.name, this.busy);
+  // lambda's; this starts the process and answers <how it ended, whether it failed>. The call is held open until then, so
+  // the client shows it running, and what it has come to is sent for the token the call carries.
+  async check(token) {
+    if (this.busy !== null) return [say("router:busy", this.name, this.busy), true];
     await this.stop();
     this.busy = "checking";
     this.note = "";
@@ -67,7 +68,16 @@ class App {
     const env = Object.assign({}, process.env, { AREST_LAMBDA: lambda, AREST_TESTS: root + "/arest.tests",
       AREST_SCENARIOS: root + "/engine/shared/scenarios.canon", AREST_CARRIERS: root + "/tools/base" });
     const p = spawn(process.execPath, [__dirname + "/program.js", "apps_check", pkg, this.dir], { cwd: pkg, env, stdio: ["ignore", log, log] });
-    p.on("close", (code) => {
+    const from = Date.now();
+    let built = 0;  // the build is renamed to the store at the end
+    const tick = token === undefined ? null : setInterval(() => {
+      const s = Math.floor((Date.now() - from) / 1000);
+      try { built = Math.max(built, fs.statSync(this.dir + "/store.db.build").size >> 20); } catch (e) { }
+      process.stdout.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/progress", params: { progressToken: token, progress: s,
+        message: say("router:progress", this.name, BigInt(s), BigInt(built)) } }) + "\n");
+    }, 5000);
+    return new Promise((resolve) => p.on("close", (code) => {
+      if (tick !== null) clearInterval(tick);
       fs.closeSync(log);
       let tail = "";
       try {
@@ -77,8 +87,8 @@ class App {
       } catch (e) { }
       this.busy = null;
       this.note = say("router:check_note", BigInt(code === null ? -1 : code), tail);
-    });
-    return say("router:checking", this.name, pkg, this.dir);
+      resolve([this.note, code !== 0]);
+    }));
   }
 
   // apps_compile: this host reads lambda and the store's carriers when a server starts, so compiling the app is
@@ -193,7 +203,7 @@ async function handle1(msg) {
     if (a.app != null) delete a.app;
     const x = APPS.get(app);
     if (!x) return text(id, say("router:no_app", app, names()), true);
-    if (name === "apps_check") return text(id, await x.check(), false);
+    if (name === "apps_check") { const r = await x.check(isObj(p._meta) ? p._meta.progressToken : undefined); return text(id, r[0], r[1]); }
     if (name === "apps_compile") return text(id, await x.compile(), false);
     if (a.caller == null) a.caller = login;
     const r = await x.request("tools/call", { name, arguments: a });

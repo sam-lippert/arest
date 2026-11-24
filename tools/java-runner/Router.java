@@ -40,6 +40,7 @@ public class Router {
     static final LinkedHashMap<String, App> APPS = new LinkedHashMap<String, App>();
     static final ExecutorService POOL = Executors.newCachedThreadPool();
     static String lambda, login, kernel, registryDb;
+    static volatile boolean closing;
 
     public static void main(String[] args) throws Exception {
         System.setOut(System.err);
@@ -98,7 +99,8 @@ public class Router {
                 if (reply != null) synchronized (OUT) { OUT.println(Gui.Json.write(reply)); }
             });
         }
-        // the client has gone: the calls it already made are answered, then every app stops
+        // the client has gone: the calls it already made are answered, then every app stops; a check runs on
+        closing = true;
         POOL.shutdown();
         POOL.awaitTermination(10, TimeUnit.MINUTES);
         for (App a : APPS.values()) a.stop();
@@ -150,7 +152,10 @@ public class Router {
             String app = a.get("app") == null ? "" : String.valueOf(a.remove("app"));
             App x = APPS.get(app);
             if (x == null) return text(id, say("router:no_app", app, names()), true);
-            if ("apps_check".equals(name)) return text(id, x.check(), false);
+            if ("apps_check".equals(name)) {
+                Object meta = p.get("_meta");
+                return text(id, x.check(meta instanceof Map ? ((Map<?, ?>) meta).get("progressToken") : null), x.failed);
+            }
             if ("apps_compile".equals(name)) return text(id, x.compile(), false);
             if (!a.containsKey("caller") || a.get("caller") == null) a.put("caller", login);
             Map<?, ?> r = x.request("tools/call", Serve.obj("name", name, "arguments", a));
@@ -210,6 +215,7 @@ public class Router {
         Process proc;
         Writer to;
         String instructions, error, busy, note = "";
+        volatile boolean failed;
         volatile long last = System.currentTimeMillis();
         final AtomicLong seq = new AtomicLong();
         final ConcurrentHashMap<Long, CompletableFuture<Map<?, ?>>> pending = new ConcurrentHashMap<Long, CompletableFuture<Map<?, ?>>>();
@@ -218,9 +224,34 @@ public class Router {
 
         // apps_check: the app's server is stopped, because the check writes the store it holds, and the command
         // line runs lambda's `apps_check <package directory> <store directory>` in the package. Which readings, in what order and
-        // where they land are lambda's; this starts the process and reports how it ended.
-        synchronized String check() throws Exception {
-            if (busy != null) return say("router:busy", name, busy);
+        // where they land are lambda's; this starts the process and answers how it ended. The call is held open until
+        // then, so the client shows it running, and what it has come to is sent for the token the call carries.
+        String check(Object token) throws Exception {
+            final Process p;
+            final Thread w;
+            synchronized (this) {
+                if (busy != null) { failed = true; return say("router:busy", name, busy); }
+                Object[] started = startCheck();
+                p = (Process) started[0];
+                w = (Thread) started[1];
+            }
+            long from = System.currentTimeMillis(), most = 0;
+            File built = new File(dir, "store.db.build");
+            while (!closing && !p.waitFor(5, TimeUnit.SECONDS)) {
+                if (token == null) continue;
+                long s = (System.currentTimeMillis() - from) / 1000;
+                most = Math.max(most, built.length() >> 20);  // the build is renamed to the store at the end
+                Object line = Serve.obj("jsonrpc", "2.0", "method", "notifications/progress", "params",
+                    Serve.obj("progressToken", token, "progress", s, "message", say("router:progress", name, s, most)));
+                synchronized (OUT) { OUT.println(Gui.Json.write(line)); }
+            }
+            if (p.isAlive()) { failed = false; return say("router:checking", name, pkg, dir); }
+            w.join();
+            failed = p.exitValue() != 0;
+            return note;
+        }
+
+        synchronized Object[] startCheck() throws Exception {
             stop();
             busy = "checking";
             note = "";
@@ -254,7 +285,7 @@ public class Router {
             });
             w.setDaemon(true);
             w.start();
-            return say("router:checking", name, pkg, dir);
+            return new Object[] { p, w };
         }
 
         // apps_compile: this host reads lambda and the store when a server starts, so compiling the
