@@ -82,9 +82,8 @@ function handle(msg) {
       messages: [{ role: "user", content: { type: "text", text: t } }] });
   }
   if (method === "tools/call") {
-    let out;
-    try { out = call(p); } catch (e) { out = [String(e.message), 500]; }
-    return reply(id, { content: [{ type: "text", text: String(out[0]) }], isError: out[1] >= 400 });
+    return call(p).catch((e) => [String(e.message), 500])
+      .then((out) => reply(id, { content: [{ type: "text", text: String(out[0]) }], isError: out[1] >= 400 }));
   }
   // the router's HTTP request for this app, passed on as it came
   if (method === "http/request")
@@ -117,6 +116,10 @@ async function readPage(out, caller) {
   let q;
   try { q = Number(out[1]) === 202 ? JSON.parse(String(out[0])) : null; } catch (e) { q = null; }
   if (!Array.isArray(q) || q[0] !== "request" || q.length < 6) return undefined;
+  return page(q, caller);
+}
+// the page one request of lambda's reads, the Source after it
+async function page(q, caller) {
   const rd = read(), fn = A.Ev("fed:connector", [String(q[5]), rd]);
   if (Array.isArray(fn)) return ["failed", "the Source '" + q[5] + "' uses no Connector"];
   const of = (f) => { const v = A.Ev(f, [fn, rd]); return Array.isArray(v) ? "" : String(v); };
@@ -138,13 +141,37 @@ async function readPage(out, caller) {
 // WHAT CAME OFF THE LINE IS RECORDED, as the Java host records a sync's read (Perform.record): a Response answering
 // the Function, from the address, with its status and time (fed:response_facts), asserted as the system's login, or the
 // caller's where the environment names none. Its body is not kept.
+// What an answer being made reads is recorded once the answer is out (live): a write moves the store it is made over.
+let later = null;
 function record(fn, url, code, who) {
   try {
     const facts = A.Ev("fed:response_facts", [fn, url, code, new Date().toISOString()]);
+    if (later) { later.push([facts, who]); return; }
+    keep(fn, facts, who);
+  } catch (e) { process.stderr.write("serve: response record threw for " + fn + ": " + String(e.message).slice(0, 300) + "\n"); }
+}
+function keep(fn, facts, who) {
+  try {
     const out = A.Ev("k:as", [store, process.env.AREST_SYSTEM_LOGIN || who, ["assert", facts]]);
     const st = answered(out, out[1] === "T" ? 200 : 500);
     if (st[1] >= 400) process.stderr.write("serve: response record not kept for " + fn + ": " + String(st[0]).slice(0, 300) + "\n");
   } catch (e) { process.stderr.write("serve: response record threw for " + fn + ": " + String(e.message).slice(0, 300) + "\n"); }
+}
+// WHAT AN ANSWER RESTS ON IS READ BEFORE IT IS GIVEN, as the Java host reads it (Serve.live): while k:live names a
+// federated entity to read this host reads it and asks again, and the verb is asked of the store k:live answers.
+async function live(argv, caller) {
+  let state = [];
+  for (;;) {
+    const l = A.Ev("k:live", [store, argv, state]);
+    if (!Array.isArray(l[1]) || l[1].length === 0) return l[0];
+    if (!later) later = [];
+    state = [l[3], (state[1] || []).concat([[l[1], fromJson(await page(l[2], caller))]])];
+  }
+}
+function drain() {
+  const due = later;
+  later = null;
+  if (due && due.length) keep("what was read", due.flatMap((r) => r[0]), due[0][1]);
 }
 const status = (s) => { const n = Number(s); return Number.isInteger(n) ? n : 500; };
 
@@ -170,7 +197,7 @@ function http(port) {
   } });
 }
 
-function call(p) {
+async function call(p) {
   const name = str(p.name);
   const a = isObj(p.arguments) ? p.arguments : {};
   const caller = a.caller == null ? "" : String(a.caller);
@@ -183,7 +210,8 @@ function call(p) {
   const argv = [name];
   if (Array.isArray(a.args)) for (const x of a.args) argv.push(fromJson(x));
   // a writing verb is one application of SYSTEM (k:as), or commits its store through main:as; one not committed is answered below
-  const out = A.Ev("k:as", [store, caller, argv]);
+  const out = A.Ev("k:as", [await live(argv, caller), caller, argv]);
+  setImmediate(drain);
   return answered(out, out[1] === "T" ? 200 : 500);
 }
 
@@ -203,9 +231,10 @@ if (require.main === module) {
   boot(process.argv[2].replace(/\\/g, "/"));
   if (process.argv[3] === "--call") {
     const t1 = Date.now();
-    const out = call({ name: process.argv[4], arguments: process.argv[5] ? JSON.parse(process.argv[5]) : {} });
-    process.stderr.write("serve: " + process.argv[4] + " answered in " + (Date.now() - t1) + " ms, status " + out[1] + "\n");
-    process.stdout.write(String(out[0]) + "\n");
+    call({ name: process.argv[4], arguments: process.argv[5] ? JSON.parse(process.argv[5]) : {} }).then((out) => {
+      process.stderr.write("serve: " + process.argv[4] + " answered in " + (Date.now() - t1) + " ms, status " + out[1] + "\n");
+      process.stdout.write(String(out[0]) + "\n");
+    }, (e) => { process.stderr.write("serve: " + e.message + "\n"); process.exitCode = 1; });
   } else if (process.argv[3] === "--http") {
     http(Number(process.argv[4]));
     process.stderr.write("serve: HTTP on 127.0.0.1:" + process.argv[4] + "\n");

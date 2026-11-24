@@ -271,6 +271,13 @@ final class Perform {
         Object facts;
         try { facts = Arest.Ev("fed:response_facts", new Object[] { fn, url, status, java.time.Instant.now().toString() }); }
         catch (RuntimeException e) { return; }
+        if (LATER != null) { LATER.add(new Object[] { facts, who }); return; }
+        keep(fn, facts, lines, who);
+    }
+
+    // what an answer being made reads is recorded once the answer is out (Serve.live, drain): a write moves the store the answer is made over
+    static List<Object[]> LATER;
+    static void keep(String fn, Object facts, List<String> lines, String who) {
         try {
             Object[] out = Serve.verb("assert", Reader.path("AREST_SYSTEM_LOGIN", who), facts);
             if (((Number) out[1]).longValue() >= 400) lines.add("response record not kept for " + fn + ": " + cut(String.valueOf(out[0]), 300));
@@ -330,6 +337,16 @@ final class Perform {
 
     /** The calls due are made, and those their write-backs owe in turn, until none is left or the chain is too long. */
     static void drain() {
+        if (LATER != null && !LATER.isEmpty()) {
+            List<Object[]> due = LATER;
+            LATER = null;
+            List<Object> facts = new ArrayList<Object>();
+            for (Object[] r : due) facts.addAll(java.util.Arrays.asList(seq(r[0])));
+            List<String> lines = new ArrayList<String>();
+            keep("what was read", facts.toArray(), lines, String.valueOf(due.get(0)[1]));
+            for (String l : lines) say(l);
+        }
+        LATER = null;
         int made = 0;
         for (String[] d; (d = DUE.poll()) != null; ) {
             if (++made > CHAIN_MAX) {

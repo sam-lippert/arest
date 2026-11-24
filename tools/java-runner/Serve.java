@@ -173,7 +173,10 @@ public class Serve {
         Object q;
         try { q = ((Number) out[1]).longValue() == 202 ? Gui.fromJson(Gui.Json.parse(String.valueOf(out[0]))) : null; } catch (RuntimeException e) { q = null; }
         if (!(q instanceof Object[]) || ((Object[]) q).length < 6 || !"request".equals(String.valueOf(((Object[]) q)[0]))) return null;
-        Object[] ask = (Object[]) q;
+        return page((Object[]) q, caller);
+    }
+    // the page one request of lambda's reads, the Source after it: <request, method, address, parameters, body, source>
+    static Object page(Object[] ask, String caller) {
         Object read = read(), fn = Arest.Ev("fed:connector", new Object[] { ask[5], read });
         if (fn instanceof Object[]) return new Object[] { "failed", "the Source '" + ask[5] + "' uses no Connector" };
         Perform.Rd rd = Perform.readerFor(String.valueOf(fn), read);
@@ -182,6 +185,20 @@ public class Serve {
         List<String> lines = new ArrayList<String>();
         Perform.Got got = "mbox".equals(rd.fetcher) ? Perform.fetchMbox(rd, ask, lines, caller) : Perform.fetchOne(rd, ask, lines, caller);
         return got.notPerformed || got.status >= 400 ? new Object[] { "failed", got.text } : got.body;
+    }
+    // WHAT AN ANSWER RESTS ON IS READ BEFORE IT IS GIVEN. Lambda names each federated entity a read verb's answer reads and
+    // the request that reads it (k:live); this host makes the read as it makes a page's and asks again, until there is none,
+    // and the verb is asked of the store lambda answers, whose database holds what was read while it is asked.
+    static Object live(Object[] argv, String caller) {
+        Object[] state = new Object[0];
+        for (;;) {
+            Object[] l = (Object[]) Arest.Ev("k:live", new Object[] { store, argv, state });
+            if (!(l[1] instanceof Object[]) || ((Object[]) l[1]).length == 0) return l[0];
+            if (Perform.LATER == null) Perform.LATER = new ArrayList<Object[]>();
+            Object[] had = state.length > 1 ? (Object[]) state[1] : new Object[0], pages = java.util.Arrays.copyOf(had, had.length + 1);
+            pages[had.length] = new Object[] { l[1], page((Object[]) l[2], caller) };
+            state = new Object[] { l[3], pages };
+        }
     }
     static long status(Object s) {
         if (s instanceof Number) return ((Number) s).longValue();
@@ -243,7 +260,7 @@ public class Serve {
         // a verb whose operand is a response is handed a Source, and this host reads its pages (Perform)
         if (fetched().contains(name)) return Perform.pages(name, caller, argv.subList(1, argv.size()).toArray());
         // a writing verb is one application of SYSTEM (k:as), or commits its store through main:as; one not committed is answered below
-        out = (Object[]) Arest.Ev("k:as", new Object[] { store, caller, argv.toArray() });
+        out = (Object[]) Arest.Ev("k:as", new Object[] { live(argv.toArray(), caller), caller, argv.toArray() });
         return answered(out, "T".equals(out[1]) ? 200L : 500L);
     }
 
