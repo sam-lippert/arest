@@ -1168,6 +1168,40 @@ Pattern Step 'exclusion-of-subtypes.1.1.2.1.2.1.2' fills a field of Pattern Step
 Pattern Step 'exclusion-of-subtypes.1.1.2.1.2.1.2' has Position 2.
 Pattern Step 'exclusion-of-subtypes.1.1.2.1.2.1.2' uses Verbalization Snippet 'VowelIndefiniteArticle'.
 
+Verbalization Pattern 'exclusion-of-unaries' is in Pattern Family 'set comparison'.
+Verbalization Pattern 'exclusion-of-unaries' has Pattern Form 'For each A, at most one of the following holds: that A R; that A S.'.
+Verbalization Pattern 'exclusion-of-unaries' has Pattern Example 'For each Derivation Rule, at most one of the following holds: that Derivation Rule introduces values; that Derivation Rule is circular.'.
+Verbalization Pattern 'exclusion-of-unaries' has Pattern Note 'an exclusion over the roles of unary fact types, each in its own words'.
+Verbalization Pattern 'exclusion-of-unaries' verbalizes Constraint Type 'XC'.
+Verbalization Pattern 'exclusion-of-unaries' has Fact Arity '1'.
+Verbalization Pattern 'exclusion-of-unaries' has Verbalization Sign 'positive'.
+Verbalization Pattern 'exclusion-of-unaries' starts with Pattern Step 'exclusion-of-unaries.1'.
+Pattern Step 'exclusion-of-unaries.1' uses Verbalization Snippet 'ImpliedModalNecessityOperator'.
+Pattern Step 'exclusion-of-unaries.1.1' fills a field of Pattern Step 'exclusion-of-unaries.1'.
+Pattern Step 'exclusion-of-unaries.1.1' has Position 1.
+Pattern Step 'exclusion-of-unaries.1.1' uses Verbalization Snippet 'GroupExclusion'.
+Pattern Step 'exclusion-of-unaries.1.1.1' fills a field of Pattern Step 'exclusion-of-unaries.1.1'.
+Pattern Step 'exclusion-of-unaries.1.1.1' has Position 1.
+Pattern Step 'exclusion-of-unaries.1.1.1' is of Pattern Construct 'RolePlayer'.
+Pattern Step 'exclusion-of-unaries.1.1.1' matches Role Match 'primary'.
+Pattern Step 'exclusion-of-unaries.1.1.1.1' fills a field of Pattern Step 'exclusion-of-unaries.1.1.1'.
+Pattern Step 'exclusion-of-unaries.1.1.1.1' has Position 1.
+Pattern Step 'exclusion-of-unaries.1.1.1.1' uses Verbalization Snippet 'ObjectTypeName'.
+Pattern Step 'exclusion-of-unaries.1.1.2' fills a field of Pattern Step 'exclusion-of-unaries.1.1'.
+Pattern Step 'exclusion-of-unaries.1.1.2' has Position 2.
+Pattern Step 'exclusion-of-unaries.1.1.2' is of Pattern Construct 'IterateFacts'.
+Pattern Step 'exclusion-of-unaries.1.1.2' has List Style 'SemicolonList'.
+Pattern Step 'exclusion-of-unaries.1.1.2.1' fills a field of Pattern Step 'exclusion-of-unaries.1.1.2'.
+Pattern Step 'exclusion-of-unaries.1.1.2.1' has Position 1.
+Pattern Step 'exclusion-of-unaries.1.1.2.1' is of Pattern Construct 'Fact'.
+Pattern Step 'exclusion-of-unaries.1.1.2.1.1' fills a field of Pattern Step 'exclusion-of-unaries.1.1.2.1'.
+Pattern Step 'exclusion-of-unaries.1.1.2.1.1' has Position 1.
+Pattern Step 'exclusion-of-unaries.1.1.2.1.1' is of Pattern Construct 'PredicateReplacement'.
+Pattern Step 'exclusion-of-unaries.1.1.2.1.1' matches Role Match 'included'.
+Pattern Step 'exclusion-of-unaries.1.1.2.1.1.1' fills a field of Pattern Step 'exclusion-of-unaries.1.1.2.1.1'.
+Pattern Step 'exclusion-of-unaries.1.1.2.1.1.1' has Position 1.
+Pattern Step 'exclusion-of-unaries.1.1.2.1.1.1' uses Verbalization Snippet 'DefiniteArticle'.
+
 Verbalization Pattern 'partition-of-subtypes' is in Pattern Family 'set comparison'.
 Verbalization Pattern 'partition-of-subtypes' has Pattern Form 'For each A, exactly one of the following holds: that A is a B; that A is a C.'.
 Verbalization Pattern 'partition-of-subtypes' has Pattern Example 'For each Object Type, exactly one of the following holds: that Object Type is an Entity Type; that Object Type is a Value Type.'.

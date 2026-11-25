@@ -76,7 +76,7 @@ Constraint Type implies Constraint Type.
   Constraint Type implies Constraint Type is acyclic.
 Constraint makes Constraint redundant. *
 Constraint is redundant. *
-* Constraint1 makes Constraint2 redundant iff that Constraint1 is of some Constraint Type1 and that Constraint2 is of some Constraint Type2 and that Constraint Type1 implies that Constraint Type2 and that Constraint1 spans some Role and that Constraint2 spans that Role.
+* Constraint1 makes Constraint2 redundant iff that Constraint1 is of some Constraint Type1 and that Constraint Type1 implies some Constraint Type2 and that Constraint1 spans some Role and that Constraint2 spans that Role and that Constraint2 is of that Constraint Type2.
 * Constraint is redundant iff some Constraint1 makes that Constraint redundant.
 It is forbidden that some Constraint is redundant.
 Constraint Type 'AS' implies Constraint Type 'IR'.
