@@ -1160,7 +1160,6 @@ Constraint 'role-instance-typed' is decided by Predicate 'decide:role_typing'.
 Predicate 'decide:role_typing' has Module Path 'arest'.
 Predicate 'decide:role_typing' has Symbol Name 'decide:role_typing'.
 
-If some Fact Type defines some Fact then some Object Type Instance that is that Fact is instance of some Object Type that is that Fact Type.
 If some Fact is referenced by some Predicate and that Fact is of some Fact Type then some Reading is used by that Predicate where that Fact Type has that Reading.
 If some Guard Run is for some Guard and that Guard Run references some Fact then that Guard references some Fact Type where that Fact is of that Fact Type.
 <!-- exec (canonical alignment): both sentences above were
@@ -1168,7 +1167,10 @@ If some Guard Run is for some Guard and that Guard Run references some Fact then
      Reading" for `Reading is used by Predicate`; "Fact Type defines
      Fact" for `Fact is of Fact Type`) — parseable by charity only.
      Reworded to the declared reading directions; both now build as real
-     NORMA subset constraints with join paths. -->
+     NORMA subset constraints with join paths. A third, that an Object Type
+     Instance that is a Fact is instance of an Object Type that is its Fact
+     Type, is gone: no Fact is declared an Object Type Instance, and no Fact
+     Type an Object Type, so it named no join. -->
 If some API accepts some Object Type1 as parameter and some Object Type2 is subtype of that Object Type1 then that API accepts that Object Type2 as parameter.
 <!-- exec-4 adjudication: the two Format subset sentences
      that stood here are retired — built as real NORMA SubsetConstraints,
@@ -1247,7 +1249,9 @@ If Derivation Rule1 reaches Derivation Rule2 and Derivation Rule2 reaches Deriva
        execution: the chain of the derived closure minus the closure is
        empty. -->
 
-It is impossible that some Derivation Rule introduces values and that Derivation Rule reaches that Derivation Rule.
+Derivation Rule is circular. *
+* Derivation Rule is circular iff that Derivation Rule reaches that Derivation Rule.
+For each Derivation Rule, at most one of the following holds: that Derivation Rule introduces values; that Derivation Rule is circular.
   <!-- Lem 1's hypothesis as an alethic constraint, refused like any other
        (Cor 1: "refused like any alethic violation"; the rebuild SPEC called
        it G7 and ran it on every DEFS change). -->
@@ -1971,18 +1975,12 @@ replay needs, and visible_population is a function of the replayed
 set, so partial replays up to any T agree across peers.
 -->
 
-It is obligatory that for each Fact and Fact Type, at most one Migration Application has that Fact as source and has some Migration that produces that Fact Type as target.
-  <!-- chained-leg external uniqueness: the "per target Fact
-       Type" prose becomes the canonical for-each form, with the
-       role-qualified legs in the fluent as-form
-       ("has that Fact as source", not "has source that Fact"); the
-       parser relocates the postfix qualifier onto the prefix-style
-       reading (has source Fact). The second leg walks has-Migration
-       then produces-target, and the constraint builds as a real deontic
-       UniquenessConstraint whose join path is the chain tree (root
-       Migration Application, the Fact and Fact Type steps projected).
-       The at-most-one obligation rules out direct v1 -> v3 shortcuts
-       per the ordering rationale above. -->
+Migration Application doubles Migration Application. *
+* Migration Application1 doubles Migration Application2 iff Migration Application1 has some Fact as source and Migration Application2 has that Fact as source and Migration Application1 has some Migration1 and Migration Application2 has some Migration2 and Migration1 produces some Fact Type as target and Migration2 produces that Fact Type as target and Migration Application1 is less than Migration Application2.
+It is forbidden that some Migration Application1 doubles some Migration Application2.
+  <!-- one Migration Application per source Fact and target Fact Type: a
+       chained-leg external uniqueness, said as the pair that breaks it. It
+       rules out direct v1 -> v3 shortcuts per the ordering rationale above. -->
 
 It is obligatory that for each Timestamp, at most one Migration Application has that Timestamp.
 
