@@ -90,6 +90,7 @@ esp/
 # here between builds.
 *.db.prior
 *.db.check
+*.db.build
 
 # Tutor sandbox SQLite (per-developer, ephemeral)
 tutor/.sandbox/
