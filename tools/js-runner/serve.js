@@ -46,8 +46,24 @@ function boot(dir) {
   if (!fs.existsSync(db)) throw new Error("no store at " + db + ": the app's check writes it");
   A.CELLS.push(["CELL", "state:store_db", db]);
   store = A.Ev("k:serve_boot", A.CELLS.slice());
+  served = db;
+  composed = composition();
   process.stderr.write("serve: " + dir + " booted in " + (Date.now() - t0) + " ms, " + store.length + " cells\n");
   return store;
+}
+
+// the database served and the composition it was booted over: a check another session makes of the store lands in it
+// while this server holds it, and the next request is answered over what it left
+let served = null, composed = "";
+const composition = () => text(A.Ev("store:composition", served));
+function fresh() {
+  if (served === null) return;
+  const now = composition();
+  if (now === composed) return;
+  store = A.Ev("k:serve_boot", A.CELLS.slice());
+  composed = now;
+  process.stderr.write("serve: booted again over a store another check left, " + store.length + " cells
+");
 }
 
 // the store as a read is answered over: its populations read in the database (store:for_read)
@@ -189,6 +205,7 @@ function http(port) {
   Bun.serve({ hostname: "127.0.0.1", port, fetch(req) {
     const path = decodeURIComponent(new URL(req.url).pathname);
     const next = last.then(async () => {
+      fresh();
       const out = await request(req.method, path.startsWith("/") ? path.slice(1) : path, callerOf(req), await body(req));
       return respond(Number(out[1]), String(out[0]));
     });
@@ -245,7 +262,7 @@ if (require.main === module) {
       if (!line.trim()) return;
       last = last.then(async () => {
         let r;
-        try { r = await handle(JSON.parse(line)); } catch (e) { r = fail(null, String(e.message)); }
+        try { fresh(); r = await handle(JSON.parse(line)); } catch (e) { r = fail(null, String(e.message)); }
         if (r !== null) process.stdout.write(JSON.stringify(r) + "\n");
       });
     });

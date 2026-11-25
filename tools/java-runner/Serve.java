@@ -64,6 +64,8 @@ public class Serve {
         Arest.memoClear();
         // what a served read asks of the schema, computed once by lambda, with SYSTEM's D (k:serve_boot)
         store = (Object[]) Arest.Ev("k:serve_boot", Arest.CELLS.toArray());
+        served = db;
+        composed = composition();
         System.err.println("serve: " + dir + " booted in " + (System.nanoTime() - t0) / 1000000 + " ms, " + store.length + " cells");
         if (args.length > 1 && "--call".equals(args[1])) {
             Map<String, Object> call = new LinkedHashMap<String, Object>();
@@ -85,11 +87,25 @@ public class Serve {
         for (String line; (line = in.readLine()) != null; ) {
             if (line.trim().isEmpty()) continue;
             Object reply;
-            try { reply = handle((Map<?, ?>) Gui.Json.parse(line)); }
+            try { fresh(); reply = handle((Map<?, ?>) Gui.Json.parse(line)); }
             catch (Throwable e) { reply = fail(null, String.valueOf(e.getMessage())); }
             if (reply != null) OUT.println(Gui.Json.write(reply));
             Perform.drain();
         }
+    }
+
+    // the database served and the composition it was booted over: a check another session makes of the store lands in it
+    // while this server holds it, and the next request is answered over what it left
+    static String served = null, composed = "";
+    static String composition() { return text(Arest.Ev("store:composition", served)); }
+    static void fresh() {
+        if (served == null) return;
+        String now = composition();
+        if (now.equals(composed)) return;
+        Arest.memoClear();
+        store = (Object[]) Arest.Ev("k:serve_boot", Arest.CELLS.toArray());
+        composed = now;
+        System.err.println("serve: booted again over a store another check left, " + store.length + " cells");
     }
 
     static Map<String, Object> obj(Object... kv) {
@@ -232,6 +248,7 @@ public class Serve {
         com.sun.net.httpserver.HttpServer s = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", port), 0);
         s.createContext("/", ex -> {
             String path = ex.getRequestURI().getPath();
+            fresh();
             Object[] out = request(ex.getRequestMethod(), path.startsWith("/") ? path.substring(1) : path, caller(ex), body(ex));
             respond(ex, ((Number) out[1]).longValue(), String.valueOf(out[0]));
             Perform.drain();
