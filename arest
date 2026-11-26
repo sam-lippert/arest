@@ -22696,8 +22696,9 @@ DEF("rmap:nreadings:derive",
 DEF("rmap:nreadings",
     S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), A("store:stored_fetch"), S3(A("CONS"), K(A("stored:rmap:nreadings")), A("id"))), K(A("#")))), A("rmap:nreadings:derive"), S3(A("COMP"), A("store:stored_fetch"), S3(A("CONS"), K(A("stored:rmap:nreadings")), A("id"))))),
 
+"A READING IS LOOKED UP BY ITS FACT TYPE, NOT FOUND BY A WALK. <readings, fact type> to the readings of the fact type, in their order. Each lookup paired every reading with the fact type and kept the pairs that matched, and the column names ask it of every step of every column: on a large app`s check the walk was 1.5% of all its time. csdp:matches_at says the same keep, keyed by the first element.",
 DEF("cn:rrow",
-    S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), S3(A("COMP"), N(1), N(1)), N(2))), S2(A("CONS"), N(1)), K(PHI()))), A("distr"))),
+    S3(A("COMP"), A("csdp:matches_at"), S4(A("CONS"), K(N(1)), N(2), N(1)))),
 
 DEF("cn:pascalw",
     S3(A("COMP"), A("implode"), S3(A("CONS"), K(A("")), S3(A("COMP"), S4(A("COND"), S3(A("COMP"), A("null"), A("id")), A("id"), S3(A("COMP"), A("apndl"), S3(A("CONS"), S3(A("COMP"), A("charup"), N(1)), A("tl")))), S4(A("COMP"), A("theta:flatten"), S2(A("ALPHA"), S4(A("COND"), S3(A("COMP"), A("eq"), S3(A("CONS"), A("id"), K(A("-")))), K(PHI()), S2(A("CONS"), A("id")))), A("chars")))))),
