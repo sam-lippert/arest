@@ -45,10 +45,14 @@ same set. A number is a 64-bit integer, and arithmetic past 64 bits is bottom.
 message to a line. It loads lambda, names the database in `state:store_db`, and boots through lambda's
 `store:boot`; every answer is lambda's (`mcp:instructions`, `mcp:verbs`,
 `main:as`, `mcp:call`, `mcp:prompts`). A read is answered over the database
-(`store:for_read`). A write is not evaluated: a verb lambda says writes
-(`main:verb_writes`), or a fact call other than GET, is answered
-`not_committed` and changes nothing, because lambda does not yet commit a
-write's new store itself and a host has no commit of its own.
+(`store:for_read`). A write is committed by lambda or refused: a verb lambda
+says writes (`main:verb_writes`), or a fact call other than GET, goes to lambda
+as any request does, and SYSTEM commits it in one program (`k:system`,
+`k:do_change`); a request SYSTEM does not answer is committed by `main:api` and
+`main:as` (`main:commit`, `main:as_commit`). A committed write then performs what
+its transitions declare (`Perform`). Only a write lambda hands back uncommitted,
+over a store held in memory alone, is answered `not_committed` (`mcp:not_committed`,
+501) and changes nothing, since a host has no commit of its own.
 `--call <tool> <json>` answers one call and exits.
 
 `Router` is the connection a client starts. Its own store is the registry
