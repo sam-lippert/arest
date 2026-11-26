@@ -37,7 +37,8 @@ public class Router {
     static final long IDLE_MS = 600000L;
     static final int MAX_ANSWER = 2000000;
     static Object[] store;
-    static final LinkedHashMap<String, App> APPS = new LinkedHashMap<String, App>();
+    // the apps served, as the registry last read says: swapped whole when the registry changes, never edited in place
+    static volatile LinkedHashMap<String, App> APPS = new LinkedHashMap<String, App>();
     static final ExecutorService POOL = Executors.newCachedThreadPool();
     static String lambda, login, kernel, registryDb;
     static volatile boolean closing;
@@ -59,24 +60,13 @@ public class Router {
         Arest.memoClear();
         store = (Object[]) Arest.Ev("k:serve_boot", Arest.CELLS.toArray());
         Serve.store = store;
-        Object read = Arest.Ev("store:for_read", store);
-        Map<String, String> status = new LinkedHashMap<String, String>();
-        for (Object r : rows("AppHasServingStatus", read)) status.put(String.valueOf(((Object[]) r)[0]), String.valueOf(((Object[]) r)[1]));
-        Map<String, String> stores = new LinkedHashMap<String, String>();
-        for (Object r : rows("AppHasStoreDirectory", read)) stores.put(String.valueOf(((Object[]) r)[0]), String.valueOf(((Object[]) r)[1]).replace('\\', '/'));
-        for (Object r : rows("AppHasPackageDirectory", read)) {
-            Object[] row = (Object[]) r;
-            String name = String.valueOf(row[0]);
-            if ("suspended".equals(status.get(name))) continue;
-            String at = stores.get(name);
-            if (at == null) { System.err.println("router: " + name + " has no Store Directory in the registry, so it is not served"); continue; }
-            APPS.put(name, new App(name, String.valueOf(row[1]).replace('\\', '/'), at, here));
-        }
-        System.err.println("router: " + APPS.size() + " apps from " + dir + ": " + String.join(", ", APPS.keySet()));
-        // The registry is read above, and again by a message that lists the tools or the prompts (handle). Its
-        // connections are closed here and after each such message, because on Windows an open connection keeps its
-        // file from being replaced, and a check of the registry replaces its store while routers run.
         registryDb = dir + "/store.db";
+        refresh(false);
+        System.err.println("router: " + APPS.size() + " apps from " + dir + ": " + String.join(", ", APPS.keySet()));
+        // The registry is read above, and again whenever its store has changed (refresh) and by a message that lists
+        // the tools or the prompts (handle). Its connections are closed here and after each such message, because on
+        // Windows an open connection keeps its file from being replaced, and a check of the registry replaces its
+        // store while routers run.
         Registrations.unwatch(registryDb);
         Thread idle = new Thread(() -> {
             while (true) {
@@ -107,6 +97,48 @@ public class Router {
         System.exit(0);
     }
 
+    // THE APP LIST IS THE REGISTRY'S AS IT STANDS (c-2026-11-26-the-app-list-is-live). The router read the App table
+    // once, when it started, and routed from that copy, so an app registered after it started was served only once
+    // the client reconnected: a store read once is not a live store. Now, whenever the registry's file has changed
+    // since it was last read, its App table is read again: an app it adds is served, one it drops or suspends is
+    // stopped, one whose directories moved is started over them, and the client is told the tools changed, so the
+    // apps each tool offers are the registry's own.
+    static long registryStamp = Long.MIN_VALUE;
+    static void refresh(boolean tell) {
+        long stamp = new File(registryDb).lastModified();
+        if (stamp == registryStamp) return;
+        List<App> gone = new ArrayList<App>();
+        boolean changed = false;
+        synchronized (Router.class) {
+            if (stamp == registryStamp) return;
+            registryStamp = stamp;
+            Object read = Arest.Ev("store:for_read", store);
+            Map<String, String> status = new LinkedHashMap<String, String>();
+            for (Object r : rows("AppHasServingStatus", read)) status.put(String.valueOf(((Object[]) r)[0]), String.valueOf(((Object[]) r)[1]));
+            Map<String, String> stores = new LinkedHashMap<String, String>();
+            for (Object r : rows("AppHasStoreDirectory", read)) stores.put(String.valueOf(((Object[]) r)[0]), String.valueOf(((Object[]) r)[1]).replace('\\', '/'));
+            LinkedHashMap<String, App> next = new LinkedHashMap<String, App>();
+            for (Object r : rows("AppHasPackageDirectory", read)) {
+                Object[] row = (Object[]) r;
+                String name = String.valueOf(row[0]);
+                if ("suspended".equals(status.get(name))) continue;
+                String at = stores.get(name);
+                if (at == null) { System.err.println("router: " + name + " has no Store Directory in the registry, so it is not served"); continue; }
+                String pkg = String.valueOf(row[1]).replace('\\', '/');
+                App had = APPS.get(name);
+                next.put(name, had != null && had.pkg.equals(pkg) && had.dir.equals(at) ? had : new App(name, pkg, at, ""));
+            }
+            for (Map.Entry<String, App> e : APPS.entrySet()) if (next.get(e.getKey()) != e.getValue()) gone.add(e.getValue());
+            changed = !gone.isEmpty() || !next.keySet().equals(APPS.keySet());
+            APPS = next;
+        }
+        for (App a : gone) a.stop();
+        if (changed && tell) {
+            System.err.println("router: the registry changed; " + APPS.size() + " apps: " + String.join(", ", APPS.keySet()));
+            synchronized (OUT) { OUT.println(Gui.Json.write(Serve.obj("jsonrpc", "2.0", "method", "notifications/tools/list_changed"))); }
+        }
+    }
+
     static Object[] rows(String factType, Object read) {
         Object r = Arest.Ev("system:pop_rows", new Object[] { factType, read });
         return r instanceof Object[] ? (Object[]) r : new Object[0];
@@ -123,6 +155,7 @@ public class Router {
     }
 
     static Object handle1(Map<?, ?> msg) throws Exception {
+        refresh(true);
         Object id = msg.get("id");
         String method = String.valueOf(msg.get("method"));
         Map<?, ?> p = msg.get("params") instanceof Map ? (Map<?, ?>) msg.get("params") : new LinkedHashMap<String, Object>();
@@ -130,7 +163,7 @@ public class Router {
             List<Object> lines = new ArrayList<Object>();
             for (App a : APPS.values()) if (a.instructions != null) lines.add(new Object[] { a.name, a.instructions });
             return Serve.reply(id, Serve.obj("protocolVersion", "2024-11-05",
-                "capabilities", Serve.obj("tools", Serve.obj(), "prompts", Serve.obj()),
+                "capabilities", Serve.obj("tools", Serve.obj("listChanged", true), "prompts", Serve.obj()),
                 "serverInfo", Serve.obj("name", "arest", "version", "1.0.0"),
                 "instructions", say("router:instructions", names(), lines.toArray())));
         }
@@ -180,6 +213,7 @@ public class Router {
             String rest = path.startsWith("/") ? path.substring(1) : path;
             int i = rest.indexOf('/');
             String name = i < 0 ? rest : rest.substring(0, i);
+            try { refresh(true); } finally { synchronized (Router.class) { if (reading == 0) Registrations.unwatch(registryDb); } }
             App x = APPS.get(name);
             if (x == null) {
                 Serve.respond(ex, Serve.status(Arest.Ev("http:status_of", "unknown_resource")), say("router:no_app", name, names()));
