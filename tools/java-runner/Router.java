@@ -344,8 +344,15 @@ public class Router {
             return new File(dir, "store.db").isFile() ? "idle" : say("router:no_store_at", dir);
         }
 
+        // THE CODE AN APP SERVES IS THE CODE AS IT STANDS, as its list is the registry's: a server reads lambda and the kernel
+        // once, when it starts, so after either changes it is started over them before its next call, once no call is
+        // waiting on it. It served what it started with until it rested or the client reconnected.
+        long code;
+        static long codeStamp() { return Math.max(new File(lambda).lastModified(), new File(kernel).lastModified()); }
+
         synchronized void start() throws Exception {
-            if (proc != null && proc.isAlive()) return;
+            if (proc != null && proc.isAlive() && (code == codeStamp() || !pending.isEmpty())) return;
+            if (proc != null && proc.isAlive()) { System.err.println("router: lambda changed; " + name + " starts over it"); stop(); }
             if (busy != null) throw new RuntimeException(say("router:start_busy", name, busy));
             error = null;
             if (!new File(dir, "store.db").isFile()) throw new RuntimeException(say("router:no_store", name, dir));
@@ -355,6 +362,7 @@ public class Router {
             pb.environment().put("AREST_LAMBDA", lambda);
             pb.environment().put("AREST_KERNEL", kernel);
             pb.redirectError(new File(dir, "serve.log"));
+            code = codeStamp();
             proc = pb.start();
             to = new OutputStreamWriter(proc.getOutputStream(), StandardCharsets.UTF_8);
             final Process me = proc;
@@ -368,7 +376,12 @@ public class Router {
                         if (f != null) f.complete(m);
                     }
                 } catch (Exception e) { }
-                synchronized (App.this) { if (proc == me) error = say("router:exited", exitOf(me), dir); }
+                // the calls this process leaves unanswered fail with it; once another process has started in its place, the
+                // calls waiting are that one's, and are left to it
+                synchronized (App.this) {
+                    if (proc == me) error = say("router:exited", exitOf(me), dir);
+                    if (proc != me && proc != null) return;
+                }
                 for (CompletableFuture<Map<?, ?>> f : pending.values()) f.complete(Serve.fail(null, say("router:exited_call", name, dir)));
                 pending.clear();
             });
