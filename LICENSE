@@ -1,26 +1,19 @@
 AREST is licensed under the GNU Affero General Public License v3.0 or later
-(AGPL-3.0-or-later) for the engine + kernel crates:
+(AGPL-3.0-or-later). The license covers everything in this repository:
 
-  - `crates/arest`
-  - `crates/arest-kernel`
+  - the lambda definitions (`arest`) and their tests (`arest.tests`)
+  - the kernel (`kernel`, `kernel.tests`, `kernel.forms`, `kernel.agree`)
+  - the hosts that run them (`tools/`, `engine/`, `src/`)
+  - the metamodel (`metamodel/`) and readings (`readings/`)
+  - the paper (`AREST.tex`) and the docs (`docs/`)
 
-The web-side glue under `apps/ui.do/` is licensed under the MIT License so
-applications built on top of AREST stay unencumbered. See
-`apps/ui.do/LICENSE-MIT` for the MIT text.
-
-The Doom WASM binary baked into the kernel (`jacobenget/doom.wasm` v0.1.0,
-gated behind `--features doom`) is GPL-2.0; including it in a distribution
-inherits GPL-2.0 obligations on the resulting binary. Builds with
-`--features doom` disabled (the default) carry only AGPL-3.0-or-later.
+The copyright holder may also license AREST under other terms.
 
 The full text of the GNU Affero General Public License v3.0 is published at:
 
   https://www.gnu.org/licenses/agpl-3.0.txt
 
-Before a public release, drop the canonical text into this file (it's
-~34 KB of plain text) so the distribution is self-contained.
-
-  Copyright (C) 2025-2026 Samuel Lippert and AREST contributors
+  Copyright (C) 2025-2026 Samuel Lippert
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Affero General Public License as
