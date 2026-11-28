@@ -8,7 +8,13 @@
 # ENTRY, a name a host's protocol layer applies (serving, routing, performing: lambda's surface known to the host,
 # which one lambda entry per protocol would remove).
 #
-#   python -I tools/thin-hosts.py            every host; exit 1 where any host names a DEF
+# THE BASELINE (tools/thin-hosts.baseline) is the names hosts held when the check began, one "<host> <name>" a line:
+# they are the retirement list. A name not in it fails the check (exit 1), so no new logic lands in a host; a name
+# in it that a host no longer holds is reported as retired, and --write rewrites the baseline to what is left, so the
+# list only ever shrinks.
+#
+#   python -I tools/thin-hosts.py            every host; exit 1 where a host names a DEF the baseline does not hold
+#   python -I tools/thin-hosts.py --write    rewrite the baseline to the names hosts hold now
 import os
 import re
 import sys
@@ -37,8 +43,18 @@ def defs():
     return names
 
 
+BASELINE = os.path.join(ROOT, "tools", "thin-hosts.baseline")
+
+
+def baseline():
+    if not os.path.exists(BASELINE):
+        return set()
+    return {tuple(l.split()) for l in open(BASELINE, encoding="utf-8") if l.strip() and not l.startswith("#")}
+
+
 def main():
     names = defs()
+    held = set()
     quoted = re.compile(r'"([A-Za-z_][\w]*:[\w:+*\-]+)"')
     bad = 0
     for host, (d, exts) in HOSTS.items():
@@ -59,6 +75,7 @@ def main():
                     for n in quoted.findall(line):
                         if n in names and n not in CONTRACT:
                             found.setdefault(n, []).append("%s:%d" % (rel, i))
+        held |= {(host, n) for n in found}
         logic = {n: w for n, w in found.items() if any(x.split(":")[0] in EVALUATORS for x in w)}
         entry = {n: w for n, w in found.items() if n not in logic}
         bad += len(found)
@@ -66,7 +83,22 @@ def main():
         for kind, part in (("LOGIC", logic), ("ENTRY", entry)):
             for n in sorted(part):
                 print("   %s %-28s %s" % (kind, n, ", ".join(part[n][:3]) + (" ..." if len(part[n]) > 3 else "")))
-    sys.exit(1 if bad else 0)
+    base = baseline()
+    if "--write" in sys.argv:
+        with open(BASELINE, "w", encoding="utf-8") as f:
+            f.write("# the lambda names hosts still hold: the retirement list (tools/thin-hosts.py); it only shrinks\n")
+            for h, n in sorted(held):
+                f.write("%s %s\n" % (h, n))
+        print("baseline: %d name(s) written" % len(held))
+        sys.exit(0)
+    new = sorted(held - base)
+    gone = sorted(base - held)
+    for h, n in new:
+        print("NEW   %s %s: a lambda name a host did not hold before (thin hosts, logic in lambda and ORM)" % (h, n))
+    if gone:
+        print("retired since the baseline: %d (run with --write to shrink it): %s" % (len(gone), ", ".join("%s %s" % g for g in gone[:10])))
+    print("baseline %d, held %d, new %d" % (len(base), len(held), len(new)))
+    sys.exit(1 if new else 0)
 
 
 if __name__ == "__main__":
