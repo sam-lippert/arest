@@ -25,6 +25,10 @@ pub mod platform;
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
+#[cfg(all(feature = "platform", not(target_arch = "wasm32"), not(target_os = "uefi")))]
+#[global_allocator]
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 // ---- the value -------------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]
@@ -38,7 +42,10 @@ pub type R = Result<V, String>;
 
 pub fn a(s: &str) -> V { V::S(Rc::from(s)) }
 pub fn q(v: Vec<V>) -> V { V::Q(Rc::new(v)) }
-fn boolv(b: bool) -> V { a(if b { "T" } else { "F" }) }
+thread_local! {
+    static TF: (V, V) = (a("T"), a("F"));
+}
+fn boolv(b: bool) -> V { TF.with(|t| if b { t.0.clone() } else { t.1.clone() }) }
 pub fn is_t(x: &V) -> bool { matches!(x, V::S(s) if &**s == "T") }
 
 pub fn show(x: &V) -> String {

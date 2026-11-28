@@ -28,7 +28,7 @@ required-features = ["platform"]
 
 [features]
 default = ["platform"]
-platform = ["dep:rusqlite", "dep:sha2", "dep:aes-gcm", "dep:base64", "dep:getrandom"]
+platform = ["dep:rusqlite", "dep:sha2", "dep:aes-gcm", "dep:base64", "dep:getrandom", "dep:mimalloc"]
 embedded = []
 
 [dependencies]
@@ -37,6 +37,8 @@ sha2 = { version = "0.10", optional = true }
 aes-gcm = { version = "0.10", optional = true }
 base64 = { version = "0.22", optional = true }
 getrandom = { version = "0.2", optional = true }
+# the system allocator on Windows is slow for the many small values a mu makes; speed only
+mimalloc = { version = "0.1", default-features = false, optional = true }
 
 [profile.release]
 opt-level = 3
