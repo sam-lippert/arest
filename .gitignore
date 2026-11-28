@@ -181,3 +181,4 @@ tools/lib/*.jar
 tools/js-runner/.router.log
 tools/.laws/
 contracts/.store/
+target-diag/
