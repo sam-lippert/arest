@@ -111,6 +111,8 @@ Verbalization Snippet in Modality Type and Verbalization Sign reads Snippet Text
                            replacement matches;
        IterateRoles        the constrained roles' names, each wrapped in its
                            child step, listed in its List Style;
+       IterateFactRoles    the same over the first fact alone: the players a
+                           constraint's facts all span, named once;
        IterateFacts        its child step over each constrained fact type,
                            unaries last, listed in its List Style;
        RolePlayer          the name of the primary role, of the first
@@ -136,7 +138,7 @@ Fact Count is a value type.
 Pattern Step is an entity type.
 Pattern Step is a subtype of Object Type Instance.
 Pattern Construct is a value type.
-  The possible values of Pattern Construct are 'Fact', 'ConverseFact', 'PredicateTail', 'ConditionalReading', 'PredicateReplacement', 'IterateRoles', 'IterateFacts', 'RolePlayer', 'IndefiniteArticle', 'ConstraintText'.
+  The possible values of Pattern Construct are 'Fact', 'ConverseFact', 'PredicateTail', 'ConditionalReading', 'PredicateReplacement', 'IterateRoles', 'IterateFactRoles', 'IterateFacts', 'RolePlayer', 'IndefiniteArticle', 'ConstraintText'.
   The data type of Pattern Construct is text.
 Role Match is a value type.
   The possible values of Role Match are 'primary', 'included', 'excluded'.
@@ -159,6 +161,7 @@ Verbalization Pattern has Verbalization Sign.
   Each Verbalization Pattern has at most one Verbalization Sign.
 Verbalization Pattern requires lead reading.
 Verbalization Pattern distinguishes repeated players.
+Verbalization Pattern reads subtype links.
 Verbalization Pattern starts with Pattern Step.
   Each Verbalization Pattern starts with at most one Pattern Step.
   For each Pattern Step, at most one Verbalization Pattern starts with that Pattern Step.
@@ -1127,6 +1130,8 @@ Verbalization Pattern 'exclusion-of-subtypes' has Pattern Form 'For each A, at m
 Verbalization Pattern 'exclusion-of-subtypes' has Pattern Example 'For each Function, at most one of the following holds: that Function is an Event Type; that Function is a Constraint; that Function is a Derivation Rule.'.
 Verbalization Pattern 'exclusion-of-subtypes' has Pattern Note 'exactly one of the following holds makes the subtypes a partition of A'.
 Verbalization Pattern 'exclusion-of-subtypes' verbalizes Constraint Type 'XC'.
+Verbalization Pattern 'exclusion-of-subtypes' reads subtype links.
+Verbalization Pattern 'exclusion-of-subtypes' has Fact Arity '2'.
 Verbalization Pattern 'exclusion-of-subtypes' has Verbalization Sign 'positive'.
 Verbalization Pattern 'exclusion-of-subtypes' starts with Pattern Step 'exclusion-of-subtypes.1'.
 Pattern Step 'exclusion-of-subtypes.1' uses Verbalization Snippet 'ImpliedModalNecessityOperator'.
@@ -1202,10 +1207,87 @@ Pattern Step 'exclusion-of-unaries.1.1.2.1.1.1' fills a field of Pattern Step 'e
 Pattern Step 'exclusion-of-unaries.1.1.2.1.1.1' has Position 1.
 Pattern Step 'exclusion-of-unaries.1.1.2.1.1.1' uses Verbalization Snippet 'DefiniteArticle'.
 
+Verbalization Pattern 'exclusion-of-roles' is in Pattern Family 'set comparison'.
+Verbalization Pattern 'exclusion-of-roles' has Pattern Form 'For each A, at most one of the following holds: that A R some B; that A S some C.'.
+Verbalization Pattern 'exclusion-of-roles' has Pattern Example 'For each Person, at most one of the following holds: that Person reviews some Paper; that Person writes some Paper.'.
+Verbalization Pattern 'exclusion-of-roles' has Pattern Note 'an exclusion over a role of each of two or more binary fact types, each fact in its own reading: no A plays more than one of the roles; a role that does not lead its reading is spoken there, some B R that A'.
+Verbalization Pattern 'exclusion-of-roles' verbalizes Constraint Type 'XC'.
+Verbalization Pattern 'exclusion-of-roles' has Fact Arity '2'.
+Verbalization Pattern 'exclusion-of-roles' has Verbalization Sign 'positive'.
+Verbalization Pattern 'exclusion-of-roles' starts with Pattern Step 'exclusion-of-roles.1'.
+Pattern Step 'exclusion-of-roles.1' uses Verbalization Snippet 'ImpliedModalNecessityOperator'.
+Pattern Step 'exclusion-of-roles.1.1' fills a field of Pattern Step 'exclusion-of-roles.1'.
+Pattern Step 'exclusion-of-roles.1.1' has Position 1.
+Pattern Step 'exclusion-of-roles.1.1' uses Verbalization Snippet 'GroupExclusion'.
+Pattern Step 'exclusion-of-roles.1.1.1' fills a field of Pattern Step 'exclusion-of-roles.1.1'.
+Pattern Step 'exclusion-of-roles.1.1.1' has Position 1.
+Pattern Step 'exclusion-of-roles.1.1.1' is of Pattern Construct 'RolePlayer'.
+Pattern Step 'exclusion-of-roles.1.1.1' matches Role Match 'primary'.
+Pattern Step 'exclusion-of-roles.1.1.1.1' fills a field of Pattern Step 'exclusion-of-roles.1.1.1'.
+Pattern Step 'exclusion-of-roles.1.1.1.1' has Position 1.
+Pattern Step 'exclusion-of-roles.1.1.1.1' uses Verbalization Snippet 'ObjectTypeName'.
+Pattern Step 'exclusion-of-roles.1.1.2' fills a field of Pattern Step 'exclusion-of-roles.1.1'.
+Pattern Step 'exclusion-of-roles.1.1.2' has Position 2.
+Pattern Step 'exclusion-of-roles.1.1.2' is of Pattern Construct 'IterateFacts'.
+Pattern Step 'exclusion-of-roles.1.1.2' has List Style 'SemicolonList'.
+Pattern Step 'exclusion-of-roles.1.1.2.1' fills a field of Pattern Step 'exclusion-of-roles.1.1.2'.
+Pattern Step 'exclusion-of-roles.1.1.2.1' has Position 1.
+Pattern Step 'exclusion-of-roles.1.1.2.1' is of Pattern Construct 'Fact'.
+Pattern Step 'exclusion-of-roles.1.1.2.1.1' fills a field of Pattern Step 'exclusion-of-roles.1.1.2.1'.
+Pattern Step 'exclusion-of-roles.1.1.2.1.1' has Position 1.
+Pattern Step 'exclusion-of-roles.1.1.2.1.1' is of Pattern Construct 'PredicateReplacement'.
+Pattern Step 'exclusion-of-roles.1.1.2.1.1' matches Role Match 'included'.
+Pattern Step 'exclusion-of-roles.1.1.2.1.1.1' fills a field of Pattern Step 'exclusion-of-roles.1.1.2.1.1'.
+Pattern Step 'exclusion-of-roles.1.1.2.1.1.1' has Position 1.
+Pattern Step 'exclusion-of-roles.1.1.2.1.1.1' uses Verbalization Snippet 'DefiniteArticle'.
+Pattern Step 'exclusion-of-roles.1.1.2.1.2' fills a field of Pattern Step 'exclusion-of-roles.1.1.2.1'.
+Pattern Step 'exclusion-of-roles.1.1.2.1.2' has Position 2.
+Pattern Step 'exclusion-of-roles.1.1.2.1.2' is of Pattern Construct 'PredicateReplacement'.
+Pattern Step 'exclusion-of-roles.1.1.2.1.2.1' fills a field of Pattern Step 'exclusion-of-roles.1.1.2.1.2'.
+Pattern Step 'exclusion-of-roles.1.1.2.1.2.1' has Position 1.
+Pattern Step 'exclusion-of-roles.1.1.2.1.2.1' uses Verbalization Snippet 'ExistentialQuantifier'.
+
+Verbalization Pattern 'exclusion-of-pairs' is in Pattern Family 'set comparison'.
+Verbalization Pattern 'exclusion-of-pairs' has Pattern Form 'For each A and B, at most one of the following holds: that A R that B; that A S that B.'.
+Verbalization Pattern 'exclusion-of-pairs' has Pattern Example 'For each Person and Paper, at most one of the following holds: that Person reviews that Paper; that Person writes that Paper.'.
+Verbalization Pattern 'exclusion-of-pairs' has Pattern Note 'an exclusion between whole binary fact types over the same players: no A and B stand in more than one of them'.
+Verbalization Pattern 'exclusion-of-pairs' verbalizes Constraint Type 'XC'.
+Verbalization Pattern 'exclusion-of-pairs' has Constraint Arity 'n'.
+Verbalization Pattern 'exclusion-of-pairs' has Fact Arity '2'.
+Verbalization Pattern 'exclusion-of-pairs' has Verbalization Sign 'positive'.
+Verbalization Pattern 'exclusion-of-pairs' starts with Pattern Step 'exclusion-of-pairs.1'.
+Pattern Step 'exclusion-of-pairs.1' uses Verbalization Snippet 'ImpliedModalNecessityOperator'.
+Pattern Step 'exclusion-of-pairs.1.1' fills a field of Pattern Step 'exclusion-of-pairs.1'.
+Pattern Step 'exclusion-of-pairs.1.1' has Position 1.
+Pattern Step 'exclusion-of-pairs.1.1' uses Verbalization Snippet 'GroupExclusion'.
+Pattern Step 'exclusion-of-pairs.1.1.1' fills a field of Pattern Step 'exclusion-of-pairs.1.1'.
+Pattern Step 'exclusion-of-pairs.1.1.1' has Position 1.
+Pattern Step 'exclusion-of-pairs.1.1.1' is of Pattern Construct 'IterateFactRoles'.
+Pattern Step 'exclusion-of-pairs.1.1.1' has List Style 'SimpleList'.
+Pattern Step 'exclusion-of-pairs.1.1.1.1' fills a field of Pattern Step 'exclusion-of-pairs.1.1.1'.
+Pattern Step 'exclusion-of-pairs.1.1.1.1' has Position 1.
+Pattern Step 'exclusion-of-pairs.1.1.1.1' uses Verbalization Snippet 'ObjectTypeName'.
+Pattern Step 'exclusion-of-pairs.1.1.2' fills a field of Pattern Step 'exclusion-of-pairs.1.1'.
+Pattern Step 'exclusion-of-pairs.1.1.2' has Position 2.
+Pattern Step 'exclusion-of-pairs.1.1.2' is of Pattern Construct 'IterateFacts'.
+Pattern Step 'exclusion-of-pairs.1.1.2' has List Style 'SemicolonList'.
+Pattern Step 'exclusion-of-pairs.1.1.2.1' fills a field of Pattern Step 'exclusion-of-pairs.1.1.2'.
+Pattern Step 'exclusion-of-pairs.1.1.2.1' has Position 1.
+Pattern Step 'exclusion-of-pairs.1.1.2.1' is of Pattern Construct 'Fact'.
+Pattern Step 'exclusion-of-pairs.1.1.2.1.1' fills a field of Pattern Step 'exclusion-of-pairs.1.1.2.1'.
+Pattern Step 'exclusion-of-pairs.1.1.2.1.1' has Position 1.
+Pattern Step 'exclusion-of-pairs.1.1.2.1.1' is of Pattern Construct 'PredicateReplacement'.
+Pattern Step 'exclusion-of-pairs.1.1.2.1.1' matches Role Match 'included'.
+Pattern Step 'exclusion-of-pairs.1.1.2.1.1.1' fills a field of Pattern Step 'exclusion-of-pairs.1.1.2.1.1'.
+Pattern Step 'exclusion-of-pairs.1.1.2.1.1.1' has Position 1.
+Pattern Step 'exclusion-of-pairs.1.1.2.1.1.1' uses Verbalization Snippet 'DefiniteArticle'.
+
 Verbalization Pattern 'partition-of-subtypes' is in Pattern Family 'set comparison'.
 Verbalization Pattern 'partition-of-subtypes' has Pattern Form 'For each A, exactly one of the following holds: that A is a B; that A is a C.'.
 Verbalization Pattern 'partition-of-subtypes' has Pattern Example 'For each Object Type, exactly one of the following holds: that Object Type is an Entity Type; that Object Type is a Value Type.'.
 Verbalization Pattern 'partition-of-subtypes' verbalizes Constraint Type 'XO'.
+Verbalization Pattern 'partition-of-subtypes' reads subtype links.
+Verbalization Pattern 'partition-of-subtypes' has Fact Arity '2'.
 Verbalization Pattern 'partition-of-subtypes' has Verbalization Sign 'positive'.
 Verbalization Pattern 'partition-of-subtypes' starts with Pattern Step 'partition-of-subtypes.1'.
 Pattern Step 'partition-of-subtypes.1' uses Verbalization Snippet 'ImpliedModalNecessityOperator'.
@@ -1254,6 +1336,46 @@ Verbalization Pattern 'value-constraint' has Pattern Form 'The possible values o
 Verbalization Pattern 'value-constraint' has Pattern Note 'each value is written in single quotes, indented under the value type it constrains; the data type is declared beside it as The data type of A is text'.
 
 ## Subtyping and objectification
+
+Verbalization Pattern 'partition-of-roles' is in Pattern Family 'set comparison'.
+Verbalization Pattern 'partition-of-roles' has Pattern Form 'For each A, exactly one of the following holds: that A R some B; that A S some C.'.
+Verbalization Pattern 'partition-of-roles' has Pattern Example 'For each Person, exactly one of the following holds: that Person reviews some Paper; that Person writes some Paper.'.
+Verbalization Pattern 'partition-of-roles' has Pattern Note 'an exclusive-or over a role of each of two or more binary fact types: every A plays exactly one of the roles'.
+Verbalization Pattern 'partition-of-roles' verbalizes Constraint Type 'XO'.
+Verbalization Pattern 'partition-of-roles' has Fact Arity '2'.
+Verbalization Pattern 'partition-of-roles' has Verbalization Sign 'positive'.
+Verbalization Pattern 'partition-of-roles' starts with Pattern Step 'partition-of-roles.1'.
+Pattern Step 'partition-of-roles.1' uses Verbalization Snippet 'ImpliedModalNecessityOperator'.
+Pattern Step 'partition-of-roles.1.1' fills a field of Pattern Step 'partition-of-roles.1'.
+Pattern Step 'partition-of-roles.1.1' has Position 1.
+Pattern Step 'partition-of-roles.1.1' uses Verbalization Snippet 'GroupExclusiveOr'.
+Pattern Step 'partition-of-roles.1.1.1' fills a field of Pattern Step 'partition-of-roles.1.1'.
+Pattern Step 'partition-of-roles.1.1.1' has Position 1.
+Pattern Step 'partition-of-roles.1.1.1' is of Pattern Construct 'RolePlayer'.
+Pattern Step 'partition-of-roles.1.1.1' matches Role Match 'primary'.
+Pattern Step 'partition-of-roles.1.1.1.1' fills a field of Pattern Step 'partition-of-roles.1.1.1'.
+Pattern Step 'partition-of-roles.1.1.1.1' has Position 1.
+Pattern Step 'partition-of-roles.1.1.1.1' uses Verbalization Snippet 'ObjectTypeName'.
+Pattern Step 'partition-of-roles.1.1.2' fills a field of Pattern Step 'partition-of-roles.1.1'.
+Pattern Step 'partition-of-roles.1.1.2' has Position 2.
+Pattern Step 'partition-of-roles.1.1.2' is of Pattern Construct 'IterateFacts'.
+Pattern Step 'partition-of-roles.1.1.2' has List Style 'SemicolonList'.
+Pattern Step 'partition-of-roles.1.1.2.1' fills a field of Pattern Step 'partition-of-roles.1.1.2'.
+Pattern Step 'partition-of-roles.1.1.2.1' has Position 1.
+Pattern Step 'partition-of-roles.1.1.2.1' is of Pattern Construct 'Fact'.
+Pattern Step 'partition-of-roles.1.1.2.1.1' fills a field of Pattern Step 'partition-of-roles.1.1.2.1'.
+Pattern Step 'partition-of-roles.1.1.2.1.1' has Position 1.
+Pattern Step 'partition-of-roles.1.1.2.1.1' is of Pattern Construct 'PredicateReplacement'.
+Pattern Step 'partition-of-roles.1.1.2.1.1' matches Role Match 'included'.
+Pattern Step 'partition-of-roles.1.1.2.1.1.1' fills a field of Pattern Step 'partition-of-roles.1.1.2.1.1'.
+Pattern Step 'partition-of-roles.1.1.2.1.1.1' has Position 1.
+Pattern Step 'partition-of-roles.1.1.2.1.1.1' uses Verbalization Snippet 'DefiniteArticle'.
+Pattern Step 'partition-of-roles.1.1.2.1.2' fills a field of Pattern Step 'partition-of-roles.1.1.2.1'.
+Pattern Step 'partition-of-roles.1.1.2.1.2' has Position 2.
+Pattern Step 'partition-of-roles.1.1.2.1.2' is of Pattern Construct 'PredicateReplacement'.
+Pattern Step 'partition-of-roles.1.1.2.1.2.1' fills a field of Pattern Step 'partition-of-roles.1.1.2.1.2'.
+Pattern Step 'partition-of-roles.1.1.2.1.2.1' has Position 1.
+Pattern Step 'partition-of-roles.1.1.2.1.2.1' uses Verbalization Snippet 'ExistentialQuantifier'.
 
 Verbalization Pattern 'subtyping' is in Pattern Family 'subtyping'.
 Verbalization Pattern 'subtyping' has Pattern Form 'A is a subtype of B.'.
