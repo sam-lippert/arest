@@ -1265,8 +1265,8 @@ Pattern Step 'exclusion-of-roles.1.1' has Position 1.
 Pattern Step 'exclusion-of-roles.1.1' uses Verbalization Snippet 'GroupExclusion'.
 Pattern Step 'exclusion-of-roles.1.1.1' fills a field of Pattern Step 'exclusion-of-roles.1.1'.
 Pattern Step 'exclusion-of-roles.1.1.1' has Position 1.
-Pattern Step 'exclusion-of-roles.1.1.1' is of Pattern Construct 'RolePlayer'.
-Pattern Step 'exclusion-of-roles.1.1.1' matches Role Match 'primary'.
+Pattern Step 'exclusion-of-roles.1.1.1' is of Pattern Construct 'IterateFactRoles'.
+Pattern Step 'exclusion-of-roles.1.1.1' has List Style 'SimpleList'.
 Pattern Step 'exclusion-of-roles.1.1.1.1' fills a field of Pattern Step 'exclusion-of-roles.1.1.1'.
 Pattern Step 'exclusion-of-roles.1.1.1.1' has Position 1.
 Pattern Step 'exclusion-of-roles.1.1.1.1' uses Verbalization Snippet 'ObjectTypeName'.
@@ -1395,8 +1395,8 @@ Pattern Step 'partition-of-roles.1.1' has Position 1.
 Pattern Step 'partition-of-roles.1.1' uses Verbalization Snippet 'GroupExclusiveOr'.
 Pattern Step 'partition-of-roles.1.1.1' fills a field of Pattern Step 'partition-of-roles.1.1'.
 Pattern Step 'partition-of-roles.1.1.1' has Position 1.
-Pattern Step 'partition-of-roles.1.1.1' is of Pattern Construct 'RolePlayer'.
-Pattern Step 'partition-of-roles.1.1.1' matches Role Match 'primary'.
+Pattern Step 'partition-of-roles.1.1.1' is of Pattern Construct 'IterateFactRoles'.
+Pattern Step 'partition-of-roles.1.1.1' has List Style 'SimpleList'.
 Pattern Step 'partition-of-roles.1.1.1.1' fills a field of Pattern Step 'partition-of-roles.1.1.1'.
 Pattern Step 'partition-of-roles.1.1.1.1' has Position 1.
 Pattern Step 'partition-of-roles.1.1.1.1' uses Verbalization Snippet 'ObjectTypeName'.
