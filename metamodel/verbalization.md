@@ -160,6 +160,7 @@ Verbalization Pattern has Fact Count.
 Verbalization Pattern has Verbalization Sign.
   Each Verbalization Pattern has at most one Verbalization Sign.
 Verbalization Pattern requires lead reading.
+Verbalization Pattern requires free lead reading.
 Verbalization Pattern distinguishes repeated players.
 Verbalization Pattern reads subtype links.
 Verbalization Pattern starts with Pattern Step.
@@ -219,6 +220,7 @@ Verbalization Snippet 'Conditional' in Modality Type 'Alethic' and Verbalization
 Verbalization Snippet 'Conjunction' in Modality Type 'Alethic' and Verbalization Sign 'positive' reads Snippet Text '{0} and {1}'.
 Verbalization Snippet 'Juxtaposition' in Modality Type 'Alethic' and Verbalization Sign 'positive' reads Snippet Text '{0} {1}'.
 Verbalization Snippet 'AcyclicTraversal' in Modality Type 'Alethic' and Verbalization Sign 'positive' reads Snippet Text 'no {0} may cycle back to itself via one or more traversals through {1}'.
+Verbalization Snippet 'ContextCombination' in Modality Type 'Alethic' and Verbalization Sign 'positive' reads Snippet Text 'context: {0}. In this context, each {1} combination is associated with at most one {2}'.
 Verbalization Snippet 'GroupExclusion' in Modality Type 'Alethic' and Verbalization Sign 'positive' reads Snippet Text 'for each {0}, at most one of the following holds: {1}'.
 Verbalization Snippet 'GroupExclusiveOr' in Modality Type 'Alethic' and Verbalization Sign 'positive' reads Snippet Text 'for each {0}, exactly one of the following holds: {1}'.
 Verbalization Snippet 'SubtypeAssertion' in Modality Type 'Alethic' and Verbalization Sign 'positive' reads Snippet Text '{0} is {1}'.
@@ -602,6 +604,7 @@ Verbalization Pattern 'uniqueness-external' has Pattern Example 'For each Domain
 Verbalization Pattern 'uniqueness-external' has Pattern Note 'an external uniqueness over roles of two fact types: the combination of a B and a C identifies at most one A'.
 Verbalization Pattern 'uniqueness-external' verbalizes Constraint Type 'UC'.
 Verbalization Pattern 'uniqueness-external' has Fact Count 'n'.
+Verbalization Pattern 'uniqueness-external' requires free lead reading.
 Verbalization Pattern 'uniqueness-external' has Verbalization Sign 'positive'.
 Verbalization Pattern 'uniqueness-external' starts with Pattern Step 'uniqueness-external.1'.
 Pattern Step 'uniqueness-external.1' uses Verbalization Snippet 'ForEachCompactQuantifier'.
@@ -639,10 +642,51 @@ Pattern Step 'uniqueness-external.1.2.1.2.1.1.1' fills a field of Pattern Step '
 Pattern Step 'uniqueness-external.1.2.1.2.1.1.1' has Position 1.
 Pattern Step 'uniqueness-external.1.2.1.2.1.1.1' uses Verbalization Snippet 'DefiniteArticle'.
 
+Verbalization Pattern 'uniqueness-external-context' is in Pattern Family 'uniqueness'.
+Verbalization Pattern 'uniqueness-external-context' has Pattern Form 'Context: A R B; C S A. In this context, each B, C combination is associated with at most one A.'.
+Verbalization Pattern 'uniqueness-external-context' has Pattern Example 'Context: Scenario has Scenario Step; Scenario Step has Step Position. In this context, each Scenario, Step Position combination is associated with at most one Scenario Step.'.
+Verbalization Pattern 'uniqueness-external-context' has Pattern Note 'an external uniqueness whose first fact does not open with the role it leaves free, so no sentence can lead from that role: each fact is said whole, then the combination'.
+Verbalization Pattern 'uniqueness-external-context' verbalizes Constraint Type 'UC'.
+Verbalization Pattern 'uniqueness-external-context' has Fact Count 'n'.
+Verbalization Pattern 'uniqueness-external-context' has Verbalization Sign 'positive'.
+Verbalization Pattern 'uniqueness-external-context' starts with Pattern Step 'uniqueness-external-context.1'.
+Pattern Step 'uniqueness-external-context.1' uses Verbalization Snippet 'ImpliedModalNecessityOperator'.
+Pattern Step 'uniqueness-external-context.1.1' fills a field of Pattern Step 'uniqueness-external-context.1'.
+Pattern Step 'uniqueness-external-context.1.1' has Position 1.
+Pattern Step 'uniqueness-external-context.1.1' uses Verbalization Snippet 'ContextCombination'.
+Pattern Step 'uniqueness-external-context.1.1.1' fills a field of Pattern Step 'uniqueness-external-context.1.1'.
+Pattern Step 'uniqueness-external-context.1.1.1' has Position 1.
+Pattern Step 'uniqueness-external-context.1.1.1' is of Pattern Construct 'IterateFacts'.
+Pattern Step 'uniqueness-external-context.1.1.1' has List Style 'SemicolonList'.
+Pattern Step 'uniqueness-external-context.1.1.1.1' fills a field of Pattern Step 'uniqueness-external-context.1.1.1'.
+Pattern Step 'uniqueness-external-context.1.1.1.1' has Position 1.
+Pattern Step 'uniqueness-external-context.1.1.1.1' is of Pattern Construct 'Fact'.
+Pattern Step 'uniqueness-external-context.1.1.1.1.1' fills a field of Pattern Step 'uniqueness-external-context.1.1.1.1'.
+Pattern Step 'uniqueness-external-context.1.1.1.1.1' has Position 1.
+Pattern Step 'uniqueness-external-context.1.1.1.1.1' is of Pattern Construct 'PredicateReplacement'.
+Pattern Step 'uniqueness-external-context.1.1.1.1.1.1' fills a field of Pattern Step 'uniqueness-external-context.1.1.1.1.1'.
+Pattern Step 'uniqueness-external-context.1.1.1.1.1.1' has Position 1.
+Pattern Step 'uniqueness-external-context.1.1.1.1.1.1' uses Verbalization Snippet 'ObjectTypeName'.
+Pattern Step 'uniqueness-external-context.1.1.2' fills a field of Pattern Step 'uniqueness-external-context.1.1'.
+Pattern Step 'uniqueness-external-context.1.1.2' has Position 2.
+Pattern Step 'uniqueness-external-context.1.1.2' is of Pattern Construct 'IterateRoles'.
+Pattern Step 'uniqueness-external-context.1.1.2' has List Style 'CompactList'.
+Pattern Step 'uniqueness-external-context.1.1.2.1' fills a field of Pattern Step 'uniqueness-external-context.1.1.2'.
+Pattern Step 'uniqueness-external-context.1.1.2.1' has Position 1.
+Pattern Step 'uniqueness-external-context.1.1.2.1' uses Verbalization Snippet 'ObjectTypeName'.
+Pattern Step 'uniqueness-external-context.1.1.3' fills a field of Pattern Step 'uniqueness-external-context.1.1'.
+Pattern Step 'uniqueness-external-context.1.1.3' has Position 3.
+Pattern Step 'uniqueness-external-context.1.1.3' is of Pattern Construct 'RolePlayer'.
+Pattern Step 'uniqueness-external-context.1.1.3' matches Role Match 'excluded'.
+Pattern Step 'uniqueness-external-context.1.1.3.1' fills a field of Pattern Step 'uniqueness-external-context.1.1.3'.
+Pattern Step 'uniqueness-external-context.1.1.3.1' has Position 1.
+Pattern Step 'uniqueness-external-context.1.1.3.1' uses Verbalization Snippet 'ObjectTypeName'.
+
 Verbalization Pattern 'uniqueness-external-negative' is in Pattern Family 'uniqueness'.
 Verbalization Pattern 'uniqueness-external-negative' has Pattern Form 'It is impossible that more than one A R the same B and S the same C.'.
 Verbalization Pattern 'uniqueness-external-negative' verbalizes Constraint Type 'UC'.
 Verbalization Pattern 'uniqueness-external-negative' has Fact Count 'n'.
+Verbalization Pattern 'uniqueness-external-negative' requires free lead reading.
 Verbalization Pattern 'uniqueness-external-negative' has Verbalization Sign 'negative'.
 Verbalization Pattern 'uniqueness-external-negative' starts with Pattern Step 'uniqueness-external-negative.1'.
 Pattern Step 'uniqueness-external-negative.1' uses Verbalization Snippet 'ImpliedModalNecessityOperator'.
