@@ -17,6 +17,33 @@ A.load(A.path("AREST_SCENARIOS", __dirname + "/../../engine/shared/scenarios.can
 A.loadBase(A.path("AREST_CARRIERS", __dirname + "/../base"), lambda);
 require("./registrations.js").register(lambda);
 
+// LAWTRACE: a diagnosis aid, never an answer. A SQLite refusal is given the statement it refused, and a
+// failing law prints the lambda names it was inside when it died, innermost last.
+const TRACE = process.env.LAWTRACE !== undefined;
+const PATH = [];
+if (TRACE) {
+  const { Database } = require("bun:sqlite");
+  for (const m of ["query", "prepare", "exec", "run"]) {
+    const f = Database.prototype[m];
+    Database.prototype[m] = function (sql, ...rest) {
+      try { return f.call(this, sql, ...rest); }
+      catch (e) { e.message += " -- SQL: " + String(sql).substring(0, 4000); throw e; }
+    };
+  }
+  // which primitive last answered the text "[]" (a text where lambda may expect a sequence), and on what
+  const prims = A.PRIMS;
+  for (const [name, impl] of [...prims]) {
+    prims.set(name, (x) => {
+      let r;
+      try { r = impl(x); }
+      catch (e) { if (!e.lambdaPath) { e.lambdaPath = name; e.lambdaArg = A.show(x).substring(0, 600); } throw e; }
+      if (r === "[]" || (Array.isArray(r) && r.some((row) => Array.isArray(row) && row.includes("[]"))))
+        PATH.push(name + " on " + A.show(x).substring(0, 1500));
+      return r;
+    });
+  }
+}
+
 let names = process.argv.slice(2);
 if (names.length === 1 && fs.existsSync(names[0])) {
   names = fs.readFileSync(names[0], "utf8").split(/\r?\n/).map((s) => s.trim()).filter((s) => s !== "");
@@ -35,7 +62,9 @@ for (const l of names) {
     const o = A.Ev(l, store);
     r = Array.isArray(o) ? "SEQ " + o.length : A.show(o);
   } catch (e) {
-    r = ("ERROR " + String(e && e.message).replace(/\n/g, " ")).substring(0, 260);
+    r = ("ERROR " + String(e && e.message).replace(/\n/g, " ")).substring(0, TRACE ? 6000 : 260);
+    if (TRACE && e && e.lambdaPath) r += " [in primitive " + e.lambdaPath + " on " + e.lambdaArg + "]";
+    if (TRACE && PATH.length) r += " [last '[]' from " + PATH.slice(-3).join(" | ") + "]";
   }
   if (r !== "T") bad++;
   console.log(l + " " + r + " " + (now() - t) + " ms");
