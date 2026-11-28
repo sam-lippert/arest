@@ -59,9 +59,9 @@ Failure has Failure Type.
   Each Failure has exactly one Failure Type.
 Failure is against Function.
   Each Failure is against at most one Function.
-Failure has input Text.
+Failure has input- Text.
   Each Failure has at most one input Text.
-Failure has reason Text.
+Failure has reason- Text.
   Each Failure has exactly one reason Text.
 Failure has Severity.
   Each Failure has exactly one Severity.

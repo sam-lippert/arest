@@ -751,7 +751,7 @@ Function has Description.
        reader files a sentence under the first fact type it matches in
        reading order, so one declared after this would hold nothing (the
        theft recorded under `Function is called with HTTP Method`). -->
-Function has callback URI.
+Function has callback- URI.
   Each Function has at most one callback URI.
 Function is called with HTTP Method.
   Each Function is called with at most one HTTP Method.
@@ -2037,10 +2037,10 @@ Abstract SQL Type is a value type.
 
 ### Fact types
 
-Value Range has lower Bound.
+Value Range has lower- Bound.
   Each Value Range has at most one lower Bound.
 
-Value Range has upper Bound.
+Value Range has upper- Bound.
   Each Value Range has at most one upper Bound.
 
 Bound has Lexical Value.

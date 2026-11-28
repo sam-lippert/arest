@@ -348,7 +348,7 @@ Table is primarily for Object Type.
 Table is primarily for Fact Type.
   Each Table is primarily for at most one Fact Type.
 
-For each Table, that Table is primarily for some Object Type or that Table is primarily for some Fact Type.
+Each Table is primarily for some Fact Type or is primarily for some Object Type.
   <!-- Inclusive, not exclusive (a fact that is also an object is
        very common): an objectified fact type's one table is primarily for the Fact
        Type and for the Object Type that objectifies it, so a Domain Change touching
