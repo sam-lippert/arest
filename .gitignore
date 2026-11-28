@@ -179,3 +179,4 @@ tools/base/
 # here (bin/, obj/, target/) is ignored for the same reason.
 tools/lib/*.jar
 tools/js-runner/.router.log
+tools/.laws/
