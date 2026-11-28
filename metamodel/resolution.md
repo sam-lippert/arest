@@ -663,6 +663,14 @@ Function 'sqlite:install' yields Type Expression 'path'.
 Function 'module:root' has Definition Origin 'registered'.
 Function 'module:root' accepts Type Expression 'object'.
 Function 'module:root' yields Type Expression 'path'.
+<!-- AND WHAT THE HOST LOADED. module:text is the lambda file's text as the host
+     read it when it loaded its definitions, the same for the life of the
+     process. A check's stamp digests it, so a store is stamped with the text
+     that compiled it and not with a later read of the file; and a host with no
+     file system registers it where a read of a file is not its to offer. -->
+Function 'module:text' has Definition Origin 'registered'.
+Function 'module:text' accepts Type Expression 'object'.
+Function 'module:text' yields Type Expression 'text'.
 <!-- AND A STORE THAT EXISTS, CHANGED IN PLACE. The compile
      changes a store that exists in place (compile:inplace) through seven more
      storage operations -- tables, columns, holds, rows, set_aside, fill,
