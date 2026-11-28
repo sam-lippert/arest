@@ -292,17 +292,26 @@ thread_local! {
 struct Pop;
 impl Drop for Pop { fn drop(&mut self) { STACK.with(|t| { t.borrow_mut().pop(); }); } }
 
-const SCANS: [&str; 4] = ["csdp:matches_at", "theta:filter_eq", "theta:find_desc", "derive:news_for"];
-const TESTS: [&str; 3] = ["csdp:keep_keyed_at", "theta:keep_eq", "theta:keep_named"];
+// The names a profile watches are the measurer's, never the host's: AREST_PROFILE_SCANS names the scans to charge
+// tests to, AREST_PROFILE_TESTS the tests (comma-separated); with neither set, no caller is attributed.
+thread_local! {
+    static SCANS: Vec<String> = names_of("AREST_PROFILE_SCANS");
+    static TESTS: Vec<String> = names_of("AREST_PROFILE_TESTS");
+}
+fn names_of(var: &str) -> Vec<String> {
+    std::env::var(var).ok().map(|v| v.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()).unwrap_or_default()
+}
+fn is_scan(n: &str) -> bool { SCANS.with(|v| v.iter().any(|s| s == n)) }
+fn is_test(n: &str) -> bool { TESTS.with(|v| v.iter().any(|s| s == n)) }
 
 fn attribute(name: &Rc<str>) {
-    let scan = SCANS.contains(&&**name);
-    let test = TESTS.contains(&&**name);
+    let scan = is_scan(name);
+    let test = is_test(name);
     if !scan && !test { return; }
     STACK.with(|t| {
         let t = t.borrow();
         // a scan is charged to itself (it is about to be pushed); a test to the nearest scan on the stack
-        let at = if scan { Some(t.len()) } else { t.iter().rposition(|n| SCANS.contains(&&**n)) };
+        let at = if scan { Some(t.len()) } else { t.iter().rposition(|n| is_scan(n)) };
         let Some(i) = at else { return };
         let me: Rc<str> = if scan { name.clone() } else { t[i].clone() };
         let none: Rc<str> = Rc::from("-");
@@ -326,8 +335,8 @@ pub fn profile_callers(top: usize) -> Vec<String> {
     let mut v: Vec<((Rc<str>, Rc<str>, Rc<str>), (u64, u64))> = BYCALLER.with(|b| b.borrow().iter().map(|(k, n)| (k.clone(), *n)).collect());
     v.sort_by(|p, r| r.1 .1.cmp(&p.1 .1));
     let mut out = Vec::new();
-    for scan in SCANS {
-        for ((s, c1, c2), (calls, tests)) in v.iter().filter(|e| &*e.0 .0 == scan).take(top) {
+    for scan in SCANS.with(|v| v.clone()) {
+        for ((s, c1, c2), (calls, tests)) in v.iter().filter(|e| &*e.0 .0 == scan.as_str()).take(top) {
             out.push(format!("{} <- {} <- {}: {} applications, {} tests", s, c1, c2, calls, tests));
         }
     }
