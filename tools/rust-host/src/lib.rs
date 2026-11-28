@@ -306,8 +306,12 @@ fn attribute(name: &Rc<str>) {
         let Some(i) = at else { return };
         let me: Rc<str> = if scan { name.clone() } else { t[i].clone() };
         let none: Rc<str> = Rc::from("-");
-        let c1 = if i >= 1 { t[i - 1].clone() } else { none.clone() };
-        let c2 = if i >= 2 { t[i - 2].clone() } else { none };
+        // a form lambda defines (CONS, CONST: an upper-case name) is on the stack but says nothing of who
+        // called; the callers are the nearest named DEFs below the scan that are not forms
+        let form = |n: &Rc<str>| n.chars().all(|c| !c.is_ascii_lowercase());
+        let mut up = t[..i].iter().rev().filter(|n| !form(n));
+        let c1 = up.next().cloned().unwrap_or_else(|| none.clone());
+        let c2 = up.next().cloned().unwrap_or(none);
         BYCALLER.with(|b| {
             let mut b = b.borrow_mut();
             let e = b.entry((me, c1, c2)).or_insert((0, 0));
