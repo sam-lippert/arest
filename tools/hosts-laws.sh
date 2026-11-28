@@ -6,7 +6,8 @@
 #
 #   sh tools/hosts-laws.sh [lambda-law-list] [host...]
 #
-# Hosts: java js cs rust wasm (all by default). The base is tools/base (AREST_CARRIERS to change it): build it
+# Hosts: java js cs rust wasm (all by default), and solidity: the contracts lambda generates, built and tested
+# by forge (contracts/). The base is tools/base (AREST_CARRIERS to change it): build it
 # with Java's compile-store of the metamodel, as its README says. Each host is built first where it builds.
 # Output goes to tools/.laws/<host>.<suite>.out; the summary prints laws answered, T and seconds.
 set -u
@@ -49,6 +50,13 @@ lawrun() {    # the host's law run over the booted base
 
 printf "%-6s %-7s %6s %6s %8s\n" host suite laws T seconds
 for h in $hosts; do
+  if [ "$h" = solidity ]; then
+    s=$(date +%s)
+    (cd "$root/contracts" && forge test) > "$out/solidity.forge.out" 2>&1
+    printf "%-6s %-7s %6s %6s %8s
+" sol forge "$(grep -c '^\[\(PASS\|FAIL\)' "$out/solidity.forge.out")" "$(grep -c '^\[PASS' "$out/solidity.forge.out")" "$(( $(date +%s) - s ))"
+    continue
+  fi
   build "$h" || { echo "$h: build failed"; continue; }
   s=$(date +%s)
   ( export AREST_LAMBDA="$root/kernel" AREST_TESTS="$root/kernel.tests" AREST_SCENARIOS="$root/kernel.forms" AREST_CARRIERS="$base"; program "$h" ) > "$out/$h.kernel.out" 2>&1
