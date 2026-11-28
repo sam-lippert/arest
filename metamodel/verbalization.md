@@ -1450,10 +1450,32 @@ Verbalization Pattern 'deontic-obligation' has Pattern Form 'It is obligatory th
 Verbalization Pattern 'deontic-obligation' has Pattern Example 'It is obligatory that each Object Type plays some Role.'.
 Verbalization Pattern 'deontic-obligation' has Pattern Note 'a deontic constraint warns and commits where an alethic one rejects; It is forbidden that is the other one, and the body is any constraint sentence; a permission is not a modality but a fact of a permission fact type (security.md)'.
 
+Verbalization Pattern 'prohibition-of-fact' is in Pattern Family 'deontic'.
+Verbalization Pattern 'prohibition-of-fact' has Pattern Form 'It is forbidden that some A R some B.'.
+Verbalization Pattern 'prohibition-of-fact' has Pattern Example 'It is forbidden that some Constraint is redundant.'.
+Verbalization Pattern 'prohibition-of-fact' has Pattern Note 'a prohibition of a fact: no A may R a B, said as the fact with each of its players some; it spans every role of the fact, where a constraint stated as its Text is anchored to one; the reader takes a, an and a bare name for some'.
+Verbalization Pattern 'prohibition-of-fact' verbalizes Constraint Type 'DF_pop'.
+Verbalization Pattern 'prohibition-of-fact' has Constraint Arity 'n'.
+Verbalization Pattern 'prohibition-of-fact' has Fact Count '1'.
+Verbalization Pattern 'prohibition-of-fact' has Verbalization Sign 'positive'.
+Verbalization Pattern 'prohibition-of-fact' distinguishes repeated players.
+Verbalization Pattern 'prohibition-of-fact' starts with Pattern Step 'prohibition-of-fact.1'.
+Pattern Step 'prohibition-of-fact.1' uses Verbalization Snippet 'ModalImpossibilityOperator'.
+Pattern Step 'prohibition-of-fact.1.1' fills a field of Pattern Step 'prohibition-of-fact.1'.
+Pattern Step 'prohibition-of-fact.1.1' has Position 1.
+Pattern Step 'prohibition-of-fact.1.1' is of Pattern Construct 'Fact'.
+Pattern Step 'prohibition-of-fact.1.1.1' fills a field of Pattern Step 'prohibition-of-fact.1.1'.
+Pattern Step 'prohibition-of-fact.1.1.1' has Position 1.
+Pattern Step 'prohibition-of-fact.1.1.1' is of Pattern Construct 'PredicateReplacement'.
+Pattern Step 'prohibition-of-fact.1.1.1.1' fills a field of Pattern Step 'prohibition-of-fact.1.1.1'.
+Pattern Step 'prohibition-of-fact.1.1.1.1' has Position 1.
+Pattern Step 'prohibition-of-fact.1.1.1.1' uses Verbalization Snippet 'ExistentialQuantifier'.
+
 Verbalization Pattern 'constraint-text' is in Pattern Family 'deontic'.
 Verbalization Pattern 'constraint-text' has Pattern Form 'It is obligatory that ...'.
-Verbalization Pattern 'constraint-text' has Pattern Note 'a constraint stated as a sentence the compiler builds no shape for verbalizes as its Text; a constraint of a shape some pattern reads is never verbalized so'.
+Verbalization Pattern 'constraint-text' has Pattern Note 'a constraint stated as a sentence the compiler builds no shape for verbalizes as its Text, anchored to the one role it spans: a constraint compiled over several roles that no pattern reads is not said back by repeating its sentence; a constraint of a shape some pattern reads is never verbalized so'.
 Verbalization Pattern 'constraint-text' has Verbalization Sign 'positive'.
+Verbalization Pattern 'constraint-text' has Constraint Arity '1'.
 Verbalization Pattern 'constraint-text' starts with Pattern Step 'constraint-text.1'.
 Pattern Step 'constraint-text.1' is of Pattern Construct 'ConstraintText'.
 
