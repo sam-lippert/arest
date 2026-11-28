@@ -283,6 +283,53 @@ thread_local! {
     static COUNTS: RefCell<HashMap<Rc<str>, u64, Fx>> = RefCell::new(HashMap::default());
 }
 
+thread_local! {
+    // the named DEFs being applied, innermost last, and per (scan, caller, caller's caller): the scan's
+    // applications and the predicate tests made under it
+    static STACK: RefCell<Vec<Rc<str>>> = const { RefCell::new(Vec::new()) };
+    static BYCALLER: RefCell<HashMap<(Rc<str>, Rc<str>, Rc<str>), (u64, u64), Fx>> = RefCell::new(HashMap::default());
+}
+struct Pop;
+impl Drop for Pop { fn drop(&mut self) { STACK.with(|t| { t.borrow_mut().pop(); }); } }
+
+const SCANS: [&str; 4] = ["csdp:matches_at", "theta:filter_eq", "theta:find_desc", "derive:news_for"];
+const TESTS: [&str; 3] = ["csdp:keep_keyed_at", "theta:keep_eq", "theta:keep_named"];
+
+fn attribute(name: &Rc<str>) {
+    let scan = SCANS.contains(&&**name);
+    let test = TESTS.contains(&&**name);
+    if !scan && !test { return; }
+    STACK.with(|t| {
+        let t = t.borrow();
+        // a scan is charged to itself (it is about to be pushed); a test to the nearest scan on the stack
+        let at = if scan { Some(t.len()) } else { t.iter().rposition(|n| SCANS.contains(&&**n)) };
+        let Some(i) = at else { return };
+        let me: Rc<str> = if scan { name.clone() } else { t[i].clone() };
+        let none: Rc<str> = Rc::from("-");
+        let c1 = if i >= 1 { t[i - 1].clone() } else { none.clone() };
+        let c2 = if i >= 2 { t[i - 2].clone() } else { none };
+        BYCALLER.with(|b| {
+            let mut b = b.borrow_mut();
+            let e = b.entry((me, c1, c2)).or_insert((0, 0));
+            if scan { e.0 += 1 } else { e.1 += 1 }
+        });
+    });
+}
+
+/// For each scan, its callers two levels up with the scan's applications and the tests made under it, the
+/// heaviest first, when AREST_PROFILE is set.
+pub fn profile_callers(top: usize) -> Vec<String> {
+    let mut v: Vec<((Rc<str>, Rc<str>, Rc<str>), (u64, u64))> = BYCALLER.with(|b| b.borrow().iter().map(|(k, n)| (k.clone(), *n)).collect());
+    v.sort_by(|p, r| r.1 .1.cmp(&p.1 .1));
+    let mut out = Vec::new();
+    for scan in SCANS {
+        for ((s, c1, c2), (calls, tests)) in v.iter().filter(|e| &*e.0 .0 == scan).take(top) {
+            out.push(format!("{} <- {} <- {}: {} applications, {} tests", s, c1, c2, calls, tests));
+        }
+    }
+    out
+}
+
 /// The names applied most, with their counts, when AREST_PROFILE is set.
 pub fn profile(top: usize) -> Vec<(String, u64)> {
     let mut v: Vec<(String, u64)> = COUNTS.with(|c| c.borrow().iter().map(|(k, n)| (k.to_string(), *n)).collect());
@@ -302,7 +349,13 @@ pub fn ev(f: &V, x: &V) -> R {
         }
         V::S(s) => {
             if let Some(body) = DEFS.with(|d| d.borrow().get(&**s).cloned()) {
-                if PROFILING.with(|p| p.get()) { COUNTS.with(|c| *c.borrow_mut().entry(s.clone()).or_insert(0) += 1); }
+                if PROFILING.with(|p| p.get()) {
+                    COUNTS.with(|c| *c.borrow_mut().entry(s.clone()).or_insert(0) += 1);
+                    attribute(s);
+                    STACK.with(|t| t.borrow_mut().push(s.clone()));
+                    let _pop = Pop;
+                    return ev(&body, x);
+                }
                 return ev(&body, x);
             }
             if let Some(p) = PRIMS.with(|p| p.borrow().get(&**s).cloned()) { return p(x); }
