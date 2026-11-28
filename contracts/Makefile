@@ -1,13 +1,15 @@
 # Makefile for the Foundry contracts project.
 #
 # The source of truth is readings/*.md. Everything under src/ and
-# script/Deploy.s.sol is lambda's to generate (its solidity generator,
-# asked through any host's program: the Rust host by default). Edit
-# readings, run `make gen`, commit the regenerated Solidity.
-#
-# The generator's address is lambda's and is not settled yet: until it
-# is, GEN_CONTRACTS and GEN_DEPLOY are empty and `make gen` says so
-# rather than writing anything.
+# script/Deploy.s.sol is lambda's to generate, asked through any host's
+# program (the Rust host by default; HOST names another). `make gen` is
+# two steps: the readings are compiled into a store over the metamodel's
+# base (compile-store), then lambda is asked, over that store, for the
+# contracts (solidity <Object Type...>) and the Foundry script that makes
+# them (solidity-deploy <Object Type...>). With no object types named,
+# lambda answers every machine in the store, the metamodel's own included,
+# so OBJECTS names the fixture's. Edit readings, run `make gen`, commit
+# the regenerated Solidity.
 #
 # Readings directory defaults to ./readings. Override for your own domain:
 #
@@ -17,22 +19,27 @@
 
 READINGS ?= readings
 # any host's six-line program: java, js, cs, rust and wasm answer alike
-HOST          ?= ../tools/rust-host/target/release/arest-host
-GEN_CONTRACTS ?=
-GEN_DEPLOY    ?=
+ROOT    := $(abspath $(CURDIR)/..)
+HOST    ?= $(ROOT)/tools/rust-host/target/release/arest-host
+BASE    ?= $(ROOT)/tools/base
+STORE   ?= $(CURDIR)/.store
+OBJECTS ?= Order
+LAMBDA  := AREST_LAMBDA=$(ROOT)/arest AREST_TESTS=$(ROOT)/arest.tests AREST_SCENARIOS=$(ROOT)/engine/shared/scenarios.canon
 
-.PHONY: gen gen-contracts gen-deploy build test anvil deploy-local deploy-sepolia deploy clean help
+.PHONY: gen gen-store gen-contracts gen-deploy build test anvil deploy-local deploy-sepolia deploy clean help
 
 gen: gen-contracts gen-deploy ## Regenerate Solidity + deploy script from readings/
 	@echo "Regenerated src/Generated.sol and script/Deploy.s.sol from $(READINGS)"
 
-gen-contracts: ## Regenerate src/Generated.sol only
-	@test -n "$(GEN_CONTRACTS)" || { echo "lambda's solidity generator has no address yet (set GEN_CONTRACTS)"; exit 1; }
-	$(HOST) $(GEN_CONTRACTS) $(CURDIR)/$(READINGS) > $(CURDIR)/src/Generated.sol.build && mv $(CURDIR)/src/Generated.sol.build $(CURDIR)/src/Generated.sol
+gen-store: ## Compile readings/ into a store over the metamodel's base
+	rm -rf $(STORE) && mkdir -p $(STORE)
+	$(LAMBDA) AREST_CARRIERS=$(BASE) $(HOST) compile-store $(STORE) $(CURDIR)/$(READINGS)
 
-gen-deploy: ## Regenerate script/Deploy.s.sol only
-	@test -n "$(GEN_DEPLOY)" || { echo "lambda's deploy generator has no address yet (set GEN_DEPLOY)"; exit 1; }
-	$(HOST) $(GEN_DEPLOY) $(CURDIR)/$(READINGS) > $(CURDIR)/script/Deploy.s.sol.build && mv $(CURDIR)/script/Deploy.s.sol.build $(CURDIR)/script/Deploy.s.sol
+gen-contracts: gen-store ## Regenerate src/Generated.sol only
+	$(LAMBDA) AREST_CARRIERS=$(STORE) $(HOST) solidity $(OBJECTS) > $(CURDIR)/src/Generated.sol.build && mv $(CURDIR)/src/Generated.sol.build $(CURDIR)/src/Generated.sol
+
+gen-deploy: gen-store ## Regenerate script/Deploy.s.sol only
+	$(LAMBDA) AREST_CARRIERS=$(STORE) $(HOST) solidity-deploy $(OBJECTS) > $(CURDIR)/script/Deploy.s.sol.build && mv $(CURDIR)/script/Deploy.s.sol.build $(CURDIR)/script/Deploy.s.sol
 
 build: ## forge build
 	forge build
