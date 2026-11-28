@@ -102,7 +102,7 @@ public static class Registrations
         });
         Arest.Register("sqlite:run", Run);
         // a read asks on the path's kept read connection (watched)
-        Arest.Register("sqlite:query", x => Query(Watched(Text(Arest.At(x, 0))), Text(Arest.At(x, 1)), Arest.Seq(Arest.At(x, 2)), false));
+        Arest.Register("sqlite:query", x => { var p = Text(Arest.At(x, 0)); return Query(Watched(p), Text(Arest.At(x, 1)), Arest.Seq(Arest.At(x, 2)), false, CACHE[p]); });
         Arest.Register("sqlite:scratch", x =>
         {
             var db = Open(":memory:", false);
@@ -288,7 +288,7 @@ public static class Registrations
 
     static sqlite3_stmt Prepare(sqlite3 db, string sql)
     {
-        sqlite3_stmt st;
+        sqlite3_stmt st = null;
         int rc = raw.sqlite3_prepare_v2(db, sql, out st);
         if (rc != raw.SQLITE_OK) throw new Exception(raw.sqlite3_errmsg(db).utf8_to_string());
         return st;
@@ -306,10 +306,15 @@ public static class Registrations
         }
     }
 
-    // a statement's rows, each value the text SQLite gives it and NULL as #
-    static object[] Query(sqlite3 db, string sql, object[] ps, bool hashIsNull)
+    // a statement's rows, each value the text SQLite gives it and NULL as #. On a kept read connection the statement is
+    // prepared once and kept, as bun:sqlite's db.query keeps it: preparing lambda's deep view chains again for every read
+    // is most of a read's cost.
+    static object[] Query(sqlite3 db, string sql, object[] ps, bool hashIsNull, Dictionary<string, sqlite3_stmt> cache = null)
     {
-        var st = Prepare(db, sql);
+        sqlite3_stmt st = null;
+        bool kept = cache != null && cache.TryGetValue(sql, out st);
+        if (kept) { raw.sqlite3_reset(st); raw.sqlite3_clear_bindings(st); }
+        else { st = Prepare(db, sql); if (cache != null) { cache[sql] = st; kept = true; } }
         try
         {
             Bind(db, st, ps, hashIsNull);
@@ -326,7 +331,7 @@ public static class Registrations
             }
             return rows.ToArray();
         }
-        finally { raw.sqlite3_finalize(st); }
+        finally { if (kept) raw.sqlite3_reset(st); else raw.sqlite3_finalize(st); }
     }
 
     // run one statement to its end, rows discarded
@@ -459,17 +464,24 @@ public static class Registrations
     // PRAGMA data_version moves when ANOTHER connection commits, so it is asked on a connection kept read-only,
     // one per path, closed before its file is removed or renamed; sqlite:query reads on it too
     static readonly Dictionary<string, sqlite3> WATCHED = new Dictionary<string, sqlite3>(StringComparer.Ordinal);
+    static readonly Dictionary<string, Dictionary<string, sqlite3_stmt>> CACHE = new Dictionary<string, Dictionary<string, sqlite3_stmt>>(StringComparer.Ordinal);
 
     static sqlite3 Watched(string p)
     {
         sqlite3 db;
-        if (!WATCHED.TryGetValue(p, out db)) { db = Open(p, true); WATCHED[p] = db; }
+        if (!WATCHED.TryGetValue(p, out db)) { db = Open(p, true); WATCHED[p] = db; CACHE[p] = new Dictionary<string, sqlite3_stmt>(StringComparer.Ordinal); }
         return db;
     }
 
     static void Unwatch(string p)
     {
         sqlite3 db;
-        if (WATCHED.TryGetValue(p, out db)) { WATCHED.Remove(p); try { raw.sqlite3_close_v2(db); } catch { } }
+        if (WATCHED.TryGetValue(p, out db))
+        {
+            WATCHED.Remove(p);
+            Dictionary<string, sqlite3_stmt> kept;
+            if (CACHE.TryGetValue(p, out kept)) { foreach (var st in kept.Values) raw.sqlite3_finalize(st); CACHE.Remove(p); }
+            try { raw.sqlite3_close_v2(db); } catch { }
+        }
     }
 }

@@ -94,12 +94,12 @@ public static partial class Arest
     {
         // Backus's primitives (11.2.3), each as Arest.java defines it
         PRIMS["id"] = x => x;
-        PRIMS["tl"] = x => { var a = Seq(x); if (a.Length == 0) throw new Exception("tl of <>"); return a.Skip(1).ToArray(); };
+        PRIMS["tl"] = x => { var a = Seq(x); if (a.Length == 0) throw new Exception("tl of <>"); var r = new object[a.Length - 1]; Array.Copy(a, 1, r, 0, r.Length); return r; };
         PRIMS["atom"] = x => Bool(!(x is object[]));
         PRIMS["apndl"] = x => { var p = Seq(x); var t = Seq(p[1]); var r = new object[t.Length + 1]; r[0] = p[0]; Array.Copy(t, 0, r, 1, t.Length); return r; };
         PRIMS["apndr"] = x => { var p = Seq(x); var h = Seq(p[0]); var r = new object[h.Length + 1]; Array.Copy(h, r, h.Length); r[h.Length] = p[1]; return r; };
-        PRIMS["distl"] = x => { var p = Seq(x); return Seq(p[1]).Select(e => (object)new[] { p[0], e }).ToArray(); };
-        PRIMS["distr"] = x => { var p = Seq(x); return Seq(p[0]).Select(e => (object)new[] { e, p[1] }).ToArray(); };
+        PRIMS["distl"] = x => { var p = Seq(x); var t = Seq(p[1]); var r = new object[t.Length]; for (int i = 0; i < t.Length; i++) r[i] = new object[] { p[0], t[i] }; return r; };
+        PRIMS["distr"] = x => { var p = Seq(x); var t = Seq(p[0]); var r = new object[t.Length]; for (int i = 0; i < t.Length; i++) r[i] = new object[] { t[i], p[1] }; return r; };
         PRIMS["cat"] = x => { var p = Seq(x); var a = Seq(p[0]); var b = Seq(p[1]); var r = new object[a.Length + b.Length]; Array.Copy(a, r, a.Length); Array.Copy(b, 0, r, a.Length, b.Length); return r; };
         PRIMS["null"] = x => Bool(x is object[] s && s.Length == 0);
         PRIMS["eq"] = x => { var p = Seq(x); return Bool(DeepEq(p[0], p[1])); };
@@ -203,7 +203,7 @@ public static partial class Arest
                 return v;
             }
             case "COND": return "T".Equals(Ev(form[1], x) as string) ? Ev(form[2], x) : Ev(form[3], x);
-            case "ALPHA": return Seq(x).Select(e => Ev(form[1], e)).ToArray();
+            case "ALPHA": { var xs = Seq(x); var r = new object[xs.Length]; for (int i = 0; i < xs.Length; i++) r[i] = Ev(form[1], xs[i]); return r; }
             case "INSERT":
             {
                 var xs = Seq(x);
