@@ -23,7 +23,7 @@ required-features = ["platform"]
 
 [[bin]]
 name = "arest-laws"
-path = "src/bin/laws.rs"
+path = "src/laws.rs"
 required-features = ["platform"]
 
 [features]
