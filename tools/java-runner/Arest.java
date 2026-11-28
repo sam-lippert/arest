@@ -72,6 +72,7 @@ public class Arest {
             // a sync looks up is filtered from: over a large app's store each lookup recomputed them, 18 s a time.
             "fed:ot_facts"));
     static boolean memoable(String f) {
+        if (NO_MEMO) return false;
         return MEMOCN.contains(f) || f.startsWith("rmap:") || f.startsWith("state:");
     }
     // Any harness that mutates CELLS between evaluations MUST call this at
@@ -233,7 +234,17 @@ public class Arest {
     // twins: under it no store keeps a connection either (Registrations.kept),
     // so what a run without it costs is what lambda costs on a plain host.
     // A profiled run names the ones it used (hostText).
-    static final boolean NO_OVERRIDE = System.getenv("AREST_NO_OVERRIDE") != null;
+    //
+    // Two switches, so each help is measured apart: a cost the memo or a twin hides is the canon's to remove, by
+    // stating the remembered value in lambda or by an algorithm that needs no memory. AREST_NO_TWINS turns off every
+    // twin and index and the kept connection (AREST_NO_OVERRIDE is its old name); AREST_NO_MEMO turns off the memo.
+    // Both set is what the other hosts run. Each says so once, on stderr, so a log says which run it was.
+    static final boolean NO_OVERRIDE = System.getenv("AREST_NO_TWINS") != null || System.getenv("AREST_NO_OVERRIDE") != null;
+    static final boolean NO_MEMO = System.getenv("AREST_NO_MEMO") != null;
+    static {
+        if (NO_OVERRIDE) System.err.println("arest: twins, indexes and kept connections off (AREST_NO_TWINS)");
+        if (NO_MEMO) System.err.println("arest: memo off (AREST_NO_MEMO)");
+    }
     // under the profiler, each twin's name to the times it was consulted
     static final Map<String, long[]> TWINUSE = new java.util.concurrent.ConcurrentHashMap<String, long[]>();
     static {
