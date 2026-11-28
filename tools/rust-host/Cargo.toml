@@ -3,17 +3,15 @@ name = "arest-host"
 version = "0.1.0"
 edition = "2021"
 
-# No dependencies, on purpose. A host is the registration vocabulary, a
-# strict mu, the Backus base, and the six-line host contract — nothing that
-# needs a crate. The sibling hosts (js host.js, java Arest.java, cs
-# Mu.cs) carry no dependencies either; tools/rust-runner's `arest-proc` is a
-# DIFFERENT artifact (the procedural projection, which uses rayon), not a mu.
-[dependencies]
-
-# THE MU IS A LIBRARY as well as a binary. engine/os asks the same lambda
-# through the same evaluator, and a second copy of a mu is how the first two
-# js runners died -- so there is one, with two callers. src/main.rs is the
-# CLI over it and nothing more; the six-line contract lives in the lib.
+# THE MU IS A LIBRARY with three callers: the CLI (src/main.rs, src/laws.rs), engine/os on bare UEFI,
+# and a wasm module (src/wasm.rs). Lambda is READ at run time, as the Java, JS and C# hosts read it: from
+# files on the CLI, from text embedded in the image on UEFI (feature "embedded"), from its loader on wasm.
+# Compiling lambda as Rust source took minutes per edit and the golden never finished; reading it takes a
+# second.
+#
+# The mu itself needs no crate. The platform's registrations do (feature "platform", the CLI's): SQLite,
+# SHA-256, AES-GCM, base64 and entropy, as the other hosts take them from their runtimes. SQLite is the one
+# rusqlite bundles, pinned near the Java host's sqlite-jdbc (3.47) so the hosts answer from the same engine.
 [lib]
 name = "arest_host"
 path = "src/lib.rs"
@@ -21,22 +19,31 @@ path = "src/lib.rs"
 [[bin]]
 name = "arest-host"
 path = "src/main.rs"
+required-features = ["platform"]
+
+[[bin]]
+name = "arest-laws"
+path = "src/laws.rs"
+required-features = ["platform"]
+
+[features]
+default = ["platform"]
+platform = ["dep:rusqlite", "dep:sha2", "dep:aes-gcm", "dep:base64", "dep:getrandom", "dep:mimalloc"]
+embedded = []
+
+[dependencies]
+rusqlite = { version = "=0.32.1", features = ["bundled"], optional = true }
+sha2 = { version = "0.10", optional = true }
+aes-gcm = { version = "0.10", optional = true }
+base64 = { version = "0.22", optional = true }
+getrandom = { version = "0.2", optional = true }
+# the system allocator on Windows is slow for the many small values a mu makes; speed only
+mimalloc = { version = "0.1", default-features = false, optional = true }
 
 [profile.release]
 opt-level = 3
+debug = false
 
-# The host is compared against three JIT'd hosts (bun, the JVM, .NET), so an
-# unoptimized build is not a fair or useful comparison — but full release never
-# finishes: LLVM cannot chew one ~1.7 MB include!d expression in reasonable
-# time. opt-level 1 optimizes the mu and the base while leaving the giant lambda
-# body cheap to codegen; the whole point is that DEF calls are executed once at
-# load, so nothing is lost by not optimizing them.
 [profile.dev]
 opt-level = 1
-# LAMBDA IS EXECUTED ONCE AT LOAD AND NEVER STEPPED THROUGH, so full debug info
-# over ~450 generated fns holding 1.7 MB of nested constructor calls buys
-# nothing and costs codegen time. Incremental is off for the same reason: build.rs
-# regenerates canon.rs whenever a carrier changes, so the cache rarely hits and
-# writing it is pure overhead. Set debug = 1 if line-table backtraces are wanted.
 debug = false
-incremental = false

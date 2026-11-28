@@ -1,31 +1,22 @@
-// rust-host's CLI, and the whole binary. The mu, the Backus base, the
-// registration vocabulary and lambda itself live in lib.rs beside this file,
-// because engine/os needs the same evaluator and a second copy of a mu is how
-// the first two js runners died. What is left here is the six-line contract's
-// outermost layer: argv in, lambda's text out, lambda's flag as the exit code.
+// THE HOST CONTRACT, a peer of tools/java-runner/Program.java, tools/js-runner/program.js and
+// tools/cs-runner/Program.cs: read lambda, the case table and the base, register the platform, and print
+// what lambda's `main` answers over the cells and the command line, then LF, exiting by the flag. All
+// dispatch, the boot included, and all text live in lambda.
+//
+//   arest-host <address...>
 
-fn run() {
+fn run() -> i32 {
     let argv: Vec<String> = std::env::args().skip(1).collect();
     let addr: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
-    let (text, ok) = arest_host::ask(&addr);
-    print!("{}
-", text);
-    std::process::exit(if ok { 0 } else { 1 });
+    let answer = arest_host::load_from_env()
+        .and_then(|lambda| arest_host::platform::register_all(&lambda))
+        .and_then(|_| arest_host::ask(&addr));
+    match answer {
+        Ok((text, ok)) => { print!("{}\n", text); if ok { 0 } else { 1 } }
+        Err(e) => { eprintln!("{}", e); 2 }
+    }
 }
 
 fn main() {
-    // The lambda is ONE deeply nested expression, so merely BUILDING it recurses
-    // past the main thread's default stack, and mu then recurses deeper still.
-    // The same reduction forces the same budget on every host (the js host's
-    // node stack flag, the wasm -zstack-size flag, and the lib's own tests).
-    //
-    // This is the line engine/os cannot copy: UEFI has no threads to spawn one
-    // on, so the OS gets its stack from the image header instead. Recorded
-    // there, at the call it constrains.
-    std::thread::Builder::new()
-        .stack_size(512 * 1024 * 1024)
-        .spawn(run)
-        .expect("spawn")
-        .join()
-        .expect("join");
+    std::process::exit(arest_host::deep(run));
 }

@@ -1,1554 +1,761 @@
-// rust-host — the fourth thin mu, mirroring tools/js-runner/head.part.js
-// point for point (as tools/java-runner/Arest.java and tools/cs-runner/Mu.cs
-// already do). No law semantics live here: the laws are lambda DEFs, and if a
-// guard or a mode name ever appears in this file, delete it — accretion is how
-// the first two js runners died.
+// arest-host -- the vocabulary's mu, STRICT, a peer of tools/java-runner/Arest.java,
+// tools/js-runner/arest.js and tools/cs-runner/Mu.cs, written from the JS host line for line.
 //
-// WHY THIS EXISTS. engine/rust is 19,664 lines and had drifted from its own
-// documented behavior: README.md's known-good table records "1,000 fetches on
-// D: 337 us (0.34 us per fetch, since Map is O(1))", while its NEval resolved
-// every named application with `self.cells.iter().find(..)` — a linear scan.
-// That pipeline is measured under 700 ms on 414 KB of readings; the same host
-// could not finish a 230 KB metamodel compile in 900 s. A host is ~500
-// lines, not ~19,000, and byte-identity against the other three certifies it.
+// A selector on an atom is bottom, a comparison across atom kinds is bottom, an out-of-range
+// selection is bottom. Booleans are the atoms "T" and "F", a number is a 64-bit integer whose
+// arithmetic is checked (a result past 64 bits is bottom), a text is a string and a sequence a
+// vector. Bottom is an Err carrying its reason, never a panic, so the same evaluator runs where a
+// panic cannot be caught (wasm) or must not happen (UEFI). No meaning lives here and no speed: no
+// memo and no twin, since a strategy a host keeps is one every other host must keep too.
 //
-// TRANSLITERATED FROM Arest.java, NOT from engine/rust. The two mus are
-// different machines: engine/rust implements true FFP metacomposition
-// (<f1..fn>:x = f1:<<f1..fn>,x>, so COMP/CONS resolve as NAMES), while the js
-// head — which java and cs mirror — dispatches the seven forms directly and
-// throws on anything else. They agree on lambda, which only uses the seven, but
-// only the js shape is certified byte-identical, so that is the shape copied.
-// engine/rust's prims also ride a richer Leaf (F, AppTag) and a resolve_def
-// override table a host must not have.
-//
-// The lambda and carriers are include!d AS SOURCE and compiled: each file is
-// ONE tuple literal (include! takes a single expression) whose DEF side effects
-// populate DEFS and CELLS in registration order. rustc tokenizes the same bytes
-// bun executes and javac compiles — no JSON store artifact, no bespoke reader.
+// THE MU IS A LIBRARY with three callers: the CLI (src/main.rs, src/laws.rs), engine/os on bare
+// UEFI, and a wasm module. Lambda is READ, not compiled in: a caller hands the texts of lambda, the
+// case table and the scenarios to `load`, from files (the CLI), from bytes embedded in the image
+// (UEFI, feature "embedded") or from its loader (wasm). The platform's registrations are the
+// caller's too (src/platform.rs natively; the loader's on wasm).
+#![allow(clippy::new_without_default)]
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::rc::Rc;
 
-// ============================ the value ======================================
-// Atoms are strings or integers; sequences are Rc'd vectors — mirroring the js
-// head (string | number | array) and Arest.java (String | Integer | Object[]).
-// The printed atoms are the contract, so the value model must agree with them.
-#[derive(Clone)]
-enum V {
+#[cfg(all(feature = "platform", not(target_arch = "wasm32"), not(target_os = "uefi")))]
+pub mod platform;
+
+#[cfg(target_arch = "wasm32")]
+mod wasm;
+
+#[cfg(all(feature = "platform", not(target_arch = "wasm32"), not(target_os = "uefi")))]
+#[global_allocator]
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+// ---- the value -------------------------------------------------------------------------------
+
+#[derive(Clone, Debug)]
+pub enum V {
     S(Rc<str>),
-    I(i64),
+    N(i64),
     Q(Rc<Vec<V>>),
 }
 
-fn a(s: &str) -> V { V::S(Rc::from(s)) }
-fn astr(s: String) -> V { V::S(Rc::from(s.as_str())) }
-fn q(v: Vec<V>) -> V { V::Q(Rc::new(v)) }
-fn boolv(b: bool) -> V { a(if b { "T" } else { "F" }) }
+pub type R = Result<V, String>;
 
-fn seq(x: &V) -> Rc<Vec<V>> {
-    match x {
-        V::Q(v) => v.clone(),
-        V::S(s) => panic!("expected sequence, got atom: {}", s),
-        V::I(i) => panic!("expected sequence, got atom: {}", i),
-    }
+pub fn a(s: &str) -> V { V::S(Rc::from(s)) }
+pub fn q(v: Vec<V>) -> V { V::Q(Rc::new(v)) }
+thread_local! {
+    static TF: (V, V) = (a("T"), a("F"));
 }
+fn boolv(b: bool) -> V { TF.with(|t| if b { t.0.clone() } else { t.1.clone() }) }
+pub fn is_t(x: &V) -> bool { matches!(x, V::S(s) if &**s == "T") }
 
-// 0-based and bounds-checked, exactly like the js head's at()
-fn at(x: &V, i: usize) -> V {
-    let s = seq(x);
-    if i >= s.len() { panic!("index {} out of {}", i, s.len()); }
-    s[i].clone()
-}
-
-fn is_t(x: &V) -> bool { matches!(x, V::S(s) if &**s == "T") }
-
-// deep structural equality; a number and a string are NEVER equal (the js
-// head's strict ===, and cs DeepEq's separate int-vs-string cases)
-fn deep_eq(x: &V, y: &V) -> bool {
-    match (x, y) {
-        (V::S(p), V::S(r)) => p == r,
-        (V::I(p), V::I(r)) => p == r,
-        (V::Q(p), V::Q(r)) => {
-            p.len() == r.len() && p.iter().zip(r.iter()).all(|(m, n)| deep_eq(m, n))
-        }
-        _ => false,
-    }
-}
-
-// both numbers -> numeric; both strings -> ordinal; anything else THROWS
-// Does NOT coerce a numeric-looking string: lambda's eq does not coerce
-// (eq<1,"1"> = F), and a coercing <= would give le<1,"1"> = le<"1",1> = T with
-// eq<1,"1"> = F — antisymmetry violated, so <= would not be an order relation.
-// Mixed int/lexical atoms are a READING-BOUNDARY defect.
-fn cmp_atoms(x: &V, y: &V) -> std::cmp::Ordering {
-    match (x, y) {
-        (V::I(p), V::I(r)) => p.cmp(r),
-        (V::S(p), V::S(r)) => p.as_bytes().cmp(r.as_bytes()),
-        _ => panic!("compare across atom kinds"),
-    }
-}
-
-// js Array.join semantics: an atom stringifies, a nested sequence joins its own
-// elements with "," (Arest.java's String.valueOf would diverge here, but the
-// certified corpus never reaches it, so the js rule is the safe one to keep).
-fn join_text(x: &V) -> String {
+pub fn show(x: &V) -> String {
     match x {
         V::S(s) => s.to_string(),
-        V::I(i) => i.to_string(),
-        V::Q(v) => v.iter().map(join_text).collect::<Vec<_>>().join(","),
-    }
-}
-
-// THE MEMO KEY — by REFERENCE for sequences, by value for atoms, mirroring
-// what a JS Map does natively (`EVMEMO` keys arrays by object identity). This
-// is deliberately NOT the structural key below: an operand is routinely the
-// whole store, so serializing it per call costs more than the reduction it was
-// meant to save. That mistake cost 9m54s for 25 laws before it was measured.
-// js reaches the same place via `chain = len<=4 ? [len, ...x] : [-1, x]`, whose
-// array entries are identity-keyed.
-fn memo_key(x: &V) -> String {
-    // js: `chain = (Array.isArray(x) && x.length <= 4) ? [x.length, ...x]
-    //               : [-1, x]`, whose entries a Map keys by identity.
-    // The SMALL-FRAME CASE IS THE WHOLE POINT. Frames are rebuilt on every
-    // call, so keying a frame by its own address never hits; keying it by its
-    // ELEMENTS' addresses does, because those are the ctx-threaded references
-    // shared across calls. Keying every sequence by its own pointer (the first
-    // attempt here) produced a memo that essentially never hit.
-    match x {
-        V::Q(rc) if rc.len() <= 4 => {
-            let mut k = format!("f{}", rc.len());
-            for e in rc.iter() { k.push('|'); k.push_str(&atom_or_addr(e)); }
-            k
-        }
-        _ => format!("w|{}", atom_or_addr(x)),
-    }
-}
-
-fn atom_or_addr(x: &V) -> String {
-    match x {
-        V::S(s) => format!("s{}:{}", s.len(), s),
-        V::I(i) => format!("i{}", i),
-        V::Q(rc) => format!("q{:p}", Rc::as_ptr(rc)),
-    }
-}
-
-// Canonical key standing in for JSON.stringify's use as a Set/Map key in the
-// FASTPRIMS (dedup, setminus, entsat, find_desc), where VALUE equality is the
-// point. Only the EQUIVALENCE CLASSES matter and both encodings are injective
-// over {string, int, sequence}; length-prefixing makes this one unambiguous.
-fn key(x: &V) -> String {
-    let mut b = String::new();
-    key_into(x, &mut b);
-    b
-}
-fn key_into(x: &V, b: &mut String) {
-    match x {
-        V::S(s) => { b.push('S'); b.push_str(&s.len().to_string()); b.push(':'); b.push_str(s); }
-        V::I(i) => { b.push('N'); b.push_str(&i.to_string()); }
+        V::N(n) => n.to_string(),
         V::Q(v) => {
-            b.push('[');
-            for (i, e) in v.iter().enumerate() { if i > 0 { b.push(','); } key_into(e, b); }
-            b.push(']');
+            let mut o = String::from("<");
+            for (i, e) in v.iter().enumerate() {
+                if i > 0 { o.push_str(", "); }
+                o.push_str(&show(e));
+            }
+            o.push('>');
+            o
         }
     }
 }
 
-// ============================ registration ===================================
-// Registration is INTO DEFS (the paper's platform binding). A duplicate DEF
-// dies loud; test:one_name is the law that says so.
-thread_local! {
-    static DEFS: RefCell<HashMap<String, V>> = RefCell::new(HashMap::new());
-    static CELLS: RefCell<Vec<V>> = RefCell::new(Vec::new());
-    // pure-application memo (see Ev). Evaluation is pure and D is frozen during
-    // a step (Backus 14.6), so a named cell applied to the same input is the
-    // same value. Keys: atoms by value, sequences by the canonical key.
-    // name -> memo_key -> (operand, result). The OPERAND IS RETAINED ON
-    // PURPOSE: memo_key identifies a sequence by its Rc address, and an
-    // address is only unique while the allocation lives. Holding the operand
-    // keeps it alive, so no later sequence can land on the same address and
-    // collide. A JS Map gets this free by holding its keys strongly; dropping
-    // the operand here produced stale hits that surfaced far downstream as
-    // "theta:nth selector out of range".
-    static EVMEMO: RefCell<HashMap<String, HashMap<String, (V, V)>>> =
-        RefCell::new(HashMap::new());
-    static EVMEMON: RefCell<usize> = RefCell::new(0);
-    // list-address -> (retained list, index). Same retention discipline as the
-    // memo: the key is an Rc address, which is unique only while the
-    // allocation lives, so the list is held alongside its index.
-    static ENTIDX: RefCell<HashMap<usize, (V, HashMap<String, Vec<V>>)>> =
-        RefCell::new(HashMap::new());
-    static ENTDESC: RefCell<HashMap<usize, (V, HashMap<String, V>)>> =
-        RefCell::new(HashMap::new());
-    // The join / lookup indexes. Each mirrors a js host WeakMap (matchRows'
-    // MATCHIDX, ast:fetch's FETCHIDX, ...). Same retention discipline as ENTIDX:
-    // keyed by the Rc address of a frozen lambda list, with that list held
-    // alongside so the address cannot be reused. NOT cleared by the memo's size
-    // cap (that trims EVMEMO only) -- these are true for as long as the value
-    // lives, exactly as the js WeakMaps are, and only a store mutation would
-    // invalidate them (the law report performs none).
-    // matchRows: rows-address -> (rows, key(col1) -> matching rows).
-    static MATCHIDX: RefCell<HashMap<usize, (V, HashMap<String, Vec<V>>)>> =
-        RefCell::new(HashMap::new());
-    // matchRowsAt: rows-address -> (rows, column -> key(col) -> matching rows).
-    static MATCHATIDX: RefCell<HashMap<usize, (V, HashMap<i64, HashMap<String, Vec<V>>>)>> =
-        RefCell::new(HashMap::new());
-    // ast:fetch: cells-address -> (cells, key(name) -> third field, first wins).
-    static FETCHIDX: RefCell<HashMap<usize, (V, HashMap<String, V>)>> =
-        RefCell::new(HashMap::new());
-    // solve:cell: cells-address -> (cells, key(name) -> index; a "bad" flag when
-    // an element before some name could not be selected, so a miss re-raises).
-    static SOLVEIDX: RefCell<HashMap<usize, (V, HashMap<String, usize>, bool)>> =
-        RefCell::new(HashMap::new());
-    // rmap:wide_row: relation-address -> (relation, key(col1) -> member pair).
-    static SLOTIDX: RefCell<HashMap<usize, (V, HashMap<String, V>)>> =
-        RefCell::new(HashMap::new());
-    // test:slot_for: <desc, nested>-address -> (that pair, its member pairs).
-    static SLOTFOR: RefCell<HashMap<usize, (V, V)>> =
-        RefCell::new(HashMap::new());
-    // theta:member / read:memberw over a long list: list-address -> (list, keys).
-    static MEMBIDX: RefCell<HashMap<usize, (V, HashSet<String>)>> =
-        RefCell::new(HashMap::new());
-    // joinPat: list-address -> (list, key(elem selector) -> join-key -> rows).
-    static JOINIDX: RefCell<HashMap<usize, (V, HashMap<String, HashMap<String, Vec<V>>>)>> =
-        RefCell::new(HashMap::new());
-    // rmap:member_pairs by the descriptor's identity (PAIRIDX's x-branch).
-    static PAIRIDX_X: RefCell<HashMap<usize, (V, V)>> =
-        RefCell::new(HashMap::new());
-    // rmap:member_pairs by the rows' identity, then by the four leading fields
-    // (PAIRIDX's rows-branch: the positions are a function of those fields).
-    static PAIRIDX_ROWS: RefCell<HashMap<usize, (V, HashMap<String, V>)>> =
-        RefCell::new(HashMap::new());
+fn clip(s: String, n: usize) -> String {
+    if s.len() <= n { return s; }
+    let mut e = n;
+    while !s.is_char_boundary(e) { e -= 1; }
+    s[..e].to_string()
 }
 
-#[allow(non_snake_case)]
-fn DEF(name: &str, body: V) -> V {
-    DEFS.with(|d| {
-        let mut d = d.borrow_mut();
-        if d.contains_key(name) { panic!("duplicate DEF: {}", name); }
-        d.insert(name.to_string(), body.clone());
-    });
-    CELLS.with(|c| c.borrow_mut().push(q(vec![a("CELL"), a(name), body])));
-    a(name)
-}
-
-// The lambda's vocabulary, bound as this platform's lambda. The lambda file uses
-// exactly these names and no others — that is what makes one file readable by
-// four hosts.
-// The lambda vocabulary -- A, N, K, PHI, S1..S9, Sv -- is not bound here as
-// functions: the READER is that binding, turning the same names into the same
-// values from the file rather than from generated source. A
-// host that defines what no dispatch reaches is the shape the coverage scan
-// catches, and it scans this file.
-
-// ============================ the base =======================================
-// Backus 11.2.3's primitives, transliterated from Arest.java one for one. Each
-// edge is the certified one: `tl` on empty panics, `strip_prefix` needs a
-// STRICTLY longer subject, `ntoa` refuses a non-number, the char ops are ASCII
-// on every host.
-fn prim(name: &str, x: &V) -> Option<V> {
-    let r = match name {
-        "id" => x.clone(),
-        "tl" => { let s = seq(x); q(s[1..].to_vec()) }
-        "atom" => boolv(!matches!(x, V::Q(_))),
-        "apndl" => { let p = seq(x); let t = seq(&p[1]);
-            let mut r = Vec::with_capacity(t.len() + 1);
-            r.push(p[0].clone()); r.extend(t.iter().cloned()); q(r) }
-        "apndr" => { let p = seq(x); let h = seq(&p[0]);
-            let mut r = h.to_vec(); r.push(p[1].clone()); q(r) }
-        "distl" => { let p = seq(x); let t = seq(&p[1]);
-            q(t.iter().map(|e| q(vec![p[0].clone(), e.clone()])).collect()) }
-        "distr" => { let p = seq(x); let h = seq(&p[0]);
-            q(h.iter().map(|e| q(vec![e.clone(), p[1].clone()])).collect()) }
-        "cat" => { let p = seq(x); let l = seq(&p[0]); let r2 = seq(&p[1]);
-            let mut r = l.to_vec(); r.extend(r2.iter().cloned()); q(r) }
-        "null" => boolv(matches!(x, V::Q(v) if v.is_empty())),
-        "eq" => { let p = seq(x); boolv(deep_eq(&p[0], &p[1])) }
-        "not" => boolv(!is_t(x)),
-        "and" => { let p = seq(x); boolv(is_t(&p[0]) && is_t(&p[1])) }
-        "length" => V::I(seq(x).len() as i64),
-        // lt completes the comparison quartet; reverse and trans are Backus
-        // 11.2.3 base functions. All three were referenced by lambda and
-        // registered only by the python host, so the DEFs using them
-        // (constraints:vr_lo, system:keep_first, system:ftid, ...) answered
-        // bottom on every host.
-        "lt" => { let p = seq(x); boolv(cmp_atoms(&p[0], &p[1]) == std::cmp::Ordering::Less) }
-        "reverse" => { let l = seq(x); q(l.iter().rev().cloned().collect()) }
-        "trans" => { let rows = seq(x);
-            if rows.is_empty() { q(vec![]) } else {
-                let w = seq(&rows[0]).len();
-                q((0..w).map(|c| q(rows.iter().map(|r| seq(r)[c].clone()).collect()))
-                    .collect())
-            } }
-        "le" => { let p = seq(x); boolv(cmp_atoms(&p[0], &p[1]) != std::cmp::Ordering::Greater) }
-        "ge" => { let p = seq(x); boolv(cmp_atoms(&p[0], &p[1]) != std::cmp::Ordering::Less) }
-        "gt" => { let p = seq(x); boolv(cmp_atoms(&p[0], &p[1]) == std::cmp::Ordering::Greater) }
-        "+" => { let p = seq(x); V::I(int_of(&p[0]) + int_of(&p[1])) }
-        "-" => { let p = seq(x); V::I(int_of(&p[0]) - int_of(&p[1])) }
-        "*" => { let p = seq(x); V::I(int_of(&p[0]) * int_of(&p[1])) }
-        "/" => { let p = seq(x); V::I(int_of(&p[0]) / int_of(&p[1])) }
-        "apply" => { let p = seq(x); ev(&p[0], &p[1]) }
-        // lex yields TOKEN-RECORDS, ten fields per token, as
-        // metamodel/resolution.md types it. This host answered a flat word
-        // list, so lambda's system: family (sqlname field 5 of token 1,
-        // rp_step field 8, cf_dropw field 1) read CHARACTERS here and FIELDS
-        // in the engine kernels. Fields: tok, nopunct, base, ordinal-suffix,
-        // lower, quoted-text, initial-cap, hyphen-template, is-quoted,
-        // quote-index.
-        "lex" => {
-            let text = text_of(x);
-            let b = text.as_bytes();
-            let mut spans: Vec<(usize, usize)> = Vec::new();
-            let mut i = 0usize;
-            while i < b.len() {
-                if b[i] == b'\'' {
-                    let mut j = i + 1;
-                    while j < b.len() && b[j] != b'\'' { j += 1; }
-                    if j < b.len() { spans.push((i, j + 1)); i = j + 1; continue; }
-                }
-                i += 1;
-            }
-            let mut rows: Vec<V> = Vec::new();
-            let mut p = 0usize;
-            while p < b.len() {
-                while p < b.len() && (b[p] as char).is_whitespace() { p += 1; }
-                if p >= b.len() { break; }
-                let s = p;
-                while p < b.len() && !(b[p] as char).is_whitespace() { p += 1; }
-                let e = p;
-                let tok = text[s..e].to_string();
-                let mut k = 0usize;
-                for (idx, sp) in spans.iter().enumerate() {
-                    if s < sp.1 && sp.0 < e { k = idx + 1; break; }
-                }
-                let qtext = if k > 0 {
-                    let a = std::cmp::max(s, spans[k - 1].0 + 1);
-                    let z = std::cmp::min(e, spans[k - 1].1 - 1);
-                    if z > a { text[a..z].to_string() } else { String::new() }
-                } else { String::new() };
-                let nopunct = tok.trim_matches(|c| ".;:,".contains(c)).to_string();
-                let bas = nopunct.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
-                // field 8 is the NORMA hyphen template
-                let mut tpl = tok.clone();
-                if tpl.len() > 2 && tpl.ends_with("--") { tpl.pop(); }
-                else if tpl.len() > 2 && tpl.starts_with("--") { tpl.remove(0); }
-                else if tpl.len() > 1 && tpl.ends_with('-') { tpl.pop(); }
-                else if tpl.len() > 1 && tpl.starts_with('-') { tpl.remove(0); }
-                let up = matches!(bas.chars().next(), Some(c) if ('A'..='Z').contains(&c));
-                rows.push(q(vec![
-                    astr(tok.clone()), astr(nopunct.clone()), astr(bas.clone()),
-                    astr(nopunct[bas.len()..].to_string()), astr(tok.to_lowercase()),
-                    astr(qtext), astr((if up { "T" } else { "F" }).to_string()),
-                    astr(tpl), astr((if k > 0 { "T" } else { "F" }).to_string()),
-                    V::I(k as i64)]));
-            }
-            q(rows) }
-        "implode" => { let p = seq(x); let sep = text_of(&p[0]); let parts = seq(&p[1]);
-            // a sequence among the parts is bottom (F3), as every host answers it
-            astr(parts.iter().map(|e| match e { V::Q(_) => panic!("implode on sequence"), _ => join_text(e) }).collect::<Vec<_>>().join(&sep)) }
-        // slug yields an IDENTIFIER (resolution.md). Lambda defines the same
-        // function as sl:slug; this stays until both carriers regenerate.
-        // slug is LAMBDA -- DEF("slug"). Deleted here.
-        "chars" => q(text_of(x).chars().map(|c| astr(c.to_string())).collect()),
-        // charup is LAMBDA -- literal alphabet relation (Codd 2.3.5). Deleted here.
-        // chardown is LAMBDA -- literal alphabet relation (Codd 2.3.5). Deleted here.
-        // charisup / charislow / charisdigit are LAMBDA -- range tests over
-        // 1 . chars. Deleted here.
-        // 1r was COLLATERAL of that deletion (the brace walk ran on to tlr).
-        // It is Backus 11.2.3 base, the right selector, and it stays.
-        "1r" => { let s = seq(x); s[s.len() - 1].clone() }
-        "tlr" => { let s = seq(x); q(s[..s.len() - 1].to_vec()) }
-        // clock is REGISTERED (resolution.md): the journal stamps each
-        // submitted event with it. ISO 8601 in UTC, the js host's shape.
-        "clock" => astr(clock_text()),
-        _ => return None,
-    };
-    Some(r)
-}
-
-// The wall clock as ISO 8601 UTC text. wasm32-unknown-unknown has no clock
-// (SystemTime::now panics there), so the module stamps the epoch until the
-// boundary imports one from its embedder.
-fn clock_text() -> String {
-    #[cfg(target_arch = "wasm32")]
-    { "1970-01-01T00:00:00.000Z".to_string() }
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let d = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
-        let secs = d.as_secs() as i64;
-        let ms = d.subsec_millis();
-        let days = secs.div_euclid(86_400);
-        let sod = secs.rem_euclid(86_400);
-        // civil_from_days (Hinnant): proleptic Gregorian date of a day count from 1970-01-01.
-        let z = days + 719_468;
-        let era = z.div_euclid(146_097);
-        let doe = z.rem_euclid(146_097);
-        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-        let mp = (5 * doy + 2) / 153;
-        let day = doy - (153 * mp + 2) / 5 + 1;
-        let month = if mp < 10 { mp + 3 } else { mp - 9 };
-        let year = yoe + era * 400 + if month <= 2 { 1 } else { 0 };
-        format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z", year, month, day, sod / 3600, (sod % 3600) / 60, sod % 60, ms)
-    }
-}
-
-fn int_of(x: &V) -> i64 {
-    match x { V::I(i) => *i, _ => panic!("arithmetic on non-number") }
-}
-fn text_of(x: &V) -> String {
-    match x { V::S(s) => s.to_string(), _ => panic!("expected text atom") }
-}
-// The EMPTY atom is NOT a refusal: js, python and all three engine kernels
-// pass it through and answer "F" for the tests. NUL is in none of the ranges,
-// so charup/chardown return the atom unchanged and charisup/charislow/
-// charisdigit answer F — the same five answers, from one place.
-// first_char deleted: charup/chardown are LAMBDA, this had no callers.
-
-// ============================ join / lookup indexes ==========================
-// The shared machinery the FASTPRIMS below stand on. Each builds an index over
-// a frozen lambda list ONCE, keyed by the list's Rc address, then answers O(1).
-// The index is built in locals and only then stored under a short borrow, so a
-// selector evaluated while building (ev) never re-enters the same cache.
-
-// the rows whose first column equals `key`, in source order -- the value of
-// csdp:matches. Throws building the index exactly where the fold's selector 1
-// would: at an atom row or an empty row, whatever the key (js matchRows).
-fn match_rows(k: &V, rows_v: &V) -> Vec<V> {
-    let rows = seq(rows_v);
-    let id = Rc::as_ptr(&rows) as usize;
-    let built = MATCHIDX.with(|m| m.borrow().contains_key(&id));
-    if !built {
-        let mut idx: HashMap<String, Vec<V>> = HashMap::new();
-        for r in rows.iter() {
-            match r {
-                V::Q(ra) if !ra.is_empty() => idx.entry(key(&ra[0])).or_default().push(r.clone()),
-                V::Q(_) => panic!("selector 1 out of range 0"),
-                _ => panic!("selector 1 on atom"),
-            }
-        }
-        MATCHIDX.with(|m| { m.borrow_mut().entry(id).or_insert((rows_v.clone(), idx)); });
-    }
-    let kk = key(k);
-    MATCHIDX.with(|m| m.borrow().get(&id).and_then(|e| e.1.get(&kk)).cloned().unwrap_or_default())
-}
-
-// the same, on an arbitrary 1-based column: <n, key, rows> (js matchRowsAt).
-fn match_rows_at(n: i64, k: &V, rows_v: &V) -> Vec<V> {
-    let rows = seq(rows_v);
-    let id = Rc::as_ptr(&rows) as usize;
-    let have = MATCHATIDX.with(|m| m.borrow().get(&id).map_or(false, |e| e.1.contains_key(&n)));
-    if !have {
-        let mut idx: HashMap<String, Vec<V>> = HashMap::new();
-        for r in rows.iter() {
-            match r {
-                V::Q(ra) if n >= 1 && (n as usize) <= ra.len() =>
-                    idx.entry(key(&ra[(n - 1) as usize])).or_default().push(r.clone()),
-                V::Q(ra) => panic!("selector {} out of range {}", n, ra.len()),
-                _ => panic!("selector {} on atom", n),
-            }
-        }
-        MATCHATIDX.with(|m| {
-            let mut m = m.borrow_mut();
-            let e = m.entry(id).or_insert_with(|| (rows_v.clone(), HashMap::new()));
-            e.1.entry(n).or_insert(idx);
-        });
-    }
-    let kk = key(k);
-    MATCHATIDX.with(|m| m.borrow().get(&id).and_then(|e| e.1.get(&n)).and_then(|c| c.get(&kk)).cloned().unwrap_or_default())
-}
-
-// the atoms of a value, in order: an atom is itself, a sequence is its members'
-// atoms flattened (js atomsOf, iterative to bound the stack).
-fn atoms_of(x: &V) -> Vec<V> {
+pub fn seq(x: &V) -> Result<Rc<Vec<V>>, String> {
     match x {
-        V::Q(_) => {
-            let mut out: Vec<V> = Vec::new();
-            let mut stack: Vec<V> = vec![x.clone()];
-            while let Some(v) = stack.pop() {
-                if let V::Q(vv) = &v { for e in vv.iter().rev() { stack.push(e.clone()); } }
-                else { out.push(v); }
-            }
-            out
-        }
-        _ => vec![x.clone()],
+        V::Q(v) => Ok(v.clone()),
+        _ => Err(format!("expected sequence, got atom: {}", clip(show(x), 300))),
     }
 }
 
-// membership over a long list, answered by a set kept on the list (js MEMBIDX).
-fn membidx_has(list_v: &V, l: &Rc<Vec<V>>, needle: &V) -> V {
-    let id = Rc::as_ptr(l) as usize;
-    let built = MEMBIDX.with(|m| m.borrow().contains_key(&id));
-    if !built {
-        let mut s: HashSet<String> = HashSet::new();
-        for e in l.iter() { s.insert(key(e)); }
-        MEMBIDX.with(|m| { m.borrow_mut().entry(id).or_insert((list_v.clone(), s)); });
-    }
-    let nk = key(needle);
-    boolv(MEMBIDX.with(|m| m.borrow().get(&id).map_or(false, |e| e.1.contains(&nk))))
+pub fn at(x: &V, i: usize) -> R {
+    let s = seq(x)?;
+    s.get(i).cloned().ok_or_else(|| format!("index {} out of {}", i, s.len()))
 }
 
-// rmap:nest, one pass: group rows by their first column (keys in theta:dedup's
-// last-occurrence order), each group nesting again with that column dropped
-// (js rmap:nest). Recursive because the extension is curried level by level.
-fn rmap_nest(x: &V) -> V {
-    let rows = seq(x);
-    if rows.is_empty() { return q(vec![]); }
-    if seq(&rows[0]).len() == 1 { return q(rows.iter().map(|r| at(r, 0)).collect()); }
-    let mut groups: HashMap<String, (V, Vec<V>)> = HashMap::new();
-    for row in rows.iter() {
-        let r = seq(row);
-        let k = key(&r[0]);
-        groups.entry(k).or_insert_with(|| (r[0].clone(), Vec::new())).1.push(row.clone());
-    }
-    let mut order: Vec<String> = Vec::new();
-    let mut seen: HashSet<String> = HashSet::new();
-    for row in rows.iter().rev() {
-        let k = key(&seq(row)[0]);
-        if seen.insert(k.clone()) { order.push(k); }
-    }
-    order.reverse();
-    let mut out: Vec<V> = Vec::with_capacity(order.len());
-    for k in order.iter() {
-        let (keyval, grows) = groups.get(k).unwrap();
-        let leaf = seq(&grows[0]).len() == 2;
-        let contents = if leaf {
-            q(grows.iter().map(|r| at(r, 1)).collect())
-        } else {
-            let tails: Vec<V> = grows.iter().map(|r| { let rs = seq(r); q(rs[1..].to_vec()) }).collect();
-            rmap_nest(&q(tails))
-        };
-        out.push(q(vec![a("CELL"), keyval.clone(), contents]));
-    }
-    q(out)
-}
-
-// ============================ join / filter form patterns ====================
-// The two structural fast paths the mu takes inside COMP and INSERT: a hash
-// join for the equal-keys filter over distr/distl, and a linear pass for the
-// prepend-every-survivor fold. Both are STRATEGY -- each runs the SAME body on
-// the SAME rows in the SAME order the written form would, only skipping rows the
-// form itself proves emit nothing (joinPat) or copy nothing (filterFold).
-
-#[derive(Clone)]
-struct JoinPattern { elem: V, carrier: V, body: V, distl: bool }
-#[derive(Clone)]
-struct EqKey { elem: V, carrier: V, form: V }
-enum NecKey { NoKey, Never, Key(EqKey) }
-#[derive(Clone)]
-struct FoldPattern { pred: V, val: Option<V> }
-
-// the frame slot a selector reads: a number is itself, COMP inherits its last
-// step's, anything else is not rooted at a slot (js rootSel).
-fn root_sel(f: &V) -> i64 {
-    match f {
-        V::I(n) => *n,
-        V::Q(form) if !form.is_empty() && matches!(&form[0], V::S(s) if &**s == "COMP") =>
-            root_sel(&form[form.len() - 1]),
-        _ => 0,
+pub fn text(x: &V) -> Result<String, String> {
+    match x {
+        V::Q(_) => Err("a sequence where a text belongs".to_string()),
+        _ => Ok(show(x)),
     }
 }
-// CONST PHI, the base every emitting filter falls through to (js isPhiForm).
-fn is_phi_form(f: &V) -> bool {
-    matches!(f, V::Q(form) if form.len() >= 2
-        && matches!(&form[0], V::S(s) if &**s == "CONST")
-        && matches!(&form[1], V::Q(inner) if inner.is_empty()))
+
+pub fn int(x: &V) -> Result<i64, String> {
+    match x { V::N(n) => Ok(*n), _ => Err(format!("a number expected: {}", clip(show(x), 300))) }
 }
-// a body that reaches the fold frame only through selector 1 (the element), so
-// the accumulator slot is provably unread (js framePure).
-fn frame_pure(f: &V) -> bool {
-    match f {
-        V::I(n) => *n == 1,
-        V::Q(form) if !form.is_empty() => match &form[0] {
-            V::S(s) => match &**s {
-                "CONST" => true,
-                "COMP" => frame_pure(&form[form.len() - 1]),
-                "CONS" | "COND" => form[1..].iter().all(frame_pure),
-                _ => false,
-            },
-            _ => false,
-        },
+
+pub fn deep_eq(x: &V, y: &V) -> bool {
+    match (x, y) {
+        (V::S(p), V::S(r)) => p == r,
+        (V::N(p), V::N(r)) => p == r,
+        (V::Q(p), V::Q(r)) => Rc::ptr_eq(p, r) || (p.len() == r.len() && p.iter().zip(r.iter()).all(|(u, w)| deep_eq(u, w))),
         _ => false,
     }
 }
-// COMP(eq, CONS(l, r)) whose two sides root at the element and the carrier
-// slot, in either order (js eqKey).
-fn eq_key(p: &V, es: i64, cs: i64) -> Option<EqKey> {
-    let form = match p { V::Q(f) => f, _ => return None };
-    if form.len() != 3 { return None; }
-    if !matches!(&form[0], V::S(s) if &**s == "COMP") { return None; }
-    if !matches!(&form[1], V::S(s) if &**s == "eq") { return None; }
-    let cons = match &form[2] { V::Q(c) => c, _ => return None };
-    if cons.len() != 3 || !matches!(&cons[0], V::S(s) if &**s == "CONS") { return None; }
-    let (l, r) = (&cons[1], &cons[2]);
-    let (rl, rr) = (root_sel(l), root_sel(r));
-    if rl == es && rr == cs { return Some(EqKey { elem: l.clone(), carrier: r.clone(), form: p.clone() }); }
-    if rl == cs && rr == es { return Some(EqKey { elem: r.clone(), carrier: l.clone(), form: p.clone() }); }
-    None
-}
-// the necessary key of a COND tree: a branch that is PHI emits nothing, a branch
-// guarded by an eq requires it, and the tree has a key when every emitting
-// branch requires the same one (js necKey).
-fn nec_key(body: &V, es: i64, cs: i64) -> NecKey {
-    if is_phi_form(body) { return NecKey::Never; }
-    let form = match body {
-        V::Q(f) if f.len() == 4 && matches!(&f[0], V::S(s) if &**s == "COND") => f,
-        _ => return NecKey::NoKey,
-    };
-    let p = &form[1];
-    let mut kp = eq_key(p, es, cs);
-    if kp.is_none() {
-        if let V::Q(pf) = p {
-            if pf.len() == 3 && matches!(&pf[0], V::S(s) if &**s == "COMP")
-                && matches!(&pf[1], V::S(s) if &**s == "and") {
-                if let V::Q(cons) = &pf[2] {
-                    if cons.len() == 3 && matches!(&cons[0], V::S(s) if &**s == "CONS") {
-                        kp = eq_key(&cons[1], es, cs).or_else(|| eq_key(&cons[2], es, cs));
-                    }
-                }
-            }
-        }
-    }
-    let kf = nec_key(&form[2], es, cs);
-    let kg = nec_key(&form[3], es, cs);
-    // the then-branch emits only when p holds: it requires p's key if p has
-    // one, else whatever the branch itself requires; the else-branch learns
-    // nothing from p being false.
-    let req_f = match kf {
-        NecKey::Never => NecKey::Never,
-        other => match kp { Some(k) => NecKey::Key(k), None => other },
-    };
-    // kg never -> reqF; reqF never -> kg; both keys and equal -> that key; else none.
-    match (req_f, kg) {
-        (rf, NecKey::Never) => rf,
-        (NecKey::Never, g) => g,
-        (NecKey::Key(a), NecKey::Key(b)) =>
-            if deep_eq(&a.form, &b.form) { NecKey::Key(a) } else { NecKey::NoKey },
-        _ => NecKey::NoKey,
-    }
-}
-// COMP(flatten, ALPHA(body), distr|distl) [, operand] whose body has a
-// necessary key: the equal-keys filter answered by an index (js joinPat).
-fn join_pat(form: &[V]) -> Option<JoinPattern> {
-    if !(form.len() == 4 || form.len() == 5) { return None; }
-    if !matches!(&form[1], V::S(s) if &**s == "theta:flatten") { return None; }
-    let dl = match &form[3] {
-        V::S(s) if &**s == "distl" => true,
-        V::S(s) if &**s == "distr" => false,
-        _ => return None,
-    };
-    let alpha = match &form[2] {
-        V::Q(a2) if a2.len() >= 2 && matches!(&a2[0], V::S(s) if &**s == "ALPHA") => a2,
-        _ => return None,
-    };
-    let body = &alpha[1];
-    let (es, cs) = if dl { (2i64, 1i64) } else { (1i64, 2i64) };
-    match nec_key(body, es, cs) {
-        NecKey::Key(k) => Some(JoinPattern { elem: k.elem, carrier: k.carrier, body: body.clone(), distl: dl }),
-        _ => None,
-    }
-}
-// run the join: distr frames are <element, carrier>, distl frames <carrier,
-// element>; index the list on the element key, look up the carrier key, run the
-// body on the hits in list order and flatten -- pair for pair the scan's value.
-fn join_exec(jp: &JoinPattern, list_v: &V, carrier_v: &V, list: &Rc<Vec<V>>) -> V {
-    let frame = |elem: &V| -> V {
-        if jp.distl { q(vec![carrier_v.clone(), elem.clone()]) }
-        else { q(vec![elem.clone(), carrier_v.clone()]) }
-    };
-    let id = Rc::as_ptr(list) as usize;
-    let elemk = key(&jp.elem);
-    let have = JOINIDX.with(|m| m.borrow().get(&id).map_or(false, |e| e.1.contains_key(&elemk)));
-    if !have {
-        let mut by_key: HashMap<String, Vec<V>> = HashMap::new();
-        for e in list.iter() {
-            let k = key(&ev(&jp.elem, &frame(e)));
-            by_key.entry(k).or_default().push(e.clone());
-        }
-        JOINIDX.with(|m| {
-            let mut m = m.borrow_mut();
-            let e = m.entry(id).or_insert_with(|| (list_v.clone(), HashMap::new()));
-            e.1.entry(elemk.clone()).or_insert(by_key);
-        });
-    }
-    let want_frame = if jp.distl { q(vec![carrier_v.clone(), q(vec![])]) } else { q(vec![q(vec![]), carrier_v.clone()]) };
-    let want = key(&ev(&jp.carrier, &want_frame));
-    let hits = JOINIDX.with(|m| m.borrow().get(&id).and_then(|e| e.1.get(&elemk)).and_then(|bk| bk.get(&want)).cloned());
-    match hits {
-        None => q(vec![]),
-        Some(hs) => {
-            let mut out: Vec<V> = Vec::new();
-            for h in hs.iter() { out.extend(seq(&ev(&jp.body, &frame(h))).iter().cloned()); }
-            q(out)
-        }
-    }
-}
-// the INSERT filter fold: COND(pred, apndl, 2) or COND(pred, apndl . CONS(v, 2),
-// 2), the pred frame-pure, resolving a named body to its DEF (js filterFold).
-fn fold_pattern(body: &V, depth: usize) -> Option<FoldPattern> {
-    if depth > 8 { return None; }
-    match body {
-        V::S(name) => {
-            if is_fastprim_name(name) { return None; }
-            let b = DEFS.with(|d| d.borrow().get(&**name).cloned());
-            b.and_then(|bb| fold_pattern(&bb, depth + 1))
-        }
-        V::Q(f) => {
-            if f.len() == 4 && matches!(&f[0], V::S(s) if &**s == "COND")
-                && matches!(&f[3], V::I(2)) && frame_pure(&f[1]) {
-                let then = &f[2];
-                if matches!(then, V::S(s) if &**s == "apndl") {
-                    return Some(FoldPattern { pred: f[1].clone(), val: None });
-                }
-                if let V::Q(tf) = then {
-                    if tf.len() == 3 && matches!(&tf[0], V::S(s) if &**s == "COMP")
-                        && matches!(&tf[1], V::S(s) if &**s == "apndl") {
-                        if let V::Q(cons) = &tf[2] {
-                            if cons.len() == 3 && matches!(&cons[0], V::S(s) if &**s == "CONS")
-                                && matches!(&cons[2], V::I(2)) && frame_pure(&cons[1]) {
-                                return Some(FoldPattern { pred: f[1].clone(), val: Some(cons[1].clone()) });
-                            }
-                        }
-                    }
-                }
-            }
-            None
-        }
-        _ => None,
+
+// both numbers -> numeric; both texts -> UTF-16 code-unit order; anything else is bottom
+fn cmp_atoms(x: &V, y: &V) -> Result<std::cmp::Ordering, String> {
+    match (x, y) {
+        (V::N(p), V::N(r)) => Ok(p.cmp(r)),
+        // UTF-8 byte order is code-point order, which is UTF-16 order unless a character past U+FFFF is
+        // involved (a 4-byte sequence, lead byte 0xF0 and up); only then are the code units compared
+        (V::S(p), V::S(r)) => Ok(if p.bytes().chain(r.bytes()).any(|b| b >= 0xF0) {
+            p.encode_utf16().cmp(r.encode_utf16())
+        } else {
+            p.as_bytes().cmp(r.as_bytes())
+        }),
+        _ => Err(format!("compare across atom kinds: {} vs {}", clip(show(x), 200), clip(show(y), 200))),
     }
 }
 
-// the names fastprim answers, so filterFold does not mistake a twin for a fold
-// body (js FASTPRIMS.has). Kept beside fastprim; a name added there is added
-// here.
-fn is_fastprim_name(s: &str) -> bool {
-    matches!(s,
-        "theta:member" | "theta:filter_eq" | "theta:drop" | "theta:take" | "theta:nth"
-        | "theta:last" | "theta:butlast" | "theta:iota" | "theta:zip" | "theta:dedup"
-        | "theta:setminus" | "theta:flatten" | "cn:entsat" | "theta:find_desc"
-        | "read:memberw" | "CONS" | "CONST" | "ast:fetch" | "csdp:matches"
-        | "csdp:matches_at" | "rmap:rows_for" | "rmap:lookup0" | "solve:assoc"
-        | "solve:assoc3" | "cn:fokey" | "cn:rmvt" | "cn:owner" | "cn:gmpl"
-        | "theta:natjoin" | "derive:jo_rows" | "rmap:nest" | "derive:count_rows"
-        | "rmap:merge_cells" | "rmap:member_pairs" | "rmap:slot" | "rmap:wide_row"
-        | "test:slot_for" | "main:flat" | "theta:append_phi" | "test:atoms_of"
-        | "manifest:opatoms" | "solve:cell")
-}
+// ---- the store: DEFS, CELLS, the registrations ------------------------------------------------
 
-// ============================ FASTPRIMS ======================================
-// Compiled forms of hot lambda list cells. The DEF stays the meaning; the head
-// evaluates its EXTENSIONAL EQUAL and the unit tests certify identity. Measured
-// necessity on the js host with the same lambda bytes: memo off -> ZERO laws
-// in 120s; FASTPRIMS off -> ZERO laws in 300s; both on -> 53 laws in 49.7s.
-// Neither alone suffices, which is exactly why java and cs would not finish.
-fn fastprim(name: &str, x: &V) -> Option<V> {
-    let r = match name {
-        "theta:member" => { let needle = at(x, 0); let lv = at(x, 1); let l = seq(&lv);
-            if l.len() < 16 { boolv(l.iter().any(|e| deep_eq(&needle, e))) } else { membidx_has(&lv, &l, &needle) } }
-        "theta:filter_eq" => q(seq(x).iter()
-            .filter(|p| deep_eq(&at(p, 0), &at(p, 1))).cloned().collect()),
-        "theta:drop" => { let l = seq(&at(x, 0)); let k = drain(&l, &at(x, 1)); q(l[k..].to_vec()) }
-        "theta:take" => { let l = seq(&at(x, 0)); let k = drain(&l, &at(x, 1)); q(l[..k].to_vec()) }
-        "theta:nth" => { let l = seq(&at(x, 0)); let k = drain(&l, &at(x, 1));
-            if k >= l.len() { panic!("selector 1 out of range 0"); }
-            l[k].clone() }
-        "theta:last" => { let l = seq(x); if l.is_empty() { a("?") } else { l[l.len() - 1].clone() } }
-        "theta:butlast" => { let l = seq(x);
-            q(if l.is_empty() { vec![] } else { l[..l.len() - 1].to_vec() }) }
-        "theta:iota" => match x {
-            V::I(n) => q((1..=*n).map(V::I).collect()),
-            _ => panic!("iota on non-number"),
-        },
-        "theta:zip" => { let l = seq(&at(x, 0)); let r2 = seq(&at(x, 1));
-            q(l.iter().zip(r2.iter()).map(|(p, s)| q(vec![p.clone(), s.clone()])).collect()) }
-        "theta:dedup" => { let l = seq(x);
-            let mut seen = HashSet::new();
-            let mut out: Vec<V> = Vec::new();
-            for e in l.iter().rev() { if seen.insert(key(e)) { out.push(e.clone()); } }
-            out.reverse(); q(out) }
-        "theta:setminus" => { let l = seq(&at(x, 0)); let r2 = seq(&at(x, 1));
-            let drop: HashSet<String> = r2.iter().map(key).collect();
-            q(l.iter().filter(|e| !drop.contains(&key(e))).cloned().collect()) }
-        "theta:flatten" => { let mut out: Vec<V> = Vec::new();
-            for s in seq(x).iter() { out.extend(seq(s).iter().cloned()); }
-            q(out) }
-        // Both of these are ASSOC LOOKUPS written as scans, and both are
-        // indexed once per list OBJECT — js keeps ENTIDX/DESCIDX for exactly
-        // this, and records test:find_desc firing 28,203,649 times inside
-        // test:induce alone. Backus 13.3.4 defines fetch as a linear walk and
-        // test:find_desc IS that walk, but the MEANING is "the first descriptor
-        // named n" — a lookup — so the walk is the evaluator's business.
-        "cn:entsat" => { let lv = at(x, 0); let l = seq(&lv); let k = key(&at(x, 1));
-            let id = Rc::as_ptr(&l) as usize;
-            let hit = ENTIDX.with(|m| {
-                let mut m = m.borrow_mut();
-                let (_, idx) = m.entry(id).or_insert_with(|| {
-                    let mut idx: HashMap<String, Vec<V>> = HashMap::new();
-                    for e in l.iter() {
-                        if let V::Q(ea) = e {
-                            if ea.len() >= 2 {
-                                idx.entry(key(&ea[0])).or_default().push(ea[1].clone());
-                            }
-                        }
-                    }
-                    (lv.clone(), idx)          // retain the list: the key is its address
-                });
-                idx.get(&k).cloned()
-            });
-            match hit {
-                None => q(vec![]),
-                Some(vs) => { let mut out: Vec<V> = Vec::new();
-                    for v in vs.iter() { out.extend(seq(v).iter().cloned()); }
-                    q(out) }
-            } }
-        "theta:find_desc" => { let name_k = key(&at(x, 0)); let dv = at(x, 1); let descs = seq(&dv);
-            let id = Rc::as_ptr(&descs) as usize;
-            ENTDESC.with(|m| {
-                let mut m = m.borrow_mut();
-                let (_, idx) = m.entry(id).or_insert_with(|| {
-                    let mut idx: HashMap<String, V> = HashMap::new();
-                    for d in descs.iter() {
-                        if let V::Q(da) = d {
-                            if !da.is_empty() {
-                                idx.entry(key(&da[0])).or_insert_with(|| d.clone()); // first wins
-                            }
-                        }
-                    }
-                    (dv.clone(), idx)
-                });
-                idx.get(&name_k).cloned()
-            }).unwrap_or_else(|| q(vec![])) }
-        // -- CONS / CONST: the combining forms' fast paths (Backus 13.3.2),
-        // reached by name through metacomposition. CONS <<CONS f1..fn>, y> is
-        // <f1:y .. fn:y>; CONST is the form's second element (Ev 2 . Ev 1).
-        "CONS" => { let form = seq(&at(x, 0)); let y = at(x, 1);
-            q(form[1..].iter().map(|fi| ev(fi, &y)).collect()) }
-        "CONST" => at(&at(x, 0), 1),
-        // -- ast:fetch: the FIRST cell named n, the store indexed once by name.
-        // A cell is any sequence of length 3; the answer is its third element.
-        "ast:fetch" => { let name = at(x, 0); let cells_v = at(x, 1); let cells = seq(&cells_v);
-            let id = Rc::as_ptr(&cells) as usize;
-            let built = FETCHIDX.with(|m| m.borrow().contains_key(&id));
-            if !built {
-                let mut idx: HashMap<String, V> = HashMap::new();
-                for c in cells.iter() {
-                    if let V::Q(ca) = c { if ca.len() == 3 { idx.entry(key(&ca[1])).or_insert_with(|| ca[2].clone()); } }
-                }
-                FETCHIDX.with(|m| { m.borrow_mut().entry(id).or_insert((cells_v.clone(), idx)); });
-            }
-            let kk = key(&name);
-            FETCHIDX.with(|m| m.borrow().get(&id).and_then(|e| e.1.get(&kk).cloned())).unwrap_or_else(|| a("#")) }
-        // -- the first-match lookups, all matchRows over a table indexed once by
-        // its first column, each with its DEF's own answer and sentinel.
-        "csdp:matches" => q(match_rows(&at(x, 0), &at(x, 1))),
-        "csdp:matches_at" => q(match_rows_at(int_of(&at(x, 0)), &at(x, 1), &at(x, 2))),
-        "rmap:rows_for" => q(match_rows(&at(x, 0), &at(x, 1))),
-        "rmap:lookup0" => { let h = match_rows(&at(x, 0), &at(x, 1));
-            if h.is_empty() { q(vec![]) } else { q(vec![at(&h[0], 1)]) } }
-        "solve:assoc" => { let h = match_rows(&at(x, 0), &at(x, 1));
-            if h.is_empty() { q(vec![]) } else { at(&h[0], 1) } }
-        "solve:assoc3" => { let h = match_rows(&at(x, 0), &at(x, 1));
-            if h.is_empty() { q(vec![a(""), q(vec![]), q(vec![])]) } else { h[0].clone() } }
-        "cn:fokey" => { let h = match_rows(&at(x, 0), &at(x, 1));
-            if h.is_empty() { V::I(999999) } else { at(&h[0], 1) } }
-        "cn:rmvt" => { let h = match_rows(&at(x, 0), &at(x, 1));
-            if h.is_empty() { a("") } else { at(&h[0], 3) } }
-        "cn:owner" => { let h = match_rows(&at(x, 0), &at(x, 1));
-            if h.is_empty() { q(vec![]) } else { q(vec![at(&h[0], 1)]) } }
-        "cn:gmpl" => { let h = match_rows(&at(x, 0), &at(x, 1));
-            if h.is_empty() { q(vec![]) } else {
-                let third = at(&h[0], 2);
-                if matches!(&third, V::Q(t) if t.is_empty()) { q(vec![]) }
-                else { q(vec![at(&at(&h[0], 1), 0), at(&third, 0)]) } } }
-        // -- solve:cell: the first cell named n, indexed like ast:fetch but with
-        // this DEF's edges -- a cell needs a second field to index and a third
-        // to answer, and a name missing before a malformed cell raises it.
-        "solve:cell" => { let name = at(x, 0); let cells_v = at(x, 1); let cells = seq(&cells_v);
-            let id = Rc::as_ptr(&cells) as usize;
-            let built = SOLVEIDX.with(|m| m.borrow().contains_key(&id));
-            if !built {
-                let mut idx: HashMap<String, usize> = HashMap::new();
-                let mut bad = false;
-                for (i, c) in cells.iter().enumerate() {
-                    match c {
-                        V::Q(ca) if ca.len() >= 2 => { idx.entry(key(&ca[1])).or_insert(i); }
-                        _ => { bad = true; break; }
-                    }
-                }
-                SOLVEIDX.with(|m| { m.borrow_mut().entry(id).or_insert((cells_v.clone(), idx, bad)); });
-            }
-            let kk = key(&name);
-            let (hit, bad) = SOLVEIDX.with(|m| { let mm = m.borrow(); let e = mm.get(&id).unwrap(); (e.1.get(&kk).copied(), e.2) });
-            match hit {
-                Some(i) => at(&cells[i], 2),
-                None => { if bad { panic!("solve:cell: selector on a cell with no name"); } q(vec![]) }
-            } }
-        // -- the two hash joins. theta:natjoin <(theta:natjoin keys), <A, B>>
-        // and derive:jo_rows <keys, <A, B>>: index the right list in its own
-        // order, walk the left, each hit combined -- pair for pair the loop.
-        "theta:natjoin" => { let form_v = at(x, 0); let keys = at(&form_v, 1);
-            let ab = at(x, 1); let a_v = at(&ab, 0); let b_v = at(&ab, 1);
-            let av = seq(&a_v); let bv = seq(&b_v);
-            if av.is_empty() { q(vec![]) } else {
-                let mut idx: HashMap<String, Vec<V>> = HashMap::new();
-                for b in bv.iter() {
-                    match b { V::Q(bb) if !bb.is_empty() => idx.entry(key(&bb[0])).or_default().push(b.clone()),
-                              V::Q(_) => panic!("selector 1 out of range 0"), _ => panic!("selector 1 on atom") }
-                }
-                let mut out: Vec<V> = Vec::new();
-                for a_row in av.iter() {
-                    let hk = key(&ev(&keys, a_row));
-                    if let Some(hits) = idx.get(&hk) {
-                        let arow = seq(a_row);
-                        for b in hits.iter() { let bb = seq(b);
-                            let mut row = arow.to_vec(); row.extend(bb[1..].iter().cloned()); out.push(q(row)); }
-                    }
-                }
-                q(out)
-            } }
-        "derive:jo_rows" => { let keys_v = at(x, 0); let keys = seq(&keys_v);
-            let pair = at(x, 1); let a_v = at(&pair, 0); let b_v = at(&pair, 1);
-            let av = seq(&a_v); let bv = seq(&b_v);
-            if av.is_empty() || bv.is_empty() { q(vec![]) }
-            else if keys.is_empty() {
-                let mut out: Vec<V> = Vec::new();
-                for a_row in av.iter() { for b_row in bv.iter() {
-                    let mut r = seq(a_row).to_vec(); r.extend(seq(b_row).iter().cloned()); out.push(q(r)); } }
-                q(out)
-            } else {
-                let sel_a: Vec<V> = keys.iter().map(|k| at(k, 0)).collect();
-                let sel_b: Vec<V> = keys.iter().map(|k| at(k, 1)).collect();
-                let mut idx: HashMap<String, Vec<V>> = HashMap::new();
-                for b_row in bv.iter() {
-                    let mut kk = String::new();
-                    for sel in sel_b.iter() { let v = key(&ev(sel, b_row)); kk.push_str(&v.len().to_string()); kk.push(':'); kk.push_str(&v); }
-                    idx.entry(kk).or_default().push(b_row.clone());
-                }
-                let mut out: Vec<V> = Vec::new();
-                for a_row in av.iter() {
-                    let mut kk = String::new();
-                    for sel in sel_a.iter() { let v = key(&ev(sel, a_row)); kk.push_str(&v.len().to_string()); kk.push(':'); kk.push_str(&v); }
-                    if let Some(hits) = idx.get(&kk) {
-                        let asq = seq(a_row);
-                        for b_row in hits.iter() { let mut r = asq.to_vec(); r.extend(seq(b_row).iter().cloned()); out.push(q(r)); }
-                    }
-                }
-                q(out)
-            } }
-        // -- grouping in one pass: rmap:nest, derive:count_rows, rmap:merge_cells.
-        "rmap:nest" => rmap_nest(x),
-        "derive:count_rows" => { let sel = at(x, 0); let rows_v = at(x, 1); let rows = seq(&rows_v);
-            let keyvals: Vec<V> = rows.iter().map(|r| ev(&sel, r)).collect();
-            let mut counts: HashMap<String, (V, i64)> = HashMap::new();
-            for kv in keyvals.iter() { let e = counts.entry(key(kv)).or_insert_with(|| (kv.clone(), 0)); e.1 += 1; }
-            let mut order: Vec<String> = Vec::new(); let mut seen: HashSet<String> = HashSet::new();
-            for kv in keyvals.iter().rev() { let k = key(kv); if seen.insert(k.clone()) { order.push(k); } }
-            order.reverse();
-            q(order.iter().map(|k| { let (kv, n) = counts.get(k).unwrap(); q(vec![kv.clone(), V::I(*n)]) }).collect()) }
-        "rmap:merge_cells" => { let cells = seq(x);
-            let mut groups: HashMap<String, (Option<V>, V, Vec<V>)> = HashMap::new();
-            let mut order: Vec<String> = Vec::new();
-            for c in cells.iter() { let name = at(c, 1); let k = key(&name);
-                if let Some(g) = groups.get_mut(&k) { g.0 = None; g.2.push(c.clone()); }
-                else { groups.insert(k.clone(), (Some(c.clone()), name.clone(), vec![c.clone()])); order.push(k); } }
-            let mut out: Vec<V> = Vec::with_capacity(order.len());
-            for k in order.iter() { let (cell, name, parts) = groups.get(k).unwrap();
-                match cell { Some(c) => out.push(c.clone()),
-                    None => { let mut contents: Vec<V> = Vec::new();
-                        for c in parts.iter() { contents.extend(seq(&at(c, 2)).iter().cloned()); }
-                        out.push(q(vec![a("CELL"), name.clone(), q(contents)])); } } }
-            q(out) }
-        // -- the rmap wide-row machinery. member_pairs caches on the rows'
-        // identity (and the descriptor's); slot / wide_row / slot_for are its
-        // first-column lookups.
-        "rmap:member_pairs" => {
-            if let V::Q(xr) = x {
-                let xid = Rc::as_ptr(xr) as usize;
-                if let Some(v) = PAIRIDX_X.with(|m| m.borrow().get(&xid).map(|(_, v)| v.clone())) { return Some(v); }
-            }
-            let rows_v = at(x, 4); let rows = seq(&rows_v);
-            let rid = Rc::as_ptr(&rows) as usize;
-            let ck = key(&q(vec![at(x, 0), at(x, 1), at(x, 2), at(x, 3)]));
-            let cached = PAIRIDX_ROWS.with(|m| m.borrow().get(&rid).and_then(|(_, per)| per.get(&ck).cloned()));
-            let out = match cached {
-                Some(o) => o,
-                None => {
-                    let keypos = ev(&a("rmap:keypos"), x);
-                    let nonkeys_v = ev(&a("rmap:nonkey_positions"), x);
-                    let nonkeys = seq(&nonkeys_v);
-                    let mut rowsout: Vec<V> = Vec::with_capacity(rows.len());
-                    for r in rows.iter() {
-                        let nk: Vec<V> = nonkeys.iter().map(|sel| ev(sel, r)).collect();
-                        rowsout.push(q(vec![ev(&keypos, r), q(nk)]));
-                    }
-                    let o = q(rowsout);
-                    PAIRIDX_ROWS.with(|m| { let mut m = m.borrow_mut();
-                        let e = m.entry(rid).or_insert_with(|| (rows_v.clone(), HashMap::new()));
-                        e.1.insert(ck.clone(), o.clone()); });
-                    o
-                }
-            };
-            if let V::Q(xr) = x { let xid = Rc::as_ptr(xr) as usize;
-                if xid != rid { PAIRIDX_X.with(|m| { m.borrow_mut().entry(xid).or_insert((x.clone(), out.clone())); }); } }
-            out
-        }
-        "rmap:slot" => { let pairs = ev(&a("rmap:member_pairs"), &at(x, 0));
-            let h = match_rows(&at(x, 1), &pairs);
-            if h.is_empty() { q(vec![]) } else { q(vec![at(&h[0], 1)]) } }
-        "rmap:wide_row" => { let key_v = at(x, 0); let rels_v = at(x, 1); let rels = seq(&rels_v);
-            let kk = key(&key_v);
-            let mut out: Vec<V> = Vec::with_capacity(rels.len() + 1);
-            out.push(key_v.clone());
-            for rel in rels.iter() {
-                let relrc = seq(rel); let rid = Rc::as_ptr(&relrc) as usize;
-                let built = SLOTIDX.with(|m| m.borrow().contains_key(&rid));
-                if !built {
-                    let pairs_v = ev(&a("rmap:member_pairs"), rel); let pairs = seq(&pairs_v);
-                    let mut slots: HashMap<String, V> = HashMap::new();
-                    for p in pairs.iter() {
-                        match p { V::Q(pa) if !pa.is_empty() => { slots.entry(key(&pa[0])).or_insert_with(|| p.clone()); }
-                                  V::Q(_) => panic!("selector 1 out of range 0"), _ => panic!("selector 1 on atom") }
-                    }
-                    SLOTIDX.with(|m| { m.borrow_mut().entry(rid).or_insert((rel.clone(), slots)); });
-                }
-                let hit = SLOTIDX.with(|m| m.borrow().get(&rid).and_then(|e| e.1.get(&kk).cloned()));
-                out.push(match hit { Some(p) => q(vec![at(&p, 1)]), None => q(vec![]) });
-            }
-            q(out) }
-        "test:slot_for" => { let d_v = at(x, 1); let d = seq(&d_v);
-            let did = Rc::as_ptr(&d) as usize;
-            let cached = SLOTFOR.with(|m| m.borrow().get(&did).map(|(_, v)| v.clone()));
-            let pairs = match cached { Some(p) => p, None => {
-                let desc = seq(&at(&d_v, 0));
-                let unnested = ev(&a("rmap:unnest"), &at(&d_v, 1));
-                let rel = q(vec![desc[0].clone(), desc[1].clone(), desc[2].clone(), desc[3].clone(), unnested]);
-                let p = ev(&a("rmap:member_pairs"), &rel);
-                SLOTFOR.with(|m| { m.borrow_mut().entry(did).or_insert((d_v.clone(), p.clone())); });
-                p } };
-            let h = match_rows(&at(x, 0), &pairs);
-            if h.is_empty() { q(vec![]) } else { q(vec![at(&h[0], 1)]) } }
-        // -- concatenation and atom twins.
-        "main:flat" => { let mut out: Vec<V> = Vec::new();
-            for s in seq(x).iter() { out.extend(seq(s).iter().cloned()); } q(out) }
-        "theta:append_phi" => { let l = seq(x); let mut out = l.to_vec(); out.push(q(vec![])); q(out) }
-        "test:atoms_of" | "manifest:opatoms" => q(atoms_of(x)),
-        // -- read:memberw: theta:member's twin on the same kept set.
-        "read:memberw" => { let needle = at(x, 0); let lv = at(x, 1); let l = seq(&lv);
-            if l.len() < 16 { boolv(l.iter().any(|e| deep_eq(&needle, e))) } else { membidx_has(&lv, &l, &needle) } }
-        _ => return None,
-    };
-    Some(r)
-}
+pub type Prim = Rc<dyn Fn(&V) -> R>;
 
-// negative counts drain, zero takes nothing, past-the-end clamps
-fn drain(l: &[V], n: &V) -> usize {
-    let n = int_of(n);
-    if n == 0 { 0 } else if n < 0 { l.len() } else { (n as usize).min(l.len()) }
-}
-
-fn memoable(f: &str) -> bool {
-    // The js host's MEMOCN, in full. Each names a PURE function of its argument
-    // whose input repeats: fetches and lookups keyed by the frozen store, the
-    // column tokenizer keyed by a name atom, the store-shaped reports. Memoising
-    // a pure def cannot change a value while D is frozen (Backus 14.6), so this
-    // is speed only; the leaf twins above intercept the ones that are also
-    // FASTPRIMS (ast:fetch, cn:gmpl) before the memo is consulted.
-    const MEMOCN: [&str; 24] = ["ast:fetch", "cn:otparts", "cn:mandfor", "cn:vtfor", "cn:sfx",
-        "cn:pred", "cn:hyph", "cn:rmkind", "cn:gmpl", "lex:parts", "cn:chrank", "lex:lw",
-        "induce:sig_of", "system:pop_in", "store:fts", "ui:otpops", "ui:cls_rows", "ui:typed_types", "mcp:tools",
-        "derive:sm_marks", "main:status_fts", "main:cell2", "lex:subruns", "lex:camel"];
-    MEMOCN.contains(&f) || f.starts_with("rmap:") || f.starts_with("state:")
-}
-
-// ============================ the mu =========================================
-// Selectors, sequences are the seven functional forms (COMP right-to-left,
-// CONS, CONST, COND, ALPHA, INSERT as a right fold, WHILE). Booleans are the
-// atoms "T" and "F". No law semantics live here.
-fn ev(f: &V, x: &V) -> V {
-    match f {
-        V::I(n) => {
-            let s = seq(x);
-            let n = *n;
-            if n < 1 || n as usize > s.len() {
-                panic!("selector {} out of range {}", n, s.len());
-            }
-            s[(n - 1) as usize].clone()
-        }
-        V::S(name) => {
-            let name: &str = name;
-            let body = DEFS.with(|d| d.borrow().get(name).cloned());
-            if let Some(body) = body {
-                if let Some(r) = fastprim(name, x) { return r; }
-                if !memoable(name) { return ev(&body, x); }
-                let k = memo_key(x);
-                if let Some(hit) = EVMEMO.with(|m| {
-                    m.borrow().get(name).and_then(|t| t.get(&k).map(|(_, v)| v.clone()))
-                }) {
-                    return hit;
-                }
-                let v = ev(&body, x);
-                EVMEMO.with(|m| {
-                    m.borrow_mut().entry(name.to_string()).or_default()
-                        .insert(k, (x.clone(), v.clone()))
-                });
-                let over = EVMEMON.with(|n| { let mut n = n.borrow_mut(); *n += 1; *n > 400_000 });
-                if over {
-                    EVMEMO.with(|m| m.borrow_mut().clear());
-                    EVMEMON.with(|n| *n.borrow_mut() = 0);
-                }
-                return v;
-            }
-            if let Some(r) = prim(name, x) { return r; }
-            panic!("unresolved atom: {}", name);
-        }
-        V::Q(form) => {
-            if form.is_empty() { panic!("unknown form: <empty>"); }
-            let head = match &form[0] { V::S(s) => s.to_string(), _ => String::new() };
-            // tau clause (c): METACOMPOSITION (Backus 13.3.2, 13.4).
-            //     (rho <x1..xn>):y = (rho x1):<<x1..xn>, y>
-            // FETCH the head, do not MATCH it -- see the note in Arest.java.
-            // The match below is the PRIMITIVE ARM of this rule, taken only
-            // when lambda does not define the form. Note this file's own header
-            // recorded the omission ("engine/rust implements true FFP
-            // metacomposition ... while the js head ... dispatches the seven
-            // forms directly") and justified it by "they agree on lambda, which
-            // only uses the seven" -- but lambda only used the seven BECAUSE the
-            // hosts only offered seven, so the consequence was the warrant.
-            if head.is_empty() || DEFS.with(|d| d.borrow().contains_key(&head)) {
-                return ev(&form[0], &q(vec![f.clone(), x.clone()]));
-            }
-            match head.as_str() {
-                "COMP" => {
-                    // the equal-keys filter over distr/distl, answered by an
-                    // index once the scanned list is long enough to pay for the
-                    // build (joinPat). The written chain runs otherwise, and
-                    // always for a short list -- same value, same order.
-                    if form.len() == 4 || form.len() == 5 {
-                        if let Some(jp) = join_pat(&form[..]) {
-                            let jx = if form.len() == 5 { ev(&form[4], x) } else { x.clone() };
-                            if let V::Q(pairv) = &jx {
-                                if pairv.len() == 2 {
-                                    let (list_v, carrier_v) = if jp.distl { (&pairv[1], &pairv[0]) } else { (&pairv[0], &pairv[1]) };
-                                    if let V::Q(list) = list_v {
-                                        if list.len() > 32 {
-                                            return join_exec(&jp, list_v, carrier_v, list);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    let mut v = x.clone();
-                    for i in (1..form.len()).rev() { v = ev(&form[i], &v); }
-                    v
-                }
-                // CONS and CONST are LAMBDA now (Backus 13.3.2 verbatim) and
-                // reach this host through tau clause (c) above. See
-                // head.part.js for why removal, not equivalence, is the proof.
-                "COND" => if is_t(&ev(&form[1], x)) { ev(&form[2], x) } else { ev(&form[3], x) },
-                "ALPHA" => q(seq(x).iter().map(|e| ev(&form[1], e)).collect()),
-                "INSERT" => {
-                    let xs = seq(x);
-                    if xs.is_empty() { panic!("INSERT on empty"); }
-                    let base = xs[xs.len() - 1].clone();
-                    // the prepend-every-survivor filter in one linear pass, when
-                    // the accumulator is long enough for the copying to bite
-                    // (filterFold). framePure proved the accumulator slot unread,
-                    // so the sentinel standing in it is never selected; a stray
-                    // read would surface loudly rather than as stale data.
-                    if xs.len() > 32 {
-                        if let V::Q(basev) = &base {
-                            if let Some(pat) = fold_pattern(&form[1], 0) {
-                                let sentinel = a("\u{0}unread-accumulator");
-                                let mut out: Vec<V> = Vec::new();
-                                for i in 0..xs.len() - 1 {
-                                    let frame = q(vec![xs[i].clone(), sentinel.clone()]);
-                                    if is_t(&ev(&pat.pred, &frame)) {
-                                        out.push(match &pat.val { None => xs[i].clone(), Some(v) => ev(v, &frame) });
-                                    }
-                                }
-                                out.extend(basev.iter().cloned());
-                                return q(out);
-                            }
-                        }
-                    }
-                    let mut acc = base;
-                    for i in (0..xs.len() - 1).rev() {
-                        acc = ev(&form[1], &q(vec![xs[i].clone(), acc]));
-                    }
-                    acc
-                }
-                "WHILE" => {
-                    let mut v = x.clone();
-                    while is_t(&ev(&form[1], &v)) { v = ev(&form[2], &v); }
-                    v
-                }
-                _ => panic!("unknown form: {}", head),
-            }
-        }
+// FNV-1a: the names are short and trusted, so a fast hash serves where SipHash's flood resistance buys
+// nothing; every atom applied is one lookup.
+#[derive(Default, Clone, Copy)]
+pub struct Fnv(u64);
+impl std::hash::Hasher for Fnv {
+    fn finish(&self) -> u64 { self.0 }
+    fn write(&mut self, b: &[u8]) {
+        let mut h = if self.0 == 0 { 0xcbf29ce484222325 } else { self.0 };
+        for x in b { h ^= *x as u64; h = h.wrapping_mul(0x100000001b3); }
+        self.0 = h;
     }
 }
-
-// ============================ the lambda and carriers =========================
-// THE lambda, at the repo root — not a curated copy. Each carrier is likewise
-// one tuple literal, appearing AS SOURCE exactly as the js host concatenates
-// it and the cs csproj copy /b's it.
-// compose.py's chunked projection of the lambda: the same bytes, split at the
-// tuple's top-level commas into fn bodies so LLVM sees many small functions
-// instead of one 1.7 MB expression it cannot finish optimizing.
-// ============================ the lambda VOCABULARY ============================
-// Lambda is intersection source: ONE file that is simultaneously valid in every
-// host language, so that each host's OWN COMPILER reads it. These constructors
-// are what make that true here, and they mirror js head.part.js exactly -- A is
-// the atom itself, N the selector, K a CONST pair, PHI the empty sequence,
-// S1..S9 the sequence family (Backus 13.2 rule 4, chunked at nine because a
-// host carries no variadics).
-//
-// THIS REPLACES A RUNTIME PARSER, and that is the point. Reading lambda at run
-// time with a hand-written reader throws away the entire reason lambda is shaped
-// the way it is: it makes the host the lambda parser instead of the host's
-// compiler, and it means a second implementation of the grammar that can drift.
-// The reader was adopted to escape a fifty-minute rebuild; build.rs answers
-// that at ~4 minutes by chunking, which is where the cost actually lived.
-#[allow(non_snake_case)] fn A(s: &str) -> V { a(s) }
-#[allow(non_snake_case)] fn N(n: i64) -> V { V::I(n) }
-#[allow(non_snake_case)] fn K(x: V) -> V { q(vec![a("CONST"), x]) }
-#[allow(non_snake_case)] fn PHI() -> V { q(vec![]) }
-#[allow(non_snake_case)] fn Sv(v: Vec<V>) -> V { q(v) }
-// a wide sequence whose MEMBERS were split across part fns by build.rs and
-// concatenated back here: same members, same order, still flat
-#[allow(non_snake_case)] fn Scat(parts: Vec<Vec<V>>) -> V {
-    q(parts.into_iter().flatten().collect())
-}
-#[allow(non_snake_case)] fn S1(a1: V) -> V { q(vec![a1]) }
-#[allow(non_snake_case)] fn S2(a1: V, a2: V) -> V { q(vec![a1, a2]) }
-#[allow(non_snake_case)] fn S3(a1: V, a2: V, a3: V) -> V { q(vec![a1, a2, a3]) }
-#[allow(non_snake_case)] fn S4(a1: V, a2: V, a3: V, a4: V) -> V { q(vec![a1, a2, a3, a4]) }
-#[allow(non_snake_case)] fn S5(a1: V, a2: V, a3: V, a4: V, a5: V) -> V { q(vec![a1, a2, a3, a4, a5]) }
-#[allow(non_snake_case)] fn S6(a1: V, a2: V, a3: V, a4: V, a5: V, a6: V) -> V { q(vec![a1, a2, a3, a4, a5, a6]) }
-#[allow(non_snake_case)] fn S7(a1: V, a2: V, a3: V, a4: V, a5: V, a6: V, a7: V) -> V { q(vec![a1, a2, a3, a4, a5, a6, a7]) }
-#[allow(non_snake_case)] fn S8(a1: V, a2: V, a3: V, a4: V, a5: V, a6: V, a7: V, a8: V) -> V { q(vec![a1, a2, a3, a4, a5, a6, a7, a8]) }
-#[allow(non_snake_case)] fn S9(a1: V, a2: V, a3: V, a4: V, a5: V, a6: V, a7: V, a8: V, a9: V) -> V { q(vec![a1, a2, a3, a4, a5, a6, a7, a8, a9]) }
-
-// lambda, the case table and the carriers, compiled as rust source. build.rs
-// emits this: the same bytes, split only at the tuple's top-level commas so
-// rustc sees many small fn bodies instead of one it cannot finish.
-include!(concat!(env!("OUT_DIR"), "/canon.rs"));
-
-// The cross-host case table rides in the same composed binary here for the
-// same reason it does on the other three hosts (js midcases.part.js, java
-// compose.py's 6th arg -> SC inside loadCarriers, cs midcases.part): lambda
-// `main`'s `case <name>` mode resolves the row by solve:cell over CELLS, so a
-// host whose CELLS carry no case: cells refuses every row.
-//
-// THIS WAS MISSING, and it was invisible: rust-host is not in hosts.sh's
-// default AREST_STATIONS ("js java cs"), so when the case table was wired into
-// the other three the fourth was simply never run, and conjunct 2 looked
-// finished at 3/4. Turning rust on printed "rust: 102 refused, 0 answered" --
-// not disagreement, total silence, which is the signature of a host that
-// cannot see the questions rather than one that answers them differently.
-// Loading it AFTER lambda and BEFORE the carriers matches the js concatenation
-// order exactly, so the composed store stays byte-equal.
-fn load_lambda() {
-    load_compiled_lambda();
-}
-
-// The carriers are chunked the same way and for the same reason (the base
-// design-state alone is 560 KB). The base journal is empty, and an empty
-// LAMBDA("journal") registers nothing, so there is no third carrier here — the
-// composed store is byte-equal to the js host's on these carriers.
-fn load_carriers() {
-    // the carriers are compiled in with lambda, in the js concatenation order
-}
-
-
-// ============================ the host contract ==============================
-// SIX LINES, and now a FUNCTION rather than a main: load lambda, hand lambda the
-// address, take back the text and the flag. No modes, no rendering, forever --
-// all dispatch and all text live in lambda `main`, and a new operation is a
-// lambda edit, never a host edit. Adding a branch here is how runners die.
-//
-// IT BECAME A LIBRARY THE DAY engine/os NEEDED IT. The OS was carrying a SECOND
-// engine -- `arest::worker::arest_call(verb, json)` out of engine/rust, a verb
-// table over a JSON store image -- and that engine went with the fat hosts. The
-// fix is not to regrow a mu beside this one; it is to have one mu with two
-// callers, the CLI beside this file and the OS. A host is ~500 lines because
-// there is only ever one of it.
+type Fx = std::hash::BuildHasherDefault<Fnv>;
 
 thread_local! {
-    static BOOTED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static DEFS: RefCell<HashMap<Rc<str>, V, Fx>> = RefCell::new(HashMap::default());
+    static CELLS: RefCell<Vec<V>> = const { RefCell::new(Vec::new()) };
+    static PRIMS: RefCell<HashMap<String, Prim, Fx>> = RefCell::new(HashMap::default());
 }
 
-// ============================ the store boot =================================
-// THE BOOT IS LAMBDA'S. The host loads lambda and the carriers into CELLS and
-// hands them to lambda's main, which boots the store itself (main:boot) as the
-// Java host's Program and CasesTest do; a host carries no boot sequence of its
-// own. The cells are handed as one value, so the memo keeps main:boot's answer
-// for every call made over them.
-thread_local! {
-    static CELLSV: std::cell::RefCell<Option<V>> = const { std::cell::RefCell::new(None) };
+fn def(name: &str, body: V) -> Result<(), String> {
+    DEFS.with(|d| {
+        let mut d = d.borrow_mut();
+        if d.contains_key(name) { return Err(format!("duplicate DEF: {}", name)); }
+        d.insert(Rc::from(name), body.clone());
+        Ok(())
+    })?;
+    CELLS.with(|c| c.borrow_mut().push(q(vec![a("CELL"), a(name), body])));
+    Ok(())
 }
 
-fn store_cells() -> V {
-    CELLSV.with(|v| {
-        let mut b = v.borrow_mut();
-        if b.is_none() { *b = Some(CELLS.with(|c| q(c.borrow().clone()))); }
-        b.as_ref().unwrap().clone()
+/// Registration is INTO DEFS' surface: a registered function resolves through the one mu by name,
+/// after any compiled cell of the same name, and a duplicate registration is refused.
+pub fn register(name: &str, f: Prim) -> Result<(), String> {
+    PRIMS.with(|p| {
+        let mut p = p.borrow_mut();
+        if p.contains_key(name) { return Err(format!("duplicate registration: {}", name)); }
+        p.insert(name.to_string(), f);
+        Ok(())
     })
 }
 
-pub fn boot() {
-    BOOTED.with(|b| {
-        if !b.get() {
-            load_lambda();
-            load_carriers();
-            b.set(true);
+pub fn push_cell(name: &str, body: V) { CELLS.with(|c| c.borrow_mut().push(q(vec![a("CELL"), a(name), body]))); }
+pub fn cells() -> V { CELLS.with(|c| q(c.borrow().clone())) }
+pub fn cell_count() -> usize { CELLS.with(|c| c.borrow().len()) }
+
+// ---- Backus's primitives (11.2.3), each as Arest.java defines it ------------------------------
+
+fn py_strip(s: &str, cs: &str) -> String { s.trim_matches(|c| cs.contains(c)).to_string() }
+fn py_rstrip(s: &str, cs: &str) -> String { s.trim_end_matches(|c| cs.contains(c)).to_string() }
+
+fn is_ws(b: u8) -> bool { matches!(b, b' ' | b'\t' | b'\n' | 0x0B | 0x0C | b'\r') }
+
+// lex yields TOKEN-RECORDS, ten fields per token, as metamodel/resolution.md types it: tok, nopunct,
+// base, ordinal-suffix, lower, quoted-text, initial-cap, hyphen-template, is-quoted, quote-index.
+fn lex(x: &V) -> R {
+    let t = match x { V::S(s) => s.clone(), _ => return Err("lex of a non-text".to_string()) };
+    let b = t.as_bytes();
+    let mut spans: Vec<(usize, usize)> = Vec::new();
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'\'' {
+            if let Some(j) = b[i + 1..].iter().position(|&c| c == b'\'') { spans.push((i, i + 1 + j + 1)); i = i + 1 + j + 1; continue; }
+            break;
         }
+        i += 1;
+    }
+    let mut rows = Vec::new();
+    let mut i = 0;
+    while i < b.len() {
+        if is_ws(b[i]) { i += 1; continue; }
+        let s = i;
+        while i < b.len() && !is_ws(b[i]) { i += 1; }
+        let e = i;
+        let tok = &t[s..e];
+        let mut k = 0usize;
+        for (n, sp) in spans.iter().enumerate() { if s < sp.1 && sp.0 < e { k = n + 1; break; } }
+        let mut qtext = String::new();
+        if k > 0 {
+            let lo = s.max(spans[k - 1].0 + 1);
+            let hi = e.min(spans[k - 1].1 - 1);
+            if hi > lo { qtext = t[lo..hi].to_string(); }
+        }
+        let nopunct = py_strip(tok, ".;:,");
+        let base = py_rstrip(&nopunct, "0123456789");
+        let mut tpl = tok.to_string();
+        if tpl.len() > 2 && tpl.ends_with("--") { tpl.pop(); }
+        else if tpl.len() > 2 && tpl.starts_with("--") { tpl.remove(0); }
+        else if tpl.len() > 1 && tpl.ends_with('-') { tpl.pop(); }
+        else if tpl.len() > 1 && tpl.starts_with('-') { tpl.remove(0); }
+        let up = base.as_bytes().first().map(|c| c.is_ascii_uppercase()).unwrap_or(false);
+        let suffix = nopunct[base.len()..].to_string();
+        rows.push(q(vec![a(tok), a(&nopunct), a(&base), a(&suffix), a(&tok.to_lowercase()), a(&qtext),
+                         boolv(up), a(&tpl), boolv(k > 0), V::N(k as i64)]));
+    }
+    Ok(q(rows))
+}
+
+fn base_prim(name: &str, x: &V) -> Option<R> {
+    let r = match name {
+        "id" => Ok(x.clone()),
+        "tl" => seq(x).and_then(|s| if s.is_empty() { Err("tl of <>".into()) } else { Ok(q(s[1..].to_vec())) }),
+        "atom" => Ok(boolv(!matches!(x, V::Q(_)))),
+        "apndl" => (|| { let p = seq(x)?; let t = seq(p.get(1).ok_or("apndl of one")?)?; let mut v = Vec::with_capacity(t.len() + 1); v.push(p[0].clone()); v.extend(t.iter().cloned()); Ok(q(v)) })(),
+        "apndr" => (|| { let p = seq(x)?; let h = seq(&p[0])?; let mut v = h.to_vec(); v.push(p[1].clone()); Ok(q(v)) })(),
+        "distl" => (|| { let p = seq(x)?; Ok(q(seq(&p[1])?.iter().map(|e| q(vec![p[0].clone(), e.clone()])).collect())) })(),
+        "distr" => (|| { let p = seq(x)?; Ok(q(seq(&p[0])?.iter().map(|e| q(vec![e.clone(), p[1].clone()])).collect())) })(),
+        "cat" => (|| { let p = seq(x)?; let mut v = seq(&p[0])?.to_vec(); v.extend(seq(&p[1])?.iter().cloned()); Ok(q(v)) })(),
+        "null" => Ok(boolv(matches!(x, V::Q(v) if v.is_empty()))),
+        "eq" => (|| { let p = seq(x)?; Ok(boolv(deep_eq(&p[0], &p[1]))) })(),
+        "not" => Ok(boolv(!is_t(x))),
+        "and" => (|| { let p = seq(x)?; Ok(boolv(is_t(&p[0]) && is_t(&p[1]))) })(),
+        "length" => seq(x).map(|s| V::N(s.len() as i64)),
+        "lt" => (|| { let p = seq(x)?; Ok(boolv(cmp_atoms(&p[0], &p[1])?.is_lt())) })(),
+        "le" => (|| { let p = seq(x)?; Ok(boolv(cmp_atoms(&p[0], &p[1])?.is_le())) })(),
+        "ge" => (|| { let p = seq(x)?; Ok(boolv(cmp_atoms(&p[0], &p[1])?.is_ge())) })(),
+        "gt" => (|| { let p = seq(x)?; Ok(boolv(cmp_atoms(&p[0], &p[1])?.is_gt())) })(),
+        "reverse" => seq(x).map(|s| { let mut v = s.to_vec(); v.reverse(); q(v) }),
+        "trans" => (|| {
+            let rows = seq(x)?;
+            if rows.is_empty() { return Ok(q(vec![])); }
+            let w = seq(&rows[0])?.len();
+            let mut o = Vec::with_capacity(w);
+            for c in 0..w { let mut col = Vec::with_capacity(rows.len()); for r in rows.iter() { col.push(at(r, c)?); } o.push(q(col)); }
+            Ok(q(o))
+        })(),
+        // defined when both are numbers and the result is one, so a result past 64 bits is bottom
+        "+" | "-" | "*" | "/" => (|| {
+            let p = seq(x)?;
+            let (u, w) = (int(p.first().ok_or("arity")?)?, int(p.get(1).ok_or("arity")?)?);
+            let r = match name { "+" => u.checked_add(w), "-" => u.checked_sub(w), "*" => u.checked_mul(w), _ => u.checked_div(w) };
+            r.map(V::N).ok_or_else(|| format!("a number past 64 bits: {} {} {}", u, name, w))
+        })(),
+        "apply" => (|| { let p = seq(x)?; ev(&p[0], &p[1]) })(),
+        "lex" => lex(x),
+        // implode joins atoms, numbers stringified; a sequence among them is bottom
+        "implode" => (|| {
+            let p = seq(x)?;
+            let sep = text(&p[0])?;
+            let mut parts = Vec::new();
+            for e in seq(&p[1])?.iter() { if matches!(e, V::Q(_)) { return Err("implode on sequence".to_string()); } parts.push(show(e)); }
+            Ok(a(&parts.join(&sep)))
+        })(),
+        // the char-level boundary: one atom per UTF-16 unit
+        "chars" => match x {
+            V::S(s) => Ok(q(s.encode_utf16().map(|u| a(&String::from_utf16_lossy(&[u]))).collect())),
+            _ => Err("chars of a non-text".to_string()),
+        },
+        "1r" => seq(x).and_then(|s| s.last().cloned().ok_or_else(|| "1r of <>".to_string())),
+        "tlr" => seq(x).and_then(|s| if s.is_empty() { Err("tlr of <>".into()) } else { Ok(q(s[..s.len() - 1].to_vec())) }),
+        _ => return None,
+    };
+    Some(r)
+}
+
+// AREST_PROFILE: a measurement aid, never an answer: how many times each lambda name is applied.
+thread_local! {
+    static PROFILING: std::cell::Cell<bool> = std::cell::Cell::new(std::env::var("AREST_PROFILE").is_ok());
+    static COUNTS: RefCell<HashMap<Rc<str>, u64, Fx>> = RefCell::new(HashMap::default());
+}
+
+thread_local! {
+    // the named DEFs being applied, innermost last, and per (scan, caller, caller's caller): the scan's
+    // applications and the predicate tests made under it
+    static STACK: RefCell<Vec<Rc<str>>> = const { RefCell::new(Vec::new()) };
+    static BYCALLER: RefCell<HashMap<(Rc<str>, Rc<str>, Rc<str>), (u64, u64), Fx>> = RefCell::new(HashMap::default());
+}
+struct Pop;
+impl Drop for Pop { fn drop(&mut self) { STACK.with(|t| { t.borrow_mut().pop(); }); } }
+
+// The names a profile watches are the measurer's, never the host's: AREST_PROFILE_SCANS names the scans to charge
+// tests to, AREST_PROFILE_TESTS the tests (comma-separated); with neither set, no caller is attributed.
+thread_local! {
+    static SCANS: Vec<String> = names_of("AREST_PROFILE_SCANS");
+    static TESTS: Vec<String> = names_of("AREST_PROFILE_TESTS");
+}
+fn names_of(var: &str) -> Vec<String> {
+    std::env::var(var).ok().map(|v| v.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()).unwrap_or_default()
+}
+fn is_scan(n: &str) -> bool { SCANS.with(|v| v.iter().any(|s| s == n)) }
+fn is_test(n: &str) -> bool { TESTS.with(|v| v.iter().any(|s| s == n)) }
+
+fn attribute(name: &Rc<str>) {
+    let scan = is_scan(name);
+    let test = is_test(name);
+    if !scan && !test { return; }
+    STACK.with(|t| {
+        let t = t.borrow();
+        // a scan is charged to itself (it is about to be pushed); a test to the nearest scan on the stack
+        let at = if scan { Some(t.len()) } else { t.iter().rposition(|n| is_scan(n)) };
+        let Some(i) = at else { return };
+        let me: Rc<str> = if scan { name.clone() } else { t[i].clone() };
+        let none: Rc<str> = Rc::from("-");
+        // a form lambda defines (CONS, CONST: an upper-case name) is on the stack but says nothing of who
+        // called; the callers are the nearest named DEFs below the scan that are not forms
+        let form = |n: &Rc<str>| n.chars().all(|c| !c.is_ascii_lowercase());
+        let mut up = t[..i].iter().rev().filter(|n| !form(n));
+        let c1 = up.next().cloned().unwrap_or_else(|| none.clone());
+        let c2 = up.next().cloned().unwrap_or(none);
+        BYCALLER.with(|b| {
+            let mut b = b.borrow_mut();
+            let e = b.entry((me, c1, c2)).or_insert((0, 0));
+            if scan { e.0 += 1 } else { e.1 += 1 }
+        });
     });
 }
 
-/// Ask lambda `main` an address -- the CLI contract, verbatim: <text, ok>.
-pub fn ask(argv: &[&str]) -> (String, bool) {
-    boot();
-    let cells = store_cells();
-    let addr = q(argv.iter().map(|s| a(s)).collect());
-    let out = ev(&a("main"), &q(vec![cells, addr]));
-    let o = seq(&out);
-    (join_text(&o[0]), is_t(&o[1]))
+/// For each scan, its callers two levels up with the scan's applications and the tests made under it, the
+/// heaviest first, when AREST_PROFILE is set.
+pub fn profile_callers(top: usize) -> Vec<String> {
+    let mut v: Vec<((Rc<str>, Rc<str>, Rc<str>), (u64, u64))> = BYCALLER.with(|b| b.borrow().iter().map(|(k, n)| (k.clone(), *n)).collect());
+    v.sort_by(|p, r| r.1 .1.cmp(&p.1 .1));
+    let mut out = Vec::new();
+    for scan in SCANS.with(|v| v.clone()) {
+        for ((s, c1, c2), (calls, tests)) in v.iter().filter(|e| &*e.0 .0 == scan.as_str()).take(top) {
+            out.push(format!("{} <- {} <- {}: {} applications, {} tests", s, c1, c2, calls, tests));
+        }
+    }
+    out
 }
 
-/// Ask lambda `main:api` a REST step: Eq 2's addressed operation, the one the
-/// HTTP and MCP surfaces both enter by. A method is not a verb here -- lambda's
-/// http:method_kinds says which KIND of step each one is, and lambda decides
-/// whether the caller may take it. The rendering is lambda's own `system:show`:
-/// a host that formats has started to mean something.
-pub fn api(method: &str, resource: &str, caller: &str, fact: &[&str]) -> String {
-    boot();
-    let cells = store_cells();
-    let f = q(fact.iter().map(|s| a(s)).collect());
-    let out = ev(
-        &a("main:api"),
-        &q(vec![cells, a(method), a(resource), a(caller), f]),
-    );
-    join_text(&ev(&a("system:show"), &out))
+// AREST_RECOMPUTE (with AREST_PROFILE): which values are computed more than once. A name applied again to the
+// very same argument (an atom by value, a sequence by identity, as a memo keys it) is a value its caller could
+// have been handed instead of recomputing; each repeat is charged the applications the first computation took,
+// to the name and the caller that asked again. Only computations of at least RECOMPUTE_MIN applications are
+// remembered, so the cheap ones cost nothing to watch.
+const RECOMPUTE_MIN: u64 = 2000;
+thread_local! {
+    static RECOMPUTE: std::cell::Cell<bool> = std::cell::Cell::new(std::env::var("AREST_RECOMPUTE").is_ok());
+    static APPS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    // (name, argument key) -> (applications the first computation took, the argument kept alive so its address
+    // is not reused)
+    static SEEN: RefCell<HashMap<(Rc<str>, String), (u64, V), Fx>> = RefCell::new(HashMap::default());
+    // (name, caller asking again) -> (repeats, applications repeated)
+    static WASTE: RefCell<HashMap<(Rc<str>, Rc<str>), (u64, u64), Fx>> = RefCell::new(HashMap::default());
 }
 
-/// How many cells the load registered. The boot receipt, derived rather than
-/// announced -- a host may report what it did, never what lambda means.
-pub fn cell_count() -> usize {
-    boot();
-    CELLS.with(|c| c.borrow().len())
+fn arg_key(x: &V) -> String {
+    match x { V::S(s) => format!("s{}", s), V::N(n) => format!("n{}", n), V::Q(v) => format!("p{:p}", Rc::as_ptr(v)) }
 }
 
-// ============================ the wasm boundary ==============================
-// The same six-line contract over linear memory, for a caller that has no
-// thread to spawn and no argv to pass: a bun script, a browser, a Worker.
-// `arest_ask` takes the address as UTF-8 arguments joined by 0x1F (the unit
-// separator) and answers one buffer -- a little-endian u32 length, lambda's
-// flag as `T` or `F`, then lambda's text. No wasm-bindgen: a host carries no
-// dependencies, and the loader is twenty lines (wasm.js beside Cargo.toml).
-// The stack budget main.rs spawns a thread for is a LINK flag on this target
-// (.cargo/config.toml); the build is
-//   cargo rustc --lib --target wasm32-unknown-unknown --crate-type cdylib
-// so the native builds keep linking only the rlib. A panic is a trap here
-// (the target's strategy is abort), which the caller sees as an exception --
-// the same host error the CLI reports with a non-zero exit.
-#[cfg(target_arch = "wasm32")]
-mod wasm_boundary {
-    /// A buffer the caller fills; freed with `arest_free` at the same length.
-    #[no_mangle]
-    pub extern "C" fn arest_alloc(n: usize) -> *mut u8 {
-        let mut v = Vec::<u8>::with_capacity(n.max(1));
-        let p = v.as_mut_ptr();
-        std::mem::forget(v);
-        p
-    }
+fn recomputed(name: &Rc<str>, k: &str) {
+    let cost = SEEN.with(|m| m.borrow().get(&(name.clone(), k.to_string())).map(|e| e.0));
+    let Some(cost) = cost else { return };
+    let caller: Rc<str> = STACK.with(|t| t.borrow().iter().rev().find(|n| n.chars().any(|c| c.is_ascii_lowercase())).cloned()).unwrap_or_else(|| Rc::from("-"));
+    WASTE.with(|w| { let mut w = w.borrow_mut(); let e = w.entry((name.clone(), caller)).or_insert((0, 0)); e.0 += 1; e.1 += cost; });
+}
 
-    /// Give a buffer from `arest_alloc` or `arest_ask` back, at its length.
-    #[no_mangle]
-    pub unsafe extern "C" fn arest_free(p: *mut u8, n: usize) {
-        drop(Vec::from_raw_parts(p, 0, n.max(1)));
-    }
+fn first_seen(name: &Rc<str>, k: String, x: &V, cost: u64) {
+    if cost < RECOMPUTE_MIN { return; }
+    SEEN.with(|m| { m.borrow_mut().entry((name.clone(), k)).or_insert((cost, x.clone())); });
+}
 
-    /// Load lambda and the carriers without asking anything; answers the cell
-    /// count, the boot receipt, so a caller can time the load apart from
-    /// `main`.
-    #[no_mangle]
-    pub extern "C" fn arest_boot() -> usize {
-        super::cell_count()
-    }
+/// The values computed again, heaviest first: (name, caller that asked again, repeats, applications repeated).
+pub fn profile_recomputed(top: usize) -> Vec<String> {
+    let mut v: Vec<((Rc<str>, Rc<str>), (u64, u64))> = WASTE.with(|w| w.borrow().iter().map(|(k, n)| (k.clone(), *n)).collect());
+    v.sort_by(|p, r| r.1 .1.cmp(&p.1 .1));
+    v.truncate(top);
+    v.into_iter().map(|((n, c), (k, a))| format!("{} asked again by {}: {} repeats, {} applications", n, c, k, a)).collect()
+}
 
-    /// Ask lambda `main` an address: arguments joined by 0x1F in; out, a
-    /// buffer of [len: u32 LE][`T` | `F`][text], `len` counting the flag and
-    /// the text, to be freed with `arest_free(ptr, 4 + len)`.
-    #[no_mangle]
-    pub unsafe extern "C" fn arest_ask(p: *const u8, n: usize) -> *const u8 {
-        let bytes = std::slice::from_raw_parts(p, n);
-        let s = std::str::from_utf8(bytes).unwrap_or("");
-        let argv: Vec<&str> = if n == 0 { Vec::new() } else { s.split(char::from(31u8)).collect() };
-        let (text, ok) = super::ask(&argv);
-        let mut out = Vec::<u8>::with_capacity(5 + text.len());
-        out.extend_from_slice(&((1 + text.len()) as u32).to_le_bytes());
-        out.push(if ok { b'T' } else { b'F' });
-        out.extend_from_slice(text.as_bytes());
-        let p = out.as_ptr();
-        std::mem::forget(out);
-        p
+/// The named applications counted since the profile was last reset.
+pub fn applications() -> u64 { APPS.with(|n| n.get()) }
+
+/// Forget what the profile has counted, so the next span is measured alone.
+pub fn profile_reset() {
+    COUNTS.with(|c| c.borrow_mut().clear());
+    WASTE.with(|w| w.borrow_mut().clear());
+    APPS.with(|n| n.set(0));
+    BYCALLER.with(|b| b.borrow_mut().clear());
+}
+
+/// The names applied most, with their counts, when AREST_PROFILE is set.
+pub fn profile(top: usize) -> Vec<(String, u64)> {
+    let mut v: Vec<(String, u64)> = COUNTS.with(|c| c.borrow().iter().map(|(k, n)| (k.to_string(), *n)).collect());
+    v.sort_by(|p, r| r.1.cmp(&p.1));
+    v.truncate(top);
+    v
+}
+
+// ---- mu ------------------------------------------------------------------------------------------
+
+pub fn ev(f: &V, x: &V) -> R {
+    match f {
+        V::N(n) => {
+            let xs = match x { V::Q(v) => v, _ => return Err(format!("selector {} on atom: {}", n, clip(show(x), 300))) };
+            if *n < 1 || *n as usize > xs.len() { return Err(format!("selector {} out of range {}", n, xs.len())); }
+            Ok(xs[*n as usize - 1].clone())
+        }
+        V::S(s) => {
+            if let Some(body) = DEFS.with(|d| d.borrow().get(&**s).cloned()) {
+                if PROFILING.with(|p| p.get()) {
+                    COUNTS.with(|c| *c.borrow_mut().entry(s.clone()).or_insert(0) += 1);
+                    attribute(s);
+                    let before = APPS.with(|n| { let v = n.get(); n.set(v + 1); v });
+                    let key = if RECOMPUTE.with(|r| r.get()) { Some(arg_key(x)) } else { None };
+                    if let Some(k) = &key { recomputed(s, k); }
+                    STACK.with(|t| t.borrow_mut().push(s.clone()));
+                    let r = { let _pop = Pop; ev(&body, x) };
+                    if let Some(k) = key { first_seen(s, k, x, APPS.with(|n| n.get()) - before); }
+                    return r;
+                }
+                return ev(&body, x);
+            }
+            if let Some(p) = PRIMS.with(|p| p.borrow().get(&**s).cloned()) { return p(x); }
+            if let Some(r) = base_prim(s, x) { return r; }
+            Err(format!("unresolved atom: {}", s))
+        }
+        V::Q(form) => {
+            let head = match form.first() { Some(V::S(h)) => Some(h.clone()), _ => None };
+            // tau clause (c), METACOMPOSITION (Backus 13.3.2): the head is FETCHED, so a form lambda
+            // defines is lambda's; the forms below are the primitive arm
+            let defined = head.as_ref().map(|h| DEFS.with(|d| d.borrow().contains_key(&**h))).unwrap_or(false);
+            if head.is_none() || defined {
+                let h = form.first().cloned().ok_or("an empty form")?;
+                return ev(&h, &q(vec![f.clone(), x.clone()]));
+            }
+            match &**head.as_ref().unwrap() {
+                "COMP" => { let mut v = x.clone(); for g in form[1..].iter().rev() { v = ev(g, &v)?; } Ok(v) }
+                "COND" => if is_t(&ev(&form[1], x)?) { ev(&form[2], x) } else { ev(&form[3], x) },
+                "ALPHA" => { let xs = seq(x)?; let mut o = Vec::with_capacity(xs.len()); for e in xs.iter() { o.push(ev(&form[1], e)?); } Ok(q(o)) }
+                "INSERT" => {
+                    let xs = seq(x)?;
+                    if xs.is_empty() { return Err("INSERT on empty".to_string()); }
+                    let mut acc = xs[xs.len() - 1].clone();
+                    for i in (0..xs.len() - 1).rev() { acc = ev(&form[1], &q(vec![xs[i].clone(), acc]))?; }
+                    Ok(acc)
+                }
+                "WHILE" => { let mut v = x.clone(); while is_t(&ev(&form[1], &v)?) { v = ev(&form[2], &v)?; } Ok(v) }
+                h => Err(format!("unknown form: {}", h)),
+            }
+        }
     }
 }
 
-// ---------------------------------------------------------------------------
-// The rust host's own unit tests. `cargo test` -- no python, no second host.
+// ---- the reader ----------------------------------------------------------------------------------
 //
-// Every host runs the same lambda over the same carriers, so "the hosts agree"
-// does not need one host to drive the others: each asserts its own answers
-// against engine/shared/expected-cases.tsv and agreement follows because they
-// all match the same file. Verifying this host needs cargo and nothing else.
-//
-// No crate is added for it. The host's Cargo.toml says a host carries no
-// dependencies on purpose, and a JSON string is twelve lines of unescaping.
-// ---------------------------------------------------------------------------
-#[cfg(test)]
-mod host_tests {
-    use super::*;
+// A file is one parenthesized literal of text atoms and DEF(name, body) calls, the body written in A,
+// N, K, PHI, S and S1..S9. Each constructor is held to its name (S3 with four elements is refused and
+// named, as the Java and JS readers refuse it); a number is read as 64 bits.
 
-    // The lambda is one deeply nested expression: building it recurses past a
-    // test thread's 2 MB default, which is STATUS_STACK_OVERFLOW rather than a
-    // failure. main() spawns at 512 MB for exactly this, so the tests do too --
-    // and doing it here rather than through RUST_MIN_STACK keeps the budget
-    // with the code that needs it.
-    fn with_stack<F: FnOnce() + Send + 'static>(f: F) {
-        std::thread::Builder::new()
-            .stack_size(512 * 1024 * 1024)
-            .spawn(f)
-            .expect("spawn")
-            .join()
-            .expect("join");
+struct Rd<'t> { b: &'t [u8], i: usize, what: &'t str, def: String, arity: Vec<String> }
+
+impl<'t> Rd<'t> {
+    fn ws(&mut self) { while self.i < self.b.len() && (self.b[self.i] as char).is_whitespace() { self.i += 1; } }
+    fn peek(&mut self, c: u8) -> bool { self.ws(); self.i < self.b.len() && self.b[self.i] == c }
+    fn need(&mut self, c: u8) -> Result<(), String> {
+        self.ws();
+        if self.i >= self.b.len() || self.b[self.i] != c {
+            return Err(format!("lambda reader: {} is not the DEF grammar: '{}' expected at byte {} in {}", self.what, c as char, self.i, self.def));
+        }
+        self.i += 1;
+        Ok(())
     }
-
-    fn shared(name: &str) -> String {
-        let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.pop();
-        p.pop();
-        p.push("engine");
-        p.push("shared");
-        p.push(name);
-        std::fs::read_to_string(&p)
-            .unwrap_or_else(|e| panic!("cannot read {}: {}", p.display(), e))
-    }
-
-    // A JSON string literal back to its text. The golden encodes answers this
-    // way because two of them are SQL DDL carrying real newlines, and a
-    // hand-rolled escaper silently wrote a file that did not round-trip.
-    fn unescape(lit: &str) -> String {
-        let b: Vec<char> = lit.trim().chars().collect();
-        let mut out = String::new();
-        let mut i = if b.first() == Some(&'"') { 1 } else { 0 };
-        let end = if b.last() == Some(&'"') { b.len() - 1 } else { b.len() };
-        while i < end {
-            if b[i] != '\\' {
-                out.push(b[i]);
-                i += 1;
+    fn str(&mut self) -> Result<String, String> {
+        self.ws();
+        if self.i >= self.b.len() || self.b[self.i] != b'"' { return Err(format!("lambda reader: {}: a text expected at byte {} in {}", self.what, self.i, self.def)); }
+        self.i += 1;
+        let mut o: Vec<u8> = Vec::new();
+        while self.i < self.b.len() {
+            let c = self.b[self.i];
+            if c == b'\\' && self.i + 1 < self.b.len() {
+                let e = self.b[self.i + 1];
+                self.i += 2;
+                match e {
+                    b'n' => o.push(b'\n'),
+                    b'r' => o.push(b'\r'),
+                    b't' => o.push(b'\t'),
+                    b'0' => o.push(0),
+                    b'x' => {
+                        let h = std::str::from_utf8(&self.b[self.i..self.i + 2]).map_err(|e| e.to_string())?;
+                        let ch = char::from_u32(u32::from_str_radix(h, 16).map_err(|e| e.to_string())?).unwrap_or('\u{fffd}');
+                        let mut buf = [0u8; 4];
+                        o.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
+                        self.i += 2;
+                    }
+                    _ => o.push(e),
+                }
                 continue;
             }
-            i += 1;
-            match b[i] {
-                'n' => out.push('\n'),
-                't' => out.push('\t'),
-                'r' => out.push('\r'),
-                'b' => out.push('\u{8}'),
-                'f' => out.push('\u{c}'),
-                'u' => {
-                    let hex: String = b[i + 1..i + 5].iter().collect();
-                    let n = u32::from_str_radix(&hex, 16).expect("\\u escape");
-                    out.push(char::from_u32(n).unwrap_or('\u{fffd}'));
-                    i += 4;
-                }
-                c => out.push(c),
-            }
-            i += 1;
+            if c == b'"' { self.i += 1; return String::from_utf8(o).map_err(|e| e.to_string()); }
+            o.push(c);
+            self.i += 1;
         }
-        out
+        Err(format!("lambda reader: {}: an unterminated text in {}", self.what, self.def))
     }
-
-    fn golden_cases() -> Vec<(String, String)> {
-        shared("expected-cases.tsv")
-            .lines()
-            .filter(|l| !l.is_empty())
-            .map(|l| {
-                let t = l.find('\t').expect("golden row has no tab");
-                (l[..t].to_string(), unescape(&l[t + 1..]))
-            })
-            .collect()
+    fn word(&mut self) -> String {
+        self.ws();
+        let s = self.i;
+        while self.i < self.b.len() && (self.b[self.i].is_ascii_alphanumeric() || self.b[self.i] == b'_') { self.i += 1; }
+        String::from_utf8_lossy(&self.b[s..self.i]).to_string()
     }
-
-    // THE BOTTOM ROWS ARE THE POINT. lambda's note above main:case_text says one
-    // case per invocation is deliberate: the table holds rows that BOTTOM, no
-    // lambda def can branch on bottom, and a fold would die at the first one.
-    // The CLI makes a bottom visible by dying and the driver recorded
-    // <refused>. In-process the boundary is catch_unwind, and it has to be
-    // here or the deliberate refusals read as broken tests.
-    fn answer(name: &str) -> String {
-        let got = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let cells = store_cells();
-            let argv = q(vec![a("case"), astr(name.to_string())]);
-            let out = ev(&a("main"), &q(vec![cells, argv]));
-            join_text(&seq(&out)[0])
-        }));
-        match got {
-            Ok(s) if !s.trim().is_empty() => s.trim().to_string(),
-            _ => "<refused>".to_string(),
+    fn args(&mut self) -> Result<Vec<V>, String> {
+        self.need(b'(')?;
+        let mut v = Vec::new();
+        if self.peek(b')') { self.i += 1; return Ok(v); }
+        loop {
+            v.push(self.expr()?);
+            if self.peek(b',') { self.i += 1; if self.peek(b')') { self.i += 1; return Ok(v); } continue; }
+            self.need(b')')?;
+            return Ok(v);
         }
     }
-
-    #[test]
-    fn every_case_answers_what_the_lambda_says() {
-        with_stack(|| {
-            boot();
-            // expected panics are the deliberate bottoms; do not print 17 of them
-            let prior = std::panic::take_hook();
-            std::panic::set_hook(Box::new(|_| {}));
-            let mut bad: Vec<String> = Vec::new();
-            let cases = golden_cases();
-            for (name, want) in &cases {
-                let got = answer(name);
-                if &got != want {
-                    bad.push(format!("{}: want {:?}, got {:?}", name, want, got));
-                }
+    fn expr(&mut self) -> R {
+        self.ws();
+        if self.i < self.b.len() && self.b[self.i] == b'"' { return Ok(a(&self.str()?)); }
+        let at0 = self.i;
+        let w = self.word();
+        match w.as_str() {
+            "A" => { self.need(b'(')?; let s = self.str()?; self.need(b')')?; Ok(a(&s)) }
+            "N" => {
+                self.need(b'(')?; self.ws();
+                let s = self.i;
+                if self.i < self.b.len() && self.b[self.i] == b'-' { self.i += 1; }
+                while self.i < self.b.len() && self.b[self.i].is_ascii_digit() { self.i += 1; }
+                let n: i64 = std::str::from_utf8(&self.b[s..self.i]).ok().and_then(|t| t.parse().ok())
+                    .ok_or_else(|| format!("lambda reader: {}: a number past 64 bits in {}", self.what, self.def))?;
+                self.need(b')')?;
+                Ok(V::N(n))
             }
-            std::panic::set_hook(prior);
-            assert!(cases.len() > 500, "golden looks truncated: {}", cases.len());
-            assert!(bad.is_empty(), "{} case(s) differ:\n{}", bad.len(), bad.join("\n"));
-        });
+            "PHI" => { self.need(b'(')?; self.need(b')')?; Ok(q(vec![])) }
+            "K" => {
+                let v = self.args()?;
+                if v.len() != 1 { self.arity.push(format!("K with {} elements in {}", v.len(), self.def)); }
+                Ok(q(vec![a("CONST"), v.into_iter().next().unwrap_or_else(|| q(vec![]))]))
+            }
+            "S" => Ok(q(self.args()?)),
+            _ if w.len() == 2 && w.as_bytes()[0] == b'S' && (b'1'..=b'9').contains(&w.as_bytes()[1]) => {
+                let n = (w.as_bytes()[1] - b'0') as usize;
+                let v = self.args()?;
+                if v.len() != n { self.arity.push(format!("{} with {} elements in {}", w, v.len(), self.def)); }
+                Ok(q(v))
+            }
+            _ => Err(format!("lambda reader: {} is not the DEF grammar: '{}' at byte {} in {}", self.what, w, at0, self.def)),
+        }
     }
+}
 
-    // A def NO host can evaluate answers <refused> everywhere and agrees
-    // perfectly, so the refusal COUNT is the signal, not the pass line.
-    // Among the 21: case:eval-unknown-form-refuses, since a full-path form with
-    // no entry in derive:forms must REFUSE (a COND chain that treats an
-    // unrecognized form AS a join stops a transitive closure closing);
-    // case:insert-empty, since INSERT on <> is bottom on every host; and
-    // case:implode-nested.
-    #[test]
-    fn the_golden_still_expects_exactly_21_refusals() {
-        let n = golden_cases().iter().filter(|(_, v)| v == "<refused>").count();
-        assert_eq!(n, 21, "the golden's refusal count moved");
+fn parse(src: &str, what: &str, each: &mut dyn FnMut(String, V) -> Result<(), String>) -> Result<(), String> {
+    let mut p = Rd { b: src.as_bytes(), i: 0, what, def: "(top)".to_string(), arity: Vec::new() };
+    p.need(b'(')?;
+    loop {
+        p.ws();
+        if p.i >= p.b.len() { return Err(format!("lambda reader: {}: the literal is not closed", what)); }
+        if p.b[p.i] == b')' { p.i += 1; break; }
+        if p.b[p.i] == b'"' { p.str()?; }
+        else {
+            if !p.b[p.i..].starts_with(b"DEF(") { return Err(format!("lambda reader: {} is not the DEF grammar at byte {}", what, p.i)); }
+            p.i += 4;
+            let name = p.str()?;
+            p.def = name.clone();
+            p.need(b',')?;
+            let body = p.expr()?;
+            if p.peek(b',') { p.i += 1; }
+            p.need(b')')?;
+            each(name, body)?;
+        }
+        if p.peek(b',') { p.i += 1; }
     }
+    p.ws();
+    if p.i < p.b.len() { return Err(format!("lambda reader: {}: text after the literal at byte {}", what, p.i)); }
+    if !p.arity.is_empty() {
+        return Err(format!("lambda reader: {}: {} constructors whose name is not their length:\n  {}", what, p.arity.len(), p.arity.join("\n  ")));
+    }
+    Ok(())
+}
 
-    // The law report is the gate, and no copy of it is kept: main
-    // answers its text beside a verdict that is T exactly when every law holds.
-    #[test]
-    fn law_report_holds() {
-        with_stack(|| {
-            boot();
-            let cells = store_cells();
-            let out = ev(&a("main"), &q(vec![cells, q(vec![])]));
-            let got = join_text(&seq(&out)[0]);
-            let off: Vec<&str> = got.trim_end().lines()
-                .filter(|l| !l.starts_with("  test OK: ") && !l.starts_with("ALL TESTS PASS "))
-                .collect();
-            assert!(off.is_empty(), "the law report says:\n{}", off.join("\n"));
-            assert_eq!(join_text(&seq(&out)[1]), "T");
-        });
+thread_local! {
+    // the text of each file read, as it was read, by what it was read as (module:text answers lambda's)
+    static LOADED: RefCell<HashMap<String, Rc<str>>> = RefCell::new(HashMap::new());
+}
+
+/// Read one lambda text and register its DEFs, in file order.
+pub fn load(src: &str, what: &str) -> Result<(), String> {
+    LOADED.with(|l| l.borrow_mut().insert(what.to_string(), Rc::from(src)));
+    parse(src, what, &mut |n, b| def(&n, b))
+}
+
+/// The text loaded as `what`, as it was read.
+pub fn loaded(what: &str) -> Option<Rc<str>> { LOADED.with(|l| l.borrow().get(what).cloned()) }
+
+/// Register module:text: the lambda text loaded as `what`, for the life of the process.
+pub fn register_module_text(what: &str) -> Result<(), String> {
+    let w = what.to_string();
+    register("module:text", Rc::new(move |_: &V| loaded(&w).map(|t| V::S(t)).ok_or_else(|| format!("module:text: no lambda was loaded from {}", w))))
+}
+
+/// A carrier's text to the <CELL, name, body> list DEF would have made of it, registering nothing.
+pub fn carrier_cells(src: &str) -> R {
+    let mut o = Vec::new();
+    parse(src, "carrier text", &mut |n, b| { o.push(q(vec![a("CELL"), a(&n), b])); Ok(()) })?;
+    Ok(q(o))
+}
+
+/// Read a value written in the vocabulary (S, A, N, ...), as a loader hands one across a boundary.
+pub fn read_value(src: &str) -> R {
+    let mut p = Rd { b: src.as_bytes(), i: 0, what: "value", def: "(value)".to_string(), arity: Vec::new() };
+    let v = p.expr()?;
+    if !p.arity.is_empty() { return Err(p.arity.join("; ")); }
+    Ok(v)
+}
+
+/// Write a value in the vocabulary, the inverse of read_value.
+pub fn write_value(x: &V, o: &mut String) {
+    match x {
+        V::S(s) => {
+            o.push_str("A(\"");
+            for c in s.chars() {
+                match c { '"' => o.push_str("\\\""), '\\' => o.push_str("\\\\"), '\n' => o.push_str("\\n"), '\r' => o.push_str("\\r"), '\t' => o.push_str("\\t"), _ => o.push(c) }
+            }
+            o.push_str("\")");
+        }
+        V::N(n) => { o.push_str("N("); o.push_str(&n.to_string()); o.push(')'); }
+        V::Q(v) => {
+            o.push_str("S(");
+            for (i, e) in v.iter().enumerate() { if i > 0 { o.push(','); } write_value(e, o); }
+            o.push(')');
+        }
+    }
+}
+
+// ---- the registrations every target can make --------------------------------------------------------
+// now, ISO 8601 in UTC, to the millisecond
+pub fn clock() -> String {
+    let d = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+    let ms = d.as_millis() as i64;
+    let (days, rem) = (ms.div_euclid(86_400_000), ms.rem_euclid(86_400_000));
+    // civil from days (H. Hinnant)
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let dd = doy - (153 * mp + 2) / 5 + 1;
+    let mm = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if mm <= 2 { y + 1 } else { y };
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z", y, mm, dd, rem / 3_600_000, rem / 60_000 % 60, rem / 1000 % 60, rem % 1000)
+}
+
+// <x, s> to x at scale s, half away from zero
+pub fn round(x: &V) -> R {
+    let v = match at(x, 0)? { V::N(n) => n, _ => return Err("round on non-number".into()) };
+    let s = match at(x, 1)? { V::N(n) => n, _ => return Err("round to a non-integer scale".into()) };
+    if s >= 0 { return Ok(V::N(v)); }
+    if s <= -20 { return Ok(V::N(0)); }
+    let pow = 10i128.pow((-s) as u32);
+    let bv = v as i128;
+    let mut qt = bv / pow;
+    let r = bv % pow;
+    if r.abs() * 2 >= pow { qt += if v < 0 { -1 } else { 1 }; }
+    let o = qt * pow;
+    if o < i64::MIN as i128 || o > i64::MAX as i128 { return Err(format!("a number past 64 bits: {}", o)); }
+    Ok(V::N(o as i64))
+}
+
+
+/// The registrations a target without a database or files can still make (engine/os): the clock, round, a
+/// carrier read as cells, and the storage engine's name.
+pub fn register_core() -> Result<(), String> {
+    register("clock", Rc::new(|_: &V| Ok(a(&clock()))))?;
+    register("round", Rc::new(round))?;
+    register("carrier:cells", Rc::new(|x: &V| carrier_cells(&text(x)?)))?;
+    register("storage:engine", Rc::new(|_: &V| Ok(a("sqlite"))))?;
+    #[cfg(feature = "embedded")]
+    register_module_text("arest")?;
+    Ok(())
+}
+
+// ---- the contract ----------------------------------------------------------------------------------
+
+/// What lambda's `main` answers over the cells and the command line: its text and its flag.
+pub fn ask(argv: &[&str]) -> Result<(String, bool), String> {
+    let addr = q(argv.iter().map(|s| a(s)).collect());
+    let out = ev(&a("main"), &q(vec![cells(), addr]))?;
+    let o = seq(&out)?;
+    Ok((text(o.first().ok_or("main answered <>")?)?, is_t(o.get(1).ok_or("main answered one value")?)))
+}
+
+/// The resource interface: lambda's main:api over the cells, shown.
+pub fn api(method: &str, resource: &str, caller: &str, fact: &[&str]) -> Result<String, String> {
+    let f = q(fact.iter().map(|s| a(s)).collect());
+    let out = ev(&a("main:api"), &q(vec![cells(), a(method), a(resource), a(caller), f]))?;
+    text(&ev(&a("system:show"), &out)?)
+}
+
+/// The store lambda boots over the cells (main:boot), for laws applied one by one.
+pub fn boot_store() -> R { ev(&a("main:boot"), &cells()) }
+
+/// Read lambda, the case table and the scenarios from the files the environment names (defaults relative to
+/// tools/rust-host, as the other hosts' defaults are), and name the base: where AREST_CARRIERS holds store.db
+/// the cells name it in state:base_db and lambda reads it whole at boot. Answers lambda's path.
+#[cfg(not(any(target_arch = "wasm32", target_os = "uefi")))]
+pub fn load_from_env() -> Result<String, String> {
+    let path = |k: &str, d: &str| std::env::var(k).ok().filter(|v| !v.is_empty()).unwrap_or_else(|| d.to_string());
+    let read = |p: &str| std::fs::read_to_string(p).map_err(|e| format!("lambda reader: cannot read {}: {}", p, e));
+    let lambda = path("AREST_LAMBDA", "../../arest");
+    load(&read(&lambda)?, &lambda)?;
+    let t = path("AREST_TESTS", "../../arest.tests");
+    load(&read(&t)?, &t)?;
+    let s = path("AREST_SCENARIOS", "../../engine/shared/scenarios.canon");
+    load(&read(&s)?, &s)?;
+    let base = path("AREST_CARRIERS", "../base");
+    let db = std::path::Path::new(&base).join("store.db");
+    if db.is_file() {
+        let full = std::fs::canonicalize(&db).map_err(|e| e.to_string())?.to_string_lossy().trim_start_matches(r"\\?\").replace('\\', "/");
+        push_cell("state:base_db", a(&full));
+    } else {
+        eprint!("no base at {}: nothing composed under the readings
+", base);
+    }
+    Ok(lambda)
+}
+
+/// Run work on a thread whose stack is as deep as the Java host's (-Xss512m): lambda recurses past a default
+/// thread's stack.
+#[cfg(not(any(target_arch = "wasm32", target_os = "uefi")))]
+pub fn deep<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> T {
+    std::thread::Builder::new().stack_size(1 << 30).spawn(work).expect("spawn").join().expect("join")
+}
+
+/// The texts embedded in the image, for a caller with no file system (engine/os).
+#[cfg(feature = "embedded")]
+pub mod embedded {
+    pub const LAMBDA: &str = include_str!("../../../arest");
+    pub const TESTS: &str = include_str!("../../../arest.tests");
+    pub const SCENARIOS: &str = include_str!("../../../engine/shared/scenarios.canon");
+
+    /// Load the embedded texts once.
+    pub fn boot() -> Result<(), String> {
+        if super::cell_count() > 0 { return Ok(()); }
+        super::load(LAMBDA, "arest")?;
+        super::load(TESTS, "arest.tests")?;
+        super::load(SCENARIOS, "scenarios.canon")
     }
 }

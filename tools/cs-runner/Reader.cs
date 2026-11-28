@@ -3,222 +3,202 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-// ============================ the lambda READER ================================
-// The lambda, the case table and the carriers READ AT RUNTIME, replacing the
-// csproj's copy /b of head.part + arest + mid1.part + design-state + ... into
-// Composed.g.cs.
-//
-// That concatenation is the cheapest of the four compose steps -- byte
-// concatenation, the linker's job -- but it still puts the whole lambda through
-// the C# compiler on every lambda edit, and it means this station holds the
-// program as object code where js, java and rust-station now read it. The
-// intersection source's claim is that ONE file is read by every host; a host
-// that compiles it in cannot be handed a different D.
-//
-// Fourth and last of these readers. The platforms differ only in what a value
-// is: A is a string here, N an int, PHI an empty object[], K an object[] of
-// "CONST" and x, SN an object[]. Same grammar, same four names, same order.
-//
-//     file := '(' item* ')'
-//     item := note | def
-//     def  := 'DEF' '(' STRING ',' expr ')' ','?
-//     expr := A(STRING) | N(INT) | K(expr) | PHI() | S(expr,..) | S1..S9(..)
+// The lambda reader, a peer of tools/js-runner/arest.js's: a file is one parenthesized literal of
+// text atoms and DEF(name, body) calls, the body written in A, N, K, PHI, S and S1..S9. Each
+// constructor is held to its name (S3 with four elements, K with two, is refused and named, as the
+// Java and JS readers refuse it), a number is read as a 64-bit long, and a file that is missing or
+// does not parse is fatal.
 public static class Reader
 {
-    private readonly struct Nothing { }
-
-    private sealed class P
+    sealed class P
     {
         public byte[] B;
         public int I;
+        public string What;
+        public string Def = "(top)";
+        public List<string> Arity = new List<string>();
 
-        public void Ws()
-        {
-            while (I < B.Length && char.IsWhiteSpace((char)B[I])) I++;
-        }
+        public void Ws() { while (I < B.Length && char.IsWhiteSpace((char)B[I])) I++; }
 
-        public bool Eat(string s)
+        public bool Peek(char c) { Ws(); return I < B.Length && B[I] == (byte)c; }
+
+        public void Need(char c)
         {
             Ws();
-            var t = Encoding.UTF8.GetBytes(s);
-            if (I + t.Length > B.Length) return false;
-            for (int k = 0; k < t.Length; k++) if (B[I + k] != t[k]) return false;
-            I += t.Length;
-            return true;
+            if (I >= B.Length || B[I] != (byte)c)
+                throw new Exception("lambda reader: " + What + " is not the DEF grammar: '" + c + "' expected at byte " + I + " in " + Def);
+            I++;
         }
 
         public string Str()
         {
             Ws();
-            if (I >= B.Length || B[I] != (byte)'"') return null;
+            if (I >= B.Length || B[I] != (byte)'"') throw new Exception("lambda reader: " + What + ": a text expected at byte " + I + " in " + Def);
             I++;
-            var outp = new StringBuilder();
+            var o = new MemoryStream();
             while (I < B.Length)
             {
                 byte c = B[I];
                 if (c == (byte)'\\' && I + 1 < B.Length)
                 {
-                    // the escapes the base uses: quotes, newlines, backslashes,
-                    // CRs and one \x1f (derive:txn_surrogate's unit separator)
                     byte e = B[I + 1];
                     I += 2;
                     switch ((char)e)
                     {
-                        case 'n': outp.Append('\n'); break;
-                        case 'r': outp.Append('\r'); break;
-                        case 't': outp.Append('\t'); break;
-                        case '0': outp.Append('\0'); break;
+                        case 'n': o.WriteByte((byte)'\n'); break;
+                        case 'r': o.WriteByte((byte)'\r'); break;
+                        case 't': o.WriteByte((byte)'\t'); break;
+                        case '0': o.WriteByte(0); break;
                         case 'x':
-                            if (I + 1 < B.Length)
-                            {
-                                var h = Encoding.UTF8.GetString(B, I, 2);
-                                if (int.TryParse(h, System.Globalization.NumberStyles.HexNumber,
-                                                 null, out int v))
-                                {
-                                    outp.Append((char)v);
-                                    I += 2;
-                                }
-                            }
+                        {
+                            var h = Encoding.ASCII.GetString(B, I, 2);
+                            var bytes = Encoding.UTF8.GetBytes(((char)Convert.ToInt32(h, 16)).ToString());
+                            o.Write(bytes, 0, bytes.Length);
+                            I += 2;
                             break;
-                        default: outp.Append((char)e); break;
+                        }
+                        default: o.WriteByte(e); break;
                     }
                     continue;
                 }
-                if (c == (byte)'"') { I++; return outp.ToString(); }
-                int len = 1;
-                if ((c & 0x80) != 0)
-                {
-                    if ((c & 0xE0) == 0xC0) len = 2;
-                    else if ((c & 0xF0) == 0xE0) len = 3;
-                    else if ((c & 0xF8) == 0xF0) len = 4;
-                }
-                len = Math.Min(len, B.Length - I);
-                outp.Append(Encoding.UTF8.GetString(B, I, len));
-                I += len;
+                if (c == (byte)'"') { I++; return Encoding.UTF8.GetString(o.ToArray()); }
+                o.WriteByte(c);
+                I++;
             }
-            return null;
+            throw new Exception("lambda reader: " + What + ": an unterminated text in " + Def);
+        }
+
+        string Word()
+        {
+            Ws();
+            int s = I;
+            while (I < B.Length && (char.IsLetterOrDigit((char)B[I]) || B[I] == (byte)'_')) I++;
+            return Encoding.ASCII.GetString(B, s, I - s);
+        }
+
+        List<object> Args()
+        {
+            Need('(');
+            var a = new List<object>();
+            if (Peek(')')) { I++; return a; }
+            while (true)
+            {
+                a.Add(Expr());
+                if (Peek(',')) { I++; if (Peek(')')) { I++; return a; } continue; }
+                Need(')');
+                return a;
+            }
         }
 
         public object Expr()
         {
             Ws();
-            if (Eat("PHI(")) { Eat(")"); return Arest.PHI(); }
-            if (Eat("A(")) { var s = Str(); Eat(")"); return Arest.A(s); }
-            if (Eat("N("))
+            if (I < B.Length && B[I] == (byte)'"') return Str();
+            int at = I;
+            var w = Word();
+            switch (w)
             {
-                Ws();
-                int st = I;
-                if (I < B.Length && B[I] == (byte)'-') I++;
-                while (I < B.Length && B[I] >= (byte)'0' && B[I] <= (byte)'9') I++;
-                int n = int.Parse(Encoding.UTF8.GetString(B, st, I - st));
-                Eat(")");
-                return Arest.N(n);
-            }
-            if (Eat("K(")) { var x = Expr(); Eat(")"); return Arest.K(x); }
-            Ws();
-            if (I + 1 < B.Length && B[I] == (byte)'S')
-            {
-                int argc = -1, skip = 0;
-                if (B[I + 1] == (byte)'(') { argc = -2; skip = 2; }          // variadic
-                else if (I + 2 < B.Length && B[I + 1] >= (byte)'1' && B[I + 1] <= (byte)'9'
-                         && B[I + 2] == (byte)'(') { argc = B[I + 1] - (byte)'0'; skip = 3; }
-                if (argc != -1)
+                case "A":
                 {
-                    I += skip;
-                    var parts = new List<object>();
-                    if (argc == -2)
-                    {
-                        while (true)
-                        {
-                            Ws();
-                            if (I < B.Length && B[I] == (byte)')') { I++; break; }
-                            if (parts.Count > 0 && !Eat(",")) return null;
-                            parts.Add(Expr());
-                        }
-                    }
-                    else
-                    {
-                        for (int k = 0; k < argc; k++)
-                        {
-                            if (k > 0 && !Eat(",")) return null;
-                            parts.Add(Expr());
-                        }
-                        Eat(")");
-                    }
-                    return parts.ToArray();
+                    Need('('); var s = Str(); Need(')');
+                    return Arest.A(s);
                 }
+                case "N":
+                {
+                    Need('('); Ws();
+                    int st = I;
+                    if (I < B.Length && B[I] == (byte)'-') I++;
+                    while (I < B.Length && B[I] >= (byte)'0' && B[I] <= (byte)'9') I++;
+                    long n;
+                    if (!long.TryParse(Encoding.ASCII.GetString(B, st, I - st), out n))
+                        throw new Exception("lambda reader: " + What + ": a number past 64 bits in " + Def);
+                    Need(')');
+                    return Arest.N(n);
+                }
+                case "PHI": Need('('); Need(')'); return Arest.PHI();
+                case "K":
+                {
+                    var a = Args();
+                    if (a.Count != 1) Arity.Add("K with " + a.Count + " elements in " + Def);
+                    return Arest.K(a.Count > 0 ? a[0] : null);
+                }
+                case "S": return Args().ToArray();
             }
-            return null;
+            if (w.Length == 2 && w[0] == 'S' && w[1] >= '1' && w[1] <= '9')
+            {
+                int n = w[1] - '0';
+                var a = Args();
+                if (a.Count != n) Arity.Add(w + " with " + a.Count + " elements in " + Def);
+                return a.ToArray();
+            }
+            throw new Exception("lambda reader: " + What + " is not the DEF grammar: '" + w + "' at byte " + at + " in " + Def);
         }
     }
 
-    // Read one file and register it, in file order. A file that is missing or
-    // does not parse is FATAL, never skipped: a station that quietly registers
-    // nothing answers <refused> to every case, which reads as silence rather
-    // than as an error.
-    // A CARRIER THE ORACLE HAS NOT WRITTEN IS ABSENT, NOT EMPTY, and absent is
-    // legitimate: a store that was never compiled pays the rmap derivation, a
-    // run that recorded no outcome has none, a fresh journal has no entries.
-    // js-runner/build.js splices each of these only when it is there, and the
-    // compiled map only when its stamp still matches the design-state it was
-    // compiled from -- a stale map is a different store, not a faster one.
-    public static void LoadOptional(string path)
+    // Read one literal, calling def for each DEF in file order.
+    static void Parse(byte[] src, string what, Action<string, object> def)
     {
-        if (!File.Exists(path) || new FileInfo(path).Length == 0) return;
-        Load(path);
-    }
-
-    public static void LoadCompiled(string path, string designState)
-    {
-        if (!File.Exists(path) || !File.Exists(designState)) return;
-        var head = File.ReadAllText(path);
-        var at = head.IndexOf("AREST_COMPILED_FROM=", StringComparison.Ordinal);
-        if (at < 0) return;
-        var stamped = head.Substring(at + 20, 16);
-        string now;
-        using (var sha = System.Security.Cryptography.SHA256.Create())
+        var p = new P { B = src, I = 0, What = what };
+        p.Need('(');
+        while (true)
         {
-            var hash = sha.ComputeHash(File.ReadAllBytes(designState));
-            var sb = new System.Text.StringBuilder();
-            foreach (var b in hash) sb.Append(b.ToString("x2"));
-            now = sb.ToString().Substring(0, 16);
+            p.Ws();
+            if (p.I >= p.B.Length) throw new Exception("lambda reader: " + what + ": the literal is not closed");
+            if (p.B[p.I] == (byte)')') { p.I++; break; }
+            if (p.B[p.I] == (byte)'"') p.Str();
+            else
+            {
+                int at = p.I;
+                if (!(p.I + 4 <= p.B.Length && Encoding.ASCII.GetString(p.B, p.I, 4) == "DEF("))
+                    throw new Exception("lambda reader: " + what + " is not the DEF grammar at byte " + at);
+                p.I += 4;
+                var name = p.Str();
+                p.Def = name;
+                p.Need(',');
+                var body = p.Expr();
+                if (p.Peek(',')) p.I++;
+                p.Need(')');
+                def(name, body);
+            }
+            if (p.Peek(',')) p.I++;
         }
-        if (stamped == now) Load(path);
+        p.Ws();
+        if (p.I < p.B.Length) throw new Exception("lambda reader: " + what + ": text after the literal at byte " + p.I);
+        if (p.Arity.Count > 0)
+            throw new Exception("lambda reader: " + what + ": " + p.Arity.Count + " constructors whose name is not their length:\n  " + string.Join("\n  ", p.Arity));
     }
 
     public static void Load(string path)
     {
         byte[] src;
         try { src = File.ReadAllBytes(path); }
-        catch (Exception e)
-        {
-            throw new Exception("lambda reader: cannot read " + path + ": " + e.Message);
-        }
-        Parse(src, path);
+        catch (Exception e) { throw new Exception("lambda reader: cannot read " + path + ": " + e.Message); }
+        LOADED[path] = System.Text.Encoding.UTF8.GetString(src);
+        Parse(src, path, (name, body) => Arest.DEF(name, body));
     }
 
-    static void Parse(byte[] src, string path)
+    // The text of each file read, as it was read, by the path it was read from (module:text answers lambda's).
+    public static readonly Dictionary<string, string> LOADED = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    // A carrier's text to the <CELL, name, body> list DEF would have made of it, registering nothing.
+    public static object[] Cells(string text)
     {
-        var p = new P { B = src, I = 0 };
-        p.Eat("(");
-        while (true)
+        var o = new List<object>();
+        Parse(Encoding.UTF8.GetBytes(text), "carrier text", (name, body) => o.Add(new object[] { "CELL", name, body }));
+        return o.ToArray();
+    }
+
+    // THE BASE IS NAMED, NOT READ, as the Java and JS hosts name it: where dir holds store.db, the cells
+    // name it in state:base_db and lambda reads it whole at boot.
+    public static void LoadBase(string dir)
+    {
+        var db = System.IO.Path.Combine(dir, "store.db");
+        if (File.Exists(db))
         {
-            p.Ws();
-            if (p.I >= p.B.Length) break;
-            if (p.B[p.I] == (byte)')') { p.I++; continue; }
-            if (p.B[p.I] == (byte)'"') { p.Str(); p.Eat(","); continue; }
-            if (p.Eat("DEF("))
-            {
-                var name = p.Str();
-                if (!p.Eat(",")) throw new Exception("lambda reader: " + path + " bad DEF");
-                var body = p.Expr();
-                p.Eat(")");
-                p.Eat(",");
-                Arest.DEF(name, body);
-                continue;
-            }
-            throw new Exception("lambda reader: " + path + " is not the DEF grammar");
+            Arest.CELLS.Add(new object[] { "CELL", "state:base_db", System.IO.Path.GetFullPath(db).Replace('\\', '/') });
+            return;
         }
+        Console.Error.Write("no base at " + dir + ": nothing composed under the readings\n");
     }
 
     public static string Path(string var, string dflt)
