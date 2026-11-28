@@ -334,9 +334,54 @@ pub fn profile_callers(top: usize) -> Vec<String> {
     out
 }
 
+// AREST_RECOMPUTE (with AREST_PROFILE): which values are computed more than once. A name applied again to the
+// very same argument (an atom by value, a sequence by identity, as a memo keys it) is a value its caller could
+// have been handed instead of recomputing; each repeat is charged the applications the first computation took,
+// to the name and the caller that asked again. Only computations of at least RECOMPUTE_MIN applications are
+// remembered, so the cheap ones cost nothing to watch.
+const RECOMPUTE_MIN: u64 = 2000;
+thread_local! {
+    static RECOMPUTE: std::cell::Cell<bool> = std::cell::Cell::new(std::env::var("AREST_RECOMPUTE").is_ok());
+    static APPS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    // (name, argument key) -> (applications the first computation took, the argument kept alive so its address
+    // is not reused)
+    static SEEN: RefCell<HashMap<(Rc<str>, String), (u64, V), Fx>> = RefCell::new(HashMap::default());
+    // (name, caller asking again) -> (repeats, applications repeated)
+    static WASTE: RefCell<HashMap<(Rc<str>, Rc<str>), (u64, u64), Fx>> = RefCell::new(HashMap::default());
+}
+
+fn arg_key(x: &V) -> String {
+    match x { V::S(s) => format!("s{}", s), V::N(n) => format!("n{}", n), V::Q(v) => format!("p{:p}", Rc::as_ptr(v)) }
+}
+
+fn recomputed(name: &Rc<str>, k: &str) {
+    let cost = SEEN.with(|m| m.borrow().get(&(name.clone(), k.to_string())).map(|e| e.0));
+    let Some(cost) = cost else { return };
+    let caller: Rc<str> = STACK.with(|t| t.borrow().iter().rev().find(|n| n.chars().any(|c| c.is_ascii_lowercase())).cloned()).unwrap_or_else(|| Rc::from("-"));
+    WASTE.with(|w| { let mut w = w.borrow_mut(); let e = w.entry((name.clone(), caller)).or_insert((0, 0)); e.0 += 1; e.1 += cost; });
+}
+
+fn first_seen(name: &Rc<str>, k: String, x: &V, cost: u64) {
+    if cost < RECOMPUTE_MIN { return; }
+    SEEN.with(|m| { m.borrow_mut().entry((name.clone(), k)).or_insert((cost, x.clone())); });
+}
+
+/// The values computed again, heaviest first: (name, caller that asked again, repeats, applications repeated).
+pub fn profile_recomputed(top: usize) -> Vec<String> {
+    let mut v: Vec<((Rc<str>, Rc<str>), (u64, u64))> = WASTE.with(|w| w.borrow().iter().map(|(k, n)| (k.clone(), *n)).collect());
+    v.sort_by(|p, r| r.1 .1.cmp(&p.1 .1));
+    v.truncate(top);
+    v.into_iter().map(|((n, c), (k, a))| format!("{} asked again by {}: {} repeats, {} applications", n, c, k, a)).collect()
+}
+
+/// The named applications counted since the profile was last reset.
+pub fn applications() -> u64 { APPS.with(|n| n.get()) }
+
 /// Forget what the profile has counted, so the next span is measured alone.
 pub fn profile_reset() {
     COUNTS.with(|c| c.borrow_mut().clear());
+    WASTE.with(|w| w.borrow_mut().clear());
+    APPS.with(|n| n.set(0));
     BYCALLER.with(|b| b.borrow_mut().clear());
 }
 
@@ -362,9 +407,13 @@ pub fn ev(f: &V, x: &V) -> R {
                 if PROFILING.with(|p| p.get()) {
                     COUNTS.with(|c| *c.borrow_mut().entry(s.clone()).or_insert(0) += 1);
                     attribute(s);
+                    let before = APPS.with(|n| { let v = n.get(); n.set(v + 1); v });
+                    let key = if RECOMPUTE.with(|r| r.get()) { Some(arg_key(x)) } else { None };
+                    if let Some(k) = &key { recomputed(s, k); }
                     STACK.with(|t| t.borrow_mut().push(s.clone()));
-                    let _pop = Pop;
-                    return ev(&body, x);
+                    let r = { let _pop = Pop; ev(&body, x) };
+                    if let Some(k) = key { first_seen(s, k, x, APPS.with(|n| n.get()) - before); }
+                    return r;
                 }
                 return ev(&body, x);
             }
