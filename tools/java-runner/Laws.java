@@ -17,7 +17,7 @@ public class Laws {
         Reader.loadBase(Reader.path("AREST_CARRIERS", "../base"), lambda);
         Registrations.register(lambda);
         List<String> names = new ArrayList<String>();
-        if (args.length == 1 && Files.isRegularFile(Paths.get(args[0]))) {
+        if (args.length == 1 && isFile(args[0])) {
             for (String l : Files.readAllLines(Paths.get(args[0]))) if (!l.trim().isEmpty()) names.add(l.trim());
         } else for (String a : args) names.add(a);
         long t = System.nanoTime();
@@ -39,5 +39,12 @@ public class Laws {
         }
         System.out.println(names.size() + " laws, " + bad + " not T");
         System.exit(bad == 0 ? 0 : 1);
+    }
+
+    // A law's name has a colon, which Windows refuses in a path before any file is looked for; a name that is no
+    // path is a law, not a list.
+    static boolean isFile(String a) {
+        try { return Files.isRegularFile(Paths.get(a)); }
+        catch (java.nio.file.InvalidPathException e) { return false; }
     }
 }
