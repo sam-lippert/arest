@@ -1,23 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- The C# host. Lambda, the case table and the base are READ at runtime (Reader.cs), as the Java and
+       JS hosts read them; nothing is composed into the build. The law run (laws/) compiles these same
+       sources beside its own entry point. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <!-- dotnet build -p:App=order composes against that app's carriers -->
-    <CarrierDir Condition="'$(App)' == ''">$(MSBuildProjectDirectory)\..\norma-oracle</CarrierDir>
-    <CarrierDir Condition="'$(App)' != ''">$(MSBuildProjectDirectory)\..\..\apps\$(App)</CarrierDir>
-    <ComposedFile>$(MSBuildProjectDirectory)\Composed.g.cs</ComposedFile>
+    <RollForward>Major</RollForward>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 
-  <!-- NO compose step. The lambda, the case table and the carriers are READ
-       at runtime by Reader.cs, the way js, java and rust-station read them.
-       copy /b was the cheapest of the four compose steps, byte concatenation
-       and nothing more, but it still put the whole lambda through the C#
-       compiler on every edit and left this station holding the program as
-       object code. The base journal is empty and an empty carrier registered
-       nothing, so there is no third file to read. -->
+  <ItemGroup>
+    <Compile Include="Mu.cs;Reader.cs;Vocabulary.cs;Registrations.cs;Program.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.10" />
+  </ItemGroup>
 
 </Project>

@@ -43,23 +43,14 @@ public static class Lambda
         {
             if (loaded) return;
             var r = Root();
-            // the same four reads Program.cs does, in the same order, with
-            // absolute paths because a test host's working directory is its
-            // output folder rather than the runner's
+            // the reads Program.cs does, in the same order, with absolute paths because a test host's
+            // working directory is its output folder rather than the runner's; the base is named, and
+            // lambda's main boots the store over it
             Reader.Load(Path.Combine(r, "arest"));
             Reader.Load(Path.Combine(r, "arest.tests"));
-            Reader.Load(Path.Combine(r, "tools", "norma-oracle", "design-state"));
-            Reader.Load(Path.Combine(r, "tools", "norma-oracle", "norma-answer"));
             Reader.Load(Path.Combine(r, "engine", "shared", "scenarios.canon"));
-            // the two carriers js-runner/build.js also splices, on the same
-            // terms: the compiled map only while its stamp matches the
-            // design-state, the outcome only when the oracle wrote one. There
-            // is no third: no journal is read.
-            Reader.LoadCompiled(Path.Combine(r, "tools", "norma-oracle", "compiled"),
-                                Path.Combine(r, "tools", "norma-oracle", "design-state"));
-            Reader.LoadOptional(Path.Combine(r, "tools", "norma-oracle", "outcome"));
-            // and the store is BOOTED, which is what the two hosts differed on
-            Arest.Boot();
+            Reader.LoadBase(Reader.Path("AREST_CARRIERS", Path.Combine(r, "tools", "base")));
+            Registrations.Register(Path.Combine(r, "arest"));
             loaded = true;
         }
     }
@@ -75,8 +66,8 @@ public static class Lambda
         try
         {
             var argv = new object[] { "case", name };
-            var outp = (object[])Arest.Ev("main",
-                new object[] { Arest.CELLS.ToArray(), argv });
+            var outp = Arest.Deep(() => (object[])Arest.Ev("main",
+                new object[] { Arest.CELLS.ToArray(), argv }));
             var text = outp[0] as string;
             return string.IsNullOrWhiteSpace(text) ? "<refused>" : text.Trim();
         }
@@ -160,8 +151,8 @@ public class CasesTest
     public void LawReportHolds()
     {
         Lambda.Load();
-        var outp = (object[])Arest.Ev("main",
-            new object[] { Arest.CELLS.ToArray(), new object[] { } });
+        var outp = Arest.Deep(() => (object[])Arest.Ev("main",
+            new object[] { Arest.CELLS.ToArray(), new object[] { } }));
         var lines = ((string)outp[0]).TrimEnd().Split('\n');
         Assert.Empty(lines.Where(l => !l.StartsWith("  test OK: ") && !l.StartsWith("ALL TESTS PASS ")));
         Assert.Equal("T", outp[1]?.ToString());
