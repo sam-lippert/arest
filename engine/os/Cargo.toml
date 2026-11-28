@@ -37,7 +37,7 @@ full = ["mini", "dep:slint"]
 # artifact to load and no verb table to serve - the OS asks canon
 # `main` an address, which is the whole of a fact-based system: an
 # operation reaches an entity, and the model decides whether it may.
-arest-host = { path = "../../tools/rust-host" }
+arest-host = { path = "../../tools/rust-host", default-features = false, features = ["embedded"] }
 # firmware protocol access (SNP for the wire) ALONGSIDE std: no
 # panic_handler / global_allocator / logger features — std provides
 # those lang items on this target (their overlap was the E0152)

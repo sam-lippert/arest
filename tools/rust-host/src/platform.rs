@@ -8,7 +8,7 @@
 // A write call is one transaction: it commits whole or leaves the database as it was (Backus 14.3.1). SQLite
 // is the bundled one rusqlite builds, pinned near the Java host's sqlite-jdbc, so the hosts answer from the
 // same engine; every value is answered as the text SQLite gives it and NULL as #.
-use crate::{a, at, ev, q, register, seq, show, text, V, R};
+use crate::{a, at, clock, ev, q, register, round, seq, show, text, V, R};
 use rusqlite::{types::ValueRef, Connection, OpenFlags};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -41,41 +41,6 @@ fn master_key(root: &str) -> Option<String> {
         }
     }
     None
-}
-
-// now, ISO 8601 in UTC, to the millisecond
-fn clock() -> String {
-    let d = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
-    let ms = d.as_millis() as i64;
-    let (days, rem) = (ms.div_euclid(86_400_000), ms.rem_euclid(86_400_000));
-    // civil from days (H. Hinnant)
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z - era * 146_097;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let dd = doy - (153 * mp + 2) / 5 + 1;
-    let mm = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = if mm <= 2 { y + 1 } else { y };
-    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z", y, mm, dd, rem / 3_600_000, rem / 60_000 % 60, rem / 1000 % 60, rem % 1000)
-}
-
-// <x, s> to x at scale s, half away from zero
-pub fn round(x: &V) -> R {
-    let v = match at(x, 0)? { V::N(n) => n, _ => return Err("round on non-number".into()) };
-    let s = match at(x, 1)? { V::N(n) => n, _ => return Err("round to a non-integer scale".into()) };
-    if s >= 0 { return Ok(V::N(v)); }
-    if s <= -20 { return Ok(V::N(0)); }
-    let pow = 10i128.pow((-s) as u32);
-    let bv = v as i128;
-    let mut qt = bv / pow;
-    let r = bv % pow;
-    if r.abs() * 2 >= pow { qt += if v < 0 { -1 } else { 1 }; }
-    let o = qt * pow;
-    if o < i64::MIN as i128 || o > i64::MAX as i128 { return Err(format!("a number past 64 bits: {}", o)); }
-    Ok(V::N(o as i64))
 }
 
 fn random(n: usize) -> Result<Vec<u8>, String> { let mut b = vec![0u8; n]; getrandom::getrandom(&mut b).map_err(err)?; Ok(b) }
@@ -184,7 +149,9 @@ fn bind(st: &mut rusqlite::Statement, ps: &[V], hash_is_null: bool) -> Result<()
 
 // a statement's rows, each value the text SQLite gives it and NULL as #
 fn query(db: &Connection, sql: &str, ps: &[V], hash_is_null: bool) -> R {
-    let mut st = db.prepare(sql).map_err(err)?;
+    // a statement prepared once per connection and kept, as bun:sqlite's db.query keeps it: preparing lambda's
+    // deep view chains again for every read is most of a read's cost
+    let mut st = db.prepare_cached(sql).map_err(err)?;
     bind(&mut st, ps, hash_is_null)?;
     let n = st.column_count();
     let mut rows = st.raw_query();
@@ -227,6 +194,7 @@ thread_local! {
 fn watched(p: &str) -> Result<Rc<Connection>, String> {
     if let Some(c) = WATCHED.with(|w| w.borrow().get(p).cloned()) { return Ok(c); }
     let c = Rc::new(open(p, true)?);
+    c.set_prepared_statement_cache_capacity(1024);
     WATCHED.with(|w| w.borrow_mut().insert(p.to_string(), c.clone()));
     Ok(c)
 }

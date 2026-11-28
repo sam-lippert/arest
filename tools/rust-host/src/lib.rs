@@ -500,6 +500,52 @@ pub fn write_value(x: &V, o: &mut String) {
     }
 }
 
+// ---- the registrations every target can make --------------------------------------------------------
+// now, ISO 8601 in UTC, to the millisecond
+pub fn clock() -> String {
+    let d = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+    let ms = d.as_millis() as i64;
+    let (days, rem) = (ms.div_euclid(86_400_000), ms.rem_euclid(86_400_000));
+    // civil from days (H. Hinnant)
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let dd = doy - (153 * mp + 2) / 5 + 1;
+    let mm = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if mm <= 2 { y + 1 } else { y };
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z", y, mm, dd, rem / 3_600_000, rem / 60_000 % 60, rem / 1000 % 60, rem % 1000)
+}
+
+// <x, s> to x at scale s, half away from zero
+pub fn round(x: &V) -> R {
+    let v = match at(x, 0)? { V::N(n) => n, _ => return Err("round on non-number".into()) };
+    let s = match at(x, 1)? { V::N(n) => n, _ => return Err("round to a non-integer scale".into()) };
+    if s >= 0 { return Ok(V::N(v)); }
+    if s <= -20 { return Ok(V::N(0)); }
+    let pow = 10i128.pow((-s) as u32);
+    let bv = v as i128;
+    let mut qt = bv / pow;
+    let r = bv % pow;
+    if r.abs() * 2 >= pow { qt += if v < 0 { -1 } else { 1 }; }
+    let o = qt * pow;
+    if o < i64::MIN as i128 || o > i64::MAX as i128 { return Err(format!("a number past 64 bits: {}", o)); }
+    Ok(V::N(o as i64))
+}
+
+
+/// The registrations a target without a database or files can still make (engine/os): the clock, round, a
+/// carrier read as cells, and the storage engine's name.
+pub fn register_core() -> Result<(), String> {
+    register("clock", Rc::new(|_: &V| Ok(a(&clock()))))?;
+    register("round", Rc::new(round))?;
+    register("carrier:cells", Rc::new(|x: &V| carrier_cells(&text(x)?)))?;
+    register("storage:engine", Rc::new(|_: &V| Ok(a("sqlite"))))
+}
+
 // ---- the contract ----------------------------------------------------------------------------------
 
 /// What lambda's `main` answers over the cells and the command line: its text and its flag.

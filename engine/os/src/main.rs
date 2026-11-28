@@ -56,6 +56,9 @@ fn main() {
     // minutes at store scale and never belong on the boot path". The reads
     // moved to the surfaces actually asked for them: wire::dispatch and the
     // console, both of which address canon rather than dispatch a verb.
+    // lambda, its laws and the scenarios are embedded in the image as text and read here, as every other host
+    // reads them from files; the platform this firmware offers is the core's (no database, no files yet)
+    if let Err(e) = arest_host::embedded::boot().and_then(|_| arest_host::register_core()) { println!("boot refused: {}", e); }
     println!("store: {} cells", arest_host::cell_count());
     net_probe();
     #[cfg(feature = "full")]
@@ -188,12 +191,12 @@ mod fb {
     }
 
     fn list_ids(noun: &str) -> Vec<String> {
-        let shown = arest_host::api("GET", noun, "anonymous", &[]);
+        let shown = arest_host::api("GET", noun, "anonymous", &[]).unwrap_or_else(|e| e);
         if shown.is_empty() { Vec::new() } else { vec![shown] }
     }
 
     fn detail_rows(noun: &str, id: &str) -> (String, Vec<(String, String)>) {
-        let shown = arest_host::api("GET", noun, "anonymous", &[id]);
+        let shown = arest_host::api("GET", noun, "anonymous", &[id]).unwrap_or_else(|e| e);
         (format!("{} · {}", noun, id), vec![("answer".to_string(), shown)])
     }
 
@@ -665,7 +668,7 @@ mod wire {
             query.split('&').map(urldecode).collect()
         };
         let fillers: Vec<&str> = fact.iter().map(|f| f.as_str()).collect();
-        arest_host::api(method, &resource, caller, &fillers)
+        arest_host::api(method, &resource, caller, &fillers).unwrap_or_else(|e| e)
     }
 
     fn urldecode(s: &str) -> String {
@@ -728,7 +731,7 @@ fn console_loop() -> ! {
             continue;
         }
         let addr: Vec<&str> = line.split_whitespace().collect();
-        let (text, _ok) = arest_host::ask(&addr);
+        let (text, _ok) = arest_host::ask(&addr).unwrap_or_else(|e| (e, false));
         println!("{}", text);
     }
 }
