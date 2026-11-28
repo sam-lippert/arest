@@ -21,6 +21,19 @@ require("./registrations.js").register(lambda);
 // failing law prints the lambda names it was inside when it died, innermost last.
 const TRACE = process.env.LAWTRACE !== undefined;
 const PATH = [];
+const SQL = [];
+const BASEPRIM = new Set(["id","tl","atom","apndl","apndr","distl","distr","cat","null","eq","not","and","length","lt","le","ge","gt","reverse","trans","+","-","*","/","apply","lex","implode","chars","1r","tlr"]);
+let LAWS_STARTED = false;
+// a text in the answer that looks like JSON (starts with [ or {), looked for in at most n atoms
+function jsonish(v, n) {
+  const st = [v];
+  while (st.length && n-- > 0) {
+    const x = st.pop();
+    if (Array.isArray(x)) { for (const e of x) st.push(e); continue; }
+    if (typeof x === "string" && x.length > 1 && (x[0] === "[" || x[0] === "{")) return true;
+  }
+  return false;
+}
 if (TRACE) {
   const { Database } = require("bun:sqlite");
   for (const m of ["query", "prepare", "exec", "run"]) {
@@ -39,6 +52,8 @@ if (TRACE) {
       catch (e) { if (!e.lambdaPath) { e.lambdaPath = name; e.lambdaArg = A.show(x).substring(0, 600); } throw e; }
       if (r === "[]" || (Array.isArray(r) && r.some((row) => Array.isArray(row) && row.includes("[]"))))
         PATH.push(name + " on " + A.show(x).substring(0, 1500));
+      if (LAWS_STARTED && !BASEPRIM.has(name) && process.env.LAWTRACE === "sql" && jsonish(r, 2000))
+        SQL.push(name + " ASKED " + A.show(x).substring(0, 3000) + " ANSWERED " + A.show(r).substring(0, 800));
       return r;
     });
   }
@@ -53,6 +68,7 @@ const now = () => Number(process.hrtime.bigint() / 1000000n);
 let t = now();
 const store = A.Ev("main:boot", A.CELLS.slice());
 console.log("boot " + (now() - t) + " ms");
+if (TRACE) LAWS_STARTED = true;
 
 let bad = 0;
 for (const l of names) {
@@ -60,11 +76,12 @@ for (const l of names) {
   let r;
   try {
     const o = A.Ev(l, store);
-    r = Array.isArray(o) ? "SEQ " + o.length : A.show(o);
+    r = Array.isArray(o) ? "SEQ " + o.length + (process.env.LAWSHOW ? " " + A.show(o).substring(0, 6000) : "") : A.show(o);
   } catch (e) {
     r = ("ERROR " + String(e && e.message).replace(/\n/g, " ")).substring(0, TRACE ? 6000 : 260);
     if (TRACE && e && e.lambdaPath) r += " [in primitive " + e.lambdaPath + " on " + e.lambdaArg + "]";
     if (TRACE && PATH.length) r += " [last '[]' from " + PATH.slice(-3).join(" | ") + "]";
+    if (TRACE && SQL.length) { r += "\n  SQL that answered JSON-like text, last 2:\n    " + SQL.slice(-2).join("\n    "); SQL.length = 0; }
   }
   if (r !== "T") bad++;
   console.log(l + " " + r + " " + (now() - t) + " ms");

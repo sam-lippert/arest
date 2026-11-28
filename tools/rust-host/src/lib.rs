@@ -334,6 +334,12 @@ pub fn profile_callers(top: usize) -> Vec<String> {
     out
 }
 
+/// Forget what the profile has counted, so the next span is measured alone.
+pub fn profile_reset() {
+    COUNTS.with(|c| c.borrow_mut().clear());
+    BYCALLER.with(|b| b.borrow_mut().clear());
+}
+
 /// The names applied most, with their counts, when AREST_PROFILE is set.
 pub fn profile(top: usize) -> Vec<(String, u64)> {
     let mut v: Vec<(String, u64)> = COUNTS.with(|c| c.borrow().iter().map(|(k, n)| (k.to_string(), *n)).collect());
