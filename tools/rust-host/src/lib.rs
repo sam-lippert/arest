@@ -8,7 +8,7 @@
 // panic cannot be caught (wasm) or must not happen (UEFI). No meaning lives here and no speed: no
 // memo and no twin, since a strategy a host keeps is one every other host must keep too.
 //
-// THE MU IS A LIBRARY with three callers: the CLI (src/main.rs, src/bin/laws.rs), engine/os on bare
+// THE MU IS A LIBRARY with three callers: the CLI (src/main.rs, src/laws.rs), engine/os on bare
 // UEFI, and a wasm module. Lambda is READ, not compiled in: a caller hands the texts of lambda, the
 // case table and the scenarios to `load`, from files (the CLI), from bytes embedded in the image
 // (UEFI, feature "embedded") or from its loader (wasm). The platform's registrations are the
@@ -589,9 +589,24 @@ fn parse(src: &str, what: &str, each: &mut dyn FnMut(String, V) -> Result<(), St
     Ok(())
 }
 
+thread_local! {
+    // the text of each file read, as it was read, by what it was read as (module:text answers lambda's)
+    static LOADED: RefCell<HashMap<String, Rc<str>>> = RefCell::new(HashMap::new());
+}
+
 /// Read one lambda text and register its DEFs, in file order.
 pub fn load(src: &str, what: &str) -> Result<(), String> {
+    LOADED.with(|l| l.borrow_mut().insert(what.to_string(), Rc::from(src)));
     parse(src, what, &mut |n, b| def(&n, b))
+}
+
+/// The text loaded as `what`, as it was read.
+pub fn loaded(what: &str) -> Option<Rc<str>> { LOADED.with(|l| l.borrow().get(what).cloned()) }
+
+/// Register module:text: the lambda text loaded as `what`, for the life of the process.
+pub fn register_module_text(what: &str) -> Result<(), String> {
+    let w = what.to_string();
+    register("module:text", Rc::new(move |_: &V| loaded(&w).map(|t| V::S(t)).ok_or_else(|| format!("module:text: no lambda was loaded from {}", w))))
 }
 
 /// A carrier's text to the <CELL, name, body> list DEF would have made of it, registering nothing.
@@ -671,7 +686,10 @@ pub fn register_core() -> Result<(), String> {
     register("clock", Rc::new(|_: &V| Ok(a(&clock()))))?;
     register("round", Rc::new(round))?;
     register("carrier:cells", Rc::new(|x: &V| carrier_cells(&text(x)?)))?;
-    register("storage:engine", Rc::new(|_: &V| Ok(a("sqlite"))))
+    register("storage:engine", Rc::new(|_: &V| Ok(a("sqlite"))))?;
+    #[cfg(feature = "embedded")]
+    register_module_text("arest")?;
+    Ok(())
 }
 
 // ---- the contract ----------------------------------------------------------------------------------

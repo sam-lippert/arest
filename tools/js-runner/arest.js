@@ -14,6 +14,8 @@
 const fs = require("fs");
 
 const DEFS = new Map();
+// the text of each file read, as it was read, by the path it was read from (module:text answers lambda's)
+const LOADED = new Map();
 const CELLS = [];
 const PRIMS = new Map();
 
@@ -239,6 +241,7 @@ function load(path) {
   let text;
   try { text = fs.readFileSync(path, "utf8"); }
   catch (e) { throw new Error("lambda reader: cannot read " + path + ": " + e.message); }
+  LOADED.set(path, text);
   each(text, path, (name, body) => {
     if (DEFS.has(name)) throw new Error("duplicate DEF: " + name);
     DEFS.set(name, body);
@@ -271,4 +274,4 @@ function loadBase(dir, lambda = path("AREST_LAMBDA", __dirname + "/../../arest")
   process.stderr.write("no base at " + dir + ": nothing composed under the readings\n");
 }
 
-module.exports = { DEFS, CELLS, PRIMS, register, Ev, seq, at, show, deepEq, load, cells, path, loadBase, num };
+module.exports = { DEFS, CELLS, PRIMS, LOADED, register, Ev, seq, at, show, deepEq, load, cells, path, loadBase, num };

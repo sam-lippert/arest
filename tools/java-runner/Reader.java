@@ -178,8 +178,12 @@ public final class Reader {
         } catch (Exception e) {
             throw new RuntimeException("lambda reader: cannot read " + path + ": " + e);
         }
+        LOADED.put(path, new String(src, java.nio.charset.StandardCharsets.UTF_8));
         each(src, path, Arest::DEF);
     }
+
+    // The text of each file read, as it was read, by the path it was read from (module:text answers lambda's).
+    public static final java.util.Map<String, String> LOADED = new java.util.HashMap<String, String>();
 
     // A carrier's text to the <CELL, name, body> list DEF would have made of it,
     // registering nothing (carrier:cells).

@@ -37,7 +37,7 @@ function masterKey(root) {
   return undefined;
 }
 
-function register(lambdaPath) {
+function register(lambdaPath, lambdaText) {
   const root = nodePath.dirname(nodePath.resolve(lambdaPath)).replace(/\\/g, "/");
   const reg = A.register;
 
@@ -65,6 +65,13 @@ function register(lambdaPath) {
   reg("carrier:cells", (x) => A.cells(text(x)));
   // object -> path: the directory the composition's lambda was read from
   reg("module:root", () => root);
+  // object -> text: the lambda file's text as this host read it when it loaded its definitions (a loader that hands
+  // lambda to another evaluator, as wasm.js does, gives the text it handed)
+  reg("module:text", () => {
+    const t = lambdaText !== undefined ? lambdaText : A.LOADED.get(lambdaPath);
+    if (t === undefined) throw new Error("module:text: no lambda was loaded from " + lambdaPath);
+    return t;
+  });
   // object -> identifier: the storage engine this host provides
   reg("storage:engine", () => "sqlite");
 

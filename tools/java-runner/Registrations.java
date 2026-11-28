@@ -98,6 +98,12 @@ public final class Registrations {
         Arest.register("carrier:cells", x -> Reader.cells(text(x)));
         // object -> path: the directory the composition's lambda was read from
         Arest.register("module:root", x -> root);
+        // object -> text: the lambda file's text as this host read it when it loaded its definitions
+        Arest.register("module:text", x -> {
+            String t = Reader.LOADED.get(lambdaPath);
+            if (t == null) throw new RuntimeException("module:text: no lambda was loaded from " + lambdaPath);
+            return t;
+        });
         // object -> identifier: the storage engine this host provides
         Arest.register("storage:engine", x -> "sqlite");
 

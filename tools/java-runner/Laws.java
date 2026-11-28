@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 // The lambda laws over the booted base on the Java host, one by one, a peer of tools/js-runner/laws.js,
-// tools/cs-runner/laws and tools/rust-host/src/bin/laws.rs: boot the store once (main:boot over the cells),
+// tools/cs-runner/laws and tools/rust-host/src/laws.rs: boot the store once (main:boot over the cells),
 // apply each named law to it, and print its name, its answer and its time.
 //
 //   java -Xss512m -cp "../lib/sqlite-jdbc.jar;../lib/slf4j-api.jar;." Laws <list-file | law...>

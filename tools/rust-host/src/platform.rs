@@ -320,6 +320,7 @@ pub fn register_all(lambda_path: &str) -> Result<(), String> {
     let r2 = root.clone();
     reg("module:root", move |_| Ok(a(&r2)))?;
     reg("storage:engine", |_| Ok(a("sqlite")))?;
+    crate::register_module_text(lambda_path)?;
 
     reg("crypt:digest", |x| Ok(a(&hex(&sha256(text(x)?.as_bytes())))))?;
     reg("crypt:encrypt", encrypt)?;

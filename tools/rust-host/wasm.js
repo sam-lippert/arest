@@ -16,7 +16,8 @@ const lambda = env("AREST_LAMBDA", __dirname + "/../../arest");
 const wasmPath = env("AREST_WASM", __dirname + "/target/wasm32-unknown-unknown/release/arest_host.wasm");
 
 // The JS host's registrations, registered into its own table and applied from there; nothing of the JS mu runs.
-require("../js-runner/registrations.js").register(lambda);
+const lambdaText = fs.readFileSync(lambda, "utf8");
+require("../js-runner/registrations.js").register(lambda, lambdaText);
 const KEY = "AREST_MASTER_KEY";
 function masterKey() {
   if (process.env[KEY]) return process.env[KEY];
@@ -89,7 +90,7 @@ function call(fn, ...texts) {
   return [flag, text];
 }
 
-call(X.arest_load, fs.readFileSync(lambda, "utf8"), lambda);
+call(X.arest_load, lambdaText, lambda);
 const tests = env("AREST_TESTS", __dirname + "/../../arest.tests");
 call(X.arest_load, fs.readFileSync(tests, "utf8"), tests);
 const scen = env("AREST_SCENARIOS", __dirname + "/../../engine/shared/scenarios.canon");

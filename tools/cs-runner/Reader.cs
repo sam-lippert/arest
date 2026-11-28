@@ -173,8 +173,12 @@ public static class Reader
         byte[] src;
         try { src = File.ReadAllBytes(path); }
         catch (Exception e) { throw new Exception("lambda reader: cannot read " + path + ": " + e.Message); }
+        LOADED[path] = System.Text.Encoding.UTF8.GetString(src);
         Parse(src, path, (name, body) => Arest.DEF(name, body));
     }
+
+    // The text of each file read, as it was read, by the path it was read from (module:text answers lambda's).
+    public static readonly Dictionary<string, string> LOADED = new Dictionary<string, string>(StringComparer.Ordinal);
 
     // A carrier's text to the <CELL, name, body> list DEF would have made of it, registering nothing.
     public static object[] Cells(string text)

@@ -3,7 +3,7 @@ name = "arest-host"
 version = "0.1.0"
 edition = "2021"
 
-# THE MU IS A LIBRARY with three callers: the CLI (src/main.rs, src/bin/laws.rs), engine/os on bare UEFI,
+# THE MU IS A LIBRARY with three callers: the CLI (src/main.rs, src/laws.rs), engine/os on bare UEFI,
 # and a wasm module (src/wasm.rs). Lambda is READ at run time, as the Java, JS and C# hosts read it: from
 # files on the CLI, from text embedded in the image on UEFI (feature "embedded"), from its loader on wasm.
 # Compiling lambda as Rust source took minutes per edit and the golden never finished; reading it takes a

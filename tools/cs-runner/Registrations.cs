@@ -79,6 +79,13 @@ public static class Registrations
         Arest.Register("carrier:cells", x => Reader.Cells(Text(x)));
         // object -> path: the directory the composition's lambda was read from
         Arest.Register("module:root", x => root);
+        // object -> text: the lambda file's text as this host read it when it loaded its definitions
+        Arest.Register("module:text", x =>
+        {
+            string t;
+            if (!Reader.LOADED.TryGetValue(lambdaPath, out t)) throw new Exception("module:text: no lambda was loaded from " + lambdaPath);
+            return t;
+        });
         // object -> identifier: the storage engine this host provides
         Arest.Register("storage:engine", x => "sqlite");
 
