@@ -1982,7 +1982,7 @@ It is forbidden that some Migration Application1 doubles some Migration Applicat
        chained-leg external uniqueness, said as the pair that breaks it. It
        rules out direct v1 -> v3 shortcuts per the ordering rationale above. -->
 
-It is obligatory that for each Timestamp, at most one Migration Application has that Timestamp.
+For each Timestamp, it is obligatory that at most one Migration Application has that Timestamp.
 
 ## NORMA Value Domain
 

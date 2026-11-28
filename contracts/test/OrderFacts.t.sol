@@ -70,7 +70,7 @@ contract OrderFactsTest is Test {
     function test_DeonticUniquenessCommitsAndRecords() public {
         o.assertOrderHasNote("ord-1", "leave at the door");
         vm.expectEmit(true, false, false, true);
-        emit Violation("DEO:u:OrderIsInvolvedInOrderHasNote#1", "ord-1");
+        emit Violation("It is obligatory that each Order has at most one Note", "ord-1");
         vm.expectEmit(true, false, false, true);
         emit OrderHasNote("ord-1", "ring twice");
         o.assertOrderHasNote("ord-1", "ring twice");

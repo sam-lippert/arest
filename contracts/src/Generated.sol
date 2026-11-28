@@ -70,7 +70,7 @@ contract Order {
     function assertOrderHasNote(string memory id, string memory note) external {
         require(bytes(records[id].id).length != 0, "Order does not exist");
         if (keccak256(bytes(orderHasNote[id])) == keccak256(bytes(note))) return;
-        if (bytes(orderHasNote[id]).length != 0) emit Violation("DEO:u:OrderIsInvolvedInOrderHasNote#1", id);
+        if (bytes(orderHasNote[id]).length != 0) emit Violation("It is obligatory that each Order has at most one Note", id);
         orderHasNote[id] = note;
         emit OrderHasNote(id, note);
     }
