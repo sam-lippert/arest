@@ -59,6 +59,18 @@ if (TRACE) {
   }
 }
 
+// AREST_DUMP=<file>: every cell loaded, one "<name>\t<body>" a line in load order, the body in the vocabulary's own
+// canonical spelling (S(...), A("..."), N(n); a text escapes backslash, quote, \n, \r, \t), the same spelling every
+// host's law run writes, so two loads (a file in two forms, or two hosts) compare line for line. Nothing is booted.
+if (process.env.AREST_DUMP) {
+  const ESC = { "\\": "\\\\", '"': '\\"', "\n": "\\n", "\r": "\\r", "\t": "\\t" };
+  const canon = (x) => Array.isArray(x) ? "S(" + x.map(canon).join(",") + ")"
+    : typeof x === "bigint" ? "N(" + x + ")"
+    : 'A("' + String(x).replace(/[\\"\n\r\t]/g, (c) => ESC[c]) + '")';
+  fs.writeFileSync(process.env.AREST_DUMP, A.CELLS.map((c) => c[1] + "\t" + canon(c[2])).join("\n") + "\n");
+  process.exit(0);
+}
+
 let names = process.argv.slice(2);
 if (names.length === 1 && fs.existsSync(names[0])) {
   names = fs.readFileSync(names[0], "utf8").split(/\r?\n/).map((s) => s.trim()).filter((s) => s !== "");

@@ -14,6 +14,23 @@ fn run() -> i32 {
         eprintln!("{}", e);
         return 2;
     }
+    // AREST_DUMP=<file>: every cell loaded, one "<name>\t<body>" a line in load order, in the canonical spelling
+    // every host's law run writes, so two loads compare line for line. Nothing is booted.
+    if let Ok(p) = std::env::var("AREST_DUMP") {
+        let mut out = String::new();
+        if let arest_host::V::Q(cells) = arest_host::cells() {
+            for c in cells.iter() {
+                if let arest_host::V::Q(c) = c {
+                    out.push_str(&arest_host::show(&c[1]));
+                    out.push('\t');
+                    arest_host::write_value(&c[2], &mut out);
+                    out.push('\n');
+                }
+            }
+        }
+        std::fs::write(&p, out).expect("dump");
+        return 0;
+    }
     let t = std::time::Instant::now();
     let store = match arest_host::boot_store() {
         Ok(s) => s,
