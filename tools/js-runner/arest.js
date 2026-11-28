@@ -202,7 +202,7 @@ function Ev(f, x) {
 
 // ---- the reader: the vocabulary bound over the file's literal ----------------------------------
 
-const NAMES = ["DEF", "A", "N", "K", "PHI", "S", "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "LAMBDA"];
+const NAMES = ["DEF", "DOC", "A", "N", "K", "PHI", "S", "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "LAMBDA"];
 
 // a DEF's body is built before DEF runs, so a misshapen constructor is named when its DEF arrives
 function vocabulary(def, what) {
@@ -222,6 +222,8 @@ function vocabulary(def, what) {
     PHI: () => [],
     S: (...a) => a,
     LAMBDA: (...xs) => xs,
+    // a statement of text, defining nothing
+    DOC: (t) => { if (typeof t !== "string") pending.push("DOC of a non-text"); return t; },
   };
   for (let n = 1; n <= 9; n++) v["S" + n] = sized(n);
   return { v, done: () => { if (arity.length) throw new Error("lambda reader: " + what + ": " + arity.length + " constructors whose name is not their length:\n  " + arity.join("\n  ")); } };
@@ -229,8 +231,11 @@ function vocabulary(def, what) {
 
 function each(text, what, def) {
   const { v, done } = vocabulary(def, what);
+  // TWO FORMS: one parenthesized literal of elements (called as LAMBDA(...)), or one statement each, DEF("name",
+  // body); and DOC("text"); which are JS as written. A file is the second where it does not open with a paren.
+  const t = text.trim();
   let fn;
-  try { fn = new Function(...NAMES, "return LAMBDA" + text.trim() + ";"); }
+  try { fn = new Function(...NAMES, t.startsWith("(") ? "return LAMBDA" + t + ";" : t); }
   catch (e) { throw new Error("lambda reader: " + what + " is not the DEF grammar: " + e.message); }
   fn(...NAMES.map((n) => v[n]));
   done();

@@ -196,6 +196,38 @@ public final class Reader {
 
     private static void each(byte[] src, String what, java.util.function.BiConsumer<String, Object> def) {
         Reader p = new Reader(src);
+        // TWO FORMS. One parenthesized literal of elements, comma-separated; or one statement each, `DEF("name",
+        // body);` defining and `DOC("text");` defining nothing. A file is the second where it does not open with
+        // a paren.
+        p.ws();
+        if (p.i < p.b.length && p.b[p.i] != '(') {
+            while (true) {
+                p.ws();
+                if (p.i >= p.b.length) break;
+                if (p.eat("DEF(")) {
+                    String name = p.string();
+                    if (!p.eat(",")) throw new RuntimeException("lambda reader: " + what + " bad DEF");
+                    p.def = name;
+                    Object body = p.expr();
+                    p.close();
+                    if (!p.eat(";")) throw new RuntimeException("lambda reader: " + what + ": DEF " + name + " is not ended by ';'");
+                    def.accept(name, body);
+                    continue;
+                }
+                if (p.eat("DOC(")) {
+                    p.string();
+                    p.close();
+                    if (!p.eat(";")) throw new RuntimeException("lambda reader: " + what + ": a DOC is not ended by ';' at byte " + p.i);
+                    continue;
+                }
+                throw new RuntimeException("lambda reader: " + what + " is not the DEF grammar at byte " + p.i + ": "
+                    + new String(p.b, p.i, Math.min(80, p.b.length - p.i), StandardCharsets.UTF_8));
+            }
+            if (!p.arity.isEmpty())
+                throw new RuntimeException("lambda reader: " + what + ": " + p.arity.size() + " constructors whose name is not their length:\n  "
+                    + String.join("\n  ", p.arity));
+            return;
+        }
         if (!p.eat("(")) throw new RuntimeException("lambda reader: " + what + " does not open with a paren");
         while (true) {
             p.ws();

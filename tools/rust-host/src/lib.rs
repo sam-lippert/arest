@@ -491,6 +491,28 @@ impl<'t> Rd<'t> {
                     b'r' => o.push(b'\r'),
                     b't' => o.push(b'\t'),
                     b'0' => o.push(0),
+                    b'u' => {
+                        // a UTF-16 unit in four hex digits, as the Java and JS readers take it; a surrogate pair
+                        // written as two is one character
+                        let hex = |at: usize| -> Option<u32> {
+                            self.b.get(at..at + 4).and_then(|h| std::str::from_utf8(h).ok()).and_then(|h| u32::from_str_radix(h, 16).ok())
+                        };
+                        match hex(self.i) {
+                            Some(u) => {
+                                self.i += 4;
+                                let mut cp = u;
+                                if (0xD800..=0xDBFF).contains(&u) && self.b.get(self.i) == Some(&b'\\') && self.b.get(self.i + 1) == Some(&b'u') {
+                                    if let Some(lo) = hex(self.i + 2) {
+                                        if (0xDC00..=0xDFFF).contains(&lo) { cp = 0x10000 + ((u - 0xD800) << 10) + (lo - 0xDC00); self.i += 6; }
+                                    }
+                                }
+                                let ch = char::from_u32(cp).unwrap_or('\u{fffd}');
+                                let mut buf = [0u8; 4];
+                                o.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
+                            }
+                            None => o.push(b'u'),
+                        }
+                    }
                     b'x' => {
                         let h = std::str::from_utf8(&self.b[self.i..self.i + 2]).map_err(|e| e.to_string())?;
                         let ch = char::from_u32(u32::from_str_radix(h, 16).map_err(|e| e.to_string())?).unwrap_or('\u{fffd}');
@@ -562,6 +584,39 @@ impl<'t> Rd<'t> {
 
 fn parse(src: &str, what: &str, each: &mut dyn FnMut(String, V) -> Result<(), String>) -> Result<(), String> {
     let mut p = Rd { b: src.as_bytes(), i: 0, what, def: "(top)".to_string(), arity: Vec::new() };
+    // TWO FORMS: one parenthesized literal of elements, or one statement each, `DEF("name", body);` defining and
+    // `DOC("text");` defining nothing. A file is the second where it does not open with a paren.
+    p.ws();
+    if p.i < p.b.len() && p.b[p.i] != b'(' {
+        loop {
+            p.ws();
+            if p.i >= p.b.len() { break; }
+            if p.b[p.i..].starts_with(b"DEF(") {
+                p.i += 4;
+                let name = p.str()?;
+                p.def = name.clone();
+                p.need(b',')?;
+                let body = p.expr()?;
+                if p.peek(b',') { p.i += 1; }
+                p.need(b')')?;
+                p.need(b';')?;
+                each(name, body)?;
+                continue;
+            }
+            if p.b[p.i..].starts_with(b"DOC(") {
+                p.i += 4;
+                p.str()?;
+                p.need(b')')?;
+                p.need(b';')?;
+                continue;
+            }
+            return Err(format!("lambda reader: {} is not the DEF grammar at byte {}", what, p.i));
+        }
+        if !p.arity.is_empty() {
+            return Err(format!("lambda reader: {}: {} constructors whose name is not their length:\n  {}", what, p.arity.len(), p.arity.join("\n  ")));
+        }
+        return Ok(());
+    }
     p.need(b'(')?;
     loop {
         p.ws();

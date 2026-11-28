@@ -49,6 +49,29 @@ public static class Reader
                         case 'r': o.WriteByte((byte)'\r'); break;
                         case 't': o.WriteByte((byte)'\t'); break;
                         case '0': o.WriteByte(0); break;
+                        case 'u':
+                        {
+                            // a UTF-16 unit in four hex digits, as the Java and JS readers take it; a surrogate pair
+                            // written as two is one character
+                            int u;
+                            if (I + 4 <= B.Length && int.TryParse(Encoding.ASCII.GetString(B, I, 4), System.Globalization.NumberStyles.HexNumber, null, out u))
+                            {
+                                I += 4;
+                                string ch = ((char)u).ToString();
+                                int lo;
+                                if (u >= 0xD800 && u <= 0xDBFF && I + 6 <= B.Length && B[I] == (byte)'\\' && B[I + 1] == (byte)'u'
+                                    && int.TryParse(Encoding.ASCII.GetString(B, I + 2, 4), System.Globalization.NumberStyles.HexNumber, null, out lo)
+                                    && lo >= 0xDC00 && lo <= 0xDFFF)
+                                {
+                                    ch = new string(new[] { (char)u, (char)lo });
+                                    I += 6;
+                                }
+                                var bytes = Encoding.UTF8.GetBytes(ch);
+                                o.Write(bytes, 0, bytes.Length);
+                            }
+                            else o.WriteByte((byte)'u');
+                            break;
+                        }
                         case 'x':
                         {
                             var h = Encoding.ASCII.GetString(B, I, 2);
@@ -139,6 +162,42 @@ public static class Reader
     static void Parse(byte[] src, string what, Action<string, object> def)
     {
         var p = new P { B = src, I = 0, What = what };
+        // TWO FORMS: one parenthesized literal of elements, or one statement each, `DEF("name", body);` defining and
+        // `DOC("text");` defining nothing. A file is the second where it does not open with a paren.
+        p.Ws();
+        if (p.I < p.B.Length && p.B[p.I] != (byte)'(')
+        {
+            while (true)
+            {
+                p.Ws();
+                if (p.I >= p.B.Length) break;
+                if (p.I + 4 <= p.B.Length && Encoding.ASCII.GetString(p.B, p.I, 4) == "DEF(")
+                {
+                    p.I += 4;
+                    var name = p.Str();
+                    p.Def = name;
+                    p.Need(',');
+                    var body = p.Expr();
+                    if (p.Peek(',')) p.I++;
+                    p.Need(')');
+                    p.Need(';');
+                    def(name, body);
+                    continue;
+                }
+                if (p.I + 4 <= p.B.Length && Encoding.ASCII.GetString(p.B, p.I, 4) == "DOC(")
+                {
+                    p.I += 4;
+                    p.Str();
+                    p.Need(')');
+                    p.Need(';');
+                    continue;
+                }
+                throw new Exception("lambda reader: " + what + " is not the DEF grammar at byte " + p.I);
+            }
+            if (p.Arity.Count > 0)
+                throw new Exception("lambda reader: " + what + ": " + p.Arity.Count + " constructors whose name is not their length:\n  " + string.Join("\n  ", p.Arity));
+            return;
+        }
         p.Need('(');
         while (true)
         {

@@ -100,7 +100,7 @@ function register(lambdaPath, lambdaText) {
   reg("sqlite:run", run);
   reg("sqlite:query", (x) => {
     // a read asks on the path's kept read connection (watched): opened for each statement, a store of hundreds of
-    // tables read its schema again every time, and orient over the claude store took 47 s where it takes 12
+    // tables read its schema again every time, and orient over a large app's store took 47 s where it takes 12
     return query(watched(text(A.at(x, 0))), text(A.at(x, 1)), A.seq(A.at(x, 2)), false);
   });
   reg("sqlite:scratch", (x) => {
